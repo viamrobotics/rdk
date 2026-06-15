@@ -346,7 +346,7 @@ func (mgr *Manager) parentAddr(mod *module) string {
 }
 
 func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHandler) error {
-	mgr.SetModuleStatusStarting(mod.cfg.Name)
+	mgr.setModuleStatusStarting(mod.cfg.Name)
 	return mod.startProcess(
 		mgr.restartCtx,
 		mgr.parentAddr(mod),
@@ -408,7 +408,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
 	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
-	mgr.SetModuleStatusReady(mod.cfg.Name)
+	mgr.setModuleStatusReady(mod.cfg.Name)
 
 	success = true
 	return nil
@@ -500,7 +500,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 // closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
 // as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
-	mgr.SetModuleStatusClosing(mod.cfg.Name)
+	mgr.setModuleStatusClosing(mod.cfg.Name)
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
@@ -545,7 +545,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		}
 	}
 	mgr.modules.Delete(mod.cfg.Name)
-	mgr.RemoveModuleState(mod.cfg.Name)
+	mgr.removeModuleStatus(mod.cfg.Name)
 
 	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
 	return nil
@@ -1083,7 +1083,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 	mod.registerResourceModels(mgr)
-	mgr.SetModuleStatusReady(mod.cfg.Name)
+	mgr.setModuleStatusReady(mod.cfg.Name)
 	success = true
 	return nil
 }
@@ -1176,22 +1176,26 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
+// These are the module status setters. Pending and Unhealthy are public
+// because sometimes the information required to set these states is only
+// available in other packages. All other setters are private
 func (mgr *Manager) SetModuleStatusPending(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStatePending, nil)
 }
-func (mgr *Manager) SetModuleStatusStarting(name string) {
+func (mgr *Manager) setModuleStatusStarting(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateStarting, nil)
 }
-func (mgr *Manager) SetModuleStatusReady(name string) {
+func (mgr *Manager) setModuleStatusReady(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateReady, nil)
 }
-func (mgr *Manager) SetModuleStatusClosing(name string) {
+func (mgr *Manager) setModuleStatusClosing(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateClosing, nil)
 }
 func (mgr *Manager) SetModuleStatusUnhealthy(name string, err error) {
 	mgr.setModuleState(name, modulestatus.ModuleStateUnhealthy, err)
 }
 
+// setModuleState is an internal setter that should never be called directly
 func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, err error) {
 	mgr.moduleStatusMu.Lock()
 	status, ok := mgr.moduleStatusMap[moduleName]
@@ -1213,7 +1217,7 @@ func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, 
 	mgr.moduleStatusMu.Unlock()
 }
 
-func (mgr *Manager) RemoveModuleState(moduleName string) {
+func (mgr *Manager) removeModuleStatus(moduleName string) {
 	mgr.moduleStatusMu.Lock()
 	delete(mgr.moduleStatusMap, moduleName)
 	mgr.moduleStatusMu.Unlock()
