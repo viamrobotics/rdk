@@ -108,10 +108,7 @@ func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
 	return parts[0], strings.TrimSuffix(parts[1], ".git"), true, nil
 }
 
-// githubFetchManifest fetches and parses a module manifest from a repo at a given
-// ref using GitHub's contents API. manifestPath is the manifest's path within the
-// repo (e.g. "meta.json" or "subdir/meta.json"). It is a package var so tests can
-// stub it.
+// githubFetchManifest fetches and parses a module manifest from a repo at a given ref.
 var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
 		owner, repo, manifestPath, url.QueryEscape(ref))
@@ -131,37 +128,25 @@ var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPa
 	return parseManifest(body)
 }
 
-// joinRepoPath builds a repo-relative path (forward slashes, no leading slash) for
-// GitHub's contents API from a build workdir and filename.
+// joinRepoPath builds a repo-relative path (no leading slash) for the GitHub contents API.
 func joinRepoPath(workdir, name string) string {
 	return strings.TrimPrefix(path.Join(workdir, name), "/")
 }
 
-// pythonEntrypointPrefix is the entrypoint a generated Python module uses ("dist/main");
-// Go uses "bin/...", so the prefix distinguishes the two. C++ also uses "bin/...", but it
-// is not a supported cloud-build target and isn't detected here.
+// generated Python modules use a "dist/" entrypoint; Go (and C++) use "bin/".
 const pythonEntrypointPrefix = "dist/"
 
-// validateWindowsCloudBuild stops a cloud build that targets Windows when it can prove the
-// build won't produce a usable module. Windows Python modules can't be cloud-built at all
-// (the Linux runner can't run their Windows-native packaging step), so they fail fast --
-// detected from the local manifest's entrypoint, since language doesn't change between local
-// and committed copies. Windows Go modules cross-compile fine, but the cloud's model detection
-// can't run the Windows binary on the Linux runner, so their manifest must already list models.
-// Because the cloud clones and builds the committed repo, the models check reads the remote
-// meta.json at ref rather than the local copy (local models may be populated but not yet
-// committed). Like validateRefExists, it only hard-fails when it can prove a problem, and
-// otherwise (non-github host, unreachable manifest) proceeds with the build.
+// validateWindowsCloudBuild blocks a Windows cloud build that can't produce a usable module:
+// Windows Python (the Linux runner can't run its packaging step), and Windows Go with no models
+// populated (detection can't run the cross-compiled binary). Models are read from the committed
+// remote meta.json, not local, since that's what the cloud builds. Fails open on any uncertainty.
 func (c *viamClient) validateWindowsCloudBuild(
 	ctx context.Context, cmd *cli.Command, manifest *ModuleManifest, repoURL, ref, workdir, token string, platforms []string,
 ) error {
-	// only Windows cloud builds are affected
 	if !slices.ContainsFunc(platforms, func(p string) bool { return strings.HasPrefix(p, osWindows+"/") }) {
 		return nil
 	}
-	// detect Python from the entrypoint ("dist/" vs Go's "bin/"). This is a heuristic on the
-	// generated convention, but a Go entrypoint never starts with "dist/", so we never wrongly
-	// block a Go build -- at worst a hand-edited Python module slips through to a doomed build.
+	// Go entrypoints start with "bin/", so they never match -- we only ever block Python here.
 	if strings.HasPrefix(manifest.Entrypoint, pythonEntrypointPrefix) {
 		return errors.New("cloud build is not supported for Windows Python modules.\n" +
 			"Build locally with 'viam module build local' and upload with 'viam module upload'")
