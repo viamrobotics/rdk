@@ -290,6 +290,26 @@ func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 	}
 }
 
+// computeAndCacheBox builds and stores the bounding-box geometry for this node.
+// Kept separate from CollidesWith so the cache-hit path doesn't take a local's
+// address and force escape analysis to heap-allocate on every call.
+func (octree *BasicOctree) computeAndCacheBox(collisionBufferMM float64) (spatialmath.Geometry, error) {
+	box, err := spatialmath.NewBox(
+		spatialmath.NewPoseFromPoint(octree.center),
+		r3.Vector{
+			X: octree.sideLength + collisionBufferMM,
+			Y: octree.sideLength + collisionBufferMM,
+			Z: octree.sideLength + collisionBufferMM,
+		},
+		"",
+	)
+	if err != nil {
+		return nil, err
+	}
+	octree.boxCache.Store(&box)
+	return box, nil
+}
+
 // CollidesWith checks if the given octree collides with the given geometry and returns true if it
 // does.  A point is in collision if its stored probability is >= confidenceThreshold and if it is
 // at most collisionBufferMM distance away. If there's no collision, the method will return the
@@ -303,23 +323,13 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 	switch octree.node.nodeType {
 	case internalNode:
 		var box spatialmath.Geometry
-		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
-			box, err = spatialmath.NewBox(
-				spatialmath.NewPoseFromPoint(octree.center),
-				r3.Vector{
-					X: octree.sideLength + collisionBufferMM,
-					Y: octree.sideLength + collisionBufferMM,
-					Z: octree.sideLength + collisionBufferMM,
-				},
-				"",
-			)
+		if boxPtr := octree.boxCache.Load(); boxPtr != nil {
+			box = *boxPtr
+		} else {
+			box, err = octree.computeAndCacheBox(collisionBufferMM)
 			if err != nil {
 				return false, collisionBufferMM, err
 			}
-
-			octree.boxCache.Store(&box)
-		} else {
-			box = *boxPtr
 		}
 
 		// Check whether our geom collides with the area represented by the octree. If false, we can skip
@@ -479,24 +489,14 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 	case internalNode:
 		// Create a bounding box for this octree region
 		var ocbox spatialmath.Geometry
-		var err error
-		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
-			ocbox, err = spatialmath.NewBox(
-				spatialmath.NewPoseFromPoint(octree.center),
-				r3.Vector{
-					X: octree.sideLength + collisionBufferMM,
-					Y: octree.sideLength + collisionBufferMM,
-					Z: octree.sideLength + collisionBufferMM,
-				},
-				"",
-			)
+		if boxPtr := octree.boxCache.Load(); boxPtr != nil {
+			ocbox = *boxPtr
+		} else {
+			var err error
+			ocbox, err = octree.computeAndCacheBox(collisionBufferMM)
 			if err != nil {
 				return
 			}
-
-			octree.boxCache.Store(&ocbox)
-		} else {
-			ocbox = *boxPtr
 		}
 
 		// Check if any geometry intersects with this octree region
