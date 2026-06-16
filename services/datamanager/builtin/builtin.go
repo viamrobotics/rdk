@@ -491,8 +491,9 @@ func (b *builtIn) UploadDataFromPath(ctx context.Context, path string, uploadMet
 	b.logger.Debug("UploadDataFromPath START")
 	defer b.logger.Debug("UploadDataFromPath END")
 	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.sync.UploadDataFromPath(ctx, path, uploadMetadata, extra)
+	syncer := b.sync
+	b.mu.Unlock()
+	return syncer.UploadDataFromPath(ctx, path, uploadMetadata, extra)
 }
 
 type dataManagerStats struct {
