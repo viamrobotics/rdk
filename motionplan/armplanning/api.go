@@ -385,20 +385,32 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
 }
 
-// ReadRequestFromFile reads a PlanRequest from a json file.
+// ReadRequestFromFile reads a PlanRequest from a json file. This method is compatible with legacy
+// PlanRequests containing a `world_state` key as well as modern ones that simply take in
+// `obstacles_in_world_frame`.
 func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
-	f, err := os.Open(fileName) //nolint:gosec
+	data, err := os.ReadFile(fileName) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedErrorFunc(f.Close)
 
-	decoder := json.NewDecoder(f)
+	var probe map[string]json.RawMessage
+	if err = json.Unmarshal(data, &probe); err != nil {
+		return nil, err
+	}
+
+	if _, hasWorldState := probe["world_state"]; hasWorldState {
+		// Legacy format, parse as a `PlanRequestWithWorldState` and have that "upgrade" to a modern
+		// `PlanRequest`.
+		legacy := &PlanRequestWithWorldState{}
+		if err = json.Unmarshal(data, legacy); err != nil {
+			return nil, err
+		}
+		return legacy.ToPlanRequestWorldStateTransformsIgnored()
+	}
 
 	req := &PlanRequest{}
-
-	err = decoder.Decode(req)
-	if err != nil {
+	if err = json.Unmarshal(data, req); err != nil {
 		return nil, err
 	}
 

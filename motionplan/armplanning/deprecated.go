@@ -48,6 +48,24 @@ func mustNewWorldState(obstacles []*referenceframe.GeometriesInFrame, transforms
 	return ws
 }
 
-func (pr *PlanRequestWithWorldState) ToPlanRequestWorldStateTransformsIgnored() *PlanRequest {
-	return &PlanRequest{}
+// ToPlanRequestWorldStateTransformsIgnored converts a PlanRequestWithWorldState to a PlanRequest by resolving the WorldState
+// obstacles into world frame using the embedded FrameSystem and start configuration. WorldState
+// transforms are not applied; callers are responsible for merging them into the FrameSystem first.
+func (pr *PlanRequestWithWorldState) ToPlanRequestWorldStateTransformsIgnored() (*PlanRequest, error) {
+	obstaclesInWorldFrame, err := pr.WorldState.ObstaclesInWorldFrame(
+		pr.FrameSystem,
+		pr.StartState.Configuration(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PlanRequest{
+		FrameSystem:           pr.FrameSystem,
+		Goals:                 pr.Goals,
+		StartState:            pr.StartState,
+		ObstaclesInWorldFrame: obstaclesInWorldFrame,
+		Constraints:           pr.Constraints,
+		PlannerOptions:        pr.PlannerOptions,
+	}, nil
 }
