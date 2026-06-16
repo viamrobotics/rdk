@@ -792,7 +792,7 @@ func generateGolangStubs(module modulegen.ModuleInputs) error {
 		tidyCmd := exec.Command("go", "mod", "tidy")
 		tidyCmd.Dir = module.ModuleName
 		if err := tidyCmd.Run(); err != nil {
-			return fmt.Errorf("failed to run go mod tidy: %w", err)
+			return fmt.Errorf("failed to run go mod tidy: %w", err.Error())
 		}
 	}
 

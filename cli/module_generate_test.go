@@ -158,6 +158,12 @@ func TestGenerateModuleAction(t *testing.T) {
 		testModule.Language = "go"
 		testModule.SDKVersion = "0.44.0"
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
+		if err := copyLanguageTemplate(cCtx, testModule.Language, testModule.ModuleName, globalArgs); err != nil {
+			t.Fatal(err)
+		}
+		if err := renderTemplate(cCtx, testModule, globalArgs); err != nil {
+			t.Fatal(err)
+		}
 
 		_, currentFile, _, ok := runtime.Caller(0)
 		if !ok {
