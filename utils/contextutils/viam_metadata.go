@@ -20,12 +20,10 @@ type ViamMD map[string]string
 
 // Set returns a new derived context containing the key-value pairs as metadata.
 func Set(ctx context.Context, kv ...string) context.Context {
-	var md ViamMD
-	md, ok := ctx.Value(MetadataContextKey).(ViamMD)
-	if !ok {
-		md = make(ViamMD)
+	if len(kv) == 0 {
+		return ctx
 	}
-
+	var md ViamMD = maps.Collect(All(ctx))
 	for i := 0; i+1 < len(kv); i += 2 {
 		md[kv[i]] = kv[i+1]
 	}
@@ -44,7 +42,12 @@ func Get(ctx context.Context, key string) (string, bool) {
 
 // Delete returns a new derived context without the metadata associated with the provided keys.
 func Delete(ctx context.Context, keys ...string) context.Context {
-	if md, ok := ctx.Value(MetadataContextKey).(ViamMD); ok {
+	if len(keys) == 0 {
+		return ctx
+	}
+
+	if _, ok := ctx.Value(MetadataContextKey).(ViamMD); ok {
+		var md ViamMD = maps.Collect(All(ctx))
 		for _, key := range keys {
 			delete(md, key)
 		}
