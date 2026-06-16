@@ -388,15 +388,24 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 
 // ReadRequestFromFile reads a PlanRequest from a json file. This method is compatible with legacy
 // PlanRequests containing a `world_state` key as well as modern ones that simply take in
-// `obstacles_in_world_frame`.
+// `obstacles_in_world_frame`. Files may contain a second JSON object (a response) after the
+// request; this function decodes only the first object.
 func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
-	data, err := os.ReadFile(fileName) //nolint:gosec
+	f, err := os.Open(fileName) //nolint:gosec
 	if err != nil {
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(f.Close)
+
+	decoder := json.NewDecoder(f)
+
+	var raw json.RawMessage
+	if err = decoder.Decode(&raw); err != nil {
 		return nil, err
 	}
 
 	var probe map[string]json.RawMessage
-	if err = json.Unmarshal(data, &probe); err != nil {
+	if err = json.Unmarshal(raw, &probe); err != nil {
 		return nil, err
 	}
 
@@ -404,14 +413,14 @@ func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
 		// Legacy format, parse as a `PlanRequestWithWorldState` and have that "upgrade" to a modern
 		// `PlanRequest`.
 		legacy := &PlanRequestWithWorldState{}
-		if err = json.Unmarshal(data, legacy); err != nil {
+		if err = json.Unmarshal(raw, legacy); err != nil {
 			return nil, err
 		}
 		return legacy.ToPlanRequestWorldStateTransformsIgnored()
 	}
 
 	req := &PlanRequest{}
-	if err = json.Unmarshal(data, req); err != nil {
+	if err = json.Unmarshal(raw, req); err != nil {
 		return nil, err
 	}
 
