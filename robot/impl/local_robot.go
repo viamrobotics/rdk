@@ -472,6 +472,9 @@ func newWithResources(
 	if rOpts.viamHomeDir != "" {
 		homeDir = rOpts.viamHomeDir
 	}
+	// Derive the packages dir from this robot's home dir (rather than the global
+	// config.DefaultPackagesDir) so that WithViamHomeDir fully isolates package storage in tests.
+	packagesDir := filepath.Join(homeDir, config.PackagesDirName)
 
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
@@ -531,14 +534,14 @@ func newWithResources(
 				return packagespb.NewPackageServiceClient(cloudConn), err
 			},
 			cfg.Cloud,
-			cfg.PackagePath,
+			packagesDir,
 			packageLogger,
 		)
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
-	r.localPackages, err = packages.NewLocalManager(cfg, packageLogger)
+	r.localPackages, err = packages.NewLocalManager(packagesDir, packageLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +600,7 @@ func newWithResources(
 		homeDir,
 		cloudID,
 		logger,
-		cfg.PackagePath,
+		packagesDir,
 		r.webSvc.ModPeerConnTracker(),
 	); err != nil {
 		return nil, err
@@ -725,7 +728,7 @@ func (r *localRobot) handleOrphanedResources(ctx context.Context,
 //
 // - Weak dependencies
 //   - Specified at the time of resource registration by a set of `resource.Matcher`s
-//   - Can only be used with both non-modular resources
+//   - Can only be used with non-modular resources
 //   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
 //     the resource's constructor and reconfigure methods IFF that dependency exists and
 //     has been successfully constructed
@@ -736,10 +739,26 @@ func (r *localRobot) getDependencies(
 	rName resource.Name,
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
+	deps, _, err := r.getDependenciesWithWeakOptionalSnapshot(rName, gNode)
+	return deps, err
+}
+
+// getDependenciesWithWeakOptionalSnapshot is the implementation helper of getDependencies
+// but also returns a snapshot of the graph-clock UpdatedAt value of every weak and optional
+// dependency that was resolved into deps. The snapshot is what updateWeakAndOptionalDependents
+// compares against to decide whether a resource actually needs to be reconfigured.
+//
+// Returning the snapshot from the same call that resolves dependencies guarantees the
+// snapshot reflects what was passed to the resource.
+func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
+	rName resource.Name,
+	gNode *resource.GraphNode,
+) (resource.Dependencies, map[resource.Name]int64, error) {
 	if deps := gNode.UnresolvedDependencies(); len(deps) != 0 {
-		return nil, errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps)
+		return nil, nil, errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
+	weakAndOptionalDepsSnapshot := map[resource.Name]int64{}
 
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
 		// Specifically call ResourceByName and not directly to the manager since this
@@ -747,25 +766,33 @@ func (r *localRobot) getDependencies(
 		// and no last error).
 		prefixedName, res, err := r.manager.ResourceByName(dep)
 		if err != nil {
-			return nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
+			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
 		allDeps[prefixedName] = res
 	}
 	nodeConf := gNode.Config()
-	for weakDepName, weakDepRes := range r.getWeakDependencies(rName, nodeConf.API, nodeConf.Model) {
+	weakDeps, weakSnap := r.getWeakDependenciesAndSnapshot(rName, nodeConf.API, nodeConf.Model)
+	for weakDepName, weakDepRes := range weakDeps {
 		if _, ok := allDeps[weakDepName]; ok {
 			continue
 		}
 		allDeps[weakDepName] = weakDepRes
 	}
-	for optionalDepName, optionalDepRes := range r.getOptionalDependencies(nodeConf) {
+	for name, clock := range weakSnap {
+		weakAndOptionalDepsSnapshot[name] = clock
+	}
+	optDeps, optSnap := r.getOptionalDependenciesAndSnapshot(nodeConf)
+	for optionalDepName, optionalDepRes := range optDeps {
 		if _, ok := allDeps[optionalDepName]; ok {
 			continue
 		}
 		allDeps[optionalDepName] = optionalDepRes
 	}
+	for name, clock := range optSnap {
+		weakAndOptionalDepsSnapshot[name] = clock
+	}
 
-	return allDeps, nil
+	return allDeps, weakAndOptionalDepsSnapshot, nil
 }
 
 func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []resource.Matcher {
@@ -776,8 +803,14 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 	return reg.WeakDependencies
 }
 
-func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Dependencies {
+// getOptionalDependenciesAndSnapshot resolves each entry in conf.ImplicitOptionalDependsOn
+// and records its GraphNode.UpdatedAt at the moment of resolution. Resolving and
+// snapshotting in the same pass keeps them consistent.
+func (r *localRobot) getOptionalDependenciesAndSnapshot(
+	conf resource.Config,
+) (resource.Dependencies, map[resource.Name]int64) {
 	optDeps := make(resource.Dependencies)
+	snapshot := make(map[resource.Name]int64)
 	found := make([]resource.Name, 0)
 	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
 		// If the name string is a fully qualified resource name, skip trying to match
@@ -808,16 +841,26 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 				)
 				continue
 			}
-			resolvedOptionalDepName = matchingResourceNames[0]
-
 			// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
 			// Pop the remote name off since callers won't be expecting it when accessing it in the resource
 			// dependency map in a resource constructor.
+			resolvedOptionalDepName = matchingResourceNames[0].PopRemote()
 			resolvedOptionalDepName.Name = optionalDepNameString
-			resolvedOptionalDepName = resolvedOptionalDepName.PopRemote()
 		}
 
-		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
+		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// come from one *GraphNode, keeping deps and snapshot in lockstep.
+		node, err := r.manager.resources.FindBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
+		if err != nil {
+			r.logger.Infow(
+				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
+				"dependency", resolvedOptionalDepName.String(),
+				"resource", conf.ResourceName().String(),
+				"error", err,
+			)
+			continue
+		}
+		optionalDep, err := node.Resource()
 		if err != nil {
 			r.logger.Infow(
 				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
@@ -830,6 +873,7 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 
 		optDeps[resolvedOptionalDepName] = optionalDep
 		found = append(found, resolvedOptionalDepName)
+		snapshot[resolvedOptionalDepName] = node.UpdatedAt()
 	}
 	if len(conf.ImplicitOptionalDependsOn) > 0 {
 		r.logger.Infow(
@@ -839,20 +883,59 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 		)
 	}
 
-	return optDeps
+	return optDeps, snapshot
 }
 
-func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
+// weakOptionalDepClocksEqual reports whether two weak/optional dependency snapshots have
+// identical key sets and identical clock values. A nil argument (no snapshot yet recorded)
+// is never equal to any other.
+func weakOptionalDepClocksEqual(a, b map[resource.Name]int64) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for k, va := range a {
+		vb, ok := b[k]
+		if !ok || va != vb {
+			return false
+		}
+	}
+	return true
+}
+
+// getWeakDependenciesAndSnapshot matches all currently-available resources against the
+// caller's weak dependency matchers, returning the resolved dep map alongside a snapshot
+// of each matched dep's GraphNode.UpdatedAt at the moment of resolution. Resolving and
+// snapshotting in the same pass keeps them consistent.
+func (r *localRobot) getWeakDependenciesAndSnapshot(
+	resName resource.Name,
+	api resource.API,
+	model resource.Model,
+) (resource.Dependencies, map[resource.Name]int64) {
 	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
 	allNames := r.manager.AllNonCollidingResourceNames()
 	deps := make(resource.Dependencies, len(allNames))
+	snapshot := make(map[resource.Name]int64)
 	for _, n := range allNames {
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
 		}
-		res, err := r.ResourceByName(n)
+		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// come from one *GraphNode, keeping deps and snapshot in lockstep.
+		node, err := r.manager.resources.FindBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
+			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
+				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
+			}
+			continue
+		}
+		res, err := node.Resource()
+		if err != nil {
+			// Wrap as NotAvailableError to match the prior ResourceByName behavior
+			err = resource.NewNotAvailableError(n, err)
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
 				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
 			}
@@ -862,11 +945,14 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			if matcher.IsMatch(res) {
 				// Pop the remote name off since callers won't be expecting it when accessing it in the resource
 				// dependency map in a resource constructor.
-				deps[n.PopRemote()] = res
+				popped := n.PopRemote()
+				deps[popped] = res
+				snapshot[popped] = node.UpdatedAt()
+				break
 			}
 		}
 	}
-	return deps
+	return deps, snapshot
 }
 
 func (r *localRobot) newResource(
@@ -892,7 +978,7 @@ func (r *localRobot) newResource(
 			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
 	}
 
-	deps, err := r.getDependencies(resName, gNode)
+	deps, weakOptionalSnapshot, err := r.getDependenciesWithWeakOptionalSnapshot(resName, gNode)
 	if err != nil {
 		return nil, err
 	}
@@ -925,6 +1011,9 @@ func (r *localRobot) newResource(
 		r.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource")
 		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
 	}
+	// Record the snapshot before SwapResource so it reflects what the constructor
+	// actually received, not whatever the graph looks like by the time we get here.
+	gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
 	return res, nil
 }
 
@@ -1074,8 +1163,10 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
 		}
-		r.Logger().CDebugw(ctx, "handling weak/optional update for resource", "resource", resName)
-		deps, err := r.getDependencies(resName, resNode)
+
+		// Resolve deps and snapshot atomically so the snapshot reflects exactly what
+		// would be passed to Reconfigure right now.
+		deps, currentSnap, err := r.getDependenciesWithWeakOptionalSnapshot(resName, resNode)
 		if err != nil {
 			r.Logger().CErrorw(
 				ctx,
@@ -1085,6 +1176,14 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			)
 			return
 		}
+
+		// Only reconfigure if the resolved weak/optional dependency set has actually
+		// changed or updated since the last time this resource was built or reconfigured.
+		if weakOptionalDepClocksEqual(resNode.LastWeakOptionalDepsClocks(), currentSnap) {
+			return
+		}
+
+		r.Logger().CInfow(ctx, "handling weak/optional update for resource", "resource", resName)
 
 		// Use the module manager to reconfigure the resource if it's a modular resource. This
 		// would be a modular resource that has optional dependencies.
@@ -1112,7 +1211,10 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 					"resource", resName,
 				)
 			}
+			// Do not advance the stored snapshot on failure so the next pass retries.
+			return
 		}
+		resNode.SetLastWeakOptionalDepsClocks(currentSnap)
 	}
 
 	cfg := r.Config()

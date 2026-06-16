@@ -218,7 +218,7 @@ func newInternalLogEntry(level zapcore.Level, message string) zapcore.Entry {
 	return zapcore.Entry{
 		Level:      level,
 		Time:       time.Now(),
-		LoggerName: "NetAppender",
+		LoggerName: "rdk.NetAppender",
 		Message:    message,
 		Caller:     zapcore.EntryCaller{},
 		Stack:      "",

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/utils"
@@ -52,6 +54,30 @@ const (
 )
 
 var viamCaptureSubdirPattern = regexp.MustCompile(`.*` + viamCaptureDotSubdir)
+
+var (
+	standardDataSourceType     = "standard"
+	hotStorageDataSourceType   = "hot-storage"
+	pipelineSinkDataSourceType = "pipeline-sink"
+
+	// dataSourceTypeProtos maps user-facing data source names to their proto enum value.
+	dataSourceTypeProtos = map[string]datapb.TabularDataSourceType{
+		standardDataSourceType:     datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
+		hotStorageDataSourceType:   datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
+		pipelineSinkDataSourceType: datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
+	}
+
+	// dataSourceTypeMap maps the proto enum value back to a human-readable display name.
+	dataSourceTypeMap = map[datapb.TabularDataSourceType]string{
+		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED:   "Unknown",
+		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD:      "Standard",
+		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE:   "Hot Storage",
+		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK: "Pipeline Sink",
+	}
+
+	// tabularDataByMQLDataSourceTypes is the set of data sources accepted by `data query mql`.
+	tabularDataByMQLDataSourceTypes = []string{standardDataSourceType, hotStorageDataSourceType, pipelineSinkDataSourceType}
+)
 
 type commonFilterArgs struct {
 	OrgIDs        []string
@@ -125,6 +151,42 @@ func DataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExp
 	}
 
 	return client.dataExportTabularAction(ctx, cmd, args)
+}
+
+type dataQuerySQLArgs struct {
+	OrgID       string
+	SQL         string
+	Destination string
+}
+
+// DataQuerySQLAction is the corresponding action for 'data query sql'.
+func DataQuerySQLAction(ctx context.Context, cmd *cli.Command, args dataQuerySQLArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	return client.dataQuerySQLAction(ctx, args)
+}
+
+type dataQueryMQLArgs struct {
+	OrgID          string
+	MQL            string
+	MqlPath        string
+	DataSourceType string
+	PipelineID     string
+	PipelineName   string
+	Destination    string
+}
+
+// DataQueryMQLAction is the corresponding action for 'data query mql'.
+func DataQueryMQLAction(ctx context.Context, cmd *cli.Command, args dataQueryMQLArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	return client.dataQueryMQLAction(ctx, args)
 }
 
 type dataTagByFilterArgs struct {
@@ -388,6 +450,146 @@ func (c *viamClient) dataExportTabularAction(ctx context.Context, cmd *cli.Comma
 		return err
 	}
 
+	return nil
+}
+
+func (c *viamClient) dataQuerySQLAction(ctx context.Context, args dataQuerySQLArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID")
+	}
+	if args.SQL == "" {
+		return errors.New("must provide a SQL query")
+	}
+
+	resp, err := c.dataClient.TabularDataBySQL(ctx, &datapb.TabularDataBySQLRequest{
+		OrganizationId: args.OrgID,
+		SqlQuery:       args.SQL,
+	})
+	if err != nil {
+		return errors.Wrap(err, serverErrorMessage)
+	}
+
+	return writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData())
+}
+
+func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID")
+	}
+	if args.PipelineID != "" && args.PipelineName != "" {
+		return errors.Errorf("--%s and --%s cannot both be provided",
+			dataFlagPipelineID, dataFlagPipelineName)
+	}
+	hasPipelineRef := args.PipelineID != "" || args.PipelineName != ""
+	if hasPipelineRef && args.DataSourceType == "" {
+		return errors.Errorf("--%s is required when --%s or --%s is provided",
+			dataFlagDataSourceType, dataFlagPipelineID, dataFlagPipelineName)
+	}
+	if args.DataSourceType == pipelineSinkDataSourceType && !hasPipelineRef {
+		return errors.Errorf("--%s or --%s is required when --%s=%s",
+			dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType)
+	}
+	if args.DataSourceType != "" && args.DataSourceType != pipelineSinkDataSourceType && hasPipelineRef {
+		return errors.Errorf("--%s and --%s are only valid when --%s=%s",
+			dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType)
+	}
+
+	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
+	if err != nil {
+		return err
+	}
+
+	pipelineID := args.PipelineID
+	if args.PipelineName != "" {
+		resolved, err := c.resolvePipelineIDByName(ctx, args.OrgID, args.PipelineName)
+		if err != nil {
+			return err
+		}
+		pipelineID = resolved
+	}
+
+	request := &datapb.TabularDataByMQLRequest{
+		OrganizationId: args.OrgID,
+		MqlBinary:      mqlBinary,
+	}
+
+	if args.DataSourceType != "" {
+		dataSource, err := buildTabularDataSource(args.DataSourceType, pipelineID)
+		if err != nil {
+			return err
+		}
+		request.DataSource = dataSource
+	}
+
+	resp, err := c.dataClient.TabularDataByMQL(ctx, request)
+	if err != nil {
+		return errors.Wrap(err, serverErrorMessage)
+	}
+
+	return writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData())
+}
+
+func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularDataSource, error) {
+	sourceType, err := dataSourceTypeToProto(dataSourceType, tabularDataByMQLDataSourceTypes)
+	if err != nil {
+		return nil, err
+	}
+	source := &datapb.TabularDataSource{Type: sourceType}
+	if sourceType == datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK {
+		source.PipelineId = &pipelineID
+	}
+	return source, nil
+}
+
+// dataSourceTypeToProto resolves the user-facing data source name to its proto enum value,
+// rejecting names that aren't in the allowed set for the calling surface.
+func dataSourceTypeToProto(name string, allowed []string) (datapb.TabularDataSourceType, error) {
+	if slices.Contains(allowed, name) {
+		return dataSourceTypeProtos[name], nil
+	}
+	return datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
+		fmt.Errorf("invalid data source type: %q. Supported values: %v", name, allowed)
+}
+
+// writeQueryResults converts BSON-encoded rows to NDJSON (Relaxed Extended JSON) and writes them
+// to dest, or to w if dest is empty.
+func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
+	out := w
+	var filePath string
+	if dest != "" {
+		if err := makeDestinationDirs(dest); err != nil {
+			return errors.Wrap(err, "could not create destination directory")
+		}
+		filePath = filepath.Join(dest, dataFileName)
+		f, err := os.Create(filePath) //nolint:gosec
+		if err != nil {
+			return errors.Wrap(err, "could not create data file")
+		}
+		defer f.Close() //nolint:errcheck
+		out = f
+	}
+
+	bw := bufio.NewWriter(out)
+	for _, row := range rows {
+		var doc bson.D
+		if err := bson.Unmarshal(row, &doc); err != nil {
+			return errors.Wrap(err, "error decoding query result")
+		}
+		jsonRow, err := bson.MarshalExtJSON(doc, false, false)
+		if err != nil {
+			return errors.Wrap(err, "error formatting query result")
+		}
+		if err := writeData(bw, jsonRow); err != nil {
+			return errors.Wrap(err, "error writing data")
+		}
+	}
+	if err := bw.Flush(); err != nil {
+		return errors.Wrap(err, "error writing query results")
+	}
+
+	if filePath != "" {
+		printf(w, "Wrote %d rows to %s", len(rows), filePath)
+	}
 	return nil
 }
 
