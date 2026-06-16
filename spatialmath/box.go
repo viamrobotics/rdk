@@ -355,6 +355,7 @@ func (b *box) rotationMatrix() *RotationMatrix {
 // Performance note: If this needs to be faster, we could early-exit obbSATMaxGap once we are below collisionBufferMM at the cost of
 // separation distance accuracy. If we early exit, the returned value may be arbitrarily small (though still > collisionBufferMM)
 // compared to the true value.
+// Allocator profiling under deep octree traversal pointed at this function as a likely target for reducing per call allocations.
 func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
 	centerDist := b.centerPt.Sub(a.centerPt)
 
