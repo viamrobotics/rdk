@@ -34,7 +34,9 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           title_lc="${PR_TITLE,,}"
-          if [[ "$title_lc" == *flaky* ]]; then
+          # Match flake/flakes/flaky/flakiness — title wording varies. Keep this
+          # pattern in sync with check-approvals.yml.
+          if [[ "$title_lc" == *flak* ]]; then
             echo "is_flaky=true" >> "$GITHUB_OUTPUT"
             echo "Flaky-test PR detected; will assign a netcode reviewer."
           else
