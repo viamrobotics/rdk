@@ -203,6 +203,7 @@ jobs:
             motionplan
             referenceframe
             spatialmath
+            pointcloud
             components/base/wheeled
             components/base/kinematicbase
             components/encoder/fake
