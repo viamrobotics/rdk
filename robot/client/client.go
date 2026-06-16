@@ -448,6 +448,14 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 			rc.checkConnection(backgroundCtx, checkConnectedTime, reconnectTime, refresh)
 		}, rc.activeBackgroundWorkers.Done)
 
+		// Whenever reconnection is enabled, also re-dial before a relayed connection's time-limited
+		// TURN credentials expire. This is a no-op unless the connection is actually using a relay,
+		// so callers need not know whether they will connect over one.
+		rc.activeBackgroundWorkers.Add(1)
+		utils.ManagedGo(func() {
+			rc.maintainTURNCredentials(backgroundCtx)
+		}, rc.activeBackgroundWorkers.Done)
+
 		// If checkConnection() is running refresh, there is no need to create a separate
 		// RefreshEvery thread, so end the function here.
 		if refresh {
