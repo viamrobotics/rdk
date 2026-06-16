@@ -48,10 +48,11 @@ func diskSpaceBlockingEnabled() bool {
 }
 
 // checkDiskSpace checks whether the volume holding path has required bytes free. It returns
-// low=true whenever space is low (so callers can warn at most once) and always logs a warning
-// then. It returns an error (refusing the op) only when blocking is enabled via
-// ViamEnableDiskSpaceBlockEnvVar. A failed check is logged and treated as "proceed" so a broken
-// statfs never blocks installs. desc names the op in logs/errors; extraFields extend the warning.
+// low=true whenever space is low. When blocking is enabled via ViamEnableDiskSpaceBlockEnvVar it
+// returns an error refusing the op (the caller logs it, so checkDiskSpace stays quiet to avoid
+// double-logging the same reason every cycle); otherwise it logs a warning and returns nil so the
+// op proceeds (log-only). A failed check is logged and treated as "proceed" so a broken statfs
+// never blocks installs. desc names the op in logs/errors; extraFields extend the warning.
 func checkDiskSpace(logger logging.Logger, path, desc string, required uint64, extraFields ...any) (low bool, err error) {
 	enough, available, err := enoughFreeSpace(path, required)
 	if err != nil {
@@ -62,17 +63,21 @@ func checkDiskSpace(logger logging.Logger, path, desc string, required uint64, e
 	if enough {
 		return false, nil
 	}
-	blocking := diskSpaceBlockingEnabled()
-	logger.Warnw("not enough free disk space",
-		append([]any{
-			"desc", desc, "path", path,
-			"available", diskusage.FormatBytes(available),
-			"required", diskusage.FormatBytes(required),
-			"blocking", blocking,
-		}, extraFields...)...)
-	if !blocking {
+	if !diskSpaceBlockingEnabled() {
+		// Log-only: the op proceeds and returns no error, so this warning is the only signal
+		// that space is low.
+		logger.Warnw("not enough free disk space",
+			append([]any{
+				"desc", desc, "path", path,
+				"available", diskusage.FormatBytes(available),
+				"required", diskusage.FormatBytes(required),
+				"blocking", false,
+			}, extraFields...)...)
 		return true, nil
 	}
+	// Blocking: don't warn here — the returned error carries the same detail and is logged by the
+	// caller (cloud_package_manager.go and local_package_manager.go both log the install error),
+	// so warning too would double-log the same reason every sync cycle.
 	return true, fmt.Errorf("%w for %s: %s available, %s required",
 		errInsufficientDiskSpace, desc, diskusage.FormatBytes(available), diskusage.FormatBytes(required))
 }
