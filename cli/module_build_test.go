@@ -117,21 +117,27 @@ func TestValidateRefExists(t *testing.T) {
 	}
 }
 
-func TestValidateModelsPopulated(t *testing.T) {
+func TestValidateWindowsCloudBuild(t *testing.T) {
 	origExists, origFetch := githubPathExists, githubFetchManifest
 	t.Cleanup(func() { githubPathExists, githubFetchManifest = origExists, origFetch })
 
 	viamClient := &viamClient{}
 	cmd := newTestContext(t, map[string]any{})
 
-	// language-detection stubs: githubPathExists checks for src/main.py (Python marker)
-	isPython := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
-		return true, nil
+	// language-detection stubs: githubPathExists is probed once per marker in
+	// unsupportedWindowsLangMarkers, so these match on the probed path rather than blanket
+	// returning true (markers are iterated in non-deterministic map order).
+	markerMatches := func(want string) func(context.Context, string, string, string, string, string) (bool, error) {
+		return func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+			return filePath == want, nil
+		}
 	}
-	notPython := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+	isPython := markerMatches("src/main.py")
+	isCPP := markerMatches("main.cpp")
+	notUnsupportedLang := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
 		return false, nil
 	}
-	pythonCheckErr := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+	langCheckErr := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
 		return false, errors.New("network down")
 	}
 	existsUncalled := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
@@ -164,11 +170,12 @@ func TestValidateModelsPopulated(t *testing.T) {
 		platforms     []string
 		wantErrSubstr string
 	}{
-		{"windows go module with models", notPython, withModels, repo, win, ""},
-		{"windows go module, empty models", notPython, noModels, repo, win, "models must be populated"},
-		{"windows go module, manifest fetch fails -> proceed", notPython, fetchFailed, repo, win, ""},
-		{"windows python module skips check", isPython, fetchUncalled, repo, win, ""},
-		{"windows, language check fails -> proceed", pythonCheckErr, fetchUncalled, repo, win, ""},
+		{"windows go module with models", notUnsupportedLang, withModels, repo, win, ""},
+		{"windows go module, empty models", notUnsupportedLang, noModels, repo, win, "models must be populated"},
+		{"windows go module, manifest fetch fails -> proceed", notUnsupportedLang, fetchFailed, repo, win, ""},
+		{"windows python module fails fast", isPython, fetchUncalled, repo, win, "not supported for Windows Python"},
+		{"windows c++ module fails fast", isCPP, fetchUncalled, repo, win, "not supported for Windows C++"},
+		{"windows, language check fails -> proceed", langCheckErr, fetchUncalled, repo, win, ""},
 		{"non-windows build skips check", existsUncalled, fetchUncalled, repo, []string{"linux/amd64"}, ""},
 		{"non-github host skips check", existsUncalled, fetchUncalled, "https://gitlab.com/test-org/test-repo", win, ""},
 	}
@@ -176,7 +183,7 @@ func TestValidateModelsPopulated(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			githubPathExists = tc.exists
 			githubFetchManifest = tc.fetch
-			err := viamClient.validateModelsPopulated(context.Background(), cmd, tc.url, "main", "", "", tc.platforms)
+			err := viamClient.validateWindowsCloudBuild(context.Background(), cmd, tc.url, "main", "", "", tc.platforms)
 			if tc.wantErrSubstr == "" {
 				test.That(t, err, test.ShouldBeNil)
 			} else {

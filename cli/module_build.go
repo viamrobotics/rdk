@@ -55,18 +55,27 @@ const (
 
 var moduleBuildPollingInterval = 2 * time.Second
 
-// githubRefExists calls GitHub's REST commits API to check whether a ref
-// (branch, tag, or commit SHA) exists in a repo
-var githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/%s", owner, repo, ref)
+// githubGet issues an authenticated GET to GitHub's REST API. accept overrides the Accept
+// header when non-empty. The caller owns resp.Body.
+func githubGet(ctx context.Context, apiURL, token, accept string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
-		return false, err
+		return nil, err
+	}
+	if accept != "" {
+		req.Header.Set("Accept", accept)
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	return http.DefaultClient.Do(req)
+}
+
+// githubRefExists calls GitHub's REST commits API to check whether a ref
+// (branch, tag, or commit SHA) exists in a repo
+var githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/%s", owner, repo, ref)
+	resp, err := githubGet(ctx, apiURL, token, "")
 	if err != nil {
 		return false, err
 	}
@@ -106,16 +115,8 @@ func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
 var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
 		owner, repo, manifestPath, url.QueryEscape(ref))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return ModuleManifest{}, err
-	}
 	// the raw media type returns the file body directly rather than base64-wrapped JSON
-	req.Header.Set("Accept", "application/vnd.github.raw+json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := githubGet(ctx, apiURL, token, "application/vnd.github.raw+json")
 	if err != nil {
 		return ModuleManifest{}, err
 	}
@@ -135,14 +136,7 @@ var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPa
 var githubPathExists = func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
 		owner, repo, filePath, url.QueryEscape(ref))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return false, err
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := githubGet(ctx, apiURL, token, "")
 	if err != nil {
 		return false, err
 	}
@@ -163,19 +157,28 @@ func joinRepoPath(workdir, name string) string {
 	return strings.TrimPrefix(path.Join(workdir, name), "/")
 }
 
-// pythonMainPath is the entrypoint a generated Python module has (src/main.py); its
-// presence in the repo marks the module as Python.
-const pythonMainPath = "src/main.py"
+// unsupportedWindowsLangMarkers maps a repo-relative file that a generated module of a
+// given language has at its workdir to that language's display name. The presence of such
+// a marker means the module can't be cloud-built for Windows at all (Python: no
+// cross-compile, Linux-only runner; C++: not supported). Go has no entry here -- it has no
+// single reliable marker file, and meta.json can't disambiguate it (no language field, and
+// Go and C++ share a "bin/<name>" entrypoint), so anything without a marker is treated as
+// Go. Detecting unsupported languages positively (rather than detecting Go) keeps the check
+// fail-open: we only block when we can prove the language is unsupported.
+var unsupportedWindowsLangMarkers = map[string]string{
+	"src/main.py": "Python",
+	"main.cpp":    "C++",
+}
 
-// validateModelsPopulated stops an early cloud build that targets Windows for a Go
-// module whose manifest in the remote repo has no models populated (which a Windows Go
-// cloud build requires). The cloud builder clones and builds the repo at ref, so this
-// checks the files the build will actually use -- those in the repo at ref -- rather than
-// local copies. Windows Python builds don't work regardless of models, so the check first
-// rules out Python (a src/main.py at the build workdir) and only then treats the module as
-// Go. Like validateRefExists, it only hard-fails when it can prove models is empty, and
-// otherwise (non-github host, unreachable files) proceeds with the build.
-func (c *viamClient) validateModelsPopulated(
+// validateWindowsCloudBuild stops a cloud build that targets Windows when it can prove the
+// build won't produce a usable module. The cloud builder clones and builds the repo at ref,
+// so this checks the files the build will actually use -- those in the repo at ref -- rather
+// than local copies. Windows Python and C++ modules can't be cloud-built at all (no
+// cross-compile, Linux-only runner), so they fail fast. Windows Go modules cross-compile
+// fine, but the cloud's model detection can't run the Windows binary on the Linux runner, so
+// their manifest must already list models. Like validateRefExists, it only hard-fails when it
+// can prove a problem, and otherwise (non-github host, unreachable files) proceeds with the build.
+func (c *viamClient) validateWindowsCloudBuild(
 	ctx context.Context, cmd *cli.Command, repoURL, ref, workdir, token string, platforms []string,
 ) error {
 	// only Windows cloud builds are affected
@@ -190,17 +193,21 @@ func (c *viamClient) validateModelsPopulated(
 		return nil
 	}
 	gArgs := parseStructFromCtx[globalArgs](cmd)
-	// rule out Python first: a src/main.py at the build workdir marks the module as Python,
-	// whose Windows builds don't work regardless of models -- so skip it. Anything else is
-	// treated as Go.
-	isPython, err := githubPathExists(ctx, owner, repo, ref, joinRepoPath(workdir, pythonMainPath), token)
-	if err != nil {
-		debugf(cmd.Root().ErrWriter, gArgs.Debug,
-			"could not determine module language on %s@%s: %v — proceeding anyway", repoURL, ref, err)
-		return nil
-	}
-	if isPython {
-		return nil
+	// detect unsupported languages first. The marker is a heuristic: it relies on the
+	// generated layout (src/main.py, main.cpp). A hand-written module that doesn't follow it
+	// won't be detected and will be treated as Go, which at worst lets a doomed build through
+	// rather than blocking a valid one -- the fail-open tradeoff we want.
+	for markerPath, lang := range unsupportedWindowsLangMarkers {
+		exists, err := githubPathExists(ctx, owner, repo, ref, joinRepoPath(workdir, markerPath), token)
+		if err != nil {
+			debugf(cmd.Root().ErrWriter, gArgs.Debug,
+				"could not determine module language on %s@%s: %v — proceeding anyway", repoURL, ref, err)
+			return nil
+		}
+		if exists {
+			return fmt.Errorf("cloud build is not supported for Windows %s modules.\n"+
+				"Build locally with 'viam module build local' and upload with 'viam module upload'", lang)
+		}
 	}
 	remote, err := githubFetchManifest(ctx, owner, repo, ref, joinRepoPath(workdir, defaultManifestFilename), token)
 	if err != nil {
@@ -209,8 +216,8 @@ func (c *viamClient) validateModelsPopulated(
 		return nil
 	}
 	if len(remote.Models) == 0 {
-		return errors.New("your models must be populated before running a Windows Go cloud build,\n" +
-			"run 'viam module update-models' and try again")
+		return errors.New("models must be populated before a Windows Go cloud build.\n" +
+			"Run 'viam module update-models', commit the updated meta.json to your repo, then re-run the build")
 	}
 	return nil
 }
@@ -285,7 +292,7 @@ func (c *viamClient) moduleBuildStartForRepo(
 	gitRef := args.Ref
 	token := args.Token
 	workdir := args.Workdir
-	if err := c.validateModelsPopulated(ctx, cmd, repo, gitRef, workdir, token, platforms); err != nil {
+	if err := c.validateWindowsCloudBuild(ctx, cmd, repo, gitRef, workdir, token, platforms); err != nil {
 		return "", err
 	}
 	req := buildpb.StartBuildRequest{
