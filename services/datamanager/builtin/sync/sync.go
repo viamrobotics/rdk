@@ -631,7 +631,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return robot.UploadDataFromPathResult{}, err
+		return robot.UploadDataFromPathResult{}, errors.Wrapf(err, "failed to start file path %s", path)
 	}
 
 	var (
