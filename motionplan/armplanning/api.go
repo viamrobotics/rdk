@@ -96,6 +96,11 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 
+	if req.ObstaclesInWorldFrame != nil && req.ObstaclesInWorldFrame.Parent() != referenceframe.World {
+		return errors.Errorf("ObstaclesInWorldFrame must be parented by %q, got %q",
+			referenceframe.World, req.ObstaclesInWorldFrame.Parent())
+	}
+
 	if len(req.Goals) == 0 {
 		return errors.New("PlanRequest must have at least one goal")
 	}
