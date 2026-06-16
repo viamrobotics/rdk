@@ -157,7 +157,9 @@ func (c *viamClient) validateWindowsCloudBuild(
 			"could not fetch %s from %s@%s to validate models: %v — proceeding anyway", defaultManifestFilename, repoURL, ref, err)
 		return nil
 	}
-	if len(remote.Models) == 0 {
+	// circle-build only auto-detects models when the field is absent, so a present-but-unpopulated
+	// model ships as-is; require at least one entry with a non-empty model.
+	if !slices.ContainsFunc(remote.Models, func(m ModuleComponent) bool { return m.Model != "" }) {
 		msg := "models must be populated for a Windows Go cloud build.\n" +
 			"Run 'viam module update-models', commit the updated meta.json to your repo, then re-run the build"
 		// with other targets present, warn instead of failing so those still build

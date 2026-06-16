@@ -127,7 +127,7 @@ func TestValidateWindowsCloudBuild(t *testing.T) {
 
 	// remote manifest stubs
 	withModels := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
-		return ModuleManifest{Models: make([]ModuleComponent, 1)}, nil
+		return ModuleManifest{Models: []ModuleComponent{{API: "a:b:c", Model: "a:b:c"}}}, nil
 	}
 	noModels := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
 		return ModuleManifest{Models: nil}, nil
