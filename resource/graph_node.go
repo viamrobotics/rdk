@@ -89,6 +89,16 @@ type GraphNode struct {
 	// prefix is an optional string that will be prepended to the resource name for
 	// the purpose of simple name queries against remote resources.
 	prefix string
+
+	// lastWeakOptionalDepsClocks records the graph logical clock value
+	// of every weak and optional dependency that was resolved for this
+	// resource the last time it was successfully rebuilt.
+	// updateWeakAndOptionalDependents reads this on each pass and skips
+	// an unnecessary reconfigure when the current set of resolvable weak/optional
+	// dependencies match what this resource was last given. A nil map means
+	// "not yet recorded"; an empty non-nil map means "no weak/optional
+	// dependencies were resolvable at the time."
+	lastWeakOptionalDepsClocks map[Name]int64
 }
 
 var (
@@ -468,6 +478,23 @@ func (w *GraphNode) GetPrefix() string {
 	return w.prefix
 }
 
+// LastWeakOptionalDepsClocks returns the snapshot of weak/optional dependency
+// graph-clock values recorded for this node, or nil if none has been recorded.
+// The returned map must not be mutated by callers.
+func (w *GraphNode) LastWeakOptionalDepsClocks() map[Name]int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.lastWeakOptionalDepsClocks
+}
+
+// SetLastWeakOptionalDepsClocks records the snapshot of weak/optional dependency
+// graph-clock values for this node. Passing nil clears the snapshot.
+func (w *GraphNode) SetLastWeakOptionalDepsClocks(clocks map[Name]int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.lastWeakOptionalDepsClocks = clocks
+}
+
 // Close closes the underlying resource of this node.
 func (w *GraphNode) Close(ctx context.Context) error {
 	w.mu.Lock()
@@ -509,6 +536,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	w.unresolvedDependencies = other.unresolvedDependencies
 	w.needsDependencyResolution = other.needsDependencyResolution
 	w.prefix = other.prefix
+	w.lastWeakOptionalDepsClocks = other.lastWeakOptionalDepsClocks
 
 	w.state = other.state
 	w.transitionedAt = other.transitionedAt
@@ -523,6 +551,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.lastErr = nil
 	other.unresolvedDependencies = nil
 	other.needsDependencyResolution = false
+	other.lastWeakOptionalDepsClocks = nil
 
 	other.state = NodeStateUnknown
 	other.transitionedAt = time.Time{}

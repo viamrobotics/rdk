@@ -791,6 +791,7 @@ type reloadModuleArgs struct {
 	ResourceName string
 	Path         string
 	Annotation   string
+	Builder      string
 }
 
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
@@ -1079,6 +1080,9 @@ func (c *viamClient) triggerCloudReloadBuild(
 			},
 		},
 	}
+	if args.Builder != "" && args.Builder != "default" {
+		req.Builder = &args.Builder
+	}
 	if err := stream.Send(req); err != nil {
 		return "", err
 	}
@@ -1119,6 +1123,9 @@ func (c *viamClient) triggerCloudReloadBuild(
 	resp, closeErr := stream.CloseAndRecv()
 	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
 		errs = multierr.Combine(errs, closeErr)
+	}
+	if msg := resp.GetBuilderFallbackMessage(); msg != "" {
+		printf(cmd.Root().ErrWriter, "Warning: %s", msg)
 	}
 	return resp.GetBuildId(), errs
 }

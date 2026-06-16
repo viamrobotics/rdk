@@ -45,9 +45,15 @@ type Mesh struct {
 	triangles []*Triangle
 	label     string
 
-	// information used for encoding to protobuf
-	fileType meshType
-	rawBytes []byte
+	// information used for encoding to protobuf. For meshes constructed from
+	// raw PLY/STL bytes these are populated up front; for meshes constructed
+	// from triangles via NewMesh, PLY bytes are generated lazily on first
+	// access via ensurePLYBytes(). The serialization is ASCII PLY and showed
+	// up at ~13% of total CPU when eagerly computed inside the collision-check
+	// hot path (Mesh.CollidesWith wraps single triangles in throwaway meshes).
+	fileType     meshType
+	rawBytes     []byte
+	rawBytesOnce sync.Once
 
 	// originalFilePath stores the original URDF mesh path for round-tripping
 	originalFilePath string
@@ -171,21 +177,32 @@ func trianglesToGeoms(triangles []*Triangle) []Geometry {
 }
 
 // NewMesh creates a mesh from the given triangles and pose.
-// The BVH is built lazily on first collision check for faster mesh loading.
+// The BVH and PLY-bytes serialization are both built lazily on first access
+// — eager PLY generation was ~13% of total CPU under the planner because
+// Mesh.CollidesWith wraps a single triangle in a throwaway Mesh on every call.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
-	mesh := &Mesh{
+	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
 		state:     newMeshState(),
+		fileType:  plyType,
 	}
+}
 
-	// Convert triangles to PLY for protobuf
-	plyBytes := mesh.TrianglesToPLYBytes(false) // Keep it in the local frame
-	mesh.fileType = plyType
-	mesh.rawBytes = plyBytes
-
-	return mesh
+// ensurePLYBytes returns the mesh's PLY serialization, generating it on first
+// access for triangle-constructed meshes. Meshes loaded from raw PLY/STL bytes
+// already have rawBytes populated; the closure then no-ops.
+func (m *Mesh) ensurePLYBytes() []byte {
+	m.rawBytesOnce.Do(func() {
+		if m.rawBytes == nil {
+			m.rawBytes = m.TrianglesToPLYBytes(false)
+			if m.fileType == "" {
+				m.fileType = plyType
+			}
+		}
+	})
+	return m.rawBytes
 }
 
 // NewMeshFromPLYFile is a helper function to create a Mesh geometry from a PLY file.
@@ -374,16 +391,12 @@ func (m *Mesh) String() string {
 // Meshes are always converted to PLY format for compatibility with the visualizer.
 // Note that if the mesh's rawBytes and fileType fields are unset this will result in a malformed message
 func (m *Mesh) ToProtobuf() *commonpb.Geometry {
-	// Convert mesh to PLY format for visualizer compatibility
-	// The visualizer expects all meshes to be in PLY format
-	plyBytes := m.TrianglesToPLYBytes(false)
-
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(m.pose),
 		GeometryType: &commonpb.Geometry_Mesh{
 			Mesh: &commonpb.Mesh{
 				ContentType: "ply",
-				Mesh:        plyBytes,
+				Mesh:        m.ensurePLYBytes(),
 			},
 		},
 		Label: m.label,
@@ -452,6 +465,10 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 	case *capsule, *point, *sphere:
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Triangle:
+		// Wrap in a Mesh so we get the negative-cache short-circuit in
+		// collidesWithMesh — RRT smoothing re-checks the same triangle at the
+		// same pose, and the geometry-BVH path has no negCache. The wrap is
+		// cheap now that NewMesh defers PLY serialization (ensurePLYBytes).
 		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
 		return m.collidesWithMesh(triMesh, collisionBufferMM)
 	default:
@@ -851,6 +868,7 @@ func (m *Mesh) UnmarshalJSON(data []byte) error {
 	m.label = mesh.label
 	m.fileType = mesh.fileType
 	m.rawBytes = mesh.rawBytes
+	m.rawBytesOnce = sync.Once{}
 	m.originalFilePath = mesh.originalFilePath
 	m.bvh = nil
 	m.bvhOnce = sync.Once{}

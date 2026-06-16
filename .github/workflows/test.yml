@@ -378,6 +378,7 @@ jobs:
           go.viam.com/rdk/web/server
           go.viam.com/rdk/module
           go.viam.com/rdk/logging
+          go.viam.com/rdk/cli
         )
         WINDOWS_PATTERN=$(IFS='|'; echo "${WORKING_WINDOWS_TESTS[*]}")
         TEST_TARGET=$(echo "$TEST_TARGET" | grep -E "^(${WINDOWS_PATTERN})$")
@@ -409,6 +410,7 @@ jobs:
       run: |
         brew update
         brew tap viamrobotics/brews
+        brew trust viamrobotics/brews
         brew install nlopt-static
         brew install x264
         # While it's not a requirement to actually run the viam-server binary, ffmpeg is

@@ -273,7 +273,7 @@ func TestCollisionConstraints(t *testing.T) {
 	}{
 		{zeroPos, true, ""},
 		{[]referenceframe.Input{math.Pi / 4, 0, 0, 0, 0, 0}, true, ""},
-		{[]referenceframe.Input{math.Pi, 0, 0, 0, 0, 0}, false, obstacleConstraintDescription},
+		{[]referenceframe.Input{math.Pi, 0, 0, 0, 0, 0}, false, ObstacleConstraintDescription},
 		{[]referenceframe.Input{math.Pi / 4, 0, 0, 0, 2, 0}, false, selfCollisionConstraintDescription},
 	}
 

@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func float32Ptr(f float32) *float32 { return &f }
@@ -30,12 +29,37 @@ func (m *mockCollector) Flush()   {}
 func (m *mockCollector) Collect() {}
 
 var (
-	fakeAPI = resource.APINamespaceRDK.WithComponentType("fake")
-	fakeRes = inject.NewSensor("fake-1")
+	fakeAPI                   = resource.APINamespaceRDK.WithComponentType("fake")
+	fakeRes resource.Resource = newFakeRes("fake-1")
 )
 
-// registerFakeCollector registers a no-op collector constructor for fake/GetReadings so that
-// tests which trigger collector rebuilds don't fail on a missing constructor lookup.
+// fakeResource is a minimal resource.Resource whose Name() uses fakeAPI. We need this (rather
+// than inject.NewSensor) so the auto-enable code path — which derives a collector's API from
+// res.Name().API — lines up with the fakeAPI/GetReadings constructor registered in
+// registerFakeCollector.
+type fakeResource struct {
+	name resource.Name
+}
+
+func newFakeRes(name string) *fakeResource {
+	return &fakeResource{name: resource.NewName(fakeAPI, name)}
+}
+
+func (f *fakeResource) Name() resource.Name { return f.name }
+func (f *fakeResource) Reconfigure(_ context.Context, _ resource.Dependencies, _ resource.Config) error {
+	return nil
+}
+
+func (f *fakeResource) DoCommand(_ context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return nil, nil
+}
+func (f *fakeResource) Status(_ context.Context) (map[string]interface{}, error) { return nil, nil }
+func (f *fakeResource) Close(_ context.Context) error                            { return nil }
+
+// registerFakeCollector registers no-op collector constructors so tests that trigger
+// collector rebuilds don't fail on a missing constructor lookup. board/Analogs is included
+// so the additional_params guard rail case actually exercises the additional_params check
+// (not the upstream unknown-method check).
 var registerFakeCollectorOnce sync.Once
 
 func registerFakeCollector() {
@@ -46,19 +70,32 @@ func registerFakeCollector() {
 				return &mockCollector{}, nil
 			},
 		)
+		boardAPI := resource.APINamespaceRDK.WithComponentType("board")
+		data.RegisterCollector(
+			data.MethodMetadata{API: boardAPI, MethodName: "Analogs"},
+			func(_ interface{}, _ data.CollectorParams) (data.Collector, error) {
+				return &mockCollector{}, nil
+			},
+		)
 	})
 }
 
 // newTestCapture returns a Capture with the given defaultCollectorConfigs and
 // an optional pre-populated collectors map. captureDir is always a temp dir.
+// resourcesByShortName, when nil, defaults to an empty catalog.
 func newTestCapture(
 	t *testing.T,
 	defaultCollectorConfigs CollectorConfigsByResource,
 	existingCollectors collectors,
+	resourcesByShortName map[string]resource.Resource,
+	defaultTags []string,
 ) *Capture {
 	t.Helper()
 	if existingCollectors == nil {
 		existingCollectors = make(collectors)
+	}
+	if resourcesByShortName == nil {
+		resourcesByShortName = map[string]resource.Resource{}
 	}
 	return &Capture{
 		logger:                  logging.NewTestLogger(t),
@@ -67,6 +104,8 @@ func newTestCapture(
 		captureDir:              t.TempDir(),
 		maxCaptureFileSize:      256 * 1024,
 		defaultCollectorConfigs: defaultCollectorConfigs,
+		resourcesByShortName:    resourcesByShortName,
+		defaultTags:             defaultTags,
 	}
 }
 
@@ -76,92 +115,176 @@ func TestSetCaptureConfig(t *testing.T) {
 		Method:             "GetReadings",
 		CaptureFrequencyHz: 1.0,
 	}
-	fakeMD := newCollectorMetadata(fakeCfg)
+	fakeCfgWithServiceTag := fakeCfg
+	fakeCfgWithServiceTag.Tags = []string{"service-tag"}
 
-	toggledCollector := &mockCollector{}
-	tagsCollector := &mockCollector{}
-	noopCollector := &mockCollector{}
-	nearZeroCollector := &mockCollector{}
+	// A board-API resource so we can exercise the additional_params guard rail.
+	boardAPI := resource.APINamespaceRDK.WithComponentType("board")
+	boardRes := &fakeResource{name: resource.NewName(boardAPI, "board-1")}
+
+	// fakeReading constructs a CaptureConfigReading with ResourceMethod populated for the
+	// resource the test cases care about. Keeps the readings consistent across cases.
+	fakeReading := func(name, method string, freq *float32, tags []string) datamanager.CaptureConfigReading {
+		return datamanager.CaptureConfigReading{
+			ResourceMethod:     datamanager.ResourceMethod{ResourceName: name, MethodName: method},
+			CaptureFrequencyHz: freq,
+			Tags:               tags,
+		}
+	}
 
 	for _, tc := range []struct {
 		name                   string
 		defaultConfigs         CollectorConfigsByResource
-		existingColls          collectors
+		existingDCConfig       *datamanager.DataCaptureConfig
+		catalog                map[string]resource.Resource
 		defaultTags            []string
 		input                  map[string]datamanager.CaptureConfigReading
-		expectedClosed         *mockCollector
-		expectedNotClosed      *mockCollector
+		expectExistingClosed   bool
+		expectExistingOpen     bool
 		expectedCollectorCount int
-		expectedNewTags        []string
+		// expectedTags, when non-nil, asserts every remaining collector has these tags.
+		expectedTags []string
 	}{
+		// --- machine config path: defaults present, sensor either matches or doesn't override. ---
 		{
-			name:                   "no-op when effective config is unchanged",
-			defaultConfigs:         CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
-			existingColls:          collectors{fakeMD: {Resource: fakeRes, Collector: noopCollector, Config: fakeCfg}},
-			input:                  map[string]datamanager.CaptureConfigReading{"fake-1/GetReadings": {CaptureFrequencyHz: float32Ptr(1.0)}},
-			expectedNotClosed:      noopCollector,
+			name:             "no-op when effective config is unchanged",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfg,
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1.0), nil),
+			},
+			expectExistingOpen:     true,
 			expectedCollectorCount: 1,
 		},
 		{
-			name:                   "disables collector on zero frequency",
-			defaultConfigs:         CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
-			existingColls:          collectors{fakeMD: {Resource: fakeRes, Collector: toggledCollector, Config: fakeCfg}},
-			input:                  map[string]datamanager.CaptureConfigReading{"fake-1/GetReadings": {CaptureFrequencyHz: float32Ptr(0)}},
-			expectedClosed:         toggledCollector,
+			name:             "disables collector on zero frequency",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfg,
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(0), nil),
+			},
+			expectExistingClosed:   true,
 			expectedCollectorCount: 0,
 		},
 		{
-			name:                   "disables collector on near-zero frequency",
-			defaultConfigs:         CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
-			existingColls:          collectors{fakeMD: {Resource: fakeRes, Collector: nearZeroCollector, Config: fakeCfg}},
-			input:                  map[string]datamanager.CaptureConfigReading{"fake-1/GetReadings": {CaptureFrequencyHz: float32Ptr(1e-7)}},
-			expectedClosed:         nearZeroCollector,
+			name:             "disables collector on near-zero frequency",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfg,
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1e-7), nil),
+			},
+			expectExistingClosed:   true,
 			expectedCollectorCount: 0,
 		},
 		{
-			name: "reverts to default config on nil input",
-			defaultConfigs: CollectorConfigsByResource{
-				fakeRes: []datamanager.DataCaptureConfig{
-					{
-						Name:               resource.NewName(fakeAPI, "fake-1"),
-						Method:             "GetReadings",
-						CaptureFrequencyHz: 1.0,
-						Disabled:           true,
-					},
-				},
+			// Existing collector was sensor-overridden to freq=5; sensor drops the override
+			// (nil input). The override-derived collector should be closed and a fresh one
+			// built at the default freq=1.
+			name:           "reverts to default config on nil input",
+			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &datamanager.DataCaptureConfig{
+				Name: fakeCfg.Name, Method: fakeCfg.Method, CaptureFrequencyHz: 5.0,
 			},
 			input:                  nil,
+			expectExistingClosed:   true,
+			expectedCollectorCount: 1,
+		},
+		{
+			name:             "service-level tags are overridden by capture config tags",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfg,
+			defaultTags:      []string{"service-tag"},
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", nil, []string{"override-tag"}),
+			},
+			expectExistingClosed:   true,
+			expectedCollectorCount: 1,
+			expectedTags:           []string{"override-tag"},
+		},
+		{
+			name:             "sensor-driven rebuild of static collector preserves service-level tags",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfgWithServiceTag,
+			defaultTags:      []string{"service-tag"},
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(5.0), nil),
+			},
+			expectExistingClosed:   true,
+			expectedCollectorCount: 1,
+			expectedTags:           []string{"service-tag"},
+		},
+
+		// --- Auto-enable path: sensor names a resource/method pair not in defaultConfigs. ---
+		{
+			name:           "enables capture for a resource not in defaultConfigs",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog:        map[string]resource.Resource{"fake-1": fakeRes},
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1.0), nil),
+			},
+			expectedCollectorCount: 1,
+		},
+		{
+			name:           "skips override for unknown resource",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog:        map[string]resource.Resource{},
+			input: map[string]datamanager.CaptureConfigReading{
+				"unknown/GetReadings": fakeReading("unknown", "GetReadings", float32Ptr(1.0), nil),
+			},
 			expectedCollectorCount: 0,
 		},
 		{
-			name:                   "service-level tags are overridden by capture config tags",
-			defaultConfigs:         CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
-			existingColls:          collectors{fakeMD: {Resource: fakeRes, Collector: tagsCollector, Config: fakeCfg}},
-			defaultTags:            []string{"service-tag"},
-			input:                  map[string]datamanager.CaptureConfigReading{"fake-1/GetReadings": {Tags: []string{"override-tag"}}},
-			expectedClosed:         tagsCollector,
+			name:           "auto-enabled collector inherits service-level tags",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog:        map[string]resource.Resource{"fake-1": fakeRes},
+			defaultTags:    []string{"service-tag"},
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1.0), nil),
+			},
 			expectedCollectorCount: 1,
-			expectedNewTags:        []string{"override-tag"},
+			expectedTags:           []string{"service-tag"},
+		},
+		{
+			name:           "skips auto-enable for method requiring additional_params",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog:        map[string]resource.Resource{"board-1": boardRes},
+			input: map[string]datamanager.CaptureConfigReading{
+				"board-1/Analogs": fakeReading("board-1", "Analogs", float32Ptr(1.0), nil),
+			},
+			expectedCollectorCount: 0,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			registerFakeCollector()
 
-			c := newTestCapture(t, tc.defaultConfigs, tc.existingColls)
-
-			c.SetCaptureConfigs(context.Background(), tc.input)
-
-			if tc.expectedClosed != nil {
-				test.That(t, tc.expectedClosed.closed, test.ShouldBeTrue)
+			var existing collectors
+			var existingMock *mockCollector
+			if tc.existingDCConfig != nil {
+				existingMock = &mockCollector{}
+				existing = collectors{
+					newCollectorMetadata(*tc.existingDCConfig): {
+						Resource: fakeRes, Collector: existingMock, Config: *tc.existingDCConfig,
+					},
+				}
 			}
-			if tc.expectedNotClosed != nil {
-				test.That(t, tc.expectedNotClosed.closed, test.ShouldBeFalse)
-			}
 
+			c := newTestCapture(t, tc.defaultConfigs, existing, tc.catalog, tc.defaultTags)
+			c.SetCaptureConfigs(tc.input)
+
+			if tc.expectExistingClosed {
+				test.That(t, existingMock, test.ShouldNotBeNil)
+				test.That(t, existingMock.closed, test.ShouldBeTrue)
+			}
+			if tc.expectExistingOpen {
+				test.That(t, existingMock, test.ShouldNotBeNil)
+				test.That(t, existingMock.closed, test.ShouldBeFalse)
+			}
 			test.That(t, len(c.collectors), test.ShouldEqual, tc.expectedCollectorCount)
 
-			if tc.expectedNewTags != nil {
-				test.That(t, c.collectors[fakeMD].Config.Tags, test.ShouldResemble, tc.expectedNewTags)
+			if tc.expectedTags != nil {
+				for _, cac := range c.collectors {
+					test.That(t, cac.Config.Tags, test.ShouldResemble, tc.expectedTags)
+				}
 			}
 		})
 	}
@@ -169,7 +292,7 @@ func TestSetCaptureConfig(t *testing.T) {
 
 func TestNearZeroFrequencySkipsCollector(t *testing.T) {
 	registerFakeCollector()
-	c := newTestCapture(t, nil, nil)
+	c := newTestCapture(t, nil, nil, nil, nil)
 
 	fakeCfg := datamanager.DataCaptureConfig{
 		Name:               resource.NewName(fakeAPI, "fake-1"),
@@ -179,9 +302,31 @@ func TestNearZeroFrequencySkipsCollector(t *testing.T) {
 	c.Reconfigure(context.Background(),
 		nil,
 		CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+		nil,
 		Config{MaximumCaptureFileSizeBytes: 256 * 1024, CaptureDir: t.TempDir()},
 	)
 
+	test.That(t, len(c.collectors), test.ShouldEqual, 0)
+}
+
+// TestSensorEnabledCollectorClosedWhenOverrideDropped verifies that a collector enabled solely
+// via the capture control sensor (no matching static config entry) is closed when the sensor
+// stops returning that override on the next tick.
+func TestSensorEnabledCollectorClosedWhenOverrideDropped(t *testing.T) {
+	registerFakeCollector()
+	c := newTestCapture(t, CollectorConfigsByResource{}, nil, map[string]resource.Resource{"fake-1": fakeRes}, nil)
+
+	override := map[string]datamanager.CaptureConfigReading{
+		"fake-1/GetReadings": {
+			ResourceMethod:     datamanager.ResourceMethod{ResourceName: "fake-1", MethodName: "GetReadings"},
+			CaptureFrequencyHz: float32Ptr(1.0),
+		},
+	}
+	c.SetCaptureConfigs(override)
+	test.That(t, len(c.collectors), test.ShouldEqual, 1)
+
+	// Sensor stops returning the override; the orphan pass should close the collector.
+	c.SetCaptureConfigs(nil)
 	test.That(t, len(c.collectors), test.ShouldEqual, 0)
 }
 
@@ -238,6 +383,7 @@ func TestMaxCaptureFileSize(t *testing.T) {
 				c.Reconfigure(context.Background(),
 					nil,
 					CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+					nil,
 					Config{MaximumCaptureFileSizeBytes: maxSize, CaptureDir: captureDir},
 				)
 			}

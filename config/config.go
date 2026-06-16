@@ -61,9 +61,6 @@ type Config struct {
 	// error messages that can indicate flags/config fields to use.
 	FromCommand bool
 
-	// PackagePath sets the directory used to store packages locally. Defaults to ~/.viam/packages
-	PackagePath string
-
 	// EnableWebProfile turns pprof http server in localhost. Defaults to false.
 	EnableWebProfile bool
 
@@ -135,7 +132,6 @@ type configData struct {
 	LogConfig               []logging.LoggerPatternConfig `json:"log,omitempty"`
 	Revision                string                        `json:"revision,omitempty"`
 	MaintenanceConfig       *MaintenanceConfig            `json:"maintenance,omitempty"`
-	PackagePath             string                        `json:"package_path,omitempty"`
 	DisableLogDeduplication bool                          `json:"disable_log_deduplication"`
 	Jobs                    []JobConfig                   `json:"jobs,omitempty"`
 	Tracing                 TracingConfig                 `json:"tracing,omitempty"`
@@ -298,7 +294,6 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
 	c.MaintenanceConfig = conf.MaintenanceConfig
-	c.PackagePath = conf.PackagePath
 	c.DisableLogDeduplication = conf.DisableLogDeduplication
 	c.Jobs = conf.Jobs
 	c.Tracing = conf.Tracing
@@ -330,7 +325,6 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		LogConfig:               c.LogConfig,
 		Revision:                c.Revision,
 		MaintenanceConfig:       c.MaintenanceConfig,
-		PackagePath:             c.PackagePath,
 		DisableLogDeduplication: c.DisableLogDeduplication,
 		Jobs:                    c.Jobs,
 		Tracing:                 c.Tracing,

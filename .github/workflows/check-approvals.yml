@@ -5,7 +5,7 @@ name: Check PR Approvals
 # branch-protection rule (or ruleset) that targets `main`.
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: [main]
   pull_request_review:
@@ -21,15 +21,40 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'claude/')
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
-      issues: write
+      # write (not read) to post the "Review Required" comment: commenting on a
+      # PR needs pull-requests: write; issues: write does not cover PRs.
+      pull-requests: write
     steps:
-      # viamrobotics/claude-ci-workflows@v2.0.0
+      # Flaky-test fixes and dependabot bumps only require a single approval;
+      # everything else needs two. Title/branch are read via env (never interpolated
+      # into the script) to avoid injection.
+      - name: Determine required approvals
+        id: approvals
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          title_lc="${PR_TITLE,,}"
+          # Match flake/flakes/flaky/flakiness — title wording varies. Keep this
+          # pattern in sync with flaky-pr-reviewer.yml.
+          if [[ "$title_lc" == *flak* ]]; then
+            echo "min_approvals=1" >> "$GITHUB_OUTPUT"
+            echo "Flaky-test PR detected; requiring 1 approval."
+          elif [[ "$HEAD_REF" == claude/dependabot* ]]; then
+            echo "min_approvals=1" >> "$GITHUB_OUTPUT"
+            echo "Dependabot PR detected; requiring 1 approval."
+          else
+            echo "min_approvals=2" >> "$GITHUB_OUTPUT"
+            echo "Requiring 2 approvals."
+          fi
+
+      # viamrobotics/claude-ci-workflows@v2.2.1
       - name: Checkout claude-ci-workflows for composite action
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: viamrobotics/claude-ci-workflows
-          ref: aa76787c145ed43f8f7b9bae4d978da4f9850001
+          ref: 5506bdaf04cc7d1adbd2df0f31f108834b01aea6
           path: .claude-ci-workflows
           sparse-checkout: |
             .github/actions/check-approvals/
@@ -39,5 +64,5 @@ jobs:
         uses: ./.claude-ci-workflows/.github/actions/check-approvals
         with:
           pr_number: ${{ github.event.pull_request.number }}
-          min_approvals: '2'
+          min_approvals: ${{ steps.approvals.outputs.min_approvals }}
           github_token: ${{ secrets.GITHUB_TOKEN }}

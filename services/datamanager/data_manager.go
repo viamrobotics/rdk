@@ -209,8 +209,9 @@ type ResourceMethod struct {
 }
 
 // CaptureConfigReading defines a capture config reading for a specific resource/method pair,
-// as emitted by the capture_control_sensor. Resource/method pairs should correspond with a configured data
-// manager service.
+// as emitted by the capture_control_sensor. The resource/method pair does not need to be
+// pre-configured with the data manager service. However, methods that require additional method parameters
+// (e.g. board.Analogs, board.Gpios) cannot be enabled this way.
 type CaptureConfigReading struct {
 	// The resource method pair.
 	ResourceMethod

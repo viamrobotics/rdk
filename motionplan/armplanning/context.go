@@ -16,13 +16,16 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-type planContext struct {
+// PlanContext wraps a bunch of variables related to performing a single `PlanMotion` API call.
+type PlanContext struct {
 	fs  *referenceframe.FrameSystem
 	lis *referenceframe.LinearInputsSchema
 
 	movableFrames []string
 
-	configurationDistanceFunc motionplan.SegmentFSMetric
+	// ConfigurationDistanceFunc computes the cost between a start and end position. For arms, this
+	// is typically measured in terms of joint angle movement.
+	ConfigurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	request                   *PlanRequest
 
@@ -39,12 +42,14 @@ type planContext struct {
 	collisionCache *motionplan.CollisionCache
 }
 
-func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
-	_, span := trace.StartSpan(ctx, "newPlanContext")
+// NewPlanContext creates a new PlanContext.
+func NewPlanContext(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*PlanContext, error) {
+	_, span := trace.StartSpan(ctx, "NewPlanContext")
 	defer span.End()
-	pc := &planContext{
+	meta.CollectSolutionDiagnostics = request.PlannerOptions.CollectSolutionDiagnostics
+	pc := &PlanContext{
 		fs:                        request.FrameSystem,
-		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
+		ConfigurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
 		planOpts:                  request.PlannerOptions,
 		request:                   request,
 		randseed:                  rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
@@ -69,7 +74,15 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	return pc, nil
 }
 
-func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFunc {
+// GetLinearInputsSchema gets the LinearInputsSchema.
+func (pc *PlanContext) GetLinearInputsSchema() *referenceframe.LinearInputsSchema {
+	return pc.lis
+}
+
+// LinearizeFSMetric wraps the input minimizing cost function such that the caller (IK callback) can
+// pass in an array of float64. Internally that array gets turned into a LinearInputs that maps the
+// actual inputs to the specific frames (typically arm joints).
+func (pc *PlanContext) LinearizeFSMetric(metric motionplan.StateFSMetric) ik.CostFunc {
 	return func(ctx context.Context, linearizedInputs []float64) float64 {
 		conf, err := pc.lis.FloatsToInputs(linearizedInputs)
 		if err != nil {
@@ -83,8 +96,10 @@ func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) ik.Cos
 	}
 }
 
-type planSegmentContext struct {
-	pc *planContext
+// PlanSegmentContext wraps variables related to a single call to `planSingleGoal`. There may be
+// many PlanSegmentContext for a single PlanContext.
+type PlanSegmentContext struct {
+	pc *PlanContext
 
 	start    *referenceframe.LinearInputs
 	origGoal referenceframe.FrameSystemPoses // goals are defined in frames willy nilly
@@ -93,15 +108,16 @@ type planSegmentContext struct {
 	startPoses referenceframe.FrameSystemPoses
 
 	motionChains *motionChains
-	checker      *motionplan.ConstraintChecker
+	Checker      *motionplan.ConstraintChecker
 }
 
-func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenceframe.LinearInputs,
+// NewPlanSegmentContext returns a new PlanSegmentContext.
+func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenceframe.LinearInputs,
 	goal referenceframe.FrameSystemPoses,
-) (*planSegmentContext, error) {
-	_, span := trace.StartSpan(ctx, "newPlanSegmentContext")
+) (*PlanSegmentContext, error) {
+	_, span := trace.StartSpan(ctx, "NewPlanSegmentContext")
 	defer span.End()
-	psc := &planSegmentContext{
+	psc := &PlanSegmentContext{
 		pc:       pc,
 		start:    start,
 		origGoal: goal,
@@ -138,7 +154,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 
 	movingRobotGeometries, staticRobotGeometries := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
 
-	psc.checker, err = motionplan.NewConstraintChecker(
+	psc.Checker, err = motionplan.NewConstraintChecker(
 		pc.planOpts.CollisionBufferMM,
 		pc.request.Constraints,
 		psc.startPoses,
@@ -157,7 +173,12 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 	return psc, nil
 }
 
-func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool) error {
+// CheckPath returns an error if the interpolation between `start` and `end` violate a constraint
+// (e.g: we calculcate there will be a collision). If there is an error and `outPath` is non-nil,
+// `outPath` will be populated with more detailed information.
+func (psc *PlanSegmentContext) CheckPath(
+	ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool, outPath *PathFeedback,
+) error {
 	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
 
@@ -175,7 +196,7 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 		}
 	}
 
-	_, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
+	validSegment, err := psc.Checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: start,
@@ -187,6 +208,14 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 	)
 	if err == nil && cache != nil && hashA != 0 && hashB != 0 {
 		cache.StoreEdgeResult(hashA, hashB, true)
+	}
+
+	if err != nil && outPath != nil {
+		*outPath = PathFeedback{
+			IsObstacleCollision: strings.Contains(err.Error(), motionplan.ObstacleConstraintDescription) ||
+				strings.Contains(err.Error(), motionplan.RobotCollisionConstraintDescription),
+			LastGoodInputs: validSegment.EndConfiguration,
+		}
 	}
 	return err
 }
@@ -228,7 +257,7 @@ func translateGoalsToWorldPosition(
 	return alteredGoals, nil
 }
 
-func (pc *planContext) isFatalCollision(err error) bool {
+func (pc *PlanContext) isFatalCollision(err error) bool {
 	s := err.Error()
 	if strings.Contains(s, "obstacle constraint: violation") {
 		hasMovingFrame := false

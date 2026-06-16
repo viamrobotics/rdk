@@ -83,6 +83,9 @@ type generateModuleArgs struct {
 func GenerateModuleAction(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
+		if !isInteractive() {
+			return errors.New("authentication required; run `viam login` before using module generate non-interactively")
+		}
 		shouldContinueGeneration := promptUnauthenticated()
 		if !shouldContinueGeneration {
 			return err
@@ -423,6 +426,10 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	}
 
 	if newModule.HasEmptyInput() {
+		if !isInteractive() {
+			return errors.New("missing required flags for non-interactive mode; " +
+				"provide --name, --language, --public-namespace, --resource-subtype, and --model-name")
+		}
 		if err := promptModuleInputs(newModule); err != nil {
 			return err
 		}
@@ -440,7 +447,7 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	}
 	populateAdditionalInfo(newModule)
 
-	s := spinner.New()
+	var s *spinner.Spinner
 	var fatalError error
 	var registryURL string
 	nonFatalError := false
@@ -449,8 +456,16 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 		return err
 	}
 	globalArgs := *gArgs
+
+	// Avoid the live spinner when emitting debug logs; its redraws conflict with logged output.
+	logTitle := func(msg string) { printf(cmd.Root().Writer, "%s", msg) }
+	if isInteractive() && !globalArgs.Debug {
+		s = spinner.New()
+		logTitle = func(msg string) { s.Title(msg) }
+	}
+
 	action := func() {
-		s.Title("Getting latest release...")
+		logTitle("Getting latest release...")
 		version, err := getLatestSDKTag(ctx, cmd, newModule.Language, globalArgs)
 		if err != nil {
 			fatalError = err
@@ -462,52 +477,52 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 			newModule.SDKVersion = strings.TrimPrefix(newModule.SDKVersion[idx+1:], "v")
 		}
 
-		s.Title("Setting up module directory...")
+		logTitle("Setting up module directory...")
 		if err = setupDirectories(cmd, newModule.ModuleName, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title("Creating module and generating manifest...")
+		logTitle("Creating module and generating manifest...")
 		registryURL, err = createModuleAndManifest(ctx, cmd, c, *newModule, globalArgs)
 		if err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title("Rendering common files...")
+		logTitle("Rendering common files...")
 		if err = renderCommonFiles(cmd, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title(fmt.Sprintf("Copying %s files...", newModule.Language))
+		logTitle(fmt.Sprintf("Copying %s files...", newModule.Language))
 		if err = copyLanguageTemplate(cmd, newModule.Language, newModule.ModuleName, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title("Rendering template...")
+		logTitle("Rendering template...")
 		if err = renderTemplate(cmd, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
+		logTitle(fmt.Sprintf("Generating %s stubs...", newModule.Language))
 		if err = generateStubs(cmd, *newModule, globalArgs); err != nil {
 			warningf(cmd.Root().ErrWriter, err.Error())
 			nonFatalError = true
 		}
 	}
 
-	if globalArgs.Debug {
-		action()
-	} else {
+	if s != nil {
 		s.Action(action)
 		err := s.Run()
 		if err != nil {
 			return err
 		}
+	} else {
+		action()
 	}
 
 	if fatalError != nil {
@@ -1468,10 +1483,9 @@ func renderManifest(
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", moduleBinary)
 	case cpp:
 		manifest.Build = &manifestBuildInfo{
-			Build:  "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",
-			Path:   "build/Release/module.tar.gz",
-			Distro: "bookworm",
-			Arch:   []string{"linux/amd64", "linux/arm64"},
+			Build: "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",
+			Path:  "build/Release/module.tar.gz",
+			Arch:  []string{"linux/amd64", "linux/arm64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}

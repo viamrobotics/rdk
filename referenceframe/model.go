@@ -290,7 +290,7 @@ func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
 // joint limits overridden. Overrides are keyed by frame name. Each override replaces the
 // first DoF limit of the matching frame.
 func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
-	newFS, err := cloneFrameSystem(base.internalFS)
+	newFS, err := base.internalFS.Clone()
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +489,8 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 			} else {
 				frameInputs = inputs[offset : offset+dof]
 				if err := frame.validInputs(frameInputs); err != nil {
-					return &composedTransformation, fmt.Errorf("joint %d: %w", offset, err)
+					return &composedTransformation, fmt.Errorf("Frame: %v.%v (joint %d): %w",
+						m.Name(), frame.Name(), offset, err)
 				}
 			}
 			orientation := frame.InputToOrientation(frameInputs[0])
@@ -587,7 +588,8 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 
 	allGeomsMap, err := FrameSystemGeometriesLinearInputs(m.internalFS, li)
 	if err != nil && len(allGeomsMap) == 0 {
-		return nil, err
+		return nil, fmt.Errorf("Error getting geometries. SimpleMode: %v Err: %w",
+			m.Name(), err)
 	}
 
 	// Collect geometries from all frames in the FS (not just schema-order) to include mimic frames.

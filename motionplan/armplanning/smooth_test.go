@@ -14,7 +14,6 @@ import (
 
 type smoothNodeJSON struct {
 	Inputs referenceframe.FrameSystemInputs `json:"inputs"`
-	Corner bool                             `json:"corner"`
 }
 
 func loadTestSmoothNodes(t testing.TB) []*node {
@@ -29,7 +28,6 @@ func loadTestSmoothNodes(t testing.TB) []*node {
 	for i, r := range raw {
 		nodes[i] = &node{
 			inputs: r.Inputs.ToLinearInputs(),
-			corner: r.Corner,
 		}
 	}
 	return nodes
@@ -47,10 +45,10 @@ func TestSmoothPlans1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	req.myTestOptions.doNotCloseObstacles = true
 
-	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Convert []*node to []referenceframe.FrameSystemInputs for smoothPath
@@ -82,10 +80,10 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 	req.myTestOptions.doNotCloseObstacles = true
 	test.That(b, err, test.ShouldBeNil)
 
-	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(b, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 	test.That(b, err, test.ShouldBeNil)
 
 	// Convert []*node to []referenceframe.FrameSystemInputs for smoothPath

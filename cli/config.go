@@ -160,7 +160,11 @@ func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 
 // DialOptions constructs an rpc.DialOption slice from config.
 func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
-	_, opts, err := rutils.ParseBaseURL(conf.BaseURL, true)
+	baseURL := conf.BaseURL
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+	_, opts, err := rutils.ParseBaseURL(baseURL, true)
 	if err != nil {
 		return nil, err
 	}

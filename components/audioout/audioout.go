@@ -40,6 +40,7 @@ func Named(name string) resource.Name {
 type AudioOut interface {
 	resource.Resource
 	Play(ctx context.Context, data []byte, info *utils.AudioInfo, extra map[string]interface{}) error
+	PlayStream(ctx context.Context, info *utils.AudioInfo, chunks <-chan []byte, extra map[string]interface{}) error
 	Properties(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
 }
 

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/creack/pty"
+	"github.com/charmbracelet/x/xpty"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -48,22 +48,35 @@ type builtIn struct {
 func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	chan<- string, chan<- map[string]interface{}, <-chan shell.Output, error,
 ) {
-	if runtime.GOOS == "windows" {
-		return nil, nil, nil, errors.New("shell not supported on windows yet; sorry")
-	}
-
 	defaultShellPath, ok := os.LookupEnv("SHELL")
 	if !ok {
 		defaultShellPath = "/bin/sh"
 	}
+	shellArgs := []string{"-i"}
+	shellEnv := []string{"TERM=xterm-256color"}
+	if runtime.GOOS == "windows" {
+		// powershell when available, else cmd.exe; inherit the parent environment (nil).
+		defaultShellPath = "cmd.exe"
+		if ps, lookErr := exec.LookPath("powershell.exe"); lookErr == nil {
+			defaultShellPath = ps
+		}
+		shellArgs = nil
+		shellEnv = nil
+	}
 
 	ctxCancel, cancel := context.WithCancel(ctx)
 	//nolint:gosec
-	cmd := exec.CommandContext(ctxCancel, defaultShellPath, "-i")
-	cmd.Env = []string{"TERM=xterm-256color"}
-	f, err := pty.Start(cmd)
+	cmd := exec.Command(defaultShellPath, shellArgs...)
+	cmd.Env = shellEnv
+	// xpty gives a unix pty or a Windows ConPTY behind one interface.
+	f, err := xpty.NewPty(80, 24)
 	if err != nil {
 		cancel()
+		return nil, nil, nil, err
+	}
+	if err := f.Start(cmd); err != nil {
+		cancel()
+		utils.UncheckedError(f.Close())
 		return nil, nil, nil, err
 	}
 
@@ -92,10 +105,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 				return
 			}
 			lastSet = time.Now()
-			if err := pty.Setsize(f, &pty.Winsize{
-				Rows: uint16(rows),
-				Cols: uint16(cols),
-			}); err != nil {
+			if err := f.Resize(int(cols), int(rows)); err != nil {
 				svc.logger.CErrorw(ctx, "error setting pty window size", "error", err)
 			}
 		default:
@@ -121,8 +131,8 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		defer cancel()
-		if err := cmd.Wait(); err != nil {
-			svc.logger.CDebugw(ctx, "error waiting for cmd", "error", err)
+		if err := xpty.WaitProcess(ctxCancel, cmd); err != nil {
+			svc.logger.CDebugw(ctx, "error waiting for shell process", "error", err)
 		}
 		if err := f.Close(); err != nil {
 			svc.logger.CDebugw(ctx, "error closing pty", "error", err)
@@ -170,7 +180,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			select {
 			case inputData, ok := <-input:
 				if ok {
-					if _, err := f.WriteString(inputData); err != nil {
+					if _, err := f.Write([]byte(inputData)); err != nil {
 						svc.logger.CErrorw(ctx, "error writing data", "error", err)
 						return
 					}

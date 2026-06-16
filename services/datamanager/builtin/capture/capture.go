@@ -71,6 +71,13 @@ type Capture struct {
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
 
+	// resourcesByShortName keeps track of every weak-dep resource by short name, so the capture
+	// control sensor can auto enable capture for resources that do not have it specified in the machine config.
+	resourcesByShortName map[string]resource.Resource
+
+	// defaultTags is the service-level tags from the data manager service config.
+	defaultTags []string
+
 	// openSequences holds in-flight sequences emitted by the capture control sensor.
 	openSequences map[openSequenceKey]*OpenSequence
 }
@@ -221,6 +228,7 @@ func (c *Capture) Reconfigure(
 	ctx context.Context,
 	frameSystem framesystem.Service,
 	collectorConfigsByResource CollectorConfigsByResource,
+	resourcesByShortName map[string]resource.Resource,
 	config Config,
 ) {
 	c.logger.Debug("Reconfigure START")
@@ -257,6 +265,8 @@ func (c *Capture) Reconfigure(
 	c.collectors = newCollectors
 	c.collectorsMu.Unlock()
 	c.defaultCollectorConfigs = collectorConfigsByResource
+	c.resourcesByShortName = resourcesByShortName
+	c.defaultTags = config.Tags
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }

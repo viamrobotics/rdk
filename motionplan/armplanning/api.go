@@ -175,12 +175,77 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
+// SolutionNodeInfo captures per-node data from getSolutions for visualization and debugging.
+type SolutionNodeInfo struct {
+	// Score is the cost of moving from the start configuration to this node.
+	Score float64
+	// CheckPathError is nil when the straight-line path from start to this node passed all
+	// constraints, or the constraint violation error otherwise.
+	CheckPathError error
+	// Inputs is the goal configuration for this IK solution.
+	Inputs *referenceframe.LinearInputs
+	// LastGoodInputs is the last interpolated configuration before the checkPath failure.
+	// Nil when CheckPathError is nil.
+	LastGoodInputs *referenceframe.LinearInputs
+}
+
+// PerGoalMeta holds diagnostic data for a single invocation of initRRTSolutions.
+// Only populated when PlannerOptions.CollectSolutionDiagnostics is true.
+type PerGoalMeta struct {
+	// StartConfiguration is the start configuration.
+	StartConfiguration *referenceframe.LinearInputs
+
+	// GoalPoses are the goal poses.
+	GoalPoses referenceframe.FrameSystemPoses
+
+	// ReasonableCost is what's used to filter out IK solutions that require much more joint
+	// movement than we expect should be necessary.
+	ReasonableCost float64
+
+	// SolutionNodes contains info about each IK solution node scored and path-checked.
+	SolutionNodes []SolutionNodeInfo
+
+	// ConstraintFailuresByType maps constraint error strings to the number of IK candidate
+	// solutions that failed that constraint.
+	ConstraintFailuresByType map[string]int
+}
+
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
-	Duration       time.Duration
-	Partial        bool
-	PartialError   error
+	// Duration is how long the plan took to generate.
+	Duration time.Duration
+
+	// Partial is true if we're returning a trajectory that satisfies a prefix of the requested
+	// goals. As opposed to satisfying all of the goals.
+	Partial bool
+
+	// PartialError includes the error that halted execution when the algorithm decided to return a
+	// partial answer.
+	PartialError error
+
+	// GoalsProcessed is how many user-defined goals were solved for.
 	GoalsProcessed int
+
+	// GoalsCBIRRTSolved returns the number of waypoints that CBIRRT solved for.
+	GoalsCBIRRTSolved int
+
+	// SubgoalsPerGoal will have size of `GoalsProcessed`. If there are no linear/orientation
+	// constraints, we do not create any additional subgoals/waypoints. SubgoalsPerGoal in that case
+	// will be set to 1 for each goal index. Otherwise it will be sent to the number of internal
+	// waypoints created + 1 (for the final user goal).
+	SubgoalsPerGoal []int
+
+	// SubgoalsProcessed may be non-zero when a plan request has linear/orientation
+	// constraints. Satisfying those constraints internally creates additional goals.
+	SubgoalsProcessed int
+
+	// CollectSolutionDiagnostics is copied from PlannerOptions and gates whether PerGoal is
+	// populated.
+	CollectSolutionDiagnostics bool
+
+	// PerGoal holds diagnostic data indexed by initRRTSolutions invocation order. Each top-level
+	// goal, sub-goal, and planning split produces one entry.
+	PerGoal []PerGoalMeta
 }
 
 // PlanMotion plans a motion from a provided plan request.
