@@ -43,7 +43,7 @@ type PlanRequest struct {
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
 	StartState *PlanState `json:"start_state"`
 	// The data representation of the robot's environment.
-	WorldState *referenceframe.WorldState `json:"world_state"`
+	ObstaclesInWorldFrame *referenceframe.GeometriesInFrame `json:"obstacles_in_world_frame"`
 	// Additional parameters constraining the motion of the robot.
 	Constraints *motionplan.Constraints `json:"constraints"`
 	// Other more granular parameters for the plan used to move the robot.
