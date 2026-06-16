@@ -35,8 +35,6 @@ type PlanRequestWithWorldState struct {
 	Constraints *motionplan.Constraints `json:"constraints"`
 	// Other more granular parameters for the plan used to move the robot.
 	PlannerOptions *PlannerOptions `json:"planner_options"`
-
-	myTestOptions testOptions
 }
 
 // MustNewWorldState calls NewWorldState and panics if it returns an error.

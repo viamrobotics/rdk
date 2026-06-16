@@ -56,7 +56,8 @@ type PlanRequest struct {
 // WorldState object. Presumably for interfacing/rendering with the viz-client.
 func (req *PlanRequest) GetWorldState() *referenceframe.WorldState {
 	return mustNewWorldState([]*referenceframe.GeometriesInFrame{
-		req.ObstaclesInWorldFrame}, nil)
+		req.ObstaclesInWorldFrame,
+	}, nil)
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.

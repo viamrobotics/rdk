@@ -338,7 +338,7 @@ func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*Geometries
 }
 
 type geometriesInFrameJSON struct {
-	Frame      string                      `json:"frame"`
+	Frame      string                        `json:"frame"`
 	Geometries []*spatialmath.GeometryConfig `json:"geometries"`
 }
 
