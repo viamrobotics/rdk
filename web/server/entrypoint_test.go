@@ -645,8 +645,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
-	// Find a free port for the machine to bind to.
-	listener, err := net.Listen("tcp", "127.0.0.1:23660")
+	// Find a free port for the machine to bind to. Using :0 lets the OS pick an
+	// available ephemeral port, avoiding both hard-coded port conflicts and the
+	// Windows TIME_WAIT delay that prevents immediate port reuse after close.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	machineAddress := listener.Addr().String()
 	listener.Close()
