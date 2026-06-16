@@ -3531,6 +3531,29 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: createActionCommandWithT[createModuleActionArgs](CreateModuleAction),
 				},
 				{
+					Name:      "add-app",
+					Usage:     "generate a new web app and add it to an existing Go module",
+					UsageText: createUsageText("module add-app", nil, false, false),
+					Description: `Adds a web application to a Go module created with 'viam module generate'.
+Run this command from within the module directory.`,
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  moduleFlagAppName,
+							Usage: "name for the app",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAppType,
+							Usage: formatAcceptedValues("app type", "single_machine", "multi_machine"),
+						},
+						&cli.BoolFlag{
+							Name:   generalFlagDryRun,
+							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
+						},
+					},
+					Action: createActionCommandWithT[addAppArgs](AddAppAction),
+				},
+				{
 					Name:      "add-model",
 					Usage:     "generate a new model and add it to an existing module",
 					UsageText: createUsageText("module add-model", nil, false, false),
@@ -3561,7 +3584,7 @@ Run this command from within the module directory.`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  moduleFlagGenerateType,
-							Usage: formatAcceptedValues("type of project to generate", "module", "app"),
+							Usage: formatAcceptedValues("type of project to generate", "module", "app", "module+app"),
 						},
 						&cli.StringFlag{
 							Name:  generalFlagName,
