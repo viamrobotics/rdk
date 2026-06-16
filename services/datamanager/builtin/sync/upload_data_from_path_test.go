@@ -106,27 +106,23 @@ func TestUploadDataFromPath(t *testing.T) {
 	})
 
 	t.Run("directory with a partial failure", func(t *testing.T) {
-		if os.Geteuid() == 0 {
-			t.Skip("chmod-based unreadable file does not fail for root")
-		}
 		dir := t.TempDir()
 		s := newTestSync(t, NoOpCloudClientConstructor(nil), dir, true)
 		uploadDir := filepath.Join(dir, "uploads")
 		test.That(t, os.MkdirAll(uploadDir, 0o700), test.ShouldBeNil)
 
 		good := []byte("good")
-		bad := []byte("bad!")
 		writeTestFile(t, uploadDir, "good.txt", good)
-		badPath := writeTestFile(t, uploadDir, "bad.txt", bad)
-		// make bad.txt unreadable so os.Open fails (os.Stat still succeeds)
-		test.That(t, os.Chmod(badPath, 0o000), test.ShouldBeNil)
-		t.Cleanup(func() { os.Chmod(badPath, 0o600) })
+
+		// broken symlink fails os.Stat for every user
+		badPath := filepath.Join(uploadDir, "bad.txt")
+		test.That(t, os.Symlink(filepath.Join(uploadDir, "no-such-target"), badPath), test.ShouldBeNil)
 
 		res, err := s.UploadDataFromPath(ctx, uploadDir, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, res.FilesUploaded, test.ShouldEqual, uint64(1))
 		test.That(t, res.FilesFailed, test.ShouldEqual, uint64(1))
-		test.That(t, res.BytesUploaded, test.ShouldEqual, uint64(len(good)))       // only the good file uploaded
-		test.That(t, res.BytesTotal, test.ShouldEqual, uint64(len(good)+len(bad))) // both discovered
+		test.That(t, res.BytesUploaded, test.ShouldEqual, uint64(len(good))) // only the good file uploaded
+		test.That(t, res.BytesTotal, test.ShouldEqual, uint64(len(good)))    // broken symlink failed stat, so not included in total
 	})
 }
