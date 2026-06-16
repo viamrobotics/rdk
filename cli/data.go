@@ -190,9 +190,8 @@ func DataQueryMQLAction(ctx context.Context, cmd *cli.Command, args dataQueryMQL
 }
 
 type dataQueryBinaryArgs struct {
-	Destination   string
-	IncludeBinary bool
-	Limit         uint
+	Destination string
+	Limit       uint
 }
 
 // DataQueryBinaryAction is the corresponding action for 'data query binary'.
@@ -589,8 +588,6 @@ func (c *viamClient) dataQueryBinaryAction(ctx context.Context, args dataQueryBi
 				Limit:  pageLimit,
 				Last:   last,
 			},
-			IncludeBinary: args.IncludeBinary,
-			CountOnly:     false,
 		})
 		if err != nil {
 			return errors.Wrap(err, serverErrorMessage)

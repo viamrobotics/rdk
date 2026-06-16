@@ -317,7 +317,6 @@ func TestDataQueryBinaryAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 		test.That(t, calls, test.ShouldEqual, 2)
-		test.That(t, capturedReq.GetIncludeBinary(), test.ShouldBeFalse)
 		test.That(t, capturedReq.GetDataRequest().GetFilter().GetPartId(), test.ShouldEqual, "p1")
 
 		// Parse NDJSON back into maps since protojson's spacing isn't stable.
@@ -329,23 +328,6 @@ func TestDataQueryBinaryAction(t *testing.T) {
 			actual = append(actual, row)
 		}
 		test.That(t, len(actual), test.ShouldEqual, 1)
-	})
-
-	t.Run("forwards include-binary", func(t *testing.T) {
-		var capturedReq *datapb.BinaryDataByFilterRequest
-		dsc := &inject.DataServiceClient{
-			BinaryDataByFilterFunc: func(ctx context.Context, in *datapb.BinaryDataByFilterRequest, opts ...grpc.CallOption,
-			) (*datapb.BinaryDataByFilterResponse, error) {
-				capturedReq = in
-				return &datapb.BinaryDataByFilterResponse{}, nil
-			},
-		}
-
-		_, ac, _, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
-		err := ac.dataQueryBinaryAction(context.Background(), dataQueryBinaryArgs{IncludeBinary: true}, &datapb.Filter{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-		test.That(t, capturedReq.GetIncludeBinary(), test.ShouldBeTrue)
 	})
 
 	t.Run("stops once --limit results have been written", func(t *testing.T) {

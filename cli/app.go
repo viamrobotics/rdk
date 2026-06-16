@@ -148,7 +148,6 @@ const (
 	dataFlagDataSourceType                 = "data-source-type"
 	dataFlagIndexName                      = "index-name"
 	dataFlagIndexSpecFile                  = "index-path"
-	dataFlagIncludeBinaryData              = "include-binary"
 	dataFlagLimit                          = "limit"
 
 	datapipelineFlagSchedule       = "schedule"
@@ -1508,10 +1507,6 @@ Note: There is no progress meter while copying is in progress.
 									Name:      generalFlagDestination,
 									Usage:     "output directory for query results; prints to stdout if omitted",
 									TakesFile: true,
-								},
-								&cli.BoolFlag{
-									Name:  dataFlagIncludeBinaryData,
-									Usage: "include the binary payload (base64-encoded) in each result; metadata only if omitted",
 								},
 								&cli.UintFlag{
 									Name:  dataFlagLimit,
