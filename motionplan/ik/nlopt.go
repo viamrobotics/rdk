@@ -269,4 +269,3 @@ func (ik *NloptIK) Solve(ctx context.Context,
 
 	return solutionsFound, meta, nil
 }
-
