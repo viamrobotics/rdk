@@ -144,6 +144,7 @@ func TestValidateWindowsCloudBuild(t *testing.T) {
 	goEntrypoint := "bin/module"
 	pythonEntrypoint := "dist/main"
 	win := []string{"windows/amd64"}
+	mixed := []string{"windows/amd64", "linux/amd64"}
 	repo := "https://github.com/test-org/test-repo"
 	gitlab := "https://gitlab.com/test-org/test-repo"
 	cases := []struct {
@@ -158,6 +159,8 @@ func TestValidateWindowsCloudBuild(t *testing.T) {
 		{"windows go module, empty models", goEntrypoint, noModels, repo, win, "models must be populated"},
 		{"windows go module, manifest fetch fails -> proceed", goEntrypoint, fetchFailed, repo, win, ""},
 		{"windows python module fails fast", pythonEntrypoint, fetchUncalled, repo, win, "not supported for Windows Python"},
+		{"mixed go, empty models -> warn and proceed", goEntrypoint, noModels, repo, mixed, ""},
+		{"mixed python still hard fails", pythonEntrypoint, fetchUncalled, repo, mixed, "not supported for Windows Python"},
 		{"non-windows build skips check", goEntrypoint, fetchUncalled, repo, []string{"linux/amd64"}, ""},
 		{"non-github host, go module proceeds", goEntrypoint, fetchUncalled, gitlab, win, ""},
 		{"non-github host, python still blocks", pythonEntrypoint, fetchUncalled, gitlab, win, "not supported for Windows Python"},

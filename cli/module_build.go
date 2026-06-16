@@ -128,26 +128,17 @@ var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPa
 	return parseManifest(body)
 }
 
-// joinRepoPath builds a repo-relative path (no leading slash) for the GitHub contents API.
-func joinRepoPath(workdir, name string) string {
-	return strings.TrimPrefix(path.Join(workdir, name), "/")
-}
-
-// generated Python modules use a "dist/" entrypoint; Go (and C++) use "bin/".
-const pythonEntrypointPrefix = "dist/"
-
-// validateWindowsCloudBuild blocks a Windows cloud build that can't produce a usable module:
-// Windows Python (the Linux runner can't run its packaging step), and Windows Go with no models
-// populated (detection can't run the cross-compiled binary). Models are read from the committed
-// remote meta.json, not local, since that's what the cloud builds. Fails open on any uncertainty.
+// validateWindowsCloudBuild guards Windows cloud builds that can't produce a usable module:
+// Windows Python is never supported, and Windows Go needs models populated. For Go, if other
+// platforms are also targeted it warns instead of failing so those still build.
 func (c *viamClient) validateWindowsCloudBuild(
 	ctx context.Context, cmd *cli.Command, manifest *ModuleManifest, repoURL, ref, workdir, token string, platforms []string,
 ) error {
-	if !slices.ContainsFunc(platforms, func(p string) bool { return strings.HasPrefix(p, osWindows+"/") }) {
+	if !slices.ContainsFunc(platforms, func(p string) bool { return strings.HasPrefix(p, "windows/") }) {
 		return nil
 	}
-	// Go entrypoints start with "bin/", so they never match -- we only ever block Python here.
-	if strings.HasPrefix(manifest.Entrypoint, pythonEntrypointPrefix) {
+	// generated Python modules use a "dist/" entrypoint, Go "bin/", so Go never matches here.
+	if strings.HasPrefix(manifest.Entrypoint, "dist/") {
 		return errors.New("cloud build is not supported for Windows Python modules.\n" +
 			"Build locally with 'viam module build local' and upload with 'viam module upload'")
 	}
@@ -159,15 +150,22 @@ func (c *viamClient) validateWindowsCloudBuild(
 		return nil
 	}
 	gArgs := parseStructFromCtx[globalArgs](cmd)
-	remote, err := githubFetchManifest(ctx, owner, repo, ref, joinRepoPath(workdir, defaultManifestFilename), token)
+	repoPath := strings.TrimPrefix(path.Join(workdir, defaultManifestFilename), "/")
+	remote, err := githubFetchManifest(ctx, owner, repo, ref, repoPath, token)
 	if err != nil {
 		debugf(cmd.Root().ErrWriter, gArgs.Debug,
 			"could not fetch %s from %s@%s to validate models: %v — proceeding anyway", defaultManifestFilename, repoURL, ref, err)
 		return nil
 	}
 	if len(remote.Models) == 0 {
-		return errors.New("models must be populated before a Windows Go cloud build.\n" +
-			"Run 'viam module update-models', commit the updated meta.json to your repo, then re-run the build")
+		msg := "models must be populated for a Windows Go cloud build.\n" +
+			"Run 'viam module update-models', commit the updated meta.json to your repo, then re-run the build"
+		// with other targets present, warn instead of failing so those still build
+		if len(platforms) > 1 {
+			printf(cmd.Root().ErrWriter, "Warning: %s", msg)
+			return nil
+		}
+		return errors.New(msg)
 	}
 	return nil
 }
