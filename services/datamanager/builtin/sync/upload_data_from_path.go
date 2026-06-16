@@ -83,8 +83,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 	}
 
 	if info.IsDir() {
-		//nolint:errcheck
-		filepath.Walk(path, func(filePath string, fi os.FileInfo, walkErr error) error {
+		err = filepath.Walk(path, func(filePath string, fi os.FileInfo, walkErr error) error {
 			if walkErr != nil || fi.IsDir() {
 				return nil //nolint:nilerr
 			}
@@ -101,5 +100,5 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		BytesUploaded: bytesUploaded,
 		BytesTotal:    bytesTotal,
 		IDs:           ids,
-	}, nil
+	}, err
 }
