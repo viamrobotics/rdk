@@ -631,7 +631,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return robot.UploadDataFromPathResult{}, errors.Wrapf(err, "failed to start file path %s", path)
+		return robot.UploadDataFromPathResult{}, errors.Wrapf(err, "failed to stat file path %s", path)
 	}
 
 	var (
@@ -646,21 +646,36 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 	datasetIDs := uploadMetadata.GetDatasetIds()
 
 	uploadOne := func(filePath string) {
+		// sequence files and data capture files are managed by data capture, so skip and log
+		if isSequenceFile(filePath) || isOpenSequenceFile(filePath) {
+			s.logger.Infof("skipping sequence file managed by data capture: %s", filePath)
+			return
+		}
+
 		fi, statErr := os.Stat(filePath)
 		if statErr != nil {
+			s.logger.Warnw("failed to stat file for upload", "path", filePath, "error", statErr)
 			filesFailed++
 			return
 		}
-		bytesTotal += uint64(fi.Size())
 
 		//nolint:gosec
 		f, openErr := os.Open(filePath)
 		if openErr != nil {
+			s.logger.Warnw("failed to open file for upload", "path", filePath, "error", openErr)
 			filesFailed++
 			return
 		}
 
+		if data.IsDataCaptureFile(f) {
+			s.logger.Infof("skipping data capture file managed by data capture: %s", filePath)
+			goutils.UncheckedError(f.Close())
+			return
+		}
+
+		bytesTotal += uint64(fi.Size())
 		if id, syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); syncErr != nil {
+			s.logger.Warnw("failed to upload file", "path", filePath, "error", syncErr)
 			filesFailed++
 		} else {
 			filesUploaded++
