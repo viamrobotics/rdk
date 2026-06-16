@@ -16,7 +16,8 @@ import (
 // UploadDataFromPath uploads a file or all files in a directory at path to the cloud.
 // For directories, every file is attempted and per-file errors are counted; the call
 // returns aggregate counts of files and bytes uploaded/failed.
-func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, _ map[string]interface{}) (
+// TODO (DATA-4528): Don't ignore the extra field in the UploadDataFromPath request.
+func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, extra map[string]interface{}) (
 	robot.UploadDataFromPathResult, error,
 ) {
 	select {
