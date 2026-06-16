@@ -290,9 +290,6 @@ func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 	}
 }
 
-// computeAndCacheBox builds and stores the bounding-box geometry for this node.
-// Kept separate from CollidesWith so the cache-hit path doesn't take a local's
-// address and force escape analysis to heap-allocate on every call.
 func (octree *BasicOctree) computeAndCacheBox(collisionBufferMM float64) (spatialmath.Geometry, error) {
 	box, err := spatialmath.NewBox(
 		spatialmath.NewPoseFromPoint(octree.center),
