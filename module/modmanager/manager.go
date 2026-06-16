@@ -258,7 +258,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 
 		// Validate module configs before attempting to add.
 		if err := conf.Validate(""); err != nil {
-			fullErr := fmt.Errorf("module config validation error; skipping; module: %s, error: %s", conf.Name, err)
+			fullErr := fmt.Errorf("module config validation error; skipping; module: %s, error: %w", conf.Name, err)
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
 			mgr.SetModuleStatusUnhealthy(conf.Name, fullErr)
 
@@ -1179,18 +1179,25 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 // These are the module status setters. Pending and Unhealthy are public
 // because sometimes the information required to set these states is only
 // available in other packages. All other setters are private
+
+// SetModuleStatusPending sets a module's status to Pending
 func (mgr *Manager) SetModuleStatusPending(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStatePending, nil)
 }
+
 func (mgr *Manager) setModuleStatusStarting(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateStarting, nil)
 }
+
 func (mgr *Manager) setModuleStatusReady(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateReady, nil)
 }
+
 func (mgr *Manager) setModuleStatusClosing(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateClosing, nil)
 }
+
+// SetModuleStatusUnhealthy sets a module's status to Unhealthy
 func (mgr *Manager) SetModuleStatusUnhealthy(name string, err error) {
 	mgr.setModuleState(name, modulestatus.ModuleStateUnhealthy, err)
 }
@@ -1204,19 +1211,14 @@ func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, 
 	}
 	status.State = state
 	status.LastUpdated = time.Now()
-	switch state {
-	case modulestatus.ModuleStateUnhealthy:
-		{
-			status.Error = err
-			status.ConsecutiveFailures++
-		}
-	case modulestatus.ModuleStateReady:
-		{
-			// Only clear the error on entering the ready state.
-			// This way, the last error will persist through intermediate states in a failure cycle
-			status.ConsecutiveFailures = 0
-			status.Error = nil
-		}
+	if state == modulestatus.ModuleStateUnhealthy {
+		status.Error = err
+		status.ConsecutiveFailures++
+	} else if state == modulestatus.ModuleStateReady {
+		// Only clear the error on entering the ready state.
+		// This way, the last error will persist through intermediate states in a failure cycle
+		status.ConsecutiveFailures = 0
+		status.Error = nil
 	}
 
 	mgr.moduleStatusMap[moduleName] = status
@@ -1266,6 +1268,7 @@ func (mgr *Manager) UnhealthyModules() []string {
 	return failedModuleNames
 }
 
+// Status retrieves the statuses of all modules tracked by the module manager
 func (mgr *Manager) Status() []modulestatus.Status {
 	mgr.moduleStatusMu.RLock()
 	defer mgr.moduleStatusMu.RUnlock()

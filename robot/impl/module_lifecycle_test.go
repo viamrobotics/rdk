@@ -1051,7 +1051,8 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, p(fakeModStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
 	// A failure should only increment ConsecutiveFailures by 1
 	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 1)
-	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual, fmt.Sprintf("error while starting module fake: module fake timed out after %s during startup", waitTime))
+	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual,
+		fmt.Sprintf("error while starting module fake: module fake timed out after %s during startup", waitTime))
 	test.That(t, time.Since(fakeModStatus.LastUpdated), test.ShouldBeLessThan, 100*time.Millisecond)
 
 	// But a good module should still be ready

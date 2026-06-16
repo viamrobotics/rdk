@@ -1273,7 +1273,7 @@ func (manager *resourceManager) updateResources(
 		// The config was already validated, but we must check again before attempting
 		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
-			fullErr := fmt.Errorf("module config validation error; skipping. module: %s err: %s", mod.Name, err)
+			fullErr := fmt.Errorf("module config validation error; skipping. module: %s err: %w", mod.Name, err)
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			manager.moduleManager.SetModuleStatusUnhealthy(mod.Name, fullErr)
 			continue
