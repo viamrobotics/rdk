@@ -466,9 +466,9 @@ type remoteLogWriterGRPC struct {
 }
 
 func (w *remoteLogWriterGRPC) rpcClientState() connectivity.State {
-	// ReconfigurableClientConn or ClientConn (may be lazily constructed)
-	if cs, ok := w.rpcClient.(grpchelpers.ConnectivityState); ok {
-		return cs.GetState()
+	// rpcClient may be ReconfigurableClientConn or ClientConn (and may be lazily constructed and not yet available)
+	if cs, ok := grpchelpers.ConnConnectivityState(w.rpcClient); ok {
+		return cs
 	}
 	return -1
 }
