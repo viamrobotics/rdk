@@ -2,9 +2,7 @@ package armplanning
 
 import (
 	"context"
-	"encoding/json"
 	"math"
-	"os"
 	"sort"
 	"testing"
 
@@ -402,10 +400,7 @@ func TestSerializedPlanRequest(t *testing.T) {
 		Constraints:           constraints,
 	}
 
-	jsonData, err := os.ReadFile("data/plan_request_sample.json")
-	test.That(t, err, test.ShouldBeNil)
-	parsedPr := &PlanRequest{}
-	err = json.Unmarshal(jsonData, parsedPr)
+	parsedPr, err := ReadRequestFromFile("data/plan_request_sample.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	goalPose1 := pr.Goals[0].Poses()["xArmVgripper"].Pose()
