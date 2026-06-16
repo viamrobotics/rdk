@@ -866,3 +866,38 @@ func TestBasicOctreePointsWithinRadius(t *testing.T) {
 		test.That(t, found, test.ShouldBeTrue)
 	}
 }
+
+func BenchmarkBasicOctreeCollidesWith(b *testing.B) {
+	path := filepath.Clean(artifact.MustPath("pointcloud/collision_pointcloud_0.pcd"))
+	startPC, err := NewFromFile(path, BasicType)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	meta := startPC.MetaData()
+	basicOct := newBasicOctree(meta.Center(), meta.MaxSideLength(), defaultConfidenceThreshold)
+	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		_, _, blueProb := d.RGB255()
+		d.SetValue(int(blueProb))
+		if err = basicOct.Set(p, d); err != nil {
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	probe, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{1, 2, 3}, "probe")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for range b.N {
+		if _, _, err := basicOct.CollidesWith(probe, 1.); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
