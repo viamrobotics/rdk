@@ -499,13 +499,18 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 
+	obstaclesInWorldFrame, err := req.WorldState.ObstaclesInWorldFrame(frameSys, fsInputs)
+	if err != nil {
+		return nil, err
+	}
+
 	planRequest := &armplanning.PlanRequest{
-		FrameSystem:    frameSys,
-		Goals:          worldWaypoints,
-		StartState:     startState,
-		WorldState:     req.WorldState,
-		Constraints:    req.Constraints,
-		PlannerOptions: planOpts,
+		FrameSystem:           frameSys,
+		Goals:                 worldWaypoints,
+		StartState:            startState,
+		ObstaclesInWorldFrame: obstaclesInWorldFrame,
+		Constraints:           req.Constraints,
+		PlannerOptions:        planOpts,
 	}
 
 	start := time.Now()
@@ -587,13 +592,18 @@ func (ms *builtIn) planTeleop(
 		return nil, err
 	}
 
+	obstaclesInWorldFrame, err := req.WorldState.ObstaclesInWorldFrame(frameSys, fsInputs)
+	if err != nil {
+		return nil, err
+	}
+
 	planRequest := &armplanning.PlanRequest{
-		FrameSystem:    frameSys,
-		Goals:          worldWaypoints,
-		StartState:     startState,
-		WorldState:     req.WorldState,
-		Constraints:    req.Constraints,
-		PlannerOptions: planOpts,
+		FrameSystem:           frameSys,
+		Goals:                 worldWaypoints,
+		StartState:            startState,
+		ObstaclesInWorldFrame: obstaclesInWorldFrame,
+		Constraints:           req.Constraints,
+		PlannerOptions:        planOpts,
 	}
 
 	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)

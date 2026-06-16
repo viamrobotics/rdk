@@ -39,6 +39,15 @@ type PlanRequestWithWorldState struct {
 	myTestOptions testOptions
 }
 
+// MustNewWorldState calls NewWorldState and panics if it returns an error.
+func mustNewWorldState(obstacles []*referenceframe.GeometriesInFrame, transforms []*referenceframe.LinkInFrame) *referenceframe.WorldState {
+	ws, err := referenceframe.NewWorldState(obstacles, transforms)
+	if err != nil {
+		panic(err)
+	}
+	return ws
+}
+
 func (pr *PlanRequestWithWorldState) ToPlanRequestWorldStateTransformsIgnored() *PlanRequest {
 	return &PlanRequest{}
 }

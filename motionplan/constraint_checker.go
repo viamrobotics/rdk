@@ -86,7 +86,11 @@ func NewConstraintChecker(
 		return nil, err
 	}
 
-	worldGeometries := obstaclesInWorldFrame.Geometries()
+	var worldGeometries []spatialmath.Geometry
+	if obstaclesInWorldFrame != nil {
+		worldGeometries = obstaclesInWorldFrame.Geometries()
+	}
+
 	obstacleNames := make(map[string]bool)
 	for _, geometry := range worldGeometries {
 		obstacleNames[geometry.Label()] = true

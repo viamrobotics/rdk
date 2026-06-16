@@ -52,6 +52,13 @@ type PlanRequest struct {
 	myTestOptions testOptions
 }
 
+// GetWorldState is a backwards compatibility helper that turns the ObstaclesInWorldFrame back into
+// WorldState object. Presumably for interfacing/rendering with the viz-client.
+func (req *PlanRequest) GetWorldState() *referenceframe.WorldState {
+	return mustNewWorldState([]*referenceframe.GeometriesInFrame{
+		req.ObstaclesInWorldFrame}, nil)
+}
+
 // validatePlanRequest ensures PlanRequests are not malformed.
 func (req *PlanRequest) validatePlanRequest() error {
 	if req == nil {
@@ -94,31 +101,27 @@ func (req *PlanRequest) validatePlanRequest() error {
 	}
 
 	if req.PlannerOptions.MeshesAsOctrees {
-		// convert any meshes in the worldstate to octrees
-		if req.WorldState == nil {
-			return errors.New("PlanRequest must have non-nil WorldState if 'meshes_as_octrees' option is enabled")
+		// convert any meshes in the obstacles to octrees
+		if req.ObstaclesInWorldFrame == nil {
+			return errors.New("PlanRequest must have non-nil ObstaclesInWorldFrame if 'meshes_as_octrees' option is enabled")
 		}
-		obstacles := make([]*referenceframe.GeometriesInFrame, 0, len(req.WorldState.ObstacleNames()))
-		for _, gf := range req.WorldState.Obstacles() {
-			geometries := gf.Geometries()
-			pcdGeometries := make([]spatialmath.Geometry, 0, len(geometries))
-			for _, geometry := range geometries {
-				if mesh, ok := geometry.(*spatialmath.Mesh); ok {
-					octree, err := pointcloud.NewFromMesh(mesh)
-					if err != nil {
-						return err
-					}
-					geometry = octree
+
+		pcdGeometries := make([]spatialmath.Geometry, 0, len(req.ObstaclesInWorldFrame.Geometries()))
+		for _, geometry := range req.ObstaclesInWorldFrame.Geometries() {
+			if mesh, ok := geometry.(*spatialmath.Mesh); ok {
+				octree, err := pointcloud.NewFromMesh(mesh)
+				if err != nil {
+					return err
 				}
-				pcdGeometries = append(pcdGeometries, geometry)
+
+				geometry = octree
 			}
-			obstacles = append(obstacles, referenceframe.NewGeometriesInFrame(gf.Parent(), pcdGeometries))
+
+			pcdGeometries = append(pcdGeometries, geometry)
 		}
-		newWS, err := referenceframe.NewWorldState(obstacles, req.WorldState.Transforms())
-		if err != nil {
-			return err
-		}
-		req.WorldState = newWS
+
+		req.ObstaclesInWorldFrame = referenceframe.NewGeometriesInFrame(
+			req.ObstaclesInWorldFrame.Parent(), pcdGeometries)
 	}
 
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
@@ -341,20 +344,11 @@ func resetMeshCaches(ctx context.Context, logger logging.Logger, request *PlanRe
 		}
 	}
 
-	if request.WorldState != nil {
-		// Right now, the world state is getting entirely thrown away anyways. It's always a part of
-		// the user request that is about to go out of scope. In the future, this may include
-		// geometries saved in the `WorldStateStore` service.
-		obstacles, err := request.WorldState.ObstaclesInWorldFrame(
-			request.FrameSystem,
-			request.StartState.structuredConfiguration,
-		)
-		if err != nil {
-			logger.CDebugf(ctx, "resetMeshCaches: skipping world obstacles: %v", err)
-			return
-		}
-
-		for _, geometry := range obstacles.Geometries() {
+	if request.ObstaclesInWorldFrame != nil {
+		// Right now, the ObstaclesInWorldFrame is getting entirely thrown away anyways. It's always
+		// a part of the user request that is about to go out of scope. In the future, this may
+		// include geometries saved in the `WorldStateStore` service.
+		for _, geometry := range request.ObstaclesInWorldFrame.Geometries() {
 			visit(geometry)
 		}
 	}
