@@ -41,11 +41,14 @@ func writeTestFile(t *testing.T, dir, name string, contents []byte) string {
 	return p
 }
 
-func fileUploadClientReturningID(t *testing.T, id string) MockDataSyncServiceClient {
+func fileUploadClientReturningIDs(t *testing.T, ids ...string) MockDataSyncServiceClient {
 	t.Helper()
+	var i int
 	return MockDataSyncServiceClient{
 		T: t,
 		FileUploadFunc: func(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error) {
+			id := ids[i]
+			i++
 			return &ClientStreamingMock[*v1.FileUploadRequest, *v1.FileUploadResponse]{
 				T:                t,
 				SendFunc:         func(*v1.FileUploadRequest) error { return nil },
@@ -68,7 +71,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("single file", func(t *testing.T) {
 		dir := t.TempDir()
-		s := newTestSync(t, fileUploadClientReturningID(t, "bin-1"), dir, true)
+		s := newTestSync(t, fileUploadClientReturningIDs(t, "bin-1"), dir, true)
 		contents := []byte("hello world")
 		fp := writeTestFile(t, dir, "f.txt", contents)
 
@@ -87,7 +90,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("directory of files", func(t *testing.T) {
 		dir := t.TempDir()
-		s := newTestSync(t, fileUploadClientReturningID(t, "bin-1"), dir, true)
+		s := newTestSync(t, fileUploadClientReturningIDs(t, "bin-1", "bin-2", "bin-3"), dir, true)
 		uploadDir := filepath.Join(dir, "uploads")
 		test.That(t, os.MkdirAll(uploadDir, 0o700), test.ShouldBeNil)
 		a, b, c := []byte("aaa"), []byte("bbbb"), []byte("ccccc")
@@ -102,7 +105,7 @@ func TestUploadDataFromPath(t *testing.T) {
 		total := uint64(len(a) + len(b) + len(c))
 		test.That(t, res.BytesUploaded, test.ShouldEqual, total)
 		test.That(t, res.BytesTotal, test.ShouldEqual, total)
-		test.That(t, len(res.IDs), test.ShouldEqual, 3)
+		test.That(t, res.IDs, test.ShouldResemble, []string{"bin-1", "bin-2", "bin-3"})
 	})
 
 	t.Run("directory with a partial failure", func(t *testing.T) {
