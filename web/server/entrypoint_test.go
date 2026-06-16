@@ -242,18 +242,24 @@ func TestMachineState(t *testing.T) {
 
 	machineAddress := "127.0.0.1:23654"
 
-	// Create a fake package directory using `t.TempDir`. Set it up to be identical to the
-	// expected file tree of the local package manager. Place a single file `foo` in a
-	// `fake-module` directory. The local package manager stores packages under
-	// <viam home>/packages-local, and the server (started via RunServer below) uses the global
-	// utils.ViamDotDir as its home dir, so redirect that to this temp dir to point it here.
-	tempDir := t.TempDir()
+	// Create a fake package directory and set it up to be identical to the expected file tree of
+	// the local package manager: a single file `foo` in a `fake-module` directory. The local
+	// package manager stores packages under <viam home>/packages-local, and the server (started
+	// via RunServer below) uses the global utils.ViamDotDir as its home dir, so redirect that to
+	// this temp dir to point it here.
+	//
+	// Use a short temp dir (not t.TempDir, whose Windows path is long) because redirecting
+	// ViamDotDir also relocates the module socket dir on Windows, and the unix socket path has a
+	// 103-char OS limit (see module.CreateSocketAddress).
+	tempDir, err := os.MkdirTemp("", "vds")
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(tempDir)) })
 	origViamDotDir := utils.ViamDotDir
 	utils.ViamDotDir = tempDir
 	t.Cleanup(func() { utils.ViamDotDir = origViamDotDir })
 	fakePackagePath := filepath.Join(tempDir, fmt.Sprint("packages", config.LocalPackagesSuffix))
 	fakeModuleDataPath := filepath.Join(fakePackagePath, "data", "fake-module")
-	err := os.MkdirAll(fakeModuleDataPath, 0o777) // should create all dirs along path
+	err = os.MkdirAll(fakeModuleDataPath, 0o777) // should create all dirs along path
 	test.That(t, err, test.ShouldBeNil)
 	fakeModuleDataFile, err := os.Create(filepath.Join(fakeModuleDataPath, "foo"))
 	test.That(t, err, test.ShouldBeNil)
