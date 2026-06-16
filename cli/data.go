@@ -175,6 +175,7 @@ type dataQueryMQLArgs struct {
 	MqlPath        string
 	DataSourceType string
 	PipelineID     string
+	PipelineName   string
 	Destination    string
 }
 
@@ -496,22 +497,36 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID")
 	}
-	if args.PipelineID != "" && args.DataSourceType == "" {
-		return errors.Errorf("--%s is required when --%s is provided",
-			dataFlagDataSourceType, dataFlagPipelineID)
+	if args.PipelineID != "" && args.PipelineName != "" {
+		return errors.Errorf("--%s and --%s cannot both be provided",
+			dataFlagPipelineID, dataFlagPipelineName)
 	}
-	if args.DataSourceType == pipelineSinkDataSourceType && args.PipelineID == "" {
-		return errors.Errorf("--%s is required when --%s=%s",
-			dataFlagPipelineID, dataFlagDataSourceType, pipelineSinkDataSourceType)
+	hasPipelineRef := args.PipelineID != "" || args.PipelineName != ""
+	if hasPipelineRef && args.DataSourceType == "" {
+		return errors.Errorf("--%s is required when --%s or --%s is provided",
+			dataFlagDataSourceType, dataFlagPipelineID, dataFlagPipelineName)
 	}
-	if args.DataSourceType != "" && args.DataSourceType != pipelineSinkDataSourceType && args.PipelineID != "" {
-		return errors.Errorf("--%s is only valid when --%s=%s",
-			dataFlagPipelineID, dataFlagDataSourceType, pipelineSinkDataSourceType)
+	if args.DataSourceType == pipelineSinkDataSourceType && !hasPipelineRef {
+		return errors.Errorf("--%s or --%s is required when --%s=%s",
+			dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType)
+	}
+	if args.DataSourceType != "" && args.DataSourceType != pipelineSinkDataSourceType && hasPipelineRef {
+		return errors.Errorf("--%s and --%s are only valid when --%s=%s",
+			dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType)
 	}
 
 	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
 	if err != nil {
 		return err
+	}
+
+	pipelineID := args.PipelineID
+	if args.PipelineName != "" {
+		resolved, err := c.resolvePipelineIDByName(ctx, args.OrgID, args.PipelineName)
+		if err != nil {
+			return err
+		}
+		pipelineID = resolved
 	}
 
 	request := &datapb.TabularDataByMQLRequest{
@@ -520,7 +535,7 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 	}
 
 	if args.DataSourceType != "" {
-		dataSource, err := buildTabularDataSource(args.DataSourceType, args.PipelineID)
+		dataSource, err := buildTabularDataSource(args.DataSourceType, pipelineID)
 		if err != nil {
 			return err
 		}

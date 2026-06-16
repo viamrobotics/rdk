@@ -36,7 +36,9 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           title_lc="${PR_TITLE,,}"
-          if [[ "$title_lc" == *flaky* ]]; then
+          # Match flake/flakes/flaky/flakiness — title wording varies. Keep this
+          # pattern in sync with flaky-pr-reviewer.yml.
+          if [[ "$title_lc" == *flak* ]]; then
             echo "min_approvals=1" >> "$GITHUB_OUTPUT"
             echo "Flaky-test PR detected; requiring 1 approval."
           elif [[ "$HEAD_REF" == claude/dependabot* ]]; then
