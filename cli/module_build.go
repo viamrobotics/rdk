@@ -131,59 +131,40 @@ var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPa
 	return parseManifest(body)
 }
 
-// githubPathExists reports whether a file exists in a repo at a given ref using
-// GitHub's contents API. It is a package var so tests can stub it.
-var githubPathExists = func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
-		owner, repo, filePath, url.QueryEscape(ref))
-	resp, err := githubGet(ctx, apiURL, token, "")
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close() //nolint:errcheck
-	switch resp.StatusCode {
-	case http.StatusOK:
-		return true, nil
-	case http.StatusNotFound:
-		return false, nil
-	default:
-		return false, fmt.Errorf("unexpected status %d from github api", resp.StatusCode)
-	}
-}
-
 // joinRepoPath builds a repo-relative path (forward slashes, no leading slash) for
 // GitHub's contents API from a build workdir and filename.
 func joinRepoPath(workdir, name string) string {
 	return strings.TrimPrefix(path.Join(workdir, name), "/")
 }
 
-// unsupportedWindowsLangMarkers maps a repo-relative file that a generated module of a
-// given language has at its workdir to that language's display name. The presence of such
-// a marker means the module can't be cloud-built for Windows at all (Python: no
-// cross-compile, Linux-only runner; C++: not supported). Go has no entry here -- it has no
-// single reliable marker file, and meta.json can't disambiguate it (no language field, and
-// Go and C++ share a "bin/<name>" entrypoint), so anything without a marker is treated as
-// Go. Detecting unsupported languages positively (rather than detecting Go) keeps the check
-// fail-open: we only block when we can prove the language is unsupported.
-var unsupportedWindowsLangMarkers = map[string]string{
-	"src/main.py": "Python",
-	"main.cpp":    "C++",
-}
+// pythonEntrypointPrefix is the entrypoint a generated Python module uses ("dist/main");
+// Go uses "bin/...", so the prefix distinguishes the two. C++ also uses "bin/...", but it
+// is not a supported cloud-build target and isn't detected here.
+const pythonEntrypointPrefix = "dist/"
 
 // validateWindowsCloudBuild stops a cloud build that targets Windows when it can prove the
-// build won't produce a usable module. The cloud builder clones and builds the repo at ref,
-// so this checks the files the build will actually use -- those in the repo at ref -- rather
-// than local copies. Windows Python and C++ modules can't be cloud-built at all (no
-// cross-compile, Linux-only runner), so they fail fast. Windows Go modules cross-compile
-// fine, but the cloud's model detection can't run the Windows binary on the Linux runner, so
-// their manifest must already list models. Like validateRefExists, it only hard-fails when it
-// can prove a problem, and otherwise (non-github host, unreachable files) proceeds with the build.
+// build won't produce a usable module. Windows Python modules can't be cloud-built at all
+// (the Linux runner can't run their Windows-native packaging step), so they fail fast --
+// detected from the local manifest's entrypoint, since language doesn't change between local
+// and committed copies. Windows Go modules cross-compile fine, but the cloud's model detection
+// can't run the Windows binary on the Linux runner, so their manifest must already list models.
+// Because the cloud clones and builds the committed repo, the models check reads the remote
+// meta.json at ref rather than the local copy (local models may be populated but not yet
+// committed). Like validateRefExists, it only hard-fails when it can prove a problem, and
+// otherwise (non-github host, unreachable manifest) proceeds with the build.
 func (c *viamClient) validateWindowsCloudBuild(
-	ctx context.Context, cmd *cli.Command, repoURL, ref, workdir, token string, platforms []string,
+	ctx context.Context, cmd *cli.Command, manifest *ModuleManifest, repoURL, ref, workdir, token string, platforms []string,
 ) error {
 	// only Windows cloud builds are affected
 	if !slices.ContainsFunc(platforms, func(p string) bool { return strings.HasPrefix(p, osWindows+"/") }) {
 		return nil
+	}
+	// detect Python from the entrypoint ("dist/" vs Go's "bin/"). This is a heuristic on the
+	// generated convention, but a Go entrypoint never starts with "dist/", so we never wrongly
+	// block a Go build -- at worst a hand-edited Python module slips through to a doomed build.
+	if strings.HasPrefix(manifest.Entrypoint, pythonEntrypointPrefix) {
+		return errors.New("cloud build is not supported for Windows Python modules.\n" +
+			"Build locally with 'viam module build local' and upload with 'viam module upload'")
 	}
 	owner, repo, ok, err := parseGitHubRepo(repoURL)
 	if err != nil {
@@ -193,22 +174,6 @@ func (c *viamClient) validateWindowsCloudBuild(
 		return nil
 	}
 	gArgs := parseStructFromCtx[globalArgs](cmd)
-	// detect unsupported languages first. The marker is a heuristic: it relies on the
-	// generated layout (src/main.py, main.cpp). A hand-written module that doesn't follow it
-	// won't be detected and will be treated as Go, which at worst lets a doomed build through
-	// rather than blocking a valid one -- the fail-open tradeoff we want.
-	for markerPath, lang := range unsupportedWindowsLangMarkers {
-		exists, err := githubPathExists(ctx, owner, repo, ref, joinRepoPath(workdir, markerPath), token)
-		if err != nil {
-			debugf(cmd.Root().ErrWriter, gArgs.Debug,
-				"could not determine module language on %s@%s: %v — proceeding anyway", repoURL, ref, err)
-			return nil
-		}
-		if exists {
-			return fmt.Errorf("cloud build is not supported for Windows %s modules.\n"+
-				"Build locally with 'viam module build local' and upload with 'viam module upload'", lang)
-		}
-	}
 	remote, err := githubFetchManifest(ctx, owner, repo, ref, joinRepoPath(workdir, defaultManifestFilename), token)
 	if err != nil {
 		debugf(cmd.Root().ErrWriter, gArgs.Debug,
@@ -292,7 +257,7 @@ func (c *viamClient) moduleBuildStartForRepo(
 	gitRef := args.Ref
 	token := args.Token
 	workdir := args.Workdir
-	if err := c.validateWindowsCloudBuild(ctx, cmd, repo, gitRef, workdir, token, platforms); err != nil {
+	if err := c.validateWindowsCloudBuild(ctx, cmd, manifest, repo, gitRef, workdir, token, platforms); err != nil {
 		return "", err
 	}
 	req := buildpb.StartBuildRequest{
