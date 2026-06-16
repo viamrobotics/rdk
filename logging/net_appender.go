@@ -17,9 +17,12 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	grpchelpers "go.viam.com/rdk/grpc/helpers"
 )
 
 var (
@@ -308,6 +311,9 @@ func (nl *NetAppender) backgroundWorker() {
 	normalInterval := 100 * time.Millisecond
 	abnormalInterval := 5 * time.Second
 	interval := normalInterval
+
+	// used as a set. could be changed to store Timestamp or count if needed
+	errsSinceLastSuccess := make(map[string]struct{})
 	for {
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
 			return
@@ -316,6 +322,20 @@ func (nl *NetAppender) backgroundWorker() {
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			if !errors.Is(err, errUninitializedConnection) {
+				errKey := err.Error()
+
+				// guess if we may be offline. if so, log errors about that only once during *this* offline period.
+				if status.Code(err) == codes.Unavailable {
+					connState := nl.remoteWriter.rpcClientState()
+					// if we're offline, connState should be connectivity.TransientFailure or Connecting. Note: not perfectly reliable, but
+					// fine for our purposes.
+					maybeOffline := connState == connectivity.TransientFailure || connState == connectivity.Connecting
+					if _, ok := errsSinceLastSuccess[errKey]; maybeOffline && ok {
+						continue
+					}
+				}
+				errsSinceLastSuccess[errKey] = struct{}{}
+
 				errMsg := fmt.Sprintf("error logging to network: %s", err)
 				nl.loggerWithoutNet.Info(errMsg)
 
@@ -327,6 +347,7 @@ func (nl *NetAppender) backgroundWorker() {
 			}
 		} else {
 			interval = normalInterval
+			clear(errsSinceLastSuccess)
 		}
 	}
 }
@@ -442,6 +463,14 @@ type remoteLogWriterGRPC struct {
 
 	// `loggerWithoutNet` is the logger to use for meta/internal logs from the `remoteLogWriterGRPC`.
 	loggerWithoutNet Logger
+}
+
+func (w *remoteLogWriterGRPC) rpcClientState() connectivity.State {
+	// ReconfigurableClientConn or ClientConn (may be lazily constructed)
+	if cs, ok := w.rpcClient.(grpchelpers.ConnectivityState); ok {
+		return cs.GetState()
+	}
+	return -1
 }
 
 func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
