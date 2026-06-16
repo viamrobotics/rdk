@@ -296,7 +296,6 @@ func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 // distance between the octree and input geometry. If there is a collision, a negative number is
 // returned.
 func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBufferMM float64) (bool, float64, error) {
-	var err error
 	if octree.MaxVal() < octree.confidenceThreshold {
 		return false, collisionBufferMM, nil
 	}
@@ -304,7 +303,7 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 	case internalNode:
 		var box spatialmath.Geometry
 		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
-			box, err = spatialmath.NewBox(
+			newBox, err := spatialmath.NewBox(
 				spatialmath.NewPoseFromPoint(octree.center),
 				r3.Vector{
 					X: octree.sideLength + collisionBufferMM,
@@ -316,8 +315,8 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 			if err != nil {
 				return false, collisionBufferMM, err
 			}
-
-			octree.boxCache.Store(&box)
+			octree.boxCache.Store(&newBox)
+			box = newBox
 		} else {
 			box = *boxPtr
 		}
@@ -479,9 +478,8 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 	case internalNode:
 		// Create a bounding box for this octree region
 		var ocbox spatialmath.Geometry
-		var err error
 		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
-			ocbox, err = spatialmath.NewBox(
+			newBox, err := spatialmath.NewBox(
 				spatialmath.NewPoseFromPoint(octree.center),
 				r3.Vector{
 					X: octree.sideLength + collisionBufferMM,
@@ -493,8 +491,8 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 			if err != nil {
 				return
 			}
-
-			octree.boxCache.Store(&ocbox)
+			octree.boxCache.Store(&newBox)
+			ocbox = newBox
 		} else {
 			ocbox = *boxPtr
 		}
