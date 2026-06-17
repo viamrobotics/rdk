@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 // Model is the full model definition.
@@ -95,12 +95,12 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	for k, v := range contextutils.All(ctx) {
+	for k, v := range metadata.All(ctx) {
 		if k == "arbitrary-md-from-client2" && v == "arbitrary-md-from-client-val2" {
 			// test replacing one field
-			ctx = contextutils.Set(ctx, "arbitrary-md-from-client2", "arbitrary-md-from-client-val3-from-middle")
+			ctx = metadata.Set(ctx, "arbitrary-md-from-client2", "arbitrary-md-from-client-val3-from-middle")
 		}
-		ctx = contextutils.Set(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
+		ctx = metadata.Set(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
 	}
 
 	n, err := strconv.ParseFloat(arg1, 64)
@@ -116,7 +116,7 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 	return sum == n, nil
 }
 
-func allExpectedMetadataPresentTestHelper(md contextutils.ViamMD) bool {
+func allExpectedMetadataPresentTestHelper(md metadata.ViamMD) bool {
 	numGood := 0
 	for k, v := range md {
 		switch {
@@ -139,7 +139,7 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if allExpectedMetadataPresentTestHelper(maps.Collect(contextutils.All(ctx))) {
+	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
 		return false, errors.New("TestMetadataAcrossTwoModules-ClientStream-good")
 	}
 
@@ -165,7 +165,7 @@ func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]b
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if allExpectedMetadataPresentTestHelper(maps.Collect(contextutils.All(ctx))) {
+	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
 		return []bool{false}, errors.New("TestMetadataAcrossTwoModules-ServerStream-good")
 	}
 
@@ -184,7 +184,7 @@ func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]b
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if allExpectedMetadataPresentTestHelper(maps.Collect(contextutils.All(ctx))) {
+	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
 		return []bool{false}, errors.New("TestMetadataAcrossTwoModules-BiDiStream-good")
 	}
 

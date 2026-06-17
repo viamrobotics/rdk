@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 // Model is the full model definition.
@@ -62,7 +62,7 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 
 	foundKeys := 0
 	expectedKeys := 4
-	for k, v := range contextutils.All(ctx) {
+	for k, v := range metadata.All(ctx) {
 		switch {
 		case k == "arbitrary-md-from-client" && v == "arbitrary-md-from-client-val1":
 			numGood++

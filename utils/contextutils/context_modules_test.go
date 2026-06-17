@@ -7,7 +7,7 @@ import (
 
 	"go.viam.com/test"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
+	grpcmetadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 // TestMetadataAcrossTwoModules tests that arbitrary user metadata correctly flows in both
@@ -63,7 +63,7 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	giz, err := gizmoapi.FromProvider(r, "gizmo1")
 	test.That(t, err, test.ShouldBeNil)
 
-	ctxWithMD := contextutils.Set(ctxWithoutMD,
+	ctxWithMD := metadata.Set(ctxWithoutMD,
 		"arbitrary-md-from-client", "arbitrary-md-from-client-val1",
 		"arbitrary-md-from-client2", "arbitrary-md-from-client-val2",
 		"arbitrary-md-local-func-modify", "tbd",
@@ -74,11 +74,11 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	localFunc := func(ctx context.Context) context.Context {
 		ctx = context.WithValue(ctx, "arbitrary-md-from-client", "fake")      //nolint
 		ctx = context.WithValue(ctx, "arbitrary-md-from-client-fake", "fake") //nolint
-		ctx = metadata.AppendToOutgoingContext(ctx, "arbitrary-md-from-client", "fake")
-		ctx = metadata.AppendToOutgoingContext(ctx, "arbitrary-md-from-client-fake", "fake")
+		ctx = grpcmetadata.AppendToOutgoingContext(ctx, "arbitrary-md-from-client", "fake")
+		ctx = grpcmetadata.AppendToOutgoingContext(ctx, "arbitrary-md-from-client-fake", "fake")
 		// test local replace
-		ctx = contextutils.Set(ctx, "arbitrary-md-local-func-modify", "real")
-		md := maps.Collect(contextutils.All(ctx))
+		ctx = metadata.Set(ctx, "arbitrary-md-local-func-modify", "real")
+		md := maps.Collect(metadata.All(ctx))
 		test.That(t, len(md), test.ShouldEqual, 5)
 		test.That(t, md["arbitrary-md-from-client"], test.ShouldEqual, "arbitrary-md-from-client-val1")
 		test.That(t, md["opid"], test.ShouldEqual, "custom")
@@ -89,22 +89,22 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 
 	// test FromContext should return a clone.
 	// clearing it should have no effect on the map in the context, which will be used for the remainder of the test
-	mdCopy, ok := contextutils.FromContext(ctxWithMD)
+	mdCopy, ok := metadata.FromContext(ctxWithMD)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, len(mdCopy), test.ShouldEqual, len(maps.Collect(contextutils.All(ctxWithMD))))
+	test.That(t, len(mdCopy), test.ShouldEqual, len(maps.Collect(metadata.All(ctxWithMD))))
 	clear(mdCopy)
-	test.That(t, len(mdCopy), test.ShouldNotEqual, len(maps.Collect(contextutils.All(ctxWithMD))))
+	test.That(t, len(mdCopy), test.ShouldNotEqual, len(maps.Collect(metadata.All(ctxWithMD))))
 
 	// test deleting
-	v, ok := contextutils.Get(ctxWithMD, "to-be-deleted")
+	v, ok := metadata.Get(ctxWithMD, "to-be-deleted")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, v, test.ShouldEqual, "delete")
 
-	test.That(t, len(maps.Collect(contextutils.All(ctxWithMD))), test.ShouldEqual, 5)
-	ctxWithMD = contextutils.Delete(ctxWithMD, "to-be-deleted")
-	test.That(t, len(maps.Collect(contextutils.All(ctxWithMD))), test.ShouldEqual, 4)
+	test.That(t, len(maps.Collect(metadata.All(ctxWithMD))), test.ShouldEqual, 5)
+	ctxWithMD = metadata.Delete(ctxWithMD, "to-be-deleted")
+	test.That(t, len(maps.Collect(metadata.All(ctxWithMD))), test.ShouldEqual, 4)
 
-	v, ok = contextutils.Get(ctxWithMD, "to-be-deleted")
+	v, ok = metadata.Get(ctxWithMD, "to-be-deleted")
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, v, test.ShouldEqual, "")
 

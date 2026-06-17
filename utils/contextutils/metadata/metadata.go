@@ -1,4 +1,5 @@
-package contextutils
+// Package metadata implements Client-to-Server arbitrary metadata passing via Context.
+package metadata
 
 import (
 	"context"
@@ -9,11 +10,13 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 	grpcmetadata "google.golang.org/grpc/metadata"
+
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // arbitraryMetadataKeyPrefix helps differentiate between metadata keys provided by the user and those for internal use.
 // It is automatically prefixed to all arbitrary keys behind the scenes to avoid conflicts with internal metadata.
-const arbitraryMetadataKeyPrefix = string(MetadataContextKey) + "-"
+const arbitraryMetadataKeyPrefix = string(contextutils.MetadataContextKey) + "-"
 
 // ViamMD is a mapping from metadata keys to values.
 type ViamMD map[string]string
@@ -27,12 +30,12 @@ func Set(ctx context.Context, kv ...string) context.Context {
 	for i := 0; i+1 < len(kv); i += 2 {
 		md[kv[i]] = kv[i+1]
 	}
-	return context.WithValue(ctx, MetadataContextKey, md)
+	return context.WithValue(ctx, contextutils.MetadataContextKey, md)
 }
 
 // Get returns the metadata value associated with the provided key, if found.
 func Get(ctx context.Context, key string) (string, bool) {
-	if md, ok := ctx.Value(MetadataContextKey).(ViamMD); ok {
+	if md, ok := ctx.Value(contextutils.MetadataContextKey).(ViamMD); ok {
 		if v, ok := md[key]; ok {
 			return v, true
 		}
@@ -46,19 +49,19 @@ func Delete(ctx context.Context, keys ...string) context.Context {
 		return ctx
 	}
 
-	if _, ok := ctx.Value(MetadataContextKey).(ViamMD); ok {
+	if _, ok := ctx.Value(contextutils.MetadataContextKey).(ViamMD); ok {
 		var md ViamMD = maps.Collect(All(ctx))
 		for _, key := range keys {
 			delete(md, key)
 		}
-		return context.WithValue(ctx, MetadataContextKey, md)
+		return context.WithValue(ctx, contextutils.MetadataContextKey, md)
 	}
 	return ctx
 }
 
 // FromContext returns a clone of the metadata map in the context.
 func FromContext(ctx context.Context) (map[string]string, bool) {
-	if md, ok := ctx.Value(MetadataContextKey).(ViamMD); ok {
+	if md, ok := ctx.Value(contextutils.MetadataContextKey).(ViamMD); ok {
 		return maps.Clone(md), true
 	}
 	return nil, false
@@ -67,7 +70,7 @@ func FromContext(ctx context.Context) (map[string]string, bool) {
 // All returns an iterator of the metadata keys and values.
 func All(ctx context.Context) iter.Seq2[string, string] {
 	return func(yield func(string, string) bool) {
-		if md, ok := ctx.Value(MetadataContextKey).(ViamMD); ok {
+		if md, ok := ctx.Value(contextutils.MetadataContextKey).(ViamMD); ok {
 			for k, v := range md {
 				if !yield(k, v) {
 					return
@@ -87,7 +90,7 @@ func ViamClientToServerMetadataUnaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
-	if md, ok := ctx.Value(MetadataContextKey).(ViamMD); ok {
+	if md, ok := ctx.Value(contextutils.MetadataContextKey).(ViamMD); ok {
 		kvPairs := make([]string, 0, len(md))
 		for k, v := range md {
 			kvPairs = append(kvPairs, arbitraryMetadataKeyPrefix+k, v)
@@ -109,7 +112,7 @@ func ViamClientToServerMetadataStreamClientInterceptor(
 	streamer grpc.Streamer,
 	opts ...grpc.CallOption,
 ) (grpc.ClientStream, error) {
-	if md, ok := ctx.Value(MetadataContextKey).(ViamMD); ok {
+	if md, ok := ctx.Value(contextutils.MetadataContextKey).(ViamMD); ok {
 		kvPairs := make([]string, 0, len(md))
 		for k, v := range md {
 			kvPairs = append(kvPairs, arbitraryMetadataKeyPrefix+k, v)

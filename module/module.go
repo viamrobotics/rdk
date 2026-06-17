@@ -38,7 +38,7 @@ import (
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 const (
@@ -162,11 +162,11 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		rgrpc.EnsureTimeoutUnaryServerInterceptor,
 		opMgr.UnaryServerInterceptor,
 		client.ViamClientInfoUnaryServerInterceptor,
-		contextutils.ViamClientToServerMetadataUnaryServerInterceptor,
+		metadata.ViamClientToServerMetadataUnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,
-		contextutils.ViamClientToServerMetadataStreamServerInterceptor,
+		metadata.ViamClientToServerMetadataStreamServerInterceptor,
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
