@@ -324,14 +324,12 @@ func (nl *NetAppender) backgroundWorker() {
 				errKey := err.Error()
 
 				// guess if we may be offline. if so, log errors about that only once during *this* offline period.
-				if status.Code(err) == codes.Unavailable {
-					connState := nl.remoteWriter.rpcClientState()
-					// if we're offline, connState should be connectivity.TransientFailure or Connecting. Note: not perfectly reliable, but
-					// fine for our purposes.
-					maybeOffline := connState == connectivity.TransientFailure || connState == connectivity.Connecting
-					if _, ok := errsSinceLastSuccess[errKey]; maybeOffline && ok {
-						continue
-					}
+				connState := nl.remoteWriter.rpcClientState()
+				// if we're offline, connState should be connectivity.TransientFailure or Connecting. Note: not perfectly reliable, but
+				// fine for our purposes.
+				maybeOffline := connState == connectivity.TransientFailure || connState == connectivity.Connecting
+				if _, ok := errsSinceLastSuccess[errKey]; maybeOffline && ok {
+					continue
 				}
 				errsSinceLastSuccess[errKey] = struct{}{}
 
