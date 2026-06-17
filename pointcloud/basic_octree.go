@@ -344,7 +344,7 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 	case leafNodeEmpty:
 		return false, math.Inf(1), nil
 	case leafNodeFilled:
-		return geom.CollidesWith(octree.node.pointGeometry(), collisionBufferMM)
+		return geom.CollidesWith(spatialmath.NewPoint(octree.node.point.P, ""), collisionBufferMM)
 	}
 	return false, collisionBufferMM, errors.New("unknown octree node type")
 }
