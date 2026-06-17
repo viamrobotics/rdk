@@ -937,7 +937,12 @@ func TestNewFrameSystemClient(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	client, err := client.New(context.Background(), listener.Addr().String(), logger)
+	// The test server above is a plain gRPC server with no WebRTC signaling support, so
+	// disable WebRTC dialing. Otherwise the client tries (and fails) WebRTC before falling
+	// back to direct gRPC; that fallback is flaky on Windows where the signaling RPC can hang
+	// until the dial deadline, exhausting all connection attempts (see RSDK-13302).
+	client, err := client.New(context.Background(), listener.Addr().String(), logger,
+		client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true})))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
