@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(file_path=.github/**)",
+      "Write(file_path=.github/**)",
+      "Edit(file_path=**/*.pb.go)",
+      "Write(file_path=**/*.pb.go)",
+      "Edit(file_path=Makefile)",
+      "Write(file_path=Makefile)",
+      "Edit(file_path=android.make)",
+      "Write(file_path=android.make)",
+      "Edit(file_path=packaging.make)",
+      "Write(file_path=packaging.make)",
+      "Edit(file_path=go.sum)",
+      "Write(file_path=go.sum)",
+      "Edit(file_path=etc/setup.sh)",
+      "Write(file_path=etc/setup.sh)"
+    ]
+  }
+}

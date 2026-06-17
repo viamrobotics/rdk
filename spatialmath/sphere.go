@@ -100,6 +100,8 @@ func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 	switch other := g.(type) {
 	case *Mesh:
 		return other.CollidesWith(s, collisionBufferMM)
+	case *Cylinder:
+		return other.CollidesWith(s, collisionBufferMM)
 	case *sphere:
 		// Sphere-sphere distance is cheap, so we can return it
 		dist := sphereVsSphereDistance(s, other)
@@ -136,6 +138,8 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
 		return other.DistanceFrom(s)
+	case *Cylinder:
+		return other.DistanceFrom(s)
 	case *box:
 		return sphereVsBoxDistance(s, other), nil
 	case *sphere:
@@ -159,6 +163,8 @@ func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
 		return sphereInCapsule(s, other), nil
 	case *box:
 		return sphereInBox(s, other), nil
+	case *Cylinder:
+		return sphereInCylinder(s, other), nil
 	case *point:
 		return false, nil
 	default:
@@ -209,6 +215,11 @@ func sphereInBox(s *sphere, b *box) bool {
 // sphereInCapsule returns a bool describing if the given sphere is fully encompassed by the given capsule.
 func sphereInCapsule(s *sphere, c *capsule) bool {
 	return -capsuleVsPointDistance(c, s.pose.Point()) >= s.radius
+}
+
+// sphereInCylinder returns a bool describing if the given sphere is fully encompassed by the given cylinder.
+func sphereInCylinder(s *sphere, c *Cylinder) bool {
+	return c.containsSphere(s.pose.Point(), s.radius)
 }
 
 // ToPoints converts a sphere geometry into []r3.Vector. This method takes one argument which determines

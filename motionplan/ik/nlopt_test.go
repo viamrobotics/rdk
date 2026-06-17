@@ -17,6 +17,34 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+func TestNloptFixedJoint(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	seed := []float64{1, 1, -1, 1, 1, 0}
+	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
+	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 100), m, logger)
+
+	dof := m.DoF()
+	limits := make([]referenceframe.Limit, len(dof))
+	copy(limits, dof)
+	limits[0] = referenceframe.Limit{Min: seed[0], Max: seed[0]}
+
+	ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
+	test.That(t, err, test.ShouldBeNil)
+
+	var totalAttempts atomic.Int32
+	solutions, _, err := DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{limits})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(solutions), test.ShouldBeGreaterThan, 0)
+	for _, sol := range solutions {
+		// joint 0 is pinned - it may move at most one epsilon nudge upward
+		test.That(t, sol[0], test.ShouldBeGreaterThanOrEqualTo, seed[0])
+		test.That(t, sol[0], test.ShouldBeLessThanOrEqualTo, seed[0]+defaultGoalThreshold)
+	}
+}
+
 func TestCreateNloptSolver(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")

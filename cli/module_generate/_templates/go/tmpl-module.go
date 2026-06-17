@@ -51,6 +51,7 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 
 type {{.ModuleCamel}}{{.ModelPascal}} struct {
 	resource.AlwaysRebuild
+	resource.Named
 
 	name   resource.Name
 

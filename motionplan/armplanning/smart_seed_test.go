@@ -4,6 +4,7 @@ package armplanning
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -302,4 +303,139 @@ func BenchmarkSmartSeedCacheSearch(t *testing.B) {
 			start, logger)
 		test.That(t, err, test.ShouldBeNil)
 	}
+}
+
+// TestSmartSeedPallette2 exercises smartSeed.findSeeds against the goal+start
+// from data/pallette2.json and asserts that the seeds it returns are useful:
+//
+//  1. at least one seed is returned,
+//  2. the best seed's end-effector is closer to the goal than the start is,
+//  3. the best seed's joint-space cost from start is reasonable.
+//
+// Each assertion is independent so a failure tells us which property of the
+// smart-seed output went wrong; the surrounding log lines give the raw
+// distances, costs, and per-seed FK points that explain why.
+func TestSmartSeedPallette2(t *testing.T) {
+	t.Parallel()
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	req, err := ReadRequestFromFile("data/pallette2.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
+	test.That(t, err, test.ShouldBeNil)
+
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Resolve which frame is actually moving toward the goal, and where the goal
+	// lives in that frame's mounting parent — same logic findSeeds uses internally.
+	var goalFrame string
+	var goalPIF *referenceframe.PoseInFrame
+	for k, v := range psc.goal {
+		goalFrame = k
+		goalPIF = v
+	}
+	ssc, err := smartSeed(pc.fs, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	movingFrameName, movingPose, err := ssc.findMovingInfo(psc.start, goalFrame, goalPIF)
+	test.That(t, err, test.ShouldBeNil)
+	logger.Infof("moving frame: %s, goal in mount frame: %v", movingFrameName, movingPose)
+
+	frame := pc.fs.Frame(movingFrameName)
+	startInputs := psc.start.Get(movingFrameName)
+	startPose, err := frame.Transform(startInputs)
+	test.That(t, err, test.ShouldBeNil)
+	startFKDist := startPose.Point().Distance(movingPose.Point())
+	logger.Infof("start FK distance to goal: %0.2f (start joints: %v)",
+		startFKDist, logging.FloatArrayFormat{"%0.2f", startInputs})
+
+	seeds, divisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 10, logger)
+	test.That(t, err, test.ShouldBeNil)
+	logger.Infof("got %d seeds, divisors=%v", len(seeds), divisors)
+
+	// 1. We expect at least one seed.
+	test.That(t, len(seeds), test.ShouldBeGreaterThan, 0)
+
+	// Known-good joint configuration for the goal — at least one seed should
+	// land near this in joint space, otherwise the seed pool won't lead IK to
+	// the right basin.
+	target := []referenceframe.Input{2.23, -1.59, 1.51, -1.49, -1.57, 0.66}
+
+	bestCost := math.Inf(1)
+	bestFKDist := math.Inf(1)
+	bestTargetL2 := math.Inf(1)
+	for i, s := range seeds {
+		sInputs := s.Get(movingFrameName)
+		cost := myCost(startInputs, sInputs)
+		pose, err := frame.Transform(sInputs)
+		test.That(t, err, test.ShouldBeNil)
+		fkDist := pose.Point().Distance(movingPose.Point())
+		targetL2 := referenceframe.InputsL2Distance(sInputs, target)
+		logger.Infof("seed %2d: cost=%0.2f fkDist=%0.2f targetL2=%0.2f joints=%v",
+			i, cost, fkDist, targetL2, logging.FloatArrayFormat{"%0.2f", sInputs})
+		if cost < bestCost {
+			bestCost = cost
+		}
+		if fkDist < bestFKDist {
+			bestFKDist = fkDist
+		}
+		if targetL2 < bestTargetL2 {
+			bestTargetL2 = targetL2
+		}
+	}
+	logger.Infof("summary: bestCost=%0.2f bestFKDist=%0.2f bestTargetL2=%0.2f (startFKDist=%0.2f)",
+		bestCost, bestFKDist, bestTargetL2, startFKDist)
+
+	// 2. The best seed has to actually pull the end-effector closer to the goal,
+	//    otherwise the seed buys us nothing over re-running IK from start.
+	test.That(t, bestFKDist, test.ShouldBeLessThan, startFKDist)
+
+	// 3. The best seed shouldn't require massive joint reconfiguration.
+	test.That(t, bestCost, test.ShouldBeLessThan, 3.0)
+
+	// 4. At least one seed should land in joint-space neighborhood of the known
+	//    correct goal configuration — otherwise IK started from these seeds is
+	//    unlikely to converge to the right basin.
+	test.That(t, bestTargetL2, test.ShouldBeLessThan, 3.0)
+
+	// 5. The IK search window built around at least one seed must actually
+	//    contain the target. ComputeAdjustLimitsArray clamps each joint to
+	//    [seed-r*divisor, seed+r*divisor] (intersected with the global joint
+	//    limits) — if the target falls outside every seed's window, IK can
+	//    never reach it no matter how good the convergence.
+	divInputs, err := pc.lis.FloatsToInputs(divisors)
+	test.That(t, err, test.ShouldBeNil)
+	movingDivisors := divInputs.Get(movingFrameName)
+	movingLimits := frame.DoF()
+
+	anyContains := false
+	for i, s := range seeds {
+		sInputs := s.Get(movingFrameName)
+		contains := true
+		for j, lim := range movingLimits {
+			_, _, r := lim.GoodLimits()
+			d := r * movingDivisors[j]
+			lo := math.Max(lim.Min, sInputs[j]-d)
+			hi := math.Min(lim.Max, sInputs[j]+d)
+			if target[j] < lo || target[j] > hi {
+				logger.Infof("seed %2d: joint %d target=%0.2f outside window [%0.2f,%0.2f] (seed=%0.2f, d=%0.2f)",
+					i, j, target[j], lo, hi, sInputs[j], d)
+				contains = false
+				break
+			}
+		}
+		if contains {
+			logger.Infof("seed %2d: window contains target", i)
+			anyContains = true
+		}
+	}
+	test.That(t, anyContains, test.ShouldBeTrue)
 }

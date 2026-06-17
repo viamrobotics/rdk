@@ -372,7 +372,8 @@ func TransformAttributeMap[T any](attributes utils.AttributeMap) (T, error) {
 		return out, err
 	}
 	if err := decoder.Decode(attributes); err != nil {
-		return out, err
+		// strip \n\n from mapstructure library's Decoder.Decode
+		return out, fmt.Errorf("%s", strings.ReplaceAll(err.Error(), "\n\n", " "))
 	}
 	if attributes.Has("attributes") || len(md.Unused) == 0 {
 		return out, nil

@@ -81,15 +81,16 @@ Generator::Generator(GeneratorCompDB db,
       resourcePath_(std::move(resourcePath)),
       headerOut_(std::move(headerOut)),
       srcOut_(std::move(srcOut)) {
-    if (llvm::StringRef(resourceSubtypeSnake_).startswith("generic_")) {
-        resourceSubtypeSnake_ = "generic";
+    if (resourceSubtypeSnake_ == "generic") {
+        resourceSubtypePascal_ +=
+            (resourceType_ == ResourceType::component) ? "Component" : "Service";
     }
 }
 
 void Generator::header_prefix() {
     include_stmts();
 
-    *headerOut_ << llvm::formatv("namespace {0} {\n\n", fmt_str::moduleName);
+    *headerOut_ << llvm::formatv("namespace {0} {\n\n", fmt_str::moduleSnake);
 
     const char* fmt =
         R"--(
@@ -114,19 +115,24 @@ namespace {1} {
 
 )--",
                               fmt_str::modelSnake,
-                              fmt_str::moduleName);
+                              fmt_str::moduleSnake);
 
     const char* ctorFmt = R"--(
 {0}::{0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg)
     : {1}(cfg.name()) {{
-    throw std::runtime_error("constructor not implemented");
+    // TODO: initialize your resource here.
+    // `deps` provides access to other resources this component depends on.
+    // `cfg` contains the resource configuration from the robot config.
 }
 
 )--";
     *srcOut_ << llvm::formatv(ctorFmt, fmt_str::modelPascal, resourceSubtypePascal_)
              << llvm::formatv(R"--(
+// validate is called by the Viam SDK before constructing the resource.
+// Return the names of any resources that must exist before this resource can be built.
+// Throw an exception if cfg contains invalid configuration.
 std::vector<std::string> {0}::validate(const viam::sdk::ResourceConfig& cfg) {{
-    throw std::runtime_error("\"validate\" not implemented");
+    return {{}};
 }
 
 )--",
@@ -317,9 +323,9 @@ void Generator::main_fn(llvm::raw_ostream& moduleFile) {
     VIAM_SDK_LOG(info) << "Starting up {1} module";
 
     viam::sdk::Model model("{0}", "{1}", "{2}");)--",
-                                fmt_str::orgID,
+                                fmt_str::ns,
                                 fmt_str::moduleName,
-                                fmt_str::modelSnake)
+                                fmt_str::modelName)
                << "\n\n"
                << llvm::formatv(
                       R"--(
@@ -332,7 +338,7 @@ void Generator::main_fn(llvm::raw_ostream& moduleFile) {
         &{1}::validate);
 )--",
                       fmt_str::resourceSubtypePascal,
-                      fmt_str::moduleName + llvm::Twine("::") + fmt_str::modelPascal)
+                      fmt_str::moduleSnake + llvm::Twine("::") + fmt_str::modelPascal)
                << "\n\n"
                <<
         R"--(
@@ -468,7 +474,7 @@ void Generator::run() {
 
     *headerOut_ << "};\n\n";
 
-    const auto close_ns = llvm::formatv("} // namespace {0}\n\n", fmt_str::moduleName);
+    const auto close_ns = llvm::formatv("} // namespace {0}\n\n", fmt_str::moduleSnake);
 
     *headerOut_ << close_ns;
     *srcOut_ << close_ns;

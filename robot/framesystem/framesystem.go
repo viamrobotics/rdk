@@ -210,7 +210,6 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		components[name.Name] = r
 	}
 	svc.components = components
-	svc.logger.Info("Reconfigured. Known components:", components)
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

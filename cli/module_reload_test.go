@@ -190,6 +190,49 @@ func TestFullReloadFlow(t *testing.T) {
 				"name": "existing-shell",
 			})
 		})
+
+		t.Run("detectsShellServiceFromFragment", func(t *testing.T) {
+			confWithFragment, err := structpb.NewStruct(map[string]any{
+				"modules":   []any{},
+				"services":  []any{},
+				"fragments": []any{map[string]any{"id": "frag-with-shell"}},
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			fragmentBody, err := structpb.NewStruct(map[string]any{
+				"services": []any{map[string]any{
+					"name": "fragment-shell",
+					"api":  "rdk:service:shell",
+				}},
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			mockClient := mockAppServiceClientWithRobotPart(confWithFragment, nil)
+			mockClient.GetFragmentFunc = func(ctx context.Context, in *apppb.GetFragmentRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentResponse, error) {
+				test.That(t, in.Id, test.ShouldEqual, "frag-with-shell")
+				return &apppb.GetFragmentResponse{Fragment: &apppb.Fragment{
+					Id:       in.Id,
+					Fragment: fragmentBody,
+				}}, nil
+			}
+
+			cCtx2, vc2, _, _ := setup(
+				mockClient,
+				nil,
+				&inject.BuildServiceClient{},
+				map[string]any{moduleFlagPath: manifestPath},
+				"token",
+			)
+
+			part, _ := vc2.getRobotPart(context.Background(), "id")
+			added, err := addShellService(context.Background(), cCtx2, vc2, logging.NewTestLogger(t), part.Part, false)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, added, test.ShouldBeFalse)
+			services, _ := part.Part.RobotConfig.AsMap()["services"].([]any)
+			test.That(t, len(services), test.ShouldEqual, 0)
+		})
 	})
 
 	t.Run("versionCheck", func(t *testing.T) {
@@ -336,6 +379,7 @@ func TestResolvePartId(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fi.Close(), test.ShouldBeNil)
 	partID, err = resolvePartID(c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "JSON-PART")
@@ -354,9 +398,11 @@ func TestMutateModuleConfig(t *testing.T) {
 		JSONManifest: rdkConfig.JSONManifest{Entrypoint: "/bin/mod"},
 		Build:        &manifestBuildInfo{Path: "module.tar.gz"},
 	}
-	expectedName := "viam-labs_test-module_from_reload"
+	expectedName := "viam-labs_test-module"
 	expectedVersion := "latest-with-prerelease"
-	remoteReloadPath := ".viam/packages-local/viam-labs_test-module_from_reload-module.tar.gz"
+	expectedEntrypoint, err := filepath.Abs(manifest.Entrypoint)
+	test.That(t, err, test.ShouldBeNil)
+	remoteReloadPath := filepath.Join(".viam", "packages-local", "viam-labs_test-module-module.tar.gz")
 	testUser := "test@viam.com"
 	testReloadUnixTS := time.Date(2024, 3, 18, 12, 0, 0, 0, time.UTC).Unix()
 
@@ -405,7 +451,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, needsRestart, test.ShouldBeFalse)
-		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedEntrypoint)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["reload_user"], test.ShouldEqual, testUser)
 		test.That(t, modules[0]["reload_time"], test.ShouldNotBeEmpty)
@@ -421,7 +467,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, needsRestart, test.ShouldBeFalse)
-		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedEntrypoint)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["reload_user"], test.ShouldEqual, testUser)
 		test.That(t, modules[0]["reload_time"], test.ShouldNotBeEmpty)
@@ -432,7 +478,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		modules, _, _, _ = mutateModuleConfig(c, modules, manifest, true, false, testUser, "", testReloadUnixTS)
 		test.That(t, modules[0]["module_id"], test.ShouldEqual, manifest.ModuleID)
 		test.That(t, modules[0]["name"], test.ShouldEqual, expectedName)
-		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedEntrypoint)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
 		test.That(t, modules[0]["reload_user"], test.ShouldEqual, testUser)
@@ -447,7 +493,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		}}
 		updatedModules, _, _, _ := mutateModuleConfig(c, modules, manifest, true, false, testUser, "", testReloadUnixTS)
 		test.That(t, len(updatedModules), test.ShouldEqual, 2)
-		test.That(t, updatedModules[1]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, updatedModules[1]["reload_path"], test.ShouldEqual, expectedEntrypoint)
 		test.That(t, updatedModules[1]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, updatedModules[1]["version"], test.ShouldEqual, expectedVersion)
 		test.That(t, updatedModules[1]["reload_user"], test.ShouldEqual, testUser)

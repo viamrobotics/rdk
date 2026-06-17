@@ -3,9 +3,10 @@ package powersensor
 
 // Exported variables for testing collectors, see unexported collectors for implementation details.
 var (
-	NewVoltageCollector   = newVoltageCollector
-	NewCurrentCollector   = newCurrentCollector
-	NewPowerCollector     = newPowerCollector
-	NewReadingsCollector  = newReadingsCollector
-	NewDoCommandCollector = newDoCommandCollector
+	NewVoltageCollector      = newVoltageCollector
+	NewCurrentCollector      = newCurrentCollector
+	NewPowerCollector        = newPowerCollector
+	NewReadingsCollector     = newReadingsCollector
+	NewDoCommandCollector    = newDoCommandCollector
+	NewGetWorldPoseCollector = newGetWorldPoseCollector
 )

@@ -31,6 +31,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/armplanning/mpserver"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -49,6 +50,7 @@ func realMain() error {
 	ctx := context.Background()
 	logger, reg := logging.NewLoggerWithRegistry("cmd-plan")
 
+	runMotionPlanServer := flag.Bool("mp", false, "run the motion planning server. does not take a file as input.")
 	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
 	seed := flag.Int("seed", -1, "")
@@ -61,8 +63,13 @@ func realMain() error {
 	waypointsFile := flag.String("output-waypoints", "", "json file to output waypoints")
 	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
 	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
+	quiet := flag.Bool("quiet", false, "quiet")
 
 	flag.Parse()
+
+	if *runMotionPlanServer {
+		return mpserver.RunServer()
+	}
 
 	if len(flag.Args()) == 0 {
 		return fmt.Errorf("need a json file")
@@ -117,7 +124,7 @@ func realMain() error {
 	}
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
-	req, err := armplanning.ReadRequestFromFile(flag.Arg(0))
+	req, origPlan, err := armplanning.ReadRequestAndResponseFromFile(flag.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -152,7 +159,12 @@ func realMain() error {
 	trace.SetProvider(ctx, sdktrace.WithResource(otelresource.Empty()))
 	trace.AddExporters(spansExporter)
 
-	plan, meta, err := armplanning.PlanMotion(ctx, logger, req)
+	mpLogger := logger
+	if *quiet {
+		// Suppress logs by using a logger that has no appenders to output to.
+		mpLogger = logging.NewBlankLogger("mp")
+	}
+	plan, meta, err := armplanning.PlanMotion(ctx, mpLogger, req)
 	if err := trace.Shutdown(ctx); err != nil {
 		logger.Errorw("Got error while shutting down tracing", "err", err)
 	}
@@ -176,7 +188,7 @@ func realMain() error {
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
-		_, _, err := armplanning.PlanMotion(ctx, logger, req)
+		_, _, err := armplanning.PlanMotion(ctx, mpLogger, req)
 		if err != nil {
 			return err
 		}
@@ -223,6 +235,10 @@ func realMain() error {
 	totalCartesion := 0.0
 	totalL2 := 0.0
 
+	if origPlan != nil {
+		mylog.Printf("Original plan length: %v Current plan length: %v\n",
+			len(origPlan.Trajectory()), len(plan.Trajectory()))
+	}
 	for idx, p := range plan.Path() {
 		mylog.Printf("step %d", idx)
 

@@ -15,9 +15,6 @@ const (
 	hotStoreCollectionType     = pb.IndexableCollection_INDEXABLE_COLLECTION_HOT_STORE
 	pipelineSinkCollectionType = pb.IndexableCollection_INDEXABLE_COLLECTION_PIPELINE_SINK
 	unspecifiedCollectionType  = pb.IndexableCollection_INDEXABLE_COLLECTION_UNSPECIFIED
-
-	hotStoreCollectionTypeStr     = "hot-storage"
-	pipelineSinkCollectionTypeStr = "pipeline-sink"
 )
 
 var (
@@ -30,7 +27,7 @@ type createCustomIndexArgs struct {
 	OrgID          string
 	CollectionType string
 	PipelineName   string
-	IndexSpecPath  string
+	IndexPath      string
 }
 
 // CreateCustomIndexAction creates a custom index for a specified organization and collection type
@@ -49,7 +46,7 @@ func CreateCustomIndexAction(ctx context.Context, cmd *cli.Command, args createC
 		return err
 	}
 
-	indexSpec, err := readJSONToByteSlices(args.IndexSpecPath)
+	indexSpec, err := readJSONToByteSlices(args.IndexPath)
 	if err != nil {
 		return fmt.Errorf("failed to read index spec from file: %w", err)
 	}
@@ -153,9 +150,9 @@ func ListCustomIndexesAction(ctx context.Context, cmd *cli.Command, args listCus
 func validateCollectionTypeArgs(cmd *cli.Command, collectionType string) (pb.IndexableCollection, error) {
 	var collectionTypeProto pb.IndexableCollection
 	switch collectionType {
-	case hotStoreCollectionTypeStr:
+	case hotStorageDataSourceType:
 		collectionTypeProto = hotStoreCollectionType
-	case pipelineSinkCollectionTypeStr:
+	case pipelineSinkDataSourceType:
 		collectionTypeProto = pipelineSinkCollectionType
 	default:
 		return unspecifiedCollectionType, errInvalidCollectionType
@@ -164,11 +161,11 @@ func validateCollectionTypeArgs(cmd *cli.Command, collectionType string) (pb.Ind
 	collectionTypeFlag := cmd.String(dataFlagCollectionType)
 	pipelineName := cmd.String(dataFlagPipelineName)
 
-	if collectionTypeFlag == pipelineSinkCollectionTypeStr && pipelineName == "" {
+	if collectionTypeFlag == pipelineSinkDataSourceType && pipelineName == "" {
 		return unspecifiedCollectionType, errPipelineNameRequired
 	}
 
-	if collectionTypeFlag != pipelineSinkCollectionTypeStr && pipelineName != "" {
+	if collectionTypeFlag != pipelineSinkDataSourceType && pipelineName != "" {
 		return unspecifiedCollectionType, errPipelineNameNotAllowed
 	}
 

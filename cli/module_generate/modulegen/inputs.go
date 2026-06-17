@@ -28,6 +28,7 @@ type ModuleInputs struct {
 	ModulePascal          string `json:"-"`
 	ModuleCamel           string `json:"-"`
 	ModuleLowercase       string `json:"-"`
+	ModuleSnake           string `json:"-"`
 	API                   string `json:"-"`
 	ResourceSubtypePascal string `json:"-"`
 	ResourceSubtypeAlias  string `json:"-"`
@@ -82,11 +83,13 @@ var ExcludedResources = []string{
 
 // GoModuleTmpl contains necessary information to fill out the go method stubs.
 type GoModuleTmpl struct {
-	Module    ModuleInputs
-	ModelType string
-	ObjName   string
-	Imports   string
-	Functions string
+	Module            ModuleInputs
+	ModelType         string
+	ConfigType        string // "Config" for the initial model, "<ModelPascal>Config" for additional models
+	IsAdditionalModel bool
+	ObjName           string
+	Imports           string
+	Functions         string
 }
 
 // CppRenderedFiles holds the rendered output for each C++ file produced during module generation.

@@ -28,7 +28,10 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -38,6 +41,7 @@ import (
 	robotconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/shell"
 	_ "go.viam.com/rdk/services/shell/register"
@@ -219,6 +223,12 @@ func setupWithRunningPart(
 	ac.conf.BaseURL = fmt.Sprintf("http://%s", addr)
 	ac.baseURL, _, err = utils.ParseBaseURL(ac.conf.BaseURL, false)
 	test.That(t, err, test.ShouldBeNil)
+
+	ac.dialOverride = func(ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger) (*client.RobotClient, error) {
+		return client.New(ctx, addr, logger,
+			client.WithDialOptions(append(rpcOpts, rpc.WithForceDirectGRPC())...),
+		)
+	}
 
 	t.Cleanup(func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -635,7 +645,7 @@ func TestDataExportTabularAction(t *testing.T) {
 		// Test that the data.ndjson file was removed.
 		filePath := utils.ResolveFile(dataFileName)
 		_, err = os.ReadFile(filePath)
-		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))
+		test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
 	})
 }
 
@@ -975,6 +985,9 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 }
 
 func TestShellFileCopy(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-11617")
+	}
 	logger := logging.NewTestLogger(t)
 
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
@@ -1610,26 +1623,30 @@ func TestTunnelE2ECLI(t *testing.T) {
 	// CLI. It is mostly identical to `TestTunnelE2E` in web/server/entrypoint_test.go.
 	// The tunnel is:
 	//
-	// test-process <-> cli-listener(localhost:23659) <-> machine(localhost:23658) <-> dest-listener(localhost:23657)
+	// test-process <-> source-listener <-> machine <-> dest-listener
+	//
+	// Ports are reserved dynamically.
 
 	tunnelMsg := "Hello, World!"
-	destPort := 23657
-	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("localhost", "23658")
-	sourcePort := 23657
-	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
 
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
-	var wg sync.WaitGroup
-
-	// Start "destination" listener.
-	destListener, err := net.Listen("tcp", destListenerAddr)
+	destPort, destListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
+	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
 	defer func() {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
 	}()
+
+	machinePort, err := goutils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	machineAddr := net.JoinHostPort("localhost", strconv.Itoa(machinePort))
+
+	sourcePort, err := goutils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
+
+	logger := logging.NewTestLogger(t)
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
@@ -1663,6 +1680,11 @@ func TestTunnelE2ECLI(t *testing.T) {
 		// Create a temporary config file.
 		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 		test.That(t, err, test.ShouldBeNil)
+		// we only use the filename, not the file handle in this test. Close immediately, instead of relying on GC.
+		// On Windows we otherwise may get:
+		// "The process cannot access the file because it is being used by another process."
+		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+
 		cfg := &robotconfig.Config{
 			Network: robotconfig.NetworkConfig{
 				NetworkConfigData: robotconfig.NetworkConfigData{
@@ -1680,7 +1702,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
 
 		args := []string{"viam-server", "-config", tempConfigFile.Name()}
-		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
+		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
 	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
@@ -1690,19 +1712,24 @@ func TestTunnelE2ECLI(t *testing.T) {
 	cCtx, _, _, _ := setup(nil, nil, nil, nil, "token")
 
 	// error early if tunnel not listed
-	err = tunnelTraffic(context.Background(), cCtx, rc, sourcePort, 1)
+	err = tunnelTraffic(ctx, cCtx, rc, sourcePort, 1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not allowed")
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		tunnelTraffic(context.Background(), cCtx, rc, sourcePort, destPort)
+		tunnelTraffic(ctx, cCtx, rc, sourcePort, destPort)
 	}()
 
-	// Write `tunnelMsg` to CLI tunneler over TCP from this test process.
-	conn, err := net.Dial("tcp", sourceListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
+	// Write `tunnelMsg` to CLI tunneler over TCP from this test process. Retry until
+	// tunnelTraffic's listener is bound.
+	var conn net.Conn
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		var dialErr error
+		conn, dialErr = net.Dial("tcp", sourceListenerAddr)
+		test.That(tb, dialErr, test.ShouldBeNil)
+	})
 	defer func() {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
@@ -1717,9 +1744,9 @@ func TestTunnelE2ECLI(t *testing.T) {
 	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
 
-	// Cancel `runServerCtx` once message has made it all the way across and has been
-	// echoed back. This should stop the `RunServer` goroutine.
-	runServerCtxCancel()
+	// Cancel test's context once message has made it all the way across and has been echoed
+	// back. This should stop the `RunServer` goroutine and the tunnel itself.
+	ctxCancel()
 
 	wg.Wait()
 }

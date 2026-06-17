@@ -303,9 +303,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			}
 		}
 
-		if nodeAlreadyExists {
-			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
-		} else {
+		if !nodeAlreadyExists {
 			// Check for a full resource name collision and log an error if there is one.
 			prefixedSimpleName := prefix + resName.Name
 			_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
@@ -328,6 +326,18 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				resLogger.CErrorw(ctx, "failed to add remote resource node", "error", err)
 			}
 		}
+
+		// Call SwapResource to always advance the graph's logical clock.
+		//   - New resource: AddNode above created the node and wired it to the shared logical
+		//     clock, but did not advance the clock. The SwapResource inside
+		//     NewConfiguredGraphNodeWithPrefix ran while the node's clock pointer was still nil,
+		//     so its bump was a no-op.
+		//   - Existing resource: we skipped the block above, so this just swaps in the refreshed
+		//     client and advances the clock.
+		//
+		// The clock advance is what lets a local resource with a weak/optional dependency on this
+		// remote resource be detected as stale by updateWeakAndOptionalDependents.
+		gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 
 		err = manager.resources.AddChild(resName, remoteName)
 		if err != nil {
@@ -361,6 +371,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				"reason", err)
 			continue
 		}
+		// MarkForRemoval bumps the graph's logical clock and transitions the node to
+		// Removing, so any local resource with a weak/optional dependency on this
+		// dropped remote resource is detected as stale by updateWeakAndOptionalDependents
+		// on the next pass. Close then clears `current` and shuts down the gRPC client.
+		gNode.MarkForRemoval()
 		if err := gNode.Close(ctx); err != nil {
 			resLogger.CErrorw(ctx,
 				"failed to close remote resource node",
@@ -1105,7 +1120,7 @@ func (manager *resourceManager) processResource(
 	}
 
 	resName := conf.ResourceName()
-	deps, err := lr.getDependencies(resName, gNode)
+	deps, weakOptionalSnapshot, err := lr.getDependenciesWithWeakOptionalSnapshot(resName, gNode)
 	if err != nil {
 		manager.logger.CDebugw(ctx,
 			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
@@ -1122,11 +1137,15 @@ func (manager *resourceManager) processResource(
 			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
 				return nil, false, err
 			}
+			// For modular resources, `currentRes` is a client object. Call reconfigure to clear caches.
+			goutils.UncheckedError(currentRes.Reconfigure(ctx, deps, conf))
+			gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
 			return currentRes, false, nil
 		}
 
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
+			gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
 			return currentRes, false, nil
 		}
 

@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -53,8 +54,9 @@ var metadataToAdditionalParamFields = map[string]string{
 // - Reconfigure (any number of times)
 // - Close (any number of times).
 type Capture struct {
-	logger logging.Logger
-	clk    clock.Clock
+	logger      logging.Logger
+	clk         clock.Clock
+	frameSystem framesystem.Service
 
 	collectorsMu sync.Mutex
 	collectors   collectors
@@ -68,6 +70,16 @@ type Capture struct {
 	// defaultCollectorConfigs are the default as specified in the machine config.
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
+
+	// resourcesByShortName keeps track of every weak-dep resource by short name, so the capture
+	// control sensor can auto enable capture for resources that do not have it specified in the machine config.
+	resourcesByShortName map[string]resource.Resource
+
+	// defaultTags is the service-level tags from the data manager service config.
+	defaultTags []string
+
+	// openSequences holds in-flight sequences emitted by the capture control sensor.
+	openSequences map[openSequenceKey]*OpenSequence
 }
 
 type captureMongo struct {
@@ -100,9 +112,10 @@ func New(
 	logger logging.Logger,
 ) *Capture {
 	return &Capture{
-		clk:        clock,
-		logger:     logger,
-		collectors: collectors{},
+		clk:           clock,
+		logger:        logger,
+		collectors:    collectors{},
+		openSequences: map[openSequenceKey]*OpenSequence{},
 	}
 }
 
@@ -130,8 +143,9 @@ func (c *Capture) newCollectors(
 				continue
 			}
 
-			if cfg.CaptureFrequencyHz <= 0 {
-				c.logger.Warnf("collector disabled due to config `capture_frequency_hz` being less than or equal to zero. collector: %s", md)
+			if cfg.CaptureFrequencyHz <= 0 || data.GetDurationFromHz(cfg.CaptureFrequencyHz) <= 0 {
+				c.logger.Warnf("collector disabled due to capture_frequency_hz %f being too close to or less than zero; collector: %s",
+					cfg.CaptureFrequencyHz, md)
 				continue
 			}
 
@@ -141,7 +155,9 @@ func (c *Capture) newCollectors(
 					"error", err, "resource_name", res.Name(), "metadata", md, "data capture config", format(cfg))
 				continue
 			}
-			newCollectors[md] = newCollectorAndConfig
+			if newCollectorAndConfig != nil {
+				newCollectors[md] = newCollectorAndConfig
+			}
 		}
 	}
 	return newCollectors
@@ -210,11 +226,17 @@ func (c *Capture) mongoReconfigure(ctx context.Context, newConfig *MongoConfig) 
 // It is only called by the builtin data manager.
 func (c *Capture) Reconfigure(
 	ctx context.Context,
+	frameSystem framesystem.Service,
 	collectorConfigsByResource CollectorConfigsByResource,
+	resourcesByShortName map[string]resource.Resource,
 	config Config,
 ) {
 	c.logger.Debug("Reconfigure START")
 	defer c.logger.Debug("Reconfigure END")
+
+	// The frame system is required for any collectors that capture data via the frame system, so we set it on the Capture struct.
+	c.frameSystem = frameSystem
+
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if config.CaptureDisabled {
 		c.logger.Info("Capture Disabled")
@@ -243,12 +265,15 @@ func (c *Capture) Reconfigure(
 	c.collectors = newCollectors
 	c.collectorsMu.Unlock()
 	c.defaultCollectorConfigs = collectorConfigsByResource
+	c.resourcesByShortName = resourcesByShortName
+	c.defaultTags = config.Tags
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }
 
 // Close closes the capture manager.
 func (c *Capture) Close(ctx context.Context) {
+	c.flushOpenSequences()
 	c.FlushCollectors()
 	c.closeCollectors()
 	c.mongoMU.Lock()
@@ -321,6 +346,13 @@ func (c *Capture) buildCollector(
 	maxCaptureFileSize int64,
 	collection *mongo.Collection,
 ) (*collectorAndConfig, error) {
+	interval := data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz)
+	if interval <= 0 {
+		c.logger.Warnf("collector disabled due to capture_frequency_hz %f being too close to or less than zero; collector: %s",
+			collectorConfig.CaptureFrequencyHz, md)
+		return nil, nil
+	}
+
 	// TODO(DATA-451): validate method params
 	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
 	if err != nil {
@@ -355,8 +387,9 @@ func (c *Capture) buildCollector(
 		DataType:        dataType,
 		ComponentName:   collectorConfig.Name.ShortName(),
 		ComponentType:   collectorConfig.Name.API.String(),
+		FrameSystem:     c.frameSystem,
 		MethodName:      collectorConfig.Method,
-		Interval:        data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
+		Interval:        interval,
 		MethodParams:    methodParams,
 		Target:          data.NewCaptureBuffer(targetDir, captureMetadata, maxCaptureFileSize),
 		// Set queue size to defaultCaptureQueueSize if it was not set in the config.

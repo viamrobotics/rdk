@@ -152,3 +152,12 @@ func convertStringToAny(str string) *anypb.Any {
 
 	return anyValue
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       board.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newBoard() },
+	})
+}

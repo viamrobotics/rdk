@@ -2,6 +2,7 @@ import ast
 import os
 import subprocess
 import sys
+import tempfile
 from importlib import import_module
 from typing import List, Set, Union
 
@@ -266,22 +267,14 @@ class {3}({4}, EasyResource):
         "\n\n".join([subclass for subclass in subclasses]),
         "\n\n".join([f"{method}" for method in abstract_methods]),
     )
-    f_name = os.path.join(mod_name, "src", "models", "resource.py")
-    with open(f_name, "w+") as f:
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".py", delete=False) as f:
+        f_name = f.name
         f.write(resource_file)
+    try:
         try:
-            f.seek(0)
             subprocess.check_call(
-                [
-                    sys.executable,
-                    "-m",
-                    "ruff",
-                    "format",
-                    "--quiet",
-                    f_name,
-                ]
+                [sys.executable, "-m", "ruff", "format", "--quiet", f_name]
             )
-            f.seek(0)
             subprocess.check_call(
                 [
                     sys.executable,
@@ -296,11 +289,12 @@ class {3}({4}, EasyResource):
                     f_name,
                 ]
             )
-            f.seek(0)
-            resource_file = f.read()
+            with open(f_name, "r") as f:
+                resource_file = f.read()
         except subprocess.CalledProcessError:
             pass
-    os.remove(f_name)
+    finally:
+        os.remove(f_name)
     return resource_file
 
 

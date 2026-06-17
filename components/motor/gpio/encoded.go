@@ -233,7 +233,8 @@ func (m *EncodedMotor) calcNewPowerPct(
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.opMgr.CancelRunning(ctx)
+	ctx, finish := m.opMgr.New(ctx)
+	defer finish()
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()
 	}
@@ -438,10 +439,12 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops makeAdjustments and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	_, finish := m.opMgr.New(ctx)
+	defer finish()
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()
 	}
-	return m.real.Stop(ctx, nil)
+	return m.real.Stop(context.Background(), nil)
 }
 
 // Close cleanly shuts down the motor.

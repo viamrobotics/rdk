@@ -446,9 +446,15 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 		Time:       time.Now(),
 		LoggerName: log.LoggerName,
 		Message:    log.Message,
-		// `Caller` is already encoded in `Message` above
 		// `Stack` is not included
 	}
+
+	// Initially, `Caller` was encoded in the `log.Message`. We have since started preserving the
+	// structure.
+	if log.Caller != nil {
+		zEntry.Caller = logging.CallerFromProto(log.Caller)
+	}
+
 	fields := make([]zapcore.Field, 0, len(log.Fields)*2)
 	for _, fieldP := range log.Fields {
 		field, err := logging.FieldFromProto(fieldP)

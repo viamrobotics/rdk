@@ -34,3 +34,12 @@ func newGripper() gripper.Gripper {
 	}
 	return g
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       gripper.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newGripper() },
+	})
+}

@@ -104,6 +104,10 @@ func (pc *PoseCloud) PoseInCloud(goalPose, candidatePose spatialmath.Pose) bool 
 		return false
 	}
 
+	if math.Abs(betweenOrientation.Theta) > pc.Theta+defaultEpsilon {
+		return false
+	}
+
 	return true
 }
 
@@ -124,5 +128,22 @@ func (pc *PoseCloud) ToProto() *commonpb.PoseCloud {
 		OY:    pc.OY,
 		OZ:    pc.OZ,
 		Theta: pc.Theta,
+	}
+}
+
+// PoseCloudFromProto constructs a PoseCloud from its proto representation, or returns nil if the
+// proto is nil.
+func PoseCloudFromProto(proto *commonpb.PoseCloud) *PoseCloud {
+	if proto == nil {
+		return nil
+	}
+	return &PoseCloud{
+		X:     proto.X,
+		Y:     proto.Y,
+		Z:     proto.Z,
+		OX:    proto.OX,
+		OY:    proto.OY,
+		OZ:    proto.OZ,
+		Theta: proto.Theta,
 	}
 }

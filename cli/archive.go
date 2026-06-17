@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"go.viam.com/utils"
@@ -103,6 +104,11 @@ func addToArchive(tw *tar.Writer, filename string) error {
 	//   the file it describes, it may be necessary to modify Header.Name
 	//   to provide the full path name of the file.
 	header.Name = filename
+
+	// File needs to be marked as executable to validate module
+	if runtime.GOOS == osWindows {
+		header.Mode |= 0o111
+	}
 
 	err = tw.WriteHeader(header)
 	if err != nil {

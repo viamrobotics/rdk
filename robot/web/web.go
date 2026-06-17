@@ -597,7 +597,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		ExternalSignalingAddress:  options.SignalingAddress,
 		ExternalSignalingHosts:    hosts.External,
 		InternalSignalingHosts:    hosts.Internal,
-		Config:                    &grpc.DefaultWebRTCConfiguration,
 	}
 	if options.DisallowWebRTC {
 		webrtcOptions = rpc.WebRTCServerOptions{
