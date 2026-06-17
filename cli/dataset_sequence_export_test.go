@@ -2,9 +2,12 @@ package cli
 
 import (
 	"context"
+	"io"
 	"net"
 	"testing"
+	"time"
 
+	"github.com/urfave/cli/v3"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -74,4 +77,64 @@ func TestDatasetDownload_DispatchesToSequenceFlow(t *testing.T) {
 	dsType, err := c.lookupDatasetType(context.Background(), "ds-1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dsType, test.ShouldEqual, datasetpb.DatasetType_DATASET_TYPE_SEQUENCE_DATA)
+}
+
+func TestDownloadSequenceDataset_PollsUntilCompleted(t *testing.T) {
+	fake := &fakeDatasetServer{
+		startResponse: &datasetpb.StartSequenceDatasetExportResponse{JobId: "job-1"},
+		getResponses: []*datasetpb.GetSequenceDatasetExportResponse{
+			{Status: datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_RUNNING},
+			{Status: datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_RUNNING},
+			{
+				Status:      datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_COMPLETED,
+				DownloadUrl: "http://placeholder/will-be-tested-in-task-4",
+			},
+		},
+	}
+	client, shutdown := startMockDatasetServer(t, fake)
+	defer shutdown()
+
+	c := &viamClient{datasetClient: client, c: noopCLICtx(t)}
+	// Use a tiny pollInterval so the test runs fast.
+	_, err := c.pollUntilTerminal(context.Background(), "job-1", 10*time.Millisecond, time.Second)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fake.getCallCount, test.ShouldEqual, 2) // 0,1,2 = three polls; getCallCount stops incrementing at len-1
+}
+
+func TestDownloadSequenceDataset_SurfacesFailedStatus(t *testing.T) {
+	fake := &fakeDatasetServer{
+		getResponses: []*datasetpb.GetSequenceDatasetExportResponse{
+			{
+				Status:       datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_FAILED,
+				ErrorMessage: "query timed out",
+			},
+		},
+	}
+	client, shutdown := startMockDatasetServer(t, fake)
+	defer shutdown()
+
+	c := &viamClient{datasetClient: client, c: noopCLICtx(t)}
+	_, err := c.pollUntilTerminal(context.Background(), "job-1", 10*time.Millisecond, time.Second)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "query timed out")
+}
+
+func TestDownloadSequenceDataset_TimesOutAfterMaxWait(t *testing.T) {
+	fake := &fakeDatasetServer{
+		getResponses: []*datasetpb.GetSequenceDatasetExportResponse{
+			{Status: datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_RUNNING},
+		},
+	}
+	client, shutdown := startMockDatasetServer(t, fake)
+	defer shutdown()
+
+	c := &viamClient{datasetClient: client, c: noopCLICtx(t)}
+	_, err := c.pollUntilTerminal(context.Background(), "job-1", 10*time.Millisecond, 50*time.Millisecond)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "timed out")
+}
+
+func noopCLICtx(t *testing.T) *cli.Command {
+	t.Helper()
+	return &cli.Command{Writer: io.Discard, ErrWriter: io.Discard}
 }
