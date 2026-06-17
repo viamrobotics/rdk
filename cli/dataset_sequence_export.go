@@ -15,10 +15,14 @@ import (
 
 // downloadSequenceDataset starts an async Parquet export of a sequence
 // dataset, polls until it completes, and streams the resulting zip to
-// dst/<datasetID>.zip. dst must already exist on disk.
+// dst/<datasetID>.zip. dst is created if it does not exist.
 func (c *viamClient) downloadSequenceDataset(
 	ctx context.Context, datasetID, dst string, pollInterval, maxWait time.Duration,
 ) error {
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return errors.Wrapf(err, "could not create destination directory %s", dst)
+	}
+
 	printf(c.c.Root().Writer, "Starting export for dataset %s", datasetID)
 	startResp, err := c.datasetClient.StartSequenceDatasetExport(
 		ctx, &datasetpb.StartSequenceDatasetExportRequest{DatasetId: datasetID},
@@ -35,9 +39,6 @@ func (c *viamClient) downloadSequenceDataset(
 	}
 
 	dstPath := filepath.Join(dst, datasetID+".zip")
-	if err := os.MkdirAll(dst, 0o755); err != nil {
-		return errors.Wrapf(err, "could not create destination directory %s", dst)
-	}
 	if err := downloadSignedURL(ctx, getResp.GetDownloadUrl(), dstPath); err != nil {
 		return err
 	}

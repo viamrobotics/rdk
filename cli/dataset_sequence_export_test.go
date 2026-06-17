@@ -15,6 +15,7 @@ import (
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // startMockDatasetServer spins up an in-process gRPC server hosting the given
@@ -27,7 +28,7 @@ func startMockDatasetServer(t *testing.T, srv datasetpb.DatasetServiceServer) (d
 	gs := grpc.NewServer()
 	datasetpb.RegisterDatasetServiceServer(gs, srv)
 	go func() { _ = gs.Serve(lis) }()
-	conn, err := grpc.Dial(lis.Addr().String(), grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	test.That(t, err, test.ShouldBeNil)
 	client := datasetpb.NewDatasetServiceClient(conn)
 	return client, func() {
@@ -189,7 +190,7 @@ func TestDownloadSequenceDataset_SurfacesHTTPError(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "403")
 }
 
-func TestDatasetDownloadAction_SequenceFlowUsesFlagValues(t *testing.T) {
+func TestDatasetDownloadAction_EndToEndSequenceFlow(t *testing.T) {
 	zipBody := []byte("PK\x03\x04 e2e")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(zipBody)
