@@ -600,8 +600,12 @@ func (c *viamClient) dataQueryBinaryAction(ctx context.Context, args dataQueryBi
 	}
 
 	bw := bufio.NewWriter(out)
+	pageLimit := uint64(maxLimit)
+	if args.Limit > 0 {
+		pageLimit = uint64(min(args.Limit, maxLimit))
+	}
 	var written uint
-	err := forEachBinaryDataByFilter(ctx, c.dataClient, filter, maxLimit,
+	err := forEachBinaryDataByFilter(ctx, c.dataClient, filter, pageLimit,
 		func(bd *datapb.BinaryData) (bool, error) {
 			jsonRow, err := protojson.Marshal(bd.GetMetadata())
 			if err != nil {

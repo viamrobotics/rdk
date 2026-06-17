@@ -346,7 +346,7 @@ func TestDataQueryBinaryAction(t *testing.T) {
 		_, ac, _, _ := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
 		err := ac.dataQueryBinaryAction(context.Background(), dataQueryBinaryArgs{Limit: 1}, &datapb.Filter{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capturedReq.GetDataRequest().GetLimit(), test.ShouldEqual, uint64(maxLimit))
+		test.That(t, capturedReq.GetDataRequest().GetLimit(), test.ShouldEqual, uint64(1))
 		test.That(t, calls, test.ShouldEqual, 1)
 	})
 }
