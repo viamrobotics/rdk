@@ -1426,94 +1426,110 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:            "query",
-					Usage:           "query tabular data from Viam cloud",
+					Usage:           "query data from Viam cloud",
 					UsageText:       createUsageText("data query", nil, false, true),
 					HideHelpCommand: true,
 					Commands: []*cli.Command{
 						{
-							Name:      "sql",
-							Usage:     "query tabular data using SQL",
-							UsageText: createUsageText("data query sql", []string{dataFlagSQL}, true, false),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:        generalFlagOrgID,
-									Usage:       "organization ID",
-									DefaultText: "default-org value if set",
+							Name:            "tabular",
+							Usage:           "query tabular data using SQL or MQL",
+							UsageText:       createUsageText("data query tabular", nil, false, true),
+							HideHelpCommand: true,
+							Commands: []*cli.Command{
+								{
+									Name:      "sql",
+									Usage:     "query tabular data using SQL",
+									UsageText: createUsageText("data query tabular sql", []string{dataFlagSQL}, true, false),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:        generalFlagOrgID,
+											Usage:       "organization ID",
+											DefaultText: "default-org value if set",
+										},
+										&cli.StringFlag{
+											Name:     dataFlagSQL,
+											Required: true,
+											Usage:    "SQL statement to query the organization's tabular data",
+										},
+										&cli.StringFlag{
+											Name:      generalFlagDestination,
+											Usage:     "output directory for query results; prints to stdout if omitted",
+											TakesFile: true,
+										},
+									},
+									Action: createActionCommandWithT[dataQuerySQLArgs](DataQuerySQLAction),
 								},
-								&cli.StringFlag{
-									Name:     dataFlagSQL,
-									Required: true,
-									Usage:    "SQL statement to query the organization's tabular data",
-								},
-								&cli.StringFlag{
-									Name:      generalFlagDestination,
-									Usage:     "output directory for query results; prints to stdout if omitted",
-									TakesFile: true,
+								{
+									Name:  "mql",
+									Usage: "query tabular data using MQL",
+									UsageText: createUsageText("data query tabular mql",
+										nil, true, false,
+										fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+											dataFlagMQL, dataFlagMQL,
+											dataFlagMQLFile, dataFlagMQLFile),
+									),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:        generalFlagOrgID,
+											Usage:       "organization ID",
+											DefaultText: "default-org value if set",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagMQL,
+											Usage: "MQL query to query the organization's tabular data",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagMQLFile,
+											Usage: "path to a JSON file containing the MQL query",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagDataSourceType,
+											Usage: formatAcceptedValues("data source to query against", tabularDataByMQLDataSourceTypes...),
+										},
+										&cli.StringFlag{
+											Name: dataFlagPipelineID,
+											Usage: fmt.Sprintf("pipeline ID to query; one of --%s or --%s is required when --%s=%s",
+												dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
+										},
+										&cli.StringFlag{
+											Name: dataFlagPipelineName,
+											Usage: fmt.Sprintf("pipeline name to query; one of --%s or --%s is required when --%s=%s",
+												dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
+										},
+										&cli.StringFlag{
+											Name:      generalFlagDestination,
+											Usage:     "output directory for query results; prints to stdout if omitted",
+											TakesFile: true,
+										},
+									},
+									Action: createActionCommandWithT[dataQueryMQLArgs](DataQueryMQLAction),
 								},
 							},
-							Action: createActionCommandWithT[dataQuerySQLArgs](DataQuerySQLAction),
 						},
 						{
-							Name:  "mql",
-							Usage: "query tabular data using MQL",
-							UsageText: createUsageText("data query mql",
-								nil, true, false,
-								fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
-									dataFlagMQL, dataFlagMQL,
-									dataFlagMQLFile, dataFlagMQLFile),
-							),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:        generalFlagOrgID,
-									Usage:       "organization ID",
-									DefaultText: "default-org value if set",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagMQL,
-									Usage: "MQL query to query the organization's tabular data",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagMQLFile,
-									Usage: "path to a JSON file containing the MQL query",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagDataSourceType,
-									Usage: formatAcceptedValues("data source to query against", tabularDataByMQLDataSourceTypes...),
-								},
-								&cli.StringFlag{
-									Name: dataFlagPipelineID,
-									Usage: fmt.Sprintf("pipeline ID to query; one of --%s or --%s is required when --%s=%s",
-										dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
-								},
-								&cli.StringFlag{
-									Name: dataFlagPipelineName,
-									Usage: fmt.Sprintf("pipeline name to query; one of --%s or --%s is required when --%s=%s",
-										dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
-								},
-								&cli.StringFlag{
-									Name:      generalFlagDestination,
-									Usage:     "output directory for query results; prints to stdout if omitted",
-									TakesFile: true,
+							Name:            "binary",
+							Usage:           "query binary data",
+							UsageText:       createUsageText("data query binary", nil, false, true),
+							HideHelpCommand: true,
+							Commands: []*cli.Command{
+								{
+									Name:      "filter",
+									Usage:     "query binary data metadata using filters",
+									UsageText: createUsageText("data query binary filter", nil, true, false),
+									Flags: append([]cli.Flag{
+										&cli.StringFlag{
+											Name:      generalFlagDestination,
+											Usage:     "output directory for query results; prints to stdout if omitted",
+											TakesFile: true,
+										},
+										&cli.UintFlag{
+											Name:  dataFlagLimit,
+											Usage: "maximum number of results to return; 0 returns all matches",
+										},
+									}, commonFilterFlags...),
+									Action: createActionCommandWithT[dataQueryBinaryArgs](DataQueryBinaryAction),
 								},
 							},
-							Action: createActionCommandWithT[dataQueryMQLArgs](DataQueryMQLAction),
-						},
-						{
-							Name:      "binary",
-							Usage:     "query binary data metadata by filter",
-							UsageText: createUsageText("data query binary", nil, true, false),
-							Flags: append([]cli.Flag{
-								&cli.StringFlag{
-									Name:      generalFlagDestination,
-									Usage:     "output directory for query results; prints to stdout if omitted",
-									TakesFile: true,
-								},
-								&cli.UintFlag{
-									Name:  dataFlagLimit,
-									Usage: "maximum number of results to return; 0 returns all matches",
-								},
-							}, commonFilterFlags...),
-							Action: createActionCommandWithT[dataQueryBinaryArgs](DataQueryBinaryAction),
 						},
 					},
 				},

@@ -75,7 +75,7 @@ var (
 		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK: "Pipeline Sink",
 	}
 
-	// tabularDataByMQLDataSourceTypes is the set of data sources accepted by `data query mql`.
+	// tabularDataByMQLDataSourceTypes is the set of data sources accepted by `data query tabular mql`.
 	tabularDataByMQLDataSourceTypes = []string{standardDataSourceType, hotStorageDataSourceType, pipelineSinkDataSourceType}
 )
 
@@ -159,7 +159,7 @@ type dataQuerySQLArgs struct {
 	Destination string
 }
 
-// DataQuerySQLAction is the corresponding action for 'data query sql'.
+// DataQuerySQLAction is the corresponding action for 'data query tabular sql'.
 func DataQuerySQLAction(ctx context.Context, cmd *cli.Command, args dataQuerySQLArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
@@ -179,7 +179,7 @@ type dataQueryMQLArgs struct {
 	Destination    string
 }
 
-// DataQueryMQLAction is the corresponding action for 'data query mql'.
+// DataQueryMQLAction is the corresponding action for 'data query tabular mql'.
 func DataQueryMQLAction(ctx context.Context, cmd *cli.Command, args dataQueryMQLArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
@@ -194,7 +194,7 @@ type dataQueryBinaryArgs struct {
 	Limit       uint
 }
 
-// DataQueryBinaryAction is the corresponding action for 'data query binary'.
+// DataQueryBinaryAction is the corresponding action for 'data query binary filter'.
 func DataQueryBinaryAction(ctx context.Context, cmd *cli.Command, args dataQueryBinaryArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
