@@ -645,14 +645,6 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
-	// Find a free port for the machine to bind to. Using :0 lets the OS pick an
-	// available ephemeral port, avoiding both hard-coded port conflicts and the
-	// Windows TIME_WAIT delay that prevents immediate port reuse after close.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	test.That(t, err, test.ShouldBeNil)
-	machineAddress := listener.Addr().String()
-	listener.Close()
-
 	// Set up fake cloud server.
 	fakeServer, cleanup := configtestutils.NewFakeCloudServer(t, ctx, logger)
 	defer cleanup()
@@ -687,18 +679,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
-		NetworkConfigData: config.NetworkConfigData{
-			BindAddress: machineAddress,
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	baseConfig := &pb.RobotConfig{
 		Cloud:      cloudConfProto,
 		Modules:    []*pb.ModuleConfig{moduleProto},
 		Components: []*pb.ComponentConfig{componentProto},
-		Network:    networkProto,
 	}
 
 	// storeCloudConfig clones cfg and stores the clone in the fake cloud server.
@@ -709,10 +693,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		fakeServer.StoreDeviceConfig(deviceID, proto.Clone(cfg).(*pb.RobotConfig), &pb.CertificateResponse{})
 	}
 
-	// Store initial config with debug=false.
+	// The initial config uses debug=false. The bind address (Network) is set on
+	// baseConfig and stored in the server-startup retry loop below.
 	debugFalse := false
 	baseConfig.Debug = &debugFalse
-	storeCloudConfig(baseConfig)
 
 	// Write a minimal config file with only the cloud section. RunServer will
 	// read this, connect to the fake cloud, and fetch the full config.
@@ -725,27 +709,117 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	)
 	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
 
-	// Start RunServer in a goroutine. Use -no-tls since the fake cloud
-	// returns empty TLS certs.
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
-		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
-	}()
+	// Start the in-process viam-server (RunServer) and connect a robot client to
+	// it.
+	//
+	// RunServer reads its bind address from the (cloud) config, so there is an
+	// unavoidable window between the test choosing a free ephemeral port and the
+	// server actually binding it. Under heavy parallel test load another process
+	// can claim that port in the window, which makes RunServer fail with
+	// "address already in use". The robot client would then keep retrying to
+	// reach a server that never came up, hanging the test until the package-wide
+	// timeout fires (see RSDK-13776). To stay robust we choose the port right
+	// before launching the server (minimizing the window) and retry on a fresh
+	// port until the server is actually reachable.
+	type connectOutcome struct {
+		rc  *client.RobotClient
+		err error
+	}
 
-	// Wait for the server to be reachable and the helper module to be ready.
-	// Cloud-configured servers require authentication via location secret.
-	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second,
-		client.WithDialOptions(
-			rpc.WithEntityCredentials("woo", rpc.Credentials{
-				Type:    utils.CredentialsTypeRobotLocationSecret,
-				Payload: "secret",
-			}),
-			rpc.WithAllowInsecureWithCredentialsDowngrade(),
-		),
+	var serverWg sync.WaitGroup
+
+	// startServerAndConnect launches RunServer on a fresh ephemeral port and
+	// attempts to connect a robot client. On success it returns the connected
+	// client, a function that stops the server, and a channel that receives
+	// RunServer's return value once it stops. On failure it tears down the
+	// attempt (so the caller can retry on a new port) and returns nil values.
+	startServerAndConnect := func(attempt int) (*client.RobotClient, context.CancelFunc, chan error) {
+		// Choose a fresh ephemeral port immediately before launching the server
+		// to keep the race window as small as possible.
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		test.That(t, err, test.ShouldBeNil)
+		machineAddress := listener.Addr().String()
+		test.That(t, listener.Close(), test.ShouldBeNil)
+
+		networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{BindAddress: machineAddress},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		baseConfig.Network = networkProto
+		storeCloudConfig(baseConfig)
+
+		// Start RunServer in a goroutine. Use -no-tls since the fake cloud
+		// returns empty TLS certs.
+		serverCtx, serverCancel := context.WithCancel(ctx)
+		serverErrC := make(chan error, 1)
+		serverWg.Add(1)
+		go func() {
+			defer serverWg.Done()
+			args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
+			serverErrC <- server.RunServer(serverCtx, args, logger)
+		}()
+
+		// Try to connect, racing the connection against RunServer exiting early
+		// (e.g. a lost bind race) so we can retry promptly. The connect context
+		// timeout bounds a connection to a server that started but never became
+		// reachable. Cloud-configured servers require location-secret auth.
+		connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
+		defer connectCancel()
+		connectC := make(chan connectOutcome, 1)
+		go func() {
+			candidate, connErr := client.New(connectCtx, machineAddress, logger,
+				client.WithDialOptions(
+					rpc.WithEntityCredentials("woo", rpc.Credentials{
+						Type:    utils.CredentialsTypeRobotLocationSecret,
+						Payload: "secret",
+					}),
+					rpc.WithAllowInsecureWithCredentialsDowngrade(),
+				),
+				client.WithRefreshEvery(refreshInterval),
+				client.WithCheckConnectedEvery(5*refreshInterval),
+				client.WithReconnectEvery(refreshInterval),
+			)
+			connectC <- connectOutcome{rc: candidate, err: connErr}
+		}()
+
+		select {
+		case outcome := <-connectC:
+			if outcome.err == nil {
+				return outcome.rc, serverCancel, serverErrC
+			}
+			logger.Infow("failed to connect to in-process viam-server; retrying on a new port",
+				"attempt", attempt, "err", outcome.err)
+		case rsErr := <-serverErrC:
+			logger.Infow("in-process viam-server exited before becoming reachable; retrying on a new port",
+				"attempt", attempt, "err", rsErr)
+			// Unblock and wait for the in-flight connection attempt to return so
+			// it doesn't linger into the next attempt.
+			connectCancel()
+			<-connectC
+		}
+
+		// This attempt failed; tear it down before the caller retries.
+		serverCancel()
+		serverWg.Wait()
+		return nil, nil, nil
+	}
+
+	var (
+		rc            *client.RobotClient
+		stopServer    context.CancelFunc
+		runServerErrC chan error
 	)
+	const maxStartAttempts = 5
+	for attempt := 1; attempt <= maxStartAttempts; attempt++ {
+		rc, stopServer, runServerErrC = startServerAndConnect(attempt)
+		if rc != nil {
+			break
+		}
+	}
+	test.That(t, rc, test.ShouldNotBeNil)
+	t.Cleanup(func() {
+		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+	})
 
 	// helper function that waits longer than the specified refreshInterval
 	// to make sure we always wait long enough for a reconfigure to happen
@@ -820,5 +894,7 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	cancel()
-	wg.Wait()
+	stopServer()
+	serverWg.Wait()
+	test.That(t, <-runServerErrC, test.ShouldBeNil)
 }
