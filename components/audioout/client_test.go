@@ -96,6 +96,35 @@ func TestWorkingAudioOutClient(t *testing.T) {
 
 		actualExtra = nil
 
+		// PlayStream
+		chunk1 := []byte{10, 11, 12, 13}
+		chunk2 := []byte{14, 15, 16, 17}
+		var streamedInfo *rutils.AudioInfo
+		var streamedChunks [][]byte
+		injectAudioOut.PlayStreamFunc = func(ctx context.Context, info *rutils.AudioInfo,
+			chunks <-chan []byte, extra map[string]interface{},
+		) error {
+			streamedInfo = info
+			for c := range chunks {
+				streamedChunks = append(streamedChunks, c)
+			}
+			return nil
+		}
+
+		chunkCh := make(chan []byte, 2)
+		chunkCh <- chunk1
+		chunkCh <- chunk2
+		close(chunkCh)
+
+		err = client.PlayStream(context.Background(), audioInfo, chunkCh, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, streamedInfo, test.ShouldNotBeNil)
+		test.That(t, streamedInfo.Codec, test.ShouldEqual, rutils.CodecPCM16)
+		test.That(t, streamedInfo.SampleRateHz, test.ShouldEqual, 44100)
+		test.That(t, streamedInfo.NumChannels, test.ShouldEqual, 2)
+		test.That(t, streamedChunks, test.ShouldResemble, [][]byte{chunk1, chunk2})
+		injectAudioOut.PlayStreamFunc = nil
+
 		// Properties
 		expectedProperties := rutils.Properties{
 			SupportedCodecs: []string{rutils.CodecPCM16, rutils.CodecMP3},
@@ -175,6 +204,42 @@ func TestAudioOutClientPlayError(t *testing.T) {
 	err = client.Play(ctx, audioData, audioInfo, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errPlayFailed.Error())
+}
+
+func TestAudioOutClientPlayStreamError(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	injectAudioOut := &inject.AudioOut{}
+
+	listener, cleanup := setupAudioOutService(t, injectAudioOut)
+	defer cleanup()
+
+	ctx := context.Background()
+	conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+
+	client, err := audioout.NewClientFromConn(ctx, conn, "", audioout.Named(testAudioOutName), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectAudioOut.PlayStreamFunc = func(ctx context.Context, info *rutils.AudioInfo,
+		chunks <-chan []byte, extra map[string]interface{},
+	) error {
+		return errPlayStreamFailed
+	}
+
+	audioInfo := &rutils.AudioInfo{
+		Codec:        rutils.CodecPCM16,
+		SampleRateHz: 44100,
+		NumChannels:  2,
+	}
+
+	chunkCh := make(chan []byte, 1)
+	chunkCh <- []byte{1, 2, 3, 4}
+	close(chunkCh)
+
+	err = client.PlayStream(ctx, audioInfo, chunkCh, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errPlayStreamFailed.Error())
 }
 
 func TestAudioOutClientPropertiesError(t *testing.T) {

@@ -31,14 +31,17 @@ jobs:
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
             target: static-release
+            sign_cmd_arg: ''
           - arch: ubuntu-large-arm
             image: ghcr.io/viamrobotics/antique2:arm64-cache
             platform: linux/arm64
             target: static-release
+            sign_cmd_arg: ''
           - arch: ubuntu-large
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
             target: static-release-win
+            sign_cmd_arg: 'SIGN_CMD=/tmp/sign-binary.sh'
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -47,6 +50,14 @@ jobs:
       # otherwise we get a 'read-only filesystem' error when symlinking over this
       - /tmp/node20:/__e/node20
     timeout-minutes: 15
+    permissions:
+      # Lets us mint an OIDC token for the WIF login used by the Windows
+      # code signing step. GCS uploads uses a stored SA key instead.
+      id-token: write
+      # Job-level permissions replace workflow-level ones and any not
+      # explicitly granted are disallowed, so we need to re-grant this
+      # for actions/checkout to check out the code and build from it.
+      contents: read
     outputs:
       date: ${{ steps.build_date.outputs.date }}
       channel: ${{ steps.build_date.outputs.channel }}
@@ -79,6 +90,44 @@ jobs:
         chown -R testbot:testbot .
         sudo -Hu testbot bash -lc 'make clean-all'
 
+    - name: Authorize signing (windows)
+      if: matrix.target == 'static-release-win'
+      id: signing-auth
+      uses: google-github-actions/auth@v2
+      with:
+        token_format: 'access_token'
+        project_id: 'engineering-tools-310515'
+        workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
+        service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
+
+    - name: Set up Authenticode signing (windows)
+      if: matrix.target == 'static-release-win'
+      env:
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+      run: |
+        apt-get install -y openjdk-17-jre-headless jq
+        curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
+        # Fetch cert directly via Secret Manager REST: the get-secretmanager-secrets
+        # action needs Node 18+, but antique2 ships Node 16.
+        curl -fsSL -H "Authorization: Bearer $GCP_ACCESS_TOKEN" \
+          "https://secretmanager.googleapis.com/v1/projects/385154741571/secrets/ev-code-signing-public-key/versions/latest:access" \
+          | jq -r '.payload.data' | base64 -d > /tmp/cert.pem
+        printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
+        cat > /tmp/sign-binary.sh <<'EOF'
+        #!/bin/bash
+        set -euo pipefail
+        java -jar /tmp/jsign.jar \
+          --storetype GOOGLECLOUD \
+          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key \
+          --storepass "$(cat /tmp/gcp-access-token)" \
+          --alias ev-code-signing-key/cryptoKeyVersions/2 \
+          --certfile /tmp/cert.pem \
+          --name "Viam Server" \
+          --tsaurl http://timestamp.digicert.com \
+          "$1"
+        EOF
+        chmod 755 /tmp/sign-binary.sh
+
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v2
       with:
@@ -87,12 +136,12 @@ jobs:
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -108,12 +157,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Set Date and Channel
       id: build_date
@@ -179,6 +228,7 @@ jobs:
       run: |
         brew update
         brew tap viamrobotics/brews
+        brew trust viamrobotics/brews
         brew install nlopt-static
         brew install x264
 

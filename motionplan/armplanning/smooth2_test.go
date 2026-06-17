@@ -42,10 +42,10 @@ func TestWineCrazyTouch3(t *testing.T) {
 
 	// ---
 
-	pc, err := newPlanContext(ctx, logger, req, meta)
+	pc, err := NewPlanContext(ctx, logger, req, meta)
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Convert trajectory to steps

@@ -107,3 +107,12 @@ func newGantry() gantry.Gantry {
 	}
 	return g
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       gantry.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newGantry() },
+	})
+}

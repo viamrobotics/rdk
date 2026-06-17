@@ -2,7 +2,9 @@ package audioout
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
@@ -88,4 +90,65 @@ func (c *client) Play(ctx context.Context, data []byte, info *rutils.AudioInfo, 
 		return fmt.Errorf("audioout client: could not play audio: %w", err)
 	}
 	return nil
+}
+
+func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks <-chan []byte, extra map[string]interface{}) error {
+	ext, err := utils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
+	stream, err := c.client.PlayStream(ctx)
+	if err != nil {
+		return fmt.Errorf("audioout client: PlayStream: %w", err)
+	}
+
+	init := &pb.PlayStreamRequest{
+		Payload: &pb.PlayStreamRequest_Init{
+			Init: &pb.PlayStreamInit{Name: c.name, Extra: ext},
+		},
+	}
+	if info != nil {
+		init.GetInit().AudioInfo = rutils.AudioInfoStructToPb(info)
+	}
+	if err := stream.Send(init); err != nil {
+		// On io.EOF the server closed the stream early; the reason is in CloseAndRecv.
+		if errors.Is(err, io.EOF) {
+			if _, recvErr := stream.CloseAndRecv(); recvErr != nil {
+				return fmt.Errorf("audioout client: send init: %w", recvErr)
+			}
+			return fmt.Errorf("audioout client: send init: stream closed unexpectedly")
+		}
+		return fmt.Errorf("audioout client: send init: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case chunk, ok := <-chunks:
+			if !ok {
+				_, err := stream.CloseAndRecv()
+				if err != nil {
+					return fmt.Errorf("audioout client: close and recv: %w", err)
+				}
+				return nil
+			}
+			msg := &pb.PlayStreamRequest{
+				Payload: &pb.PlayStreamRequest_AudioChunk{
+					AudioChunk: &pb.PlayStreamChunk{AudioData: chunk},
+				},
+			}
+			if err := stream.Send(msg); err != nil {
+				// On io.EOF the server closed the stream early; the reason is in CloseAndRecv.
+				if errors.Is(err, io.EOF) {
+					if _, recvErr := stream.CloseAndRecv(); recvErr != nil {
+						return fmt.Errorf("audioout client: send chunk: %w", recvErr)
+					}
+					return fmt.Errorf("audioout client: send chunk: stream closed unexpectedly")
+				}
+				return fmt.Errorf("audioout client: send chunk: %w", err)
+			}
+		}
+	}
 }

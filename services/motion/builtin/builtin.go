@@ -509,7 +509,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 
 	start := time.Now()
-	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
+	plan, meta, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
 		var traceID string
 		if span := trace.FromContext(ctx); span != nil {
@@ -524,7 +524,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			}
 		}
 
-		err := ms.writePlanRequest(planRequest, plan, start, traceID, planTag, err)
+		err := ms.writePlanRequest(planRequest, plan, meta, start, traceID, planTag, err)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -775,12 +775,14 @@ func waypointsFromRequest(
 }
 
 func (ms *builtIn) writePlanRequest(
-	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID, planTag string, planError error,
+	req *armplanning.PlanRequest, plan motionplan.Plan, meta *armplanning.PlanMeta, start time.Time, traceID, planTag string, planError error,
 ) error {
 	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
-
 	if planError != nil {
 		planExtra += "-err"
+	}
+	if meta.GoalsCBIRRTSolved > 0 {
+		planExtra = fmt.Sprintf("%v-cbirrt%d", planExtra, meta.GoalsCBIRRTSolved)
 	}
 
 	if plan != nil {
@@ -816,5 +818,5 @@ func (ms *builtIn) writePlanRequest(
 	}
 
 	ms.logger.Infof("writing plan to %s", fn)
-	return req.WriteToFile(fn)
+	return req.WriteRequestAndResponseToFile(fn, plan)
 }

@@ -15,6 +15,8 @@ import (
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
@@ -295,17 +297,39 @@ func TestComplexModule(t *testing.T) {
 	})
 }
 
+// isDeadlineExceededErr checks whether an error is or wraps a DeadlineExceeded
+// error. This handles cases where gRPC DeadlineExceeded errors are wrapped by
+// fmt.Errorf (e.g., "error updating resources: rpc error: code = DeadlineExceeded ..."),
+// which prevents status.Code from detecting the gRPC status code.
+func isDeadlineExceededErr(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	if status.Code(err) == codes.DeadlineExceeded {
+		return true
+	}
+	// Check for wrapped gRPC status errors that status.Code can't detect.
+	wrappedErr := err
+	for wrappedErr != nil {
+		if status.Code(wrappedErr) == codes.DeadlineExceeded {
+			return true
+		}
+		wrappedErr = errors.Unwrap(wrappedErr)
+	}
+	return false
+}
+
 func connect(port int, logger logging.Logger) (robot.Robot, error) {
 	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancelConn()
 	for {
-		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Second*2)
 		rc, err := client.New(dialCtx, fmt.Sprintf("localhost:%d", port), logger,
 			client.WithDialOptions(rpc.WithForceDirectGRPC()),
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)
 		dialCancel()
-		if !errors.Is(err, context.DeadlineExceeded) {
+		if !isDeadlineExceededErr(err) {
 			return rc, err
 		}
 		select {

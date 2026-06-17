@@ -103,10 +103,10 @@ const (
 	// the module process.
 	ViamModuleAddress = "VIAM_MODULE_ADDRESS"
 
-	// ViamNoWindowsEventLoggerEnvVar if set will not write logs to the Windows Event Logger.
+	// ViamNoWindowsEventLoggerEnvVar if set will not write logs to the Windows Event Logger or Event Tracing for Windows (ETW).
 	ViamNoWindowsEventLoggerEnvVar = "VIAM_NO_WINDOWS_EVENT_LOGGER"
 
-	// ViamLogFileEnvVar if set will write logs to the specified file (same as -log-file cli argument).
+	// ViamLogFileEnvVar if set will write logs to the specified file in addition to stdout (use -log-file cli arg to disable stdout).
 	ViamLogFileEnvVar = "VIAM_LOGFILE"
 )
 

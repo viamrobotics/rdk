@@ -2,7 +2,9 @@ package gpiostepper
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -193,6 +195,125 @@ func TestConfigs(t *testing.T) {
 		properties, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
+	})
+
+	t.Run("microsteps defaults to 1 and is multiplicative on TicksPerRotation", func(t *testing.T) {
+		// missing microsteps → effective stepsPerRotation == TicksPerRotation
+		c := resource.Config{
+			Name: "fake_gpiostepper",
+			ConvertedAttributes: &Config{
+				BoardName:        "brd",
+				Pins:             PinConfig{Direction: "b", Step: "c"},
+				TicksPerRotation: 200,
+			},
+		}
+		m, err := newGPIOStepper(ctx, deps, c, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+		test.That(t, m.(*gpioStepper).stepsPerRotation, test.ShouldEqual, 200)
+
+		// Microsteps=8, TicksPerRotation=200 → 1600
+		c2 := resource.Config{
+			Name: "fake_gpiostepper",
+			ConvertedAttributes: &Config{
+				BoardName:        "brd",
+				Pins:             PinConfig{Direction: "b", Step: "c"},
+				TicksPerRotation: 200,
+				Microsteps:       8,
+			},
+		}
+		m2, err := newGPIOStepper(ctx, deps, c2, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m2.Close(ctx)
+		test.That(t, m2.(*gpioStepper).stepsPerRotation, test.ShouldEqual, 1600)
+	})
+
+	t.Run("negative microsteps fails Validate", func(t *testing.T) {
+		mc := goodConfig
+		mc.Microsteps = -1
+		_, _, err := mc.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "microsteps")
+	})
+
+	t.Run("negative max_rpm fails Validate", func(t *testing.T) {
+		mc := goodConfig
+		mc.MaxRPM = -1
+		_, _, err := mc.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "max_rpm")
+	})
+
+	t.Run("max_rpm sets minDelay", func(t *testing.T) {
+		// MaxRPM=60, TicksPerRotation=200, no microsteps → maxFreq=200Hz → minDelay=5ms
+		c := resource.Config{
+			Name: "fake_gpiostepper",
+			ConvertedAttributes: &Config{
+				BoardName:        "brd",
+				Pins:             PinConfig{Direction: "b", Step: "c"},
+				TicksPerRotation: 200,
+				MaxRPM:           60,
+			},
+		}
+		m, err := newGPIOStepper(ctx, deps, c, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+		test.That(t, m.(*gpioStepper).minDelay, test.ShouldEqual, 5*time.Millisecond)
+	})
+
+	t.Run("max_rpm wins when stepper_delay_usec is also set, logs deprecation", func(t *testing.T) {
+		obsLogger, obs := logging.NewObservedTestLogger(t)
+		c := resource.Config{
+			Name: "fake_gpiostepper",
+			ConvertedAttributes: &Config{
+				BoardName:        "brd",
+				Pins:             PinConfig{Direction: "b", Step: "c"},
+				TicksPerRotation: 200,
+				MaxRPM:           60,
+				StepperDelay:     999, // would imply different minDelay if it won
+			},
+		}
+		m, err := newGPIOStepper(ctx, deps, c, obsLogger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+		// minDelay derived from MaxRPM, not StepperDelay
+		test.That(t, m.(*gpioStepper).minDelay, test.ShouldEqual, 5*time.Millisecond)
+
+		// deprecation warning was logged
+		var found bool
+		for _, entry := range obs.All() {
+			if strings.Contains(fmt.Sprint(entry), "deprecated") {
+				found = true
+				break
+			}
+		}
+		test.That(t, found, test.ShouldBeTrue)
+	})
+
+	t.Run("stepper_delay_usec alone logs deprecation", func(t *testing.T) {
+		obsLogger, obs := logging.NewObservedTestLogger(t)
+		c := resource.Config{
+			Name: "fake_gpiostepper",
+			ConvertedAttributes: &Config{
+				BoardName:        "brd",
+				Pins:             PinConfig{Direction: "b", Step: "c"},
+				TicksPerRotation: 200,
+				StepperDelay:     30,
+			},
+		}
+		m, err := newGPIOStepper(ctx, deps, c, obsLogger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+		test.That(t, m.(*gpioStepper).minDelay, test.ShouldEqual, 30*time.Microsecond)
+
+		var found bool
+		for _, entry := range obs.All() {
+			if strings.Contains(fmt.Sprint(entry), "deprecated") {
+				found = true
+				break
+			}
+		}
+		test.That(t, found, test.ShouldBeTrue)
 	})
 }
 
@@ -639,6 +760,83 @@ func TestRunning(t *testing.T) {
 		duty, err := pinC.PWM(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, duty, test.ShouldEqual, 0.0)
+	})
+
+	t.Run("rpmToFreqHz scales with microsteps", func(t *testing.T) {
+		// TicksPerRotation=200, Microsteps=8 → stepsPerRotation=1600
+		// 50 RPM: 50 * 1600 / 60 = 1333.33 → 1333 Hz
+		c := resource.Config{
+			Name: "fake_gpiostepper",
+			ConvertedAttributes: &Config{
+				BoardName:        "brd",
+				Pins:             PinConfig{Direction: "b", Step: "c", EnablePinHigh: "d", EnablePinLow: "e"},
+				TicksPerRotation: 200,
+				Microsteps:       8,
+				StepperDelay:     30,
+			},
+		}
+		m, err := newGPIOStepper(ctx, deps, c, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+
+		s := m.(*gpioStepper)
+		test.That(t, s.rpmToFreqHz(50), test.ShouldEqual, uint(1333))
+	})
+
+	t.Run("GoFor target step position scales with microsteps", func(t *testing.T) {
+		// TicksPerRotation=200, Microsteps=4 → stepsPerRotation=800
+		// GoFor(rpm=10000, revs=1) should target 800 pulses
+		c := resource.Config{
+			Name: "fake_gpiostepper",
+			ConvertedAttributes: &Config{
+				BoardName:        "brd",
+				Pins:             PinConfig{Direction: "b", Step: "c", EnablePinHigh: "d", EnablePinLow: "e"},
+				TicksPerRotation: 200,
+				Microsteps:       4,
+				StepperDelay:     30,
+			},
+		}
+		m, err := newGPIOStepper(ctx, deps, c, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+
+		s := m.(*gpioStepper)
+		err = s.GoFor(ctx, 10000, 1, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, s.targetStepPosition.Load(), test.ShouldEqual, 800)
+
+		pos, err := m.Position(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 1)
+	})
+
+	t.Run("SetPower works with max_rpm and no stepper_delay_usec", func(t *testing.T) {
+		// MaxRPM=100, TicksPerRotation=200, Microsteps=1
+		// maxFreq = 100 * 200 / 60 = 333.33 Hz → minDelay = 3ms
+		// SetPower(0.5): freq = 0.5 / 0.003 = 166.67 → 166 Hz (uint truncation)
+		c := resource.Config{
+			Name: "fake_gpiostepper",
+			ConvertedAttributes: &Config{
+				BoardName:        "brd",
+				Pins:             PinConfig{Direction: "b", Step: "c", EnablePinHigh: "d", EnablePinLow: "e"},
+				TicksPerRotation: 200,
+				MaxRPM:           100,
+			},
+		}
+		m, err := newGPIOStepper(ctx, deps, c, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+
+		err = m.SetPower(ctx, 0.5, nil)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Stop(ctx, nil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			freq, err := pinC.PWMFreq(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, freq, test.ShouldEqual, uint(166))
+		})
 	})
 
 	t.Run("test stop signals waiters", func(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
@@ -24,6 +25,7 @@ type CollectorParams struct {
 	ComponentName   string
 	ComponentType   string
 	DataType        CaptureType
+	FrameSystem     framesystem.Service
 	Interval        time.Duration
 	Logger          logging.Logger
 	MethodName      string

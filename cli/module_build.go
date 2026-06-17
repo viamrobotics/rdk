@@ -132,6 +132,7 @@ type moduleBuildStartArgs struct {
 	Token     string
 	Workdir   string
 	Platforms []string
+	Builder   string
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -177,9 +178,15 @@ func (c *viamClient) moduleBuildStartForRepo(
 		Workdir:       &workdir,
 		Distro:        &manifest.Build.Distro,
 	}
+	if args.Builder != "" && args.Builder != "default" {
+		req.Builder = &args.Builder
+	}
 	res, err := c.buildClient.StartBuild(ctx, &req)
 	if err != nil {
 		return "", err
+	}
+	if msg := res.GetBuilderFallbackMessage(); msg != "" {
+		printf(cmd.Root().ErrWriter, "Warning: %s", msg)
 	}
 	// Print to stderr so that stdout only contains the buildID, which is parsed by the build-action.
 	// See https://github.com/viamrobotics/build-action/blob/main/src/index.js
@@ -667,6 +674,7 @@ type reloadModuleArgs struct {
 	ResourceName string
 	Path         string
 	Annotation   string
+	Builder      string
 }
 
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
@@ -955,6 +963,9 @@ func (c *viamClient) triggerCloudReloadBuild(
 			},
 		},
 	}
+	if args.Builder != "" && args.Builder != "default" {
+		req.Builder = &args.Builder
+	}
 	if err := stream.Send(req); err != nil {
 		return "", err
 	}
@@ -995,6 +1006,9 @@ func (c *viamClient) triggerCloudReloadBuild(
 	resp, closeErr := stream.CloseAndRecv()
 	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
 		errs = multierr.Combine(errs, closeErr)
+	}
+	if msg := resp.GetBuilderFallbackMessage(); msg != "" {
+		printf(cmd.Root().ErrWriter, "Warning: %s", msg)
 	}
 	return resp.GetBuildId(), errs
 }

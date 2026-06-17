@@ -1,0 +1,130 @@
+name: Claude Jira Implementation
+
+# Triggered by Jira webhook via middleware that calls GitHub repository_dispatch API.
+# Expected payload:
+#   curl -X POST -H "Authorization: token $GITHUB_PAT" \
+#     https://api.github.com/repos/viamrobotics/rdk/dispatches \
+#     -d '{
+#       "event_type": "jira-ticket",
+#       "client_payload": {
+#         "ticket_id": "RSDK-123",
+#         "summary": "...",
+#         "description": "...",
+#         "task_complexity": "medium",
+#         "assignee": "John Doe",
+#         "assignee_email": "john@example.com"
+#       }
+#     }'
+
+on:
+  repository_dispatch:
+    types: [jira-ticket]
+  workflow_dispatch:
+    inputs:
+      ticket_id:
+        description: 'Jira ticket ID (e.g., RSDK-123)'
+        required: true
+      summary:
+        description: 'Ticket summary'
+        required: true
+      description:
+        description: 'Ticket description'
+        required: true
+      task_complexity:
+        description: 'Task complexity: small (100 turns), medium (150), large (200)'
+        required: false
+        default: 'small'
+        type: choice
+        options:
+          - small
+          - medium
+          - large
+      assignee:
+        description: 'Atlassian display name of the responsible engineer (e.g., "John Doe")'
+        required: false
+        default: ''
+      assignee_email:
+        description: 'Atlassian email of the responsible engineer'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  call-jira:
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+      id-token: write
+    # viamrobotics/claude-ci-workflows@v2.2.1
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-jira.yml@5506bdaf04cc7d1adbd2df0f31f108834b01aea6
+    with:
+      container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+      ticket_id: ${{ github.event.client_payload.ticket_id || inputs.ticket_id }}
+      summary: ${{ github.event.client_payload.summary || inputs.summary }}
+      description: ${{ github.event.client_payload.description || inputs.description }}
+      task_complexity: ${{ github.event.client_payload.task_complexity || inputs.task_complexity || 'small' }}
+      assignee: ${{ github.event.client_payload.assignee || inputs.assignee || '' }}
+      assignee_email: ${{ github.event.client_payload.assignee_email || inputs.assignee_email || '' }}
+      install_command: make tool-install
+      jira_base_url: ${{ vars.JIRA_BASE_URL }}
+      jira_user_email: ${{ vars.JIRA_USER_EMAIL }}
+      allowed_tools: 'Edit,Read,Write,Glob,Grep,Bash(make build*),Bash(make build-go*),Bash(make lint*),Bash(make lint-go*),Bash(make test-go*),Bash(make test-go-no-race*),Bash(make tool-install*),Bash(go build*),Bash(go test*),Bash(go vet*),Bash(go list *),Bash(go doc *),Bash(go mod *),Bash(gofmt *),Bash(ls *),Bash(find *),Bash(git config *),Bash(git add *),Bash(git commit *),Bash(git push *),Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git checkout *),Bash(git branch *),Bash(git rev-parse *),Bash(git fetch *),Bash(gh pr create*),Bash(gh pr edit*),Bash(gh pr view*),Bash(gh pr diff*)'
+      extra_prompt: |
+        - Run `make lint-go` and `make test-go` to verify your changes before committing. Fix any errors.
+        - If a test or lint command fails more than twice on the same issue, commit what you have, create the PR, and note the unresolved issue in the PR description.
+        - Add the `safe to test` label to the PR after creation so CI can run: `gh pr edit <number> --add-label "safe to test"`.
+      extra_system_prompt: >-
+        This is a Go project (go.viam.com/rdk).
+        Verify with `make lint-go` and `make test-go`. The rdk-devenv container has Go tooling pre-installed.
+        Do NOT modify generated protobuf code (files ending in `.pb.go` or under `*/pb/` directories).
+        Jira ticket IDs use the RSDK prefix (e.g., RSDK-123). Use this in branch names: claude/RSDK-123.
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CI_GITHUB_APP_ID: ${{ secrets.CI_GITHUB_APP_ID }}
+      CI_GITHUB_APP_PRIVATE_KEY: ${{ secrets.CI_GITHUB_APP_PRIVATE_KEY }}
+      SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL: ${{ secrets.SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+  # Comment this run's URL (the Claude output log) on the flaky-test PR just opened.
+  link-workflow-run:
+    needs: call-jira
+    if: always() && github.repository_owner == 'viamrobotics'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment workflow run link on the PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TICKET_ID: ${{ github.event.client_payload.ticket_id || inputs.ticket_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # The reusable workflow enforces a "[<ticket_id>] ..." PR title.
+          pr="$(gh pr list --repo "$REPO" --state open --json number,title \
+            | jq -c --arg t "[${TICKET_ID}]" 'map(select(.title | startswith($t)))[0] // empty')"
+          if [[ -z "$pr" ]]; then
+            echo "No open PR found for $TICKET_ID; nothing to link."
+            exit 0
+          fi
+          pr_number="$(jq -r '.number' <<<"$pr")"
+          # Only flaky-test PRs, matching flaky-pr-reviewer.yml / check-approvals.yml.
+          if [[ "$(jq -r '.title' <<<"$pr" | tr '[:upper:]' '[:lower:]')" != *flaky* ]]; then
+            echo "PR #$pr_number is not a flaky-test PR; nothing to link."
+            exit 0
+          fi
+          marker="<!-- claude-workflow-run-link -->"
+          # Don't double-post on re-runs.
+          if gh pr view "$pr_number" --repo "$REPO" --json comments \
+              --jq '.comments[].body' | grep -qF "$marker"; then
+            echo "Run link already present on PR #$pr_number; skipping."
+            exit 0
+          fi
+          gh pr comment "$pr_number" --repo "$REPO" --body \
+            "${marker}"$'\n'"🤖 Opened by the Claude Jira workflow — [workflow run output / Claude log](${RUN_URL})."
+          echo "Linked ${RUN_URL} on PR #${pr_number}."

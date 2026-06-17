@@ -1392,7 +1392,9 @@ func TestConfigPackages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
-	packageDir := t.TempDir()
+	// Isolate package storage to a temp home dir (via WithViamHomeDir below) so this test
+	// doesn't touch the real home directory. Packages are stored under <homeDir>/packages.
+	viamHomeDir := t.TempDir()
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1405,10 +1407,9 @@ func TestConfigPackages(t *testing.T) {
 		Cloud: &config.Cloud{
 			AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String()),
 		},
-		PackagePath: packageDir,
 	}
 
-	r := setupLocalRobot(t, ctx, robotConfig, logger)
+	r := setupLocalRobot(t, ctx, robotConfig, logger, WithViamHomeDir(viamHomeDir))
 
 	_, err = r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldEqual, packages.ErrPackageMissing)
@@ -1431,19 +1432,19 @@ func TestConfigPackages(t *testing.T) {
 		Cloud: &config.Cloud{
 			AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String()),
 		},
-		PackagePath: packageDir,
 	}
 
 	fakePackageServer.StorePackage(robotConfig2.Packages...)
 	r.Reconfigure(ctx, robotConfig2)
 
+	packagesDir := path.Join(viamHomeDir, config.PackagesDirName)
 	path1, err := r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, "data", "ml_model", "package-1-v1"))
+	test.That(t, path1, test.ShouldEqual, path.Join(packagesDir, "data", "ml_model", "package-1-v1"))
 
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "data", "ml_model", "package-2-v2"))
+	test.That(t, path2, test.ShouldEqual, path.Join(packagesDir, "data", "ml_model", "package-2-v2"))
 }
 
 // removeDefaultServices removes default services and returns the removed
@@ -4994,6 +4995,143 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
+func TestMaintenanceConfigLogs(t *testing.T) {
+	ctx := context.Background()
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	modelErrorSensor := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newValidSensor(), nil
+		}})
+	resource.RegisterComponent(
+		sensor.API,
+		modelErrorSensor,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newErrorSensor(), nil
+		}})
+	defer func() {
+		resource.Deregister(sensor.API, model)
+		resource.Deregister(sensor.API, modelErrorSensor)
+	}()
+
+	sensor1 := []resource.Config{
+		{Name: "sensor", Model: model, API: sensor.API},
+	}
+	sensor2 := []resource.Config{
+		{Name: "sensor2", Model: model, API: sensor.API},
+	}
+	errorSensor1 := []resource.Config{
+		{Name: "sensor", Model: modelErrorSensor, API: sensor.API},
+	}
+
+	t.Run("sensor allows reconfigure", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsNotMyWallet",
+			},
+			Components: sensor1,
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgWithMore := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsNotMyWallet",
+			},
+			Components: append(sensor1, sensor2...),
+		}
+		r.Reconfigure(ctx, cfgWithMore)
+
+		test.That(t, logs.FilterMessage("Reconfigure allowed by maintenance sensor").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("sensor blocks reconfigure", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: sensor1,
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgBlocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: append(sensor1, sensor2...),
+		}
+		r.Reconfigure(ctx, cfgBlocked)
+
+		test.That(t, logs.FilterMessage("Reconfigure NOT allowed by maintenance sensor").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("error sensor", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: errorSensor1,
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgBlocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: append(errorSensor1, sensor2...),
+		}
+		r.Reconfigure(ctx, cfgBlocked)
+
+		test.That(t, logs.FilterMessage("Reconfigure NOT allowed due to error").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("sensor not found", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/nonexistent",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: sensor1,
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgWithMore := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/nonexistent",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: append(sensor1, sensor2...),
+		}
+		r.Reconfigure(ctx, cfgWithMore)
+
+		// Construction and reconfiguration should both log here (setupLocalRobot does not go
+		// through the "initializing" state that robot constructed through entrypoint code
+		// does), so expect 2 logs.
+		test.That(t, logs.FilterMessage("Reconfigure allowed despite error while checking").Len(), test.ShouldEqual, 2)
+	})
+}
+
 func TestRemovingOfflineRemote(t *testing.T) {
 	logger, _ := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -5316,10 +5454,10 @@ func TestWeakDependenciesWithPrefix(t *testing.T) {
 	// This test tests that weak dependencies are properly populated in the dependencies map with the remote prefix
 	// attached to any remote resources.
 	//
-	// In this case, the shell resource will be constructed with the remote resource as a
-	// weak dependency since it will be available at the time of construction. The shell
-	// resource will then also be _reconfigured_ with the weak dependency (a noop).
-	// This redundant reconfigure is not great, but is part of the design of our system.
+	// In this case, the shell resource is constructed with the remote resource as a weak
+	// dependency since it is available at the time of construction. Because the resolved
+	// weak dep set is unchanged afterwards, updateWeakAndOptionalDependents does not
+	// trigger a follow-up reconfigure.
 	t.Parallel()
 	logger, logs := logging.NewObservedTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -5414,7 +5552,7 @@ func TestWeakDependenciesWithPrefix(t *testing.T) {
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage(successLog).Len(),
-			test.ShouldEqual, 2)
+			test.ShouldEqual, 1)
 	})
 }
 

@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli/v3"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"go.mongodb.org/mongo-driver/bson"
-	pb "go.viam.com/api/app/data/v1"
 	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
 )
 
@@ -24,19 +23,8 @@ var pipelineRunStatusMap = map[datapipelinespb.DataPipelineRunStatus]string{
 	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED:      "Failed",
 }
 
-// dataSourceTypeMap maps data source types to human-readable strings.
-var dataSourceTypeMap = map[pb.TabularDataSourceType]string{
-	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED:   "Unknown",
-	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD:      "Standard",
-	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE:   "Hot Storage",
-	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK: "Pipeline Sink",
-}
-
-// dataSourceType constants for data source types.
-var (
-	StandardDataSourceType   = "standard"
-	HotStorageDataSourceType = "hotstorage"
-)
+// pipeline data sources do not allow pipeline sinks.
+var pipelineDataSourceTypes = []string{standardDataSourceType, hotStorageDataSourceType}
 
 type datapipelineListArgs struct {
 	OrgID string
@@ -96,7 +84,7 @@ func DatapipelineCreateAction(ctx context.Context, cmd *cli.Command, args datapi
 		return err
 	}
 
-	dataSourceType, err := dataSourceTypeToProto(args.DataSourceType)
+	dataSourceType, err := dataSourceTypeToProto(args.DataSourceType, pipelineDataSourceTypes)
 	if err != nil {
 		return err
 	}
@@ -273,7 +261,7 @@ func DatapipelineDisableAction(ctx context.Context, cmd *cli.Command, args datap
 
 func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	if mqlFile != "" && mql != "" {
-		return nil, errors.New("data pipeline MQL and MQL file cannot both be provided")
+		return nil, errors.New("MQL and MQL file cannot both be provided")
 	}
 
 	if mqlFile != "" {
@@ -286,7 +274,7 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	}
 
 	if mql == "" {
-		return nil, errors.New("missing data pipeline MQL")
+		return nil, errors.New("missing MQL query")
 	}
 
 	// Parse the MQL stages JSON (using JSON5 for unquoted keys + comments).
@@ -307,6 +295,23 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	return mqlBinary, nil
 }
 
+// resolvePipelineIDByName looks up a data pipeline by name within the given org and returns its ID.
+// Pipeline names are unique within an org, so the first match is the only match.
+func (c *viamClient) resolvePipelineIDByName(ctx context.Context, orgID, name string) (string, error) {
+	resp, err := c.datapipelinesClient.ListDataPipelines(ctx, &datapipelinespb.ListDataPipelinesRequest{
+		OrganizationId: orgID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list data pipelines: %w", err)
+	}
+	for _, p := range resp.GetDataPipelines() {
+		if p.GetName() == name {
+			return p.GetId(), nil
+		}
+	}
+	return "", fmt.Errorf("no data pipeline found with name %q", name)
+}
+
 func mqlJSON(mql [][]byte) (string, error) {
 	var stages []bson.M
 	for _, bsonBytes := range mql {
@@ -323,20 +328,4 @@ func mqlJSON(mql [][]byte) (string, error) {
 	}
 
 	return string(jsonBytes), nil
-}
-
-func dataSourceTypeToProto(dataSourceType string) (pb.TabularDataSourceType, error) {
-	switch dataSourceType {
-	case StandardDataSourceType:
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD, nil
-	case HotStorageDataSourceType:
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE, nil
-	default:
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
-			fmt.Errorf("invalid data source type: %s. Supported values: [%s, %s]",
-				dataSourceType,
-				StandardDataSourceType,
-				HotStorageDataSourceType,
-			)
-	}
 }

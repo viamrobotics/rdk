@@ -2,6 +2,7 @@ package logging
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
@@ -77,4 +78,34 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 // Sync is a no-op.
 func (tapp *testAppender) Sync() error {
 	return nil
+}
+
+// silentAfterCompleteTestAppender is like testAppender but silences writes after the test
+// has completed to prevent races or panics from late-emitting goroutines.
+type silentAfterCompleteTestAppender struct {
+	*testAppender
+	completedLock sync.RWMutex
+	completed     bool
+}
+
+func newSilentAfterCompleteTestAppender(tb testing.TB) Appender {
+	stapp := &silentAfterCompleteTestAppender{testAppender: &testAppender{tb: tb}}
+	tb.Cleanup(func() {
+		stapp.completedLock.Lock()
+		defer stapp.completedLock.Unlock()
+		stapp.completed = true
+	})
+	return stapp
+}
+
+// Write checks if the associated test has completed before Writing like a normal test
+// appender.
+func (stapp *silentAfterCompleteTestAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+	stapp.completedLock.RLock()
+	defer stapp.completedLock.RUnlock()
+	if stapp.completed {
+		return nil
+	}
+
+	return stapp.testAppender.Write(entry, fields)
 }

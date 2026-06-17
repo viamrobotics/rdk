@@ -1125,15 +1125,6 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 			},
 		},
 		{
-			name: "package path",
-			c: config.Config{
-				PackagePath: "path/to/home/depot",
-			},
-			expected: config.Config{
-				PackagePath: "path/to/home/depot",
-			},
-		},
-		{
 			name: "traffic tunnel endpoints",
 			c: config.Config{
 				Network: config.NetworkConfig{

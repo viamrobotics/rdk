@@ -247,6 +247,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		expectedVelocity := 180.
 		expectedAcceleration := 90.
+		expectedTCPSpeed := 0.25
 		perJointVel := []float64{10.0, 20.0, 30.0, 40.0, 50.0, 60.0}
 		perJointAcc := []float64{5.0, 10.0, 15.0, 20.0, 25.0, 30.0}
 		expectedMoveOptions := &pb.MoveOptions{
@@ -254,6 +255,7 @@ func TestServer(t *testing.T) {
 			MaxAccDegsPerSec2:       &expectedAcceleration,
 			MaxVelDegsPerSecJoints:  perJointVel,
 			MaxAccDegsPerSec2Joints: perJointAcc,
+			MaxTcpSpeed:             &expectedTCPSpeed,
 		}
 		_, err = armServer.MoveThroughJointPositions(
 			context.Background(),
@@ -273,6 +275,8 @@ func TestServer(t *testing.T) {
 		}
 		test.That(t, moveOptions.MaxVelRadsJoints, test.ShouldResemble, expectedPerJointVelRads)
 		test.That(t, moveOptions.MaxAccRadsJoints, test.ShouldResemble, expectedPerJointAccRads)
+		test.That(t, moveOptions.MaxTCPSpeedMPerSec, test.ShouldNotBeNil)
+		test.That(t, *moveOptions.MaxTCPSpeedMPerSec, test.ShouldEqual, expectedTCPSpeed)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveThroughJointPositions"})
 	})
 

@@ -144,8 +144,10 @@ func TestServer(t *testing.T) {
 		_, err = gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName})
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName2})
-		test.That(t, err, test.ShouldBeError, gripper.ErrGeometriesNil(testGripperName2))
+		// nil geometries should produce an empty response, not an error
+		resp, err := gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName2})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &pbcommon.GetGeometriesResponse{})
 	})
 
 	t.Run("GetCurrentInputs", func(t *testing.T) {

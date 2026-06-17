@@ -104,11 +104,11 @@ type Module struct {
 	// registerMu protects the maps immediately below as resources/streams come in and out of existence
 	registerMu  sync.Mutex
 	collections map[resource.API]resource.APIResourceCollection[resource.Resource]
-	// internalDeps is keyed by a "child" resource and its values are "internal" resources that
-	// depend on the child. We use a pointer for the value such that it's stable across map growth.
-	// Similarly, the slice of `resConfigureArgs` can grow, hence we must use pointers such that
-	// modifiying in place remains valid.
-	internalDeps          map[resource.Resource][]resConfigureArgs
+	// internalDeps maps a resource's name to the slice of module-internal resources that depend
+	// on it. So internalDeps[foo] is foo's dependents within this module; each entry carries
+	// the dependent's bookkeeping (see resConfigureArgs) so we can reconstruct it when foo is
+	// rebuilt. Keying by name ensures the tracking survives remove+re-add cycles.
+	internalDeps          map[resource.Name][]resConfigureArgs
 	resLoggers            map[resource.Resource]logging.Logger
 	activeResourceStreams map[resource.Name]peerResourceState
 	streamSourceByName    map[resource.Name]rtppassthrough.Source
@@ -186,7 +186,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		handlers:              HandlerMap{},
 		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		resLoggers:            map[resource.Resource]logging.Logger{},
-		internalDeps:          map[resource.Resource][]resConfigureArgs{},
+		internalDeps:          map[resource.Name][]resConfigureArgs{},
 	}
 
 	if tracingEnabled {
