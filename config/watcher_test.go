@@ -332,7 +332,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	// fake server will start rejecting the config (codes.Unknown mirrors the real config-conversion
+	// fake server will start returning a malformed config (codes.Unknown mirrors the real config-conversion
 	// failure). no new configs should be emitted to channel until the fake server starts returning again
 	fakeServer.FailOnConfigAndCertsWith(status.Error(codes.Unknown, "OrientationVectorDegrees has a normal of 0"))
 	timer := time.NewTimer(5 * time.Second)
@@ -347,17 +347,17 @@ func TestNewWatcherCloud(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	// The fake server returns codes.Unknown while failing, which is a config rejection.
+	// The fake server returns codes.Unknown while failing, which means the config is malformed.
 	// The watcher should surface that loudly at ERROR on every failing refresh.
-	rejectedLogs := logs.FilterMessageSnippet("the new config was NOT applied")
-	test.That(t, rejectedLogs.Len(), test.ShouldBeGreaterThan, 1)
-	for _, entry := range rejectedLogs.All() {
+	malformedLogs := logs.FilterMessageSnippet("the new config was NOT applied")
+	test.That(t, malformedLogs.Len(), test.ShouldBeGreaterThan, 1)
+	for _, entry := range malformedLogs.All() {
 		test.That(t, entry.Level, test.ShouldEqual, zapcore.ErrorLevel)
 	}
 
-	// A transient connectivity failure must NOT be surfaced as a rejection. The
+	// A transient connectivity failure must NOT be surfaced as a malformed config. The
 	// watcher logs it at debug and keeps retrying.
-	rejectedCountBeforeTransient := rejectedLogs.Len()
+	malformedCountBeforeTransient := malformedLogs.Len()
 	debugRetryBeforeTransient := logs.FilterMessageSnippet("error reading cloud config; will try again").Len()
 	fakeServer.FailOnConfigAndCertsWith(status.Error(codes.Unavailable, "cloud is down"))
 	transientTimer := time.NewTimer(3 * time.Second)
@@ -372,7 +372,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	// No new "NOT applied" ERROR logs, but the transient failure was logged at debug.
-	test.That(t, logs.FilterMessageSnippet("the new config was NOT applied").Len(), test.ShouldEqual, rejectedCountBeforeTransient)
+	test.That(t, logs.FilterMessageSnippet("the new config was NOT applied").Len(), test.ShouldEqual, malformedCountBeforeTransient)
 	test.That(t, logs.FilterMessageSnippet("error reading cloud config; will try again").Len(),
 		test.ShouldBeGreaterThan, debugRetryBeforeTransient)
 

@@ -189,7 +189,7 @@ func TestFromReader(t *testing.T) {
 
 // TestGetFromCloudOrCacheErrorClassification verifies that when the cloud config endpoint fails
 // and we fall back to a cached config, a connectivity error is logged quietly (Warn) while a
-// config rejection from the cloud is surfaced loudly (Error).
+// malformed config from the cloud is surfaced loudly (Error).
 func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 	const (
 		robotPartID = "forCachingTest"
@@ -237,10 +237,10 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		test.That(t, cfg, test.ShouldNotBeNil)
 
 		test.That(t, logs.FilterMessageSnippet("unable to get cloud config; using cached version").Len(), test.ShouldEqual, 1)
-		test.That(t, logs.FilterMessageSnippet("this robot's config was rejected").Len(), test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("the new config was NOT applied").Len(), test.ShouldEqual, 0)
 	})
 
-	t.Run("rejected config is surfaced loudly and falls back to cache", func(t *testing.T) {
+	t.Run("malformed config is surfaced loudly and falls back to cache", func(t *testing.T) {
 		setupCache(t)
 		defer clearCache(robotPartID)
 
@@ -254,13 +254,13 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		test.That(t, cached, test.ShouldBeTrue)
 		test.That(t, cfg, test.ShouldNotBeNil)
 
-		rejected := logs.FilterMessageSnippet("this robot's config was rejected")
-		test.That(t, rejected.Len(), test.ShouldEqual, 1)
-		test.That(t, rejected.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+		malformed := logs.FilterMessageSnippet("the new config was NOT applied")
+		test.That(t, malformed.Len(), test.ShouldEqual, 1)
+		test.That(t, malformed.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 		test.That(t, logs.FilterMessageSnippet("unable to get cloud config; using cached version").Len(), test.ShouldEqual, 0)
 	})
 
-	t.Run("rejected config with no cache returns a clear error", func(t *testing.T) {
+	t.Run("malformed config with no cache returns a clear error", func(t *testing.T) {
 		clearCache(robotPartID)
 
 		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unknown, "OrientationVectorDegrees has a normal of 0"))
@@ -269,12 +269,13 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		logger := logging.NewTestLogger(t)
 		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, IsRejectedConfigError(err), test.ShouldBeTrue)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "this robot's config was rejected and no cached config exists")
+		test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no cached config exists to fall back to")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "OrientationVectorDegrees has a normal of 0")
 	})
 
-	t.Run("connectivity error with no cache returns the original error and is not a rejection", func(t *testing.T) {
+	t.Run("connectivity error with no cache returns the original error and is not malformed", func(t *testing.T) {
 		clearCache(robotPartID)
 
 		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unavailable, "cloud is down"))
@@ -283,26 +284,25 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		logger := logging.NewTestLogger(t)
 		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, IsRejectedConfigError(err), test.ShouldBeFalse)
+		test.That(t, IsMalformedConfigError(err), test.ShouldBeFalse)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cached config does not exist")
-		test.That(t, err.Error(), test.ShouldNotContainSubstring, "this robot's config was rejected")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "config was malformed")
 	})
 }
 
-// TestIsCloudConfigRejection pins down the classification that decides whether a cloud config-fetch
-// failure is a rejection or a transient failure to reach the cloud.
-func TestIsCloudConfigRejection(t *testing.T) {
+// TestIsCloudConfigMalformed pins down the classification that decides whether a cloud config-fetch
+// failure means the config is malformed or is a transient failure to reach the cloud.
+func TestIsCloudConfigMalformed(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		err      error
-		rejected bool
+		name      string
+		err       error
+		malformed bool
 	}{
-		// Status codes the cloud uses to reject a config.
+		// Status codes the cloud returns when it cannot produce a usable config.
 		{"unknown (real conversion failure)", status.Error(codes.Unknown, "boom"), true},
 		{"invalid argument", status.Error(codes.InvalidArgument, "boom"), true},
 		{"failed precondition", status.Error(codes.FailedPrecondition, "boom"), true},
-		// Transient status codes are never a rejection. Internal is the notable one: it was previously
-		// treated as a rejection, but a server-side fault is not a config rejection.
+		// Transient status codes should not be treated as if the config is malformed.
 		{"unavailable", status.Error(codes.Unavailable, "boom"), false},
 		{"deadline exceeded", status.Error(codes.DeadlineExceeded, "boom"), false},
 		{"canceled", status.Error(codes.Canceled, "boom"), false},
@@ -316,18 +316,18 @@ func TestIsCloudConfigRejection(t *testing.T) {
 		// connection was never established.
 		{"not connected (no gRPC status)", errors.New("not connected"), false},
 		{"bare context deadline", context.DeadlineExceeded, false},
-		// Wrapping must not hide a real rejection.
-		{"wrapped rejection", errors.WithMessage(status.Error(codes.Unknown, "boom"), "fetching config"), true},
+		// Wrapping must not hide a real malformed-config error.
+		{"wrapped malformed", errors.WithMessage(status.Error(codes.Unknown, "boom"), "fetching config"), true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			test.That(t, isCloudConfigRejection(tc.err), test.ShouldEqual, tc.rejected)
+			test.That(t, isCloudConfigMalformed(tc.err), test.ShouldEqual, tc.malformed)
 		})
 	}
 }
 
-// TestGetFromCloudGRPCProtoDecodeFailureIsRejected verifies that a config the cloud serves but that
-// this robot cannot decode from proto is surfaced as a rejection.
-func TestGetFromCloudGRPCProtoDecodeFailureIsRejected(t *testing.T) {
+// TestGetFromCloudGRPCProtoDecodeFailureIsMalformed verifies that a config the cloud serves but that
+// this robot cannot decode from proto is surfaced as a malformed config.
+func TestGetFromCloudGRPCProtoDecodeFailureIsMalformed(t *testing.T) {
 	const robotPartID = "forProtoDecodeTest"
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -357,14 +357,15 @@ func TestGetFromCloudGRPCProtoDecodeFailureIsRejected(t *testing.T) {
 	cfg, err := getFromCloudGRPC(ctx, cloudCfg, logger, appConn)
 	test.That(t, cfg, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, IsRejectedConfigError(err), test.ShouldBeTrue)
+	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "converting config from proto")
 }
 
-// TestReadFromCloudRejectsUnprocessableConfig verifies that a config the cloud serves successfully
-// but that this robot cannot process locally (here, a bind address with no port) is surfaced as a
-// rejection.
-func TestReadFromCloudRejectsUnprocessableConfig(t *testing.T) {
+// TestReadFromCloudMarksUnprocessableConfigMalformed verifies that a config the cloud serves
+// successfully but that this robot cannot process locally (here, a bind address with no port) is
+// surfaced as a malformed config.
+func TestReadFromCloudMarksUnprocessableConfigMalformed(t *testing.T) {
 	const (
 		robotPartID = "forUnprocessableTest"
 		secret      = testutils.FakeCredentialPayLoad
@@ -397,7 +398,8 @@ func TestReadFromCloudRejectsUnprocessableConfig(t *testing.T) {
 	cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
 	cfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, IsRejectedConfigError(err), test.ShouldBeTrue)
+	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
 	test.That(t, cfg, test.ShouldBeNil)
 }
 

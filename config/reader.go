@@ -199,10 +199,9 @@ func readFromCloud(
 			clearCache(cloudCfg.ID)
 			return nil, err
 		}
-		// A freshly fetched cloud config we cannot process is a rejection. The robot cannot
-		// apply it, and it will fail identically on every refresh. Surface it as a rejection
-		// so callers log it loudly.
-		return nil, rejectedConfigError{err}
+		// A freshly fetched cloud config we cannot process locally is malformed. The robot cannot
+		// apply it, and it will fail identically on every refresh, so surface it loudly.
+		return nil, malformedConfigError{err}
 	}
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
@@ -657,29 +656,31 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	return cfg, nil
 }
 
-// rejectedConfigError wraps an error indicating this robot's config was rejected and cannot
-// be applied, as opposed to a transient failure to reach the cloud. Either the cloud responded
-// and rejected it (e.g. it is malformed) or a freshly fetchedcloud config failed local processing.
-// Callers can detect it with IsRejectedConfigError to surface the failure loudly rather than treat
-// it as a retryable error.
-type rejectedConfigError struct {
+// malformedConfigError wraps an error indicating this robot's cloud config could not be applied, as
+// opposed to a transient failure to reach the cloud. This happens either because the cloud served a
+// config this robot could not decode from proto or process locally, or because the cloud responded with
+// a status code indicating it could not produce a usable config for this robot. A malformed config fails
+// identically on every refresh, so surface it loudly rather than retrying quietly.
+type malformedConfigError struct {
 	err error
 }
 
-func (e rejectedConfigError) Error() string { return e.err.Error() }
-
-func (e rejectedConfigError) Unwrap() error { return e.err }
-
-// IsRejectedConfigError reports whether err indicates this robot's config was rejected and cannot be
-// applied.
-func IsRejectedConfigError(err error) bool {
-	var rejErr rejectedConfigError
-	return errors.As(err, &rejErr)
+func (e malformedConfigError) Error() string {
+	return fmt.Sprintf("config was malformed: %s", e.err.Error())
 }
 
-// isCloudConfigRejection reports whether a cloud config-fetch error means the cloud responded and
-// rejected this robot's config or experienced a transient failure to reach the cloud.
-func isCloudConfigRejection(err error) bool {
+func (e malformedConfigError) Unwrap() error { return e.err }
+
+// IsMalformedConfigError reports whether err indicates this robot's cloud config could not be applied
+// because it is malformed.
+func IsMalformedConfigError(err error) bool {
+	var malformedErr malformedConfigError
+	return errors.As(err, &malformedErr)
+}
+
+// isCloudConfigMalformed reports whether a cloud config-fetch error means the cloud responded and
+// could not return a usable config for this robot, as opposed to a transient failure to reach the cloud.
+func isCloudConfigMalformed(err error) bool {
 	st, ok := status.FromError(err)
 	if !ok {
 		return false
@@ -704,14 +705,14 @@ func getFromCloudOrCache(
 
 	cfg, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
 	if err != nil {
-		rejected := IsRejectedConfigError(err)
+		malformed := IsMalformedConfigError(err)
 		if shouldReadFromCache {
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
 					// Return original error if failed to load from cache.
-					if rejected {
-						return nil, cached, errors.Wrap(err, "this robot's config was rejected and no cached config exists")
+					if malformed {
+						return nil, cached, errors.Wrap(err, "no cached config exists to fall back to")
 					}
 					return nil, cached, errors.Wrap(
 						err,
@@ -727,9 +728,9 @@ func getFromCloudOrCache(
 				// Use logging.DefaultTimeFormatStr since this time will be logged.
 				lastUpdated = fInfo.ModTime().Format(logging.DefaultTimeFormatStr)
 			}
-			if rejected {
+			if malformed {
 				logger.Errorw(
-					"this robot's config was rejected; the new config was NOT applied. continuing on cached config",
+					"the new config was NOT applied; continuing on cached config",
 					"config last updated", lastUpdated, "error", err)
 			} else {
 				logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
@@ -745,8 +746,8 @@ func getFromCloudOrCache(
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint. A failure to
-// reach the cloud is returned as a plain error; a response that rejects this robot's config or returns
-// a config we cannot use is returned as a rejectedConfigError.
+// reach the cloud is returned as a plain error; a config the cloud could not produce or that we cannot
+// decode is returned as a malformedConfigError.
 func getFromCloudGRPC(
 	ctx context.Context,
 	cloudCfg *Cloud,
@@ -761,19 +762,19 @@ func getFromCloudGRPC(
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
-		// A response that rejects this robot's config is surfaced as a rejection.
+		// A status code indicating the cloud could not produce a usable config is treated as malformed.
 		// Anything else (connectivity, timeout, auth, rate-limiting, etc) is transient.
-		rejected := isCloudConfigRejection(err)
+		malformed := isCloudConfigMalformed(err)
 		err = errors.WithMessage(err, "error getting config from config endpoint")
-		if rejected {
-			return nil, rejectedConfigError{err}
+		if malformed {
+			return nil, malformedConfigError{err}
 		}
 		return nil, err
 	}
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
-		// The cloud returned a config we could not use so treat it as a rejection.
-		return nil, rejectedConfigError{errors.WithMessage(err, "error converting config from proto")}
+		// The cloud served a config we could not decode from proto, so it is malformed.
+		return nil, malformedConfigError{errors.WithMessage(err, "error converting config from proto")}
 	}
 
 	return cfg, nil
