@@ -1052,7 +1052,7 @@ func TestModuleStatus(t *testing.T) {
 	// A failure should only increment ConsecutiveFailures by 1
 	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 1)
 	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual,
-		fmt.Sprintf("error while starting module fake: module fake timed out after %s during startup", waitTime))
+		fmt.Sprintf("error adding module fake: error while starting module fake: module fake timed out after %s during startup", waitTime))
 	test.That(t, time.Since(fakeModStatus.LastUpdated), test.ShouldBeLessThan, 100*time.Millisecond)
 
 	// But a good module should still be ready
@@ -1089,7 +1089,7 @@ func TestModuleStatus(t *testing.T) {
 	}}
 	r.Reconfigure(ctx, cfg)
 
-	// // the crash and failed restart should hold mod unhealthy with a failure and error
+	// the crash and failed restart should hold mod unhealthy with a failure and error
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		s := getModuleStatus(tb, r, "mod")
 		test.That(tb, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))

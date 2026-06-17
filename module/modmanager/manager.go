@@ -276,6 +276,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
+				fullErr := fmt.Errorf("error adding module %s: %w", conf.Name, err)
+				mgr.SetModuleStatusUnhealthy(conf.Name, fullErr)
 				errs[i] = err
 				return
 			}
@@ -301,15 +303,14 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		mgr.logger.CWarnw(ctx, "Not adding module that already exists", "module", conf.Name)
 		return nil
 	}
-	// wait to track the module status until we know it doesn't already exist
-	mgr.SetModuleStatusPending(conf.Name)
 
 	exists, existingName := mgr.execPathAlreadyExists(&conf)
 	if exists {
-		err := errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
-		mgr.SetModuleStatusUnhealthy(conf.Name, err)
-		return err
+		return errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
 	}
+
+	// wait to track the module status until we know it doesn't already exist
+	mgr.SetModuleStatusPending(conf.Name)
 
 	var moduleDataDir string
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
@@ -318,7 +319,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
 		moduleDataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
 		if err != nil {
-			mgr.SetModuleStatusUnhealthy(conf.Name, err)
 			return err
 		}
 	}
@@ -368,9 +368,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	if mod.dataDir != "" {
 		mod.logger.Debugf("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
-			fullErr := errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
-			mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
-			return fullErr
+			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
 		}
 	}
 
@@ -381,24 +379,18 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	var moduleRestartCtx context.Context
 	moduleRestartCtx, mod.restartCancel = context.WithCancel(mgr.restartCtx)
 	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(moduleRestartCtx, mod)); err != nil {
-		fullErr := errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
-		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
-		return fullErr
+		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
 	// Does a gRPC dial. Sets up a SharedConn with a PeerConnection that is not yet connected.
 	if err := mod.dial(); err != nil {
-		fullErr := errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
-		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
-		return fullErr
+		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
 
 	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
 	// after this, so long as the module supports it.
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
-		fullErr := errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
-		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
-		return fullErr
+		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
 	}
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
@@ -450,6 +442,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod.logger.CInfow(ctx, "Existing module process stopped. Starting new module process", "module", conf.Name)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, err)
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
@@ -970,6 +963,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			if err == nil {
 				break
 			}
+			mgr.SetModuleStatusUnhealthy(mod.cfg.Name, err)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
@@ -1055,8 +1049,6 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	}()
 
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
-		fullErr := fmt.Errorf("error while restarting crashed module %s: %w", mod.cfg.Name, err)
-		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
 		return err
@@ -1064,16 +1056,12 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	processRestarted = true
 
 	if err := mod.dial(); err != nil {
-		fullErr := fmt.Errorf("error while dialing restarted module %s: %w", mod.cfg.Name, err)
-		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
 		return err
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
-		fullErr := fmt.Errorf("error while waiting for restarted module to be ready %s: %w", mod.cfg.Name, err)
-		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
 		return err
