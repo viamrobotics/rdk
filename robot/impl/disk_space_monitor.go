@@ -15,8 +15,8 @@ import (
 const diskSpaceCheckInterval = 5 * time.Minute
 
 // diskSpaceMonitor periodically logs a warning when the volume holding the packages directory
-// is low on space (see diskusage.IsLow). It watches only PackagePath's volume — not the
-// data-capture dir, which is the likelier disk-filler and may live on a different volume; the
+// is low on space (see diskusage.IsLow). It watches only the packages directory's volume — not
+// the data-capture dir, which is the likelier disk-filler and may live on a different volume; the
 // data manager tracks that separately.
 type diskSpaceMonitor struct {
 	// path is any path on the monitored volume; Statfs reports usage for the whole volume.
@@ -30,7 +30,7 @@ type diskSpaceMonitor struct {
 // (no volume to monitor); stop() is nil-safe so callers needn't special-case that.
 func newDiskSpaceMonitor(path string, logger logging.Logger) *diskSpaceMonitor {
 	if path == "" {
-		logger.Debug("no package path configured; disk space monitor disabled")
+		logger.Debug("no package path to watch; disk space monitor disabled")
 		return nil
 	}
 	m := &diskSpaceMonitor{path: path, logger: logger}
@@ -100,15 +100,6 @@ func (m *diskSpaceMonitor) check(ctx context.Context) {
 			"available", diskusage.FormatBytes(res.usage.AvailableBytes),
 			"used_percent", usedPercent)
 	}
-}
-
-// watchedPath returns the volume path this monitor watches, or "" if there is no monitor (nil).
-// Used to decide whether a reconfigure changed PackagePath enough to warrant a rebind.
-func (m *diskSpaceMonitor) watchedPath() string {
-	if m == nil {
-		return ""
-	}
-	return m.path
 }
 
 func (m *diskSpaceMonitor) stop() {

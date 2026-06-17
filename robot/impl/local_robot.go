@@ -100,10 +100,9 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
-	// diskMonitor watches the package volume; reconfigure may swap it if PackagePath changes, and
-	// Close stops it, so diskMonitorMu guards the field (reconfigure runs on workers Close doesn't wait on).
-	diskMonitor   *diskSpaceMonitor
-	diskMonitorMu sync.Mutex
+	// diskMonitor watches the volume holding downloaded packages. It is created once at startup
+	// (the packages dir is fixed for the robot's lifetime) and stopped by Close.
+	diskMonitor *diskSpaceMonitor
 
 	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
 	reconfigurationLock sync.Mutex
@@ -247,9 +246,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		}
 	}
 	r.activeBackgroundWorkers.Wait()
-	r.diskMonitorMu.Lock()
-	r.diskMonitor.stop() // nil-safe; diskMonitor is nil when no package path is configured
-	r.diskMonitorMu.Unlock()
+	r.diskMonitor.stop() // nil-safe
 	r.sessionManager.Close()
 
 	var err error
@@ -554,7 +551,7 @@ func newWithResources(
 	}
 
 	// Periodically warn if the volume holding downloaded packages is low on free space.
-	r.diskMonitor = newDiskSpaceMonitor(cfg.PackagePath, r.logger)
+	r.diskMonitor = newDiskSpaceMonitor(packagesDir, r.logger)
 
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
@@ -1713,15 +1710,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !initialDiff.TracingEqual {
 		r.reconfigureTracing(ctx, newConfig)
 	}
-
-	// PackagePath rarely changes at runtime, but the config allows it, so rebind the disk-space
-	// monitor to the new volume before syncing packages into it.
-	r.diskMonitorMu.Lock()
-	if newConfig.PackagePath != r.diskMonitor.watchedPath() {
-		r.diskMonitor.stop() // nil-safe
-		r.diskMonitor = newDiskSpaceMonitor(newConfig.PackagePath, r.logger)
-	}
-	r.diskMonitorMu.Unlock()
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
