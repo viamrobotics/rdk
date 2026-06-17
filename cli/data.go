@@ -598,7 +598,7 @@ func (c *viamClient) dataQueryBinaryAction(ctx context.Context, args dataQueryBi
 		last = resp.GetLast()
 
 		for _, bd := range resp.GetData() {
-			jsonRow, err := protojson.Marshal(bd)
+			jsonRow, err := protojson.Marshal(bd.GetMetadata())
 			if err != nil {
 				return errors.Wrap(err, "error formatting query result")
 			}
