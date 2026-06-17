@@ -54,7 +54,7 @@ func (zeroReader) Read(p []byte) (int, error) {
 func TestLocalManagerUtils(t *testing.T) {
 	tmp := t.TempDir()
 	mgr, err := NewLocalManager(
-		&config.Config{PackagePath: filepath.Join(tmp, "pkg")},
+		filepath.Join(tmp, "pkg"),
 		logging.NewTestLogger(t),
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -167,7 +167,7 @@ func TestLocalManagerUtils(t *testing.T) {
 	t.Run("getAddedAndChanged", func(t *testing.T) {
 		tmp := t.TempDir()
 		logger := logging.NewTestLogger(t)
-		mgr, err := NewLocalManager(&config.Config{PackagePath: filepath.Join(tmp, "pkg")}, logger)
+		mgr, err := NewLocalManager(filepath.Join(tmp, "pkg"), logger)
 		test.That(t, err, test.ShouldBeNil)
 		local := mgr.(*localManager)
 
@@ -306,7 +306,7 @@ func modTime(t *testing.T, path string) time.Time {
 
 func TestLocalManagerSync(t *testing.T) {
 	tmp := t.TempDir()
-	mgr, err := NewLocalManager(&config.Config{PackagePath: filepath.Join(tmp, "pkg")}, logging.NewTestLogger(t))
+	mgr, err := NewLocalManager(filepath.Join(tmp, "pkg"), logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	local := mgr.(*localManager)
 

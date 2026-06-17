@@ -393,8 +393,7 @@ func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir stri
 func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
 	if err != nil {
-		var fsPathErr *fs.PathError
-		if errors.Is(err, fsPathErr) {
+		if os.IsNotExist(err) {
 			// Directory doesn't exist. Nothing to clean up.
 			return nil
 		}

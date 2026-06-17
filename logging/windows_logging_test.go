@@ -26,6 +26,7 @@ func TestETWNulls(t *testing.T) {
 	closer, err := RegisterETWLogger(logger, etlDir, ServerETW)
 	test.That(t, closer, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
+	defer closer.Close()
 
 	logger.Info("message through registered ETW appender")
 	err = logger.Sync()
@@ -58,7 +59,7 @@ func TestETWAppenderLifecycle(t *testing.T) {
 
 	test.That(t, a.Close(), test.ShouldBeNil)
 
-	// Write after close: provider is unregistered, pkg/etw's WriteEvent checks
-	// provider.enabled and no-ops. Must not panic.
+	// Write after close: there's no active session, so the provider is disabled
+	// Must not panic.
 	logger.Info("after close")
 }

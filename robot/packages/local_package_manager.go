@@ -46,21 +46,15 @@ type managedModule struct {
 
 type managedModuleMap map[string]*managedModule
 
-// NewLocalManager returns a noop package manager that does nothing. On path requests it returns the name of the package.
-func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer, error) {
-	packagesDir := LocalPackagesDir(conf.PackagePath)
+// NewLocalManager returns a manager that unpacks local tarball modules into the package directory.
+// On path requests it returns the name of the package. packagesParentDir is the parent directory
+// packages are stored under (the local manager appends its own suffix).
+func NewLocalManager(packagesParentDir string, logger logging.Logger) (ManagerSyncer, error) {
+	packagesDir := LocalPackagesDir(packagesParentDir)
 	packagesDataDir := filepath.Join(packagesDir, "data")
-	// if the package path isn't set, don't generate folders because they're not used and won't get deleted
-	if conf.PackagePath != "" {
-		if err := os.MkdirAll(packagesDir, 0o700); err != nil {
-			return nil, err
-		}
-
-		if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
-			return nil, err
-		}
-	}
-
+	// Don't eagerly create the package directories: a robot with no local tarball modules never
+	// uses them, and creating them here would litter the package dir (~/.viam/packages-local) for
+	// every robot/test that doesn't sync local packages. installPackage creates them on demand.
 	return &localManager{
 		Named:           InternalServiceName.AsNamed(),
 		managedModules:  make(managedModuleMap),

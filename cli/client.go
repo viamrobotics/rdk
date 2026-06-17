@@ -4427,7 +4427,11 @@ func isRunningBrewBinary() (bool, error) {
 	}
 	brewPrefixOut, err := exec.Command("brew", "--prefix", "viam").Output()
 	if err != nil {
-		return false, errors.Errorf("failed to get brew prefix for viam: %v", err)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			return false, errors.Errorf("failed to get brew prefix for viam:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return false, errors.Wrap(err, "failed to get brew prefix for viam")
 	}
 	brewBinary := filepath.Join(strings.TrimSpace(string(brewPrefixOut)), "bin", "viam")
 	resolvedBrewBinary, err := filepath.EvalSymlinks(brewBinary)
@@ -4442,7 +4446,10 @@ func isRunningBrewBinary() (bool, error) {
 func tryBrewUpgrade() (brewUpdateResult, error) {
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {
-		return brewUpdated, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+		if trimmed := strings.TrimSpace(string(out)); trimmed != "" {
+			return brewUpdated, errors.Errorf("failed to upgrade CLI via brew:\n%s", trimmed)
+		}
+		return brewUpdated, errors.Wrap(err, "failed to upgrade CLI via brew")
 	}
 	if strings.Contains(string(out), "already installed") {
 		return brewNotAvailable, nil

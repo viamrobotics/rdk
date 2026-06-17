@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
@@ -383,11 +382,6 @@ func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 				out.Modules[i].LogLevel = "debug"
 			}
 		}
-	}
-
-	// Use ~/.viam/packages for package path if one was not specified.
-	if in.PackagePath == "" {
-		out.PackagePath = path.Join(rutils.ViamDotDir, "packages")
 	}
 
 	return out, nil
