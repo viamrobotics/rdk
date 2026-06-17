@@ -45,9 +45,6 @@ const (
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
 	// with a transient error.
 	durationBetweenAcquireConnection = time.Second
-	// offlineLogInterval is the minimum time between "waiting for cloud connection" logs emitted by the
-	// sync scheduler so that a persistently offline machine does not spam the logs every sync tick.
-	offlineLogInterval = time.Minute
 )
 
 // uploadStats tracks cumulative upload statistics.
@@ -641,11 +638,11 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 	defer tkr.Stop()
 	var readyLogged bool
 
-	// lastOfflineLog throttles the "waiting for cloud connection" log so that a
-	// persistently offline machine emits it at most once per offlineLogInterval,
-	// regardless of how often the sync ticker fires. It is reset whenever the
-	// connection is ready so a subsequent disconnect logs immediately.
-	var lastOfflineLog time.Time
+	// lastNotSyncedLog throttles the noisy "not syncing" logs (offline cloud connection or
+	// not-ready selective sync sensor) so that, regardless of how often the sync ticker
+	// fires, at most one is emitted a minute. It is reset once syncing resumes so a
+	// subsequent not-synced reason logs immediately.
+	var lastNotSyncedLog time.Time
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -670,8 +667,8 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			shouldSync := ReadyToSyncDirectories(ctx, config, s.logger)
 			state := s.cloudConn.conn.GetState()
 			if state != connectivity.Ready {
-				if now := s.clock.Now(); now.Sub(lastOfflineLog) >= offlineLogInterval {
-					lastOfflineLog = now
+				if now := s.clock.Now(); now.Sub(lastNotSyncedLog) >= time.Minute {
+					lastNotSyncedLog = now
 					logf := s.logger.Debugf
 					if state == connectivity.TransientFailure || state == connectivity.Shutdown {
 						logf = s.logger.Infof
@@ -681,12 +678,15 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 
 				continue
 			}
-			// connection is ready; reset the throttle so a future disconnect logs immediately.
-			lastOfflineLog = time.Time{}
 			if !shouldSync {
-				s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+				if now := s.clock.Now(); now.Sub(lastNotSyncedLog) >= time.Minute {
+					lastNotSyncedLog = now
+					s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+				}
 				continue
 			}
+			// syncing; reset the throttle so a future not-synced reason logs immediately.
+			lastNotSyncedLog = time.Time{}
 
 			if err := s.walkDirsAndSendFilesToSync(ctx, config); err != nil && !errors.Is(err, context.Canceled) {
 				goutils.UncheckedError(err)
