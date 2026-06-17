@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -252,14 +253,25 @@ func TestModuleGetPlatformsForModule(t *testing.T) {
 	test.That(t, platforms, test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
 }
 
+// chdirMu serializes all tests that change the process-wide CWD via testChdir.
+// Without this, parallel top-level tests (e.g. TestAddModel and TestAddApp) whose
+// subtests call testChdir can race, corrupting relative-path file I/O.
+var chdirMu sync.Mutex
+
 // testChdir is os.Chdir scoped to a test.
 // Necessary because Getwd() fails if run on a deleted path.
+// The mutex is held until the test's Cleanup runs, so only one
+// CWD-dependent test executes at a time.
 func testChdir(t *testing.T, dest string) {
 	t.Helper()
+	chdirMu.Lock()
 	orig, err := os.Getwd()
 	test.That(t, err, test.ShouldBeNil)
 	os.Chdir(dest)
-	t.Cleanup(func() { os.Chdir(orig) })
+	t.Cleanup(func() {
+		os.Chdir(orig)
+		chdirMu.Unlock()
+	})
 }
 
 func TestLocalBuild(t *testing.T) {
