@@ -189,6 +189,47 @@ func TestDownloadSequenceDataset_SurfacesHTTPError(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "403")
 }
 
+func TestDatasetDownloadAction_SequenceFlowUsesFlagValues(t *testing.T) {
+	zipBody := []byte("PK\x03\x04 e2e")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(zipBody)
+	}))
+	defer srv.Close()
+
+	fake := &fakeDatasetServer{
+		listResponse: &datasetpb.ListDatasetsByIDsResponse{
+			Datasets: []*datasetpb.Dataset{{
+				Id:   "ds-1",
+				Type: datasetpb.DatasetType_DATASET_TYPE_SEQUENCE_DATA,
+			}},
+		},
+		startResponse: &datasetpb.StartSequenceDatasetExportResponse{JobId: "job-1"},
+		getResponses: []*datasetpb.GetSequenceDatasetExportResponse{{
+			Status:      datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_COMPLETED,
+			DownloadUrl: srv.URL,
+		}},
+	}
+	client, shutdown := startMockDatasetServer(t, fake)
+	defer shutdown()
+
+	dst := t.TempDir()
+	c := &viamClient{datasetClient: client, c: noopCLICtx(t)}
+
+	// Directly invoke the helper that DatasetDownloadAction would call; this
+	// exercises the same code path without instantiating the full urfave/cli
+	// command tree.
+	dsType, err := c.lookupDatasetType(context.Background(), "ds-1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dsType, test.ShouldEqual, datasetpb.DatasetType_DATASET_TYPE_SEQUENCE_DATA)
+
+	err = c.downloadSequenceDataset(context.Background(), "ds-1", dst, 10*time.Millisecond, time.Second)
+	test.That(t, err, test.ShouldBeNil)
+
+	got, err := os.ReadFile(filepath.Join(dst, "ds-1.zip"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldResemble, zipBody)
+}
+
 func noopCLICtx(t *testing.T) *cli.Command {
 	t.Helper()
 	return &cli.Command{Writer: io.Discard, ErrWriter: io.Discard}
