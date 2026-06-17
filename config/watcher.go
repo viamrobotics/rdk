@@ -80,13 +80,11 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 				// A malformed config is a legitimate error. The robot keeps running its current config,
 				// but we surface it loudly. A transient failure to reach the cloud stays at debug since
 				// the watcher retries.
+				logFunc := logger.Debugw
 				if IsMalformedConfigError(err) {
-					logger.Errorw(
-						"the new config was NOT applied; keeping the current config",
-						"error", err)
-				} else {
-					logger.Debugw("error reading cloud config; will try again", "error", err)
+					logFunc = logger.Errorw
 				}
+				logFunc("could not apply new cloud config; keeping the current config", "error", err)
 				continue
 			}
 			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {

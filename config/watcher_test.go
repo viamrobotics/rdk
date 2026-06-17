@@ -347,18 +347,17 @@ func TestNewWatcherCloud(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	// The fake server returns codes.Unknown while failing, which means the config is malformed.
-	// The watcher should surface that loudly at ERROR on every failing refresh.
-	malformedLogs := logs.FilterMessageSnippet("the new config was NOT applied")
+	// The fake server returns codes.Unknown while failing, which means the config is malformed. The
+	// watcher logs the same message either way, so we distinguish the malformed case from the
+	// transient case by log level: a malformed config is surfaced at ERROR on every failing refresh.
+	const notAppliedMsg = "could not apply new cloud config; keeping the current config"
+	malformedLogs := logs.FilterMessageSnippet(notAppliedMsg).FilterLevelExact(zapcore.ErrorLevel)
 	test.That(t, malformedLogs.Len(), test.ShouldBeGreaterThan, 1)
-	for _, entry := range malformedLogs.All() {
-		test.That(t, entry.Level, test.ShouldEqual, zapcore.ErrorLevel)
-	}
 
-	// A transient connectivity failure must NOT be surfaced as a malformed config. The
-	// watcher logs it at debug and keeps retrying.
+	// A transient connectivity failure must NOT be surfaced loudly. The watcher logs the same message
+	// at DEBUG and keeps retrying.
 	malformedCountBeforeTransient := malformedLogs.Len()
-	debugRetryBeforeTransient := logs.FilterMessageSnippet("error reading cloud config; will try again").Len()
+	debugRetryBeforeTransient := logs.FilterMessageSnippet(notAppliedMsg).FilterLevelExact(zapcore.DebugLevel).Len()
 	fakeServer.FailOnConfigAndCertsWith(status.Error(codes.Unavailable, "cloud is down"))
 	transientTimer := time.NewTimer(3 * time.Second)
 	defer transientTimer.Stop()
@@ -371,9 +370,10 @@ func TestNewWatcherCloud(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	// No new "NOT applied" ERROR logs, but the transient failure was logged at debug.
-	test.That(t, logs.FilterMessageSnippet("the new config was NOT applied").Len(), test.ShouldEqual, malformedCountBeforeTransient)
-	test.That(t, logs.FilterMessageSnippet("error reading cloud config; will try again").Len(),
+	// No new ERROR logs, but the transient failure added DEBUG logs.
+	test.That(t, logs.FilterMessageSnippet(notAppliedMsg).FilterLevelExact(zapcore.ErrorLevel).Len(),
+		test.ShouldEqual, malformedCountBeforeTransient)
+	test.That(t, logs.FilterMessageSnippet(notAppliedMsg).FilterLevelExact(zapcore.DebugLevel).Len(),
 		test.ShouldBeGreaterThan, debugRetryBeforeTransient)
 
 	confToReturn = config.Config{

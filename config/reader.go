@@ -710,10 +710,7 @@ func getFromCloudOrCache(
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
-					// Return original error if failed to load from cache.
-					if malformed {
-						return nil, cached, errors.Wrap(err, "no cached config exists to fall back to")
-					}
+					// No cache to fall back to, return original error.
 					return nil, cached, errors.Wrap(
 						err,
 						"error getting cloud config, cached config does not exist; returning error from cloud config attempt",
@@ -728,13 +725,15 @@ func getFromCloudOrCache(
 				// Use logging.DefaultTimeFormatStr since this time will be logged.
 				lastUpdated = fInfo.ModTime().Format(logging.DefaultTimeFormatStr)
 			}
+			// A malformed config is logged at Error since it will keep failing,
+			// while a transient failure to reach the cloud stays at Warn. Same
+			// message either way.
+			logFunc := logger.Warnw
 			if malformed {
-				logger.Errorw(
-					"the new config was NOT applied; continuing on cached config",
-					"config last updated", lastUpdated, "error", err)
-			} else {
-				logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
+				logFunc = logger.Errorw
 			}
+			logFunc("could not apply new cloud config; using cached version",
+				"config last updated", lastUpdated, "error", err)
 			cached = true
 			return cachedConfig, cached, nil
 		}

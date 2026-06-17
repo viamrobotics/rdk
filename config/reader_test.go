@@ -236,8 +236,10 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		test.That(t, cached, test.ShouldBeTrue)
 		test.That(t, cfg, test.ShouldNotBeNil)
 
-		test.That(t, logs.FilterMessageSnippet("unable to get cloud config; using cached version").Len(), test.ShouldEqual, 1)
-		test.That(t, logs.FilterMessageSnippet("the new config was NOT applied").Len(), test.ShouldEqual, 0)
+		// Same message for both cases; a transient failure is distinguished only by its Warn level.
+		quiet := logs.FilterMessageSnippet("could not apply new cloud config; using cached version")
+		test.That(t, quiet.Len(), test.ShouldEqual, 1)
+		test.That(t, quiet.All()[0].Level, test.ShouldEqual, zapcore.WarnLevel)
 	})
 
 	t.Run("malformed config is surfaced loudly and falls back to cache", func(t *testing.T) {
@@ -254,10 +256,10 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		test.That(t, cached, test.ShouldBeTrue)
 		test.That(t, cfg, test.ShouldNotBeNil)
 
-		malformed := logs.FilterMessageSnippet("the new config was NOT applied")
-		test.That(t, malformed.Len(), test.ShouldEqual, 1)
-		test.That(t, malformed.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
-		test.That(t, logs.FilterMessageSnippet("unable to get cloud config; using cached version").Len(), test.ShouldEqual, 0)
+		// Same message as the transient case, but a malformed config is surfaced loudly at Error.
+		loud := logs.FilterMessageSnippet("could not apply new cloud config; using cached version")
+		test.That(t, loud.Len(), test.ShouldEqual, 1)
+		test.That(t, loud.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 	})
 
 	t.Run("malformed config with no cache returns a clear error", func(t *testing.T) {
@@ -271,7 +273,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no cached config exists to fall back to")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cached config does not exist")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "OrientationVectorDegrees has a normal of 0")
 	})
 
