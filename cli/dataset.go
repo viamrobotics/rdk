@@ -219,11 +219,38 @@ func DatasetDownloadAction(ctx context.Context, cmd *cli.Command, args datasetDo
 	if err != nil {
 		return err
 	}
-	if err := client.downloadDataset(ctx, args.Destination, args.DatasetID,
-		args.OnlyJSONl, args.ForceLinuxPath, args.Parallel, args.Timeout); err != nil {
+
+	dsType, err := client.lookupDatasetType(ctx, args.DatasetID)
+	if err != nil {
 		return err
 	}
-	return nil
+	if dsType == datasetpb.DatasetType_DATASET_TYPE_SEQUENCE_DATA {
+		pollInterval := args.PollInterval
+		if pollInterval == 0 {
+			pollInterval = 5 * time.Second
+		}
+		maxWait := args.MaxWait
+		if maxWait == 0 {
+			maxWait = 30 * time.Minute
+		}
+		return client.downloadSequenceDataset(ctx, args.DatasetID, args.Destination, pollInterval, maxWait)
+	}
+
+	return client.downloadDataset(ctx, args.Destination, args.DatasetID,
+		args.OnlyJSONl, args.ForceLinuxPath, args.Parallel, args.Timeout)
+}
+
+// lookupDatasetType resolves a dataset ID to its proto DatasetType, returning
+// an error if the dataset does not exist.
+func (c *viamClient) lookupDatasetType(ctx context.Context, datasetID string) (datasetpb.DatasetType, error) {
+	resp, err := c.datasetClient.ListDatasetsByIDs(ctx, &datasetpb.ListDatasetsByIDsRequest{Ids: []string{datasetID}})
+	if err != nil {
+		return 0, errors.Wrapf(err, "error looking up dataset %s", datasetID)
+	}
+	if len(resp.GetDatasets()) == 0 {
+		return 0, fmt.Errorf("%s does not match any dataset IDs", datasetID)
+	}
+	return resp.GetDatasets()[0].GetType(), nil
 }
 
 // downloadDataset downloads a dataset with the specified ID.
