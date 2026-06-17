@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
@@ -23,6 +24,8 @@ const (
 	dataFlagBinaryDataIDs     = "binary-data-ids"
 	datasetFlagOnlyJSONLines  = "only-jsonl"
 	datasetFlagForceLinuxPath = "force-linux-path"
+	datasetFlagPollInterval   = "poll-interval"
+	datasetFlagMaxWait        = "max-wait"
 )
 
 type datasetCreateArgs struct {
@@ -206,6 +209,8 @@ type datasetDownloadArgs struct {
 	ForceLinuxPath bool
 	Parallel       uint
 	Timeout        uint
+	PollInterval   time.Duration
+	MaxWait        time.Duration
 }
 
 // DatasetDownloadAction is the corresponding action for 'dataset export'.
