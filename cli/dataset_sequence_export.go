@@ -3,6 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -30,7 +34,43 @@ func (c *viamClient) downloadSequenceDataset(
 		return err
 	}
 
-	printf(c.c.Root().Writer, "Export complete; download URL: %s (dst=%s)", getResp.GetDownloadUrl(), dst)
+	dstPath := filepath.Join(dst, datasetID+".zip")
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return errors.Wrapf(err, "could not create destination directory %s", dst)
+	}
+	if err := downloadSignedURL(ctx, getResp.GetDownloadUrl(), dstPath); err != nil {
+		return err
+	}
+	printf(c.c.Root().Writer, "Wrote %s", dstPath)
+	return nil
+}
+
+// downloadSignedURL streams the GET response for signedURL into dst, creating
+// or truncating dst. Returns an error if the HTTP status is not 2xx.
+func downloadSignedURL(ctx context.Context, signedURL, dst string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, signedURL, nil)
+	if err != nil {
+		return errors.Wrap(err, "building download request")
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "downloading export zip")
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("download HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return errors.Wrapf(err, "could not create %s", dst)
+	}
+	defer func() { _ = out.Close() }()
+	if _, err := io.Copy(out, resp.Body); err != nil {
+		_ = os.Remove(dst)
+		return errors.Wrap(err, "writing export zip to disk")
+	}
 	return nil
 }
 

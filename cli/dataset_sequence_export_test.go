@@ -4,6 +4,10 @@ import (
 	"context"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -132,6 +136,57 @@ func TestDownloadSequenceDataset_TimesOutAfterMaxWait(t *testing.T) {
 	_, err := c.pollUntilTerminal(context.Background(), "job-1", 10*time.Millisecond, 50*time.Millisecond)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "timed out")
+}
+
+func TestDownloadSequenceDataset_WritesZipToDisk(t *testing.T) {
+	zipBody := []byte("PK\x03\x04 fake zip body")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(zipBody)
+	}))
+	defer srv.Close()
+
+	fake := &fakeDatasetServer{
+		startResponse: &datasetpb.StartSequenceDatasetExportResponse{JobId: "job-1"},
+		getResponses: []*datasetpb.GetSequenceDatasetExportResponse{
+			{
+				Status:      datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_COMPLETED,
+				DownloadUrl: srv.URL,
+			},
+		},
+	}
+	client, shutdown := startMockDatasetServer(t, fake)
+	defer shutdown()
+
+	dst := t.TempDir()
+	c := &viamClient{datasetClient: client, c: noopCLICtx(t)}
+	err := c.downloadSequenceDataset(context.Background(), "ds-1", dst, 10*time.Millisecond, time.Second)
+	test.That(t, err, test.ShouldBeNil)
+
+	got, err := os.ReadFile(filepath.Join(dst, "ds-1.zip"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldResemble, zipBody)
+}
+
+func TestDownloadSequenceDataset_SurfacesHTTPError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "expired", http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	fake := &fakeDatasetServer{
+		startResponse: &datasetpb.StartSequenceDatasetExportResponse{JobId: "job-1"},
+		getResponses: []*datasetpb.GetSequenceDatasetExportResponse{{
+			Status:      datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_COMPLETED,
+			DownloadUrl: srv.URL,
+		}},
+	}
+	client, shutdown := startMockDatasetServer(t, fake)
+	defer shutdown()
+
+	c := &viamClient{datasetClient: client, c: noopCLICtx(t)}
+	err := c.downloadSequenceDataset(context.Background(), "ds-1", t.TempDir(), 10*time.Millisecond, time.Second)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "403")
 }
 
 func noopCLICtx(t *testing.T) *cli.Command {
