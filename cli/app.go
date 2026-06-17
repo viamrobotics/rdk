@@ -1514,7 +1514,7 @@ Note: There is no progress meter while copying is in progress.
 							Commands: []*cli.Command{
 								{
 									Name:      "filter",
-									Usage:     "query binary data metadata using filters",
+									Usage:     "query binary data by filter (returns metadata only)",
 									UsageText: createUsageText("data query binary filter", nil, true, false),
 									Flags: append([]cli.Flag{
 										&cli.StringFlag{
