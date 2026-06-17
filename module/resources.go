@@ -445,14 +445,14 @@ func (m *Module) cascadeRebuildDependentsOf(ctx context.Context, newResName reso
 			m.logger.Warnw(
 				"detected mutual-optional dependency cycle: one of these resources will always hold a closed handle to the other "+
 					"after reconstruction. Remove the optional dependency from one side to break the cycle.",
-				"resource", newResName, "dependent", args.conf.Name)
+				"resource", newResName.String(), "dependent", args.conf.Name)
 			newDependents = append(newDependents, args)
 			continue
 		}
 		freshDeps, err := m.getDependenciesForConstruction(ctx, args.depStrings)
 		if err != nil {
 			m.logger.Warnw("failed to get deps for cascade rebuild after resource re-add",
-				"changedResource", newResName, "dependent", args.conf.Name, "err", err)
+				"changedResource", newResName.String(), "dependent", args.conf.Name, "err", err)
 			newDependents = append(newDependents, args)
 			continue
 		}
@@ -461,7 +461,7 @@ func (m *Module) cascadeRebuildDependentsOf(ctx context.Context, newResName reso
 		m.registerMu.Lock()
 		if err != nil {
 			m.logger.Warnw("failed to cascade rebuild dependent after resource re-add",
-				"changedResource", newResName, "dependent", args.conf.Name, "err", err)
+				"changedResource", newResName.String(), "dependent", args.conf.Name, "err", err)
 		}
 		newDependents = append(newDependents, args)
 	}
