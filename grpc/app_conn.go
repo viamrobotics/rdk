@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/connectivity"
 
-	"go.viam.com/rdk/grpc/helpers"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/rdk/web/networkcheck"

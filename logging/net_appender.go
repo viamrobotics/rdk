@@ -14,6 +14,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
@@ -21,8 +22,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	grpchelpers "go.viam.com/rdk/grpc/helpers"
 )
 
 var (
