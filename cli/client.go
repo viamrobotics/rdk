@@ -4409,7 +4409,8 @@ func refreshViamTap() {
 	if repoPath == "" {
 		return
 	}
-	utils.UncheckedError(exec.Command("git", "-C", repoPath, "pull", "--ff-only", "--quiet").Run())
+	// repoPath comes from `brew --repository`, not user input, so the subprocess args are safe.
+	utils.UncheckedError(exec.Command("git", "-C", repoPath, "pull", "--ff-only", "--quiet").Run()) //nolint:gosec
 }
 
 // installedBrewVersion returns the version of viam currently installed by Homebrew
