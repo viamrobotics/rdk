@@ -49,16 +49,22 @@ type fakeDatasetServer struct {
 	startCalled   bool
 }
 
-func (f *fakeDatasetServer) ListDatasetsByIDs(_ context.Context, _ *datasetpb.ListDatasetsByIDsRequest) (*datasetpb.ListDatasetsByIDsResponse, error) {
+func (f *fakeDatasetServer) ListDatasetsByIDs(
+	_ context.Context, _ *datasetpb.ListDatasetsByIDsRequest,
+) (*datasetpb.ListDatasetsByIDsResponse, error) {
 	return f.listResponse, nil
 }
 
-func (f *fakeDatasetServer) StartSequenceDatasetExport(_ context.Context, _ *datasetpb.StartSequenceDatasetExportRequest) (*datasetpb.StartSequenceDatasetExportResponse, error) {
+func (f *fakeDatasetServer) StartSequenceDatasetExport(
+	_ context.Context, _ *datasetpb.StartSequenceDatasetExportRequest,
+) (*datasetpb.StartSequenceDatasetExportResponse, error) {
 	f.startCalled = true
 	return f.startResponse, nil
 }
 
-func (f *fakeDatasetServer) GetSequenceDatasetExport(_ context.Context, _ *datasetpb.GetSequenceDatasetExportRequest) (*datasetpb.GetSequenceDatasetExportResponse, error) {
+func (f *fakeDatasetServer) GetSequenceDatasetExport(
+	_ context.Context, _ *datasetpb.GetSequenceDatasetExportRequest,
+) (*datasetpb.GetSequenceDatasetExportResponse, error) {
 	resp := f.getResponses[f.getCallCount]
 	if f.getCallCount < len(f.getResponses)-1 {
 		f.getCallCount++

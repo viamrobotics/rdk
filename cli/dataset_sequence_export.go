@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 	datasetpb "go.viam.com/api/app/dataset/v1"
+	"go.viam.com/utils"
 )
 
 // downloadSequenceDataset starts an async Parquet export of a sequence
@@ -19,7 +20,7 @@ import (
 func (c *viamClient) downloadSequenceDataset(
 	ctx context.Context, datasetID, dst string, pollInterval, maxWait time.Duration,
 ) error {
-	if err := os.MkdirAll(dst, 0o755); err != nil {
+	if err := os.MkdirAll(dst, 0o700); err != nil {
 		return errors.Wrapf(err, "could not create destination directory %s", dst)
 	}
 
@@ -57,19 +58,21 @@ func downloadSignedURL(ctx context.Context, signedURL, dst string) error {
 	if err != nil {
 		return errors.Wrap(err, "downloading export zip")
 	}
-	defer func() { _ = resp.Body.Close() }()
+	//nolint:errcheck
+	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024)) //nolint:errcheck
 		return fmt.Errorf("download HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
-	out, err := os.Create(dst)
+	out, err := os.Create(dst) //nolint:gosec
 	if err != nil {
 		return errors.Wrapf(err, "could not create %s", dst)
 	}
-	defer func() { _ = out.Close() }()
+	//nolint:errcheck
+	defer out.Close()
 	if _, err := io.Copy(out, resp.Body); err != nil {
-		_ = os.Remove(dst)
+		utils.UncheckedError(os.Remove(dst))
 		return errors.Wrap(err, "writing export zip to disk")
 	}
 	return nil
@@ -92,8 +95,9 @@ func (c *viamClient) pollUntilTerminal(
 			return resp, nil
 		case datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_FAILED:
 			return nil, fmt.Errorf("export job %s failed: %s", jobID, resp.GetErrorMessage())
-		case datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_RUNNING:
-			// fallthrough to wait
+		case datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_RUNNING,
+			datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_UNSPECIFIED:
+			// keep polling
 		default:
 			return nil, fmt.Errorf("export job %s returned unknown status: %s", jobID, resp.GetStatus())
 		}
