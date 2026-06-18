@@ -49,6 +49,12 @@ type PlanRequest struct {
 	// Other more granular parameters for the plan used to move the robot.
 	PlannerOptions *PlannerOptions `json:"planner_options"`
 
+	// TrajGen, when set, enables trajectory generation: PlanMotion runs the generator on the
+	// planned path (falling back to the plain path if it can't cover this plan's DOF) and validates
+	// the result. Not serialized -- it holds a live backend handle. The motion service sets it from
+	// its trajectory_generator config.
+	TrajGen *TrajGen `json:"-"`
+
 	myTestOptions testOptions
 }
 
@@ -300,15 +306,14 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 			return nil, meta, err
 		}
 	}
-
 	meta.GoalsProcessed = goalsProcessed
 
-	t, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
+	plan, err := planFromWaypoints(ctx, logger, request, trajAsInps)
 	if err != nil {
 		return nil, meta, err
 	}
 
-	return t, meta, nil
+	return plan, meta, nil
 }
 
 // resetMeshCaches walks the robot link and world obstacle geometries reachable
