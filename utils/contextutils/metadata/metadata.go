@@ -27,7 +27,12 @@ func Set(ctx context.Context, kv ...string) context.Context {
 	if len(kv) == 0 {
 		return ctx
 	}
-	var md ViamMD = maps.Collect(All(ctx))
+
+	var md ViamMD
+	var ok bool
+	if md, ok = FromContext(ctx); !ok {
+		md = make(ViamMD)
+	}
 	for i := 0; i+1 < len(kv); i += 2 {
 		md[kv[i]] = kv[i+1]
 	}
@@ -50,8 +55,9 @@ func Delete(ctx context.Context, keys ...string) context.Context {
 		return ctx
 	}
 
-	if _, ok := ctx.Value(arbitraryMetadataContextKey{}).(ViamMD); ok {
-		var md ViamMD = maps.Collect(All(ctx))
+	var md ViamMD
+	var ok bool
+	if md, ok = FromContext(ctx); ok {
 		for _, key := range keys {
 			delete(md, key)
 		}
