@@ -16,7 +16,7 @@ import (
 
 // newTestSync builds a Sync wired to a mock cloud client. If connected is true the
 // cloud connection is marked ready. It is torn down via t.Cleanup.
-func newTestSync(t *testing.T, client v1.DataSyncServiceClient, captureDir string, connected bool) *Sync {
+func newTestSync(t *testing.T, client v1.DataSyncServiceClient, connected bool) *Sync {
 	t.Helper()
 	s := New(
 		func(grpc.ClientConnInterface) v1.DataSyncServiceClient { return client },
@@ -24,7 +24,6 @@ func newTestSync(t *testing.T, client v1.DataSyncServiceClient, captureDir strin
 		clock.New(),
 		logging.NewTestLogger(t),
 	)
-	s.config = Config{CaptureDir: captureDir}
 	s.cloudConn.partID = "my-part-id"
 	s.cloudConn.client = client
 	if connected {
@@ -63,7 +62,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("not connected to the cloud", func(t *testing.T) {
 		dir := t.TempDir()
-		s := newTestSync(t, NoOpCloudClientConstructor(nil), dir, false)
+		s := newTestSync(t, NoOpCloudClientConstructor(nil), false)
 		_, err := s.UploadDataFromPath(ctx, writeTestFile(t, dir, "f.txt", []byte("hi")), nil, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected to the cloud")
@@ -71,7 +70,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("single file", func(t *testing.T) {
 		dir := t.TempDir()
-		s := newTestSync(t, fileUploadClientReturningIDs(t, "bin-1"), dir, true)
+		s := newTestSync(t, fileUploadClientReturningIDs(t, "bin-1"), true)
 		contents := []byte("hello world")
 		fp := writeTestFile(t, dir, "f.txt", contents)
 
@@ -90,7 +89,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("directory of files", func(t *testing.T) {
 		dir := t.TempDir()
-		s := newTestSync(t, fileUploadClientReturningIDs(t, "bin-1", "bin-2", "bin-3"), dir, true)
+		s := newTestSync(t, fileUploadClientReturningIDs(t, "bin-1", "bin-2", "bin-3"), true)
 		uploadDir := filepath.Join(dir, "uploads")
 		test.That(t, os.MkdirAll(uploadDir, 0o700), test.ShouldBeNil)
 		a, b, c := []byte("aaa"), []byte("bbbb"), []byte("ccccc")
@@ -110,7 +109,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("directory with a partial failure", func(t *testing.T) {
 		dir := t.TempDir()
-		s := newTestSync(t, NoOpCloudClientConstructor(nil), dir, true)
+		s := newTestSync(t, NoOpCloudClientConstructor(nil), true)
 		uploadDir := filepath.Join(dir, "uploads")
 		test.That(t, os.MkdirAll(uploadDir, 0o700), test.ShouldBeNil)
 

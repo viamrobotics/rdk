@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/robot"
@@ -44,14 +43,15 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 
 	uploadOne := func(filePath string) {
 		// sequence files and data capture files are managed by data capture, so skip and log
-		if isSequenceFile(filePath) || isOpenSequenceFile(filePath) {
-			s.logger.Infof("skipping sequence file managed by data capture: %s", filePath)
+		if isSequenceFile(filePath) || isOpenSequenceFile(filePath) ||
+			isCompletedCaptureFile(filePath) || filepath.Ext(filePath) == data.InProgressCaptureFileExt {
+			s.logger.Warnw("skipping sequence file managed by data capture:", "path", filePath)
 			return
 		}
 
 		fi, statErr := os.Stat(filePath)
 		if statErr != nil {
-			s.logger.Warnw("failed to stat file for upload", "path", filePath, "error", statErr)
+			s.logger.Errorw("failed to stat file for upload", "path", filePath, "error", statErr)
 			filesFailed++
 			return
 		}
@@ -59,20 +59,14 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		//nolint:gosec
 		f, openErr := os.Open(filePath)
 		if openErr != nil {
-			s.logger.Warnw("failed to open file for upload", "path", filePath, "error", openErr)
+			s.logger.Errorw("failed to open file for upload", "path", filePath, "error", openErr)
 			filesFailed++
-			return
-		}
-
-		if data.IsDataCaptureFile(f) {
-			s.logger.Infof("skipping data capture file managed by data capture: %s", filePath)
-			goutils.UncheckedError(f.Close())
 			return
 		}
 
 		bytesTotal += uint64(fi.Size())
 		if id, syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); syncErr != nil {
-			s.logger.Warnw("failed to upload file", "path", filePath, "error", syncErr)
+			s.logger.Errorw("failed to upload file", "path", filePath, "error", syncErr)
 			filesFailed++
 		} else {
 			filesUploaded++
@@ -85,8 +79,12 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 
 	if info.IsDir() {
 		err = filepath.Walk(path, func(filePath string, fi os.FileInfo, walkErr error) error {
-			if walkErr != nil || fi.IsDir() {
-				return nil //nolint:nilerr
+			if walkErr != nil {
+				s.logger.Errorw("error accessing path during walk, skipping", "path", filePath, "error", walkErr)
+				return nil 
+			}
+			if fi.IsDir() {
+				return nil
 			}
 			uploadOne(filePath)
 			return ctx.Err()
