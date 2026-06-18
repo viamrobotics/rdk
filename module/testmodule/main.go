@@ -105,6 +105,14 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 
+	if slowStart := os.Getenv("VIAM_TESTMODULE_SLOW_START"); slowStart != "" {
+		slowStartDuration, err := time.ParseDuration(slowStart)
+		if err != nil {
+			return err
+		}
+		time.Sleep(slowStartDuration)
+	}
+
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
 	if err != nil {
