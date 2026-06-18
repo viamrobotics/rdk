@@ -312,7 +312,7 @@ func (nl *NetAppender) backgroundWorker() {
 	interval := normalInterval
 
 	// used as a set. could be changed to store Timestamp or count if needed
-	errsSinceLastSuccess := make(map[string]struct{})
+	errsSinceLastOnline := make(map[string]struct{})
 	for {
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
 			return
@@ -328,10 +328,12 @@ func (nl *NetAppender) backgroundWorker() {
 				// if we're offline, connState should be connectivity.TransientFailure or Connecting. Note: not perfectly reliable, but
 				// fine for our purposes.
 				maybeOffline := connState == connectivity.TransientFailure || connState == connectivity.Connecting
-				if _, ok := errsSinceLastSuccess[errKey]; maybeOffline && ok {
-					continue
+				if maybeOffline {
+					if _, ok := errsSinceLastOnline[errKey]; ok {
+						continue
+					}
+					errsSinceLastOnline[errKey] = struct{}{}
 				}
-				errsSinceLastSuccess[errKey] = struct{}{}
 
 				errMsg := fmt.Sprintf("error logging to network: %s", err)
 				nl.loggerWithoutNet.Info(errMsg)
@@ -344,7 +346,7 @@ func (nl *NetAppender) backgroundWorker() {
 			}
 		} else {
 			interval = normalInterval
-			clear(errsSinceLastSuccess)
+			clear(errsSinceLastOnline)
 		}
 	}
 }
