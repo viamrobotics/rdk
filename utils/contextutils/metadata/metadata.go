@@ -137,7 +137,8 @@ func ViamClientToServerMetadataUnaryServerInterceptor(
 		var kvPairs []string
 		for prefixedKey, vs := range md {
 			if strings.HasPrefix(prefixedKey, arbitraryMetadataKeyPrefix) {
-				// grpc metadata is map[string][]string, but ours is map[string]string. if vs has more than 1 element, Set will take the last.
+				// grpc metadata is map[string][]string, but ours is map[string]string.
+				// in the unlikely case that vs has more than 1 element, Set will take the last.
 				for _, v := range vs {
 					kvPairs = append(kvPairs, strings.TrimPrefix(prefixedKey, arbitraryMetadataKeyPrefix), v)
 				}
