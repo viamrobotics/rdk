@@ -144,6 +144,15 @@ func TestRemoteRobotsGold(t *testing.T) {
 	})
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
+	// Immediately re-acquire the port that remote2 just released so that a
+	// parallel test (which reserves random ports) can't claim it out from under
+	// us while we wait for the remote to be detected offline and set up remote3.
+	// Holding the listener ourselves until remote3 takes it over keeps the
+	// address reserved the whole time.
+	listener2, err = net.Listen("tcp", listener2.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	options.Network.Listener = listener2
+
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		verifyReachableResourceNames(tb, r,
@@ -155,12 +164,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 	})
 
 	remote3 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote3"))
-
-	// Note: There's a slight chance this test can fail if someone else
-	// claims the port we just released by closing the server.
-	listener2, err = net.Listen("tcp", listener2.Addr().String())
-	test.That(t, err, test.ShouldBeNil)
-	options.Network.Listener = listener2
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -293,6 +296,15 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 
+	// Immediately re-acquire the port that foo just released so that a parallel
+	// test (which reserves random ports) can't claim it out from under us while
+	// we wait for the remote to be detected offline and set up foo2. Holding the
+	// listener ourselves until foo2 takes it over keeps the address reserved the
+	// whole time.
+	listener1, err = net.Listen("tcp", listener1.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	options.Network.Listener = listener1
+
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		verifyReachableResourceNames(tb, r,
@@ -301,12 +313,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	})
 
 	foo2 := setupLocalRobot(t, ctx, fooCfg, logger.Sublogger("foo2"))
-
-	// Note: There's a slight chance this test can fail if someone else
-	// claims the port we just released by closing the server.
-	listener1, err = net.Listen("tcp", listener1.Addr().String())
-	test.That(t, err, test.ShouldBeNil)
-	options.Network.Listener = listener1
 	err = foo2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 

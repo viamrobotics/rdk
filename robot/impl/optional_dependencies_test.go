@@ -903,6 +903,15 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	allResourceNames := lr.ResourceNames()
 	test.That(t, remote.Close(ctx), test.ShouldBeNil)
 
+	// Immediately re-acquire the port that the remote just released so that a
+	// parallel test (which reserves random ports) can't claim it out from under
+	// us while we wait for the remote to be detected offline and set up remote2.
+	// Holding the listener ourselves until remote2 takes it over keeps the
+	// address reserved the whole time.
+	listener, err = net.Listen("tcp", listener.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	options.Network.Listener = listener
+
 	// With the complete config worker disabled, manually trigger remote updates in a loop.
 	gotestutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
@@ -918,9 +927,6 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 
 	// Bring up a new remote robot on the same address and wait for local robot to notice.
 	remote2 := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote2"))
-	listener, err = net.Listen("tcp", listener.Addr().String())
-	test.That(t, err, test.ShouldBeNil)
-	options.Network.Listener = listener
 	err = remote2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
