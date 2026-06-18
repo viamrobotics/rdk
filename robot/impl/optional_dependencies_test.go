@@ -386,21 +386,20 @@ func TestOptionalDependencies(t *testing.T) {
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that there are either 3 (no new) _or_ 4 logs about an inability to "get
+		// Assert that there are either 2 (no new) _or_ 3 logs about an inability to "get
 		// optional motor."
 		//
-		// The optional child _might_ get 'm1' as a dependency as part of its initial
-		// construction, in which case no log will be emitted, or it _might_ get 'm1' as a
-		// dependency as part of the rebuild triggered when updateWeakAndOptionalDependents
-		// sees oc's snapshot (captured at construction without m1) differ from the current
-		// resolved set (now including m1), in which case one log will be emitted due to
-		// the initial construction lacking the 'm1' dependency.
-		//
 		// Optional dependencies are _not_ represented as edges in the resource graph and have
-		// no influence on build order. 3 logs would mean the order was m -> m1 -> oc or m1 ->
-		// m -> oc. 4 logs would mean the order was m -> oc -> m1.
+		// no influence on build order; only the required 'oc -> m' edge is ordered, so oc and
+		// m1 are built concurrently and whether oc sees m1 at construction is a race:
+		//   - oc resolves m1 at construction: emits no log, and its snapshot already includes
+		//     m1 so updateWeakAndOptionalDependents skips a rebuild. +0 -> 2.
+		//   - oc misses m1 at construction: 1 log, then updateWeakAndOptionalDependents sees
+		//     the snapshot (captured without m1) differ from the resolved set and rebuilds oc
+		//     -- but that rebuild runs after m1 is fully built, so it resolves m1 and logs
+		//     nothing more. +1 -> 3.
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldBeIn, []int{3, 4})
+		test.That(t, msgNum, test.ShouldBeIn, []int{2, 3})
 
 		// Assert that, on the component itself, `requiredMotor` and `optionalMotor` are now
 		// set.

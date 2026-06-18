@@ -329,15 +329,17 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    the logical clock has not changed and there is nothing in the current level that depends on
 	//    resources with weak dependencies, e.g., weak1.
 	//
-	//    base1, base2, and motion are constructed and the logical clock is bumped to 3.
+	//    base1 and base2 are constructed, each advancing the logical clock.
 	// 3) weak1 is processed in a separate level. Prior to that, `completeConfig` checks if there is
-	//    a need to call `updateWeakAndOptionalDependents`. The logical clock (3) has changed since
+	//    a need to call `updateWeakAndOptionalDependents`. The logical clock has changed since
 	//    `lastWeakAndOptionalDependentsRound` (0), but resources in this level (weak1) do not
-	//    themselves depend on resources with weak dependencies. Therefore no call is made.
+	//    themselves depend on resources with weak dependencies. Therefore no call is made. weak1 is
+	//    constructed advancing the clock to 3.
 	// 4) After returning from the "levels" part of reconfiguration, `updateWeakAndOptionalDependents`
-	//    is called. weak1's snapshot at construction was empty (no base1/base2/motion yet), but the
-	//    current resolved weak set now includes all three; the snapshot differs so weak1 is rebuilt
-	//    via the inline rebuild path. `lastWeakAndOptionalDependentsRound` is updated to 4.
+	//    is called. At construction weak1 only received its explicit dependency, base1. base2, a
+	//    weak dependent, may not have been resolved until this call. If weak1's weak-dep snapshot
+	// 	  differs from the now-resolved weak set (base1 and base2), it is rebuilt but does not advance
+	//    the logical clock, so `lastWeakAndOptionalDependentsRound` is 3.
 
 	t.Log("Robot startup")
 	base1Name := base.Named("base1")
@@ -390,16 +392,17 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    must be met:
 	//    - At least one resource being processed in this level (base1) depends on a resource with
 	//      weak dependencies
-	//    - The logical clock (4) is higher than `lastWeakAndOptionalDependentsRound` (4)
+	//    - The logical clock (3) is higher than `lastWeakAndOptionalDependentsRound` (3)
 	//
-	//    Both are false here, so no call is made. base1 is rebuilt and the logical clock is bumped to 5.
+	//    Both are false here, so no call is made. base1 is rebuilt and the logical clock is bumped to 4.
 	// 3) weak1 is processed in its own level. weak1 itself has no config diff and its explicit
 	//    dependent (base1) was rebuilt in-place into the same gNode (no new resource pointer
 	//    surfaced to weak1's level), so weak1 is not rebuilt via processResource. The completeConfig
 	//    pre-level check for `updateWeakAndOptionalDependents` also fails.
 	// 4) After the "levels" pass, `updateWeakAndOptionalDependents` runs and consults weak1's
 	//    snapshot: base1's clock advanced, so weak1's snapshot is stale and weak1 is rebuilt
-	//    via the inline rebuild path. `lastWeakAndOptionalDependentsRound` is updated to 5.
+	//    via the inline rebuild path. That rebuild does not advance the logical clock, so
+	//    `lastWeakAndOptionalDependentsRound` is updated to 4.
 	t.Log("Reconfigure base1")
 	weakCfg.Components[1].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
@@ -423,14 +426,15 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    must be met:
 	//    - At least one resource being processed in this level (base2) depends on a resource with
 	//      weak dependencies
-	//    - The logical clock (5) is higher than `lastWeakAndOptionalDependentsRound` (5)
+	//    - The logical clock (4) is higher than `lastWeakAndOptionalDependentsRound` (4)
 	//
-	//    Both are false here, so no call is made. base2 is rebuilt and the logical clock is bumped to 6.
+	//    Both are false here, so no call is made. base2 is rebuilt and the logical clock is bumped to 5.
 	// 3) weak1 is processed in its own level but is not rebuilt via processResource because weak1's
 	//    config has no diff and base1 (its explicit dep) was rebuilt in-place into the same gNode.
 	// 4) After the "levels" pass, `updateWeakAndOptionalDependents` runs and consults weak1's
 	//    snapshot: base2's clock advanced, so weak1's snapshot is stale and weak1 is rebuilt via
-	//    the inline rebuild path. `lastWeakAndOptionalDependentsRound` is updated to 6.
+	//    the inline rebuild path. That rebuild does not advance the logical clock, so
+	//    `lastWeakAndOptionalDependentsRound` is updated to 5.
 	t.Log("Reconfigure base2")
 	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
@@ -505,19 +509,16 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//      on a resource with weak dependencies (weak dependents)
 	//    - The logical clock (0) is higher than `lastWeakAndOptionalDependentsRound` (0)
 	//
-	//    Both are false here, so no call is made. base2, weak1, and motion are constructed and
-	//    the logical clock is bumped to 3.
-	// 3) base1 is processed in a separate level. Prior to that, `completeConfig` checks whether
-	//    to call `updateWeakAndOptionalDependents`. The logical clock (3) has changed since
-	//    `lastWeakAndOptionalDependentsRound` (0), and base1 (in this level) depends on weak1
-	//    (a weak dependent), so `updateWeakAndOptionalDependents` is called.
-	//    `lastWeakAndOptionalDependentsRound` is updated to 3 and weak1 is rebuilt (its snapshot
-	//    captured at construction was empty; the current resolved set now includes base2 + motion).
-	//
-	//    After that, base1 is constructed and the logical clock is bumped to 4.
-	// 4) After the "levels" pass, `updateWeakAndOptionalDependents` runs and consults weak1's
-	//    snapshot: base1's clock is now in the resolved set, so the snapshot is stale and weak1
-	//    is rebuilt again. `lastWeakAndOptionalDependentsRound` is updated to 4.
+	//    Both are false here, so no call is made. base2 and weak1 are constructed and
+	//    the logical clock is bumped to 2.
+	// 3) base1 is processed in a separate level (it depends on weak1) and is constructed, advancing
+	//    the logical clock to 3. Prior to this, `completeConfig`'s pre-level `updateWeakAndOptionalDependents`
+	//    call runs, but may or may not rebuild weak1: It rebuilds weak1 only if base2 is now resolvable but
+	//    was not in its construction dependency snapshot; otherwise nothing has changed.
+	// 4) After the "levels" pass, `updateWeakAndOptionalDependents` runs and consults weak1's construction
+	//    snapshot. base1 depends on weak1, so it is built afterward and is never in that snapshot; the
+	//    now-resolved weak set therefore always differs from it, and weak1 is rebuilt via the inline rebuild
+	// 	  path but does not advance the logical clock, so `lastWeakAndOptionalDependentsRound` is 3.
 	t.Log("Robot startup")
 	base1Name := base.Named("base1")
 	base2Name := base.Named("base2")
@@ -572,13 +573,14 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//    `updateWeakAndOptionalDependents`. Both conditions must be met:
 	//    - At least one resource being processed in this level (base1) depends on a resource
 	//      with weak dependencies
-	//    - The logical clock (4) is higher than `lastWeakAndOptionalDependentsRound` (4)
+	//    - The logical clock (3) is higher than `lastWeakAndOptionalDependentsRound` (3)
 	//
 	//    The first condition is true while the second is false, so no call is made yet.
-	//    base1 is rebuilt and the logical clock is bumped to 5.
+	//    base1 is rebuilt and the logical clock is bumped to 4.
 	// 3) After the "levels" pass, `updateWeakAndOptionalDependents` runs and consults weak1's
 	//    snapshot: base1's clock advanced, so the snapshot is stale and weak1 is rebuilt via
-	//    the inline rebuild path. `lastWeakAndOptionalDependentsRound` is updated to 5.
+	//    the inline rebuild path. That rebuild does not advance the logical clock, so
+	//    `lastWeakAndOptionalDependentsRound` is updated to 4.
 
 	t.Log("Reconfigure base1")
 	weakCfg.Components[1].Attributes = rutils.AttributeMap{"version": 1}
@@ -603,15 +605,16 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//    must be met:
 	//    - At least one resource being processed in this level (base2) depends on a resource
 	//      with weak dependencies
-	//    - The logical clock (5) is higher than `lastWeakAndOptionalDependentsRound` (5)
+	//    - The logical clock (4) is higher than `lastWeakAndOptionalDependentsRound` (4)
 	//
-	//    Both are false here, so no call is made. base2 is rebuilt and the logical clock is bumped to 6.
+	//    Both are false here, so no call is made. base2 is rebuilt and the logical clock is bumped to 5.
 	// 3) base1 is processed in its own level but is not rebuilt because base1's config has no diff
 	//    and its explicit dependents were not rebuilt. The pre-level check for
 	//    `updateWeakAndOptionalDependents` also fails.
 	// 4) After the "levels" pass, `updateWeakAndOptionalDependents` runs and consults weak1's
 	//    snapshot: base2's clock advanced, so the snapshot is stale and weak1 is rebuilt via
-	//    the inline rebuild path. `lastWeakAndOptionalDependentsRound` is updated to 6.
+	//    the inline rebuild path. That rebuild does not advance the logical clock, so
+	//    `lastWeakAndOptionalDependentsRound` is updated to 5.
 	t.Log("Reconfigure base2")
 	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
