@@ -3,7 +3,6 @@ package pointcloud
 import (
 	"math"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -614,11 +613,11 @@ func TestCachedMaxProbability(t *testing.T) {
 		d := &basicData{value: 0, hasValue: false}
 		node := newLeafNodeFilled(r3.Vector{1, 2, 3}, d)
 		filledNode := basicOctreeNode{
-			children:     nil,
-			nodeType:     leafNodeFilled,
-			point:        &PointAndData{P: r3.Vector{1, 2, 3}, D: d},
-			maxVal:       defaultConfidenceThreshold,
-			pointGeoOnce: &sync.Once{},
+			children: nil,
+			nodeType: leafNodeFilled,
+			point:    &PointAndData{P: r3.Vector{1, 2, 3}, D: d},
+			pointGeo: spatialmath.NewPoint(r3.Vector{1, 2, 3}, ""),
+			maxVal:   defaultConfidenceThreshold,
 		}
 		test.That(t, node, test.ShouldResemble, filledNode)
 	})

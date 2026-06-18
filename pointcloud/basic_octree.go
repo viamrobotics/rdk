@@ -3,7 +3,6 @@ package pointcloud
 import (
 	"fmt"
 	"math"
-	"sync"
 	"sync/atomic"
 
 	"github.com/golang/geo/r3"
@@ -68,17 +67,11 @@ type BasicOctree struct {
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
 // PointAndData datatype representing a point in space.
 type basicOctreeNode struct {
-	nodeType     NodeType
-	children     []*BasicOctree
-	point        *PointAndData
-	pointGeoOnce *sync.Once
-	pointGeo     spatialmath.Geometry
-	maxVal       int
-}
-
-func (b *basicOctreeNode) pointGeometry() spatialmath.Geometry {
-	b.pointGeoOnce.Do(func() { b.pointGeo = spatialmath.NewPoint(b.point.P, "") })
-	return b.pointGeo
+	nodeType NodeType
+	children []*BasicOctree
+	point    *PointAndData
+	pointGeo *spatialmath.Point
+	maxVal   int
 }
 
 // NewFromMesh returns an octree representation of the Mesh geometry.
@@ -344,7 +337,7 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 	case leafNodeEmpty:
 		return false, math.Inf(1), nil
 	case leafNodeFilled:
-		return geom.CollidesWith(octree.node.pointGeometry(), collisionBufferMM)
+		return geom.CollidesWith(octree.node.pointGeo, collisionBufferMM)
 	}
 	return false, collisionBufferMM, errors.New("unknown octree node type")
 }
@@ -529,7 +522,7 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 
 		// Check collision with each geometry
 		for _, geom := range geometries {
-			collides, _, err := geom.CollidesWith(octree.node.pointGeometry(), collisionBufferMM)
+			collides, _, err := geom.CollidesWith(octree.node.pointGeo, collisionBufferMM)
 			if err == nil && collides {
 				*accumulator = append(*accumulator, octree.node.point.P)
 				break // Point collides with at least one geometry, no need to check others

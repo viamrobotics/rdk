@@ -13,17 +13,17 @@ func TestNewPoint(t *testing.T) {
 
 	// test point created from NewBox method
 	geometry := NewPoint(offset.Point(), "")
-	test.That(t, geometry, test.ShouldResemble, &point{offset.Point(), ""})
+	test.That(t, geometry, test.ShouldResemble, &Point{offset.Point(), ""})
 
 	// test point created from GeometryCreator with offset
-	geometry = NewPoint(offset.Point(), "").Transform(PoseInverse(offset))
-	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
+	transformed := NewPoint(offset.Point(), "").Transform(PoseInverse(offset))
+	test.That(t, PoseAlmostCoincident(transformed.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 
 func TestPointAlmostEqual(t *testing.T) {
 	original := NewPoint(r3.Vector{}, "")
 	good := NewPoint(r3.Vector{1e-18, 1e-18, 1e-18}, "")
 	bad := NewPoint(r3.Vector{1e-2, 1e-2, 1e-2}, "")
-	test.That(t, original.(*point).almostEqual(good), test.ShouldBeTrue)
-	test.That(t, original.(*point).almostEqual(bad), test.ShouldBeFalse)
+	test.That(t, original.almostEqual(good), test.ShouldBeTrue)
+	test.That(t, original.almostEqual(bad), test.ShouldBeFalse)
 }

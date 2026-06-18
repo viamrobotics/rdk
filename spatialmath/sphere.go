@@ -122,7 +122,7 @@ func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 			return true, -1, nil
 		}
 		return false, dist, nil
-	case *point:
+	case *Point:
 		// Point-sphere distance is cheap, so we can return it
 		dist := sphereVsPointDistance(s, other.position)
 		if dist <= collisionBufferMM {
@@ -146,7 +146,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 		return sphereVsSphereDistance(s, other), nil
 	case *capsule:
 		return capsuleVsSphereDistance(other, s), nil
-	case *point:
+	case *Point:
 		return sphereVsPointDistance(s, other.position), nil
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
@@ -165,7 +165,7 @@ func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
 		return sphereInBox(s, other), nil
 	case *Cylinder:
 		return sphereInCylinder(s, other), nil
-	case *point:
+	case *Point:
 		return false, nil
 	default:
 		return true, newCollisionTypeUnsupportedError(s, g)

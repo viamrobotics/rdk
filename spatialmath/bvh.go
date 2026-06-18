@@ -122,7 +122,7 @@ func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 		return computeBoxAABB(geom)
 	case *capsule:
 		return computeCapsuleAABB(geom)
-	case *point:
+	case *Point:
 		pt := geom.position
 		return pt, pt
 	case *Mesh:

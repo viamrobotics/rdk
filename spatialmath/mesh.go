@@ -462,7 +462,7 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		return m.collidesWithMesh(other, collisionBufferMM)
 	case *Cylinder:
 		return other.CollidesWith(m, collisionBufferMM)
-	case *capsule, *point, *sphere:
+	case *capsule, *Point, *sphere:
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Triangle:
 		// Wrap in a Mesh so we get the negative-cache short-circuit in
@@ -479,7 +479,7 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 // EncompassedBy returns whether this mesh is completely contained within another geometry.
 func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 	switch other := g.(type) {
-	case *point:
+	case *Point:
 		return false, nil
 	case *Mesh:
 		// Meshes are not treated as solid volumes for collision checks, so this uses conservative
@@ -521,7 +521,7 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		return m.distanceFromMesh(other.toMesh())
 	case *capsule:
 		return capsuleVsMeshDistance(other, m), nil
-	case *point:
+	case *Point:
 		return m.distanceFromSphere(&sphere{pose: NewPoseFromPoint(other.position)}), nil
 	case *sphere:
 		return m.distanceFromSphere(other), nil

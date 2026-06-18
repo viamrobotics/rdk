@@ -120,7 +120,7 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.R = gType.radius
 		config.L = gType.height
 		config.Label = gType.label
-	case *point:
+	case *Point:
 		config.Type = PointType
 		config.Label = gType.label
 	case *Mesh:
@@ -227,7 +227,7 @@ func GeometriesAlmostEqual(a, b Geometry) bool {
 		return gType.almostEqual(b)
 	case *Cylinder:
 		return gType.almostEqual(b)
-	case *point:
+	case *Point:
 		return gType.almostEqual(b)
 	default:
 		return false

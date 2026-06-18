@@ -177,7 +177,7 @@ func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
 		return capsuleVsBoxDistance(c, other), nil
 	case *capsule:
 		return capsuleVsCapsuleDistance(c, other), nil
-	case *point:
+	case *Point:
 		return capsuleVsPointDistance(c, other.position), nil
 	case *sphere:
 		return capsuleVsSphereDistance(c, other), nil
@@ -198,7 +198,7 @@ func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
 		return capsuleInSphere(c, other), nil
 	case *Cylinder:
 		return capsuleInCylinder(c, other), nil
-	case *point:
+	case *Point:
 		return false, nil
 	default:
 		return true, newCollisionTypeUnsupportedError(c, g)

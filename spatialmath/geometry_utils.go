@@ -156,7 +156,7 @@ func BoundingSphere(geometry Geometry) (Geometry, error) {
 		r += g.radius
 	case *capsule:
 		r += g.length / 2
-	case *point:
+	case *Point:
 	default:
 		return nil, errGeometryTypeUnsupported
 	}

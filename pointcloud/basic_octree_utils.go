@@ -2,20 +2,20 @@ package pointcloud
 
 import (
 	"math"
-	"sync"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
-		children:     nil,
-		nodeType:     leafNodeEmpty,
-		point:        nil,
-		maxVal:       defaultConfidenceThreshold,
-		pointGeoOnce: &sync.Once{},
+		children: nil,
+		nodeType: leafNodeEmpty,
+		point:    nil,
+		maxVal:   defaultConfidenceThreshold,
 	}
 	return octNode
 }
@@ -23,11 +23,10 @@ func newLeafNodeEmpty() basicOctreeNode {
 // Creates a new InternalNode with specified children nodes.
 func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 	octNode := basicOctreeNode{
-		children:     tree,
-		nodeType:     internalNode,
-		point:        nil,
-		maxVal:       defaultConfidenceThreshold,
-		pointGeoOnce: &sync.Once{},
+		children: tree,
+		nodeType: internalNode,
+		point:    nil,
+		maxVal:   defaultConfidenceThreshold,
 	}
 	return octNode
 }
@@ -35,11 +34,11 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 // Creates a new LeafNodeFilled and stores specified position and data.
 func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 	octNode := basicOctreeNode{
-		children:     nil,
-		nodeType:     leafNodeFilled,
-		point:        &PointAndData{P: p, D: d},
-		maxVal:       getRawVal(d),
-		pointGeoOnce: &sync.Once{},
+		children: nil,
+		nodeType: leafNodeFilled,
+		point:    &PointAndData{P: p, D: d},
+		pointGeo: spatialmath.NewPoint(p, ""),
+		maxVal:   getRawVal(d),
 	}
 	return octNode
 }
