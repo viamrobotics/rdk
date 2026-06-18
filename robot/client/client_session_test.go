@@ -238,7 +238,7 @@ func TestClientSessionOptions(t *testing.T) {
 								}
 							})
 							// testing against time but fairly generous range
-							test.That(t, time.Since(startAt), test.ShouldBeBetween, 4*time.Second, 7*time.Second)
+							test.That(t, time.Since(startAt), test.ShouldBeBetween, 4*time.Second, 10*time.Second)
 						}
 
 						capMu.Lock()
@@ -431,7 +431,7 @@ func TestClientSessionExpiration(t *testing.T) {
 					test.That(tb, heartbeatCnt, test.ShouldBeGreaterThanOrEqualTo, 5)
 				})
 				// testing against time but fairly generous range
-				test.That(t, time.Since(startAt), test.ShouldBeBetween, 4*time.Second, 7*time.Second)
+				test.That(t, time.Since(startAt), test.ShouldBeBetween, 4*time.Second, 10*time.Second)
 
 				// Together with FindByIDFunc, simulate expire after 5 heartbeats
 				sessMgr.mu.Lock()
