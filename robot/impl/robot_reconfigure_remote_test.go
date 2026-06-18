@@ -293,6 +293,15 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 
+	// Reclaim the port immediately after closing `foo` so that another
+	// (possibly parallel) test cannot grab it during the offline-detection wait
+	// below. Holding this bare listener keeps the port reserved until `foo2`
+	// restarts on the same address. `foo`'s server connection has already
+	// dropped, so the local robot still detects the remote as offline while we
+	// hold the listener.
+	listener1, err = net.Listen("tcp", listener1.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		verifyReachableResourceNames(tb, r,
@@ -301,11 +310,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	})
 
 	foo2 := setupLocalRobot(t, ctx, fooCfg, logger.Sublogger("foo2"))
-
-	// Note: There's a slight chance this test can fail if someone else
-	// claims the port we just released by closing the server.
-	listener1, err = net.Listen("tcp", listener1.Addr().String())
-	test.That(t, err, test.ShouldBeNil)
 	options.Network.Listener = listener1
 	err = foo2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
