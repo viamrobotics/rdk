@@ -1178,7 +1178,7 @@ func TestModuleStatus(t *testing.T) {
 	for _, m := range ms.Modules {
 		switch m.Name {
 		case "mod":
-			test.That(t, "mod still present in config after removing", test.ShouldBeNil)
+			test.That(t, "mod still present in status map after removing from config", test.ShouldBeNil)
 		case "fakeMod":
 			test.That(t, p(m.State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
 		}
