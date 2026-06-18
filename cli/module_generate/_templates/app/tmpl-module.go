@@ -21,7 +21,7 @@ func distFS() (fs.FS, error) {
 
 var Model = resource.NewModel("{{ .Namespace }}", "{{ .ModuleName }}", "webapp")
 
-type {{ .ConfigName }} struct {
+type Config struct {
 	resource.TriviallyValidateConfig
 
 	Port *int `json:"port,omitempty"`
@@ -29,14 +29,14 @@ type {{ .ConfigName }} struct {
 
 func init() {
 	resource.RegisterComponent(generic.API, Model,
-		resource.Registration[resource.Resource, *{{ .ConfigName }}]{
+		resource.Registration[resource.Resource, *Config]{
 			Constructor: NewServer,
 		},
 	)
 }
 
 func NewServer(_ context.Context, _ resource.Dependencies, rawConf resource.Config, logger logging.Logger) (resource.Resource, error) {
-	conf, err := resource.NativeConfig[*{{ .ConfigName }}](rawConf)
+	conf, err := resource.NativeConfig[*Config](rawConf)
 	if err != nil {
 		return nil, err
 	}
