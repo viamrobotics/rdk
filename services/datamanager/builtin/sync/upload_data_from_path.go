@@ -45,7 +45,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		// sequence files and data capture files are managed by data capture, so skip and log
 		if isSequenceFile(filePath) || isOpenSequenceFile(filePath) ||
 			isCompletedCaptureFile(filePath) || filepath.Ext(filePath) == data.InProgressCaptureFileExt {
-			s.logger.Warnw("skipping sequence file managed by data capture:", "path", filePath)
+			s.logger.Warnw("skipping file managed by data capture:", "path", filePath)
 			return
 		}
 
@@ -65,15 +65,29 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		}
 
 		bytesTotal += uint64(fi.Size())
-		if id, syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); syncErr != nil {
-			s.logger.Errorw("failed to upload file", "path", filePath, "error", syncErr)
+
+		uploadedBytes, id, uploadErr := uploadArbitraryFile(ctx, f, s.cloudConn,
+			tags, datasetIDs, 0, s.clock, s.logger, &s.uploadStats.arbitrary.uploadingBytes)
+		if closeErr := f.Close(); closeErr != nil {
+			s.logger.Warnw("failed to close file after upload", "path", filePath, "error", closeErr)
+		}
+		if uploadErr != nil {
+			s.logger.Errorw("failed to upload file", "path", filePath, "error", uploadErr)
+			s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
 			filesFailed++
-		} else {
-			filesUploaded++
-			bytesUploaded += uint64(fi.Size())
-			if id != "" {
-				ids = append(ids, id)
-			}
+			return
+		}
+
+		if rmErr := os.Remove(filePath); rmErr != nil {
+			s.logger.Warnw("failed to delete file after upload", "path", filePath, "error", rmErr)
+		}
+
+		s.uploadStats.arbitrary.uploadedFileCount.Add(1)
+		s.uploadStats.arbitrary.completedUploadBytes.Add(uploadedBytes)
+		filesUploaded++
+		bytesUploaded += uploadedBytes
+		if id != "" {
+			ids = append(ids, id)
 		}
 	}
 
@@ -81,7 +95,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		err = filepath.Walk(path, func(filePath string, fi os.FileInfo, walkErr error) error {
 			if walkErr != nil {
 				s.logger.Errorw("error accessing path during walk, skipping", "path", filePath, "error", walkErr)
-				return nil 
+				return nil
 			}
 			if fi.IsDir() {
 				return nil
