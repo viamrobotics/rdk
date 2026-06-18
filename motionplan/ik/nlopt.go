@@ -162,8 +162,10 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 				}
 			}
 		}
-		nss.logger.Debugf("\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v",
-			nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
+		if nss.logger.GetLevel() <= logging.DEBUG {
+			nss.logger.Debugf("\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v",
+				nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
+		}
 		return dist
 	}
 }
@@ -228,9 +230,11 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
-		ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
-			seedNumberRanged, logging.FloatArrayFormat{"", ss.seed},
-			result, nloptErr, logging.FloatArrayFormat{"", solutionRaw})
+		if ik.logger.GetLevel() <= logging.DEBUG {
+			ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
+				seedNumberRanged, logging.FloatArrayFormat{"", ss.seed},
+				result, nloptErr, logging.FloatArrayFormat{"", solutionRaw})
+		}
 
 		if nloptErr != nil {
 			meta[seedNumberRanged].Errors++
