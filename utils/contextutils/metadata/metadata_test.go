@@ -1,4 +1,4 @@
-package contextutils_test
+package metadata_test
 
 import (
 	"context"
