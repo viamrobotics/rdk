@@ -995,8 +995,10 @@ func TestModuleStatus(t *testing.T) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	testPath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
 
-	// make testmodule close slowly so we can observe its closing state later on
-	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", "300ms")
+	// duration for "slow" operations in this test
+	slowTime := "500ms"
+	// make testmodule close slowly so we can observe its closing state later on (at the end of the suite)
+	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", slowTime)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
@@ -1019,22 +1021,26 @@ func TestModuleStatus(t *testing.T) {
 
 	// Allowing the first run script to succeed should let the module reach the ready state.
 	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "")
+	reconfigureStart := time.Now()
 	r.Reconfigure(ctx, cfg)
+	reconfigureEnd := time.Now()
 	modStatus = getModuleStatus(t, r, "mod")
 
 	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 0)
+	// The status should have been last updated between reconfigure start and reconfigure end
+	test.That(t, modStatus.LastUpdated, test.ShouldHappenAfter, reconfigureStart)
+	test.That(t, modStatus.LastUpdated, test.ShouldHappenBefore, reconfigureEnd)
 
 	// Adding a module that will hang without serving socket - the module should stay in the starting state
 	// for the entire timeout, allowing us to observe that state
-	waitTime := "500ms"
 	// add a second module that will just start up as normal, and add slow start to testmod
 	testPath2 := rtestutils.BuildTempModule(t, "module/testmodule2")
 	cfg.Modules = []config.Module{
 		{
 			Name:        "mod",
 			ExePath:     testPath,
-			Environment: map[string]string{"VIAM_TESTMODULE_SLOW_START": waitTime},
+			Environment: map[string]string{"VIAM_TESTMODULE_SLOW_START": slowTime},
 		},
 		{
 			Name:    "mod2",
@@ -1043,29 +1049,27 @@ func TestModuleStatus(t *testing.T) {
 	}
 
 	// Reconfigure in a goroutine so we can observe ModuleStartingState while module is starting
-	reconfigureCtx, cancelReconfigure := context.WithCancel(ctx)
+	reconfigureDone := make(chan struct{})
 	go func() {
-		r.Reconfigure(reconfigureCtx, cfg)
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, cfg)
 	}()
 
 	// wait a long time (here, up to 5 minutes) in case the scheduler pauses the reconfigure goroutine before
-	// the testmodule gets a chance to start
+	// the testmodule gets a chance to begin starting
 	testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 3000, func(tb testing.TB) {
 		test.That(tb, p(getModuleStatus(tb, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
 	})
 
-	// cancel the reconfigure after observing the starting state
-	cancelReconfigure()
-
-	// Now do a normal reconfigure to observe the results
-	r.Reconfigure(ctx, cfg)
+	<-reconfigureDone
+	// once the reconfigure finishes, mod should be ready
 	modStatus = getModuleStatus(t, r, "mod")
 	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 0)
 
 	// Now add fakemod, which will never finish starting, and set at startup timeout
 	// to ensure that it will be killed and fall into the unhealthy state
-	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", waitTime)
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", slowTime)
 	cfg.Modules = []config.Module{
 		{
 			Name:    "mod",
@@ -1087,12 +1091,10 @@ func TestModuleStatus(t *testing.T) {
 	// a failure should only increment the counter once
 	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 1)
 	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual,
-		fmt.Sprintf("error adding module fake: error while starting module fake: module fake timed out after %s during startup", waitTime))
-	// test.That(t, time.Since(fakeModStatus.LastUpdated), test.ShouldBeLessThan, 100*time.Millisecond)
+		fmt.Sprintf("error adding module fake: error while starting module fake: module fake timed out after %s during startup", slowTime))
 
 	// But good modules should still be ready
-	modStatus = getModuleStatus(t, r, "mod")
-	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+	test.That(t, p(getModuleStatus(t, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 	test.That(t, p(getModuleStatus(t, r, "mod2").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 
 	r.Reconfigure(ctx, cfg)
@@ -1126,12 +1128,10 @@ func TestModuleStatus(t *testing.T) {
 	r.Reconfigure(ctx, cfg)
 
 	// the crash and failed restart should hold mod unhealthy with a failure and error
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		s := getModuleStatus(tb, r, "mod")
-		test.That(tb, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
-		test.That(tb, s.ConsecutiveFailures, test.ShouldBeGreaterThanOrEqualTo, 1)
-		test.That(tb, s.Error, test.ShouldNotBeNil)
-	})
+	s := getModuleStatus(t, r, "mod")
+	test.That(t, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
+	test.That(t, s.ConsecutiveFailures, test.ShouldBeGreaterThanOrEqualTo, 1)
+	test.That(t, s.Error, test.ShouldNotBeNil)
 
 	// clear the bad env so the module can start successfully
 	cfg.Modules = []config.Module{{
@@ -1144,12 +1144,10 @@ func TestModuleStatus(t *testing.T) {
 	r.Reconfigure(ctx, cfg)
 
 	// after a successful restart the counter and error should be cleared
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		s := getModuleStatus(tb, r, "mod")
-		test.That(tb, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
-		test.That(tb, s.ConsecutiveFailures, test.ShouldEqual, 0)
-		test.That(tb, s.Error, test.ShouldBeNil)
-	})
+	s = getModuleStatus(t, r, "mod")
+	test.That(t, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+	test.That(t, s.ConsecutiveFailures, test.ShouldEqual, 0)
+	test.That(t, s.Error, test.ShouldBeNil)
 
 	// make sure we start ready before trying to close
 	modStatus = getModuleStatus(t, r, "mod")
@@ -1160,14 +1158,15 @@ func TestModuleStatus(t *testing.T) {
 		Name:    "fake",
 		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
 	}}
-	reconfigureDone := make(chan struct{})
+	reconfigureDone = make(chan struct{})
 	go func() {
 		defer close(reconfigureDone)
 		r.Reconfigure(ctx, &config.Config{})
 	}()
 
 	// while reconfiguring, we should see the testmodule enter the closing state
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
+	// once again, wait a very long time in case the reconfigure thread gets paused
+	testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 3000, func(tb testing.TB) {
 		test.That(tb, p(getModuleStatus(tb, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateClosing))
 	})
 	<-reconfigureDone
