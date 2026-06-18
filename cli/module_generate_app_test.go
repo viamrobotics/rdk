@@ -19,7 +19,6 @@ func TestAppTemplateCompiles(t *testing.T) {
 		AppType:         "single_machine",
 		Namespace:       "testorg",
 		Visibility:      "private",
-		ConfigName:      "Config",
 	}
 
 	cCtx := newTestContext(t, map[string]any{"local": true})
