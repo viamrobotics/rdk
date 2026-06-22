@@ -102,8 +102,11 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 		}
 	}
 
-	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	ss.jump = ik.calcJump(ctx, defaultJump, s, limits, minFunc)
+	// Per-joint finite-difference step for the gradient computation in getMinFunc.
+	ss.jump = make([]float64, len(s))
+	for i := range ss.jump {
+		ss.jump[i] = defaultJump
+	}
 	ss.opt, err = nlopt.NewNLopt(NloptAlg, uint(len(ss.lowerBound)))
 	if err != nil {
 		return nil, errors.Wrap(err, "nlopt creation error")
@@ -269,38 +272,4 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 
 	return solutionsFound, meta, nil
-}
-
-func (ik *NloptIK) calcJump(ctx context.Context, testJump float64,
-	seed []float64, limits []referenceframe.Limit, minFunc CostFunc,
-) []float64 {
-	jump := make([]float64, 0, len(seed))
-	lowerBound, upperBound := limitsToArrays(limits)
-
-	seedDist := minFunc(ctx, seed)
-	for i, testVal := range seed {
-		seedTest := append(make([]float64, 0, len(seed)), seed...)
-		for jumpVal := testJump; jumpVal < 0.1; jumpVal *= 10 {
-			seedTest[i] = testVal + jumpVal
-			if seedTest[i] > upperBound[i] {
-				seedTest[i] = testVal - jumpVal
-				if seedTest[i] < lowerBound[i] {
-					jump = append(jump, testJump)
-					break
-				}
-			}
-
-			checkDist := minFunc(ctx, seed)
-
-			// Use the smallest value that yields a change in distance
-			if checkDist != seedDist {
-				jump = append(jump, jumpVal)
-				break
-			}
-		}
-		if len(jump) != i+1 {
-			jump = append(jump, testJump)
-		}
-	}
-	return jump
 }
