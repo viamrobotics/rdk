@@ -490,7 +490,7 @@ func NewCollisionConstraintFS(
 		return nil, err
 	}
 
-	allowedLookup := makeAllowedCollisionsLookup(ignoreCollisions)
+	allowed := makeAllowedCollisionsLookup(ignoreCollisions)
 
 	// Build a label set for filtering frame system geometries to only those in `moving`
 	movingLabels := map[string]bool{}
@@ -523,7 +523,7 @@ func NewCollisionConstraintFS(
 		}
 
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, allowedLookup, collisionBufferMM, false, pairHint, logger)
+			internalGeoms, staticToCheck, allowed, collisionBufferMM, false, pairHint, logger)
 		if err != nil {
 			return minDist, err
 		}
