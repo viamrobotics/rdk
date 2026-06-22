@@ -131,27 +131,12 @@ func collisionSpecifications(
 	return allowedCollisions, nil
 }
 
-// CheckCollisions checks whether any geometries in one set collide with any geometries in another,
+// checkCollisionsHinted checks whether any geometries in one set collide with any geometries in another,
 // ignoring allowed collisions. It will return a lower-bound estimate of the closest distance between non-colliding geometries.
 // If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
-func CheckCollisions(
-	gg, other []spatialmath.Geometry,
-	allowedCollisions []Collision,
-	collisionBufferMM float64,
-	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
-	logger logging.Logger,
-) ([]Collision, float64, error) {
-	return checkCollisionsHinted(
-		gg, other, makeAllowedCollisionsLookup(allowedCollisions),
-		collisionBufferMM, collectAllCollisions, nil, logger,
-	)
-}
-
-// checkCollisionsHinted is the workhorse for CheckCollisions plus an optional
-// "last-violated pair" hint. When hint is non-nil and the previously-violated
-// pair still exists, that pair is checked first; on a new collision the hint
-// is atomically updated. Per-mesh witness caching for the inner-loop short-
-// circuit lives on spatialmath.Mesh itself; no plumbing needed here.
+// When hint is non-nil and the previously-violated pair still exists, that pair is checked first; on a new collision the hint
+// is atomically updated. Per-mesh witness caching for the inner-loop short-circuit lives on spatialmath.Mesh itself; no plumbing
+// needed here.
 func checkCollisionsHinted(
 	gg, other []spatialmath.Geometry,
 	allowed map[[2]string]bool,
