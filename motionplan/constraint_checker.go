@@ -551,8 +551,8 @@ func computeInitialCollisionsToIgnore(
 	logger logging.Logger,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
-	initialCollisions, _, err := CheckCollisions(
-		group1, group2, collisionSpecifications, collisionBufferMM, true, logger)
+	initialCollisions, _, err := checkCollisionsHinted(
+		group1, group2, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
 	if err != nil {
 		return nil, err
 	}
