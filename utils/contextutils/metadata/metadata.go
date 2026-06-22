@@ -178,8 +178,9 @@ func ViamClientToServerMetadataStreamServerInterceptor(
 		}
 		if len(kvPairs) > 0 {
 			ctx = Set(ctx, kvPairs...)
+			wrapped := &grpc_middleware.WrappedServerStream{ServerStream: ss, WrappedContext: ctx}
+			return handler(srv, wrapped)
 		}
 	}
-	wrapped := &grpc_middleware.WrappedServerStream{ServerStream: ss, WrappedContext: ctx}
-	return handler(srv, wrapped)
+	return handler(srv, ss)
 }
