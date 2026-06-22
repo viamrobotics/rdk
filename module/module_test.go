@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -937,23 +938,39 @@ func TestNewFrameSystemClient(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	// The test server above is a plain gRPC server with no WebRTC signaling support, so
-	// disable WebRTC dialing. Otherwise the client tries (and fails) WebRTC before falling
-	// back to direct gRPC; that fallback is flaky on Windows where the signaling RPC can hang
-	// until the dial deadline, exhausting all connection attempts (see RSDK-13302).
-	client, err := client.New(context.Background(), listener.Addr().String(), logger,
-		client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true})))
+	// On Windows, disable WebRTC dialing to avoid a ~20s hang per connection attempt.
+	//
+	// connectWithLock always makes a WebRTC-only dial first. It begins by sending a TLS
+	// ClientHello (to probe for TLS), which this plain gRPC server rejects; it then opens
+	// a fresh plaintext gRPC connection and calls OptionalWebRTCConfig. A plain
+	// grpc.NewServer() has no WebRTC signaling service, so it should return Unimplemented
+	// immediately and allow client.New to fall back to direct gRPC.
+	//
+	// On Linux this takes <1 ms. On Windows (IOCP), the rejected TLS probe leaves the
+	// server's I/O completion queue in a stale state; the server may not dispatch the new
+	// connection's frames until the previous connection's overlapped I/O operations have
+	// fully drained. The OptionalWebRTCConfig RPC gets queued behind that drain. When the
+	// 10s dial deadline fires, cancelling the context does not immediately abort the pending
+	// WSARecv — the OS-level overlapped operation must unwind first, which can take another
+	// ~10s. The error returned is DeadlineExceeded (not ErrNoWebRTCSignaler), so client.New
+	// does not fall back to direct gRPC within that attempt; it retries three times (~20s
+	// each, ~60s total) before failing. See RSDK-13302.
+	var dialOpts []client.RobotClientOption
+	if runtime.GOOS == "windows" {
+		dialOpts = append(dialOpts, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true})))
+	}
+	robotClient, err := client.New(context.Background(), listener.Addr().String(), logger, dialOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	inputs, err := client.CurrentInputs(context.Background())
+	inputs, err := robotClient.CurrentInputs(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(inputs), test.ShouldEqual, 1)
 	test.That(t, inputs, test.ShouldResemble, expectedInputs)
 
-	fsc := module.NewFrameSystemClient(client)
+	fsc := module.NewFrameSystemClient(robotClient)
 	fsCurrentInputs, err := fsc.CurrentInputs(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsCurrentInputs, test.ShouldResemble, inputs)
