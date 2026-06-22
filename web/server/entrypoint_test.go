@@ -423,10 +423,6 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
 	}()
 
-	machinePort, err := goutils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	machineAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
-
 	sourcePort, sourceListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	sourceListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(sourcePort))
@@ -436,8 +432,8 @@ func TestTunnelE2E(t *testing.T) {
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
+	var serverWg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
@@ -463,45 +459,118 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	}()
 
-	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	// Start the in-process viam-server and connect a robot client to it.
+	//
+	// RunServer reads its bind address from the config, so there is an unavoidable
+	// window between the test choosing a free ephemeral port and the server actually
+	// binding it. Under heavy parallel test load another process can claim the port
+	// in that window, making RunServer fail with "address already in use". The robot
+	// client would then keep retrying to reach a server that never came up, hanging
+	// the test until the package-wide timeout fires (see RSDK-13776). To stay robust
+	// we choose the port right before launching the server and retry on a fresh port
+	// until the server is actually reachable.
+	type connectOutcome struct {
+		rc  *client.RobotClient
+		err error
+	}
 
-		// Create a temporary config file.
-		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
+	startServerAndConnect := func(attempt int) (*client.RobotClient, context.CancelFunc, chan error) {
+		// Choose a fresh port immediately before launching the server to keep the
+		// race window as small as possible.
+		machinePort, err := goutils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
+		machineAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
 
-		tempConfigFileName := tempConfigFile.Name()
-		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+		serverCtx, serverCancel := context.WithCancel(ctx)
+		serverErrC := make(chan error, 1)
+		serverWg.Add(1)
+		go func() {
+			defer serverWg.Done()
 
-		cfg := &config.Config{
-			Network: config.NetworkConfig{
-				NetworkConfigData: config.NetworkConfigData{
-					TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
-						{
-							Port: destPort, // allow tunneling to destination port
+			tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
+			test.That(t, err, test.ShouldBeNil)
+			tempConfigFileName := tempConfigFile.Name()
+			test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+
+			cfg := &config.Config{
+				Network: config.NetworkConfig{
+					NetworkConfigData: config.NetworkConfigData{
+						TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+							{
+								Port: destPort, // allow tunneling to destination port
+							},
+							{
+								Port: timeoutDestPort, // allow tunneling to 65534
+								// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
+								ConnectionTimeout: -time.Nanosecond,
+							},
 						},
-						{
-							Port: timeoutDestPort, // allow tunneling to 65534
-							// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
-							ConnectionTimeout: -time.Nanosecond,
-						},
+						BindAddress: machineAddr,
 					},
-					BindAddress: machineAddr,
 				},
-			},
+			}
+			cfgBytes, err := json.Marshal(&cfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
+
+			args := []string{"viam-server", "-config", tempConfigFileName}
+			serverErrC <- server.RunServer(serverCtx, args, logger)
+		}()
+
+		// Try to connect, racing against RunServer exiting early (e.g. a lost bind
+		// race) so we can retry promptly. The connect context timeout bounds a
+		// connection to a server that started but never became reachable.
+		connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
+		defer connectCancel()
+		connectC := make(chan connectOutcome, 1)
+		go func() {
+			candidate, connErr := client.New(
+				connectCtx, machineAddr, logger,
+				client.WithRefreshEvery(time.Second),
+				client.WithCheckConnectedEvery(5*time.Second),
+				client.WithReconnectEvery(time.Second),
+			)
+			connectC <- connectOutcome{candidate, connErr}
+		}()
+
+		select {
+		case outcome := <-connectC:
+			if outcome.err == nil {
+				return outcome.rc, serverCancel, serverErrC
+			}
+			logger.Infow("failed to connect to in-process viam-server; retrying on a new port",
+				"attempt", attempt, "err", outcome.err)
+		case rsErr := <-serverErrC:
+			logger.Infow("in-process viam-server exited before becoming reachable; retrying on a new port",
+				"attempt", attempt, "err", rsErr)
+			// Unblock and wait for the in-flight connection attempt to return so
+			// it doesn't linger into the next attempt.
+			connectCancel()
+			<-connectC
 		}
-		cfgBytes, err := json.Marshal(&cfg)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
-		args := []string{"viam-server", "-config", tempConfigFileName}
-		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
-	}()
+		// This attempt failed; tear it down before the caller retries.
+		serverCancel()
+		serverWg.Wait()
+		return nil, nil, nil
+	}
 
-	// Open a robot client to `machineAddr`.
-	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
+	var (
+		rc            *client.RobotClient
+		stopServer    context.CancelFunc
+		runServerErrC chan error
+	)
+	const maxAttempts = 5
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		rc, stopServer, runServerErrC = startServerAndConnect(attempt)
+		if rc != nil {
+			break
+		}
+	}
+	test.That(t, rc, test.ShouldNotBeNil)
+	t.Cleanup(func() {
+		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+	})
 
 	// Test error paths for `Tunnel` with random `net.Conn`s.
 	//
@@ -556,9 +625,11 @@ func TestTunnelE2E(t *testing.T) {
 	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
 
-	// Cancel `runServerCtx` once message has made it all the way across and has been
-	// echoed back. This should stop the `RunServer` goroutine.
-	runServerCtxCancel()
+	// Cancel the server context once the message has made it all the way across and
+	// has been echoed back. This stops the RunServer goroutine.
+	stopServer()
+	serverWg.Wait()
+	test.That(t, <-runServerErrC, test.ShouldBeNil)
 
 	wg.Wait()
 }
