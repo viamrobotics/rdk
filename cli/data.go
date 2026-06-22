@@ -75,7 +75,7 @@ var (
 		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK: "Pipeline Sink",
 	}
 
-	// tabularDataByMQLDataSourceTypes is the set of data sources accepted by `data query mql`.
+	// tabularDataByMQLDataSourceTypes is the set of data sources accepted by `data query tabular mql`.
 	tabularDataByMQLDataSourceTypes = []string{standardDataSourceType, hotStorageDataSourceType, pipelineSinkDataSourceType}
 )
 
@@ -159,7 +159,7 @@ type dataQuerySQLArgs struct {
 	Destination string
 }
 
-// DataQuerySQLAction is the corresponding action for 'data query sql'.
+// DataQuerySQLAction is the corresponding action for 'data query tabular sql'.
 func DataQuerySQLAction(ctx context.Context, cmd *cli.Command, args dataQuerySQLArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
@@ -179,7 +179,7 @@ type dataQueryMQLArgs struct {
 	Destination    string
 }
 
-// DataQueryMQLAction is the corresponding action for 'data query mql'.
+// DataQueryMQLAction is the corresponding action for 'data query tabular mql'.
 func DataQueryMQLAction(ctx context.Context, cmd *cli.Command, args dataQueryMQLArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
@@ -187,6 +187,26 @@ func DataQueryMQLAction(ctx context.Context, cmd *cli.Command, args dataQueryMQL
 	}
 
 	return client.dataQueryMQLAction(ctx, args)
+}
+
+type dataQueryBinaryArgs struct {
+	Destination string
+	Limit       uint
+}
+
+// DataQueryBinaryAction is the corresponding action for 'data query binary filter'.
+func DataQueryBinaryAction(ctx context.Context, cmd *cli.Command, args dataQueryBinaryArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	filter, err := createDataFilter(cmd)
+	if err != nil {
+		return err
+	}
+
+	return client.dataQueryBinaryAction(ctx, args, filter)
 }
 
 type dataTagByFilterArgs struct {
@@ -529,6 +549,86 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 	return writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData())
 }
 
+// forEachBinaryDataByFilter pages through BinaryDataByFilter for the given filter, invoking fn on
+// each result. It stops when the server returns no more data, fn returns stop=true, or fn errors.
+func forEachBinaryDataByFilter(
+	ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter, pageLimit uint64,
+	fn func(*datapb.BinaryData) (stop bool, err error),
+) error {
+	var last string
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		resp, err := client.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
+			DataRequest: &datapb.DataRequest{Filter: filter, Limit: pageLimit, Last: last},
+		})
+		if err != nil {
+			return err
+		}
+		if len(resp.GetData()) == 0 {
+			return nil
+		}
+		last = resp.GetLast()
+		for _, bd := range resp.GetData() {
+			stop, err := fn(bd)
+			if err != nil {
+				return err
+			}
+			if stop {
+				return nil
+			}
+		}
+	}
+}
+
+func (c *viamClient) dataQueryBinaryAction(ctx context.Context, args dataQueryBinaryArgs, filter *datapb.Filter) error {
+	// Output to a file under --destination, or stdout if omitted.
+	out := c.c.Root().Writer
+	var filePath string
+	if args.Destination != "" {
+		if err := makeDestinationDirs(args.Destination); err != nil {
+			return errors.Wrap(err, "could not create destination directory")
+		}
+		filePath = filepath.Join(args.Destination, dataFileName)
+		f, err := os.Create(filePath) //nolint:gosec
+		if err != nil {
+			return errors.Wrap(err, "could not create data file")
+		}
+		defer f.Close() //nolint:errcheck
+		out = f
+	}
+
+	bw := bufio.NewWriter(out)
+	pageLimit := uint64(maxLimit)
+	if args.Limit > 0 {
+		pageLimit = uint64(min(args.Limit, maxLimit))
+	}
+	var written uint
+	err := forEachBinaryDataByFilter(ctx, c.dataClient, filter, pageLimit,
+		func(bd *datapb.BinaryData) (bool, error) {
+			jsonRow, err := protojson.Marshal(bd.GetMetadata())
+			if err != nil {
+				return false, errors.Wrap(err, "error formatting query result")
+			}
+			if err := writeData(bw, jsonRow); err != nil {
+				return false, errors.Wrap(err, "error writing data")
+			}
+			written++
+			return args.Limit > 0 && written >= args.Limit, nil // stop at --limit
+		})
+	if err != nil {
+		return errors.Wrap(err, serverErrorMessage)
+	}
+	if err := bw.Flush(); err != nil {
+		return errors.Wrap(err, "error writing query results")
+	}
+	if filePath != "" {
+		printf(c.c.Root().Writer, "Wrote %d results to %s", written, filePath)
+	}
+	return nil
+}
+
 func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularDataSource, error) {
 	sourceType, err := dataSourceTypeToProto(dataSourceType, tabularDataByMQLDataSourceTypes)
 	if err != nil {
@@ -681,35 +781,12 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
 	ids chan string, limit uint,
 ) error {
-	var last string
 	defer close(ids)
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		resp, err := client.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
-			DataRequest: &datapb.DataRequest{
-				Filter: filter,
-				Limit:  uint64(limit),
-				Last:   last,
-			},
-			CountOnly:     false,
-			IncludeBinary: false,
-		})
-		if err != nil {
-			return err
-		}
-		// If no data is returned, there is no more data.
-		if len(resp.GetData()) == 0 {
-			return nil
-		}
-		last = resp.GetLast()
-
-		for _, bd := range resp.GetData() {
+	return forEachBinaryDataByFilter(ctx, client, filter, uint64(limit),
+		func(bd *datapb.BinaryData) (bool, error) {
 			ids <- bd.GetMetadata().GetBinaryDataId()
-		}
-	}
+			return false, nil
+		})
 }
 
 // Check for the errors returned from server that we send if the requested file is too large.

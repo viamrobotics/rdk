@@ -162,7 +162,7 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 		pc.fs,
 		movingRobotGeometries, staticRobotGeometries,
 		start,
-		pc.request.WorldState,
+		pc.request.ObstaclesInWorldFrame,
 		pc.logger.Sublogger("constraint"),
 		pc.collisionCache,
 	)

@@ -50,6 +50,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
@@ -316,6 +317,10 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	unaryInterceptors = append(unaryInterceptors,
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+
+	// arbitrary client-to-server metadata
+	unaryInterceptors = append(unaryInterceptors, metadata.ViamClientToServerMetadataUnaryServerInterceptor)
+	streamInterceptors = append(streamInterceptors, metadata.ViamClientToServerMetadataStreamServerInterceptor)
 
 	// TODO(PRODUCT-343): Add session manager interceptors
 
@@ -664,6 +669,10 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		streamInterceptors = append(streamInterceptors, sessManagerInts.StreamServerInterceptor)
 	}
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+
+	// arbitrary client-to-server metadata
+	unaryInterceptors = append(unaryInterceptors, metadata.ViamClientToServerMetadataUnaryServerInterceptor)
+	streamInterceptors = append(streamInterceptors, metadata.ViamClientToServerMetadataStreamServerInterceptor)
 
 	rpcOpts = append(
 		rpcOpts,

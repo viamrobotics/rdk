@@ -54,6 +54,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
+	viammetadata "go.viam.com/rdk/utils/contextutils/metadata"
 	nc "go.viam.com/rdk/web/networkcheck"
 )
 
@@ -326,6 +327,9 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 		// sending traces across the network
 		rpc.WithDialStatsHandler(otelStatsHandler),
+		// arbitrary client-to-server metadata
+		rpc.WithUnaryClientInterceptor(viammetadata.ViamClientToServerMetadataUnaryClientInterceptor),
+		rpc.WithStreamClientInterceptor(viammetadata.ViamClientToServerMetadataStreamClientInterceptor),
 	)
 
 	// If we're a client running as part of a module, we annotate our requests with our module

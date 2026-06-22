@@ -19,12 +19,12 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
+	rgrpc "go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/data"
-	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"

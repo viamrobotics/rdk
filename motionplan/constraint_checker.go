@@ -70,7 +70,7 @@ func NewConstraintChecker(
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
 	seedMap *referenceframe.LinearInputs,
-	worldState *referenceframe.WorldState,
+	obstaclesInWorldFrame *referenceframe.GeometriesInFrame,
 	logger logging.Logger,
 	cache *CollisionCache,
 ) (*ConstraintChecker, error) {
@@ -86,11 +86,15 @@ func NewConstraintChecker(
 		return nil, err
 	}
 
-	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap.ToFrameSystemInputs())
-	if err != nil {
-		return nil, err
+	var worldGeometries []spatialmath.Geometry
+	if obstaclesInWorldFrame != nil {
+		worldGeometries = obstaclesInWorldFrame.Geometries()
 	}
-	worldGeometries := obstaclesInFrame.Geometries()
+
+	obstacleNames := make(map[string]bool)
+	for _, geometry := range worldGeometries {
+		obstacleNames[geometry.Label()] = true
+	}
 
 	frameNames := map[string]bool{}
 	for _, fName := range fs.FrameNames() {
@@ -101,7 +105,7 @@ func NewConstraintChecker(
 		constraints.CollisionSpecification,
 		frameSystemGeometries,
 		frameNames,
-		worldState.ObstacleNames(),
+		obstacleNames,
 	)
 	if err != nil {
 		return nil, err
@@ -490,6 +494,8 @@ func NewCollisionConstraintFS(
 		return nil, err
 	}
 
+	allowed := makeAllowedCollisionsLookup(ignoreCollisions)
+
 	// Build a label set for filtering frame system geometries to only those in `moving`
 	movingLabels := map[string]bool{}
 	for _, g := range moving {
@@ -521,7 +527,7 @@ func NewCollisionConstraintFS(
 		}
 
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, pairHint, logger)
+			internalGeoms, staticToCheck, allowed, collisionBufferMM, false, pairHint, logger)
 		if err != nil {
 			return minDist, err
 		}
@@ -545,8 +551,8 @@ func computeInitialCollisionsToIgnore(
 	logger logging.Logger,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
-	initialCollisions, _, err := CheckCollisions(
-		group1, group2, collisionSpecifications, collisionBufferMM, true, logger)
+	initialCollisions, _, err := checkCollisionsHinted(
+		group1, group2, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
 	if err != nil {
 		return nil, err
 	}
