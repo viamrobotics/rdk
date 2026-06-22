@@ -194,5 +194,12 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs *FrameSystem, inputs FrameSystemI
 		}
 		allGeometries = append(allGeometries, tf.(*GeometriesInFrame).Geometries()...)
 	}
+
+	for _, lif := range ws.transforms {
+		if lif.geometry != nil {
+			allGeometries = append(allGeometries, lif.geometry)
+		}
+	}
+
 	return NewGeometriesInFrame(World, allGeometries), nil
 }

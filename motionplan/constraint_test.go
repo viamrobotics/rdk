@@ -115,7 +115,7 @@ func TestConstraintPath(t *testing.T) {
 		[]spatial.Geometry{}, // moving geometries
 		[]spatial.Geometry{}, // static geometries
 		referenceframe.NewNeutralLinearInputs(fs),
-		&referenceframe.WorldState{},
+		nil, // obstaclesInWorldFrame
 		logger,
 		nil,
 	)
@@ -222,7 +222,7 @@ func TestLineFollow(t *testing.T) {
 		[]spatial.Geometry{}, // moving geometries
 		[]spatial.Geometry{}, // static geometries
 		startCfg,
-		&referenceframe.WorldState{},
+		nil, // obstaclesInWorldFrame
 		logger,
 		nil,
 	)

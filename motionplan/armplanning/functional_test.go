@@ -2,9 +2,7 @@ package armplanning
 
 import (
 	"context"
-	"encoding/json"
 	"math"
-	"os"
 	"sort"
 	"testing"
 
@@ -391,25 +389,18 @@ func TestSerializedPlanRequest(t *testing.T) {
 
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{10, 8000, 8000}, "theWall")
 	test.That(t, err, test.ShouldBeNil)
-	worldState1, err := frame.NewWorldState(
-		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
+	obstaclesInWorldFrame := frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})
 	goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 
 	pr := &PlanRequest{
-		FrameSystem: fs,
-		Goals:       []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState:  &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
-		WorldState:  worldState1,
-		Constraints: constraints,
+		FrameSystem:           fs,
+		Goals:                 []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:            &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
+		ObstaclesInWorldFrame: obstaclesInWorldFrame,
+		Constraints:           constraints,
 	}
 
-	jsonData, err := os.ReadFile("data/plan_request_sample.json")
-	test.That(t, err, test.ShouldBeNil)
-	parsedPr := &PlanRequest{}
-	err = json.Unmarshal(jsonData, parsedPr)
+	parsedPr, err := ReadRequestFromFile("data/plan_request_sample.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	goalPose1 := pr.Goals[0].Poses()["xArmVgripper"].Pose()
@@ -438,17 +429,12 @@ func TestSerializedPlanRequest(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, startStateConf1, test.ShouldResemble, startStateConf2)
 
-	geometryIF1 := pr.WorldState.Obstacles()[0]
-	test.That(t, parsedPr.WorldState, test.ShouldNotBeNil)
-	test.That(t, parsedPr.WorldState.Obstacles(), test.ShouldNotBeEmpty)
-	geometryIF2 := parsedPr.WorldState.Obstacles()[0]
-	test.That(t, geometryIF1.Parent(), test.ShouldEqual, geometryIF2.Parent())
-	geometries1 := geometryIF1.Geometries()
-	geometries2 := geometryIF2.Geometries()
+	test.That(t, parsedPr.ObstaclesInWorldFrame, test.ShouldNotBeNil)
+	test.That(t, pr.ObstaclesInWorldFrame.Parent(), test.ShouldEqual, parsedPr.ObstaclesInWorldFrame.Parent())
+	geometries1 := pr.ObstaclesInWorldFrame.Geometries()
+	geometries2 := parsedPr.ObstaclesInWorldFrame.Geometries()
 	test.That(t, len(geometries1), test.ShouldEqual, len(geometries2))
-	geometry1 := geometries1[0]
-	geometry2 := geometries2[0]
-	test.That(t, spatialmath.PoseAlmostEqual(geometry1.Pose(), geometry2.Pose()), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqual(geometries1[0].Pose(), geometries2[0].Pose()), test.ShouldBeTrue)
 
 	fs1 := pr.FrameSystem
 	fs2 := parsedPr.FrameSystem
@@ -490,20 +476,15 @@ func TestArmObstacleSolve(t *testing.T) {
 	// Set an obstacle such that it is impossible to reach the goal without colliding with it
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 257, Y: 210, Z: -300}), r3.Vector{10, 10, 100}, "")
 	test.That(t, err, test.ShouldBeNil)
-	worldState, err := frame.NewWorldState(
-		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{obstacle})},
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
 
 	// Set a goal unreachable by the UR
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
-		FrameSystem:    fs,
-		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
-		StartState:     &PlanState{structuredConfiguration: positions},
-		WorldState:     worldState,
-		PlannerOptions: NewBasicPlannerOptions(),
+		FrameSystem:           fs,
+		Goals:                 []*PlanState{{poses: frame.FrameSystemPoses{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
+		StartState:            &PlanState{structuredConfiguration: positions},
+		ObstaclesInWorldFrame: frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{obstacle}),
+		PlannerOptions:        NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "constraint")
@@ -657,11 +638,7 @@ func TestPlanMapMotion(t *testing.T) {
 	dst := spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0})
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{25, 25, 25}, "impediment")
 	test.That(t, err, test.ShouldBeNil)
-	worldState, err := frame.NewWorldState(
-		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
+	obstacles := frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})
 
 	PlanMapMotion := func(
 		ctx context.Context,
@@ -669,7 +646,7 @@ func TestPlanMapMotion(t *testing.T) {
 		dst spatialmath.Pose,
 		f frame.Frame,
 		seed []frame.Input,
-		worldState *frame.WorldState,
+		obstaclesInWorldFrame *frame.GeometriesInFrame,
 	) ([][]frame.Input, error) {
 		// ephemerally create a framesystem containing just the frame for the solve
 		fs := frame.NewEmptyFrameSystem("")
@@ -679,11 +656,11 @@ func TestPlanMapMotion(t *testing.T) {
 		destination := frame.NewPoseInFrame(frame.World, dst)
 		seedMap := map[string][]frame.Input{f.Name(): seed}
 		plan, _, err := PlanMotion(ctx, logger, &PlanRequest{
-			FrameSystem:    fs,
-			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{f.Name(): destination}}},
-			StartState:     &PlanState{structuredConfiguration: seedMap},
-			WorldState:     worldState,
-			PlannerOptions: NewBasicPlannerOptions(),
+			FrameSystem:           fs,
+			Goals:                 []*PlanState{{poses: frame.FrameSystemPoses{f.Name(): destination}}},
+			StartState:            &PlanState{structuredConfiguration: seedMap},
+			ObstaclesInWorldFrame: obstaclesInWorldFrame,
+			PlannerOptions:        NewBasicPlannerOptions(),
 		})
 		if err != nil {
 			return nil, err
@@ -691,7 +668,7 @@ func TestPlanMapMotion(t *testing.T) {
 		return plan.Trajectory().GetFrameInputs(f.Name())
 	}
 
-	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), worldState)
+	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), obstacles)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }
@@ -719,75 +696,57 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(xArmVgripper, x), test.ShouldBeNil)
 
-	checkReachable := func(worldState *frame.WorldState, constraints *motionplan.Constraints) error {
+	checkReachable := func(obstaclesInWorldFrame *frame.GeometriesInFrame, constraints *motionplan.Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
-			FrameSystem:    fs,
-			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
-			StartState:     &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
-			WorldState:     worldState,
-			Constraints:    constraints,
-			PlannerOptions: NewBasicPlannerOptions(),
+			FrameSystem:           fs,
+			Goals:                 []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
+			StartState:            &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
+			ObstaclesInWorldFrame: obstaclesInWorldFrame,
+			Constraints:           constraints,
+			PlannerOptions:        NewBasicPlannerOptions(),
 		})
 		return err
 	}
 
 	// Verify that the goal position is reachable with no obstacles
-	test.That(t, checkReachable(frame.NewEmptyWorldState(), &motionplan.Constraints{}), test.ShouldBeNil)
+	test.That(t, checkReachable(nil, &motionplan.Constraints{}), test.ShouldBeNil)
 
-	// Add an obstacle to the WorldState
+	// Add an obstacle
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{10, 8000, 8000}, "theWall")
 	test.That(t, err, test.ShouldBeNil)
-	worldState1, err := frame.NewWorldState(
-		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
-		nil,
-	)
+	wallObstacles := frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})
+
+	// Not reachable without a collision specification
+	err = checkReachable(wallObstacles, &motionplan.Constraints{})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Reachable if xarm6 and gripper ignore collisions with The Wall
+	err = checkReachable(wallObstacles, &motionplan.Constraints{
+		CollisionSpecification: []motionplan.CollisionSpecification{
+			{
+				Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{
+					{Frame1: "xArm6", Frame2: "theWall"}, {Frame1: "xArmVgripper", Frame2: "theWall"},
+				},
+			},
+		},
+	})
 	test.That(t, err, test.ShouldBeNil)
 
-	testCases := []struct {
-		name       string
-		worldState *frame.WorldState
-	}{
-		{"obstacle specified through WorldState obstacles", worldState1},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Not reachable without a collision specification
-			constraints := &motionplan.Constraints{}
-			err = checkReachable(tc.worldState, constraints)
-			test.That(t, err, test.ShouldNotBeNil)
-
-			// Reachable if xarm6 and gripper ignore collisions with The Wall
-			constraints = &motionplan.Constraints{
-				CollisionSpecification: []motionplan.CollisionSpecification{
-					{
-						Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{
-							{Frame1: "xArm6", Frame2: "theWall"}, {Frame1: "xArmVgripper", Frame2: "theWall"},
-						},
-					},
+	// Reachable if the specific bits of the xarm that collide are specified instead
+	err = checkReachable(wallObstacles, &motionplan.Constraints{
+		CollisionSpecification: []motionplan.CollisionSpecification{
+			{
+				Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{
+					{Frame1: "xArmVgripper", Frame2: "theWall"},
+					{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
+					{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},
+					{Frame1: "xArm6:gripper_mount", Frame2: "theWall"},
 				},
-			}
-			err = checkReachable(tc.worldState, constraints)
-			test.That(t, err, test.ShouldBeNil)
-
-			// Reachable if the specific bits of the xarm that collide are specified instead
-			constraints = &motionplan.Constraints{
-				CollisionSpecification: []motionplan.CollisionSpecification{
-					{
-						Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{
-							{Frame1: "xArmVgripper", Frame2: "theWall"},
-							{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
-							{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},
-							{Frame1: "xArm6:gripper_mount", Frame2: "theWall"},
-						},
-					},
-				},
-			}
-			err = checkReachable(tc.worldState, constraints)
-			test.That(t, err, test.ShouldBeNil)
-		})
-	}
+			},
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestValidatePlanRequest(t *testing.T) {

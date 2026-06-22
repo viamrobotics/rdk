@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 
@@ -143,4 +144,30 @@ func TestGeometriesInFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gF.Parent(), test.ShouldEqual, convertedGF.Parent())
 	test.That(t, spatialmath.GeometriesAlmostEqual(one, convertedGF.GeometryByName("one")), test.ShouldBeTrue)
+}
+
+func TestGeometriesInFrameJSON(t *testing.T) {
+	pose := spatialmath.NewPose(r3.Vector{1, 2, 3}, &spatialmath.OrientationVector{math.Pi / 2, 0, 0, -1})
+	zero, err := spatialmath.NewBox(pose, r3.Vector{1, 2, 3}, "zero")
+	test.That(t, err, test.ShouldBeNil)
+	one, err := spatialmath.NewBox(pose, r3.Vector{2, 3, 4}, "one")
+	test.That(t, err, test.ShouldBeNil)
+	two, err := spatialmath.NewBox(pose, r3.Vector{3, 4, 5}, "two")
+	test.That(t, err, test.ShouldBeNil)
+	three, err := spatialmath.NewBox(pose, r3.Vector{4, 5, 6}, "three")
+	test.That(t, err, test.ShouldBeNil)
+
+	gF := NewGeometriesInFrame("frame", []spatialmath.Geometry{zero, one, two, three})
+
+	data, err := json.Marshal(gF)
+	test.That(t, err, test.ShouldBeNil)
+
+	var roundTripped GeometriesInFrame
+	err = json.Unmarshal(data, &roundTripped)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, roundTripped.Parent(), test.ShouldEqual, gF.Parent())
+	for _, name := range []string{"zero", "one", "two", "three"} {
+		test.That(t, spatialmath.GeometriesAlmostEqual(gF.GeometryByName(name), roundTripped.GeometryByName(name)), test.ShouldBeTrue)
+	}
 }

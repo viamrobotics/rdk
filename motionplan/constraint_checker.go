@@ -70,7 +70,7 @@ func NewConstraintChecker(
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
 	seedMap *referenceframe.LinearInputs,
-	worldState *referenceframe.WorldState,
+	obstaclesInWorldFrame *referenceframe.GeometriesInFrame,
 	logger logging.Logger,
 	cache *CollisionCache,
 ) (*ConstraintChecker, error) {
@@ -86,11 +86,15 @@ func NewConstraintChecker(
 		return nil, err
 	}
 
-	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap.ToFrameSystemInputs())
-	if err != nil {
-		return nil, err
+	var worldGeometries []spatialmath.Geometry
+	if obstaclesInWorldFrame != nil {
+		worldGeometries = obstaclesInWorldFrame.Geometries()
 	}
-	worldGeometries := obstaclesInFrame.Geometries()
+
+	obstacleNames := make(map[string]bool)
+	for _, geometry := range worldGeometries {
+		obstacleNames[geometry.Label()] = true
+	}
 
 	frameNames := map[string]bool{}
 	for _, fName := range fs.FrameNames() {
@@ -101,7 +105,7 @@ func NewConstraintChecker(
 		constraints.CollisionSpecification,
 		frameSystemGeometries,
 		frameNames,
-		worldState.ObstacleNames(),
+		obstacleNames,
 	)
 	if err != nil {
 		return nil, err
