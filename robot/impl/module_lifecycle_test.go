@@ -4,6 +4,7 @@ package robotimpl
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"slices"
 	"testing"
@@ -1032,8 +1033,45 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, modStatus.LastUpdated, test.ShouldHappenAfter, reconfigureStart)
 	test.That(t, modStatus.LastUpdated, test.ShouldHappenBefore, reconfigureEnd)
 
-	// Add fakemodule, which never serves a socket (so it will stay in the Starting state for the entire startup timeout
-	// (startup timeout default 5 minutes)
+	// set up a listener so we can communicate with the blocked module
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer ln.Close()
+
+	// Reconfigure testmodule so it will block during start until it hears back over localhost
+	cfg.Modules = []config.Module{
+		{
+			Name:        "blocked",
+			ExePath:     testPath,
+			Environment: map[string]string{"VIAM_TESTMODULE_BLOCK_START": ln.Addr().String()},
+		},
+	}
+
+	// Reconfigure in a goroutine so we can observe ModuleStateStarting while the module is starting
+	reconfigureDone := make(chan struct{})
+
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, cfg)
+	}()
+
+	// blocks until the module has reached the barrier, meaning it is starting
+	conn, err := ln.Accept()
+	defer conn.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, p(getModuleStatus(t, r, "blocked").State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
+
+	// releases the module so it can finish starting
+	conn.Close()
+
+	<-reconfigureDone
+
+	test.That(t, p(getModuleStatus(t, r, "blocked").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+
+	// remove the start block from testMod, and add fakemodule, a module that will never finish starting
+	// this time, set the startup timeout to be very short so that we can observe fakemodule failing
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", slowTime)
 	cfg.Modules = []config.Module{
 		{
 			Name:    "mod",
@@ -1044,28 +1082,7 @@ func TestModuleStatus(t *testing.T) {
 			ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
 		},
 	}
-	// Reconfigure in a goroutine so we can observe ModuleStartingState while fakemod is starting
-	reconfigureDone := make(chan struct{})
 
-	fakeCtx, fakeCtxCancel := context.WithCancel(ctx)
-	go func() {
-		r.Reconfigure(fakeCtx, cfg)
-	}()
-
-	// wait a long time (up to 5 minutes) in case the scheduler pauses the reconfigure goroutine before
-	// the testmodule gets a chance to begin starting
-	testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 3000, func(tb testing.TB) {
-		fmt.Printf("uh ummm")
-		test.That(tb, p(getModuleStatus(tb, r, "fake").State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
-	})
-
-	// after the assert, cancel the context to stop the reconfigure
-	fmt.Printf("uh ummm we did cancel")
-	fakeCtxCancel()
-
-	// reconfigure again, since we don't know the state of the robot after canceling the reconfigure context.
-	// this time, set the startup timeout to be very short so that we can observe fakemodule failing
-	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", slowTime)
 	r.Reconfigure(ctx, cfg)
 
 	fakeModStatus := getModuleStatus(t, r, "fake")
@@ -1164,4 +1181,6 @@ func TestModuleStatus(t *testing.T) {
 			test.That(t, p(m.State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
 		}
 	}
+	// reset the module startup timeout so it doesn't interfere with other tests
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "")
 }

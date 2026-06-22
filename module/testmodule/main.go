@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -105,12 +106,13 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 
-	if slowStart := os.Getenv("VIAM_TESTMODULE_SLOW_START"); slowStart != "" {
-		slowStartDuration, err := time.ParseDuration(slowStart)
+	if addr := os.Getenv("VIAM_TESTMODULE_BLOCK_START"); addr != "" {
+		conn, err := net.Dial("tcp", addr)
 		if err != nil {
 			return err
 		}
-		time.Sleep(slowStartDuration)
+		_, _ = conn.Read(make([]byte, 1))
+		conn.Close()
 	}
 
 	err = myMod.Start(ctx)
