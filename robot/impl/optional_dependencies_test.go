@@ -846,7 +846,7 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	// Hold remote's port so it survives remote's Close below and remote2 can reuse
 	// the exact same socket, with no window for another process to claim the port.
 	options, lis, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	hold := holdPort(t, lis)
+	hold := testutils.HoldPort(t, lis)
 	options.Network.Listener = hold
 	err := remote.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -921,7 +921,7 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 
 	// Bring up a new remote robot on the very same socket remote used. The port was
 	// never released, so there was no chance for it to be claimed in between.
-	hold.rearm(t)
+	hold.Rearm(t)
 	remote2 := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote2"))
 	err = remote2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
