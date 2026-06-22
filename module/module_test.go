@@ -940,21 +940,23 @@ func TestNewFrameSystemClient(t *testing.T) {
 
 	// On Windows, disable WebRTC dialing to avoid a ~20s hang per connection attempt.
 	//
-	// connectWithLock always makes a WebRTC-only dial first. It begins by sending a TLS
-	// ClientHello (to probe for TLS), which this plain gRPC server rejects; it then opens
-	// a fresh plaintext gRPC connection and calls OptionalWebRTCConfig. A plain
-	// grpc.NewServer() has no WebRTC signaling service, so it should return Unimplemented
-	// immediately and allow client.New to fall back to direct gRPC.
+	// connectWithLock always makes a WebRTC-only dial first. It sends a TLS ClientHello
+	// (to probe for TLS), which this plain gRPC server rejects; it then opens a fresh
+	// plaintext gRPC connection and calls OptionalWebRTCConfig. A plain grpc.NewServer()
+	// has no WebRTC signaling service, so it returns Unimplemented immediately, which
+	// becomes ErrNoWebRTCSignaler and then ErrConnectionOptionsExhausted (because direct
+	// gRPC is disabled for this first dial).
 	//
-	// On Linux this takes <1 ms. On Windows (IOCP), the rejected TLS probe leaves the
-	// server's I/O completion queue in a stale state; the server may not dispatch the new
-	// connection's frames until the previous connection's overlapped I/O operations have
-	// fully drained. The OptionalWebRTCConfig RPC gets queued behind that drain. When the
-	// 10s dial deadline fires, cancelling the context does not immediately abort the pending
-	// WSARecv — the OS-level overlapped operation must unwind first, which can take another
-	// ~10s. The error returned is DeadlineExceeded (not ErrNoWebRTCSignaler), so client.New
-	// does not fall back to direct gRPC within that attempt; it retries three times (~20s
-	// each, ~60s total) before failing. See RSDK-13302.
+	// connectWithLock then falls back to a direct gRPC dial. On Linux this succeeds in
+	// <1 ms. On Windows (IOCP), the rapid open-then-close of the TLS probe connection
+	// and the gRPC signaling connection from the WebRTC dial above leaves the server's
+	// I/O completion queue with pending drain events. The subsequent direct gRPC connection
+	// is accepted at the TCP level but the server is slow to dispatch its HTTP/2 frames
+	// while those events drain, keeping the connection in CONNECTING until the 20s dial
+	// deadline fires and returns context.DeadlineExceeded. connectWithLock combines both
+	// errors: "exhausted all connection options with no way to connect; context deadline
+	// exceeded". client.New retries three times (~20s each, ~60s total) before failing.
+	// See RSDK-13302.
 	var dialOpts []client.RobotClientOption
 	if runtime.GOOS == "windows" {
 		dialOpts = append(dialOpts, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true})))
