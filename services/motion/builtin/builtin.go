@@ -97,6 +97,20 @@ type Config struct {
 
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
+
+	// TeleopInterpolateOverride controls the arm's built-in interpolation for teleop moves.
+	// When false (the default) each batch of joint targets is sent with interpolate=false and
+	// waitAtEnd=false, giving the lowest latency and the most responsive motion. When true,
+	// targets are sent with interpolate=true and waitAtEnd=true, which produces smoother motion
+	// at the cost of latency because each call blocks until the move completes. Set it when you
+	// want the arm's own interpolation in place of the pipeline's EMA smoothing.
+	TeleopInterpolateOverride bool `json:"teleop_interpolate_override"`
+	// TeleopSmoothAlpha is the smoothing factor for the exponential moving average (EMA) the
+	// pipeline applies to each joint's commanded position before sending it to the arm:
+	// out = alpha*target + (1-alpha)*previous. Lower alpha means heavier smoothing (less jitter,
+	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
+	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
+	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -124,6 +138,11 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 
 	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
+	}
+
+	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
+	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
+		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
 	}
 
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
@@ -532,67 +551,50 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	return plan, err
 }
 
-// planTeleop is a low-latency variant of plan() for the teleop pipeline.
-// It uses a pre-built frame system and caller-provided fsInputs (merged from
-// live CurrentInputs + planning head) to avoid per-call overhead.
-func (ms *builtIn) planTeleop(
+// planTeleopMulti plans a trajectory for multiple components simultaneously.
+// It builds a multi-frame goal from the given poses map, allowing the planner
+// to find paths for all arms jointly (self-collision between the arms is still
+// enforced by the frame system's default collision checking).
+//
+// NOTE: unlike plan(), this path intentionally omits WorldState and Constraints
+// from the PlanRequest. Teleop replans continuously at interactive rates, so it
+// trades external-obstacle and custom-constraint checking for planning latency.
+// If a teleop deployment needs world-obstacle avoidance, that tradeoff must be
+// revisited (thread WorldState/Constraints through from the component's MoveReq).
+func (ms *builtIn) planTeleopMulti(
 	ctx context.Context,
-	req motion.MoveReq,
+	goals referenceframe.FrameSystemPoses,
+	extra map[string]interface{},
 	frameSys *referenceframe.FrameSystem,
 	fsInputs referenceframe.FrameSystemInputs,
 	logger logging.Logger,
 ) (motionplan.Plan, error) {
-	ctx, span := trace.StartSpan(ctx, "motion::builtin::planTeleop")
+	ctx, span := trace.StartSpan(ctx, "motion::builtin::planTeleopMulti")
 	defer span.End()
 
-	movingFrame := frameSys.Frame(req.ComponentName)
-	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
-	}
-
-	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
-	if err != nil {
-		return nil, err
-	}
-	if len(waypoints) == 0 {
-		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
-	}
-
-	if req.Extra != nil {
-		req.Extra["waypoints"] = nil
-	}
-
-	// Re-evaluate goal poses to be in the frame of World.
-	worldWaypoints := []*armplanning.PlanState{}
-	solvingFrame := referenceframe.World
-	for _, wp := range waypoints {
-		if wp.Poses() != nil {
-			step := referenceframe.FrameSystemPoses{}
-			for fName, destination := range wp.Poses() {
-				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
-				if err != nil {
-					return nil, err
-				}
-				goalPose, _ := tf.(*referenceframe.PoseInFrame)
-				step[fName] = goalPose
-			}
-			worldWaypoints = append(worldWaypoints, armplanning.NewPlanState(step, wp.Configuration()))
-		} else {
-			worldWaypoints = append(worldWaypoints, wp)
+	// Transform all goal poses to world frame.
+	worldGoals := make(referenceframe.FrameSystemPoses, len(goals))
+	for fName, destination := range goals {
+		tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, referenceframe.World)
+		if err != nil {
+			return nil, err
 		}
+		goalPose, _ := tf.(*referenceframe.PoseInFrame)
+		worldGoals[fName] = goalPose
 	}
 
-	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
+	startState := armplanning.NewPlanState(nil, fsInputs)
+	goalState := armplanning.NewPlanState(worldGoals, nil)
+
+	planOpts, err := armplanning.NewPlannerOptionsFromExtra(extra)
 	if err != nil {
 		return nil, err
 	}
 
 	planRequest := &armplanning.PlanRequest{
 		FrameSystem:    frameSys,
-		Goals:          worldWaypoints,
+		Goals:          []*armplanning.PlanState{goalState},
 		StartState:     startState,
-		WorldState:     req.WorldState,
-		Constraints:    req.Constraints,
 		PlannerOptions: planOpts,
 	}
 
