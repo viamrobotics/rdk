@@ -253,18 +253,18 @@ func checkCollisionsHinted(
 	return collisions, minDistance, nil
 }
 
+func canonicalPair(a, b string) [2]string {
+	if a < b {
+		return [2]string{a, b}
+	}
+	return [2]string{b, a}
+}
+
 // Process a []Collision into a map for easy lookups.
-func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[string]map[string]bool {
-	ignoreList := map[string]map[string]bool{}
-	for _, collision := range allowedCollisions {
-		if _, ok := ignoreList[collision.name1]; !ok {
-			ignoreList[collision.name1] = map[string]bool{}
-		}
-		if _, ok := ignoreList[collision.name2]; !ok {
-			ignoreList[collision.name2] = map[string]bool{}
-		}
-		ignoreList[collision.name1][collision.name2] = true
-		ignoreList[collision.name2][collision.name1] = true
+func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[[2]string]bool {
+	ignoreList := make(map[[2]string]bool, len(allowedCollisions))
+	for _, c := range allowedCollisions {
+		ignoreList[canonicalPair(c.name1, c.name2)] = true
 	}
 	return ignoreList
 }
@@ -287,26 +287,20 @@ func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialm
 	return geomMap, nil
 }
 
-func skipCollisionCheck(ignoreList map[string]map[string]bool, xName, yName string) bool {
+func skipCollisionCheck(ignoreList map[[2]string]bool, xName, yName string) bool {
 	// Skip comparing a geometry to itself
 	if xName == yName {
 		return true
 	}
 
-	if _, ok := ignoreList[yName]; ok && ignoreList[yName][xName] {
+	key := canonicalPair(xName, yName)
+	if ignoreList[key] {
 		// Already checked this pair in the other order
 		return true
 	}
 
 	// We're going to decide if x->y collides. We will not need to check if y->x collides. Mutate
 	// the ignoreList to (potentially) avoid that reverse computation.
-	for _, pair := range [][2]string{{xName, yName}, {yName, xName}} {
-		left, right := pair[0], pair[1]
-		if _, ok := ignoreList[left]; !ok {
-			ignoreList[left] = map[string]bool{}
-		}
-		ignoreList[left][right] = true
-	}
-
+	ignoreList[key] = true
 	return false
 }

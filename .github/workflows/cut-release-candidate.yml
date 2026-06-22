@@ -1,0 +1,155 @@
+name: Cut Release Candidate
+
+# One-click replacement for the manual "cut an rc0" runbook. Anyone with
+# workflow-dispatch access can run this from the Actions tab. It:
+#   1. picks the next release version (auto: minor bump, patch 0 -> rc0),
+#   2. creates the vX.Y.Z-release branch off main,
+#   3. publishes the vX.Y.Z-rc0 pre-release with generated notes.
+# Publishing the rc0 tag is what triggers the "Build and Publish RC"
+# workflow (.github/workflows/releasecandidate.yml), which builds the
+# appimages / static binaries.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, e.g. v0.132.0. Leave blank to auto-bump the minor from the latest tag.'
+        required: false
+        type: string
+      dry_run:
+        description: 'Resolve and print the plan but do not push anything.'
+        required: true
+        default: false
+        type: boolean
+
+# Job's own GITHUB_TOKEN stays read-only; every write below uses the App
+# token so the pushed rc0 tag actually triggers Build and Publish RC.
+permissions:
+  contents: read
+
+concurrency:
+  group: cut-release-candidate
+  cancel-in-progress: false
+
+jobs:
+  cut-rc:
+    runs-on: ubuntu-latest
+    steps:
+      # An App token (not GITHUB_TOKEN) is required: tags pushed with the
+      # default GITHUB_TOKEN do NOT trigger other workflows, so the RC build
+      # would never start. Same app already used by flaky-pr-reviewer.yml.
+      - name: Mint app token
+        id: app-token
+        # actions/create-github-app-token@v3.2.0
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          app-id: ${{ secrets.CI_GITHUB_APP_ID }}
+          private-key: ${{ secrets.CI_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # Full history + tags so we can compute the next version and push a new
+      # branch. Configure the remote with the app token so pushes are authed.
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Resolve versions
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force --quiet
+
+          # Notes baseline: the highest released stable tag (vX.Y.Z).
+          PREV_STABLE=$(git tag --list 'v*' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+
+          INPUT="${{ inputs.version }}"
+          if [ -n "$INPUT" ]; then
+            VERSION="$INPUT"
+          else
+            # Auto-bump: highest minor across stable AND rc tags, +1, patch 0.
+            # (RDK cuts minor releases; every rc tag in history is a .0.)
+            # Change this block if you ever need patch/major auto-bumps.
+            HIGH=$(git tag --list 'v*' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$' \
+              | sed -E 's/^v([0-9]+)\.([0-9]+).*/\1 \2/' \
+              | sort -k1,1n -k2,2n | tail -n1)
+            MAJOR=$(echo "$HIGH" | cut -d' ' -f1)
+            MINOR=$(echo "$HIGH" | cut -d' ' -f2)
+            VERSION="v${MAJOR}.$((MINOR + 1)).0"
+          fi
+
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' must look like v0.132.0"; exit 1
+          fi
+
+          BRANCH="${VERSION}-release"
+          TAG="${VERSION}-rc0"
+
+          # Refuse to clobber an existing tag or branch.
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::Tag ${TAG} already exists"; exit 1
+          fi
+          if git ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+            echo "::error::Branch ${BRANCH} already exists"; exit 1
+          fi
+
+          # Sanity: the commit we're releasing must differ from last release.
+          NEW_SHA=$(git rev-parse HEAD)
+          PREV_SHA=$(git rev-parse "${PREV_STABLE}^{commit}")
+          if [ "$NEW_SHA" = "$PREV_SHA" ]; then
+            echo "::error::main HEAD ($NEW_SHA) is identical to ${PREV_STABLE}; nothing new to release"; exit 1
+          fi
+
+          {
+            echo "version=$VERSION"
+            echo "branch=$BRANCH"
+            echo "tag=$TAG"
+            echo "prev_stable=$PREV_STABLE"
+            echo "new_sha=$NEW_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "### Release candidate plan" >> "$GITHUB_STEP_SUMMARY"
+          echo "| field | value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| new tag | \`$TAG\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| new branch | \`$BRANCH\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| target commit | \`$NEW_SHA\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| notes baseline | \`$PREV_STABLE\` |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create release branch
+        if: ${{ inputs.dry_run == false }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Push main's current HEAD as the new release branch.
+          git push origin "HEAD:refs/heads/${{ steps.ver.outputs.branch }}"
+
+      - name: Publish rc0 pre-release
+        if: ${{ inputs.dry_run == false }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          # Creating the tag on the release branch and publishing the
+          # pre-release is what triggers Build and Publish RC. --notes-start-tag
+          # makes "Generate release notes" span PREV_STABLE..TAG.
+          gh release create "${{ steps.ver.outputs.tag }}" \
+            --target "${{ steps.ver.outputs.branch }}" \
+            --title "${{ steps.ver.outputs.tag }}" \
+            --prerelease \
+            --generate-notes \
+            --notes-start-tag "${{ steps.ver.outputs.prev_stable }}"
+
+          echo "Published ${{ steps.ver.outputs.tag }} -> triggers Build and Publish RC." >> "$GITHUB_STEP_SUMMARY"
+          echo "Watch: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/releasecandidate.yml" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry run notice
+        if: ${{ inputs.dry_run == true }}
+        run: echo "::notice::Dry run — resolved the plan above but pushed nothing."

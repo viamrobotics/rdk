@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
@@ -182,7 +185,7 @@ func TestNewWatcherFile(t *testing.T) {
 
 func TestNewWatcherCloud(t *testing.T) {
 	t.Parallel()
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	certsToReturn := config.Cloud{
 		TLSCertificate: "hello",
@@ -329,9 +332,9 @@ func TestNewWatcherCloud(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	// fake server will start returning 5xx on requests.
-	// no new configs should be emitted to channel until the fake server starts returning again
-	fakeServer.FailOnConfigAndCerts(true)
+	// fake server will start returning a malformed config (codes.Unknown mirrors the real config-conversion
+	// failure). no new configs should be emitted to channel until the fake server starts returning again
+	fakeServer.FailOnConfigAndCertsWith(status.Error(codes.Unknown, "OrientationVectorDegrees has a normal of 0"))
 	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
 	select {
@@ -343,6 +346,35 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
+
+	// The fake server returns codes.Unknown while failing, which means the config is malformed. The
+	// watcher logs the same message either way, so we distinguish the malformed case from the
+	// transient case by log level: a malformed config is surfaced at ERROR on every failing refresh.
+	const notAppliedMsg = "could not apply new cloud config; keeping the current config"
+	malformedLogs := logs.FilterMessageSnippet(notAppliedMsg).FilterLevelExact(zapcore.ErrorLevel)
+	test.That(t, malformedLogs.Len(), test.ShouldBeGreaterThan, 1)
+
+	// A transient connectivity failure must NOT be surfaced loudly. The watcher logs the same message
+	// at DEBUG and keeps retrying.
+	malformedCountBeforeTransient := malformedLogs.Len()
+	debugRetryBeforeTransient := logs.FilterMessageSnippet(notAppliedMsg).FilterLevelExact(zapcore.DebugLevel).Len()
+	fakeServer.FailOnConfigAndCertsWith(status.Error(codes.Unavailable, "cloud is down"))
+	transientTimer := time.NewTimer(3 * time.Second)
+	defer transientTimer.Stop()
+	select {
+	case c := <-watcher.Config():
+		test.That(t, c, test.ShouldBeNil)
+	case <-transientTimer.C:
+	}
+	fakeServer.FailOnConfigAndCerts(false)
+	newConf = <-watcher.Config()
+	test.That(t, newConf, test.ShouldResemble, &confToExpect)
+
+	// No new ERROR logs, but the transient failure added DEBUG logs.
+	test.That(t, logs.FilterMessageSnippet(notAppliedMsg).FilterLevelExact(zapcore.ErrorLevel).Len(),
+		test.ShouldEqual, malformedCountBeforeTransient)
+	test.That(t, logs.FilterMessageSnippet(notAppliedMsg).FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, debugRetryBeforeTransient)
 
 	confToReturn = config.Config{
 		Cloud: newCloudConf(),
