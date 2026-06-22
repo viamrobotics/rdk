@@ -151,11 +151,12 @@ func (rc *RobotClient) Reconfigure(ctx context.Context, deps resource.Dependenci
 }
 
 var exemptFromConnectionCheck = map[string]bool{
-	"/proto.rpc.webrtc.v1.SignalingService/Call":                 true,
-	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":           true,
-	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig": true,
-	"/proto.rpc.v1.AuthService/Authenticate":                     true,
-	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":           true,
+	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
+	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
+	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig":     true,
+	"/proto.rpc.webrtc.v1.SignalingService/ReportConnectionMetadata": true,
+	"/proto.rpc.v1.AuthService/Authenticate":                         true,
+	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":               true,
 }
 
 func skipConnectionCheck(method string) bool {
