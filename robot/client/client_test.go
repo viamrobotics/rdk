@@ -56,7 +56,7 @@ import (
 	"go.viam.com/rdk/data"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	modulestatus "go.viam.com/rdk/module/modmanager/status"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"

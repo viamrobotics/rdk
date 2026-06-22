@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	modulestatus "go.viam.com/rdk/module/modmanager/status"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	rtestutils "go.viam.com/rdk/testutils"

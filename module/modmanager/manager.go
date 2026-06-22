@@ -25,7 +25,7 @@ import (
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	modulestatus "go.viam.com/rdk/module/modmanager/status"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
