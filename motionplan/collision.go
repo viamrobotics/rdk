@@ -141,7 +141,7 @@ func CheckCollisions(
 	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
 	logger logging.Logger,
 ) ([]Collision, float64, error) {
-	return checkCollisionsHinted(gg, other, allowedCollisions, collisionBufferMM, collectAllCollisions, nil, logger)
+	return checkCollisionsHinted(gg, other, makeAllowedCollisionsLookup(allowedCollisions), collisionBufferMM, collectAllCollisions, nil, logger)
 }
 
 // checkCollisionsHinted is the workhorse for CheckCollisions plus an optional
@@ -151,7 +151,7 @@ func CheckCollisions(
 // circuit lives on spatialmath.Mesh itself; no plumbing needed here.
 func checkCollisionsHinted(
 	gg, other []spatialmath.Geometry,
-	allowedCollisions []Collision,
+	allowedLookup map[[2]string]bool,
 	collisionBufferMM float64,
 	collectAllCollisions bool,
 	hint *atomic.Pointer[[2]string],
@@ -166,7 +166,7 @@ func checkCollisionsHinted(
 		return nil, math.Inf(-1), err
 	}
 
-	ignoreList := makeAllowedCollisionsLookup(allowedCollisions)
+	seenPairs := map[[2]string]bool{}
 
 	collisions := []Collision{}
 	minDistance := math.Inf(1)
@@ -217,7 +217,7 @@ func checkCollisionsHinted(
 				if !ok {
 					return false, false, nil
 				}
-				if skipCollisionCheck(ignoreList, xName, yName) {
+				if skipCollisionCheck(allowedLookup, seenPairs, xName, yName) {
 					return false, true, nil
 				}
 				stop, err := checkOnePair(xName, yName, xGeom, yGeom)
@@ -237,7 +237,7 @@ func checkCollisionsHinted(
 
 	for xName, xGeometry := range ggMap {
 		for yName, yGeometry := range otherMap {
-			if skipCollisionCheck(ignoreList, xName, yName) {
+			if skipCollisionCheck(allowedLookup, seenPairs, xName, yName) {
 				continue
 			}
 			stop, err := checkOnePair(xName, yName, xGeometry, yGeometry)
@@ -287,20 +287,20 @@ func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialm
 	return geomMap, nil
 }
 
-func skipCollisionCheck(ignoreList map[[2]string]bool, xName, yName string) bool {
+func skipCollisionCheck(allowedLookup, seenPairs map[[2]string]bool, xName, yName string) bool {
 	// Skip comparing a geometry to itself
 	if xName == yName {
 		return true
 	}
 
 	key := canonicalPair(xName, yName)
-	if ignoreList[key] {
+	if allowedLookup[key] || seenPairs[key] {
 		// Already checked this pair in the other order
 		return true
 	}
 
 	// We're going to decide if x->y collides. We will not need to check if y->x collides. Mutate
 	// the ignoreList to (potentially) avoid that reverse computation.
-	ignoreList[key] = true
+	seenPairs[key] = true
 	return false
 }
