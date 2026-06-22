@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 // Model is the full model definition.
@@ -56,6 +57,35 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 	if len(nums) == 0 {
 		return 0, errors.New("must provide at least one number to sum")
 	}
+
+	numGood := 0
+
+	foundKeys := 0
+	expectedKeys := 4
+	for k, v := range metadata.All(ctx) {
+		switch {
+		case k == "arbitrary-md-from-client" && v == "arbitrary-md-from-client-val1":
+			numGood++
+		case k == "arbitrary-md-from-client2" && v == "arbitrary-md-from-client-val3-from-middle":
+			numGood++
+		case k == "arbitrary-md-from-middle" && v == "arbitrary-md-from-middle-val1":
+			numGood++
+		case k == "opid" && v == "custom":
+			// real opid is still present in metadata.FromIncomingContext
+			numGood++
+		case k == "arbitrary-md-local-func-modify" && v == "real":
+			numGood++
+		}
+		foundKeys++
+	}
+	if foundKeys == expectedKeys {
+		numGood++
+	}
+	if numGood == 5 {
+		// used for TestMetadataAcrossTwoModules test only. in other cases, numGood should be 0
+		return -1, errors.New("TestMetadataAcrossTwoModules-good")
+	}
+
 	var ret float64
 	for _, n := range nums {
 		if m.subtract {
