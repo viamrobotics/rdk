@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/connectivity"
 
@@ -13,13 +14,6 @@ import (
 	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/rdk/web/networkcheck"
 )
-
-// ConnectivityState allows callers to check the connectivity state of
-// the connection
-// see https://github.com/grpc/grpc-go/blob/master/clientconn.go#L648
-type ConnectivityState interface {
-	GetState() connectivity.State
-}
 
 // AppConn maintains an underlying client connection meant to be used globally to connect to App. The `AppConn` constructor repeatedly
 // attempts to dial App until a connection is successfully established.
@@ -121,7 +115,7 @@ func (ac *AppConn) GetState() connectivity.State {
 		return connectivity.Connecting
 	}
 
-	checker, ok := ac.conn.(ConnectivityState)
+	checker, ok := ac.conn.(grpchelpers.ConnectivityState)
 	if !ok {
 		return connectivity.Connecting
 	}

@@ -1392,7 +1392,9 @@ func TestConfigPackages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
-	packageDir := t.TempDir()
+	// Isolate package storage to a temp home dir (via WithViamHomeDir below) so this test
+	// doesn't touch the real home directory. Packages are stored under <homeDir>/packages.
+	viamHomeDir := t.TempDir()
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1405,10 +1407,9 @@ func TestConfigPackages(t *testing.T) {
 		Cloud: &config.Cloud{
 			AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String()),
 		},
-		PackagePath: packageDir,
 	}
 
-	r := setupLocalRobot(t, ctx, robotConfig, logger)
+	r := setupLocalRobot(t, ctx, robotConfig, logger, WithViamHomeDir(viamHomeDir))
 
 	_, err = r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldEqual, packages.ErrPackageMissing)
@@ -1431,19 +1432,19 @@ func TestConfigPackages(t *testing.T) {
 		Cloud: &config.Cloud{
 			AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String()),
 		},
-		PackagePath: packageDir,
 	}
 
 	fakePackageServer.StorePackage(robotConfig2.Packages...)
 	r.Reconfigure(ctx, robotConfig2)
 
+	packagesDir := path.Join(viamHomeDir, config.PackagesDirName)
 	path1, err := r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, "data", "ml_model", "package-1-v1"))
+	test.That(t, path1, test.ShouldEqual, path.Join(packagesDir, "data", "ml_model", "package-1-v1"))
 
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "data", "ml_model", "package-2-v2"))
+	test.That(t, path2, test.ShouldEqual, path.Join(packagesDir, "data", "ml_model", "package-2-v2"))
 }
 
 // removeDefaultServices removes default services and returns the removed
@@ -4258,9 +4259,12 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	// Start a robot and stand up its "web".
+	// Start a robot and stand up its "web". Hold the port so every restart below can
+	// reuse the exact same socket, with no window for another process to claim it.
 	robot := setupLocalRobot(t, ctx, &config.Config{}, logger.Sublogger("robot"))
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	options, lis, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	hold := rtestutils.HoldPort(t, lis)
+	options.Network.Listener = hold
 	err := robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.StopWeb()
@@ -4277,10 +4281,10 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	// and error.
 	assertDialFails(t, robotClient)
 
-	// Massage the options to restart the "web" on the same port as before. Note: this can result in
-	// a test bug/failure as another test may have picked up the same port in the meantime.
-	options.Network.BindAddress = addr
-	options.Network.Listener = nil
+	// Re-arm the held listener and restart the "web" on the very same socket as
+	// before. The port was never released, so there was no chance for it to be
+	// claimed in the meantime.
+	hold.Rearm(t)
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -4293,7 +4297,8 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	robot.StopWeb()
 	assertDialFails(t, robotClient)
 
-	// Restart the "web" but only accept direct gRPC connections.
+	// Restart the "web" on the same held socket but only accept direct gRPC connections.
+	hold.Rearm(t)
 	options.DisallowWebRTC = true
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)

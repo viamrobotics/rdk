@@ -350,3 +350,64 @@ func TestDataSourceTypeToProto(t *testing.T) {
 		}
 	})
 }
+
+func TestDataQueryBinaryAction(t *testing.T) {
+	page := &datapb.BinaryDataByFilterResponse{
+		Data: []*datapb.BinaryData{
+			{Metadata: &datapb.BinaryMetadata{BinaryDataId: "bin-1", FileName: "a.jpg"}},
+		},
+	}
+
+	t.Run("writes metadata to stdout as NDJSON and pages until exhausted", func(t *testing.T) {
+		var capturedReq *datapb.BinaryDataByFilterRequest
+		calls := 0
+		dsc := &inject.DataServiceClient{
+			BinaryDataByFilterFunc: func(ctx context.Context, in *datapb.BinaryDataByFilterRequest, opts ...grpc.CallOption,
+			) (*datapb.BinaryDataByFilterResponse, error) {
+				capturedReq = in
+				calls++
+				if calls == 1 {
+					return page, nil
+				}
+				return &datapb.BinaryDataByFilterResponse{}, nil
+			},
+		}
+
+		_, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+		err := ac.dataQueryBinaryAction(context.Background(), dataQueryBinaryArgs{}, &datapb.Filter{PartId: "p1"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, calls, test.ShouldEqual, 2)
+		test.That(t, capturedReq.GetDataRequest().GetFilter().GetPartId(), test.ShouldEqual, "p1")
+
+		// Parse NDJSON back into maps since protojson's spacing isn't stable.
+		var actual []map[string]interface{}
+		decoder := json.NewDecoder(strings.NewReader(strings.Join(out.messages, "")))
+		for decoder.More() {
+			var row map[string]interface{}
+			test.That(t, decoder.Decode(&row), test.ShouldBeNil)
+			actual = append(actual, row)
+		}
+		test.That(t, len(actual), test.ShouldEqual, 1)
+	})
+
+	t.Run("stops once --limit results have been written", func(t *testing.T) {
+		var capturedReq *datapb.BinaryDataByFilterRequest
+		calls := 0
+		// Return a full page every call so the loop can only end by honoring --limit.
+		dsc := &inject.DataServiceClient{
+			BinaryDataByFilterFunc: func(ctx context.Context, in *datapb.BinaryDataByFilterRequest, opts ...grpc.CallOption,
+			) (*datapb.BinaryDataByFilterResponse, error) {
+				capturedReq = in
+				calls++
+				return page, nil
+			},
+		}
+
+		_, ac, _, _ := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+		err := ac.dataQueryBinaryAction(context.Background(), dataQueryBinaryArgs{Limit: 1}, &datapb.Filter{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capturedReq.GetDataRequest().GetLimit(), test.ShouldEqual, uint64(1))
+		test.That(t, calls, test.ShouldEqual, 1)
+	})
+}

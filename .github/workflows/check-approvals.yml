@@ -24,6 +24,10 @@ jobs:
       # write (not read) to post the "Review Required" comment: commenting on a
       # PR needs pull-requests: write; issues: write does not cover PRs.
       pull-requests: write
+      # lets the action re-run the stale pull_request run for this commit once
+      # approvals are satisfied, so the required status turns green without a
+      # manual re-run.
+      actions: write
     steps:
       # Flaky-test fixes and dependabot bumps only require a single approval;
       # everything else needs two. Title/branch are read via env (never interpolated
@@ -36,7 +40,9 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           title_lc="${PR_TITLE,,}"
-          if [[ "$title_lc" == *flaky* ]]; then
+          # Match flake/flakes/flaky/flakiness — title wording varies. Keep this
+          # pattern in sync with flaky-pr-reviewer.yml.
+          if [[ "$title_lc" == *flak* ]]; then
             echo "min_approvals=1" >> "$GITHUB_OUTPUT"
             echo "Flaky-test PR detected; requiring 1 approval."
           elif [[ "$HEAD_REF" == claude/dependabot* ]]; then
@@ -47,12 +53,12 @@ jobs:
             echo "Requiring 2 approvals."
           fi
 
-      # viamrobotics/claude-ci-workflows@v2.2.1
+      # viamrobotics/claude-ci-workflows@v2.2.4
       - name: Checkout claude-ci-workflows for composite action
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: viamrobotics/claude-ci-workflows
-          ref: 5506bdaf04cc7d1adbd2df0f31f108834b01aea6
+          ref: c27e2ba8d7e6e818f74271132041ab48707cc0ca
           path: .claude-ci-workflows
           sparse-checkout: |
             .github/actions/check-approvals/

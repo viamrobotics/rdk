@@ -196,7 +196,7 @@ func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace stri
 			errors.Errorf("placeholder %q is looking for a package of type %q but a package of type %q was found. Try %q",
 				toReplace, packageType, string(packageConfig.Type), expectedPlaceholder)
 	}
-	return packageConfig.LocalDataDirectory(viamPackagesDir), nil
+	return packageConfig.LocalDataDirectory(DefaultPackagesDir()), nil
 }
 
 func (v *placeholderReplacementVisitor) replaceEnvironmentPlaceholder(toReplace string) (string, error) {

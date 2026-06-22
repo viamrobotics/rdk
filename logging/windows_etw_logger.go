@@ -72,7 +72,6 @@ func RegisterETWLogger(rootLogger Logger, etlDir string, p ETWProvider) (io.Clos
 	if err := sess.Start(startCtx); err != nil {
 		rootLogger.Warnw("ETW session start failed; provider registered but file capture could not start",
 			"err", err, "session", p.SessionName, "outputPath", etlPath)
-		provider.Close()
 		return nopCloser{}, err
 	} else {
 		liveSession = sess
@@ -88,7 +87,7 @@ func RegisterETWLogger(rootLogger Logger, etlDir string, p ETWProvider) (io.Clos
 // listening, near-free when not — no buffering goroutine needed.
 type etwAppender struct {
 	provider *etw.Provider
-	session  sessionController // nil if session start failed
+	session  sessionController
 }
 
 // Write maps the zap entry to a level-tagged ETW event with structured fields.
@@ -142,20 +141,16 @@ func (a *etwAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 
 func (a *etwAppender) Sync() error { return nil }
 
-// Close stops the session before unregistering the provider so any kernel
-// buffer contents are flushed to the .etl file before teardown.
+// stop the session if it still exists when Close() is called.
+// don't touch the provider to avoid a bug in the Close logic of winio
+// the provider is killed by windows when the process dies
 func (a *etwAppender) Close() error {
-	var sessErr error
-	if a.session != nil {
-		stopCtx, cancel := context.WithTimeout(context.Background(), etwLogmanTimeout)
-		defer cancel()
-		sessErr = a.session.Stop(stopCtx)
+	if a.session == nil {
+		return nil
 	}
-	provErr := a.provider.Close()
-	if sessErr != nil {
-		return sessErr
-	}
-	return provErr
+	stopCtx, cancel := context.WithTimeout(context.Background(), etwLogmanTimeout)
+	defer cancel()
+	return a.session.Stop(stopCtx)
 }
 
 func zapToETWLevel(l zapcore.Level) etw.Level {
