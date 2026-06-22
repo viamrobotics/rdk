@@ -4259,9 +4259,12 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	// Start a robot and stand up its "web".
+	// Start a robot and stand up its "web". Hold the port so every restart below can
+	// reuse the exact same socket, with no window for another process to claim it.
 	robot := setupLocalRobot(t, ctx, &config.Config{}, logger.Sublogger("robot"))
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	options, lis, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	hold := rtestutils.HoldPort(t, lis)
+	options.Network.Listener = hold
 	err := robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.StopWeb()
@@ -4278,10 +4281,10 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	// and error.
 	assertDialFails(t, robotClient)
 
-	// Massage the options to restart the "web" on the same port as before. Note: this can result in
-	// a test bug/failure as another test may have picked up the same port in the meantime.
-	options.Network.BindAddress = addr
-	options.Network.Listener = nil
+	// Re-arm the held listener and restart the "web" on the very same socket as
+	// before. The port was never released, so there was no chance for it to be
+	// claimed in the meantime.
+	hold.Rearm(t)
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -4294,7 +4297,8 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	robot.StopWeb()
 	assertDialFails(t, robotClient)
 
-	// Restart the "web" but only accept direct gRPC connections.
+	// Restart the "web" on the same held socket but only accept direct gRPC connections.
+	hold.Rearm(t)
 	options.DisallowWebRTC = true
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
