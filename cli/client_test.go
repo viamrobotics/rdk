@@ -1669,113 +1669,43 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	}()
 
-	// Start the in-process viam-server and connect a robot client to it.
-	//
-	// RunServer reads its bind address from the config, so there is an unavoidable
-	// window between the test choosing a free ephemeral port and the server actually
-	// binding it. Under heavy parallel test load another process can claim the port
-	// in that window, making RunServer fail with "address already in use". The robot
-	// client would then keep retrying to reach a server that never came up, hanging
-	// the test until the package-wide timeout fires (see RSDK-13776). To stay robust
-	// we choose the port right before launching the server and retry on a fresh port
-	// until the server is actually reachable.
-	type connectOutcome struct {
-		rc  *client.RobotClient
-		err error
-	}
-
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
 	startServerAndConnect := func(attempt int) (*client.RobotClient, context.CancelFunc, chan error) {
-		// Choose a fresh port immediately before launching the server to keep the
-		// race window as small as possible.
 		machinePort, err := goutils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
 		machineAddr := net.JoinHostPort("localhost", strconv.Itoa(machinePort))
 
-		serverCtx, serverCancel := context.WithCancel(ctx)
-		serverErrC := make(chan error, 1)
-		serverWg.Add(1)
-		go func() {
-			defer serverWg.Done()
+		return robottestutils.TryStartServerAndConnect(t, ctx, logger, &serverWg, attempt, machineAddr,
+			func(serverCtx context.Context, errC chan<- error) {
+				// Create a temporary config file.
+				tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
+				test.That(t, err, test.ShouldBeNil)
+				// we only use the filename, not the file handle in this test. Close immediately, instead of relying on GC.
+				// On Windows we otherwise may get:
+				// "The process cannot access the file because it is being used by another process."
+				test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
 
-			// Create a temporary config file.
-			tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-			test.That(t, err, test.ShouldBeNil)
-			// we only use the filename, not the file handle in this test. Close immediately, instead of relying on GC.
-			// On Windows we otherwise may get:
-			// "The process cannot access the file because it is being used by another process."
-			test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-			cfg := &robotconfig.Config{
-				Network: robotconfig.NetworkConfig{
-					NetworkConfigData: robotconfig.NetworkConfigData{
-						TrafficTunnelEndpoints: []robotconfig.TrafficTunnelEndpoint{
-							{
-								Port: destPort, // allow tunneling to destination port
+				cfg := &robotconfig.Config{
+					Network: robotconfig.NetworkConfig{
+						NetworkConfigData: robotconfig.NetworkConfigData{
+							TrafficTunnelEndpoints: []robotconfig.TrafficTunnelEndpoint{
+								{
+									Port: destPort, // allow tunneling to destination port
+								},
 							},
+							BindAddress: machineAddr,
 						},
-						BindAddress: machineAddr,
 					},
-				},
-			}
-			cfgBytes, err := json.Marshal(&cfg)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+				}
+				cfgBytes, err := json.Marshal(&cfg)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
 
-			args := []string{"viam-server", "-config", tempConfigFile.Name()}
-			serverErrC <- server.RunServer(serverCtx, args, logger)
-		}()
-
-		// Try to connect, racing against RunServer exiting early (e.g. a lost bind
-		// race) so we can retry promptly. The connect context timeout bounds a
-		// connection to a server that started but never became reachable.
-		connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
-		defer connectCancel()
-		connectC := make(chan connectOutcome, 1)
-		go func() {
-			candidate, connErr := client.New(
-				connectCtx, machineAddr, logger,
-				client.WithRefreshEvery(time.Second),
-				client.WithCheckConnectedEvery(5*time.Second),
-				client.WithReconnectEvery(time.Second),
-			)
-			connectC <- connectOutcome{candidate, connErr}
-		}()
-
-		select {
-		case outcome := <-connectC:
-			if outcome.err == nil {
-				return outcome.rc, serverCancel, serverErrC
-			}
-			logger.Infow("failed to connect to in-process viam-server; retrying on a new port",
-				"attempt", attempt, "err", outcome.err)
-		case rsErr := <-serverErrC:
-			logger.Infow("in-process viam-server exited before becoming reachable; retrying on a new port",
-				"attempt", attempt, "err", rsErr)
-			// Unblock and wait for the in-flight connection attempt to return so
-			// it doesn't linger into the next attempt.
-			connectCancel()
-			<-connectC
-		}
-
-		// This attempt failed; tear it down before the caller retries.
-		serverCancel()
-		serverWg.Wait()
-		return nil, nil, nil
+				args := []string{"viam-server", "-config", tempConfigFile.Name()}
+				errC <- server.RunServer(serverCtx, args, logger)
+			})
 	}
-
-	var (
-		rc            *client.RobotClient
-		stopServer    context.CancelFunc
-		runServerErrC chan error
-	)
-	const maxAttempts = 5
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		rc, stopServer, runServerErrC = startServerAndConnect(attempt)
-		if rc != nil {
-			break
-		}
-	}
-	test.That(t, rc, test.ShouldNotBeNil)
+	rc, stopServer, runServerErrC := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 	})

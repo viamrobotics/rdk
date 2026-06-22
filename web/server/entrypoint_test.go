@@ -459,115 +459,45 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	}()
 
-	// Start the in-process viam-server and connect a robot client to it.
-	//
-	// RunServer reads its bind address from the config, so there is an unavoidable
-	// window between the test choosing a free ephemeral port and the server actually
-	// binding it. Under heavy parallel test load another process can claim the port
-	// in that window, making RunServer fail with "address already in use". The robot
-	// client would then keep retrying to reach a server that never came up, hanging
-	// the test until the package-wide timeout fires (see RSDK-13776). To stay robust
-	// we choose the port right before launching the server and retry on a fresh port
-	// until the server is actually reachable.
-	type connectOutcome struct {
-		rc  *client.RobotClient
-		err error
-	}
-
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
 	startServerAndConnect := func(attempt int) (*client.RobotClient, context.CancelFunc, chan error) {
-		// Choose a fresh port immediately before launching the server to keep the
-		// race window as small as possible.
 		machinePort, err := goutils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
 		machineAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
 
-		serverCtx, serverCancel := context.WithCancel(ctx)
-		serverErrC := make(chan error, 1)
-		serverWg.Add(1)
-		go func() {
-			defer serverWg.Done()
+		return robottestutils.TryStartServerAndConnect(t, ctx, logger, &serverWg, attempt, machineAddr,
+			func(serverCtx context.Context, errC chan<- error) {
+				tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
+				test.That(t, err, test.ShouldBeNil)
+				tempConfigFileName := tempConfigFile.Name()
+				test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
 
-			tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-			test.That(t, err, test.ShouldBeNil)
-			tempConfigFileName := tempConfigFile.Name()
-			test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-			cfg := &config.Config{
-				Network: config.NetworkConfig{
-					NetworkConfigData: config.NetworkConfigData{
-						TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
-							{
-								Port: destPort, // allow tunneling to destination port
+				cfg := &config.Config{
+					Network: config.NetworkConfig{
+						NetworkConfigData: config.NetworkConfigData{
+							TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+								{
+									Port: destPort, // allow tunneling to destination port
+								},
+								{
+									Port: timeoutDestPort, // allow tunneling to 65534
+									// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
+									ConnectionTimeout: -time.Nanosecond,
+								},
 							},
-							{
-								Port: timeoutDestPort, // allow tunneling to 65534
-								// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
-								ConnectionTimeout: -time.Nanosecond,
-							},
+							BindAddress: machineAddr,
 						},
-						BindAddress: machineAddr,
 					},
-				},
-			}
-			cfgBytes, err := json.Marshal(&cfg)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
+				}
+				cfgBytes, err := json.Marshal(&cfg)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
-			args := []string{"viam-server", "-config", tempConfigFileName}
-			serverErrC <- server.RunServer(serverCtx, args, logger)
-		}()
-
-		// Try to connect, racing against RunServer exiting early (e.g. a lost bind
-		// race) so we can retry promptly. The connect context timeout bounds a
-		// connection to a server that started but never became reachable.
-		connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
-		defer connectCancel()
-		connectC := make(chan connectOutcome, 1)
-		go func() {
-			candidate, connErr := client.New(
-				connectCtx, machineAddr, logger,
-				client.WithRefreshEvery(time.Second),
-				client.WithCheckConnectedEvery(5*time.Second),
-				client.WithReconnectEvery(time.Second),
-			)
-			connectC <- connectOutcome{candidate, connErr}
-		}()
-
-		select {
-		case outcome := <-connectC:
-			if outcome.err == nil {
-				return outcome.rc, serverCancel, serverErrC
-			}
-			logger.Infow("failed to connect to in-process viam-server; retrying on a new port",
-				"attempt", attempt, "err", outcome.err)
-		case rsErr := <-serverErrC:
-			logger.Infow("in-process viam-server exited before becoming reachable; retrying on a new port",
-				"attempt", attempt, "err", rsErr)
-			// Unblock and wait for the in-flight connection attempt to return so
-			// it doesn't linger into the next attempt.
-			connectCancel()
-			<-connectC
-		}
-
-		// This attempt failed; tear it down before the caller retries.
-		serverCancel()
-		serverWg.Wait()
-		return nil, nil, nil
+				args := []string{"viam-server", "-config", tempConfigFileName}
+				errC <- server.RunServer(serverCtx, args, logger)
+			})
 	}
-
-	var (
-		rc            *client.RobotClient
-		stopServer    context.CancelFunc
-		runServerErrC chan error
-	)
-	const maxAttempts = 5
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		rc, stopServer, runServerErrC = startServerAndConnect(attempt)
-		if rc != nil {
-			break
-		}
-	}
-	test.That(t, rc, test.ShouldNotBeNil)
+	rc, stopServer, runServerErrC := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 	})
@@ -780,33 +710,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	)
 	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
 
-	// Start the in-process viam-server (RunServer) and connect a robot client to
-	// it.
-	//
-	// RunServer reads its bind address from the (cloud) config, so there is an
-	// unavoidable window between the test choosing a free ephemeral port and the
-	// server actually binding it. Under heavy parallel test load another process
-	// can claim that port in the window, which makes RunServer fail with
-	// "address already in use". The robot client would then keep retrying to
-	// reach a server that never came up, hanging the test until the package-wide
-	// timeout fires (see RSDK-13776). To stay robust we choose the port right
-	// before launching the server (minimizing the window) and retry on a fresh
-	// port until the server is actually reachable.
-	type connectOutcome struct {
-		rc  *client.RobotClient
-		err error
-	}
-
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
 	var serverWg sync.WaitGroup
 
-	// startServerAndConnect launches RunServer on a fresh ephemeral port and
-	// attempts to connect a robot client. On success it returns the connected
-	// client, a function that stops the server, and a channel that receives
-	// RunServer's return value once it stops. On failure it tears down the
-	// attempt (so the caller can retry on a new port) and returns nil values.
 	startServerAndConnect := func(attempt int) (*client.RobotClient, context.CancelFunc, chan error) {
-		// Choose a fresh ephemeral port immediately before launching the server
-		// to keep the race window as small as possible.
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		test.That(t, err, test.ShouldBeNil)
 		machineAddress := listener.Addr().String()
@@ -819,75 +726,23 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		baseConfig.Network = networkProto
 		storeCloudConfig(baseConfig)
 
-		// Start RunServer in a goroutine. Use -no-tls since the fake cloud
-		// returns empty TLS certs.
-		serverCtx, serverCancel := context.WithCancel(ctx)
-		serverErrC := make(chan error, 1)
-		serverWg.Add(1)
-		go func() {
-			defer serverWg.Done()
-			args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
-			serverErrC <- server.RunServer(serverCtx, args, logger)
-		}()
-
-		// Try to connect, racing the connection against RunServer exiting early
-		// (e.g. a lost bind race) so we can retry promptly. The connect context
-		// timeout bounds a connection to a server that started but never became
-		// reachable. Cloud-configured servers require location-secret auth.
-		connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
-		defer connectCancel()
-		connectC := make(chan connectOutcome, 1)
-		go func() {
-			candidate, connErr := client.New(connectCtx, machineAddress, logger,
-				client.WithDialOptions(
-					rpc.WithEntityCredentials("woo", rpc.Credentials{
-						Type:    utils.CredentialsTypeRobotLocationSecret,
-						Payload: "secret",
-					}),
-					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-				),
-				client.WithRefreshEvery(refreshInterval),
-				client.WithCheckConnectedEvery(5*refreshInterval),
-				client.WithReconnectEvery(refreshInterval),
-			)
-			connectC <- connectOutcome{rc: candidate, err: connErr}
-		}()
-
-		select {
-		case outcome := <-connectC:
-			if outcome.err == nil {
-				return outcome.rc, serverCancel, serverErrC
-			}
-			logger.Infow("failed to connect to in-process viam-server; retrying on a new port",
-				"attempt", attempt, "err", outcome.err)
-		case rsErr := <-serverErrC:
-			logger.Infow("in-process viam-server exited before becoming reachable; retrying on a new port",
-				"attempt", attempt, "err", rsErr)
-			// Unblock and wait for the in-flight connection attempt to return so
-			// it doesn't linger into the next attempt.
-			connectCancel()
-			<-connectC
-		}
-
-		// This attempt failed; tear it down before the caller retries.
-		serverCancel()
-		serverWg.Wait()
-		return nil, nil, nil
+		// Cloud-configured servers require location-secret auth. Use -no-tls
+		// since the fake cloud returns empty TLS certs.
+		return robottestutils.TryStartServerAndConnect(t, ctx, logger, &serverWg, attempt, machineAddress,
+			func(serverCtx context.Context, errC chan<- error) {
+				args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
+				errC <- server.RunServer(serverCtx, args, logger)
+			},
+			client.WithDialOptions(
+				rpc.WithEntityCredentials("woo", rpc.Credentials{
+					Type:    utils.CredentialsTypeRobotLocationSecret,
+					Payload: "secret",
+				}),
+				rpc.WithAllowInsecureWithCredentialsDowngrade(),
+			),
+		)
 	}
-
-	var (
-		rc            *client.RobotClient
-		stopServer    context.CancelFunc
-		runServerErrC chan error
-	)
-	const maxStartAttempts = 5
-	for attempt := 1; attempt <= maxStartAttempts; attempt++ {
-		rc, stopServer, runServerErrC = startServerAndConnect(attempt)
-		if rc != nil {
-			break
-		}
-	}
-	test.That(t, rc, test.ShouldNotBeNil)
+	rc, stopServer, runServerErrC := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 	})

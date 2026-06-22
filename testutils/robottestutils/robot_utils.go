@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -187,4 +188,104 @@ func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	}
 
 	return false
+}
+
+// TryStartServerAndConnect attempts to start an in-process viam-server and
+// connect a robot client to it, racing the connection against the server
+// exiting early (e.g. from a bind-address conflict) so failures are detected
+// promptly rather than hanging until a package-wide test timeout fires.
+//
+// startServer is launched in a goroutine tracked by serverWg. It receives a
+// cancelable context and a buffered error channel; it must run server.RunServer
+// (or equivalent) and send its return value to errC.
+//
+// On success TryStartServerAndConnect returns (rc, stopServer, serverErrC).
+// On failure it cancels the server context, waits for serverWg, and returns
+// (nil, nil, nil) so the caller can retry on a new address.
+//
+// connectOpts are appended to the default refresh/reconnect options passed to
+// client.New. The connection attempt is bounded by a 30-second timeout.
+func TryStartServerAndConnect(
+	t *testing.T,
+	ctx context.Context,
+	logger logging.Logger,
+	serverWg *sync.WaitGroup,
+	attempt int,
+	machineAddr string,
+	startServer func(serverCtx context.Context, errC chan<- error),
+	connectOpts ...client.RobotClientOption,
+) (*client.RobotClient, context.CancelFunc, chan error) {
+	t.Helper()
+
+	serverCtx, serverCancel := context.WithCancel(ctx)
+	serverErrC := make(chan error, 1)
+	serverWg.Add(1)
+	go func() {
+		defer serverWg.Done()
+		startServer(serverCtx, serverErrC)
+	}()
+
+	type connectOutcome struct {
+		rc  *client.RobotClient
+		err error
+	}
+
+	connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer connectCancel()
+	connectC := make(chan connectOutcome, 1)
+	go func() {
+		defaultOpts := []client.RobotClientOption{
+			client.WithRefreshEvery(time.Second),
+			client.WithCheckConnectedEvery(5 * time.Second),
+			client.WithReconnectEvery(time.Second),
+		}
+		candidate, connErr := client.New(
+			connectCtx, machineAddr, logger,
+			append(defaultOpts, connectOpts...)...,
+		)
+		connectC <- connectOutcome{candidate, connErr}
+	}()
+
+	select {
+	case outcome := <-connectC:
+		if outcome.err == nil {
+			return outcome.rc, serverCancel, serverErrC
+		}
+		logger.Infow("failed to connect to in-process viam-server; retrying on a new port",
+			"attempt", attempt, "err", outcome.err)
+	case rsErr := <-serverErrC:
+		logger.Infow("in-process viam-server exited before becoming reachable; retrying on a new port",
+			"attempt", attempt, "err", rsErr)
+		// Unblock and wait for the in-flight connection attempt so it doesn't linger.
+		connectCancel()
+		<-connectC
+	}
+
+	serverCancel()
+	serverWg.Wait()
+	return nil, nil, nil
+}
+
+// StartServerWithRetry calls startFn repeatedly until it returns a non-nil
+// client (up to maxAttempts attempts). It marks the test as failed if no
+// attempt succeeds.
+func StartServerWithRetry(
+	t *testing.T,
+	maxAttempts int,
+	startFn func(attempt int) (*client.RobotClient, context.CancelFunc, chan error),
+) (*client.RobotClient, context.CancelFunc, chan error) {
+	t.Helper()
+	var (
+		rc   *client.RobotClient
+		stop context.CancelFunc
+		errC chan error
+	)
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		rc, stop, errC = startFn(attempt)
+		if rc != nil {
+			break
+		}
+	}
+	test.That(t, rc, test.ShouldNotBeNil)
+	return rc, stop, errC
 }
