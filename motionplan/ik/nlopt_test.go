@@ -93,3 +93,26 @@ func TestCreateNloptSolver(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
+
+func BenchmarkNloptSolve(b *testing.B) {
+	logger := logging.NewTestLogger(b)
+	logger.SetLevel(logging.INFO)
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(b, err, test.ShouldBeNil)
+
+	seed := []float64{1, 1, -1, 1, 1, 0}
+	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
+	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 100), m, logger)
+
+	ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
+	test.That(b, err, test.ShouldBeNil)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		var totalAttempts atomic.Int32
+		_, _, err := DoSolve(context.Background(), ik, &totalAttempts, solveFunc,
+			[][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		test.That(b, err, test.ShouldBeNil)
+	}
+}

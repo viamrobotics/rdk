@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,27 +13,64 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/utils"
 )
 
+const defaultTeleopSmoothAlpha = 0.5
+
+// teleopComponent tracks a single component being teleop'd within the pipeline.
+type teleopComponent struct {
+	name        string
+	moveReqBase motion.MoveReq
+	latestPose  atomic.Pointer[referenceframe.PoseInFrame]
+}
+
+// emaSmooth applies an exponential moving average to the commanded joint positions:
+// out = alpha*target + (1-alpha)*previous, per joint. previous is carried across
+// steps and across cycles so the commanded stream stays continuous.
+func emaSmooth(target, previous []referenceframe.Input, alpha float64) []referenceframe.Input {
+	if previous == nil || len(previous) != len(target) || alpha >= 1.0 {
+		result := make([]referenceframe.Input, len(target))
+		copy(result, target)
+		return result
+	}
+	b := 1.0 - alpha
+	result := make([]referenceframe.Input, len(target))
+	for j := range target {
+		result[j] = alpha*target[j] + b*previous[j]
+	}
+	return result
+}
+
 // teleopPipeline manages the continuous motion pipeline for low-latency teleop.
-// It runs two goroutines connected by channels:
+// It supports multiple components (arms) planned jointly in a single pipeline
+// to guarantee collision-free trajectories.
 //
-//	poseCh → Planner goroutine → trajCh → Executor goroutine → arm.GoToInputs()
+//	notify → Planner goroutine → trajCh → Executor goroutine → arm.GoToInputs()
 type teleopPipeline struct {
 	logger logging.Logger
 
 	// Immutable after creation.
-	moveReqBase    motion.MoveReq
-	cachedFrameSys *referenceframe.FrameSystem // built once at pipeline start
+	cachedFrameSys   *referenceframe.FrameSystem      // built once at pipeline start
+	cachedBaseInputs referenceframe.FrameSystemInputs // snapshot at pipeline start
 
-	// Channels.
-	poseCh chan *referenceframe.PoseInFrame // buffer 1, latest-value semantics
-	trajCh chan motionplan.Trajectory       // buffer 1, one-ahead lookahead
+	// Components being teleop'd. Protected by componentsMu.
+	componentsMu sync.RWMutex
+	components   map[string]*teleopComponent
+
+	// Notification channel — poked when any component gets a new pose.
+	// Buffer 1, latest-value semantics.
+	notify chan struct{}
+
+	// Trajectory output channel. Buffer 1, one-ahead lookahead.
+	trajCh chan motionplan.Trajectory
 
 	// Planning head: the last configuration the planner planned TO.
 	// This allows trajectories to chain seamlessly.
@@ -52,47 +88,45 @@ type teleopPipeline struct {
 	planCount         atomic.Int64
 	execCount         atomic.Int64
 
+	// EMA-smoothed joint positions per component. Only accessed by executor goroutine.
+	smoothedJoints map[string][]referenceframe.Input
+
 	// Lifecycle.
 	workers *goutils.StoppableWorkers
 }
 
-// trySendLatest sends pose on ch using latest-value semantics:
-// if a stale value is buffered, it is drained first so the new value replaces it.
+// trySendNotify pokes the notify channel using latest-value semantics.
 // Safe for concurrent callers: never blocks.
-func trySendLatest(ch chan *referenceframe.PoseInFrame, pose *referenceframe.PoseInFrame) {
-	// Fast path: channel is empty, send directly.
+func trySendNotify(ch chan struct{}) {
 	select {
-	case ch <- pose:
+	case ch <- struct{}{}:
 		return
 	default:
 	}
-	// Channel full — drain stale value and retry.
 	select {
 	case <-ch:
 	default:
 	}
 	select {
-	case ch <- pose:
+	case ch <- struct{}{}:
 	default:
-		// Another writer beat us; their pose is equally fresh.
 	}
 }
 
-// runPlanner is the planner goroutine. It reads poses from poseCh,
-// plans trajectories from the planning head, and sends them on trajCh.
+// runPlanner is the planner goroutine. It wakes on notify signals,
+// reads all components' latest poses, and plans a joint trajectory.
 func (tp *teleopPipeline) runPlanner(ctx context.Context, ms *builtIn) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case pose := <-tp.poseCh:
-			tp.planOnce(ctx, ms, pose)
+		case <-tp.notify:
+			tp.planOnce(ctx, ms)
 		}
 	}
 }
 
 // planningHeadEqual reports whether two FrameSystemInputs snapshots are identical.
-// Used to detect whether the planning head was reset while a plan was in flight.
 func planningHeadEqual(a, b referenceframe.FrameSystemInputs) bool {
 	if len(a) != len(b) {
 		return false
@@ -111,48 +145,63 @@ func planningHeadEqual(a, b referenceframe.FrameSystemInputs) bool {
 	return true
 }
 
-func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *referenceframe.PoseInFrame) {
-	// Read the current planning head for the teleop'd arm.
+func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn) {
+	// Snapshot the planning head under RLock: we need a copy both for safe iteration
+	// and for the stale-check (planningHeadEqual) after planning completes.
 	tp.planningHeadMu.RLock()
-	planningHead := tp.planningHead
+	planningHead := make(referenceframe.FrameSystemInputs, len(tp.planningHead))
+	for k, v := range tp.planningHead {
+		planningHead[k] = v
+	}
 	tp.planningHeadMu.RUnlock()
 
-	// Merge live inputs with the planning head: use fresh CurrentInputs for
-	// all components (including the other arm in bimanual setups), then overlay
-	// the planning head for the teleop'd component so trajectory chaining works.
-	// Timing includes RLock acquisition — intentional: wall-clock latency is what
-	// matters for diagnosing stutter; lock contention is a real part of that latency.
+	// Build merged inputs from cached base + planning head snapshot.
 	inputsStart := time.Now()
-	ms.mu.RLock()
-	liveInputs, err := ms.fsService.CurrentInputs(ctx)
-	ms.mu.RUnlock()
-	inputsDur := time.Since(inputsStart)
-	tp.lastInputsNanos.Store(inputsDur.Nanoseconds())
-	if err != nil {
-		tp.lastErr.Store(&err)
-		tp.logger.CWarnf(ctx, "teleop planner: failed to get current inputs: %v", err)
-		return
-	}
-	mergedInputs := make(referenceframe.FrameSystemInputs, len(liveInputs))
-	for k, v := range liveInputs {
+	mergedInputs := make(referenceframe.FrameSystemInputs, len(tp.cachedBaseInputs))
+	for k, v := range tp.cachedBaseInputs {
 		mergedInputs[k] = v
 	}
-	// Overlay planning head entries for the teleop'd arm's frames.
 	for k, v := range planningHead {
 		mergedInputs[k] = v
 	}
+	inputsDur := time.Since(inputsStart)
+	tp.lastInputsNanos.Store(inputsDur.Nanoseconds())
 
-	// Build a MoveReq with start_state set to the merged config.
-	req := tp.buildMoveReq(pose, mergedInputs)
+	// Collect latest poses from all registered components into a multi-frame goal.
+	// Planner options are pipeline-level (one joint plan covers every arm), so we take
+	// them from a single component chosen deterministically — the lexicographically
+	// smallest name — rather than whichever one map iteration happens to yield first.
+	// All arms in a pipeline are expected to share planner options.
+	tp.componentsMu.RLock()
+	goals := make(referenceframe.FrameSystemPoses, len(tp.components))
+	var optsComp *teleopComponent
+	for _, comp := range tp.components {
+		pose := comp.latestPose.Load()
+		if pose == nil {
+			continue
+		}
+		goals[comp.name] = pose
+		if optsComp == nil || comp.name < optsComp.name {
+			optsComp = comp
+		}
+	}
+	var extra map[string]interface{}
+	if optsComp != nil {
+		extra = tp.buildExtra(optsComp.moveReqBase.Extra, mergedInputs)
+	}
+	tp.componentsMu.RUnlock()
 
-	// Call ms.planTeleop with cached frame system and merged inputs.
+	if len(goals) == 0 {
+		return
+	}
+
+	// Plan for all components jointly.
 	planStart := time.Now()
 	ms.mu.RLock()
-	plan, err := ms.planTeleop(ctx, req, tp.cachedFrameSys, mergedInputs, tp.logger)
+	plan, err := ms.planTeleopMulti(ctx, goals, extra, tp.cachedFrameSys, mergedInputs, tp.logger)
 	ms.mu.RUnlock()
 	planDur := time.Since(planStart)
 	tp.lastPlanNanos.Store(planDur.Nanoseconds())
-	// Includes failed plans; compare with exec_count for success rate.
 	tp.planCount.Add(1)
 
 	if err != nil {
@@ -163,18 +212,17 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 
 	tp.lastErr.Store(nil)
 	traj := plan.Trajectory()
-	tp.logger.CInfof(ctx, "teleop planner: inputs took: %s, plan took: %s, traj size: %d", inputsDur, planDur, len(traj))
-	if len(traj) == 0 {
+	tp.logger.CInfof(ctx, "teleop planner: inputs took: %s, plan took: %s, traj size: %d, components: %d",
+		inputsDur, planDur, len(traj), len(goals))
+	// A trajectory needs at least a start step plus one motion step; the executor
+	// skips step 0, so anything shorter is a no-op. Discard it here rather than
+	// enqueue work the executor would silently drop.
+	if len(traj) < 2 {
 		return
 	}
 
-	// Re-acquire the write lock to atomically validate that the planning head
-	// hasn't been reset (by an execution error) while we were planning, update
-	// it to the last step of this trajectory, and enqueue the trajectory.
-	// The send must be non-blocking: a blocking send while holding the lock
-	// would deadlock with resetPlanningHead, which also needs the write lock to
-	// drain trajCh. If the channel is full the head is left unchanged so the
-	// next planning iteration re-plans from the same base.
+	// Atomically validate the planning head hasn't been reset, update it,
+	// and enqueue the trajectory.
 	lastStep := traj[len(traj)-1]
 	tp.planningHeadMu.Lock()
 	if !planningHeadEqual(tp.planningHead, planningHead) {
@@ -186,28 +234,22 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 	case tp.trajCh <- traj:
 		tp.planningHead = lastStep
 	default:
-		// Executor is busy; leave head unchanged and let the next pose trigger a fresh plan.
+		// Executor is busy; leave head unchanged and let the next notify trigger a fresh plan.
 	}
 	tp.planningHeadMu.Unlock()
 }
 
-// buildMoveReq creates a MoveReq from the template with the given destination
-// and start_state set to the planning head configuration.
-func (tp *teleopPipeline) buildMoveReq(
-	pose *referenceframe.PoseInFrame,
+// buildExtra creates the extra map for planner options with teleop defaults and start_state.
+func (tp *teleopPipeline) buildExtra(
+	baseExtra map[string]interface{},
 	startConfig referenceframe.FrameSystemInputs,
-) motion.MoveReq {
-	req := tp.moveReqBase
-	req.Destination = pose
-
-	// Clone Extra to avoid mutating the template.
-	extra := make(map[string]interface{}, len(tp.moveReqBase.Extra)+1)
-	for k, v := range tp.moveReqBase.Extra {
+) map[string]interface{} {
+	extra := make(map[string]interface{}, len(baseExtra)+5)
+	for k, v := range baseExtra {
 		extra[k] = v
 	}
-	// Build start_state in the format DeserializePlanState expects ([]interface{}
-	// values, not native []float64) since this path doesn't go through a proto
-	// round-trip that would convert the types.
+
+	// Build start_state in the format DeserializePlanState expects.
 	confMap := make(map[string]interface{}, len(startConfig))
 	for fName, inputs := range startConfig {
 		iArr := make([]interface{}, len(inputs))
@@ -218,13 +260,14 @@ func (tp *teleopPipeline) buildMoveReq(
 	}
 	extra["start_state"] = map[string]interface{}{"configuration": confMap}
 
-	// Apply teleop-optimized planner defaults. These only set values not
-	// already present so callers can override via teleop_start extra.
+	// Apply teleop-optimized planner defaults. These are aggressive because
+	// teleop movements are tiny and frequent — we trade solution optimality
+	// for speed.
 	teleopDefaults := map[string]interface{}{
-		"timeout":          5.0,  // seconds; default is 300
-		"max_ik_solutions": 20,   // default is 100
-		"min_ik_score":     0.05, // default is 0.01
-		"frame_step":       0.05, // default is 0.01; reduces trajectory steps from ~14 to ~3-4
+		"timeout":          5.0,
+		"max_ik_solutions": 10,  // fewer solutions = faster (was 20)
+		"min_ik_score":     0.1, // accept worse solutions faster (was 0.05)
+		"frame_step":       0.1, // fewer trajectory steps (was 0.05)
 	}
 	for k, v := range teleopDefaults {
 		if _, ok := extra[k]; !ok {
@@ -232,13 +275,112 @@ func (tp *teleopPipeline) buildMoveReq(
 		}
 	}
 
-	req.Extra = extra
+	// Clear waypoints — not used in teleop.
+	extra["waypoints"] = nil
 
-	return req
+	return extra
+}
+
+// executeTeleop executes a trajectory by sending joint targets to all components
+// in parallel. Unlike ms.execute, it skips the step-0 position check (which blocks
+// on CurrentInputs gRPC calls) and sends commands to all arms concurrently rather
+// than sequentially.
+func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj motionplan.Trajectory) error {
+	if len(traj) < 2 {
+		return nil
+	}
+
+	// Group inputs per component across all trajectory steps (skip step 0 = start position).
+	perComponent := make(map[string][][]referenceframe.Input)
+	for i := 1; i < len(traj); i++ {
+		for name, inputs := range traj[i] {
+			if len(inputs) == 0 {
+				continue
+			}
+			perComponent[name] = append(perComponent[name], inputs)
+		}
+	}
+
+	// Read teleop config.
+	// NOTE: caller (runExecutor) already holds ms.mu.RLock, so safe to read ms.conf directly.
+	smoothAlpha := defaultTeleopSmoothAlpha
+	interpolateOverride := false
+	if ms.conf != nil {
+		if ms.conf.TeleopSmoothAlpha > 0 {
+			smoothAlpha = ms.conf.TeleopSmoothAlpha
+		}
+		interpolateOverride = ms.conf.TeleopInterpolateOverride
+	}
+
+	// Send joint targets to all components in parallel.
+	var wg sync.WaitGroup
+	errs := make([]error, len(perComponent))
+	idx := 0
+	for name, inputs := range perComponent {
+		r, ok := ms.components[name]
+		if !ok {
+			// The planner included this component but it has since left the motion
+			// service (e.g. a concurrent reconfigure). Skip it but make the gap visible
+			// instead of silently moving only some arms.
+			tp.logger.CWarnf(ctx, "teleop executor: component %q in trajectory is not known to the motion service; skipping", name)
+			continue
+		}
+		ie, err := utils.AssertType[framesystem.InputEnabled](r)
+		if err != nil {
+			tp.logger.CWarnf(ctx, "teleop executor: component %q is not input-enabled (%v); skipping", name, err)
+			continue
+		}
+
+		// Apply EMA smoothing to joint positions before sending (executor goroutine only).
+		smoothed := make([][]referenceframe.Input, len(inputs))
+		prev := tp.smoothedJoints[name]
+		for k, step := range inputs {
+			smoothed[k] = emaSmooth(step, prev, smoothAlpha)
+			prev = smoothed[k]
+		}
+		tp.smoothedJoints[name] = prev
+
+		wg.Add(1)
+		go func(i int, ie framesystem.InputEnabled, smoothed [][]referenceframe.Input, r resource.Resource) {
+			defer wg.Done()
+			var err error
+			if armComp, ok := r.(arm.Arm); ok {
+				if interpolateOverride {
+					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
+						"waitAtEnd":   true,
+						"interpolate": true,
+					})
+				} else {
+					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
+						"waitAtEnd":   false,
+						"interpolate": false,
+					})
+				}
+			} else {
+				err = ie.GoToInputs(ctx, smoothed...)
+			}
+			if err != nil {
+				if actuator, ok := r.(inputEnabledActuator); ok {
+					//nolint:errcheck
+					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
+				}
+				errs[i] = err
+			}
+		}(idx, ie, smoothed, r)
+		idx++
+	}
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // runExecutor is the executor goroutine. It reads trajectories from trajCh
-// and executes them on the arm via ms.execute.
+// and executes them in parallel across all components.
 func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 	var lastExecEnd time.Time
 	var totalCycle time.Duration
@@ -253,14 +395,11 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 			tp.lastExecWaitNanos.Store(waitDur.Nanoseconds())
 
 			execStart := time.Now()
-			// Skip start-position check (math.MaxFloat64) because the arm
-			// is in continuous motion and won't be exactly at the trajectory start.
 			ms.mu.RLock()
-			err := ms.execute(ctx, traj, math.MaxFloat64)
+			err := tp.executeTeleop(ctx, ms, traj)
 			ms.mu.RUnlock()
 			execDur := time.Since(execStart)
 			tp.lastExecNanos.Store(execDur.Nanoseconds())
-			// Includes failed executions; compare with plan_count for pipeline health.
 			tp.execCount.Add(1)
 
 			if !lastExecEnd.IsZero() {
@@ -281,16 +420,20 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 				tp.resetPlanningHead(ctx, ms)
 			} else {
 				tp.lastErr.Store(nil)
+				// Update planning head to smoothed positions (what was actually
+				// sent to the arm) so the next plan starts from reality.
+				tp.planningHeadMu.Lock()
+				for name, joints := range tp.smoothedJoints {
+					tp.planningHead[name] = joints
+				}
+				tp.planningHeadMu.Unlock()
 			}
 		}
 	}
 }
 
 // resetPlanningHead sets the planning head to the arm's actual current position
-// after an execution error. Resetting the planning head invalidates all previously
-// planned trajectories: any trajectory in trajCh was chained from the old (now
-// incorrect) head. The drain of trajCh and the head reset are held under the same
-// write lock so that planOnce cannot enqueue a stale trajectory between them.
+// after an execution error.
 func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
@@ -310,60 +453,107 @@ func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 	tp.planningHeadMu.Unlock()
 }
 
-// stop shuts down the pipeline goroutines and best-effort stops the arm.
+// stop shuts down the pipeline goroutines.
 func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 	tp.workers.Stop()
 }
 
-// startTeleopPipeline creates and starts a new teleop pipeline.
-func (ms *builtIn) startTeleopPipeline(cmdCtx context.Context, req motion.MoveReq) error {
-	// Stop any existing pipeline first.
+// addTeleopComponent adds a component to the teleop pipeline, creating the pipeline if needed.
+func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq) error {
 	ms.teleopMu.Lock()
-	if ms.teleopPipeline != nil {
-		ms.teleopPipeline.stop(cmdCtx, ms)
-	}
 	defer ms.teleopMu.Unlock()
 
 	ms.mu.RLock()
-	fsInputs, err := ms.fsService.CurrentInputs(cmdCtx)
-	if err != nil {
-		ms.mu.RUnlock()
-		return err
-	}
-
-	// Validate the command.
+	// Validate the component.
 	if _, ok := ms.components[req.ComponentName]; !ok || req.Destination == nil {
 		ms.mu.RUnlock()
-		return fmt.Errorf("Component must exist and destination must be set. Component: %v Destination: %v",
+		return fmt.Errorf("component must exist and destination must be set. Component: %v Destination: %v",
 			req.ComponentName, req.Destination)
 	}
 
-	// Build and cache the frame system once for the lifetime of this pipeline.
-	// The kinematic structure doesn't change during teleop; Reconfigure() stops
-	// the pipeline before any config changes.
-	frameSys, err := ms.getFrameSystem(cmdCtx, req.WorldState.Transforms())
-	if err != nil {
+	if ms.teleopPipeline == nil {
+		// Create a new pipeline.
+		fsInputs, err := ms.fsService.CurrentInputs(cmdCtx)
+		if err != nil {
+			ms.mu.RUnlock()
+			return err
+		}
+
+		frameSys, err := ms.getFrameSystem(cmdCtx, req.WorldState.Transforms())
+		if err != nil {
+			ms.mu.RUnlock()
+			return err
+		}
 		ms.mu.RUnlock()
-		return err
-	}
-	ms.mu.RUnlock()
 
-	ms.teleopPipeline = &teleopPipeline{
-		logger:         ms.logger.Sublogger("teleop"),
-		moveReqBase:    req,
-		cachedFrameSys: frameSys,
-		poseCh:         make(chan *referenceframe.PoseInFrame, 1),
-		trajCh:         make(chan motionplan.Trajectory, 1),
-		planningHead:   fsInputs,
-	}
+		tp := &teleopPipeline{
+			logger:           ms.logger.Sublogger("teleop"),
+			cachedFrameSys:   frameSys,
+			cachedBaseInputs: fsInputs,
+			components:       make(map[string]*teleopComponent),
+			notify:           make(chan struct{}, 1),
+			trajCh:           make(chan motionplan.Trajectory, 1),
+			planningHead:     fsInputs,
+			smoothedJoints:   make(map[string][]referenceframe.Input),
+		}
 
-	ms.teleopPipeline.poseCh <- req.Destination
-	ms.teleopPipeline.workers = goutils.NewBackgroundStoppableWorkers(
-		func(pipelineCtx context.Context) { ms.teleopPipeline.runPlanner(pipelineCtx, ms) },
-		func(pipelineCtx context.Context) { ms.teleopPipeline.runExecutor(pipelineCtx, ms) },
-	)
+		comp := &teleopComponent{
+			name:        req.ComponentName,
+			moveReqBase: req,
+		}
+		comp.latestPose.Store(req.Destination)
+		tp.components[req.ComponentName] = comp
+
+		// Send initial notification to trigger first plan.
+		trySendNotify(tp.notify)
+
+		tp.workers = goutils.NewBackgroundStoppableWorkers(
+			func(pipelineCtx context.Context) { tp.runPlanner(pipelineCtx, ms) },
+			func(pipelineCtx context.Context) { tp.runExecutor(pipelineCtx, ms) },
+		)
+
+		ms.teleopPipeline = tp
+	} else {
+		ms.mu.RUnlock()
+
+		// Add component to existing pipeline.
+		tp := ms.teleopPipeline
+		tp.componentsMu.Lock()
+		comp := &teleopComponent{
+			name:        req.ComponentName,
+			moveReqBase: req,
+		}
+		comp.latestPose.Store(req.Destination)
+		tp.components[req.ComponentName] = comp
+		tp.componentsMu.Unlock()
+
+		// Trigger a replan with the new component included.
+		trySendNotify(tp.notify)
+	}
 
 	return nil
+}
+
+// removeTeleopComponent removes a component from the pipeline.
+// If no components remain, the pipeline is stopped.
+func (ms *builtIn) removeTeleopComponent(ctx context.Context, componentName string) {
+	ms.teleopMu.Lock()
+	defer ms.teleopMu.Unlock()
+
+	tp := ms.teleopPipeline
+	if tp == nil {
+		return
+	}
+
+	tp.componentsMu.Lock()
+	delete(tp.components, componentName)
+	remaining := len(tp.components)
+	tp.componentsMu.Unlock()
+
+	if remaining == 0 {
+		tp.stop(ctx, ms)
+		ms.teleopPipeline = nil
+	}
 }
 
 // handleTeleopCommand handles teleop DoCommand requests.
@@ -400,7 +590,7 @@ func (ms *builtIn) handleTeleopCommand(
 			return nil, true, err
 		}
 
-		if err := ms.startTeleopPipeline(ctx, moveReq); err != nil {
+		if err := ms.addTeleopComponent(ctx, moveReq); err != nil {
 			return nil, true, err
 		}
 
@@ -409,6 +599,8 @@ func (ms *builtIn) handleTeleopCommand(
 	}
 
 	if req, ok := cmd[DoTeleopMove]; ok {
+		componentName, _ := cmd["component_name"].(string)
+
 		ms.teleopMu.RLock()
 		tp := ms.teleopPipeline
 		ms.teleopMu.RUnlock()
@@ -426,23 +618,57 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 
 		pif := referenceframe.ProtobufToPoseInFrame(&pifProto)
-		if seq, ok := cmd["seq"]; ok {
-			if seqF, ok := seq.(float64); ok {
-				tp.logger.CDebugf(ctx, "teleop received seq=%d", int64(seqF))
+
+		// Update the component's latest pose.
+		tp.componentsMu.RLock()
+		comp := tp.components[componentName]
+		// Backward compat: if no component_name and exactly one component, use it.
+		if comp == nil && componentName == "" && len(tp.components) == 1 {
+			for _, c := range tp.components {
+				comp = c
 			}
 		}
-		trySendLatest(tp.poseCh, pif)
+		registered := make([]string, 0, len(tp.components))
+		for name := range tp.components {
+			registered = append(registered, name)
+		}
+		tp.componentsMu.RUnlock()
+
+		if comp == nil {
+			if componentName == "" {
+				return nil, true, fmt.Errorf("component_name is required for %s when multiple components are registered; registered: %v",
+					DoTeleopMove, registered)
+			}
+			return nil, true, fmt.Errorf("component %q not registered in teleop pipeline; registered: %v", componentName, registered)
+		}
+
+		if seq, ok := cmd["seq"]; ok {
+			if seqF, ok := seq.(float64); ok {
+				tp.logger.CDebugf(ctx, "teleop received component=%s seq=%d", comp.name, int64(seqF))
+			}
+		}
+
+		comp.latestPose.Store(pif)
+		trySendNotify(tp.notify)
+
 		resp[DoTeleopMove] = true
 		return resp, true, nil
 	}
 
 	if _, ok := cmd[DoTeleopStop]; ok {
-		ms.teleopMu.Lock()
-		if ms.teleopPipeline != nil {
-			ms.teleopPipeline.stop(ctx, ms)
-			ms.teleopPipeline = nil
+		componentName, _ := cmd["component_name"].(string)
+
+		if componentName == "" {
+			// Backward compat: stop entire pipeline.
+			ms.teleopMu.Lock()
+			if ms.teleopPipeline != nil {
+				ms.teleopPipeline.stop(ctx, ms)
+				ms.teleopPipeline = nil
+			}
+			ms.teleopMu.Unlock()
+		} else {
+			ms.removeTeleopComponent(ctx, componentName)
 		}
-		ms.teleopMu.Unlock()
 
 		resp[DoTeleopStop] = true
 		return resp, true, nil
@@ -455,13 +681,12 @@ func (ms *builtIn) handleTeleopCommand(
 
 		if tp == nil {
 			return map[string]any{
-				"running": tp != nil,
+				DoTeleopStatus: map[string]any{"running": false},
 			}, true, nil
 		}
 
 		status := map[string]any{
-			"queued_poses":      len(tp.poseCh),
-			"queued_plans":      len(tp.trajCh),
+			"running":           true,
 			"last_inputs_ms":    float64(tp.lastInputsNanos.Load()) / 1e6,
 			"last_plan_ms":      float64(tp.lastPlanNanos.Load()) / 1e6,
 			"last_exec_ms":      float64(tp.lastExecNanos.Load()) / 1e6,
@@ -473,8 +698,15 @@ func (ms *builtIn) handleTeleopCommand(
 			status["error"] = (*lastErr).Error()
 		}
 
-		resp[DoTeleopStatus] = status
+		tp.componentsMu.RLock()
+		compNames := make([]string, 0, len(tp.components))
+		for name := range tp.components {
+			compNames = append(compNames, name)
+		}
+		tp.componentsMu.RUnlock()
+		status["components"] = compNames
 
+		resp[DoTeleopStatus] = status
 		return resp, true, nil
 	}
 

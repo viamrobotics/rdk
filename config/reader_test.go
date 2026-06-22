@@ -11,9 +11,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/grpc"
@@ -182,6 +185,224 @@ func TestFromReader(t *testing.T) {
 		expectedCloud.AppAddress = ""
 		test.That(t, cachedCfg.Cloud, test.ShouldResemble, &expectedCloud)
 	})
+}
+
+// TestGetFromCloudOrCacheErrorClassification verifies that when the cloud config endpoint fails
+// and we fall back to a cached config, a connectivity error is logged quietly (Warn) while a
+// malformed config from the cloud is surfaced loudly (Error).
+func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
+	const (
+		robotPartID = "forCachingTest"
+		secret      = testutils.FakeCredentialPayLoad
+	)
+	ctx := context.Background()
+
+	// Seed the cache so the fallback path is exercised in every case.
+	setupCache := func(t *testing.T) {
+		t.Helper()
+		clearCache(robotPartID)
+		cached := &Config{Cloud: &Cloud{ID: robotPartID, Secret: secret, FQDN: "fqdn"}}
+		test.That(t, cached.SetToCache(cached), test.ShouldBeNil)
+		test.That(t, cached.StoreToCache(), test.ShouldBeNil)
+	}
+
+	newAppConn := func(t *testing.T, failWith error) (*Cloud, rpc.ClientConn, func()) {
+		t.Helper()
+		logger := logging.NewTestLogger(t)
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+		fakeServer.FailOnConfigAndCertsWith(failWith)
+		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
+
+		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		cloudCfg := &Cloud{ID: robotPartID, Secret: secret, AppAddress: appAddress}
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudCfg.GetCloudCredsDialOpt(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		return cloudCfg, appConn, func() {
+			test.That(t, appConn.Close(), test.ShouldBeNil)
+			cleanup()
+		}
+	}
+
+	t.Run("connectivity error is logged quietly and falls back to cache", func(t *testing.T) {
+		setupCache(t)
+		defer clearCache(robotPartID)
+
+		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unavailable, "cloud is down"))
+		defer cleanup()
+
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cached, test.ShouldBeTrue)
+		test.That(t, cfg, test.ShouldNotBeNil)
+
+		// Same message for both cases; a transient failure is distinguished only by its Warn level.
+		quiet := logs.FilterMessageSnippet("could not apply new cloud config; using cached version")
+		test.That(t, quiet.Len(), test.ShouldEqual, 1)
+		test.That(t, quiet.All()[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+	})
+
+	t.Run("malformed config is surfaced loudly and falls back to cache", func(t *testing.T) {
+		setupCache(t)
+		defer clearCache(robotPartID)
+
+		// codes.Unknown is what the real config conversion failure surfaces
+		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unknown, "OrientationVectorDegrees has a normal of 0"))
+		defer cleanup()
+
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cached, test.ShouldBeTrue)
+		test.That(t, cfg, test.ShouldNotBeNil)
+
+		// Same message as the transient case, but a malformed config is surfaced loudly at Error.
+		loud := logs.FilterMessageSnippet("could not apply new cloud config; using cached version")
+		test.That(t, loud.Len(), test.ShouldEqual, 1)
+		test.That(t, loud.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+	})
+
+	t.Run("malformed config with no cache returns a clear error", func(t *testing.T) {
+		clearCache(robotPartID)
+
+		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unknown, "OrientationVectorDegrees has a normal of 0"))
+		defer cleanup()
+
+		logger := logging.NewTestLogger(t)
+		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cached config does not exist")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "OrientationVectorDegrees has a normal of 0")
+	})
+
+	t.Run("connectivity error with no cache returns the original error and is not malformed", func(t *testing.T) {
+		clearCache(robotPartID)
+
+		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unavailable, "cloud is down"))
+		defer cleanup()
+
+		logger := logging.NewTestLogger(t)
+		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, IsMalformedConfigError(err), test.ShouldBeFalse)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cached config does not exist")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "config was malformed")
+	})
+}
+
+// TestIsCloudConfigMalformed pins down the classification that decides whether a cloud config-fetch
+// failure means the config is malformed or is a transient failure to reach the cloud.
+func TestIsCloudConfigMalformed(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		err       error
+		malformed bool
+	}{
+		// Status codes the cloud returns when it cannot produce a usable config.
+		{"unknown (real conversion failure)", status.Error(codes.Unknown, "boom"), true},
+		{"invalid argument", status.Error(codes.InvalidArgument, "boom"), true},
+		{"failed precondition", status.Error(codes.FailedPrecondition, "boom"), true},
+		// Transient status codes should not be treated as if the config is malformed.
+		{"unavailable", status.Error(codes.Unavailable, "boom"), false},
+		{"deadline exceeded", status.Error(codes.DeadlineExceeded, "boom"), false},
+		{"canceled", status.Error(codes.Canceled, "boom"), false},
+		{"internal", status.Error(codes.Internal, "boom"), false},
+		{"resource exhausted", status.Error(codes.ResourceExhausted, "boom"), false},
+		{"unauthenticated", status.Error(codes.Unauthenticated, "boom"), false},
+		{"permission denied", status.Error(codes.PermissionDenied, "boom"), false},
+		{"not found", status.Error(codes.NotFound, "boom"), false},
+		// Non-status errors never reached the cloud, so they are transient even though status.Code
+		// reports Unknown for them. "not connected" is what the rpc layer returns when the app
+		// connection was never established.
+		{"not connected (no gRPC status)", errors.New("not connected"), false},
+		{"bare context deadline", context.DeadlineExceeded, false},
+		// Wrapping must not hide a real malformed-config error.
+		{"wrapped malformed", errors.WithMessage(status.Error(codes.Unknown, "boom"), "fetching config"), true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, isCloudConfigMalformed(tc.err), test.ShouldEqual, tc.malformed)
+		})
+	}
+}
+
+// TestGetFromCloudGRPCProtoDecodeFailureIsMalformed verifies that a config the cloud serves but that
+// this robot cannot decode from proto is surfaced as a malformed config.
+func TestGetFromCloudGRPCProtoDecodeFailureIsMalformed(t *testing.T) {
+	const robotPartID = "forProtoDecodeTest"
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	clearCache(robotPartID)
+	defer clearCache(robotPartID)
+
+	fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+	defer cleanup()
+
+	cloudResponse := &Cloud{ID: robotPartID, Secret: testutils.FakeCredentialPayLoad, FQDN: "fqdn", SignalingInsecure: true}
+	cloudConfProto, err := CloudConfigToProto(cloudResponse)
+	test.That(t, err, test.ShouldBeNil)
+
+	// An auth handler with an unspecified credential type passes the wire but fails FromProto.
+	protoConfig := &pb.RobotConfig{
+		Cloud: cloudConfProto,
+		Auth:  &pb.AuthConfig{Handlers: []*pb.AuthHandlerConfig{{Type: pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED}}},
+	}
+	fakeServer.StoreDeviceConfig(robotPartID, protoConfig, nil)
+
+	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+	cloudCfg := &Cloud{ID: robotPartID, Secret: testutils.FakeCredentialPayLoad, AppAddress: appAddress}
+	appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudCfg.GetCloudCredsDialOpt(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer appConn.Close()
+
+	cfg, err := getFromCloudGRPC(ctx, cloudCfg, logger, appConn)
+	test.That(t, cfg, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "converting config from proto")
+}
+
+// TestReadFromCloudMarksUnprocessableConfigMalformed verifies that a config the cloud serves
+// successfully but that this robot cannot process locally (here, a bind address with no port) is
+// surfaced as a malformed config.
+func TestReadFromCloudMarksUnprocessableConfigMalformed(t *testing.T) {
+	const (
+		robotPartID = "forUnprocessableTest"
+		secret      = testutils.FakeCredentialPayLoad
+	)
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	clearCache(robotPartID)
+	defer clearCache(robotPartID)
+
+	fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+	defer cleanup()
+
+	cloudResponse := &Cloud{ID: robotPartID, Secret: secret, FQDN: "fqdn", LocalFQDN: "localFqdn", SignalingInsecure: true}
+	cloudConfProto, err := CloudConfigToProto(cloudResponse)
+	test.That(t, err, test.ShouldBeNil)
+
+	// A bind address with no port passes proto conversion but fails local processing (Network.Validate
+	// in Ensure), mirroring a cloud config the cloud serves but this robot cannot apply.
+	networkConfProto, err := NetworkConfigToProto(&NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "no-port-here"}})
+	test.That(t, err, test.ShouldBeNil)
+
+	protoConfig := &pb.RobotConfig{Cloud: cloudConfProto, Network: networkConfProto}
+	fakeServer.StoreDeviceConfig(robotPartID, protoConfig, &pb.CertificateResponse{})
+
+	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+	appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer appConn.Close()
+
+	cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
+	cfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
+	test.That(t, cfg, test.ShouldBeNil)
 }
 
 func TestStoreToCache(t *testing.T) {

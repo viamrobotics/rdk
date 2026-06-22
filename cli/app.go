@@ -148,6 +148,7 @@ const (
 	dataFlagDataSourceType                 = "data-source-type"
 	dataFlagIndexName                      = "index-name"
 	dataFlagIndexSpecFile                  = "index-path"
+	dataFlagLimit                          = "limit"
 
 	datapipelineFlagSchedule       = "schedule"
 	datapipelineFlagEnableBackfill = "enable-backfill"
@@ -219,6 +220,13 @@ var commonOtlpFlags = []cli.Flag{
 		Name:        "endpoint",
 		DefaultText: "localhost:4317",
 		Usage:       "OTLP endpoint in host:port format",
+	},
+}
+
+var commonPathFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:  "viam-home-dir",
+		Usage: "location of the target machine's VIAM_HOME directory",
 	},
 }
 
@@ -573,6 +581,7 @@ Note: There is no progress meter while copying is in progress.
 					Flags: lo.Flatten([][]cli.Flag{
 						commonOtlpFlags,
 						commonPartFlags,
+						commonPathFlags,
 					}),
 					Action: createActionCommandWithT(traceImportRemoteAction),
 				},
@@ -592,7 +601,10 @@ In order to use the print-remote command, the machine must have a valid shell ty
 Organization and location are required flags if using name (rather than ID) for the part.
 Note: There is no progress meter while copying is in progress.
 `,
-					Flags:  commonPartFlags,
+					Flags: lo.Flatten([][]cli.Flag{
+						commonPartFlags,
+						commonPathFlags,
+					}),
 					Action: createActionCommandWithT(tracePrintRemoteAction),
 				},
 				{
@@ -606,7 +618,10 @@ Organization and location are required flags if using name (rather than ID) for 
 If [target] is not specified then the traces file will be saved to the current working directory.
 Note: There is no progress meter while copying is in progress.
 `,
-					Flags:  commonPartFlags,
+					Flags: lo.Flatten([][]cli.Flag{
+						commonPartFlags,
+						commonPathFlags,
+					}),
 					Action: createActionCommandWithT(traceGetRemoteAction),
 				},
 			},
@@ -1411,71 +1426,110 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:            "query",
-					Usage:           "query tabular data from Viam cloud",
+					Usage:           "query data from Viam cloud",
 					UsageText:       createUsageText("data query", nil, false, true),
 					HideHelpCommand: true,
 					Commands: []*cli.Command{
 						{
-							Name:      "sql",
-							Usage:     "query tabular data using SQL",
-							UsageText: createUsageText("data query sql", []string{dataFlagSQL}, true, false),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:        generalFlagOrgID,
-									Usage:       "organization ID",
-									DefaultText: "default-org value if set",
+							Name:            "tabular",
+							Usage:           "query tabular data using SQL or MQL",
+							UsageText:       createUsageText("data query tabular", nil, false, true),
+							HideHelpCommand: true,
+							Commands: []*cli.Command{
+								{
+									Name:      "sql",
+									Usage:     "query tabular data using SQL",
+									UsageText: createUsageText("data query tabular sql", []string{dataFlagSQL}, true, false),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:        generalFlagOrgID,
+											Usage:       "organization ID",
+											DefaultText: "default-org value if set",
+										},
+										&cli.StringFlag{
+											Name:     dataFlagSQL,
+											Required: true,
+											Usage:    "SQL statement to query the organization's tabular data",
+										},
+										&cli.StringFlag{
+											Name:      generalFlagDestination,
+											Usage:     "output directory for query results; prints to stdout if omitted",
+											TakesFile: true,
+										},
+									},
+									Action: createActionCommandWithT[dataQuerySQLArgs](DataQuerySQLAction),
 								},
-								&cli.StringFlag{
-									Name:     dataFlagSQL,
-									Required: true,
-									Usage:    "SQL statement to query the organization's tabular data",
-								},
-								&cli.StringFlag{
-									Name:      generalFlagDestination,
-									Usage:     "output directory for query results; prints to stdout if omitted",
-									TakesFile: true,
+								{
+									Name:  "mql",
+									Usage: "query tabular data using MQL",
+									UsageText: createUsageText("data query tabular mql",
+										nil, true, false,
+										fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+											dataFlagMQL, dataFlagMQL,
+											dataFlagMQLFile, dataFlagMQLFile),
+									),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:        generalFlagOrgID,
+											Usage:       "organization ID",
+											DefaultText: "default-org value if set",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagMQL,
+											Usage: "MQL query to query the organization's tabular data",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagMQLFile,
+											Usage: "path to a JSON file containing the MQL query",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagDataSourceType,
+											Usage: formatAcceptedValues("data source to query against", tabularDataByMQLDataSourceTypes...),
+										},
+										&cli.StringFlag{
+											Name: dataFlagPipelineID,
+											Usage: fmt.Sprintf("pipeline ID to query; one of --%s or --%s is required when --%s=%s",
+												dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
+										},
+										&cli.StringFlag{
+											Name: dataFlagPipelineName,
+											Usage: fmt.Sprintf("pipeline name to query; one of --%s or --%s is required when --%s=%s",
+												dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
+										},
+										&cli.StringFlag{
+											Name:      generalFlagDestination,
+											Usage:     "output directory for query results; prints to stdout if omitted",
+											TakesFile: true,
+										},
+									},
+									Action: createActionCommandWithT[dataQueryMQLArgs](DataQueryMQLAction),
 								},
 							},
-							Action: createActionCommandWithT[dataQuerySQLArgs](DataQuerySQLAction),
 						},
 						{
-							Name:  "mql",
-							Usage: "query tabular data using MQL",
-							UsageText: createUsageText("data query mql",
-								nil, true, false,
-								fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
-									dataFlagMQL, dataFlagMQL,
-									dataFlagMQLFile, dataFlagMQLFile),
-							),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:        generalFlagOrgID,
-									Usage:       "organization ID",
-									DefaultText: "default-org value if set",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagMQL,
-									Usage: "MQL query to query the organization's tabular data",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagMQLFile,
-									Usage: "path to a JSON file containing the MQL query",
-								},
-								&cli.StringFlag{
-									Name:  dataFlagDataSourceType,
-									Usage: formatAcceptedValues("data source to query against", tabularDataByMQLDataSourceTypes...),
-								},
-								&cli.StringFlag{
-									Name:  dataFlagPipelineID,
-									Usage: fmt.Sprintf("pipeline ID to query; required when --%s=%s", dataFlagDataSourceType, pipelineSinkDataSourceType),
-								},
-								&cli.StringFlag{
-									Name:      generalFlagDestination,
-									Usage:     "output directory for query results; prints to stdout if omitted",
-									TakesFile: true,
+							Name:            "binary",
+							Usage:           "query binary data",
+							UsageText:       createUsageText("data query binary", nil, false, true),
+							HideHelpCommand: true,
+							Commands: []*cli.Command{
+								{
+									Name:      "filter",
+									Usage:     "query binary data by filter (returns metadata only)",
+									UsageText: createUsageText("data query binary filter", nil, true, false),
+									Flags: append([]cli.Flag{
+										&cli.StringFlag{
+											Name:      generalFlagDestination,
+											Usage:     "output directory for query results; prints to stdout if omitted",
+											TakesFile: true,
+										},
+										&cli.UintFlag{
+											Name:  dataFlagLimit,
+											Usage: "maximum number of results to return; 0 returns all matches",
+										},
+									}, commonFilterFlags...),
+									Action: createActionCommandWithT[dataQueryBinaryArgs](DataQueryBinaryAction),
 								},
 							},
-							Action: createActionCommandWithT[dataQueryMQLArgs](DataQueryMQLAction),
 						},
 					},
 				},
@@ -3511,13 +3565,60 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: createActionCommandWithT[createModuleActionArgs](CreateModuleAction),
 				},
 				{
+					Name:      "add-app",
+					Usage:     "generate a new web app and add it to an existing Go module",
+					UsageText: createUsageText("module add-app", nil, false, false),
+					Description: `Adds a web application to a Go module created with 'viam module generate'.
+Run this command from within the module directory.`,
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  moduleFlagAppName,
+							Usage: "name for the app",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAppType,
+							Usage: formatAcceptedValues("app type", "single_machine", "multi_machine"),
+						},
+						&cli.BoolFlag{
+							Name:   generalFlagDryRun,
+							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
+						},
+					},
+					Action: createActionCommandWithT[addAppArgs](AddAppAction),
+				},
+				{
+					Name:      "add-model",
+					Usage:     "generate a new model and add it to an existing module",
+					UsageText: createUsageText("module add-model", nil, false, false),
+					Description: `Adds a new resource model to a module created with 'viam module generate'.
+Run this command from within the module directory.`,
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name: generalFlagResourceSubtype,
+							Usage: "resource subtype for the new model, for example arm, camera, or motion. see " +
+								"https://docs.viam.com/reference/glossary/#term-subtype for more details",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagModelName,
+							Usage: "name for the new model implementation, for example 'my-arm'",
+						},
+						&cli.BoolFlag{
+							Name:   generalFlagDryRun,
+							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
+						},
+					},
+					Action: createActionCommandWithT[addModelArgs](AddModelAction),
+				},
+				{
 					Name:      "generate",
 					Usage:     "generate a new modular resource via prompts",
 					UsageText: createUsageText("module generate", nil, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  moduleFlagGenerateType,
-							Usage: formatAcceptedValues("type of project to generate", "module", "app"),
+							Usage: formatAcceptedValues("type of project to generate", "module", "app", "module+app"),
 						},
 						&cli.StringFlag{
 							Name:  generalFlagName,
