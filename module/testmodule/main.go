@@ -113,7 +113,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 			return err
 		}
 		_, err = conn.Read(make([]byte, 1))
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
 		err = conn.Close()
