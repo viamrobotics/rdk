@@ -741,4 +741,3 @@ func TestDeriveMovingFrameNames(t *testing.T) {
 		test.That(t, hasB, test.ShouldBeFalse)
 	})
 }
-
