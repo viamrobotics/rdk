@@ -111,10 +111,29 @@ func NewConstraintChecker(
 		return nil, err
 	}
 
+	// Derive the set of frame names that own a moving geometry, exactly once per
+	// constraint checker. We reuse the frameSystemGeometries snapshot we just
+	// computed — its keys are frame names and its values contain geometry labels —
+	// so this is essentially free relative to the per-state savings downstream.
+	movingLabels := map[string]bool{}
+	for _, g := range movingRobotGeometries {
+		movingLabels[g.Label()] = true
+	}
+	movingFrameNames := map[string]bool{}
+	for frameName, gif := range frameSystemGeometries {
+		for _, g := range gif.Geometries() {
+			if movingLabels[g.Label()] {
+				movingFrameNames[frameName] = true
+				break
+			}
+		}
+	}
+
 	// add collision constraints
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
+		movingFrameNames,
 		staticRobotGeometries,
 		worldGeometries,
 		allowedCollisions,
@@ -389,9 +408,16 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 // functions (obstacle / robot-vs-robot / self-collision). When cache is non-nil,
 // each constraint registers its pair labels for witness-slot caching and uses
 // its dedicated pair-hint slot.
+//
+// movingFrameNames is the set of frame names that own a moving geometry; it is
+// passed through to the closure so per-state FK can be limited to only those
+// frames. Pass nil to disable the optimization (closures will then fall back to
+// the full FrameSystem walk, equivalent to the pre-optimization behavior).
 func CreateAllCollisionConstraints(
 	fs *referenceframe.FrameSystem,
-	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
+	movingRobotGeometries []spatialmath.Geometry,
+	movingFrameNames map[string]bool,
+	staticRobotGeometries, worldGeometries []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	cache *CollisionCache,
@@ -412,6 +438,7 @@ func CreateAllCollisionConstraints(
 		obstacleConstraintFS, err := NewCollisionConstraintFS(
 			fs,
 			movingRobotGeometries,
+			movingFrameNames,
 			worldGeometries,
 			allowedCollisions,
 			collisionBufferMM,
@@ -430,6 +457,7 @@ func CreateAllCollisionConstraints(
 		robotConstraintFS, err := NewCollisionConstraintFS(
 			fs,
 			movingRobotGeometries,
+			movingFrameNames,
 			staticRobotGeometries,
 			allowedCollisions,
 			collisionBufferMM,
@@ -448,6 +476,7 @@ func CreateAllCollisionConstraints(
 		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
 			fs,
 			movingRobotGeometries,
+			movingFrameNames,
 			movingRobotGeometries,
 			allowedCollisions,
 			collisionBufferMM,
@@ -470,9 +499,16 @@ func CreateAllCollisionConstraints(
 //
 // When pairHint is non-nil, the closure uses it to remember the most-recently-
 // violated (geomA, geomB) pair and try that pair first on the next call.
+//
+// movingFrameNames is the precomputed set of frame names that own a moving geometry.
+// The closure passes it to StateFS.MovingGeometries to limit per-state FK to only
+// those frames. The caller (typically NewConstraintChecker) derives this once per
+// segment and reuses it across all three constraint constructions.
 func NewCollisionConstraintFS(
 	fs *referenceframe.FrameSystem,
-	moving, static []spatialmath.Geometry,
+	moving []spatialmath.Geometry,
+	movingFrameNames map[string]bool,
+	static []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
 	isSelfCollision bool,
@@ -488,38 +524,6 @@ func NewCollisionConstraintFS(
 	}
 
 	allowed := makeAllowedCollisionsLookup(ignoreCollisions)
-
-	// Build a label set for filtering frame system geometries to only those in `moving`
-	movingLabels := map[string]bool{}
-	for _, g := range moving {
-		movingLabels[g.Label()] = true
-	}
-
-	// Derive the set of FRAME NAMES that own a moving geometry. Geometry labels and
-	// frame names aren't guaranteed to match (they happen to in some URDF setups but
-	// not others), so we walk the frame system once at construction with zero inputs
-	// — geometry labels are intrinsic to the geometry and don't depend on configuration
-	// — and record any frame that contributes a geometry whose label is in movingLabels.
-	// The resulting movingFrameNames is what gets passed to MovingGeometries at runtime
-	// so FrameSystemGeometriesForFrames looks up actual frames (not labels).
-	movingFrameNames := map[string]bool{}
-	for _, frameName := range fs.FrameNames() {
-		frame := fs.Frame(frameName)
-		if frame == nil {
-			continue
-		}
-		zeroInputs := make([]referenceframe.Input, len(frame.DoF()))
-		gif, err := frame.Geometries(zeroInputs)
-		if err != nil || gif == nil {
-			continue
-		}
-		for _, g := range gif.Geometries() {
-			if movingLabels[g.Label()] {
-				movingFrameNames[frameName] = true
-				break
-			}
-		}
-	}
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
