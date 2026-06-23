@@ -321,6 +321,7 @@ func TestCollisionConstraints(t *testing.T) {
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
+		DeriveMovingFrameNames(frameSystemGeometries, movingRobotGeometries),
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
@@ -581,6 +582,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
+		DeriveMovingFrameNames(frameSystemGeometries, movingRobotGeometries),
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
@@ -664,7 +666,9 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 
 	handler := &ConstraintChecker{}
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
-		fs, movingRobotGeometries, staticRobotGeometries, worldGeometries.Geometries(),
+		fs, movingRobotGeometries,
+		DeriveMovingFrameNames(frameSystemGeometries, movingRobotGeometries),
+		staticRobotGeometries, worldGeometries.Geometries(),
 		nil, defaultCollisionBufferMM, nil, logging.NewTestLogger(b))
 	test.That(b, err, test.ShouldBeNil)
 

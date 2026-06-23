@@ -111,29 +111,11 @@ func NewConstraintChecker(
 		return nil, err
 	}
 
-	// Derive the set of frame names that own a moving geometry, exactly once per
-	// constraint checker. We reuse the frameSystemGeometries snapshot we just
-	// computed — its keys are frame names and its values contain geometry labels —
-	// so this is essentially free relative to the per-state savings downstream.
-	movingLabels := map[string]bool{}
-	for _, g := range movingRobotGeometries {
-		movingLabels[g.Label()] = true
-	}
-	movingFrameNames := map[string]bool{}
-	for frameName, gif := range frameSystemGeometries {
-		for _, g := range gif.Geometries() {
-			if movingLabels[g.Label()] {
-				movingFrameNames[frameName] = true
-				break
-			}
-		}
-	}
-
 	// add collision constraints
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
-		movingFrameNames,
+		DeriveMovingFrameNames(frameSystemGeometries, movingRobotGeometries),
 		staticRobotGeometries,
 		worldGeometries,
 		allowedCollisions,
@@ -404,15 +386,32 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	return nil, nil
 }
 
+// DeriveMovingFrameNames returns the set of frame names whose geometry labels
+// appear in movingRobotGeometries.
+func DeriveMovingFrameNames(
+	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
+	movingRobotGeometries []spatialmath.Geometry,
+) map[string]bool {
+	movingLabels := make(map[string]bool, len(movingRobotGeometries))
+	for _, g := range movingRobotGeometries {
+		movingLabels[g.Label()] = true
+	}
+	movingFrameNames := map[string]bool{}
+	for frameName, gif := range frameSystemGeometries {
+		for _, g := range gif.Geometries() {
+			if movingLabels[g.Label()] {
+				movingFrameNames[frameName] = true
+				break
+			}
+		}
+	}
+	return movingFrameNames
+}
+
 // CreateAllCollisionConstraints builds the three collision constraint
 // functions (obstacle / robot-vs-robot / self-collision). When cache is non-nil,
 // each constraint registers its pair labels for witness-slot caching and uses
 // its dedicated pair-hint slot.
-//
-// movingFrameNames is the set of frame names that own a moving geometry; it is
-// passed through to the closure so per-state FK can be limited to only those
-// frames. Pass nil to disable the optimization (closures will then fall back to
-// the full FrameSystem walk, equivalent to the pre-optimization behavior).
 func CreateAllCollisionConstraints(
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries []spatialmath.Geometry,
@@ -499,11 +498,6 @@ func CreateAllCollisionConstraints(
 //
 // When pairHint is non-nil, the closure uses it to remember the most-recently-
 // violated (geomA, geomB) pair and try that pair first on the next call.
-//
-// movingFrameNames is the precomputed set of frame names that own a moving geometry.
-// The closure passes it to StateFS.MovingGeometries to limit per-state FK to only
-// those frames. The caller (typically NewConstraintChecker) derives this once per
-// segment and reuses it across all three constraint constructions.
 func NewCollisionConstraintFS(
 	fs *referenceframe.FrameSystem,
 	moving []spatialmath.Geometry,
@@ -527,8 +521,6 @@ func NewCollisionConstraintFS(
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
-		// Only compute world-frame geometries for the moving frames we'll actually
-		// use. The non-moving robot geoms are passed in separately as `static`.
 		internalGeometries, err := state.MovingGeometries(movingFrameNames)
 		if err != nil {
 			return 0, err
