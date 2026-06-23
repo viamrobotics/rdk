@@ -977,6 +977,7 @@ func FrameSystemGeometriesForFrames(
 	for name := range wanted {
 		frame := fs.Frame(name)
 		if frame == nil {
+			errAll = multierr.Append(errAll, NewFrameMissingError(name))
 			continue
 		}
 		inputs, err := linearInputs.GetFrameInputs(frame)
