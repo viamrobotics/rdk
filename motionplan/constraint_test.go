@@ -705,3 +705,40 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 		_, _ = handler.CheckStateFSConstraints(context.Background(), stateFS)
 	}
 }
+
+func TestDeriveMovingFrameNames(t *testing.T) {
+	makeGIF := func(frame, label string) *referenceframe.GeometriesInFrame {
+		box, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, label)
+		test.That(t, err, test.ShouldBeNil)
+		return referenceframe.NewGeometriesInFrame(frame, []spatial.Geometry{box})
+	}
+
+	movingA := makeGIF("frameA", "labelA")
+	movingC := makeGIF("frameC", "labelC")
+	staticB := makeGIF("frameB", "labelB")
+	frameSystemGeometries := map[string]*referenceframe.GeometriesInFrame{
+		"frameA": movingA,
+		"frameB": staticB,
+		"frameC": movingC,
+	}
+
+	t.Run("returns owning frame names for matched labels", func(t *testing.T) {
+		movingRobotGeometries := append(movingA.Geometries(), movingC.Geometries()...)
+		got := DeriveMovingFrameNames(frameSystemGeometries, movingRobotGeometries)
+		test.That(t, got, test.ShouldResemble, map[string]bool{"frameA": true, "frameC": true})
+	})
+
+	t.Run("returns empty map when no labels match", func(t *testing.T) {
+		unrelated, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "unrelatedLabel")
+		test.That(t, err, test.ShouldBeNil)
+		got := DeriveMovingFrameNames(frameSystemGeometries, []spatial.Geometry{unrelated})
+		test.That(t, got, test.ShouldHaveLength, 0)
+	})
+
+	t.Run("ignores frames whose geometries are not moving", func(t *testing.T) {
+		got := DeriveMovingFrameNames(frameSystemGeometries, movingA.Geometries())
+		_, hasB := got["frameB"]
+		test.That(t, hasB, test.ShouldBeFalse)
+	})
+}
+
