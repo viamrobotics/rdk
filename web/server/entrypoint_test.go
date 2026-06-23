@@ -433,7 +433,6 @@ func TestTunnelE2E(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	var wg sync.WaitGroup
-	var serverWg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
@@ -460,12 +459,12 @@ func TestTunnelE2E(t *testing.T) {
 	}()
 
 	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
-	startServerAndConnect := func(attempt int) (*client.RobotClient, context.CancelFunc, chan error) {
+	startServerAndConnect := func(_ int) (*client.RobotClient, func() error) {
 		machinePort, err := goutils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
 		machineAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
 
-		return robottestutils.TryStartServerAndConnect(t, ctx, logger, &serverWg, attempt, machineAddr,
+		return robottestutils.TryStartServerAndConnect(t, ctx, logger, machineAddr,
 			func(serverCtx context.Context, errC chan<- error) {
 				tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 				test.That(t, err, test.ShouldBeNil)
@@ -497,7 +496,7 @@ func TestTunnelE2E(t *testing.T) {
 				errC <- server.RunServer(serverCtx, args, logger)
 			})
 	}
-	rc, stopServer, runServerErrC := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
+	rc, stopServer := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 	})
@@ -557,9 +556,7 @@ func TestTunnelE2E(t *testing.T) {
 
 	// Cancel the server context once the message has made it all the way across and
 	// has been echoed back. This stops the RunServer goroutine.
-	stopServer()
-	serverWg.Wait()
-	test.That(t, <-runServerErrC, test.ShouldBeNil)
+	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
 }
@@ -711,9 +708,7 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
 
 	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
-	var serverWg sync.WaitGroup
-
-	startServerAndConnect := func(attempt int) (*client.RobotClient, context.CancelFunc, chan error) {
+	startServerAndConnect := func(_ int) (*client.RobotClient, func() error) {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		test.That(t, err, test.ShouldBeNil)
 		machineAddress := listener.Addr().String()
@@ -728,7 +723,7 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 
 		// Cloud-configured servers require location-secret auth. Use -no-tls
 		// since the fake cloud returns empty TLS certs.
-		return robottestutils.TryStartServerAndConnect(t, ctx, logger, &serverWg, attempt, machineAddress,
+		return robottestutils.TryStartServerAndConnect(t, ctx, logger, machineAddress,
 			func(serverCtx context.Context, errC chan<- error) {
 				args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
 				errC <- server.RunServer(serverCtx, args, logger)
@@ -742,7 +737,7 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 			),
 		)
 	}
-	rc, stopServer, runServerErrC := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
+	rc, stopServer := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 	})
@@ -820,7 +815,5 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	cancel()
-	stopServer()
-	serverWg.Wait()
-	test.That(t, <-runServerErrC, test.ShouldBeNil)
+	test.That(t, stopServer(), test.ShouldBeNil)
 }

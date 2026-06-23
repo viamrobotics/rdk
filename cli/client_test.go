@@ -1643,7 +1643,6 @@ func TestTunnelE2ECLI(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
-	var serverWg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
@@ -1670,12 +1669,12 @@ func TestTunnelE2ECLI(t *testing.T) {
 	}()
 
 	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
-	startServerAndConnect := func(attempt int) (*client.RobotClient, context.CancelFunc, chan error) {
+	startServerAndConnect := func(_ int) (*client.RobotClient, func() error) {
 		machinePort, err := goutils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
 		machineAddr := net.JoinHostPort("localhost", strconv.Itoa(machinePort))
 
-		return robottestutils.TryStartServerAndConnect(t, ctx, logger, &serverWg, attempt, machineAddr,
+		return robottestutils.TryStartServerAndConnect(t, ctx, logger, machineAddr,
 			func(serverCtx context.Context, errC chan<- error) {
 				// Create a temporary config file.
 				tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
@@ -1705,7 +1704,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 				errC <- server.RunServer(serverCtx, args, logger)
 			})
 	}
-	rc, stopServer, runServerErrC := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
+	rc, stopServer := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 	})
@@ -1750,9 +1749,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 	// Cancel test's context once message has made it all the way across and has been echoed
 	// back. This stops the RunServer goroutine and the tunnel itself.
 	ctxCancel()
-	stopServer()
-	serverWg.Wait()
-	test.That(t, <-runServerErrC, test.ShouldBeNil)
+	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
 }
