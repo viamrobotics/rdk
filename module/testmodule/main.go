@@ -111,8 +111,11 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		if err != nil {
 			return err
 		}
-		_, _ = conn.Read(make([]byte, 1))
-		conn.Close()
+		_, err = conn.Read(make([]byte, 1))
+		defer conn.Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	err = myMod.Start(ctx)

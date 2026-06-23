@@ -1,7 +1,7 @@
-// Package modulestatus contains types describing the runtime status of a module
+// Package status contains types describing the runtime status of a module
 // as tracked by the module manager. It is a leaf package so that both the module
 // manager and the robot package can depend on it without an import cycle.
-package modulestatus
+package status
 
 import "time"
 
