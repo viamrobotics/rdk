@@ -341,6 +341,114 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
 }
 
+// TestSessionsWithRemote verifies that session heartbeats propagate across a remote. Both
+// cases stand up a main robot fronting a remote robot that owns the motor. A client then
+// issues a safety-monitored `SetPower` to the remote motor (through the main robot),
+// establishing a session. The cases differ only in what severs that session: closing the
+// client, or closing the main robot (which drops its own session with the remote). Either
+// way the remote's heartbeat thread should stop the monitored motor.
+func TestSessionsWithRemote(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		closeMainRobot bool
+	}{
+		{name: "close client", closeMainRobot: false},
+		{name: "close main robot", closeMainRobot: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
+			stopChMotor1 := make(chan struct{})
+
+			model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+			motor1Name := motor.Named("motor1")
+			dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
+			resource.RegisterComponent(
+				motor.API,
+				model,
+				resource.Registration[motor.Motor, resource.NoNativeConfig]{
+					Constructor: func(
+						ctx context.Context,
+						deps resource.Dependencies,
+						conf resource.Config,
+						logger logging.Logger,
+					) (motor.Motor, error) {
+						return &dummyMotor1, nil
+					},
+				})
+
+			ctx := context.Background()
+
+			// Stand up the remote robot that actually owns motor1.
+			remoteCfg := &config.Config{
+				Components: []resource.Config{
+					{
+						Name:  "motor1",
+						API:   motor.API,
+						Model: model,
+					},
+				},
+			}
+			remoteRobot, err := robotimpl.New(ctx, remoteCfg, nil, logger.Sublogger("remote"))
+			test.That(t, err, test.ShouldBeNil)
+
+			options, _, remoteAddr := robottestutils.CreateBaseOptionsAndListener(t)
+			err = remoteRobot.StartWeb(ctx, options)
+			test.That(t, err, test.ShouldBeNil)
+			defer func() { test.That(t, remoteRobot.Close(ctx), test.ShouldBeNil) }()
+
+			// Stand up the main robot that fronts the remote under the "rem1" prefix.
+			cfg := &config.Config{
+				Remotes: []config.Remote{
+					{
+						Name:    "rem1",
+						Address: remoteAddr,
+						Prefix:  "rem1",
+					},
+				},
+			}
+			r, err := robotimpl.New(ctx, cfg, nil, logger.Sublogger("main"))
+			test.That(t, err, test.ShouldBeNil)
+
+			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+			err = r.StartWeb(ctx, options)
+			test.That(t, err, test.ShouldBeNil)
+
+			roboClient, err := client.New(ctx, addr, logger.Sublogger("client"))
+			test.That(t, err, test.ShouldBeNil)
+
+			motor1, err := motor.FromProvider(roboClient, "rem1motor1")
+			test.That(t, err, test.ShouldBeNil)
+
+			// `SetPower` is safety-monitored, establishing a session that keeps the remote
+			// motor engaged.
+			test.That(t, motor1.SetPower(ctx, 50, nil), test.ShouldBeNil)
+
+			// Sever the session and confirm the remote stops the monitored motor, which we
+			// observe over `stopChMotor1`. Closing whichever side was not used as the trigger
+			// is left for cleanup below.
+			if tc.closeMainRobot {
+				test.That(t, r.Close(ctx), test.ShouldBeNil)
+			} else {
+				test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
+			}
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				select {
+				case <-stopChMotor1:
+					return
+				default:
+					tb.Fail()
+				}
+			})
+
+			if tc.closeMainRobot {
+				test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
+			} else {
+				test.That(t, r.Close(ctx), test.ShouldBeNil)
+			}
+		})
+	}
+}
+
 type dummyMotor struct {
 	resource.Named
 	resource.AlwaysRebuild
