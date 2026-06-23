@@ -1052,8 +1052,8 @@ github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a h1:qk5MX36oytF
 github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a/go.mod h1:MwPm+Hpd8PZRx+jkOVLGxqHl/bN+Hcsw0dD7ntSpLy0=
 github.com/viam-labs/motion-tools v1.9.0 h1:oUcxVMdrwVS7PXkWVYsUJOXkh0aTydmFlK/rciFcGxw=
 github.com/viam-labs/motion-tools v1.9.0/go.mod h1:unpRaVV4ETuJVoHa/3pzknoTnxqjSpfUMewE1vU27BA=
-github.com/viamrobotics/api v0.1.557-0.20260601174852-e7919fb0d0a9 h1:nHeaVd/rqQLI3cUE6WcUmsf9qpITZJneee67qULqxH8=
-github.com/viamrobotics/api v0.1.557-0.20260601174852-e7919fb0d0a9/go.mod h1:nVe4WXrtc8aupJ8OWXSYx6KhCiOkr3VCbkwxD4D41xQ=
+github.com/viamrobotics/api v0.1.564-0.20260623150732-fab349455f38 h1:AWc25UzlVNxRs3Ni3dgwDpO+xnG5/U4AtwqmW3oYtaE=
+github.com/viamrobotics/api v0.1.564-0.20260623150732-fab349455f38/go.mod h1:nVe4WXrtc8aupJ8OWXSYx6KhCiOkr3VCbkwxD4D41xQ=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=
