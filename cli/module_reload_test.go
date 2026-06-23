@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/build/v1"
 	apppb "go.viam.com/api/app/v1"
@@ -17,6 +18,7 @@ import (
 
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -358,7 +360,58 @@ func TestReloadWithCloudConfig(t *testing.T) {
 }
 
 func TestRestartModule(t *testing.T) {
-	t.Skip("restartModule test requires fake robot client")
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	partFqdn := uuid.NewString()
+	const testPartID = "cli-restart-part"
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	modName := "cli-restart-module"
+	robotCfg := &rdkConfig.Config{
+		Modules: []rdkConfig.Module{
+			{
+				Name:    modName,
+				ExePath: simplePath,
+				Type:    rdkConfig.ModuleTypeLocal,
+			},
+		},
+	}
+	emptyConf, err := structpb.NewStruct(map[string]any{"modules": []any{}})
+	test.That(t, err, test.ShouldBeNil)
+
+	asc := &inject.AppServiceClient{
+		GetRobotPartFunc: func(ctx context.Context, req *apppb.GetRobotPartRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartResponse, error) {
+			test.That(t, req.Id, test.ShouldEqual, testPartID)
+			return &apppb.GetRobotPartResponse{
+				Part: &apppb.RobotPart{
+					Id:          testPartID,
+					Fqdn:        partFqdn,
+					RobotConfig: emptyConf,
+					LastUpdated: timestamppb.New(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
+				},
+				ConfigJson: ``,
+			}, nil
+		},
+	}
+
+	flags := map[string]any{
+		generalFlagPartID: testPartID,
+		generalFlagName:   modName,
+	}
+
+	cCtx, vc, _, _ := setupWithRunningPartAndConfig(
+		t, asc, nil, &inject.BuildServiceClient{},
+		flags, "token", partFqdn, robotCfg,
+	)
+	test.That(t, vc.loginAction(ctx, cCtx), test.ShouldBeNil)
+
+	partResp, err := vc.getRobotPart(ctx, testPartID)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = restartModule(ctx, cCtx, vc, partResp.Part, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestResolvePartId(t *testing.T) {

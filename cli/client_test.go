@@ -198,19 +198,39 @@ func setupWithRunningPart(
 	cliArgs ...string,
 ) (*cli.Command, *viamClient, *testWriter, *testWriter) {
 	t.Helper()
+	return setupWithRunningPartAndConfig(t, asc, dataClient, buildClient, defaultFlags, authMethod, partFQDN, nil, cliArgs...)
+}
+
+// setupWithRunningPartAndConfig is like setupWithRunningPart but allows supplying a custom robot
+// config (e.g. with local modules). If robotCfg is nil, the default shell-only config is used.
+func setupWithRunningPartAndConfig(
+	t *testing.T,
+	asc apppb.AppServiceClient,
+	dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient,
+	defaultFlags map[string]any,
+	authMethod string,
+	partFQDN string,
+	robotCfg *robotconfig.Config,
+	cliArgs ...string,
+) (*cli.Command, *viamClient, *testWriter, *testWriter) {
+	t.Helper()
 
 	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
 
-	// this config could later become a parameter
-	r, err := robotimpl.New(context.Background(), &robotconfig.Config{
-		Services: []resource.Config{
-			{
-				Name:  "shell1",
-				API:   shell.API,
-				Model: resource.DefaultServiceModel,
+	cfg := robotCfg
+	if cfg == nil {
+		cfg = &robotconfig.Config{
+			Services: []resource.Config{
+				{
+					Name:  "shell1",
+					API:   shell.API,
+					Model: resource.DefaultServiceModel,
+				},
 			},
-		},
-	}, nil, logging.NewInMemoryLogger(t))
+		}
+	}
+	r, err := robotimpl.New(context.Background(), cfg, nil, logging.NewInMemoryLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
