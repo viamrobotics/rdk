@@ -878,9 +878,16 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 		}
 		mdJSONBytes, err := protojson.Marshal(metadata)
 		if err != nil {
+			utils.UncheckedError(jsonFile.Close())
 			return err
 		}
 		if _, err := jsonFile.Write(mdJSONBytes); err != nil {
+			utils.UncheckedError(jsonFile.Close())
+			return err
+		}
+		// Close the metadata file handle; an open handle blocks TempDir cleanup on Windows.
+		if err := jsonFile.Close(); err != nil {
+			debugf(c.c.Root().Writer, args.Debug, "Failed closing metadata file %s: %s", id, err)
 			return err
 		}
 
