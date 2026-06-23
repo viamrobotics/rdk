@@ -495,11 +495,37 @@ func NewCollisionConstraintFS(
 		movingLabels[g.Label()] = true
 	}
 
+	// Derive the set of FRAME NAMES that own a moving geometry. Geometry labels and
+	// frame names aren't guaranteed to match (they happen to in some URDF setups but
+	// not others), so we walk the frame system once at construction with zero inputs
+	// — geometry labels are intrinsic to the geometry and don't depend on configuration
+	// — and record any frame that contributes a geometry whose label is in movingLabels.
+	// The resulting movingFrameNames is what gets passed to MovingGeometries at runtime
+	// so FrameSystemGeometriesForFrames looks up actual frames (not labels).
+	movingFrameNames := map[string]bool{}
+	for _, frameName := range fs.FrameNames() {
+		frame := fs.Frame(frameName)
+		if frame == nil {
+			continue
+		}
+		zeroInputs := make([]referenceframe.Input, len(frame.DoF()))
+		gif, err := frame.Geometries(zeroInputs)
+		if err != nil || gif == nil {
+			continue
+		}
+		for _, g := range gif.Geometries() {
+			if movingLabels[g.Label()] {
+				movingFrameNames[frameName] = true
+				break
+			}
+		}
+	}
+
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
 		// Only compute world-frame geometries for the moving frames we'll actually
 		// use. The non-moving robot geoms are passed in separately as `static`.
-		internalGeometries, err := state.MovingGeometries(movingLabels)
+		internalGeometries, err := state.MovingGeometries(movingFrameNames)
 		if err != nil {
 			return 0, err
 		}
