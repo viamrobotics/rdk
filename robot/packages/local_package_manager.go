@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rUtils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 var (
@@ -85,6 +86,18 @@ func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string)
 	if err != nil {
 		return "", "", err
 	}
+
+	// Cheap pre-filter sized off the source archive (copied to dstPath before unpacking): refuse
+	// if the destination can't hold the archive plus the reserved floor. Expanded contents are
+	// guarded incrementally in unpackFile.
+	required := diskusage.MinFreeBytes
+	if info, statErr := os.Stat(path); statErr == nil && info.Mode().IsRegular() {
+		required = uint64(info.Size()) + diskusage.MinFreeBytes
+	}
+	if _, err := checkDiskSpace(m.logger, dstPath, fmt.Sprintf("local package %q", filepath.Base(path)), required); err != nil {
+		return "", "", err
+	}
+
 	src, err := os.Open(path) //nolint:gosec
 	if err != nil {
 		return "", "", err
