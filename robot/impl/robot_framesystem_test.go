@@ -569,3 +569,94 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 	gripperGeomFromFS := gripperGeomsInFrame.Geometries()[0]
 	test.That(t, gripperGeomFromFS.Label(), test.ShouldEqual, "gripper_origin")
 }
+
+type staticObstacleGripper struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.TriviallyReconfigurable
+}
+
+func (g *staticObstacleGripper) Open(context.Context, map[string]interface{}) error {
+	return nil
+}
+
+func (g *staticObstacleGripper) Grab(context.Context, map[string]interface{}) (bool, error) {
+	return false, nil
+}
+
+func (g *staticObstacleGripper) IsHoldingSomething(context.Context, map[string]interface{}) (gripper.HoldingStatus, error) {
+	return gripper.HoldingStatus{}, nil
+}
+
+func (g *staticObstacleGripper) Stop(context.Context, map[string]interface{}) error {
+	return nil
+}
+
+func (g *staticObstacleGripper) IsMoving(context.Context) (bool, error) {
+	return false, nil
+}
+
+func (g *staticObstacleGripper) Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return nil, nil
+}
+
+func (g *staticObstacleGripper) Kinematics(context.Context) (referenceframe.Model, error) {
+	return referenceframe.NewSimpleModel(g.Name().ShortName()), nil
+}
+
+func (g *staticObstacleGripper) CurrentInputs(context.Context) ([]referenceframe.Input, error) {
+	return nil, nil
+}
+
+func (g *staticObstacleGripper) GoToInputs(context.Context, ...[]referenceframe.Input) error {
+	return nil
+}
+
+func TestGripperAPIStaticObstacleInFrameSystem(t *testing.T) {
+	staticObstacleModel := resource.NewModel("test", "test", "static-obstacle-gripper")
+	resource.RegisterComponent(gripper.API, staticObstacleModel, resource.Registration[gripper.Gripper, resource.NoNativeConfig]{
+		Constructor: func(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (gripper.Gripper, error) {
+			return &staticObstacleGripper{Named: conf.ResourceName().AsNamed()}, nil
+		},
+	})
+	defer resource.Deregister(gripper.API, staticObstacleModel)
+
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	cfg := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "obstacle",
+				API:   gripper.API,
+				Model: staticObstacleModel,
+				Frame: &referenceframe.LinkConfig{
+					ID:     "obstacle-frame",
+					Parent: "world",
+					Geometry: &spatialmath.GeometryConfig{
+						Type:  "box",
+						X:     100,
+						Y:     200,
+						Z:     300,
+						Label: "obstacle-geom",
+					},
+				},
+			},
+		},
+	}
+
+	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
+
+	fsCfg, err := robot.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	var obstaclePart *referenceframe.FrameSystemPart
+	for _, part := range fsCfg.Parts {
+		if part.FrameConfig != nil && part.FrameConfig.Name() == "obstacle-frame" {
+			obstaclePart = part
+			break
+		}
+	}
+	test.That(t, obstaclePart, test.ShouldNotBeNil)
+	test.That(t, obstaclePart.FrameConfig.Geometry(), test.ShouldNotBeNil)
+}
