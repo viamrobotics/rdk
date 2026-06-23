@@ -16,11 +16,6 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
-      # PAT used to post the PR download-links comment. Only passed by the PR
-      # caller (pullrequest-trusted.yml); release callers omit it and the
-      # comment job below is skipped for them.
-      PR_TOKEN:
-        required: false
     outputs:
       date:
         value: ${{ jobs.static.outputs.date }}
@@ -363,28 +358,3 @@ jobs:
         export RET2=$?
         cd - && rm -rf $TEST_DIR
         [ $RET1 == 0 ] && [ $RET1 == 0 ]
-
-  # Mirrors the dev-release comment flow in viamrobotics/agent: post (and keep
-  # updating in place) a sticky PR comment linking to the binaries built above.
-  # Lives here (not in the pull_request_target caller) so it can be tested from
-  # a PR by pinning the caller's `uses:` ref to the working branch.
-  comment:
-    name: Output Summary
-    runs-on: ubuntu-latest
-    needs: [static, mac]
-    if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-    steps:
-    - name: Post or update sticky PR comment
-      # marocchino/sticky-pull-request-comment@v3.0.4
-      uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0
-      with:
-        GITHUB_TOKEN: ${{ secrets.PR_TOKEN }}
-        header: static-build-urls
-        number: ${{ github.event.pull_request.number }}
-        message: |
-          ### Built Static Binaries for pr-${{ github.event.pull_request.number }}
-
-          - arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64
-          - x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64
-          - windows x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-windows-x86_64
-          - macOS arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-darwin-aarch64
