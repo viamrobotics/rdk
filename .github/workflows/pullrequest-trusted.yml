@@ -6,16 +6,11 @@ concurrency:
 
 on:
   pull_request_target:
-    # comment-on-pr is temporary, for testing: pull_request_target reads this
-    # workflow (and its filter) from the PR's base branch, so a test PR based
-    # on comment-on-pr only triggers if its own branch is listed here.
-    branches: [ main, comment-on-pr ]
+    branches: [ main ]
     types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
-# You must ALSO add your working branch to the branches filter above, or a test
-# PR based on it will never trigger this pull_request_target workflow.
 # Don't forget to tag back to @main before merge.
 
 jobs:
@@ -51,9 +46,9 @@ jobs:
 
   # Mirrors the dev-release comment flow in viamrobotics/agent: post (and keep
   # updating in place) a sticky PR comment linking to the AppImages built above.
-  # Must live in this dispatcher (not appimage-build.yml): pull_request_target
-  # pins same-repo reusable workflows to the default branch, but runs THIS file
-  # from the PR's base branch -- so only changes here are testable from a PR.
+  # Lives in this dispatcher (not appimage-build.yml) so PR_TOKEN and the PR
+  # context stay scoped to PR builds -- the reusable build workflows are also
+  # called by the release workflows, which have no PR to comment on.
   appimage-comment:
     needs: [appimage, appimage-ignore-tests]
     if: |
