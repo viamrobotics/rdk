@@ -300,8 +300,25 @@ func (imp *impl) Write(entry *LogEntry) {
 		imp.recentMessageCounts[hashkeyedEntry]++
 		imp.recentMessageEntries[hashkeyedEntry] = *entry
 
-		if imp.recentMessageCounts[hashkeyedEntry] > noisyMessageCountThreshold {
-			// If entry's message is reportedly "noisy," return early.
+		if count := imp.recentMessageCounts[hashkeyedEntry]; count > noisyMessageCountThreshold {
+			// If entry's message is reportedly "noisy," return early. The first time we cross
+			// the threshold, emit a notice that suppression has started so the log does not
+			// appear to silently stop for the rest of the window.
+			if count == noisyMessageCountThreshold+1 {
+				suppressedEntry := *entry
+				suppressedEntry.Message = fmt.Sprintf(
+					"Message logged %d times; suppressing for rest of window (%v): %s",
+					noisyMessageCountThreshold, noisyMessageWindowDuration, entry.Message)
+
+				imp.testHelper()
+				for _, appender := range imp.appenders {
+					err := appender.Write(suppressedEntry.Entry, suppressedEntry.Fields)
+					if err != nil {
+						fmt.Fprint(os.Stderr, err)
+					}
+				}
+			}
+
 			imp.recentMessageMu.Unlock()
 			return
 		}

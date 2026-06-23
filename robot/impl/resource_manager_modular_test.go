@@ -150,9 +150,8 @@ func TestModularResources(t *testing.T) {
 		})
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(mod.add), test.ShouldEqual, 1)
-		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
-		test.That(t, mod.reconf[0], test.ShouldResemble, cfg2)
+		test.That(t, len(mod.add), test.ShouldEqual, 2)
+		test.That(t, mod.add[1], test.ShouldResemble, cfg2)
 
 		// Add a non-modular component
 		r.Reconfigure(context.Background(), &config.Config{
@@ -162,8 +161,7 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = r.ResourceByName(cfg3.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(mod.add), test.ShouldEqual, 1)
-		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
+		test.That(t, len(mod.add), test.ShouldEqual, 2)
 
 		// Change the name of a modular component
 		r.Reconfigure(context.Background(), &config.Config{
@@ -175,9 +173,8 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = r.ResourceByName(cfg3.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mod.add, test.ShouldResemble, []resource.Config{cfg, cfg4})
-		test.That(t, mod.remove, test.ShouldResemble, []resource.Name{cfg2.ResourceName()})
-		test.That(t, mod.reconf, test.ShouldResemble, []resource.Config{cfg2})
+		test.That(t, mod.add, test.ShouldResemble, []resource.Config{cfg, cfg2, cfg4})
+		test.That(t, mod.remove, test.ShouldResemble, []resource.Name{cfg2.ResourceName(), cfg.ResourceName()})
 		test.That(t, len(mod.state), test.ShouldEqual, 1)
 	})
 
@@ -219,9 +216,8 @@ func TestModularResources(t *testing.T) {
 		})
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(mod.add), test.ShouldEqual, 1)
-		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
-		test.That(t, mod.reconf[0], test.ShouldResemble, cfg2)
+		test.That(t, len(mod.add), test.ShouldEqual, 2)
+		test.That(t, mod.add[1], test.ShouldResemble, cfg2)
 	})
 
 	t.Run("close", func(t *testing.T) {
@@ -253,7 +249,6 @@ func TestModularResources(t *testing.T) {
 		test.That(t, r.manager.Close(ctx), test.ShouldBeNil)
 
 		test.That(t, len(mod.add), test.ShouldEqual, 2)
-		test.That(t, len(mod.reconf), test.ShouldEqual, 0)
 		test.That(t, len(mod.remove), test.ShouldEqual, 2)
 		expected := map[resource.Name]struct{}{
 			compCfg.ResourceName(): {},
@@ -358,7 +353,6 @@ type dummyModMan struct {
 	*modmanager.Manager
 	mu         sync.Mutex
 	add        []resource.Config
-	reconf     []resource.Config
 	remove     []resource.Name
 	compAPISvc resource.APIResourceCollection[resource.Resource]
 	svcAPISvc  resource.APIResourceCollection[resource.Resource]
@@ -383,13 +377,6 @@ func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, dep
 		}
 	}
 	return res, nil
-}
-
-func (m *dummyModMan) ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.reconf = append(m.reconf, conf)
-	return nil
 }
 
 func (m *dummyModMan) RemoveResource(ctx context.Context, name resource.Name) error {

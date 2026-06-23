@@ -18,6 +18,7 @@ import (
 	"github.com/golang/geo/r3"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	rgrpc "go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -25,7 +26,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
-	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
@@ -198,7 +198,7 @@ func TestSyncEnabled(t *testing.T) {
 
 			// Set up service end config.
 			c.ScheduledSyncDisabled = tc.syncEndDisabled
-			err = b.Reconfigure(context.Background(), deps, config)
+			err = b.(resource.BuiltInResource).BuiltInReconfigure(context.Background(), deps, config)
 			test.That(t, err, test.ShouldBeNil)
 			secondReconfigure.Store(true)
 
@@ -1087,7 +1087,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			c.SyncIntervalMins = tc.newSyncIntervalMins
 			c.MaximumNumSyncThreads = tc.newMaxSyncThreads
 
-			err = b.Reconfigure(context.Background(), deps, config)
+			err = b.BuiltInReconfigure(context.Background(), deps, config)
 			test.That(t, err, test.ShouldBeNil)
 
 			newTicker := b.sync.ScheduledTicker
