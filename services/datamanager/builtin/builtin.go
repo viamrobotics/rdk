@@ -491,6 +491,14 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
 }
 
+func (b *builtIn) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, isSequence bool) (filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, err error) {
+	b.logger.Debug("UploadDataFromPath START")
+	defer b.logger.Debug("UploadDataFromPath END")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.sync.UploadDataFromPath(ctx, path, uploadMetadata, isSequence)
+}
+
 type dataManagerStats struct {
 	SyncPaths               syncPathsSummary
 	DiskUsage               diskUsageSummary

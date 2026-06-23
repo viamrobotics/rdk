@@ -27,6 +27,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -58,9 +59,15 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
+
+// dataFromPathUploader is the subset of the data manager builtin used by UploadDataFromPath.
+type dataFromPathUploader interface {
+	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, isSequence bool) (filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, err error)
+}
 
 const localConfigPartID = "local-config"
 
@@ -156,6 +163,23 @@ func (r *localRobot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, 
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.manager.RemoteByName(name)
+}
+
+// UploadDataFromPath uploads a file or directory to the cloud via the data manager service.
+func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, isSequence bool) (filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, err error) {
+	names := datamanager.NamesFromRobot(r)
+	if len(names) == 0 {
+		return 0, 0, 0, 0, errors.New("no data manager service configured")
+	}
+	svc, err := datamanager.FromRobot(r, names[0])
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	uploader, ok := svc.(dataFromPathUploader)
+	if !ok {
+		return 0, 0, 0, 0, errors.New("data manager does not support UploadDataFromPath")
+	}
+	return uploader.UploadDataFromPath(ctx, path, uploadMetadata, isSequence)
 }
 
 // WriteTraceMessages writes trace spans to any configured exporters.
