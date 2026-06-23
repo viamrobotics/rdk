@@ -19,6 +19,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -78,10 +80,10 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-var viamPackagesDir string
-
-func init() {
-	viamPackagesDir = filepath.Join(rutils.ViamDotDir, PackagesDirName)
+// DefaultPackagesDir is the directory used to store packages locally: ~/.viam/packages.
+// It is read fresh from [rutils.ViamDotDir] on each call so tests can redirect it.
+func DefaultPackagesDir() string {
+	return filepath.Join(rutils.ViamDotDir, PackagesDirName)
 }
 
 func getCloudCacheFilePath(id string) string {
@@ -191,13 +193,15 @@ func readFromCloud(
 	// process the config
 	cfg, err := processConfigFromCloud(unprocessedConfig, logger)
 	if err != nil {
-		// If we cannot process the config from the cache we should clear it.
 		if cached {
-			// clear cache
+			// We could not process the cached config; clear it so we don't keep reusing a bad cache.
 			logger.Warn("Detected failure to process the cached config, clearing cache.")
 			clearCache(cloudCfg.ID)
+			return nil, err
 		}
-		return nil, err
+		// A freshly fetched cloud config we cannot process locally is malformed. The robot cannot
+		// apply it, and it will fail identically on every refresh, so surface it loudly.
+		return nil, malformedConfigError{err}
 	}
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
@@ -652,6 +656,39 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	return cfg, nil
 }
 
+// malformedConfigError wraps an error indicating this robot's cloud config could not be applied, as
+// opposed to a transient failure to reach the cloud. This happens either because the cloud served a
+// config this robot could not decode from proto or process locally, or because the cloud responded with
+// a status code indicating it could not produce a usable config for this robot. A malformed config fails
+// identically on every refresh, so surface it loudly rather than retrying quietly.
+type malformedConfigError struct {
+	err error
+}
+
+func (e malformedConfigError) Error() string {
+	return fmt.Sprintf("config was malformed: %s", e.err.Error())
+}
+
+func (e malformedConfigError) Unwrap() error { return e.err }
+
+// IsMalformedConfigError reports whether err indicates this robot's cloud config could not be applied
+// because it is malformed.
+func IsMalformedConfigError(err error) bool {
+	var malformedErr malformedConfigError
+	return errors.As(err, &malformedErr)
+}
+
+// isCloudConfigMalformed reports whether a cloud config-fetch error means the cloud responded and
+// could not return a usable config for this robot, as opposed to a transient failure to reach the cloud.
+func isCloudConfigMalformed(err error) bool {
+	st, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	code := st.Code()
+	return code == codes.Unknown || code == codes.InvalidArgument || code == codes.FailedPrecondition
+}
+
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
 func getFromCloudOrCache(
@@ -666,13 +703,14 @@ func getFromCloudOrCache(
 	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID, logger)
 	defer cancel()
 
-	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
+	cfg, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
 	if err != nil {
-		if shouldReadFromCache && errorShouldCheckCache {
+		malformed := IsMalformedConfigError(err)
+		if shouldReadFromCache {
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
-					// Return original http error if failed to load from cache.
+					// No cache to fall back to, return original error.
 					return nil, cached, errors.Wrap(
 						err,
 						"error getting cloud config, cached config does not exist; returning error from cloud config attempt",
@@ -687,7 +725,15 @@ func getFromCloudOrCache(
 				// Use logging.DefaultTimeFormatStr since this time will be logged.
 				lastUpdated = fInfo.ModTime().Format(logging.DefaultTimeFormatStr)
 			}
-			logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
+			// A malformed config is logged at Error since it will keep failing,
+			// while a transient failure to reach the cloud stays at Warn. Same
+			// message either way.
+			logFunc := logger.Warnw
+			if malformed {
+				logFunc = logger.Errorw
+			}
+			logFunc("could not apply new cloud config; using cached version",
+				"config last updated", lastUpdated, "error", err)
 			cached = true
 			return cachedConfig, cached, nil
 		}
@@ -698,28 +744,39 @@ func getFromCloudOrCache(
 	return cfg, cached, nil
 }
 
-// getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
-func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger, conn rpc.ClientConn) (*Config, bool, error) {
-	shouldCheckCacheOnFailure := true
-
+// getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint. A failure to
+// reach the cloud is returned as a plain error; a config the cloud could not produce or that we cannot
+// decode is returned as a malformedConfigError.
+func getFromCloudGRPC(
+	ctx context.Context,
+	cloudCfg *Cloud,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+) (*Config, error) {
 	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting agent info")
+		return nil, errors.WithMessage(err, "error getting agent info")
 	}
 
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
-		// Check cache?
-		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting config from config endpoint")
+		// A status code indicating the cloud could not produce a usable config is treated as malformed.
+		// Anything else (connectivity, timeout, auth, rate-limiting, etc) is transient.
+		malformed := isCloudConfigMalformed(err)
+		err = errors.WithMessage(err, "error getting config from config endpoint")
+		if malformed {
+			return nil, malformedConfigError{err}
+		}
+		return nil, err
 	}
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
-		// Check cache?
-		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error converting config from proto")
+		// The cloud served a config we could not decode from proto, so it is malformed.
+		return nil, malformedConfigError{errors.WithMessage(err, "error converting config from proto")}
 	}
 
-	return cfg, false, nil
+	return cfg, nil
 }
 
 // CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service based on the cloud config given.

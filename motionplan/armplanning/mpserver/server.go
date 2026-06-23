@@ -933,7 +933,7 @@ func renderState(relPath string) error {
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return fmt.Errorf("clearing visualizer: %w", err)
 	}
-	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, startInputs); err != nil {
+	if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, startInputs); err != nil {
 		return fmt.Errorf("drawing world state: %w", err)
 	}
 	if err := viz.DrawFrameSystem(req.FrameSystem, startInputs); err != nil {
@@ -952,7 +952,7 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
 	}
-	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, startInputs); err != nil {
+	if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, startInputs); err != nil {
 		return err
 	}
 	if err := viz.DrawFrameSystem(req.FrameSystem, startInputs); err != nil {
@@ -1291,7 +1291,7 @@ func handleRenderSolution(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, startInputs); err != nil {
+		if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, startInputs); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -1335,7 +1335,7 @@ func handleRenderShadows(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, startInputs); err != nil {
+		if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, startInputs); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

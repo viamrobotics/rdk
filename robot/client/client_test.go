@@ -1136,6 +1136,11 @@ func TestClientReconnect(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	var listener net.Listener = gotestutils.ReserveRandomListener(t)
+	// Hold the port so it survives gServer.Stop below and gServer2 can reuse the
+	// exact same socket, with no window for another process to claim the port.
+	// grpc.Server.Stop fires its quit signal, so Serve still exits even though the
+	// held listener's Close only arms a deadline rather than closing the socket.
+	hold := testutils.HoldPort(t, listener)
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -1161,7 +1166,7 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2, logger))
 
-	go gServer.Serve(listener)
+	go gServer.Serve(hold)
 
 	dur := 100 * time.Millisecond
 	client, err := New(
@@ -1197,11 +1202,10 @@ func TestClientReconnect(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
 	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2, logger))
 
-	// Note: There's a slight chance this test can fail if someone else
-	// claims the port we just released by closing the server.
-	listener, err = net.Listen("tcp", listener.Addr().String())
-	test.That(t, err, test.ShouldBeNil)
-	go gServer2.Serve(listener)
+	// Re-arm the held listener and bring gServer2 up on the very same socket gServer
+	// used. The port was never released, so there was no chance for it to be claimed.
+	hold.Rearm(t)
+	go gServer2.Serve(hold)
 	defer gServer2.Stop()
 
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
