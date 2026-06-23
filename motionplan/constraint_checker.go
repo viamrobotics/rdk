@@ -277,13 +277,6 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 	_, span := trace.StartSpan(ctx, "CheckStateFSConstraints")
 	defer span.End()
 
-	{
-		_, err := state.Geometries()
-		if err != nil {
-			return 0, err
-		}
-	}
-
 	closest := math.Inf(1)
 
 	for _, pair := range []struct {
@@ -504,20 +497,16 @@ func NewCollisionConstraintFS(
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
-		// Use FrameSystemGeometries to get all geometries in the frame system
-		internalGeometries, err := state.Geometries()
+		// Only compute world-frame geometries for the moving frames we'll actually
+		// use. The non-moving robot geoms are passed in separately as `static`.
+		internalGeometries, err := state.MovingGeometries(movingLabels)
 		if err != nil {
 			return 0, err
 		}
 
-		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
 		var internalGeoms []spatialmath.Geometry
 		for _, geosInFrame := range internalGeometries {
-			if len(geosInFrame.Geometries()) > 0 {
-				if movingLabels[geosInFrame.Geometries()[0].Label()] {
-					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
-				}
-			}
+			internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
 		}
 
 		// For self-collision, compare moving geometries against themselves

@@ -965,6 +965,42 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs())
 }
 
+// FrameSystemGeometriesForFrames is a filtered variant of FrameSystemGeometriesLinearInputs.
+// It computes geometries-in-world only for the frames whose name is in `wanted`. Caller is
+// responsible for ensuring `wanted` contains every frame that contributes a geometry which
+// the caller cares about — frames not in the set will not appear in the returned map.
+func FrameSystemGeometriesForFrames(
+	fs *FrameSystem, linearInputs *LinearInputs, wanted map[string]bool,
+) (map[string]*GeometriesInFrame, error) {
+	var errAll error
+	allGeometries := make(map[string]*GeometriesInFrame, len(wanted))
+	for name := range wanted {
+		frame := fs.Frame(name)
+		if frame == nil {
+			continue
+		}
+		inputs, err := linearInputs.GetFrameInputs(frame)
+		if err != nil {
+			errAll = multierr.Append(errAll, err)
+			continue
+		}
+		geosInFrame, err := frame.Geometries(inputs)
+		if err != nil {
+			errAll = multierr.Append(errAll, err)
+			continue
+		}
+		if len(geosInFrame.Geometries()) > 0 {
+			transformed, err := fs.Transform(linearInputs, geosInFrame, World)
+			if err != nil {
+				errAll = multierr.Append(errAll, err)
+				continue
+			}
+			allGeometries[name] = transformed.(*GeometriesInFrame)
+		}
+	}
+	return allGeometries, errAll
+}
+
 // FrameSystemGeometriesLinearInputs takes in a framesystem and returns a LinearInputs where all
 // elements are GeometriesInFrames with a World reference frame. This is preferred for hot
 // paths. But requires the caller to manage a `LinearInputs`.
