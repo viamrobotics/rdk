@@ -191,7 +191,9 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	s.config = config
 	s.configMu.Unlock()
 	// reset config context
+	s.configMu.Lock()
 	s.configCtx, s.configCancelFunc = context.WithCancel(context.Background())
+	s.configMu.Unlock()
 
 	// start workers
 	s.startWorkers(config)

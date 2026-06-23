@@ -25,6 +25,15 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		return robot.UploadDataFromPathResult{}, errors.New("not connected to the cloud")
 	}
 
+	s.configMu.Lock()
+	configCtx := s.configCtx
+	s.configMu.Unlock()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stop := context.AfterFunc(configCtx, cancel)
+	defer stop()
+
 	info, err := os.Stat(path)
 	if err != nil {
 		return robot.UploadDataFromPathResult{}, errors.Wrapf(err, "failed to stat file path %s", path)
@@ -105,6 +114,10 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		})
 	} else {
 		uploadOne(path)
+	}
+
+	if err == nil {
+		err = ctx.Err()
 	}
 
 	return robot.UploadDataFromPathResult{
