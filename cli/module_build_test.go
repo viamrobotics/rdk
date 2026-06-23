@@ -118,6 +118,69 @@ func TestValidateRefExists(t *testing.T) {
 	}
 }
 
+func TestValidateWindowsCloudBuild(t *testing.T) {
+	origFetch := githubFetchManifest
+	t.Cleanup(func() { githubFetchManifest = origFetch })
+
+	viamClient := &viamClient{}
+	cmd := newTestContext(t, map[string]any{})
+
+	// remote manifest stubs
+	withModels := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+		return ModuleManifest{Models: []ModuleComponent{{API: "a:b:c", Model: "a:b:c"}}}, nil
+	}
+	noModels := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+		return ModuleManifest{Models: nil}, nil
+	}
+	fetchFailed := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+		return ModuleManifest{}, errors.New("network down")
+	}
+	fetchUncalled := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+		t.Fatal("githubFetchManifest should not have been called")
+		return ModuleManifest{}, nil
+	}
+
+	// language is read from the local manifest entrypoint: "bin/" is Go, "dist/" is Python
+	goEntrypoint := "bin/module"
+	pythonEntrypoint := "dist/main"
+	win := []string{"windows/amd64"}
+	mixed := []string{"windows/amd64", "linux/amd64"}
+	repo := "https://github.com/test-org/test-repo"
+	gitlab := "https://gitlab.com/test-org/test-repo"
+	cases := []struct {
+		name          string
+		entrypoint    string
+		fetch         func(context.Context, string, string, string, string, string) (ModuleManifest, error)
+		url           string
+		platforms     []string
+		wantErrSubstr string
+	}{
+		{"windows go module with models", goEntrypoint, withModels, repo, win, ""},
+		{"windows go module, empty models", goEntrypoint, noModels, repo, win, "models must be populated"},
+		{"windows go module, manifest fetch fails -> proceed", goEntrypoint, fetchFailed, repo, win, ""},
+		{"windows python module fails fast", pythonEntrypoint, fetchUncalled, repo, win, "not supported for Windows Python"},
+		{"mixed go, empty models -> warn and proceed", goEntrypoint, noModels, repo, mixed, ""},
+		{"mixed python still hard fails", pythonEntrypoint, fetchUncalled, repo, mixed, "not supported for Windows Python"},
+		{"non-windows build skips check", goEntrypoint, fetchUncalled, repo, []string{"linux/amd64"}, ""},
+		{"non-github host, go module proceeds", goEntrypoint, fetchUncalled, gitlab, win, ""},
+		{"non-github host, python still blocks", pythonEntrypoint, fetchUncalled, gitlab, win, "not supported for Windows Python"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			githubFetchManifest = tc.fetch
+			manifest := &ModuleManifest{}
+			manifest.Entrypoint = tc.entrypoint
+			err := viamClient.validateWindowsCloudBuild(context.Background(), cmd, manifest, tc.url, "main", "", "", tc.platforms)
+			if tc.wantErrSubstr == "" {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.wantErrSubstr)
+			}
+		})
+	}
+}
+
 func TestStartBuild(t *testing.T) {
 	// stub the ref validator so the test doesn't hit the network against
 	// the placeholder url in the test manifest

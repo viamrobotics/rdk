@@ -39,14 +39,14 @@ func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Conf
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
-	if err := b.Reconfigure(ctx, deps, conf); err != nil {
+	if err := b.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
-// Reconfigure reconfigures with new settings.
-func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure reconfigures with new settings.
+func (b *myBase) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	b.left = nil
 	b.right = nil
 

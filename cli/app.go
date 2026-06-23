@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
@@ -1885,9 +1886,14 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:  "export",
-					Usage: "download data from a dataset",
+					Usage: "download data from a dataset (binary datasets: image + JSONL files; sequence datasets: Parquet zip)",
 					UsageText: createUsageText("dataset export",
 						[]string{generalFlagDestination, datasetFlagDatasetID}, true, false),
+					Description: "For binary datasets, downloads images and a dataset.jsonl manifest into the destination. " +
+						"For sequence datasets, kicks off an async Parquet export on the server, polls until ready, " +
+						"and writes <dataset-id>.zip into the destination. The --only-jsonl, --parallel, --timeout, " +
+						"and --force-linux-path flags apply only to the binary flow; --poll-interval and --max-wait " +
+						"apply only to the sequence flow.",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      generalFlagDestination,
@@ -1917,6 +1923,16 @@ Note: There is no progress meter while copying is in progress.
 						&cli.BoolFlag{
 							Name:  datasetFlagForceLinuxPath,
 							Usage: "force the use of Linux-style paths for the dataset.jsonl file",
+						},
+						&cli.DurationFlag{
+							Name:  datasetFlagPollInterval,
+							Usage: "for sequence datasets: how often to poll the export job (default 5s)",
+							Value: 5 * time.Second,
+						},
+						&cli.DurationFlag{
+							Name:  datasetFlagMaxWait,
+							Usage: "for sequence datasets: max time to wait for the export to complete (default 30m)",
+							Value: 30 * time.Minute,
 						},
 					},
 					Action: createActionCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
