@@ -998,8 +998,6 @@ func TestModuleStatus(t *testing.T) {
 
 	// duration for "slow" operations in this test
 	slowTime := "500ms"
-	// make testmodule close slowly so we can observe its closing state later on (at the end of the suite)
-	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", slowTime)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
@@ -1130,10 +1128,16 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, s.ConsecutiveFailures, test.ShouldBeGreaterThanOrEqualTo, 1)
 	test.That(t, s.Error, test.ShouldNotBeNil)
 
+	// set up a close socket
+	ln, err = net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer ln.Close()
+
 	// clear the bad env so the module can start successfully
 	cfg.Modules = []config.Module{{
-		Name:    "mod",
-		ExePath: testPath,
+		Name:        "mod",
+		ExePath:     testPath,
+		Environment: map[string]string{"VIAM_TESTMODULE_BLOCK_CLOSE": ln.Addr().String()},
 	}, {
 		Name:    "fake",
 		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
@@ -1146,26 +1150,28 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, s.ConsecutiveFailures, test.ShouldEqual, 0)
 	test.That(t, s.Error, test.ShouldBeNil)
 
-	// make sure we start ready before trying to close
-	modStatus = getModuleStatus(t, r, "mod")
-	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
-
 	// reconfigure to a config without testmodule
 	cfg.Modules = []config.Module{{
 		Name:    "fake",
 		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
 	}}
+
 	reconfigureDone = make(chan struct{})
+
 	go func() {
 		defer close(reconfigureDone)
 		r.Reconfigure(ctx, &config.Config{})
 	}()
 
-	// while reconfiguring, we should see the testmodule enter the closing state
-	// once again, wait a very long time in case the reconfigure thread gets paused
-	testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 3000, func(tb testing.TB) {
-		test.That(tb, p(getModuleStatus(tb, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateClosing))
-	})
+	// blocks until the module has reached the barrier, meaning it is closing
+	conn, err = ln.Accept()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, p(getModuleStatus(t, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateClosing))
+
+	// releases the module so it can finish starting
+	conn.Close()
+
 	<-reconfigureDone
 
 	// After reconfiguring to an empty config, testModule should be gone
