@@ -39,7 +39,9 @@ type RequestLimitExceededError struct {
 
 func (e RequestLimitExceededError) Error() string {
 	return fmt.Sprintf(
-		"exceeded request limit %v on resource %v (your client is responsible for %v). See %v for troubleshooting steps",
+		"exceeded the shared concurrent-request limit of %v on resource %v. This limit is shared "+
+			"across all clients/modules (your client has %v in-flight requests). Check the viam-server "+
+			`logs for "Request limit exceeded" to find the offending client. See %v for troubleshooting steps`,
 		e.limit, e.resource, e.numInFlightRequestsForClient, ReqLimitExceededURL)
 }
 
@@ -369,9 +371,19 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 		return true
 	})
 
+	offendingClientDesc := "already_disconnected"
+	if offendingClientInformation != nil {
+		offendingClientDesc = fmt.Sprintf("%s [%s]",
+			offendingClientInformation.ClientMetadata, offendingClientInformation.ConnectionID)
+	}
+
 	msg := fmt.Sprintf(
-		"Request limit exceeded for resource. See %s for troubleshooting steps. "+
+		"Request limit exceeded for resource %q (limit %d, method %q) by %s. See %s for troubleshooting steps. "+
 			`{"method":%q,"resource":%q,"offending_client_information":%v,"all_other_client_information":%v}`,
+		resource,
+		rc.inFlightLimit,
+		apiMethodString,
+		offendingClientDesc,
 		ReqLimitExceededURL,
 		apiMethodString,
 		resource,

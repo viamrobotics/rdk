@@ -12,6 +12,7 @@ import (
 
 type moduleAppender struct {
 	stdoutAppender *logging.ConsoleAppender
+	stderrAppender *logging.ConsoleAppender
 
 	// If Module is set, moduleAppender sends log events to the Unix socket at
 	// Module.parentAddr via gRPC. Otherwise, moduleAppender logs to STDOUT.
@@ -20,7 +21,8 @@ type moduleAppender struct {
 
 func newModuleAppender() *moduleAppender {
 	stdoutAppender := logging.NewStdoutAppender()
-	return &moduleAppender{stdoutAppender: &stdoutAppender}
+	stderrAppender := logging.NewStderrAppender()
+	return &moduleAppender{stdoutAppender: &stdoutAppender, stderrAppender: &stderrAppender}
 }
 
 func (ma *moduleAppender) setModule(m *Module) {
@@ -38,7 +40,17 @@ func (ma *moduleAppender) Write(log zapcore.Entry, fields []zapcore.Field) error
 	// down or otherwise unreachable.
 	moduleLogCtx, moduleLogCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer moduleLogCancel()
-	return ma.module.parent.Log(moduleLogCtx, log, fields)
+	if err := ma.module.parent.Log(moduleLogCtx, log, fields); err != nil {
+		// Shipping logs to the parent is best-effort. If the parent is unreachable or
+		// rate-limiting us, fall back to the local console rather than returning the
+		// error; otherwise the returned error is printed to STDERR as a confusing blob
+		// of gRPC errors instead of the log we meant to emit.
+		if log.Level >= zapcore.ErrorLevel {
+			return ma.stderrAppender.Write(log, fields)
+		}
+		return ma.stdoutAppender.Write(log, fields)
+	}
+	return nil
 }
 
 // Sync is a no-op (moduleAppenders do not currently have buffers that needs

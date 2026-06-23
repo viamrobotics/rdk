@@ -1626,8 +1626,9 @@ func testResourceLimitsAndFTDC(
 	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
 	test.That(t, err.Error(), test.ShouldEndWith,
 		fmt.Sprintf(
-			"exceeded request limit 1 on resource %v (your client is responsible for 1). "+
-				"See %v for troubleshooting steps",
+			"exceeded the shared concurrent-request limit of 1 on resource %v. This limit is shared "+
+				"across all clients/modules (your client has 1 in-flight requests). Check the viam-server "+
+				`logs for "Request limit exceeded" to find the offending client. See %v for troubleshooting steps`,
 			keyPrefix,
 			ReqLimitExceededURL,
 		),
@@ -1637,17 +1638,20 @@ func testResourceLimitsAndFTDC(
 	reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
 	test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
 	test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
-	expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", ReqLimitExceededURL)
-	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldContainSubstring, ReqLimitExceededURL)
 
 	var fields map[string]any
 	err = json.Unmarshal(
-		[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+		[]byte(jsonSuffix(reqLimitExceededLogs[0].Message)),
 		&fields,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields["method"], test.ShouldEqual, method)
 	test.That(t, fields["resource"], test.ShouldEqual, keyPrefix)
+	// The human-readable lead before the JSON should call out the resource, limit, method,
+	// and offending client.
+	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldContainSubstring,
+		fmt.Sprintf("Request limit exceeded for resource %q (limit 1, method %q) by ", keyPrefix, method))
 	{
 		offendingClientInformation := fields["offending_client_information"]
 		offendingClientInformationM, ok := offendingClientInformation.(map[string]any)
@@ -1682,6 +1686,16 @@ func testResourceLimitsAndFTDC(
 	// In-flight requests counter should be back to 0
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
+}
+
+// jsonSuffix returns the JSON object suffix of a "Request limit exceeded" log message
+// (everything from the first "{"), so tests can parse the structured fields without
+// depending on the exact human-readable lead that precedes it.
+func jsonSuffix(msg string) string {
+	if i := strings.Index(msg, "{"); i >= 0 {
+		return msg[i:]
+	}
+	return msg
 }
 
 func TestPerResourceLimitsAndFTDC(t *testing.T) {
@@ -1829,8 +1843,9 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
 		test.That(t, err.Error(), test.ShouldEndWith,
 			fmt.Sprintf(
-				"exceeded request limit 1 on resource arm1.viam.component.arm.v1.ArmService (your client is responsible for 1). "+
-					"See %v for troubleshooting steps",
+				"exceeded the shared concurrent-request limit of 1 on resource arm1.viam.component.arm.v1.ArmService. "+
+					"This limit is shared across all clients/modules (your client has 1 in-flight requests). Check "+
+					`the viam-server logs for "Request limit exceeded" to find the offending client. See %v for troubleshooting steps`,
 				ReqLimitExceededURL,
 			),
 		)
@@ -1841,11 +1856,10 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
 		test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
 		test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
-		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", ReqLimitExceededURL)
-		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldContainSubstring, ReqLimitExceededURL)
 		var fields map[string]any
 		err = json.Unmarshal(
-			[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+			[]byte(jsonSuffix(reqLimitExceededLogs[0].Message)),
 			&fields,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -1943,11 +1957,10 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
 		test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
 		test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
-		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", ReqLimitExceededURL)
-		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldContainSubstring, ReqLimitExceededURL)
 		var fields map[string]any
 		err = json.Unmarshal(
-			[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+			[]byte(jsonSuffix(reqLimitExceededLogs[0].Message)),
 			&fields,
 		)
 		test.That(t, err, test.ShouldBeNil)
