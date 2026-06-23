@@ -1057,7 +1057,6 @@ func TestModuleStatus(t *testing.T) {
 
 	// blocks until the module has reached the barrier, meaning it is starting
 	conn, err := ln.Accept()
-	defer conn.Close()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, p(getModuleStatus(t, r, "blocked").State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))

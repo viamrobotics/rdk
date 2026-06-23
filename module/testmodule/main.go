@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -112,7 +113,10 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 			return err
 		}
 		_, err = conn.Read(make([]byte, 1))
-		defer conn.Close()
+		if err != nil && err != io.EOF {
+			return err
+		}
+		err = conn.Close()
 		if err != nil {
 			return err
 		}
