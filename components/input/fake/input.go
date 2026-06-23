@@ -62,7 +62,7 @@ func NewInputController(ctx context.Context, conf resource.Config, logger loggin
 		logger:     logger,
 	}
 
-	if err := c.Reconfigure(ctx, nil, conf); err != nil {
+	if err := c.reconfigure(ctx, nil, conf); err != nil {
 		return nil, err
 	}
 
@@ -91,8 +91,8 @@ type InputController struct {
 	logger        logging.Logger
 }
 
-// Reconfigure updates the config of the controller.
-func (c *InputController) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure updates the config of the controller.
+func (c *InputController) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
