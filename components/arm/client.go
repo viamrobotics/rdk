@@ -170,7 +170,7 @@ func (c *client) MoveThroughJointPositions(
 
 func (c *client) MoveThroughJointPositionsStreamed(
 	ctx context.Context,
-	points <-chan TrajectoryPoint,
+	batches <-chan []TrajectoryPoint,
 	responses chan<- Response,
 	extra map[string]interface{},
 ) error {
@@ -213,8 +213,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 	}
 	c.logger.CInfow(ctx, "XXX ACM cli: Init sent", "name", c.name)
 
-	// Send pump: caller's points -> wire. One point per batch for the PoC; batching is a future
-	// optimization. CloseSend on caller EOF so the server-side recv loop terminates.
+	// Send pump: caller's batches -> wire. Each slice pulled from the channel becomes one wire
+	// TrajectoryBatch; the caller controls wire cadence by sizing the slices they put on the
+	// channel. CloseSend on caller EOF so the server-side recv loop terminates.
 	var sendErr error
 	var sendOnce sync.Once
 	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
@@ -223,44 +224,51 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		defer close(sendDone)
 		c.logger.CInfow(ctx, "XXX ACM cli: send pump entered", "name", c.name)
 		batchCount := 0
+		pointCount := 0
 		for {
 			select {
 			case <-ctx.Done():
 				c.logger.CInfow(ctx, "XXX ACM cli: send pump ctx done",
-					"name", c.name, "batches_sent", batchCount, "err", ctx.Err())
+					"name", c.name, "batches_sent", batchCount, "points_sent", pointCount, "err", ctx.Err())
 				setSendErr(ctx.Err())
 				return
-			case p, ok := <-points:
+			case batch, ok := <-batches:
 				if !ok {
-					c.logger.CInfow(ctx, "XXX ACM cli: send pump points closed -> CloseSend",
-						"name", c.name, "batches_sent", batchCount)
+					c.logger.CInfow(ctx, "XXX ACM cli: send pump batches closed -> CloseSend",
+						"name", c.name, "batches_sent", batchCount, "points_sent", pointCount)
 					if err := stream.CloseSend(); err != nil {
 						c.logger.CInfow(ctx, "XXX ACM cli: CloseSend failed", "name", c.name, "err", err)
 						setSendErr(err)
 					}
 					return
 				}
-				pp, err := trajectoryPointToProto(model, p)
-				if err != nil {
-					c.logger.CInfow(ctx, "XXX ACM cli: trajectoryPointToProto failed",
-						"name", c.name, "err", err)
-					setSendErr(err)
-					return
+				pbPoints := make([]*pb.TrajectoryPoint, 0, len(batch))
+				for _, p := range batch {
+					pp, err := trajectoryPointToProto(model, p)
+					if err != nil {
+						c.logger.CInfow(ctx, "XXX ACM cli: trajectoryPointToProto failed",
+							"name", c.name, "err", err)
+						setSendErr(err)
+						return
+					}
+					pbPoints = append(pbPoints, pp)
 				}
 				if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
 					Message: &pb.MoveThroughJointPositionsStreamedRequest_Batch{
 						Batch: &pb.MoveThroughJointPositionsStreamedRequest_TrajectoryBatch{
-							Points: []*pb.TrajectoryPoint{pp},
+							Points: pbPoints,
 						},
 					},
 				}); err != nil {
 					c.logger.CInfow(ctx, "XXX ACM cli: batch Send failed",
-						"name", c.name, "batch_idx", batchCount+1, "err", err)
+						"name", c.name, "batch_idx", batchCount+1, "points_in_batch", len(pbPoints), "err", err)
 					setSendErr(err)
 					return
 				}
 				batchCount++
-				c.logger.CInfow(ctx, "XXX ACM cli: batch sent", "name", c.name, "batch_idx", batchCount)
+				pointCount += len(pbPoints)
+				c.logger.CInfow(ctx, "XXX ACM cli: batch sent",
+					"name", c.name, "batch_idx", batchCount, "points_in_batch", len(pbPoints))
 			}
 		}
 	})

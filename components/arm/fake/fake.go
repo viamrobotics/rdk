@@ -226,7 +226,7 @@ func (a *Arm) MoveThroughJointPositions(
 // PoC focused on real hardware.
 func (a *Arm) MoveThroughJointPositionsStreamed(
 	_ context.Context,
-	_ <-chan arm.TrajectoryPoint,
+	_ <-chan []arm.TrajectoryPoint,
 	_ chan<- arm.Response,
 	_ map[string]interface{},
 ) error {

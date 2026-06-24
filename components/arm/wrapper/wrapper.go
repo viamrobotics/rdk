@@ -153,7 +153,7 @@ func (wrapper *Arm) MoveThroughJointPositions(
 // PoC focused on real hardware that natively supports streamed trajectories.
 func (wrapper *Arm) MoveThroughJointPositionsStreamed(
 	_ context.Context,
-	_ <-chan arm.TrajectoryPoint,
+	_ <-chan []arm.TrajectoryPoint,
 	_ chan<- arm.Response,
 	_ map[string]interface{},
 ) error {

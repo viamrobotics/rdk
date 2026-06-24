@@ -146,22 +146,27 @@ type Arm interface {
 	// This will block until done or a new operation cancels this one.
 	MoveThroughJointPositions(ctx context.Context, positions [][]referenceframe.Input, options *MoveOptions, extra map[string]any) error
 
-	// MoveThroughJointPositionsStreamed receives a stream of trajectory points and executes them in order.
+	// MoveThroughJointPositionsStreamed receives a stream of trajectory point batches and executes
+	// them in order.
 	//
-	// The framework feeds points from the gRPC request stream into `points` and closes the channel when
-	// the client signals end-of-stream. The implementation writes one Response to `responses` per
-	// acknowledgment it wants to send the client; the framework forwards each to the gRPC response
-	// stream. The implementation returns when it has finished (nil) or detects a fault (an error,
-	// which is propagated to the client as the terminal gRPC status).
+	// The framework feeds one slice per wire TrajectoryBatch from the gRPC request stream into
+	// `batches` and closes the channel when the client signals end-of-stream. The implementation
+	// writes one Response to `responses` per acknowledgment it wants to send the client; the
+	// framework forwards each to the gRPC response stream. The implementation returns when it has
+	// finished (nil) or detects a fault (an error, which is propagated to the client as the
+	// terminal gRPC status).
 	//
-	// Channel ownership note: the framework owns `points` (writes and closes it) and owns the lifetime
-	// of `responses` (closes it after the implementation returns). The implementation only reads from
-	// `points` and only writes to `responses`; it must NOT close either. This deviates from Go's
-	// usual sender-closes convention, but lets driver code be trivially correct: write responses,
-	// return when done.
+	// Iteration is the obvious nested-loop shape:
+	//   for batch := range batches { for _, p := range batch { ... } }
+	//
+	// Channel ownership note: the framework owns `batches` (writes and closes it) and owns the
+	// lifetime of `responses` (closes it after the implementation returns). The implementation
+	// only reads from `batches` and only writes to `responses`; it must NOT close either. This
+	// deviates from Go's usual sender-closes convention, but lets driver code be trivially
+	// correct: write responses, return when done.
 	MoveThroughJointPositionsStreamed(
 		ctx context.Context,
-		points <-chan TrajectoryPoint,
+		batches <-chan []TrajectoryPoint,
 		responses chan<- Response,
 		extra map[string]interface{},
 	) error

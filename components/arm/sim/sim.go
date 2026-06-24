@@ -361,7 +361,7 @@ func (sa *simulatedArm) MoveThroughJointPositions(
 // a coherent error.
 func (sa *simulatedArm) MoveThroughJointPositionsStreamed(
 	_ context.Context,
-	_ <-chan arm.TrajectoryPoint,
+	_ <-chan []arm.TrajectoryPoint,
 	_ chan<- arm.Response,
 	_ map[string]interface{},
 ) error {

@@ -25,7 +25,7 @@ type Arm struct {
 	) error
 	MoveThroughJointPositionsStreamedFunc func(
 		ctx context.Context,
-		points <-chan arm.TrajectoryPoint,
+		batches <-chan []arm.TrajectoryPoint,
 		responses chan<- arm.Response,
 		extra map[string]interface{},
 	) error
@@ -91,14 +91,14 @@ func (a *Arm) MoveThroughJointPositions(
 // MoveThroughJointPositionsStreamed or the real version.
 func (a *Arm) MoveThroughJointPositionsStreamed(
 	ctx context.Context,
-	points <-chan arm.TrajectoryPoint,
+	batches <-chan []arm.TrajectoryPoint,
 	responses chan<- arm.Response,
 	extra map[string]interface{},
 ) error {
 	if a.MoveThroughJointPositionsStreamedFunc == nil {
-		return a.Arm.MoveThroughJointPositionsStreamed(ctx, points, responses, extra)
+		return a.Arm.MoveThroughJointPositionsStreamed(ctx, batches, responses, extra)
 	}
-	return a.MoveThroughJointPositionsStreamedFunc(ctx, points, responses, extra)
+	return a.MoveThroughJointPositionsStreamedFunc(ctx, batches, responses, extra)
 }
 
 // JointPositions calls the injected JointPositions or the real version.

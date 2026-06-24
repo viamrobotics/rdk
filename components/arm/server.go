@@ -157,7 +157,7 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 ) error {
 	// Derive a cancellable context from the stream's. We pass this ctx to the impl and watch it
 	// in the recv pump, so a Send failure (or the impl's own return) can cancel both the impl
-	// and the recv-side `points <- tp` send via a single call.
+	// and the recv-side `batches <- out` send via a single call.
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
@@ -190,17 +190,18 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 	s.logger.CInfow(ctx, "XXX ACM srv: Kinematics returned",
 		"name", init.GetName(), "elapsed_ms", time.Since(kinStart).Milliseconds(), "model_nil", model == nil)
 
-	points := make(chan TrajectoryPoint)
+	batches := make(chan []TrajectoryPoint)
 	responses := make(chan Response)
 
-	// Recv pump: stream -> points. Closes points on EOF, wire error, ctx cancel, or invalid
-	// message so the impl sees end-of-stream. We do NOT wait on this goroutine before returning:
-	// it may be blocked inside stream.Recv() with nothing we can do to unblock it short of
-	// returning from the handler, at which point gRPC cancels the stream's underlying context
-	// and stream.Recv() unblocks. Recv-side terminal errors are logged but not surfaced; for
-	// the PoC, the impl's error is the load-bearing signal.
+	// Recv pump: stream -> batches. One wire TrajectoryBatch becomes one slice on the channel,
+	// preserving the caller-chosen batching for the impl. Closes batches on EOF, wire error, ctx
+	// cancel, or invalid message so the impl sees end-of-stream. We do NOT wait on this goroutine
+	// before returning: it may be blocked inside stream.Recv() with nothing we can do to unblock
+	// it short of returning from the handler, at which point gRPC cancels the stream's underlying
+	// context and stream.Recv() unblocks. Recv-side terminal errors are logged but not surfaced;
+	// for the PoC, the impl's error is the load-bearing signal.
 	utils.PanicCapturingGo(func() {
-		defer close(points)
+		defer close(batches)
 		s.logger.CInfow(ctx, "XXX ACM srv: recv pump entered", "name", init.GetName())
 		batchCount := 0
 		pointCount := 0
@@ -221,24 +222,27 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 					"batches_so_far", batchCount, "points_so_far", pointCount)
 				return
 			}
-			batchCount++
-			s.logger.CInfow(ctx, "XXX ACM srv: recv pump got batch",
-				"name", init.GetName(), "batch_idx", batchCount, "points_in_batch", len(batch.GetPoints()))
-			for _, p := range batch.GetPoints() {
+			pbPoints := batch.GetPoints()
+			out := make([]TrajectoryPoint, 0, len(pbPoints))
+			for _, p := range pbPoints {
 				tp, err := trajectoryPointFromProto(model, p)
 				if err != nil {
 					s.logger.CInfow(ctx, "XXX ACM srv: recv pump bad TrajectoryPoint",
 						"name", init.GetName(), "err", err)
 					return
 				}
-				select {
-				case points <- tp:
-					pointCount++
-				case <-ctx.Done():
-					s.logger.CInfow(ctx, "XXX ACM srv: recv pump ctx done while pushing",
-						"name", init.GetName(), "batches_so_far", batchCount, "points_so_far", pointCount)
-					return
-				}
+				out = append(out, tp)
+			}
+			batchCount++
+			s.logger.CInfow(ctx, "XXX ACM srv: recv pump got batch",
+				"name", init.GetName(), "batch_idx", batchCount, "points_in_batch", len(out))
+			select {
+			case batches <- out:
+				pointCount += len(out)
+			case <-ctx.Done():
+				s.logger.CInfow(ctx, "XXX ACM srv: recv pump ctx done while pushing",
+					"name", init.GetName(), "batches_so_far", batchCount, "points_so_far", pointCount)
+				return
 			}
 		}
 	})
@@ -269,12 +273,12 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 
 	s.logger.CInfow(ctx, "XXX ACM srv: calling impl", "name", init.GetName())
 	implStart := time.Now()
-	implErr := a.MoveThroughJointPositionsStreamed(ctx, points, responses, init.GetExtra().AsMap())
+	implErr := a.MoveThroughJointPositionsStreamed(ctx, batches, responses, init.GetExtra().AsMap())
 	s.logger.CInfow(ctx, "XXX ACM srv: impl returned",
 		"name", init.GetName(), "elapsed_ms", time.Since(implStart).Milliseconds(), "err", implErr)
 
-	// Cancel before closing responses: if the impl returned cleanly, the recv pump may be
-	// parked on `points <- tp`; cancel() unblocks the select so the goroutine can wind down.
+	// Cancel before closing responses: if the impl returned cleanly, the recv pump may be parked
+	// on `batches <- out`; cancel() unblocks the select so the goroutine can wind down.
 	cancel()
 	close(responses)
 	<-sendDone
