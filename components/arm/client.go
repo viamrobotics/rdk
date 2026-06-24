@@ -3,11 +3,14 @@ package arm
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
@@ -163,6 +166,144 @@ func (c *client) MoveThroughJointPositions(
 	}
 	_, err = c.client.MoveThroughJointPositions(ctx, req)
 	return err
+}
+
+func (c *client) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	points <-chan TrajectoryPoint,
+	responses chan<- Response,
+	extra map[string]interface{},
+) error {
+	c.logger.CInfow(ctx, "XXX ACM cli: wrapper entered", "name", c.name)
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
+	// Kinematics is used only to encode JointPositions on the wire. Tolerate failure here so we
+	// stay usable on arms whose kinematics haven't been registered yet (matching the unary path).
+	model, err := c.Kinematics(ctx)
+	if err != nil {
+		warnKinematicsUnsafe(ctx, c.logger, err)
+	}
+
+	// Derive a cancellable context and pass it to NewStream so cancel() tears down the gRPC stream
+	// and signals the send pump in one step. Used to wind the send pump down once the recv loop
+	// exits (so it doesn't block on a caller that never closes `points`).
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := c.client.MoveThroughJointPositionsStreamed(ctx)
+	if err != nil {
+		c.logger.CInfow(ctx, "XXX ACM cli: NewStream failed", "name", c.name, "err", err)
+		return err
+	}
+	c.logger.CInfow(ctx, "XXX ACM cli: stream opened", "name", c.name)
+
+	if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
+		Message: &pb.MoveThroughJointPositionsStreamedRequest_Init_{
+			Init: &pb.MoveThroughJointPositionsStreamedRequest_Init{
+				Name:  c.name,
+				Extra: ext,
+			},
+		},
+	}); err != nil {
+		c.logger.CInfow(ctx, "XXX ACM cli: Init Send failed", "name", c.name, "err", err)
+		return err
+	}
+	c.logger.CInfow(ctx, "XXX ACM cli: Init sent", "name", c.name)
+
+	// Send pump: caller's points -> wire. One point per batch for the PoC; batching is a future
+	// optimization. CloseSend on caller EOF so the server-side recv loop terminates.
+	var sendErr error
+	var sendOnce sync.Once
+	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
+	sendDone := make(chan struct{})
+	goutils.PanicCapturingGo(func() {
+		defer close(sendDone)
+		c.logger.CInfow(ctx, "XXX ACM cli: send pump entered", "name", c.name)
+		batchCount := 0
+		for {
+			select {
+			case <-ctx.Done():
+				c.logger.CInfow(ctx, "XXX ACM cli: send pump ctx done",
+					"name", c.name, "batches_sent", batchCount, "err", ctx.Err())
+				setSendErr(ctx.Err())
+				return
+			case p, ok := <-points:
+				if !ok {
+					c.logger.CInfow(ctx, "XXX ACM cli: send pump points closed -> CloseSend",
+						"name", c.name, "batches_sent", batchCount)
+					if err := stream.CloseSend(); err != nil {
+						c.logger.CInfow(ctx, "XXX ACM cli: CloseSend failed", "name", c.name, "err", err)
+						setSendErr(err)
+					}
+					return
+				}
+				pp, err := trajectoryPointToProto(model, p)
+				if err != nil {
+					c.logger.CInfow(ctx, "XXX ACM cli: trajectoryPointToProto failed",
+						"name", c.name, "err", err)
+					setSendErr(err)
+					return
+				}
+				if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
+					Message: &pb.MoveThroughJointPositionsStreamedRequest_Batch{
+						Batch: &pb.MoveThroughJointPositionsStreamedRequest_TrajectoryBatch{
+							Points: []*pb.TrajectoryPoint{pp},
+						},
+					},
+				}); err != nil {
+					c.logger.CInfow(ctx, "XXX ACM cli: batch Send failed",
+						"name", c.name, "batch_idx", batchCount+1, "err", err)
+					setSendErr(err)
+					return
+				}
+				batchCount++
+				c.logger.CInfow(ctx, "XXX ACM cli: batch sent", "name", c.name, "batch_idx", batchCount)
+			}
+		}
+	})
+
+	// Recv loop: wire -> caller's responses. Runs on the calling goroutine. Per the Arm interface
+	// channel-ownership contract this method does NOT close `responses`; that is the caller's
+	// responsibility, performed after we return.
+	c.logger.CInfow(ctx, "XXX ACM cli: recv loop entered", "name", c.name)
+	respCount := 0
+	var recvErr error
+recvLoop:
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			c.logger.CInfow(ctx, "XXX ACM cli: recv loop stream.Recv returned",
+				"name", c.name, "err", err, "is_eof", errors.Is(err, io.EOF),
+				"responses_received", respCount)
+			if !errors.Is(err, io.EOF) {
+				recvErr = err
+			}
+			break
+		}
+		_ = resp // TODO(post-PoC): wire fields here when Arm.Response grows beyond {}.
+		respCount++
+		select {
+		case responses <- Response{}:
+		case <-ctx.Done():
+			c.logger.CInfow(ctx, "XXX ACM cli: recv loop ctx done while pushing",
+				"name", c.name, "responses_received", respCount)
+			recvErr = ctx.Err()
+			break recvLoop
+		}
+	}
+	// Tear down the stream and signal the send pump (it may still be blocked on `points`).
+	cancel()
+	<-sendDone
+	c.logger.CInfow(ctx, "XXX ACM cli: wrapper exiting",
+		"name", c.name, "responses_received", respCount, "recvErr", recvErr, "sendErr", sendErr)
+
+	if recvErr != nil {
+		return recvErr
+	}
+	return sendErr
 }
 
 func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {

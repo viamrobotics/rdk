@@ -8,6 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
@@ -218,6 +220,17 @@ func (a *Arm) MoveThroughJointPositions(
 		}
 	}
 	return nil
+}
+
+// MoveThroughJointPositionsStreamed is unimplemented on the fake arm; the streamed RPC is a
+// PoC focused on real hardware.
+func (a *Arm) MoveThroughJointPositionsStreamed(
+	_ context.Context,
+	_ <-chan arm.TrajectoryPoint,
+	_ chan<- arm.Response,
+	_ map[string]interface{},
+) error {
+	return status.Error(codes.Unimplemented, "MoveThroughJointPositionsStreamed not implemented on fake arm")
 }
 
 // JointPositions returns joints.

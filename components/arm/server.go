@@ -3,10 +3,17 @@ package arm
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"strings"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -138,6 +145,142 @@ func (s *serviceServer) MoveThroughJointPositions(
 	}
 	err = arm.MoveThroughJointPositions(ctx, allInputs, moveOptionsFromProtobuf(req.Options), req.Extra.AsMap())
 	return &pb.MoveThroughJointPositionsResponse{}, err
+}
+
+// MoveThroughJointPositionsStreamed is the bidi handler for the streamed RPC. It reads the
+// mandatory Init message first, locates the arm, then spawns one goroutine that pumps further
+// stream messages into a points channel and one that drains the implementation's responses
+// channel onto the wire. The implementation runs on the calling goroutine; its returned error
+// becomes the terminal gRPC status.
+func (s *serviceServer) MoveThroughJointPositionsStreamed(
+	stream pb.ArmService_MoveThroughJointPositionsStreamedServer,
+) error {
+	// Derive a cancellable context from the stream's. We pass this ctx to the impl and watch it
+	// in the recv pump, so a Send failure (or the impl's own return) can cancel both the impl
+	// and the recv-side `points <- tp` send via a single call.
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	s.logger.CInfow(ctx, "XXX ACM srv: handler entered")
+	first, err := stream.Recv()
+	if err != nil {
+		s.logger.CInfow(ctx, "XXX ACM srv: first stream.Recv error", "err", err)
+		return err
+	}
+	init := first.GetInit()
+	if init == nil {
+		s.logger.CInfow(ctx, "XXX ACM srv: first message not Init",
+			"oneof", fmt.Sprintf("%T", first.GetMessage()))
+		return status.Error(codes.InvalidArgument, "first message must be Init")
+	}
+	s.logger.CInfow(ctx, "XXX ACM srv: read Init", "name", init.GetName())
+	a, err := s.coll.Resource(init.GetName())
+	if err != nil {
+		s.logger.CInfow(ctx, "XXX ACM srv: resource lookup failed", "name", init.GetName(), "err", err)
+		return err
+	}
+	operation.CancelOtherWithLabel(ctx, init.GetName())
+
+	// Kinematics is used only to interpret JointPositions on the wire. We tolerate failure here
+	// the same way the unary path does (degrees/revolute fallback), so the streamed RPC stays
+	// usable on arms whose kinematics haven't been registered yet.
+	kinStart := time.Now()
+	//nolint:errcheck
+	model, _ := a.Kinematics(ctx)
+	s.logger.CInfow(ctx, "XXX ACM srv: Kinematics returned",
+		"name", init.GetName(), "elapsed_ms", time.Since(kinStart).Milliseconds(), "model_nil", model == nil)
+
+	points := make(chan TrajectoryPoint)
+	responses := make(chan Response)
+
+	// Recv pump: stream -> points. Closes points on EOF, wire error, ctx cancel, or invalid
+	// message so the impl sees end-of-stream. We do NOT wait on this goroutine before returning:
+	// it may be blocked inside stream.Recv() with nothing we can do to unblock it short of
+	// returning from the handler, at which point gRPC cancels the stream's underlying context
+	// and stream.Recv() unblocks. Recv-side terminal errors are logged but not surfaced; for
+	// the PoC, the impl's error is the load-bearing signal.
+	utils.PanicCapturingGo(func() {
+		defer close(points)
+		s.logger.CInfow(ctx, "XXX ACM srv: recv pump entered", "name", init.GetName())
+		batchCount := 0
+		pointCount := 0
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				s.logger.CInfow(ctx, "XXX ACM srv: recv pump stream.Recv returned",
+					"name", init.GetName(), "err", err,
+					"is_eof", errors.Is(err, io.EOF),
+					"batches_so_far", batchCount, "points_so_far", pointCount)
+				return
+			}
+			batch := req.GetBatch()
+			if batch == nil {
+				s.logger.CInfow(ctx, "XXX ACM srv: recv pump got non-batch oneof",
+					"name", init.GetName(),
+					"oneof", fmt.Sprintf("%T", req.GetMessage()),
+					"batches_so_far", batchCount, "points_so_far", pointCount)
+				return
+			}
+			batchCount++
+			s.logger.CInfow(ctx, "XXX ACM srv: recv pump got batch",
+				"name", init.GetName(), "batch_idx", batchCount, "points_in_batch", len(batch.GetPoints()))
+			for _, p := range batch.GetPoints() {
+				tp, err := trajectoryPointFromProto(model, p)
+				if err != nil {
+					s.logger.CInfow(ctx, "XXX ACM srv: recv pump bad TrajectoryPoint",
+						"name", init.GetName(), "err", err)
+					return
+				}
+				select {
+				case points <- tp:
+					pointCount++
+				case <-ctx.Done():
+					s.logger.CInfow(ctx, "XXX ACM srv: recv pump ctx done while pushing",
+						"name", init.GetName(), "batches_so_far", batchCount, "points_so_far", pointCount)
+					return
+				}
+			}
+		}
+	})
+
+	// Send pump: responses -> stream. Exits when responses is closed (after impl returns) or
+	// when a Send fails. On Send failure we cancel the derived context so the impl notices via
+	// ctx.Done() and returns promptly, then drain the channel so the impl's writes don't block
+	// during shutdown.
+	sendDone := make(chan struct{})
+	utils.PanicCapturingGo(func() {
+		defer close(sendDone)
+		respCount := 0
+		for resp := range responses {
+			_ = resp // TODO(post-PoC): wire fields here when Arm.Response grows beyond {}.
+			respCount++
+			if err := stream.Send(&pb.MoveThroughJointPositionsStreamedResponse{}); err != nil {
+				s.logger.CInfow(ctx, "XXX ACM srv: send pump stream.Send failed",
+					"name", init.GetName(), "err", err, "responses_sent", respCount)
+				cancel()
+				for range responses {
+				}
+				return
+			}
+		}
+		s.logger.CInfow(ctx, "XXX ACM srv: send pump exit (responses closed)",
+			"name", init.GetName(), "responses_sent", respCount)
+	})
+
+	s.logger.CInfow(ctx, "XXX ACM srv: calling impl", "name", init.GetName())
+	implStart := time.Now()
+	implErr := a.MoveThroughJointPositionsStreamed(ctx, points, responses, init.GetExtra().AsMap())
+	s.logger.CInfow(ctx, "XXX ACM srv: impl returned",
+		"name", init.GetName(), "elapsed_ms", time.Since(implStart).Milliseconds(), "err", implErr)
+
+	// Cancel before closing responses: if the impl returned cleanly, the recv pump may be
+	// parked on `points <- tp`; cancel() unblocks the select so the goroutine can wind down.
+	cancel()
+	close(responses)
+	<-sendDone
+	s.logger.CInfow(ctx, "XXX ACM srv: handler exiting", "name", init.GetName(), "err", implErr)
+
+	return implErr
 }
 
 // Stop stops the arm specified.

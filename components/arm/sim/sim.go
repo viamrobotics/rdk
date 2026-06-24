@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"go.viam.com/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -352,6 +354,18 @@ func (sa *simulatedArm) MoveThroughJointPositions(
 	}
 
 	return nil
+}
+
+// MoveThroughJointPositionsStreamed is unimplemented on the simulated arm; the streamed RPC
+// is a PoC focused on real hardware. Returns a gRPC Unimplemented status so a remote caller sees
+// a coherent error.
+func (sa *simulatedArm) MoveThroughJointPositionsStreamed(
+	_ context.Context,
+	_ <-chan arm.TrajectoryPoint,
+	_ chan<- arm.Response,
+	_ map[string]interface{},
+) error {
+	return status.Error(codes.Unimplemented, "MoveThroughJointPositionsStreamed not implemented on simulated arm")
 }
 
 func (sa *simulatedArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
