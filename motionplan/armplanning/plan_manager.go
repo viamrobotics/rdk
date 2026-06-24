@@ -212,6 +212,28 @@ func (pm *planManager) planSingleGoal(
 	}
 
 	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
+
+	// Experiment: try permuting single-joint moves before falling back to cBiRRT.
+	// If any ordering reaches the goal without colliding, smooth it and use that
+	// as the trajectory. Capped at a short time budget so a hard scene doesn't
+	// strictly dominate planning time before cBiRRT even starts.
+	tryJointAtATimeStart := time.Now()
+	jaatCtx, jaatCancel := context.WithTimeout(ctx, jointAtATimeBudget)
+	steps, ok := tryJointAtATime(jaatCtx, psc, start, planSeed.maps.goalMap, pm.logger.Sublogger("joint-at-a-time"))
+	jaatCancel()
+	if ok {
+		smoothed, err := smoothPath(ctx, psc, steps)
+		if err != nil {
+			pm.logger.Debugf("joint-at-a-time succeeded but smoothPath failed: %v", err)
+		} else {
+			pm.logger.Debugf("joint-at-a-time produced a %d-step trajectory (smoothed from %d) in %v; skipping cBiRRT",
+				len(smoothed), len(steps), time.Since(tryJointAtATimeStart))
+			return smoothed, nil
+		}
+	} else {
+		pm.logger.Debugf("joint-at-a-time failed in %v", time.Since(tryJointAtATimeStart))
+	}
+
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
 	if err != nil {
 		return nil, err
