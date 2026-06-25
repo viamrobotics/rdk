@@ -928,6 +928,162 @@ func TestDataClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, id, test.ShouldEqual, expectedID)
 	})
+
+	t.Run("GetSequence", func(t *testing.T) {
+		pbSeq := &pb.Sequence{
+			Id:           sequenceID,
+			PartId:       partID,
+			SequenceTags: tags,
+			CreatedAt:    timestamppb.New(start),
+			UpdatedAt:    timestamppb.New(end),
+			StartTime:    timestamppb.New(start),
+			EndTime:      timestamppb.New(end),
+			Resources:    []*pb.SequenceResourceFilter{{ResourceName: componentName, MethodName: method}},
+		}
+		grpcClient.GetSequenceFunc = func(ctx context.Context, in *pb.GetSequenceRequest,
+			opts ...grpc.CallOption,
+		) (*pb.GetSequenceResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, sequenceID)
+			return &pb.GetSequenceResponse{Sequence: pbSeq}, nil
+		}
+		seq, err := client.GetSequence(context.Background(), sequenceID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, seq.ID, test.ShouldEqual, sequenceID)
+		test.That(t, seq.PartID, test.ShouldEqual, partID)
+		test.That(t, seq.SequenceTags, test.ShouldResemble, tags)
+		test.That(t, seq.StartTime, test.ShouldEqual, start)
+		test.That(t, seq.EndTime, test.ShouldEqual, end)
+		test.That(t, len(seq.Resources), test.ShouldEqual, 1)
+		test.That(t, seq.Resources[0].ResourceName, test.ShouldEqual, componentName)
+		test.That(t, seq.Resources[0].MethodName, test.ShouldEqual, method)
+	})
+
+	t.Run("UpdateSequence", func(t *testing.T) {
+		fieldMask := []string{"resources", "sequence_tags"}
+		opts := &UpdateSequenceOptions{
+			Resources:    []SequenceResourceFilter{{ResourceName: componentName, MethodName: method}},
+			SequenceTags: tags,
+			FieldMask:    fieldMask,
+		}
+		grpcClient.UpdateSequenceFunc = func(ctx context.Context, in *pb.UpdateSequenceRequest,
+			opts ...grpc.CallOption,
+		) (*pb.UpdateSequenceResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, sequenceID)
+			test.That(t, len(in.Resources), test.ShouldEqual, 1)
+			test.That(t, in.Resources[0].ResourceName, test.ShouldEqual, componentName)
+			test.That(t, in.Resources[0].MethodName, test.ShouldEqual, method)
+			test.That(t, in.SequenceTags, test.ShouldResemble, tags)
+			test.That(t, in.FieldMask.Paths, test.ShouldResemble, fieldMask)
+			return &pb.UpdateSequenceResponse{}, nil
+		}
+		err := client.UpdateSequence(context.Background(), sequenceID, opts)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("DeleteSequence", func(t *testing.T) {
+		grpcClient.DeleteSequenceFunc = func(ctx context.Context, in *pb.DeleteSequenceRequest,
+			opts ...grpc.CallOption,
+		) (*pb.DeleteSequenceResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, sequenceID)
+			return &pb.DeleteSequenceResponse{}, nil
+		}
+		err := client.DeleteSequence(context.Background(), sequenceID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListSequences", func(t *testing.T) {
+		pbSeq := &pb.Sequence{
+			Id:     sequenceID,
+			PartId: partID,
+		}
+		grpcClient.ListSequencesFunc = func(ctx context.Context, in *pb.ListSequencesRequest,
+			opts ...grpc.CallOption,
+		) (*pb.ListSequencesResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.PageSize, test.ShouldEqual, uint32(limit))
+			return &pb.ListSequencesResponse{
+				Sequences:     []*pb.Sequence{pbSeq},
+				NextPageToken: "next1",
+			}, nil
+		}
+		page, err := client.ListSequences(context.Background(), organizationID, uint32(limit))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(page.Sequences), test.ShouldEqual, 1)
+		test.That(t, page.Sequences[0].ID, test.ShouldEqual, sequenceID)
+
+		grpcClient.ListSequencesFunc = func(ctx context.Context, in *pb.ListSequencesRequest,
+			opts ...grpc.CallOption,
+		) (*pb.ListSequencesResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.PageSize, test.ShouldEqual, uint32(limit))
+			test.That(t, in.PageToken, test.ShouldEqual, "next1")
+			return &pb.ListSequencesResponse{
+				Sequences:     []*pb.Sequence{pbSeq},
+				NextPageToken: "",
+			}, nil
+		}
+		page, err = page.NextPage(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(page.Sequences), test.ShouldEqual, 1)
+	})
+
+	t.Run("AddSequencesToDataset", func(t *testing.T) {
+		sequenceIDs := []string{sequenceID}
+		grpcClient.AddSequencesToDatasetFunc = func(ctx context.Context, in *pb.AddSequencesToDatasetRequest,
+			opts ...grpc.CallOption,
+		) (*pb.AddSequencesToDatasetResponse, error) {
+			test.That(t, in.DatasetId, test.ShouldEqual, datasetID)
+			test.That(t, in.SequenceIds, test.ShouldResemble, sequenceIDs)
+			return &pb.AddSequencesToDatasetResponse{}, nil
+		}
+		err := client.AddSequencesToDataset(context.Background(), datasetID, sequenceIDs)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("RemoveSequencesFromDataset", func(t *testing.T) {
+		sequenceIDs := []string{sequenceID}
+		grpcClient.RemoveSequencesFromDatasetFunc = func(ctx context.Context, in *pb.RemoveSequencesFromDatasetRequest,
+			opts ...grpc.CallOption,
+		) (*pb.RemoveSequencesFromDatasetResponse, error) {
+			test.That(t, in.DatasetId, test.ShouldEqual, datasetID)
+			test.That(t, in.SequenceIds, test.ShouldResemble, sequenceIDs)
+			return &pb.RemoveSequencesFromDatasetResponse{}, nil
+		}
+		err := client.RemoveSequencesFromDataset(context.Background(), datasetID, sequenceIDs)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("SequencesByDatasetID", func(t *testing.T) {
+		pbSeq := &pb.Sequence{Id: sequenceID, PartId: partID}
+		grpcClient.SequencesByDatasetIDFunc = func(ctx context.Context, in *pb.SequencesByDatasetIDRequest,
+			opts ...grpc.CallOption,
+		) (*pb.SequencesByDatasetIDResponse, error) {
+			test.That(t, in.DatasetId, test.ShouldEqual, datasetID)
+			test.That(t, in.PageSize, test.ShouldEqual, uint32(limit))
+			return &pb.SequencesByDatasetIDResponse{
+				Sequences:     []*pb.Sequence{pbSeq},
+				NextPageToken: "next1",
+			}, nil
+		}
+		page, err := client.SequencesByDatasetID(context.Background(), datasetID, uint32(limit))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(page.Sequences), test.ShouldEqual, 1)
+		test.That(t, page.Sequences[0].ID, test.ShouldEqual, sequenceID)
+
+		grpcClient.SequencesByDatasetIDFunc = func(ctx context.Context, in *pb.SequencesByDatasetIDRequest,
+			opts ...grpc.CallOption,
+		) (*pb.SequencesByDatasetIDResponse, error) {
+			test.That(t, in.DatasetId, test.ShouldEqual, datasetID)
+			test.That(t, in.PageToken, test.ShouldEqual, "next1")
+			return &pb.SequencesByDatasetIDResponse{
+				Sequences:     []*pb.Sequence{pbSeq},
+				NextPageToken: "",
+			}, nil
+		}
+		page, err = page.NextPage(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(page.Sequences), test.ShouldEqual, 1)
+	})
 }
 
 func TestDataSyncClient(t *testing.T) {

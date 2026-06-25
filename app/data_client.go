@@ -22,6 +22,7 @@ import (
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -96,7 +97,7 @@ type CaptureMetadata struct {
 	ComponentType    string
 	ComponentName    string
 	MethodName       string
-	MethodParameters map[string]interface{}
+	MethodParameters map[string]any
 	Tags             []string
 	MimeType         string
 }
@@ -109,7 +110,7 @@ type CaptureInterval struct {
 
 // TabularData contains data and metadata associated with tabular data.
 type TabularData struct {
-	Data          map[string]interface{}
+	Data          map[string]any
 	MetadataIndex int
 	Metadata      *CaptureMetadata
 	TimeRequested time.Time
@@ -198,7 +199,7 @@ type GetDatabaseConnectionResponse struct {
 type GetLatestTabularDataResponse struct {
 	TimeCaptured time.Time
 	TimeSynced   time.Time
-	Payload      map[string]interface{}
+	Payload      map[string]any
 }
 
 // ExportTabularDataResponse represents the result of an ExportTabularData API call.
@@ -213,9 +214,9 @@ type ExportTabularDataResponse struct {
 	ResourceSubtype  string
 	MethodName       string
 	TimeCaptured     time.Time
-	MethodParameters map[string]interface{}
+	MethodParameters map[string]any
 	Tags             []string
-	Payload          map[string]interface{}
+	Payload          map[string]any
 }
 
 // DataSyncClient structs
@@ -231,7 +232,7 @@ type SensorMetadata struct {
 // SensorData contains the contents and metadata for tabular data.
 type SensorData struct {
 	Metadata SensorMetadata
-	SDStruct map[string]interface{}
+	SDStruct map[string]any
 	SDBinary []byte
 }
 
@@ -265,7 +266,7 @@ type UploadMetadata struct {
 	MethodName       string
 	Type             DataType
 	FileName         string
-	MethodParameters map[string]interface{}
+	MethodParameters map[string]any
 	FileExtension    string
 	Tags             []string
 	DatasetIDs       []string
@@ -330,14 +331,14 @@ type CreateDataPipelineOptions struct {
 
 // TabularDataOptions contains optional parameters for GetLatestTabularData and ExportTabularData.
 type TabularDataOptions struct {
-	AdditionalParameters map[string]interface{}
+	AdditionalParameters map[string]any
 }
 
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
 type BinaryDataCaptureUploadOptions struct {
 	Type             *DataType
 	FileName         *string
-	MethodParameters map[string]interface{}
+	MethodParameters map[string]any
 	Tags             []string
 	DatasetIDs       []string
 	DataRequestTimes *[2]time.Time
@@ -347,7 +348,7 @@ type BinaryDataCaptureUploadOptions struct {
 type TabularDataCaptureUploadOptions struct {
 	Type             *DataType
 	FileName         *string
-	MethodParameters map[string]interface{}
+	MethodParameters map[string]any
 	FileExtension    *string
 	Tags             []string
 }
@@ -359,7 +360,7 @@ type StreamingDataCaptureUploadOptions struct {
 	MethodName       *string
 	Type             *DataType
 	FileName         *string
-	MethodParameters map[string]interface{}
+	MethodParameters map[string]any
 	Tags             []string
 	DatasetIDs       []string
 	DataRequestTimes *[2]time.Time
@@ -377,7 +378,7 @@ type FileUploadOptions struct {
 	ComponentName    *string
 	MethodName       *string
 	FileName         *string
-	MethodParameters map[string]interface{}
+	MethodParameters map[string]any
 	FileExtension    *string
 	Tags             []string
 	DatasetIDs       []string
@@ -471,6 +472,46 @@ type SequenceResourceFilter struct {
 	MethodName   string
 }
 
+// Sequence represents a sequence of data captured over a time range.
+type Sequence struct {
+	ID           string
+	PartID       string
+	SequenceTags []string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	StartTime    time.Time
+	EndTime      time.Time
+	Resources    []SequenceResourceFilter
+}
+
+// UpdateSequenceOptions contains optional parameters for UpdateSequence.
+// Only fields referenced in FieldMask will be updated.
+type UpdateSequenceOptions struct {
+	Resources    []SequenceResourceFilter
+	SequenceTags []string
+	StartTime    *time.Time
+	EndTime      *time.Time
+	FieldMask    []string
+}
+
+// ListSequencesPage is a page of sequences returned by ListSequences.
+type ListSequencesPage struct {
+	client         *DataClient
+	organizationID string
+	pageSize       uint32
+	Sequences      []*Sequence
+	nextPageToken  string
+}
+
+// SequencesByDatasetIDPage is a page of sequences returned by SequencesByDatasetID.
+type SequencesByDatasetIDPage struct {
+	client        *DataClient
+	datasetID     string
+	pageSize      uint32
+	Sequences     []*Sequence
+	nextPageToken string
+}
+
 func newDataClient(conn rpc.ClientConn) *DataClient {
 	dataClient := pb.NewDataServiceClient(conn)
 	syncClient := syncPb.NewDataSyncServiceClient(conn)
@@ -486,16 +527,16 @@ func newDataClient(conn rpc.ClientConn) *DataClient {
 
 // BsonToGo converts raw BSON data (as [][]byte) into native Go types and interfaces.
 // Returns a slice of maps representing the data objects.
-func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
-	dataObjects := []map[string]interface{}{}
+func BsonToGo(rawData [][]byte) ([]map[string]any, error) {
+	dataObjects := []map[string]any{}
 	for _, byteSlice := range rawData {
 		// Unmarshal each BSON byte slice into a Go map
-		obj := map[string]interface{}{}
+		obj := map[string]any{}
 		if err := bson.Unmarshal(byteSlice, &obj); err != nil {
 			return nil, err
 		}
 		// Convert the unmarshalled map to native Go types
-		convertedObj := convertBsonToNative(obj).(map[string]interface{})
+		convertedObj := convertBsonToNative(obj).(map[string]any)
 		dataObjects = append(dataObjects, convertedObj)
 	}
 	return dataObjects, nil
@@ -551,7 +592,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 }
 
 // TabularDataBySQL queries tabular data with a SQL query.
-func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) ([]map[string]interface{}, error) {
+func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQuery string) ([]map[string]any, error) {
 	resp, err := d.dataClient.TabularDataBySQL(ctx, &pb.TabularDataBySQLRequest{
 		OrganizationId: organizationID,
 		SqlQuery:       sqlQuery,
@@ -568,8 +609,8 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 
 // TabularDataByMQL queries tabular data with MQL (MongoDB Query Language) queries.
 func (d *DataClient) TabularDataByMQL(
-	ctx context.Context, organizationID string, query []map[string]interface{}, opts *TabularDataByMQLOptions,
-) ([]map[string]interface{}, error) {
+	ctx context.Context, organizationID string, query []map[string]any, opts *TabularDataByMQLOptions,
+) ([]map[string]any, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return nil, err
@@ -1047,7 +1088,7 @@ func (d *DataClient) BinaryDataCaptureUpload(
 // TabularDataCaptureUpload uploads the contents and metadata for tabular data.
 func (d *DataClient) TabularDataCaptureUpload(
 	ctx context.Context,
-	tabularData []map[string]interface{},
+	tabularData []map[string]any,
 	partID string,
 	componentType string,
 	componentName string,
@@ -1477,7 +1518,7 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 
 // CreateDataPipeline creates a new data pipeline using the given query and schedule.
 func (d *DataClient) CreateDataPipeline(
-	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string,
+	ctx context.Context, organizationID, name string, query []map[string]any, schedule string,
 	enableBackfill bool, opts *CreateDataPipelineOptions,
 ) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
@@ -1614,6 +1655,176 @@ func (d *DataClient) CreateSequence(
 	return resp.Id, nil
 }
 
+// GetSequence retrieves a sequence by its ID.
+func (d *DataClient) GetSequence(ctx context.Context, id string) (*Sequence, error) {
+	resp, err := d.dataClient.GetSequence(ctx, &pb.GetSequenceRequest{Id: id})
+	if err != nil {
+		return nil, err
+	}
+	return sequenceFromProto(resp.Sequence), nil
+}
+
+// UpdateSequence updates the mutable fields of a sequence. Only paths listed in
+// opts.FieldMask are modified; others are left unchanged.
+func (d *DataClient) UpdateSequence(ctx context.Context, id string, opts *UpdateSequenceOptions) error {
+	req := &pb.UpdateSequenceRequest{Id: id}
+	if opts != nil {
+		if opts.Resources != nil {
+			pbResources := make([]*pb.SequenceResourceFilter, len(opts.Resources))
+			for i, r := range opts.Resources {
+				pbResources[i] = &pb.SequenceResourceFilter{
+					ResourceName: r.ResourceName,
+					MethodName:   r.MethodName,
+				}
+			}
+			req.Resources = pbResources
+		}
+		req.SequenceTags = opts.SequenceTags
+		if opts.StartTime != nil {
+			req.StartTime = timestamppb.New(*opts.StartTime)
+		}
+		if opts.EndTime != nil {
+			req.EndTime = timestamppb.New(*opts.EndTime)
+		}
+		if len(opts.FieldMask) > 0 {
+			req.FieldMask = &fieldmaskpb.FieldMask{Paths: opts.FieldMask}
+		}
+	}
+	_, err := d.dataClient.UpdateSequence(ctx, req)
+	return err
+}
+
+// DeleteSequence deletes a sequence by its ID.
+func (d *DataClient) DeleteSequence(ctx context.Context, id string) error {
+	_, err := d.dataClient.DeleteSequence(ctx, &pb.DeleteSequenceRequest{Id: id})
+	return err
+}
+
+// ListSequences lists sequences for the given organization, returning the first page.
+func (d *DataClient) ListSequences(ctx context.Context, organizationID string, pageSize uint32) (*ListSequencesPage, error) {
+	return d.listSequences(ctx, organizationID, pageSize, "")
+}
+
+func (d *DataClient) listSequences(
+	ctx context.Context, organizationID string, pageSize uint32, pageToken string,
+) (*ListSequencesPage, error) {
+	resp, err := d.dataClient.ListSequences(ctx, &pb.ListSequencesRequest{
+		OrganizationId: organizationID,
+		PageSize:       pageSize,
+		PageToken:      pageToken,
+	})
+	if err != nil {
+		return nil, err
+	}
+	sequences := make([]*Sequence, len(resp.Sequences))
+	for i, s := range resp.Sequences {
+		sequences[i] = sequenceFromProto(s)
+	}
+	return &ListSequencesPage{
+		client:         d,
+		organizationID: organizationID,
+		pageSize:       pageSize,
+		Sequences:      sequences,
+		nextPageToken:  resp.NextPageToken,
+	}, nil
+}
+
+// NextPage retrieves the next page of sequences.
+func (p *ListSequencesPage) NextPage(ctx context.Context) (*ListSequencesPage, error) {
+	if p.nextPageToken == "" {
+		return &ListSequencesPage{
+			client:         p.client,
+			organizationID: p.organizationID,
+			pageSize:       p.pageSize,
+			Sequences:      []*Sequence{},
+		}, nil
+	}
+	return p.client.listSequences(ctx, p.organizationID, p.pageSize, p.nextPageToken)
+}
+
+// AddSequencesToDataset adds sequences to the dataset with the given ID.
+func (d *DataClient) AddSequencesToDataset(ctx context.Context, datasetID string, sequenceIDs []string) error {
+	_, err := d.dataClient.AddSequencesToDataset(ctx, &pb.AddSequencesToDatasetRequest{
+		DatasetId:   datasetID,
+		SequenceIds: sequenceIDs,
+	})
+	return err
+}
+
+// RemoveSequencesFromDataset removes sequences from the dataset with the given ID.
+func (d *DataClient) RemoveSequencesFromDataset(ctx context.Context, datasetID string, sequenceIDs []string) error {
+	_, err := d.dataClient.RemoveSequencesFromDataset(ctx, &pb.RemoveSequencesFromDatasetRequest{
+		DatasetId:   datasetID,
+		SequenceIds: sequenceIDs,
+	})
+	return err
+}
+
+// SequencesByDatasetID lists sequences that belong to the given dataset, returning the first page.
+func (d *DataClient) SequencesByDatasetID(ctx context.Context, datasetID string, pageSize uint32) (*SequencesByDatasetIDPage, error) {
+	return d.sequencesByDatasetID(ctx, datasetID, pageSize, "")
+}
+
+func (d *DataClient) sequencesByDatasetID(
+	ctx context.Context, datasetID string, pageSize uint32, pageToken string,
+) (*SequencesByDatasetIDPage, error) {
+	resp, err := d.dataClient.SequencesByDatasetID(ctx, &pb.SequencesByDatasetIDRequest{
+		DatasetId: datasetID,
+		PageSize:  pageSize,
+		PageToken: pageToken,
+	})
+	if err != nil {
+		return nil, err
+	}
+	sequences := make([]*Sequence, len(resp.Sequences))
+	for i, s := range resp.Sequences {
+		sequences[i] = sequenceFromProto(s)
+	}
+	return &SequencesByDatasetIDPage{
+		client:        d,
+		datasetID:     datasetID,
+		pageSize:      pageSize,
+		Sequences:     sequences,
+		nextPageToken: resp.NextPageToken,
+	}, nil
+}
+
+// NextPage retrieves the next page of sequences for the dataset.
+func (p *SequencesByDatasetIDPage) NextPage(ctx context.Context) (*SequencesByDatasetIDPage, error) {
+	if p.nextPageToken == "" {
+		return &SequencesByDatasetIDPage{
+			client:    p.client,
+			datasetID: p.datasetID,
+			pageSize:  p.pageSize,
+			Sequences: []*Sequence{},
+		}, nil
+	}
+	return p.client.sequencesByDatasetID(ctx, p.datasetID, p.pageSize, p.nextPageToken)
+}
+
+func sequenceFromProto(s *pb.Sequence) *Sequence {
+	if s == nil {
+		return nil
+	}
+	resources := make([]SequenceResourceFilter, len(s.Resources))
+	for i, r := range s.Resources {
+		resources[i] = SequenceResourceFilter{
+			ResourceName: r.ResourceName,
+			MethodName:   r.MethodName,
+		}
+	}
+	return &Sequence{
+		ID:           s.Id,
+		PartID:       s.PartId,
+		SequenceTags: s.SequenceTags,
+		CreatedAt:    s.CreatedAt.AsTime(),
+		UpdatedAt:    s.UpdatedAt.AsTime(),
+		StartTime:    s.StartTime.AsTime(),
+		EndTime:      s.EndTime.AsTime(),
+		Resources:    resources,
+	}
+}
+
 func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 	if proto == nil {
 		return nil
@@ -1674,8 +1885,8 @@ func annotationsFromProto(proto *pb.Annotations) *Annotations {
 	}
 }
 
-func methodParamsFromProto(proto map[string]*anypb.Any) (map[string]interface{}, error) {
-	methodParameters := make(map[string]interface{})
+func methodParamsFromProto(proto map[string]*anypb.Any) (map[string]any, error) {
+	methodParameters := make(map[string]any)
 	for key, value := range proto {
 		if value == nil {
 			methodParameters[key] = nil
@@ -1827,25 +2038,25 @@ func orderToProto(sortOrder Order) pb.Order {
 	return pb.Order_ORDER_UNSPECIFIED
 }
 
-// convertBsonToNative recursively converts BSON datetime objects to Go DateTime and BSON arrays to slices of interface{}.
-// For slices and maps of specific types, the best we can do is use interface{} as the container type.
-func convertBsonToNative(data interface{}) interface{} {
+// convertBsonToNative recursively converts BSON datetime objects to Go DateTime and BSON arrays to slices of any.
+// For slices and maps of specific types, the best we can do is use any as the container type.
+func convertBsonToNative(data any) any {
 	switch v := data.(type) {
 	case primitive.DateTime:
 		return v.Time().UTC()
 	case primitive.A: // Handle BSON arrays/slices
-		nativeArray := make([]interface{}, len(v))
+		nativeArray := make([]any, len(v))
 		for i, item := range v {
 			nativeArray[i] = convertBsonToNative(item)
 		}
 		return nativeArray
 	case bson.M: // Handle BSON maps
-		convertedMap := make(map[string]interface{})
+		convertedMap := make(map[string]any)
 		for key, value := range v {
 			convertedMap[key] = convertBsonToNative(value)
 		}
 		return convertedMap
-	case map[string]interface{}: // Handle Go maps
+	case map[string]any: // Handle Go maps
 		for key, value := range v {
 			v[key] = convertBsonToNative(value)
 		}
@@ -2022,7 +2233,7 @@ func dataPipelineFromProto(proto *datapipelinesPb.DataPipeline) *DataPipeline {
 	}
 }
 
-func queryBSONToBinary(query []map[string]interface{}) ([][]byte, error) {
+func queryBSONToBinary(query []map[string]any) ([][]byte, error) {
 	mqlBinary := [][]byte{}
 	for _, q := range query {
 		binary, err := bson.Marshal(q)
