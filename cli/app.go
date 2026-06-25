@@ -1891,9 +1891,11 @@ Note: There is no progress meter while copying is in progress.
 						[]string{generalFlagDestination, datasetFlagDatasetID}, true, false),
 					Description: "For binary datasets, downloads images and a dataset.jsonl manifest into the destination. " +
 						"For sequence datasets, kicks off an async Parquet export on the server, polls until ready, " +
-						"and writes <dataset-id>.zip into the destination. The --only-jsonl, --parallel, --timeout, " +
-						"and --force-linux-path flags apply only to the binary flow; --poll-interval and --max-wait " +
-						"apply only to the sequence flow.",
+						"writes <dataset-id>.zip into the destination, and (unless --only-parquet is set) downloads " +
+						"each referenced binary blob to <destination>/binary_data/<binary_data_id><file_ext>. " +
+						"The --only-jsonl and --force-linux-path flags apply only to the binary flow; --poll-interval, " +
+						"--max-wait, and --only-parquet apply only to the sequence flow; --parallel and --timeout " +
+						"apply to both.",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      generalFlagDestination,
@@ -1933,6 +1935,10 @@ Note: There is no progress meter while copying is in progress.
 							Name:  datasetFlagMaxWait,
 							Usage: "for sequence datasets: max time to wait for the export to complete (default 30m)",
 							Value: 30 * time.Minute,
+						},
+						&cli.BoolFlag{
+							Name:  datasetFlagOnlyParquet,
+							Usage: "for sequence datasets: skip downloading the referenced binary blobs (only the parquet zip is written)",
 						},
 					},
 					Action: createActionCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
