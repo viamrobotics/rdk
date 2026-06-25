@@ -245,7 +245,9 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 		}
 	}
 
-	injectVS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*visionpkg.Object, error) {
+	injectVS.GetObjectPointCloudsFunc = func(
+		ctx context.Context, cameraName string, extra map[string]interface{},
+	) ([]*visionpkg.Object, error) {
 		return []*visionpkg.Object{obj}, nil
 	}
 
