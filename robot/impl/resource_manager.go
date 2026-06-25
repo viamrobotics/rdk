@@ -1177,10 +1177,6 @@ func (manager *resourceManager) processResource(
 	return newRes, nil
 }
 
-// addToBeConstructedResource adds a new, unconfigured graph node for a resource to the
-// resource graph. If a resource with the given name already exists in the resource graph,
-// the pre-existing resource is marked for removal, no new graph node is created, and an
-// error is returned.
 // equalUnordered reports whether two string slices contain the same elements,
 // ignoring order. A nil and an empty slice are considered equal.
 func equalUnordered(a, b []string) bool {
@@ -1194,6 +1190,10 @@ func equalUnordered(a, b []string) bool {
 	return slices.Equal(aSorted, bSorted)
 }
 
+// addToBeConstructedResource adds a new, unconfigured graph node for a resource to the
+// resource graph. If a resource with the given name already exists in the resource graph,
+// the pre-existing resource is marked for removal, no new graph node is created, and an
+// error is returned.
 func (manager *resourceManager) addToBeConstructedResource(
 	name resource.Name,
 	conf resource.Config,
