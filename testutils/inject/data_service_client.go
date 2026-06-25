@@ -68,6 +68,8 @@ type DataServiceClient struct {
 		opts ...grpc.CallOption) (*datapb.AddBinaryDataToDatasetByIDsResponse, error)
 	RemoveBinaryDataFromDatasetByIDsFunc func(ctx context.Context, in *datapb.RemoveBinaryDataFromDatasetByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.RemoveBinaryDataFromDatasetByIDsResponse, error)
+	CreateSequenceFunc func(ctx context.Context, in *datapb.CreateSequenceRequest,
+		opts ...grpc.CallOption) (*datapb.CreateSequenceResponse, error)
 }
 
 // TabularDataByFilter calls the injected TabularDataByFilter or the real version.
@@ -330,4 +332,14 @@ func (client *DataServiceClient) RemoveBinaryDataFromDatasetByIDs(ctx context.Co
 		return client.DataServiceClient.RemoveBinaryDataFromDatasetByIDs(ctx, in, opts...)
 	}
 	return client.RemoveBinaryDataFromDatasetByIDsFunc(ctx, in, opts...)
+}
+
+// CreateSequence calls the injected CreateSequence or the real version.
+func (client *DataServiceClient) CreateSequence(ctx context.Context, in *datapb.CreateSequenceRequest,
+	opts ...grpc.CallOption,
+) (*datapb.CreateSequenceResponse, error) {
+	if client.CreateSequenceFunc == nil {
+		return client.DataServiceClient.CreateSequence(ctx, in, opts...)
+	}
+	return client.CreateSequenceFunc(ctx, in, opts...)
 }

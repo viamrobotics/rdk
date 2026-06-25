@@ -465,6 +465,12 @@ type ListDataPipelineRunsPage struct {
 	nextPageToken string
 }
 
+// SequenceResourceFilter identifies the resource and method that produced data within a sequence.
+type SequenceResourceFilter struct {
+	ResourceName string
+	MethodName   string
+}
+
 func newDataClient(conn rpc.ClientConn) *DataClient {
 	dataClient := pb.NewDataServiceClient(conn)
 	syncClient := syncPb.NewDataSyncServiceClient(conn)
@@ -1577,6 +1583,35 @@ func (p *ListDataPipelineRunsPage) NextPage(ctx context.Context) (*ListDataPipel
 	}
 
 	return p.client.listDataPipelineRuns(ctx, p.pipelineID, p.pageSize, p.nextPageToken)
+}
+
+// CreateSequence creates a new sequence and returns its ID.
+func (d *DataClient) CreateSequence(
+	ctx context.Context,
+	partID string,
+	resources []SequenceResourceFilter,
+	tags []string,
+	startTime time.Time,
+	endTime time.Time,
+) (string, error) {
+	pbResources := make([]*pb.SequenceResourceFilter, len(resources))
+	for i, r := range resources {
+		pbResources[i] = &pb.SequenceResourceFilter{
+			ResourceName: r.ResourceName,
+			MethodName:   r.MethodName,
+		}
+	}
+	resp, err := d.dataClient.CreateSequence(ctx, &pb.CreateSequenceRequest{
+		PartId:       partID,
+		Resources:    pbResources,
+		SequenceTags: tags,
+		StartTime:    timestamppb.New(startTime),
+		EndTime:      timestamppb.New(endTime),
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Id, nil
 }
 
 func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {

@@ -906,6 +906,28 @@ func TestDataClient(t *testing.T) {
 		err := client.RemoveBinaryDataFromDatasetByIDs(context.Background(), binaryDataIDs, datasetID)
 		test.That(t, err, test.ShouldBeNil)
 	})
+
+	t.Run("CreateSequence", func(t *testing.T) {
+		expectedID := "sequence-id"
+		resources := []SequenceResourceFilter{
+			{ResourceName: componentName, MethodName: method},
+		}
+		grpcClient.CreateSequenceFunc = func(ctx context.Context, in *pb.CreateSequenceRequest,
+			opts ...grpc.CallOption,
+		) (*pb.CreateSequenceResponse, error) {
+			test.That(t, in.PartId, test.ShouldEqual, partID)
+			test.That(t, len(in.Resources), test.ShouldEqual, 1)
+			test.That(t, in.Resources[0].ResourceName, test.ShouldEqual, componentName)
+			test.That(t, in.Resources[0].MethodName, test.ShouldEqual, method)
+			test.That(t, in.SequenceTags, test.ShouldResemble, tags)
+			test.That(t, in.StartTime.AsTime(), test.ShouldEqual, start)
+			test.That(t, in.EndTime.AsTime(), test.ShouldEqual, end)
+			return &pb.CreateSequenceResponse{Id: expectedID}, nil
+		}
+		id, err := client.CreateSequence(context.Background(), partID, resources, tags, start, end)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, id, test.ShouldEqual, expectedID)
+	})
 }
 
 func TestDataSyncClient(t *testing.T) {
