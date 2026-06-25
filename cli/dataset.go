@@ -26,7 +26,7 @@ const (
 	datasetFlagForceLinuxPath = "force-linux-path"
 	datasetFlagPollInterval   = "poll-interval"
 	datasetFlagMaxWait        = "max-wait"
-	datasetFlagNoBinaryData   = "no-binary-data"
+	datasetFlagOnlyParquet    = "only-parquet"
 )
 
 type datasetCreateArgs struct {
@@ -212,7 +212,7 @@ type datasetDownloadArgs struct {
 	Timeout        uint
 	PollInterval   time.Duration
 	MaxWait        time.Duration
-	NoBinaryData   bool
+	OnlyParquet    bool
 }
 
 // DatasetDownloadAction is the corresponding action for 'dataset export'.
@@ -236,7 +236,7 @@ func DatasetDownloadAction(ctx context.Context, cmd *cli.Command, args datasetDo
 			maxWait = 30 * time.Minute
 		}
 		return client.downloadSequenceDataset(ctx, args.DatasetID, args.Destination,
-			pollInterval, maxWait, !args.NoBinaryData, args.Parallel, args.Timeout)
+			pollInterval, maxWait, !args.OnlyParquet, args.Parallel, args.Timeout)
 	}
 
 	return client.downloadDataset(ctx, args.Destination, args.DatasetID,
