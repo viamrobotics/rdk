@@ -41,7 +41,7 @@ func (e RequestLimitExceededError) Error() string {
 	return fmt.Sprintf(
 		"exceeded the shared concurrent-request limit of %v on resource %v. This limit is shared "+
 			"across all clients/modules (your client has %v in-flight requests). Check the viam-server "+
-			`logs for "Request limit exceeded" to find the offending client. See %v for troubleshooting steps`,
+			`logs for 'Request limit exceeded' to find the offending client. See %v for troubleshooting steps`,
 		e.limit, e.resource, e.numInFlightRequestsForClient, ReqLimitExceededURL)
 }
 

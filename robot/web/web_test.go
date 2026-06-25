@@ -1628,7 +1628,7 @@ func testResourceLimitsAndFTDC(
 		fmt.Sprintf(
 			"exceeded the shared concurrent-request limit of 1 on resource %v. This limit is shared "+
 				"across all clients/modules (your client has 1 in-flight requests). Check the viam-server "+
-				`logs for "Request limit exceeded" to find the offending client. See %v for troubleshooting steps`,
+				`logs for 'Request limit exceeded' to find the offending client. See %v for troubleshooting steps`,
 			keyPrefix,
 			ReqLimitExceededURL,
 		),
@@ -1845,7 +1845,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 			fmt.Sprintf(
 				"exceeded the shared concurrent-request limit of 1 on resource arm1.viam.component.arm.v1.ArmService. "+
 					"This limit is shared across all clients/modules (your client has 1 in-flight requests). Check "+
-					`the viam-server logs for "Request limit exceeded" to find the offending client. See %v for troubleshooting steps`,
+					`the viam-server logs for 'Request limit exceeded' to find the offending client. See %v for troubleshooting steps`,
 				ReqLimitExceededURL,
 			),
 		)
