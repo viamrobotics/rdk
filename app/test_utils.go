@@ -18,6 +18,7 @@ const (
 	host           = "host_name"
 	email          = "email"
 	datasetID      = "dataset_id"
+	sequenceID     = "sequence_id"
 	version        = "version"
 	modelType      = ModelTypeObjectDetection
 	itemID         = "item_id"
