@@ -197,6 +197,68 @@ func makeRPCServer(logger logging.Logger, option rpc.ServerOption) (rpc.Server, 
 	return nil, nil, err
 }
 
+// TestReExportedDialOptions verifies that a machine connection can be established using
+// only the client dial options re-exported by this package (see dial_options.go), without
+// importing go.viam.com/utils/rpc directly. This is the surface SDK users rely on, so
+// exercise it end-to-end against an authenticated server.
+func TestReExportedDialOptions(t *testing.T) {
+	const (
+		apiKeyID = "some-key-id"
+		apiKey   = "some-key-payload"
+	)
+
+	logger := logging.NewTestLogger(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Stand up a server that requires API-key credentials. Note that the re-exported
+	// CredentialsTypeAPIKey (a type alias) is accepted directly by the goutils server
+	// option, demonstrating the alias interops both ways.
+	rpcServer, listener, err := makeRPCServer(logger,
+		rpc.WithAuthHandler(CredentialsTypeAPIKey, rpc.MakeSimpleAuthHandler([]string{apiKeyID}, apiKey)))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
+	}()
+
+	err = rpcServer.RegisterServiceServer(
+		ctx,
+		&pb.RobotService_ServiceDesc,
+		&mockRPCSubtypesImplemented{ResourceNamesFunc: resourceFunc1},
+		pb.RegisterRobotServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	go func() {
+		test.That(t, rpcServer.Serve(listener), test.ShouldBeNil)
+	}()
+
+	addr := listener.Addr().String()
+
+	// Without credentials, the server rejects the connection.
+	_, err = New(ctx, addr, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+	// Connect using only the re-exported dial options. These resolve to the underlying
+	// goutils rpc implementation but are referenced through this package's own API.
+	machine, err := New(ctx, addr, logger, WithDialOptions(
+		WithAllowInsecureWithCredentialsDowngrade(),
+		WithForceDirectGRPC(),
+		WithEntityCredentials(apiKeyID, Credentials{
+			Type:    CredentialsTypeAPIKey,
+			Payload: apiKey,
+		}),
+	))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, machine.Close(ctx), test.ShouldBeNil)
+	}()
+
+	test.That(t, machine.Connected(), test.ShouldBeTrue)
+	test.That(t, machine.ResourceNames(), test.ShouldResemble, []resource.Name{board.Named("board1")})
+}
+
 func TestUnimplementedRPCSubtypes(t *testing.T) {
 	var client1 *RobotClient // test implemented
 	var client2 *RobotClient // test unimplemented
