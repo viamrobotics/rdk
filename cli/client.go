@@ -4479,7 +4479,7 @@ func isRunningBrewBinary() (bool, error) {
 // tryBrewUpgrade attempts a Homebrew upgrade of viam. It should only be called after
 // confirming the running binary is brew-managed via isRunningBrewBinary. upgraded reports
 // whether brew installed a newer version (false means viam was already at the tap's latest).
-func tryBrewUpgrade() (upgraded bool, err error) {
+func tryBrewUpgrade() (bool, error) {
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {
 		return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
