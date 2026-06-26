@@ -633,6 +633,11 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 
 	// Build the base proto config pieces that remain constant across updates.
+	// Note: AppAddress and RefreshInterval are deliberately NOT set here.
+	// pb.CloudConfig (and thus CloudConfigToProto) does not carry them — they are
+	// local bootstrap-only fields. They are set directly on baseConfigNonProto
+	// below so the in-process server can reach the fake cloud and poll at the
+	// expected cadence.
 	cloudConfProto, err := config.CloudConfigToProto(&config.Cloud{
 		ID:                deviceID,
 		Secret:            configtestutils.FakeCredentialPayLoad,
@@ -678,17 +683,6 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	debugFalse := false
 	baseConfig.Debug = &debugFalse
 
-	// Write a minimal config file with only the cloud section. RunServer will
-	// read this, connect to the fake cloud, and fetch the full config.
-	// shorten the refresh interval to make the test run faster
-	refreshInterval := 1 * time.Second
-	cfgFile := filepath.Join(t.TempDir(), "cloud_config.json")
-	cfgJSON := fmt.Sprintf(
-		`{"cloud":{"id":%q,"app_address":%q,"secret":%q,"signaling_insecure":true,"refresh_interval":"%s"}}`,
-		deviceID, appAddress, configtestutils.FakeCredentialPayLoad, refreshInterval,
-	)
-	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
-
 	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -704,6 +698,15 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 
 	baseConfigNonProto, err := config.FromProto(baseConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	// AppAddress and RefreshInterval are local bootstrap-only cloud fields that do
+	// not round-trip through pb.CloudConfig, so set them on the config the server
+	// actually boots from. Without AppAddress the server cannot reach the fake
+	// cloud to fetch its config.
+	baseConfigNonProto.Cloud.AppAddress = appAddress
+	// shorten the refresh interval to make the test run faster
+	refreshInterval := 1 * time.Second
+	baseConfigNonProto.Cloud.RefreshInterval = refreshInterval
 
 	rc, stopServer := serverutils.TryStartServerAndConnect(
 		t,

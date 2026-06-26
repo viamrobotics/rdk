@@ -87,6 +87,7 @@ func tryStartServerAndConnectInner(
 
 	cfgBytes, err := json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
+	//nolint:gosec
 	test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	serverCtx, serverCancel := context.WithCancel(ctx)
