@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/rdk/testutils/robottestutils/serverutils"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web/server"
 )
@@ -475,7 +476,7 @@ func TestTunnelE2E(t *testing.T) {
 			},
 		},
 	}
-	rc, stopServer := robottestutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
+	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 		// stopServer will be called toward the end of the test so we can wait on the
@@ -704,7 +705,7 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	baseConfigNonProto, err := config.FromProto(baseConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	rc, stopServer := robottestutils.TryStartServerAndConnect(
+	rc, stopServer := serverutils.TryStartServerAndConnect(
 		t,
 		ctx,
 		baseConfigNonProto,

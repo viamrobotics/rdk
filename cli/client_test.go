@@ -48,6 +48,7 @@ import (
 	shelltestutils "go.viam.com/rdk/services/shell/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/rdk/testutils/robottestutils/serverutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -1679,7 +1680,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 			},
 		},
 	}
-	rc, stopServer := robottestutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
+	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 		// stopServer will be called toward the end of the test so we can wait on the

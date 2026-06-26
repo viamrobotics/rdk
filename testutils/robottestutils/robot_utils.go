@@ -9,14 +9,11 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"strconv"
-	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
-	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
@@ -26,7 +23,6 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/web/server"
 )
 
 // CreateBaseOptionsAndListener creates a new web options with random port as listener.
@@ -191,120 +187,4 @@ func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	}
 
 	return false
-}
-
-// TryStartServerAndConnect attempts to start an in-process viam-server and
-// connect a robot client to it, racing the connection against the server
-// exiting early (e.g. from a bind-address conflict) so failures are detected
-// promptly rather than hanging until a package-wide test timeout fires.
-//
-// startServer is launched in a goroutine; it receives a cancelable context and
-// a buffered error channel, and must run server.RunServer (or equivalent) and
-// send its return value to errC.
-//
-// On success TryStartServerAndConnect returns (rc, stop) where stop() cancels
-// the server context, waits for the server goroutine to exit, and returns the
-// RunServer error. On failure it returns (nil, nil).
-//
-// connectOpts are appended to the default refresh/reconnect options passed to
-// client.New. The connection attempt is bounded by a 30-second timeout.
-//
-// The entire sequence is attempted up to 3 times before declaring failure.
-func TryStartServerAndConnect(
-	t *testing.T,
-	ctx context.Context,
-	cfg *config.Config,
-	logger logging.Logger,
-	extraViamServerFlags []string,
-	connectOpts ...client.RobotClientOption,
-) (*client.RobotClient, func() error) {
-	t.Helper()
-	for attempt := 1; attempt <= 3; attempt++ {
-		rc, stop := tryStartServerAndConnectInner(t, ctx, cfg, logger, extraViamServerFlags, connectOpts...)
-		if rc != nil {
-			return rc, stop
-		}
-	}
-	return nil, nil
-}
-
-func tryStartServerAndConnectInner(
-	t *testing.T,
-	ctx context.Context,
-	cfg *config.Config,
-	logger logging.Logger,
-	extraViamServerFlags []string,
-	connectOpts ...client.RobotClientOption,
-) (*client.RobotClient, func() error) {
-	t.Helper()
-
-	machineAddr := cfg.Network.BindAddress
-	if machineAddr != "" {
-		machinePort, err := goutils.TryReserveRandomPort()
-		test.That(t, err, test.ShouldBeNil)
-		machineAddr = net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
-		cfg.Network.BindAddress = machineAddr
-	}
-
-	tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-	test.That(t, err, test.ShouldBeNil)
-	tempConfigFileName := tempConfigFile.Name()
-	test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-	cfgBytes, err := json.Marshal(&cfg)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
-
-	serverCtx, serverCancel := context.WithCancel(ctx)
-	serverErrC := make(chan error, 1)
-	var serverWg sync.WaitGroup
-	serverWg.Add(1)
-	go func() {
-		defer serverWg.Done()
-		args := append([]string{"viam-server", "-config", tempConfigFileName}, extraViamServerFlags...)
-		serverErrC <- server.RunServer(serverCtx, args, logger)
-	}()
-
-	type connectOutcome struct {
-		rc  *client.RobotClient
-		err error
-	}
-
-	connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
-	defer connectCancel()
-	connectC := make(chan connectOutcome, 1)
-	go func() {
-		defaultOpts := []client.RobotClientOption{
-			client.WithRefreshEvery(time.Second),
-			client.WithCheckConnectedEvery(5 * time.Second),
-			client.WithReconnectEvery(time.Second),
-		}
-		candidate, connErr := client.New(
-			connectCtx, machineAddr, logger,
-			append(defaultOpts, connectOpts...)...,
-		)
-		connectC <- connectOutcome{candidate, connErr}
-	}()
-
-	select {
-	case outcome := <-connectC:
-		if outcome.err == nil {
-			stop := func() error {
-				serverCancel()
-				serverWg.Wait()
-				return <-serverErrC
-			}
-			return outcome.rc, stop
-		}
-		logger.Infow("failed to connect to in-process viam-server; retrying on a new port", "err", outcome.err)
-	case rsErr := <-serverErrC:
-		logger.Infow("in-process viam-server exited before becoming reachable; retrying on a new port", "err", rsErr)
-		// Unblock and wait for the in-flight connection attempt so it doesn't linger.
-		connectCancel()
-		<-connectC
-	}
-
-	serverCancel()
-	serverWg.Wait()
-	return nil, nil
 }
