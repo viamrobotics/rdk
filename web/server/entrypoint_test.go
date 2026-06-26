@@ -459,46 +459,27 @@ func TestTunnelE2E(t *testing.T) {
 	}()
 
 	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
-	startServerAndConnect := func(_ int) (*client.RobotClient, func() error) {
-		machinePort, err := goutils.TryReserveRandomPort()
-		test.That(t, err, test.ShouldBeNil)
-		machineAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
-
-		return robottestutils.TryStartServerAndConnect(t, ctx, logger, machineAddr,
-			func(serverCtx context.Context, errC chan<- error) {
-				tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-				test.That(t, err, test.ShouldBeNil)
-				tempConfigFileName := tempConfigFile.Name()
-				test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-				cfg := &config.Config{
-					Network: config.NetworkConfig{
-						NetworkConfigData: config.NetworkConfigData{
-							TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
-								{
-									Port: destPort, // allow tunneling to destination port
-								},
-								{
-									Port: timeoutDestPort, // allow tunneling to 65534
-									// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
-									ConnectionTimeout: -time.Nanosecond,
-								},
-							},
-							BindAddress: machineAddr,
-						},
+	cfg := &config.Config{
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+					{
+						Port: destPort, // allow tunneling to destination port
 					},
-				}
-				cfgBytes, err := json.Marshal(&cfg)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
-
-				args := []string{"viam-server", "-config", tempConfigFileName}
-				errC <- server.RunServer(serverCtx, args, logger)
-			})
+					{
+						Port: timeoutDestPort, // allow tunneling to 65534
+						// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
+						ConnectionTimeout: -time.Nanosecond,
+					},
+				},
+			},
+		},
 	}
-	rc, stopServer := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
+	rc, stopServer := robottestutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		// stopServer will be called toward the end of the test so we can wait on the
+		// background tunnel workers correctly.
 	})
 
 	// Test error paths for `Tunnel` with random `net.Conn`s.
@@ -708,38 +689,40 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
 
 	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
-	startServerAndConnect := func(_ int) (*client.RobotClient, func() error) {
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		test.That(t, err, test.ShouldBeNil)
-		machineAddress := listener.Addr().String()
-		test.That(t, listener.Close(), test.ShouldBeNil)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	machineAddress := listener.Addr().String()
+	test.That(t, listener.Close(), test.ShouldBeNil)
 
-		networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
-			NetworkConfigData: config.NetworkConfigData{BindAddress: machineAddress},
-		})
-		test.That(t, err, test.ShouldBeNil)
-		baseConfig.Network = networkProto
-		storeCloudConfig(baseConfig)
+	networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
+		NetworkConfigData: config.NetworkConfigData{BindAddress: machineAddress},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	baseConfig.Network = networkProto
+	storeCloudConfig(baseConfig)
 
-		// Cloud-configured servers require location-secret auth. Use -no-tls
-		// since the fake cloud returns empty TLS certs.
-		return robottestutils.TryStartServerAndConnect(t, ctx, logger, machineAddress,
-			func(serverCtx context.Context, errC chan<- error) {
-				args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
-				errC <- server.RunServer(serverCtx, args, logger)
-			},
-			client.WithDialOptions(
-				rpc.WithEntityCredentials("woo", rpc.Credentials{
-					Type:    utils.CredentialsTypeRobotLocationSecret,
-					Payload: "secret",
-				}),
-				rpc.WithAllowInsecureWithCredentialsDowngrade(),
-			),
-		)
-	}
-	rc, stopServer := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
+	baseConfigNonProto, err := config.FromProto(baseConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	rc, stopServer := robottestutils.TryStartServerAndConnect(
+		t,
+		ctx,
+		baseConfigNonProto,
+		logger,
+		// Cloud-configured servers require location-secret auth. Use -no-tls as an extra
+		// viam-server flag since the fake cloud returns empty TLS certs.
+		[]string{"-no-tls"},
+		client.WithDialOptions(
+			rpc.WithEntityCredentials("woo", rpc.Credentials{
+				Type:    utils.CredentialsTypeRobotLocationSecret,
+				Payload: "secret",
+			}),
+			rpc.WithAllowInsecureWithCredentialsDowngrade(),
+		),
+	)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		test.That(t, stopServer(), test.ShouldBeNil)
 	})
 
 	// helper function that waits longer than the specified refreshInterval
@@ -815,5 +798,4 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	cancel()
-	test.That(t, stopServer(), test.ShouldBeNil)
 }

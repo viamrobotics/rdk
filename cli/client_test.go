@@ -49,7 +49,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/web/server"
 )
 
 var (
@@ -1669,44 +1668,22 @@ func TestTunnelE2ECLI(t *testing.T) {
 	}()
 
 	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
-	startServerAndConnect := func(_ int) (*client.RobotClient, func() error) {
-		machinePort, err := goutils.TryReserveRandomPort()
-		test.That(t, err, test.ShouldBeNil)
-		machineAddr := net.JoinHostPort("localhost", strconv.Itoa(machinePort))
-
-		return robottestutils.TryStartServerAndConnect(t, ctx, logger, machineAddr,
-			func(serverCtx context.Context, errC chan<- error) {
-				// Create a temporary config file.
-				tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-				test.That(t, err, test.ShouldBeNil)
-				// we only use the filename, not the file handle in this test. Close immediately, instead of relying on GC.
-				// On Windows we otherwise may get:
-				// "The process cannot access the file because it is being used by another process."
-				test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-				cfg := &robotconfig.Config{
-					Network: robotconfig.NetworkConfig{
-						NetworkConfigData: robotconfig.NetworkConfigData{
-							TrafficTunnelEndpoints: []robotconfig.TrafficTunnelEndpoint{
-								{
-									Port: destPort, // allow tunneling to destination port
-								},
-							},
-							BindAddress: machineAddr,
-						},
+	cfg := &robotconfig.Config{
+		Network: robotconfig.NetworkConfig{
+			NetworkConfigData: robotconfig.NetworkConfigData{
+				TrafficTunnelEndpoints: []robotconfig.TrafficTunnelEndpoint{
+					{
+						Port: destPort, // allow tunneling to destination port
 					},
-				}
-				cfgBytes, err := json.Marshal(&cfg)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
-
-				args := []string{"viam-server", "-config", tempConfigFile.Name()}
-				errC <- server.RunServer(serverCtx, args, logger)
-			})
+				},
+			},
+		},
 	}
-	rc, stopServer := robottestutils.StartServerWithRetry(t, 5, startServerAndConnect)
+	rc, stopServer := robottestutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		// stopServer will be called toward the end of the test so we can wait on the
+		// background tunnel workers correctly.
 	})
 
 	// Start CLI tunneler.
