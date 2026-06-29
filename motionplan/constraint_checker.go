@@ -500,7 +500,7 @@ func NewCollisionConstraintFS(
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
-		internalGeometries, err := state.MovingGeometries(movingFrameNames)
+		internalGeometries, err := state.movingGeometriesFor(movingFrameNames)
 		if err != nil {
 			return 0, err
 		}
