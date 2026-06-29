@@ -967,54 +967,35 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 
 // FrameSystemGeometriesForFrames computes geometries-in-world for the frames named in `wanted`.
 // When `wanted` is nil, every frame in `fs` is included — that is the form preferred for hot
-// paths that need the full set. Caller is responsible for ensuring `wanted` contains every frame
-// that contributes a geometry which the caller cares about — frames not in the set will not
-// appear in the returned map.
+// paths that need the full set.
 func FrameSystemGeometriesForFrames(
 	fs *FrameSystem, linearInputs *LinearInputs, wanted map[string]bool,
 ) (map[string]*GeometriesInFrame, error) {
 	var errAll error
-	var allFrameNames []string
-	capacity := len(wanted)
-	if wanted == nil {
-		allFrameNames = fs.FrameNames()
-		capacity = len(allFrameNames)
-	}
-	allGeometries := make(map[string]*GeometriesInFrame, capacity)
-
-	visit := func(name string) {
-		frame := fs.Frame(name)
-		if frame == nil {
-			errAll = multierr.Append(errAll, NewFrameMissingError(name))
-			return
+	allFrameNames := fs.FrameNames()
+	allGeometries := make(map[string]*GeometriesInFrame, len(allFrameNames))
+	for _, name := range allFrameNames {
+		if wanted != nil && !wanted[name] {
+			continue
 		}
+		frame := fs.Frame(name)
 		inputs, err := linearInputs.GetFrameInputs(frame)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
-			return
+			continue
 		}
 		geosInFrame, err := frame.Geometries(inputs)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
-			return
+			continue
 		}
 		if len(geosInFrame.Geometries()) > 0 {
 			transformed, err := fs.Transform(linearInputs, geosInFrame, World)
 			if err != nil {
 				errAll = multierr.Append(errAll, err)
-				return
+				continue
 			}
 			allGeometries[name] = transformed.(*GeometriesInFrame)
-		}
-	}
-
-	if allFrameNames != nil {
-		for _, name := range allFrameNames {
-			visit(name)
-		}
-	} else {
-		for name := range wanted {
-			visit(name)
 		}
 	}
 	return allGeometries, errAll
