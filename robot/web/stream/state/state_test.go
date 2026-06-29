@@ -548,7 +548,10 @@ func TestStreamState(t *testing.T) {
 					"timed out waiting for gostream start to be called on stream which terminated unexpectedly",
 					test.ShouldBeFalse)
 			}
-			if subscribeRTPCount.Load() == 2 {
+			// Wait on startCount, which is the last operation in this sequence. SubscribeRTP()
+			// increments subscribeRTPCount before returning the error that triggers Stream.Start();
+			// waiting on subscribeRTPCount instead would race against the subsequent Start() call.
+			if startCount.Load() == 1 {
 				break
 			}
 			time.Sleep(time.Millisecond * 50)
