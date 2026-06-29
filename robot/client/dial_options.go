@@ -16,6 +16,8 @@ import (
 type DialOption = rpc.DialOption
 
 // ClientConn is an established client connection to a gRPC server.
+//
+//nolint:revive
 type ClientConn = rpc.ClientConn
 
 // Credentials packages up both a type of credential along with its payload which
