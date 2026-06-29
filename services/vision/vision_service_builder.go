@@ -47,7 +47,7 @@ func NewService(
 			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name)
 	}
 
-	p := Properties{false, false, false}
+	p := Properties{false, false, false, nil}
 	if cf != nil {
 		p.ClassificationSupported = true
 	}
@@ -56,6 +56,9 @@ func NewService(
 	}
 	if s3f != nil {
 		p.ObjectPCDsSupported = true
+	}
+	if defaultCamera != "" {
+		p.DefaultCamera = &defaultCamera
 	}
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
@@ -91,7 +94,7 @@ func DeprecatedNewService(
 			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name)
 	}
 
-	p := Properties{false, false, false}
+	p := Properties{false, false, false, nil}
 	if cf != nil {
 		p.ClassificationSupported = true
 	}
@@ -100,6 +103,9 @@ func DeprecatedNewService(
 	}
 	if s3f != nil {
 		p.ObjectPCDsSupported = true
+	}
+	if defaultCamera != "" {
+		p.DefaultCamera = &defaultCamera
 	}
 
 	logger := r.Logger()
