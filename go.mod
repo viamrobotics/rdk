@@ -102,7 +102,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.565
+	go.viam.com/api v0.1.566
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.6.6
 	goji.io v2.0.2+incompatible
@@ -355,5 +355,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )
-
-replace go.viam.com/api => github.com/viamrobotics/api v0.1.564-0.20260623150732-fab349455f38 // gmulitz-start-source-upload-build

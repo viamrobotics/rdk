@@ -1052,8 +1052,6 @@ github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a h1:qk5MX36oytF
 github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a/go.mod h1:MwPm+Hpd8PZRx+jkOVLGxqHl/bN+Hcsw0dD7ntSpLy0=
 github.com/viam-labs/motion-tools v1.9.0 h1:oUcxVMdrwVS7PXkWVYsUJOXkh0aTydmFlK/rciFcGxw=
 github.com/viam-labs/motion-tools v1.9.0/go.mod h1:unpRaVV4ETuJVoHa/3pzknoTnxqjSpfUMewE1vU27BA=
-github.com/viamrobotics/api v0.1.564-0.20260623150732-fab349455f38 h1:AWc25UzlVNxRs3Ni3dgwDpO+xnG5/U4AtwqmW3oYtaE=
-github.com/viamrobotics/api v0.1.564-0.20260623150732-fab349455f38/go.mod h1:nVe4WXrtc8aupJ8OWXSYx6KhCiOkr3VCbkwxD4D41xQ=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=
@@ -1160,6 +1158,8 @@ go.uber.org/zap v1.13.0/go.mod h1:zwrFLgMcdUuIBviXEYEH1YKNaOBnKXsx2IPda5bBwHM=
 go.uber.org/zap v1.18.1/go.mod h1:xg/QME4nWcxGxrpdeYfq7UvYrLh66cuVKdrbD1XF/NI=
 go.uber.org/zap v1.27.0 h1:aJMhYGrd5QSmlpLMr2MftRKl7t8J8PTZPA732ud/XR8=
 go.uber.org/zap v1.27.0/go.mod h1:GB2qFLM7cTU87MWRP2mPIjqfIDnGu+VIO4V/SdhGo2E=
+go.viam.com/api v0.1.566 h1:o5nWDj6at04Y8nHGC7mZQDA6NIuGdPpwqhNLY+LQtfs=
+go.viam.com/api v0.1.566/go.mod h1:nVe4WXrtc8aupJ8OWXSYx6KhCiOkr3VCbkwxD4D41xQ=
 go.viam.com/test v1.2.4 h1:JYgZhsuGAQ8sL9jWkziAXN9VJJiKbjoi9BsO33TW3ug=
 go.viam.com/test v1.2.4/go.mod h1:zI2xzosHdqXAJ/kFqcN+OIF78kQuTV2nIhGZ8EzvaJI=
 go.viam.com/utils v0.6.6 h1:1R+SpKz1McCAIC0JshgkfHy+uDu4okNmDq/AYl9m8iE=
