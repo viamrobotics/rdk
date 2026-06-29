@@ -79,7 +79,7 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 	urdf := &collision{
 		Origin: newPose(g.Pose()),
 	}
-	//nolint:exhaustive
+
 	switch cfg.Type {
 	case spatialmath.BoxType:
 		urdf.Geometry.Box = &box{Size: fmt.Sprintf("%f %f %f", utils.MMToMeters(cfg.X), utils.MMToMeters(cfg.Y), utils.MMToMeters(cfg.Z))}
