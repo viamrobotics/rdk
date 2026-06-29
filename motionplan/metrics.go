@@ -63,21 +63,6 @@ func (s *StateFS) Geometries() (map[string]*referenceframe.GeometriesInFrame, er
 	return s.geometries, nil
 }
 
-// movingGeometriesFor returns geometries (in world frame) for only the frames whose name is in
-// `wanted`, and caches the result. Assumes all callers within a single StateFS lifetime
-// pass the same `wanted` set — which holds inside the collision-constraint pipeline since
-// every constraint constructed in CreateAllCollisionConstraints uses the same movingLabels.
-func (s *StateFS) movingGeometriesFor(wanted map[string]bool) (map[string]*referenceframe.GeometriesInFrame, error) {
-	if s.movingGeometries == nil {
-		g, err := referenceframe.FrameSystemGeometriesForFrames(s.FS, s.Configuration, wanted)
-		if err != nil {
-			return nil, err
-		}
-		s.movingGeometries = g
-	}
-	return s.movingGeometries, nil
-}
-
 // Poses get poses and cache
 func (s *StateFS) Poses() (referenceframe.FrameSystemPoses, error) {
 	if s.poses == nil {

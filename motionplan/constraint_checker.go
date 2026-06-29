@@ -500,13 +500,20 @@ func NewCollisionConstraintFS(
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
-		internalGeometries, err := state.movingGeometriesFor(movingFrameNames)
-		if err != nil {
-			return 0, err
+		// state.movingGeometries is shared across the three collision constraints
+		// (obstacle / robot-vs-robot / self-collision); whichever runs first for
+		// this state populates it, the others hit the cache. Safe because all
+		// three closures captured the same movingFrameNames.
+		if state.movingGeometries == nil {
+			g, err := referenceframe.FrameSystemGeometriesForFrames(state.FS, state.Configuration, movingFrameNames)
+			if err != nil {
+				return 0, err
+			}
+			state.movingGeometries = g
 		}
 
 		var internalGeoms []spatialmath.Geometry
-		for _, geosInFrame := range internalGeometries {
+		for _, geosInFrame := range state.movingGeometries {
 			internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
 		}
 
