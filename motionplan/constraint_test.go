@@ -707,4 +707,3 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 		_, _ = handler.CheckStateFSConstraints(context.Background(), stateFS)
 	}
 }
-
