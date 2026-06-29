@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -808,11 +809,32 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
-						if _, _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+						implicitDeps, implicitOptionalDeps, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf)
+						if err != nil {
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
+							return
+						}
+
+						// If the freshly-validated implicit dependencies differ from the set the node
+						// was configured with, the node's dependency edges are stale. This happens when
+						// ResolveImplicitDependencies hit a transient Validate error (e.g. a
+						// DeadlineExceeded timeout) and dropped the dependencies, but Validate now
+						// succeeds. Re-apply the dependencies and defer the build by one pass so they
+						// get resolved into graph edges first; building now would construct the resource
+						// with an incomplete dependency set (e.g. a missing camera dependency).
+						if !equalUnordered(implicitDeps, conf.ImplicitDependsOn) ||
+							!equalUnordered(implicitOptionalDeps, conf.ImplicitOptionalDependsOn) {
+							manager.logger.CInfow(ctx,
+								"modular resource implicit dependencies changed since last validation; re-resolving before building",
+								"resource", conf.ResourceName(), "model", conf.Model,
+								"old", conf.ImplicitDependsOn, "new", implicitDeps)
+							conf.ImplicitDependsOn = implicitDeps
+							conf.ImplicitOptionalDependsOn = implicitOptionalDeps
+							gNode.SetNewConfig(conf, conf.Dependencies())
+							lr.sendTriggerConfig("modular dependency re-resolution")
 							return
 						}
 					}
@@ -1153,6 +1175,19 @@ func (manager *resourceManager) processResource(
 		return nil, err
 	}
 	return newRes, nil
+}
+
+// equalUnordered reports whether two string slices contain the same elements,
+// ignoring order. A nil and an empty slice are considered equal.
+func equalUnordered(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aSorted := slices.Clone(a)
+	bSorted := slices.Clone(b)
+	slices.Sort(aSorted)
+	slices.Sort(bSorted)
+	return slices.Equal(aSorted, bSorted)
 }
 
 // addToBeConstructedResource adds a new, unconfigured graph node for a resource to the
