@@ -1102,6 +1102,7 @@ type downloadModuleFlags struct {
 	OrgID       string
 	Version     string
 	Platform    string
+	List        bool
 }
 
 func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadModuleFlags) (string, error) {
@@ -1119,6 +1120,26 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 	if err != nil {
 		return "", err
 	}
+
+	if flags.List {
+		if len(res.Module.Versions) == 0 {
+			printf(cmd.Root().Writer, "module %s has no uploaded versions", moduleID)
+			return "", nil
+		}
+		for _, ver := range res.Module.Versions {
+			platforms := make([]string, 0, len(ver.Files))
+			for _, file := range ver.Files {
+				entry := file.Platform
+				if file.UploadedAt != nil {
+					entry = fmt.Sprintf("%s (%s)", entry, file.UploadedAt.AsTime().Format("2006-01-02"))
+				}
+				platforms = append(platforms, entry)
+			}
+			printf(cmd.Root().Writer, "%s\t%s", ver.Version, strings.Join(platforms, ", "))
+		}
+		return "", nil
+	}
+
 	requestedVersion := flags.Version
 	platform := flags.Platform
 
