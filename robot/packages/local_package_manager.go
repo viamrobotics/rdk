@@ -33,8 +33,9 @@ type localManager struct {
 	packagesDataDir string
 
 	// managedModules tracks the modules this manager knows about.
-	managedModules managedModuleMap
-	mu             sync.RWMutex
+	managedModules  managedModuleMap
+	packageStatuses map[PackageName]*PackageStatus
+	mu              sync.RWMutex
 
 	logger logging.Logger
 }
@@ -57,6 +58,7 @@ func NewLocalManager(packagesParentDir string, logger logging.Logger) (ManagerSy
 	return &localManager{
 		Named:           InternalServiceName.AsNamed(),
 		managedModules:  make(managedModuleMap),
+		packageStatuses: make(map[PackageName]*PackageStatus),
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
 		logger:          logger,
@@ -176,16 +178,19 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			continue
 		}
 
+		m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateDownloading, "")
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Warnf("Failed installing tarball package. Skipping module. Module: %s Path: %s Err: %s",
 				mod.Name, mod.ExePath, err)
+			m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateFailed, err.Error())
 			outErr = multierr.Append(outErr, fmt.Errorf("failed copying package %s from %s: %w",
 				mod.Name, mod.ExePath, err))
 			continue
 		}
 
 		// add to managed packages
+		m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateDownloaded, "")
 		existing[mod.Name] = &managedModule{module: mod}
 
 		m.logger.Debugf("Local package sync complete [%d/%d] %s after %v", idx+1, len(changed), mod.Name, time.Since(pkgStart))
@@ -221,6 +226,40 @@ func (m *localManager) Cleanup(ctx context.Context) error {
 	}
 
 	return commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
+}
+
+// PackageStatuses returns a snapshot of the current status for all managed local packages.
+func (m *localManager) PackageStatuses() []PackageStatus {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	statuses := make([]PackageStatus, 0, len(m.packageStatuses))
+	for _, s := range m.packageStatuses {
+		statuses = append(statuses, *s)
+	}
+	return statuses
+}
+
+// SetPackageState updates the in-memory state for the named package.
+func (m *localManager) SetPackageState(name PackageName, state PackageState, errMsg string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if s, ok := m.packageStatuses[name]; ok {
+		s.State = state
+		s.Error = errMsg
+		s.LastUpdated = time.Now()
+	}
+}
+
+// setPackageStatusLocked sets the full status entry for a package. Must be called with m.mu held (write).
+func (m *localManager) setPackageStatusLocked(name PackageName, p config.PackageConfig, state PackageState, errMsg string) {
+	m.packageStatuses[name] = &PackageStatus{
+		Name:        p.Name,
+		Type:        p.Type,
+		State:       state,
+		Error:       errMsg,
+		LastUpdated: time.Now(),
+		Version:     p.Version,
+	}
 }
 
 // newerOrMissing takes two file paths. It returns true if src path is newer than dest, or if dest is missing.
