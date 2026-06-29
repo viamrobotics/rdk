@@ -196,6 +196,18 @@ func (rc *RobotClient) notConnectedToRemoteError() error {
 	return fmt.Errorf("not connected to remote robot at %s", rc.address)
 }
 
+func isResourceExhaustedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	for _, e := range multierr.Errors(err) {
+		if status.Code(e) == codes.ResourceExhausted {
+			return true
+		}
+	}
+	return false
+}
+
 func (rc *RobotClient) handleUnaryDisconnect(
 	ctx context.Context,
 	method string,
@@ -673,7 +685,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				err := check()
 				if err != nil {
 					outerError = err
-					if isDisconnectedError(err) {
+					// A disconnect is terminal for this cycle, and immediately retrying a
+					// rate-limited request would only add load, so stop early in both cases.
+					if isDisconnectedError(err) || isResourceExhaustedError(err) {
 						break
 					}
 					// otherwise retry
@@ -683,6 +697,20 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				break
 			}
 			if outerError != nil {
+				if isResourceExhaustedError(outerError) {
+					// The remote is reachable but is rate-limiting our health-check requests.
+					// The connection itself is healthy, so do not mark the client disconnected.
+					// Doing so would mask the rate limit as a "not connected to remote robot"
+					// error and cause needless reconnect churn. ResourceExhausted will surface
+					// to callers making requests.
+					rc.Logger().CInfow(ctx,
+						"connection health checks to remote are failing due to a request rate limit, "+
+							"likely caused by a different client or module; leaving connection up",
+						"error", outerError,
+						"address", rc.address,
+					)
+					continue
+				}
 				rc.Logger().CErrorw(ctx,
 					"lost connection to remote",
 					"error", outerError,

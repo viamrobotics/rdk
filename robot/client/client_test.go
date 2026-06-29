@@ -19,6 +19,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	commonpb "go.viam.com/api/common/v1"
@@ -196,6 +197,68 @@ func makeRPCServer(logger logging.Logger, option rpc.ServerOption) (rpc.Server, 
 		return server, listener, nil
 	}
 	return nil, nil, err
+}
+
+// TestReExportedDialOptions verifies that a machine connection can be established using
+// only the client dial options re-exported by this package (see dial_options.go), without
+// importing go.viam.com/utils/rpc directly. This is the surface SDK users rely on, so
+// exercise it end-to-end against an authenticated server.
+func TestReExportedDialOptions(t *testing.T) {
+	const (
+		apiKeyID = "some-key-id"
+		apiKey   = "some-key-payload"
+	)
+
+	logger := logging.NewTestLogger(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Stand up a server that requires API-key credentials. Note that the re-exported
+	// CredentialsTypeAPIKey (a type alias) is accepted directly by the goutils server
+	// option, demonstrating the alias interops both ways.
+	rpcServer, listener, err := makeRPCServer(logger,
+		rpc.WithAuthHandler(CredentialsTypeAPIKey, rpc.MakeSimpleAuthHandler([]string{apiKeyID}, apiKey)))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
+	}()
+
+	err = rpcServer.RegisterServiceServer(
+		ctx,
+		&pb.RobotService_ServiceDesc,
+		&mockRPCSubtypesImplemented{ResourceNamesFunc: resourceFunc1},
+		pb.RegisterRobotServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	go func() {
+		test.That(t, rpcServer.Serve(listener), test.ShouldBeNil)
+	}()
+
+	addr := listener.Addr().String()
+
+	// Without credentials, the server rejects the connection.
+	_, err = New(ctx, addr, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+	// Connect using only the re-exported dial options. These resolve to the underlying
+	// goutils rpc implementation but are referenced through this package's own API.
+	machine, err := New(ctx, addr, logger, WithDialOptions(
+		WithAllowInsecureWithCredentialsDowngrade(),
+		WithForceDirectGRPC(),
+		WithEntityCredentials(apiKeyID, Credentials{
+			Type:    CredentialsTypeAPIKey,
+			Payload: apiKey,
+		}),
+	))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, machine.Close(ctx), test.ShouldBeNil)
+	}()
+
+	test.That(t, machine.Connected(), test.ShouldBeTrue)
+	test.That(t, machine.ResourceNames(), test.ShouldResemble, []resource.Name{board.Named("board1")})
 }
 
 func TestUnimplementedRPCSubtypes(t *testing.T) {
@@ -880,6 +943,84 @@ func TestClientDisconnect(t *testing.T) {
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeError, client.checkConnected())
+}
+
+func TestClientHealthCheckRateLimitedStaysConnected(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Once enabled, the interceptor rate-limits every request, including the background
+	// health check's ResourceNames call.
+	var rateLimited atomic.Bool
+	rateLimitInterceptor := grpc.ChainUnaryInterceptor(
+		func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+			if rateLimited.Load() {
+				return nil, status.Error(codes.ResourceExhausted, "exceeded request limit")
+			}
+			return handler(ctx, req)
+		},
+	)
+	gServer := grpc.NewServer(rateLimitInterceptor)
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named("arm1")}
+	}
+	injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
+	}
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	dur := 50 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(dur),
+		WithReconnectEvery(dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+	test.That(t, client.Connected(), test.ShouldBeTrue)
+
+	// Start rate-limiting all requests, then let the background health check run several
+	// cycles. The client must stay connected: rate limiting is not a connection loss.
+	rateLimited.Store(true)
+	time.Sleep(5 * dur)
+	test.That(t, client.Connected(), test.ShouldBeTrue)
+
+	// The health check should have logged that it is leaving the connection up despite the
+	// rate limiting, rather than logging a lost connection.
+	test.That(t, logs.FilterMessageSnippet("health checks to remote are failing due to a request rate limit").Len(),
+		test.ShouldBeGreaterThan, 0)
+	test.That(t, logs.FilterMessageSnippet("lost connection to remote").Len(), test.ShouldEqual, 0)
+
+	// A request now surfaces the true ResourceExhausted error rather than a spurious
+	// "not connected to remote robot" error.
+	_, err = client.MachineStatus(context.Background())
+	test.That(t, status.Code(err), test.ShouldEqual, codes.ResourceExhausted)
+}
+
+func TestIsResourceExhaustedError(t *testing.T) {
+	resourceExhausted := status.Error(codes.ResourceExhausted, "exceeded request limit")
+	unavailable := status.Error(codes.Unavailable, "not connected")
+
+	test.That(t, isResourceExhaustedError(nil), test.ShouldBeFalse)
+	test.That(t, isResourceExhaustedError(errors.New("plain")), test.ShouldBeFalse)
+	test.That(t, isResourceExhaustedError(unavailable), test.ShouldBeFalse)
+	test.That(t, isResourceExhaustedError(resourceExhausted), test.ShouldBeTrue)
+	// A ResourceExhausted combined with other errors (as Refresh may return) is still detected.
+	test.That(t, isResourceExhaustedError(multierr.Combine(unavailable, resourceExhausted)), test.ShouldBeTrue)
+	test.That(t, isResourceExhaustedError(multierr.Combine(unavailable, errors.New("plain"))), test.ShouldBeFalse)
 }
 
 func TestClientUnaryDisconnectHandler(t *testing.T) {
