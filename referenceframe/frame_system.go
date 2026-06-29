@@ -965,6 +965,14 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs())
 }
 
+// FrameSystemGeometriesLinearInputs takes in a framesystem and returns a map where all
+// elements are GeometriesInFrames with a World reference frame, computed for every frame
+// in `fs`. This is preferred for hot paths over `FrameSystemGeometries`. But requires the
+// caller to manage a `LinearInputs`.
+func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs) (map[string]*GeometriesInFrame, error) {
+	return FrameSystemGeometriesForFrames(fs, linearInputs, nil)
+}
+
 // FrameSystemGeometriesForFrames computes geometries-in-world for the frames named in `wanted`.
 // When `wanted` is nil, every frame in `fs` is included — that is the form preferred for hot
 // paths that need the full set.
@@ -984,11 +992,13 @@ func FrameSystemGeometriesForFrames(
 			errAll = multierr.Append(errAll, err)
 			continue
 		}
+
 		geosInFrame, err := frame.Geometries(inputs)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
 			continue
 		}
+
 		if len(geosInFrame.Geometries()) > 0 {
 			transformed, err := fs.Transform(linearInputs, geosInFrame, World)
 			if err != nil {
@@ -998,15 +1008,8 @@ func FrameSystemGeometriesForFrames(
 			allGeometries[name] = transformed.(*GeometriesInFrame)
 		}
 	}
-	return allGeometries, errAll
-}
 
-// FrameSystemGeometriesLinearInputs takes in a framesystem and returns a map where all
-// elements are GeometriesInFrames with a World reference frame, computed for every frame
-// in `fs`. This is preferred for hot paths over `FrameSystemGeometries`. But requires the
-// caller to manage a `LinearInputs`.
-func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs) (map[string]*GeometriesInFrame, error) {
-	return FrameSystemGeometriesForFrames(fs, linearInputs, nil)
+	return allGeometries, errAll
 }
 
 // ToProtobuf turns all the interfaces into serializable types.
