@@ -965,74 +965,67 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs())
 }
 
-// FrameSystemGeometriesForFrames is a filtered variant of FrameSystemGeometriesLinearInputs.
-// It computes geometries-in-world only for the frames whose name is in `wanted`. Caller is
-// responsible for ensuring `wanted` contains every frame that contributes a geometry which
-// the caller cares about — frames not in the set will not appear in the returned map.
+// FrameSystemGeometriesForFrames computes geometries-in-world for the frames named in `wanted`.
+// When `wanted` is nil, every frame in `fs` is included — that is the form preferred for hot
+// paths that need the full set. Caller is responsible for ensuring `wanted` contains every frame
+// that contributes a geometry which the caller cares about — frames not in the set will not
+// appear in the returned map.
 func FrameSystemGeometriesForFrames(
 	fs *FrameSystem, linearInputs *LinearInputs, wanted map[string]bool,
 ) (map[string]*GeometriesInFrame, error) {
 	var errAll error
-	allGeometries := make(map[string]*GeometriesInFrame, len(wanted))
-	for name := range wanted {
+	var allFrameNames []string
+	capacity := len(wanted)
+	if wanted == nil {
+		allFrameNames = fs.FrameNames()
+		capacity = len(allFrameNames)
+	}
+	allGeometries := make(map[string]*GeometriesInFrame, capacity)
+
+	visit := func(name string) {
 		frame := fs.Frame(name)
 		if frame == nil {
 			errAll = multierr.Append(errAll, NewFrameMissingError(name))
-			continue
+			return
 		}
 		inputs, err := linearInputs.GetFrameInputs(frame)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
-			continue
+			return
 		}
 		geosInFrame, err := frame.Geometries(inputs)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
-			continue
+			return
 		}
 		if len(geosInFrame.Geometries()) > 0 {
 			transformed, err := fs.Transform(linearInputs, geosInFrame, World)
 			if err != nil {
 				errAll = multierr.Append(errAll, err)
-				continue
+				return
 			}
 			allGeometries[name] = transformed.(*GeometriesInFrame)
+		}
+	}
+
+	if allFrameNames != nil {
+		for _, name := range allFrameNames {
+			visit(name)
+		}
+	} else {
+		for name := range wanted {
+			visit(name)
 		}
 	}
 	return allGeometries, errAll
 }
 
-// FrameSystemGeometriesLinearInputs takes in a framesystem and returns a LinearInputs where all
-// elements are GeometriesInFrames with a World reference frame. This is preferred for hot
-// paths. But requires the caller to manage a `LinearInputs`.
+// FrameSystemGeometriesLinearInputs takes in a framesystem and returns a map where all
+// elements are GeometriesInFrames with a World reference frame, computed for every frame
+// in `fs`. This is preferred for hot paths over `FrameSystemGeometries`. But requires the
+// caller to manage a `LinearInputs`.
 func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs) (map[string]*GeometriesInFrame, error) {
-	var errAll error
-	allGeometries := make(map[string]*GeometriesInFrame, 0)
-	for _, name := range fs.FrameNames() {
-		frame := fs.Frame(name)
-		inputs, err := linearInputs.GetFrameInputs(frame)
-		if err != nil {
-			errAll = multierr.Append(errAll, err)
-			continue
-		}
-
-		geosInFrame, err := frame.Geometries(inputs)
-		if err != nil {
-			errAll = multierr.Append(errAll, err)
-			continue
-		}
-
-		if len(geosInFrame.Geometries()) > 0 {
-			transformed, err := fs.Transform(linearInputs, geosInFrame, World)
-			if err != nil {
-				errAll = multierr.Append(errAll, err)
-				continue
-			}
-			allGeometries[name] = transformed.(*GeometriesInFrame)
-		}
-	}
-
-	return allGeometries, errAll
+	return FrameSystemGeometriesForFrames(fs, linearInputs, nil)
 }
 
 // ToProtobuf turns all the interfaces into serializable types.
