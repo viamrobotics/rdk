@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +59,6 @@ type moduleManager interface {
 	Kill()
 	Provides(conf resource.Config) bool
 	Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error)
-	ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error
 	Remove(modName string) ([]resource.Name, error)
 	RemoveResource(ctx context.Context, name resource.Name) error
 	ResolveImplicitDependencies(ctx context.Context, conf *config.Diff)
@@ -168,7 +168,7 @@ func (manager *resourceManager) addRemote(
 			return
 		}
 	} else {
-		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc)
+		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc, true)
 	}
 	manager.updateRemoteResourceNames(ctx, rName, rr, c.Prefix, true)
 }
@@ -303,9 +303,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			}
 		}
 
-		if nodeAlreadyExists {
-			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
-		} else {
+		if !nodeAlreadyExists {
 			// Check for a full resource name collision and log an error if there is one.
 			prefixedSimpleName := prefix + resName.Name
 			_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
@@ -328,6 +326,18 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				resLogger.CErrorw(ctx, "failed to add remote resource node", "error", err)
 			}
 		}
+
+		// Call SwapResource to always advance the graph's logical clock.
+		//   - New resource: AddNode above created the node and wired it to the shared logical
+		//     clock, but did not advance the clock. The SwapResource inside
+		//     NewConfiguredGraphNodeWithPrefix ran while the node's clock pointer was still nil,
+		//     so its bump was a no-op.
+		//   - Existing resource: we skipped the block above, so this just swaps in the refreshed
+		//     client and advances the clock.
+		//
+		// The clock advance is what lets a local resource with a weak/optional dependency on this
+		// remote resource be detected as stale by updateWeakAndOptionalDependents.
+		gNode.SwapResource(res, unknownModel, manager.opts.ftdc, true)
 
 		err = manager.resources.AddChild(resName, remoteName)
 		if err != nil {
@@ -361,6 +371,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				"reason", err)
 			continue
 		}
+		// MarkForRemoval bumps the graph's logical clock and transitions the node to
+		// Removing, so any local resource with a weak/optional dependency on this
+		// dropped remote resource is detected as stale by updateWeakAndOptionalDependents
+		// on the next pass. Close then clears `current` and shuts down the gRPC client.
+		gNode.MarkForRemoval()
 		if err := gNode.Close(ctx); err != nil {
 			resLogger.CErrorw(ctx,
 				"failed to close remote resource node",
@@ -700,7 +715,7 @@ func (manager *resourceManager) completeConfig(
 	// order.
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
-	for _, resourceNames := range levels {
+	for i, resourceNames := range levels {
 		// At the start of every reconfiguration level, run updateWeakAndOptionalDependents.
 		// value.
 		//
@@ -717,6 +732,11 @@ func (manager *resourceManager) completeConfig(
 			default:
 			}
 			gNode, ok := manager.resources.Node(resName)
+			if manager.logger != nil && manager.logger.GetLevel() < 0 {
+				manager.logger.Debugw("CompleteConfig", "level", i, "resName", resName,
+					"lastWeakAndOptionalDependentsRound", lr.lastWeakAndOptionalDependentsRound.Load(),
+					"CurrLogicalClockValue", manager.resources.CurrLogicalClockValue(), "NeedsReconfigure", gNode.NeedsReconfigure())
+			}
 			if !ok || !gNode.NeedsReconfigure() {
 				continue
 			}
@@ -775,7 +795,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger, resName.String(),
 						)
 					} else {
-						verb = "reconfigur"
+						verb = "rebuild"
 					}
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %ving resource", verb), "resource", resName, "model", conf.Model)
 
@@ -789,26 +809,44 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
-						if _, _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+						implicitDeps, implicitOptionalDeps, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf)
+						if err != nil {
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
 							return
 						}
+
+						// If the freshly-validated implicit dependencies differ from the set the node
+						// was configured with, the node's dependency edges are stale. This happens when
+						// ResolveImplicitDependencies hit a transient Validate error (e.g. a
+						// DeadlineExceeded timeout) and dropped the dependencies, but Validate now
+						// succeeds. Re-apply the dependencies and defer the build by one pass so they
+						// get resolved into graph edges first; building now would construct the resource
+						// with an incomplete dependency set (e.g. a missing camera dependency).
+						if !equalUnordered(implicitDeps, conf.ImplicitDependsOn) ||
+							!equalUnordered(implicitOptionalDeps, conf.ImplicitOptionalDependsOn) {
+							manager.logger.CInfow(ctx,
+								"modular resource implicit dependencies changed since last validation; re-resolving before building",
+								"resource", conf.ResourceName(), "model", conf.Model,
+								"old", conf.ImplicitDependsOn, "new", implicitDeps)
+							conf.ImplicitDependsOn = implicitDeps
+							conf.ImplicitOptionalDependsOn = implicitOptionalDeps
+							gNode.SetNewConfig(conf, conf.Dependencies())
+							lr.sendTriggerConfig("modular dependency re-resolution")
+							return
+						}
 					}
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
-
-						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
-						if newlyBuilt || err != nil {
-							if err := manager.markChildrenForUpdate(resName); err != nil {
-								manager.logger.CErrorw(ctx,
-									"failed to mark children of resource for update",
-									"resource", resName,
-									"reason", err)
-							}
+						newRes, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
+						if err := manager.markChildrenForUpdate(resName); err != nil {
+							manager.logger.CErrorw(ctx,
+								"failed to mark children of resource for update",
+								"resource", resName,
+								"reason", err)
 						}
 
 						if err != nil {
@@ -827,7 +865,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
-							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
+							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
 							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
 						}
 
@@ -1090,22 +1128,17 @@ func (manager *resourceManager) processResource(
 	conf resource.Config,
 	gNode *resource.GraphNode,
 	lr *localRobot,
-) (resource.Resource, bool, error) {
+) (resource.Resource, error) {
 	if gNode.IsUninitialized() {
 		newRes, err := lr.newResource(ctx, gNode, conf)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
-		return newRes, true, nil
-	}
-
-	currentRes, err := gNode.UnsafeResource()
-	if err != nil {
-		return nil, false, err
+		return newRes, nil
 	}
 
 	resName := conf.ResourceName()
-	deps, err := lr.getDependencies(resName, gNode)
+	_, err := lr.getDependencies(resName, gNode)
 	if err != nil {
 		manager.logger.CDebugw(ctx,
 			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
@@ -1113,30 +1146,11 @@ func (manager *resourceManager) processResource(
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
 		)
-		return nil, false, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
+		return nil, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
 	}
 
-	isModular := manager.moduleManager.Provides(conf)
-	if gNode.ResourceModel() == conf.Model {
-		if isModular {
-			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
-				return nil, false, err
-			}
-			// For modular resources, `currentRes` is a client object. Call reconfigure to clear caches.
-			goutils.UncheckedError(currentRes.Reconfigure(ctx, deps, conf))
-			return currentRes, false, nil
-		}
-
-		err = currentRes.Reconfigure(ctx, deps, conf)
-		if err == nil {
-			return currentRes, false, nil
-		}
-
-		if !resource.IsMustRebuildError(err) {
-			return nil, false, err
-		}
-	} else {
-		manager.logger.CInfow(ctx, "Resource models differ so resource must be rebuilt",
+	if gNode.ResourceModel() != conf.Model {
+		manager.logger.CInfow(ctx, "resource models differ from old",
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 
@@ -1158,9 +1172,22 @@ func (manager *resourceManager) processResource(
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
 		)
-		return nil, false, err
+		return nil, err
 	}
-	return newRes, true, nil
+	return newRes, nil
+}
+
+// equalUnordered reports whether two string slices contain the same elements,
+// ignoring order. A nil and an empty slice are considered equal.
+func equalUnordered(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aSorted := slices.Clone(a)
+	bSorted := slices.Clone(b)
+	slices.Sort(aSorted)
+	slices.Sort(bSorted)
+	return slices.Equal(aSorted, bSorted)
 }
 
 // addToBeConstructedResource adds a new, unconfigured graph node for a resource to the

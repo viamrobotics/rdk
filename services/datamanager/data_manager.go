@@ -64,6 +64,9 @@ const SubtypeName = "data_manager"
 // API is a variable that identifies the data manager service resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
+// InternalServiceName is used to refer to/depend on this service internally.
+var InternalServiceName = resource.NewName(API, "builtin")
+
 // Named is a helper for getting the named datamanager's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
@@ -209,8 +212,9 @@ type ResourceMethod struct {
 }
 
 // CaptureConfigReading defines a capture config reading for a specific resource/method pair,
-// as emitted by the capture_control_sensor. Resource/method pairs should correspond with a configured data
-// manager service.
+// as emitted by the capture_control_sensor. The resource/method pair does not need to be
+// pre-configured with the data manager service. However, methods that require additional method parameters
+// (e.g. board.Analogs, board.Gpios) cannot be enabled this way.
 type CaptureConfigReading struct {
 	// The resource method pair.
 	ResourceMethod

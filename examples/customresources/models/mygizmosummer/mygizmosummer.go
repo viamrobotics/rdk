@@ -3,7 +3,9 @@ package mygizmosummer
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"sync"
 
@@ -11,6 +13,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 // Model is the full model definition.
@@ -64,13 +67,13 @@ func NewMyGizmoSummer(
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
-	if err := g.Reconfigure(context.Background(), deps, conf); err != nil {
+	if err := g.reconfigure(context.Background(), deps, conf); err != nil {
 		return nil, err
 	}
 	return g, nil
 }
 
-func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (g *myActualGizmo) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	// This takes the generic resource.Config passed down from the parent and converts it to the
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	gizmoConfig, err := resource.NativeConfig[*Config](conf)
@@ -92,20 +95,54 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
+	for k, v := range metadata.All(ctx) {
+		if k == "arbitrary-md-from-client2" && v == "arbitrary-md-from-client-val2" {
+			// test replacing one field
+			ctx = metadata.Set(ctx, "arbitrary-md-from-client2", "arbitrary-md-from-client-val3-from-middle")
+		}
+		ctx = metadata.Set(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
+	}
+
 	n, err := strconv.ParseFloat(arg1, 64)
 	if err != nil {
 		return false, err
 	}
-	sum, err := g.mySummer.Sum(ctx, []float64{n})
+
+	var sum float64
+	sum, err = g.mySummer.Sum(ctx, []float64{n})
 	if err != nil {
 		return false, err
 	}
 	return sum == n, nil
 }
 
+func allExpectedMetadataPresentTestHelper(md metadata.ViamMD) bool {
+	numGood := 0
+	for k, v := range md {
+		switch {
+		case k == "arbitrary-md-from-client" && v == "arbitrary-md-from-client-val1":
+			numGood++
+		case k == "arbitrary-md-from-client2" && v == "arbitrary-md-from-client-val2":
+			numGood++
+		case k == "arbitrary-md-local-func-modify" && v == "real":
+			numGood++
+		case k == "opid" && v == "custom":
+			numGood++
+		default:
+			numGood--
+		}
+	}
+	return numGood == 4
+}
+
 func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
+
+	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
+		return false, errors.New("TestMetadataAcrossTwoModules-ClientStream-good")
+	}
+
 	if len(arg1) == 0 {
 		return false, nil
 	}
@@ -127,6 +164,11 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
+
+	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
+		return []bool{false}, errors.New("TestMetadataAcrossTwoModules-ServerStream-good")
+	}
+
 	n, err := strconv.ParseFloat(arg1, 64)
 	if err != nil {
 		return nil, err
@@ -141,6 +183,11 @@ func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]b
 func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
+
+	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
+		return []bool{false}, errors.New("TestMetadataAcrossTwoModules-BiDiStream-good")
+	}
+
 	var rets []bool
 	g.logger.Info(arg1)
 	for _, arg := range arg1 {

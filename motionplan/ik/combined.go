@@ -60,15 +60,23 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	metas := []SeedSolveMetaData{}
 	var solveResultLock sync.Mutex
 
-	for _, solver := range ik.solvers {
+	for idx, solver := range ik.solvers {
 		thisSolver := solver
 		myseed := rseed
 		rseed++
 
 		activeSolvers.Add(1)
+		// fmt.Println("Spinning solver:", idx)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
+			_ = idx
+			// if idx != 5 {
+			//  	select {
+			//  	case <-ctx.Done():
+			//  	case <-time.After(time.Second):
+			//  	}
+			// }
 			n, m, err := thisSolver.Solve(ctx, retChan, totalAttempts, seeds, limits, costFunc, myseed)
 
 			solveResultLock.Lock()

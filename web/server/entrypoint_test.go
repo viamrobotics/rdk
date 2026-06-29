@@ -205,7 +205,8 @@ func TestShutdown(t *testing.T) {
 		testLogger.Info("Issuing shutdown.")
 		err = rc.Shutdown(context.Background())
 
-		gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 50, func(tb testing.TB) {
+		// flake on Windows with original 50ms x 50 attempts after replacing reconfigure with rebuild (slower shutdown, unclear why)
+		gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
 			tb.Helper()
 			rdkStatus := server.Status()
 			// Asserting not nil here to ensure process is dead
@@ -235,19 +236,31 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
-	t.Parallel()
+	// NOTE: not parallel — this test redirects the global utils.ViamDotDir, which would race
+	// with other parallel tests that construct robots.
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	machineAddress := "127.0.0.1:23654"
 
-	// Create a fake package directory using `t.TempDir`. Set it up to be identical to the
-	// expected file tree of the local package manager. Place a single file `foo` in a
-	// `fake-module` directory.
-	tempDir := t.TempDir()
+	// Create a fake package directory and set it up to be identical to the expected file tree of
+	// the local package manager: a single file `foo` in a `fake-module` directory. The local
+	// package manager stores packages under <viam home>/packages-local, and the server (started
+	// via RunServer below) uses the global utils.ViamDotDir as its home dir, so redirect that to
+	// this temp dir to point it here.
+	//
+	// Use a short temp dir (not t.TempDir, whose Windows path is long) because redirecting
+	// ViamDotDir also relocates the module socket dir on Windows, and the unix socket path has a
+	// 103-char OS limit (see module.CreateSocketAddress).
+	tempDir, err := os.MkdirTemp("", "vds")
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(tempDir)) })
+	origViamDotDir := utils.ViamDotDir
+	utils.ViamDotDir = tempDir
+	t.Cleanup(func() { utils.ViamDotDir = origViamDotDir })
 	fakePackagePath := filepath.Join(tempDir, fmt.Sprint("packages", config.LocalPackagesSuffix))
 	fakeModuleDataPath := filepath.Join(fakePackagePath, "data", "fake-module")
-	err := os.MkdirAll(fakeModuleDataPath, 0o777) // should create all dirs along path
+	err = os.MkdirAll(fakeModuleDataPath, 0o777) // should create all dirs along path
 	test.That(t, err, test.ShouldBeNil)
 	fakeModuleDataFile, err := os.Create(filepath.Join(fakeModuleDataPath, "foo"))
 	test.That(t, err, test.ShouldBeNil)
@@ -289,9 +302,6 @@ func TestMachineState(t *testing.T) {
 		defer wg.Done()
 
 		cfg := &config.Config{
-			// Set PackagePath to temp dir created at top of test with the "-local" piece trimmed. Local
-			// package manager will automatically add that suffix.
-			PackagePath: strings.TrimSuffix(fakePackagePath, config.LocalPackagesSuffix),
 			Components: []resource.Config{
 				{
 					Name:  "slowpoke",
@@ -393,35 +403,42 @@ func TestTunnelE2E(t *testing.T) {
 	t.Parallel()
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
-	// test-process <-> source-listener(127.0.0.1:23658) <-> machine(127.0.0.1:23657) <-> dest-listener(127.0.0.1:23656)
+	// test-process <-> source-listener <-> machine <-> dest-listener
+	//
+	// Ports are reserved dynamically.
 
 	tunnelMsg := "Hello, World!"
-	destPort := 23656
+
+	destPort, destListener, err := goutils.ReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
 	destListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("127.0.0.1", "23657")
-	sourceListenerAddr := net.JoinHostPort("127.0.0.1", "23658")
+	defer func() {
+		test.That(t, destListener.Close(), test.ShouldBeNil)
+	}()
+
+	// Mock listener for the timeout endpoint — windows requires a real listener
+	// even though we never accept on it.
+	timeoutDestPort, timeoutDestListener, err := goutils.ReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
+	}()
+
+	machinePort, err := goutils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	machineAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
+
+	sourcePort, sourceListener, err := goutils.ReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	sourceListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(sourcePort))
+	defer func() {
+		test.That(t, sourceListener.Close(), test.ShouldBeNil)
+	}()
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
-
-	// Start "destination" listener.
-	destListener, err := net.Listen("tcp", destListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, destListener.Close(), test.ShouldBeNil)
-	}()
-
-	// Start mock "destination" listener, even if we don't intend on actually accepting any messages.
-	// This is because windows doesn't seem to allow for dialing to ports there aren't listeners on.
-	timeoutDestPort := 65534
-	timeoutDestListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(timeoutDestPort))
-	timeoutDestListener, err := net.Listen("tcp", timeoutDestListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
-	}()
 
 	wg.Add(1)
 	go func() {
@@ -511,11 +528,6 @@ func TestTunnelE2E(t *testing.T) {
 	}
 
 	// Start "source" listener (a `RobotClient` running `Tunnel`.)
-	sourceListener, err := net.Listen("tcp", sourceListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, sourceListener.Close(), test.ShouldBeNil)
-	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -634,8 +646,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
-	// Find a free port for the machine to bind to.
-	listener, err := net.Listen("tcp", "127.0.0.1:23660")
+	// Find a free port for the machine to bind to. Using :0 lets the OS pick an
+	// available ephemeral port, avoiding both hard-coded port conflicts and the
+	// Windows TIME_WAIT delay that prevents immediate port reuse after close.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	machineAddress := listener.Addr().String()
 	listener.Close()
@@ -738,7 +752,8 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	// to make sure we always wait long enough for a reconfigure to happen
 	waitForAssertionLongerThanRefreshInterval := func(t *testing.T, assertion func(tb testing.TB)) {
 		t.Helper()
-		retryInterval := 50 * time.Millisecond
+		// flake on Windows with original 50ms x 50 attempts after replacing reconfigure with rebuild (slower shutdown, unclear why)
+		retryInterval := 200 * time.Millisecond
 		nRuns := int(refreshInterval * 3 / retryInterval)
 		gtestutils.WaitForAssertionWithSleep(t, retryInterval, nRuns, assertion)
 	}

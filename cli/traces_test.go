@@ -70,10 +70,10 @@ func TestTraceGetRemote(t *testing.T) {
 		output := t.TempDir()
 		testPartFlags := maps.Collect(maps.All(basePartFlags))
 
-		originalTracesPath := tracesPath
-		tracesPath = filepath.Join(tfs.Root, "FAKEDIR")
+		originalTracesPath := defaultTracesPath
+		defaultTracesPath = filepath.Join(tfs.Root, "FAKEDIR")
 		t.Cleanup(func() {
-			tracesPath = originalTracesPath
+			defaultTracesPath = originalTracesPath
 		})
 
 		cCtx, viamClient, _, _ := setupWithRunningPart(
@@ -88,20 +88,22 @@ func TestTraceGetRemote(t *testing.T) {
 	})
 
 	t.Run("trace data exists", func(t *testing.T) {
-		tmpPartTracePath := filepath.Join(tfs.Root, partID)
-		err := os.Mkdir(tmpPartTracePath, 0o750)
+		tmpPartTracePath := filepath.Join(tfs.Root, tracesRelativePath, partID)
+		err := os.MkdirAll(tmpPartTracePath, 0o750)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() {
 			err = os.RemoveAll(tmpPartTracePath)
+			test.That(t, err, test.ShouldBeNil)
+			err = os.RemoveAll(filepath.Join(tfs.Root, partID))
 			test.That(t, err, test.ShouldBeNil)
 		})
 		testData := []byte("test")
 		err = os.WriteFile(filepath.Join(tmpPartTracePath, "traces"), testData, 0o640)
 		test.That(t, err, test.ShouldBeNil)
-		originalTracePath := tracesPath
-		tracesPath = tfs.Root
+		originalTracePath := defaultTracesPath
+		defaultTracesPath = filepath.Join(tfs.Root, tracesRelativePath)
 		t.Cleanup(func() {
-			tracesPath = originalTracePath
+			defaultTracesPath = originalTracePath
 		})
 
 		t.Run("only recent", func(t *testing.T) {
@@ -136,6 +138,31 @@ func TestTraceGetRemote(t *testing.T) {
 			fileContents, err := os.ReadFile(filepath.Join(output, subdir.Name(), "traces"))
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, fileContents, test.ShouldResemble, testData)
+		})
+
+		t.Run("trace data exists; VIAM_HOME changed", func(t *testing.T) {
+			testFlags := maps.Collect(maps.All(basePartFlags))
+			output := t.TempDir()
+
+			defaultTracesPath = originalTracePath
+			cCtx, viamClient, _, _ := setupWithRunningPart(
+				t, asc, nil, nil, testFlags, "token", partFqdn)
+			flagArgs := parseStructFromCtx[traceGetRemoteArgs](cCtx)
+
+			// checking default traces path -> not found
+			test.That(t,
+				viamClient.tracesGetRemoteAction(context.Background(), cCtx, flagArgs, output, false, true, logger),
+				test.ShouldNotBeNil)
+
+			// specify location of VIAM_HOME
+			flagArgs.ViamHomeDir = tfs.Root
+			test.That(t,
+				viamClient.tracesGetRemoteAction(context.Background(), cCtx, flagArgs, output, false, true, logger),
+				test.ShouldBeNil)
+
+			contents, err := os.ReadFile(filepath.Join(output, "traces"))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, contents, test.ShouldResemble, testData)
 		})
 	})
 }

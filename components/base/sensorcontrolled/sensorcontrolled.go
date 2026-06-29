@@ -113,14 +113,14 @@ func createSensorBase(
 		opMgr:         operation.NewSingleOperationManager(),
 	}
 
-	if err := sb.Reconfigure(ctx, deps, conf); err != nil {
+	if err := sb.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return sb, nil
 }
 
-func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (sb *sensorBase) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	sb.conf = newConf
 	if err != nil {
@@ -239,7 +239,9 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 func (sb *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
-	sb.opMgr.CancelRunning(ctx)
+	ctx, finish := sb.opMgr.New(ctx)
+	defer finish()
+
 	if sb.loop != nil {
 		sb.loop.Pause()
 	}
@@ -247,15 +249,17 @@ func (sb *sensorBase) SetPower(
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	sb.opMgr.CancelRunning(ctx)
+	_, finish := sb.opMgr.New(ctx)
+	defer finish()
+
 	if sb.loop != nil {
 		sb.loop.Pause()
 		// update pid controllers to be an at rest state
-		if err := sb.updateControlConfig(ctx, 0, 0); err != nil {
+		if err := sb.updateControlConfig(context.Background(), 0, 0); err != nil {
 			return err
 		}
 	}
-	return sb.controlledBase.Stop(ctx, extra)
+	return sb.controlledBase.Stop(context.Background(), extra)
 }
 
 func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {

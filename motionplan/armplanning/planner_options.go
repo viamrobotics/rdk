@@ -157,8 +157,8 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 	return opt, nil
 }
 
-// getGoalMetric creates the distance metric for the solver using the configured options.
-func (p *PlannerOptions) getGoalMetric(goals referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
+// GetGoalMetric creates the distance metric for the solver using the configured options.
+func (p *PlannerOptions) GetGoalMetric(goals referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
 	cartesianScale := 1.0
 	orientScale := 100.0
 

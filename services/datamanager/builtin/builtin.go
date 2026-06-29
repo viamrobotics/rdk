@@ -127,7 +127,7 @@ func New(
 		diskSummaryTracker: diskSummaryTracker,
 	}
 
-	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
+	if err := svc.BuiltInReconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return svc, nil
@@ -178,7 +178,7 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 // when errors occur.
 // If an error occurs after the first Reconfigure call, data capture & data sync will continue to function using the old config
 // until a successful Reconfigure call is made or Close is called.
-func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	b.logger.Info("Reconfigure START")
 	defer b.logger.Info("Reconfigure END")
 	c, err := resource.NativeConfig[*Config](conf)
@@ -205,6 +205,14 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		// If this error occurs it's a resource graph error
 		return err
 	}
+
+	// Catalog of every weak-dep resource keyed by short name. Lets the capture control sensor
+	// enable capture on resources the user did not pre-configure for data manager.
+	resourcesByShortName := make(map[string]resource.Resource, len(deps))
+	for name, res := range deps {
+		resourcesByShortName[name.ShortName()] = res
+	}
+
 	if err := os.MkdirAll(captureConfig.CaptureDir, 0o700); err != nil {
 		b.logger.Warnf("failed to create capture directory: %s", captureConfig.CaptureDir)
 	}
@@ -232,7 +240,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	}
 
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
-	b.capture.Reconfigure(ctx, frameSystem, collectorConfigsByResource, captureConfig)
+	b.capture.Reconfigure(ctx, frameSystem, collectorConfigsByResource, resourcesByShortName, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {
@@ -320,7 +328,7 @@ func (b *builtIn) runCaptureControlPoller(
 			b.mu.Unlock()
 			return
 		}
-		b.capture.SetCaptureConfigs(ctx, newConfigs)
+		b.capture.SetCaptureConfigs(newConfigs)
 		b.capture.SetActiveSequences(newSequences)
 		b.mu.Unlock()
 	}

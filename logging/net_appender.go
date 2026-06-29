@@ -14,9 +14,11 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -218,7 +220,7 @@ func newInternalLogEntry(level zapcore.Level, message string) zapcore.Entry {
 	return zapcore.Entry{
 		Level:      level,
 		Time:       time.Now(),
-		LoggerName: "NetAppender",
+		LoggerName: "rdk.NetAppender",
 		Message:    message,
 		Caller:     zapcore.EntryCaller{},
 		Stack:      "",
@@ -308,6 +310,9 @@ func (nl *NetAppender) backgroundWorker() {
 	normalInterval := 100 * time.Millisecond
 	abnormalInterval := 5 * time.Second
 	interval := normalInterval
+
+	// used as a set. could be changed to store Timestamp or count if needed
+	errsSinceLastOnline := make(map[string]struct{})
 	for {
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
 			return
@@ -316,6 +321,20 @@ func (nl *NetAppender) backgroundWorker() {
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			if !errors.Is(err, errUninitializedConnection) {
+				errKey := err.Error()
+
+				// guess if we may be offline. if so, log errors about that only once during *this* offline period.
+				connState := nl.remoteWriter.rpcClientState()
+				// if we're offline, connState should be connectivity.TransientFailure or Connecting. Note: not perfectly reliable, but
+				// fine for our purposes.
+				maybeOffline := connState == connectivity.TransientFailure || connState == connectivity.Connecting
+				if maybeOffline {
+					if _, ok := errsSinceLastOnline[errKey]; ok {
+						continue
+					}
+					errsSinceLastOnline[errKey] = struct{}{}
+				}
+
 				errMsg := fmt.Sprintf("error logging to network: %s", err)
 				nl.loggerWithoutNet.Info(errMsg)
 
@@ -327,6 +346,7 @@ func (nl *NetAppender) backgroundWorker() {
 			}
 		} else {
 			interval = normalInterval
+			clear(errsSinceLastOnline)
 		}
 	}
 }
@@ -442,6 +462,14 @@ type remoteLogWriterGRPC struct {
 
 	// `loggerWithoutNet` is the logger to use for meta/internal logs from the `remoteLogWriterGRPC`.
 	loggerWithoutNet Logger
+}
+
+func (w *remoteLogWriterGRPC) rpcClientState() connectivity.State {
+	// rpcClient may be ReconfigurableClientConn or ClientConn (and may be lazily constructed and not yet available)
+	if cs, ok := grpchelpers.ConnConnectivityState(w.rpcClient); ok {
+		return cs
+	}
+	return -1
 }
 
 func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
