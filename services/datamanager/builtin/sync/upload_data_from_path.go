@@ -39,13 +39,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		return robot.UploadDataFromPathResult{}, errors.Wrapf(err, "failed to stat file path %s", path)
 	}
 
-	var (
-		filesUploaded uint64
-		filesFailed   uint64
-		bytesUploaded uint64
-		bytesTotal    uint64
-		ids           []string
-	)
+	var result robot.UploadDataFromPathResult
 
 	tags := uploadMetadata.GetTags()
 	datasetIDs := uploadMetadata.GetDatasetIds()
@@ -61,7 +55,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		fi, statErr := os.Stat(filePath)
 		if statErr != nil {
 			s.logger.Errorw("failed to stat file for upload", "path", filePath, "error", statErr)
-			filesFailed++
+			result.FilesFailed++
 			return
 		}
 
@@ -69,11 +63,11 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		f, openErr := os.Open(filePath)
 		if openErr != nil {
 			s.logger.Errorw("failed to open file for upload", "path", filePath, "error", openErr)
-			filesFailed++
+			result.FilesFailed++
 			return
 		}
 
-		bytesTotal += uint64(fi.Size())
+		result.BytesTotal += uint64(fi.Size())
 
 		uploadedBytes, id, uploadErr := uploadArbitraryFile(ctx, f, s.cloudConn,
 			tags, datasetIDs, 0, s.clock, s.logger, &s.uploadStats.arbitrary.uploadingBytes)
@@ -83,7 +77,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		if uploadErr != nil {
 			s.logger.Errorw("failed to upload file", "path", filePath, "error", uploadErr)
 			s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
-			filesFailed++
+			result.FilesFailed++
 			return
 		}
 
@@ -93,10 +87,10 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 
 		s.uploadStats.arbitrary.uploadedFileCount.Add(1)
 		s.uploadStats.arbitrary.completedUploadBytes.Add(uploadedBytes)
-		filesUploaded++
-		bytesUploaded += uploadedBytes
+		result.FilesUploaded++
+		result.BytesUploaded += uploadedBytes
 		if id != "" {
-			ids = append(ids, id)
+			result.IDs = append(result.IDs, id)
 		}
 	}
 
@@ -120,11 +114,5 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		err = ctx.Err()
 	}
 
-	return robot.UploadDataFromPathResult{
-		FilesUploaded: filesUploaded,
-		FilesFailed:   filesFailed,
-		BytesUploaded: bytesUploaded,
-		BytesTotal:    bytesTotal,
-		IDs:           ids,
-	}, err
+	return result, err
 }
