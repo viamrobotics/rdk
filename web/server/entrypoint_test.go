@@ -646,13 +646,19 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
-	// Find a free port for the machine to bind to. Using :0 lets the OS pick an
-	// available ephemeral port, avoiding both hard-coded port conflicts and the
+	// Reserve a free port for the machine to bind to. Using :0 lets the OS pick
+	// an available ephemeral port, avoiding hard-coded port conflicts and the
 	// Windows TIME_WAIT delay that prevents immediate port reuse after close.
+	//
+	// Keep the listener open through setup so that nothing else can grab the
+	// same port in the meantime. In particular, NewFakeCloudServer below also
+	// allocates an ephemeral port, and if this listener were already closed the
+	// OS could hand the just-freed port to the fake cloud server, causing
+	// RunServer to fail with "bind: address already in use". The listener is
+	// closed just before RunServer binds to the port (see below).
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	machineAddress := listener.Addr().String()
-	listener.Close()
 
 	// Set up fake cloud server.
 	fakeServer, cleanup := configtestutils.NewFakeCloudServer(t, ctx, logger)
@@ -725,6 +731,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		deviceID, appAddress, configtestutils.FakeCredentialPayLoad, refreshInterval,
 	)
 	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
+
+	// Release the reserved machine port immediately before RunServer binds to
+	// it, minimizing the window in which another listener could claim it.
+	test.That(t, listener.Close(), test.ShouldBeNil)
 
 	// Start RunServer in a goroutine. Use -no-tls since the fake cloud
 	// returns empty TLS certs.
