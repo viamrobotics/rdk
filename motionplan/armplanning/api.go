@@ -466,7 +466,7 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 			return nil, nil, err
 		}
 	} else {
-		if err = decoder.Decode(req); err != nil {
+		if err = json.Unmarshal(raw, req); err != nil {
 			return nil, nil, err
 		}
 	}

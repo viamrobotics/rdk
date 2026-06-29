@@ -43,6 +43,11 @@ func TestWriteAndReadRequestAndResponse(t *testing.T) {
 	}
 	resp := motionplan.NewSimplePlan(nil, traj)
 
+	err = req.WriteRequestAndResponseToFile("/home/dgottlieb/viam/rdk/tst.json", resp)
+	if err != nil {
+		panic(err)
+	}
+
 	fileName := filepath.Join(t.TempDir(), "plan.json")
 	t.Run("WriteRequestAndResponseToFile", func(t *testing.T) {
 		err = req.WriteRequestAndResponseToFile(fileName, resp)
