@@ -69,6 +69,7 @@ func NewConstraintChecker(
 	startPoses, goalPoses referenceframe.FrameSystemPoses,
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
+	movingFrameNames map[string]bool,
 	seedMap *referenceframe.LinearInputs,
 	obstaclesInWorldFrame *referenceframe.GeometriesInFrame,
 	logger logging.Logger,
@@ -115,7 +116,7 @@ func NewConstraintChecker(
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
-		DeriveMovingFrameNames(frameSystemGeometries, movingRobotGeometries),
+		movingFrameNames,
 		staticRobotGeometries,
 		worldGeometries,
 		allowedCollisions,
@@ -384,28 +385,6 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	}
 
 	return nil, nil
-}
-
-// DeriveMovingFrameNames returns the set of frame names whose geometry labels
-// appear in movingRobotGeometries.
-func DeriveMovingFrameNames(
-	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
-	movingRobotGeometries []spatialmath.Geometry,
-) map[string]bool {
-	movingLabels := make(map[string]bool, len(movingRobotGeometries))
-	for _, g := range movingRobotGeometries {
-		movingLabels[g.Label()] = true
-	}
-	movingFrameNames := map[string]bool{}
-	for frameName, gif := range frameSystemGeometries {
-		for _, g := range gif.Geometries() {
-			if movingLabels[g.Label()] {
-				movingFrameNames[frameName] = true
-				break
-			}
-		}
-	}
-	return movingFrameNames
 }
 
 // CreateAllCollisionConstraints builds the three collision constraint

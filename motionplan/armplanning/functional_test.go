@@ -177,7 +177,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	fsCollisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
-		motionplan.DeriveMovingFrameNames(frameSystemGeometries, movingRobotGeometries),
+		map[string]bool{xarm.Name(): true},
 		staticRobotGeometries,
 		nil,
 		nil,
@@ -249,7 +249,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	fsCollisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
-		motionplan.DeriveMovingFrameNames(frameSystemGeometries, movingRobotGeometries),
+		map[string]bool{ur5e.Name(): true},
 		staticRobotGeometries,
 		nil,
 		nil,

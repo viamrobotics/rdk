@@ -37,7 +37,8 @@ func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to referenceframe
 func (mC *motionChains) geometries(
 	fs *referenceframe.FrameSystem,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
-) (movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry) {
+) (movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry, movingFrameNames map[string]bool) {
+	movingFrameNames = map[string]bool{}
 	// find all geometries that are not moving but are in the frame system
 	for name, geometries := range frameSystemGeometries {
 		moving := false
@@ -45,6 +46,7 @@ func (mC *motionChains) geometries(
 			if chain.movingFS.Frame(name) != nil {
 				moving = true
 				movingRobotGeometries = append(movingRobotGeometries, geometries.Geometries()...)
+				movingFrameNames[name] = true
 				break
 			}
 		}
@@ -52,12 +54,13 @@ func (mC *motionChains) geometries(
 			// Non-motion-chain frames with nonzero DoF can still move out of the way
 			if len(fs.Frame(name).DoF()) > 0 {
 				movingRobotGeometries = append(movingRobotGeometries, geometries.Geometries()...)
+				movingFrameNames[name] = true
 			} else {
 				staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
 			}
 		}
 	}
-	return movingRobotGeometries, staticRobotGeometries
+	return movingRobotGeometries, staticRobotGeometries, movingFrameNames
 }
 
 func (mC *motionChains) framesFilteredByMovingAndNonmoving() (moving, nonmoving []string) {
