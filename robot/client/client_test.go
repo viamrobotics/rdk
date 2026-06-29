@@ -21,6 +21,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -2507,4 +2508,62 @@ func TestListTunnels(t *testing.T) {
 	ttes, err := client.ListTunnels(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ttes, test.ShouldResemble, expectedTTEs)
+}
+
+func TestUploadDataFromPath(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	var capturedPath string
+	var capturedMD *datasyncpb.UploadMetadata
+	var capturedExtra map[string]interface{}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return nil },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
+		UploadDataFromPathFunc: func(
+			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
+		) (robot.UploadDataFromPathResult, error) {
+			capturedPath = path
+			capturedMD = md
+			capturedExtra = extra
+			return robot.UploadDataFromPathResult{
+				FilesUploaded: 2,
+				FilesFailed:   0,
+				BytesUploaded: 512,
+				BytesTotal:    512,
+				IDs:           []string{"a", "b"},
+			}, nil
+		},
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	md := &datasyncpb.UploadMetadata{Tags: []string{"tag1"}}
+	extra := map[string]interface{}{"foo": "bar"}
+	res, err := client.UploadDataFromPath(context.Background(), "/data/foo", md, extra)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res.FilesUploaded, test.ShouldEqual, uint64(2))
+	test.That(t, res.FilesFailed, test.ShouldEqual, uint64(0))
+	test.That(t, res.BytesUploaded, test.ShouldEqual, uint64(512))
+	test.That(t, res.BytesTotal, test.ShouldEqual, uint64(512))
+	test.That(t, res.IDs, test.ShouldResemble, []string{"a", "b"})
+
+	// request fields actually crossed the wire
+	test.That(t, capturedPath, test.ShouldEqual, "/data/foo")
+	test.That(t, capturedMD.GetTags(), test.ShouldResemble, []string{"tag1"})
+	test.That(t, capturedExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }
