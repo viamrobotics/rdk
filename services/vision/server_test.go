@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	visionpkg "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/viscapture"
 )
@@ -219,6 +220,81 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 	test.That(t, len(captAllResp.Extra.AsMap()), test.ShouldEqual, 0)
 
 	test.ShouldResemble(captAllResp.Detections, getDetectionsResp.Detections)
+}
+
+func TestServerGetObjectPointClouds(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	injectVS := &inject.VisionService{}
+	m := map[resource.Name]vision.Service{
+		visName1: injectVS,
+	}
+	server, err := newServer(m, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// one empty object to return from GetObjectPointClouds
+	obj := &visionpkg.Object{}
+
+	buildRequest := func(cameraName string) *pb.GetObjectPointCloudsRequest {
+		extra := map[string]interface{}{}
+		ext, extErr := protoutils.StructToStructPb(extra)
+		test.That(t, extErr, test.ShouldBeNil)
+		return &pb.GetObjectPointCloudsRequest{
+			Name:       testVisionServiceName,
+			CameraName: cameraName,
+			Extra:      ext,
+		}
+	}
+
+	injectVS.GetObjectPointCloudsFunc = func(
+		ctx context.Context, cameraName string, extra map[string]interface{},
+	) ([]*visionpkg.Object, error) {
+		return []*visionpkg.Object{obj}, nil
+	}
+
+	// case 1: empty CameraName + DefaultCamera set → ReferenceFrame equals DefaultCamera
+	t.Run("empty camera name with default camera set", func(t *testing.T) {
+		defaultCam := "myDefaultCam"
+		injectVS.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
+			return &vision.Properties{DefaultCamera: &defaultCam}, nil
+		}
+		resp, err := server.GetObjectPointClouds(context.Background(), buildRequest(""))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp.Objects), test.ShouldEqual, 1)
+		test.That(t, resp.Objects[0].Geometries.ReferenceFrame, test.ShouldEqual, defaultCam)
+	})
+
+	// case 2: empty CameraName + DefaultCamera nil → must not panic; ReferenceFrame should be ""
+	t.Run("empty camera name with nil default camera", func(t *testing.T) {
+		injectVS.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
+			return &vision.Properties{}, nil
+		}
+		resp, err := server.GetObjectPointClouds(context.Background(), buildRequest(""))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp.Objects), test.ShouldEqual, 1)
+		test.That(t, resp.Objects[0].Geometries.ReferenceFrame, test.ShouldEqual, "")
+	})
+
+	// case 3: non-empty CameraName → ReferenceFrame equals the request camera name
+	t.Run("non-empty camera name ignores default camera", func(t *testing.T) {
+		defaultCam := "ignoredDefault"
+		injectVS.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
+			return &vision.Properties{DefaultCamera: &defaultCam}, nil
+		}
+		resp, err := server.GetObjectPointClouds(context.Background(), buildRequest("requestedCam"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp.Objects), test.ShouldEqual, 1)
+		test.That(t, resp.Objects[0].Geometries.ReferenceFrame, test.ShouldEqual, "requestedCam")
+	})
+
+	// case 4: GetProperties returns an error → error is propagated to caller
+	t.Run("GetProperties error is propagated", func(t *testing.T) {
+		someError := errors.New("properties failed")
+		injectVS.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
+			return nil, someError
+		}
+		_, err := server.GetObjectPointClouds(context.Background(), buildRequest(""))
+		test.That(t, err, test.ShouldBeError, someError)
+	})
 }
 
 var errGetStatusFailed = errors.New("can't get status")
