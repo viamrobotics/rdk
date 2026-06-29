@@ -1331,6 +1331,15 @@ func generateGolangStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate go stubs -- unable to sort imports")
 	}
 
+	// run go mod tidy
+	if module.Language == golang {
+		tidyCmd := exec.Command("go", "mod", "tidy")
+		tidyCmd.Dir = module.ModuleName
+		if err := tidyCmd.Run(); err != nil {
+			return fmt.Errorf("failed to run go mod tidy: %w", err)
+		}
+	}
+
 	return nil
 }
 

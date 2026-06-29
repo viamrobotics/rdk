@@ -70,6 +70,23 @@ func (s *Server) SendTraces(ctx context.Context, req *pb.SendTracesRequest) (*pb
 	return nil, s.robot.WriteTraceMessages(ctx, req.ResourceSpans)
 }
 
+// UploadDataFromPath uploads a file or directory from the robot to the cloud via the data manager.
+func (s *Server) UploadDataFromPath(ctx context.Context, req *pb.UploadDataFromPathRequest) (
+	*pb.UploadDataFromPathResponse, error,
+) {
+	res, err := s.robot.UploadDataFromPath(ctx, req.GetPath(), req.GetUploadMetadata(), req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.UploadDataFromPathResponse{
+		FilesUploaded: res.FilesUploaded,
+		FilesFailed:   res.FilesFailed,
+		BytesUploaded: res.BytesUploaded,
+		BytesTotal:    res.BytesTotal,
+		Ids:           res.IDs,
+	}, nil
+}
+
 // Tunnel tunnels traffic to/from the client from/to a specified port on the server.
 func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	req, err := srv.Recv()

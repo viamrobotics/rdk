@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -54,18 +55,27 @@ const (
 
 var moduleBuildPollingInterval = 2 * time.Second
 
-// githubRefExists calls GitHub's REST commits API to check whether a ref
-// (branch, tag, or commit SHA) exists in a repo
-var githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/%s", owner, repo, ref)
+// githubGet issues an authenticated GET to GitHub's REST API. accept overrides the Accept
+// header when non-empty. The caller owns resp.Body.
+func githubGet(ctx context.Context, apiURL, token, accept string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
-		return false, err
+		return nil, err
+	}
+	if accept != "" {
+		req.Header.Set("Accept", accept)
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	return http.DefaultClient.Do(req)
+}
+
+// githubRefExists calls GitHub's REST commits API to check whether a ref
+// (branch, tag, or commit SHA) exists in a repo
+var githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/%s", owner, repo, ref)
+	resp, err := githubGet(ctx, apiURL, token, "")
 	if err != nil {
 		return false, err
 	}
@@ -96,6 +106,70 @@ func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
 			"meta.json url %q is missing the repo path (expected https://github.com/<owner>/<repo>)", repoURL)
 	}
 	return parts[0], strings.TrimSuffix(parts[1], ".git"), true, nil
+}
+
+// githubFetchManifest fetches and parses a module manifest from a repo at a given ref.
+var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
+		owner, repo, manifestPath, url.QueryEscape(ref))
+	// the raw media type returns the file body directly rather than base64-wrapped JSON
+	resp, err := githubGet(ctx, apiURL, token, "application/vnd.github.raw+json")
+	if err != nil {
+		return ModuleManifest{}, err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	if resp.StatusCode != http.StatusOK {
+		return ModuleManifest{}, fmt.Errorf("unexpected status %d from github api", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ModuleManifest{}, err
+	}
+	return parseManifest(body)
+}
+
+// validateWindowsCloudBuild guards Windows cloud builds that can't produce a usable module:
+// Windows Python is never supported, and Windows Go needs models populated. For Go, if other
+// platforms are also targeted it warns instead of failing so those still build.
+func (c *viamClient) validateWindowsCloudBuild(
+	ctx context.Context, cmd *cli.Command, manifest *ModuleManifest, repoURL, ref, workdir, token string, platforms []string,
+) error {
+	if !slices.ContainsFunc(platforms, func(p string) bool { return strings.HasPrefix(p, "windows/") }) {
+		return nil
+	}
+	// generated Python modules use a "dist/" entrypoint, Go "bin/", so Go never matches here.
+	if strings.HasPrefix(manifest.Entrypoint, "dist/") {
+		return errors.New("cloud build is not supported for Windows Python modules.\n" +
+			"Build locally with 'viam module build local' and upload with 'viam module upload'")
+	}
+	owner, repo, ok, err := parseGitHubRepo(repoURL)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	gArgs := parseStructFromCtx[globalArgs](cmd)
+	repoPath := strings.TrimPrefix(path.Join(workdir, defaultManifestFilename), "/")
+	remote, err := githubFetchManifest(ctx, owner, repo, ref, repoPath, token)
+	if err != nil {
+		debugf(cmd.Root().ErrWriter, gArgs.Debug,
+			"could not fetch %s from %s@%s to validate models: %v — proceeding anyway", defaultManifestFilename, repoURL, ref, err)
+		return nil
+	}
+	// circle-build only auto-detects models when the field is absent, so a present-but-unpopulated
+	// model ships as-is; require at least one entry with a non-empty model.
+	if !slices.ContainsFunc(remote.Models, func(m ModuleComponent) bool { return m.Model != "" }) {
+		msg := "models must be populated for a Windows Go cloud build.\n" +
+			"Run 'viam module update-models', commit the updated meta.json to your repo, then re-run the build"
+		// with other targets present, warn instead of failing so those still build
+		if len(platforms) > 1 {
+			printf(cmd.Root().ErrWriter, "Warning: %s", msg)
+			return nil
+		}
+		return errors.New(msg)
+	}
+	return nil
 }
 
 // validateRefExists checks that ref exists on the remote at repoURL before a
@@ -168,6 +242,9 @@ func (c *viamClient) moduleBuildStartForRepo(
 	gitRef := args.Ref
 	token := args.Token
 	workdir := args.Workdir
+	if err := c.validateWindowsCloudBuild(ctx, cmd, manifest, repo, gitRef, workdir, token, platforms); err != nil {
+		return "", err
+	}
 	req := buildpb.StartBuildRequest{
 		Repo:          repo,
 		Ref:           &gitRef,
@@ -200,16 +277,6 @@ func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Comman
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return "", err
-	}
-
-	// Check if this is a Windows Python module by looking for src/main.py
-	if runtime.GOOS == osWindows && manifest.Build != nil {
-		manifestDir := filepath.Dir(args.Module)
-		mainPyPath := filepath.Join(manifestDir, "src", "main.py")
-		if _, err := os.Stat(mainPyPath); err == nil {
-			return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
-				"Build locally with 'viam module build local' and upload with 'viam module upload'")
-		}
 	}
 
 	if manifest.URL == "" {

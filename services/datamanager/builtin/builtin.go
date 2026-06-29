@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
@@ -126,7 +127,7 @@ func New(
 		diskSummaryTracker: diskSummaryTracker,
 	}
 
-	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
+	if err := svc.BuiltInReconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return svc, nil
@@ -177,7 +178,7 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 // when errors occur.
 // If an error occurs after the first Reconfigure call, data capture & data sync will continue to function using the old config
 // until a successful Reconfigure call is made or Close is called.
-func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	b.logger.Info("Reconfigure START")
 	defer b.logger.Info("Reconfigure END")
 	c, err := resource.NativeConfig[*Config](conf)
@@ -489,6 +490,18 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
+}
+
+// UploadDataFromPath uploads a file or directory from the robot to the cloud.
+func (b *builtIn) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, extra map[string]interface{}) (
+	robot.UploadDataFromPathResult, error,
+) {
+	b.logger.Debug("UploadDataFromPath START")
+	defer b.logger.Debug("UploadDataFromPath END")
+	b.mu.Lock()
+	syncer := b.sync
+	b.mu.Unlock()
+	return syncer.UploadDataFromPath(ctx, path, uploadMetadata, extra)
 }
 
 type dataManagerStats struct {
