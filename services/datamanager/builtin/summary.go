@@ -86,12 +86,14 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 		// sum up the size of all files in the root
 		fileSize += info.Size()
 
-		// Determine the file's data time. Capture files (.capture/.prog) encode the
-		// capture time in their name. Arbitrary files have no such metadata, so fall back
-		// to the filesystem creation time (the same time used when syncing them).
 		isCompletedCapture := strings.HasSuffix(name, data.CompletedCaptureFileExt)
 		isInProgressCapture := strings.HasSuffix(name, data.InProgressCaptureFileExt)
+
+		// Capture files (.capture/.prog) encode the capture time in their name.
 		fileTime := parseTime(name)
+
+		// Arbitrary file uploads, fall back to filesystem creation time (same timestamp
+		// used for sync).
 		if fileTime == nil && !isCompletedCapture && !isInProgressCapture {
 			fileTimes, err := utils.GetFileTimes(path)
 			if err != nil {
