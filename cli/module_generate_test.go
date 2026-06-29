@@ -25,8 +25,14 @@ import (
 )
 
 func TestAddModel(t *testing.T) {
-	t.Parallel()
-
+	// NOTE: do not mark this top-level test t.Parallel(). Some subtests call
+	// testChdir, which mutates the process-wide CWD. Marking a subtest
+	// non-parallel only serializes it against its siblings; if this parent ran
+	// in parallel with TestAddApp (which also chdirs), their CWD mutations would
+	// race, breaking relative-path lookups (meta.json) and, on Windows, breaking
+	// t.TempDir() cleanup ("the process cannot access the file because it is
+	// being used by another process"). Keeping the parent sequential serializes
+	// all CWD-mutating tests against each other.
 	baseModule := modulegen.ModuleInputs{
 		ModuleName:            "my-module",
 		Visibility:            moduleVisibilityPrivate,
@@ -787,7 +793,10 @@ func TestGenerateModuleAction(t *testing.T) {
 }
 
 func TestAddApp(t *testing.T) {
-	t.Parallel()
+	// NOTE: do not mark this top-level test t.Parallel(). Some subtests call
+	// testChdir, which mutates the process-wide CWD, and would race with the
+	// CWD-mutating subtests in TestAddModel if both parents ran in parallel.
+	// See the note on TestAddModel for details.
 
 	baseGenInfo := modulegen.ModuleInputs{
 		ModuleName: "my-module",

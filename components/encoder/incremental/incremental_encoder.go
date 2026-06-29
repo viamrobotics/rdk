@@ -103,14 +103,14 @@ func NewIncrementalEncoder(
 		pRaw:         0,
 		pState:       0,
 	}
-	if err := e.Reconfigure(ctx, deps, conf); err != nil {
+	if err := e.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
-// Reconfigure atomically reconfigures this encoder in place based on the new config.
-func (e *Encoder) Reconfigure(
+// reconfigure atomically reconfigures this encoder in place based on the new config.
+func (e *Encoder) reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,

@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -334,4 +335,43 @@ func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*Geometries
 		return nil, err
 	}
 	return NewGeometriesInFrame(proto.GetReferenceFrame(), geometries), nil
+}
+
+type geometriesInFrameJSON struct {
+	Frame      string                        `json:"frame"`
+	Geometries []*spatialmath.GeometryConfig `json:"geometries"`
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (gF *GeometriesInFrame) MarshalJSON() ([]byte, error) {
+	configs := make([]*spatialmath.GeometryConfig, 0, len(gF.geometries))
+	for _, geometry := range gF.geometries {
+		config, err := spatialmath.NewGeometryConfig(geometry)
+		if err != nil {
+			return nil, err
+		}
+		configs = append(configs, config)
+	}
+	return json.Marshal(geometriesInFrameJSON{
+		Frame:      gF.frame,
+		Geometries: configs,
+	})
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (gF *GeometriesInFrame) UnmarshalJSON(data []byte) error {
+	var raw geometriesInFrameJSON
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	geometries := make([]spatialmath.Geometry, 0, len(raw.Geometries))
+	for _, config := range raw.Geometries {
+		geometry, err := config.ParseConfig()
+		if err != nil {
+			return err
+		}
+		geometries = append(geometries, geometry)
+	}
+	*gF = *NewGeometriesInFrame(raw.Frame, geometries)
+	return nil
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -151,7 +152,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("no diff", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := logging.NewTestLogger(t)
+		logger, logs := logging.NewObservedTestLogger(t)
 
 		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
@@ -253,18 +254,22 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock1.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock2, err := robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock2.Name()}).Len(),
+			test.ShouldEqual, 1)
 	})
 
 	t.Run("reconfiguring unreconfigurable", func(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
 		// processing modify will fail
-		logger := logging.NewTestLogger(t)
+		logger, logs := logging.NewObservedTestLogger(t)
 		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -411,7 +416,9 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock1.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		reconfigurableTrue = false
 		robot.Reconfigure(context.Background(), conf3)
@@ -439,7 +446,9 @@ func TestRobotReconfigure(t *testing.T) {
 			resource.DefaultServices(),
 		))
 
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock1.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		newArm1, err := robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1440,10 +1449,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		nextMotor2, err := robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldBeNil)
-		// m2 lost its dependency on arm2 after looking conf6
-		// but only relies on base1 so it should never have been
-		// removed but only reconfigured.
-		test.That(t, nextMotor2, test.ShouldPointTo, motor2)
+		test.That(t, nextMotor2, test.ShouldNotPointTo, motor2)
 
 		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1680,7 +1686,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("incremental deps config", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := logging.NewTestLogger(t)
+		logger, logs := logging.NewObservedTestLogger(t)
 		conf4 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -1908,27 +1914,39 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock1.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock2, err := robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock2.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock3, err := robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock3.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock4, err := robot.ResourceByName(mockNamed("mock4"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock4.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock4.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock5, err := robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock5.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock6, err := robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock6.Name()}).Len(),
+			test.ShouldEqual, 2)
 
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
@@ -1943,7 +1961,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 	t.Run("parent attribute change deps config", func(t *testing.T) {
 		resetComponentFailureState()
-		logger := logging.NewTestLogger(t)
+		logger, logs := logging.NewObservedTestLogger(t)
 		//nolint:dupl
 		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
@@ -2206,23 +2224,33 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock1.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock2, err := robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock2.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock3, err := robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock3.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock4, err := robot.ResourceByName(mockNamed("mock4"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock4.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock4.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock5, err := robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock5.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
@@ -2279,23 +2307,33 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock1, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock1.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock2, err = robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock2.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock3, err = robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock3.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock4, err = robot.ResourceByName(mockNamed("mock4"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock4.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock4.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock5, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock5.Name()}).Len(),
+			test.ShouldEqual, 1)
 	})
 
 	// test starts with a working config, then reconfigures into a config where dependencies
@@ -2304,7 +2342,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
 		reconfigurableTrue = true
-		logger := logging.NewTestLogger(t)
+		logger, logs := logging.NewObservedTestLogger(t)
 		//nolint:dupl
 		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
@@ -2413,7 +2451,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		conf9 := processConfig(t, &config.Config{
+		// 4 & 6 have should_fail_reconfigure, 1 & 5 depends_on 4, armFake depends_on 5, 6
+		conf4615armFail := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -2588,27 +2627,39 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock1.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock2, err := robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock2.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock3, err := robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock3.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock4, err := robot.ResourceByName(mockNamed("mock4"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock4.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock4.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock5, err := robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock5.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock6, err := robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock6.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
@@ -2621,13 +2672,18 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 
 		reconfigurableTrue = false
-		robot.Reconfigure(context.Background(), conf9)
+		robot.Reconfigure(context.Background(), conf4615armFail)
 
+		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		mockNames = []resource.Name{
+			mockNamed("mock1"),
 			mockNamed("mock2"),
 			mockNamed("mock3"),
+			mockNamed("mock4"),
+			mockNamed("mock5"),
+			mockNamed("mock6"),
 		}
-		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
+		// since we completely rebuild instead of intentionally failing reconfigure, no issues
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
 			resource.DefaultServices(),
@@ -2646,29 +2702,33 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		mock2, err = robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock2.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock3, err = robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock3.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		_, err = robot.ResourceByName(mockNamed("mock4"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		_, err = robot.ResourceByName(mockNamed("mock5"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
-		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
-		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(mockNamed("armFake"))
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reason=resource build error: unknown resource type: "+
+			"API rdk:component:mock with model rdk:builtin:fake not registered")
 
 		sorted = robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
@@ -2680,14 +2740,9 @@ func TestRobotReconfigure(t *testing.T) {
 			encoderNames,
 			[]resource.Name{
 				mockNamed("armFake"),
-				mockNamed("mock1"),
-				mockNamed("mock4"),
-				mockNamed("mock5"),
-				mockNamed("mock6"),
 			},
 		))
 
-		// This configuration will put `mock6` into a good state after two calls to "reconfigure".
 		conf9good := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -2811,11 +2866,11 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 		robot.Reconfigure(context.Background(), conf9good)
 
-		mockNames = []resource.Name{
-			mockNamed("mock2"), mockNamed("mock1"), mockNamed("mock3"),
-			mockNamed("mock4"), mockNamed("mock5"),
-		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
+		mockNames = []resource.Name{
+			mockNamed("armFake"), mockNamed("mock2"), mockNamed("mock1"), mockNamed("mock3"),
+			mockNamed("mock4"), mockNamed("mock5"), mockNamed("mock6"),
+		}
 
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
@@ -2834,45 +2889,47 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		// resources which failed previous reconfiguration attempts because of missing dependencies will be rebuilt,
-		// so reconfCount should be 0. resources which failed previous reconfiguration attempts because of an error
-		// during reconfiguration would not have its reconfCount reset, so reconfCount for mock4 should be 1.
 		mock1, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock1.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock2, err = robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock2.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock3, err = robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock3.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock4, err = robot.ResourceByName(mockNamed("mock4"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock4.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock4.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		mock5, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock5.Name()}).Len(),
+			test.ShouldEqual, 1)
 
-		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
-		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(mockNamed("armFake"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		reconfigurableTrue = true
 
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		// The newly set configuration fixes the `mock6` component. A (second) reconfig should pick
-		// that up and consequently bubble up the working `mock6` change to anything that depended
-		// on `mock6`, notably `armFake`.
 		rr.triggerConfig <- "TestRobotReconfigure"
 
 		testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 30, func(tb testing.TB) {
@@ -2885,7 +2942,9 @@ func TestRobotReconfigure(t *testing.T) {
 		// with its `reconfCount` bumped.
 		mock6, err = robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+			FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: mock6.Name()}).Len(),
+			test.ShouldEqual, 1)
 
 		sorted = robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
@@ -2895,10 +2954,6 @@ func TestRobotReconfigure(t *testing.T) {
 			boardNames,
 			mockNames,
 			encoderNames,
-			[]resource.Name{
-				mockNamed("armFake"),
-				mockNamed("mock6"),
-			},
 		))
 	})
 	t.Run("complex diff", func(t *testing.T) {
@@ -3021,7 +3076,7 @@ func TestRobotReconfigure(t *testing.T) {
 }
 
 func TestReconfigureModelRebuild(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3061,14 +3116,18 @@ func TestReconfigureModelRebuild(t *testing.T) {
 	name1 := mockNamed("one")
 	res1, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 0)
 
 	r.Reconfigure(ctx, cfg)
 	res2, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldEqual, res1)
-	test.That(t, res2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res2.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
 
 	newCfg := &config.Config{
@@ -3088,14 +3147,18 @@ func TestReconfigureModelRebuild(t *testing.T) {
 	res3, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res3, test.ShouldNotEqual, res1)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
-	test.That(t, res3.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res3.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res3.(*mockFake).closeCount, test.ShouldEqual, 0)
 }
 
 func TestReconfigureModelSwitch(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3149,14 +3212,18 @@ func TestReconfigureModelSwitch(t *testing.T) {
 	name1 := mockNamed("one")
 	res1, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 0)
 
 	r.Reconfigure(ctx, cfg)
 	res2, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldEqual, res1)
-	test.That(t, res2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res2.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
 
 	newCfg := &config.Config{
@@ -3174,14 +3241,18 @@ func TestReconfigureModelSwitch(t *testing.T) {
 	res3, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res3, test.ShouldNotEqual, res1)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
-	test.That(t, res3.(*mockFake2).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res3.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res3.(*mockFake2).closeCount, test.ShouldEqual, 0)
 }
 
 func TestReconfigureModelSwitchErr(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
@@ -3225,7 +3296,9 @@ func TestReconfigureModelSwitchErr(t *testing.T) {
 	name1 := mockNamed("one")
 	res1, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 0)
 
 	modelName2 := utils.RandomAlphaString(5)
@@ -3245,7 +3318,9 @@ func TestReconfigureModelSwitchErr(t *testing.T) {
 
 	_, err = r.ResourceByName(name1)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
 
 	r.Reconfigure(ctx, cfg)
@@ -3254,14 +3329,18 @@ func TestReconfigureModelSwitchErr(t *testing.T) {
 	res2, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldNotEqual, res1)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 2)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
-	test.That(t, res2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res2.Name()}).Len(),
+		test.ShouldEqual, 2)
 	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
 }
 
 func TestReconfigureRename(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	modelName1 := utils.RandomAlphaString(5)
 	model1 := resource.DefaultModelFamily.WithModel(modelName1)
@@ -3304,7 +3383,9 @@ func TestReconfigureRename(t *testing.T) {
 	name2 := mockNamed("two")
 	res1, err := r.ResourceByName(name1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 0)
 	test.That(t, res1.(*mockFake).createdAt, test.ShouldEqual, 1)
 
@@ -3323,11 +3404,15 @@ func TestReconfigureRename(t *testing.T) {
 	res2, err := r.ResourceByName(name2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldNotEqual, res1)
-	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res1.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
 	test.That(t, res1.(*mockFake).closedAt, test.ShouldEqual, 2)
 	test.That(t, res2.(*mockFake).createdAt, test.ShouldEqual, 3)
-	test.That(t, res2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: res2.Name()}).Len(),
+		test.ShouldEqual, 1)
 	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
 }
 
@@ -3641,9 +3726,6 @@ func TestResourceCloseNoHang(t *testing.T) {
 type mockFake struct {
 	resource.Named
 	createdAt        int
-	reconfCount      int
-	reconfiguredAt   int64
-	failCount        int
 	shouldRebuild    bool
 	closedAt         int64
 	closeCount       int
@@ -3662,24 +3744,6 @@ type mockFakeConfig struct {
 	ShouldFailReconfigure int      `json:"should_fail_reconfigure"`
 	Blah                  int      `json:"blah"`
 	Value                 int      `json:"value"`
-}
-
-func (m *mockFake) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	if m.logicalClock != nil {
-		m.reconfiguredAt = m.logicalClock.Add(1)
-	}
-	if m.shouldRebuild {
-		return resource.NewMustRebuildError(conf.ResourceName())
-	}
-	if c, err := resource.NativeConfig[*mockFakeConfig](conf); err == nil && m.failCount == 0 && c.ShouldFailReconfigure != 0 {
-		m.failCount = c.ShouldFailReconfigure
-	}
-	if m.failCount != 0 {
-		m.failCount--
-		return errors.Errorf("failed to reconfigure (left %d)", m.failCount)
-	}
-	m.reconfCount++
-	return nil
 }
 
 func (m *mockFake) Close(ctx context.Context) error {
@@ -3713,13 +3777,7 @@ func (m *mockFake) GetChildValue(slot string) int {
 
 type mockFake2 struct {
 	resource.Named
-	reconfCount int
-	closeCount  int
-}
-
-func (m *mockFake2) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	m.reconfCount++
-	return errors.New("oh no")
+	closeCount int
 }
 
 func (m *mockFake2) Close(ctx context.Context) error {
@@ -3732,34 +3790,16 @@ func (m *mockFake2) Close(ctx context.Context) error {
 // former can directly update the pin values of the latter.
 type mockWithDep struct {
 	resource.Named
-	parent      *mockFake
-	Slot        string
-	Value       int
-	reconfCount int
-	closeCount  int
+	parent     *mockFake
+	Slot       string
+	Value      int
+	closeCount int
 }
 
 type mockWithDepConfig struct {
 	MockDep string `json:"mock_dep"`
 	Slot    string `json:"slot"`
 	Value   int    `json:"value"`
-}
-
-func (m *mockWithDep) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	m.reconfCount++
-	convAttrs := conf.ConvertedAttributes.(*mockWithDepConfig)
-	mockDepName := convAttrs.MockDep
-	mockDep, ok := deps[mockNamed(mockDepName)]
-	if !ok {
-		return errors.New("missing dependency")
-	}
-	parent := mockDep.(*mockFake)
-	m.parent.SetChildValue(m.Slot, 0)
-	m.parent = parent
-	m.Slot = convAttrs.Slot
-	m.Value = convAttrs.Value
-	m.parent.SetChildValue(m.Slot, m.Value)
-	return nil
 }
 
 func (m *mockWithDep) Close(ctx context.Context) error {
