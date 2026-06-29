@@ -1799,7 +1799,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
 	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
+		// Determine which package manager owns this module's package and transition it to first-run state.
+		pkgMgr, pkgName := r.packageManagerForModule(mod)
+		pkgMgr.SetPackageState(pkgName, packages.PackageStateFirstRun, "")
+
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
+			pkgMgr.SetPackageState(pkgName, packages.PackageStateFailed, err.Error())
 			r.logger.CErrorw(
 				ctx,
 				"reconfiguration aborted because of error executing first run. falling back to last config "+
@@ -1810,6 +1815,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			)
 			return
 		}
+		pkgMgr.SetPackageState(pkgName, packages.PackageStateDownloaded, "")
 	}
 
 	if newConfig.Cloud != nil {
@@ -2237,6 +2243,19 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// packageManagerForModule returns the package manager responsible for a module's package
+// and the package name to use when updating state. Local tarball modules are managed by
+// localPackages; registry modules are managed by packageManager.
+func (r *localRobot) packageManagerForModule(mod config.Module) (packages.ManagerSyncer, packages.PackageName) {
+	if mod.NeedsSyntheticPackage() {
+		pkg, err := mod.SyntheticPackage()
+		if err == nil {
+			return r.localPackages, packages.PackageName(pkg.Name)
+		}
+	}
+	return r.packageManager, packages.PackageName(mod.Name)
+}
+
 // MachineStatus returns the current status of the robot.
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
@@ -2288,6 +2307,9 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 			}
 		}
 	}
+
+	result.Packages = append(result.Packages, r.packageManager.PackageStatuses()...)
+	result.Packages = append(result.Packages, r.localPackages.PackageStatuses()...)
 
 	return result, nil
 }

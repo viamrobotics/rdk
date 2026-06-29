@@ -51,8 +51,9 @@ type cloudManager struct {
 	packagesDir     string
 	cloudConfig     config.Cloud
 
-	managedPackages map[PackageName]*config.PackageConfig
-	mu              sync.RWMutex
+	managedPackages  map[PackageName]*config.PackageConfig
+	packageStatuses  map[PackageName]*PackageStatus
+	mu               sync.RWMutex
 
 	logger logging.Logger
 }
@@ -90,6 +91,7 @@ func NewCloudManager(
 		cloudConfig:     *cloudConfig,
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
+		packageStatuses: make(map[PackageName]*PackageStatus),
 		logger:          logger,
 	}, nil
 }
@@ -114,6 +116,41 @@ func (m *cloudManager) Close(ctx context.Context) error {
 
 	m.httpClient.CloseIdleConnections()
 	return nil
+}
+
+// PackageStatuses returns a snapshot of the current status for all managed packages.
+func (m *cloudManager) PackageStatuses() []PackageStatus {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	statuses := make([]PackageStatus, 0, len(m.packageStatuses))
+	for _, s := range m.packageStatuses {
+		statuses = append(statuses, *s)
+	}
+	return statuses
+}
+
+// SetPackageState updates the in-memory state for the named package. Used by local_robot
+// to transition a module package through the first-run stage.
+func (m *cloudManager) SetPackageState(name PackageName, state PackageState, errMsg string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if s, ok := m.packageStatuses[name]; ok {
+		s.State = state
+		s.Error = errMsg
+		s.LastUpdated = time.Now()
+	}
+}
+
+// setPackageStatusLocked sets the full status entry for a package. Must be called with m.mu held (write).
+func (m *cloudManager) setPackageStatusLocked(name PackageName, p config.PackageConfig, state PackageState, errMsg string) {
+	m.packageStatuses[name] = &PackageStatus{
+		Name:        p.Name,
+		Type:        p.Type,
+		State:       state,
+		Error:       errMsg,
+		LastUpdated: time.Now(),
+		Version:     p.Version,
+	}
 }
 
 // SyncAll syncs all given packages and removes any not in the list from the local file system.
@@ -141,8 +178,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 		if statusFile.Status == syncStatusFailed {
 			m.logger.Errorf("Package %s was fully downloaded but failed to unzip, please try a different version", p.Name)
+			m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateFailed, "failed to unzip, please try a different version")
 			return multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name))
 		}
+		// Seed in-memory status from the on-disk status file.
+		m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateDownloaded, "")
 		newManagedPackages[PackageName(p.Name)] = &p
 	}
 
@@ -160,6 +200,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
+		m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateDownloading, "")
 
 		// Lookup the packages http url
 		includeURL := true
@@ -210,6 +251,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 				sanitizeURLForLogs(resp.Package.Url),
 				err,
 			)
+			m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateFailed, err.Error())
 			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading/unzipping package %s:%s from %s %w",
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err))
 			continue
@@ -223,6 +265,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// add to managed packages
+		m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateDownloaded, "")
 		newManagedPackages[PackageName(p.Name)] = &p
 
 		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))

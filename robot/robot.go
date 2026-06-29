@@ -368,6 +368,7 @@ type MachineStatus struct {
 	Config      config.Revision
 	State       MachineState
 	JobStatuses map[string]JobStatus
+	Packages    []packages.PackageStatus
 }
 
 // JobStatus encapsulates status information about a single JobManager job.

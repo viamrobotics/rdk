@@ -170,3 +170,17 @@ func (m *deferredPackageManager) createCloudManager(ctx context.Context) (Manage
 func (m *deferredPackageManager) SyncOne(ctx context.Context, mod config.Module) error {
 	return nil
 }
+
+// PackageStatuses delegates to the last synced manager.
+func (m *deferredPackageManager) PackageStatuses() []PackageStatus {
+	m.lastSyncedManagerLock.Lock()
+	defer m.lastSyncedManagerLock.Unlock()
+	return m.lastSyncedManager.PackageStatuses()
+}
+
+// SetPackageState delegates to the last synced manager.
+func (m *deferredPackageManager) SetPackageState(name PackageName, state PackageState, errMsg string) {
+	m.lastSyncedManagerLock.Lock()
+	defer m.lastSyncedManagerLock.Unlock()
+	m.lastSyncedManager.SetPackageState(name, state, errMsg)
+}
