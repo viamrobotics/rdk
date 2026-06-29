@@ -191,7 +191,9 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	s.config = config
 	s.configMu.Unlock()
 	// reset config context
+	s.configMu.Lock()
 	s.configCtx, s.configCancelFunc = context.WithCancel(context.Background())
+	s.configMu.Unlock()
 
 	// start workers
 	s.startWorkers(config)
@@ -449,7 +451,8 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		s.syncArbitraryFile(f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
+		//nolint:errcheck
+		s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
 	}
 }
 
@@ -528,15 +531,20 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 }
 
-func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int, logger logging.Logger) {
-	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
+func (s *Sync) syncArbitraryFile(
+	ctx context.Context, f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int,
+	logger logging.Logger,
+) (string, error) {
+	var uploadedID string
+	retry := newExponentialRetry(ctx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(
+		bytesUploaded, id, err := uploadArbitraryFile(
 			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
 		)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
+		uploadedID = id
 		logger.Debugf("uploadArbitraryFile uploaded: %d bytes", bytesUploaded)
 		return bytesUploaded, nil
 	})
@@ -550,7 +558,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 		// if we stopped due to a cancelled context,
 		// return without deleting the file or moving it to the failed directory
 		if errors.Is(err, context.Canceled) {
-			return
+			return "", err
 		}
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
@@ -558,7 +566,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 			logger.Error(err.Error())
 		}
 		s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
-		return
+		return "", err
 	}
 
 	if err := f.Close(); err != nil {
@@ -570,6 +578,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 	}
 	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
+	return uploadedID, nil
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
@@ -603,7 +612,7 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 		}
 		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
 		// before deciding this file is ready for upload and is not still being written to.
-		s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
+		s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger) //nolint:errcheck
 	}()
 
 	return <-errChan

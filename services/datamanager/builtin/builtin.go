@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
@@ -481,6 +482,18 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
+}
+
+// UploadDataFromPath uploads a file or directory from the robot to the cloud.
+func (b *builtIn) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, extra map[string]interface{}) (
+	robot.UploadDataFromPathResult, error,
+) {
+	b.logger.Debug("UploadDataFromPath START")
+	defer b.logger.Debug("UploadDataFromPath END")
+	b.mu.Lock()
+	syncer := b.sync
+	b.mu.Unlock()
+	return syncer.UploadDataFromPath(ctx, path, uploadMetadata, extra)
 }
 
 type dataManagerStats struct {
