@@ -702,7 +702,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					// Doing so would mask the rate limit as a "not connected to remote robot"
 					// error and cause needless reconnect churn. ResourceExhausted will surface
 					// to callers making requests.
-					rc.Logger().CWarnw(ctx,
+					rc.Logger().CInfow(ctx,
 						"connection health checks to remote are failing due to a request rate limit, "+
 							"likely caused by a different client or module; leaving connection up",
 						"error", outerError,
