@@ -34,6 +34,21 @@ func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to referenceframe
 	}, nil
 }
 
+// geometries partitions frameSystemGeometries into moving and static.
+// A geometry is "moving" if its frame is part of a motion chain's movingFS
+// (between the solve frame and the goal frame) OR if its frame has non-zero
+// DoF. Everything else is "static".
+//
+// movingFrameNames is the set of frame name that own moving geometries -
+// Callers hand this to FrameSystemGeometriesForFrames to skip FK on frames
+// that don't contribute moving geometries. It does NOT need to include parent
+// frames in the kinematic chain - fs.Transform walks ancestor transforms
+// automatically when computing world-frame poses.
+//
+// frameSystemGeometries is the map returned by
+// referenceframe.FrameSystemGeometriesLinearInputs. It is keyed by frame name
+// and contains only frame-attached geometries - frameless geometries like
+// world-frame obstacles are tracked separately by the caller.
 func (mC *motionChains) geometries(
 	fs *referenceframe.FrameSystem,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
