@@ -201,9 +201,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 	c.logger.CInfow(ctx, "XXX ACM cli: stream opened", "name", c.name)
 
 	if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
+		Name: c.name,
 		Message: &pb.MoveThroughJointPositionsStreamedRequest_Init_{
 			Init: &pb.MoveThroughJointPositionsStreamedRequest_Init{
-				Name:  c.name,
 				Extra: ext,
 			},
 		},

@@ -173,13 +173,14 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 			"oneof", fmt.Sprintf("%T", first.GetMessage()))
 		return status.Error(codes.InvalidArgument, "first message must be Init")
 	}
-	s.logger.CInfow(ctx, "XXX ACM srv: read Init", "name", init.GetName())
-	a, err := s.coll.Resource(init.GetName())
+	name := first.GetName()
+	s.logger.CInfow(ctx, "XXX ACM srv: read Init", "name", name)
+	a, err := s.coll.Resource(name)
 	if err != nil {
-		s.logger.CInfow(ctx, "XXX ACM srv: resource lookup failed", "name", init.GetName(), "err", err)
+		s.logger.CInfow(ctx, "XXX ACM srv: resource lookup failed", "name", name, "err", err)
 		return err
 	}
-	operation.CancelOtherWithLabel(ctx, init.GetName())
+	operation.CancelOtherWithLabel(ctx, name)
 
 	// Kinematics is used only to interpret JointPositions on the wire. We tolerate failure here
 	// the same way the unary path does (degrees/revolute fallback), so the streamed RPC stays
@@ -188,7 +189,7 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 	//nolint:errcheck
 	model, _ := a.Kinematics(ctx)
 	s.logger.CInfow(ctx, "XXX ACM srv: Kinematics returned",
-		"name", init.GetName(), "elapsed_ms", time.Since(kinStart).Milliseconds(), "model_nil", model == nil)
+		"name", name, "elapsed_ms", time.Since(kinStart).Milliseconds(), "model_nil", model == nil)
 
 	batches := make(chan []TrajectoryPoint)
 	responses := make(chan Response)
@@ -202,14 +203,14 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 	// for the PoC, the impl's error is the load-bearing signal.
 	utils.PanicCapturingGo(func() {
 		defer close(batches)
-		s.logger.CInfow(ctx, "XXX ACM srv: recv pump entered", "name", init.GetName())
+		s.logger.CInfow(ctx, "XXX ACM srv: recv pump entered", "name", name)
 		batchCount := 0
 		pointCount := 0
 		for {
 			req, err := stream.Recv()
 			if err != nil {
 				s.logger.CInfow(ctx, "XXX ACM srv: recv pump stream.Recv returned",
-					"name", init.GetName(), "err", err,
+					"name", name, "err", err,
 					"is_eof", errors.Is(err, io.EOF),
 					"batches_so_far", batchCount, "points_so_far", pointCount)
 				return
@@ -217,7 +218,7 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 			batch := req.GetBatch()
 			if batch == nil {
 				s.logger.CInfow(ctx, "XXX ACM srv: recv pump got non-batch oneof",
-					"name", init.GetName(),
+					"name", name,
 					"oneof", fmt.Sprintf("%T", req.GetMessage()),
 					"batches_so_far", batchCount, "points_so_far", pointCount)
 				return
@@ -228,20 +229,20 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 				tp, err := trajectoryPointFromProto(model, p)
 				if err != nil {
 					s.logger.CInfow(ctx, "XXX ACM srv: recv pump bad TrajectoryPoint",
-						"name", init.GetName(), "err", err)
+						"name", name, "err", err)
 					return
 				}
 				out = append(out, tp)
 			}
 			batchCount++
 			s.logger.CInfow(ctx, "XXX ACM srv: recv pump got batch",
-				"name", init.GetName(), "batch_idx", batchCount, "points_in_batch", len(out))
+				"name", name, "batch_idx", batchCount, "points_in_batch", len(out))
 			select {
 			case batches <- out:
 				pointCount += len(out)
 			case <-ctx.Done():
 				s.logger.CInfow(ctx, "XXX ACM srv: recv pump ctx done while pushing",
-					"name", init.GetName(), "batches_so_far", batchCount, "points_so_far", pointCount)
+					"name", name, "batches_so_far", batchCount, "points_so_far", pointCount)
 				return
 			}
 		}
@@ -260,7 +261,7 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 			respCount++
 			if err := stream.Send(&pb.MoveThroughJointPositionsStreamedResponse{}); err != nil {
 				s.logger.CInfow(ctx, "XXX ACM srv: send pump stream.Send failed",
-					"name", init.GetName(), "err", err, "responses_sent", respCount)
+					"name", name, "err", err, "responses_sent", respCount)
 				cancel()
 				for range responses {
 				}
@@ -268,21 +269,21 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 			}
 		}
 		s.logger.CInfow(ctx, "XXX ACM srv: send pump exit (responses closed)",
-			"name", init.GetName(), "responses_sent", respCount)
+			"name", name, "responses_sent", respCount)
 	})
 
-	s.logger.CInfow(ctx, "XXX ACM srv: calling impl", "name", init.GetName())
+	s.logger.CInfow(ctx, "XXX ACM srv: calling impl", "name", name)
 	implStart := time.Now()
 	implErr := a.MoveThroughJointPositionsStreamed(ctx, batches, responses, init.GetExtra().AsMap())
 	s.logger.CInfow(ctx, "XXX ACM srv: impl returned",
-		"name", init.GetName(), "elapsed_ms", time.Since(implStart).Milliseconds(), "err", implErr)
+		"name", name, "elapsed_ms", time.Since(implStart).Milliseconds(), "err", implErr)
 
 	// Cancel before closing responses: if the impl returned cleanly, the recv pump may be parked
 	// on `batches <- out`; cancel() unblocks the select so the goroutine can wind down.
 	cancel()
 	close(responses)
 	<-sendDone
-	s.logger.CInfow(ctx, "XXX ACM srv: handler exiting", "name", init.GetName(), "err", implErr)
+	s.logger.CInfow(ctx, "XXX ACM srv: handler exiting", "name", name, "err", implErr)
 
 	return implErr
 }
