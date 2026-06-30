@@ -494,13 +494,9 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				}
 			}
 			orientation := frame.InputToOrientation(frameInputs[0])
-			pose := &spatialmath.DualQuaternion{
-				Number: dualquat.Number{
-					Real: orientation.Quaternion(),
-				},
-			}
+			poseNum := dualquat.Number{Real: orientation.Quaternion()}
 			composedTransformation = spatialmath.DualQuaternion{
-				Number: composedTransformation.Transformation(pose.Number),
+				Number: composedTransformation.Transformation(poseNum),
 			}
 		default:
 			var pose spatialmath.Pose
