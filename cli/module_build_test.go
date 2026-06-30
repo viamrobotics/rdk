@@ -241,7 +241,7 @@ func (s *fakeSourceUploadBuildStream) CloseAndRecv() (*v1.StartSourceUploadBuild
 	return s.resp, nil
 }
 
-func TestModuleBuildCloud(t *testing.T) {
+func TestModuleBuildStartFromSource(t *testing.T) {
 	// Lay out a source directory with a meta.json and a small "source" file so
 	// createGitArchive has something non-trivial to package up.
 	sourceDir := t.TempDir()
@@ -282,15 +282,16 @@ func TestModuleBuildCloud(t *testing.T) {
 	}
 
 	cCtx, ac, out, errOut := setup(asc, nil, bsc, map[string]any{
-		moduleFlagPath:         manifestPath,
-		generalFlagVersion:     "v1.2.3", // leading "v" should be stripped
-		generalFlagPath:        sourceDir,
-		generalFlagNoProgress:  true,
-		moduleBuildFlagWorkdir: ".",
+		moduleFlagPath:            manifestPath,
+		generalFlagVersion:        "v1.2.3", // leading "v" should be stripped
+		moduleBuildFlagFromSource: true,
+		generalFlagPath:           sourceDir,
+		generalFlagNoProgress:     true,
+		moduleBuildFlagWorkdir:    ".",
 	}, "token")
 
-	buildID, err := ac.moduleBuildCloudAction(
-		context.Background(), cCtx, parseStructFromCtx[moduleBuildCloudArgs](cCtx),
+	buildID, err := ac.moduleBuildStartAction(
+		context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, buildID, test.ShouldEqual, "build-xyz")

@@ -106,6 +106,7 @@ const (
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
+	moduleBuildFlagFromSource  = "from-source"
 	moduleBuildFlagToken       = "token"
 	moduleBuildFlagWorkdir     = "workdir"
 	moduleBuildFlagPlatforms   = "platforms"
@@ -3831,64 +3832,22 @@ Example:
 							Action: createActionCommandWithT[moduleBuildLocalArgs](ModuleBuildLocalAction),
 						},
 						{
-							Name:  "cloud",
-							Usage: "upload your local source and publish a new version via cloud build",
-							Description: `Upload the contents of a local directory to the cloud builder and publish
-a new registry version of your module from it, without requiring a git push.
+							Name:  "start",
+							Usage: "start a remote build",
+							Description: `Start a cloud build of your module and publish a new registry version.
+
+By default the build is run from a git ref of the repository in your meta.json's
+"url" field (use --ref/--token to control the checkout).
+
+Pass --from-source to instead package your local source directory and upload it to
+the cloud builder, without requiring a git push. The --ref and --token flags are
+ignored in this mode; use --path to point at the source directory to upload.
 
 Example:
-viam module build cloud --version 0.5.0
-viam module build cloud --version 0.5.0 --platforms linux/amd64,linux/arm64 --wait
+viam module build start --version 0.5.0
+viam module build start --version 0.5.0 --from-source --platforms linux/amd64,linux/arm64 --wait
 
-Honors .gitignore when packaging the source directory. Requires a "build" section
-in meta.json (same as 'viam module build start').`,
-							UsageText: createUsageText("module build cloud", []string{generalFlagVersion}, true, false),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:      moduleFlagPath,
-									Usage:     "path to meta.json",
-									Value:     "./meta.json",
-									TakesFile: true,
-								},
-								&cli.StringFlag{
-									Name:     generalFlagVersion,
-									Usage:    "version of the module to publish (semver2.0) ex: \"0.1.0\"",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name:      generalFlagPath,
-									Usage:     "path to the local source directory to upload",
-									Value:     ".",
-									TakesFile: true,
-								},
-								&cli.StringSliceFlag{
-									Name:  moduleBuildFlagPlatforms,
-									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64 (default: build.arch in meta.json)",
-								},
-								&cli.StringFlag{
-									Name:  moduleBuildFlagWorkdir,
-									Usage: "use this to indicate that your meta.json is in a subdirectory of the uploaded source",
-									Value: ".",
-								},
-								&cli.StringFlag{
-									Name:  moduleBuildFlagBuilder,
-									Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
-									Value: "default",
-								},
-								&cli.BoolFlag{
-									Name:  moduleBuildFlagWait,
-									Usage: "wait for the build to finish; surface failed-platform logs and a non-zero exit code on failure",
-								},
-								&cli.BoolFlag{
-									Name:  generalFlagNoProgress,
-									Usage: "hide the progress spinner",
-								},
-							},
-							Action: createActionCommandWithT[moduleBuildCloudArgs](ModuleBuildCloudAction),
-						},
-						{
-							Name:      "start",
-							Usage:     "start a remote build",
+When using --from-source, .gitignore is honored when packaging the source directory.`,
 							UsageText: createUsageText("module build start", []string{generalFlagVersion}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -3901,6 +3860,17 @@ in meta.json (same as 'viam module build start').`,
 									Name:     generalFlagVersion,
 									Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
 									Required: true,
+								},
+								&cli.BoolFlag{
+									Name: moduleBuildFlagFromSource,
+									Usage: "package your local source directory and upload it to the cloud builder " +
+										"instead of building from a git ref",
+								},
+								&cli.StringFlag{
+									Name:      generalFlagPath,
+									Usage:     "(--from-source only) path to the local source directory to upload",
+									Value:     ".",
+									TakesFile: true,
 								},
 								&cli.StringFlag{
 									Name:  moduleBuildFlagRef,
@@ -3925,6 +3895,15 @@ in meta.json (same as 'viam module build start').`,
 									Name:  moduleBuildFlagBuilder,
 									Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
 									Value: "default",
+								},
+								&cli.BoolFlag{
+									Name: moduleBuildFlagWait,
+									Usage: "(--from-source only) wait for the build to finish; surface failed-platform logs " +
+										"and a non-zero exit code on failure",
+								},
+								&cli.BoolFlag{
+									Name:  generalFlagNoProgress,
+									Usage: "(--from-source only) hide the progress spinner",
 								},
 							},
 							Action: createActionCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),

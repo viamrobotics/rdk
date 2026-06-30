@@ -202,13 +202,17 @@ func (c *viamClient) validateRefExists(ctx context.Context, cmd *cli.Command, re
 }
 
 type moduleBuildStartArgs struct {
-	Module    string
-	Version   string
-	Ref       string
-	Token     string
-	Workdir   string
-	Platforms []string
-	Builder   string
+	Module     string
+	Version    string
+	Ref        string
+	Token      string
+	Workdir    string
+	Platforms  []string
+	Builder    string
+	FromSource bool
+	Path       string
+	Wait       bool
+	NoProgress bool
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -276,6 +280,10 @@ func (c *viamClient) moduleBuildStartForRepo(
 }
 
 func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Command, args moduleBuildStartArgs) (string, error) {
+	if args.FromSource {
+		return c.moduleBuildStartFromSource(ctx, cmd, args)
+	}
+
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return "", err
@@ -1075,30 +1083,11 @@ func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRe
 	}, byteLen, nil
 }
 
-type moduleBuildCloudArgs struct {
-	Module     string
-	Version    string
-	Path       string
-	Platforms  []string
-	Workdir    string
-	Builder    string
-	Wait       bool
-	NoProgress bool
-}
-
-// ModuleBuildCloudAction uploads the local source directory and starts a cloud
-// build that publishes a new registry version of the module.
-func ModuleBuildCloudAction(ctx context.Context, cmd *cli.Command, args moduleBuildCloudArgs) error {
-	c, err := newViamClient(ctx, cmd)
-	if err != nil {
-		return err
-	}
-	_, err = c.moduleBuildCloudAction(ctx, cmd, args)
-	return err
-}
-
-func (c *viamClient) moduleBuildCloudAction(
-	ctx context.Context, cmd *cli.Command, args moduleBuildCloudArgs,
+// moduleBuildStartFromSource packages the local source directory and starts a
+// cloud build that publishes a new registry version of the module. This backs
+// `viam module build start --from-source`.
+func (c *viamClient) moduleBuildStartFromSource(
+	ctx context.Context, cmd *cli.Command, args moduleBuildStartArgs,
 ) (string, error) {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
@@ -1250,7 +1239,7 @@ func targetsWindowsPython(manifestPath string, platforms []string) bool {
 	return err == nil
 }
 
-func newModuleBuildCloudProgressManager(args moduleBuildCloudArgs) *ProgressManager {
+func newModuleBuildCloudProgressManager(args moduleBuildStartArgs) *ProgressManager {
 	steps := []*Step{
 		{ID: "prepare", Message: "Preparing for build...", CompletedMsg: "Prepared for build", IndentLevel: 0},
 		{ID: "archive", Message: "Creating source code archive...", CompletedMsg: "Source code archive created", IndentLevel: 1},
@@ -1268,7 +1257,7 @@ func newModuleBuildCloudProgressManager(args moduleBuildCloudArgs) *ProgressMana
 func (c *viamClient) uploadModuleSourceBuild(
 	ctx context.Context,
 	cmd *cli.Command,
-	args moduleBuildCloudArgs,
+	args moduleBuildStartArgs,
 	manifest ModuleManifest,
 	archivePath, orgID string,
 	moduleID moduleID,
