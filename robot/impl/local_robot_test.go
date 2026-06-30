@@ -5709,3 +5709,71 @@ func TestReconfigureTracing(t *testing.T) {
 		testReconfigureTracing(t, "fake-cloud-id")
 	})
 }
+
+// TestDependentReconnectsAfterDependencyNodeReadded is a deterministic robot-level repro of
+// the incident: a dependency's node is removed (via a name collision) while a surviving
+// dependent has already resolved it, then re-added. The dependent must end up with its edge
+// to the dependency rebuilt once the dependency is healthy again. Asserts on the EDGE, because
+// a dependent that tolerates a missing dep can look "Ready" while silently disconnected.
+func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	x := resource.Config{Name: "x", Model: fakeModel, API: base.API}
+	d := resource.Config{Name: "d", Model: fakeModel, API: base.API}
+	aSvc := resource.Config{Name: "a-svc", Model: fakeModel, API: slam.API}
+	bCmp := resource.Config{
+		Name: "b-cmp", Model: fakeModel, API: motor.API,
+		DependsOn: []string{"a-svc"}, ConvertedAttributes: &fakemotor.Config{},
+	}
+	bn := motor.Named("b-cmp")
+
+	r := setupLocalRobot(t, ctx, &config.Config{Components: []resource.Config{x}}, logger, WithDisableCompleteConfigWorker())
+	lr := r.(*localRobot)
+
+	// collision (a-svc duplicated) with b freshly added; then collision persists; then cleared.
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, bCmp}, Services: []resource.Config{aSvc, aSvc}})
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, d, bCmp}, Services: []resource.Config{aSvc, aSvc}})
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, d, bCmp}, Services: []resource.Config{aSvc}})
+
+	// a-svc is healthy now; b-cmp must be wired to it.
+	parents := lr.manager.resources.GetAllParentsOf(bn)
+	test.That(t, parents, test.ShouldContain, slam.Named("a-svc"))
+}
+
+// TestFixDoesNotResurrectDroppedDependency guards the re-arm fix: if B used to depend on A,
+// and a reconfigure both drops B's dependency on A and removes A, B must NOT be re-armed with
+// a stale dependency on A. A dependent that legitimately dropped a dependency has its edge
+// severed by markResourceForUpdate (parentage reset) before the node is removed, so the
+// removal-time re-arm must not touch it.
+func TestFixDoesNotResurrectDroppedDependency(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	a := resource.Config{Name: "a", Model: fakeModel, API: base.API}
+	bDep := resource.Config{
+		Name: "b", Model: fakeModel, API: motor.API,
+		DependsOn: []string{"a"}, ConvertedAttributes: &fakemotor.Config{},
+	}
+	bNoDep := resource.Config{
+		Name: "b", Model: fakeModel, API: motor.API,
+		DependsOn: []string{}, ConvertedAttributes: &fakemotor.Config{},
+	}
+	bn := motor.Named("b")
+
+	r := setupLocalRobot(t, ctx, &config.Config{Components: []resource.Config{a, bDep}}, logger,
+		WithDisableCompleteConfigWorker())
+	lr := r.(*localRobot)
+
+	// Drop B's dependency on A and remove A entirely, in one reconfigure.
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{bNoDep}})
+	_, errB := r.ResourceByName(bn)
+	test.That(t, errB, test.ShouldBeNil)                                       // B healthy, not stranded
+	test.That(t, lr.manager.resources.GetAllParentsOf(bn), test.ShouldBeEmpty) // no stale edge to 'a'
+
+	// Bring A back as an unrelated resource; B must not re-link to it.
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{a, bNoDep}})
+	_, errB2 := r.ResourceByName(bn)
+	test.That(t, errB2, test.ShouldBeNil)
+	test.That(t, lr.manager.resources.GetAllParentsOf(bn), test.ShouldBeEmpty)
+}
