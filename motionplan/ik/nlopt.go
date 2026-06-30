@@ -43,6 +43,10 @@ type NloptIK struct {
 	useRelTol bool
 
 	maxTime time.Duration
+
+	// rng is single-goroutine within a NloptIK (each is owned by one CombinedIK worker).
+	// Reused across Solve calls to avoid per-call *rand.Rand + *rand.Source allocation.
+	rng *rand.Rand
 }
 
 // CreateNloptSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
@@ -64,6 +68,7 @@ func CreateNloptSolver(
 	ik.exact = exact
 	ik.useRelTol = useRelTol
 	ik.maxTime = maxTime
+	ik.rng = rand.New(rand.NewSource(0)) //nolint: gosec
 
 	return ik, nil
 }
@@ -190,7 +195,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		return 0, nil, fmt.Errorf("need matching limits (%d) and seeds (%d) arrays", len(limits), len(seeds))
 	}
 
-	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
+	ik.rng.Seed(int64(rseed)) //nolint: gosec
 
 	seedStates := []*nloptSeedState{}
 	defer func() {
@@ -266,7 +271,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				solutionsFound++
 			}
 		}
-		ss.seed = generateRandomPositions(randSeed, ss.lowerBound, ss.upperBound)
+		ss.seed = generateRandomPositions(ik.rng, ss.lowerBound, ss.upperBound)
 
 		seedNumber++
 	}
