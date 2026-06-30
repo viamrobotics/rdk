@@ -58,6 +58,7 @@ import (
 	"go.viam.com/rdk/data"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -2382,6 +2383,26 @@ func TestMachineStatus(t *testing.T) {
 							PrimaryOrgID:  "789",
 							LocationID:    "abc",
 						},
+					},
+				},
+				State: robot.StateRunning,
+			},
+			0,
+		},
+		{
+			// errors persist through intermediate states, so a non-unhealthy module
+			// can carry an error; it must survive the server/client round-trip.
+			"module with error in non-unhealthy state",
+			robot.MachineStatus{
+				Config:    config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{},
+				Modules: []modulestatus.Status{
+					{
+						Name:                "mod",
+						State:               modulestatus.ModuleStateStarting,
+						LastUpdated:         time.Unix(1700000000, 0).UTC(),
+						Error:               errors.New("boom"),
+						ConsecutiveFailures: 2,
 					},
 				},
 				State: robot.StateRunning,

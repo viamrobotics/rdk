@@ -1357,11 +1357,11 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 				modStatus.State = modulestatus.ModuleStateReady
 			case pb.ModuleStatus_STATE_UNHEALTHY:
 				modStatus.State = modulestatus.ModuleStateUnhealthy
-				if pbModStatus.GetError() != "" {
-					modStatus.Error = errors.New(pbModStatus.GetError())
-				}
 			case pb.ModuleStatus_STATE_CLOSING:
 				modStatus.State = modulestatus.ModuleStateClosing
+			}
+			if pbModStatus.GetError() != "" {
+				modStatus.Error = errors.New(pbModStatus.GetError())
 			}
 
 			mStatus.Modules = append(mStatus.Modules, modStatus)
