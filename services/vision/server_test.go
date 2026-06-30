@@ -286,14 +286,17 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 		test.That(t, resp.Objects[0].Geometries.ReferenceFrame, test.ShouldEqual, "requestedCam")
 	})
 
-	// case 4: GetProperties returns an error → error is propagated to caller
-	t.Run("GetProperties error is propagated", func(t *testing.T) {
-		someError := errors.New("properties failed")
+	// case 4: GetProperties returns an error → error is swallowed and ReferenceFrame falls back to "".
+	// Some vision services (including third-party modules) do not implement GetProperties; a failure
+	// in the optional DefaultCamera lookup must not break a successful GetObjectPointClouds RPC.
+	t.Run("GetProperties error does not fail the RPC", func(t *testing.T) {
 		injectVS.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
-			return nil, someError
+			return nil, errors.New("properties failed")
 		}
-		_, err := server.GetObjectPointClouds(context.Background(), buildRequest(""))
-		test.That(t, err, test.ShouldBeError, someError)
+		resp, err := server.GetObjectPointClouds(context.Background(), buildRequest(""))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp.Objects), test.ShouldEqual, 1)
+		test.That(t, resp.Objects[0].Geometries.ReferenceFrame, test.ShouldEqual, "")
 	})
 }
 

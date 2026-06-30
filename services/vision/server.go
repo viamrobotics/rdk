@@ -177,13 +177,15 @@ func (server *serviceServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	props, err := svc.GetProperties(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
 	cameraName := req.CameraName
-	if cameraName == "" && props.DefaultCamera != nil {
-		cameraName = *props.DefaultCamera
+	if cameraName == "" {
+		// Do a best effort lookup of DefaultCamera.
+		// Some vision services do not implement GetProperties. Failing
+		// the RPC here would break their GetObjectPointClouds, so we fall back
+		// to the empty reference frame instead.
+		if props, propsErr := svc.GetProperties(ctx, nil); propsErr == nil && props.DefaultCamera != nil {
+			cameraName = *props.DefaultCamera
+		}
 	}
 	protoSegments, err := segmentsToProto(cameraName, objects)
 	if err != nil {
