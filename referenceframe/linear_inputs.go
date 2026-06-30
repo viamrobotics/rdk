@@ -80,18 +80,25 @@ func (lis *LinearInputsSchema) GetLinearInputs(fsi FrameSystemInputs) (*LinearIn
 // with the original. Callers that need to mutate the schema (e.g. via Put for new frames) must call
 // ForkSchema first.
 func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {
+	out := &LinearInputs{}
+	if err := lis.FloatsToInputsInto(inps, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// FloatsToInputsInto is FloatsToInputs that writes into a caller-provided buffer.
+func (lis *LinearInputsSchema) FloatsToInputsInto(inps []float64, out *LinearInputs) error {
 	totDoF := 0
 	for idx := range lis.metas {
 		totDoF += lis.metas[idx].dof
 	}
 	if totDoF != len(inps) {
-		return nil, fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
+		return fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
 	}
-
-	return &LinearInputs{
-		schema: lis,
-		inputs: inps,
-	}, nil
+	out.schema = lis
+	out.inputs = inps
+	return nil
 }
 
 // FrameNamesInOrder returns the frame names in schema order.

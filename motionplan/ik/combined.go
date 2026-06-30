@@ -52,6 +52,18 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	costFunc CostFunc,
 	rseed int,
 ) (int, []SeedSolveMetaData, error) {
+	return ik.SolveWithFactory(ctx, retChan, totalAttempts, seeds, limits, func() CostFunc { return costFunc }, rseed)
+}
+
+// SolveWithFactory is Solve with a per-worker CostFunc factory instead of a shared CostFunc.
+func (ik *CombinedIK) SolveWithFactory(ctx context.Context,
+	retChan chan<- *Solution,
+	totalAttempts *atomic.Int32,
+	seeds [][]float64,
+	limits [][]referenceframe.Limit,
+	costFuncFactory CostFuncFactory,
+	rseed int,
+) (int, []SeedSolveMetaData, error) {
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 
@@ -64,20 +76,14 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		thisSolver := solver
 		myseed := rseed
 		rseed++
+		workerCostFunc := costFuncFactory()
 
 		activeSolvers.Add(1)
-		// fmt.Println("Spinning solver:", idx)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
 			_ = idx
-			// if idx != 5 {
-			//  	select {
-			//  	case <-ctx.Done():
-			//  	case <-time.After(time.Second):
-			//  	}
-			// }
-			n, m, err := thisSolver.Solve(ctx, retChan, totalAttempts, seeds, limits, costFunc, myseed)
+			n, m, err := thisSolver.Solve(ctx, retChan, totalAttempts, seeds, limits, workerCostFunc, myseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()

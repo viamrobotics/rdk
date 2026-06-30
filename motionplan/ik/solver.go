@@ -28,6 +28,9 @@ const (
 // CostFunc is the function to minimize.
 type CostFunc func(context.Context, []float64) float64
 
+// CostFuncFactory produces fresh CostFunc instances; one per parallel worker so each owns its scratch state.
+type CostFuncFactory = func() CostFunc
+
 // SeedSolveMetaData meta data about how a seed did
 type SeedSolveMetaData struct {
 	Attempts int

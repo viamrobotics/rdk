@@ -46,9 +46,19 @@ type StateFS struct {
 	Configuration *referenceframe.LinearInputs
 	FS            *referenceframe.FrameSystem
 
+	// DQScratch is a reusable scratch buffer for metric closures; nil means allocate per call.
+	DQScratch *spatial.DualQuaternion
+
 	geometries       map[string]*referenceframe.GeometriesInFrame
 	movingGeometries map[string]*referenceframe.GeometriesInFrame
 	poses            referenceframe.FrameSystemPoses
+}
+
+// ResetCaches clears the lazy-loaded fields. Required between reuses with different Configurations.
+func (s *StateFS) ResetCaches() {
+	s.geometries = nil
+	s.movingGeometries = nil
+	s.poses = nil
 }
 
 // Geometries get Geometries and cache
