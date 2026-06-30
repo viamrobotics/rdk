@@ -51,6 +51,8 @@ const (
 	jobStatusInProgress jobStatus = "Building"
 	jobStatusFailed     jobStatus = "Failed"
 	jobStatusDone       jobStatus = "Done"
+
+	builderDefault = "default"
 )
 
 var moduleBuildPollingInterval = 2 * time.Second
@@ -255,7 +257,7 @@ func (c *viamClient) moduleBuildStartForRepo(
 		Workdir:       &workdir,
 		Distro:        &manifest.Build.Distro,
 	}
-	if args.Builder != "" && args.Builder != "default" {
+	if args.Builder != "" && args.Builder != builderDefault {
 		req.Builder = &args.Builder
 	}
 	res, err := c.buildClient.StartBuild(ctx, &req)
@@ -1021,7 +1023,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 			},
 		},
 	}
-	if args.Builder != "" && args.Builder != "default" {
+	if args.Builder != "" && args.Builder != builderDefault {
 		buildInfoReq.Builder = &args.Builder
 	}
 
@@ -1284,7 +1286,7 @@ func (c *viamClient) uploadModuleSourceBuild(
 		},
 		ModuleVersion: version,
 	}
-	if args.Builder != "" && args.Builder != "default" {
+	if args.Builder != "" && args.Builder != builderDefault {
 		buildInfoReq.Builder = &args.Builder
 	}
 
