@@ -12,6 +12,7 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -42,6 +43,15 @@ func init() {
 			APIVersion: "unknown",
 		}
 	}
+}
+
+// UploadDataFromPathResult is the aggregated result of an UploadDataFromPath call.
+type UploadDataFromPathResult struct {
+	FilesUploaded uint64
+	FilesFailed   uint64
+	BytesUploaded uint64
+	BytesTotal    uint64
+	IDs           []string
 }
 
 // A Robot encompasses all functionality of some robot comprised
@@ -197,6 +207,10 @@ type LocalRobot interface {
 
 	// WriteTraceMessages writes trace spans to any configured exporters.
 	WriteTraceMessages(context.Context, []*otlpv1.ResourceSpans) error
+
+	// UploadDataFromPath uploads a file or directory at path to the cloud via the data manager.
+	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
+		UploadDataFromPathResult, error)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

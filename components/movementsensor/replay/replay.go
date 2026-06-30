@@ -193,7 +193,7 @@ func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, co
 		logger: logger,
 	}
 
-	if err := replay.Reconfigure(ctx, deps, conf); err != nil {
+	if err := replay.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
@@ -390,9 +390,9 @@ func (replay *replayMovementSensor) Readings(ctx context.Context, extra map[stri
 	return movementsensor.DefaultAPIReadings(ctx, replay, extra)
 }
 
-// Reconfigure finishes the bring up of the replay movement sensor by evaluating given arguments and setting up the required cloud
+// reconfigure finishes the bring up of the replay movement sensor by evaluating given arguments and setting up the required cloud
 // connection as well as updates all required parameters upon a reconfiguration attempt, restarting the cloud connection in the process.
-func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (replay *replayMovementSensor) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {

@@ -27,6 +27,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -46,7 +47,6 @@ import (
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -58,6 +58,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -169,6 +170,32 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 		err = stderrors.Join(err, c.UploadTraces(ctx, spans))
 	}
 	return err
+}
+
+// dataFromPathUploader is the capability interface localRobot type-asserts the configured
+// data manager service for when UploadDataFromPath is called.
+type dataFromPathUploader interface {
+	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
+		robot.UploadDataFromPathResult, error)
+}
+
+// UploadDataFromPath uploads a file or directory to the cloud via the configured data manager service.
+func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{}) (
+	robot.UploadDataFromPathResult, error,
+) {
+	names := datamanager.NamesFromRobot(r)
+	if len(names) == 0 {
+		return robot.UploadDataFromPathResult{}, errors.New("no data manager service configured")
+	}
+	svc, err := datamanager.FromProvider(r, names[0])
+	if err != nil {
+		return robot.UploadDataFromPathResult{}, err
+	}
+	uploader, ok := svc.(dataFromPathUploader)
+	if !ok {
+		return robot.UploadDataFromPathResult{}, errors.New("data manager does not support UploadDataFromPath")
+	}
+	return uploader.UploadDataFromPath(ctx, path, md, extra)
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -1086,33 +1113,37 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			// the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
 			case web.InternalServiceName:
-				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
+				if internalRes, ok := res.(resource.BuiltInResource); ok {
+					if err := internalRes.BuiltInReconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+					}
 				}
 			case framesystem.InternalServiceName:
-				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
-				if err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
-					break
-				}
-				err = res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
-				if err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
+				if internalRes, ok := res.(resource.BuiltInResource); ok {
+					fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
+					if err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+						break
+					}
+					err = internalRes.BuiltInReconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+					if err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+					}
 				}
 			case packages.InternalServiceName, packages.DeferredServiceName, icloud.InternalServiceName:
 			default:
@@ -1158,7 +1189,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			return
 		}
 
-		// Return early if resource has neither weak nor optional dependencies.
+		// Return early if resource has neither weak nor optional dependencies (root of tree)
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 &&
 			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
@@ -1185,15 +1216,27 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 
 		r.Logger().CInfow(ctx, "handling weak/optional update for resource", "resource", resName)
 
-		// Use the module manager to reconfigure the resource if it's a modular resource. This
-		// would be a modular resource that has optional dependencies.
 		isModular := r.manager.moduleManager.Provides(conf)
-		if isModular {
-			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
-			// For modular resources `res` is a client object. We call reconfigure to clear caches.
-			goutils.UncheckedError(res.Reconfigure(ctx, deps, conf))
+		if internalResource, ok := res.(resource.BuiltInResource); !isModular && ok {
+			err = internalResource.BuiltInReconfigure(ctx, deps, conf)
 		} else {
-			err = res.Reconfigure(ctx, deps, conf)
+			// copied from resource_manager's processResource
+			if err := r.manager.closeAndUnsetResource(ctx, resNode); err != nil {
+				r.manager.logger.CError(ctx, err)
+			}
+			var newRes resource.Resource
+			newRes, err = r.newResource(ctx, resNode, conf)
+			if err != nil {
+				r.manager.logger.CDebugw(ctx,
+					"failed to build resource of new model",
+					"name", resName,
+					"old_model", resNode.ResourceModel(),
+					"new_model", conf.Model,
+				)
+			} else if newRes != nil {
+				// will NPE if newRes is nil
+				resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc, false)
+			}
 		}
 		if err != nil {
 			if resource.IsMustRebuildError(err) {

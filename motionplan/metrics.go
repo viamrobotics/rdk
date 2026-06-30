@@ -46,8 +46,9 @@ type StateFS struct {
 	Configuration *referenceframe.LinearInputs
 	FS            *referenceframe.FrameSystem
 
-	geometries map[string]*referenceframe.GeometriesInFrame
-	poses      referenceframe.FrameSystemPoses
+	geometries       map[string]*referenceframe.GeometriesInFrame
+	movingGeometries map[string]*referenceframe.GeometriesInFrame
+	poses            referenceframe.FrameSystemPoses
 }
 
 // Geometries get Geometries and cache

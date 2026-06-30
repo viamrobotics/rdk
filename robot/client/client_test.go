@@ -19,7 +19,9 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -56,7 +58,6 @@ import (
 	"go.viam.com/rdk/data"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -196,6 +197,68 @@ func makeRPCServer(logger logging.Logger, option rpc.ServerOption) (rpc.Server, 
 		return server, listener, nil
 	}
 	return nil, nil, err
+}
+
+// TestReExportedDialOptions verifies that a machine connection can be established using
+// only the client dial options re-exported by this package (see dial_options.go), without
+// importing go.viam.com/utils/rpc directly. This is the surface SDK users rely on, so
+// exercise it end-to-end against an authenticated server.
+func TestReExportedDialOptions(t *testing.T) {
+	const (
+		apiKeyID = "some-key-id"
+		apiKey   = "some-key-payload"
+	)
+
+	logger := logging.NewTestLogger(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Stand up a server that requires API-key credentials. Note that the re-exported
+	// CredentialsTypeAPIKey (a type alias) is accepted directly by the goutils server
+	// option, demonstrating the alias interops both ways.
+	rpcServer, listener, err := makeRPCServer(logger,
+		rpc.WithAuthHandler(CredentialsTypeAPIKey, rpc.MakeSimpleAuthHandler([]string{apiKeyID}, apiKey)))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
+	}()
+
+	err = rpcServer.RegisterServiceServer(
+		ctx,
+		&pb.RobotService_ServiceDesc,
+		&mockRPCSubtypesImplemented{ResourceNamesFunc: resourceFunc1},
+		pb.RegisterRobotServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	go func() {
+		test.That(t, rpcServer.Serve(listener), test.ShouldBeNil)
+	}()
+
+	addr := listener.Addr().String()
+
+	// Without credentials, the server rejects the connection.
+	_, err = New(ctx, addr, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+	// Connect using only the re-exported dial options. These resolve to the underlying
+	// goutils rpc implementation but are referenced through this package's own API.
+	machine, err := New(ctx, addr, logger, WithDialOptions(
+		WithAllowInsecureWithCredentialsDowngrade(),
+		WithForceDirectGRPC(),
+		WithEntityCredentials(apiKeyID, Credentials{
+			Type:    CredentialsTypeAPIKey,
+			Payload: apiKey,
+		}),
+	))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, machine.Close(ctx), test.ShouldBeNil)
+	}()
+
+	test.That(t, machine.Connected(), test.ShouldBeTrue)
+	test.That(t, machine.ResourceNames(), test.ShouldResemble, []resource.Name{board.Named("board1")})
 }
 
 func TestUnimplementedRPCSubtypes(t *testing.T) {
@@ -882,68 +945,82 @@ func TestClientDisconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, client.checkConnected())
 }
 
-func TestMachineStatusModulesRoundTrip(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+func TestClientHealthCheckRateLimitedStaysConnected(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
-	lastUpdated := time.Date(2026, 6, 12, 10, 0, 0, 0, time.UTC)
-	modules := []modulestatus.Status{
-		{Name: "pending", State: modulestatus.ModuleStatePending, LastUpdated: lastUpdated},
-		{Name: "starting", State: modulestatus.ModuleStateStarting, LastUpdated: lastUpdated},
-		{Name: "ready", State: modulestatus.ModuleStateReady, LastUpdated: lastUpdated},
-		{
-			Name:                "unhealthy",
-			State:               modulestatus.ModuleStateUnhealthy,
-			LastUpdated:         lastUpdated,
-			Error:               errors.New("kaboom"),
-			ConsecutiveFailures: 3,
+	// Once enabled, the interceptor rate-limits every request, including the background
+	// health check's ResourceNames call.
+	var rateLimited atomic.Bool
+	rateLimitInterceptor := grpc.ChainUnaryInterceptor(
+		func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+			if rateLimited.Load() {
+				return nil, status.Error(codes.ResourceExhausted, "exceeded request limit")
+			}
+			return handler(ctx, req)
 		},
-		// closing carries an error to pin the decode asymmetry: the client only
-		// reads the error field for unhealthy modules.
-		{
-			Name:        "closing",
-			State:       modulestatus.ModuleStateClosing,
-			LastUpdated: lastUpdated,
-			Error:       errors.New("dropped on the wire"),
-		},
-	}
-
+	)
+	gServer := grpc.NewServer(rateLimitInterceptor)
 	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
-	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-		return robot.MachineStatus{State: robot.StateRunning, Modules: modules}, nil
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{arm.Named("arm1")}
+	}
+	injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
 	}
 
-	gServer := grpc.NewServer()
-	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	client, err := New(context.Background(), listener.Addr().String(), logger)
+	dur := 50 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(dur),
+		WithReconnectEvery(dur),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
+	test.That(t, client.Connected(), test.ShouldBeTrue)
 
-	ms, err := client.MachineStatus(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ms.Modules), test.ShouldEqual, len(modules))
+	// Start rate-limiting all requests, then let the background health check run several
+	// cycles. The client must stay connected: rate limiting is not a connection loss.
+	rateLimited.Store(true)
+	time.Sleep(5 * dur)
+	test.That(t, client.Connected(), test.ShouldBeTrue)
 
-	for i, want := range modules {
-		got := ms.Modules[i]
-		test.That(t, got.Name, test.ShouldEqual, want.Name)
-		test.That(t, got.State, test.ShouldEqual, want.State)
-		test.That(t, got.LastUpdated.Equal(want.LastUpdated), test.ShouldBeTrue)
-		test.That(t, got.ConsecutiveFailures, test.ShouldEqual, want.ConsecutiveFailures)
-	}
+	// The health check should have logged that it is leaving the connection up despite the
+	// rate limiting, rather than logging a lost connection.
+	test.That(t, logs.FilterMessageSnippet("health checks to remote are failing due to a request rate limit").Len(),
+		test.ShouldBeGreaterThan, 0)
+	test.That(t, logs.FilterMessageSnippet("lost connection to remote").Len(), test.ShouldEqual, 0)
 
-	// The error string survives the round trip for the unhealthy module and is
-	// dropped for every other state.
-	test.That(t, ms.Modules[3].Error, test.ShouldNotBeNil)
-	test.That(t, ms.Modules[3].Error.Error(), test.ShouldEqual, "kaboom")
-	test.That(t, ms.Modules[4].Error, test.ShouldBeNil)
+	// A request now surfaces the true ResourceExhausted error rather than a spurious
+	// "not connected to remote robot" error.
+	_, err = client.MachineStatus(context.Background())
+	test.That(t, status.Code(err), test.ShouldEqual, codes.ResourceExhausted)
+}
+
+func TestIsResourceExhaustedError(t *testing.T) {
+	resourceExhausted := status.Error(codes.ResourceExhausted, "exceeded request limit")
+	unavailable := status.Error(codes.Unavailable, "not connected")
+
+	test.That(t, isResourceExhaustedError(nil), test.ShouldBeFalse)
+	test.That(t, isResourceExhaustedError(errors.New("plain")), test.ShouldBeFalse)
+	test.That(t, isResourceExhaustedError(unavailable), test.ShouldBeFalse)
+	test.That(t, isResourceExhaustedError(resourceExhausted), test.ShouldBeTrue)
+	// A ResourceExhausted combined with other errors (as Refresh may return) is still detected.
+	test.That(t, isResourceExhaustedError(multierr.Combine(unavailable, resourceExhausted)), test.ShouldBeTrue)
+	test.That(t, isResourceExhaustedError(multierr.Combine(unavailable, errors.New("plain"))), test.ShouldBeFalse)
 }
 
 func TestClientUnaryDisconnectHandler(t *testing.T) {
@@ -2431,4 +2508,62 @@ func TestListTunnels(t *testing.T) {
 	ttes, err := client.ListTunnels(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ttes, test.ShouldResemble, expectedTTEs)
+}
+
+func TestUploadDataFromPath(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	var capturedPath string
+	var capturedMD *datasyncpb.UploadMetadata
+	var capturedExtra map[string]interface{}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return nil },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
+		UploadDataFromPathFunc: func(
+			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
+		) (robot.UploadDataFromPathResult, error) {
+			capturedPath = path
+			capturedMD = md
+			capturedExtra = extra
+			return robot.UploadDataFromPathResult{
+				FilesUploaded: 2,
+				FilesFailed:   0,
+				BytesUploaded: 512,
+				BytesTotal:    512,
+				IDs:           []string{"a", "b"},
+			}, nil
+		},
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	md := &datasyncpb.UploadMetadata{Tags: []string{"tag1"}}
+	extra := map[string]interface{}{"foo": "bar"}
+	res, err := client.UploadDataFromPath(context.Background(), "/data/foo", md, extra)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res.FilesUploaded, test.ShouldEqual, uint64(2))
+	test.That(t, res.FilesFailed, test.ShouldEqual, uint64(0))
+	test.That(t, res.BytesUploaded, test.ShouldEqual, uint64(512))
+	test.That(t, res.BytesTotal, test.ShouldEqual, uint64(512))
+	test.That(t, res.IDs, test.ShouldResemble, []string{"a", "b"})
+
+	// request fields actually crossed the wire
+	test.That(t, capturedPath, test.ShouldEqual, "/data/foo")
+	test.That(t, capturedMD.GetTags(), test.ShouldResemble, []string{"tag1"})
+	test.That(t, capturedExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }

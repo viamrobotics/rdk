@@ -24,6 +24,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -194,6 +195,18 @@ func isDisconnectedError(err error) bool {
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
 	return fmt.Errorf("not connected to remote robot at %s", rc.address)
+}
+
+func isResourceExhaustedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	for _, e := range multierr.Errors(err) {
+		if status.Code(e) == codes.ResourceExhausted {
+			return true
+		}
+	}
+	return false
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -673,7 +686,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				err := check()
 				if err != nil {
 					outerError = err
-					if isDisconnectedError(err) {
+					// A disconnect is terminal for this cycle, and immediately retrying a
+					// rate-limited request would only add load, so stop early in both cases.
+					if isDisconnectedError(err) || isResourceExhaustedError(err) {
 						break
 					}
 					// otherwise retry
@@ -683,6 +698,20 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				break
 			}
 			if outerError != nil {
+				if isResourceExhaustedError(outerError) {
+					// The remote is reachable but is rate-limiting our health-check requests.
+					// The connection itself is healthy, so do not mark the client disconnected.
+					// Doing so would mask the rate limit as a "not connected to remote robot"
+					// error and cause needless reconnect churn. ResourceExhausted will surface
+					// to callers making requests.
+					rc.Logger().CInfow(ctx,
+						"connection health checks to remote are failing due to a request rate limit, "+
+							"likely caused by a different client or module; leaving connection up",
+						"error", outerError,
+						"address", rc.address,
+					)
+					continue
+				}
 				rc.Logger().CErrorw(ctx,
 					"lost connection to remote",
 					"error", outerError,
@@ -1387,6 +1416,31 @@ func (rc *RobotClient) SendTraces(ctx context.Context, spans []*otlpv1.ResourceS
 	req := &pb.SendTracesRequest{ResourceSpans: spans}
 	_, err := rc.client.SendTraces(ctx, req)
 	return err
+}
+
+// UploadDataFromPath uploads a file or directory from the robot to the cloud via the data manager.
+func (rc *RobotClient) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{}) (
+	robot.UploadDataFromPathResult, error,
+) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return robot.UploadDataFromPathResult{}, err
+	}
+	resp, err := rc.client.UploadDataFromPath(ctx, &pb.UploadDataFromPathRequest{
+		Path:           path,
+		UploadMetadata: md,
+		Extra:          ext,
+	})
+	if err != nil {
+		return robot.UploadDataFromPathResult{}, err
+	}
+	return robot.UploadDataFromPathResult{
+		FilesUploaded: resp.GetFilesUploaded(),
+		FilesFailed:   resp.GetFilesFailed(),
+		BytesUploaded: resp.GetBytesUploaded(),
+		BytesTotal:    resp.GetBytesTotal(),
+		IDs:           resp.GetIds(),
+	}, nil
 }
 
 // Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
