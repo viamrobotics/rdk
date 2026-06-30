@@ -560,31 +560,10 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	}
 	result.Modules = make([]*pb.ModuleStatus, 0, len(mStatus.Modules))
 	for _, modStatus := range mStatus.Modules {
-		pbModStatus := &pb.ModuleStatus{
-			ModuleName:          modStatus.Name,
-			LastUpdated:         timestamppb.New(modStatus.LastUpdated),
-			ConsecutiveFailures: uint32(modStatus.ConsecutiveFailures),
-		}
-		switch modStatus.State {
-		case modulestatus.ModuleStateUnknown:
+		if modStatus.State == modulestatus.ModuleStateUnknown {
 			s.robot.Logger().CWarnw(ctx, "module in an unknown state", "module", modStatus.Name)
-			pbModStatus.State = pb.ModuleStatus_STATE_UNSPECIFIED
-		case modulestatus.ModuleStatePending:
-			pbModStatus.State = pb.ModuleStatus_STATE_PENDING
-		case modulestatus.ModuleStateStarting:
-			pbModStatus.State = pb.ModuleStatus_STATE_STARTING
-		case modulestatus.ModuleStateReady:
-			pbModStatus.State = pb.ModuleStatus_STATE_READY
-		case modulestatus.ModuleStateUnhealthy:
-			pbModStatus.State = pb.ModuleStatus_STATE_UNHEALTHY
-		case modulestatus.ModuleStateClosing:
-			pbModStatus.State = pb.ModuleStatus_STATE_CLOSING
 		}
-		if modStatus.Error != nil {
-			pbModStatus.Error = modStatus.Error.Error()
-		}
-
-		result.Modules = append(result.Modules, pbModStatus)
+		result.Modules = append(result.Modules, modStatus.ToProto())
 	}
 
 	switch mStatus.State {
