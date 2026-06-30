@@ -1279,3 +1279,70 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 	}
 	return ""
 }
+
+// TestResourceGraphRebuildEdgeAfterDependencyReadded reproduces the dependency-edge
+// stranding bug: once a node has resolved its dependencies, removing one of those
+// dependency nodes strips the edge but does NOT re-arm the dependent for resolution,
+// so re-adding the dependency never rebuilds the edge.
+//
+// Models: A (dependent) depends-by-name on B (dependency), as a modular resource would
+// after Validate() returns B in its required deps.
+func TestResourceGraphRebuildEdgeAfterDependencyReadded(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
+
+	nameA := NewName(apiA, "A")
+	nameB := NewName(apiA, "B")
+
+	parentsOfA := func() []Name { return g.GetAllParentsOf(nameA) }
+
+	// B exists (a built dependency). A is unconfigured and declares it depends on B by name,
+	// exactly as NewUnconfiguredGraphNode(conf, conf.Dependencies()) would seed it.
+	test.That(t, g.AddNode(nameB, &GraphNode{}), test.ShouldBeNil)
+	test.That(t, g.AddNode(nameA, NewUnconfiguredGraphNode(Config{API: apiA, Name: "A"}, []string{nameB.String()})), test.ShouldBeNil)
+
+	// First resolution: the A->B edge is created (this is "A resolved B once at construction").
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	t.Logf("after initial resolve, parents of A = %v", parentsOfA())
+	test.That(t, parentsOfA(), test.ShouldResemble, []Name{nameB})
+
+	// The dependency's node is removed (collision / removed-from-config). This strips the edge.
+	g.remove(nameB)
+	t.Logf("after remove(B),     parents of A = %v", parentsOfA())
+	test.That(t, parentsOfA(), test.ShouldBeEmpty) // edge correctly dropped
+
+	// The dependency comes back as a fresh node, and the resolver runs again (as completeConfig
+	// does every pass). EXPECTED: the A->B edge is rebuilt. (This is the assertion that fails today.)
+	test.That(t, g.AddNode(nameB, &GraphNode{}), test.ShouldBeNil)
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	t.Logf("after readd + resolve, parents of A = %v  (want [%v])", parentsOfA(), nameB)
+	test.That(t, parentsOfA(), test.ShouldResemble, []Name{nameB})
+}
+
+// TestResourceGraphRebuildEdgeViaFullReseed shows the "cure" path: when the dependent is
+// re-seeded with its full declared dependency list (what markResourceForUpdate /
+// ResolveImplicitDependencies do on a config reprocess / module restart), the edge is rebuilt.
+func TestResourceGraphRebuildEdgeViaFullReseed(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
+
+	nameA := NewName(apiA, "A")
+	nameB := NewName(apiA, "B")
+	parentsOfA := func() []Name { return g.GetAllParentsOf(nameA) }
+
+	test.That(t, g.AddNode(nameB, &GraphNode{}), test.ShouldBeNil)
+	nodeA := NewUnconfiguredGraphNode(Config{API: apiA, Name: "A"}, []string{nameB.String()})
+	test.That(t, g.AddNode(nameA, nodeA), test.ShouldBeNil)
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, parentsOfA(), test.ShouldResemble, []Name{nameB})
+
+	g.remove(nameB)
+	test.That(t, parentsOfA(), test.ShouldBeEmpty)
+
+	// Re-add B, and re-seed A's full declared deps (the config-reprocess path).
+	test.That(t, g.AddNode(nameB, &GraphNode{}), test.ShouldBeNil)
+	nodeA.SetNewConfig(Config{API: apiA, Name: "A"}, []string{nameB.String()})
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	t.Logf("after full re-seed + resolve, parents of A = %v", parentsOfA())
+	test.That(t, parentsOfA(), test.ShouldResemble, []Name{nameB})
+}

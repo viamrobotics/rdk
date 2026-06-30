@@ -637,6 +637,12 @@ func (g *Graph) remove(node Name) {
 	for k, vertice := range g.parents {
 		if _, ok := vertice[node]; ok {
 			removeNodeFromNodeMap(g.parents, k, node)
+			// The dependent `k` just lost an edge to a dependency it still declares.
+			// Re-arm it for resolution so the edge is rebuilt if `node` reappears,
+			// instead of being silently stranded until `k`'s config is reprocessed.
+			if depNode, ok := g.nodes.Get(k); ok {
+				depNode.addUnresolvedDependency(node.String())
+			}
 		}
 	}
 	delete(g.transitiveClosureMatrix, node)

@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -448,6 +449,19 @@ func (w *GraphNode) setUnresolvedDependencies(names ...string) {
 	defer w.mu.Unlock()
 	w.unresolvedDependencies = names
 	w.needsDependencyResolution = true
+}
+
+// addUnresolvedDependency re-marks a single dependency name as unresolved and flags the
+// node for resolution, without clobbering any deps already pending. Used when a dependency
+// edge is force-dropped (e.g. the dependency node is removed) so the dependent re-resolves
+// it once it reappears.
+func (w *GraphNode) addUnresolvedDependency(name string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.needsDependencyResolution = true
+	if !slices.Contains(w.unresolvedDependencies, name) {
+		w.unresolvedDependencies = append(w.unresolvedDependencies, name)
+	}
 }
 
 // setDependenciesResolved sets that all unresolved dependencies have been
