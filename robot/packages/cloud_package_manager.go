@@ -275,6 +275,14 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Infof("Package sync complete after %v", time.Since(start))
 	}
 
+	// Prune packageStatuses to match the new managed set so stale entries from removed or
+	// previously-configured packages don't accumulate across reconfigures.
+	for name := range m.packageStatuses {
+		if _, ok := newManagedPackages[name]; !ok {
+			delete(m.packageStatuses, name)
+		}
+	}
+
 	// swap for new managed packags.
 	m.managedPackages = newManagedPackages
 
