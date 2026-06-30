@@ -33,6 +33,14 @@ func TestStatusToProto(t *testing.T) {
 		test.That(t, proto.Error, test.ShouldEqual, "")
 	})
 
+	t.Run("non-nil error converts in non-unhealthy state", func(t *testing.T) {
+		// errors persist through intermediate states until a module is ready, so a
+		// non-nil error must serialize even when the state isn't unhealthy.
+		proto := Status{Name: "m", State: ModuleStateStarting, Error: errors.New("boom")}.ToProto()
+		test.That(t, proto.State, test.ShouldEqual, pb.ModuleStatus_STATE_STARTING)
+		test.That(t, proto.Error, test.ShouldEqual, "boom")
+	})
+
 	t.Run("every state maps", func(t *testing.T) {
 		for state, expected := range map[State]pb.ModuleStatus_State{
 			ModuleStateUnknown:   pb.ModuleStatus_STATE_UNSPECIFIED,
