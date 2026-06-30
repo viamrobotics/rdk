@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -32,6 +33,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/tunnel"
 )
@@ -585,6 +587,24 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
 	}
 
+	if len(mStatus.Packages) > 0 {
+		result.Packages = make([]*pb.PackageStatus, 0, len(mStatus.Packages))
+		for _, pkgStatus := range mStatus.Packages {
+			pkgType, err := config.PackageTypeToProto(pkgStatus.Type)
+			if err != nil {
+				s.robot.Logger().CWarnw(ctx, "unknown package type in status", "type", pkgStatus.Type)
+			}
+			result.Packages = append(result.Packages, &pb.PackageStatus{
+				Name:        pkgStatus.Name,
+				Type:        pkgType,
+				State:       packageStateToProto(pkgStatus.State),
+				Error:       pkgStatus.Error,
+				LastUpdated: timestamppb.New(pkgStatus.LastUpdated),
+				Version:     pkgStatus.Version,
+			})
+		}
+	}
+
 	if mStatus.JobStatuses != nil {
 		if len(mStatus.JobStatuses) > 0 {
 			timeToTspb := func(t time.Time, _ int) *timestamppb.Timestamp {
@@ -604,6 +624,23 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	}
 
 	return &result, nil
+}
+
+func packageStateToProto(s packages.PackageState) pb.PackageStatus_State {
+	switch s {
+	case packages.PackageStateDownloading:
+		return pb.PackageStatus_STATE_DOWNLOADING
+	case packages.PackageStateLoading:
+		return pb.PackageStatus_STATE_LOADING
+	case packages.PackageStateFirstRun:
+		return pb.PackageStatus_STATE_FIRST_RUN
+	case packages.PackageStateDownloaded:
+		return pb.PackageStatus_STATE_DOWNLOADED
+	case packages.PackageStateFailed:
+		return pb.PackageStatus_STATE_FAILED
+	default:
+		return pb.PackageStatus_STATE_UNSPECIFIED
+	}
 }
 
 // GetVersion returns version information about the robot.
