@@ -195,7 +195,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		return 0, nil, fmt.Errorf("need matching limits (%d) and seeds (%d) arrays", len(limits), len(seeds))
 	}
 
-	ik.rng.Seed(int64(rseed)) //nolint: gosec
+	ik.rng.Seed(int64(rseed))
 
 	seedStates := []*nloptSeedState{}
 	defer func() {
