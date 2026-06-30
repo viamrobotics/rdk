@@ -273,7 +273,7 @@ func (sfs *FrameSystem) RemoveFrame(frame Frame) {
 		}
 	}
 	sfs.removeFrameRecursive(frame)
-	sfs.cachedBFSNames = bfsFrameNames(sfs)
+	sfs.cachedBFSNames = nil
 }
 
 func (sfs *FrameSystem) removeFrameRecursive(frame Frame) {
@@ -375,6 +375,9 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 // FrameNames returns the list of frame names registered in the frame system,
 // in BFS order from world, excluding flattened-model internals.
 func (sfs *FrameSystem) FrameNames() []string {
+	if sfs.cachedBFSNames == nil {
+		sfs.cachedBFSNames = bfsFrameNames(sfs)
+	}
 	return sfs.cachedBFSNames
 }
 
@@ -398,7 +401,7 @@ func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 	// add to frame system
 	sfs.frames[frame.Name()] = frame
 	sfs.parents[frame.Name()] = parent.Name()
-	sfs.cachedBFSNames = bfsFrameNames(sfs)
+	sfs.cachedBFSNames = nil
 
 	if sm := asFlattenableModel(frame); sm != nil {
 		if err := flattenModelIntoFS(sfs, sm, frame.Name(), parent); err != nil {
@@ -1192,9 +1195,8 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 	internalNames := bfsFrameNames(internalFS)
 
 	// Install the bundle and tag every namespaced name as an internal
-	// upfront. AddFrame's auto-recomputed bfsFrameNames cache must know to
-	// filter these out, and resolveFrameInputs may be hit while we're still
-	// adding frames.
+	// upfront, since resolveFrameInputs may be hit while we're still adding
+	// frames.
 	bundle := &flattenedComponent{
 		model:         model,
 		internalNames: make([]string, 0, len(internalNames)),
