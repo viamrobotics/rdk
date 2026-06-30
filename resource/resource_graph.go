@@ -622,7 +622,7 @@ func (g *Graph) removeTransitiveClosure(child, parent Name) {
 	}
 }
 
-func (g *Graph) remove(node Name) {
+func (g *Graph) remove(node Name, rearmDependents bool) {
 	for k := range g.parents[node] {
 		g.removeTransitiveClosure(node, k)
 	}
@@ -637,11 +637,15 @@ func (g *Graph) remove(node Name) {
 	for k, vertice := range g.parents {
 		if _, ok := vertice[node]; ok {
 			removeNodeFromNodeMap(g.parents, k, node)
-			// The dependent `k` just lost an edge to a dependency it still declares.
-			// Re-arm it for resolution so the edge is rebuilt if `node` reappears,
-			// instead of being silently stranded until `k`'s config is reprocessed.
-			if depNode, ok := g.nodes.Get(k); ok {
-				depNode.addUnresolvedDependency(node.String())
+			// Only when removing from the *live* graph: the dependent `k` just lost an edge to
+			// a dependency it still declares. Re-arm it for resolution so the edge is rebuilt if
+			// `node` reappears, instead of being silently stranded until `k`'s config is
+			// reprocessed. Skipped for clone/subgraph removals (clones share *GraphNode pointers,
+			// so re-arming there would corrupt the real nodes).
+			if rearmDependents {
+				if depNode, ok := g.nodes.Get(k); ok {
+					depNode.addUnresolvedDependency(node.String())
+				}
 			}
 		}
 	}
@@ -688,7 +692,7 @@ func (g *Graph) RemoveMarked() []Resource {
 		}
 		if rNode.MarkedForRemoval() {
 			toClose = append(toClose, NewCloseOnlyResource(name, rNode.Close))
-			g.remove(name)
+			g.remove(name, true /* rearm dependents */)
 		}
 	}
 	return toClose
@@ -703,7 +707,7 @@ func (g *Graph) MergeAdd(toAdd *Graph) error {
 	defer g.mu.Unlock()
 	for _, node := range sorted {
 		if i, ok := g.nodes.Get(node); ok && i != nil {
-			g.remove(node)
+			g.remove(node, false)
 		}
 		toAddNode, _ := toAdd.nodes.Get(node)
 		if err := g.addNode(node, toAddNode); err != nil {
@@ -795,7 +799,7 @@ func (g *Graph) topologicalSortInLevels() ([][]Name, []Name) {
 		ordered = append(ordered, leaves)
 		orderedFlattened = append(orderedFlattened, leaves...)
 		for _, leaf := range leaves {
-			temp.remove(leaf)
+			temp.remove(leaf, false)
 		}
 	}
 	return ordered, orderedFlattened
@@ -940,7 +944,7 @@ func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 	sorted := subGraph.ReverseTopologicalSort()
 	for _, n := range sorted {
 		if !subGraph.isNodeDependingOn(node, n) {
-			subGraph.remove(n)
+			subGraph.remove(n, false)
 		}
 	}
 	return subGraph, nil

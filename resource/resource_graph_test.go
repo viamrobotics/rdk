@@ -191,7 +191,7 @@ func TestResourceGraphGetParentsAndChildren(t *testing.T) {
 	for _, p := range g.GetAllParentsOf(NewName(apiA, "F")) {
 		g.removeChild(NewName(apiA, "F"), p)
 	}
-	g.remove(NewName(apiA, "F"))
+	g.remove(NewName(apiA, "F"), false)
 	out = g.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:3]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
@@ -892,7 +892,7 @@ func TestResourceGraphRandomRemoval(t *testing.T) {
 		}
 	}
 
-	g.remove(name)
+	g.remove(name, false)
 	test.That(t, g.GetAllParentsOf(name), test.ShouldBeEmpty)
 	test.That(t, g.GetAllChildrenOf(name), test.ShouldBeEmpty)
 }
@@ -1115,7 +1115,7 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	test.That(t, node3.hasUnresolvedDependencies(), test.ShouldBeTrue)
 	test.That(t, node4.hasUnresolvedDependencies(), test.ShouldBeTrue)
 
-	g.remove(name3)
+	g.remove(name3, false)
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 
 	test.That(t, node1.UnresolvedDependencies(), test.ShouldResemble, []string{"d"})
@@ -1307,7 +1307,7 @@ func TestResourceGraphRebuildEdgeAfterDependencyReadded(t *testing.T) {
 	test.That(t, parentsOfA(), test.ShouldResemble, []Name{nameB})
 
 	// The dependency's node is removed (collision / removed-from-config). This strips the edge.
-	g.remove(nameB)
+	g.remove(nameB, true)
 	t.Logf("after remove(B),     parents of A = %v", parentsOfA())
 	test.That(t, parentsOfA(), test.ShouldBeEmpty) // edge correctly dropped
 
@@ -1336,7 +1336,7 @@ func TestResourceGraphRebuildEdgeViaFullReseed(t *testing.T) {
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 	test.That(t, parentsOfA(), test.ShouldResemble, []Name{nameB})
 
-	g.remove(nameB)
+	g.remove(nameB, false)
 	test.That(t, parentsOfA(), test.ShouldBeEmpty)
 
 	// Re-add B, and re-seed A's full declared deps (the config-reprocess path).
