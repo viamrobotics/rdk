@@ -289,9 +289,14 @@ func ResourceFromProtoMessage(
 	msg *dynamic.Message,
 	api resource.API,
 ) (interface{}, resource.Name, error) {
-	name, err := nameFromProtoMessage(msg)
-	if err != nil {
-		return nil, resource.Name{}, err
+	// we assume a convention that there will be a field called name that will be the resource
+	// name and a string.
+	if !msg.HasFieldName("name") {
+		return nil, resource.Name{}, errors.New("unable to determine resource name due to missing 'name' field")
+	}
+	name, ok := msg.GetFieldByName("name").(string)
+	if !ok || name == "" {
+		return nil, resource.Name{}, fmt.Errorf("unable to determine resource name due to invalid name field %v", name)
 	}
 
 	fqName := resource.NewName(api, name)
@@ -301,62 +306,6 @@ func ResourceFromProtoMessage(
 		return nil, resource.Name{}, err
 	}
 	return res, fqName, nil
-}
-
-// nameFromProtoMessage extracts the resource `name` value from a request message following
-// one of two recognized conventions:
-//
-//  1. A top-level `name` string field on the request message. The original convention used
-//     by every unary RPC.
-//
-//  2. A populated top-level oneof case whose message carries a `name` string field. Used by
-//     streaming RPCs whose first message is an Init wrapped in a oneof. If the request
-//     populates more than one such case across distinct oneofs and the names disagree, the
-//     request itself is ambiguous and is rejected.
-//
-// Non-oneof nested messages are not consulted: the `name` must be reachable at the top level
-// or one level into a populated oneof case, nowhere else.
-func nameFromProtoMessage(msg *dynamic.Message) (string, error) {
-	// Convention 1: top-level `name`.
-	if msg.HasFieldName("name") {
-		n, ok := msg.GetFieldByName("name").(string)
-		if !ok || n == "" {
-			return "", fmt.Errorf("unable to determine resource name due to invalid name field %v", n)
-		}
-		return n, nil
-	}
-
-	// Convention 2: peek into populated cases of any top-level oneof.
-	var found, foundFrom string
-	for _, oneof := range msg.GetMessageDescriptor().GetOneOfs() {
-		for _, choice := range oneof.GetChoices() {
-			if !msg.HasField(choice) {
-				continue
-			}
-			inner, ok := msg.GetField(choice).(*dynamic.Message)
-			if !ok {
-				continue
-			}
-			if !inner.HasFieldName("name") {
-				continue
-			}
-			n, ok := inner.GetFieldByName("name").(string)
-			if !ok || n == "" {
-				continue
-			}
-			if found != "" && found != n {
-				return "", fmt.Errorf(
-					"ambiguous resource name: %q from oneof case %q and %q from oneof case %q",
-					found, foundFrom, n, choice.GetName())
-			}
-			found = n
-			foundFrom = choice.GetName()
-		}
-	}
-	if found == "" {
-		return "", errors.New("unable to determine resource name due to missing 'name' field")
-	}
-	return found, nil
 }
 
 // ResourceFromRobot returns a resource from a robot.
