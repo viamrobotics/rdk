@@ -85,7 +85,7 @@ type SegmentFSMetric func(*SegmentFS) float64
 
 // OrientDist returns the arclength between two orientations in degrees.
 func OrientDist(o1, o2 spatial.Orientation) float64 {
-	return math.Abs(utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta))
+	return math.Abs(utils.RadToDeg(spatial.QuatToR4AA(spatial.QuatBetween(o1, o2)).Theta))
 }
 
 // WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
@@ -98,10 +98,10 @@ func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianSc
 	// Increase weight for orientation since it's a small number
 	orientDelta := 0.0
 	if orientScale > 0 {
-		orientDelta = spatial.QuatToR3AA(spatial.OrientationBetween(
+		orientDelta = spatial.QuatToR3AA(spatial.QuatBetween(
 			start.Orientation(),
 			end.Orientation(),
-		).Quaternion()).Mul(orientScale).Norm2()
+		)).Mul(orientScale).Norm2()
 	}
 
 	ptDelta := 0.0
