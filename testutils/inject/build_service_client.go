@@ -10,8 +10,8 @@ import (
 // BuildServiceClient is an injectable buildpb.BuildServiceClient.
 type BuildServiceClient struct {
 	buildpb.BuildServiceClient
-	ListJobsFunc   func(ctx context.Context, in *buildpb.ListJobsRequest, opts ...grpc.CallOption) (*buildpb.ListJobsResponse, error)
-	StartBuildFunc func(ctx context.Context, in *buildpb.StartBuildRequest, opts ...grpc.CallOption) (*buildpb.StartBuildResponse, error)
+	ListJobsFunc               func(ctx context.Context, in *buildpb.ListJobsRequest, opts ...grpc.CallOption) (*buildpb.ListJobsResponse, error)
+	StartBuildFunc             func(ctx context.Context, in *buildpb.StartBuildRequest, opts ...grpc.CallOption) (*buildpb.StartBuildResponse, error)
 	StartSourceUploadBuildFunc func(
 		ctx context.Context, opts ...grpc.CallOption,
 	) (buildpb.BuildService_StartSourceUploadBuildClient, error)

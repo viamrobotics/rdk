@@ -282,10 +282,10 @@ func TestModuleBuildCloud(t *testing.T) {
 	}
 
 	cCtx, ac, out, errOut := setup(asc, nil, bsc, map[string]any{
-		moduleFlagPath:        manifestPath,
-		generalFlagVersion:    "v1.2.3", // leading "v" should be stripped
-		generalFlagPath:       sourceDir,
-		generalFlagNoProgress: true,
+		moduleFlagPath:         manifestPath,
+		generalFlagVersion:     "v1.2.3", // leading "v" should be stripped
+		generalFlagPath:        sourceDir,
+		generalFlagNoProgress:  true,
 		moduleBuildFlagWorkdir: ".",
 	}, "token")
 

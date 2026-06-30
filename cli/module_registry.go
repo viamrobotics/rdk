@@ -1059,7 +1059,7 @@ type archiveBuildStream[ReqT any, RespT any] interface {
 // Used by both reload (StartReloadBuild) and source-upload (StartSourceUploadBuild)
 // flows; their differences are confined to the header/chunk constructors the
 // callers pass in.
-func streamArchiveBuild[ReqT any, RespT any, StreamT archiveBuildStream[ReqT, RespT]](
+func streamArchiveBuild[ReqT, RespT any, StreamT archiveBuildStream[ReqT, RespT]](
 	ctx context.Context,
 	stream StreamT,
 	archivePath string,
