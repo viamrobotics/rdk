@@ -995,11 +995,11 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		failedModules := r.manager.moduleManager.FailedModules()
+		unhealthyModules := r.manager.moduleManager.UnhealthyModules()
 		var modules string
-		if len(failedModules) > 0 {
-			sort.Strings(failedModules)
-			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)
+		if len(unhealthyModules) > 0 {
+			sort.Strings(unhealthyModules)
+			modules = fmt.Sprintf("May be in failing module: %v; ", unhealthyModules)
 		}
 		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered; "+
 			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
@@ -1747,6 +1747,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.reconfigureTracing(ctx, newConfig)
 	}
 
+	// Mark all new modules as pending now, before packagemanager starts doing anything.
+	for _, mod := range initialDiff.Added.Modules {
+		r.manager.moduleManager.SetModuleStatusPending(mod.Name)
+	}
+
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
@@ -1894,10 +1899,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			r.jobManager.UpdateJobs(diff)
 		}
 	}()
-
-	if r.manager.moduleManager != nil {
-		r.manager.moduleManager.ClearFailedModules()
-	}
 
 	if diff.ResourcesEqual {
 		return
@@ -2261,6 +2262,8 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	if r.initializing.Load() {
 		result.State = robot.StateInitializing
 	}
+
+	result.Modules = r.manager.moduleManager.Status()
 
 	if r.jobManager != nil {
 		if n := r.jobManager.NumJobHistories.Load(); n > 0 {

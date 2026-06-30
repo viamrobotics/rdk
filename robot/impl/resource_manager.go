@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -63,9 +64,11 @@ type moduleManager interface {
 	RemoveResource(ctx context.Context, name resource.Name) error
 	ResolveImplicitDependencies(ctx context.Context, conf *config.Diff)
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
-	FailedModules() []string
-	ClearFailedModules()
-	AddToFailedModules(moduleName string)
+	UnhealthyModules() []string
+	SetModuleStatusUnhealthy(moduleName string, err error)
+	SetModuleStatusPending(moduleName string)
+	PruneModuleStatuses(confs []config.Module)
+	Status() []modulestatus.Status
 }
 
 // resourceManager manages the actual parts that make up a robot.
@@ -1280,8 +1283,9 @@ func (manager *resourceManager) updateResources(
 		// The config was already validated, but we must check again before attempting
 		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
+			fullErr := fmt.Errorf("module config validation error; skipping. module: %s err: %w", mod.Name, err)
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
-			manager.moduleManager.AddToFailedModules(mod.Name)
+			manager.moduleManager.SetModuleStatusUnhealthy(mod.Name, fullErr)
 			continue
 		}
 		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
@@ -1297,6 +1301,9 @@ func (manager *resourceManager) updateResources(
 	// modules should have their implicit dependencies re-evaluated.
 	if manager.moduleManager != nil {
 		manager.moduleManager.ResolveImplicitDependencies(ctx, conf)
+
+		// Drop status entries for modules no longer in the config
+		manager.moduleManager.PruneModuleStatuses(conf.Right.Modules)
 	}
 
 	revision := conf.NewRevision()

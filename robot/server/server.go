@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -573,6 +574,13 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		}
 
 		result.Resources = append(result.Resources, pbResStatus)
+	}
+	result.Modules = make([]*pb.ModuleStatus, 0, len(mStatus.Modules))
+	for _, modStatus := range mStatus.Modules {
+		if modStatus.State == modulestatus.ModuleStateUnknown {
+			s.robot.Logger().CWarnw(ctx, "module in an unknown state", "module", modStatus.Name)
+		}
+		result.Modules = append(result.Modules, modStatus.ToProto())
 	}
 
 	switch mStatus.State {

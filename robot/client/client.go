@@ -43,6 +43,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
@@ -1333,6 +1334,38 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
+	}
+
+	if resp.GetModules() != nil {
+		mStatus.Modules = make([]modulestatus.Status, 0, len(resp.GetModules()))
+		for _, pbModStatus := range resp.GetModules() {
+			modStatus := modulestatus.Status{
+				Name:                pbModStatus.GetModuleName(),
+				LastUpdated:         pbModStatus.GetLastUpdated().AsTime(),
+				ConsecutiveFailures: uint(pbModStatus.GetConsecutiveFailures()),
+			}
+
+			switch pbModStatus.GetState() {
+			case pb.ModuleStatus_STATE_UNSPECIFIED:
+				rc.logger.CErrorw(ctx, "received module in an unspecified state", "module", modStatus.Name)
+				modStatus.State = modulestatus.ModuleStateUnknown
+			case pb.ModuleStatus_STATE_PENDING:
+				modStatus.State = modulestatus.ModuleStatePending
+			case pb.ModuleStatus_STATE_STARTING:
+				modStatus.State = modulestatus.ModuleStateStarting
+			case pb.ModuleStatus_STATE_READY:
+				modStatus.State = modulestatus.ModuleStateReady
+			case pb.ModuleStatus_STATE_UNHEALTHY:
+				modStatus.State = modulestatus.ModuleStateUnhealthy
+				if pbModStatus.GetError() != "" {
+					modStatus.Error = errors.New(pbModStatus.GetError())
+				}
+			case pb.ModuleStatus_STATE_CLOSING:
+				modStatus.State = modulestatus.ModuleStateClosing
+			}
+
+			mStatus.Modules = append(mStatus.Modules, modStatus)
+		}
 	}
 
 	switch resp.State {
