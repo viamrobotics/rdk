@@ -5709,3 +5709,56 @@ func TestReconfigureTracing(t *testing.T) {
 		testReconfigureTracing(t, "fake-cloud-id")
 	})
 }
+
+// TestDependentReconnectsAfterDependencyNodeReadded is a robot-level repro: a dependency's node
+// is removed via a name collision while a surviving dependent has already resolved it, then it
+// is re-added. The reconcile design must rebuild the dependent's edge once the dependency is
+// healthy again. Asserts on the edge (a tolerant dependent can report Ready while disconnected).
+func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	x := resource.Config{Name: "x", Model: fakeModel, API: base.API}
+	d := resource.Config{Name: "d", Model: fakeModel, API: base.API}
+	aSvc := resource.Config{Name: "a-svc", Model: fakeModel, API: slam.API}
+	bCmp := resource.Config{
+		Name: "b-cmp", Model: fakeModel, API: motor.API,
+		DependsOn: []string{"a-svc"}, ConvertedAttributes: &fakemotor.Config{},
+	}
+	bn := motor.Named("b-cmp")
+
+	r := setupLocalRobot(t, ctx, &config.Config{Components: []resource.Config{x}}, logger, WithDisableCompleteConfigWorker())
+	lr := r.(*localRobot)
+
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, bCmp}, Services: []resource.Config{aSvc, aSvc}})
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, d, bCmp}, Services: []resource.Config{aSvc, aSvc}})
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, d, bCmp}, Services: []resource.Config{aSvc}})
+
+	test.That(t, lr.manager.resources.GetAllParentsOf(bn), test.ShouldContain, slam.Named("a-svc"))
+}
+
+// TestReconcileDoesNotResurrectDroppedDependency ensures the reconcile only rebuilds edges for
+// dependencies a resource still declares: dropping B's dependency on A (and removing A) must not
+// leave B waiting on a stale A.
+func TestReconcileDoesNotResurrectDroppedDependency(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	a := resource.Config{Name: "a", Model: fakeModel, API: base.API}
+	bDep := resource.Config{Name: "b", Model: fakeModel, API: motor.API, DependsOn: []string{"a"}, ConvertedAttributes: &fakemotor.Config{}}
+	bNoDep := resource.Config{Name: "b", Model: fakeModel, API: motor.API, DependsOn: []string{}, ConvertedAttributes: &fakemotor.Config{}}
+	bn := motor.Named("b")
+
+	r := setupLocalRobot(t, ctx, &config.Config{Components: []resource.Config{a, bDep}}, logger, WithDisableCompleteConfigWorker())
+	lr := r.(*localRobot)
+
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{bNoDep}})
+	_, errB := r.ResourceByName(bn)
+	test.That(t, errB, test.ShouldBeNil)
+	test.That(t, lr.manager.resources.GetAllParentsOf(bn), test.ShouldBeEmpty)
+
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{a, bNoDep}})
+	_, errB2 := r.ResourceByName(bn)
+	test.That(t, errB2, test.ShouldBeNil)
+	test.That(t, lr.manager.resources.GetAllParentsOf(bn), test.ShouldBeEmpty)
+}

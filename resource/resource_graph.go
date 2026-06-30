@@ -824,6 +824,39 @@ func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
 	return ordered
 }
 
+// missingDeclaredDeps returns the names of a node's declared dependencies (DependsOn +
+// ImplicitDependsOn) that currently have no corresponding parent edge in the graph. It is the
+// reconcile check that makes graph edges a projection of declared deps. Caller must hold g.mu.
+func (g *Graph) missingDeclaredDeps(nodeName Name, node *GraphNode) []string {
+	cfg := node.Config()
+	declared := cfg.Dependencies()
+	if len(declared) == 0 {
+		return nil
+	}
+	parentSet := make(map[string]struct{})
+	for _, p := range g.getAllParentOf(nodeName) {
+		parentSet[p.String()] = struct{}{}
+	}
+	var missing []string
+	for _, dep := range declared {
+		resolved := ""
+		if rn, err := NewFromString(dep); err == nil {
+			resolved = rn.String()
+		} else if nn := g.FindBySimpleName(dep); len(nn) == 1 {
+			resolved = nn[0].String()
+		}
+		// Unresolvable (dependency absent) or declared-but-unedged -> needs (re)resolution.
+		if resolved == "" {
+			missing = append(missing, dep)
+			continue
+		}
+		if _, ok := parentSet[resolved]; !ok {
+			missing = append(missing, dep)
+		}
+	}
+	return missing
+}
+
 // ResolveDependencies attempts to link up unresolved dependencies after
 // new changes to the graph.
 func (g *Graph) ResolveDependencies(logger logging.Logger) error {
@@ -832,6 +865,16 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 	var allErrs error
 	for nodeName, node := range g.nodes.All() {
+		// Edges are a projection of a node's durable declared dependencies. If a resolved
+		// node is missing an edge for a dependency it still declares (e.g. that dependency's
+		// node was removed and later re-added), re-arm it so the edge is rebuilt on this pass.
+		// This keeps the graph self-healing without relying on a write-once unresolved list.
+		if !node.hasUnresolvedDependencies() {
+			if missing := g.missingDeclaredDeps(nodeName, node); len(missing) > 0 {
+				node.setUnresolvedDependencies(missing...)
+			}
+		}
+
 		unresolvedDeps := node.UnresolvedDependencies()
 
 		if !node.hasUnresolvedDependencies() {

@@ -1279,3 +1279,31 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 	}
 	return ""
 }
+
+// TestResourceGraphReconcilesDroppedDependencyEdge verifies the core invariant: graph edges
+// are a reconciled projection of a node's durable declared dependencies. If a dependency's
+// node is removed (dropping the edge) and later re-added, ResolveDependencies rebuilds the
+// edge from the dependent's declared config deps — no re-arm bookkeeping required.
+func TestResourceGraphReconcilesDroppedDependencyEdge(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
+
+	nameA := NewName(apiA, "A") // dependency
+	nameB := NewName(apiA, "B") // dependent; declares A in its config
+
+	test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
+	bCfg := Config{API: apiA, Name: "B", DependsOn: []string{nameA.String()}}
+	test.That(t, g.AddNode(nameB, NewUnconfiguredGraphNode(bCfg, bCfg.Dependencies())), test.ShouldBeNil)
+
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+
+	// Remove the dependency's node -> edge is dropped.
+	g.remove(nameA)
+	test.That(t, g.GetAllParentsOf(nameB), test.ShouldBeEmpty)
+
+	// Re-add the dependency and resolve: the edge is reconciled back from B's declared deps.
+	test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+}
