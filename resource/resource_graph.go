@@ -824,6 +824,40 @@ func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
 	return ordered
 }
 
+// declaredDepsMissingEdges returns the names of a node's declared dependencies that currently
+// have no corresponding parent edge in the graph. It reconciles graph edges with declared
+// dependencies if a resource resolves a dependency but the dependency is torn down while the
+// resource is remains. Caller must hold g.mu.
+func (g *Graph) declaredDepsMissingEdges(nodeName Name, node *GraphNode) []string {
+	cfg := node.Config()
+	declared := cfg.Dependencies()
+	if len(declared) == 0 {
+		return nil
+	}
+	parentSet := make(map[string]struct{})
+	for _, p := range g.getAllParentOf(nodeName) {
+		parentSet[p.String()] = struct{}{}
+	}
+	var missing []string
+	for _, dep := range declared {
+		resolved := ""
+		if rn, err := NewFromString(dep); err == nil {
+			resolved = rn.String()
+		} else if nn := g.FindBySimpleName(dep); len(nn) == 1 {
+			resolved = nn[0].String()
+		}
+		// Unresolvable (dependency absent) or declared-but-unedged -> needs (re)resolution.
+		if resolved == "" {
+			missing = append(missing, dep)
+			continue
+		}
+		if _, ok := parentSet[resolved]; !ok {
+			missing = append(missing, dep)
+		}
+	}
+	return missing
+}
+
 // ResolveDependencies attempts to link up unresolved dependencies after
 // new changes to the graph.
 func (g *Graph) ResolveDependencies(logger logging.Logger) error {
@@ -832,6 +866,12 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 	var allErrs error
 	for nodeName, node := range g.nodes.All() {
+		// Add any dependency declared in the resource config but not linked as a parent edge to the node
+		// to the node's unresolved dependencies.
+		if missing := g.declaredDepsMissingEdges(nodeName, node); len(missing) > 0 {
+			node.setUnresolvedDependencies(missing...)
+		}
+
 		unresolvedDeps := node.UnresolvedDependencies()
 
 		if !node.hasUnresolvedDependencies() {
