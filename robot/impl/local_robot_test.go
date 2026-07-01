@@ -5714,51 +5714,83 @@ func TestReconfigureTracing(t *testing.T) {
 // is removed via a name collision while a surviving dependent has already resolved it, then it
 // is re-added. The reconcile design must rebuild the dependent's edge once the dependency is
 // healthy again. Asserts on the edge (a tolerant dependent can report Ready while disconnected).
+// TestDependentReconnectsAfterDependencyNodeReadded reproduces the incident: a modular
+// resource declares an *implicit* dependency (via Validate -> ImplicitDependsOn, the way
+// placemarker-ai depended on vision-predict-fish). When the dependency's node is removed and
+// later re-added while the dependent's own config is untouched (so it is never re-validated),
+// the dependency edge must be reconciled back from the dependent's retained implicit deps.
 func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	x := resource.Config{Name: "x", Model: fakeModel, API: base.API}
-	d := resource.Config{Name: "d", Model: fakeModel, API: base.API}
-	aSvc := resource.Config{Name: "a-svc", Model: fakeModel, API: slam.API}
-	bCmp := resource.Config{
-		Name: "b-cmp", Model: fakeModel, API: motor.API,
-		DependsOn: []string{"a-svc"}, ConvertedAttributes: &fakemotor.Config{},
-	}
-	bn := motor.Named("b-cmp")
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
 
-	r := setupLocalRobot(t, ctx, &config.Config{Components: []resource.Config{x}}, logger, WithDisableCompleteConfigWorker())
+	modCfg := config.Module{Name: "mod", ExePath: testPath}
+	filler := resource.Config{Name: "x", Model: fakeModel, API: base.API}
+	d := resource.Config{Name: "d", Model: fakeModel, API: base.API}
+	sCfg := resource.Config{Name: "s", Model: fakeModel, API: sensor.API}
+	// dep's Validate returns ["s"] as an implicit required dependency.
+	depCfg := resource.Config{
+		Name: "dep", Model: sensorModel, API: sensor.API,
+		Attributes: rutils.AttributeMap{"sensor": "s"},
+	}
+	depName := sensor.Named("dep")
+
+	r := setupLocalRobot(t, ctx,
+		&config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{filler}},
+		logger, WithDisableCompleteConfigWorker())
 	lr := r.(*localRobot)
 
-	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, bCmp}, Services: []resource.Config{aSvc, aSvc}})
-	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, d, bCmp}, Services: []resource.Config{aSvc, aSvc}})
-	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{x, d, bCmp}, Services: []resource.Config{aSvc}})
+	// Duplicate "s" to force the name-collision removal path (which strips the dependency
+	// node and dep's edge to it without re-arming dep), then let the collision clear.
+	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{filler, sCfg, sCfg, depCfg}})
+	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{filler, d, sCfg, sCfg, depCfg}})
+	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{filler, d, sCfg, depCfg}})
 
-	test.That(t, lr.manager.resources.GetAllParentsOf(bn), test.ShouldContain, slam.Named("a-svc"))
+	test.That(t, lr.manager.resources.GetAllParentsOf(depName), test.ShouldContain, sensor.Named("s"))
 }
 
 // TestReconcileDoesNotResurrectDroppedDependency ensures the reconcile only rebuilds edges for
-// dependencies a resource still declares: dropping B's dependency on A (and removing A) must not
-// leave B waiting on a stale A.
+// dependencies a resource still declares. When dep's implicit dependency is switched from "s"
+// to "s2", re-adding "s" must not resurrect the stale edge to "s".
 func TestReconcileDoesNotResurrectDroppedDependency(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	a := resource.Config{Name: "a", Model: fakeModel, API: base.API}
-	bDep := resource.Config{Name: "b", Model: fakeModel, API: motor.API, DependsOn: []string{"a"}, ConvertedAttributes: &fakemotor.Config{}}
-	bNoDep := resource.Config{Name: "b", Model: fakeModel, API: motor.API, DependsOn: []string{}, ConvertedAttributes: &fakemotor.Config{}}
-	bn := motor.Named("b")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
 
-	r := setupLocalRobot(t, ctx, &config.Config{Components: []resource.Config{a, bDep}}, logger, WithDisableCompleteConfigWorker())
+	modCfg := config.Module{Name: "mod", ExePath: testPath}
+	sCfg := resource.Config{Name: "s", Model: fakeModel, API: sensor.API}
+	s2Cfg := resource.Config{Name: "s2", Model: fakeModel, API: sensor.API}
+	depOnS := resource.Config{
+		Name: "dep", Model: sensorModel, API: sensor.API,
+		Attributes: rutils.AttributeMap{"sensor": "s"},
+	}
+	depOnS2 := resource.Config{
+		Name: "dep", Model: sensorModel, API: sensor.API,
+		Attributes: rutils.AttributeMap{"sensor": "s2"},
+	}
+	depName := sensor.Named("dep")
+
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Modules: []config.Module{modCfg}, Components: []resource.Config{sCfg, s2Cfg, depOnS},
+	}, logger, WithDisableCompleteConfigWorker())
 	lr := r.(*localRobot)
+	test.That(t, lr.manager.resources.GetAllParentsOf(depName), test.ShouldContain, sensor.Named("s"))
 
-	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{bNoDep}})
-	_, errB := r.ResourceByName(bn)
-	test.That(t, errB, test.ShouldBeNil)
-	test.That(t, lr.manager.resources.GetAllParentsOf(bn), test.ShouldBeEmpty)
+	// Switch dep's implicit dependency to "s2" and remove "s".
+	r.Reconfigure(ctx, &config.Config{
+		Modules: []config.Module{modCfg}, Components: []resource.Config{s2Cfg, depOnS2},
+	})
+	test.That(t, lr.manager.resources.GetAllParentsOf(depName), test.ShouldResemble, []resource.Name{sensor.Named("s2")})
 
-	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{a, bNoDep}})
-	_, errB2 := r.ResourceByName(bn)
-	test.That(t, errB2, test.ShouldBeNil)
-	test.That(t, lr.manager.resources.GetAllParentsOf(bn), test.ShouldBeEmpty)
+	// Re-add "s". The reconcile must not resurrect the dropped edge to "s".
+	r.Reconfigure(ctx, &config.Config{
+		Modules: []config.Module{modCfg}, Components: []resource.Config{sCfg, s2Cfg, depOnS2},
+	})
+	test.That(t, lr.manager.resources.GetAllParentsOf(depName), test.ShouldResemble, []resource.Name{sensor.Named("s2")})
 }

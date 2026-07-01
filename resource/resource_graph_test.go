@@ -1289,10 +1289,12 @@ func TestResourceGraphReconcilesDroppedDependencyEdge(t *testing.T) {
 	g := NewGraph(logger)
 
 	nameA := NewName(apiA, "A") // dependency
-	nameB := NewName(apiA, "B") // dependent; declares A in its config
+	nameB := NewName(apiA, "B") // dependent; declares A as an implicit dep
 
 	test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
-	bCfg := Config{API: apiA, Name: "B", DependsOn: []string{nameA.String()}}
+	// Declare the dependency the way modular resources do (via Validate ->
+	// ImplicitDependsOn), not the legacy explicit depends_on field.
+	bCfg := Config{API: apiA, Name: "B", ImplicitDependsOn: []string{nameA.String()}}
 	test.That(t, g.AddNode(nameB, NewUnconfiguredGraphNode(bCfg, bCfg.Dependencies())), test.ShouldBeNil)
 
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
