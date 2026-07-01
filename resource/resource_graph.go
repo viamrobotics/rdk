@@ -865,14 +865,19 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 	var allErrs error
 	for nodeName, node := range g.nodes.All() {
-		// Edges are a projection of a node's durable declared dependencies. If a resolved
-		// node is missing an edge for a dependency it still declares (e.g. that dependency's
-		// node was removed and later re-added), re-arm it so the edge is rebuilt on this pass.
-		// This keeps the graph self-healing without relying on a write-once unresolved list.
-		if !node.hasUnresolvedDependencies() {
-			if missing := g.missingDeclaredDeps(nodeName, node); len(missing) > 0 {
-				node.setUnresolvedDependencies(missing...)
-			}
+		// Edges are a projection of a node's durable declared dependencies. If a node is
+		// missing an edge for a dependency it still declares (e.g. that dependency's node was
+		// removed and later re-added), re-arm it so the edge is rebuilt on this pass. This
+		// keeps the graph self-healing without relying on a write-once unresolved list.
+		//
+		// This runs for every node, not just resolved ones: in steady state all nodes are
+		// resolved so a `!hasUnresolvedDependencies()` gate would skip nothing, and gating it
+		// would leave a blind spot where a node mid-resolution (unresolved list non-empty) never
+		// notices a *different* declared dep whose edge was dropped. missingDeclaredDeps always
+		// contains the current unresolved deps (they have no edge yet), so replacing the list
+		// never drops a pending dep.
+		if missing := g.missingDeclaredDeps(nodeName, node); len(missing) > 0 {
+			node.setUnresolvedDependencies(missing...)
 		}
 
 		unresolvedDeps := node.UnresolvedDependencies()
