@@ -1045,6 +1045,54 @@ type sender[RequestT any] interface {
 	CloseSend() error
 }
 
+// archiveBuildStream is a client-streaming RPC stream that sends N header
+// requests followed by chunked archive bytes and returns a single response on
+// close. Both StartReloadBuild and StartSourceUploadBuild satisfy this shape.
+type archiveBuildStream[ReqT any, RespT any] interface {
+	Send(*ReqT) error
+	CloseSend() error
+	CloseAndRecv() (*RespT, error)
+}
+
+// streamArchiveBuild opens archivePath, sends each header request in order,
+// streams the file contents through chunkReq, and returns the typed response.
+// Used by both reload (StartReloadBuild) and source-upload (StartSourceUploadBuild)
+// flows; their differences are confined to the header/chunk constructors the
+// callers pass in.
+func streamArchiveBuild[ReqT, RespT any, StreamT archiveBuildStream[ReqT, RespT]](
+	ctx context.Context,
+	stream StreamT,
+	archivePath string,
+	headers []*ReqT,
+	chunkReq func(*os.File) (*ReqT, int, error),
+) (*RespT, error) {
+	//nolint:gosec // archivePath is constructed by createGitArchive / createTarballForUpload
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return nil, err
+	}
+	defer vutils.UncheckedErrorFunc(file.Close)
+
+	for _, header := range headers {
+		if err := stream.Send(header); err != nil {
+			return nil, err
+		}
+	}
+
+	var errs error
+	// Suppress the "Uploading... X%" progress bar from sendUploadRequests; callers
+	// drive their own progress UI (e.g. ProgressManager) around this helper.
+	if err := sendUploadRequests(ctx, stream, file, io.Discard, chunkReq); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
+		errs = multierr.Combine(errs, closeErr)
+	}
+	return resp, errs
+}
+
 func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
 	ctx context.Context,
 	stream StreamT,
