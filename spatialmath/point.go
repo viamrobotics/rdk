@@ -110,7 +110,7 @@ func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 		}
 		return false, dist, nil
 	default:
-		return true, collisionBufferMM, newCollisionTypeUnsupportedError(pt, g)
+		return true, collisionBufferMM, errCollisionTypeUnsupported
 	}
 }
 
@@ -130,7 +130,7 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 	case *point:
 		return pt.position.Sub(other.position).Norm(), nil
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(pt, g)
+		return math.Inf(-1), errCollisionTypeUnsupported
 	}
 }
 

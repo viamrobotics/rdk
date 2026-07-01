@@ -130,7 +130,7 @@ func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 		}
 		return false, dist, nil
 	default:
-		return true, collisionBufferMM, newCollisionTypeUnsupportedError(s, g)
+		return true, collisionBufferMM, errCollisionTypeUnsupported
 	}
 }
 
@@ -149,7 +149,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	case *point:
 		return sphereVsPointDistance(s, other.position), nil
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
+		return math.Inf(-1), errCollisionTypeUnsupported
 	}
 }
 
@@ -168,7 +168,7 @@ func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
 	case *point:
 		return false, nil
 	default:
-		return true, newCollisionTypeUnsupportedError(s, g)
+		return true, errCollisionTypeUnsupported
 	}
 }
 
