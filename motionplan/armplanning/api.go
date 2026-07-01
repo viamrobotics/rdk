@@ -55,9 +55,11 @@ type PlanRequest struct {
 // GetWorldState is a backwards compatibility helper that turns the ObstaclesInWorldFrame back into
 // WorldState object. Presumably for interfacing/rendering with the viz-client.
 func (req *PlanRequest) GetWorldState() *referenceframe.WorldState {
-	return mustNewWorldState([]*referenceframe.GeometriesInFrame{
-		req.ObstaclesInWorldFrame,
-	}, nil)
+	var obstacles []*referenceframe.GeometriesInFrame
+	if req.ObstaclesInWorldFrame != nil {
+		obstacles = append(obstacles, req.ObstaclesInWorldFrame)
+	}
+	return mustNewWorldState(obstacles, nil)
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
