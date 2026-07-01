@@ -345,7 +345,31 @@ func (file *streamingRPCFileCopy) Close() error {
 type shellRPCCopyWriter interface {
 	SendFile(fileDataProto *pb.FileData) error
 	WaitLastACK() error
+	// recoverSendErr is called when SendFile fails. A failed gRPC send aborts the
+	// stream and returns a generic, uninformative error (e.g. io.ErrClosedPipe);
+	// the actionable status (such as the server's error trailer) is only available
+	// by receiving from the stream. Implementations should attempt to surface that
+	// status, falling back to the original send error.
+	recoverSendErr(sendErr error) error
 	Close() error
+}
+
+// recoverSendErr surfaces the real RPC status behind a failed Send. gRPC aborts
+// the stream on a send error and the Send call itself returns a generic error
+// such as io.ErrClosedPipe, masking the underlying cause. The real status (e.g.
+// the server's error trailer) is only retrievable by receiving from the stream,
+// which recv does. We only attempt recovery for the masked closed-pipe case so
+// that genuine, already-informative client-side send errors are left untouched.
+func recoverSendErr(sendErr error, recv func() error) error {
+	if !errors.Is(sendErr, io.ErrClosedPipe) {
+		return sendErr
+	}
+	recvErr := recv()
+	if recvErr == nil || errors.Is(recvErr, io.EOF) || errors.Is(recvErr, io.ErrClosedPipe) {
+		// Recv didn't yield anything more useful than what we already have.
+		return sendErr
+	}
+	return recvErr
 }
 
 // A shellRPCCopyWriterTo is the To, Writer/Client side of a CopyTo.
@@ -364,6 +388,13 @@ func (client shellRPCCopyWriterTo) SendFile(fileDataProto *pb.FileData) error {
 func (client shellRPCCopyWriterTo) WaitLastACK() error {
 	_, err := client.rpcClient.Recv()
 	return err
+}
+
+func (client shellRPCCopyWriterTo) recoverSendErr(sendErr error) error {
+	return recoverSendErr(sendErr, func() error {
+		_, err := client.rpcClient.Recv()
+		return err
+	})
 }
 
 func (client shellRPCCopyWriterTo) Close() error {
@@ -386,6 +417,13 @@ func (srv shellRPCCopyWriterFrom) SendFile(fileDataProto *pb.FileData) error {
 func (srv shellRPCCopyWriterFrom) WaitLastACK() error {
 	_, err := srv.rpcServer.Recv()
 	return err
+}
+
+func (srv shellRPCCopyWriterFrom) recoverSendErr(sendErr error) error {
+	return recoverSendErr(sendErr, func() error {
+		_, err := srv.rpcServer.Recv()
+		return err
+	})
 }
 
 func (srv shellRPCCopyWriterFrom) Close() error {
@@ -458,7 +496,10 @@ func (writer *shellFileCopyWriter) Copy(ctx context.Context, file File) error {
 			}
 		}
 		if err := writer.rpc.SendFile(&fileDataProto); err != nil {
-			return err
+			// A failed send aborts the stream and yields a generic error (often
+			// io.ErrClosedPipe); recover the real status so callers/users see why
+			// the copy actually failed instead of a misleading "closed pipe".
+			return writer.rpc.recoverSendErr(err)
 		}
 		if !isEOF {
 			continue

@@ -15,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/test"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	shelltestutils "go.viam.com/rdk/services/shell/testutils"
@@ -298,6 +300,36 @@ func TestShellRPCFileCopier(t *testing.T) {
 	})
 }
 
+func TestRecoverSendErr(t *testing.T) {
+	realErr := status.Error(codes.ResourceExhausted, "no space left on device")
+
+	t.Run("non-pipe send error is returned untouched and recv is not consulted", func(t *testing.T) {
+		recvCalled := false
+		got := recoverSendErr(realErr, func() error {
+			recvCalled = true
+			return errors.New("should not be used")
+		})
+		test.That(t, got, test.ShouldEqual, realErr)
+		test.That(t, recvCalled, test.ShouldBeFalse)
+	})
+
+	t.Run("masked closed-pipe send error is replaced by the real status from recv", func(t *testing.T) {
+		got := recoverSendErr(io.ErrClosedPipe, func() error {
+			return realErr
+		})
+		test.That(t, got, test.ShouldEqual, realErr)
+	})
+
+	t.Run("closed-pipe is kept when recv yields nothing more useful", func(t *testing.T) {
+		for _, recvErr := range []error{nil, io.EOF, io.ErrClosedPipe} {
+			got := recoverSendErr(io.ErrClosedPipe, func() error {
+				return recvErr
+			})
+			test.That(t, got, test.ShouldEqual, io.ErrClosedPipe)
+		}
+	})
+}
+
 type inMemoryRPCCopyWriter struct {
 	fileDatas   []*pb.FileData
 	ackCalled   int
@@ -312,6 +344,10 @@ func (mem *inMemoryRPCCopyWriter) SendFile(fileDataProto *pb.FileData) error {
 func (mem *inMemoryRPCCopyWriter) WaitLastACK() error {
 	mem.ackCalled++
 	return nil
+}
+
+func (mem *inMemoryRPCCopyWriter) recoverSendErr(sendErr error) error {
+	return sendErr
 }
 
 func (mem *inMemoryRPCCopyWriter) Close() error {
