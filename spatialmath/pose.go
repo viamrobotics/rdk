@@ -90,6 +90,7 @@ func Compose(a, b Pose) Pose {
 	return &DualQuaternion{DualQuaternionFromPose(a).Transformation(DualQuaternionFromPose(b).Number)}
 }
 
+// TransformPointByPose returns pt transformed by pose.
 func TransformPointByPose(pose Pose, pt r3.Vector) r3.Vector {
 	if dq, ok := pose.(*DualQuaternion); ok {
 		return TransformPoint(dq.Real, dq.Point(), pt)
