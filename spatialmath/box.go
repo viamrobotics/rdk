@@ -541,8 +541,7 @@ func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
 	// point at specified offset with desired orientation
 	offsetBy := Compose(identityPose, originWithPose)
 	for i := range facePoints {
-		transformedVec := Compose(offsetBy, NewPoseFromPoint(facePoints[i])).Point()
-		transformedVectors = append(transformedVectors, transformedVec)
+		transformedVectors = append(transformedVectors, TransformPointByPose(offsetBy, facePoints[i]))
 	}
 	return transformedVectors
 }

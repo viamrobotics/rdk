@@ -56,8 +56,8 @@ func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, er
 
 // Will precalculate the linear endpoints for a capsule.
 func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) Geometry {
-	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, -length/2 + radius})).Point()
-	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, length/2 - radius})).Point()
+	segA := TransformPointByPose(offset, r3.Vector{0, 0, -length/2 + radius})
+	segB := TransformPointByPose(offset, r3.Vector{0, 0, length/2 - radius})
 	center := offset.Point()
 
 	return &capsule{
@@ -118,14 +118,14 @@ func (c *capsule) almostEqual(g Geometry) bool {
 // Transform premultiplies the capsule pose with a transform, allowing the capsule to be moved in space.
 func (c *capsule) Transform(toPremultiply Pose) Geometry {
 	newPose := Compose(toPremultiply, c.pose)
-	segB := Compose(toPremultiply, NewPoseFromPoint(c.segB)).Point()
+	segB := TransformPointByPose(toPremultiply, c.segB)
 	center := newPose.Point()
 	return &capsule{
 		pose:   newPose,
 		radius: c.radius,
 		length: c.length,
 		label:  c.label,
-		segA:   Compose(toPremultiply, NewPoseFromPoint(c.segA)).Point(),
+		segA:   TransformPointByPose(toPremultiply, c.segA),
 		segB:   segB,
 		center: center,
 		capVec: segB.Sub(center),
