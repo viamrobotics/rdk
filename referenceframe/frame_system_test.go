@@ -177,7 +177,7 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, modelFrame, test.ShouldResemble, NewZeroStaticFrame(part.FrameConfig.name))
 	originTailFrame, ok := NewZeroStaticFrame(part.FrameConfig.name + "_origin").(*staticFrame)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, originFrame, test.ShouldResemble, &tailGeometryStaticFrame{originTailFrame})
+	test.That(t, originFrame, test.ShouldResemble, &tailGeometryStaticFrame{staticFrame: originTailFrame})
 	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
 	test.That(t, err, test.ShouldBeNil)
 
