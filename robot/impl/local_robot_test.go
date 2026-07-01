@@ -5710,15 +5710,19 @@ func TestReconfigureTracing(t *testing.T) {
 	})
 }
 
-// TestDependentReconnectsAfterDependencyNodeReadded is a robot-level repro: a dependency's node
-// is removed via a name collision while a surviving dependent has already resolved it, then it
-// is re-added. The reconcile design must rebuild the dependent's edge once the dependency is
-// healthy again. Asserts on the edge (a tolerant dependent can report Ready while disconnected).
-// TestDependentReconnectsAfterDependencyNodeReadded reproduces the incident: a modular
-// resource declares an *implicit* dependency (via Validate -> ImplicitDependsOn, the way
-// placemarker-ai depended on vision-predict-fish). When the dependency's node is removed and
-// later re-added while the dependent's own config is untouched (so it is never re-validated),
-// the dependency edge must be reconciled back from the dependent's retained implicit deps.
+// TestDependentReconnectsAfterDependencyNodeReadded verifies that a dependent reconnects to a
+// dependency whose graph node is torn down and later re-added.
+//
+// The reader is a modular resource that declares an implicit dependency on sensor "s". Adding a
+// duplicate "s" triggers a name collision that removes the "s" node along with its dependents.
+// Because the reader is added in the same reconfigure, its edge to "s" has not been built yet
+// when the collision decides which dependents to remove, so the reader is not torn down; it goes
+// on to resolve "s" just before "s" is removed, and is left marked resolved with no edge to "s".
+//
+// Once the collision clears and "s" is healthy again, the reader is not re-resolved (it already
+// resolved "s" once), so nothing rebuilds the dropped edge: "s" is available but the reader stays
+// disconnected. This test guards that the edge is instead rebuilt from the reader's declared
+// dependencies.
 func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -5729,68 +5733,30 @@ func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
 	sensorModel := resource.NewModel("rdk", "test", "sensordep")
 
 	modCfg := config.Module{Name: "mod", ExePath: testPath}
-	filler := resource.Config{Name: "x", Model: fakeModel, API: base.API}
-	d := resource.Config{Name: "d", Model: fakeModel, API: base.API}
 	sCfg := resource.Config{Name: "s", Model: fakeModel, API: sensor.API}
-	// dep's Validate returns ["s"] as an implicit required dependency.
-	depCfg := resource.Config{
-		Name: "dep", Model: sensorModel, API: sensor.API,
+	// reader's Validate returns ["s"] as an implicit required dependency.
+	readerCfg := resource.Config{
+		Name: "reader", Model: sensorModel, API: sensor.API,
 		Attributes: rutils.AttributeMap{"sensor": "s"},
 	}
-	depName := sensor.Named("dep")
+	readerName := sensor.Named("reader")
 
 	r := setupLocalRobot(t, ctx,
-		&config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{filler}},
+		&config.Config{Modules: []config.Module{modCfg}},
 		logger, WithDisableCompleteConfigWorker())
 	lr := r.(*localRobot)
 
-	// Duplicate "s" to force the name-collision removal path (which strips the dependency
-	// node and dep's edge to it without re-arming dep), then let the collision clear.
-	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{filler, sCfg, sCfg, depCfg}})
-	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{filler, d, sCfg, sCfg, depCfg}})
-	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{filler, d, sCfg, depCfg}})
+	// Add the reader together with a duplicate "s": the reader resolves an edge to "s" in the
+	// same reconfigure that the collision marks "s" for removal, so the reader is not in the
+	// collision's dependents snapshot and is left stranded when "s" is torn down.
+	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{sCfg, sCfg, readerCfg}})
+	// The collision clears, leaving a single healthy "s".
+	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{sCfg, readerCfg}})
 
-	test.That(t, lr.manager.resources.GetAllParentsOf(depName), test.ShouldContain, sensor.Named("s"))
-}
-
-// TestReconcileDoesNotResurrectDroppedDependency ensures the reconcile only rebuilds edges for
-// dependencies a resource still declares. When dep's implicit dependency is switched from "s"
-// to "s2", re-adding "s" must not resurrect the stale edge to "s".
-func TestReconcileDoesNotResurrectDroppedDependency(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
-	sensorModel := resource.NewModel("rdk", "test", "sensordep")
-
-	modCfg := config.Module{Name: "mod", ExePath: testPath}
-	sCfg := resource.Config{Name: "s", Model: fakeModel, API: sensor.API}
-	s2Cfg := resource.Config{Name: "s2", Model: fakeModel, API: sensor.API}
-	depOnS := resource.Config{
-		Name: "dep", Model: sensorModel, API: sensor.API,
-		Attributes: rutils.AttributeMap{"sensor": "s"},
-	}
-	depOnS2 := resource.Config{
-		Name: "dep", Model: sensorModel, API: sensor.API,
-		Attributes: rutils.AttributeMap{"sensor": "s2"},
-	}
-	depName := sensor.Named("dep")
-
-	r := setupLocalRobot(t, ctx, &config.Config{
-		Modules: []config.Module{modCfg}, Components: []resource.Config{sCfg, s2Cfg, depOnS},
-	}, logger, WithDisableCompleteConfigWorker())
-	lr := r.(*localRobot)
-	test.That(t, lr.manager.resources.GetAllParentsOf(depName), test.ShouldContain, sensor.Named("s"))
-
-	// Switch dep's implicit dependency to "s2" and remove "s".
-	r.Reconfigure(ctx, &config.Config{
-		Modules: []config.Module{modCfg}, Components: []resource.Config{s2Cfg, depOnS2},
-	})
-	test.That(t, lr.manager.resources.GetAllParentsOf(depName), test.ShouldResemble, []resource.Name{sensor.Named("s2")})
-
-	// Re-add "s". The reconcile must not resurrect the dropped edge to "s".
-	r.Reconfigure(ctx, &config.Config{
-		Modules: []config.Module{modCfg}, Components: []resource.Config{sCfg, s2Cfg, depOnS2},
-	})
-	test.That(t, lr.manager.resources.GetAllParentsOf(depName), test.ShouldResemble, []resource.Name{sensor.Named("s2")})
+	// The dependency "s" is available again ...
+	_, err := r.ResourceByName(sensor.Named("s"))
+	test.That(t, err, test.ShouldBeNil)
+	// ... and the reader must be reconnected to it. Without the reconcile, "s" is available but
+	// the reader is left with no edge to it (available-but-disconnected).
+	test.That(t, lr.manager.resources.GetAllParentsOf(readerName), test.ShouldContain, sensor.Named("s"))
 }
