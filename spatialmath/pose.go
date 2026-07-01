@@ -143,7 +143,7 @@ func PoseInverse(p Pose) Pose {
 // by == 0 will return p1, by == 1 will return p2, and by == 0.5 will return the pose halfway between them.
 func Interpolate(p1, p2 Pose, by float64) Pose {
 	p2Orient := p2.Orientation().Quaternion()
-	if OrientationBetween(p1.Orientation(), p2.Orientation()).Quaternion().Real < 0 {
+	if QuatBetween(p1.Orientation(), p2.Orientation()).Real < 0 {
 		p2Orient = quat.Scale(-1, p2Orient)
 	}
 	intQ := newDualQuaternion()
