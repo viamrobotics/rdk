@@ -9,6 +9,7 @@ import (
 
 	pb "go.viam.com/api/service/discovery/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -45,7 +46,7 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Service](r, Named(name)))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named discovery service from a collection of
@@ -53,13 +54,13 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
-	return resource.FromDependencies[Service](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Service](deps, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Discovery service
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Service, error) {
-	return resource.FromProvider[Service](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Service](provider, Named(name)))
 }
 
 // Service describes the functions that are available to the service.

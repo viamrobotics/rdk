@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -52,7 +53,7 @@ func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*
 			}
 
 			if _, present := ws.obstacleNames[name]; present {
-				return nil, NewDuplicateGeometryNameError(name)
+				return nil, errtrace.Wrap(NewDuplicateGeometryNameError(name))
 			}
 			ws.obstacleNames[name] = true
 			checkedGeometries = append(checkedGeometries, geometry)
@@ -66,19 +67,19 @@ func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*
 func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	transforms, err := LinkInFramesFromTransformsProtobuf(proto.GetTransforms())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	allGeometries := make([]*GeometriesInFrame, 0)
 	for _, protoGeometries := range proto.GetObstacles() {
 		geometries, err := ProtobufToGeometriesInFrame(protoGeometries)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		allGeometries = append(allGeometries, geometries)
 	}
 
-	return NewWorldState(allGeometries, transforms)
+	return errtrace.Wrap2(NewWorldState(allGeometries, transforms))
 }
 
 // ToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
@@ -97,7 +98,7 @@ func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 
 	transforms, err := LinkInFramesToTransformsProtobuf(ws.transforms)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &commonpb.WorldState{
@@ -110,9 +111,9 @@ func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 func (ws *WorldState) MarshalJSON() ([]byte, error) {
 	wsProto, err := ws.ToProtobuf()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protojson.Marshal(wsProto)
+	return errtrace.Wrap2(protojson.Marshal(wsProto))
 }
 
 // UnmarshalJSON takes JSON bytes of a world state protobuf message and parses it
@@ -120,11 +121,11 @@ func (ws *WorldState) MarshalJSON() ([]byte, error) {
 func (ws *WorldState) UnmarshalJSON(data []byte) error {
 	var wsProto commonpb.WorldState
 	if err := protojson.Unmarshal(data, &wsProto); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	newWs, err := WorldStateFromProtobuf(&wsProto)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	*ws = *newWs
 	return nil
@@ -190,7 +191,7 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs *FrameSystem, inputs FrameSystemI
 	for _, gf := range ws.obstacles {
 		tf, err := fs.Transform(inputs.ToLinearInputs(), gf, World)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		allGeometries = append(allGeometries, tf.(*GeometriesInFrame).Geometries()...)
 	}

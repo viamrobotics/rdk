@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 )
@@ -41,7 +42,7 @@ type gpioPin struct {
 }
 
 func (pin *gpioPin) wrapError(err error) error {
-	return errors.Wrapf(err, "from GPIO device %s line %d", pin.devicePath, pin.offset)
+	return errtrace.Wrap(errors.Wrapf(err, "from GPIO device %s line %d", pin.devicePath, pin.offset))
 }
 
 // This is a private helper function that should only be called when the mutex is locked. It sets
@@ -51,7 +52,7 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		// We're switching from an input pin to an output one or vice versa. Close the line and
 		// repoen in the other mode.
 		if err := pin.closeGpioFd(); err != nil {
-			return err // Already wrapped
+			return errtrace.Wrap(err) // Already wrapped
 		}
 		pin.isInput = isInput
 	}
@@ -64,7 +65,7 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		// If the pin is currently used by the hardware PWM chip, shut that down before we can open
 		// it for basic GPIO use.
 		if err := pin.hwPwm.Close(); err != nil {
-			return pin.wrapError(err)
+			return errtrace.Wrap(pin.wrapError(err))
 		}
 	}
 
@@ -75,7 +76,7 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 
 	chip, err := gpio.OpenChip(pin.devicePath)
 	if err != nil {
-		return pin.wrapError(err)
+		return errtrace.Wrap(pin.wrapError(err))
 	}
 	defer utils.UncheckedErrorFunc(chip.Close)
 
@@ -90,7 +91,7 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 	// we haven't done that yet, and we instead go with whatever the default on the board is.
 	line, err := chip.OpenLine(pin.offset, 0, direction, "viam-gpio")
 	if err != nil {
-		return pin.wrapError(err)
+		return errtrace.Wrap(pin.wrapError(err))
 	}
 	pin.line = line
 	return nil
@@ -101,7 +102,7 @@ func (pin *gpioPin) closeGpioFd() error {
 		return nil // The pin is already closed.
 	}
 	if err := pin.line.Close(); err != nil {
-		return pin.wrapError(err)
+		return errtrace.Wrap(pin.wrapError(err))
 	}
 	pin.line = nil
 	return nil
@@ -116,7 +117,7 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 
 	// Shut down any software PWM loop that might be running.
 	pin.enableSoftwarePWM = false
-	return pin.setInternal(isHigh)
+	return errtrace.Wrap(pin.setInternal(isHigh))
 }
 
 // This function assumes you've already locked the mutex. It sets the value of a pin without
@@ -134,7 +135,7 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 		// is still available to use later.
 		err := pin.hwPwm.SetPwm(10, value)
 		if err != nil {
-			return fmt.Errorf("could not set pin: %w", err)
+			return errtrace.Wrap(fmt.Errorf("could not set pin: %w", err))
 		}
 		return nil
 	}
@@ -147,18 +148,18 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 	}
 
 	if err := pin.openGpioFd( /* isInput= */ false); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if pin.offset == noPin {
 		if isHigh {
-			return errors.New("cannot set non-GPIO pin high")
+			return errtrace.Wrap(errors.New("cannot set non-GPIO pin high"))
 		}
 		// Otherwise, just return: we shut down any PWM stuff in openGpioFd.
 		return nil
 	}
 
-	return pin.wrapError(pin.line.SetValue(value))
+	return errtrace.Wrap(pin.wrapError(pin.line.SetValue(value)))
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
@@ -169,20 +170,20 @@ func (pin *gpioPin) Get(
 	defer pin.mu.Unlock()
 
 	if pin.hwPwm != nil {
-		return false, errors.New("cannot read from a HW pwm pin")
+		return false, errtrace.Wrap(errors.New("cannot read from a HW pwm pin"))
 	}
 
 	if pin.offset == noPin {
-		return false, errors.New("cannot read from non-GPIO pin")
+		return false, errtrace.Wrap(errors.New("cannot read from non-GPIO pin"))
 	}
 
 	if err := pin.openGpioFd( /* isInput= */ true); err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 
 	value, err := pin.line.Value()
 	if err != nil {
-		return false, pin.wrapError(err)
+		return false, errtrace.Wrap(pin.wrapError(err))
 	}
 
 	// We'd expect value to be either 0 or 1, but any non-zero value should be considered high.
@@ -196,28 +197,28 @@ func (pin *gpioPin) startSoftwarePWM() error {
 		// We don't have both parameters set up. Stop any PWM loop we might have started previously.
 		pin.enableSoftwarePWM = false
 		if pin.hwPwm != nil {
-			return pin.hwPwm.Close()
+			return errtrace.Wrap(pin.hwPwm.Close())
 		}
 		// If we used to have a software PWM loop, we might have stopped the loop while the pin was
 		// on. Remember to turn it off!
-		return pin.setInternal(false)
+		return errtrace.Wrap(pin.setInternal(false))
 	}
 
 	// Otherwise, we need to output a PWM signal.
 	if pin.hwPwm != nil {
 		if pin.pwmFreqHz > 1 {
 			if err := pin.closeGpioFd(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			// Shut down any software PWM loop that might be running.
 			pin.enableSoftwarePWM = false
-			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
+			return errtrace.Wrap(pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct))
 		}
 		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
 		// frequencies this low. Stop any hardware PWM, and fall through to using a software PWM
 		// loop below.
 		if err := pin.hwPwm.Close(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -301,7 +302,7 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 		// If there's an error turning the pin on or off, don't stop the whole loop. Hopefully we
 		// can toggle it next time. However, log any errors so that we notice if there are a bunch
 		// of them.
-		utils.UncheckedErrorFunc(func() error { return pin.setInternal(shouldBeOn) })
+		utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pin.setInternal(shouldBeOn)) })
 		return true
 	}()
 
@@ -360,11 +361,11 @@ func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[
 
 	dutyCyclePct, err := board.ValidatePWMDutyCycle(dutyCyclePct)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	pin.pwmDutyCyclePct = dutyCyclePct
-	return pin.startSoftwarePWM()
+	return errtrace.Wrap(pin.startSoftwarePWM())
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
@@ -381,11 +382,11 @@ func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[strin
 	defer pin.mu.Unlock()
 
 	if freqHz < 1 {
-		return errors.New("must set PWM frequency to a positive value")
+		return errtrace.Wrap(errors.New("must set PWM frequency to a positive value"))
 	}
 
 	pin.pwmFreqHz = freqHz
-	return pin.startSoftwarePWM()
+	return errtrace.Wrap(pin.startSoftwarePWM())
 }
 
 func (pin *gpioPin) Close() error {
@@ -401,7 +402,7 @@ func (pin *gpioPin) Close() error {
 
 	if pin.hwPwm != nil {
 		if err := pin.hwPwm.Close(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -413,11 +414,11 @@ func (pin *gpioPin) Close() error {
 		// If the entire server is shutting down, it's important to turn off all pins so they don't
 		// continue outputting signals we can no longer control.
 		if err := pin.setInternal(false); err != nil { // setInternal won't double-lock the mutex
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		if err := pin.closeGpioFd(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 

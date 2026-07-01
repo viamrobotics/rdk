@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -684,7 +685,7 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			UpdatedAt:                      timestamppb.New(*item.UpdatedAt),
 		}, nil
 	default:
-		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown registry item metadata type: %T", item.Metadata))
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -187,18 +188,18 @@ func (c *collector) validateReadingType(t CaptureType) error {
 	switch c.dataType {
 	case CaptureTypeTabular:
 		if t != CaptureTypeTabular {
-			return fmt.Errorf("expected result of type CaptureTypeTabular, instead got CaptureResultType: %d", t)
+			return errtrace.Wrap(fmt.Errorf("expected result of type CaptureTypeTabular, instead got CaptureResultType: %d", t))
 		}
 		return nil
 	case CaptureTypeBinary:
 		if t != CaptureTypeBinary {
-			return fmt.Errorf("expected result of type CaptureTypeBinary,instead got CaptureResultType: %d", t)
+			return errtrace.Wrap(fmt.Errorf("expected result of type CaptureTypeBinary,instead got CaptureResultType: %d", t))
 		}
 		return nil
 	case CaptureTypeUnspecified:
-		return fmt.Errorf("unknown collector data type: %d", c.dataType)
+		return errtrace.Wrap(fmt.Errorf("unknown collector data type: %d", c.dataType))
 	default:
-		return fmt.Errorf("unknown collector data type: %d", c.dataType)
+		return errtrace.Wrap(fmt.Errorf("unknown collector data type: %d", c.dataType))
 	}
 }
 
@@ -241,7 +242,7 @@ func (c *collector) getAndPushNextReading() {
 // specified Interval, and appends the resulting reading to target.
 func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, error) {
 	if err := params.Validate(); err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
+		return nil, errtrace.Wrap(errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName)))
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -383,16 +384,16 @@ func (c *collector) logCaptureErrs() {
 // InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.API was
 // passed into a CollectorConstructor.
 func InvalidInterfaceErr(api resource.API) error {
-	return errors.Errorf("passed interface does not conform to expected resource type %s", api)
+	return errtrace.Wrap(errors.Errorf("passed interface does not conform to expected resource type %s", api))
 }
 
 // NewFailedToReadError constructs a new FailedToReadError.
 func NewFailedToReadError(component, method string, err error) error {
-	return &FailedToReadError{
+	return errtrace.Wrap(&FailedToReadError{
 		Component: component,
 		Method:    method,
 		Err:       err,
-	}
+	})
 }
 
 // FailedToReadError is the error describing when a Capturer was unable to get the reading of a method.
@@ -428,29 +429,29 @@ func NewDoCommandCaptureFunc[T interface {
 			} else {
 				unmarshaledPayload, err := UnmarshalToValueOrString(payloadAny)
 				if err != nil {
-					return result, err
+					return result, errtrace.Wrap(err)
 				}
 
 				if payloadMap, ok := unmarshaledPayload.(map[string]interface{}); ok {
 					payload = payloadMap
 				} else {
-					return result, fmt.Errorf("payload is not a map, got type: %T, value: %v", unmarshaledPayload, unmarshaledPayload)
+					return result, errtrace.Wrap(fmt.Errorf("payload is not a map, got type: %T, value: %v", unmarshaledPayload, unmarshaledPayload))
 				}
 			}
 		} else {
 			// key does not exist
-			return result, errors.New("DoCommand missing payload with key: \"docommand_input\"")
+			return result, errtrace.Wrap(errors.New("DoCommand missing payload with key: \"docommand_input\""))
 		}
 
 		values, err := resource.DoCommand(ctx, payload)
 		if err != nil {
 			if IsNoCaptureToStoreError(err) {
-				return result, err
+				return result, errtrace.Wrap(err)
 			}
-			return result, NewFailedToReadError(params.ComponentName, "DoCommand", err)
+			return result, errtrace.Wrap(NewFailedToReadError(params.ComponentName, "DoCommand", err))
 		}
 		ts := Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return NewTabularCaptureResultDoCommand(ts, values)
+		return errtrace.Wrap2(NewTabularCaptureResultDoCommand(ts, values))
 	}
 }
 
@@ -476,7 +477,7 @@ func UnmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
 	// If unmarshaling fails, try to unmarshal to string
 	stringVal, err := v.UnmarshalNew()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return stringVal, nil
 }

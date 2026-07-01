@@ -20,6 +20,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -373,7 +374,7 @@ func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, err
 		// Get all of the field names and values from the `stats` object.
 		itemFields, itemNumbers, err := flatten(reflect.ValueOf(stats))
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 
 		datumMapOrder = append(datumMapOrder, key)
@@ -397,7 +398,7 @@ func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, err
 		schemaChanged = true
 		itemFields, itemNumbers, err := flatten(reflect.ValueOf(stats))
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 
 		datumMapOrder = append(datumMapOrder, dataKey)
@@ -427,7 +428,7 @@ func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, err
 func (ftdc *FTDC) writeDatum(datum datum) error {
 	toWrite, err := ftdc.getWriter()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// walk will return the schema it found alongside the flattened data. Errors are terminal. If
@@ -435,7 +436,7 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 	// be nil.
 	newSchema, flatData, err := walk(datum.Data, ftdc.currSchema)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// In the happy path where the schema hasn't changed, the `walk` function is guaranteed to
@@ -443,7 +444,7 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 	if ftdc.currSchema != newSchema {
 		ftdc.currSchema = newSchema
 		if err = writeSchema(ftdc.currSchema, toWrite); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
@@ -452,7 +453,7 @@ func (ftdc *FTDC) writeDatum(datum datum) error {
 	}
 
 	if err = writeDatum(datum.Time, ftdc.prevFlatData, flatData, toWrite); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	ftdc.prevFlatData = flatData
 
@@ -504,7 +505,7 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 		//nolint:gosec
 		if err = os.MkdirAll(ftdc.ftdcDir, 0o755); err != nil {
 			ftdc.logger.Warnw("Failed to create FTDC directory", "dir", ftdc.ftdcDir, "err", err)
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		now := time.Now().UTC()
@@ -530,7 +531,7 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 		time.Sleep(time.Second)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// New file, reset the bytes written counter.
@@ -597,7 +598,7 @@ func getFTDCFilesDescendingTimeOrder(ftdcDir string, logger logging.Logger) ([]f
 		return nil
 	}))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	slices.SortFunc(files, func(left, right fileTime) int {
@@ -611,7 +612,7 @@ func getFTDCFilesDescendingTimeOrder(ftdcDir string, logger logging.Logger) ([]f
 func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 	files, err := getFTDCFilesDescendingTimeOrder(ftdc.ftdcDir, ftdc.logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if len(files) <= ftdc.maxNumFiles {
@@ -646,7 +647,7 @@ var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d
 func parseTimeFromFilename(path string) (time.Time, error) {
 	allMatches := filenameTimeRe.FindAllStringSubmatch(path, -1)
 	if len(allMatches) != 1 || len(allMatches[0]) != 7 {
-		return time.Time{}, errors.New("filename did not match pattern")
+		return time.Time{}, errtrace.Wrap(errors.New("filename did not match pattern"))
 	}
 
 	// There's exactly one match and 7 groups. The first "group" is the whole string. We only care
@@ -657,7 +658,7 @@ func parseTimeFromFilename(path string) (time.Time, error) {
 	for idx := 0; idx < 6; idx++ {
 		val, err := strconv.Atoi(matches[idx])
 		if err != nil {
-			return time.Time{}, err
+			return time.Time{}, errtrace.Wrap(err)
 		}
 
 		numVals[idx] = val

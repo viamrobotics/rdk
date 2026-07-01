@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -25,19 +26,19 @@ import (
 func writeTempConfig(cfg *config.Config) (string, error) {
 	newConf, err := json.MarshalIndent(cfg, "", " ")
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	tmpFile, err := os.CreateTemp(os.TempDir(), "objdet_config-")
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	_, err = tmpFile.Write(newConf)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	err = tmpFile.Close()
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return tmpFile.Name(), nil
 }
@@ -47,7 +48,7 @@ func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 	// add a fake camera to the config
 	cfg, err := config.Read(context.Background(), artifact.MustPath("components/camera/transformpipeline/vision.json"), logger, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// create fake source camera
 	colorSrv1 := resource.Config{
@@ -92,16 +93,16 @@ func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 	}
 	cfg.Components = append(cfg.Components, detectorComp)
 	if err := cfg.Ensure(false, logger); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	newConfFile, err := writeTempConfig(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer os.Remove(newConfFile)
 	// make the robot from new config
-	return robotimpl.RobotFromConfigPath(context.Background(), newConfFile, nil, logger)
+	return errtrace.Wrap2(robotimpl.RobotFromConfigPath(context.Background(), newConfFile, nil, logger))
 }
 
 func TestColorDetectionSource(t *testing.T) {

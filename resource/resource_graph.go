@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
@@ -145,7 +146,7 @@ func (s graphStorage) Copy() graphStorage {
 func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	val := s.simpleNameCache[simpleNameKey{name, api}]
 	if val == nil {
-		return nil, &NodeNotFoundError{name, api}
+		return nil, errtrace.Wrap(&NodeNotFoundError{name, api})
 	}
 	if val.local != nil {
 		return val.local, nil
@@ -156,13 +157,13 @@ func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, 
 			return result, nil
 		}
 	case 0:
-		return nil, &NodeNotFoundError{name, api}
+		return nil, errtrace.Wrap(&NodeNotFoundError{name, api})
 	}
-	return nil, &MultipleMatchingRemoteNodesError{
+	return nil, errtrace.Wrap(&MultipleMatchingRemoteNodesError{
 		Name:    name,
 		API:     api,
 		Remotes: slices.Collect(maps.Keys(val.remote)),
-	}
+	})
 }
 
 func (s graphStorage) All() iter.Seq2[Name, *GraphNode] {
@@ -352,7 +353,7 @@ func (g *Graph) IsNodeDependingOn(node, child Name) bool {
 func (g *Graph) AddNode(node Name, nodeVal *GraphNode) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.addNode(node, nodeVal)
+	return errtrace.Wrap(g.addNode(node, nodeVal))
 }
 
 // Node returns the node named name.
@@ -385,7 +386,7 @@ func (g *Graph) UpdateNodePrefix(name Name, prefix string) {
 func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.nodes.FindBySimpleNameAndAPI(name, api)
+	return errtrace.Wrap2(g.nodes.FindBySimpleNameAndAPI(name, api))
 }
 
 // Names returns all the resource graph names.
@@ -534,11 +535,11 @@ func (g *Graph) addNode(name Name, node *GraphNode) error {
 	}
 	if val, ok := g.nodes.Get(name); ok {
 		if !val.IsUninitialized() {
-			return errors.Errorf("initialized node already exists with name %q; must swap instead", name)
+			return errtrace.Wrap(errors.Errorf("initialized node already exists with name %q; must swap instead", name))
 		}
 		prevPrefix := val.prefix
 		if err := val.replace(node); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		g.nodes.UpdateSimpleName(name, prevPrefix, val)
 		return nil
@@ -567,7 +568,7 @@ func (g *Graph) addNode(name Name, node *GraphNode) error {
 func (g *Graph) AddChild(child, parent Name) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.addChild(child, parent)
+	return errtrace.Wrap(g.addChild(child, parent))
 }
 
 // RemoveChild unlink a child from its parent.
@@ -579,15 +580,15 @@ func (g *Graph) RemoveChild(child, parent Name) {
 
 func (g *Graph) addChild(child, parent Name) error {
 	if child == parent {
-		return errors.Errorf("%v cannot depend on itself", child.Name)
+		return errtrace.Wrap(errors.Errorf("%v cannot depend on itself", child.Name))
 	}
 	// Maybe we haven't encountered yet the parent so let's add it here and assign an uninitialized node
 	if _, ok := g.nodes.Get(parent); !ok {
 		if err := g.addNode(parent, NewUninitializedNode()); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else if g.transitiveClosureMatrix[parent][child] != 0 {
-		return errors.Errorf("circular dependency - %v already depends on %v", parent.Name, child.Name)
+		return errtrace.Wrap(errors.Errorf("circular dependency - %v already depends on %v", parent.Name, child.Name))
 	}
 	if _, ok := g.parents[child][parent]; ok {
 		return nil
@@ -701,13 +702,13 @@ func (g *Graph) MergeAdd(toAdd *Graph) error {
 		}
 		toAddNode, _ := toAdd.nodes.Get(node)
 		if err := g.addNode(node, toAddNode); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		childrenToAdd := toAdd.getAllChildrenOf(node)
 		for _, childName := range childrenToAdd {
 			if err := g.addChild(childName, node); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -721,7 +722,7 @@ func (g *Graph) ReplaceNodesParents(node Name, other *Graph) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if _, ok := g.nodes.Get(node); !ok {
-		return errors.Errorf("cannot copy parents to non existing node %q", node.Name)
+		return errtrace.Wrap(errors.Errorf("cannot copy parents to non existing node %q", node.Name))
 	}
 
 	// Clear cached values
@@ -738,7 +739,7 @@ func (g *Graph) ReplaceNodesParents(node Name, other *Graph) error {
 	otherChildren := other.getAllChildrenOf(node)
 	for _, childName := range otherChildren {
 		if err := g.addChild(childName, node); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -752,17 +753,17 @@ func (g *Graph) CopyNodeAndChildren(node Name, origin *Graph) error {
 	defer g.mu.Unlock()
 	if r, ok := origin.nodes.Get(node); ok {
 		if err := g.addNode(node, r); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		children := origin.getAllChildrenOf(node)
 		for _, childName := range children {
 			if _, ok := g.nodes.Get(childName); !ok {
 				if err := g.addNode(childName, NewUninitializedNode()); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 			if err := g.addChild(childName, node); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -902,7 +903,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 			node.setDependenciesResolved()
 		}
 	}
-	return allErrs
+	return errtrace.Wrap(allErrs)
 }
 
 func (g *Graph) isNodeDependingOn(node, child Name) bool {
@@ -920,7 +921,7 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	return g.subGraphFromWithMutex(node)
+	return errtrace.Wrap2(g.subGraphFromWithMutex(node))
 }
 
 // subGraphFrom returns a Sub-Graph containing all linked dependencies starting with node
@@ -928,7 +929,7 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 // this method.
 func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 	if _, ok := g.nodes.Get(node); !ok {
-		return nil, errors.Errorf("cannot create sub-graph from non existing node %v ", node.Name)
+		return nil, errtrace.Wrap(errors.Errorf("cannot create sub-graph from non existing node %v ", node.Name))
 	}
 	subGraph := g.clone()
 	sorted := subGraph.ReverseTopologicalSort()
@@ -947,7 +948,7 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 
 	subGraph, err := g.subGraphFromWithMutex(node)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	for node := range subGraph.nodes.Values() {
 		node.markReachability(reachable)

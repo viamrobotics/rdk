@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -26,7 +27,7 @@ func (f *frameSystemClient) Name() resource.Name {
 }
 
 func (f *frameSystemClient) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, resource.ErrDoUnimplemented
+	return nil, errtrace.Wrap(resource.ErrDoUnimplemented)
 }
 
 func (f *frameSystemClient) Status(ctx context.Context) (map[string]interface{}, error) {
@@ -34,7 +35,7 @@ func (f *frameSystemClient) Status(ctx context.Context) (map[string]interface{},
 }
 
 func (f *frameSystemClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
-	return f.robotClient.FrameSystemConfig(ctx)
+	return errtrace.Wrap2(f.robotClient.FrameSystemConfig(ctx))
 }
 
 func (f *frameSystemClient) GetPose(ctx context.Context,
@@ -42,7 +43,7 @@ func (f *frameSystemClient) GetPose(ctx context.Context,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
-	return f.robotClient.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	return errtrace.Wrap2(f.robotClient.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 }
 
 func (f *frameSystemClient) TransformPose(
@@ -51,7 +52,7 @@ func (f *frameSystemClient) TransformPose(
 	dst string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	return f.robotClient.TransformPose(ctx, pose, dst, supplementalTransforms)
+	return errtrace.Wrap2(f.robotClient.TransformPose(ctx, pose, dst, supplementalTransforms))
 }
 
 func (f *frameSystemClient) TransformPointCloud(
@@ -60,9 +61,9 @@ func (f *frameSystemClient) TransformPointCloud(
 	srcName,
 	dstName string,
 ) (pointcloud.PointCloud, error) {
-	return f.robotClient.TransformPointCloud(ctx, srcpc, srcName, dstName)
+	return errtrace.Wrap2(f.robotClient.TransformPointCloud(ctx, srcpc, srcName, dstName))
 }
 
 func (f *frameSystemClient) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
-	return f.robotClient.CurrentInputs(ctx)
+	return errtrace.Wrap2(f.robotClient.CurrentInputs(ctx))
 }

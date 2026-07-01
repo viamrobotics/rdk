@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/api/component/button/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -64,7 +65,7 @@ type Button interface {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Button, error) {
-	return robot.ResourceFromRobot[Button](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Button](r, Named(name)))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies.
@@ -72,12 +73,12 @@ func FromRobot(r robot.Robot, name string) (Button, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Button, error) {
-	return resource.FromDependencies[Button](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Button](deps, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Button from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Button, error) {
-	return resource.FromProvider[Button](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Button](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.

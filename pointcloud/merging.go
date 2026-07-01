@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/lucasb-eyer/go-colorful"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -24,7 +25,7 @@ func ApplyOffset(srcpc PointCloud, offset spatialmath.Pose, pcTo PointCloud) err
 		err = pcTo.Set(p, d)
 		return err == nil
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
@@ -35,14 +36,14 @@ func MergePointCloudsWithColor(clusters []PointCloud, colorSegmentation PointClo
 		var err error
 		col, ok := color.NRGBAModel.Convert(palette[i]).(color.NRGBA)
 		if !ok {
-			return errors.New("impossible color conversion??")
+			return errtrace.Wrap(errors.New("impossible color conversion??"))
 		}
 		cluster.Iterate(0, 0, func(v r3.Vector, d Data) bool {
 			err = colorSegmentation.Set(v, NewColoredData(col))
 			return err == nil
 		})
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -56,12 +57,12 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, out 
 	for _, f := range cloudFuncs {
 		in, offset, err := f(ctx)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		err = ApplyOffset(in, offset, out)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil

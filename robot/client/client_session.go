@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
@@ -120,7 +121,7 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 			rc.logger.CInfow(ctx, "sessions unsupported; will not try again")
 			return ctx, nil
 		}
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	heartbeatWindow := startResp.HeartbeatWindow.AsDuration()
@@ -174,13 +175,13 @@ func (rc *RobotClient) sessionUnaryClientInterceptor(
 	invoke := func() error {
 		ctx, err := rc.sessionMetadata(ctx, method)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
-		return invoker(ctx, method, req, reply, cc, append(opts, grpc.Header(&hdr))...)
+		return errtrace.Wrap(invoker(ctx, method, req, reply, cc, append(opts, grpc.Header(&hdr))...))
 	}
 	if !rc.useSessionInRequest(ctx, method) {
 		// we won't retry but we will pass along any metadata we get from the remote to our parent(s).
-		return invoke()
+		return errtrace.Wrap(invoke())
 	}
 	if err := invoke(); err != nil {
 		if isStatusNoSessionError(err) {
@@ -188,9 +189,9 @@ func (rc *RobotClient) sessionUnaryClientInterceptor(
 			// and others are calling sessionReset.Wwe may want to address this in the future.
 			rc.sessionReset()
 			// retry once more
-			return invoke()
+			return errtrace.Wrap(invoke())
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -222,21 +223,21 @@ func (w *firstMessageClientStreamWrapper) SendMsg(m interface{}) error {
 		w.sendMsgs = append(w.sendMsgs, m)
 	}
 	w.mu.Unlock()
-	return w.ClientStream.SendMsg(m)
+	return errtrace.Wrap(w.ClientStream.SendMsg(m))
 }
 
 func (w *firstMessageClientStreamWrapper) CloseSend() error {
 	w.mu.Lock()
 	w.closeSend = true
 	w.mu.Unlock()
-	return w.ClientStream.CloseSend()
+	return errtrace.Wrap(w.ClientStream.CloseSend())
 }
 
 func (w *firstMessageClientStreamWrapper) RecvMsg(m interface{}) error {
 	w.mu.Lock()
 	if w.firstRecv {
 		w.mu.Unlock()
-		return w.ClientStream.RecvMsg(m)
+		return errtrace.Wrap(w.ClientStream.RecvMsg(m))
 	}
 	w.firstRecv = true
 	w.mu.Unlock()
@@ -266,7 +267,7 @@ func (w *firstMessageClientStreamWrapper) RecvMsg(m interface{}) error {
 		// retry once more
 		innnerStream, err := w.invoke()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		w.ClientStream = innnerStream
@@ -278,7 +279,7 @@ func (w *firstMessageClientStreamWrapper) RecvMsg(m interface{}) error {
 		w.mu.RUnlock()
 		for _, msg := range sendMsgs {
 			if err := w.ClientStream.SendMsg(msg); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 		w.mu.Lock()
@@ -286,14 +287,14 @@ func (w *firstMessageClientStreamWrapper) RecvMsg(m interface{}) error {
 		w.mu.Unlock()
 		if closeSend {
 			if err := w.ClientStream.CloseSend(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 
-		return w.ClientStream.RecvMsg(m)
+		return errtrace.Wrap(w.ClientStream.RecvMsg(m))
 	}
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (rc *RobotClient) sessionStreamClientInterceptor(
@@ -307,16 +308,16 @@ func (rc *RobotClient) sessionStreamClientInterceptor(
 	invoke := func() (grpc.ClientStream, error) {
 		ctx, sessErr := rc.sessionMetadata(ctx, method)
 		if sessErr != nil {
-			return nil, sessErr
+			return nil, errtrace.Wrap(sessErr)
 		}
-		return streamer(ctx, desc, cc, method, opts...)
+		return errtrace.Wrap2(streamer(ctx, desc, cc, method, opts...))
 	}
 	useSession := rc.useSessionInRequest(ctx, method)
 
 	invokeCS, err := func() (grpc.ClientStream, error) {
 		invokeCS, invokeErr := invoke()
 		if !useSession {
-			return invokeCS, invokeErr
+			return invokeCS, errtrace.Wrap(invokeErr)
 		}
 		if invokeErr != nil {
 			if isStatusNoSessionError(err) {
@@ -324,14 +325,14 @@ func (rc *RobotClient) sessionStreamClientInterceptor(
 				// but it does not hurt to check in case I am wrong :)
 				rc.sessionReset()
 				// retry once more
-				return invoke()
+				return errtrace.Wrap2(invoke())
 			}
-			return nil, invokeErr
+			return nil, errtrace.Wrap(invokeErr)
 		}
 		return invokeCS, nil
 	}()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	wrapper := &firstMessageClientStreamWrapper{
 		ClientStream: invokeCS,

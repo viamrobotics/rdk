@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -22,7 +23,7 @@ func Named(name string) resource.Name {
 // FromProvider is a helper for getting the named Summation
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Summation, error) {
-	return resource.FromProvider[Summation](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Summation](provider, Named(name)))
 }
 
 func init() {
@@ -62,11 +63,11 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Summation], logger logg
 func (s *serviceServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumResponse, error) {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := g.Sum(ctx, req.Numbers)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.SumResponse{Sum: resp}, nil
 }
@@ -109,7 +110,7 @@ func (c *client) Sum(ctx context.Context, nums []float64) (float64, error) {
 		Numbers: nums,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return resp.Sum, nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -61,6 +62,6 @@ func RemoveColorChannel(col string) (Preprocessor, error) {
 			return rimg
 		}, nil
 	default:
-		return nil, errors.Errorf("do not know channel %q, only valid channels are 'r', 'g', or 'b'", col)
+		return nil, errtrace.Wrap(errors.Errorf("do not know channel %q, only valid channels are 'r', 'g', or 'b'", col))
 	}
 }

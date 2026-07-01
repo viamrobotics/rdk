@@ -8,6 +8,7 @@ import (
 	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -29,15 +30,15 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[resource.Resource], log
 func (s *serviceServer) DoCommand(ctx context.Context, req *commonpb.DoCommandRequest) (*commonpb.DoCommandResponse, error) {
 	genericDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	result, err := genericDevice.DoCommand(ctx, req.Command.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	res, err := protoutils.StructToStructPb(result)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.DoCommandResponse{Result: res}, nil
 }
@@ -46,9 +47,9 @@ func (s *serviceServer) DoCommand(ctx context.Context, req *commonpb.DoCommandRe
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return rprotoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceServer(ctx, res, req))
 }
 
 // GetGeometries returns the geometries of the generic component in their current configuration. Generic component
@@ -59,7 +60,7 @@ func (s *serviceServer) GetGeometries(
 ) (*commonpb.GetGeometriesResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	shaped, ok := res.(resource.Shaped)
 	if !ok {
@@ -67,7 +68,7 @@ func (s *serviceServer) GetGeometries(
 	}
 	geometries, err := shaped.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }

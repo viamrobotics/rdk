@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -36,7 +37,7 @@ func newServer(logger logging.Logger) (pb.GripperServiceServer, *inject.Gripper,
 	}
 	gripperSvc, err := resource.NewAPIResourceCollection(gripper.API, grippers)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return gripper.NewRPCServiceServer(gripperSvc, logger).(pb.GripperServiceServer), injectGripper, injectGripper2, nil
 }
@@ -68,18 +69,18 @@ func TestServer(t *testing.T) {
 			r3.Vector{},
 			testGripperName,
 		)
-		return []spatialmath.Geometry{box}, err
+		return []spatialmath.Geometry{box}, errtrace.Wrap(err)
 	}
 
 	injectGripper2.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpen = testGripperName2
-		return errCantOpen
+		return errtrace.Wrap(errCantOpen)
 	}
 	injectGripper2.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return false, errCantGrab
+		return false, errtrace.Wrap(errCantGrab)
 	}
 	injectGripper2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopUnimplemented
+		return errtrace.Wrap(errStopUnimplemented)
 	}
 	injectGripper2.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return nil, nil
@@ -200,7 +201,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectGripper.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = gripperServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testGripperName})
 		test.That(t, err, test.ShouldNotBeNil)

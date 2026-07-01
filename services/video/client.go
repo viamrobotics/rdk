@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -54,7 +55,7 @@ func (c *client) GetVideo(
 ) (chan *Chunk, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var startTS *timestamppb.Timestamp
 	if !startTime.IsZero() {
@@ -75,7 +76,7 @@ func (c *client) GetVideo(
 	}
 	stream, err := c.client.GetVideo(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// small buffered channel to prevent blocking when receiver is slow
@@ -111,9 +112,9 @@ func (c *client) GetVideo(
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ctx, span := trace.StartSpan(ctx, "discovery::client::DoCommand")
 	defer span.End()
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

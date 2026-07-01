@@ -7,6 +7,7 @@ import (
 	"image"
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	"go-hep.org/x/hep/hbook"
 	"go-hep.org/x/hep/hplot"
@@ -79,13 +80,13 @@ func (p *voxelPlane) Intersect(p0, p1 r3.Vector) *r3.Vector {
 // PointCloud returns the PointCloud of the underlying points of the plane.
 func (p *voxelPlane) PointCloud() (PointCloud, error) {
 	if p.points == nil {
-		return nil, errors.New("no points in plane to turn into point cloud")
+		return nil, errtrace.Wrap(errors.New("no points in plane to turn into point cloud"))
 	}
 	pc := NewBasicPointCloud(len(p.points))
 	for p, d := range p.points {
 		err := pc.Set(p, d)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return pc, nil
@@ -229,7 +230,7 @@ func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
 		for p, d := range vox.Points {
 			err := cloud.Set(p, d)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -344,7 +345,7 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 			hist.Fill(variable, 1)
 		}
 	default:
-		return nil, fmt.Errorf("%s not a plottable variable", name)
+		return nil, errtrace.Wrap(fmt.Errorf("%s not a plottable variable", name))
 	}
 
 	// Create a histogram of our values
@@ -354,19 +355,19 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 
 	width, err := vecg.ParseLength(fmt.Sprintf("%dpt", w))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	height, err := vecg.ParseLength(fmt.Sprintf("%dpt", h))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	imgByte, err := hplot.Show(p, width, height, "png")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	img, _, err := image.Decode(bytes.NewReader(imgByte))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return img, nil
 }
@@ -448,7 +449,7 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 			// add it to the point cloud
 			err := pc.Set(p, ptValue)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			i++
 		}

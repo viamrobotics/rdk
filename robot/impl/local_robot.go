@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/gantry"
@@ -148,7 +149,7 @@ type localRobot struct {
 // visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
 func (r *localRobot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error) {
-	return r.manager.ExportDot(index)
+	return errtrace.Wrap2(r.manager.ExportDot(index))
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -167,7 +168,7 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 	for _, c := range *traceClients {
 		err = stderrors.Join(err, c.UploadTraces(ctx, spans))
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -177,11 +178,11 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
 	n, err := r.manager.resources.FindBySimpleNameAndAPI(name, api)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	res, err := n.Resource()
 	if err != nil {
-		return nil, resource.NewNotAvailableError(resource.NewName(api, name), err)
+		return nil, errtrace.Wrap(resource.NewNotAvailableError(resource.NewName(api, name), err))
 	}
 	return res, nil
 }
@@ -191,7 +192,7 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 // FindBySimpleNameAndAPI. ResourceByName is only called internally for some dependency
 // calculation and session code.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
-	return r.FindBySimpleNameAndAPI(name.Name, name.API)
+	return errtrace.Wrap2(r.FindBySimpleNameAndAPI(name.Name, name.API))
 }
 
 // RemoteNames returns the names of all known remote robots.
@@ -268,7 +269,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 
 	err = multierr.Combine(err, trace.Shutdown(ctx))
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 // Kill will attempt to kill any processes on the system started by the robot as quickly as possible.
@@ -304,7 +305,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	for k, v := range resourceErrs {
 		errs = multierr.Combine(errs, errors.Errorf("failed to stop component named %s with error %v", k, v))
 	}
-	return errs
+	return errtrace.Wrap(errs)
 }
 
 // Config returns a config representing the current state of the robot.
@@ -339,7 +340,7 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 			r.ftdc.Start()
 		}
 	})
-	return ret
+	return errtrace.Wrap(ret)
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
@@ -530,7 +531,7 @@ func newWithResources(
 			ctx,
 			func(ctx context.Context) (packagespb.PackageServiceClient, error) {
 				_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
-				return packagespb.NewPackageServiceClient(cloudConn), err
+				return packagespb.NewPackageServiceClient(cloudConn), errtrace.Wrap(err)
 			},
 			cfg.Cloud,
 			packagesDir,
@@ -542,7 +543,7 @@ func newWithResources(
 	}
 	r.localPackages, err = packages.NewLocalManager(packagesDir, packageLogger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// we assume these never appear in our configs and as such will not be removed from the
@@ -553,7 +554,7 @@ func newWithResources(
 	}
 	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger.Sublogger("framesystem"))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// now that we're changing the resource graph, take the reconfigurationLock so
@@ -563,26 +564,26 @@ func newWithResources(
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := r.manager.resources.AddNode(
 		framesystem.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.frameSvc, builtinModel)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := r.manager.resources.AddNode(
 		r.packageManager.Name(),
 		resource.NewConfiguredGraphNode(resource.Config{}, r.packageManager, builtinModel)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := r.manager.resources.AddNode(
 		r.cloudConnSvc.Name(),
 		resource.NewConfiguredGraphNode(resource.Config{}, r.cloudConnSvc, builtinModel)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if err := r.webSvc.StartModule(ctx); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var cloudID string
@@ -602,7 +603,7 @@ func newWithResources(
 		packagesDir,
 		r.webSvc.ModPeerConnTracker(),
 	); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if !rOpts.disableCompleteConfigWorker {
@@ -624,16 +625,16 @@ func newWithResources(
 		for _, name := range names {
 			if name.Name == res {
 				if found {
-					return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
+					return nil, errtrace.Wrap(errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String()))
 				}
 				match = name
 				found = true
 			}
 		}
 		if !found {
-			return nil, errors.Errorf("could not find the resource for name %s", res)
+			return nil, errtrace.Wrap(errors.Errorf("could not find the resource for name %s", res))
 		}
-		return r.ResourceByName(match)
+		return errtrace.Wrap2(r.ResourceByName(match))
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
@@ -647,7 +648,7 @@ func newWithResources(
 	for name, res := range resources {
 		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
 		if err := r.manager.resources.AddNode(name, node); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -667,7 +668,7 @@ func New(
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, cfg, nil, conn, logger, opts...)
+	return errtrace.Wrap2(newWithResources(ctx, cfg, nil, conn, logger, opts...))
 }
 
 // handleOrphanedResources is called by the module manager to handle resources
@@ -739,7 +740,7 @@ func (r *localRobot) getDependencies(
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
 	deps, _, err := r.getDependenciesWithWeakOptionalSnapshot(rName, gNode)
-	return deps, err
+	return deps, errtrace.Wrap(err)
 }
 
 // getDependenciesWithWeakOptionalSnapshot is the implementation helper of getDependencies
@@ -754,7 +755,7 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, map[resource.Name]int64, error) {
 	if deps := gNode.UnresolvedDependencies(); len(deps) != 0 {
-		return nil, nil, errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps)
+		return nil, nil, errtrace.Wrap(errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps))
 	}
 	allDeps := make(resource.Dependencies)
 	weakAndOptionalDepsSnapshot := map[resource.Name]int64{}
@@ -765,7 +766,7 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 		// and no last error).
 		prefixedName, res, err := r.manager.ResourceByName(dep)
 		if err != nil {
-			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
+			return nil, nil, errtrace.Wrap(&resource.DependencyNotReadyError{Name: dep.Name, Reason: err})
 		}
 		allDeps[prefixedName] = res
 	}
@@ -961,7 +962,7 @@ func (r *localRobot) newResource(
 ) (res resource.Resource, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.Wrap(errors.Errorf("%v", r), "panic creating resource")
+			err = errtrace.Wrap(errors.Wrap(errors.Errorf("%v", r), "panic creating resource"))
 		}
 	}()
 	resName := conf.ResourceName()
@@ -973,13 +974,13 @@ func (r *localRobot) newResource(
 			sort.Strings(failedModules)
 			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)
 		}
-		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered; "+
-			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
+		return nil, errtrace.Wrap(errors.Errorf("unknown resource type: API %v with model %v not registered; "+
+			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules))
 	}
 
 	deps, weakOptionalSnapshot, err := r.getDependenciesWithWeakOptionalSnapshot(resName, gNode)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	c, ok := resource.LookupGenericAPIRegistration(resName.API)
@@ -987,7 +988,7 @@ func (r *localRobot) newResource(
 		// If MaxInstance equals zero then there is not a limit on the number of resources
 		if c.MaxInstance != 0 {
 			if err := r.checkMaxInstance(resName.API, c.MaxInstance); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -997,10 +998,10 @@ func (r *localRobot) newResource(
 	case resInfo.DeprecatedRobotConstructor != nil:
 		res, err = resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 	default:
-		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
+		return nil, errtrace.Wrap(errors.Errorf("invariant: no constructor for %q", conf.API))
 	}
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// If context has errored, even if construction succeeded we should close the resource and return the context error.
@@ -1008,7 +1009,7 @@ func (r *localRobot) newResource(
 	// The deadline associated with the context passed in to this function is utils.GetResourceConfigurationTimeout.
 	if ctx.Err() != nil {
 		r.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource")
-		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
+		return nil, errtrace.Wrap(multierr.Combine(ctx.Err(), res.Close(r.closeContext)))
 	}
 	// Record the snapshot before SwapResource so it reflects what the constructor
 	// actually received, not whatever the graph looks like by the time we get here.
@@ -1278,11 +1279,11 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	localParts, err := r.getLocalFrameSystemParts(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	remoteParts, err := r.getRemoteFrameSystemParts(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &framesystem.Config{Parts: append(localParts, remoteParts...)}, nil
@@ -1468,13 +1469,13 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 
 		remoteRobot, ok := r.RemoteByName(remoteCfg.Name)
 		if !ok {
-			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
+			return nil, errtrace.Wrap(errors.Errorf("cannot find remote robot %q", remoteCfg.Name))
 		}
 
 		remote, err := utils.AssertType[robot.RemoteRobot](remoteRobot)
 		if err != nil {
 			// should never happen
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		if !remote.Connected() {
 			r.logger.CDebugf(ctx, "remote %q is not connected, skipping", remoteCfg.Name)
@@ -1483,7 +1484,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 
 		lif, err := remoteCfg.Frame.ParseConfig()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		parentName := remoteCfg.Name + "_" + referenceframe.World
 		lif.SetName(parentName)
@@ -1492,7 +1493,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		// get the parts from the remote itself
 		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
+			return nil, errtrace.Wrap(errors.Wrapf(err, "error from remote %q", remoteCfg.Name))
 		}
 		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Prefix, parentName)
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
@@ -1507,7 +1508,7 @@ func (r *localRobot) GetPose(
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
-	return r.frameSvc.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	return errtrace.Wrap2(r.frameSvc.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
@@ -1517,7 +1518,7 @@ func (r *localRobot) TransformPose(
 	dst string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	return r.frameSvc.TransformPose(ctx, pose, dst, supplementalTransforms)
+	return errtrace.Wrap2(r.frameSvc.TransformPose(ctx, pose, dst, supplementalTransforms))
 }
 
 // TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
@@ -1528,13 +1529,13 @@ func (r *localRobot) TransformPointCloud(
 	srcpc pointcloud.PointCloud,
 	srcName, dstName string,
 ) (pointcloud.PointCloud, error) {
-	return r.frameSvc.TransformPointCloud(ctx, srcpc, srcName, dstName)
+	return errtrace.Wrap2(r.frameSvc.TransformPointCloud(ctx, srcpc, srcName, dstName))
 }
 
 // CurrentInputs returns a map of the current inputs for each component of a machine's frame system
 // and a map of statuses indicating which of the machine's components may be actuated through input values.
 func (r *localRobot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
-	return r.frameSvc.CurrentInputs(ctx)
+	return errtrace.Wrap2(r.frameSvc.CurrentInputs(ctx))
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
@@ -1548,9 +1549,9 @@ func RobotFromConfigPath(
 	cfg, err := config.Read(ctx, cfgPath, logger, nil)
 	if err != nil {
 		logger.CError(ctx, "cannot read config")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return RobotFromConfig(ctx, cfg, conn, logger, opts...)
+	return errtrace.Wrap2(RobotFromConfig(ctx, cfg, conn, logger, opts...))
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
@@ -1563,9 +1564,9 @@ func RobotFromConfig(
 ) (robot.LocalRobot, error) {
 	processedCfg, err := config.ProcessConfig(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return New(ctx, processedCfg, conn, logger, opts...)
+	return errtrace.Wrap2(New(ctx, processedCfg, conn, logger, opts...))
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
@@ -1576,7 +1577,7 @@ func RobotFromResources(
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
+	return errtrace.Wrap2(newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...))
 }
 
 func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
@@ -1608,7 +1609,7 @@ func dialRobotClient(
 		rOpts...,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return robotClient, nil
 }
@@ -2091,7 +2092,7 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error { //nolin
 		if n.API == api && !n.ContainsRemoteNames() {
 			maxInstance++
 			if maxInstance == max {
-				return errors.Errorf("max instance number reached for resource type: %s", api)
+				return errtrace.Wrap(errors.Errorf("max instance number reached for resource type: %s", api))
 			}
 		}
 	}
@@ -2105,11 +2106,11 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 	md := cloud.Metadata{}
 	cfg := r.Config()
 	if cfg == nil {
-		return md, errNoCloudMetadata
+		return md, errtrace.Wrap(errNoCloudMetadata)
 	}
 	cloud := cfg.Cloud
 	if cloud == nil {
-		return md, errNoCloudMetadata
+		return md, errtrace.Wrap(errNoCloudMetadata)
 	}
 	md.PrimaryOrgID = cloud.PrimaryOrgID
 	md.LocationID = cloud.LocationID
@@ -2132,7 +2133,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		r.logger.CInfof(ctx, "incremented local version of %s to %s", mod.Name, mod.LocalVersion)
 		err := r.localPackages.SyncOne(ctx, *mod)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -2162,7 +2163,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
 	r.logger.CInfow(ctx, "restarting single module", "module_name", mod.Name, "module_id", mod.ModuleID)
-	return r.manager.updateResources(ctx, &diff)
+	return errtrace.Wrap(r.manager.updateResources(ctx, &diff))
 }
 
 func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
@@ -2173,9 +2174,9 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	}
 
 	if mod == nil {
-		return status.Errorf(codes.NotFound,
+		return errtrace.Wrap(status.Errorf(codes.NotFound,
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
-			req.ModuleID, req.ModuleName)
+			req.ModuleID, req.ModuleName))
 	}
 
 	activeModules := r.manager.createConfig().Modules
@@ -2183,7 +2184,7 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	err := r.restartSingleModule(ctx, mod, isRunning)
 	if err != nil {
 		r.logger.Warn("Error restarting module. ID: %v Name: %v Err: %v", req.ModuleID, req.ModuleName, err)
-		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
+		return errtrace.Wrap(errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName))
 	}
 
 	return nil
@@ -2268,18 +2269,18 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 	// allowed).
 	name, err := resource.NewFromString(mCfg.SensorName)
 	if err != nil {
-		return true, fmt.Errorf("sensor_name %s in maintenance config is not in a supported format", mCfg.SensorName)
+		return true, errtrace.Wrap(fmt.Errorf("sensor_name %s in maintenance config is not in a supported format", mCfg.SensorName))
 	}
 	sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 	if err != nil {
-		return true, fmt.Errorf("could not find sensor named %s: %w", mCfg.SensorName, err)
+		return true, errtrace.Wrap(fmt.Errorf("could not find sensor named %s: %w", mCfg.SensorName, err))
 	}
 
 	// If there was any error checking sensor readings on a valid sensor, return false
 	// (reconfigure NOT allowed).
 	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, mCfg.MaintenanceAllowedKey, sensorComponent)
 	if err != nil {
-		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
+		return false, errtrace.Wrap(fmt.Errorf("failed to check maintenance sensor readings: %w", err))
 	}
 	return canReconfigure, nil
 }
@@ -2293,15 +2294,15 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 
 	readings, err := sensor.Readings(ctx, map[string]interface{}{})
 	if err != nil {
-		return false, fmt.Errorf("error reading maintenance sensor readings. %s", err.Error())
+		return false, errtrace.Wrap(fmt.Errorf("error reading maintenance sensor readings. %s", err.Error()))
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
 	if !ok {
-		return false, fmt.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
+		return false, errtrace.Wrap(fmt.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey))
 	}
 	canReconfigure, ok := readingVal.(bool)
 	if !ok {
-		return false, fmt.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
+		return false, errtrace.Wrap(fmt.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey))
 	}
 
 	return canReconfigure, nil
@@ -2336,8 +2337,8 @@ func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpo
 // GetResource implements resource.Provider for a localRobot by looking up a resource by name.
 func (r *localRobot) GetResource(name resource.Name) (resource.Resource, error) {
 	if name == framesystem.PublicServiceName {
-		return r.ResourceByName(framesystem.InternalServiceName)
+		return errtrace.Wrap2(r.ResourceByName(framesystem.InternalServiceName))
 	}
 
-	return r.ResourceByName(name)
+	return errtrace.Wrap2(r.ResourceByName(name))
 }

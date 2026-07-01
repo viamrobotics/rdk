@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	toggleswitch "go.viam.com/rdk/components/switch"
 	"go.viam.com/rdk/resource"
 )
@@ -32,50 +33,50 @@ func (s *Switch) Name() resource.Name {
 // SetPosition sets the switch position.
 func (s *Switch) SetPosition(ctx context.Context, position uint32, extra map[string]interface{}) error {
 	if s.SetPositionFunc == nil {
-		return s.Switch.SetPosition(ctx, position, extra)
+		return errtrace.Wrap(s.Switch.SetPosition(ctx, position, extra))
 	}
-	return s.SetPositionFunc(ctx, position, extra)
+	return errtrace.Wrap(s.SetPositionFunc(ctx, position, extra))
 }
 
 // GetPosition gets the current switch position.
 func (s *Switch) GetPosition(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	if s.GetPositionFunc == nil {
-		return s.Switch.GetPosition(ctx, extra)
+		return errtrace.Wrap2(s.Switch.GetPosition(ctx, extra))
 	}
-	return s.GetPositionFunc(ctx, extra)
+	return errtrace.Wrap2(s.GetPositionFunc(ctx, extra))
 }
 
 // GetNumberOfPositions gets the total number of positions for the switch.
 func (s *Switch) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 	if s.GetNumberOfPositionsFunc == nil {
-		return s.Switch.GetNumberOfPositions(ctx, extra)
+		return errtrace.Wrap3(s.Switch.GetNumberOfPositions(ctx, extra))
 	}
-	return s.GetNumberOfPositionsFunc(ctx, extra)
+	return errtrace.Wrap3(s.GetNumberOfPositionsFunc(ctx, extra))
 }
 
 // DoCommand calls DoFunc.
 func (s *Switch) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		return s.Switch.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(s.Switch.DoCommand(ctx, cmd))
 	}
-	return s.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(s.DoFunc(ctx, cmd))
 }
 
 // Close calls CloseFunc.
 func (s *Switch) Close(ctx context.Context) error {
 	if s.CloseFunc == nil {
-		return s.Switch.Close(ctx)
+		return errtrace.Wrap(s.Switch.Close(ctx))
 	}
-	return s.CloseFunc(ctx)
+	return errtrace.Wrap(s.CloseFunc(ctx))
 }
 
 // Status calls the injected Status or the real version.
 func (s *Switch) Status(ctx context.Context) (map[string]interface{}, error) {
 	if s.StatusFunc != nil {
-		return s.StatusFunc(ctx)
+		return errtrace.Wrap2(s.StatusFunc(ctx))
 	}
 	if s.Switch != nil {
-		return s.Switch.Status(ctx)
+		return errtrace.Wrap2(s.Switch.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

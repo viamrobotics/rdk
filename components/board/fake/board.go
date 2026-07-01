@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -41,17 +42,17 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	for idx, conf := range conf.AnalogReaders {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	}
 	for idx, conf := range conf.DigitalInterrupts {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	}
 
 	if conf.FailNew {
-		return nil, nil, errors.New("whoops")
+		return nil, nil, errtrace.Wrap(errors.New("whoops"))
 	}
 
 	return nil, nil, nil
@@ -70,7 +71,7 @@ func init() {
 				cfg resource.Config,
 				logger logging.Logger,
 			) (board.Board, error) {
-				return NewBoard(ctx, cfg, logger)
+				return errtrace.Wrap2(NewBoard(ctx, cfg, logger))
 			},
 		})
 }
@@ -87,7 +88,7 @@ func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) 
 	}
 
 	if err := b.processConfig(conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return b, nil
@@ -99,7 +100,7 @@ func (b *Board) processConfig(conf resource.Config) error {
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
@@ -170,7 +171,7 @@ func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	defer b.mu.RUnlock()
 	a, ok := b.Analogs[name]
 	if !ok {
-		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, errtrace.Wrap(errors.Errorf("can't find AnalogReader (%s)", name))
 	}
 	return a, nil
 }
@@ -181,7 +182,7 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, err
 	defer b.mu.RUnlock()
 	d, ok := b.Digitals[name]
 	if !ok {
-		return nil, fmt.Errorf("cant find DigitalInterrupt (%s)", name)
+		return nil, errtrace.Wrap(fmt.Errorf("cant find DigitalInterrupt (%s)", name))
 	}
 	return d, nil
 }
@@ -203,7 +204,7 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 // the board will exit the given power mode after the specified
 // duration.
 func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+	return errtrace.Wrap(grpc.UnimplementedError)
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
@@ -213,7 +214,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	for _, di := range interrupts {
 		_, ok := b.Digitals[di.Name()]
 		if !ok {
-			return fmt.Errorf("could not find digital interrupt: %s", di.Name())
+			return errtrace.Wrap(fmt.Errorf("could not find digital interrupt: %s", di.Name()))
 		}
 	}
 

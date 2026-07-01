@@ -9,6 +9,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/navigation/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -30,11 +31,11 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger loggin
 func (server *serviceServer) GetMode(ctx context.Context, req *pb.GetModeRequest) (*pb.GetModeResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	mode, err := svc.Mode(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	protoMode := pb.Mode_MODE_UNSPECIFIED
 	switch mode {
@@ -53,25 +54,25 @@ func (server *serviceServer) GetMode(ctx context.Context, req *pb.GetModeRequest
 func (server *serviceServer) SetMode(ctx context.Context, req *pb.SetModeRequest) (*pb.SetModeResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	switch req.Mode {
 	case pb.Mode_MODE_MANUAL:
 		if err := svc.SetMode(ctx, ModeManual, req.Extra.AsMap()); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case pb.Mode_MODE_WAYPOINT:
 		if err := svc.SetMode(ctx, ModeWaypoint, req.Extra.AsMap()); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case pb.Mode_MODE_EXPLORE:
 		if err := svc.SetMode(ctx, ModeExplore, req.Extra.AsMap()); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case pb.Mode_MODE_UNSPECIFIED:
 		fallthrough
 	default:
-		return nil, errors.Errorf("unknown mode %q", req.Mode.String())
+		return nil, errtrace.Wrap(errors.Errorf("unknown mode %q", req.Mode.String()))
 	}
 	return &pb.SetModeResponse{}, nil
 }
@@ -79,11 +80,11 @@ func (server *serviceServer) SetMode(ctx context.Context, req *pb.SetModeRequest
 func (server *serviceServer) GetLocation(ctx context.Context, req *pb.GetLocationRequest) (*pb.GetLocationResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	geoPose, err := svc.Location(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.GetLocationResponse{
@@ -95,11 +96,11 @@ func (server *serviceServer) GetLocation(ctx context.Context, req *pb.GetLocatio
 func (server *serviceServer) GetWaypoints(ctx context.Context, req *pb.GetWaypointsRequest) (*pb.GetWaypointsResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	waypoints, err := svc.Waypoints(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	protoWaypoints := make([]*pb.Waypoint, 0, len(waypoints))
 	for _, wp := range waypoints {
@@ -116,11 +117,11 @@ func (server *serviceServer) GetWaypoints(ctx context.Context, req *pb.GetWaypoi
 func (server *serviceServer) AddWaypoint(ctx context.Context, req *pb.AddWaypointRequest) (*pb.AddWaypointResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	point := geo.NewPoint(req.Location.Latitude, req.Location.Longitude)
 	if err = svc.AddWaypoint(ctx, point, req.Extra.AsMap()); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.AddWaypointResponse{}, nil
 }
@@ -128,14 +129,14 @@ func (server *serviceServer) AddWaypoint(ctx context.Context, req *pb.AddWaypoin
 func (server *serviceServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveWaypointRequest) (*pb.RemoveWaypointResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	id, err := primitive.ObjectIDFromHex(req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err = svc.RemoveWaypoint(ctx, id, req.Extra.AsMap()); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.RemoveWaypointResponse{}, nil
 }
@@ -143,11 +144,11 @@ func (server *serviceServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveW
 func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstaclesRequest) (*pb.GetObstaclesResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	obstacles, err := svc.Obstacles(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	protoObs := []*commonpb.GeoGeometry{}
 	for _, obstacle := range obstacles {
@@ -159,15 +160,15 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetPathsRequest) (*pb.GetPathsResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	paths, err := svc.Paths(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pbPaths, err := PathSliceToProto(paths)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetPathsResponse{Paths: pbPaths}, nil
 }
@@ -175,11 +176,11 @@ func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetPathsReque
 func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPropertiesRequest) (*pb.GetPropertiesResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	prop, err := svc.Properties(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.GetPropertiesResponse{
@@ -194,16 +195,16 @@ func (server *serviceServer) DoCommand(
 ) (*commonpb.DoCommandResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // GetStatus returns the status of the navigation service.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

@@ -13,6 +13,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -243,19 +244,19 @@ func NewCannyDericheEdgeDetectorWithParameters(hiRatio, loRatio float64, preproc
 func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray, error) {
 	imgGradient, err := ForwardGradient(img, blur, cd.preprocessImage)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	nms, err := GradientNonMaximumSuppressionC8(imgGradient.Magnitude, imgGradient.Direction)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	low, high, err := GetHysteresisThresholds(imgGradient.Magnitude, nms, cd.highRatio, cd.lowRatio)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	edges, err := EdgeHysteresisFiltering(imgGradient.Magnitude, low, high)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return edges, nil
 }
@@ -403,7 +404,7 @@ func GetHysteresisThresholds(mag, nms *mat.Dense, ratioHigh, ratioLow float64) (
 
 	if copy1 == 0 {
 		err := errors.New("the slice copy was not achieved")
-		return 0, 0, err
+		return 0, 0, errtrace.Wrap(err)
 	}
 	sort.Float64s(x)
 	// Compute histogram of magnitude image

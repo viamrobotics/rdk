@@ -1,6 +1,7 @@
 package camera
 
 import (
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -16,5 +17,5 @@ const (
 
 // NewUnsupportedImageTypeError is when the stream type is unknown.
 func NewUnsupportedImageTypeError(s ImageType) error {
-	return errors.Errorf("image type %q not supported", s)
+	return errtrace.Wrap(errors.Errorf("image type %q not supported", s))
 }

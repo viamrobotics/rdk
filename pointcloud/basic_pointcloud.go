@@ -3,6 +3,7 @@ package pointcloud
 import (
 	"github.com/golang/geo/r3"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -62,7 +63,7 @@ func (cloud *basicPointCloud) At(x, y, z float64) (Data, bool) {
 func (cloud *basicPointCloud) Set(p r3.Vector, d Data) error {
 	_, pointExists := cloud.At(p.X, p.Y, p.Z)
 	if err := cloud.points.Set(p, d); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if !pointExists {
 		cloud.meta.Merge(p, d)

@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/resource"
 )
@@ -33,41 +34,41 @@ func (s *Servo) Name() resource.Name {
 // Move calls the injected Move or the real version.
 func (s *Servo) Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error {
 	if s.MoveFunc == nil {
-		return s.Servo.Move(ctx, angleDeg, extra)
+		return errtrace.Wrap(s.Servo.Move(ctx, angleDeg, extra))
 	}
-	return s.MoveFunc(ctx, angleDeg, extra)
+	return errtrace.Wrap(s.MoveFunc(ctx, angleDeg, extra))
 }
 
 // Position calls the injected Current or the real version.
 func (s *Servo) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	if s.PositionFunc == nil {
-		return s.Servo.Position(ctx, extra)
+		return errtrace.Wrap2(s.Servo.Position(ctx, extra))
 	}
-	return s.PositionFunc(ctx, extra)
+	return errtrace.Wrap2(s.PositionFunc(ctx, extra))
 }
 
 // Stop calls the injected Stop or the real version.
 func (s *Servo) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if s.StopFunc == nil {
-		return s.Servo.Stop(ctx, extra)
+		return errtrace.Wrap(s.Servo.Stop(ctx, extra))
 	}
-	return s.StopFunc(ctx, extra)
+	return errtrace.Wrap(s.StopFunc(ctx, extra))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (s *Servo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		return s.Servo.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(s.Servo.DoCommand(ctx, cmd))
 	}
-	return s.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(s.DoFunc(ctx, cmd))
 }
 
 // IsMoving calls the injected IsMoving or the real version.
 func (s *Servo) IsMoving(ctx context.Context) (bool, error) {
 	if s.IsMovingFunc == nil {
-		return s.Servo.IsMoving(ctx)
+		return errtrace.Wrap2(s.Servo.IsMoving(ctx))
 	}
-	return s.IsMovingFunc(ctx)
+	return errtrace.Wrap2(s.IsMovingFunc(ctx))
 }
 
 // Close calls the injected Close or the real version.
@@ -76,18 +77,18 @@ func (s *Servo) Close(ctx context.Context) error {
 		if s.Servo == nil {
 			return nil
 		}
-		return s.Servo.Close(ctx)
+		return errtrace.Wrap(s.Servo.Close(ctx))
 	}
-	return s.CloseFunc(ctx)
+	return errtrace.Wrap(s.CloseFunc(ctx))
 }
 
 // Status calls the injected Status or the real version.
 func (s *Servo) Status(ctx context.Context) (map[string]interface{}, error) {
 	if s.StatusFunc != nil {
-		return s.StatusFunc(ctx)
+		return errtrace.Wrap2(s.StatusFunc(ctx))
 	}
 	if s.Servo != nil {
-		return s.Servo.Status(ctx)
+		return errtrace.Wrap2(s.Servo.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

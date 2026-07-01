@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/utils"
 )
@@ -114,7 +115,7 @@ func FromConfig(cfg *config.Config) (Options, error) {
 			if !cfg.Network.NoTLS {
 				// This will only happen if we're switching from a local config to a cloud config.
 				if cfg.Network.TLSConfig == nil {
-					return Options{}, errors.New("switching from local config to cloud config not currently supported")
+					return Options{}, errtrace.Wrap(errors.New("switching from local config to cloud config not currently supported"))
 				}
 				options.Network.TLSConfig = cfg.Network.TLSConfig
 			}
@@ -125,7 +126,7 @@ func FromConfig(cfg *config.Config) (Options, error) {
 
 		allLocationSecrets := secretsToStringSlice(cfg.Cloud.LocationSecrets)
 		if len(allLocationSecrets) == 0 {
-			return options, errors.New("no LocationSecrets specified")
+			return options, errtrace.Wrap(errors.New("no LocationSecrets specified"))
 		}
 
 		options.Auth.Handlers = append(options.Auth.Handlers, config.AuthHandlerConfig{

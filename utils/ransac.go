@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"braces.dev/errtrace"
 	"fmt"
 	"math/rand"
 	"time"
@@ -9,7 +10,7 @@ import (
 // SelectNIndicesWithoutReplacement select N random indices from [0,nMax] without replacement (no duplicate indices).
 func SelectNIndicesWithoutReplacement(nSamples, nMax int) ([]int, error) {
 	if nSamples > nMax {
-		return nil, fmt.Errorf("number of elements to be sampled greater than total number of elements: %v > %v", nSamples, nMax)
+		return nil, errtrace.Wrap(fmt.Errorf("number of elements to be sampled greater than total number of elements: %v > %v", nSamples, nMax))
 	}
 	a := make([]int, nMax)
 	for i := range a {

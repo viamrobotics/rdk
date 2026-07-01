@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/audioin"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -45,7 +46,7 @@ func (x *getAudioServer) Context() context.Context {
 
 func (x *getAudioServer) Send(m *pb.GetAudioResponse) error {
 	if x.fail {
-		return errSendFailed
+		return errtrace.Wrap(errSendFailed)
 	}
 	if x.audioChan == nil {
 		return nil
@@ -63,7 +64,7 @@ func newServer(logger logging.Logger) (pb.AudioInServiceServer, *inject.AudioIn,
 	}
 	audioInSvc, err := resource.NewAPIResourceCollection(audioin.API, audioIns)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return audioin.NewRPCServiceServer(audioInSvc, logger).(pb.AudioInServiceServer), injectAudioIn, injectAudioIn2, nil
 }
@@ -128,7 +129,7 @@ func TestServer(t *testing.T) {
 		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 			extra map[string]interface{}) (chan *audioin.AudioChunk, error,
 		) {
-			return nil, errGetAudioFailed
+			return nil, errtrace.Wrap(errGetAudioFailed)
 		}
 
 		s2 := &getAudioServer{
@@ -154,7 +155,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 
 		injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
-			return rutils.Properties{}, errPropertiesFailed
+			return rutils.Properties{}, errtrace.Wrap(errPropertiesFailed)
 		}
 		_, err = audioInServer.GetProperties(
 			context.Background(),
@@ -203,7 +204,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectAudioIn.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = audioInServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testAudioInName})
 		test.That(t, err, test.ShouldNotBeNil)

@@ -17,6 +17,7 @@ import (
 	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -25,7 +26,7 @@ import (
 // a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
-//nolint
+// nolint
 // The following describes the SharedConn lifetime for viam-server's modmanager communicating with
 // modules it has spawned.
 //
@@ -147,7 +148,7 @@ func (sc *SharedConn) Invoke(
 	args, reply interface{},
 	opts ...googlegrpc.CallOption,
 ) error {
-	return sc.grpcConn.Invoke(ctx, method, args, reply, opts...)
+	return errtrace.Wrap(sc.grpcConn.Invoke(ctx, method, args, reply, opts...))
 }
 
 // NewStream forwards to the underlying GRPC Connection.
@@ -157,7 +158,7 @@ func (sc *SharedConn) NewStream(
 	method string,
 	opts ...googlegrpc.CallOption,
 ) (googlegrpc.ClientStream, error) {
-	return sc.grpcConn.NewStream(ctx, desc, method, opts...)
+	return errtrace.Wrap2(sc.grpcConn.NewStream(ctx, desc, method, opts...))
 }
 
 // AddOnTrackSub adds an OnTrack subscription for the track.
@@ -300,22 +301,22 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	// We copy this pointer for convenience, not correctness.
 	pc := sc.peerConn
 	if pc == nil {
-		return "", errors.New("peer connections disabled")
+		return "", errtrace.Wrap(errors.New("peer connections disabled"))
 	}
 
 	offer, err := pc.CreateOffer(nil)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	if err = pc.SetLocalDescription(offer); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	<-webrtc.GatheringCompletePromise(pc)
 	ret, err := rpc.EncodeSDP(pc.LocalDescription())
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	guard.Success()
@@ -343,16 +344,16 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	// We copy this pointer for convenience, not correctness.
 	pc := sc.peerConn
 	if pc == nil {
-		return errors.New("PeerConnection was not initialized")
+		return errtrace.Wrap(errors.New("PeerConnection was not initialized"))
 	}
 
 	answer := webrtc.SessionDescription{}
 	if err := rpc.DecodeSDP(encodedAnswer, &answer); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := pc.SetRemoteDescription(answer); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	guard.Success()
@@ -370,7 +371,7 @@ func (sc *SharedConn) Close() error {
 	}
 	sc.peerConnMu.Unlock()
 
-	return multierr.Combine(err, sc.grpcConn.Close())
+	return errtrace.Wrap(multierr.Combine(err, sc.grpcConn.Close()))
 }
 
 // NewLocalPeerConnection creates a peer connection that only accepts loopback
@@ -378,11 +379,11 @@ func (sc *SharedConn) Close() error {
 func NewLocalPeerConnection(logger logging.Logger) (*webrtc.PeerConnection, error) {
 	m := webrtc.MediaEngine{}
 	if err := m.RegisterDefaultCodecs(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	i := interceptor.Registry{}
 	if err := webrtc.RegisterDefaultInterceptors(&m, &i); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var settingEngine webrtc.SettingEngine
@@ -422,7 +423,7 @@ func NewLocalPeerConnection(logger logging.Logger) (*webrtc.PeerConnection, erro
 	pc, err := webAPI.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return pc, nil
 }

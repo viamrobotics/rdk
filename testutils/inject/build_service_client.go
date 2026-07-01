@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	buildpb "go.viam.com/api/app/build/v1"
 	"google.golang.org/grpc"
 )
@@ -19,9 +20,9 @@ func (bsc *BuildServiceClient) ListJobs(ctx context.Context, in *buildpb.ListJob
 	opts ...grpc.CallOption,
 ) (*buildpb.ListJobsResponse, error) {
 	if bsc.ListJobsFunc == nil {
-		return bsc.ListJobs(ctx, in, opts...)
+		return errtrace.Wrap2(bsc.ListJobs(ctx, in, opts...))
 	}
-	return bsc.ListJobsFunc(ctx, in, opts...)
+	return errtrace.Wrap2(bsc.ListJobsFunc(ctx, in, opts...))
 }
 
 // StartBuild calls the injected StartBuildFunc or the real version.
@@ -29,7 +30,7 @@ func (bsc *BuildServiceClient) StartBuild(ctx context.Context, in *buildpb.Start
 	opts ...grpc.CallOption,
 ) (*buildpb.StartBuildResponse, error) {
 	if bsc.StartBuildFunc == nil {
-		return bsc.StartBuild(ctx, in, opts...)
+		return errtrace.Wrap2(bsc.StartBuild(ctx, in, opts...))
 	}
-	return bsc.StartBuildFunc(ctx, in, opts...)
+	return errtrace.Wrap2(bsc.StartBuildFunc(ctx, in, opts...))
 }

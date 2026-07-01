@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -207,7 +208,7 @@ func TestWorkingClient(t *testing.T) {
 			extra map[string]interface{},
 		) error {
 			actualExtra = extra
-			return viamgrpc.UnimplementedError
+			return errtrace.Wrap(viamgrpc.UnimplementedError)
 		}
 		err = client.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil, expectedExtra)
 		test.That(t, err, test.ShouldNotBeNil)

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -48,7 +49,7 @@ func newServer(logger logging.Logger) (genericpb.GenericServiceServer, *inject.G
 	}
 	injectSvc, err := resource.NewAPIResourceCollection(generic.API, resourceMap)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return generic.NewRPCServiceServer(injectSvc, logger).(genericpb.GenericServiceServer), injectGeneric, injectGeneric2, nil
 }
@@ -73,7 +74,7 @@ func TestGenericDo(t *testing.T) {
 		map[string]interface{},
 		error,
 	) {
-		return nil, errDoFailed
+		return nil, errtrace.Wrap(errDoFailed)
 	}
 
 	commandStruct, err := protoutils.StructToStructPb(testutils.TestCommand)
@@ -114,7 +115,7 @@ func TestGenericGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	workingGeneric.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = genericServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testGenericName})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -146,7 +147,7 @@ func TestGenericGetGeometries(t *testing.T) {
 		return expectedGeometries, nil
 	}
 	injectGeneric2.GeometriesFunc = func(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
-		return nil, errGeometriesFailed
+		return nil, errtrace.Wrap(errGeometriesFailed)
 	}
 
 	t.Run("missing resource returns error", func(t *testing.T) {

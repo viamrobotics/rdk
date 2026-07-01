@@ -11,6 +11,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -75,14 +76,14 @@ func setupMovementSensor(
 	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{},
 	) (*movementsensor.Properties, error) {
 		if oriPropsErr && strings.Contains(name, "goodOri") {
-			return &prop, errProps
+			return &prop, errtrace.Wrap(errProps)
 		}
 		return &prop, nil
 	}
 	ms.AccuracyFunc = func(ctx context.Context, exta map[string]interface{}) (*movementsensor.Accuracy, error,
 	) {
 		if errAcc {
-			return nil, errAccuracy
+			return nil, errtrace.Wrap(errAccuracy)
 		}
 		acc := &movementsensor.Accuracy{
 			AccuracyMap:        map[string]float32{"accuracy": 32},

@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
@@ -145,7 +146,7 @@ func TestSyncEnabled(t *testing.T) {
 						t.Log("called")
 						if err := ctx.Err(); err != nil {
 							t.Log(err.Error())
-							return nil, err
+							return nil, errtrace.Wrap(err)
 						}
 						firstCalledFn()
 						if secondReconfigure.Load() {
@@ -404,11 +405,11 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				_ ...grpc.CallOption,
 			) (*v1.DataCaptureUploadResponse, error) {
 				if err := ctx.Err(); err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				select {
 				case <-ctx.Done():
-					return nil, ctx.Err()
+					return nil, errtrace.Wrap(ctx.Err())
 				case successChan <- in:
 					return &v1.DataCaptureUploadResponse{}, nil
 				}
@@ -422,21 +423,21 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 					_ ...grpc.CallOption,
 				) (*v1.DataCaptureUploadResponse, error) {
 					if err := ctx.Err(); err != nil {
-						return nil, err
+						return nil, errtrace.Wrap(err)
 					}
 
 					if fail.Load() {
 						select {
 						case <-ctx.Done():
-							return nil, ctx.Err()
+							return nil, errtrace.Wrap(ctx.Err())
 						case failChan <- in:
-							return nil, errors.New("transient error")
+							return nil, errtrace.Wrap(errors.New("transient error"))
 						}
 					}
 
 					select {
 					case <-ctx.Done():
-						return nil, ctx.Err()
+						return nil, errtrace.Wrap(ctx.Err())
 					case successChan <- in:
 						return &v1.DataCaptureUploadResponse{}, nil
 					}
@@ -621,17 +622,17 @@ func TestArbitraryFileUpload(t *testing.T) {
 					return &datasync.ClientStreamingMock[*v1.FileUploadRequest, *v1.FileUploadResponse]{
 						SendFunc: func(r *v1.FileUploadRequest) error {
 							if err := ctx.Err(); err != nil {
-								return err
+								return errtrace.Wrap(err)
 							}
 							rs = append(rs, r)
 							return nil
 						},
 						CloseAndRecvFunc: func() (*v1.FileUploadResponse, error) {
 							if err := ctx.Err(); err != nil {
-								return nil, err
+								return nil, errtrace.Wrap(err)
 							}
 							if tc.serviceFail {
-								return nil, errors.New("CloseAndRecv")
+								return nil, errtrace.Wrap(errors.New("CloseAndRecv"))
 							}
 							closeFn()
 							uploadCount.Add(1)
@@ -883,7 +884,7 @@ func TestStreamingDCUpload(t *testing.T) {
 				_ ...grpc.CallOption,
 			) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
 				if tc.serviceFail {
-					return nil, errors.New("oh no error")
+					return nil, errtrace.Wrap(errors.New("oh no error"))
 				}
 				cancelCtx, cancelFn := context.WithCancel(context.Background())
 				ss.mu.Lock()
@@ -1113,11 +1114,11 @@ func getCapturedData(filePaths []string) (int, []*v1.SensorData, error) {
 	for _, f := range filePaths {
 		osFile, err := os.Open(f)
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, errtrace.Wrap(err)
 		}
 		dcFile, err := data.ReadCaptureFile(osFile)
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, errtrace.Wrap(err)
 		}
 		allFiles = append(allFiles, dcFile)
 	}
@@ -1132,7 +1133,7 @@ func getCapturedData(filePaths []string) (int, []*v1.SensorData, error) {
 			}
 			containsData = true
 			if err != nil {
-				return 0, nil, err
+				return 0, nil, errtrace.Wrap(err)
 			}
 			ret = append(ret, next)
 		}

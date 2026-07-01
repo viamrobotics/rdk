@@ -16,6 +16,7 @@ import (
 	goutils "go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -45,7 +46,7 @@ func uploadArbitraryFile(
 	logger.Debugf("attempting to sync arbitrary file: %s", f.Name())
 	path, err := filepath.Abs(f.Name())
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to get absolute path")
+		return 0, errtrace.Wrap(errors.Wrap(err, "failed to get absolute path"))
 	}
 
 	// Only sync non-datacapture files that have not been modified in the last
@@ -53,15 +54,15 @@ func uploadArbitraryFile(
 	// to written to.
 	info, err := os.Stat(path)
 	if err != nil {
-		return 0, errors.Wrap(err, "stat failed")
+		return 0, errtrace.Wrap(errors.Wrap(err, "stat failed"))
 	}
 	if info.Size() == 0 {
-		return 0, errFileEmpty
+		return 0, errtrace.Wrap(errFileEmpty)
 	}
 
 	timeSinceMod := clock.Since(info.ModTime())
 	if timeSinceMod < time.Duration(fileLastModifiedMillis)*time.Millisecond {
-		return 0, errFileModifiedTooRecently
+		return 0, errtrace.Wrap(errFileModifiedTooRecently)
 	}
 
 	// We need to seek to the start of the file as if we have tried to upload this file
@@ -70,23 +71,23 @@ func uploadArbitraryFile(
 	// Fixes https://viam.atlassian.net/browse/DATA-3114
 	pos, err := f.Seek(0, io.SeekStart)
 	if err != nil {
-		return 0, errors.Wrap(err, "error trying to Seek to beginning of file")
+		return 0, errtrace.Wrap(errors.Wrap(err, "error trying to Seek to beginning of file"))
 	}
 
 	if pos != 0 {
-		return 0, fmt.Errorf("error trying to seek to beginning of file %s: expected position 0, instead got to position %d", path, pos)
+		return 0, errtrace.Wrap(fmt.Errorf("error trying to seek to beginning of file %s: expected position 0, instead got to position %d", path, pos))
 	}
 
 	// Get file timestamps
 	fileTimes, err := utils.GetFileTimes(path)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to get file times")
+		return 0, errtrace.Wrap(errors.Wrap(err, "failed to get file times"))
 	}
 
 	logger.Debugf("datasync.FileUpload request started for arbitrary file: %s", path)
 	stream, err := conn.client.FileUpload(ctx)
 	if err != nil {
-		return 0, errors.Wrap(err, "error creating FileUpload client")
+		return 0, errtrace.Wrap(errors.Wrap(err, "error creating FileUpload client"))
 	}
 
 	// Try to infer tags and dataset IDs from the filename query parameters.
@@ -123,16 +124,16 @@ func uploadArbitraryFile(
 			},
 		},
 	}); err != nil {
-		return 0, errors.Wrap(err, "FileUpload failed sending metadata")
+		return 0, errtrace.Wrap(errors.Wrap(err, "FileUpload failed sending metadata"))
 	}
 
 	if err := sendFileUploadRequests(ctx, stream, f, path, logger, bytesUploadingCounter); err != nil {
-		return 0, errors.Wrap(err, "FileUpload failed to sync")
+		return 0, errtrace.Wrap(errors.Wrap(err, "FileUpload failed to sync"))
 	}
 
 	logger.Debugf("datasync.FileUpload closing for arbitrary file: %s", path)
 	if _, err = stream.CloseAndRecv(); err != nil {
-		return 0, errors.Wrap(err, "FileUpload  CloseAndRecv failed")
+		return 0, errtrace.Wrap(errors.Wrap(err, "FileUpload  CloseAndRecv failed"))
 	}
 	return uint64(info.Size()), nil
 }
@@ -149,7 +150,7 @@ func sendFileUploadRequests(
 	i := 0
 	for {
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		// Get the next UploadRequest from the file.
 		uploadReq, err := getNextFileUploadRequest(f)
@@ -160,12 +161,12 @@ func sendFileUploadRequests(
 		}
 
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		logger.Debugf("datasync.FileUpload sending chunk %d for file: %s", i, path)
 		if err = stream.Send(uploadReq); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		// Update byte counter after successful chunk upload.
@@ -184,7 +185,7 @@ func getNextFileUploadRequest(f *os.File) (*v1.FileUploadRequest, error) {
 	// Get the next file data reading from file, check for an error.
 	next, err := readNextFileChunk(f)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// Otherwise, return an UploadRequest and no error.
 	return &v1.FileUploadRequest{
@@ -198,7 +199,7 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 	byteArr := make([]byte, UploadChunkSize)
 	numBytesRead, err := f.Read(byteArr)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &v1.FileData{Data: byteArr[:numBytesRead]}, nil
 }

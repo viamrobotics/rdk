@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
@@ -785,7 +786,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 	t.Run("test failing config function", func(t *testing.T) {
 		expectedErr := errors.New("failed to retrieve config")
 		injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
-			return nil, expectedErr
+			return nil, errtrace.Wrap(expectedErr)
 		}
 		req := &pb.FrameSystemConfigRequest{}
 		server := server.New(injectRobot)

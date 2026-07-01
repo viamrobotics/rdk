@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
@@ -202,7 +203,7 @@ func MakeBoard(t *testing.T) board.Board {
 		} else if name == "13" {
 			return i2, nil
 		}
-		return nil, fmt.Errorf("unknown digital interrupt: %s", name)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown digital interrupt: %s", name))
 	}
 	b.StreamTicksFunc = func(
 		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},

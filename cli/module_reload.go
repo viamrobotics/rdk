@@ -13,6 +13,7 @@ import (
 	goutils "go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
@@ -47,7 +48,7 @@ func applyResourceToPartMap(
 	partMap map[string]any, manifest *ModuleManifest, modelName, resourceName string,
 ) (string, error) {
 	if manifest == nil {
-		return "", errors.New("unable to add resource from config without a meta.json")
+		return "", errtrace.Wrap(errors.New("unable to add resource from config without a meta.json"))
 	}
 
 	var modelAPI string
@@ -59,12 +60,12 @@ func applyResourceToPartMap(
 	}
 
 	if len(modelAPI) == 0 {
-		return "", errors.New("provided model name was not found in the meta.json")
+		return "", errtrace.Wrap(errors.New("provided model name was not found in the meta.json"))
 	}
 
 	APISlice := strings.Split(modelAPI, ":")
 	if len(APISlice) != 3 {
-		return "", errors.New("the provided model's API is malformed; unable to determine resource type")
+		return "", errtrace.Wrap(errors.New("the provided model's API is malformed; unable to determine resource type"))
 	}
 
 	resourceType := APISlice[1] + "s" // `components`, not `component`
@@ -86,7 +87,7 @@ func applyResourceToPartMap(
 	// if the user provides a resource name but it's already in the config, alert the user and return
 	if resourceName != "" {
 		if resourceNameAlreadyExists(resourceName) {
-			return "", errors.Errorf("resource name %s already exists in part config", resourceName)
+			return "", errtrace.Wrap(errors.Errorf("resource name %s already exists in part config", resourceName))
 		}
 	} else { // if the user doesn't provide a resource name, find a valid one
 		resourceNum := 1
@@ -118,28 +119,28 @@ func (c *viamClient) addResourceFromModule(
 	partMap := part.RobotConfig.AsMap()
 	resolvedName, err := applyResourceToPartMap(partMap, manifest, modelName, resourceName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := writeBackConfig(part, partMap); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	infof(cmd.Root().Writer, "installing %s model with name %s on target machine", modelName, resolvedName)
 
 	if err := c.updateRobotPart(context.Background(), part, partMap, part.LastUpdated); err != nil {
 		partResp, refetchErr := c.getRobotPart(context.Background(), part.Id)
 		if refetchErr != nil {
-			return errors.Wrap(err, "update failed and could not re-fetch part config")
+			return errtrace.Wrap(errors.Wrap(err, "update failed and could not re-fetch part config"))
 		}
 		retryPart := partResp.Part
 		retryMap := retryPart.RobotConfig.AsMap()
 		if _, retryErr := applyResourceToPartMap(retryMap, manifest, modelName, resourceName); retryErr != nil {
-			return retryErr
+			return errtrace.Wrap(retryErr)
 		}
 		if retryErr := writeBackConfig(retryPart, retryMap); retryErr != nil {
-			return retryErr
+			return errtrace.Wrap(retryErr)
 		}
 		if retryErr := c.updateRobotPart(context.Background(), retryPart, retryMap, retryPart.LastUpdated); retryErr != nil {
-			return errors.Wrap(retryErr, "retry of addResourceFromModule also failed")
+			return errtrace.Wrap(errors.Wrap(retryErr, "retry of addResourceFromModule also failed"))
 		}
 	}
 	return nil
@@ -177,14 +178,14 @@ func (c *viamClient) findResourceInPartOrFragments(
 		visited[id] = true
 		resp, err := c.client.GetFragment(ctx, &apppb.GetFragmentRequest{Id: id})
 		if err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 		if resp.Fragment == nil || resp.Fragment.Fragment == nil {
 			continue
 		}
 		found, err := c.findResourceInPartOrFragments(ctx, resp.Fragment.Fragment.AsMap(), predicate, visited)
 		if err != nil || found {
-			return found, err
+			return found, errtrace.Wrap(err)
 		}
 	}
 	return false, nil
@@ -192,7 +193,7 @@ func (c *viamClient) findResourceInPartOrFragments(
 
 // hasShellService checks if a part or any of its fragments (recursively) already has a shell service configured
 func hasShellService(ctx context.Context, vc *viamClient, partMap map[string]any) (bool, error) {
-	return vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{})
+	return errtrace.Wrap2(vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{}))
 }
 
 // appendShellServiceToPartMap appends a shell service entry to partMap["services"].
@@ -224,7 +225,7 @@ func addShellService(
 ) (bool, error) {
 	args, err := getGlobalArgs(cmd)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	partMap := part.RobotConfig.AsMap()
 	has, err := hasShellService(ctx, vc, partMap)
@@ -236,12 +237,12 @@ func addShellService(
 	}
 	appendShellServiceToPartMap(partMap)
 	if err := writeBackConfig(part, partMap); err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	if err := vc.updateRobotPart(ctx, part, partMap, part.LastUpdated); err != nil {
 		partResp, refetchErr := vc.getRobotPart(ctx, part.Id)
 		if refetchErr != nil {
-			return false, errors.Wrap(err, "update failed and could not re-fetch part config")
+			return false, errtrace.Wrap(errors.Wrap(err, "update failed and could not re-fetch part config"))
 		}
 		retryPart := partResp.Part
 		retryMap := retryPart.RobotConfig.AsMap()
@@ -255,10 +256,10 @@ func addShellService(
 		}
 		appendShellServiceToPartMap(retryMap)
 		if retryErr := writeBackConfig(retryPart, retryMap); retryErr != nil {
-			return false, retryErr
+			return false, errtrace.Wrap(retryErr)
 		}
 		if retryErr := vc.updateRobotPart(ctx, retryPart, retryMap, retryPart.LastUpdated); retryErr != nil {
-			return false, errors.Wrap(retryErr, "retry of addShellService also failed")
+			return false, errtrace.Wrap(errors.Wrap(retryErr, "retry of addShellService also failed"))
 		}
 	}
 	if !wait {
@@ -274,10 +275,10 @@ func addShellService(
 			return true, nil
 		}
 		if !errors.Is(err, errNoShellService) {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 	}
-	return false, errors.New("timed out waiting for shell service to start")
+	return false, errtrace.Wrap(errors.New("timed out waiting for shell service to start"))
 }
 
 // writeBackConfig mutates part.RobotConfig with an edited config; this is necessary so that changes
@@ -285,7 +286,7 @@ func addShellService(
 func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 	modifiedConfig, err := structpb.NewStruct(configAsMap)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	part.RobotConfig = modifiedConfig
 	return nil
@@ -313,18 +314,18 @@ func applyModuleConfigToPartMap(
 		func(raw any) (ModuleMap, error) { return ModuleMap(raw.(map[string]any)), nil },
 	)
 	if err != nil {
-		return nil, false, false, err
+		return nil, false, false, errtrace.Wrap(err)
 	}
 
 	modules, dirty, needsRestart, err := mutateModuleConfig(cmd, modules, manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
 	if err != nil {
-		return nil, false, false, err
+		return nil, false, false, errtrace.Wrap(err)
 	}
 	modulesAsInterfaces, err := rutils.MapOver(modules, func(mod ModuleMap) (any, error) {
 		return map[string]any(mod), nil
 	})
 	if err != nil {
-		return nil, false, false, err
+		return nil, false, false, errtrace.Wrap(err)
 	}
 	partMap["modules"] = modulesAsInterfaces
 	return modules, dirty, needsRestart, nil
@@ -338,39 +339,39 @@ func configureModule(
 	local, cloudReload bool, reloadUser, annotation string, reloadUnixTS int64,
 ) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
-		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
+		return part, false, errtrace.Wrap(fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath))
 	}
 	partMap := part.RobotConfig.AsMap()
 	_, dirty, needsRestart, err := applyModuleConfigToPartMap(
 		cmd, partMap, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
 	if err != nil {
-		return part, false, err
+		return part, false, errtrace.Wrap(err)
 	}
 	if err := writeBackConfig(part, partMap); err != nil {
-		return part, false, err
+		return part, false, errtrace.Wrap(err)
 	}
 	if dirty {
 		args, err := getGlobalArgs(cmd)
 		if err != nil {
-			return part, false, err
+			return part, false, errtrace.Wrap(err)
 		}
 		debugf(cmd.Root().Writer, args.Debug, "writing back config changes")
 		if err := vc.updateRobotPart(ctx, part, partMap, part.LastUpdated); err != nil {
 			partResp, refetchErr := vc.getRobotPart(ctx, part.Id)
 			if refetchErr != nil {
-				return part, false, errors.Wrap(err, "update failed and could not re-fetch part config")
+				return part, false, errtrace.Wrap(errors.Wrap(err, "update failed and could not re-fetch part config"))
 			}
 			retryPart := partResp.Part
 			retryMap := retryPart.RobotConfig.AsMap()
 			_, _, _, retryErr := applyModuleConfigToPartMap(cmd, retryMap, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
 			if retryErr != nil {
-				return part, false, retryErr
+				return part, false, errtrace.Wrap(retryErr)
 			}
 			if retryErr = writeBackConfig(retryPart, retryMap); retryErr != nil {
-				return part, false, retryErr
+				return part, false, errtrace.Wrap(retryErr)
 			}
 			if retryErr = vc.updateRobotPart(ctx, retryPart, retryMap, retryPart.LastUpdated); retryErr != nil {
-				return part, false, errors.Wrap(retryErr, "retry of configureModule also failed")
+				return part, false, errtrace.Wrap(errors.Wrap(retryErr, "retry of configureModule also failed"))
 			}
 		}
 	}
@@ -380,7 +381,7 @@ func configureModule(
 	// to get the most up-to-date version, and return it for further use.
 	partResponse, err := vc.getRobotPart(ctx, part.Id)
 	if err != nil {
-		return part, false, err
+		return part, false, errtrace.Wrap(err)
 	}
 	return partResponse.Part, needsRestart, nil
 }
@@ -425,7 +426,7 @@ func mutateModuleConfig(
 		// Does not indicate module type (registry vs local)
 		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
 		if err != nil {
-			return nil, dirty, false, err
+			return nil, dirty, false, errtrace.Wrap(err)
 		}
 	} else {
 		absEntrypoint = reloadingDestination(cmd, &manifest)
@@ -433,7 +434,7 @@ func mutateModuleConfig(
 
 	args, err := getGlobalArgs(cmd)
 	if err != nil {
-		return nil, false, false, err
+		return nil, false, false, errtrace.Wrap(err)
 	}
 
 	reloadTime := time.Unix(reloadUnixTS, 0).UTC().Format(time.RFC3339)
@@ -441,7 +442,7 @@ func mutateModuleConfig(
 	if foundMod != nil && getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 		samePath, err := samePath(getMapString(foundMod, "reload_path"), absEntrypoint)
 		if err != nil {
-			return nil, dirty, false, err
+			return nil, dirty, false, errtrace.Wrap(err)
 		}
 		reloadFlag := foundMod["reload_enabled"]
 		if samePath && reloadFlag == true {

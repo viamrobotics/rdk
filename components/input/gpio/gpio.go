@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
@@ -49,10 +50,10 @@ type ButtonConfig struct {
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if conf.Board == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "board"))
 	}
 	if len(conf.Axes) == 0 && len(conf.Buttons) == 0 {
-		return nil, nil, resource.NewConfigValidationError(path, errors.New("buttons and axes cannot be both empty"))
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("buttons and axes cannot be both empty")))
 	}
 	deps = append(deps, conf.Board)
 	return deps, nil, nil
@@ -73,7 +74,7 @@ func (conf *Config) validateValues() error {
 			axis.PollHz = 10
 		}
 		if axis.Min >= axis.Max {
-			return fmt.Errorf("min (%d) must be less than max (%d)", axis.Min, axis.Max)
+			return errtrace.Wrap(fmt.Errorf("min (%d) must be less than max (%d)", axis.Min, axis.Max))
 		}
 	}
 
@@ -95,7 +96,7 @@ func NewGPIOController(
 ) (input.Controller, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
@@ -108,29 +109,29 @@ func NewGPIOController(
 	}
 
 	if err := newConf.validateValues(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	brd, err := board.FromProvider(deps, newConf.Board)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	for interruptName, control := range newConf.Buttons {
 		interrupt, err := brd.DigitalInterruptByName(interruptName)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		err = c.newButton(cancelCtx, brd, interrupt, *control)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
 	for reader, axis := range newConf.Axes {
 		err := c.newAxis(cancelCtx, brd, reader, *axis)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -262,7 +263,7 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt b
 	tickChan := make(chan board.Tick)
 	err := brd.StreamTicks(ctx, []board.DigitalInterrupt{interrupt}, tickChan, nil)
 	if err != nil {
-		return errors.Wrap(err, "error getting digital interrupt ticks")
+		return errtrace.Wrap(errors.Wrap(err, "error getting digital interrupt ticks"))
 	}
 
 	c.activeBackgroundWorkers.Add(1)
@@ -308,7 +309,7 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt b
 func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName string, cfg AxisConfig) error {
 	reader, err := brd.AnalogByName(analogName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	c.activeBackgroundWorkers.Add(1)

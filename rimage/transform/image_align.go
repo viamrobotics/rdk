@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 )
@@ -47,7 +48,7 @@ func (config AlignConfig) ComputeWarpFromCommon(logger logging.Logger) (*AlignCo
 		logger,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &AlignConfig{
@@ -64,24 +65,24 @@ func (config AlignConfig) ComputeWarpFromCommon(logger logging.Logger) (*AlignCo
 func (config AlignConfig) CheckValid() error {
 	if config.ColorInputSize.X == 0 ||
 		config.ColorInputSize.Y == 0 {
-		return errors.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
+		return errtrace.Wrap(errors.Errorf("invalid ColorInputSize %#v", config.ColorInputSize))
 	}
 
 	if config.DepthInputSize.X == 0 ||
 		config.DepthInputSize.Y == 0 {
-		return errors.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
+		return errtrace.Wrap(errors.Errorf("invalid DepthInputSize %#v", config.DepthInputSize))
 	}
 
 	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
-		return errors.Errorf("invalid OutputSize %v", config.OutputSize)
+		return errtrace.Wrap(errors.Errorf("invalid OutputSize %v", config.OutputSize))
 	}
 
 	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
-		return errors.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
+		return errtrace.Wrap(errors.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints)))
 	}
 
 	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
-		return errors.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
+		return errtrace.Wrap(errors.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints)))
 	}
 
 	return nil
@@ -96,7 +97,7 @@ func ImageAlign(
 	logger logging.Logger,
 ) ([]image.Point, []image.Point, error) {
 	if len(img1Points) != 2 || len(img2Points) != 2 {
-		return nil, nil, errors.New("need exactly 2 matching points")
+		return nil, nil, errtrace.Wrap(errors.New("need exactly 2 matching points"))
 	}
 
 	fixPoints := func(pts []image.Point) []image.Point {
@@ -142,7 +143,7 @@ func ImageAlign(
 	}
 	trimTop, trimFirstTop, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	// trim bottom (rotated 90: trim from left)
 	distA, distB = (img1Size.Y-1)-img1Points[1].Y, (img1Size.Y-1)-img1Points[0].Y
@@ -153,7 +154,7 @@ func ImageAlign(
 	}
 	trimBot, trimFirstBot, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	// trim left (rotated 90: trim from top)
 	distA, distB = img1Points[1].X, img1Points[0].X
@@ -164,7 +165,7 @@ func ImageAlign(
 	}
 	trimLeft, trimFirstLeft, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	// trim right (rotated 90: trim from bottom)
 	distA, distB = (img1Size.X-1)-img1Points[0].X, (img1Size.X-1)-img1Points[1].X
@@ -175,7 +176,7 @@ func ImageAlign(
 	}
 	trimRight, trimFirstRight, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	// Set the crop coorindates for the images
 	newImg1Points := make([]image.Point, len(img1Points))
@@ -233,14 +234,14 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 		distA, distB = float64(img1Pt2Dist), float64(img1Pt1Dist)
 		dist1, dist2 = float64(img2Pt2Dist), float64(img2Pt1Dist)
 	default:
-		return -1, -1, errors.Errorf(
+		return -1, -1, errtrace.Wrap(errors.Errorf(
 			"both img1Pt1Dist (%v) and img2Pt1Dist (%v) must be greater than (or both less than)"+
 				"their respective img1Pt2Dist (%v) and img2Pt2Dist (%v)",
 			img1Pt1Dist,
 			img2Pt1Dist,
 			img1Pt2Dist,
 			img2Pt2Dist,
-		)
+		))
 	}
 	// returns whether to trim the first or second image, and by how much.
 	var trimFirst int // 0 means trim 2nd image, 1 means trim first image
@@ -264,5 +265,5 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 		return int(math.Round(trimAmount)), trimFirst, nil
 	}
 
-	return -1, -1, errors.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
+	return -1, -1, errtrace.Wrap(errors.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1))
 }

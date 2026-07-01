@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
@@ -76,10 +77,10 @@ import (
 var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
 func nodeNotFoundError(name string, api resource.API) error {
-	return &resource.NodeNotFoundError{
+	return errtrace.Wrap(&resource.NodeNotFoundError{
 		API:  api,
 		Name: name,
-	}
+	})
 }
 
 func TestConfig1(t *testing.T) {
@@ -750,7 +751,7 @@ func TestStopAll(t *testing.T) {
 		DoFunc: func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 			close(channel)
 			<-ctx.Done()
-			return nil, ctx.Err()
+			return nil, errtrace.Wrap(ctx.Err())
 		},
 	}
 	dummyArm2 := &inject.Arm{
@@ -762,7 +763,7 @@ func TestStopAll(t *testing.T) {
 		DoFunc: func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 			close(channel)
 			<-ctx.Done()
-			return nil, ctx.Err()
+			return nil, errtrace.Wrap(ctx.Err())
 		},
 	}
 	resource.RegisterComponent(
@@ -883,7 +884,7 @@ func TestNewTeardown(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (gripper.Gripper, error) {
-			return nil, errors.New("whoops")
+			return nil, errtrace.Wrap(errors.New("whoops"))
 		}})
 
 	defer func() {
@@ -1061,7 +1062,7 @@ type someConfig struct {
 }
 
 func (someConfig) Validate(path string) ([]string, []string, error) {
-	return nil, nil, errors.New("fail")
+	return nil, nil, errtrace.Wrap(errors.New("fail"))
 }
 
 func TestValidationErrorOnReconfigure(t *testing.T) {
@@ -2205,7 +2206,7 @@ type doodad struct {
 func (d *doodad) doThroughGizmo(ctx context.Context,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
-	return d.gizmo.DoCommand(ctx, cmd)
+	return errtrace.Wrap2(d.gizmo.DoCommand(ctx, cmd))
 }
 
 func TestDependentAndOrphanedResources(t *testing.T) {
@@ -2235,13 +2236,13 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				if rName.API == gizmoapi.API {
 					gizmo, ok := res.(gizmoapi.Gizmo)
 					if !ok {
-						return nil, fmt.Errorf("resource %s is not a gizmo", rName.Name)
+						return nil, errtrace.Wrap(fmt.Errorf("resource %s is not a gizmo", rName.Name))
 					}
 					newDoodad.gizmo = gizmo
 				}
 			}
 			if newDoodad.gizmo == nil {
-				return nil, fmt.Errorf("doodad %s must depend on a gizmo", conf.Name)
+				return nil, errtrace.Wrap(fmt.Errorf("doodad %s must depend on a gizmo", conf.Name))
 			}
 			return newDoodad, nil
 		},
@@ -3524,7 +3525,7 @@ var errMockValidation = errors.New("whoops")
 
 func (cfg *mockConfig) Validate(path string) ([]string, []string, error) {
 	if cfg.Fail {
-		return nil, nil, errMockValidation
+		return nil, nil, errtrace.Wrap(errMockValidation)
 	}
 	return []string{}, nil, nil
 }
@@ -3537,7 +3538,7 @@ func newMock(
 ) (resource.Resource, error) {
 	m := &mockResource{name: conf.Name}
 	if err := m.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return m, nil
 }
@@ -3553,7 +3554,7 @@ func (m *mockResource) reconfigure(
 ) error {
 	mConf, err := resource.NativeConfig[*mockConfig](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if mConf.Sleep != "" {
 		if d, err := time.ParseDuration(mConf.Sleep); err == nil {
@@ -3856,7 +3857,7 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 						return rgrpc.NewForeignResource(rName, nil), nil
 					}
 				}
-				return nil, resource.NewNotFoundError(name)
+				return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 			}
 
 			remoteMd := cloud.Metadata{
@@ -3867,14 +3868,14 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 			}
 			injectRemoteRobot.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
 				if !tc.remoteCloudMd {
-					return cloud.Metadata{}, errNoCloudMetadata
+					return cloud.Metadata{}, errtrace.Wrap(errNoCloudMetadata)
 				}
 				return remoteMd, nil
 			}
 			injectRemoteRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 				// check that a timeout is passed down from the caller.
 				if _, ok := ctx.Deadline(); !ok {
-					return robot.MachineStatus{}, errors.New("no timeout detected")
+					return robot.MachineStatus{}, errtrace.Wrap(errors.New("no timeout detected"))
 				}
 				md := cloud.Metadata{}
 				if tc.remoteCloudMd {
@@ -3979,15 +3980,15 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 				return rgrpc.NewForeignResource(rName, nil), nil
 			}
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 	injectRemoteRobot1.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) {
-		return cloud.Metadata{}, errNoCloudMetadata
+		return cloud.Metadata{}, errtrace.Wrap(errNoCloudMetadata)
 	}
 	injectRemoteRobot1.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		// check that a timeout is passed down from the caller.
 		if _, ok := ctx.Deadline(); !ok {
-			return robot.MachineStatus{}, errors.New("no timeout detected")
+			return robot.MachineStatus{}, errtrace.Wrap(errors.New("no timeout detected"))
 		}
 		return robot.MachineStatus{
 			Resources: []resource.Status{
@@ -4022,7 +4023,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 				return rgrpc.NewForeignResource(rName, nil), nil
 			}
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 
 	remoteMd := cloud.Metadata{
@@ -4037,7 +4038,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 	injectRemoteRobot2.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		// check that a timeout is passed down from the caller.
 		if _, ok := ctx.Deadline(); !ok {
-			return robot.MachineStatus{}, errors.New("no timeout detected")
+			return robot.MachineStatus{}, errtrace.Wrap(errors.New("no timeout detected"))
 		}
 		return robot.MachineStatus{
 			Resources: []resource.Status{
@@ -4154,7 +4155,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 						return rgrpc.NewForeignResource(rName, nil), nil
 					}
 				}
-				return nil, resource.NewNotFoundError(name)
+				return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 			}
 
 			remote2Md := cloud.Metadata{
@@ -4169,7 +4170,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 			remote2.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 				// check that a timeout is passed down from the caller.
 				if _, ok := ctx.Deadline(); !ok {
-					return robot.MachineStatus{}, errors.New("no timeout detected")
+					return robot.MachineStatus{}, errtrace.Wrap(errors.New("no timeout detected"))
 				}
 				return robot.MachineStatus{
 					Resources: []resource.Status{
@@ -4349,7 +4350,7 @@ type fooComponent struct {
 
 // DoCommand accepts a "log" command.
 func (fc *fooComponent) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
-	return doCommand(ctx, req, fc.logger)
+	return errtrace.Wrap2(doCommand(ctx, req, fc.logger))
 }
 
 // barService is an RDK-built service that can output logs.
@@ -4362,20 +4363,20 @@ type barService struct {
 
 // DoCommand accepts a "log" command.
 func (bs *barService) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
-	return doCommand(ctx, req, bs.logger)
+	return errtrace.Wrap2(doCommand(ctx, req, bs.logger))
 }
 
 func doCommand(ctx context.Context, req map[string]interface{}, logger logging.Logger) (map[string]interface{}, error) {
 	cmd, ok := req["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' string")
+		return nil, errtrace.Wrap(errors.New("missing 'command' string"))
 	}
 
 	switch req["command"] {
 	case "log":
 		level, err := logging.LevelFromString(req["level"].(string))
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		msg := req["msg"].(string)
@@ -4392,7 +4393,7 @@ func doCommand(ctx context.Context, req map[string]interface{}, logger logging.L
 
 		return map[string]any{}, nil
 	default:
-		return nil, fmt.Errorf("unknown command string %s", cmd)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown command string %s", cmd))
 	}
 }
 
@@ -4796,7 +4797,7 @@ func newValidSensor() sensor.Sensor {
 func newErrorSensor() sensor.Sensor {
 	s := &inject.Sensor{}
 	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return nil, errors.New("Wallet not found")
+		return nil, errtrace.Wrap(errors.New("Wallet not found"))
 	}
 	return s
 }
@@ -5491,7 +5492,7 @@ func TestWeakDependenciesWithPrefix(t *testing.T) {
 	dummyShell := inject.NewShellService("sensor")
 	dummyShell.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 		if _, err := sensor.FromProvider(deps, "remote-sensor"); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		logger.Info(successLog)
 		return nil
@@ -5507,7 +5508,7 @@ func TestWeakDependenciesWithPrefix(t *testing.T) {
 				logger logging.Logger,
 			) (shell.Service, error) {
 				if _, err := sensor.FromProvider(deps, "remote-sensor"); err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				logger.Info(successLog)
 				return dummyShell, nil

@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -41,7 +42,7 @@ func newServer(logger logging.Logger) (pb.MotorServiceServer, *inject.Motor, *in
 
 	injectSvc, err := resource.NewAPIResourceCollection(motor.API, resourceMap)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return motor.NewRPCServiceServer(injectSvc, logger).(pb.MotorServiceServer), injectMotor1, injectMotor2, nil
 }
@@ -57,7 +58,7 @@ func TestServerSetPower(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-		return errSetPowerFailed
+		return errtrace.Wrap(errSetPowerFailed)
 	}
 	req = pb.SetPowerRequest{Name: failMotorName, PowerPct: 0.5}
 	resp, err = motorServer.SetPower(context.Background(), &req)
@@ -84,7 +85,7 @@ func TestServerGoFor(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
-		return errGoForFailed
+		return errtrace.Wrap(errGoForFailed)
 	}
 	req = pb.GoForRequest{Name: failMotorName, Rpm: 42.0, Revolutions: 42.1}
 	resp, err = motorServer.GoFor(context.Background(), &req)
@@ -111,7 +112,7 @@ func TestServerPosition(t *testing.T) {
 	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
 	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, errPositionUnavailable
+		return 0, errtrace.Wrap(errPositionUnavailable)
 	}
 	req = pb.GetPositionRequest{Name: failMotorName}
 	resp, err = motorServer.GetPosition(context.Background(), &req)
@@ -137,7 +138,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
-		return motor.Properties{}, errGetPropertiesFailed
+		return motor.Properties{}, errtrace.Wrap(errGetPropertiesFailed)
 	}
 	req = pb.GetPropertiesRequest{Name: failMotorName}
 	resp, err = motorServer.GetProperties(context.Background(), &req)
@@ -165,7 +166,7 @@ func TestServerStop(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopFailed
+		return errtrace.Wrap(errStopFailed)
 	}
 	req = pb.StopRequest{Name: failMotorName}
 	resp, err = motorServer.Stop(context.Background(), &req)
@@ -191,7 +192,7 @@ func TestServerIsOn(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-		return false, 0.0, errIsPoweredFailed
+		return false, 0.0, errtrace.Wrap(errIsPoweredFailed)
 	}
 	req = pb.IsPoweredRequest{Name: failMotorName}
 	resp, err = motorServer.IsPowered(context.Background(), &req)
@@ -219,7 +220,7 @@ func TestServerGoTo(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
-		return errGoToFailed
+		return errtrace.Wrap(errGoToFailed)
 	}
 	req = pb.GoToRequest{Name: failMotorName, Rpm: 20.0, PositionRevolutions: 2.5}
 	resp, err = motorServer.GoTo(context.Background(), &req)
@@ -246,7 +247,7 @@ func TestServerSetRPM(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.SetRPMFunc = func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-		return errSetRPMFailed
+		return errtrace.Wrap(errSetRPMFailed)
 	}
 	req = pb.SetRPMRequest{Name: failMotorName, Rpm: 20.0}
 	resp, err = motorServer.SetRPM(context.Background(), &req)
@@ -273,7 +274,7 @@ func TestServerResetZeroPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
-		return errResetZeroFailed
+		return errtrace.Wrap(errResetZeroFailed)
 	}
 	req = pb.ResetZeroPositionRequest{Name: failMotorName, Offset: 1.1}
 	resp, err = motorServer.ResetZeroPosition(context.Background(), &req)
@@ -333,7 +334,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	workingMotor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = motorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMotorName})
 	test.That(t, err, test.ShouldNotBeNil)

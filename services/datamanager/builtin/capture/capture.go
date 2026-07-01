@@ -14,6 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
@@ -319,22 +320,22 @@ func (c *Capture) initializeOrUpdateCollector(
 		storedCollectorAndConfig.Collector.Close()
 	}
 	if collectorConfig.CaptureQueueSize < 0 {
-		return nil, errors.Errorf("capture_queue_size can't be less than 0, current value: %d", collectorConfig.CaptureQueueSize)
+		return nil, errtrace.Wrap(errors.Errorf("capture_queue_size can't be less than 0, current value: %d", collectorConfig.CaptureQueueSize))
 	}
 
 	if collectorConfig.CaptureBufferSize < 0 {
-		return nil, errors.Errorf("capture_buffer_size can't be less than 0, current value: %d", collectorConfig.CaptureBufferSize)
+		return nil, errtrace.Wrap(errors.Errorf("capture_buffer_size can't be less than 0, current value: %d", collectorConfig.CaptureBufferSize))
 	}
 
 	metadataKey := generateMetadataKey(md.MethodMetadata.API.String(), md.MethodMetadata.MethodName)
 	if additionalParamKey, ok := metadataToAdditionalParamFields[metadataKey]; ok {
 		if _, ok := collectorConfig.AdditionalParams[additionalParamKey]; !ok {
-			return nil, errors.Errorf("failed to validate additional_params for %s, must supply %s",
-				md.MethodMetadata.API, additionalParamKey)
+			return nil, errtrace.Wrap(errors.Errorf("failed to validate additional_params for %s, must supply %s",
+				md.MethodMetadata.API, additionalParamKey))
 		}
 	}
 
-	return c.buildCollector(res, md, collectorConfig, config.MaximumCaptureFileSizeBytes, collection)
+	return errtrace.Wrap2(c.buildCollector(res, md, collectorConfig, config.MaximumCaptureFileSizeBytes, collection))
 }
 
 // buildCollector constructs and starts a new collector, assuming the base config was already validated.
@@ -356,19 +357,19 @@ func (c *Capture) buildCollector(
 	// TODO(DATA-451): validate method params
 	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Get collector constructor for the component API and method.
 	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
-		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
+		return nil, errtrace.Wrap(errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata))
 	}
 
 	targetDir := targetDir(collectorConfig.CaptureDirectory, collectorConfig)
 	// Create a collector for this resource and method.
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
-		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir))
 	}
 	// Build metadata.
 	captureMetadata, dataType := data.BuildCaptureMetadata(
@@ -399,8 +400,8 @@ func (c *Capture) buildCollector(
 		Clock:      c.clk,
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "constructor for collector %s failed with config: %s",
-			md, collectorConfigDescription(collectorConfig, targetDir, maxCaptureFileSize, queueSize, bufferSize))
+		return nil, errtrace.Wrap(errors.Wrapf(err, "constructor for collector %s failed with config: %s",
+			md, collectorConfigDescription(collectorConfig, targetDir, maxCaptureFileSize, queueSize, bufferSize)))
 	}
 
 	c.logger.Infof("collector initialized; collector: %s, config: %s",

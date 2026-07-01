@@ -5,6 +5,7 @@ import (
 	"context"
 	"sync"
 
+	"braces.dev/errtrace"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -26,12 +27,12 @@ func (td *TrackingDialer) DialDirect(
 ) (rpc.ClientConn, bool, error) {
 	conn, cached, err := td.Dialer.DialDirect(ctx, target, keyExtra, onClose, opts...)
 	if err != nil {
-		return nil, false, err
+		return nil, false, errtrace.Wrap(err)
 	}
 	if !cached {
 		td.NewConnections++
 	}
-	return conn, cached, err
+	return conn, cached, errtrace.Wrap(err)
 }
 
 // DialFunc tracks calls of DialFunc.
@@ -43,12 +44,12 @@ func (td *TrackingDialer) DialFunc(
 ) (rpc.ClientConn, bool, error) {
 	conn, cached, err := td.Dialer.DialFunc(proto, target, keyExtra, f)
 	if err != nil {
-		return nil, false, err
+		return nil, false, errtrace.Wrap(err)
 	}
 	if !cached {
 		td.NewConnections++
 	}
-	return conn, cached, err
+	return conn, cached, errtrace.Wrap(err)
 }
 
 // ServerTransportStream implements grpc.ServerTransportStream and can be used to test setting

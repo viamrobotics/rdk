@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 	"gonum.org/v1/gonum/floats"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -25,7 +26,7 @@ func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, erro
 		return JointPositionsFromRadians(inputs), nil
 	}
 	if len(f.DoF()) != len(inputs) {
-		return nil, NewIncorrectDoFError(len(inputs), len(f.DoF()))
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(inputs), len(f.DoF())))
 	}
 	return f.ProtobufFromInput(inputs), nil
 }
@@ -38,10 +39,10 @@ func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
 		return JointPositionsToRadians(jp), nil
 	}
 	if jp == nil {
-		return nil, errors.New("jointPositions cannot be nil")
+		return nil, errtrace.Wrap(errors.New("jointPositions cannot be nil"))
 	}
 	if len(f.DoF()) != len(jp.Values) {
-		return nil, NewIncorrectDoFError(len(jp.Values), len(f.DoF()))
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(jp.Values), len(f.DoF())))
 	}
 	return f.InputFromProtobuf(jp), nil
 }
@@ -87,7 +88,7 @@ func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 		var ok bool
 		toReturn, ok = inputs[frame.Name()]
 		if !ok {
-			return nil, fmt.Errorf("no inputs for frame %s with dof: %d", frame.Name(), len(frame.DoF()))
+			return nil, errtrace.Wrap(fmt.Errorf("no inputs for frame %s with dof: %d", frame.Name(), len(frame.DoF())))
 		}
 	}
 	return toReturn, nil
@@ -100,7 +101,7 @@ func (inputs FrameSystemInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses,
 	for _, frameName := range fs.FrameNames() {
 		pif, err := fs.Transform(inputs.ToLinearInputs(), NewZeroPoseInFrame(frameName), World)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		computedPoses[frameName] = pif.(*PoseInFrame)
 	}

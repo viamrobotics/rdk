@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	"braces.dev/errtrace"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -30,7 +31,7 @@ func NewSegmentsFromSlice(clouds []pc.PointCloud, label string) (*Segments, erro
 	for i, cloud := range clouds {
 		seg, err := vision.NewObjectWithLabel(cloud, label, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		segments.Objects = append(segments.Objects, seg)
 		cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
@@ -61,7 +62,7 @@ func (c *Segments) SelectPointCloudFromPoint(x, y, z float64) (pc.PointCloud, er
 	if segIndex, ok := c.Indices[v]; ok {
 		return c.Objects[segIndex], nil
 	}
-	return nil, fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z)
+	return nil, errtrace.Wrap(fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z))
 }
 
 // getPointCloudAndLabel returns the *vision.Object from `objs` at `idx` and the label from
@@ -82,7 +83,7 @@ func (c *Segments) AssignCluster(point r3.Vector, data pc.Data, index int) error
 	c.Indices[point] = index
 	err := c.Objects[index].Set(point, data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if c.Objects[index].Size() == 0 {
 		return nil
@@ -90,7 +91,7 @@ func (c *Segments) AssignCluster(point r3.Vector, data pc.Data, index int) error
 	idx, label := getPointCloudAndLabel(c.Objects, index)
 	c.Objects[index].Geometry, err = pc.BoundingBoxFromPointCloudWithLabel(idx, label)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -116,7 +117,7 @@ func (c *Segments) MergeClusters(from, to int) error {
 		return err == nil
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	c.Objects[from] = vision.NewEmptyObject()
 	// because BoundingBoxFromPointCloudWithLabel takes a PointCloud interface as its first argument, only the
@@ -126,7 +127,7 @@ func (c *Segments) MergeClusters(from, to int) error {
 	t, label := getPointCloudAndLabel(c.Objects, to)
 	c.Objects[to].Geometry, err = pc.BoundingBoxFromPointCloudWithLabel(t, label)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }

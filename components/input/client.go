@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -67,14 +68,14 @@ func NewClientFromConn(
 func (c *client) Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetControls(ctx, &pb.GetControlsRequest{
 		Controller: c.name,
 		Extra:      ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if resp.Controls == nil {
 		return nil, nil
@@ -89,14 +90,14 @@ func (c *client) Controls(ctx context.Context, extra map[string]interface{}) ([]
 func (c *client) Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetEvents(ctx, &pb.GetEventsRequest{
 		Controller: c.name,
 		Extra:      ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if resp.Events == nil {
 		return nil, nil
@@ -118,7 +119,7 @@ func (c *client) Events(ctx context.Context, extra map[string]interface{}) (map[
 func (c *client) TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	eventMsg := &pb.Event{
 		Time:    timestamppb.New(event.Time),
@@ -133,7 +134,7 @@ func (c *client) TriggerEvent(ctx context.Context, event Event, extra map[string
 		Extra:      ext,
 	})
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) checkReady(ctx context.Context) error {
@@ -146,7 +147,7 @@ func (c *client) checkReady(ctx context.Context) error {
 		ready = c.streamReady
 		c.mu.RUnlock()
 		if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		}
 	}
 	return nil
@@ -183,14 +184,14 @@ func (c *client) RegisterControlCallback(
 	defer c.streamMu.Unlock()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	c.mu.Lock()
 	c.extra = ext
 	c.mu.Unlock()
 	if c.streamRunning {
 		if err := c.checkReady(ctx); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		c.mu.Lock()
 		c.streamHUP = true
@@ -207,7 +208,7 @@ func (c *client) RegisterControlCallback(
 			c.connectStream(closeContext)
 		})
 		if err := c.checkReady(ctx); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -386,9 +387,9 @@ func (c *client) Close(ctx context.Context) error {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

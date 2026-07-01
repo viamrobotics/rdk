@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
@@ -20,7 +21,7 @@ import (
 func newServer(sMap map[resource.Name]shell.Service, logger logging.Logger) (pb.ShellServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(shell.API, sMap)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return shell.NewRPCServiceServer(coll, logger).(pb.ShellServiceServer), nil
 }
@@ -76,7 +77,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectShell.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSvcName1.ShortName()})
 	test.That(t, err, test.ShouldNotBeNil)

@@ -1,6 +1,7 @@
 package delaunay
 
 import (
+	"braces.dev/errtrace"
 	"errors"
 	"math"
 	"sort"
@@ -118,7 +119,7 @@ func (tri *triangulator) triangulate() error {
 		}
 	}
 	if minRadius == infinity {
-		return errors.New("no Delaunay triangulation exists for this input")
+		return errtrace.Wrap(errors.New("no Delaunay triangulation exists for this input"))
 	}
 
 	// swap the order of the seed points for counter-clockwise orientation

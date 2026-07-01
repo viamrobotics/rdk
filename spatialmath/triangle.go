@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 )
@@ -166,19 +167,19 @@ func (t *Triangle) CollidesWith(g Geometry, collisionBufferMM float64) (bool, fl
 		collides, dist := t.collidesWithSphere(other, collisionBufferMM)
 		return collides, dist, nil
 	case *box:
-		return t.collidesWithBox(other, collisionBufferMM)
+		return errtrace.Wrap3(t.collidesWithBox(other, collisionBufferMM))
 	case *capsule:
 		collides, dist := t.collidesWithCapsule(other, collisionBufferMM)
 		return collides, dist, nil
 	case *point:
-		return t.collidesWithPoint(other, collisionBufferMM)
+		return errtrace.Wrap3(t.collidesWithPoint(other, collisionBufferMM))
 	case *Mesh:
 		// Delegate to mesh (which iterates its triangles)
-		return other.CollidesWith(t, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(t, collisionBufferMM))
 	case *Cylinder:
-		return other.CollidesWith(t, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(t, collisionBufferMM))
 	default:
-		return true, collisionBufferMM, newCollisionTypeUnsupportedError(t, g)
+		return true, collisionBufferMM, errtrace.Wrap(newCollisionTypeUnsupportedError(t, g))
 	}
 }
 
@@ -309,7 +310,7 @@ func (t *Triangle) collidesWithSphere(s *sphere, collisionBufferMM float64) (boo
 func (t *Triangle) collidesWithBox(b *box, collisionBufferMM float64) (bool, float64, error) {
 	// Convert box to mesh and check collision
 	boxMesh := b.toMesh()
-	return boxMesh.CollidesWith(t, collisionBufferMM)
+	return errtrace.Wrap3(boxMesh.CollidesWith(t, collisionBufferMM))
 }
 
 // collidesWithCapsule checks if triangle collides with a capsule.
@@ -347,7 +348,7 @@ func (t *Triangle) DistanceFrom(g Geometry) (float64, error) {
 	case *point:
 		_, dist, err := t.collidesWithPoint(other, 0)
 		if err != nil {
-			return math.Inf(1), err
+			return math.Inf(1), errtrace.Wrap(err)
 		}
 		return dist, nil
 	case *capsule:
@@ -356,15 +357,15 @@ func (t *Triangle) DistanceFrom(g Geometry) (float64, error) {
 	case *box:
 		_, dist, err := t.collidesWithBox(other, 0)
 		if err != nil {
-			return math.Inf(1), err
+			return math.Inf(1), errtrace.Wrap(err)
 		}
-		return dist, err
+		return dist, errtrace.Wrap(err)
 	case *Mesh:
-		return other.DistanceFrom(t)
+		return errtrace.Wrap2(other.DistanceFrom(t))
 	case *Cylinder:
-		return other.DistanceFrom(t)
+		return errtrace.Wrap2(other.DistanceFrom(t))
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(t, g)
+		return math.Inf(-1), errtrace.Wrap(newCollisionTypeUnsupportedError(t, g))
 	}
 }
 
@@ -383,7 +384,7 @@ func (t *Triangle) EncompassedBy(g Geometry) (bool, error) {
 			pointGeom := NewPoint(pt, "")
 			collides, _, err := pointGeom.CollidesWith(other, defaultCollisionBufferMM)
 			if err != nil {
-				return false, err
+				return false, errtrace.Wrap(err)
 			}
 			if !collides {
 				return false, nil
@@ -398,7 +399,7 @@ func (t *Triangle) EncompassedBy(g Geometry) (bool, error) {
 		}
 		return true, nil
 	default:
-		return false, newCollisionTypeUnsupportedError(t, g)
+		return false, errtrace.Wrap(newCollisionTypeUnsupportedError(t, g))
 	}
 }
 
@@ -418,14 +419,14 @@ func (t *Triangle) ToProtobuf() *commonpb.Geometry {
 
 // MarshalJSON serializes the triangle to JSON.
 func (t *Triangle) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
+	return errtrace.Wrap2(json.Marshal(map[string]interface{}{
 		"type":   "triangle",
 		"p0":     map[string]float64{"x": t.p0.X, "y": t.p0.Y, "z": t.p0.Z},
 		"p1":     map[string]float64{"x": t.p1.X, "y": t.p1.Y, "z": t.p1.Z},
 		"p2":     map[string]float64{"x": t.p2.X, "y": t.p2.Y, "z": t.p2.Z},
 		"normal": map[string]float64{"x": t.normal.X, "y": t.normal.Y, "z": t.normal.Z},
 		"label":  t.label,
-	})
+	}))
 }
 
 // Hash returns a hash value for this triangle.

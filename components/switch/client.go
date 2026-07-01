@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -44,27 +45,27 @@ func NewClientFromConn(
 func (c *client) SetPosition(ctx context.Context, position uint32, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.SetPosition(ctx, &pb.SetPositionRequest{
 		Name:     c.name,
 		Position: position,
 		Extra:    ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return resp.Position, nil
 }
@@ -72,25 +73,25 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 func (c *client) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetNumberOfPositions(ctx, &pb.GetNumberOfPositionsRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errtrace.Wrap(err)
 	}
 	if len(resp.Labels) > 0 && len(resp.Labels) != int(resp.NumberOfPositions) {
-		return 0, nil, errors.New("the number of labels does not match the number of positions")
+		return 0, nil, errtrace.Wrap(errors.New("the number of labels does not match the number of positions"))
 	}
 	return resp.NumberOfPositions, resp.Labels, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

@@ -9,6 +9,7 @@ package v1
 import (
 	context "context"
 
+	"braces.dev/errtrace"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -38,7 +39,7 @@ func (c *summationServiceClient) Sum(ctx context.Context, in *SumRequest, opts .
 	out := new(SumResponse)
 	err := c.cc.Invoke(ctx, "/acme.service.summation.v1.SummationService/Sum", in, out, opts...)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return out, nil
 }
@@ -56,7 +57,7 @@ type UnimplementedSummationServiceServer struct {
 }
 
 func (UnimplementedSummationServiceServer) Sum(context.Context, *SumRequest) (*SumResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Sum not implemented")
+	return nil, errtrace.Wrap(status.Errorf(codes.Unimplemented, "method Sum not implemented"))
 }
 func (UnimplementedSummationServiceServer) mustEmbedUnimplementedSummationServiceServer() {}
 
@@ -74,19 +75,19 @@ func RegisterSummationServiceServer(s grpc.ServiceRegistrar, srv SummationServic
 func _SummationService_Sum_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SumRequest)
 	if err := dec(in); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if interceptor == nil {
-		return srv.(SummationServiceServer).Sum(ctx, in)
+		return errtrace.Wrap2(srv.(SummationServiceServer).Sum(ctx, in))
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/acme.service.summation.v1.SummationService/Sum",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SummationServiceServer).Sum(ctx, req.(*SumRequest))
+		return errtrace.Wrap2(srv.(SummationServiceServer).Sum(ctx, req.(*SumRequest)))
 	}
-	return interceptor(ctx, in, info, handler)
+	return errtrace.Wrap2(interceptor(ctx, in, info, handler))
 }
 
 // SummationService_ServiceDesc is the grpc.ServiceDesc for SummationService service.

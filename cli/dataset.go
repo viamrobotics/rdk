@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
@@ -36,14 +37,14 @@ type datasetCreateArgs struct {
 // DatasetCreateAction is the corresponding action for 'dataset create'.
 func DatasetCreateAction(ctx context.Context, cmd *cli.Command, args datasetCreateArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to create a dataset")
+		return errtrace.Wrap(errors.New("must provide an organization ID to create a dataset"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.createDataset(args.OrgID, args.Name); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -53,7 +54,7 @@ func (c *viamClient) createDataset(orgID, datasetName string) error {
 	resp, err := c.datasetClient.CreateDataset(context.Background(),
 		&datasetpb.CreateDatasetRequest{OrganizationId: orgID, Name: datasetName})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	printf(c.c.Root().Writer, "Created dataset %s with dataset ID: %s", datasetName, resp.GetId())
 	return nil
@@ -68,10 +69,10 @@ type datasetRenameArgs struct {
 func DatasetRenameAction(ctx context.Context, cmd *cli.Command, args datasetRenameArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.renameDataset(args.DatasetID, args.Name); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -81,7 +82,7 @@ func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
 	_, err := c.datasetClient.RenameDataset(context.Background(),
 		&datasetpb.RenameDatasetRequest{Id: datasetID, Name: newDatasetName})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	printf(c.c.Root().Writer, "Dataset with ID %s renamed to %s", datasetID, newDatasetName)
 	return nil
@@ -96,13 +97,13 @@ type datasetMergeArgs struct {
 // DatasetMergeAction is the corresponding action for 'dataset merge'.
 func DatasetMergeAction(ctx context.Context, cmd *cli.Command, args datasetMergeArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to merge datasets")
+		return errtrace.Wrap(errors.New("must provide an organization ID to merge datasets"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return client.mergeDatasets(args.OrgID, args.Name, args.DatasetIDs)
+	return errtrace.Wrap(client.mergeDatasets(args.OrgID, args.Name, args.DatasetIDs))
 }
 
 // mergeDatasets merges multiple datasets into a new dataset with the specified name.
@@ -115,7 +116,7 @@ func (c *viamClient) mergeDatasets(orgID, newDatasetName string, datasetIDs []st
 		DatasetIds:     datasetIDs,
 	})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	printf(c.c.Root().Writer, "Successfully merged %d datasets into new dataset '%s' with ID: %s",
 		len(datasetIDs), newDatasetName, resp.GetDatasetId())
@@ -131,18 +132,18 @@ type datasetListArgs struct {
 func DatasetListAction(ctx context.Context, cmd *cli.Command, args datasetListArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	datasetIDs := args.DatasetIDs
 	orgID := args.OrgID
 
 	if datasetIDs != nil {
 		if err := client.listDatasetByIDs(datasetIDs); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else {
 		if err := client.listDatasetByOrg(orgID); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -154,7 +155,7 @@ func (c *viamClient) listDatasetByIDs(datasetIDs []string) error {
 	resp, err := c.datasetClient.ListDatasetsByIDs(context.Background(),
 		&datasetpb.ListDatasetsByIDsRequest{Ids: datasetIDs})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	for _, dataset := range resp.GetDatasets() {
 		printf(c.c.Root().Writer, "\t%s (ID: %s, Organization ID: %s)", dataset.Name, dataset.Id, dataset.OrganizationId)
@@ -167,7 +168,7 @@ func (c *viamClient) listDatasetByOrg(orgID string) error {
 	resp, err := c.datasetClient.ListDatasetsByOrganizationID(context.Background(),
 		&datasetpb.ListDatasetsByOrganizationIDRequest{OrganizationId: orgID})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	for _, dataset := range resp.GetDatasets() {
 		printf(c.c.Root().Writer, "\t%s (ID: %s, Organization ID: %s)", dataset.Name, dataset.Id, dataset.OrganizationId)
@@ -183,10 +184,10 @@ type datasetDeleteArgs struct {
 func DatasetDeleteAction(ctx context.Context, cmd *cli.Command, args datasetDeleteArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.deleteDataset(args.DatasetID); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -196,7 +197,7 @@ func (c *viamClient) deleteDataset(datasetID string) error {
 	_, err := c.datasetClient.DeleteDataset(context.Background(),
 		&datasetpb.DeleteDatasetRequest{Id: datasetID})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	printf(c.c.Root().Writer, "Dataset with ID %s deleted", datasetID)
 	return nil
@@ -217,12 +218,12 @@ type datasetDownloadArgs struct {
 func DatasetDownloadAction(ctx context.Context, cmd *cli.Command, args datasetDownloadArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dsType, err := client.lookupDatasetType(ctx, args.DatasetID)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if dsType == datasetpb.DatasetType_DATASET_TYPE_SEQUENCE_DATA {
 		pollInterval := args.PollInterval
@@ -233,11 +234,11 @@ func DatasetDownloadAction(ctx context.Context, cmd *cli.Command, args datasetDo
 		if maxWait == 0 {
 			maxWait = 30 * time.Minute
 		}
-		return client.downloadSequenceDataset(ctx, args.DatasetID, args.Destination, pollInterval, maxWait)
+		return errtrace.Wrap(client.downloadSequenceDataset(ctx, args.DatasetID, args.Destination, pollInterval, maxWait))
 	}
 
-	return client.downloadDataset(ctx, args.Destination, args.DatasetID,
-		args.OnlyJSONl, args.ForceLinuxPath, args.Parallel, args.Timeout)
+	return errtrace.Wrap(client.downloadDataset(ctx, args.Destination, args.DatasetID,
+		args.OnlyJSONl, args.ForceLinuxPath, args.Parallel, args.Timeout))
 }
 
 // lookupDatasetType resolves a dataset ID to its proto DatasetType, returning
@@ -245,10 +246,10 @@ func DatasetDownloadAction(ctx context.Context, cmd *cli.Command, args datasetDo
 func (c *viamClient) lookupDatasetType(ctx context.Context, datasetID string) (datasetpb.DatasetType, error) {
 	resp, err := c.datasetClient.ListDatasetsByIDs(ctx, &datasetpb.ListDatasetsByIDsRequest{Ids: []string{datasetID}})
 	if err != nil {
-		return 0, errors.Wrapf(err, "error looking up dataset %s", datasetID)
+		return 0, errtrace.Wrap(errors.Wrapf(err, "error looking up dataset %s", datasetID))
 	}
 	if len(resp.GetDatasets()) == 0 {
-		return 0, fmt.Errorf("%s does not match any dataset IDs", datasetID)
+		return 0, errtrace.Wrap(fmt.Errorf("%s does not match any dataset IDs", datasetID))
 	}
 	return resp.GetDatasets()[0].GetType(), nil
 }
@@ -261,12 +262,12 @@ func (c *viamClient) downloadDataset(
 	var err error
 	datasetPath := filepath.Join(dst, "dataset.jsonl")
 	if err := os.MkdirAll(filepath.Dir(datasetPath), 0o700); err != nil {
-		return errors.Wrapf(err, "could not create dataset directory %s", filepath.Dir(datasetPath))
+		return errtrace.Wrap(errors.Wrapf(err, "could not create dataset directory %s", filepath.Dir(datasetPath)))
 	}
 	//nolint:gosec
 	datasetFile, err = os.Create(datasetPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		if err := datasetFile.Close(); err != nil {
@@ -277,13 +278,13 @@ func (c *viamClient) downloadDataset(
 	resp, err := c.datasetClient.ListDatasetsByIDs(context.Background(),
 		&datasetpb.ListDatasetsByIDsRequest{Ids: []string{datasetID}})
 	if err != nil {
-		return errors.Wrapf(err, "error getting dataset ID")
+		return errtrace.Wrap(errors.Wrapf(err, "error getting dataset ID"))
 	}
 	if len(resp.GetDatasets()) == 0 {
-		return fmt.Errorf("%s does not match any dataset IDs", datasetID)
+		return errtrace.Wrap(fmt.Errorf("%s does not match any dataset IDs", datasetID))
 	}
 
-	return c.performActionOnBinaryDataFromFilter(
+	return errtrace.Wrap(c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
 			var downloadErr error
 			var datasetFilePath string
@@ -293,7 +294,7 @@ func (c *viamClient) downloadDataset(
 			}
 			datasetErr := binaryDataToJSONLines(ctx, c.dataClient, datasetFilePath, datasetFile, id, forceLinuxPath)
 
-			return multierr.Combine(downloadErr, datasetErr)
+			return errtrace.Wrap(multierr.Combine(downloadErr, datasetErr))
 		},
 		&datapb.Filter{
 			DatasetId: datasetID,
@@ -301,7 +302,7 @@ func (c *viamClient) downloadDataset(
 		func(i int32) {
 			printf(c.c.Root().Writer, "Downloaded %d files", i)
 		},
-	)
+	))
 }
 
 // Annotation holds the label associated with the image.
@@ -347,12 +348,12 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		}
 	}
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 
 	data := resp.GetData()
 	if len(data) != 1 {
-		return errors.Errorf("expected a single response, received %d", len(data))
+		return errtrace.Wrap(errors.Errorf("expected a single response, received %d", len(data)))
 	}
 	datum := data[0]
 
@@ -382,7 +383,7 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	}
 	_, err = utilsml.ImageMetadataToJSONLines([]*utilsml.ImageMetadata{imageMetadata}, nil, mlpb.ModelType_MODEL_TYPE_UNSPECIFIED, file)
 	if err != nil {
-		return errors.Wrap(err, "error writing to file")
+		return errtrace.Wrap(errors.Wrap(err, "error writing to file"))
 	}
 	return nil
 }

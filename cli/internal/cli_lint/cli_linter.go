@@ -8,6 +8,7 @@ import (
 	"go/types"
 	"strings"
 
+	"braces.dev/errtrace"
 	"github.com/kyoh86/nolint"
 	"golang.org/x/exp/slices"
 	"golang.org/x/tools/go/analysis"
@@ -128,7 +129,7 @@ var enforceOrgOptional = &analysis.Analyzer{
 }
 
 func enforceOrgOptionalRun(pass *analysis.Pass) (any, error) {
-	return enforceFlagOptionalRun(pass, isOrgType, "org")
+	return errtrace.Wrap2(enforceFlagOptionalRun(pass, isOrgType, "org"))
 }
 
 var enforceLocationOptional = &analysis.Analyzer{
@@ -139,7 +140,7 @@ var enforceLocationOptional = &analysis.Analyzer{
 }
 
 func enforceLocationOptionalRun(pass *analysis.Pass) (any, error) {
-	return enforceFlagOptionalRun(pass, isLocationType, "location")
+	return errtrace.Wrap2(enforceFlagOptionalRun(pass, isLocationType, "location"))
 }
 
 var enforceCreateActionCommandWithT = &analysis.Analyzer{

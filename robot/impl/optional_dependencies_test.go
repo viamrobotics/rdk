@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 	gotestutils "go.viam.com/utils/testutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
@@ -39,7 +40,7 @@ func (ocCfg *optionalChildConfig) Validate(path string) ([]string, []string, err
 
 	if ocCfg.RequiredMotor == "" {
 		return nil, nil,
-			fmt.Errorf(`expected "required_motor" attribute for foo %q`, path)
+			errtrace.Wrap(fmt.Errorf(`expected "required_motor" attribute for foo %q`, path))
 	}
 	requiredDeps = append(requiredDeps, ocCfg.RequiredMotor)
 
@@ -72,13 +73,13 @@ func newOptionalChild(ctx context.Context,
 
 	optionalChildConfig, err := resource.NativeConfig[*optionalChildConfig](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	oc.requiredMotor, err = motor.FromProvider(deps, optionalChildConfig.RequiredMotor)
 	if err != nil {
-		return nil, fmt.Errorf("could not get required motor %s from dependencies",
-			optionalChildConfig.RequiredMotor)
+		return nil, errtrace.Wrap(fmt.Errorf("could not get required motor %s from dependencies",
+			optionalChildConfig.RequiredMotor))
 	}
 
 	oc.optionalMotor, err = motor.FromProvider(deps, optionalChildConfig.OptionalMotor)
@@ -1121,7 +1122,7 @@ type mutualOptionalChildConfig struct {
 func (mocCfg *mutualOptionalChildConfig) Validate(path string) ([]string, []string, error) {
 	if mocCfg.OtherMOC == "" {
 		return nil, nil,
-			fmt.Errorf(`expected "other_moc" attribute for MOC %q`, path)
+			errtrace.Wrap(fmt.Errorf(`expected "other_moc" attribute for MOC %q`, path))
 	}
 	return nil, []string{mocCfg.OtherMOC}, nil
 }
@@ -1146,7 +1147,7 @@ func newMutualOptionalChild(ctx context.Context,
 	}
 
 	if err := moc.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return moc, nil
@@ -1157,7 +1158,7 @@ func (moc *mutualOptionalChild) reconfigure(ctx context.Context, deps resource.D
 ) error {
 	mutualOptionalChildConfig, err := resource.NativeConfig[*mutualOptionalChildConfig](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	moc.otherMOC, err = generic.FromProvider(deps, mutualOptionalChildConfig.OtherMOC)

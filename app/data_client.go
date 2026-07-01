@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/utils"
 )
@@ -533,7 +534,7 @@ func BsonToGo(rawData [][]byte) ([]map[string]any, error) {
 		// Unmarshal each BSON byte slice into a Go map
 		obj := map[string]any{}
 		if err := bson.Unmarshal(byteSlice, &obj); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// Convert the unmarshalled map to native Go types
 		convertedObj := convertBsonToNative(obj).(map[string]any)
@@ -566,7 +567,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		IncludeInternalData: includeInternalData,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// TabularData contains tabular data and associated metadata
 	dataArray := []*TabularData{}
@@ -579,7 +580,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		}
 		data, err := tabularDataFromProto(tabData, metadata)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		dataArray = append(dataArray, data)
 	}
@@ -598,11 +599,11 @@ func (d *DataClient) TabularDataBySQL(ctx context.Context, organizationID, sqlQu
 		SqlQuery:       sqlQuery,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	dataObjects, err := BsonToGo(resp.RawData)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return dataObjects, nil
 }
@@ -613,7 +614,7 @@ func (d *DataClient) TabularDataByMQL(
 ) ([]map[string]any, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if opts == nil {
@@ -645,12 +646,12 @@ func (d *DataClient) TabularDataByMQL(
 
 	resp, err := d.dataClient.TabularDataByMQL(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	result, err := BsonToGo(resp.RawData)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return result, nil
 }
@@ -663,7 +664,7 @@ func (d *DataClient) GetLatestTabularData(
 ) {
 	additionalParameters, err := additionalParametersToProto(opts)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	resp, err := d.dataClient.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
@@ -674,7 +675,7 @@ func (d *DataClient) GetLatestTabularData(
 		AdditionalParameters: additionalParameters,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &GetLatestTabularDataResponse{
@@ -690,7 +691,7 @@ func (d *DataClient) ExportTabularData(
 ) ([]*ExportTabularDataResponse, error) {
 	additionalParameters, err := additionalParametersToProto(opts)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
@@ -702,7 +703,7 @@ func (d *DataClient) ExportTabularData(
 		AdditionalParameters: additionalParameters,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var responses []*ExportTabularDataResponse
@@ -713,7 +714,7 @@ func (d *DataClient) ExportTabularData(
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		responses = append(responses, exportTabularDataResponseFromProto(response))
@@ -747,13 +748,13 @@ func (d *DataClient) BinaryDataByFilter(
 		IncludeInternalData: includeInternalData,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	data := make([]*BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
 		binData, err := binaryDataFromProto(protoData)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		data[i] = binData
 	}
@@ -776,13 +777,13 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIDs []string
 		BinaryDataIds: binaryDataIDs,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	data := make([]*BinaryData, len(resp.Data))
 	for i, protoData := range resp.Data {
 		binData, err := binaryDataFromProto(protoData)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		data[i] = binData
 	}
@@ -797,7 +798,7 @@ func (d *DataClient) CreateBinaryDataSignedURL(ctx context.Context, binaryDataID
 		ExpirationMinutes: &expirationMinutes,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.SignedUrl, nil
 }
@@ -818,7 +819,7 @@ func (d *DataClient) DeleteTabularData(
 		Filter:              filter,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return int(resp.DeletedCount), nil
 }
@@ -831,7 +832,7 @@ func (d *DataClient) DeleteBinaryDataByFilter(ctx context.Context, filter *Filte
 		IncludeInternalData: true,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return int(resp.DeletedCount), nil
 }
@@ -843,7 +844,7 @@ func (d *DataClient) DeleteBinaryDataByIDs(ctx context.Context, binaryDataIDs []
 		BinaryDataIds: binaryDataIDs,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return int(resp.DeletedCount), nil
 }
@@ -854,7 +855,7 @@ func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags, binaryD
 		BinaryDataIds: binaryDataIDs,
 		Tags:          tags,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // AddTagsToBinaryDataByFilter adds string tags, unless the tags are already present, to binary data based on the given filter.
@@ -865,7 +866,7 @@ func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []str
 		Filter: filterToProto(filter),
 		Tags:   tags,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // RemoveTagsFromBinaryDataByIDs removes string tags from binary data based on given IDs.
@@ -878,7 +879,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 		Tags:          tags,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return int(resp.DeletedCount), nil
 }
@@ -895,7 +896,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 		Tags:   tags,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return int(resp.DeletedCount), nil
 }
@@ -921,7 +922,7 @@ func (d *DataClient) AddBoundingBoxToImageByID(
 		YMaxNormalized: yMaxNormalized,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.BboxId, nil
 }
@@ -936,7 +937,7 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(
 		BinaryDataId: binaryDataID,
 		BboxId:       bboxID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // BoundingBoxLabelsByFilter retrieves all unique string labels for bounding boxes that match the specified filter.
@@ -947,7 +948,7 @@ func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter *Filt
 		Filter: filterToProto(filter),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Labels, nil
 }
@@ -973,7 +974,7 @@ func (d *DataClient) UpdateBoundingBox(ctx context.Context, binaryDataID, bboxID
 		XMaxNormalized: xMaxNormalized,
 		YMaxNormalized: yMaxNormalized,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetDatabaseConnection establishes a connection to a MongoDB Atlas Data Federation instance.
@@ -984,7 +985,7 @@ func (d *DataClient) GetDatabaseConnection(ctx context.Context, organizationID s
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &GetDatabaseConnectionResponse{
 		Hostname:        resp.Hostname,
@@ -1003,7 +1004,7 @@ func (d *DataClient) ConfigureDatabaseUser(
 		OrganizationId: organizationID,
 		Password:       password,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // AddBinaryDataToDatasetByIDs adds the binary data with the given binary IDs to the dataset.
@@ -1016,7 +1017,7 @@ func (d *DataClient) AddBinaryDataToDatasetByIDs(
 		BinaryDataIds: binaryDataIDs,
 		DatasetId:     datasetID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // RemoveBinaryDataFromDatasetByIDs removes the binary data with the given binary IDs from the dataset.
@@ -1029,7 +1030,7 @@ func (d *DataClient) RemoveBinaryDataFromDatasetByIDs(
 		BinaryDataIds: binaryDataIDs,
 		DatasetId:     datasetID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // BinaryDataCaptureUpload uploads the contents and metadata for binary data.
@@ -1080,7 +1081,7 @@ func (d *DataClient) BinaryDataCaptureUpload(
 
 	response, err := d.dataCaptureUpload(ctx, metadata, []SensorData{sensorData}, true)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return response, nil
 }
@@ -1097,7 +1098,7 @@ func (d *DataClient) TabularDataCaptureUpload(
 	options *TabularDataCaptureUploadOptions,
 ) (string, error) {
 	if len(dataRequestTimes) != len(tabularData) {
-		return "", errors.New("dataRequestTimes and tabularData lengths must be equal")
+		return "", errtrace.Wrap(errors.New("dataRequestTimes and tabularData lengths must be equal"))
 	}
 	var sensorContents []SensorData
 	for i, tabData := range tabularData {
@@ -1138,7 +1139,7 @@ func (d *DataClient) TabularDataCaptureUpload(
 	}
 	response, err := d.dataCaptureUpload(ctx, metadata, sensorContents, false)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return response, nil
 }
@@ -1150,14 +1151,14 @@ func (d *DataClient) dataCaptureUpload(ctx context.Context, metadata UploadMetad
 ) (string, error) {
 	sensorContentsPb, err := sensorContentsToProto(sensorContents)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	resp, err := d.dataSyncClient.DataCaptureUpload(ctx, &syncPb.DataCaptureUploadRequest{
 		Metadata:       uploadMetadataToProto(metadata),
 		SensorContents: sensorContentsPb,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	// Both tabular and binary data can be uploaded via this endpoint.
 	// If binary data is uploaded, the binary data id will be returned.
@@ -1220,7 +1221,7 @@ func (d *DataClient) StreamingDataCaptureUpload(
 	// establish a streaming connection.
 	stream, err := d.dataSyncClient.StreamingDataCaptureUpload(ctx)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	// send the metadata as the first packet.
 	metaReq := &syncPb.StreamingDataCaptureUploadRequest{
@@ -1229,7 +1230,7 @@ func (d *DataClient) StreamingDataCaptureUpload(
 		},
 	}
 	if err := stream.Send(metaReq); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	// send the binary data in chunks.
@@ -1244,13 +1245,13 @@ func (d *DataClient) StreamingDataCaptureUpload(
 			},
 		}
 		if err := stream.Send(dataReq); err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 	}
 	// close the stream and get the response.
 	resp, err := stream.CloseAndRecv()
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.BinaryDataId, nil
 }
@@ -1271,7 +1272,7 @@ func (d *DataClient) FileUploadFromBytes(
 		if opts.MethodParameters != nil {
 			methodParams, err := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
 			if err != nil {
-				return "", err
+				return "", errtrace.Wrap(err)
 			}
 			metadata.MethodParameters = methodParams
 		}
@@ -1297,7 +1298,7 @@ func (d *DataClient) FileUploadFromBytes(
 			metadata.DatasetIds = opts.DatasetIDs
 		}
 	}
-	return d.fileUploadStreamResp(metadata, data)
+	return errtrace.Wrap2(d.fileUploadStreamResp(metadata, data))
 }
 
 // FileUploadFromPath uploads the contents and metadata for binary data created from a filepath
@@ -1316,7 +1317,7 @@ func (d *DataClient) FileUploadFromPath(
 		if opts.MethodParameters != nil {
 			methodParams, err := protoutils.ConvertMapToProtoAny(opts.MethodParameters)
 			if err != nil {
-				return "", err
+				return "", errtrace.Wrap(err)
 			}
 			metadata.MethodParameters = methodParams
 		}
@@ -1352,7 +1353,7 @@ func (d *DataClient) FileUploadFromPath(
 		// Get file timestamps before reading the file
 		fileTimes, err := utils.GetFileTimes(filePath)
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 		metadata.FileCreateTime = timestamppb.New(fileTimes.CreateTime)
 		metadata.FileModifyTime = timestamppb.New(fileTimes.ModifyTime)
@@ -1360,11 +1361,11 @@ func (d *DataClient) FileUploadFromPath(
 		//nolint:gosec
 		fileData, err := os.ReadFile(filePath)
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 		data = fileData
 	}
-	return d.fileUploadStreamResp(metadata, data)
+	return errtrace.Wrap2(d.fileUploadStreamResp(metadata, data))
 }
 
 // UploadImageToDatasets uploads the contents and metadata for an image, adds it to a dataset,
@@ -1379,7 +1380,7 @@ func (d *DataClient) UploadImageToDatasets(
 ) (string, error) {
 	imgBytes, err := ConvertImageToBytes(image, mimeType)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	if datasetIDs != nil {
 		opts.DatasetIDs = append(opts.DatasetIDs, datasetIDs...)
@@ -1387,14 +1388,14 @@ func (d *DataClient) UploadImageToDatasets(
 	if tags != nil {
 		opts.Tags = append(opts.Tags, tags...)
 	}
-	return d.FileUploadFromBytes(ctx, partID, imgBytes, opts)
+	return errtrace.Wrap2(d.FileUploadFromBytes(ctx, partID, imgBytes, opts))
 }
 
 func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data []byte) (string, error) {
 	// establish a streaming connection.
 	stream, err := d.dataSyncClient.FileUpload(context.Background())
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	// send the metadata as the first packet.
 	metaReq := &syncPb.FileUploadRequest{
@@ -1403,7 +1404,7 @@ func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data 
 		},
 	}
 	if err := stream.Send(metaReq); err != nil {
-		return "", fmt.Errorf("failed to send metadata: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("failed to send metadata: %w", err))
 	}
 	// send file contents in chunks
 	for start := 0; start < len(data); start += UploadChunkSize {
@@ -1419,13 +1420,13 @@ func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data 
 			},
 		}
 		if err := stream.Send(dataReq); err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 	}
 	// close stream and get response
 	resp, err := stream.CloseAndRecv()
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.BinaryDataId, nil
 }
@@ -1437,7 +1438,7 @@ func (d *DataClient) CreateDataset(ctx context.Context, name, organizationID str
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Id, nil
 }
@@ -1447,7 +1448,7 @@ func (d *DataClient) DeleteDataset(ctx context.Context, id string) error {
 	_, err := d.datasetClient.DeleteDataset(ctx, &setPb.DeleteDatasetRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // RenameDataset modifies the name of an existing dataset.
@@ -1456,7 +1457,7 @@ func (d *DataClient) RenameDataset(ctx context.Context, id, name string) error {
 		Id:   id,
 		Name: name,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListDatasetsByOrganizationID lists all of the datasets for an organization.
@@ -1465,7 +1466,7 @@ func (d *DataClient) ListDatasetsByOrganizationID(ctx context.Context, organizat
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var datasets []*Dataset
 	for _, dataset := range resp.Datasets {
@@ -1480,7 +1481,7 @@ func (d *DataClient) ListDatasetsByIDs(ctx context.Context, ids []string) ([]*Da
 		Ids: ids,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var datasets []*Dataset
 	for _, dataset := range resp.Datasets {
@@ -1495,7 +1496,7 @@ func (d *DataClient) ListDataPipelines(ctx context.Context, organizationID strin
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dataPipelines := make([]*DataPipeline, len(resp.DataPipelines))
@@ -1511,7 +1512,7 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 		Id: id,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return dataPipelineFromProto(resp.DataPipeline), nil
 }
@@ -1523,7 +1524,7 @@ func (d *DataClient) CreateDataPipeline(
 ) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	if opts == nil {
@@ -1542,7 +1543,7 @@ func (d *DataClient) CreateDataPipeline(
 		EnableBackfill: &enableBackfill,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Id, nil
 }
@@ -1555,7 +1556,7 @@ func (d *DataClient) RenameDataPipeline(
 		Id:   id,
 		Name: name,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // DeleteDataPipeline deletes a data pipeline by its ID.
@@ -1563,7 +1564,7 @@ func (d *DataClient) DeleteDataPipeline(ctx context.Context, id string) error {
 	_, err := d.datapipelinesClient.DeleteDataPipeline(ctx, &datapipelinesPb.DeleteDataPipelineRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // EnableDataPipeline enables a data pipeline by its ID.
@@ -1571,7 +1572,7 @@ func (d *DataClient) EnableDataPipeline(ctx context.Context, id string) error {
 	_, err := d.datapipelinesClient.EnableDataPipeline(ctx, &datapipelinesPb.EnableDataPipelineRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // DisableDataPipeline disables a data pipeline by its ID.
@@ -1579,12 +1580,12 @@ func (d *DataClient) DisableDataPipeline(ctx context.Context, id string) error {
 	_, err := d.datapipelinesClient.DisableDataPipeline(ctx, &datapipelinesPb.DisableDataPipelineRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListDataPipelineRuns lists all of the data pipeline runs for a data pipeline.
 func (d *DataClient) ListDataPipelineRuns(ctx context.Context, id string, pageSize uint32) (*ListDataPipelineRunsPage, error) {
-	return d.listDataPipelineRuns(ctx, id, pageSize, "")
+	return errtrace.Wrap2(d.listDataPipelineRuns(ctx, id, pageSize, ""))
 }
 
 func (d *DataClient) listDataPipelineRuns(
@@ -1596,7 +1597,7 @@ func (d *DataClient) listDataPipelineRuns(
 		PageToken: pageToken,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dataPipelineRuns := make([]*DataPipelineRun, len(resp.Runs))
@@ -1623,7 +1624,7 @@ func (p *ListDataPipelineRunsPage) NextPage(ctx context.Context) (*ListDataPipel
 		}, nil
 	}
 
-	return p.client.listDataPipelineRuns(ctx, p.pipelineID, p.pageSize, p.nextPageToken)
+	return errtrace.Wrap2(p.client.listDataPipelineRuns(ctx, p.pipelineID, p.pageSize, p.nextPageToken))
 }
 
 // CreateSequence creates a new sequence and returns its ID.
@@ -1650,7 +1651,7 @@ func (d *DataClient) CreateSequence(
 		EndTime:      timestamppb.New(endTime),
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Id, nil
 }
@@ -1659,7 +1660,7 @@ func (d *DataClient) CreateSequence(
 func (d *DataClient) GetSequence(ctx context.Context, id string) (*Sequence, error) {
 	resp, err := d.dataClient.GetSequence(ctx, &pb.GetSequenceRequest{Id: id})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return sequenceFromProto(resp.Sequence), nil
 }
@@ -1691,18 +1692,18 @@ func (d *DataClient) UpdateSequence(ctx context.Context, id string, opts *Update
 		}
 	}
 	_, err := d.dataClient.UpdateSequence(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 // DeleteSequence deletes a sequence by its ID.
 func (d *DataClient) DeleteSequence(ctx context.Context, id string) error {
 	_, err := d.dataClient.DeleteSequence(ctx, &pb.DeleteSequenceRequest{Id: id})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListSequences lists sequences for the given organization, returning the first page.
 func (d *DataClient) ListSequences(ctx context.Context, organizationID string, pageSize uint32) (*ListSequencesPage, error) {
-	return d.listSequences(ctx, organizationID, pageSize, "")
+	return errtrace.Wrap2(d.listSequences(ctx, organizationID, pageSize, ""))
 }
 
 func (d *DataClient) listSequences(
@@ -1714,7 +1715,7 @@ func (d *DataClient) listSequences(
 		PageToken:      pageToken,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	sequences := make([]*Sequence, len(resp.Sequences))
 	for i, s := range resp.Sequences {
@@ -1739,7 +1740,7 @@ func (p *ListSequencesPage) NextPage(ctx context.Context) (*ListSequencesPage, e
 			Sequences:      []*Sequence{},
 		}, nil
 	}
-	return p.client.listSequences(ctx, p.organizationID, p.pageSize, p.nextPageToken)
+	return errtrace.Wrap2(p.client.listSequences(ctx, p.organizationID, p.pageSize, p.nextPageToken))
 }
 
 // AddSequencesToDataset adds sequences to the dataset with the given ID.
@@ -1748,7 +1749,7 @@ func (d *DataClient) AddSequencesToDataset(ctx context.Context, datasetID string
 		DatasetId:   datasetID,
 		SequenceIds: sequenceIDs,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // RemoveSequencesFromDataset removes sequences from the dataset with the given ID.
@@ -1757,12 +1758,12 @@ func (d *DataClient) RemoveSequencesFromDataset(ctx context.Context, datasetID s
 		DatasetId:   datasetID,
 		SequenceIds: sequenceIDs,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // SequencesByDatasetID lists sequences that belong to the given dataset, returning the first page.
 func (d *DataClient) SequencesByDatasetID(ctx context.Context, datasetID string, pageSize uint32) (*SequencesByDatasetIDPage, error) {
-	return d.sequencesByDatasetID(ctx, datasetID, pageSize, "")
+	return errtrace.Wrap2(d.sequencesByDatasetID(ctx, datasetID, pageSize, ""))
 }
 
 func (d *DataClient) sequencesByDatasetID(
@@ -1774,7 +1775,7 @@ func (d *DataClient) sequencesByDatasetID(
 		PageToken: pageToken,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	sequences := make([]*Sequence, len(resp.Sequences))
 	for i, s := range resp.Sequences {
@@ -1799,7 +1800,7 @@ func (p *SequencesByDatasetIDPage) NextPage(ctx context.Context) (*SequencesByDa
 			Sequences: []*Sequence{},
 		}, nil
 	}
-	return p.client.sequencesByDatasetID(ctx, p.datasetID, p.pageSize, p.nextPageToken)
+	return errtrace.Wrap2(p.client.sequencesByDatasetID(ctx, p.datasetID, p.pageSize, p.nextPageToken))
 }
 
 func sequenceFromProto(s *pb.Sequence) *Sequence {
@@ -1893,7 +1894,7 @@ func methodParamsFromProto(proto map[string]*anypb.Any) (map[string]any, error) 
 		}
 		structValue := &structpb.Value{}
 		if err := value.UnmarshalTo(structValue); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		methodParameters[key] = structValue.String()
 	}
@@ -1906,7 +1907,7 @@ func captureMetadataFromProto(proto *pb.CaptureMetadata) (*CaptureMetadata, erro
 	}
 	params, err := methodParamsFromProto(proto.MethodParameters)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &CaptureMetadata{
 		OrganizationID:   proto.OrganizationId,
@@ -1930,7 +1931,7 @@ func binaryDataFromProto(proto *pb.BinaryData) (*BinaryData, error) {
 	}
 	metadata, err := binaryMetadataFromProto(proto.Metadata)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &BinaryData{
 		Binary:   proto.Binary,
@@ -1944,7 +1945,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 	}
 	captureMetadata, err := captureMetadataFromProto(proto.CaptureMetadata)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &BinaryMetadata{
 		//nolint:staticcheck
@@ -1968,7 +1969,7 @@ func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) (
 	}
 	md, err := captureMetadataFromProto(metadata)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &TabularData{
 		Data:          proto.Data.AsMap(),
@@ -2149,14 +2150,14 @@ func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
 // Ensure only one of SDStruct or SDBinary is set.
 func validateSensorData(sensorData SensorData) error {
 	if sensorData.SDStruct != nil && len(sensorData.SDBinary) > 0 {
-		return errors.New("sensorData cannot have both SDStruct and SDBinary set")
+		return errtrace.Wrap(errors.New("sensorData cannot have both SDStruct and SDBinary set"))
 	}
 	return nil
 }
 
 func sensorDataToProto(sensorData SensorData) (*syncPb.SensorData, error) {
 	if err := validateSensorData(sensorData); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	switch {
 	case len(sensorData.SDBinary) > 0:
@@ -2169,7 +2170,7 @@ func sensorDataToProto(sensorData SensorData) (*syncPb.SensorData, error) {
 	case sensorData.SDStruct != nil:
 		pbStruct, err := structpb.NewStruct(sensorData.SDStruct)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return &syncPb.SensorData{
 			Metadata: sensorMetadataToProto(sensorData.Metadata),
@@ -2178,7 +2179,7 @@ func sensorDataToProto(sensorData SensorData) (*syncPb.SensorData, error) {
 			},
 		}, nil
 	default:
-		return nil, errors.New("sensorData must have either SDStruct or SDBinary set")
+		return nil, errtrace.Wrap(errors.New("sensorData must have either SDStruct or SDBinary set"))
 	}
 }
 
@@ -2187,7 +2188,7 @@ func sensorContentsToProto(sensorContents []SensorData) ([]*syncPb.SensorData, e
 	for _, item := range sensorContents {
 		protoItem, err := sensorDataToProto(item)
 		if err != nil {
-			return nil, err // Propagate the error
+			return nil, errtrace.Wrap(err) // Propagate the error
 		}
 		protoSensorContents = append(protoSensorContents, protoItem)
 	}
@@ -2238,7 +2239,7 @@ func queryBSONToBinary(query []map[string]any) ([][]byte, error) {
 	for _, q := range query {
 		binary, err := bson.Marshal(q)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal BSON query: %w", err)
+			return nil, errtrace.Wrap(fmt.Errorf("failed to marshal BSON query: %w", err))
 		}
 		mqlBinary = append(mqlBinary, binary)
 	}
@@ -2287,7 +2288,7 @@ func additionalParametersToProto(opts *TabularDataOptions) (*structpb.Struct, er
 		if err != nil {
 			return &structpb.Struct{
 				Fields: make(map[string]*structpb.Value),
-			}, err
+			}, errtrace.Wrap(err)
 		}
 		fields[key] = val
 	}
@@ -2304,19 +2305,19 @@ func ConvertImageToBytes(image image.Image, mimeType MimeType) ([]byte, error) {
 	case MimeTypeJPEG:
 		err := jpeg.Encode(&buf, image, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		imgBytes = buf.Bytes()
 	case MimeTypePNG:
 		err := png.Encode(&buf, image)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		imgBytes = buf.Bytes()
 	case MimeTypeUnspecified, MimeTypePCD:
 		fallthrough
 	default:
-		return nil, errors.New("mime type must be either png or jpeg for images")
+		return nil, errtrace.Wrap(errors.New("mime type must be either png or jpeg for images"))
 	}
 	return imgBytes, nil
 }

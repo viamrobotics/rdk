@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -47,7 +48,7 @@ func NewEmptyAPIResourceCollection[T Resource](api API) APIResourceCollection[T]
 func NewAPIResourceCollection[T Resource](api API, r map[Name]T) (APIResourceCollection[T], error) {
 	s := &apiResourceCollection[T]{api: api}
 	if err := s.ReplaceAll(r); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return s, nil
 }
@@ -64,7 +65,7 @@ func (s *apiResourceCollection[T]) Resource(name string) (T, error) {
 		return resource, nil
 	}
 	var zero T
-	return zero, NewNotFoundError(NewName(s.api, name))
+	return zero, errtrace.Wrap(NewNotFoundError(NewName(s.api, name)))
 }
 
 // ReplaceAll replaces all resources with r.
@@ -77,7 +78,7 @@ func (s *apiResourceCollection[T]) ReplaceAll(r map[Name]T) error {
 	s.shortNames = shortNames
 	for k, v := range r {
 		if err := s.doAdd(k, v); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -86,13 +87,13 @@ func (s *apiResourceCollection[T]) ReplaceAll(r map[Name]T) error {
 func (s *apiResourceCollection[T]) Add(resName Name, res T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.doAdd(resName, res)
+	return errtrace.Wrap(s.doAdd(resName, res))
 }
 
 func (s *apiResourceCollection[T]) Remove(n Name) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.doRemove(n)
+	return errtrace.Wrap(s.doRemove(n))
 }
 
 func (s *apiResourceCollection[T]) ReplaceOne(resName Name, res T) error {
@@ -100,20 +101,20 @@ func (s *apiResourceCollection[T]) ReplaceOne(resName Name, res T) error {
 	defer s.mu.Unlock()
 	err := s.doRemove(resName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return s.doAdd(resName, res)
+	return errtrace.Wrap(s.doAdd(resName, res))
 }
 
 func (s *apiResourceCollection[T]) doAdd(resName Name, res T) error {
 	if resName.Name == "" {
-		return errors.Errorf("empty name used for resource: %s", resName)
+		return errtrace.Wrap(errors.Errorf("empty name used for resource: %s", resName))
 	}
 	name := resName.ShortName()
 
 	_, exists := s.resources[name]
 	if exists {
-		return errors.Errorf("resource %s already exists", resName)
+		return errtrace.Wrap(errors.Errorf("resource %s already exists", resName))
 	}
 
 	s.resources[name] = res
@@ -132,7 +133,7 @@ func (s *apiResourceCollection[T]) doRemove(n Name) error {
 	name := n.ShortName()
 	_, ok := s.resources[name]
 	if !ok {
-		return errors.Errorf("resource %s not found", name)
+		return errtrace.Wrap(errors.Errorf("resource %s not found", name))
 	}
 	delete(s.resources, name)
 

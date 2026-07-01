@@ -6,6 +6,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/powersensor/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
@@ -29,18 +30,18 @@ func (s *serviceServer) GetReadings(
 ) (*commonpb.GetReadingsResponse, error) {
 	sensorDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	readings, err := sensorDevice.Readings(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if readings == nil {
-		return nil, sensor.ErrReadingsNil("power-sensor", req.Name)
+		return nil, errtrace.Wrap(sensor.ErrReadingsNil("power-sensor", req.Name))
 	}
 	m, err := protoutils.ReadingGoToProto(readings)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetReadingsResponse{Readings: m}, nil
 }
@@ -51,11 +52,11 @@ func (s *serviceServer) GetVoltage(
 ) (*pb.GetVoltageResponse, error) {
 	psDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	voltage, isAc, err := psDevice.Voltage(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetVoltageResponse{
 		Volts: voltage,
@@ -69,11 +70,11 @@ func (s *serviceServer) GetCurrent(
 ) (*pb.GetCurrentResponse, error) {
 	psDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	current, isAc, err := psDevice.Current(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetCurrentResponse{
 		Amperes: current,
@@ -87,11 +88,11 @@ func (s *serviceServer) GetPower(
 ) (*pb.GetPowerResponse, error) {
 	psDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	power, err := psDevice.Power(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetPowerResponse{
 		Watts: power,
@@ -104,16 +105,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	psDevice, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, psDevice, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, psDevice, req))
 }
 
 // GetStatus returns the status of the power sensor.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

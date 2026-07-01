@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -18,11 +19,11 @@ import (
 var (
 	// ErrControlsNil is the returned error if input controller controls are nil.
 	ErrControlsNil = func(inputName string) error {
-		return fmt.Errorf("input controller component %v Controls should not return nil controls", inputName)
+		return errtrace.Wrap(fmt.Errorf("input controller component %v Controls should not return nil controls", inputName))
 	}
 	// ErrEventsNil is the returned error if input controller events are nil.
 	ErrEventsNil = func(inputName string) error {
-		return fmt.Errorf("input controller component %v Events should not return nil events", inputName)
+		return errtrace.Wrap(fmt.Errorf("input controller component %v Events should not return nil events", inputName))
 	}
 )
 
@@ -45,15 +46,15 @@ func (s *serviceServer) GetControls(
 ) (*pb.GetControlsResponse, error) {
 	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	controlList, err := controller.Controls(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if controlList == nil {
-		return nil, ErrControlsNil(req.Controller)
+		return nil, errtrace.Wrap(ErrControlsNil(req.Controller))
 	}
 
 	resp := &pb.GetControlsResponse{}
@@ -71,15 +72,15 @@ func (s *serviceServer) GetEvents(
 ) (*pb.GetEventsResponse, error) {
 	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	eventsIn, err := controller.Events(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if eventsIn == nil {
-		return nil, ErrEventsNil(req.Controller)
+		return nil, errtrace.Wrap(ErrEventsNil(req.Controller))
 	}
 
 	resp := &pb.GetEventsResponse{}
@@ -103,11 +104,11 @@ func (s *serviceServer) TriggerEvent(
 ) (*pb.TriggerEventResponse, error) {
 	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	injectController, ok := controller.(Triggerable)
 	if !ok {
-		return nil, errors.Errorf("input controller is not of type Triggerable (%s)", req.Controller)
+		return nil, errtrace.Wrap(errors.Errorf("input controller is not of type Triggerable (%s)", req.Controller))
 	}
 
 	err = injectController.TriggerEvent(
@@ -121,7 +122,7 @@ func (s *serviceServer) TriggerEvent(
 		req.Extra.AsMap(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.TriggerEventResponse{}, nil
@@ -134,7 +135,7 @@ func (s *serviceServer) StreamEvents(
 ) error {
 	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	eventsChan := make(chan *pb.Event, 1024)
 
@@ -158,7 +159,7 @@ func (s *serviceServer) StreamEvents(
 		if len(triggers) > 0 {
 			err := controller.RegisterControlCallback(server.Context(), Control(ev.Control), triggers, ctrlFunc, req.Extra.AsMap())
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 
@@ -169,7 +170,7 @@ func (s *serviceServer) StreamEvents(
 		if len(cancelledTriggers) > 0 {
 			err := controller.RegisterControlCallback(server.Context(), Control(ev.Control), cancelledTriggers, nil, req.Extra.AsMap())
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -177,11 +178,11 @@ func (s *serviceServer) StreamEvents(
 	for {
 		select {
 		case <-server.Context().Done():
-			return server.Context().Err()
+			return errtrace.Wrap(server.Context().Err())
 		case msg := <-eventsChan:
 			err := server.Send(&pb.StreamEventsResponse{Event: msg})
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -193,16 +194,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	controller, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, controller, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, controller, req))
 }
 
 // GetStatus returns the status of the input controller.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"braces.dev/errtrace"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -27,7 +28,7 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 		traverseAndGatherInner = func(relDir, currentDir string) error {
 			entries, err := os.ReadDir(currentDir)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			for _, entry := range entries {
@@ -35,15 +36,15 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 				relPath := filepath.Join(relDir, entry.Name())
 				file, err := os.Open(entryPath)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				info, err := file.Stat()
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				if info.IsDir() {
 					if err := traverseAndGatherInner(relPath, entryPath); err != nil {
-						return err
+						return errtrace.Wrap(err)
 					}
 				}
 				files[relPath] = file
@@ -51,7 +52,7 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 			return nil
 		}
 		if err := traverseAndGatherInner("", root); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return files, nil
 	}
@@ -63,27 +64,27 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 
 	leftFiles, err := traverseAndGather(leftRoot)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer closeFiles(leftFiles)
 
 	rightFiles, err := traverseAndGather(rightRoot)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer closeFiles(rightFiles)
 
 	if len(leftFiles) != len(rightFiles) {
-		return fmt.Errorf(
+		return errtrace.Wrap(fmt.Errorf(
 			"%q has %d files while %q has %d files",
 			leftRoot, len(leftFiles),
 			rightRoot, len(rightFiles),
-		)
+		))
 	}
 	for leftFilePath, leftFile := range leftFiles {
 		rightFile, ok := rightFiles[leftFilePath]
 		if !ok {
-			return fmt.Errorf("right does not have %q", leftFilePath)
+			return errtrace.Wrap(fmt.Errorf("right does not have %q", leftFilePath))
 		}
 		delete(rightFiles, leftFilePath)
 
@@ -92,32 +93,32 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 		}
 		leftInfo, err := leftFile.Stat()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		rightInfo, err := rightFile.Stat()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if leftInfo.IsDir() != rightInfo.IsDir() {
-			return fmt.Errorf("%q directory/file mismatch", leftFilePath)
+			return errtrace.Wrap(fmt.Errorf("%q directory/file mismatch", leftFilePath))
 		}
 		if leftInfo.IsDir() {
 			continue
 		}
 		leftRd, err := io.ReadAll(leftFile)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		rightRd, err := io.ReadAll(rightFile)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if !bytes.Equal(leftRd, rightRd) {
-			return fmt.Errorf("%q contents not equal", leftFilePath)
+			return errtrace.Wrap(fmt.Errorf("%q contents not equal", leftFilePath))
 		}
 	}
 	if len(rightFiles) != 0 {
-		return fmt.Errorf("left does not have the following files %v", rightFiles)
+		return errtrace.Wrap(fmt.Errorf("left does not have the following files %v", rightFiles))
 	}
 	return nil
 }

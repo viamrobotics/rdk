@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -71,17 +72,17 @@ func (e exponentialRetry) run() (uint64, error) {
 	// Don't retry non-retryable errors.
 	if terminalError(err) {
 		e.logger.Warnf("hit non retryable error: %v", err)
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
 	// If the context was cancelled
 	// return the error without logging to not spam
 	if errors.Is(err, context.Canceled) {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
 	if e.ctx.Err() != nil {
-		return 0, e.ctx.Err()
+		return 0, errtrace.Wrap(e.ctx.Err())
 	}
 	e.logger.Infof("entering exponential backoff retry due to retryable error: %v", err)
 
@@ -91,12 +92,12 @@ func (e exponentialRetry) run() (uint64, error) {
 	defer ticker.Stop()
 	for {
 		if err := e.ctx.Err(); err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 
 		select {
 		case <-e.ctx.Done():
-			return 0, e.ctx.Err()
+			return 0, errtrace.Wrap(e.ctx.Err())
 		case <-ticker.C:
 			bytesUploaded, err := e.fun(e.ctx)
 
@@ -109,23 +110,23 @@ func (e exponentialRetry) run() (uint64, error) {
 			// If the context was cancelled
 			// return the error without logging to not spam
 			if errors.Is(err, context.Canceled) {
-				return 0, err
+				return 0, errtrace.Wrap(err)
 			}
 
 			// Don't retry terminal errors.
 			if terminalError(err) {
 				e.logger.Warnf("hit non retryable error: %v", err)
-				return 0, err
+				return 0, errtrace.Wrap(err)
 			}
 
 			// If the context was cancelled
 			// return the error without logging to not spam
 			if errors.Is(err, context.Canceled) {
-				return 0, err
+				return 0, errtrace.Wrap(err)
 			}
 
 			if e.ctx.Err() != nil {
-				return 0, e.ctx.Err()
+				return 0, errtrace.Wrap(e.ctx.Err())
 			}
 
 			// Otherwise, try again after nextWait.

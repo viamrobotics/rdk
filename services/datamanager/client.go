@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -50,21 +51,21 @@ func NewClientFromConn(
 func (c *client) Sync(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.Sync(ctx, &pb.SyncRequest{Name: c.name, Extra: ext})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) UploadBinaryDataToDatasets(
@@ -76,7 +77,7 @@ func (c *client) UploadBinaryDataToDatasets(
 ) error {
 	extraPb, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.UploadBinaryDataToDatasets(ctx, &pb.UploadBinaryDataToDatasetsRequest{
 		BinaryData: binaryData,
@@ -86,7 +87,7 @@ func (c *client) UploadBinaryDataToDatasets(
 		Extra:      extraPb,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -100,11 +101,11 @@ func (c *client) UploadImageToDatasets(
 ) error {
 	imgBytes, err := ConvertImageToBytes(image, mimeType)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err = c.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType, extra); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -117,19 +118,19 @@ func ConvertImageToBytes(image image.Image, mimeType datasyncpb.MimeType) ([]byt
 	case datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG:
 		err := jpeg.Encode(&buf, image, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		imgBytes = buf.Bytes()
 	case datasyncpb.MimeType_MIME_TYPE_IMAGE_PNG:
 		err := png.Encode(&buf, image)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		imgBytes = buf.Bytes()
 	case datasyncpb.MimeType_MIME_TYPE_UNSPECIFIED, datasyncpb.MimeType_MIME_TYPE_VIDEO_MP4, datasyncpb.MimeType_MIME_TYPE_APPLICATION_PCD:
 		fallthrough
 	default:
-		return nil, errors.New("mime type must be either png or jpeg for images")
+		return nil, errtrace.Wrap(errors.New("mime type must be either png or jpeg for images"))
 	}
 	return imgBytes, nil
 }

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -38,7 +39,7 @@ func (m method) String() string {
 func newGetAudioCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	audioIn, err := assertAudioIn(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	codec := rutils.CodecPCM16
@@ -65,9 +66,9 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, "GetAudio", err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, "GetAudio", err))
 		}
 
 		var currentBuffer []byte
@@ -81,7 +82,7 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 				if len(currentBuffer) > 0 {
 					binary, err := buildPayload(currentBuffer, currentSR, currentCh, codec)
 					if err != nil {
-						return data.CaptureResult{}, err
+						return data.CaptureResult{}, errtrace.Wrap(err)
 					}
 					binaries = append(binaries, binary)
 				}
@@ -91,7 +92,7 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 					if len(currentBuffer) > 0 {
 						binary, err := buildPayload(currentBuffer, currentSR, currentCh, codec)
 						if err != nil {
-							return data.CaptureResult{}, err
+							return data.CaptureResult{}, errtrace.Wrap(err)
 						}
 						binaries = append(binaries, binary)
 					}
@@ -108,7 +109,7 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 				}
 
 				if chunk.AudioInfo == nil {
-					return data.CaptureResult{}, fmt.Errorf("received audio chunk with nil AudioInfo")
+					return data.CaptureResult{}, errtrace.Wrap(fmt.Errorf("received audio chunk with nil AudioInfo"))
 				}
 
 				if chunk.AudioInfo.SampleRateHz == currentSR && chunk.AudioInfo.NumChannels == currentCh {
@@ -117,7 +118,7 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 					// Audio format changed: finalize the current audio file and start a new one
 					binary, err := buildPayload(currentBuffer, currentSR, currentCh, codec)
 					if err != nil {
-						return data.CaptureResult{}, err
+						return data.CaptureResult{}, errtrace.Wrap(err)
 					}
 					binaries = append(binaries, binary)
 					currentBuffer = append([]byte{}, chunk.AudioData...)
@@ -135,26 +136,26 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 		return data.NewBinaryCaptureResult(ts, binaries), nil
 	})
 
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newGetWorldPoseCollector returns a collector to capture the audio input's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	if _, err := assertAudioIn(resource); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertAudioIn(resource interface{}) (AudioIn, error) {
 	audioIn, ok := resource.(AudioIn)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return audioIn, nil
 }
@@ -169,7 +170,7 @@ func buildPayload(audioData []byte, sr, ch int32, codec string) (data.Binary, er
 		payload, err = CreateWAVFile(audioData, sr, ch, codec)
 		binary.MimeType = rutils.MimeTypeAudioWAV
 		if err != nil {
-			return data.Binary{}, fmt.Errorf("error writing wav file: %w", err)
+			return data.Binary{}, errtrace.Wrap(fmt.Errorf("error writing wav file: %w", err))
 		}
 	case rutils.CodecMP3:
 		binary.MimeType = rutils.MimeTypeAudioMPEG
@@ -201,13 +202,13 @@ func CreateWAVFile(pcmData []byte, sampleRate, numChannels int32, codec string) 
 		audioFormat = 3
 		bitsPerSample = 32
 	default:
-		return nil, fmt.Errorf("unsupported codec: %v", codec)
+		return nil, errtrace.Wrap(fmt.Errorf("unsupported codec: %v", codec))
 	}
 
 	// WAV file header
 	buf.WriteString("RIFF")
 	if err := binary.Write(&buf, binary.LittleEndian, uint32(chunkBaseSize+len(pcmData))); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	buf.WriteString("WAVE")
 
@@ -215,33 +216,33 @@ func CreateWAVFile(pcmData []byte, sampleRate, numChannels int32, codec string) 
 	buf.WriteString("fmt ")
 	// length of fmt sub chunk
 	if err := binary.Write(&buf, binary.LittleEndian, uint32(16)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := binary.Write(&buf, binary.LittleEndian, audioFormat); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := binary.Write(&buf, binary.LittleEndian, uint16(numChannels)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := binary.Write(&buf, binary.LittleEndian, uint32(sampleRate)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	byteRate := sampleRate * numChannels * int32(bitsPerSample) / 8
 	if err := binary.Write(&buf, binary.LittleEndian, uint32(byteRate)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	blockAlign := numChannels * int32(bitsPerSample) / 8
 	if err := binary.Write(&buf, binary.LittleEndian, uint16(blockAlign)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := binary.Write(&buf, binary.LittleEndian, bitsPerSample); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// "data" sub-chunk
 	buf.WriteString("data")
 	if err := binary.Write(&buf, binary.LittleEndian, uint32(len(pcmData))); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	buf.Write(pcmData)
 
@@ -253,9 +254,9 @@ func CreateWAVFile(pcmData []byte, sampleRate, numChannels int32, codec string) 
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	audioin, err := assertAudioIn(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(audioin, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }

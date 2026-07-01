@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/gripper"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -60,19 +61,19 @@ func TestClient(t *testing.T) {
 		return expectedGeometries, nil
 	}
 	injectGripper.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errors.New("kinematics unimplmented")
+		return nil, errtrace.Wrap(errors.New("kinematics unimplmented"))
 	}
 
 	injectGripper2 := &inject.Gripper{}
 	injectGripper2.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpen = failGripperName
-		return errCantOpen
+		return errtrace.Wrap(errCantOpen)
 	}
 	injectGripper2.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return false, errCantGrab
+		return false, errtrace.Wrap(errCantGrab)
 	}
 	injectGripper2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopUnimplemented
+		return errtrace.Wrap(errStopUnimplemented)
 	}
 	injectGripper2.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return nil, nil

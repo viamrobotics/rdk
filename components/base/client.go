@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -48,7 +49,7 @@ func NewClientFromConn(
 func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.MoveStraight(ctx, &pb.MoveStraightRequest{
 		Name:       c.name,
@@ -57,7 +58,7 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 		Extra:      ext,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -65,7 +66,7 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.Spin(ctx, &pb.SpinRequest{
 		Name:       c.name,
@@ -74,7 +75,7 @@ func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra m
 		Extra:      ext,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -82,7 +83,7 @@ func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra m
 func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.SetPower(ctx, &pb.SetPowerRequest{
 		Name:    c.name,
@@ -91,7 +92,7 @@ func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra 
 		Extra:   ext,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -99,7 +100,7 @@ func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra 
 func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.SetVelocity(ctx, &pb.SetVelocityRequest{
 		Name:    c.name,
@@ -108,7 +109,7 @@ func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector, ext
 		Extra:   ext,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -116,27 +117,27 @@ func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector, ext
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.Stop(ctx, &pb.StopRequest{Name: c.name, Extra: ext})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	resp, err := c.client.IsMoving(ctx, &pb.IsMovingRequest{Name: c.name})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.IsMoving, nil
 }
@@ -144,13 +145,13 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 
 	req := &pb.GetPropertiesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 	return ProtoFeaturesToProperties(resp), nil
 }
@@ -158,14 +159,14 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
+	return errtrace.Wrap2(referenceframe.NewGeometriesFromProto(resp.GetGeometries()))
 }

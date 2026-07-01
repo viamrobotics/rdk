@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/control"
 )
 
@@ -20,24 +21,24 @@ func (sb *sensorBase) SetVelocity(
 
 	if sb.controlLoopConfig == nil {
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's SetVelocity method", sb.controlledBase.Name().ShortName())
-		return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
+		return errtrace.Wrap(sb.controlledBase.SetVelocity(ctx, linear, angular, extra))
 	}
 
 	// check tuning status
 	if err := sb.checkTuningStatus(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// make sure the control loop is enabled
 	if sb.loop == nil {
 		if err := sb.startControlLoop(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	// convert linear.Y mmPerSec to mPerSec, angular.Z is degPerSec
 	if err := sb.updateControlConfig(ctx, linear.Y/1000.0, angular.Z); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	sb.loop.Resume()
 
@@ -49,10 +50,10 @@ func (sb *sensorBase) SetVelocity(
 func (sb *sensorBase) startControlLoop() error {
 	loop, err := control.NewLoop(sb.logger, *sb.controlLoopConfig, sb)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := loop.Start(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	sb.loop = loop
 
@@ -78,7 +79,7 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	// fully set up the control config based on the provided options
 	pl, err := control.SetupPIDControlConfig(pidVals, sb.Name().ShortName(), options, sb, sb.logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	sb.controlLoopConfig = pl.ControlConf
@@ -94,12 +95,12 @@ func (sb *sensorBase) updateControlConfig(
 ) error {
 	// set linear setpoint config
 	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][0], linearValue, sb.loop); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// set angular setpoint config
 	if err := control.UpdateConstantBlock(ctx, sb.blockNames[control.BlockNameConstant][1], angularValue, sb.loop); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -129,7 +130,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	// (cw/ccw) doesn't switch when the base is moving backwards
 	angvel := (state[1].GetSignalValueAt(0) * sign(linvel))
 
-	return sb.controlledBase.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
+	return errtrace.Wrap(sb.controlledBase.SetPower(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil))
 }
 
 // State is called in endpoint.go of the controls package by the control loop
@@ -140,12 +141,12 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	sb.logger.CDebug(ctx, "getting state")
 	linvel, err := sb.velocities.LinearVelocity(ctx, nil)
 	if err != nil {
-		return []float64{}, err
+		return []float64{}, errtrace.Wrap(err)
 	}
 
 	angvel, err := sb.velocities.AngularVelocity(ctx, nil)
 	if err != nil {
-		return []float64{}, err
+		return []float64{}, errtrace.Wrap(err)
 	}
 	return []float64{linvel.Y, angvel.Z}, nil
 }

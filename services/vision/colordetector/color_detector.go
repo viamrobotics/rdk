@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -26,13 +27,13 @@ func init() {
 		) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*objdet.ColorDetectorConfig](c)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			actualR, err := utils.AssertType[robot.Robot](r)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
-			return registerColorDetector(ctx, c.ResourceName(), attrs, actualR)
+			return errtrace.Wrap2(registerColorDetector(ctx, c.ResourceName(), attrs, actualR))
 		},
 	})
 }
@@ -47,17 +48,17 @@ func registerColorDetector(
 	_, span := trace.StartSpan(ctx, "service::vision::registerColorDetector")
 	defer span.End()
 	if conf == nil {
-		return nil, errors.New("object detection config for color detector cannot be nil")
+		return nil, errtrace.Wrap(errors.New("object detection config for color detector cannot be nil"))
 	}
 	detector, err := objdet.NewColorDetector(conf)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error registering color detector %q", name)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "error registering color detector %q", name))
 	}
 	if conf.DefaultCamera != "" {
 		_, err = camera.FromProvider(r, conf.DefaultCamera)
 		if err != nil {
-			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
+			return nil, errtrace.Wrap(errors.Errorf("could not find camera %q", conf.DefaultCamera))
 		}
 	}
-	return vision.DeprecatedNewService(name, r, nil, nil, detector, nil, conf.DefaultCamera)
+	return errtrace.Wrap2(vision.DeprecatedNewService(name, r, nil, nil, detector, nil, conf.DefaultCamera))
 }

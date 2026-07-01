@@ -8,6 +8,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -105,7 +106,7 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 			err.Error(), " " /* non-breaking space */, " " /* normal space */)
 		err = errors.New(ascii)
 	}
-	return vv, err
+	return vv, errtrace.Wrap(err)
 }
 
 // ReadingGoToProto converts go readings to proto readings.
@@ -115,7 +116,7 @@ func ReadingGoToProto(readings map[string]interface{}) (map[string]*structpb.Val
 	for k, v := range readings {
 		vv, err := goToProto(v)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		m[k] = vv
 	}

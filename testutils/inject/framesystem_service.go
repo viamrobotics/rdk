@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -62,9 +63,9 @@ func (fs *FrameSystemService) Name() resource.Name {
 // FrameSystemConfig calls the injected FrameSystemConfig or the real variant.
 func (fs *FrameSystemService) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	if fs.FrameSystemConfigFunc == nil {
-		return fs.Service.FrameSystemConfig(ctx)
+		return errtrace.Wrap2(fs.Service.FrameSystemConfig(ctx))
 	}
-	return fs.FrameSystemConfigFunc(ctx)
+	return errtrace.Wrap2(fs.FrameSystemConfigFunc(ctx))
 }
 
 // GetPose calls the injected GetPose or the real variant.
@@ -75,9 +76,9 @@ func (fs *FrameSystemService) GetPose(
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if fs.GetPoseFunc == nil {
-		return fs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+		return errtrace.Wrap2(fs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 	}
-	return fs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	return errtrace.Wrap2(fs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 }
 
 // TransformPose calls the injected method or the real variant.
@@ -88,9 +89,9 @@ func (fs *FrameSystemService) TransformPose(
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
 	if fs.TransformPoseFunc == nil {
-		return fs.Service.TransformPose(ctx, pose, dst, additionalTransforms)
+		return errtrace.Wrap2(fs.Service.TransformPose(ctx, pose, dst, additionalTransforms))
 	}
-	return fs.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
+	return errtrace.Wrap2(fs.TransformPoseFunc(ctx, pose, dst, additionalTransforms))
 }
 
 // TransformPointCloud calls the injected method or the real variant.
@@ -100,9 +101,9 @@ func (fs *FrameSystemService) TransformPointCloud(
 	srcName, dstName string,
 ) (pointcloud.PointCloud, error) {
 	if fs.TransformPointCloudFunc == nil {
-		return fs.Service.TransformPointCloud(ctx, srcpc, srcName, dstName)
+		return errtrace.Wrap2(fs.Service.TransformPointCloud(ctx, srcpc, srcName, dstName))
 	}
-	return fs.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
+	return errtrace.Wrap2(fs.TransformPointCloudFunc(ctx, srcpc, srcName, dstName))
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
@@ -110,9 +111,9 @@ func (fs *FrameSystemService) DoCommand(ctx context.Context,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	if fs.DoCommandFunc == nil {
-		return fs.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(fs.Service.DoCommand(ctx, cmd))
 	}
-	return fs.DoCommandFunc(ctx, cmd)
+	return errtrace.Wrap2(fs.DoCommandFunc(ctx, cmd))
 }
 
 // Close calls the injected Close or the real version.
@@ -121,7 +122,7 @@ func (fs *FrameSystemService) Close(ctx context.Context) error {
 		if fs.Service == nil {
 			return nil
 		}
-		return fs.Service.Close(ctx)
+		return errtrace.Wrap(fs.Service.Close(ctx))
 	}
-	return fs.CloseFunc(ctx)
+	return errtrace.Wrap(fs.CloseFunc(ctx))
 }

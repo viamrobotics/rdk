@@ -11,6 +11,7 @@ import (
 
 	pb "go.viam.com/api/component/motor/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -180,7 +181,7 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Motor, error) {
-	return resource.FromDependencies[Motor](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Motor](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named motor from the given Robot.
@@ -188,12 +189,12 @@ func FromDependencies(deps resource.Dependencies, name string) (Motor, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Motor, error) {
-	return robot.ResourceFromRobot[Motor](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Motor](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Motor from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Motor, error) {
-	return resource.FromProvider[Motor](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Motor](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all motor names from the given Robot.
@@ -205,7 +206,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func CheckSpeed(rpm, max float64) (string, error) { //nolint: revive
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		return "motor speed is nearly 0 rev_per_min", NewZeroRPMError()
+		return "motor speed is nearly 0 rev_per_min", errtrace.Wrap(NewZeroRPMError())
 	case max > 0 && speed > max-0.1:
 		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
 	default:
@@ -216,7 +217,7 @@ func CheckSpeed(rpm, max float64) (string, error) { //nolint: revive
 // CheckRevolutions checks if the input revolutions is non-zero.
 func CheckRevolutions(revs float64) error {
 	if revs == 0 {
-		return NewZeroRevsError()
+		return errtrace.Wrap(NewZeroRevsError())
 	}
 	return nil
 }

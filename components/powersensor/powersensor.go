@@ -9,6 +9,7 @@ import (
 
 	pb "go.viam.com/api/component/powersensor/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -104,7 +105,7 @@ type PowerSensor interface {
 //
 //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (PowerSensor, error) {
-	return resource.FromDependencies[PowerSensor](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[PowerSensor](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named PowerSensor from the given Robot.
@@ -112,12 +113,12 @@ func FromDependencies(deps resource.Dependencies, name string) (PowerSensor, err
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (PowerSensor, error) {
-	return robot.ResourceFromRobot[PowerSensor](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[PowerSensor](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named PowerSensor from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (PowerSensor, error) {
-	return resource.FromProvider[PowerSensor](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[PowerSensor](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all PowerSensor names from the given Robot.

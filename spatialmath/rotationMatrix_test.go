@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"testing"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/mat"
@@ -147,11 +148,11 @@ func multiplyAndconvertToFloats(in1, in2 []float64) ([9]float64, [9]float64, err
 	vecD := d.RawMatrix().Data
 	outC, err := NewRotationMatrix(vecC)
 	if err != nil {
-		return [9]float64{}, [9]float64{}, err
+		return [9]float64{}, [9]float64{}, errtrace.Wrap(err)
 	}
 	outD, err := NewRotationMatrix(vecD)
 	if err != nil {
-		return [9]float64{}, [9]float64{}, err
+		return [9]float64{}, [9]float64{}, errtrace.Wrap(err)
 	}
-	return outC.mat, outD.mat, err
+	return outC.mat, outD.mat, errtrace.Wrap(err)
 }

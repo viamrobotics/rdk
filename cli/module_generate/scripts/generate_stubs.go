@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 )
 
@@ -34,7 +35,7 @@ var CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Requ
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot get client code")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "cannot get client code"))
 	}
 	return req, nil
 }
@@ -53,65 +54,65 @@ func cppSDKReleaseURL(version string) string {
 var FetchRawTemplate = func(url string) (string, error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot fetch template from %s", url)
+		return "", errtrace.Wrap(errors.Wrapf(err, "cannot fetch template from %s", url))
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot fetch template from %s", url)
+		return "", errtrace.Wrap(errors.Wrapf(err, "cannot fetch template from %s", url))
 	}
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, url)
+		return "", errtrace.Wrap(errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, url))
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", errors.Wrapf(err, "error reading response body from %s", url)
+		return "", errtrace.Wrap(errors.Wrapf(err, "error reading response body from %s", url))
 	}
 	return string(body), nil
 }
 
 func getCppTemplate(base string) (string, error) {
-	return FetchRawTemplate(base + "/res/module_generator/_templates/main.cpp.in")
+	return errtrace.Wrap2(FetchRawTemplate(base + "/res/module_generator/_templates/main.cpp.in"))
 }
 
 func getCppCMakeTemplate(base string) (string, error) {
-	return FetchRawTemplate(base + "/res/module_generator/_templates/CMakeLists.txt.in")
+	return errtrace.Wrap2(FetchRawTemplate(base + "/res/module_generator/_templates/CMakeLists.txt.in"))
 }
 
 func getCppConanTemplate(base string) (string, error) {
-	return FetchRawTemplate(base + "/res/module_generator/_templates/conanfile.py.in")
+	return errtrace.Wrap2(FetchRawTemplate(base + "/res/module_generator/_templates/conanfile.py.in"))
 }
 
 func getCppTypeTemplate(base string, module modulegen.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("%s/res/module_generator/_templates/%ss/%s.cpp.in", base, module.ResourceType, module.ResourceSubtypeSnake)
-	return FetchRawTemplate(url)
+	return errtrace.Wrap2(FetchRawTemplate(url))
 }
 
 func getCppTypeHeaderTemplate(base string, module modulegen.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("%s/res/module_generator/_templates/%ss/%s.hpp.in", base, module.ResourceType, module.ResourceSubtypeSnake)
-	return FetchRawTemplate(url)
+	return errtrace.Wrap2(FetchRawTemplate(url))
 }
 
 // getClientCode grabs client.go code of component type.
 func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	req, err := CreateGetClientCodeRequest(module)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	//nolint:bodyclose
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot get client code")
+		return "", errtrace.Wrap(errors.Wrapf(err, "cannot get client code"))
 	}
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
+		return "", errtrace.Wrap(errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String()))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return req.URL.String(), errors.Wrapf(err, "error reading response body")
+		return req.URL.String(), errtrace.Wrap(errors.Wrapf(err, "error reading response body"))
 	}
 	clientCode := string(body)
 	return clientCode, nil
@@ -127,7 +128,7 @@ var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, usesnake 
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype, subtype)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot get resource code")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "cannot get resource code"))
 	}
 	return req, nil
 }
@@ -146,14 +147,14 @@ func getResourceCode(module modulegen.ModuleInputs) (string, error) {
 		// Create the HTTP request for fetching resource code
 		req, err = CreateGetResourceCodeRequest(module, usesnake)
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 
 		// Send the HTTP request
 		//nolint:bodyclose
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
-			return "", errors.Wrapf(err, "cannot get resource code")
+			return "", errtrace.Wrap(errors.Wrapf(err, "cannot get resource code"))
 		}
 
 		if resp.StatusCode == http.StatusOK {
@@ -161,7 +162,7 @@ func getResourceCode(module modulegen.ModuleInputs) (string, error) {
 			defer utils.UncheckedErrorFunc(resp.Body.Close)
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return req.URL.String(), errors.Wrapf(err, "error reading response body")
+				return req.URL.String(), errtrace.Wrap(errors.Wrapf(err, "error reading response body"))
 			}
 			resourceCode := string(body)
 			return resourceCode, nil
@@ -170,7 +171,7 @@ func getResourceCode(module modulegen.ModuleInputs) (string, error) {
 		// Close response body if not OK to prevent leaks before retrying
 		utils.UncheckedErrorFunc(resp.Body.Close)
 	}
-	return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
+	return "", errtrace.Wrap(errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String()))
 }
 
 // extractInterfaceMethodDocs parses Go source code and returns a map of
@@ -180,7 +181,7 @@ func extractInterfaceMethodDocs(resourceCode string) (map[string]*ast.CommentGro
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, "", resourceCode, parser.ParseComments)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse resource code")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to parse resource code"))
 	}
 
 	docMap := make(map[string]*ast.CommentGroup)
@@ -241,7 +242,7 @@ func setGoModuleTemplate(
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, "", clientCode, parser.AllErrors)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse client code")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to parse client code"))
 	}
 
 	var imports []string
@@ -539,11 +540,11 @@ func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []
 func renderCppTemplate(name, rawTmpl string, module modulegen.ModuleInputs) ([]byte, error) {
 	tmpl, err := template.New(name).Parse(rawTmpl)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var output bytes.Buffer
 	if err = tmpl.Execute(&output, module); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return output.Bytes(), nil
 }
@@ -554,52 +555,52 @@ func RenderCppTemplates(module modulegen.ModuleInputs) (modulegen.CppRenderedFil
 
 	mainRaw, err := getCppTemplate(base)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 	main, err := renderCppTemplate("main", mainRaw, module)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 
 	typeRaw, err := getCppTypeTemplate(base, module)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 	typeCpp, err := renderCppTemplate("type", typeRaw, module)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 
 	headerRaw, err := getCppTypeHeaderTemplate(base, module)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 	header, err := renderCppTemplate("header", headerRaw, module)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 
 	cmakeRaw, err := getCppCMakeTemplate(base)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 	cmake, err := renderCppTemplate("cmake", cmakeRaw, module)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 
 	conanRaw, err := getCppConanTemplate(base)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 	conan, err := renderCppTemplate("conan", conanRaw, module)
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 
 	conanLockRaw, err := FetchRawTemplate(cppSDKReleaseURL(module.SDKVersion) + "/conan.lock")
 	if err != nil {
-		return modulegen.CppRenderedFiles{}, err
+		return modulegen.CppRenderedFiles{}, errtrace.Wrap(err)
 	}
 
 	return modulegen.CppRenderedFiles{
@@ -619,30 +620,30 @@ func RenderGoTemplates(module modulegen.ModuleInputs, additionalModel bool) ([]b
 	clientCode, err := getClientCode(module)
 	var empty []byte
 	if err != nil {
-		return empty, err
+		return empty, errtrace.Wrap(err)
 	}
 	resourceCode, err := getResourceCode(module)
 	if err != nil {
-		return empty, err
+		return empty, errtrace.Wrap(err)
 	}
 	docMap, err := extractInterfaceMethodDocs(resourceCode)
 	if err != nil {
-		return empty, err
+		return empty, errtrace.Wrap(err)
 	}
 	goModule, err := setGoModuleTemplate(clientCode, module, docMap, additionalModel)
 	if err != nil {
-		return empty, err
+		return empty, errtrace.Wrap(err)
 	}
 
 	var output bytes.Buffer
 	tmpl, err := template.New("module").Parse(goTmpl)
 	if err != nil {
-		return empty, err
+		return empty, errtrace.Wrap(err)
 	}
 
 	err = tmpl.Execute(&output, goModule)
 	if err != nil {
-		return empty, err
+		return empty, errtrace.Wrap(err)
 	}
 
 	return output.Bytes(), nil

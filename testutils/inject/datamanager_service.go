@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 )
@@ -32,9 +33,9 @@ func (svc *DataManagerService) Name() resource.Name {
 // Sync calls the injected Sync or the real variant.
 func (svc *DataManagerService) Sync(ctx context.Context, extra map[string]interface{}) error {
 	if svc.SyncFunc == nil {
-		return svc.Service.Sync(ctx, extra)
+		return errtrace.Wrap(svc.Service.Sync(ctx, extra))
 	}
-	return svc.SyncFunc(ctx, extra)
+	return errtrace.Wrap(svc.SyncFunc(ctx, extra))
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
@@ -42,18 +43,18 @@ func (svc *DataManagerService) DoCommand(ctx context.Context,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	if svc.DoCommandFunc == nil {
-		return svc.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(svc.Service.DoCommand(ctx, cmd))
 	}
-	return svc.DoCommandFunc(ctx, cmd)
+	return errtrace.Wrap2(svc.DoCommandFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (svc *DataManagerService) Status(ctx context.Context) (map[string]interface{}, error) {
 	if svc.StatusFunc != nil {
-		return svc.StatusFunc(ctx)
+		return errtrace.Wrap2(svc.StatusFunc(ctx))
 	}
 	if svc.Service != nil {
-		return svc.Service.Status(ctx)
+		return errtrace.Wrap2(svc.Service.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }
@@ -64,7 +65,7 @@ func (svc *DataManagerService) Close(ctx context.Context) error {
 		if svc.Service == nil {
 			return nil
 		}
-		return svc.Service.Close(ctx)
+		return errtrace.Wrap(svc.Service.Close(ctx))
 	}
-	return svc.CloseFunc(ctx)
+	return errtrace.Wrap(svc.CloseFunc(ctx))
 }

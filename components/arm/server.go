@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -39,11 +40,11 @@ func (s *serviceServer) GetEndPosition(
 ) (*pb.GetEndPositionResponse, error) {
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pos, err := arm.EndPosition(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// Return a default empty value if the position returned is nil,
 	// this guards against nil objects being transferred over the wire.
@@ -59,18 +60,18 @@ func (s *serviceServer) GetEndPosition(
 func (s *serviceServer) GetJointPositions(ctx context.Context, req *pb.GetJointPositionsRequest) (*pb.GetJointPositionsResponse, error) {
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pos, err := arm.JointPositions(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
 	//nolint:errcheck
 	m, _ := arm.Kinematics(ctx)
 	jp, err := referenceframe.JointPositionsFromInputs(m, pos)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetJointPositionsResponse{Positions: jp}, nil
 }
@@ -80,15 +81,15 @@ func (s *serviceServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositi
 	operation.CancelOtherWithLabel(ctx, req.Name)
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	s.logger.Debugw("Move to position", "res", req.Name, "getTo", req.GetTo())
-	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(
+	return &pb.MoveToPositionResponse{}, errtrace.Wrap(arm.MoveToPosition(
 		ctx,
 		spatialmath.NewPoseFromProtobuf(req.GetTo()),
 		req.Extra.AsMap(),
-	)
+	))
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
@@ -99,7 +100,7 @@ func (s *serviceServer) MoveToJointPositions(
 	operation.CancelOtherWithLabel(ctx, req.Name)
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	s.logger.Debugw("Move to joint positions", "res", req.Name, "pos", req.Positions)
@@ -108,9 +109,9 @@ func (s *serviceServer) MoveToJointPositions(
 	m, _ := arm.Kinematics(ctx)
 	inputs, err := referenceframe.InputsFromJointPositions(m, req.Positions)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, inputs, req.Extra.AsMap())
+	return &pb.MoveToJointPositionsResponse{}, errtrace.Wrap(arm.MoveToJointPositions(ctx, inputs, req.Extra.AsMap()))
 }
 
 // MoveThroughJointPositions moves an arm of the underlying robot through the requested joint positions.
@@ -121,7 +122,7 @@ func (s *serviceServer) MoveThroughJointPositions(
 	operation.CancelOtherWithLabel(ctx, req.Name)
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	s.logger.Debugw("Move through joint positions", "res", req.Name, "pos", req.Positions)
@@ -132,12 +133,12 @@ func (s *serviceServer) MoveThroughJointPositions(
 	for _, position := range req.Positions {
 		inputs, err := referenceframe.InputsFromJointPositions(m, position)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		allInputs = append(allInputs, inputs)
 	}
 	err = arm.MoveThroughJointPositions(ctx, allInputs, moveOptionsFromProtobuf(req.Options), req.Extra.AsMap())
-	return &pb.MoveThroughJointPositionsResponse{}, err
+	return &pb.MoveThroughJointPositionsResponse{}, errtrace.Wrap(err)
 }
 
 // Stop stops the arm specified.
@@ -145,20 +146,20 @@ func (s *serviceServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.Stop
 	operation.CancelOtherWithLabel(ctx, req.Name)
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return &pb.StopResponse{}, arm.Stop(ctx, req.Extra.AsMap())
+	return &pb.StopResponse{}, errtrace.Wrap(arm.Stop(ctx, req.Extra.AsMap()))
 }
 
 // IsMoving queries of a component is in motion.
 func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
 	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	moving, err := arm.IsMoving(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
@@ -166,7 +167,7 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
@@ -176,32 +177,32 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 		if strings.Contains(err.Error(), unimplemented) {
 			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			model, err := referenceframe.KinematicModelFromProtobuf(req.GetName(), kinematicsPbResp)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
 			jointPbResp, err := s.GetJointPositions(ctx, &pb.GetJointPositionsRequest{Name: req.GetName()})
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			jointPositionsPb := jointPbResp.GetPositions()
 
 			// Joint positions are in degrees but model.Geometries expects radians, so we convert them here.
 			jointPositionsRads, err := referenceframe.InputsFromJointPositions(model, jointPositionsPb)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			gifs, err := model.Geometries(jointPositionsRads)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
 				gifs.Geometries())}, nil
 		}
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
@@ -210,11 +211,11 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DModelsRequest) (*commonpb.Get3DModelsResponse, error) {
 	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	models, err := arm.Get3DModels(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.Get3DModelsResponse{Models: models}, nil
 }
@@ -223,11 +224,11 @@ func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DMode
 func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
 	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	model, err := arm.Kinematics(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return referenceframe.KinematicModelToProtobuf(model), nil
 }
@@ -238,18 +239,18 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	s.logger.Debugw("DoCommand", "res", req.Name, "req", req)
-	return protoutils.DoFromResourceServer(ctx, arm, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, arm, req))
 }
 
 // GetStatus returns the status of the arm.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

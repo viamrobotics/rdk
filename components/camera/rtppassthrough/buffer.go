@@ -23,6 +23,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -62,11 +63,11 @@ type Buffer struct {
 // that the subscription has terminated.
 func NewSubscription(size int) (Subscription, *Buffer, error) {
 	if size < 0 {
-		return NilSubscription, nil, ErrBufferSize
+		return NilSubscription, nil, errtrace.Wrap(ErrBufferSize)
 	}
 	buffer, err := ringbuffer.New(uint64(size))
 	if err != nil {
-		return NilSubscription, nil, err
+		return NilSubscription, nil, errtrace.Wrap(err)
 	}
 
 	terminated, terminatedFn := context.WithCancel(context.Background())
@@ -97,11 +98,11 @@ func (w *Buffer) Publish(cb func()) error {
 	rawErr := w.err.Load()
 
 	if err, ok := rawErr.(error); ok && err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	ok := w.buffer.Push(cb)
 	if !ok {
-		return ErrQueueFull
+		return errtrace.Wrap(ErrQueueFull)
 	}
 	return nil
 }

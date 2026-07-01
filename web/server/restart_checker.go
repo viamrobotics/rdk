@@ -8,6 +8,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 )
@@ -31,7 +32,7 @@ func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.
 	service := apppb.NewRobotServiceClient(c.client)
 	res, err := service.NeedsRestart(ctx, &apppb.NeedsRestartRequest{Id: c.cfg.ID})
 	if err != nil {
-		return false, defaultNeedsRestartCheckInterval, err
+		return false, defaultNeedsRestartCheckInterval, errtrace.Wrap(err)
 	}
 
 	restartInterval := res.RestartCheckInterval.AsDuration()

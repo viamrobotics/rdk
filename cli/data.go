@@ -30,6 +30,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 )
 
@@ -127,30 +128,30 @@ type dataExportTabularArgs struct {
 func DataExportBinaryAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.dataExportBinaryAction(ctx, cmd, args)
+	return errtrace.Wrap(client.dataExportBinaryAction(ctx, cmd, args))
 }
 
 // DataExportBinaryIDsAction is the corresponding action for 'data export binary ids'.
 func DataExportBinaryIDsAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryIDsArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.dataExportBinaryIDsAction(ctx, args)
+	return errtrace.Wrap(client.dataExportBinaryIDsAction(ctx, args))
 }
 
 // DataExportTabularAction is the corresponding action for 'data export tabular'.
 func DataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExportTabularArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.dataExportTabularAction(ctx, cmd, args)
+	return errtrace.Wrap(client.dataExportTabularAction(ctx, cmd, args))
 }
 
 type dataQuerySQLArgs struct {
@@ -163,10 +164,10 @@ type dataQuerySQLArgs struct {
 func DataQuerySQLAction(ctx context.Context, cmd *cli.Command, args dataQuerySQLArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.dataQuerySQLAction(ctx, args)
+	return errtrace.Wrap(client.dataQuerySQLAction(ctx, args))
 }
 
 type dataQueryMQLArgs struct {
@@ -183,10 +184,10 @@ type dataQueryMQLArgs struct {
 func DataQueryMQLAction(ctx context.Context, cmd *cli.Command, args dataQueryMQLArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.dataQueryMQLAction(ctx, args)
+	return errtrace.Wrap(client.dataQueryMQLAction(ctx, args))
 }
 
 type dataQueryBinaryArgs struct {
@@ -198,15 +199,15 @@ type dataQueryBinaryArgs struct {
 func DataQueryBinaryAction(ctx context.Context, cmd *cli.Command, args dataQueryBinaryArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	filter, err := createDataFilter(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.dataQueryBinaryAction(ctx, args, filter)
+	return errtrace.Wrap(client.dataQueryBinaryAction(ctx, args, filter))
 }
 
 type dataTagByFilterArgs struct {
@@ -217,27 +218,27 @@ type dataTagByFilterArgs struct {
 func DataTagActionByFilter(ctx context.Context, cmd *cli.Command, args dataTagByFilterArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	filter, err := createDataFilter(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	switch cmd.Name {
 	case dataCommandAdd:
 		if err := client.dataAddTagsToBinaryByFilter(filter, args.Tags); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		return nil
 	case dataCommandRemove:
 		if err := client.dataRemoveTagsFromBinaryByFilter(filter, args.Tags); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		return nil
 	default:
-		return errors.Errorf("command must be add or remove, got %q", cmd.Name)
+		return errtrace.Wrap(errors.Errorf("command must be add or remove, got %q", cmd.Name))
 	}
 }
 
@@ -250,22 +251,22 @@ type dataTagByIDsArgs struct {
 func DataTagActionByIDs(ctx context.Context, cmd *cli.Command, args dataTagByIDsArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	switch cmd.Name {
 	case dataCommandAdd:
 		if err := client.dataAddTagsToBinaryByIDs(args.Tags, args.BinaryDataIDs); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		return nil
 	case dataCommandRemove:
 		if err := client.dataRemoveTagsFromBinaryByIDs(args.Tags, args.BinaryDataIDs); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		return nil
 	default:
-		return errors.Errorf("command must be add or remove, got %q", cmd.Name)
+		return errtrace.Wrap(errors.Errorf("command must be add or remove, got %q", cmd.Name))
 	}
 }
 
@@ -273,15 +274,15 @@ func DataTagActionByIDs(ctx context.Context, cmd *cli.Command, args dataTagByIDs
 func DataDeleteBinaryAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	filter, err := createDataFilter(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.deleteBinaryData(filter); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -294,15 +295,15 @@ type dataDeleteTabularArgs struct {
 // DataDeleteTabularAction is the corresponding action for 'data delete-tabular'.
 func DataDeleteTabularAction(ctx context.Context, cmd *cli.Command, args dataDeleteTabularArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to delete tabular data")
+		return errtrace.Wrap(errors.New("must provide an organization ID to delete tabular data"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := client.deleteTabularData(args.OrgID, args.DeleteOlderThanDays); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -378,7 +379,7 @@ func createDataFilter(cmd *cli.Command) (*datapb.Filter, error) {
 	if args.Start != "" || args.End != "" {
 		interval, err := createCaptureInterval(args.Start, args.End)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		filter.Interval = interval
@@ -405,14 +406,14 @@ func createExportTabularRequest(c *cli.Command) (*datapb.ExportTabularDataReques
 	if args.AdditionalParams != "" {
 		var additionalParams *structpb.Struct
 		if err := json.Unmarshal([]byte(args.AdditionalParams), &additionalParams); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		request.AdditionalParameters = additionalParams
 	}
 
 	interval, err := createCaptureInterval(args.Start, args.End)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	request.Interval = interval
@@ -423,12 +424,12 @@ func createExportTabularRequest(c *cli.Command) (*datapb.ExportTabularDataReques
 func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, error) {
 	start, err := parseTimeString(startStr)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	end, err := parseTimeString(endStr)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &datapb.CaptureInterval{
@@ -440,11 +441,11 @@ func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, er
 func (c *viamClient) dataExportBinaryAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryArgs) error {
 	filter, err := createDataFilter(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := c.binaryData(ctx, args.Destination, filter, args.Parallel, args.Timeout); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -455,7 +456,7 @@ func (c *viamClient) dataExportBinaryIDsAction(ctx context.Context, args dataExp
 		if result == nil { // nil result means success
 			printf(c.c.Root().Writer, "Downloaded %d files", len(args.BinaryDataIDs))
 		}
-		return result
+		return errtrace.Wrap(result)
 	}
 	return nil
 }
@@ -463,11 +464,11 @@ func (c *viamClient) dataExportBinaryIDsAction(ctx context.Context, args dataExp
 func (c *viamClient) dataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExportTabularArgs) error {
 	request, err := createExportTabularRequest(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := c.tabularData(args.Destination, request); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -475,10 +476,10 @@ func (c *viamClient) dataExportTabularAction(ctx context.Context, cmd *cli.Comma
 
 func (c *viamClient) dataQuerySQLAction(ctx context.Context, args dataQuerySQLArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID")
+		return errtrace.Wrap(errors.New("must provide an organization ID"))
 	}
 	if args.SQL == "" {
-		return errors.New("must provide a SQL query")
+		return errtrace.Wrap(errors.New("must provide a SQL query"))
 	}
 
 	resp, err := c.dataClient.TabularDataBySQL(ctx, &datapb.TabularDataBySQLRequest{
@@ -486,44 +487,44 @@ func (c *viamClient) dataQuerySQLAction(ctx context.Context, args dataQuerySQLAr
 		SqlQuery:       args.SQL,
 	})
 	if err != nil {
-		return errors.Wrap(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrap(err, serverErrorMessage))
 	}
 
-	return writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData())
+	return errtrace.Wrap(writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData()))
 }
 
 func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID")
+		return errtrace.Wrap(errors.New("must provide an organization ID"))
 	}
 	if args.PipelineID != "" && args.PipelineName != "" {
-		return errors.Errorf("--%s and --%s cannot both be provided",
-			dataFlagPipelineID, dataFlagPipelineName)
+		return errtrace.Wrap(errors.Errorf("--%s and --%s cannot both be provided",
+			dataFlagPipelineID, dataFlagPipelineName))
 	}
 	hasPipelineRef := args.PipelineID != "" || args.PipelineName != ""
 	if hasPipelineRef && args.DataSourceType == "" {
-		return errors.Errorf("--%s is required when --%s or --%s is provided",
-			dataFlagDataSourceType, dataFlagPipelineID, dataFlagPipelineName)
+		return errtrace.Wrap(errors.Errorf("--%s is required when --%s or --%s is provided",
+			dataFlagDataSourceType, dataFlagPipelineID, dataFlagPipelineName))
 	}
 	if args.DataSourceType == pipelineSinkDataSourceType && !hasPipelineRef {
-		return errors.Errorf("--%s or --%s is required when --%s=%s",
-			dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType)
+		return errtrace.Wrap(errors.Errorf("--%s or --%s is required when --%s=%s",
+			dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType))
 	}
 	if args.DataSourceType != "" && args.DataSourceType != pipelineSinkDataSourceType && hasPipelineRef {
-		return errors.Errorf("--%s and --%s are only valid when --%s=%s",
-			dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType)
+		return errtrace.Wrap(errors.Errorf("--%s and --%s are only valid when --%s=%s",
+			dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType))
 	}
 
 	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	pipelineID := args.PipelineID
 	if args.PipelineName != "" {
 		resolved, err := c.resolvePipelineIDByName(ctx, args.OrgID, args.PipelineName)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		pipelineID = resolved
 	}
@@ -536,17 +537,17 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 	if args.DataSourceType != "" {
 		dataSource, err := buildTabularDataSource(args.DataSourceType, pipelineID)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		request.DataSource = dataSource
 	}
 
 	resp, err := c.dataClient.TabularDataByMQL(ctx, request)
 	if err != nil {
-		return errors.Wrap(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrap(err, serverErrorMessage))
 	}
 
-	return writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData())
+	return errtrace.Wrap(writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData()))
 }
 
 // forEachBinaryDataByFilter pages through BinaryDataByFilter for the given filter, invoking fn on
@@ -558,13 +559,13 @@ func forEachBinaryDataByFilter(
 	var last string
 	for {
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		resp, err := client.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{Filter: filter, Limit: pageLimit, Last: last},
 		})
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if len(resp.GetData()) == 0 {
 			return nil
@@ -573,7 +574,7 @@ func forEachBinaryDataByFilter(
 		for _, bd := range resp.GetData() {
 			stop, err := fn(bd)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			if stop {
 				return nil
@@ -588,12 +589,12 @@ func (c *viamClient) dataQueryBinaryAction(ctx context.Context, args dataQueryBi
 	var filePath string
 	if args.Destination != "" {
 		if err := makeDestinationDirs(args.Destination); err != nil {
-			return errors.Wrap(err, "could not create destination directory")
+			return errtrace.Wrap(errors.Wrap(err, "could not create destination directory"))
 		}
 		filePath = filepath.Join(args.Destination, dataFileName)
 		f, err := os.Create(filePath) //nolint:gosec
 		if err != nil {
-			return errors.Wrap(err, "could not create data file")
+			return errtrace.Wrap(errors.Wrap(err, "could not create data file"))
 		}
 		defer f.Close() //nolint:errcheck
 		out = f
@@ -609,19 +610,19 @@ func (c *viamClient) dataQueryBinaryAction(ctx context.Context, args dataQueryBi
 		func(bd *datapb.BinaryData) (bool, error) {
 			jsonRow, err := protojson.Marshal(bd.GetMetadata())
 			if err != nil {
-				return false, errors.Wrap(err, "error formatting query result")
+				return false, errtrace.Wrap(errors.Wrap(err, "error formatting query result"))
 			}
 			if err := writeData(bw, jsonRow); err != nil {
-				return false, errors.Wrap(err, "error writing data")
+				return false, errtrace.Wrap(errors.Wrap(err, "error writing data"))
 			}
 			written++
 			return args.Limit > 0 && written >= args.Limit, nil // stop at --limit
 		})
 	if err != nil {
-		return errors.Wrap(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrap(err, serverErrorMessage))
 	}
 	if err := bw.Flush(); err != nil {
-		return errors.Wrap(err, "error writing query results")
+		return errtrace.Wrap(errors.Wrap(err, "error writing query results"))
 	}
 	if filePath != "" {
 		printf(c.c.Root().Writer, "Wrote %d results to %s", written, filePath)
@@ -632,7 +633,7 @@ func (c *viamClient) dataQueryBinaryAction(ctx context.Context, args dataQueryBi
 func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularDataSource, error) {
 	sourceType, err := dataSourceTypeToProto(dataSourceType, tabularDataByMQLDataSourceTypes)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	source := &datapb.TabularDataSource{Type: sourceType}
 	if sourceType == datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK {
@@ -648,7 +649,7 @@ func dataSourceTypeToProto(name string, allowed []string) (datapb.TabularDataSou
 		return dataSourceTypeProtos[name], nil
 	}
 	return datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
-		fmt.Errorf("invalid data source type: %q. Supported values: %v", name, allowed)
+		errtrace.Wrap(fmt.Errorf("invalid data source type: %q. Supported values: %v", name, allowed))
 }
 
 // writeQueryResults converts BSON-encoded rows to NDJSON (Relaxed Extended JSON) and writes them
@@ -658,12 +659,12 @@ func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
 	var filePath string
 	if dest != "" {
 		if err := makeDestinationDirs(dest); err != nil {
-			return errors.Wrap(err, "could not create destination directory")
+			return errtrace.Wrap(errors.Wrap(err, "could not create destination directory"))
 		}
 		filePath = filepath.Join(dest, dataFileName)
 		f, err := os.Create(filePath) //nolint:gosec
 		if err != nil {
-			return errors.Wrap(err, "could not create data file")
+			return errtrace.Wrap(errors.Wrap(err, "could not create data file"))
 		}
 		defer f.Close() //nolint:errcheck
 		out = f
@@ -673,18 +674,18 @@ func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
 	for _, row := range rows {
 		var doc bson.D
 		if err := bson.Unmarshal(row, &doc); err != nil {
-			return errors.Wrap(err, "error decoding query result")
+			return errtrace.Wrap(errors.Wrap(err, "error decoding query result"))
 		}
 		jsonRow, err := bson.MarshalExtJSON(doc, false, false)
 		if err != nil {
-			return errors.Wrap(err, "error formatting query result")
+			return errtrace.Wrap(errors.Wrap(err, "error formatting query result"))
 		}
 		if err := writeData(bw, jsonRow); err != nil {
-			return errors.Wrap(err, "error writing data")
+			return errtrace.Wrap(errors.Wrap(err, "error writing data"))
 		}
 	}
 	if err := bw.Flush(); err != nil {
-		return errors.Wrap(err, "error writing query results")
+		return errtrace.Wrap(errors.Wrap(err, "error writing query results"))
 	}
 
 	if filePath != "" {
@@ -695,15 +696,15 @@ func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
 
 // BinaryData downloads binary data matching filter to dst.
 func (c *viamClient) binaryData(ctx context.Context, dst string, filter *datapb.Filter, parallelDownloads, timeout uint) error {
-	return c.performActionOnBinaryDataFromFilter(
+	return errtrace.Wrap(c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
-			return c.downloadBinary(ctx, dst, timeout, id)
+			return errtrace.Wrap(c.downloadBinary(ctx, dst, timeout, id))
 		},
 		filter, parallelDownloads,
 		func(i int32) {
 			printf(c.c.Root().Writer, "Downloaded %d files", i)
 		},
-	)
+	))
 }
 
 // performActionOnBinaryDataFromFilter is a helper action that retrieves all BinaryIDs associated with
@@ -774,7 +775,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 	for err := range errs {
 		allErrs = multierr.Append(allErrs, err)
 	}
-	return allErrs
+	return errtrace.Wrap(allErrs)
 }
 
 // getMatchingBinaryIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
@@ -782,11 +783,11 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	ids chan string, limit uint,
 ) error {
 	defer close(ids)
-	return forEachBinaryDataByFilter(ctx, client, filter, uint64(limit),
+	return errtrace.Wrap(forEachBinaryDataByFilter(ctx, client, filter, uint64(limit),
 		func(bd *datapb.BinaryData) (bool, error) {
 			ids <- bd.GetMetadata().GetBinaryDataId()
 			return false, nil
-		})
+		}))
 }
 
 // Check for the errors returned from server that we send if the requested file is too large.
@@ -801,7 +802,7 @@ func isLargeFileError(err error) bool {
 func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uint, ids ...string) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	debugf(c.c.Root().Writer, args.Debug, "Attempting to download binary files: %v", ids)
 
@@ -812,7 +813,7 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 	// save the download.
 	ids, err = c.skipAlreadyDownloaded(ctx, dst, ids, args.Debug)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if len(ids) == 0 {
 		return nil
@@ -850,14 +851,14 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 		}
 	}
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 
 	data := resp.GetData()
 
 	// Loop through responses and download each file
 	if len(data) != len(ids) {
-		return errors.Errorf("expected %d responses for %d files, received %d responses", len(ids), len(ids), len(data))
+		return errtrace.Wrap(errors.Errorf("expected %d responses for %d files, received %d responses", len(ids), len(ids), len(data)))
 	}
 
 	for i, datum := range data {
@@ -869,26 +870,26 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 
 		jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
 		if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
-			return errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath))
+			return errtrace.Wrap(errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath)))
 		}
 		//nolint:gosec
 		jsonFile, err := os.Create(jsonPath)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		mdJSONBytes, err := protojson.Marshal(metadata)
 		if err != nil {
 			utils.UncheckedError(jsonFile.Close())
-			return err
+			return errtrace.Wrap(err)
 		}
 		if _, err := jsonFile.Write(mdJSONBytes); err != nil {
 			utils.UncheckedError(jsonFile.Close())
-			return err
+			return errtrace.Wrap(err)
 		}
 		// Close the metadata file handle; an open handle blocks TempDir cleanup on Windows.
 		if err := jsonFile.Close(); err != nil {
 			debugf(c.c.Root().Writer, args.Debug, "Failed closing metadata file %s: %s", id, err)
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		var r io.ReadCloser
@@ -897,7 +898,7 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 			// Make request to the URI for large files since we exceed the message limit for gRPC
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, datum.GetMetadata().GetUri(), nil)
 			if err != nil {
-				return errors.Wrapf(err, serverErrorMessage)
+				return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 			}
 
 			// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
@@ -928,11 +929,11 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 
 			if err != nil {
 				debugf(c.c.Root().Writer, args.Debug, "Failed downloading large file %s: %s", id, err)
-				return errors.Wrapf(err, serverErrorMessage)
+				return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 			}
 			if res.StatusCode != http.StatusOK {
 				debugf(c.c.Root().Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", id, res.StatusCode)
-				return errors.New(serverErrorMessage)
+				return errtrace.Wrap(errors.New(serverErrorMessage))
 			}
 			defer func() {
 				utils.UncheckedError(res.Body.Close())
@@ -952,33 +953,33 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 			r, err = gzip.NewReader(r)
 			if err != nil {
 				debugf(c.c.Root().Writer, args.Debug, "Failed unzipping file %s: %s", id, err)
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 
 		if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
 			debugf(c.c.Root().Writer, args.Debug, "Failed creating data directory %s: %s", dataPath, err)
-			return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
+			return errtrace.Wrap(errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath)))
 		}
 		//nolint:gosec
 		dataFile, err := os.Create(dataPath)
 		if err != nil {
 			debugf(c.c.Root().Writer, args.Debug, "Failed creating file %s: %s", id, err)
-			return errors.Wrapf(err, "could not create file for datum %s", id)
+			return errtrace.Wrap(errors.Wrapf(err, "could not create file for datum %s", id))
 		}
 		//nolint:gosec
 		if _, err := io.Copy(dataFile, r); err != nil {
 			debugf(c.c.Root().Writer, args.Debug, "Failed writing data to file %s: %s", id, err)
 			utils.UncheckedError(dataFile.Close())
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := dataFile.Close(); err != nil {
 			debugf(c.c.Root().Writer, args.Debug, "Failed closing file %s: %s", id, err)
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := r.Close(); err != nil {
 			debugf(c.c.Root().Writer, args.Debug, "Failed closing file %s: %s", id, err)
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -1016,7 +1017,7 @@ func (c *viamClient) skipAlreadyDownloaded(ctx context.Context, dst string, ids 
 		}
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, serverErrorMessage)
+		return nil, errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 
 	data := resp.GetData()
@@ -1074,7 +1075,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 // tabularData downloads unified tabular data and metadata for the requested data source and interval to the specified destination.
 func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataRequest) error {
 	if err := makeDestinationDirs(dest); err != nil {
-		return errors.Wrapf(err, "could not create destination directories")
+		return errtrace.Wrap(errors.Wrapf(err, "could not create destination directories"))
 	}
 
 	fmt.Fprintf(c.c.Root().Writer, "Downloading..") //nolint:errcheck
@@ -1084,7 +1085,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 			dataFilePath := filepath.Join(dest, dataFileName)
 			dataFile, err := os.Create(dataFilePath) //nolint:gosec
 			if err != nil {
-				return errors.Wrapf(err, "could not create data file")
+				return errtrace.Wrap(errors.Wrapf(err, "could not create data file"))
 			}
 
 			writer := bufio.NewWriter(dataFile)
@@ -1161,7 +1162,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 					if !ok {
 						if err = writer.Flush(); err != nil {
 							exportErr = errors.Wrap(err, "error writing data to file")
-							return exportErr
+							return errtrace.Wrap(exportErr)
 						}
 
 						return nil
@@ -1169,14 +1170,14 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 
 					if err = writeData(writer, dataRow); err != nil {
 						exportErr = errors.Wrap(err, "error writing data")
-						return exportErr
+						return errtrace.Wrap(exportErr)
 					}
 				case err := <-errChan:
 					exportErr = err
-					return err
+					return errtrace.Wrap(err)
 				case <-ctx.Done():
 					exportErr = ctx.Err()
-					return ctx.Err()
+					return errtrace.Wrap(ctx.Err())
 				}
 			}
 		}()
@@ -1186,7 +1187,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 		}
 
 		printf(c.c.Root().Writer, "") // newline
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -1195,18 +1196,18 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 func writeData(writer *bufio.Writer, dataRow []byte) error {
 	_, err := writer.Write(dataRow)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	err = writer.WriteByte('\n')
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Periodically flush to keep buffer size down.
 	if writer.Size() > 10_000_000 {
 		if err = writer.Flush(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -1215,7 +1216,7 @@ func writeData(writer *bufio.Writer, dataRow []byte) error {
 
 func makeDestinationDirs(dst string) error {
 	if err := os.MkdirAll(dst, 0o700); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1224,7 +1225,7 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	resp, err := c.dataClient.DeleteBinaryDataByFilter(context.Background(),
 		&datapb.DeleteBinaryDataByFilterRequest{Filter: filter})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	printf(c.c.Root().Writer, "Deleted %d files", resp.GetDeletedCount())
 	return nil
@@ -1232,39 +1233,39 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 
 func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []string) error {
 	parallelActions := uint(100)
-	return c.performActionOnBinaryDataFromFilter(
+	return errtrace.Wrap(c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
 			_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
 				&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: []string{id}})
-			return errors.Wrapf(err, serverErrorMessage)
+			return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 		},
 		filter, parallelActions,
 		func(i int32) {
 			printf(c.c.Root().Writer, "Added tags to %d files", i)
 		},
-	)
+	))
 }
 
 func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tags []string) error {
 	parallelActions := uint(100)
-	return c.performActionOnBinaryDataFromFilter(
+	return errtrace.Wrap(c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
 			_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
 				&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: []string{id}})
-			return errors.Wrapf(err, serverErrorMessage)
+			return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 		},
 		filter, parallelActions,
 		func(i int32) {
 			printf(c.c.Root().Writer, "Removed tags from %d files", i)
 		},
-	)
+	))
 }
 
 func (c *viamClient) dataAddTagsToBinaryByIDs(tags, binaryDataIDs []string) error {
 	_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
 		&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: binaryDataIDs})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	printf(c.c.Root().Writer, "Added tags %v to data", tags)
 	return nil
@@ -1276,7 +1277,7 @@ func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags, binaryDataIDs []string)
 	_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
 		&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: binaryDataIDs})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	printf(c.c.Root().Writer, "Removed tags %v from data", tags)
 	return nil
@@ -1287,7 +1288,7 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	resp, err := c.dataClient.DeleteTabularData(context.Background(),
 		&datapb.DeleteTabularDataRequest{OrganizationId: orgID, DeleteOlderThanDays: uint32(deleteOlderThanDays)})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	printf(c.c.Root().Writer, "Deleted %d datapoints", resp.GetDeletedCount())
 	return nil
@@ -1302,10 +1303,10 @@ type dataAddToDatasetByIDsArgs struct {
 func DataAddToDatasetByIDs(ctx context.Context, cmd *cli.Command, args dataAddToDatasetByIDsArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.dataAddToDatasetByIDs(args.DatasetID, args.BinaryDataIDs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1315,7 +1316,7 @@ func (c *viamClient) dataAddToDatasetByIDs(datasetID string, binaryDataIDs []str
 	_, err := c.dataClient.AddBinaryDataToDatasetByIDs(context.Background(),
 		&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: binaryDataIDs})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	printf(c.c.Root().Writer, "Added data to dataset ID %s", datasetID)
 	return nil
@@ -1329,14 +1330,14 @@ type dataAddToDatasetByFilterArgs struct {
 func DataAddToDatasetByFilter(ctx context.Context, cmd *cli.Command, args dataAddToDatasetByFilterArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	filter, err := createDataFilter(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.dataAddToDatasetByFilter(ctx, filter, args.DatasetID); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1345,7 +1346,7 @@ func DataAddToDatasetByFilter(ctx context.Context, cmd *cli.Command, args dataAd
 func (c *viamClient) dataAddToDatasetByFilter(ctx context.Context, filter *datapb.Filter, datasetID string) error {
 	parallelActions := uint(100)
 
-	return c.performActionOnBinaryDataFromFilter(
+	return errtrace.Wrap(c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
 			var err error
 			for attempt := 0; attempt < maxRetryCount; attempt++ {
@@ -1353,7 +1354,7 @@ func (c *viamClient) dataAddToDatasetByFilter(ctx context.Context, filter *datap
 					select {
 					case <-time.After(time.Duration(1<<(attempt-1)) * time.Second):
 					case <-ctx.Done():
-						return ctx.Err()
+						return errtrace.Wrap(ctx.Err())
 					}
 				}
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -1361,16 +1362,16 @@ func (c *viamClient) dataAddToDatasetByFilter(ctx context.Context, filter *datap
 					&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: []string{id}})
 				cancel()
 				if err == nil || (status.Code(err) != codes.Unavailable && status.Code(err) != codes.DeadlineExceeded) {
-					return err
+					return errtrace.Wrap(err)
 				}
 				printf(c.c.Root().Writer, "Retrying add data to dataset ID %s: attempt %d/%d, error: %v", datasetID, attempt+1, maxRetryCount, err)
 			}
-			return err
+			return errtrace.Wrap(err)
 		},
 		filter, parallelActions,
 		func(i int32) {
 			printf(c.c.Root().Writer, "Added %d files to dataset ID %s", i, datasetID)
-		})
+		}))
 }
 
 type dataRemoveFromDatasetArgs struct {
@@ -1382,10 +1383,10 @@ type dataRemoveFromDatasetArgs struct {
 func DataRemoveFromDataset(ctx context.Context, cmd *cli.Command, args dataRemoveFromDatasetArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.dataRemoveFromDataset(args.DatasetID, args.BinaryDataIDs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1395,7 +1396,7 @@ func (c *viamClient) dataRemoveFromDataset(datasetID string, binaryDataIDs []str
 	_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(context.Background(),
 		&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: binaryDataIDs})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	printf(c.c.Root().Writer, "Removed data from dataset ID %s", datasetID)
 	return nil
@@ -1409,18 +1410,18 @@ type dataRemoveFromDatasetByFilterArgs struct {
 func DataRemoveFromDatasetByFilter(ctx context.Context, cmd *cli.Command, args dataRemoveFromDatasetByFilterArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	filter, err := createDataFilter(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// set the dataset ID in the filter, so that we do not attempt to remove data that is not in the dataset
 	filter.DatasetId = args.DatasetID
 
 	if err := client.dataRemoveFromDatasetByFilter(ctx, filter, args.DatasetID); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1428,20 +1429,20 @@ func DataRemoveFromDatasetByFilter(ctx context.Context, cmd *cli.Command, args d
 // dataRemoveFromDatasetByFilter removes binary data from the specified filter from dataset.
 func (c *viamClient) dataRemoveFromDatasetByFilter(ctx context.Context, filter *datapb.Filter, datasetID string) error {
 	if err := c.ensureLoggedIn(ctx); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	parallelActions := uint(100)
 
-	return c.performActionOnBinaryDataFromFilter(
+	return errtrace.Wrap(c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
 			_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(ctx,
 				&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: []string{id}})
-			return err
+			return errtrace.Wrap(err)
 		},
 		filter, parallelActions,
 		func(i int32) {
 			printf(c.c.Root().Writer, "Removed %d files from dataset ID %s", i, datasetID)
-		})
+		}))
 }
 
 type dataConfigureDatabaseUserArgs struct {
@@ -1454,17 +1455,17 @@ type dataConfigureDatabaseUserArgs struct {
 // credentials of their database.
 func DataConfigureDatabaseUserConfirmation(ctx context.Context, cmd *cli.Command, args dataConfigureDatabaseUserArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to configure database user")
+		return errtrace.Wrap(errors.New("must provide an organization ID to configure database user"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	res, err := client.dataGetDatabaseConnection(args.OrgID)
 	// if the error is adf doesn't exist for org yet, continue and skip HasDatabaseUser check
 	if err != nil && !strings.Contains(err.Error(), noExistingADFErrCode) {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// skip this check if we don't have an existing ADF instance
@@ -1478,17 +1479,17 @@ func DataConfigureDatabaseUserConfirmation(ctx context.Context, cmd *cli.Command
 		printf(cmd.Root().Writer, yellow, "Do you want to continue?")
 		printf(cmd.Root().Writer, "Continue: y/n")
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		rawInput, err := bufio.NewReader(cmd.Root().Reader).ReadString('\n')
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		input := strings.ToUpper(strings.TrimSpace(rawInput))
 		if input != "Y" {
-			return errors.New("aborted")
+			return errtrace.Wrap(errors.New("aborted"))
 		}
 	}
 
@@ -1499,10 +1500,10 @@ func DataConfigureDatabaseUserConfirmation(ctx context.Context, cmd *cli.Command
 func DataConfigureDatabaseUser(ctx context.Context, cmd *cli.Command, args dataConfigureDatabaseUserArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.dataConfigureDatabaseUser(args.OrgID, args.Password); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1514,7 +1515,7 @@ func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
 	_, err := c.dataClient.ConfigureDatabaseUser(context.Background(),
 		&datapb.ConfigureDatabaseUserRequest{OrganizationId: orgID, Password: password})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	printf(c.c.Root().Writer, "Configured database user for org %s", orgID)
 	return nil
@@ -1527,15 +1528,15 @@ type dataGetDatabaseConnectionArgs struct {
 // DataGetDatabaseConnection is the corresponding action for 'data database hostname'.
 func DataGetDatabaseConnection(ctx context.Context, cmd *cli.Command, args dataGetDatabaseConnectionArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to get a database connection")
+		return errtrace.Wrap(errors.New("must provide an organization ID to get a database connection"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	res, err := client.dataGetDatabaseConnection(args.OrgID)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(client.c.Root().Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
 	printf(client.c.Root().Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
@@ -1547,7 +1548,7 @@ func DataGetDatabaseConnection(ctx context.Context, cmd *cli.Command, args dataG
 func (c *viamClient) dataGetDatabaseConnection(orgID string) (*datapb.GetDatabaseConnectionResponse, error) {
 	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
 	if err != nil {
-		return nil, errors.Wrapf(err, serverErrorMessage)
+		return nil, errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	return res, nil
 }

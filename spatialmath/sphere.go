@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -24,7 +25,7 @@ type sphere struct {
 // NewSphere instantiates a new sphere Geometry.
 func NewSphere(offset Pose, radius float64, label string) (Geometry, error) {
 	if radius <= 0 {
-		return nil, newBadGeometryDimensionsError(&sphere{})
+		return nil, errtrace.Wrap(newBadGeometryDimensionsError(&sphere{}))
 	}
 	return &sphere{offset, radius, label}, nil
 }
@@ -32,11 +33,11 @@ func NewSphere(offset Pose, radius float64, label string) (Geometry, error) {
 func (s sphere) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(&s)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	config.Type = "sphere"
 	config.R = s.radius
-	return json.Marshal(config)
+	return errtrace.Wrap2(json.Marshal(config))
 }
 
 func (s *sphere) Hash() int {
@@ -99,9 +100,9 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
-		return other.CollidesWith(s, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(s, collisionBufferMM))
 	case *Cylinder:
-		return other.CollidesWith(s, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(s, collisionBufferMM))
 	case *sphere:
 		// Sphere-sphere distance is cheap, so we can return it
 		dist := sphereVsSphereDistance(s, other)
@@ -130,16 +131,16 @@ func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 		}
 		return false, dist, nil
 	default:
-		return true, collisionBufferMM, newCollisionTypeUnsupportedError(s, g)
+		return true, collisionBufferMM, errtrace.Wrap(newCollisionTypeUnsupportedError(s, g))
 	}
 }
 
 func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
-		return other.DistanceFrom(s)
+		return errtrace.Wrap2(other.DistanceFrom(s))
 	case *Cylinder:
-		return other.DistanceFrom(s)
+		return errtrace.Wrap2(other.DistanceFrom(s))
 	case *box:
 		return sphereVsBoxDistance(s, other), nil
 	case *sphere:
@@ -149,7 +150,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	case *point:
 		return sphereVsPointDistance(s, other.position), nil
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
+		return math.Inf(-1), errtrace.Wrap(newCollisionTypeUnsupportedError(s, g))
 	}
 }
 
@@ -168,7 +169,7 @@ func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
 	case *point:
 		return false, nil
 	default:
-		return true, newCollisionTypeUnsupportedError(s, g)
+		return true, errtrace.Wrap(newCollisionTypeUnsupportedError(s, g))
 	}
 }
 

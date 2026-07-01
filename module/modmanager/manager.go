@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	rdkgrpc "go.viam.com/rdk/grpc"
@@ -45,7 +46,7 @@ func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
 ) (*Manager, error) {
 	if options.HandleOrphanedResources == nil {
-		return nil, errors.New("Cannot construct modmanager without a handleOrphanedResources function")
+		return nil, errtrace.Wrap(errors.New("Cannot construct modmanager without a handleOrphanedResources function"))
 	}
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	ret := &Manager{
@@ -167,7 +168,7 @@ func (mgr *Manager) Close(ctx context.Context) error {
 		err = multierr.Combine(err, mgr.closeModule(mod, false))
 		return true
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // Kill will kill all processes in the module's process group.
@@ -234,7 +235,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	if mgr.untrustedEnv {
 		allowed, newConfs := checkIfAllowed(confs...)
 		if !allowed {
-			return errModularResourcesDisabled
+			return errtrace.Wrap(errModularResourcesDisabled)
 		}
 		// overwrite with just the modules we've allowed
 		confs = newConfs
@@ -290,7 +291,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		}
 		mgr.logger.CInfow(ctx, "Modules successfully added", "modules", addedModNames)
 	}
-	return combinedErr
+	return errtrace.Wrap(combinedErr)
 }
 
 func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger logging.Logger) error {
@@ -303,7 +304,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 
 	exists, existingName := mgr.execPathAlreadyExists(&conf)
 	if exists {
-		return errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
+		return errtrace.Wrap(errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name))
 	}
 
 	var moduleDataDir string
@@ -313,7 +314,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
 		moduleDataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -326,7 +327,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -340,13 +341,13 @@ func (mgr *Manager) parentAddr(mod *module) string {
 }
 
 func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHandler) error {
-	return mod.startProcess(
+	return errtrace.Wrap(mod.startProcess(
 		mgr.restartCtx,
 		mgr.parentAddr(mod),
 		oue,
 		mgr.viamHomeDir,
 		mgr.packagesDir,
-	)
+	))
 }
 
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
@@ -361,7 +362,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	if mod.dataDir != "" {
 		mod.logger.Debugf("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
-			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
+			return errtrace.Wrap(errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name))
 		}
 	}
 
@@ -372,18 +373,18 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	var moduleRestartCtx context.Context
 	moduleRestartCtx, mod.restartCancel = context.WithCancel(mgr.restartCtx)
 	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(moduleRestartCtx, mod)); err != nil {
-		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
+		return errtrace.Wrap(errors.WithMessage(err, "error while starting module "+mod.cfg.Name))
 	}
 
 	// Does a gRPC dial. Sets up a SharedConn with a PeerConnection that is not yet connected.
 	if err := mod.dial(); err != nil {
-		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
+		return errtrace.Wrap(errors.WithMessage(err, "error while dialing module "+mod.cfg.Name))
 	}
 
 	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
 	// after this, so long as the module supports it.
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
-		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
+		return errtrace.Wrap(errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name))
 	}
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
@@ -404,12 +405,12 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules.Load(conf.Name)
 	if !exists {
-		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
+		return nil, errtrace.Wrap(errors.Errorf("cannot reconfigure module %s as it does not exist", conf.Name))
 	}
 
 	exists, existingName := mgr.execPathAlreadyExists(&conf)
 	if exists {
-		return nil, errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
+		return nil, errtrace.Wrap(errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name))
 	}
 
 	handledResources := mod.resources
@@ -424,7 +425,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	if err := mgr.closeModule(mod, true); err != nil {
 		// If removal fails, assume all handled resources are orphaned.
-		return handledResourceNames, err
+		return handledResourceNames, errtrace.Wrap(err)
 	}
 
 	mod.cfg = conf
@@ -436,7 +437,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		// could not start module during reconfiguration, add it to failedModules
 		mgr.AddToFailedModules(conf.Name)
 		// If re-addition fails, assume all handled resources are orphaned.
-		return handledResourceNames, err
+		return handledResourceNames, errtrace.Wrap(err)
 	}
 
 	// reconfiguration successful, remove from failed modules
@@ -457,7 +458,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules.Load(modName)
 	if !exists {
-		return nil, errors.Errorf("cannot remove module %s as it does not exist", modName)
+		return nil, errtrace.Wrap(errors.Errorf("cannot remove module %s as it does not exist", modName))
 	}
 
 	mgr.logger.Infow("Now removing module", "module", modName)
@@ -469,7 +470,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 
 	// If module handles no resources, remove it now.
 	if len(handledResources) == 0 {
-		return nil, mgr.closeModule(mod, false)
+		return nil, errtrace.Wrap(mgr.closeModule(mod, false))
 	}
 
 	// Otherwise return the list of resources that need to be closed before the
@@ -512,7 +513,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 
 	if err := mod.stopProcess(); err != nil {
-		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
+		return errtrace.Wrap(errors.WithMessage(err, "error while stopping module "+mod.cfg.Name))
 	}
 
 	if mgr.modPeerConnTracker != nil {
@@ -539,25 +540,25 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	return mgr.addResource(ctx, conf, deps)
+	return errtrace.Wrap2(mgr.addResource(ctx, conf, deps))
 }
 
 func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mod, ok := mgr.getModule(conf)
 	if !ok {
-		return nil, errors.Errorf("no active module registered to serve resource api %s and model %s", conf.API, conf.Model)
+		return nil, errtrace.Wrap(errors.Errorf("no active module registered to serve resource api %s and model %s", conf.API, conf.Model))
 	}
 
 	mod.logger.CInfow(ctx, "Adding resource to module", "resource", conf.Name, "module", mod.cfg.Name)
 
 	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	mgr.rMap.Store(conf.ResourceName(), mod)
 
@@ -571,7 +572,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return rdkgrpc.NewForeignResource(conf.ResourceName(), &mod.sharedConn), nil
 	}
 
-	return apiInfo.RPCClient(ctx, &mod.sharedConn, "", conf.ResourceName(), mgr.logger)
+	return errtrace.Wrap2(apiInfo.RPCClient(ctx, &mod.sharedConn, "", conf.ResourceName(), mgr.logger))
 }
 
 // Configs returns a slice of config.Module representing the currently managed
@@ -631,7 +632,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mod, ok := mgr.rMap.Load(name)
 	if !ok {
 		mgr.logger.CWarnw(ctx, "resource not found in modules map", "name", name)
-		return ErrResourceNotFoundInResourceModuleMap
+		return errtrace.Wrap(ErrResourceNotFoundInResourceModuleMap)
 	}
 
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
@@ -640,12 +641,12 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil && !errors.Is(err, rdkgrpc.ErrNotConnected) {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		return multierr.Combine(err, mgr.closeModule(mod, false))
+		return errtrace.Wrap(multierr.Combine(err, mgr.closeModule(mod, false)))
 	}
 	return nil
 }
@@ -656,13 +657,13 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	mod, ok := mgr.getModule(conf)
 	if !ok {
 		return nil, nil,
-			errors.Errorf("no module registered to serve resource api %s and model %s",
-				conf.API, conf.Model)
+			errtrace.Wrap(errors.Errorf("no module registered to serve resource api %s and model %s",
+				conf.API, conf.Model))
 	}
 
 	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// Override context with new timeout.
@@ -677,7 +678,7 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// RSDK-12124: Ignore any dependency that looks like the user is trying to depend on the
@@ -820,7 +821,7 @@ func (mgr *Manager) execPathAlreadyExists(conf *config.Module) (bool, string) {
 // Modules removed from the robot config (even temporarily) will get pruned here.
 func (mgr *Manager) CleanModuleDataDirectory() error {
 	if mgr.moduleDataParentDir == "" {
-		return errors.New("cannot clean a root level module data directory")
+		return errtrace.Wrap(errors.New("cannot clean a root level module data directory"))
 	}
 	// Early exit if the moduleDataParentDir has not been created because there is nothing to clean
 	if _, err := os.Stat(mgr.moduleDataParentDir); errors.Is(err, os.ErrNotExist) {
@@ -836,26 +837,26 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 	if len(expectedDirs) == 0 {
 		mgr.logger.Infow("Removing module data parent directory", "parent dir", mgr.moduleDataParentDir)
 		if err := os.RemoveAll(mgr.moduleDataParentDir); err != nil {
-			return errors.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDir)
+			return errtrace.Wrap(errors.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDir))
 		}
 		return nil
 	}
 	// Scan dataFolder for all existing directories
 	existingDirs, err := filepath.Glob(filepath.Join(mgr.moduleDataParentDir, "*"))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// Delete directories in dataFolder that are not in expectedDirs
 	for _, dir := range existingDirs {
 		if _, expected := expectedDirs[dir]; !expected {
 			// This is already checked in module.add(), however there is no harm in double-checking before recursively deleting directories
 			if !strings.HasPrefix(filepath.Clean(dir), filepath.Clean(mgr.moduleDataParentDir)) {
-				return errors.Errorf("attempted to delete a module data dir %q which is not in the viam module data directory %q",
-					dir, mgr.moduleDataParentDir)
+				return errtrace.Wrap(errors.Errorf("attempted to delete a module data dir %q which is not in the viam module data directory %q",
+					dir, mgr.moduleDataParentDir))
 			}
 			mgr.logger.Infow("Removing module data directory", "dir", dir)
 			if err := os.RemoveAll(dir); err != nil {
-				return errors.Wrapf(err, "failed to clean module data directory %q", dir)
+				return errtrace.Wrap(errors.Wrapf(err, "failed to clean module data directory %q", dir))
 			}
 		}
 	}
@@ -1024,20 +1025,20 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
-		return err
+		return errtrace.Wrap(err)
 	}
 	processRestarted = true
 
 	if err := mod.dial(); err != nil {
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
 		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
@@ -1059,12 +1060,12 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
 		dataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir)
 
-	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
+	return errtrace.Wrap(conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger))
 }
 
 func getFullEnvironment(

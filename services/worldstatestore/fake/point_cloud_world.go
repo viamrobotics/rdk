@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/pointcloud"
 )
 
@@ -102,7 +103,7 @@ func (w *PointCloudWorld) generatePointCloud(width, height int) (pointcloud.Poin
 			colorData := pointcloud.NewColoredData(heightColor)
 
 			if err := pointCloud.Set(point, colorData); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}

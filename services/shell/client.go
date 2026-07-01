@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -53,11 +54,11 @@ func (c *client) Shell(
 ) (chan<- string, chan<- map[string]interface{}, <-chan Output, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	client, err := c.client.Shell(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	c.activeBackgroundWorkers.Add(3)
 	// prime the right service
@@ -65,7 +66,7 @@ func (c *client) Shell(
 		Name:  c.name,
 		Extra: ext, // send this once; all others are OOB
 	}); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 
 	input := make(chan string)
@@ -175,11 +176,11 @@ func (c *client) CopyFilesToMachine(
 ) (FileCopier, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	client, err := c.client.CopyFilesToMachine(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// we won't get any meaningful service level errors until the first file send
@@ -194,7 +195,7 @@ func (c *client) CopyFilesToMachine(
 			},
 		},
 	}); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// create a FileCopier that has a Copy pipeline of:
@@ -218,11 +219,11 @@ func (c *client) CopyFilesFromMachine(
 ) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	client, err := c.client.CopyFilesFromMachine(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := client.Send(&pb.CopyFilesFromMachineRequest{
@@ -236,16 +237,16 @@ func (c *client) CopyFilesFromMachine(
 			},
 		},
 	}); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	mdResp, err := client.Recv()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	md, ok := mdResp.Response.(*pb.CopyFilesFromMachineResponse_Metadata)
 	if !ok {
-		return errors.New("expected copy response metadata")
+		return errtrace.Wrap(errors.New("expected copy response metadata"))
 	}
 
 	copier, err := copyFactory.MakeFileCopier(
@@ -253,7 +254,7 @@ func (c *client) CopyFilesFromMachine(
 		CopyFilesSourceTypeFromProto(md.Metadata.SourceType),
 	)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// create a FileCopyReader that has a Read/Copy pipeline of:
@@ -264,13 +265,13 @@ func (c *client) CopyFilesFromMachine(
 	defer func() {
 		utils.UncheckedError(reader.Close(ctx))
 	}()
-	return reader.ReadAll(ctx)
+	return errtrace.Wrap(reader.ReadAll(ctx))
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

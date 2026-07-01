@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/posetracker"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -33,17 +34,17 @@ func (pT *PoseTracker) Poses(
 	ctx context.Context, bodyNames []string, extra map[string]interface{},
 ) (referenceframe.FrameSystemPoses, error) {
 	if pT.PosesFunc == nil {
-		return pT.PoseTracker.Poses(ctx, bodyNames, extra)
+		return errtrace.Wrap2(pT.PoseTracker.Poses(ctx, bodyNames, extra))
 	}
-	return pT.PosesFunc(ctx, bodyNames, extra)
+	return errtrace.Wrap2(pT.PosesFunc(ctx, bodyNames, extra))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (pT *PoseTracker) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if pT.DoFunc == nil {
-		return pT.PoseTracker.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(pT.PoseTracker.DoCommand(ctx, cmd))
 	}
-	return pT.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(pT.DoFunc(ctx, cmd))
 }
 
 // Close calls the injected Close or the real version.
@@ -52,18 +53,18 @@ func (pT *PoseTracker) Close(ctx context.Context) error {
 		if pT.PoseTracker == nil {
 			return nil
 		}
-		return pT.PoseTracker.Close(ctx)
+		return errtrace.Wrap(pT.PoseTracker.Close(ctx))
 	}
-	return pT.CloseFunc()
+	return errtrace.Wrap(pT.CloseFunc())
 }
 
 // Status calls the injected Status or the real version.
 func (pT *PoseTracker) Status(ctx context.Context) (map[string]interface{}, error) {
 	if pT.StatusFunc != nil {
-		return pT.StatusFunc(ctx)
+		return errtrace.Wrap2(pT.StatusFunc(ctx))
 	}
 	if pT.PoseTracker != nil {
-		return pT.PoseTracker.Status(ctx)
+		return errtrace.Wrap2(pT.PoseTracker.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

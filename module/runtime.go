@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
@@ -26,12 +27,12 @@ func moduleStart(
 		}
 		mod, err := NewModule(ctx, address, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		for _, apiModel := range models {
 			if err = mod.AddModelFromRegistry(ctx, apiModel.API, apiModel.Model); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 		if os.Getenv(NoModuleParentEnvVar) != "true" {
@@ -68,7 +69,7 @@ func moduleStart(
 		}
 		if err = mod.Start(ctx); err != nil {
 			mod.Close(ctx)
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return mod, nil
 	}
@@ -81,7 +82,7 @@ func getModuleAddress() (string, error) {
 	if len(os.Args) >= 2 {
 		return os.Args[1], nil
 	}
-	return "", errors.New("need socket path as command line argument or env var")
+	return "", errtrace.Wrap(errors.New("need socket path as command line argument or env var"))
 }
 
 // ModularMain can be called as the main function from a module. It will start up a module with all
@@ -90,17 +91,17 @@ func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
 		moduleAddress, err := getModuleAddress()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		mod, err := moduleStart(moduleAddress, models...)(ctx, args, cancel, NewLoggerFromArgs(""))
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		defer mod.Close(ctx)
 		<-ctx.Done()
-		return utils.FilterOutError(ctx.Err(), context.Canceled)
+		return errtrace.Wrap(utils.FilterOutError(ctx.Err(), context.Canceled))
 	}
 
 	// On systems with SIGPIPE such as Unix, using SIGPIPE to signal a module shutdown

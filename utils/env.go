@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -185,18 +186,18 @@ func PlatformMkdirTemp(dir, pattern string) (string, error) {
 	}
 	if runtime.GOOS == "windows" {
 		if wd, err := os.Getwd(); err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		} else if filepath.VolumeName(wd) != "C:" {
 			// because we put socket paths in the temp dir, and because socket paths are
 			// posix paths (leading slash) for grpc-go reasons, we can't use the normal
 			// temp dir (which is on C:) when working directory is not on C:.
 			dir = filepath.Join(ViamDotDir, "tmp")
 			if err := os.MkdirAll(dir, 0o700); err != nil {
-				return "", err
+				return "", errtrace.Wrap(err)
 			}
 		}
 	}
-	return os.MkdirTemp(dir, pattern)
+	return errtrace.Wrap2(os.MkdirTemp(dir, pattern))
 }
 
 // LogViamEnvVariables logs the list of viam environment variables in [os.Environ] along with the env passed in.
@@ -259,7 +260,7 @@ func CleanWindowsSocketPath(goos, orig string) (string, error) {
 	if goos == "windows" {
 		match := windowsPathRegex.FindStringSubmatch(orig)
 		if match == nil {
-			return "", fmt.Errorf("error cleaning socket path %s", orig)
+			return "", errtrace.Wrap(fmt.Errorf("error cleaning socket path %s", orig))
 		}
 		return strings.ReplaceAll(match[2], "\\", "/"), nil
 	}

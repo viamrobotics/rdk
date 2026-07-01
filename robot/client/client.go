@@ -38,6 +38,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -136,7 +137,7 @@ type RobotClient struct {
 
 // GetResource implements resource.Provider for a RobotClient by looking up a resource by name.
 func (rc *RobotClient) GetResource(name resource.Name) (resource.Resource, error) {
-	return rc.ResourceByName(name)
+	return errtrace.Wrap2(rc.ResourceByName(name))
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -147,7 +148,7 @@ var RemoteAPI = resource.APINamespaceRDK.WithType(RemoteTypeName).WithSubtype(""
 
 // Reconfigure always returns an unsupported error.
 func (rc *RobotClient) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	return errors.New("unsupported")
+	return errtrace.Wrap(errors.New("unsupported"))
 }
 
 var exemptFromConnectionCheck = map[string]bool{
@@ -192,7 +193,7 @@ func isDisconnectedError(err error) bool {
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
-	return fmt.Errorf("not connected to remote robot at %s", rc.address)
+	return errtrace.Wrap(fmt.Errorf("not connected to remote robot at %s", rc.address))
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -204,21 +205,21 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	opts ...googlegrpc.CallOption,
 ) error {
 	if skipConnectionCheck(method) {
-		return invoker(ctx, method, req, reply, cc, opts...)
+		return errtrace.Wrap(invoker(ctx, method, req, reply, cc, opts...))
 	}
 
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().CDebugw(ctx, "connection is down, skipping method call", "method", method)
-		return status.Error(codes.Unavailable, err.Error())
+		return errtrace.Wrap(status.Error(codes.Unavailable, err.Error()))
 	}
 
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isDisconnectedError(err) {
-		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
+		return errtrace.Wrap(status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error()))
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 type handleDisconnectClientStream struct {
@@ -228,17 +229,17 @@ type handleDisconnectClientStream struct {
 
 func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
 	if err := cs.RobotClient.checkConnected(); err != nil {
-		return status.Error(codes.Unavailable, err.Error())
+		return errtrace.Wrap(status.Error(codes.Unavailable, err.Error()))
 	}
 
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	err := cs.ClientStream.RecvMsg(m)
 	if isDisconnectedError(err) {
-		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
+		return errtrace.Wrap(status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error()))
 	}
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (rc *RobotClient) handleStreamDisconnect(
@@ -250,21 +251,21 @@ func (rc *RobotClient) handleStreamDisconnect(
 	opts ...googlegrpc.CallOption,
 ) (googlegrpc.ClientStream, error) {
 	if skipConnectionCheck(method) {
-		return streamer(ctx, desc, cc, method, opts...)
+		return errtrace.Wrap2(streamer(ctx, desc, cc, method, opts...))
 	}
 
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().CDebugw(ctx, "connection is down, skipping method call", "method", method)
-		return nil, status.Error(codes.Unavailable, err.Error())
+		return nil, errtrace.Wrap(status.Error(codes.Unavailable, err.Error()))
 	}
 
 	cs, err := streamer(ctx, desc, cc, method, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isDisconnectedError(err) {
-		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
+		return nil, errtrace.Wrap(status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error()))
 	}
-	return &handleDisconnectClientStream{cs, rc}, err
+	return &handleDisconnectClientStream{cs, rc}, errtrace.Wrap(err)
 }
 
 // New constructs a new RobotClient that is served at the given address. The given
@@ -353,7 +354,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		if err := rc.Connect(ctx); err != nil {
 			numAttempts--
 			if numAttempts == 0 {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		} else {
 			break
@@ -374,7 +375,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	if testing.Testing() && !rOpts.doNotWaitForRunning {
 		for {
 			if ctx.Err() != nil {
-				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
+				return nil, errtrace.Wrap(multierr.Combine(ctx.Err(), rc.conn.Close()))
 			}
 
 			mStatus, err := rc.MachineStatus(ctx)
@@ -385,7 +386,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 				}
 				// Ignore error from Close and just return original machine status error.
 				utils.UncheckedError(rc.conn.Close())
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
 			if mStatus.State == robot.StateRunning {
@@ -423,7 +424,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		return nil, multierr.Combine(err, rc.conn.Close())
+		return nil, errtrace.Wrap(multierr.Combine(err, rc.conn.Close()))
 	}
 
 	var refreshTime time.Duration
@@ -504,7 +505,7 @@ func (rc *RobotClient) Changed() <-chan bool {
 // Connect will close any existing connection and try to reconnect to the remote.
 func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	rc.Logger().CInfow(ctx, "successfully (re)connected to remote at address", "address", rc.address)
 	if rc.notifyParent != nil {
@@ -519,7 +520,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	defer rc.mu.Unlock()
 
 	if err := rc.conn.Close(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Try forcing a webrtc connection.
@@ -568,7 +569,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 				statusErr.Code() == codes.NotFound &&
 				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) &&
 				errors.Is(grpcErr, context.DeadlineExceeded) {
-				return err
+				return errtrace.Wrap(err)
 			}
 			// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
 			// the signaling server, which likely means that the client is offline. In that case, if the errors returned from
@@ -579,14 +580,14 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			if errors.Is(err, context.DeadlineExceeded) &&
 				errors.Is(grpcErr, context.DeadlineExceeded) &&
 				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) {
-				return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, " +
-					"and try again. see " + connTimeoutURL + " for troubleshooting steps")
+				return errtrace.Wrap(fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, " +
+					"and try again. see " + connTimeoutURL + " for troubleshooting steps"))
 			}
 			err = multierr.Combine(err, grpcErr)
 		}
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	client := pb.NewRobotServiceClient(conn)
@@ -599,7 +600,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.connected.Store(true)
 	if len(rc.resourceClients) != 0 {
 		if err := rc.updateResources(ctx); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -658,11 +659,11 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 			check := func() error {
 				if refresh {
 					if err := rc.Refresh(ctx); err != nil {
-						return err
+						return errtrace.Wrap(err)
 					}
 				} else {
 					if _, _, err := rc.resources(ctx); err != nil {
-						return err
+						return errtrace.Wrap(err)
 					}
 				}
 				return nil
@@ -723,12 +724,12 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.refClient.Reset()
 	rc.heartbeatCtxCancel()
 	rc.heartbeatWorkers.Wait()
-	return rc.conn.Close()
+	return errtrace.Wrap(rc.conn.Close())
 }
 
 func (rc *RobotClient) checkConnected() error {
 	if !rc.connected.Load() {
-		return rc.notConnectedToRemoteError()
+		return errtrace.Wrap(rc.notConnectedToRemoteError())
 	}
 	return nil
 }
@@ -759,7 +760,7 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if err := rc.checkConnected(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// if the request is for the public framesystem,
@@ -792,13 +793,13 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 		if name == knownName {
 			resourceClient, err := rc.createClient(name)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			rc.resourceClients[name] = resourceClient
 			return resourceClient, nil
 		}
 	}
-	return nil, resource.NewNotFoundError(name)
+	return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
@@ -807,7 +808,7 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 		return grpc.NewForeignResource(name, rc.getClientConn()), nil
 	}
 	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
-	return apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger)
+	return errtrace.Wrap2(apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger))
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
@@ -824,7 +825,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	var resTypes []resource.RPCAPI
@@ -864,7 +865,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return nil, nil, errtrace.Wrap(fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc))
 			}
 			resTypes = append(resTypes, resource.RPCAPI{
 				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
@@ -873,7 +874,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		}
 	} else {
 		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		// prevent future calls to ResourceRPCSubtypes
 		rc.rpcSubtypesUnimplemented = true
@@ -888,7 +889,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	return rc.updateResources(ctx)
+	return errtrace.Wrap(rc.updateResources(ctx))
 }
 
 func (rc *RobotClient) updateResources(ctx context.Context) error {
@@ -896,7 +897,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 
 	names, rpcAPIs, err := rc.resources(ctx)
 	if err != nil && status.Code(err) != codes.Unimplemented {
-		return fmt.Errorf("error updating resources: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error updating resources: %w", err))
 	}
 
 	rc.resourceNames = make([]resource.Name, 0, len(names))
@@ -905,7 +906,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 
 	rc.updateRemoteNameMap()
 
-	return rc.updateResourceClients(ctx)
+	return errtrace.Wrap(rc.updateResourceClients(ctx))
 }
 
 func (rc *RobotClient) updateRemoteNameMap() {
@@ -988,18 +989,18 @@ func (rc *RobotClient) Logger() logging.Logger {
 func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
 	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	protoModels := resp.GetModels()
 	models := []resource.ModuleModel{}
 	for _, protoModel := range protoModels {
 		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		api, err := resource.NewAPIFromString(protoModel.Api)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		model := resource.ModuleModel{
 			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
@@ -1016,14 +1017,14 @@ func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.Mod
 func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cfgs := resp.GetFrameSystemConfigs()
 	result := make([]*referenceframe.FrameSystemPart, 0, len(cfgs))
 	for _, cfg := range cfgs {
 		part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		result = append(result, part)
 	}
@@ -1039,11 +1040,11 @@ func (rc *RobotClient) GetPose(
 ) (*referenceframe.PoseInFrame, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := rc.client.GetPose(ctx, &pb.GetPoseRequest{
 		ComponentName:          componentName,
@@ -1052,7 +1053,7 @@ func (rc *RobotClient) GetPose(
 		Extra:                  ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
@@ -1074,7 +1075,7 @@ func (rc *RobotClient) TransformPose(
 ) (*referenceframe.PoseInFrame, error) {
 	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := rc.client.TransformPose(ctx, &pb.TransformPoseRequest{
 		Destination:            destination,
@@ -1082,7 +1083,7 @@ func (rc *RobotClient) TransformPose(
 		SupplementalTransforms: transforms,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
@@ -1099,7 +1100,7 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 		dstName = referenceframe.World
 	}
 	if srcName == "" {
-		return nil, errors.New("srcName cannot be empty, must provide name of point cloud origin")
+		return nil, errtrace.Wrap(errors.New("srcName cannot be empty, must provide name of point cloud origin"))
 	}
 	// get the offset pose from a TransformPose request
 	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
@@ -1109,13 +1110,13 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 		SupplementalTransforms: []*commonpb.Transform{},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).Pose()
 	output := srcpc.CreateNewRecentered(transformPose)
 	err = pointcloud.ApplyOffset(srcpc, transformPose, output)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return output, nil
 }
@@ -1127,13 +1128,13 @@ func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameS
 	for _, name := range rc.ResourceNames() {
 		res, err := rc.ResourceByName(name)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		inputEnabled, ok := res.(framesystem.InputEnabled)
 		if ok {
 			pos, err := inputEnabled.CurrentInputs(ctx)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			input[name.ShortName()] = pos
 		}
@@ -1159,7 +1160,7 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 		e = append(e, p)
 	}
 	_, err := rc.client.StopAll(ctx, &pb.StopAllRequest{Extra: e})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // Log sends a log entry to the server. To be used by Golang modules wanting to
@@ -1174,7 +1175,7 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 	for _, field := range fields {
 		fieldP, err := logging.FieldToProto(field)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		fieldsP = append(fieldsP, fieldP)
 	}
@@ -1198,7 +1199,7 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 	}
 
 	_, err = rc.client.Log(ctx, logRequest)
-	return err
+	return errtrace.Wrap(err)
 }
 
 // CloudMetadata returns app-related information about the machine.
@@ -1208,7 +1209,7 @@ func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error
 	req := &pb.GetCloudMetadataRequest{}
 	resp, err := rc.client.GetCloudMetadata(ctx, req)
 	if err != nil {
-		return cloud.Metadata{}, err
+		return cloud.Metadata{}, errtrace.Wrap(err)
 	}
 	return rprotoutils.MetadataFromProto(resp), nil
 }
@@ -1223,7 +1224,7 @@ func (rc *RobotClient) RestartModule(ctx context.Context, req robot.RestartModul
 	}
 	_, err := rc.client.RestartModule(ctx, reqPb)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1241,15 +1242,15 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 				break
 			case codes.Unavailable:
 				rc.Logger().CWarnw(ctx, "server unavailable, likely due to successful robot shutdown")
-				return err
+				return errtrace.Wrap(err)
 			case codes.DeadlineExceeded:
 				rc.Logger().CWarnw(ctx, "request timeout, robot shutdown may still be successful")
-				return err
+				return errtrace.Wrap(err)
 			default:
-				return err
+				return errtrace.Wrap(err)
 			}
 		} else {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	rc.Logger().CDebug(ctx, "robot shutdown successful")
@@ -1263,7 +1264,7 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	req := &pb.GetMachineStatusRequest{}
 	resp, err := rc.client.GetMachineStatus(ctx, req)
 	if err != nil {
-		return mStatus, err
+		return mStatus, errtrace.Wrap(err)
 	}
 
 	if resp.Config != nil {
@@ -1338,7 +1339,7 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 
 	resp, err := rc.client.GetVersion(ctx, &pb.GetVersionRequest{})
 	if err != nil {
-		return mVersion, err
+		return mVersion, errtrace.Wrap(err)
 	}
 
 	mVersion.Platform = resp.Platform
@@ -1353,7 +1354,7 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 func (rc *RobotClient) SendTraces(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
 	req := &pb.SendTracesRequest{ResourceSpans: spans}
 	_, err := rc.client.SendTraces(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 // Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
@@ -1363,13 +1364,13 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 	defer cancel()
 	client, err := rc.client.Tunnel(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := client.Send(&pb.TunnelRequest{
 		DestinationPort: uint32(dest),
 	}); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	rc.Logger().CInfow(ctx, "creating tunnel to server", "port", dest)
 	var (
@@ -1402,14 +1403,14 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 			wg.Done()
 		}()
 		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
-		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
+		sendFunc := func(data []byte) error { return errtrace.Wrap(client.Send(&pb.TunnelRequest{Data: data})) }
 		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
 	})
 
 	recvFunc := func() ([]byte, error) {
 		resp, err := client.Recv()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return resp.Data, nil
 	}
@@ -1430,7 +1431,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 
 	wg.Wait()
 	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
-	return errors.Join(readerSenderErr, recvWriterErr)
+	return errtrace.Wrap(errors.Join(readerSenderErr, recvWriterErr))
 }
 
 // ListTunnels lists all available tunnels configured on the robot.
@@ -1439,7 +1440,7 @@ func (rc *RobotClient) ListTunnels(ctx context.Context) ([]config.TrafficTunnelE
 
 	resp, err := rc.client.ListTunnels(ctx, &pb.ListTunnelsRequest{})
 	if err != nil {
-		return ttes, err
+		return ttes, errtrace.Wrap(err)
 	}
 
 	for _, protoTTE := range resp.Tunnels {
@@ -1510,7 +1511,7 @@ func ViamClientInfoUnaryServerInterceptor(
 ) (interface{}, error) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return handler(ctx, req)
+		return errtrace.Wrap2(handler(ctx, req))
 	}
 
 	values := meta.Get(viamClientInfoMetadataKey)
@@ -1519,7 +1520,7 @@ func ViamClientInfoUnaryServerInterceptor(
 		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, values[0])
 	}
 
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }
 
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
@@ -1534,7 +1535,7 @@ func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 		md := robot.Version
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
 		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, stringMd)
-		return invoker(ctx, method, req, reply, cc, opts...)
+		return errtrace.Wrap(invoker(ctx, method, req, reply, cc, opts...))
 	}
 }
 
@@ -1550,6 +1551,6 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 		md := robot.Version
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
 		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, stringMd)
-		return streamer(ctx, desc, cc, method, opts...)
+		return errtrace.Wrap2(streamer(ctx, desc, cc, method, opts...))
 	}
 }

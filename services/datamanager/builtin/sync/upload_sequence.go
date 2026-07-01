@@ -11,6 +11,7 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 )
@@ -38,11 +39,11 @@ func (s *Sync) syncSequence(filePath string) {
 
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, filePath, func(ctx context.Context) (uint64, error) {
 		if s.cloudConn.dataClient == nil {
-			return 0, errors.New("cloud connection not ready")
+			return 0, errtrace.Wrap(errors.New("cloud connection not ready"))
 		}
 		req := sequenceRequest(&sf, s.cloudConn.partID)
 		_, err := s.cloudConn.dataClient.CreateSequence(ctx, req)
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	})
 
 	if _, err := retry.run(); err != nil {

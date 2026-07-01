@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/x/xpty"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
@@ -24,7 +25,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, dep resource.Dependencies, c resource.Config, logger logging.Logger,
 		) (shell.Service, error) {
-			return NewBuiltIn(c.ResourceName(), logger)
+			return errtrace.Wrap2(NewBuiltIn(c.ResourceName(), logger))
 		},
 	},
 	)
@@ -72,12 +73,12 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	f, err := xpty.NewPty(80, 24)
 	if err != nil {
 		cancel()
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	if err := f.Start(cmd); err != nil {
 		cancel()
 		utils.UncheckedError(f.Close())
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 
 	var sizeLock sync.Mutex
@@ -230,9 +231,9 @@ func (svc *builtIn) CopyFilesToMachine(
 	// elsewhere (like the CLI) that keeps the factory around longer.
 	factory, err := shell.NewLocalFileCopyFactory(destination, preserve, true)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return factory.MakeFileCopier(ctx, sourceType)
+	return errtrace.Wrap2(factory.MakeFileCopier(ctx, sourceType))
 }
 
 // CopyFilesFromMachine searches for files locally from the given paths and then
@@ -250,12 +251,12 @@ func (svc *builtIn) CopyFilesFromMachine(
 ) error {
 	reader, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(reader.Close(ctx))
 	}()
-	return reader.ReadAll(ctx)
+	return errtrace.Wrap(reader.ReadAll(ctx))
 }
 
 func (svc *builtIn) Close(ctx context.Context) error {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"braces.dev/errtrace"
 	pb "go.viam.com/api/app/mltraining/v1"
 	"go.viam.com/utils/rpc"
 	status "google.golang.org/genproto/googleapis/rpc/status"
@@ -87,7 +88,7 @@ func (c *MLTrainingClient) SubmitTrainingJob(
 ) (string, error) {
 	err := args.isValid()
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	resp, err := c.client.SubmitTrainingJob(ctx, &pb.SubmitTrainingJobRequest{
 		DatasetId:      args.DatasetID,
@@ -98,7 +99,7 @@ func (c *MLTrainingClient) SubmitTrainingJob(
 		Tags:           tags,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Id, nil
 }
@@ -109,7 +110,7 @@ func (c *MLTrainingClient) SubmitCustomTrainingJob(
 ) (string, error) {
 	err := args.isValid()
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	resp, err := c.client.SubmitCustomTrainingJob(ctx, &pb.SubmitCustomTrainingJobRequest{
 		DatasetId:           args.DatasetID,
@@ -121,7 +122,7 @@ func (c *MLTrainingClient) SubmitCustomTrainingJob(
 		Arguments:           arguments,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Id, nil
 }
@@ -132,7 +133,7 @@ func (c *MLTrainingClient) GetTrainingJob(ctx context.Context, id string) (*Trai
 		Id: id,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return trainingJobMetadataFromProto(resp.Metadata), nil
 }
@@ -146,7 +147,7 @@ func (c *MLTrainingClient) ListTrainingJobs(
 		Status:         trainingStatusToProto(status),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var jobs []*TrainingJobMetadata
 	for _, job := range resp.Jobs {
@@ -160,7 +161,7 @@ func (c *MLTrainingClient) CancelTrainingJob(ctx context.Context, id string) err
 	_, err := c.client.CancelTrainingJob(ctx, &pb.CancelTrainingJobRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // DeleteCompletedTrainingJob removes a completed training job from the database, whether the job succeeded or failed.
@@ -168,7 +169,7 @@ func (c *MLTrainingClient) DeleteCompletedTrainingJob(ctx context.Context, id st
 	_, err := c.client.DeleteCompletedTrainingJob(ctx, &pb.DeleteCompletedTrainingJobRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetTrainingJobLogs gets the logs and the next page token for a given custom training job.
@@ -184,7 +185,7 @@ func (c *MLTrainingClient) GetTrainingJobLogs(
 		PageToken: token,
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, "", errtrace.Wrap(err)
 	}
 
 	var logs []*TrainingJobLogEntry
@@ -196,16 +197,16 @@ func (c *MLTrainingClient) GetTrainingJobLogs(
 
 func (s *SubmitTrainingJobArgs) isValid() error {
 	if s.DatasetID == "" {
-		return errors.New("DatasetID should not be empty")
+		return errtrace.Wrap(errors.New("DatasetID should not be empty"))
 	}
 	if s.OrganizationID == "" {
-		return errors.New("OrganizationID should not be empty")
+		return errtrace.Wrap(errors.New("OrganizationID should not be empty"))
 	}
 	if s.ModelName == "" {
-		return errors.New("ModelName should not be empty")
+		return errtrace.Wrap(errors.New("ModelName should not be empty"))
 	}
 	if s.ModelVersion == "" {
-		return errors.New("ModelVersion should not be empty")
+		return errtrace.Wrap(errors.New("ModelVersion should not be empty"))
 	}
 	return nil
 }

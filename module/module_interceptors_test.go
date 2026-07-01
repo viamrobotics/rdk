@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
@@ -42,7 +43,7 @@ func unsafeConnect(port int) (*grpc.ClientConn, error) {
 		grpc.WithBlock(), //nolint:staticcheck
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return conn, nil
@@ -225,7 +226,7 @@ func makeConfig(t *testing.T, logger logging.Logger) (string, int, error) {
 
 	port, err := goutils.TryReserveRandomPort()
 	if err != nil {
-		return "", 0, err
+		return "", 0, errtrace.Wrap(err)
 	}
 
 	cfg := config.Config{
@@ -245,5 +246,5 @@ func makeConfig(t *testing.T, logger logging.Logger) (string, int, error) {
 		}},
 	}
 	cfgFilename, err := robottestutils.MakeTempConfig(t, &cfg, logger)
-	return cfgFilename, port, err
+	return cfgFilename, port, errtrace.Wrap(err)
 }

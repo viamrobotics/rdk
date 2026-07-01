@@ -7,6 +7,7 @@ import (
 	pb "go.viam.com/api/component/encoder/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 )
 
@@ -35,7 +36,7 @@ func (m method) String() string {
 func newTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	encoder, err := assertEncoder(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -46,17 +47,17 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, ticksCount.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, ticksCount.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
 			Value:        float32(v),
 			PositionType: pb.PositionType(positionType),
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -64,30 +65,30 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	encoder, err := assertEncoder(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(encoder, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newGetWorldPoseCollector returns a collector to capture the encoder's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	if _, err := assertEncoder(resource); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertEncoder(resource interface{}) (Encoder, error) {
 	encoder, ok := resource.(Encoder)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return encoder, nil
 }

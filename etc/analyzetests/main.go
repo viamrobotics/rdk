@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 	"gotest.tools/gotestsum/testjson"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -28,7 +29,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		Stdout: os.Stdin,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	mongoURI, ok := os.LookupEnv("MONGODB_TEST_OUTPUT_URI")
@@ -41,10 +42,10 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.Ping(ctx, readpref.Primary()); err != nil {
-		return multierr.Combine(err, client.Disconnect(ctx))
+		return errtrace.Wrap(multierr.Combine(err, client.Disconnect(ctx)))
 	}
 	defer func() {
 		utils.UncheckedError(client.Disconnect(ctx))
@@ -58,7 +59,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		var err error
 		gitHubRunID, err = strconv.ParseInt(gitHubRunIDStr, 10, 64)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	gitHubRunNumberStr, ok := os.LookupEnv("GITHUB_RUN_NUMBER")
@@ -66,7 +67,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		var err error
 		gitHubRunNumber, err = strconv.ParseInt(gitHubRunNumberStr, 10, 64)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	gitHubRunAttemptStr, ok := os.LookupEnv("GITHUB_RUN_ATTEMPT")
@@ -74,7 +75,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		var err error
 		gitHubRunAttempt, err = strconv.ParseInt(gitHubRunAttemptStr, 10, 64)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -131,7 +132,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 
 	coll := client.Database("tests").Collection("results")
 	_, err = coll.InsertMany(context.Background(), resultsIfc)
-	return err
+	return errtrace.Wrap(err)
 }
 
 type testResult struct {

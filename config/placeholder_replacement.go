@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -65,7 +66,7 @@ func (c *Config) ReplacePlaceholders() error {
 		}
 	}
 
-	return multierr.Append(visitor.AllErrors, allErrs)
+	return errtrace.Wrap(multierr.Append(visitor.AllErrors, allErrs))
 }
 
 func walkTypedAttributes[T any](visitor *placeholderReplacementVisitor, attributes T) (T, error) {
@@ -73,15 +74,15 @@ func walkTypedAttributes[T any](visitor *placeholderReplacementVisitor, attribut
 	if walker, ok := asIfc.(utils.Walker); ok {
 		newAttrs, err := walker.Walk(visitor)
 		if err != nil {
-			return attributes, err
+			return attributes, errtrace.Wrap(err)
 		}
 		newAttrsTyped, err := utils.AssertType[T](newAttrs)
 		if err != nil {
-			return attributes, err
+			return attributes, errtrace.Wrap(err)
 		}
 		return newAttrsTyped, nil
 	}
-	return attributes, errors.New("placeholder replacement tried to walk an unwalkable type")
+	return attributes, errtrace.Wrap(errors.New("placeholder replacement tried to walk an unwalkable type"))
 }
 
 // placeholderReplacementVisitor is a visitor that replaces strings containing placeholder values with their desired values.
@@ -171,13 +172,13 @@ func (v *placeholderReplacementVisitor) replacePlaceholders(s string) (string, e
 		return []byte(replacementResult)
 	})
 
-	return string(patchedStr), replacementErrors
+	return string(patchedStr), errtrace.Wrap(replacementErrors)
 }
 
 func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace string) (string, error) {
 	matches := packagePlaceholderRegexp.FindStringSubmatch(toReplace)
 	if matches == nil {
-		return toReplace, errors.Errorf("failed to find substring matches for %q", toReplace)
+		return toReplace, errtrace.Wrap(errors.Errorf("failed to find substring matches for %q", toReplace))
 	}
 	packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
 	packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
@@ -187,14 +188,14 @@ func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace stri
 	}
 	packageConfig, isPresent := v.packages[packageName]
 	if !isPresent {
-		return toReplace, errors.Errorf("failed to find a package named %q for placeholder %q",
-			packageName, toReplace)
+		return toReplace, errtrace.Wrap(errors.Errorf("failed to find a package named %q for placeholder %q",
+			packageName, toReplace))
 	}
 	if packageType != string(packageConfig.Type) {
 		expectedPlaceholder := fmt.Sprintf("packages.%s.%s", string(packageConfig.Type), packageName)
 		return toReplace,
-			errors.Errorf("placeholder %q is looking for a package of type %q but a package of type %q was found. Try %q",
-				toReplace, packageType, string(packageConfig.Type), expectedPlaceholder)
+			errtrace.Wrap(errors.Errorf("placeholder %q is looking for a package of type %q but a package of type %q was found. Try %q",
+				toReplace, packageType, string(packageConfig.Type), expectedPlaceholder))
 	}
 	return packageConfig.LocalDataDirectory(DefaultPackagesDir()), nil
 }
@@ -202,13 +203,13 @@ func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace stri
 func (v *placeholderReplacementVisitor) replaceEnvironmentPlaceholder(toReplace string) (string, error) {
 	matches := environmentPlaceholderRegexp.FindStringSubmatch(toReplace)
 	if matches == nil {
-		return toReplace, errors.Errorf("failed to find substring matches for %q", toReplace)
+		return toReplace, errtrace.Wrap(errors.Errorf("failed to find substring matches for %q", toReplace))
 	}
 	variableName := matches[environmentPlaceholderRegexp.SubexpIndex("name")]
 	value, present := os.LookupEnv(variableName)
 	if !present {
-		return toReplace, errors.Errorf("no environment variable named %q for placeholder %q",
-			variableName, toReplace)
+		return toReplace, errtrace.Wrap(errors.Errorf("no environment variable named %q for placeholder %q",
+			variableName, toReplace))
 	}
 	return value, nil
 }

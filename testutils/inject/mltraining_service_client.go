@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	"google.golang.org/grpc"
 )
@@ -31,9 +32,9 @@ func (client *MLTrainingServiceClient) SubmitTrainingJob(ctx context.Context, in
 	opts ...grpc.CallOption,
 ) (*mltrainingpb.SubmitTrainingJobResponse, error) {
 	if client.SubmitTrainingJobFunc == nil {
-		return client.MLTrainingServiceClient.SubmitTrainingJob(ctx, in, opts...)
+		return errtrace.Wrap2(client.MLTrainingServiceClient.SubmitTrainingJob(ctx, in, opts...))
 	}
-	return client.SubmitTrainingJobFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.SubmitTrainingJobFunc(ctx, in, opts...))
 }
 
 // SubmitCustomTrainingJob calls the injected SubmitCustomTrainingJob or the real version.
@@ -41,9 +42,9 @@ func (client *MLTrainingServiceClient) SubmitCustomTrainingJob(ctx context.Conte
 	opts ...grpc.CallOption,
 ) (*mltrainingpb.SubmitCustomTrainingJobResponse, error) {
 	if client.SubmitCustomTrainingJobFunc == nil {
-		return client.MLTrainingServiceClient.SubmitCustomTrainingJob(ctx, in, opts...)
+		return errtrace.Wrap2(client.MLTrainingServiceClient.SubmitCustomTrainingJob(ctx, in, opts...))
 	}
-	return client.SubmitCustomTrainingJobFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.SubmitCustomTrainingJobFunc(ctx, in, opts...))
 }
 
 // GetTrainingJob calls the injected GetTrainingJob or the real version.
@@ -51,9 +52,9 @@ func (client *MLTrainingServiceClient) GetTrainingJob(ctx context.Context, in *m
 	opts ...grpc.CallOption,
 ) (*mltrainingpb.GetTrainingJobResponse, error) {
 	if client.GetTrainingJobFunc == nil {
-		return client.MLTrainingServiceClient.GetTrainingJob(ctx, in, opts...)
+		return errtrace.Wrap2(client.MLTrainingServiceClient.GetTrainingJob(ctx, in, opts...))
 	}
-	return client.GetTrainingJobFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.GetTrainingJobFunc(ctx, in, opts...))
 }
 
 // ListTrainingJobs calls the injected ListTrainingJobs or the real version.
@@ -61,9 +62,9 @@ func (client *MLTrainingServiceClient) ListTrainingJobs(ctx context.Context, in 
 	opts ...grpc.CallOption,
 ) (*mltrainingpb.ListTrainingJobsResponse, error) {
 	if client.ListTrainingJobsFunc == nil {
-		return client.MLTrainingServiceClient.ListTrainingJobs(ctx, in, opts...)
+		return errtrace.Wrap2(client.MLTrainingServiceClient.ListTrainingJobs(ctx, in, opts...))
 	}
-	return client.ListTrainingJobsFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.ListTrainingJobsFunc(ctx, in, opts...))
 }
 
 // CancelTrainingJob calls the injected CancelTrainingJob or the real version.
@@ -71,9 +72,9 @@ func (client *MLTrainingServiceClient) CancelTrainingJob(ctx context.Context, in
 	opts ...grpc.CallOption,
 ) (*mltrainingpb.CancelTrainingJobResponse, error) {
 	if client.CancelTrainingJobFunc == nil {
-		return client.MLTrainingServiceClient.CancelTrainingJob(ctx, in, opts...)
+		return errtrace.Wrap2(client.MLTrainingServiceClient.CancelTrainingJob(ctx, in, opts...))
 	}
-	return client.CancelTrainingJobFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.CancelTrainingJobFunc(ctx, in, opts...))
 }
 
 // DeleteCompletedTrainingJob calls the injected DeleteCompletedTrainingJob or the real version.
@@ -81,9 +82,9 @@ func (client *MLTrainingServiceClient) DeleteCompletedTrainingJob(ctx context.Co
 	opts ...grpc.CallOption,
 ) (*mltrainingpb.DeleteCompletedTrainingJobResponse, error) {
 	if client.DeleteCompletedTrainingJobFunc == nil {
-		return client.MLTrainingServiceClient.DeleteCompletedTrainingJob(ctx, in, opts...)
+		return errtrace.Wrap2(client.MLTrainingServiceClient.DeleteCompletedTrainingJob(ctx, in, opts...))
 	}
-	return client.DeleteCompletedTrainingJobFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.DeleteCompletedTrainingJobFunc(ctx, in, opts...))
 }
 
 // GetTrainingJobLogs calls the injected GetTrainingJobLogs or the real version.
@@ -91,7 +92,7 @@ func (client *MLTrainingServiceClient) GetTrainingJobLogs(ctx context.Context, i
 	opts ...grpc.CallOption,
 ) (*mltrainingpb.GetTrainingJobLogsResponse, error) {
 	if client.GetTrainingJobLogsFunc == nil {
-		return client.MLTrainingServiceClient.GetTrainingJobLogs(ctx, in, opts...)
+		return errtrace.Wrap2(client.MLTrainingServiceClient.GetTrainingJobLogs(ctx, in, opts...))
 	}
-	return client.GetTrainingJobLogsFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.GetTrainingJobLogsFunc(ctx, in, opts...))
 }

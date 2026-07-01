@@ -9,6 +9,7 @@ import (
 
 	pb "go.viam.com/api/component/servo/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -92,12 +93,12 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Servo, error) {
-	return robot.ResourceFromRobot[Servo](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Servo](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Servo from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Servo, error) {
-	return resource.FromProvider[Servo](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Servo](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all servo names from the given Robot.

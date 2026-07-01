@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -118,7 +119,7 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Service](r, Named(name)))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named SLAM service from a collection of
@@ -126,13 +127,13 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 //
 //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
-	return resource.FromDependencies[Service](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Service](deps, Named(name)))
 }
 
 // FromProvider is a helper for getting the named SLAM service
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Service, error) {
-	return resource.FromProvider[Service](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Service](provider, Named(name)))
 }
 
 // Service describes the functions that are available to the service.
@@ -196,7 +197,7 @@ func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 			return fullBytes, nil
 		}
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		fullBytes = append(fullBytes, chunk...)
@@ -209,9 +210,9 @@ func PointCloudMapFull(ctx context.Context, slamSvc Service, returnEditedMap boo
 	defer span.End()
 	callback, err := slamSvc.PointCloudMap(ctx, returnEditedMap)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return HelperConcatenateChunksToFull(callback)
+	return errtrace.Wrap2(HelperConcatenateChunksToFull(callback))
 }
 
 // InternalStateFull concatenates the streaming responses from InternalState into
@@ -221,20 +222,20 @@ func InternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) {
 	defer span.End()
 	callback, err := slamSvc.InternalState(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return HelperConcatenateChunksToFull(callback)
+	return errtrace.Wrap2(HelperConcatenateChunksToFull(callback))
 }
 
 // Limits returns the bounds of the slam map as a list of referenceframe.Limits.
 func Limits(ctx context.Context, svc Service, useEditedMap bool) ([]referenceframe.Limit, error) {
 	data, err := PointCloudMapFull(ctx, svc, useEditedMap)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pc, err := pointcloud.ReadPCD(bytes.NewReader(data), "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dims := pc.MetaData()

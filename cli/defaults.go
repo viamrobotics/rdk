@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"braces.dev/errtrace"
 	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
 )
@@ -15,7 +16,7 @@ type defaultsSetOrgArgs struct {
 func getDefaultOrg(cmd *cli.Command) (string, error) {
 	config, err := ConfigFromCache(cmd)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	return config.DefaultOrg, nil
@@ -50,7 +51,7 @@ func locationOrDefault(cmd *cli.Command, locStr string) string {
 func getDefaultLocation(cmd *cli.Command) (string, error) {
 	config, err := ConfigFromCache(cmd)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	return config.DefaultLocation, nil
@@ -79,7 +80,7 @@ func (c *viamClient) setDefaultOrg(ctx context.Context, cmd *cli.Command, config
 						profileWarning = ". You are currently logged in with profile %s. Did you mean to add a default to top level config?"
 					}
 				}
-				return nil, fmt.Errorf("no org found matching ID %s%s", orgStr, profileWarning)
+				return nil, errtrace.Wrap(fmt.Errorf("no org found matching ID %s%s", orgStr, profileWarning))
 			}
 		}
 	}
@@ -91,24 +92,24 @@ func (c *viamClient) setDefaultOrg(ctx context.Context, cmd *cli.Command, config
 func (c *viamClient) writeDefaultOrg(ctx context.Context, cmd *cli.Command, config *Config, orgStr string) error {
 	config, err := c.setDefaultOrg(ctx, cmd, config, orgStr)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return storeConfigToCache(config)
+	return errtrace.Wrap(storeConfigToCache(config))
 }
 
 func writeDefaultOrg(ctx context.Context, cmd *cli.Command, orgStr string) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config, err := ConfigFromCache(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.writeDefaultOrg(ctx, cmd, config, orgStr)
+	return errtrace.Wrap(client.writeDefaultOrg(ctx, cmd, config, orgStr))
 }
 
 func (c *viamClient) setDefaultLocation(ctx context.Context, cmd *cli.Command, config *Config, locStr string) (*Config, error) {
@@ -165,7 +166,7 @@ func (c *viamClient) setDefaultLocation(ctx context.Context, cmd *cli.Command, c
 			if config.DefaultOrg != "" {
 				forOrgWarning = fmt.Sprintf(" in default org %s", config.DefaultOrg)
 			}
-			return nil, fmt.Errorf("no location found matching ID %s%s%s", locStr, forOrgWarning, profileWarning)
+			return nil, errtrace.Wrap(fmt.Errorf("no location found matching ID %s%s%s", locStr, forOrgWarning, profileWarning))
 		}
 	}
 
@@ -176,32 +177,32 @@ func (c *viamClient) setDefaultLocation(ctx context.Context, cmd *cli.Command, c
 func (c *viamClient) writeDefaultLocation(ctx context.Context, cmd *cli.Command, config *Config, locationStr string) error {
 	config, err := c.setDefaultLocation(ctx, cmd, config, locationStr)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return storeConfigToCache(config)
+	return errtrace.Wrap(storeConfigToCache(config))
 }
 
 func writeDefaultLocation(ctx context.Context, cmd *cli.Command, locationStr string) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config, err := ConfigFromCache(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.writeDefaultLocation(ctx, cmd, config, locationStr)
+	return errtrace.Wrap(client.writeDefaultLocation(ctx, cmd, config, locationStr))
 }
 
 func defaultsSetOrgAction(ctx context.Context, cmd *cli.Command, args defaultsSetOrgArgs) error {
-	return writeDefaultOrg(ctx, cmd, args.OrgID)
+	return errtrace.Wrap(writeDefaultOrg(ctx, cmd, args.OrgID))
 }
 
 func defaultsClearOrgAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
-	return writeDefaultOrg(ctx, cmd, "")
+	return errtrace.Wrap(writeDefaultOrg(ctx, cmd, ""))
 }
 
 type defaultsSetLocationArgs struct {
@@ -209,9 +210,9 @@ type defaultsSetLocationArgs struct {
 }
 
 func defaultsSetLocationAction(ctx context.Context, cmd *cli.Command, args defaultsSetLocationArgs) error {
-	return writeDefaultLocation(ctx, cmd, args.LocationID)
+	return errtrace.Wrap(writeDefaultLocation(ctx, cmd, args.LocationID))
 }
 
 func defaultsClearLocationAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
-	return writeDefaultLocation(ctx, cmd, "")
+	return errtrace.Wrap(writeDefaultLocation(ctx, cmd, ""))
 }

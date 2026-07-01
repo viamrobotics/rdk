@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -40,12 +41,12 @@ type methodParamsDecoded struct {
 func newCaptureAllFromCameraCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	vision, err := assertVision(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	decodedParams, err := additionalParamExtraction(params.MethodParams)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cameraName := decodedParams.cameraName
@@ -64,24 +65,24 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			// A modular filter component can be created to filter the readings from a service. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, captureAllFromCamera.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, captureAllFromCamera.String(), err))
 		}
 
 		if visCapture.Image == nil {
-			return res, errors.New("vision service didn't return an image")
+			return res, errtrace.Wrap(errors.New("vision service didn't return an image"))
 		}
 
 		imgBytes, err := visCapture.Image.Bytes(ctx)
 		if err != nil {
-			return res, err
+			return res, errtrace.Wrap(err)
 		}
 		mimeType := visCapture.Image.MimeType()
 
 		bounds, err := visCapture.Image.Bounds()
 		if err != nil {
-			return res, err
+			return res, errtrace.Wrap(err)
 		}
 		width := bounds.Dx()
 		height := bounds.Dy()
@@ -114,7 +115,7 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		}}), nil
 	})
 
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -122,11 +123,11 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	vision, err := assertVision(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(vision, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func toDataClassification(c classification.Classification) data.Classification {
@@ -151,7 +152,7 @@ func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParams
 	cameraParam := methodParams["camera_name"]
 
 	if cameraParam == nil {
-		return methodParamsDecoded{}, errors.New("must specify a camera_name in the additional_params")
+		return methodParamsDecoded{}, errtrace.Wrap(errors.New("must specify a camera_name in the additional_params"))
 	}
 
 	var cameraName string
@@ -162,7 +163,7 @@ func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParams
 		// If that fails, try to unmarshal as Value
 		val := &structpb.Value{}
 		if err := cameraParam.UnmarshalTo(val); err != nil {
-			return methodParamsDecoded{}, err
+			return methodParamsDecoded{}, errtrace.Wrap(err)
 		}
 		cameraName = val.GetStringValue()
 	} else {
@@ -182,14 +183,14 @@ func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParams
 			// If that fails, try to unmarshal as Value
 			val := &structpb.Value{}
 			if err := minConfidenceParam.UnmarshalTo(val); err != nil {
-				return methodParamsDecoded{}, err
+				return methodParamsDecoded{}, errtrace.Wrap(err)
 			}
 			minConfidenceScore = val.GetNumberValue()
 		}
 	}
 
 	if minConfidenceScore < 0 || minConfidenceScore > 1 {
-		return methodParamsDecoded{}, errors.New("min_confidence_score must be between 0 and 1 inclusive")
+		return methodParamsDecoded{}, errtrace.Wrap(errors.New("min_confidence_score must be between 0 and 1 inclusive"))
 	}
 
 	return methodParamsDecoded{
@@ -201,7 +202,7 @@ func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParams
 func assertVision(resource interface{}) (Service, error) {
 	visionService, ok := resource.(Service)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 
 	return visionService, nil

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -66,7 +67,7 @@ func Collect(opts CollectOpts) (string, error) {
 	}
 
 	if err := os.MkdirAll(opts.OutDir, 0o755); err != nil {
-		return "", fmt.Errorf("mkdir out: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("mkdir out: %w", err))
 	}
 
 	rawTrace := filepath.Join(opts.OutDir, "trace.xml")
@@ -74,10 +75,10 @@ func Collect(opts CollectOpts) (string, error) {
 
 	etlFiles, err := filepath.Glob(filepath.Join(opts.ETLDir, "*.etl"))
 	if err != nil {
-		return "", fmt.Errorf("glob %s: %w", opts.ETLDir, err)
+		return "", errtrace.Wrap(fmt.Errorf("glob %s: %w", opts.ETLDir, err))
 	}
 	if len(etlFiles) == 0 {
-		return "", fmt.Errorf("no .etl files found in %s", opts.ETLDir)
+		return "", errtrace.Wrap(fmt.Errorf("no .etl files found in %s", opts.ETLDir))
 	}
 
 	// Echo the resolved paths and parameters before we touch them so
@@ -109,22 +110,22 @@ func Collect(opts CollectOpts) (string, error) {
 	args := append([]string{}, etlFiles...)
 	args = append(args, "-o", rawTrace, "-of", "XML", "-y")
 	if out, err := exec.Command("tracerpt", args...).CombinedOutput(); err != nil {
-		return "", fmt.Errorf("tracerpt: %w: %s", err, out)
+		return "", errtrace.Wrap(fmt.Errorf("tracerpt: %w: %s", err, out))
 	}
 
 	if err := dumpEventlog(rawEventlog, opts.EventlogSource, opts.After, opts.Before); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	processedDir := filepath.Join(opts.OutDir, "processed")
 	if err := os.MkdirAll(processedDir, 0o755); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	if err := Eventlog(rawEventlog, filepath.Join(processedDir, "eventlog.tsv")); err != nil {
-		return "", fmt.Errorf("processing eventlog: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("processing eventlog: %w", err))
 	}
 	if err := Trace(rawTrace, filepath.Join(processedDir, "trace.tsv"), opts.After, opts.Before); err != nil {
-		return "", fmt.Errorf("processing trace: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("processing trace: %w", err))
 	}
 
 	return opts.OutDir, nil
@@ -167,7 +168,7 @@ Get-EventLog -LogName Application -Source '%s'%s |
 
 	out, err := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Get-EventLog failed: %w: %s", err, out)
+		return errtrace.Wrap(fmt.Errorf("Get-EventLog failed: %w: %s", err, out))
 	}
 	return nil
 }

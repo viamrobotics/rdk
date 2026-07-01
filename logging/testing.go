@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"braces.dev/errtrace"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -68,7 +69,7 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 	if err != nil {
 		// Log what we have and return the error.
 		tapp.tb.Log(strings.Join(toPrint, "\t"))
-		return err
+		return errtrace.Wrap(err)
 	}
 	toPrint = append(toPrint, string(buf.Bytes()))
 	tapp.tb.Log(strings.Join(toPrint, "\t"))
@@ -107,5 +108,5 @@ func (stapp *silentAfterCompleteTestAppender) Write(entry zapcore.Entry, fields 
 		return nil
 	}
 
-	return stapp.testAppender.Write(entry, fields)
+	return errtrace.Wrap(stapp.testAppender.Write(entry, fields))
 }

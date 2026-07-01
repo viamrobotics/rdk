@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
@@ -56,7 +57,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *PlanContext, psc *PlanSegme
 	// nlopt should try only once
 	c.fastGradDescent, err = ik.CreateNloptSolver(logger, 1, true, true, time.Second)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return c, nil
@@ -66,7 +67,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *PlanContext, psc *PlanSegme
 func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referenceframe.LinearInputs, error) {
 	initMaps, err := initRRTSolutions(ctx, mp.psc, mp.psc.pc.logger.Sublogger("solve"))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	x := []*referenceframe.LinearInputs{mp.psc.start}
@@ -78,7 +79,7 @@ func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referencefra
 
 	solution, err := mp.rrtRunner(ctx, initMaps.maps)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	x = append(x, solution.steps...)
@@ -96,7 +97,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	mp.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
 	// setup planner options
 	if mp.pc.planOpts == nil {
-		return nil, errNoPlannerOptions
+		return nil, errtrace.Wrap(errNoPlannerOptions)
 	}
 
 	_, cancel := context.WithCancel(ctx)
@@ -118,7 +119,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 	interpConfig, err := referenceframe.InterpolateFS(mp.pc.fs, seed, rrtMaps.optNode.inputs, 0.5)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	target := newConfigurationNode(interpConfig)
@@ -128,7 +129,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 		mp.logger.CDebugf(ctx, "iteration: %d target: %v", i, logging.FloatArrayFormat{"", target.inputs.GetLinearizedInputs()})
 		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
-			return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
+			return &rrtSolution{maps: rrtMaps}, errtrace.Wrap(fmt.Errorf("cbirrt timeout %w", ctx.Err()))
 		}
 
 		tryExtend := func(target *node) (*node, *node) {
@@ -156,7 +157,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 		if reachedDelta > mp.pc.planOpts.InputIdentDist {
 			targetConf, err := referenceframe.InterpolateFS(mp.pc.fs, map1reached.inputs, map2reached.inputs, 0.5)
 			if err != nil {
-				return &rrtSolution{maps: rrtMaps}, err
+				return &rrtSolution{maps: rrtMaps}, errtrace.Wrap(err)
 			}
 			target = newConfigurationNode(targetConf)
 			map1reached, map2reached = tryExtend(target)
@@ -178,12 +179,12 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 		// sample near map 1 and switch which map is which to keep adding to them even
 		target, err = mp.sample(map1reached, i)
 		if err != nil {
-			return &rrtSolution{maps: rrtMaps}, err
+			return &rrtSolution{maps: rrtMaps}, errtrace.Wrap(err)
 		}
 		map1, map2 = map2, map1
 	}
 
-	return &rrtSolution{maps: rrtMaps}, errPlannerFailed
+	return &rrtSolution{maps: rrtMaps}, errtrace.Wrap(errPlannerFailed)
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
@@ -444,7 +445,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 		if f != nil && len(f.DoF()) > 0 {
 			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.pc.randseed, percent, inputs)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			newInputs.Put(name, q)
 		}

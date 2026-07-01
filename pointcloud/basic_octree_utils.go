@@ -4,6 +4,7 @@ import (
 	"math"
 	"sync"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
@@ -62,9 +63,9 @@ func getRawVal(d Data) int {
 func (octree *BasicOctree) splitIntoOctants() error {
 	switch octree.node.nodeType {
 	case internalNode:
-		return errors.New("error attempted to split internal node")
+		return errtrace.Wrap(errors.New("error attempted to split internal node"))
 	case leafNodeEmpty:
-		return errors.New("error attempted to split empty leaf node")
+		return errtrace.Wrap(errors.New("error attempted to split empty leaf node"))
 	case leafNodeFilled:
 
 		children := []*BasicOctree{}
@@ -99,9 +100,9 @@ func (octree *BasicOctree) splitIntoOctants() error {
 		octree.node = newInternalNode(children)
 		octree.meta = NewMetaData()
 		octree.size = 0
-		return octree.Set(p, d)
+		return errtrace.Wrap(octree.Set(p, d))
 	}
-	return errors.Errorf("error attempted to split invalid node type (%v)", octree.node.nodeType)
+	return errtrace.Wrap(errors.Errorf("error attempted to split invalid node type (%v)", octree.node.nodeType))
 }
 
 // Checks that a point should be inside a basic octree based on its center and defined side length.
@@ -117,7 +118,7 @@ func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
 // an error.
 func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (int, error) {
 	if recursionDepth >= maxRecursionDepth {
-		return 0, errors.New("error max allowable recursion depth reached")
+		return 0, errtrace.Wrap(errors.New("error max allowable recursion depth reached"))
 	}
 	if d == nil && p == (r3.Vector{}) {
 		return 0, nil
@@ -126,7 +127,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (i
 	switch octree.node.nodeType {
 	case internalNode:
 		if len(octree.node.children) != 8 {
-			return 0, errors.New("error invalid internal node detected, please check your tree")
+			return 0, errtrace.Wrap(errors.New("error invalid internal node detected, please check your tree"))
 		}
 		// Compute octant index directly from point position relative to center.
 		// Children are ordered: X(-/+) outer, Y(-/+) middle, Z(-/+) inner loop.
@@ -149,7 +150,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (i
 			octree.size++
 			octree.node.maxVal = max(mv, octree.node.maxVal)
 		}
-		return octree.node.maxVal, err
+		return octree.node.maxVal, errtrace.Wrap(err)
 
 	case leafNodeFilled:
 		if pointsAlmostEqualEpsilon(octree.node.point.P, p, floatEpsilon) {
@@ -159,10 +160,10 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (i
 			return octree.node.maxVal, nil
 		}
 		if err := octree.splitIntoOctants(); err != nil {
-			return 0, errors.Errorf("error in splitting octree into new octants: %v", err)
+			return 0, errtrace.Wrap(errors.Errorf("error in splitting octree into new octants: %v", err))
 		}
 		// No update of metadata as the set call below will lead to the InternalNode case due to the octant split
-		return octree.helperSet(p, d, recursionDepth+1)
+		return errtrace.Wrap2(octree.helperSet(p, d, recursionDepth+1))
 
 	case leafNodeEmpty:
 		// Update metadata
@@ -172,7 +173,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (i
 		return octree.node.maxVal, nil
 	}
 
-	return 0, errors.New("error attempting to set into invalid node type")
+	return 0, errtrace.Wrap(errors.New("error attempting to set into invalid node type"))
 }
 
 // helperIterate is a recursive helper function for iterating through a basic octree that returns

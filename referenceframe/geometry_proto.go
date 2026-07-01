@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -13,29 +14,29 @@ import (
 // NewGeometryFromProto instantiates a new Geometry from a protobuf Geometry message.
 func NewGeometryFromProto(geometry *commonpb.Geometry) (spatialmath.Geometry, error) {
 	if geometry.Center == nil {
-		return nil, errors.New("cannot have nil pose for geometry")
+		return nil, errtrace.Wrap(errors.New("cannot have nil pose for geometry"))
 	}
 	pose := spatialmath.NewPoseFromProtobuf(geometry.Center)
 	if box := geometry.GetBox().GetDimsMm(); box != nil {
-		return spatialmath.NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, geometry.Label)
+		return errtrace.Wrap2(spatialmath.NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, geometry.Label))
 	}
 	if capsule := geometry.GetCapsule(); capsule != nil {
-		return spatialmath.NewCapsule(pose, capsule.RadiusMm, capsule.LengthMm, geometry.Label)
+		return errtrace.Wrap2(spatialmath.NewCapsule(pose, capsule.RadiusMm, capsule.LengthMm, geometry.Label))
 	}
 	if sphere := geometry.GetSphere(); sphere != nil {
 		// Fallback to point if radius is 0
 		if sphere.RadiusMm == 0 {
 			return spatialmath.NewPoint(pose.Point(), geometry.Label), nil
 		}
-		return spatialmath.NewSphere(pose, sphere.RadiusMm, geometry.Label)
+		return errtrace.Wrap2(spatialmath.NewSphere(pose, sphere.RadiusMm, geometry.Label))
 	}
 	if mesh := geometry.GetMesh(); mesh != nil {
-		return spatialmath.NewMeshFromProto(pose, mesh, geometry.Label)
+		return errtrace.Wrap2(spatialmath.NewMeshFromProto(pose, mesh, geometry.Label))
 	}
 	if pointCloud := geometry.GetPointcloud(); pointCloud != nil {
-		return pointcloud.NewPointCloudFromProto(pointCloud, geometry.Label)
+		return errtrace.Wrap2(pointcloud.NewPointCloudFromProto(pointCloud, geometry.Label))
 	}
-	return nil, errGeometryTypeUnsupported
+	return nil, errtrace.Wrap(errGeometryTypeUnsupported)
 }
 
 // NewGeometriesFromProto converts a list of Geometries from protobuf.
@@ -47,7 +48,7 @@ func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]spatialmath.Geometry,
 	for _, geometry := range proto {
 		g, err := NewGeometryFromProto(geometry)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		geometries = append(geometries, g)
 	}
@@ -82,7 +83,7 @@ func GeoGeometryFromProtobuf(protoGeoObst *commonpb.GeoGeometry) (*spatialmath.G
 	for _, protoGeom := range protoGeoObst.GetGeometries() {
 		newGeom, err := NewGeometryFromProto(protoGeom)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		convGeoms = append(convGeoms, newGeom)
 	}

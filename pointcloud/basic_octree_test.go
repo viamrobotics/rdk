@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -18,7 +19,7 @@ import (
 func addPoints(basicOct *BasicOctree, pointsAndData []PointAndData) error {
 	for _, pd := range pointsAndData {
 		if err := basicOct.Set(pd.P, pd.D); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -40,7 +41,7 @@ func makeFullPointCloudFromArtifact(t *testing.T, artifactPath, pcType string) (
 	t.Helper()
 
 	path := filepath.Clean(artifact.MustPath(artifactPath))
-	return NewFromFile(path, pcType)
+	return errtrace.Wrap2(NewFromFile(path, pcType))
 }
 
 // Test the creation of new basic octrees.
@@ -591,7 +592,7 @@ func createExampleOctree() (*BasicOctree, error) {
 
 	err := addPoints(octree, pointsAndData)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return octree, nil
 }

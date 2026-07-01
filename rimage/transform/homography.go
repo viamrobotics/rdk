@@ -6,6 +6,7 @@ import (
 	"github.com/golang/geo/r2"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -19,13 +20,13 @@ type RawDepthColorHomography struct {
 // CheckValid runs checks on the fields of the struct to see if the inputs are valid.
 func (rdch *RawDepthColorHomography) CheckValid() error {
 	if rdch == nil {
-		return errors.New("pointer to DepthColorHomography is nil")
+		return errtrace.Wrap(errors.New("pointer to DepthColorHomography is nil"))
 	}
 	if rdch.Homography == nil {
-		return errors.New("pointer to Homography is nil")
+		return errtrace.Wrap(errors.New("pointer to Homography is nil"))
 	}
 	if len(rdch.Homography) != 9 {
-		return errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(rdch.Homography))
+		return errtrace.Wrap(errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(rdch.Homography)))
 	}
 	return nil
 }
@@ -45,7 +46,7 @@ type DepthColorHomography struct {
 func NewDepthColorHomography(inp *RawDepthColorHomography) (*DepthColorHomography, error) {
 	homography, err := NewHomography(inp.Homography)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &DepthColorHomography{
 		Homography:   homography,
@@ -59,10 +60,10 @@ func NewDepthColorHomography(inp *RawDepthColorHomography) (*DepthColorHomograph
 func (dch *DepthColorHomography) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap,
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	if col == nil {
-		return nil, nil, errors.New("no color image present to align")
+		return nil, nil, errtrace.Wrap(errors.New("no color image present to align"))
 	}
 	if dep == nil {
-		return nil, nil, errors.New("no depth image present to align")
+		return nil, nil, errtrace.Wrap(errors.New("no depth image present to align"))
 	}
 	// rotate depth image if necessary
 	if dch.RotateDepth != 0. {
@@ -77,7 +78,7 @@ func (dch *DepthColorHomography) AlignColorAndDepthImage(col *rimage.Image, dep 
 	if dch.DepthToColor {
 		colorToDepth, err = dch.Homography.Inverse()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	}
 	// iterate through color pixels - use the homography to see where they land in the depth map.

@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/logging"
@@ -55,11 +56,11 @@ type servoConfig struct {
 func (config *servoConfig) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if config.Board == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "board"))
 	}
 	deps = append(deps, config.Board)
 	if config.Pin == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "pin")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "pin"))
 	}
 
 	if config.StartPos != nil {
@@ -72,19 +73,19 @@ func (config *servoConfig) Validate(path string) ([]string, []string, error) {
 			maxDeg = *config.MaxDeg
 		}
 		if *config.StartPos < minDeg || *config.StartPos > maxDeg {
-			return nil, nil, resource.NewConfigValidationError(path,
-				errors.Errorf("starting_position_deg should be between minimum (%.1f) and maximum (%.1f) positions", minDeg, maxDeg))
+			return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path,
+				errors.Errorf("starting_position_deg should be between minimum (%.1f) and maximum (%.1f) positions", minDeg, maxDeg)))
 		}
 	}
 
 	if config.MinDeg != nil && *config.MinDeg < 0 {
-		return nil, nil, resource.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0")))
 	}
 	if config.MinWidthUs != nil && *config.MinWidthUs < minWidthUs {
-		return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs)))
 	}
 	if config.MaxWidthUs != nil && *config.MaxWidthUs > maxWidthUs {
-		return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs))
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs)))
 	}
 	return deps, nil, nil
 }
@@ -126,7 +127,7 @@ func newGPIOServo(
 
 	// reconfigure
 	if err := servo.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return servo, nil
@@ -138,19 +139,19 @@ func (s *servoGPIO) reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	newConf, err := resource.NativeConfig[*servoConfig](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	boardName := newConf.Board
 
 	b, err := board.FromProvider(deps, boardName)
 	if err != nil {
-		return errors.Wrap(err, "board doesn't exist")
+		return errtrace.Wrap(errors.Wrap(err, "board doesn't exist"))
 	}
 
 	s.pin, err = b.GPIOPinByName(newConf.Pin)
 	if err != nil {
-		return errors.Wrap(err, "couldn't get servo pin")
+		return errtrace.Wrap(errors.Wrap(err, "couldn't get servo pin"))
 	}
 
 	s.minDeg = defaultMinDeg
@@ -181,7 +182,7 @@ func (s *servoGPIO) reconfigure(ctx context.Context, deps resource.Dependencies,
 	// instead. If it's currently set to 0, we'll default to using 300 Hz.
 	s.frequency, err = s.pin.PWMFreq(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "couldn't get servo pin pwm frequency")
+		return errtrace.Wrap(errors.Wrap(err, "couldn't get servo pin pwm frequency"))
 	}
 
 	if s.frequency == 0 {
@@ -190,8 +191,8 @@ func (s *servoGPIO) reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	if newConf.Frequency != nil {
 		if *newConf.Frequency > maxFreqHz || *newConf.Frequency < minFreqHz {
-			return errors.Errorf(
-				"PWM frequencies should not be above %dHz or below %dHz, have %dHz", maxFreqHz, minFreqHz, newConf.Frequency)
+			return errtrace.Wrap(errors.Errorf(
+				"PWM frequencies should not be above %dHz or below %dHz, have %dHz", maxFreqHz, minFreqHz, newConf.Frequency))
 		}
 
 		s.frequency = *newConf.Frequency
@@ -212,20 +213,20 @@ func (s *servoGPIO) reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	if err := s.pin.SetPWMFreq(ctx, s.frequency, nil); err != nil {
-		return errors.Wrap(err, "error setting servo pin frequency")
+		return errtrace.Wrap(errors.Wrap(err, "error setting servo pin frequency"))
 	}
 
 	// Try to detect the PWM resolution.
 	if err := s.Move(ctx, uint32(startPos), nil); err != nil {
-		return errors.Wrap(err, "couldn't move servo to start position")
+		return errtrace.Wrap(errors.Wrap(err, "couldn't move servo to start position"))
 	}
 
 	if err := s.findPWMResolution(ctx); err != nil {
-		return errors.Wrap(err, "failed to guess the pwm resolution")
+		return errtrace.Wrap(errors.Wrap(err, "failed to guess the pwm resolution"))
 	}
 
 	if err := s.Move(ctx, uint32(startPos), nil); err != nil {
-		return errors.Wrap(err, "couldn't move servo back to start position")
+		return errtrace.Wrap(errors.Wrap(err, "couldn't move servo back to start position"))
 	}
 
 	return nil
@@ -272,7 +273,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 	currPct := s.currPct
 	realPct, err := s.pin.PWM(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "cannot find PWM resolution")
+		return errtrace.Wrap(errors.Wrap(err, "cannot find PWM resolution"))
 	}
 
 	// The direction will be towards whichever extreme duration (minUs or maxUs) is farther away.
@@ -285,16 +286,16 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 
 	if realPct != currPct {
 		if err := s.pin.SetPWM(ctx, realPct, nil); err != nil {
-			return errors.Wrap(err, "couldn't set PWM to realPct")
+			return errtrace.Wrap(errors.Wrap(err, "couldn't set PWM to realPct"))
 		}
 		r2, err := s.pin.PWM(ctx, nil)
 		if err != nil {
-			return errors.Wrap(err, "couldn't find PWM resolution")
+			return errtrace.Wrap(errors.Wrap(err, "couldn't find PWM resolution"))
 		}
 		if r2 == realPct {
 			currPct = r2
 		} else {
-			return errors.Errorf("giving up searching for the resolution tried to match %.7f but got %.7f", realPct, r2)
+			return errtrace.Wrap(errors.Errorf("giving up searching for the resolution tried to match %.7f but got %.7f", realPct, r2))
 		}
 	}
 
@@ -304,15 +305,15 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 		pct := currPct + dir/float64(val)
 		err := s.pin.SetPWM(ctx, pct, nil)
 		if err != nil {
-			return errors.Wrap(err, "couldn't search for PWM resolution")
+			return errtrace.Wrap(errors.Wrap(err, "couldn't search for PWM resolution"))
 		}
 		if !viamutils.SelectContextOrWait(ctx, 3*time.Millisecond) {
-			return errors.New("context canceled while looking for servo's PWM resolution")
+			return errtrace.Wrap(errors.New("context canceled while looking for servo's PWM resolution"))
 		}
 		realPct, err := s.pin.PWM(ctx, nil)
 		s.logger.CDebugf(ctx, "starting step %d currPct %.7f target Pct %.14f realPct %.14f", val, currPct, pct, realPct)
 		if err != nil {
-			return errors.Wrap(err, "couldn't find servo PWM resolution")
+			return errtrace.Wrap(errors.Wrap(err, "couldn't find servo PWM resolution"))
 		}
 		if realPct != currPct {
 			if realPct == pct {
@@ -351,7 +352,7 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 	}
 
 	if err := s.pin.SetPWM(ctx, pct, nil); err != nil {
-		return errors.Wrap(err, "couldn't move the servo")
+		return errtrace.Wrap(errors.Wrap(err, "couldn't move the servo"))
 	}
 
 	s.currPct = pct
@@ -362,7 +363,7 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	pct, err := s.pin.PWM(ctx, nil)
 	if err != nil {
-		return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
+		return 0, errtrace.Wrap(errors.Wrap(err, "couldn't get servo pin duty cycle"))
 	}
 	// Since Stop() sets the dutyCycle to 0.0 in order to maintain the position of the servo,
 	// we are setting the dutyCycle back to the last known dutyCycle to prevent the servo
@@ -371,7 +372,7 @@ func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) 
 		pct = s.currPct
 		err := s.pin.SetPWM(ctx, pct, extra)
 		if err != nil {
-			return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
+			return 0, errtrace.Wrap(errors.Wrap(err, "couldn't get servo pin duty cycle"))
 		}
 	}
 
@@ -385,7 +386,7 @@ func (s *servoGPIO) Stop(ctx context.Context, extra map[string]interface{}) erro
 	// Turning the pin all the way off (i.e., setting the duty cycle to 0%) will cut power to the
 	// motor. If you wanted to send it to position 0, you should set it to `minUs` instead.
 	if err := s.pin.SetPWM(ctx, 0.0, nil); err != nil {
-		return errors.Wrap(err, "couldn't stop servo")
+		return errtrace.Wrap(errors.Wrap(err, "couldn't stop servo"))
 	}
 	return nil
 }
@@ -394,7 +395,7 @@ func (s *servoGPIO) Stop(ctx context.Context, extra map[string]interface{}) erro
 func (s *servoGPIO) IsMoving(ctx context.Context) (bool, error) {
 	res, err := s.pin.PWM(ctx, nil)
 	if err != nil {
-		return false, errors.Wrap(err, "servo error while checking if moving")
+		return false, errtrace.Wrap(errors.Wrap(err, "servo error while checking if moving"))
 	}
 	if int(res) == 0 {
 		return false, nil

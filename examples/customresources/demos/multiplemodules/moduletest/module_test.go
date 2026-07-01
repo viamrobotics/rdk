@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
@@ -269,11 +270,11 @@ func connect(port int, logger logging.Logger, dialOpts ...rpc.DialOption) (robot
 		)
 		dialCancel()
 		if !isDeadlineExceededErr(err) {
-			return rc, err
+			return rc, errtrace.Wrap(err)
 		}
 		select {
 		case <-connectCtx.Done():
-			return nil, connectCtx.Err()
+			return nil, errtrace.Wrap(connectCtx.Err())
 		default:
 		}
 	}
@@ -285,30 +286,30 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 
 	port, err := goutils.TryReserveRandomPort()
 	if err != nil {
-		return "", 0, err
+		return "", 0, errtrace.Wrap(err)
 	}
 
 	cfg, err := config.Read(context.Background(), cfgIn, logger, nil)
 	if err != nil {
-		return "", 0, err
+		return "", 0, errtrace.Wrap(err)
 	}
 	cfg.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
 	cfg.Modules[0].ExePath = gizmoModPath
 	cfg.Modules[1].ExePath = summationModPath
 	output, err := json.Marshal(cfg)
 	if err != nil {
-		return "", 0, err
+		return "", 0, errtrace.Wrap(err)
 	}
 	file, err := os.CreateTemp(t.TempDir(), "viam-test-config-*")
 	if err != nil {
-		return "", 0, err
+		return "", 0, errtrace.Wrap(err)
 	}
 	cfgFilename := file.Name()
 	_, err = file.Write(output)
 	if err != nil {
-		return "", 0, err
+		return "", 0, errtrace.Wrap(err)
 	}
-	return cfgFilename, port, file.Close()
+	return cfgFilename, port, errtrace.Wrap(file.Close())
 }
 
 type spanExpectation struct {

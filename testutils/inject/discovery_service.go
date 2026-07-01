@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/discovery"
 )
@@ -30,26 +31,26 @@ func (disSvc *DiscoveryService) Name() resource.Name {
 // DiscoverResources calls the injected DiscoverResourcesFunc or the real version.
 func (disSvc *DiscoveryService) DiscoverResources(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 	if disSvc.DiscoverResourcesFunc == nil {
-		return disSvc.Service.DiscoverResources(ctx, extra)
+		return errtrace.Wrap2(disSvc.Service.DiscoverResources(ctx, extra))
 	}
-	return disSvc.DiscoverResourcesFunc(ctx, extra)
+	return errtrace.Wrap2(disSvc.DiscoverResourcesFunc(ctx, extra))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (disSvc *DiscoveryService) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if disSvc.DoFunc == nil {
-		return disSvc.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(disSvc.Service.DoCommand(ctx, cmd))
 	}
-	return disSvc.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(disSvc.DoFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (disSvc *DiscoveryService) Status(ctx context.Context) (map[string]interface{}, error) {
 	if disSvc.StatusFunc != nil {
-		return disSvc.StatusFunc(ctx)
+		return errtrace.Wrap2(disSvc.StatusFunc(ctx))
 	}
 	if disSvc.Service != nil {
-		return disSvc.Service.Status(ctx)
+		return errtrace.Wrap2(disSvc.Service.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }
@@ -60,7 +61,7 @@ func (disSvc *DiscoveryService) Close(ctx context.Context) error {
 		if disSvc.Service == nil {
 			return nil
 		}
-		return disSvc.Service.Close(ctx)
+		return errtrace.Wrap(disSvc.Service.Close(ctx))
 	}
-	return disSvc.CloseFunc(ctx)
+	return errtrace.Wrap(disSvc.CloseFunc(ctx))
 }

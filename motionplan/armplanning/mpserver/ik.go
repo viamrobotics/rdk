@@ -1,4 +1,4 @@
-//nolint // This is a self-contained program. Most lint errors do not help find bugs.
+// nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (
@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -50,23 +51,23 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 	var meta armplanning.PlanMeta
 	pc, err := armplanning.NewPlanContext(ctx, logger, req, &meta)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	linearSchema := pc.GetLinearInputsSchema()
 	startLinear, err := linearSchema.GetLinearInputs(segmentStart)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	psc, err := armplanning.NewPlanSegmentContext(ctx, pc, startLinear, segmentGoal)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	solver, err := ik.CreateNloptSolver(logger, -1, true, true, time.Second)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
@@ -75,7 +76,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 
 	sss, err := armplanning.NewSolutionSolvingState(ctx, psc, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var ret IKInspectTable
@@ -105,7 +106,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 			case solution := <-retChan:
 				inputs, err := linearSchema.FloatsToInputs(solution.Configuration)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 
 				_, finalStateErr := psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{

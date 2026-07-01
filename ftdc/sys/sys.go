@@ -4,6 +4,7 @@ package sys
 import (
 	"os"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/ftdc"
 )
 
@@ -17,10 +18,10 @@ type stats struct {
 
 // NewSysUsageStatser returns a system ftdc statser based on the passed pid.
 func NewSysUsageStatser(pid int) (ftdc.Statser, error) {
-	return newSysUsageStatser(pid)
+	return errtrace.Wrap2(newSysUsageStatser(pid))
 }
 
 // NewSelfSysUsageStatser returns a system ftdc statser based on the current pid.
 func NewSelfSysUsageStatser() (ftdc.Statser, error) {
-	return newSysUsageStatser(os.Getpid())
+	return errtrace.Wrap2(newSysUsageStatser(os.Getpid()))
 }

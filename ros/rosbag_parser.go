@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"braces.dev/errtrace"
 	"github.com/edaniels/gobag/rosbag"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -17,13 +18,13 @@ func ReadBag(filename string) (*rosbag.RosBag, error) {
 	f, err := os.Open(filename)
 	defer utils.UncheckedErrorFunc(f.Close)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open input file")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "unable to open input file"))
 	}
 
 	rb := rosbag.NewRosBag()
 
 	if err := rb.Read(f); err != nil {
-		return nil, errors.Wrapf(err, "unable to create ros bag, error")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "unable to create ros bag, error"))
 	}
 
 	return rb, nil
@@ -59,7 +60,7 @@ func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter [
 	}
 
 	if err := rb.ParseTopicsToJSON("", timeFilterFunc, topicFilterFunc, false); err != nil {
-		return errors.Wrapf(err, "error while parsing bag to JSON")
+		return errtrace.Wrap(errors.Wrapf(err, "error while parsing bag to JSON"))
 	}
 
 	return nil
@@ -73,12 +74,12 @@ func AllMessagesForTopic(rb *rosbag.RosBag, topic string) ([]map[string]interfac
 		func(t string) bool { return t == topic },
 		false,
 	); err != nil {
-		return nil, errors.Wrapf(err, "error while parsing bag to JSON")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "error while parsing bag to JSON"))
 	}
 
 	msgs := rb.TopicsAsJSON[topic]
 	if msgs == nil {
-		return nil, errors.Errorf("no messages for topic %s", topic)
+		return nil, errtrace.Wrap(errors.Errorf("no messages for topic %s", topic))
 	}
 
 	all := []map[string]interface{}{}
@@ -89,12 +90,12 @@ func AllMessagesForTopic(rb *rosbag.RosBag, topic string) ([]map[string]interfac
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		message := map[string]interface{}{}
 		err = json.Unmarshal(data, &message)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		all = append(all, message)

@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/multierr"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/grpc"
@@ -33,7 +34,7 @@ type MCP3008AnalogConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *MCP3008AnalogConfig) Validate(path string) error {
 	if config.Name == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "name"))
 	}
 	return nil
 }
@@ -50,15 +51,15 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]inter
 
 	bus, err := mar.Bus.OpenHandle()
 	if err != nil {
-		return board.AnalogValue{}, err
+		return board.AnalogValue{}, errtrace.Wrap(err)
 	}
 	defer func() {
-		err = multierr.Combine(err, bus.Close())
+		err = errtrace.Wrap(multierr.Combine(err, bus.Close()))
 	}()
 
 	rx, err := bus.Xfer(ctx, 1000000, mar.Chip, 0, tx[:])
 	if err != nil {
-		return board.AnalogValue{}, err
+		return board.AnalogValue{}, errtrace.Wrap(err)
 	}
 	// Reassemble the 10-bit value. Do not include bits before the final 10, because they contain
 	// garbage and might be non-zero.
@@ -74,5 +75,5 @@ func (mar *MCP3008AnalogReader) Close(ctx context.Context) error {
 }
 
 func (mar *MCP3008AnalogReader) Write(ctx context.Context, value int, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+	return errtrace.Wrap(grpc.UnimplementedError)
 }

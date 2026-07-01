@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/services/datamanager"
 )
@@ -29,7 +30,7 @@ func writeOpenSequence(captureDir string, opened OpenSequence) error {
 		Resources:    toSequenceResources(opened.Resources),
 		SequenceTags: opened.SequenceTags,
 	}
-	return writeSequenceFile(progSeqFilePath(captureDir, opened.ID), sf)
+	return errtrace.Wrap(writeSequenceFile(progSeqFilePath(captureDir, opened.ID), sf))
 }
 
 // writeClosedSequence writes <id>.seq and removes the corresponding <id>.progseq.
@@ -41,10 +42,10 @@ func writeClosedSequence(captureDir string, closed ClosedSequence) error {
 		SequenceTags: closed.SequenceTags,
 	}
 	if err := writeSequenceFile(seqFilePath(captureDir, closed.ID), sf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := os.Remove(progSeqFilePath(captureDir, closed.ID)); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove .progseq after writing .seq: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to remove .progseq after writing .seq: %w", err))
 	}
 	return nil
 }
@@ -54,18 +55,18 @@ func writeClosedSequence(captureDir string, closed ClosedSequence) error {
 func writeSequenceFile(finalPath string, sf data.SequenceFile) error {
 	bytes, err := json.MarshalIndent(sf, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal sequence: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to marshal sequence: %w", err))
 	}
 	if err := os.MkdirAll(filepath.Dir(finalPath), 0o700); err != nil {
-		return fmt.Errorf("failed to create sequences dir: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to create sequences dir: %w", err))
 	}
 	tmpPath := finalPath + ".tmp"
 	if err := os.WriteFile(tmpPath, bytes, 0o600); err != nil {
-		return fmt.Errorf("failed to write sequence tmp file: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to write sequence tmp file: %w", err))
 	}
 	if err := os.Rename(tmpPath, finalPath); err != nil {
 		_ = os.Remove(tmpPath) //nolint:errcheck
-		return fmt.Errorf("failed to rename sequence tmp file: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to rename sequence tmp file: %w", err))
 	}
 	return nil
 }

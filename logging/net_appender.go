@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	apppb "go.viam.com/api/app/v1"
@@ -48,7 +49,7 @@ func NewNetAppender(
 	sharedConn bool,
 	loggerWithoutNet Logger,
 ) (*NetAppender, error) {
-	return newNetAppender(config, conn, sharedConn, true, loggerWithoutNet)
+	return errtrace.Wrap2(newNetAppender(config, conn, sharedConn, true, loggerWithoutNet))
 }
 
 // inner function for NewNetAppender which can disable background worker in tests.
@@ -61,7 +62,7 @@ func newNetAppender(
 ) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	logWriter := &remoteLogWriterGRPC{
@@ -239,7 +240,7 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 
 	caller, err := protoutils.StructToStructPb(WrapEntryCaller(e.Caller))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	log.Caller = caller
 
@@ -247,7 +248,7 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 	for _, ff := range f {
 		field, err := FieldToProto(ff)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		fields = append(fields, field)
 	}
@@ -257,7 +258,7 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 
 	if e.Level == zapcore.FatalLevel || e.Level == zapcore.DPanicLevel || e.Level == zapcore.PanicLevel {
 		// program is going to go away, let's try and sync all our messages before then
-		return nl.sync()
+		return errtrace.Wrap(nl.sync())
 	}
 
 	return nil
@@ -390,7 +391,7 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 		err = nl.remoteWriter.write(nl.cancelCtx, batch)
 	}
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 
 	nl.toLogMutex.Lock()
@@ -435,7 +436,7 @@ func (nl *NetAppender) sync() error {
 	for {
 		moreToDo, err := nl.syncOnce()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		if !moreToDo {
@@ -484,12 +485,12 @@ func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEnt
 
 	client, err := w.getOrCreateClient(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.Log(ctx, &apppb.LogRequest{Id: w.cfg.ID, Logs: logs})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -504,12 +505,12 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 	}
 
 	if w.sharedConn {
-		return nil, errUninitializedConnection
+		return nil, errtrace.Wrap(errUninitializedConnection)
 	}
 
 	client, err := CreateNewGRPCClient(ctx, w.cfg, w.loggerWithoutNet)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	w.rpcClient = client
@@ -534,7 +535,7 @@ func (w *remoteLogWriterGRPC) close() {
 func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig, logger Logger) (rpc.ClientConn, error) {
 	grpcURL, err := url.Parse(cloudCfg.AppAddress)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
@@ -548,7 +549,7 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig, logger Logg
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, grpcURL.Host, logger, dialOpts...)
+	return errtrace.Wrap2(rpc.DialDirectGRPC(ctx, grpcURL.Host, logger, dialOpts...))
 }
 
 // A NetAppender must implement a zapcore such that it gets copied when downconverting on
@@ -595,9 +596,9 @@ func (l *wrappedLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
 	field := []zapcore.Field{}
 	field = append(field, l.extra...)
 	field = append(field, f...)
-	return l.base.Write(e, field)
+	return errtrace.Wrap(l.base.Write(e, field))
 }
 
 func (l *wrappedLogger) Sync() error {
-	return l.base.Sync()
+	return errtrace.Wrap(l.base.Sync())
 }

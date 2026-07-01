@@ -1,6 +1,7 @@
 package transform
 
 import "github.com/pkg/errors"
+import "braces.dev/errtrace"
 
 // InverseBrownConrady applies the inverse of the Brown-Conrady distortion model.
 // Given distorted points, it computes the corresponding undistorted points using
@@ -16,7 +17,7 @@ type InverseBrownConrady struct {
 // CheckValid checks if the fields for InverseBrownConrady have valid inputs.
 func (ibc *InverseBrownConrady) CheckValid() error {
 	if ibc == nil {
-		return InvalidDistortionError("InverseBrownConrady shaped distortion_parameters not provided")
+		return errtrace.Wrap(InvalidDistortionError("InverseBrownConrady shaped distortion_parameters not provided"))
 	}
 	return nil
 }
@@ -24,7 +25,7 @@ func (ibc *InverseBrownConrady) CheckValid() error {
 // NewInverseBrownConrady takes in a slice of floats that will be passed into the struct in order.
 func NewInverseBrownConrady(inp []float64) (*InverseBrownConrady, error) {
 	if len(inp) > 5 {
-		return nil, errors.Errorf("list of parameters too long, expected max 5, got %d", len(inp))
+		return nil, errtrace.Wrap(errors.Errorf("list of parameters too long, expected max 5, got %d", len(inp)))
 	}
 	if len(inp) == 0 {
 		return &InverseBrownConrady{}, nil

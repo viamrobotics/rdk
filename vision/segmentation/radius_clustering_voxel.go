@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/utils"
@@ -32,10 +33,10 @@ type RadiusClusteringVoxelConfig struct {
 // CheckValid checks to see in the input values are valid.
 func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	if rcc.VoxelSize <= 0 {
-		return errors.Errorf("voxel_size must be greater than 0, got %v", rcc.VoxelSize)
+		return errtrace.Wrap(errors.Errorf("voxel_size must be greater than 0, got %v", rcc.VoxelSize))
 	}
 	if rcc.Lambda <= 0 {
-		return errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda)
+		return errtrace.Wrap(errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda))
 	}
 	radiusClustering := RadiusClusteringConfig{
 		MinPtsInPlane:      rcc.MinPtsInPlane,
@@ -47,12 +48,12 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	}
 	err := radiusClustering.CheckValid()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	voxelPlanes := VoxelGridPlaneConfig{rcc.WeightThresh, rcc.AngleThresh, rcc.CosineThresh, rcc.DistanceThresh}
 	err = voxelPlanes.CheckValid()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -61,25 +62,25 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am utils.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: rcc})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	err = decoder.Decode(am)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return rcc.CheckValid()
+	return errtrace.Wrap(rcc.CheckValid())
 }
 
 // NewRadiusClusteringFromVoxels removes the planes (if any) and returns a segmentation of the objects in a point cloud.
 func NewRadiusClusteringFromVoxels(params utils.AttributeMap) (Segmenter, error) {
 	// convert attributes to appropriate struct
 	if params == nil {
-		return nil, errors.New("config for radius clustering segmentation cannot be nil")
+		return nil, errtrace.Wrap(errors.New("config for radius clustering segmentation cannot be nil"))
 	}
 	cfg := &RadiusClusteringVoxelConfig{}
 	err := cfg.ConvertAttributes(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return cfg.RadiusClusteringVoxels, nil
 }
@@ -90,7 +91,7 @@ func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Conte
 	// NOTE(bh): Maybe one day cameras will return voxel grids directly.
 	cloud, err := src.NextPointCloud(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// turn the point cloud into a voxel grid
 	vg := pc.NewVoxelGridFromPointCloud(cloud, rcc.VoxelSize, rcc.Lambda)
@@ -98,24 +99,24 @@ func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Conte
 	ps := NewVoxelGridPlaneSegmentation(vg, planeConfig)
 	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// if there is a found plane in the scene, take the biggest plane, and only save the non-plane points above it
 	if len(planes) > 0 {
 		nonPlane, _, err = SplitPointCloudByPlane(nonPlane, planes[0])
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	objVoxGrid := pc.NewVoxelGridFromPointCloud(nonPlane, vg.VoxelSize(), vg.Lambda())
 	objects, err := voxelBasedNearestNeighbors(objVoxGrid, rcc.ClusteringRadiusMm)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	objects = pc.PrunePointClouds(objects, rcc.MinPtsInSegment)
 	segments, err := NewSegmentsFromSlice(objects, rcc.Label)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return segments.Objects, nil
@@ -135,7 +136,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 		// if not assigned, see if any of its neighbors are assigned a cluster
 		n := int((radius - 0.5*vSize) / vSize)
 		if n < 1 {
-			return nil, fmt.Errorf("cannot use radius %v to cluster voxels of size %v", radius, vSize)
+			return nil, errtrace.Wrap(fmt.Errorf("cannot use radius %v to cluster voxels of size %v", radius, vSize))
 		}
 		nn := findVoxelNeighborsInRadius(vg, coord, uint(n))
 		for nv, neighborVox := range nn {
@@ -146,7 +147,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 				if ptIndex != neighborIndex {
 					err = clusters.MergeClusters(ptIndex, neighborIndex)
 					if err != nil {
-						return nil, err
+						return nil, errtrace.Wrap(err)
 					}
 				}
 			case !ptOk && neighborOk:
@@ -154,7 +155,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 				for p, d := range vox.Points {
 					err = clusters.AssignCluster(p, d, neighborIndex) // label all points in the voxel
 					if err != nil {
-						return nil, err
+						return nil, errtrace.Wrap(err)
 					}
 				}
 			case ptOk && !neighborOk:
@@ -162,7 +163,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 				for p, d := range neighborVox.Points {
 					err = clusters.AssignCluster(p, d, ptIndex)
 					if err != nil {
-						return nil, err
+						return nil, errtrace.Wrap(err)
 					}
 				}
 			}
@@ -173,7 +174,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 			for p, d := range vox.Points {
 				err = clusters.AssignCluster(p, d, c)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 			}
 			for nv, neighborVox := range nn {
@@ -181,7 +182,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 				for p, d := range neighborVox.Points {
 					err = clusters.AssignCluster(p, d, c)
 					if err != nil {
-						return nil, err
+						return nil, errtrace.Wrap(err)
 					}
 				}
 			}

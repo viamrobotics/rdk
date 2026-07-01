@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"braces.dev/errtrace"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -23,7 +24,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	defer s.streamMu.Unlock()
 
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return errtrace.Wrap(ctx.Err())
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -31,7 +32,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return errtrace.Wrap(ctx.Err())
 	default:
 	}
 	names := []string{}
@@ -51,7 +52,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	_, err := stream.Recv()
 	if err != nil {
 		s.client.logger.CError(ctx, err)
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Create a background go routine to receive from the server stream.

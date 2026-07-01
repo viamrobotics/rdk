@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
@@ -20,7 +21,7 @@ import (
 )
 
 func nodeNotFoundErr(name resource.Name) error {
-	return &resource.NodeNotFoundError{Name: name.Name, API: name.API}
+	return errtrace.Wrap(&resource.NodeNotFoundError{Name: name.Name, API: name.API})
 }
 
 func TestModularResources(t *testing.T) {
@@ -65,7 +66,7 @@ func TestModularResources(t *testing.T) {
 				conf resource.Config,
 				logger logging.Logger,
 			) (resource.Resource, error) {
-				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+				return errtrace.Wrap2(mod.AddResource(ctx, conf, modmanager.DepsToNames(deps)))
 			},
 		})
 		t.Cleanup(func() {
@@ -78,7 +79,7 @@ func TestModularResources(t *testing.T) {
 				conf resource.Config,
 				logger logging.Logger,
 			) (resource.Resource, error) {
-				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+				return errtrace.Wrap2(mod.AddResource(ctx, conf, modmanager.DepsToNames(deps)))
 			},
 		})
 		t.Cleanup(func() {
@@ -97,7 +98,7 @@ func TestModularResources(t *testing.T) {
 				conf resource.Config,
 				logger logging.Logger,
 			) (resource.Resource, error) {
-				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+				return errtrace.Wrap2(mod.AddResource(ctx, conf, modmanager.DepsToNames(deps)))
 			},
 		})
 		t.Cleanup(func() {
@@ -415,11 +416,11 @@ func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, dep
 	}
 	if conf.API.IsComponent() {
 		if err := m.compAPISvc.Add(conf.ResourceName(), res); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		if err := m.svcAPISvc.Add(conf.ResourceName(), res); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return res, nil
@@ -432,11 +433,11 @@ func (m *dummyModMan) RemoveResource(ctx context.Context, name resource.Name) er
 	delete(m.state, name)
 	if name.API.IsComponent() {
 		if err := m.compAPISvc.Remove(name); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else {
 		if err := m.svcAPISvc.Remove(name); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -477,7 +478,7 @@ func (m *dummyModMan) CleanModuleDataDirectory() error {
 
 func (m *dummyModMan) Close(ctx context.Context) error {
 	if len(m.state) != 0 {
-		return errors.New("attempt to close with active resources in place")
+		return errtrace.Wrap(errors.New("attempt to close with active resources in place"))
 	}
 	return nil
 }

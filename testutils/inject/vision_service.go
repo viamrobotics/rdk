@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
@@ -55,18 +56,18 @@ func (vs *VisionService) Name() resource.Name {
 func (vs *VisionService) DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{},
 ) ([]objectdetection.Detection, error) {
 	if vs.DetectionsFunc == nil {
-		return vs.Service.DetectionsFromCamera(ctx, cameraName, extra)
+		return errtrace.Wrap2(vs.Service.DetectionsFromCamera(ctx, cameraName, extra))
 	}
-	return vs.DetectionsFromCameraFunc(ctx, cameraName, extra)
+	return errtrace.Wrap2(vs.DetectionsFromCameraFunc(ctx, cameraName, extra))
 }
 
 // Detections calls the injected Detect or the real variant.
 func (vs *VisionService) Detections(ctx context.Context, img *camera.NamedImage, extra map[string]interface{},
 ) ([]objectdetection.Detection, error) {
 	if vs.DetectionsFunc == nil {
-		return vs.Service.Detections(ctx, img, extra)
+		return errtrace.Wrap2(vs.Service.Detections(ctx, img, extra))
 	}
-	return vs.DetectionsFunc(ctx, img, extra)
+	return errtrace.Wrap2(vs.DetectionsFunc(ctx, img, extra))
 }
 
 // ClassificationsFromCamera calls the injected Classifer or the real variant.
@@ -74,9 +75,9 @@ func (vs *VisionService) ClassificationsFromCamera(ctx context.Context,
 	cameraName string, n int, extra map[string]interface{},
 ) (classification.Classifications, error) {
 	if vs.ClassificationsFromCameraFunc == nil {
-		return vs.Service.ClassificationsFromCamera(ctx, cameraName, n, extra)
+		return errtrace.Wrap2(vs.Service.ClassificationsFromCamera(ctx, cameraName, n, extra))
 	}
-	return vs.ClassificationsFromCameraFunc(ctx, cameraName, n, extra)
+	return errtrace.Wrap2(vs.ClassificationsFromCameraFunc(ctx, cameraName, n, extra))
 }
 
 // Classifications calls the injected Classifier or the real variant.
@@ -84,9 +85,9 @@ func (vs *VisionService) Classifications(ctx context.Context, img *camera.NamedI
 	n int, extra map[string]interface{},
 ) (classification.Classifications, error) {
 	if vs.ClassificationsFunc == nil {
-		return vs.Service.Classifications(ctx, img, n, extra)
+		return errtrace.Wrap2(vs.Service.Classifications(ctx, img, n, extra))
 	}
-	return vs.ClassificationsFunc(ctx, img, n, extra)
+	return errtrace.Wrap2(vs.ClassificationsFunc(ctx, img, n, extra))
 }
 
 // GetObjectPointClouds calls the injected GetObjectPointClouds or the real variant.
@@ -95,9 +96,9 @@ func (vs *VisionService) GetObjectPointClouds(
 	cameraName string, extra map[string]interface{},
 ) ([]*viz.Object, error) {
 	if vs.GetObjectPointCloudsFunc == nil {
-		return vs.Service.GetObjectPointClouds(ctx, cameraName, extra)
+		return errtrace.Wrap2(vs.Service.GetObjectPointClouds(ctx, cameraName, extra))
 	}
-	return vs.GetObjectPointCloudsFunc(ctx, cameraName, extra)
+	return errtrace.Wrap2(vs.GetObjectPointCloudsFunc(ctx, cameraName, extra))
 }
 
 // GetProperties calls the injected GetProperties or the real variant.
@@ -106,9 +107,9 @@ func (vs *VisionService) GetProperties(
 	extra map[string]interface{},
 ) (*vision.Properties, error) {
 	if vs.GetPropertiesFunc == nil {
-		return vs.Service.GetProperties(ctx, extra)
+		return errtrace.Wrap2(vs.Service.GetProperties(ctx, extra))
 	}
-	return vs.GetPropertiesFunc(ctx, extra)
+	return errtrace.Wrap2(vs.GetPropertiesFunc(ctx, extra))
 }
 
 // CaptureAllFromCamera calls the injected CaptureAllFromCamera or the real variant.
@@ -118,9 +119,9 @@ func (vs *VisionService) CaptureAllFromCamera(ctx context.Context,
 	extra map[string]interface{},
 ) (viscapture.VisCapture, error) {
 	if vs.CaptureAllFromCameraFunc == nil {
-		return vs.Service.CaptureAllFromCamera(ctx, cameraName, opts, extra)
+		return errtrace.Wrap2(vs.Service.CaptureAllFromCamera(ctx, cameraName, opts, extra))
 	}
-	return vs.CaptureAllFromCameraFunc(ctx, cameraName, opts, extra)
+	return errtrace.Wrap2(vs.CaptureAllFromCameraFunc(ctx, cameraName, opts, extra))
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
@@ -128,18 +129,18 @@ func (vs *VisionService) DoCommand(ctx context.Context,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	if vs.DoCommandFunc == nil {
-		return vs.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(vs.Service.DoCommand(ctx, cmd))
 	}
-	return vs.DoCommandFunc(ctx, cmd)
+	return errtrace.Wrap2(vs.DoCommandFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (vs *VisionService) Status(ctx context.Context) (map[string]interface{}, error) {
 	if vs.StatusFunc != nil {
-		return vs.StatusFunc(ctx)
+		return errtrace.Wrap2(vs.StatusFunc(ctx))
 	}
 	if vs.Service != nil {
-		return vs.Service.Status(ctx)
+		return errtrace.Wrap2(vs.Service.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }
@@ -150,7 +151,7 @@ func (vs *VisionService) Close(ctx context.Context) error {
 		if vs.Service == nil {
 			return nil
 		}
-		return vs.Service.Close(ctx)
+		return errtrace.Wrap(vs.Service.Close(ctx))
 	}
-	return vs.CloseFunc(ctx)
+	return errtrace.Wrap(vs.CloseFunc(ctx))
 }

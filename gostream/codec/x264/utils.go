@@ -3,6 +3,7 @@ package x264
 import (
 	"math"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec"
 	"go.viam.com/rdk/logging"
@@ -34,7 +35,7 @@ func NewEncoderFactory() codec.VideoEncoderFactory {
 type factory struct{}
 
 func (f *factory) New(width, height, keyFrameInterval int, logger logging.Logger) (codec.VideoEncoder, error) {
-	return NewEncoder(width, height, keyFrameInterval, logger)
+	return errtrace.Wrap2(NewEncoder(width, height, keyFrameInterval, logger))
 }
 
 func (f *factory) MIMEType() string {

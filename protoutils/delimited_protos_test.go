@@ -11,6 +11,7 @@ import (
 	webrtcpb "go.viam.com/utils/proto/rpc/webrtc/v1"
 	"google.golang.org/protobuf/proto"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/protoutils"
 )
 
@@ -22,7 +23,7 @@ type countingWriter struct {
 // Write implements [io.Writer].
 func (c *countingWriter) Write(p []byte) (n int, err error) {
 	c.writeCalls++
-	return c.buffer.Write(p)
+	return errtrace.Wrap2(c.buffer.Write(p))
 }
 
 func (c *countingWriter) Len() int {
@@ -116,7 +117,7 @@ func (s *slowReader) Read(p []byte) (int, error) {
 	if len(p) > s.n {
 		p = p[:s.n]
 	}
-	return s.r.Read(p)
+	return errtrace.Wrap2(s.r.Read(p))
 }
 
 func TestDelimitedProtoReaderShortReads(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -121,9 +122,9 @@ func ConvertImageToDepthMap(ctx context.Context, img image.Image) (*DepthMap, er
 		lazyImg, _ := img.(*LazyEncodedImage)
 		decodedImg, err := DecodeImage(ctx, lazyImg.RawData(), lazyImg.MIMEType())
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return ConvertImageToDepthMap(ctx, decodedImg)
+		return errtrace.Wrap2(ConvertImageToDepthMap(ctx, decodedImg))
 	case *DepthMap:
 		return ii, nil
 	case *imageWithDepth:
@@ -131,7 +132,7 @@ func ConvertImageToDepthMap(ctx context.Context, img image.Image) (*DepthMap, er
 	case *image.Gray16:
 		return gray16ToDepthMap(ii), nil
 	default:
-		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
+		return nil, errtrace.Wrap(errors.Errorf("don't know how to make DepthMap from %T", img))
 	}
 }
 
@@ -161,7 +162,7 @@ func ConvertImageToGray16(img image.Image) (*image.Gray16, error) {
 	case *image.Gray16:
 		return ii, nil
 	default:
-		return nil, errors.Errorf("don't know how to make image.Gray16 from %T", img)
+		return nil, errtrace.Wrap(errors.Errorf("don't know how to make image.Gray16 from %T", img))
 	}
 }
 
@@ -183,7 +184,7 @@ func (dm *DepthMap) ToGray16Picture() *image.Gray16 {
 // WriteToBuf writes the depth map to a writer as 16bit grayscale png.
 func (dm *DepthMap) WriteToBuf(out io.Writer) error {
 	img := dm.ToGray16Picture()
-	return png.Encode(out, img)
+	return errtrace.Wrap(png.Encode(out, img))
 }
 
 // MinMax returns the minimum and maximum depth values within the depth map.

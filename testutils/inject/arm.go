@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -47,25 +48,25 @@ func (a *Arm) Name() resource.Name {
 // EndPosition calls the injected EndPosition or the real version.
 func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	if a.EndPositionFunc == nil {
-		return a.Arm.EndPosition(ctx, extra)
+		return errtrace.Wrap2(a.Arm.EndPosition(ctx, extra))
 	}
-	return a.EndPositionFunc(ctx, extra)
+	return errtrace.Wrap2(a.EndPositionFunc(ctx, extra))
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
 func (a *Arm) MoveToPosition(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error {
 	if a.MoveToPositionFunc == nil {
-		return a.Arm.MoveToPosition(ctx, to, extra)
+		return errtrace.Wrap(a.Arm.MoveToPosition(ctx, to, extra))
 	}
-	return a.MoveToPositionFunc(ctx, to, extra)
+	return errtrace.Wrap(a.MoveToPositionFunc(ctx, to, extra))
 }
 
 // MoveToJointPositions calls the injected MoveToJointPositions or the real version.
 func (a *Arm) MoveToJointPositions(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error {
 	if a.MoveToJointPositionsFunc == nil {
-		return a.Arm.MoveToJointPositions(ctx, positions, extra)
+		return errtrace.Wrap(a.Arm.MoveToJointPositions(ctx, positions, extra))
 	}
-	return a.MoveToJointPositionsFunc(ctx, positions, extra)
+	return errtrace.Wrap(a.MoveToJointPositionsFunc(ctx, positions, extra))
 }
 
 // MoveThroughJointPositions calls the injected MoveThroughJointPositions or the real version.
@@ -76,33 +77,33 @@ func (a *Arm) MoveThroughJointPositions(
 	extra map[string]interface{},
 ) error {
 	if a.MoveThroughJointPositionsFunc == nil {
-		return a.Arm.MoveThroughJointPositions(ctx, positions, options, extra)
+		return errtrace.Wrap(a.Arm.MoveThroughJointPositions(ctx, positions, options, extra))
 	}
-	return a.MoveThroughJointPositionsFunc(ctx, positions, options, extra)
+	return errtrace.Wrap(a.MoveThroughJointPositionsFunc(ctx, positions, options, extra))
 }
 
 // JointPositions calls the injected JointPositions or the real version.
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	if a.JointPositionsFunc == nil {
-		return a.Arm.JointPositions(ctx, extra)
+		return errtrace.Wrap2(a.Arm.JointPositions(ctx, extra))
 	}
-	return a.JointPositionsFunc(ctx, extra)
+	return errtrace.Wrap2(a.JointPositionsFunc(ctx, extra))
 }
 
 // Stop calls the injected Stop or the real version.
 func (a *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if a.StopFunc == nil {
-		return a.Arm.Stop(ctx, extra)
+		return errtrace.Wrap(a.Arm.Stop(ctx, extra))
 	}
-	return a.StopFunc(ctx, extra)
+	return errtrace.Wrap(a.StopFunc(ctx, extra))
 }
 
 // IsMoving calls the injected IsMoving or the real version.
 func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 	if a.IsMovingFunc == nil {
-		return a.Arm.IsMoving(ctx)
+		return errtrace.Wrap2(a.Arm.IsMoving(ctx))
 	}
-	return a.IsMovingFunc(ctx)
+	return errtrace.Wrap2(a.IsMovingFunc(ctx))
 }
 
 // Close calls the injected Close or the real version.
@@ -111,62 +112,62 @@ func (a *Arm) Close(ctx context.Context) error {
 		if a.Arm == nil {
 			return nil
 		}
-		return a.Arm.Close(ctx)
+		return errtrace.Wrap(a.Arm.Close(ctx))
 	}
-	return a.CloseFunc(ctx)
+	return errtrace.Wrap(a.CloseFunc(ctx))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if a.DoFunc == nil {
-		return a.Arm.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(a.Arm.DoCommand(ctx, cmd))
 	}
-	return a.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(a.DoFunc(ctx, cmd))
 }
 
 // Kinematics calls the injected Kinematics or the real version.
 func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if a.KinematicsFunc == nil {
 		if a.Arm != nil {
-			return a.Arm.Kinematics(ctx)
+			return errtrace.Wrap2(a.Arm.Kinematics(ctx))
 		}
 		model := referenceframe.NewSimpleModel("")
 		return model, nil
 	}
-	return a.KinematicsFunc(ctx)
+	return errtrace.Wrap2(a.KinematicsFunc(ctx))
 }
 
 // CurrentInputs calls the injected CurrentInputs or the real version.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	if a.CurrentInputsFunc == nil {
-		return a.Arm.CurrentInputs(ctx)
+		return errtrace.Wrap2(a.Arm.CurrentInputs(ctx))
 	}
-	return a.CurrentInputsFunc(ctx)
+	return errtrace.Wrap2(a.CurrentInputsFunc(ctx))
 }
 
 // GoToInputs calls the injected GoToInputs or the real version.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	if a.GoToInputsFunc == nil {
-		return a.Arm.GoToInputs(ctx, inputSteps...)
+		return errtrace.Wrap(a.Arm.GoToInputs(ctx, inputSteps...))
 	}
-	return a.GoToInputsFunc(ctx, inputSteps...)
+	return errtrace.Wrap(a.GoToInputsFunc(ctx, inputSteps...))
 }
 
 // Geometries returns the gripper's geometries.
 func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	if a.GeometriesFunc == nil {
-		return a.Arm.Geometries(ctx, extra)
+		return errtrace.Wrap2(a.Arm.Geometries(ctx, extra))
 	}
-	return a.GeometriesFunc(ctx)
+	return errtrace.Wrap2(a.GeometriesFunc(ctx))
 }
 
 // Status calls the injected Status or the real version.
 func (a *Arm) Status(ctx context.Context) (map[string]interface{}, error) {
 	if a.StatusFunc != nil {
-		return a.StatusFunc(ctx)
+		return errtrace.Wrap2(a.StatusFunc(ctx))
 	}
 	if a.Arm != nil {
-		return a.Arm.Status(ctx)
+		return errtrace.Wrap2(a.Arm.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

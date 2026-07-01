@@ -6,6 +6,7 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -20,7 +21,7 @@ type Object struct {
 
 // NewObject creates a new vision.Object from a point cloud with an empty label.
 func NewObject(cloud pc.PointCloud) (*Object, error) {
-	return NewObjectWithLabel(cloud, "", nil)
+	return errtrace.Wrap2(NewObjectWithLabel(cloud, "", nil))
 }
 
 // NewObjectWithLabel creates a new vision.Object from a point cloud with the given label.
@@ -31,7 +32,7 @@ func NewObjectWithLabel(cloud pc.PointCloud, label string, geometry *commonpb.Ge
 	if geometry == nil {
 		box, err := pc.BoundingBoxFromPointCloudWithLabel(cloud, label)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return &Object{cloud, box}, nil
 	}
@@ -40,7 +41,7 @@ func NewObjectWithLabel(cloud pc.PointCloud, label string, geometry *commonpb.Ge
 	}
 	geom, err := referenceframe.NewGeometryFromProto(geometry)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &Object{PointCloud: cloud, Geometry: geom}, nil
 }
@@ -54,7 +55,7 @@ func NewEmptyObject() *Object {
 // Distance calculates and returns the distance from the center point of the object to the origin.
 func (o *Object) Distance() (float64, error) {
 	if o.Geometry == nil {
-		return -1, errors.New("no geometry object defined for distance formula to be applied")
+		return -1, errtrace.Wrap(errors.New("no geometry object defined for distance formula to be applied"))
 	}
 	point := o.Geometry.Pose().Point()
 	dist := math.Pow(point.X, 2) + math.Pow(point.Y, 2) + math.Pow(point.Z, 2)

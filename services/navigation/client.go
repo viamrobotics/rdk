@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -49,11 +50,11 @@ func NewClientFromConn(
 func (c *client) Mode(ctx context.Context, extra map[string]interface{}) (Mode, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetMode(ctx, &pb.GetModeRequest{Name: c.name, Extra: ext})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	pbMode := resp.GetMode()
 	switch pbMode {
@@ -66,14 +67,14 @@ func (c *client) Mode(ctx context.Context, extra map[string]interface{}) (Mode, 
 	case pb.Mode_MODE_UNSPECIFIED:
 		fallthrough
 	default:
-		return 0, errors.New("mode error")
+		return 0, errtrace.Wrap(errors.New("mode error"))
 	}
 }
 
 func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	var pbMode pb.Mode
 	switch mode {
@@ -88,7 +89,7 @@ func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interf
 	}
 	_, err = c.client.SetMode(ctx, &pb.SetModeRequest{Name: c.name, Mode: pbMode, Extra: ext})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -96,11 +97,11 @@ func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interf
 func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{Name: c.name, Extra: ext})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	geoPose := spatialmath.NewGeoPose(
 		geo.NewPoint(resp.GetLocation().GetLatitude(), resp.GetLocation().GetLongitude()),
@@ -112,18 +113,18 @@ func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*s
 func (c *client) Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetWaypoints(ctx, &pb.GetWaypointsRequest{Name: c.name, Extra: ext})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	waypoints := resp.GetWaypoints()
 	result := make([]Waypoint, 0, len(waypoints))
 	for _, wpt := range waypoints {
 		id, err := primitive.ObjectIDFromHex(wpt.GetId())
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		loc := wpt.GetLocation()
 		result = append(result, Waypoint{
@@ -138,7 +139,7 @@ func (c *client) Waypoints(ctx context.Context, extra map[string]interface{}) ([
 func (c *client) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	loc := &commonpb.GeoPoint{
 		Latitude:  point.Lat(),
@@ -151,7 +152,7 @@ func (c *client) AddWaypoint(ctx context.Context, point *geo.Point, extra map[st
 	}
 	_, err = c.client.AddWaypoint(ctx, req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -159,12 +160,12 @@ func (c *client) AddWaypoint(ctx context.Context, point *geo.Point, extra map[st
 func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	req := &pb.RemoveWaypointRequest{Name: c.name, Id: id.Hex(), Extra: ext}
 	_, err = c.client.RemoveWaypoint(ctx, req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -172,19 +173,19 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	req := &pb.GetObstaclesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetObstacles(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	protoObs := resp.GetObstacles()
 	geos := []*spatialmath.GeoGeometry{}
 	for _, o := range protoObs {
 		obstacle, err := referenceframe.GeoGeometryFromProtobuf(o)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		geos = append(geos, obstacle)
 	}
@@ -194,25 +195,25 @@ func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([
 func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	req := &pb.GetPathsRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetPaths(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return ProtoSliceToPaths(resp.GetPaths())
+	return errtrace.Wrap2(ProtoSliceToPaths(resp.GetPaths()))
 }
 
 func (c *client) Properties(ctx context.Context) (Properties, error) {
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{Name: c.name})
 	if err != nil {
-		return Properties{}, errors.Wrapf(err, "failure to get properties")
+		return Properties{}, errtrace.Wrap(errors.Wrapf(err, "failure to get properties"))
 	}
 
 	mapType, err := protobufToMapType(resp.MapType)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 
 	prop := Properties{
@@ -222,9 +223,9 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -596,7 +597,7 @@ func TestRegistrationWithDefaultCamera(t *testing.T) {
 		case cameraName:
 			return inject.NewCamera(cameraName.Name), nil
 		default:
-			return nil, resource.NewNotFoundError(name)
+			return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 		}
 	}
 

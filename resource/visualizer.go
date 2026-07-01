@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"braces.dev/errtrace"
 	"bytes"
 	"cmp"
 	"container/list"
@@ -36,7 +37,7 @@ type GetSnapshotInfo struct {
 func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	dot, err := g.ExportDot()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	snapshot := Snapshot{
 		Dot:       dot,
@@ -66,17 +67,17 @@ func (viz *Visualizer) GetSnapshot(index int) (GetSnapshotInfo, error) {
 	result := GetSnapshotInfo{Index: index, Count: viz.snapshots.Len()}
 
 	if result.Count == 0 {
-		return result, errors.New("no snapshots")
+		return result, errtrace.Wrap(errors.New("no snapshots"))
 	}
 	if index < 0 || index >= result.Count {
-		return result, errors.New("out of range")
+		return result, errtrace.Wrap(errors.New("out of range"))
 	}
 
 	snapshot := viz.snapshots.Front()
 	for i := 0; i < index; i++ {
 		// Guards against race with deletion of snapshots.
 		if snapshot = snapshot.Next(); snapshot == nil {
-			return result, errors.New("out of range")
+			return result, errtrace.Wrap(errors.New("out of range"))
 		}
 	}
 	result.Snapshot = snapshot.Value.(Snapshot)

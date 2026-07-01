@@ -7,6 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -32,28 +33,28 @@ type RadiusClusteringConfig struct {
 // CheckValid checks to see in the input values are valid.
 func (rcc *RadiusClusteringConfig) CheckValid() error {
 	if rcc.MinPtsInPlane <= 0 {
-		return errors.Errorf("min_points_in_plane must be greater than 0, got %v", rcc.MinPtsInPlane)
+		return errtrace.Wrap(errors.Errorf("min_points_in_plane must be greater than 0, got %v", rcc.MinPtsInPlane))
 	}
 	if rcc.MinPtsInSegment <= 0 {
-		return errors.Errorf("min_points_in_segment must be greater than 0, got %v", rcc.MinPtsInSegment)
+		return errtrace.Wrap(errors.Errorf("min_points_in_segment must be greater than 0, got %v", rcc.MinPtsInSegment))
 	}
 	if rcc.ClusteringRadiusMm <= 0 {
-		return errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm)
+		return errtrace.Wrap(errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm))
 	}
 	if rcc.MaxDistFromPlane == 0 {
 		rcc.MaxDistFromPlane = 100
 	}
 	if rcc.MaxDistFromPlane <= 0 {
-		return errors.Errorf("max_dist_from_plane must be greater than 0, got %v", rcc.MaxDistFromPlane)
+		return errtrace.Wrap(errors.Errorf("max_dist_from_plane must be greater than 0, got %v", rcc.MaxDistFromPlane))
 	}
 	if rcc.AngleTolerance > 180 || rcc.AngleTolerance < 0 {
-		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", rcc.AngleTolerance)
+		return errtrace.Wrap(errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", rcc.AngleTolerance))
 	}
 	if rcc.NormalVec.Norm2() == 0 {
 		rcc.NormalVec = r3.Vector{X: 0, Y: 0, Z: 1}
 	}
 	if !rcc.NormalVec.IsUnit() {
-		return errors.Errorf("ground_plane_normal_vec should be a unit vector, got %v", rcc.NormalVec)
+		return errtrace.Wrap(errors.Errorf("ground_plane_normal_vec should be a unit vector, got %v", rcc.NormalVec))
 	}
 	return nil
 }
@@ -62,13 +63,13 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 func (rcc *RadiusClusteringConfig) ConvertAttributes(am utils.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: rcc})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	err = decoder.Decode(am)
 	if err == nil {
 		err = rcc.CheckValid()
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 // NewRadiusClustering returns a Segmenter that removes the planes (if any) and returns
@@ -77,12 +78,12 @@ func (rcc *RadiusClusteringConfig) ConvertAttributes(am utils.AttributeMap) erro
 func NewRadiusClustering(params utils.AttributeMap) (Segmenter, error) {
 	// convert attributes to appropriate struct
 	if params == nil {
-		return nil, errors.New("config for radius clustering segmentation cannot be nil")
+		return nil, errtrace.Wrap(errors.New("config for radius clustering segmentation cannot be nil"))
 	}
 	cfg := &RadiusClusteringConfig{}
 	err := cfg.ConvertAttributes(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return cfg.RadiusClustering, nil
 }
@@ -92,35 +93,35 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src cam
 	// get next point cloud
 	cloud, err := src.NextPointCloud(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	ps := NewPointCloudGroundPlaneSegmentation(cloud, rcc.MaxDistFromPlane, rcc.MinPtsInPlane, rcc.AngleTolerance, rcc.NormalVec)
 	// if there are found planes, remove them, and keep all the non-plane points
 	_, nonPlane, err := ps.FindGroundPlane(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// filter out the noise on the point cloud if mean K is greater than 0
 	if rcc.MeanKFiltering > 0.0 {
 		filter, err := pc.StatisticalOutlierFilter(rcc.MeanKFiltering, 1.25)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		out := nonPlane.CreateNewRecentered(spatialmath.NewZeroPose())
 		err = filter(nonPlane, out)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		nonPlane = out
 	}
 	// do the segmentation
 	segments, err := segmentPointCloudObjects(nonPlane, rcc.ClusteringRadiusMm, rcc.MinPtsInSegment)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	objects, err := NewSegmentsFromSlice(segments, rcc.Label)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return objects.Objects, nil
 }
@@ -130,7 +131,7 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src cam
 func segmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
 	segments, err := radiusBasedNearestNeighbors(cloud, radius)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	segments = pc.PrunePointClouds(segments, nMin)
 	return segments, nil
@@ -187,7 +188,7 @@ func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 		return true
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return clusters.PointClouds(), nil
 }

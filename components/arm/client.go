@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -60,14 +61,14 @@ func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetEndPosition(ctx, &pb.GetEndPositionRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
 }
@@ -75,7 +76,7 @@ func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) 
 func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if pose == nil {
 		c.logger.Warnf("%s MoveToPosition: pose parameter is nil", c.name)
@@ -85,31 +86,31 @@ func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extr
 		To:    spatialmath.PoseToProtobuf(pose),
 		Extra: ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) MoveToJointPositions(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	m, err := c.Kinematics(ctx)
 	if err != nil {
 		warnKinematicsUnsafe(ctx, c.logger, err)
 	} else if err := CheckDesiredJointPositions(ctx, c, positions); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	jp, err := referenceframe.JointPositionsFromInputs(m, positions)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:      c.name,
 		Positions: jp,
 		Extra:     ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) MoveThroughJointPositions(
@@ -120,7 +121,7 @@ func (c *client) MoveThroughJointPositions(
 ) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if positions == nil {
 		c.logger.Warnf("%s MoveThroughJointPositions: position argument is nil", c.name)
@@ -136,20 +137,20 @@ func (c *client) MoveThroughJointPositions(
 		limits = m.DoF()
 		prevPosition, err = c.JointPositions(ctx, nil)
 		if err != nil {
-			return fmt.Errorf("cannot get JointPositions: %w", err)
+			return errtrace.Wrap(fmt.Errorf("cannot get JointPositions: %w", err))
 		}
 	}
 
 	for _, position := range positions {
 		if len(limits) > 0 {
 			if err := checkDesiredJointPositions(limits, prevPosition, position); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			prevPosition = position
 		}
 		jp, err := referenceframe.JointPositionsFromInputs(m, position)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		allJPs = append(allJPs, jp)
 	}
@@ -162,38 +163,38 @@ func (c *client) MoveThroughJointPositions(
 		req.Options = options.toProtobuf()
 	}
 	_, err = c.client.MoveThroughJointPositions(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetJointPositions(ctx, &pb.GetJointPositionsRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	m, err := c.Kinematics(ctx)
 	if err != nil {
 		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
-	return referenceframe.InputsFromJointPositions(m, resp.Positions)
+	return errtrace.Wrap2(referenceframe.InputsFromJointPositions(m, resp.Positions))
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.Stop(ctx, &pb.StopRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
@@ -204,11 +205,11 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if c.model == nil {
 		resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		model, err := referenceframe.KinematicModelFromProtobuf(c.name, resp)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		c.model = model
 	}
@@ -216,25 +217,25 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	return c.JointPositions(ctx, nil)
+	return errtrace.Wrap2(c.JointPositions(ctx, nil))
 }
 
 func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	return c.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
+	return errtrace.Wrap(c.MoveThroughJointPositions(ctx, inputSteps, nil, nil))
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	resp, err := c.client.IsMoving(ctx, &pb.IsMovingRequest{Name: c.name})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.IsMoving, nil
 }
@@ -242,29 +243,29 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
+	return errtrace.Wrap2(referenceframe.NewGeometriesFromProto(resp.GetGeometries()))
 }
 
 func (c *client) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.Get3DModels(ctx, &commonpb.Get3DModelsRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Models, nil
 }

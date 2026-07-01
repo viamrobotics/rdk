@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/logging"
@@ -27,7 +28,7 @@ import (
 func newServer(m map[resource.Name]vision.Service, logger logging.Logger) (pb.VisionServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(vision.API, m)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return vision.NewRPCServiceServer(coll, logger).(pb.VisionServiceServer), nil
 }
@@ -57,7 +58,7 @@ func TestVisionServerFailures(t *testing.T) {
 	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
 		extra map[string]interface{},
 	) ([]objectdetection.Detection, error) {
-		return nil, passedErr
+		return nil, errtrace.Wrap(passedErr)
 	}
 	m = map[resource.Name]vision.Service{
 		vision.Named(testVisionServiceName):  injectVS,
@@ -98,7 +99,7 @@ func TestServerGetDetections(t *testing.T) {
 	) ([]objectdetection.Detection, error) {
 		decoded, err := img.Image(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		det1 := objectdetection.NewDetection(decoded.Bounds(), image.Rect(0, 0, 10, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
@@ -169,7 +170,7 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 	) ([]objectdetection.Detection, error) {
 		decoded, err := img.Image(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		det1 := objectdetection.NewDetection(decoded.Bounds(), image.Rectangle{}, 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
@@ -249,7 +250,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectVS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testVisionServiceName})
 	test.That(t, err, test.ShouldNotBeNil)

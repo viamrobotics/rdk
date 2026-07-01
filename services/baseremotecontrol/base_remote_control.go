@@ -7,6 +7,7 @@ package baseremotecontrol
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
@@ -29,13 +30,13 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Service](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Base Remote Control service
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Service, error) {
-	return resource.FromProvider[Service](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Service](provider, Named(name)))
 }
 
 func init() {

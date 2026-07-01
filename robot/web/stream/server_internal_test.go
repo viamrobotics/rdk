@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec"
@@ -102,9 +103,9 @@ func TestRemoveMissingStreams_LogThrottling(t *testing.T) {
 	// Configure robot to return a non-NotFound error for cam1.
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		if name == camera.Named("cam1") {
-			return nil, buildErr
+			return nil, errtrace.Wrap(buildErr)
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 
 	const msg = "Camera unavailable"
@@ -145,7 +146,7 @@ func TestRemoveMissingStreams_LogThrottling(t *testing.T) {
 		if name == camera.Named("cam1") {
 			return &inject.Camera{}, nil
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 	server.removeMissingStreams()
 
@@ -157,9 +158,9 @@ func TestRemoveMissingStreams_LogThrottling(t *testing.T) {
 	// --- Same error returns after recovery: should WARN again ---
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		if name == camera.Named("cam1") {
-			return nil, buildErr
+			return nil, errtrace.Wrap(buildErr)
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 	server.removeMissingStreams()
 
@@ -170,9 +171,9 @@ func TestRemoveMissingStreams_LogThrottling(t *testing.T) {
 	newErr := fmt.Errorf("config validation failed")
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		if name == camera.Named("cam1") {
-			return nil, newErr
+			return nil, errtrace.Wrap(newErr)
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 	server.removeMissingStreams()
 

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"gonum.org/v1/gonum/num/dualquat"
@@ -33,7 +34,7 @@ type Pose interface {
 func PoseMap(p Pose) (map[string]interface{}, error) {
 	oc, err := NewOrientationConfig(p.Orientation().AxisAngles())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return map[string]interface{}{
 		"point":       p.Point(),
@@ -229,9 +230,9 @@ func ProjectOrientationTo2dRotation(pose Pose) (Pose, error) {
 	newAdjPt := Compose(NewPoseFromOrientation(orient), adjPt).Point()
 	if 1-math.Abs(newAdjPt.Z) < orientationVectorPoleRadius {
 		if newAdjPt.Z > 0 {
-			return nil, errors.New("orientation appears to be pointing straight up, cannot project to 2d")
+			return nil, errtrace.Wrap(errors.New("orientation appears to be pointing straight up, cannot project to 2d"))
 		}
-		return nil, errors.New("orientation appears to be pointing straight down, cannot project to 2d")
+		return nil, errtrace.Wrap(errors.New("orientation appears to be pointing straight down, cannot project to 2d"))
 	}
 	// This is the vector across the ground of the above hypothetical vector, projected onto the X-Y plane.
 	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)

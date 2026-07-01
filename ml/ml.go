@@ -5,6 +5,7 @@ import (
 	"math"
 	"unsafe"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"golang.org/x/exp/constraints"
@@ -14,13 +15,13 @@ import (
 // ProtoToTensors takes pb.FlatTensors and turns it into a Tensors map.
 func ProtoToTensors(pbft *pb.FlatTensors) (Tensors, error) {
 	if pbft == nil {
-		return nil, errors.New("protobuf FlatTensors is nil")
+		return nil, errtrace.Wrap(errors.New("protobuf FlatTensors is nil"))
 	}
 	tensors := Tensors{}
 	for name, ftproto := range pbft.Tensors {
 		t, err := CreateNewTensor(ftproto)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		tensors[name] = t
 	}
@@ -38,7 +39,7 @@ func CreateNewTensor(pft *pb.FlatTensor) (*tensor.Dense, error) {
 	case *pb.FlatTensor_Int8Tensor:
 		data := t.Int8Tensor
 		if data == nil {
-			return nil, errors.New("tensor of type Int8Tensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type Int8Tensor is nil"))
 		}
 		dataSlice := data.GetData()
 		unsafeInt8Slice := *(*[]int8)(unsafe.Pointer(&dataSlice)) //nolint:gosec
@@ -48,61 +49,61 @@ func CreateNewTensor(pft *pb.FlatTensor) (*tensor.Dense, error) {
 	case *pb.FlatTensor_Uint8Tensor:
 		data := t.Uint8Tensor
 		if data == nil {
-			return nil, errors.New("tensor of type Uint8Tensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type Uint8Tensor is nil"))
 		}
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
 	case *pb.FlatTensor_Int16Tensor:
 		data := t.Int16Tensor
 		if data == nil {
-			return nil, errors.New("tensor of type Int16Tensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type Int16Tensor is nil"))
 		}
 		int16Data := uint32ToInt16(data.GetData())
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(int16Data)), nil
 	case *pb.FlatTensor_Uint16Tensor:
 		data := t.Uint16Tensor
 		if data == nil {
-			return nil, errors.New("tensor of type Uint16Tensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type Uint16Tensor is nil"))
 		}
 		uint16Data := uint32ToUint16(data.GetData())
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(uint16Data)), nil
 	case *pb.FlatTensor_Int32Tensor:
 		data := t.Int32Tensor
 		if data == nil {
-			return nil, errors.New("tensor of type Int32Tensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type Int32Tensor is nil"))
 		}
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
 	case *pb.FlatTensor_Uint32Tensor:
 		data := t.Uint32Tensor
 		if data == nil {
-			return nil, errors.New("tensor of type Uint32Tensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type Uint32Tensor is nil"))
 		}
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
 	case *pb.FlatTensor_Int64Tensor:
 		data := t.Int64Tensor
 		if data == nil {
-			return nil, errors.New("tensor of type Int64Tensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type Int64Tensor is nil"))
 		}
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
 	case *pb.FlatTensor_Uint64Tensor:
 		data := t.Uint64Tensor
 		if data == nil {
-			return nil, errors.New("tensor of type Uint64Tensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type Uint64Tensor is nil"))
 		}
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
 	case *pb.FlatTensor_FloatTensor:
 		data := t.FloatTensor
 		if data == nil {
-			return nil, errors.New("tensor of type FloatTensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type FloatTensor is nil"))
 		}
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
 	case *pb.FlatTensor_DoubleTensor:
 		data := t.DoubleTensor
 		if data == nil {
-			return nil, errors.New("tensor of type DoubleTensor is nil")
+			return nil, errtrace.Wrap(errors.New("tensor of type DoubleTensor is nil"))
 		}
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(data.GetData())), nil
 	default:
-		return nil, errors.Errorf("don't know how to create tensor.Dense from proto type %T", pt)
+		return nil, errtrace.Wrap(errors.Errorf("don't know how to create tensor.Dense from proto type %T", pt))
 	}
 }
 
@@ -190,7 +191,7 @@ func ConvertToFloat64Slice(slice interface{}) ([]float64, error) {
 	case uint64:
 		return convertNumberSlice[uint64, float64]([]uint64{v}), nil
 	default:
-		return nil, errors.Errorf("dont know how to convert slice of %T into a []float64", slice)
+		return nil, errtrace.Wrap(errors.Errorf("dont know how to convert slice of %T into a []float64", slice))
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/viamrobotics/evdev"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -282,7 +283,7 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 		devs, err = filepath.Glob("/dev/input/event*")
 		if err != nil {
 			g.mu.Unlock()
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -302,7 +303,7 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 			break
 		}
 		if err := dev.Close(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -323,14 +324,14 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 				break
 			}
 			if err := dev.Close(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
 
 	if g.dev == nil {
 		g.mu.Unlock()
-		return errors.New("no gamepad found (check /dev/input/eventXX permissions)")
+		return errtrace.Wrap(errors.New("no gamepad found (check /dev/input/eventXX permissions)"))
 	}
 
 	for _, v := range g.Mapping.Axes {
@@ -362,7 +363,7 @@ func (g *gamepad) Controls(ctx context.Context, extra map[string]interface{}) ([
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.dev == nil && len(g.controls) == 0 {
-		return nil, errors.New("no controller connected")
+		return nil, errtrace.Wrap(errors.New("no controller connected"))
 	}
 	out := append([]input.Control(nil), g.controls...)
 	return out, nil

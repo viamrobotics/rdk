@@ -36,6 +36,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	// Register service APIs.
+	"braces.dev/errtrace"
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/contextutils/metadata"
@@ -69,8 +70,8 @@ func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 		len(socketSuffix) -
 		1 // `/` between parentDir and name
 	if numRemainingChars < len(desiredName) && numRemainingChars < socketHashSuffixLength+1 {
-		return "", fmt.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
-			socketMaxAddressLength, parentDir)
+		return "", errtrace.Wrap(fmt.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
+			socketMaxAddressLength, parentDir))
 	}
 	// If possible, early-exit with a non-truncated socket path
 	if numRemainingChars >= len(desiredName) {
@@ -80,13 +81,13 @@ func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 	desiredNameHashCreator := sha256.New()
 	_, err := desiredNameHashCreator.Write([]byte(desiredName))
 	if err != nil {
-		return "", fmt.Errorf("failed to calculate a hash for %q while creating a truncated socket address", desiredName)
+		return "", errtrace.Wrap(fmt.Errorf("failed to calculate a hash for %q while creating a truncated socket address", desiredName))
 	}
 	desiredNameHash := base32.StdEncoding.EncodeToString(desiredNameHashCreator.Sum(nil))
 	if len(desiredNameHash) < socketHashSuffixLength {
 		// sha256.Sum() should return 32 bytes so this shouldn't occur, but good to check instead of panicing
-		return "", fmt.Errorf("the encoded hash %q for %q is shorter than the minimum socket suffix length %v",
-			desiredNameHash, desiredName, socketHashSuffixLength)
+		return "", errtrace.Wrap(fmt.Errorf("the encoded hash %q for %q is shorter than the minimum socket suffix length %v",
+			desiredNameHash, desiredName, socketHashSuffixLength))
 	}
 	// Assemble the truncated socket address
 	socketHashSuffix := desiredNameHash[:socketHashSuffixLength]
@@ -148,9 +149,9 @@ type Module struct {
 func NewModuleFromArgs(ctx context.Context) (*Module, error) {
 	moduleAddress, err := getModuleAddress()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return NewModule(ctx, moduleAddress, NewLoggerFromArgs(""))
+	return errtrace.Wrap2(NewModule(ctx, moduleAddress, NewLoggerFromArgs("")))
 }
 
 // NewModule returns the basic module framework/structure. Use ModularMain and NewModuleFromArgs unless
@@ -196,7 +197,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		otlpClient := &moduleOtelExporter{mod: m}
 		otelExporter, err := otlptrace.New(ctx, otlpClient)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		//nolint: errcheck
 		trace.SetProvider(
@@ -223,14 +224,14 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	m.server = NewServer(opts...)
 
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := m.server.RegisterServiceServer(ctx, &streampb.StreamService_ServiceDesc, m); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// We register the RobotService API to supplement the ModuleService in order to serve select robot level methods from the module server
 	if err := m.server.RegisterServiceServer(ctx, &robotpb.RobotService_ServiceDesc, m); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// attempt to construct a PeerConnection
@@ -269,7 +270,7 @@ func (m *Module) Start(ctx context.Context) error {
 
 	lis, err := net.Listen(prot, m.addr)
 	if err != nil {
-		return fmt.Errorf("failed to listen: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to listen: %w", err))
 	}
 	if prot == "unix" {
 		// If we are listening via a Unix socket, update the restrictions on the created sock
@@ -279,7 +280,7 @@ func (m *Module) Start(ctx context.Context) error {
 		//nolint:gosec
 		err = os.Chmod(m.addr, 0o776)
 		if err != nil {
-			return fmt.Errorf("failed to update socket file permissions: %w", err)
+			return errtrace.Wrap(fmt.Errorf("failed to update socket file permissions: %w", err))
 		}
 	}
 
@@ -340,7 +341,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 		// If connecting over UDS, verify that the parent address actually exists before
 		// attempting to connect.
 		if _, err := os.Stat(m.parentAddr); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		fullAddr = "unix:" + m.parentAddr
 	}
@@ -372,7 +373,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 
 	rc, err := client.New(ctx, fullAddr, m.logger, connectOptions...)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.parent = rc
@@ -403,33 +404,33 @@ func (m *Module) SetReady(ready bool) {
 // PeerConnect returns the encoded answer string for the `ReadyResponse`.
 func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 	if m.pc == nil {
-		return "", errors.New("no PeerConnection object")
+		return "", errtrace.Wrap(errors.New("no PeerConnection object"))
 	}
 
 	if encodedOffer == "" {
 		//nolint
-		return "", errors.New("Server not running with WebRTC enabled.")
+		return "", errtrace.Wrap(errors.New("Server not running with WebRTC enabled."))
 	}
 
 	offer := webrtc.SessionDescription{}
 	if err := rpc.DecodeSDP(encodedOffer, &offer); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	if err := m.pc.SetRemoteDescription(offer); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	answer, err := m.pc.CreateAnswer(nil)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	if err := m.pc.SetLocalDescription(answer); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	<-webrtc.GatheringCompletePromise(m.pc)
-	return rpc.EncodeSDP(m.pc.LocalDescription())
+	return errtrace.Wrap2(rpc.EncodeSDP(m.pc.LocalDescription()))
 }
 
 // Ready receives the parent address and reports api/model combos the module is ready to service.
@@ -460,7 +461,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 			// Return error back to parent if we cannot make a connection from module
 			// -> parent. Something is wrong in that case and the module should not be
 			// operational.
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// If logger is a moduleLogger, start gRPC logging.
 		// Note that this logging assumes that a valid parent exists.

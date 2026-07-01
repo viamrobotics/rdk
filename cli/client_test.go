@@ -38,6 +38,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	robotconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -225,9 +226,9 @@ func setupWithRunningPart(
 	test.That(t, err, test.ShouldBeNil)
 
 	ac.dialOverride = func(ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger) (*client.RobotClient, error) {
-		return client.New(ctx, addr, logger,
+		return errtrace.Wrap2(client.New(ctx, addr, logger,
 			client.WithDialOptions(append(rpcOpts, rpc.WithForceDirectGRPC())...),
-		)
+		))
 	}
 
 	t.Cleanup(func() {
@@ -538,11 +539,11 @@ type mockDataServiceClient struct {
 
 func (m *mockDataServiceClient) Recv() (*datapb.ExportTabularDataResponse, error) {
 	if m.err != nil {
-		return nil, m.err
+		return nil, errtrace.Wrap(m.err)
 	}
 
 	if m.index >= len(m.responses) {
-		return nil, io.EOF
+		return nil, errtrace.Wrap(io.EOF)
 	}
 
 	resp := m.responses[m.index]
@@ -935,7 +936,7 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
-		return nil, errors.New("not used in this test")
+		return nil, errtrace.Wrap(errors.New("not used in this test"))
 	}
 
 	asc := &inject.AppServiceClient{
@@ -2037,7 +2038,7 @@ func TestRetryableCopy(t *testing.T) {
 		mockCopyFunc := func() error {
 			attemptCount++
 			if attemptCount <= 2 {
-				return errors.New("copy failed")
+				return errtrace.Wrap(errors.New("copy failed"))
 			}
 			return nil // Success on 3rd attempt
 		}
@@ -2116,7 +2117,7 @@ func TestRetryableCopy(t *testing.T) {
 		mockCopyFunc := func() error {
 			attemptCount++
 			if attemptCount <= 5 {
-				return errors.New("copy failed")
+				return errtrace.Wrap(errors.New("copy failed"))
 			}
 			return nil // Success on 6th attempt
 		}
@@ -2189,7 +2190,7 @@ func TestRetryableCopy(t *testing.T) {
 		attemptCount := 0
 		mockCopyFunc := func() error {
 			attemptCount++
-			return errors.New("persistent copy failure")
+			return errtrace.Wrap(errors.New("persistent copy failure"))
 		}
 
 		allSteps := []*Step{
@@ -2231,7 +2232,7 @@ func TestRetryableCopy(t *testing.T) {
 			map[string]any{}, "token")
 
 		mockCopyFunc := func() error {
-			return status.Error(codes.PermissionDenied, "permission denied")
+			return errtrace.Wrap(status.Error(codes.PermissionDenied, "permission denied"))
 		}
 
 		allSteps := []*Step{

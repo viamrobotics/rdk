@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/services/motion"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
@@ -31,7 +32,7 @@ func TestPollHistoryUntilSuccessOrError(t *testing.T) {
 	t.Run("returns error if PlanHistory returns an error", func(t *testing.T) {
 		errExpected := errors.New("some error")
 		ms.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
-			return nil, errExpected
+			return nil, errtrace.Wrap(errExpected)
 		}
 		err := motion.PollHistoryUntilSuccessOrError(ctx, ms, time.Millisecond, motion.PlanHistoryReq{})
 		test.That(t, err, test.ShouldBeError, errExpected)
@@ -85,7 +86,7 @@ func TestPollHistoryUntilSuccessOrError(t *testing.T) {
 			default:
 				t.Error("should not be called")
 				t.FailNow()
-				return nil, errors.New("should not happen")
+				return nil, errtrace.Wrap(errors.New("should not happen"))
 			}
 		}
 		err := motion.PollHistoryUntilSuccessOrError(ctx, ms, time.Millisecond, motion.PlanHistoryReq{})

@@ -3,6 +3,7 @@
 package sys
 
 import (
+	"braces.dev/errtrace"
 	"github.com/prometheus/procfs"
 )
 
@@ -14,7 +15,7 @@ type netStatser struct {
 func newNetUsage() (*netStatser, error) {
 	fs, err := procfs.NewDefaultFS()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &netStatser{fs}, nil

@@ -18,6 +18,7 @@ import (
 	pb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -81,31 +82,31 @@ func (m *deferredPackageManager) Sync(ctx context.Context, packages []config.Pac
 	defer m.lastSyncedManagerLock.Unlock()
 	mgr, err := m.getManagerForSync(ctx, packages)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	m.lastSyncedManager = mgr
-	return mgr.Sync(ctx, packages, modules)
+	return errtrace.Wrap(mgr.Sync(ctx, packages, modules))
 }
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *deferredPackageManager) Cleanup(ctx context.Context) error {
 	m.lastSyncedManagerLock.Lock()
 	defer m.lastSyncedManagerLock.Unlock()
-	return m.lastSyncedManager.Cleanup(ctx)
+	return errtrace.Wrap(m.lastSyncedManager.Cleanup(ctx))
 }
 
 // PackagePath returns the package if it exists and already downloaded. If it does not exist it returns a ErrPackageMissing error.
 func (m *deferredPackageManager) PackagePath(name PackageName) (string, error) {
 	m.lastSyncedManagerLock.Lock()
 	defer m.lastSyncedManagerLock.Unlock()
-	return m.lastSyncedManager.PackagePath(name)
+	return errtrace.Wrap2(m.lastSyncedManager.PackagePath(name))
 }
 
 // Close manager.
 func (m *deferredPackageManager) Close(ctx context.Context) error {
 	m.lastSyncedManagerLock.Lock()
 	defer m.lastSyncedManagerLock.Unlock()
-	return m.lastSyncedManager.Close(ctx)
+	return errtrace.Wrap(m.lastSyncedManager.Close(ctx))
 }
 
 // getManagerForSync returns the cloudManager if there is one cached (or if there are missing packages)
@@ -129,7 +130,7 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 			m.logger.Info("cloud package manager created synchronously")
 		}
 		m.cloudManagerLock.Unlock()
-		return mgr, err
+		return mgr, errtrace.Wrap(err)
 	}
 
 	// otherwise, spawn a goroutine to establish the connection and use a noopManager in the meantime
@@ -156,14 +157,14 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 func (m *deferredPackageManager) createCloudManager(ctx context.Context) (ManagerSyncer, error) {
 	client, err := m.establishConnection(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to a establish connection to app.viam: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to a establish connection to app.viam: %w", err))
 	}
-	return NewCloudManager(
+	return errtrace.Wrap2(NewCloudManager(
 		m.cloudManagerArgs.cloudConfig,
 		client,
 		m.cloudManagerArgs.packagesDir,
 		m.cloudManagerArgs.logger,
-	)
+	))
 }
 
 // SyncOne is a no-op for this package manager variant.

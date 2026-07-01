@@ -1,6 +1,7 @@
 package sensorcontrolled
 
 import (
+	"braces.dev/errtrace"
 	"context"
 	"errors"
 	"math"
@@ -28,17 +29,17 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
 	if sb.controlLoopConfig == nil {
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's Spin method", sb.controlledBase.Name().ShortName())
-		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
+		return errtrace.Wrap(sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra))
 	}
 
 	// check tuning status
 	if err := sb.checkTuningStatus(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	prevAngle, hasOrientation, err := sb.headingFunc(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if !hasOrientation {
@@ -49,7 +50,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	// make sure the control loop is enabled
 	if sb.loop == nil {
 		if err := sb.startControlLoop(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -81,7 +82,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	for {
 		if err := ctx.Err(); err != nil {
 			ticker.Stop()
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		select {
@@ -92,13 +93,13 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 				sb.logger.Warn("Context cancelled during Spin", ctx.Err())
 				return nil
 			}
-			return err
+			return errtrace.Wrap(err)
 		case <-ticker.C:
 
 			if hasOrientation {
 				currYaw, _, err := sb.headingFunc(ctx)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				// use initial angle to get the current angle the spin has moved
 				angMoved = getMovedAng(prevAngle, currYaw, angMoved)
@@ -109,7 +110,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 				currTime := time.Now()
 				angVels, err := sb.velocities.AngularVelocity(ctx, nil)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				deltaTime := currTime.Sub(prevTime).Seconds()
 				// calculate the estimated change in angle based on the latest angular velocity
@@ -124,18 +125,18 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			angErr = (angleDeg - angMoved)
 
 			if math.Abs(angErr) < boundCheckTarget {
-				return sb.Stop(ctx, nil)
+				return errtrace.Wrap(sb.Stop(ctx, nil))
 			}
 			angVel := calcAngVel(angErr, degsPerSec, slowDownAng)
 
 			if err := sb.updateControlConfig(ctx, 0, angVel); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			// check if the duration of the spin exceeds the expected length of the spin
 			if time.Since(startTime) > timeOut {
 				sb.logger.CWarn(ctx, "exceeded time for Spin call, stopping base")
-				return sb.Stop(ctx, nil)
+				return errtrace.Wrap(sb.Stop(ctx, nil))
 			}
 		}
 	}

@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -373,7 +374,7 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 
 	for _, err := range errs {
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -467,8 +468,8 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 	// Validate the component.
 	if _, ok := ms.components[req.ComponentName]; !ok || req.Destination == nil {
 		ms.mu.RUnlock()
-		return fmt.Errorf("component must exist and destination must be set. Component: %v Destination: %v",
-			req.ComponentName, req.Destination)
+		return errtrace.Wrap(fmt.Errorf("component must exist and destination must be set. Component: %v Destination: %v",
+			req.ComponentName, req.Destination))
 	}
 
 	if ms.teleopPipeline == nil {
@@ -476,13 +477,13 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 		fsInputs, err := ms.fsService.CurrentInputs(cmdCtx)
 		if err != nil {
 			ms.mu.RUnlock()
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		frameSys, err := ms.getFrameSystem(cmdCtx, req.WorldState.Transforms())
 		if err != nil {
 			ms.mu.RUnlock()
-			return err
+			return errtrace.Wrap(err)
 		}
 		ms.mu.RUnlock()
 
@@ -568,30 +569,30 @@ func (ms *builtIn) handleTeleopCommand(
 	if req, ok := cmd[DoTeleopStart]; ok {
 		s, err := utils.AssertType[string](req)
 		if err != nil {
-			return nil, true, err
+			return nil, true, errtrace.Wrap(err)
 		}
 
 		var moveReqProto pb.MoveRequest
 		if err := protojson.Unmarshal([]byte(s), &moveReqProto); err != nil {
-			return nil, true, err
+			return nil, true, errtrace.Wrap(err)
 		}
 
 		fields := moveReqProto.Extra.AsMap()
 		if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
 			v, err := structpb.NewStruct(extra)
 			if err != nil {
-				return nil, true, err
+				return nil, true, errtrace.Wrap(err)
 			}
 			moveReqProto.Extra = v
 		}
 
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
-			return nil, true, err
+			return nil, true, errtrace.Wrap(err)
 		}
 
 		if err := ms.addTeleopComponent(ctx, moveReq); err != nil {
-			return nil, true, err
+			return nil, true, errtrace.Wrap(err)
 		}
 
 		resp[DoTeleopStart] = true
@@ -605,16 +606,16 @@ func (ms *builtIn) handleTeleopCommand(
 		tp := ms.teleopPipeline
 		ms.teleopMu.RUnlock()
 		if tp == nil {
-			return nil, true, fmt.Errorf("teleop pipeline is not running; call %s first", DoTeleopStart)
+			return nil, true, errtrace.Wrap(fmt.Errorf("teleop pipeline is not running; call %s first", DoTeleopStart))
 		}
 
 		s, err := utils.AssertType[string](req)
 		if err != nil {
-			return nil, true, err
+			return nil, true, errtrace.Wrap(err)
 		}
 		var pifProto commonpb.PoseInFrame
 		if err := protojson.Unmarshal([]byte(s), &pifProto); err != nil {
-			return nil, true, err
+			return nil, true, errtrace.Wrap(err)
 		}
 
 		pif := referenceframe.ProtobufToPoseInFrame(&pifProto)
@@ -636,10 +637,10 @@ func (ms *builtIn) handleTeleopCommand(
 
 		if comp == nil {
 			if componentName == "" {
-				return nil, true, fmt.Errorf("component_name is required for %s when multiple components are registered; registered: %v",
-					DoTeleopMove, registered)
+				return nil, true, errtrace.Wrap(fmt.Errorf("component_name is required for %s when multiple components are registered; registered: %v",
+					DoTeleopMove, registered))
 			}
-			return nil, true, fmt.Errorf("component %q not registered in teleop pipeline; registered: %v", componentName, registered)
+			return nil, true, errtrace.Wrap(fmt.Errorf("component %q not registered in teleop pipeline; registered: %v", componentName, registered))
 		}
 
 		if seq, ok := cmd["seq"]; ok {

@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -80,7 +81,7 @@ func TestRegistrationWithDefaultCamera(t *testing.T) {
 		if name == cameraName {
 			return inject.NewCamera(cameraName.Name), nil
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 
 	service, err := registerColorDetector(ctx, serviceName, &modelCfg, r)

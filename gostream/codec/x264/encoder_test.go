@@ -13,6 +13,7 @@ import (
 	"github.com/nfnt/resize"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -26,7 +27,7 @@ func pngToImage(b *testing.B, loc string) (image.Image, error) {
 	b.Helper()
 	openBytes, err := os.ReadFile(loc)
 	test.That(b, err, test.ShouldBeNil)
-	return png.Decode(bytes.NewReader(openBytes))
+	return errtrace.Wrap2(png.Decode(bytes.NewReader(openBytes)))
 }
 
 func resizeImg(b *testing.B, img image.Image, width, height uint) image.Image {
@@ -43,7 +44,7 @@ func convertToYCbCr(b *testing.B, src image.Image) (image.Image, error) {
 	dst, _, err := image.Decode(bf)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, dst.ColorModel(), test.ShouldResemble, color.YCbCrModel)
-	return dst, err
+	return dst, errtrace.Wrap(err)
 }
 
 func getResizedImageFromFile(b *testing.B, loc string) image.Image {

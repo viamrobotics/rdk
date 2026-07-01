@@ -3,6 +3,7 @@ package control
 import (
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -66,7 +67,7 @@ func (f *firSinc) calculateCoefficients() error {
 func (f *firSinc) Reset() error {
 	f.coeffs = make([]float64, f.order)
 	f.x = make([]float64, f.order)
-	return f.calculateCoefficients()
+	return errtrace.Wrap(f.calculateCoefficients())
 }
 
 func (f *firSinc) Next(x float64) (float64, bool) {
@@ -89,7 +90,7 @@ type firWindowedSinc struct {
 
 func (f *firWindowedSinc) Reset() error {
 	f.x = make([]float64, 0)
-	return f.calculateKernel()
+	return errtrace.Wrap(f.calculateKernel())
 }
 
 func (f *firWindowedSinc) Next(x float64) (float64, bool) {
@@ -103,7 +104,7 @@ func (f *firWindowedSinc) Next(x float64) (float64, bool) {
 func (f *firWindowedSinc) calculateKernel() error {
 	wc := 2.0 * f.cutOffFreq / f.smpFreq
 	if wc > 1.0 {
-		return errors.New("ratio 2 * cutOffFreq/smpFreq cannot be below 1 (Nyquist frequency)")
+		return errtrace.Wrap(errors.New("ratio 2 * cutOffFreq/smpFreq cannot be below 1 (Nyquist frequency)"))
 	}
 	f.kernel = make([]float64, f.kernelSize)
 	hs := f.kernelSize / 2

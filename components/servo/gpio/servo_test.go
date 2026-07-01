@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -142,7 +143,7 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		case "1":
 			return pin1, nil
 		default:
-			return nil, errors.New("bad pin")
+			return nil, errtrace.Wrap(errors.New("bad pin"))
 		}
 	}
 	deps[board.Named("mock")] = board1

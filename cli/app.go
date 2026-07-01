@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -416,7 +417,7 @@ func getGlobalArgs(cmd *cli.Command) (*globalArgs, error) {
 	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
 	// programmatically enforce compliance here.
 	if gArgs.DisableProfiles && gArgs.Profile != "" {
-		return nil, errors.New("profile specified with disable-profiles flag set")
+		return nil, errtrace.Wrap(errors.New("profile specified with disable-profiles flag set"))
 	}
 
 	return &gArgs, nil
@@ -425,7 +426,7 @@ func getGlobalArgs(cmd *cli.Command) (*globalArgs, error) {
 func createActionCommandWithT[T any](f func(context.Context, *cli.Command, T) error) func(context.Context, *cli.Command) error {
 	return func(ctx context.Context, cmd *cli.Command) error {
 		t := parseStructFromCtx[T](cmd)
-		return f(ctx, cmd, t)
+		return errtrace.Wrap(f(ctx, cmd, t))
 	}
 }
 
@@ -436,7 +437,7 @@ func createBeforeCommandWithT[T any](
 ) func(context.Context, *cli.Command) (context.Context, error) {
 	return func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 		t := parseStructFromCtx[T](cmd)
-		return ctx, f(ctx, cmd, t)
+		return ctx, errtrace.Wrap(f(ctx, cmd, t))
 	}
 }
 

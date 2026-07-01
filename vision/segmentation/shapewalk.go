@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
@@ -397,7 +398,7 @@ func (ws *walkState) lookForWeirdShapes(clusterNumber int) int {
 // ShapeWalk TODO.
 func ShapeWalk(img *rimage.Image, dm *rimage.DepthMap, start image.Point, options ShapeWalkOptions, logger logging.Logger,
 ) (*SegmentedImage, error) {
-	return ShapeWalkMultiple(img, dm, []image.Point{start}, options, logger)
+	return errtrace.Wrap2(ShapeWalkMultiple(img, dm, []image.Point{start}, options, logger))
 }
 
 // ShapeWalkMultiple TODO.
@@ -444,7 +445,7 @@ func ShapeWalkEntireDebug(img *rimage.Image, dm *rimage.DepthMap, options ShapeW
 	for extra := 0.0; extra < .7; extra += .2 {
 		si, err = shapeWalkEntireDebugOnePass(img, dm, options, extra, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		if true {
@@ -457,7 +458,7 @@ func ShapeWalkEntireDebug(img *rimage.Image, dm *rimage.DepthMap, options ShapeW
 		}
 	}
 
-	return si, err
+	return si, errtrace.Wrap(err)
 }
 
 func shapeWalkEntireDebugOnePass(
@@ -497,7 +498,7 @@ func shapeWalkEntireDebugOnePass(
 				if ws.dots.get(image.Point{x, y}) != 0 {
 					return nil
 				}
-				return MyWalkError{image.Point{x, y}}
+				return errtrace.Wrap(MyWalkError{image.Point{x, y}})
 			})
 
 		if found == nil {
@@ -506,7 +507,7 @@ func shapeWalkEntireDebugOnePass(
 
 		var walkErr MyWalkError
 		if !errors.As(found, &walkErr) {
-			return errors.Wrapf(found, "expected %T but got", walkErr)
+			return errtrace.Wrap(errors.Wrapf(found, "expected %T but got", walkErr))
 		}
 		start := walkErr.pos
 		numPixels := ws.piece(start, nextColor)
@@ -519,7 +520,7 @@ func shapeWalkEntireDebugOnePass(
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	ws.dots.createPalette()

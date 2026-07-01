@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -40,41 +41,41 @@ func (g *Gripper) Name() resource.Name {
 // Open calls the injected Open or the real version.
 func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
 	if g.OpenFunc == nil {
-		return g.Gripper.Open(ctx, extra)
+		return errtrace.Wrap(g.Gripper.Open(ctx, extra))
 	}
-	return g.OpenFunc(ctx, extra)
+	return errtrace.Wrap(g.OpenFunc(ctx, extra))
 }
 
 // Grab calls the injected Grab or the real version.
 func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	if g.GrabFunc == nil {
-		return g.Gripper.Grab(ctx, extra)
+		return errtrace.Wrap2(g.Gripper.Grab(ctx, extra))
 	}
-	return g.GrabFunc(ctx, extra)
+	return errtrace.Wrap2(g.GrabFunc(ctx, extra))
 }
 
 // IsHoldingSomething calls the injected IsHoldingSomething or the real version.
 func (g *Gripper) IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (gripper.HoldingStatus, error) {
 	if g.IsHoldingSomethingFunc == nil {
-		return g.Gripper.IsHoldingSomething(ctx, extra)
+		return errtrace.Wrap2(g.Gripper.IsHoldingSomething(ctx, extra))
 	}
-	return g.IsHoldingSomethingFunc(ctx, extra)
+	return errtrace.Wrap2(g.IsHoldingSomethingFunc(ctx, extra))
 }
 
 // Stop calls the injected Stop or the real version.
 func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if g.StopFunc == nil {
-		return g.Gripper.Stop(ctx, extra)
+		return errtrace.Wrap(g.Gripper.Stop(ctx, extra))
 	}
-	return g.StopFunc(ctx, extra)
+	return errtrace.Wrap(g.StopFunc(ctx, extra))
 }
 
 // IsMoving calls the injected IsMoving or the real version.
 func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 	if g.IsMovingFunc == nil {
-		return g.Gripper.IsMoving(ctx)
+		return errtrace.Wrap2(g.Gripper.IsMoving(ctx))
 	}
-	return g.IsMovingFunc(ctx)
+	return errtrace.Wrap2(g.IsMovingFunc(ctx))
 }
 
 // Close calls the injected Close or the real version.
@@ -83,58 +84,58 @@ func (g *Gripper) Close(ctx context.Context) error {
 		if g.Gripper == nil {
 			return nil
 		}
-		return g.Gripper.Close(ctx)
+		return errtrace.Wrap(g.Gripper.Close(ctx))
 	}
-	return g.CloseFunc(ctx)
+	return errtrace.Wrap(g.CloseFunc(ctx))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (g *Gripper) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if g.DoFunc == nil {
-		return g.Gripper.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(g.Gripper.DoCommand(ctx, cmd))
 	}
-	return g.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(g.DoFunc(ctx, cmd))
 }
 
 // Geometries returns the gripper's geometries.
 func (g *Gripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	if g.GeometriesFunc == nil {
-		return g.Gripper.Geometries(ctx, extra)
+		return errtrace.Wrap2(g.Gripper.Geometries(ctx, extra))
 	}
-	return g.GeometriesFunc(ctx)
+	return errtrace.Wrap2(g.GeometriesFunc(ctx))
 }
 
 // Kinematics calls the injected Kinematics or the real version.
 func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if g.KinematicsFunc == nil {
-		return g.Gripper.Kinematics(ctx)
+		return errtrace.Wrap2(g.Gripper.Kinematics(ctx))
 	}
-	return g.KinematicsFunc(ctx)
+	return errtrace.Wrap2(g.KinematicsFunc(ctx))
 }
 
 // CurrentInputs calls the injected CurrentInputs or the real version.
 func (g *Gripper) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	if g.CurrentInputsFunc == nil {
-		return g.Gripper.CurrentInputs(ctx)
+		return errtrace.Wrap2(g.Gripper.CurrentInputs(ctx))
 	}
-	return g.CurrentInputsFunc(ctx)
+	return errtrace.Wrap2(g.CurrentInputsFunc(ctx))
 }
 
 // GoToInputs calls the injected GoToInputs or the real version.
 func (g *Gripper) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	if g.GoToInputsFunc == nil {
-		return g.Gripper.GoToInputs(ctx, inputSteps...)
+		return errtrace.Wrap(g.Gripper.GoToInputs(ctx, inputSteps...))
 	}
-	return g.GoToInputsFunc(ctx, inputSteps...)
+	return errtrace.Wrap(g.GoToInputsFunc(ctx, inputSteps...))
 }
 
 // Status calls the injected Status or the real version.
 func (g *Gripper) Status(ctx context.Context) (map[string]interface{}, error) {
 	if g.StatusFunc != nil {
-		return g.StatusFunc(ctx)
+		return errtrace.Wrap2(g.StatusFunc(ctx))
 	}
 	if g.Gripper != nil {
-		return g.Gripper.Status(ctx)
+		return errtrace.Wrap2(g.Gripper.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

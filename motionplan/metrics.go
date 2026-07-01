@@ -3,6 +3,7 @@ package motionplan
 import (
 	"math"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -55,7 +56,7 @@ func (s *StateFS) Geometries() (map[string]*referenceframe.GeometriesInFrame, er
 	if s.geometries == nil {
 		g, err := referenceframe.FrameSystemGeometriesLinearInputs(s.FS, s.Configuration)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		s.geometries = g
 	}
@@ -67,7 +68,7 @@ func (s *StateFS) Poses() (referenceframe.FrameSystemPoses, error) {
 	if s.poses == nil {
 		p, err := s.Configuration.ComputePoses(s.FS)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		s.poses = p
 	}

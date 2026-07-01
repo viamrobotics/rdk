@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"braces.dev/errtrace"
 	pb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -39,7 +40,7 @@ func (f *copyFileFromMachineFactory) MakeFileCopier(ctx context.Context, sourceT
 	f.onceMu.Lock()
 	if f.once {
 		f.onceMu.Unlock()
-		return nil, errors.New("can only support making one file copier right now")
+		return nil, errtrace.Wrap(errors.New("can only support making one file copier right now"))
 	}
 	f.onceMu.Unlock()
 	if err := f.srv.Send(&pb.CopyFilesFromMachineResponse{
@@ -49,7 +50,7 @@ func (f *copyFileFromMachineFactory) MakeFileCopier(ctx context.Context, sourceT
 			},
 		},
 	}); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return newShellRPCFileCopier(shellRPCCopyWriterFrom{f.srv}, f.preserve), nil
@@ -77,7 +78,7 @@ type copyFileToMachineFactory struct {
 }
 
 func (f *copyFileToMachineFactory) MakeFileCopier(ctx context.Context, sourceType CopyFilesSourceType) (FileCopier, error) {
-	return f.svc.CopyFilesToMachine(ctx, sourceType, f.destination, f.preserve, nil)
+	return errtrace.Wrap2(f.svc.CopyFilesToMachine(ctx, sourceType, f.destination, f.preserve, nil))
 }
 
 // A shellRPCCopyReader is a light abstraction around the different directions of
@@ -95,19 +96,19 @@ type shellRPCCopyReaderTo struct {
 }
 
 func (srv shellRPCCopyReaderTo) AckLastFile() error {
-	return srv.rpcServer.Send(&pb.CopyFilesToMachineResponse{
+	return errtrace.Wrap(srv.rpcServer.Send(&pb.CopyFilesToMachineResponse{
 		AckLastFile: true,
-	})
+	}))
 }
 
 func (srv shellRPCCopyReaderTo) NextFileData() (*pb.FileData, error) {
 	req, err := srv.rpcServer.Recv()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	reqFileData, ok := req.Request.(*pb.CopyFilesToMachineRequest_FileData)
 	if !ok {
-		return nil, errors.New("expected copy request file data")
+		return nil, errtrace.Wrap(errors.New("expected copy request file data"))
 	}
 	return reqFileData.FileData, nil
 }
@@ -122,27 +123,27 @@ type shellRPCCopyReaderFrom struct {
 }
 
 func (client shellRPCCopyReaderFrom) AckLastFile() error {
-	return client.rpcClient.Send(&pb.CopyFilesFromMachineRequest{
+	return errtrace.Wrap(client.rpcClient.Send(&pb.CopyFilesFromMachineRequest{
 		Request: &pb.CopyFilesFromMachineRequest_AckLastFile{
 			AckLastFile: true,
 		},
-	})
+	}))
 }
 
 func (client shellRPCCopyReaderFrom) NextFileData() (*pb.FileData, error) {
 	resp, err := client.rpcClient.Recv()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	reqFileData, ok := resp.Response.(*pb.CopyFilesFromMachineResponse_FileData)
 	if !ok {
-		return nil, errors.New("expected copy response file data")
+		return nil, errtrace.Wrap(errors.New("expected copy response file data"))
 	}
 	return reqFileData.FileData, nil
 }
 
 func (client shellRPCCopyReaderFrom) Close() error {
-	return client.rpcClient.CloseSend()
+	return errtrace.Wrap(client.rpcClient.CloseSend())
 }
 
 // A shellRPCFileReadCopier is a lightly utility struct that implements FileReadCopier
@@ -167,16 +168,16 @@ func (reader *shellRPCFileReadCopier) ReadAll(ctx context.Context) error {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := reader.copyFile(ctx, file); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := reader.rpc.AckLastFile(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -188,7 +189,7 @@ func (reader *shellRPCFileReadCopier) copyFile(
 ) error {
 	fileName := initialFile.Name
 	if fileName == "" {
-		return errors.New("file name blank")
+		return errtrace.Wrap(errors.New("file name blank"))
 	}
 	copyErr := make(chan error, 1)
 	cancelCtx, cancel := context.WithCancel(ctx)
@@ -227,7 +228,7 @@ func (reader *shellRPCFileReadCopier) copyFile(
 			break
 		}
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		}
 		select {
 		case <-ctx.Done():
@@ -236,20 +237,20 @@ func (reader *shellRPCFileReadCopier) copyFile(
 		var err error
 		file, err = reader.rpc.NextFileData()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if file.Name != "" {
 			// Note(erd): this is a forwards compatibility defense against multiple files being
 			// at the same time. Without this, we may clobber data together.
-			return fmt.Errorf("unexpected file name %q while reading current file %q", file.Name, initialFile.Name)
+			return errtrace.Wrap(fmt.Errorf("unexpected file name %q while reading current file %q", file.Name, initialFile.Name))
 		}
 	}
 
-	return <-copyErr
+	return errtrace.Wrap(<-copyErr)
 }
 
 func (reader *shellRPCFileReadCopier) Close(ctx context.Context) error {
-	return reader.rpc.Close()
+	return errtrace.Wrap(reader.rpc.Close())
 }
 
 // A streamingRPCFileCopy is an efficient, low-memory usage representation
@@ -306,7 +307,7 @@ func (file *streamingRPCFileCopy) Read(buf []byte) (int, error) {
 	if file.lastData == nil {
 		data, ok := <-file.dataCh
 		if !ok {
-			return 0, file.closeErr
+			return 0, errtrace.Wrap(file.closeErr)
 		}
 		file.lastData = data
 	}
@@ -362,14 +363,14 @@ type shellRPCCopyWriter interface {
 // that genuine, already-informative client-side send errors are left untouched.
 func recoverSendErr(sendErr error, recv func() error) error {
 	if !errors.Is(sendErr, io.ErrClosedPipe) {
-		return sendErr
+		return errtrace.Wrap(sendErr)
 	}
 	recvErr := recv()
 	if recvErr == nil || errors.Is(recvErr, io.EOF) || errors.Is(recvErr, io.ErrClosedPipe) {
 		// Recv didn't yield anything more useful than what we already have.
-		return sendErr
+		return errtrace.Wrap(sendErr)
 	}
-	return recvErr
+	return errtrace.Wrap(recvErr)
 }
 
 // A shellRPCCopyWriterTo is the To, Writer/Client side of a CopyTo.
@@ -378,27 +379,27 @@ type shellRPCCopyWriterTo struct {
 }
 
 func (client shellRPCCopyWriterTo) SendFile(fileDataProto *pb.FileData) error {
-	return client.rpcClient.Send(&pb.CopyFilesToMachineRequest{
+	return errtrace.Wrap(client.rpcClient.Send(&pb.CopyFilesToMachineRequest{
 		Request: &pb.CopyFilesToMachineRequest_FileData{
 			FileData: fileDataProto,
 		},
-	})
+	}))
 }
 
 func (client shellRPCCopyWriterTo) WaitLastACK() error {
 	_, err := client.rpcClient.Recv()
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (client shellRPCCopyWriterTo) recoverSendErr(sendErr error) error {
-	return recoverSendErr(sendErr, func() error {
+	return errtrace.Wrap(recoverSendErr(sendErr, func() error {
 		_, err := client.rpcClient.Recv()
-		return err
-	})
+		return errtrace.Wrap(err)
+	}))
 }
 
 func (client shellRPCCopyWriterTo) Close() error {
-	return client.rpcClient.CloseSend()
+	return errtrace.Wrap(client.rpcClient.CloseSend())
 }
 
 // A shellRPCCopyWriterFrom is the From, Writer/Server side of a CopyFrom.
@@ -407,23 +408,23 @@ type shellRPCCopyWriterFrom struct {
 }
 
 func (srv shellRPCCopyWriterFrom) SendFile(fileDataProto *pb.FileData) error {
-	return srv.rpcServer.Send(&pb.CopyFilesFromMachineResponse{
+	return errtrace.Wrap(srv.rpcServer.Send(&pb.CopyFilesFromMachineResponse{
 		Response: &pb.CopyFilesFromMachineResponse_FileData{
 			FileData: fileDataProto,
 		},
-	})
+	}))
 }
 
 func (srv shellRPCCopyWriterFrom) WaitLastACK() error {
 	_, err := srv.rpcServer.Recv()
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (srv shellRPCCopyWriterFrom) recoverSendErr(sendErr error) error {
-	return recoverSendErr(sendErr, func() error {
+	return errtrace.Wrap(recoverSendErr(sendErr, func() error {
 		_, err := srv.rpcServer.Recv()
-		return err
-	})
+		return errtrace.Wrap(err)
+	}))
 }
 
 func (srv shellRPCCopyWriterFrom) Close() error {
@@ -459,7 +460,7 @@ func (writer *shellFileCopyWriter) Copy(ctx context.Context, file File) error {
 	}()
 	fileInfo, err := file.Data.Stat()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	firstFileDataProto := true
@@ -473,7 +474,7 @@ func (writer *shellFileCopyWriter) Copy(ctx context.Context, file File) error {
 			n, readErr := file.Data.Read(writer.buf)
 			if readErr != nil {
 				if !errors.Is(readErr, io.EOF) {
-					return readErr
+					return errtrace.Wrap(readErr)
 				}
 				isEOF = true
 			}
@@ -499,13 +500,13 @@ func (writer *shellFileCopyWriter) Copy(ctx context.Context, file File) error {
 			// A failed send aborts the stream and yields a generic error (often
 			// io.ErrClosedPipe); recover the real status so callers/users see why
 			// the copy actually failed instead of a misleading "closed pipe".
-			return writer.rpc.recoverSendErr(err)
+			return errtrace.Wrap(writer.rpc.recoverSendErr(err))
 		}
 		if !isEOF {
 			continue
 		}
 		if err := writer.rpc.WaitLastACK(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -515,5 +516,5 @@ func (writer *shellFileCopyWriter) Close(ctx context.Context) error {
 	writer.singleWriterMu.Lock()
 	defer writer.singleWriterMu.Unlock()
 
-	return writer.rpc.Close()
+	return errtrace.Wrap(writer.rpc.Close())
 }

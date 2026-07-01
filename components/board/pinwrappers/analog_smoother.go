@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -64,7 +65,7 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 	lastDataPointer := as.lastData.Load()
 	if lastDataPointer == nil {
-		return board.AnalogValue{}, errors.New("have not yet read any analog data")
+		return board.AnalogValue{}, errtrace.Wrap(errors.New("have not yet read any analog data"))
 	}
 
 	if as.data == nil { // We're using raw data, and not averaging
@@ -84,7 +85,7 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 	}
 	//nolint:forcetypeassert
 	if lastErr.present {
-		return analogVal, lastErr.err
+		return analogVal, errtrace.Wrap(lastErr.err)
 	}
 	return analogVal, nil
 }
@@ -164,5 +165,5 @@ func (as *AnalogSmoother) Start() {
 }
 
 func (as *AnalogSmoother) Write(ctx context.Context, value int, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+	return errtrace.Wrap(grpc.UnimplementedError)
 }

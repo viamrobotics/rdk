@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r2"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
@@ -15,7 +16,7 @@ type Homography struct {
 // NewHomography creates a Homography from a slice of floats.
 func NewHomography(vals []float64) (*Homography, error) {
 	if len(vals) != 9 {
-		return nil, errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(vals))
+		return nil, errtrace.Wrap(errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(vals)))
 	}
 	// TODO(bij): add check for mathematical property of homography
 	d := mat.NewDense(3, 3, vals)
@@ -40,7 +41,7 @@ func (h *Homography) Apply(pt r2.Point) r2.Point {
 func (h *Homography) Inverse() (*Homography, error) {
 	var hInv mat.Dense
 	if err := hInv.Inverse(h.matrix); err != nil {
-		return nil, errors.Wrap(err, "homography is not invertible (but homographies should always be invertible?)")
+		return nil, errtrace.Wrap(errors.Wrap(err, "homography is not invertible (but homographies should always be invertible?)"))
 	}
 	return &Homography{&hInv}, nil
 }
@@ -50,11 +51,11 @@ func (h *Homography) Inverse() (*Homography, error) {
 func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*Homography, error) {
 	if len(s1) != 4 {
 		err := errors.New("slice s1 must have 4 points each")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if len(s2) != 4 {
 		err := errors.New("slice s2 must have 4 points each")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	st1 := s1
 	st2 := s2
@@ -108,7 +109,7 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*Hom
 		ok := svd.Factorize(A, mat.SVDFull)
 		if !ok {
 			err := errors.New("failed to factorize A")
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		// Determine the rank of the A matrix with a near zero condition threshold.
@@ -116,7 +117,7 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*Hom
 		rank := svd.Rank(rcond)
 		if rank == 0 {
 			err := errors.New("zero rank system")
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		// Find a least-squares solution using the determined parts of the system.
@@ -135,12 +136,12 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*Hom
 			invNorm1 := mat.NewDense(3, 3, nil)
 			err := invNorm1.Inverse(norm1)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			invNorm2 := mat.NewDense(3, 3, nil)
 			err = invNorm2.Inverse(norm2)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			var m1, m2, m3 mat.Dense
 			m1.Mul(norm1, outMat)
@@ -153,7 +154,7 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*Hom
 	}
 	// Otherwise, matrix cannot be inverted; return nothing
 	err := errors.New("matrix could not be inverted")
-	return nil, err
+	return nil, errtrace.Wrap(err)
 }
 
 // EstimateHomographyRANSAC estimates a homography from matches of 2 sets of
@@ -169,19 +170,19 @@ func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIterati
 		// select 4 random matches
 		s1, s2, err := SelectFourPointPairs(pts1, pts2)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		for !are4PointsNonCollinear(s1[0], s1[1], s1[2], s1[3]) {
 			s1, s2, err = SelectFourPointPairs(pts1, pts2)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errtrace.Wrap(err)
 			}
 		}
 
 		// estimate exact homography from these 4 matches
 		h, err := EstimateExactHomographyFrom8Points(s1, s2, false)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		if h != nil {
 			// compute inliers
@@ -215,17 +216,17 @@ func EstimateLeastSquaresHomography(pts1, pts2 *mat.Dense) (*Homography, error) 
 	nPoints1, _ := pts1.Dims()
 	if nPoints1 < 4 {
 		err := errors.New("pts1 must have at least 4 points")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	nPoints2, _ := pts2.Dims()
 	if nPoints2 < 4 {
 		err := errors.New("pts1 must have at least 4 points")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if nPoints1 != nPoints2 {
 		err := errors.New("pts1 and pts2 must have the same number of points")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	normalizationMat1 := getNormalizationMatrix(pts1)
 	normalizationMat2 := getNormalizationMatrix(pts2)
@@ -255,13 +256,13 @@ func EstimateLeastSquaresHomography(pts1, pts2 *mat.Dense) (*Homography, error) 
 	ok := svd.Factorize(m, mat.SVDFull)
 	if !ok {
 		err := errors.New("failed to factorize A")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// Determine the rank of the A matrix with a near zero condition threshold.
 	const rcond = 1e-15
 	if svd.Rank(rcond) == 0 {
 		err := errors.New("zero rank system")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var V, m1, m2, m3 mat.Dense
 	svd.VTo(&V)
@@ -272,12 +273,12 @@ func EstimateLeastSquaresHomography(pts1, pts2 *mat.Dense) (*Homography, error) 
 	invNorm1 := mat.NewDense(3, 3, nil)
 	err := invNorm1.Inverse(normalizationMat1)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	invNorm2 := mat.NewDense(3, 3, nil)
 	err = invNorm2.Inverse(normalizationMat2)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	m1.Mul(normalizationMat1, H)
 	m2.Mul(&m1, invNorm2)

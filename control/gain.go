@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -21,7 +22,7 @@ type gain struct {
 func newGain(config BlockConfig, logger logging.Logger) (Block, error) {
 	g := &gain{cfg: config, logger: logger}
 	if err := g.reset(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return g, nil
 }
@@ -42,10 +43,10 @@ func (b *gain) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Sign
 
 func (b *gain) reset() error {
 	if !b.cfg.Attribute.Has("gain") {
-		return errors.Errorf("gain block %s doesn't have a gain field", b.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("gain block %s doesn't have a gain field", b.cfg.Name))
 	}
 	if len(b.cfg.DependsOn) != 1 {
-		return errors.Errorf("invalid number of inputs for gain block %s expected 1 got %d", b.cfg.Name, len(b.cfg.DependsOn))
+		return errtrace.Wrap(errors.Errorf("invalid number of inputs for gain block %s expected 1 got %d", b.cfg.Name, len(b.cfg.DependsOn)))
 	}
 	b.gain = b.cfg.Attribute["gain"].(float64)
 	if b.gain == 0 {
@@ -59,14 +60,14 @@ func (b *gain) reset() error {
 func (b *gain) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.reset()
+	return errtrace.Wrap(b.reset())
 }
 
 func (b *gain) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset()
+	return errtrace.Wrap(b.reset())
 }
 
 func (b *gain) Output(ctx context.Context) []*Signal {

@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/gantry"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -47,14 +48,14 @@ func TestClient(t *testing.T) {
 	}
 	injectGantry.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extra1 = extra
-		return errStopFailed
+		return errtrace.Wrap(errStopFailed)
 	}
 	injectGantry.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		extra1 = extra
 		return true, nil
 	}
 	injectGantry.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errKinematicsUnimplemented
+		return nil, errtrace.Wrap(errKinematicsUnimplemented)
 	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
@@ -82,10 +83,10 @@ func TestClient(t *testing.T) {
 	}
 	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		extra2 = extra
-		return false, errHomingFailed
+		return false, errtrace.Wrap(errHomingFailed)
 	}
 	injectGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errKinematicsUnimplemented
+		return nil, errtrace.Wrap(errKinematicsUnimplemented)
 	}
 
 	gantrySvc, err := resource.NewAPIResourceCollection(

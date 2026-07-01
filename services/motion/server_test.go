@@ -15,6 +15,7 @@ import (
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -30,7 +31,7 @@ import (
 func newServer(resources map[resource.Name]motion.Service, logger logging.Logger) (pb.MotionServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(motion.API, resources)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return motion.NewRPCServiceServer(coll, logger).(pb.MotionServiceServer), nil
 }
@@ -58,7 +59,7 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake move error")
 	injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
-		return false, passedErr
+		return false, errtrace.Wrap(passedErr)
 	}
 	_, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, passedErr)
@@ -109,7 +110,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
-			return uuid.Nil, errors.New("should not be called")
+			return uuid.Nil, errtrace.Wrap(errors.New("should not be called"))
 		}
 
 		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
@@ -127,7 +128,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
-			return uuid.Nil, errors.New("should not be called")
+			return uuid.Nil, errtrace.Wrap(errors.New("should not be called"))
 		}
 
 		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
@@ -147,7 +148,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		notYetImplementedErr := errors.New("Not yet implemented")
 
 		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
-			return uuid.Nil, notYetImplementedErr
+			return uuid.Nil, errtrace.Wrap(notYetImplementedErr)
 		}
 		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), validMoveOnGlobeRequest)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -292,7 +293,7 @@ func TestServerMoveOnMap(t *testing.T) {
 		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
-			return uuid.Nil, errors.New("should not be called")
+			return uuid.Nil, errtrace.Wrap(errors.New("should not be called"))
 		}
 
 		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapRequest)
@@ -311,7 +312,7 @@ func TestServerMoveOnMap(t *testing.T) {
 		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
-			return uuid.Nil, errors.New("should not be called")
+			return uuid.Nil, errtrace.Wrap(errors.New("should not be called"))
 		}
 		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapRequest)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -330,7 +331,7 @@ func TestServerMoveOnMap(t *testing.T) {
 		notYetImplementedErr := errors.New("Not yet implemented")
 
 		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-			return uuid.Nil, notYetImplementedErr
+			return uuid.Nil, errtrace.Wrap(notYetImplementedErr)
 		}
 		moveOnMapResponse, err := server.MoveOnMap(context.Background(), validMoveOnMapRequest)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -436,7 +437,7 @@ func TestServerMoveOnMap(t *testing.T) {
 		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
 			t.FailNow()
-			return uuid.Nil, errors.New("should not be called")
+			return uuid.Nil, errtrace.Wrap(errors.New("should not be called"))
 		}
 
 		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapReq)
@@ -472,7 +473,7 @@ func TestServerStopPlan(t *testing.T) {
 		) error {
 			t.Log("should not be called")
 			t.FailNow()
-			return errors.New("should not be called")
+			return errtrace.Wrap(errors.New("should not be called"))
 		}
 
 		stopPlanResponse, err := server.StopPlan(context.Background(), stopPlanRequest)
@@ -487,7 +488,7 @@ func TestServerStopPlan(t *testing.T) {
 			ctx context.Context,
 			req motion.StopPlanReq,
 		) error {
-			return errExpected
+			return errtrace.Wrap(errExpected)
 		}
 
 		stopPlanResponse, err := server.StopPlan(context.Background(), validStopPlanRequest)
@@ -531,7 +532,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 		) ([]motion.PlanStatusWithID, error) {
 			t.Log("should not be called")
 			t.FailNow()
-			return nil, errors.New("should not be called")
+			return nil, errtrace.Wrap(errors.New("should not be called"))
 		}
 
 		listPlanStatusesResponse, err := server.ListPlanStatuses(context.Background(), listPlanStatusesRequest)
@@ -546,7 +547,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 			ctx context.Context,
 			req motion.ListPlanStatusesReq,
 		) ([]motion.PlanStatusWithID, error) {
-			return nil, errExpected
+			return nil, errtrace.Wrap(errExpected)
 		}
 
 		listPlanStatusesResponse, err := server.ListPlanStatuses(context.Background(), validListPlanStatusesRequest)
@@ -642,7 +643,7 @@ func TestServerGetPlan(t *testing.T) {
 		injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			t.Log("should not be called")
 			t.FailNow()
-			return nil, errors.New("should not be called")
+			return nil, errtrace.Wrap(errors.New("should not be called"))
 		}
 
 		getPlanResponse, err := server.GetPlan(context.Background(), getPlanRequest)
@@ -654,7 +655,7 @@ func TestServerGetPlan(t *testing.T) {
 	t.Run("returns error if GetPlan returns an error", func(t *testing.T) {
 		errExpected := errors.New("stop error")
 		injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
-			return nil, errExpected
+			return nil, errtrace.Wrap(errExpected)
 		}
 
 		getPlanResponse, err := server.GetPlan(context.Background(), validGetPlanRequest)
@@ -797,7 +798,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectMS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMotionServiceName.ShortName()})
 	test.That(t, err, test.ShouldNotBeNil)

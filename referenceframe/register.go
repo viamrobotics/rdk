@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"braces.dev/errtrace"
 	"fmt"
 	"reflect"
 )
@@ -32,7 +33,7 @@ func init() {
 // interface for serialization/deserialization with the given name.
 func RegisterFrameImplementer(frame Frame, name string) error {
 	if _, ok := registeredFrameImplementers[name]; ok {
-		return fmt.Errorf("frame with name %s already registered, use a different name", name)
+		return errtrace.Wrap(fmt.Errorf("frame with name %s already registered, use a different name", name))
 	}
 	registeredFrameImplementers[name] = reflect.TypeOf(frame).Elem()
 	return nil

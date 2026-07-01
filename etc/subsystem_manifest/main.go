@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"braces.dev/errtrace"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 )
@@ -102,7 +103,7 @@ func getViamServerMetadata(path, resourcesOutputFileName string) (*viamServerMet
 	if resourcesOutputFileName == "" {
 		resourcesOutputFile, err := os.CreateTemp("", "resources-")
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		resourcesOutputFileName = resourcesOutputFile.Name()
 		//nolint:errcheck
@@ -110,19 +111,19 @@ func getViamServerMetadata(path, resourcesOutputFileName string) (*viamServerMet
 
 		command := exec.Command(path, "--dump-resources", resourcesOutputFileName)
 		if err := command.Run(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	//nolint:gosec
 	resourcesBytes, err := os.ReadFile(resourcesOutputFileName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// We could pass the file through as an interface{} instead of unmarshalling
 	// and re-marshalling, but this reduces the odds of drift between viam-server and this script
 	dumpedResourceRegistrations := []dumpedResourceRegistration{}
 	if err := json.Unmarshal(resourcesBytes, &dumpedResourceRegistrations); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &viamServerMetadata{
 		ResourceRegistrations: dumpedResourceRegistrations,
@@ -133,14 +134,14 @@ func sha256sum(path string) (string, error) {
 	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	//nolint:errcheck
 	defer f.Close()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
@@ -153,7 +154,7 @@ func osArchToViamPlatform(arch string) (string, error) {
 	case "aarch64":
 		return linuxArm64, nil
 	default:
-		return "", errors.Errorf("unknown architecture %q", arch)
+		return "", errtrace.Wrap(errors.Errorf("unknown architecture %q", arch))
 	}
 }
 

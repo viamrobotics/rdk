@@ -9,6 +9,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -130,7 +131,7 @@ func SetupPIDControlConfig(
 	if options.NeedsAutoTuning {
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		if err := pidLoop.TunePIDLoop(cancelCtx, cancelFunc); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -197,7 +198,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			}
 		}
 	})
-	return errs
+	return errtrace.Wrap(errs)
 }
 
 // tunes a single PID block assuming there are two PID blocks in the loop.
@@ -211,7 +212,7 @@ func (p *PIDLoop) tuneSinglePIDBlock(ctx context.Context, blockIndex, pidIndex i
 	}
 	p.ControlConf.Blocks[blockIndex].Attribute["PIDSets"] = tempPIDConfigs
 	if err := p.StartControlLoop(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	p.ControlLoop.MonitorTuning(ctx)
@@ -425,10 +426,10 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 func (p *PIDLoop) StartControlLoop() error {
 	loop, err := NewLoop(p.logger, *p.ControlConf, p.Controllable)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := loop.Start(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	p.ControlLoop = loop
 
@@ -451,7 +452,7 @@ func CreateConstantBlock(ctx context.Context, name string, constVal float64) Blo
 func UpdateConstantBlock(ctx context.Context, name string, constVal float64, loop *Loop) error {
 	newConstBlock := CreateConstantBlock(ctx, name, constVal)
 	if err := loop.SetConfigAt(ctx, name, newConstBlock); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -474,11 +475,11 @@ func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 // UpdateTrapzBlock creates and sets a control config trapezoidalVelocityProfile block.
 func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string, loop *Loop) error {
 	if maxVel == 0 {
-		return errors.New("maxVel must be a non-zero value")
+		return errtrace.Wrap(errors.New("maxVel must be a non-zero value"))
 	}
 	newTrapzBlock := CreateTrapzBlock(ctx, name, maxVel, dependsOn)
 	if err := loop.SetConfigAt(ctx, name, newTrapzBlock); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -494,7 +495,7 @@ func TunedPIDErr(name string, tunedVals []PIDConfig) error {
 			tunedStr += pid.String()
 		}
 	}
-	return fmt.Errorf(`%v has been tuned, please copy the following control values into your config: %v`, name, tunedStr)
+	return errtrace.Wrap(fmt.Errorf(`%v has been tuned, please copy the following control values into your config: %v`, name, tunedStr))
 }
 
 func (conf PIDConfig) String() string {
@@ -503,5 +504,5 @@ func (conf PIDConfig) String() string {
 
 // TuningInProgressErr returns an error when the loop is actively tuning.
 func TuningInProgressErr(name string) error {
-	return fmt.Errorf(`tuning for %v is in progress`, name)
+	return errtrace.Wrap(fmt.Errorf(`tuning for %v is in progress`, name))
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -46,11 +47,11 @@ func writeValue(filepath string, value uint64, logger logging.Logger) error {
 	if err != nil {
 		logger.Debugf("Encountered error writing to sysfs: %s", err)
 	}
-	return errors.Wrap(err, filepath)
+	return errtrace.Wrap(errors.Wrap(err, filepath))
 }
 
 func (pwm *pwmDevice) writeChip(filename string, value uint64) error {
-	return writeValue(fmt.Sprintf("%s/%s", pwm.chipPath, filename), value, pwm.logger)
+	return errtrace.Wrap(writeValue(fmt.Sprintf("%s/%s", pwm.chipPath, filename), value, pwm.logger))
 }
 
 func (pwm *pwmDevice) linePath() string {
@@ -58,7 +59,7 @@ func (pwm *pwmDevice) linePath() string {
 }
 
 func (pwm *pwmDevice) writeLine(filename string, value uint64) error {
-	return writeValue(fmt.Sprintf("%s/%s", pwm.linePath(), filename), value, pwm.logger)
+	return errtrace.Wrap(writeValue(fmt.Sprintf("%s/%s", pwm.linePath(), filename), value, pwm.logger))
 }
 
 // Export tells the OS that this pin is in use, and enables configuration via sysfs.
@@ -67,9 +68,9 @@ func (pwm *pwmDevice) export() error {
 		if os.IsNotExist(err) {
 			// The pseudofile we're trying to export doesn't yet exist. Export it now. This is the
 			// happy path.
-			return pwm.writeChip("export", uint64(pwm.line))
+			return errtrace.Wrap(pwm.writeChip("export", uint64(pwm.line)))
 		}
-		return err // Something unexpected has gone wrong.
+		return errtrace.Wrap(err) // Something unexpected has gone wrong.
 	}
 	// Otherwise, the line we're trying to export already exists.
 	pwm.logger.Debugf("Skipping re-export of already-exported line %d on HW PWM chip %s",
@@ -86,7 +87,7 @@ func (pwm *pwmDevice) unexport() error {
 				pwm.line, pwm.chipPath)
 			return nil
 		}
-		return err // Something has gone wrong.
+		return errtrace.Wrap(err) // Something has gone wrong.
 	}
 
 	// If we unexport the pin while it is enabled, it might continue outputting a PWM signal,
@@ -101,7 +102,7 @@ func (pwm *pwmDevice) unexport() error {
 	// PWM system gets corrupted. Sleep for a small amount of time to avoid this.
 	time.Sleep(10 * time.Millisecond)
 	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -109,20 +110,20 @@ func (pwm *pwmDevice) unexport() error {
 // Enable tells an exported pin to output the PWM signal it has been configured with.
 func (pwm *pwmDevice) enable() error {
 	// There is no harm in enabling an already-enabled pin; no errors will be returned if we try.
-	return pwm.writeLine("enable", 1)
+	return errtrace.Wrap(pwm.writeLine("enable", 1))
 }
 
 // Disable tells an exported pin to stop outputting its PWM signal, but it is still available for
 // reconfiguring and re-enabling.
 func (pwm *pwmDevice) disable() error {
 	// There is no harm in disabling an already-disabled pin; no errors will be returned if we try.
-	return pwm.writeLine("enable", 0)
+	return errtrace.Wrap(pwm.writeLine("enable", 0))
 }
 
 // Only call this from public functions, to avoid double-wrapping the errors.
 func (pwm *pwmDevice) wrapError(err error) error {
 	// Note that if err is nil, errors.Wrap() will return nil, too.
-	return errors.Wrapf(err, "HW PWM chipPath %s, line %d", pwm.chipPath, pwm.line)
+	return errtrace.Wrap(errors.Wrapf(err, "HW PWM chipPath %s, line %d", pwm.chipPath, pwm.line))
 }
 
 // SetPwm configures an exported pin and enables its output signal.
@@ -135,13 +136,13 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 
 	// If there is ever an error in here, annotate it with which sysfs device and line we're using.
 	defer func() {
-		err = pwm.wrapError(err)
+		err = errtrace.Wrap(pwm.wrapError(err))
 	}()
 
 	// Every time this pin is used as a (non-PWM) GPIO input or output, it gets unexported on the
 	// PWM chip. Make sure to re-export it here.
 	if err := pwm.export(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Intuitively, we should disable the pin, set the new parameters, and then enable it again.
@@ -157,11 +158,11 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 		pwm.logger.Debugf("Cannot enable HW PWM device %s line %d, will try changing period: %s",
 			pwm.chipPath, pwm.line, err)
 		if err := pwm.writeLine("period", safePeriodNs); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		// Now, try enabling the pin one more time before giving up.
 		if err := pwm.enable(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -187,16 +188,16 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 
 	// Now that the active duration is 0, setting the period to any number should work.
 	if err := pwm.writeLine("period", safePeriodNs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// Same thing here: the active duration is 0, so any value should work for the period.
 	if err := pwm.writeLine("period", periodNs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// Now that the period is set to its intended value, there should be no trouble setting the
 	// active duration, which is guaranteed to be at most the period.
 	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -205,5 +206,5 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 func (pwm *pwmDevice) Close() error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
-	return pwm.wrapError(pwm.unexport())
+	return errtrace.Wrap(pwm.wrapError(pwm.unexport()))
 }

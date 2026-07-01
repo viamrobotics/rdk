@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 )
 
@@ -21,9 +22,9 @@ type DigitalInterrupt struct {
 func (d *DigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	d.valueCap = []interface{}{ctx}
 	if d.ValueFunc == nil {
-		return d.DigitalInterrupt.Value(ctx, extra)
+		return errtrace.Wrap2(d.DigitalInterrupt.Value(ctx, extra))
 	}
-	return d.ValueFunc(ctx, extra)
+	return errtrace.Wrap2(d.ValueFunc(ctx, extra))
 }
 
 // ValueCap returns the last parameters received by Value, and then clears them.
@@ -39,7 +40,7 @@ func (d *DigitalInterrupt) ValueCap() []interface{} {
 func (d *DigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	d.tickCap = []interface{}{ctx, high, nanoseconds}
 
-	return d.TickFunc(ctx, high, nanoseconds)
+	return errtrace.Wrap(d.TickFunc(ctx, high, nanoseconds))
 }
 
 // TickCap returns the last parameters received by Tick, and then clears them.

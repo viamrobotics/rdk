@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pterm/pterm"
 )
 
@@ -24,7 +25,7 @@ var defaultSpinnerFactory progressSpinnerFactory = func(text string) (progressSp
 		WithText(text).
 		Start()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return spinner, nil
 }
@@ -138,7 +139,7 @@ func (pm *ProgressManager) Start(stepID string) error {
 
 	step, exists := pm.stepMap[stepID]
 	if !exists {
-		return fmt.Errorf("step %q not found", stepID)
+		return errtrace.Wrap(fmt.Errorf("step %q not found", stepID))
 	}
 
 	step.Status = StepRunning
@@ -176,7 +177,7 @@ func (pm *ProgressManager) Start(stepID string) error {
 
 	spinner, err := pm.spinnerFactory(adjustedPrefix + step.Message)
 	if err != nil {
-		return fmt.Errorf("failed to start child spinner: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to start child spinner: %w", err))
 	}
 
 	pm.currentSpinner = spinner
@@ -191,7 +192,7 @@ func (pm *ProgressManager) Complete(stepID string) error {
 
 	step, exists := pm.stepMap[stepID]
 	if !exists {
-		return fmt.Errorf("step %q not found", stepID)
+		return errtrace.Wrap(fmt.Errorf("step %q not found", stepID))
 	}
 
 	step.Status = StepCompleted
@@ -244,7 +245,7 @@ func (pm *ProgressManager) CompleteWithMessage(stepID, message string) error {
 
 	step, exists := pm.stepMap[stepID]
 	if !exists {
-		return fmt.Errorf("step %q not found", stepID)
+		return errtrace.Wrap(fmt.Errorf("step %q not found", stepID))
 	}
 
 	step.Status = StepCompleted
@@ -286,7 +287,7 @@ func (pm *ProgressManager) Fail(stepID string, err error) error {
 
 	step, exists := pm.stepMap[stepID]
 	if !exists {
-		return fmt.Errorf("step %q not found", stepID)
+		return errtrace.Wrap(fmt.Errorf("step %q not found", stepID))
 	}
 
 	msg := step.FailedMsg
@@ -305,7 +306,7 @@ func (pm *ProgressManager) FailWithMessage(stepID, message string) error {
 
 	step, exists := pm.stepMap[stepID]
 	if !exists {
-		return fmt.Errorf("step %q not found", stepID)
+		return errtrace.Wrap(fmt.Errorf("step %q not found", stepID))
 	}
 
 	pm.failWithMessageLocked(step, message)

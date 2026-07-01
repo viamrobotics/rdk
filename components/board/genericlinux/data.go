@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -16,7 +17,7 @@ import (
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
 
 func noBoardError(modelName string) error {
-	return fmt.Errorf("could not determine %q model", modelName)
+	return errtrace.Wrap(fmt.Errorf("could not determine %q model", modelName))
 }
 
 // pwmChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
@@ -32,10 +33,10 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 ) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return GetGPIOBoardMappingFromPinDefs(pinDefs, logger)
+	return errtrace.Wrap2(GetGPIOBoardMappingFromPinDefs(pinDefs, logger))
 }
 
 // GetGPIOBoardMappingFromPinDefs attempts to find a compatible board-pin mapping using the pin definitions.
@@ -48,7 +49,7 @@ func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition, logger logging.Logg
 		pwmChipsInfo = map[string]pwmChipData{}
 	}
 
-	return getBoardMapping(pinDefs, pwmChipsInfo, logger)
+	return errtrace.Wrap2(getBoardMapping(pinDefs, pwmChipsInfo, logger))
 }
 
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
@@ -56,7 +57,7 @@ func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition, logger logging.Logg
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
 	compatibles, err := rdkutils.GetDeviceInfo(modelName)
 	if err != nil {
-		return nil, fmt.Errorf("error while getting hardware info %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("error while getting hardware info %w", err))
 	}
 
 	var pinDefs []PinDefinition
@@ -70,7 +71,7 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	}
 
 	if pinDefs == nil {
-		return nil, noBoardError(modelName)
+		return nil, errtrace.Wrap(noBoardError(modelName))
 	}
 	return pinDefs, nil
 }
@@ -80,10 +81,10 @@ func readIntFile(filePath string) (int, error) {
 	//nolint:gosec
 	contents, err := os.ReadFile(filePath)
 	if err != nil {
-		return -1, err
+		return -1, errtrace.Wrap(err)
 	}
 	resultInt64, err := strconv.ParseInt(strings.TrimSpace(string(contents)), 10, 64)
-	return int(resultInt64), err
+	return int(resultInt64), errtrace.Wrap(err)
 }
 
 func getPwmChipDefs(pinDefs []PinDefinition, logger logging.Logger) (map[string]pwmChipData, error) {
@@ -102,7 +103,7 @@ func getPwmChipDefs(pinDefs []PinDefinition, logger logging.Logger) (map[string]
 	const sysfsDir = "/sys/class/pwm"
 	files, err := os.ReadDir(sysfsDir)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	for chipName := range pwmChipNames {
@@ -125,7 +126,7 @@ func getPwmChipDefs(pinDefs []PinDefinition, logger logging.Logger) (map[string]
 				chipPath := filepath.Join(sysfsDir, file.Name())
 				npwm, err := readIntFile(filepath.Join(chipPath, "npwm"))
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 
 				pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Npwm: npwm}
@@ -134,7 +135,7 @@ func getPwmChipDefs(pinDefs []PinDefinition, logger logging.Logger) (map[string]
 		}
 
 		if !found {
-			return nil, fmt.Errorf("unable to find PWM device %s", chipName)
+			return nil, errtrace.Wrap(fmt.Errorf("unable to find PWM device %s", chipName))
 		}
 	}
 	return pwmChipsInfo, nil
@@ -151,8 +152,8 @@ func getBoardMapping(pinDefs []PinDefinition, pwmChipsInfo map[string]pwmChipDat
 		pwmChipInfo, ok := pwmChipsInfo[pinDef.PwmChipSysfsDir]
 		if ok {
 			if pinDef.PwmID >= pwmChipInfo.Npwm {
-				return nil, fmt.Errorf("too high PWM ID %d for pin %s (npwm is %d for chip %s)",
-					pinDef.PwmID, pinDef.Name, pwmChipInfo.Npwm, pinDef.PwmChipSysfsDir)
+				return nil, errtrace.Wrap(fmt.Errorf("too high PWM ID %d for pin %s (npwm is %d for chip %s)",
+					pinDef.PwmID, pinDef.Name, pwmChipInfo.Npwm, pinDef.PwmChipSysfsDir))
 			}
 		} else {
 			if pinDef.PwmChipSysfsDir == "" {

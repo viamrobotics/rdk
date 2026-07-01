@@ -6,6 +6,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -27,12 +28,12 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[AudioIn], logger loggin
 func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInService_GetAudioServer) error {
 	audio, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	chunkChan, err := audio.GetAudio(stream.Context(), req.Codec, req.DurationSeconds, req.PreviousTimestampNanoseconds, req.Extra.AsMap())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Stream audio chunks
@@ -52,7 +53,7 @@ func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInServi
 			resp := &pb.GetAudioResponse{Audio: pbChunk, RequestId: req.RequestId}
 
 			if err := stream.Send(resp); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -61,12 +62,12 @@ func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInServi
 func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetPropertiesRequest) (*commonpb.GetPropertiesResponse, error) {
 	audio, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	props, err := audio.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetPropertiesResponse{
 		SupportedCodecs: props.SupportedCodecs,
@@ -81,16 +82,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	audioIn, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, audioIn, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, audioIn, req))
 }
 
 // GetStatus returns the status of the audioin.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

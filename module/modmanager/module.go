@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/ftdc/sys"
@@ -102,7 +103,7 @@ func (m *module) dial() error {
 		grpc.WithStatsHandler(otelStatsHandler),
 	)
 	if err != nil {
-		return errors.WithMessage(err, "module startup failed")
+		return errtrace.Wrap(errors.WithMessage(err, "module startup failed"))
 	}
 
 	// Take the grpc over unix socket connection and add it to this `module`s `SharedConn`
@@ -134,7 +135,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	//nolint:staticcheck
 	legacyParentAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := &pb.ReadyRequest{
@@ -164,7 +165,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 				select {
 				case <-parentCtxTimeout.Done():
 					waitTimer.Stop()
-					return parentCtxTimeout.Err()
+					return errtrace.Wrap(parentCtxTimeout.Err())
 				case <-waitTimer.C:
 				}
 				// Short circuit this check if the process has already exited. We could get here if process exits before
@@ -175,11 +176,11 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 				if errors.Is(m.process.Status(), os.ErrProcessDone) {
 					m.logger.Debug("Module process exited unexpectedly while waiting for ready.")
 					parentCtxCancelFunc()
-					return errors.New("module process exited unexpectedly")
+					return errtrace.Wrap(errors.New("module process exited unexpectedly"))
 				}
 				continue
 			} else if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			break
 		}
@@ -187,7 +188,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 			// should not get here unless Module Startup Timeout has been overridden to very large value
 			// and there is still no connection after 5000 retries
 			parentCtxCancelFunc()
-			return parentCtxTimeout.Err()
+			return errtrace.Wrap(parentCtxTimeout.Err())
 		}
 
 		if !resp.Ready {
@@ -209,7 +210,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 		// will be used to construct "generic Client" objects that can execute gRPC commands for
 		// methods that are not part of the viam-server's API proto.
 		m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, m.sharedConn.GrpcConn())
-		return err
+		return errtrace.Wrap(err)
 	}
 }
 
@@ -238,7 +239,7 @@ func (m *module) startProcess(
 	tcpMode := m.tcpMode()
 	if tcpMode {
 		if addr, err := getAutomaticPort(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		} else { //nolint:revive
 			m.addr = addr
 		}
@@ -247,7 +248,7 @@ func (m *module) startProcess(
 		// with old versions of the module.
 		if m.addr, err = modlib.CreateSocketAddress(
 			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -255,7 +256,7 @@ func (m *module) startProcess(
 	// setting the CWD does not cause issues with relative process names
 	absoluteExePath, err := m.cfg.EvaluateExePath(packages.LocalPackagesDir(packagesDir))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	moduleEnvironment := m.getFullEnvironment(viamHomeDir, packagesDir)
 	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
@@ -287,7 +288,7 @@ func (m *module) startProcess(
 	//nolint:staticcheck
 	windowsAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, m.addr)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	pconf := pexec.ProcessConfig{
@@ -317,7 +318,7 @@ func (m *module) startProcess(
 	m.process = pexec.NewManagedProcess(pconf, m.logger)
 
 	if err := m.process.Start(context.Background()); err != nil {
-		return errors.WithMessage(err, "module startup failed")
+		return errtrace.Wrap(errors.WithMessage(err, "module startup failed"))
 	}
 
 	// Turn on process cpu/memory diagnostics for the module process. If there's an error, we
@@ -336,15 +337,15 @@ func (m *module) startProcess(
 		select {
 		case <-ctxTimeout.Done():
 			if errors.Is(ctxTimeout.Err(), context.DeadlineExceeded) {
-				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name, m.logger)
+				return errtrace.Wrap(rutils.NewModuleStartUpTimeoutError(m.cfg.Name, m.logger))
 			}
-			return ctxTimeout.Err()
+			return errtrace.Wrap(ctxTimeout.Err())
 		case <-checkTicker.C:
 			if errors.Is(m.process.Status(), os.ErrProcessDone) {
-				return fmt.Errorf(
+				return errtrace.Wrap(fmt.Errorf(
 					"module %s exited too quickly after attempted startup; it might have a fatal runtime issue",
 					m.cfg.Name,
-				)
+				))
 			}
 		}
 		if !m.isRunningInTCPMode() {
@@ -355,7 +356,7 @@ func (m *module) startProcess(
 				continue
 			}
 			if err != nil {
-				return errors.WithMessage(err, "module startup failed")
+				return errtrace.Wrap(errors.WithMessage(err, "module startup failed"))
 			}
 		}
 		break
@@ -396,7 +397,7 @@ func (m *module) stopProcess() error {
 		if strings.Contains(err.Error(), errMessageExitStatus143) || errors.As(err, &processNotExistsErr) {
 			return nil
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -443,7 +444,7 @@ func (m *module) registerResourceModels(mgr *Manager) {
 						conf resource.Config,
 						logger logging.Logger,
 					) (resource.Resource, error) {
-						return mgr.AddResource(ctx, conf, DepsToNames(deps))
+						return errtrace.Wrap2(mgr.AddResource(ctx, conf, DepsToNames(deps)))
 					},
 				})
 			}
@@ -457,7 +458,7 @@ func (m *module) registerResourceModels(mgr *Manager) {
 						conf resource.Config,
 						logger logging.Logger,
 					) (resource.Resource, error) {
-						return mgr.AddResource(ctx, conf, DepsToNames(deps))
+						return errtrace.Wrap2(mgr.AddResource(ctx, conf, DepsToNames(deps)))
 					},
 				})
 			}
@@ -528,11 +529,11 @@ func (m *module) registerProcessWithFTDC() {
 func getAutomaticPort() (string, error) {
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	addr := listener.Addr().String()
 	if err := listener.Close(); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return addr, nil
 }

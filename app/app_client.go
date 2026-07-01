@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"braces.dev/errtrace"
 	packages "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	common "go.viam.com/api/common/v1"
@@ -634,7 +635,7 @@ func (c *AppClient) GetUserIDByEmail(ctx context.Context, email string) (string,
 		Email: email,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.UserId, nil
 }
@@ -653,7 +654,7 @@ func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*Organ
 		Name: name,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return organizationFromProto(resp.Organization), nil
 }
@@ -670,7 +671,7 @@ func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*Organ
 func (c *AppClient) ListOrganizations(ctx context.Context) ([]*Organization, error) {
 	resp, err := c.client.ListOrganizations(ctx, &pb.ListOrganizationsRequest{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var organizations []*Organization
@@ -694,7 +695,7 @@ func (c *AppClient) GetOrganizationsWithAccessToLocation(ctx context.Context, lo
 		LocationId: locationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var organizations []*OrganizationIdentity
@@ -718,7 +719,7 @@ func (c *AppClient) ListOrganizationsByUser(ctx context.Context, userID string) 
 		UserId: userID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var organizations []*OrgDetails
@@ -742,7 +743,7 @@ func (c *AppClient) GetOrganization(ctx context.Context, orgID string) (*Organiz
 		OrganizationId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return organizationFromProto(resp.Organization), nil
 }
@@ -761,7 +762,7 @@ func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, na
 		PublicNamespace: namespace,
 	})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.Available, nil
 }
@@ -794,7 +795,7 @@ func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, opts *
 		Cid:             cid,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return organizationFromProto(resp.Organization), nil
 }
@@ -812,7 +813,7 @@ func (c *AppClient) DeleteOrganization(ctx context.Context, orgID string) error 
 	_, err := c.client.DeleteOrganization(ctx, &pb.DeleteOrganizationRequest{
 		OrganizationId: orgID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetOrganizationMetadata gets the user-defined metadata for an organization.
@@ -831,7 +832,7 @@ func (c *AppClient) GetOrganizationMetadata(ctx context.Context, organizationID 
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Data.AsMap(), nil
 }
@@ -854,13 +855,13 @@ func (c *AppClient) GetOrganizationMetadata(ctx context.Context, organizationID 
 func (c *AppClient) UpdateOrganizationMetadata(ctx context.Context, organizationID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.UpdateOrganizationMetadata(ctx, &pb.UpdateOrganizationMetadataRequest{
 		OrganizationId: organizationID,
 		Data:           d,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListOrganizationMembers lists all members of an organization and all invited members to the organization.
@@ -877,7 +878,7 @@ func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgID string) (
 		OrganizationId: orgID,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	var members []*OrganizationMember
@@ -929,7 +930,7 @@ func (c *AppClient) CreateOrganizationInvite(
 		SendEmailInvite: send,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return organizationInviteFromProto(resp.Invite), nil
 }
@@ -977,7 +978,7 @@ func (c *AppClient) UpdateOrganizationInviteAuthorizations(
 		RemoveAuthorizations: pbRemoveAuthorizations,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return organizationInviteFromProto(resp.Invite), nil
 }
@@ -999,7 +1000,7 @@ func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgID, userID 
 		OrganizationId: orgID,
 		UserId:         userID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // DeleteOrganizationInvite deletes an organization invite.
@@ -1019,7 +1020,7 @@ func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgID, email s
 		OrganizationId: orgID,
 		Email:          email,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ResendOrganizationInvite resends an organization invite.
@@ -1037,7 +1038,7 @@ func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgID, email s
 		Email:          email,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return organizationInviteFromProto(resp.Invite), nil
 }
@@ -1048,7 +1049,7 @@ func (c *AppClient) EnableBillingService(ctx context.Context, orgID string, bill
 		OrgId:          orgID,
 		BillingAddress: billingAddressToProto(billingAddress),
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // DisableBillingService disables the billing service for an organization.
@@ -1064,7 +1065,7 @@ func (c *AppClient) DisableBillingService(ctx context.Context, orgID string) err
 	_, err := c.client.DisableBillingService(ctx, &pb.DisableBillingServiceRequest{
 		OrgId: orgID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // UpdateBillingService updates the billing service of an organization.
@@ -1073,7 +1074,7 @@ func (c *AppClient) UpdateBillingService(ctx context.Context, orgID string, bill
 		OrgId:          orgID,
 		BillingAddress: billingAddressToProto(billingAddress),
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // OrganizationSetSupportEmail sets an organization's support email.
@@ -1090,7 +1091,7 @@ func (c *AppClient) OrganizationSetSupportEmail(ctx context.Context, orgID, emai
 		OrgId: orgID,
 		Email: email,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // OrganizationGetSupportEmail gets an organization's support email.
@@ -1107,7 +1108,7 @@ func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID strin
 		OrgId: orgID,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Email, nil
 }
@@ -1128,7 +1129,7 @@ func (c *AppClient) GetBillingServiceConfig(ctx context.Context, orgID string) (
 		OrgId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp, nil
 }
@@ -1152,7 +1153,7 @@ func (c *AppClient) OrganizationSetLogo(ctx context.Context, orgID string, logo 
 		OrgId: orgID,
 		Logo:  logo,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // OrganizationGetLogo gets an organization's logo.
@@ -1172,7 +1173,7 @@ func (c *AppClient) OrganizationGetLogo(ctx context.Context, orgID string) (stri
 		OrgId: orgID,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Url, nil
 }
@@ -1194,7 +1195,7 @@ func (c *AppClient) ListOAuthApps(ctx context.Context, orgID string) ([]string, 
 		OrgId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.ClientIds, nil
 }
@@ -1226,7 +1227,7 @@ func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts
 		ParentLocationId: parentID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return locationFromProto(resp.Location), nil
 }
@@ -1245,7 +1246,7 @@ func (c *AppClient) GetLocation(ctx context.Context, locationID string) (*Locati
 		LocationId: locationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return locationFromProto(resp.Location), nil
 }
@@ -1279,7 +1280,7 @@ func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, opts 
 		Region:           region,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return locationFromProto(resp.Location), nil
 }
@@ -1297,7 +1298,7 @@ func (c *AppClient) DeleteLocation(ctx context.Context, locationID string) error
 	_, err := c.client.DeleteLocation(ctx, &pb.DeleteLocationRequest{
 		LocationId: locationID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListLocations gets a list of locations under the specified organization.
@@ -1314,7 +1315,7 @@ func (c *AppClient) ListLocations(ctx context.Context, orgID string) ([]*Locatio
 		OrganizationId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var locations []*Location
@@ -1338,7 +1339,7 @@ func (c *AppClient) ShareLocation(ctx context.Context, locationID, orgID string)
 		LocationId:     locationID,
 		OrganizationId: orgID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // UnshareLocation stops sharing a location with an organization.
@@ -1355,7 +1356,7 @@ func (c *AppClient) UnshareLocation(ctx context.Context, locationID, orgID strin
 		LocationId:     locationID,
 		OrganizationId: orgID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // LocationAuth gets a location's authorization secrets.
@@ -1372,7 +1373,7 @@ func (c *AppClient) LocationAuth(ctx context.Context, locationID string) (*Locat
 		LocationId: locationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return locationAuthFromProto(resp.Auth), nil
 }
@@ -1391,7 +1392,7 @@ func (c *AppClient) CreateLocationSecret(ctx context.Context, locationID string)
 		LocationId: locationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return locationAuthFromProto(resp.Auth), nil
 }
@@ -1414,7 +1415,7 @@ func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationID, secret
 		LocationId: locationID,
 		SecretId:   secretID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetLocationMetadata gets the user-defined metadata for a location.
@@ -1431,7 +1432,7 @@ func (c *AppClient) GetLocationMetadata(ctx context.Context, locationID string) 
 		LocationId: locationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Data.AsMap(), nil
 }
@@ -1454,13 +1455,13 @@ func (c *AppClient) GetLocationMetadata(ctx context.Context, locationID string) 
 func (c *AppClient) UpdateLocationMetadata(ctx context.Context, locationID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.UpdateLocationMetadata(ctx, &pb.UpdateLocationMetadataRequest{
 		LocationId: locationID,
 		Data:       d,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetRobot gets a specific robot by ID.
@@ -1477,7 +1478,7 @@ func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 		Id: id,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return robotFromProto(resp.Robot), nil
 }
@@ -1498,7 +1499,7 @@ func (c *AppClient) GetRobotMetadata(ctx context.Context, robotID string) (map[s
 		Id: robotID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Data.AsMap(), nil
 }
@@ -1521,13 +1522,13 @@ func (c *AppClient) GetRobotMetadata(ctx context.Context, robotID string) (map[s
 func (c *AppClient) UpdateRobotMetadata(ctx context.Context, robotID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.UpdateRobotMetadata(ctx, &pb.UpdateRobotMetadataRequest{
 		Id:   robotID,
 		Data: d,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetRoverRentalRobots gets rover rental robots within an organization.
@@ -1536,7 +1537,7 @@ func (c *AppClient) GetRoverRentalRobots(ctx context.Context, orgID string) ([]*
 		OrgId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var robots []*RoverRentalRobot
 	for _, robot := range resp.Robots {
@@ -1559,7 +1560,7 @@ func (c *AppClient) GetRobotParts(ctx context.Context, robotID string) ([]*Robot
 		RobotId: robotID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var parts []*RobotPart
 	for _, part := range resp.Parts {
@@ -1585,7 +1586,7 @@ func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, st
 		Id: id,
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, "", errtrace.Wrap(err)
 	}
 	return robotPartFromProto(resp.Part), resp.ConfigJson, nil
 }
@@ -1646,7 +1647,7 @@ func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRo
 		Source:    source,
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, "", errtrace.Wrap(err)
 	}
 	var logs []*LogEntry
 	for _, log := range resp.Logs {
@@ -1664,7 +1665,7 @@ type RobotPartLogStream struct {
 func (s *RobotPartLogStream) Next() ([]*LogEntry, error) {
 	streamResp, err := s.stream.Recv()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var logs []*LogEntry
@@ -1704,7 +1705,7 @@ func (c *AppClient) TailRobotPartLogs(
 		Filter:     filter,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &RobotPartLogStream{stream: stream}, nil
 }
@@ -1725,7 +1726,7 @@ func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*Robo
 		Id: id,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var history []*RobotPartHistoryEntry
 	for _, entry := range resp.History {
@@ -1764,7 +1765,7 @@ func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*Robo
 func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotConfig interface{}) (*RobotPart, error) {
 	config, err := protoutils.StructToStructPb(robotConfig)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.UpdateRobotPart(ctx, &pb.UpdateRobotPartRequest{
 		Id:          id,
@@ -1772,7 +1773,7 @@ func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotC
 		RobotConfig: config,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return robotPartFromProto(resp.Part), nil
 }
@@ -1795,7 +1796,7 @@ func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) 
 		PartName: partName,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.PartId, nil
 }
@@ -1813,7 +1814,7 @@ func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 	_, err := c.client.DeleteRobotPart(ctx, &pb.DeleteRobotPartRequest{
 		PartId: partID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetRobotPartMetadata gets the user-defined metadata for a robot part.
@@ -1832,7 +1833,7 @@ func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (m
 		Id: robotID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Data.AsMap(), nil
 }
@@ -1855,13 +1856,13 @@ func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (m
 func (c *AppClient) UpdateRobotPartMetadata(ctx context.Context, robotID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.UpdateRobotPartMetadata(ctx, &pb.UpdateRobotPartMetadataRequest{
 		Id:   robotID,
 		Data: d,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetRobotAPIKeys gets the robot API keys for the robot.
@@ -1878,7 +1879,7 @@ func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotID string) ([]*API
 		RobotId: robotID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var keys []*APIKeyWithAuthorizations
 	for _, key := range resp.ApiKeys {
@@ -1900,7 +1901,7 @@ func (c *AppClient) MarkPartAsMain(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartAsMain(ctx, &pb.MarkPartAsMainRequest{
 		PartId: partID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // MarkPartForRestart marks the given part for restart.
@@ -1918,7 +1919,7 @@ func (c *AppClient) MarkPartForRestart(ctx context.Context, partID string) error
 	_, err := c.client.MarkPartForRestart(ctx, &pb.MarkPartForRestartRequest{
 		PartId: partID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // CreateRobotPartSecret creates a new generated secret in the robot part.
@@ -1938,7 +1939,7 @@ func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partID string) (*
 		PartId: partID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return robotPartFromProto(resp.Part), nil
 }
@@ -1960,7 +1961,7 @@ func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partID, secretID 
 		PartId:   partID,
 		SecretId: secretID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListRobots gets a list of robots under a location.
@@ -1977,7 +1978,7 @@ func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot
 		LocationId: locationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var robots []*Robot
 	for _, robot := range resp.Robots {
@@ -2001,7 +2002,7 @@ func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string
 		Location: location,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Id, nil
 }
@@ -2022,7 +2023,7 @@ func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) 
 		Location: location,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return robotFromProto(resp.Robot), nil
 }
@@ -2040,7 +2041,7 @@ func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 	_, err := c.client.DeleteRobot(ctx, &pb.DeleteRobotRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListFragments gets a list of fragments.
@@ -2071,7 +2072,7 @@ func (c *AppClient) ListFragments(
 		FragmentVisibility: visibilities,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var fragments []*Fragment
 	for _, fragment := range resp.Fragments {
@@ -2099,7 +2100,7 @@ func (c *AppClient) GetFragment(ctx context.Context, id, version string) (*Fragm
 
 	resp, err := c.client.GetFragment(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return fragmentFromProto(resp.Fragment), nil
 }
@@ -2135,7 +2136,7 @@ func (c *AppClient) CreateFragment(
 ) (*Fragment, error) {
 	pbConfig, err := protoutils.StructToStructPb(config)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var visibility pb.FragmentVisibility
 	if opts != nil && opts.Visibility != nil {
@@ -2148,7 +2149,7 @@ func (c *AppClient) CreateFragment(
 		Visibility:     &visibility,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return fragmentFromProto(resp.Fragment), nil
 }
@@ -2183,7 +2184,7 @@ func (c *AppClient) UpdateFragment(
 ) (*Fragment, error) {
 	cfg, err := protoutils.StructToStructPb(config)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var public *bool
 	var visibility pb.FragmentVisibility
@@ -2201,7 +2202,7 @@ func (c *AppClient) UpdateFragment(
 		Visibility: &visibility,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return fragmentFromProto(resp.Fragment), nil
 }
@@ -2219,7 +2220,7 @@ func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 	_, err := c.client.DeleteFragment(ctx, &pb.DeleteFragmentRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListMachineFragments gets top level and nested fragments for a machine, as well as any other fragments specified by IDs.
@@ -2238,7 +2239,7 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, 
 		AdditionalFragmentIds: additionalIDs,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var fragments []*Fragment
 	for _, fragment := range resp.Fragments {
@@ -2277,7 +2278,7 @@ func (c *AppClient) GetFragmentHistory(
 		PageLimit: &limit,
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, "", errtrace.Wrap(err)
 	}
 	var history []*FragmentHistoryEntry
 	for _, entry := range resp.History {
@@ -2294,7 +2295,7 @@ func (c *AppClient) AddRole(
 	_, err := c.client.AddRole(ctx, &pb.AddRoleRequest{
 		Authorization: authorization,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // RemoveRole deletes an identity authorization.
@@ -2302,7 +2303,7 @@ func (c *AppClient) RemoveRole(ctx context.Context, authorization *Authorization
 	_, err := c.client.RemoveRole(ctx, &pb.RemoveRoleRequest{
 		Authorization: authorizationToProto(authorization),
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ChangeRole changes an identity authorization to a new identity authorization.
@@ -2320,7 +2321,7 @@ func (c *AppClient) ChangeRole(
 		OldAuthorization: authorizationToProto(oldAuthorization),
 		NewAuthorization: newAuthorization,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListAuthorizations returns all authorization roles for any given resources.
@@ -2343,7 +2344,7 @@ func (c *AppClient) ListAuthorizations(ctx context.Context, orgID string, resour
 		ResourceIds:    resourceIDs,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var authorizations []*Authorization
 	for _, authorization := range resp.Authorizations {
@@ -2380,7 +2381,7 @@ func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*Authori
 		Permissions: pbPermissions,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var authorizedPermissions []*AuthorizedPermissions
@@ -2404,11 +2405,11 @@ func (c *AppClient) GetRegistryItem(ctx context.Context, itemID string) (*Regist
 		ItemId: itemID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	item, err := registryItemFromProto(resp.Item)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return item, nil
 }
@@ -2432,7 +2433,7 @@ func (c *AppClient) CreateRegistryItem(ctx context.Context, orgID, name string, 
 		Name:           name,
 		Type:           packageTypeToProto(packageType),
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // UpdateRegistryItem updates a registry item.
@@ -2466,7 +2467,7 @@ func (c *AppClient) UpdateRegistryItem(
 		Visibility:  visibilityToProto(visibility),
 		Url:         siteURL,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListRegistryItems lists the registry items in an organization.
@@ -2533,13 +2534,13 @@ func (c *AppClient) ListRegistryItems(
 		PublicNamespaces: namespaces,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var items []*RegistryItem
 	for _, item := range resp.Items {
 		i, err := registryItemFromProto(item)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		items = append(items, i)
 	}
@@ -2560,7 +2561,7 @@ func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemID string) error
 	_, err := c.client.DeleteRegistryItem(ctx, &pb.DeleteRegistryItemRequest{
 		ItemId: itemID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // TransferRegistryItem transfers a registry item to a namespace.
@@ -2577,7 +2578,7 @@ func (c *AppClient) TransferRegistryItem(ctx context.Context, itemID, newPublicN
 		ItemId:             itemID,
 		NewPublicNamespace: newPublicNamespace,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // CreateModule creates a module and returns its ID and URL.
@@ -2599,7 +2600,7 @@ func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (strin
 		Name:           name,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	return resp.ModuleId, resp.Url, nil
 }
@@ -2668,7 +2669,7 @@ func (c *AppClient) UpdateModule(
 		FirstRun:    firstRun,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Url, nil
 }
@@ -2690,7 +2691,7 @@ func (c *AppClient) UpdateModule(
 func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInfo, file []byte) (string, error) {
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	err = stream.Send(&pb.UploadModuleFileRequest{
@@ -2699,12 +2700,12 @@ func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInf
 		},
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	for start := 0; start < len(file); start += UploadChunkSize {
 		if ctx.Err() != nil {
-			return "", ctx.Err()
+			return "", errtrace.Wrap(ctx.Err())
 		}
 
 		end := start + UploadChunkSize
@@ -2719,15 +2720,15 @@ func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInf
 			},
 		})
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 	}
 
 	resp, err := stream.CloseAndRecv()
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
-	return resp.Url, err
+	return resp.Url, errtrace.Wrap(err)
 }
 
 // GetModule gets a module.
@@ -2744,7 +2745,7 @@ func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, er
 		ModuleId: moduleID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return moduleFromProto(resp.Module), nil
 }
@@ -2768,7 +2769,7 @@ func (c *AppClient) ListModules(ctx context.Context, opts *ListModulesOptions) (
 		OrganizationId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var modules []*Module
 	for _, module := range resp.Modules {
@@ -2793,7 +2794,7 @@ func (c *AppClient) CreateKey(
 		Name:           name,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	return resp.Key, resp.Id, nil
 }
@@ -2811,7 +2812,7 @@ func (c *AppClient) DeleteKey(ctx context.Context, id string) error {
 	_, err := c.client.DeleteKey(ctx, &pb.DeleteKeyRequest{
 		Id: id,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // ListKeys example:
@@ -2827,7 +2828,7 @@ func (c *AppClient) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAu
 		OrgId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var apiKeys []*APIKeyWithAuthorizations
 	for _, key := range resp.ApiKeys {
@@ -2851,7 +2852,7 @@ func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, str
 		Name: name,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	return resp.Id, resp.Name, nil
 }
@@ -2870,7 +2871,7 @@ func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, e
 		Id: id,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	return resp.Id, resp.Key, nil
 }
@@ -2891,7 +2892,7 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 		Id: id,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	return resp.Id, resp.Key, nil
 }
@@ -2926,7 +2927,7 @@ func (c *AppClient) ListMachineSummaries(
 
 	resp, err := c.client.ListMachineSummaries(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	summaries := make([]*LocationSummary, 0, len(resp.LocationSummaries))
@@ -2954,7 +2955,7 @@ func (c *AppClient) GetAppBranding(ctx context.Context, orgPublicNamespace, appN
 
 	resp, err := c.client.GetAppBranding(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return appBrandingFromProto(resp), nil
@@ -2977,7 +2978,7 @@ func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appNa
 
 	resp, err := c.client.GetAppContent(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return appContentFromProto(resp), nil
@@ -3000,7 +3001,7 @@ func (c *AppClient) GetRobotPartByNameAndLocation(ctx context.Context, name, loc
 
 	resp, err := c.client.GetRobotPartByNameAndLocation(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return robotPartFromProto(resp.GetPart()), nil
@@ -3537,7 +3538,7 @@ func registryItemFromProto(item *pb.RegistryItem) (*RegistryItem, error) {
 	case *pb.RegistryItem_MlTrainingMetadata:
 		metadata = &registryItemMLTrainingMetadata{MlTrainingMetadata: mlTrainingMetadataFromProto(pbMetadata.MlTrainingMetadata)}
 	default:
-		return nil, fmt.Errorf("unknown registry item metadata type: %T", item.Metadata)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown registry item metadata type: %T", item.Metadata))
 	}
 	var createdAt, updatedAt *time.Time
 	if item.CreatedAt != nil {

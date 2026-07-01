@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -59,21 +60,21 @@ func setupBrokenBase(brokenBase *inject.Base) {
 		distanceMm int, mmPerSec float64,
 		extra map[string]interface{},
 	) error {
-		return errMoveStraight
+		return errtrace.Wrap(errMoveStraight)
 	}
 	brokenBase.SpinFunc = func(
 		ctx context.Context,
 		angleDeg, degsPerSec float64,
 		extra map[string]interface{},
 	) error {
-		return errSpinFailed
+		return errtrace.Wrap(errSpinFailed)
 	}
 	brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopFailed
+		return errtrace.Wrap(errStopFailed)
 	}
 
 	brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
-		return base.Properties{}, errPropertiesFailed
+		return base.Properties{}, errtrace.Wrap(errPropertiesFailed)
 	}
 
 	brokenBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {

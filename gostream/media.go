@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -60,7 +61,7 @@ type (
 func (mrf MediaReaderFunc[T]) Read(ctx context.Context) (T, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "gostream::MediaReaderFunc::Read")
 	defer span.End()
-	return mrf(ctx)
+	return errtrace.Wrap3(mrf(ctx))
 }
 
 // Close does nothing.
@@ -76,7 +77,7 @@ type mediaReaderFuncNoCtx[T any] func() (T, func(), error)
 func (mrf mediaReaderFuncNoCtx[T]) Read(ctx context.Context) (T, func(), error) {
 	_, span := trace.StartSpan(ctx, "gostream::MediaReaderFuncNoCtx::Read")
 	defer span.End()
-	return mrf()
+	return errtrace.Wrap3(mrf())
 }
 
 // Close does nothing.
@@ -92,17 +93,17 @@ func ReadMedia[T any](ctx context.Context, source MediaSource[T]) (T, func(), er
 
 	if reader, ok := source.(MediaReader[T]); ok {
 		// more efficient if there is a direct way to read
-		return reader.Read(ctx)
+		return errtrace.Wrap3(reader.Read(ctx))
 	}
 	stream, err := source.Stream(ctx)
 	var zero T
 	if err != nil {
-		return zero, nil, err
+		return zero, nil, errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(stream.Close(ctx))
 	}()
-	return stream.Next(ctx)
+	return errtrace.Wrap3(stream.Next(ctx))
 }
 
 type mediaSource[T any, U any] struct {
@@ -146,7 +147,7 @@ type ErrorHandler func(ctx context.Context, mediaErr error)
 func PropertiesFromMediaSource[T, U any](src MediaSource[T]) ([]prop.Media, error) {
 	d, err := DriverFromMediaSource[T, U](src)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return d.Properties(), nil
 }
@@ -160,7 +161,7 @@ const labelSeparator = ";"
 func LabelsFromMediaSource[T, U any](src MediaSource[T]) ([]string, error) {
 	d, err := DriverFromMediaSource[T, U](src)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return strings.Split(d.Info().Label, labelSeparator), nil
 }
@@ -172,7 +173,7 @@ func DriverFromMediaSource[T, U any](src MediaSource[T]) (driver.Driver, error) 
 			return asMedia.driver, nil
 		}
 	}
-	return nil, errors.Errorf("cannot convert media source (type %T) to type (%T)", src, (*mediaSource[T, U])(nil))
+	return nil, errtrace.Wrap(errors.Errorf("cannot convert media source (type %T) to type (%T)", src, (*mediaSource[T, U])(nil)))
 }
 
 // newMediaSource instantiates a new media read closer and possibly references the given driver.
@@ -430,19 +431,19 @@ func (ms *mediaStreamFromChannel[T]) Next(ctx context.Context) (T, func(), error
 
 	var zero T
 	if ms.cancelCtx.Err() != nil {
-		return zero, nil, ms.cancelCtx.Err()
+		return zero, nil, errtrace.Wrap(ms.cancelCtx.Err())
 	}
 	if ctx.Err() != nil {
-		return zero, nil, ctx.Err()
+		return zero, nil, errtrace.Wrap(ctx.Err())
 	}
 
 	select {
 	case <-ms.cancelCtx.Done():
-		return zero, nil, ms.cancelCtx.Err()
+		return zero, nil, errtrace.Wrap(ms.cancelCtx.Err())
 	case <-ctx.Done():
-		return zero, nil, ctx.Err()
+		return zero, nil, errtrace.Wrap(ctx.Err())
 	case pair := <-ms.media:
-		return pair.Media, pair.Release, pair.Err
+		return pair.Media, pair.Release, errtrace.Wrap(pair.Err)
 	}
 }
 
@@ -469,7 +470,7 @@ func (ms *mediaStream[T, U]) Next(ctx context.Context) (T, func(), error) {
 
 	var zero T
 	if err := ms.cancelCtx.Err(); err != nil {
-		return zero, nil, err
+		return zero, nil, errtrace.Wrap(err)
 	}
 
 	ms.prodCon.consumerCond.L.Lock()
@@ -483,10 +484,10 @@ func (ms *mediaStream[T, U]) Next(ctx context.Context) (T, func(), error) {
 	select {
 	case <-ms.cancelCtx.Done():
 		ms.prodCon.consumerCond.L.Unlock()
-		return zero, nil, ms.cancelCtx.Err()
+		return zero, nil, errtrace.Wrap(ms.cancelCtx.Err())
 	case <-ctx.Done():
 		ms.prodCon.consumerCond.L.Unlock()
-		return zero, nil, ctx.Err()
+		return zero, nil, errtrace.Wrap(ctx.Err())
 	default:
 	}
 
@@ -497,16 +498,16 @@ func (ms *mediaStream[T, U]) Next(ctx context.Context) (T, func(), error) {
 		ms.prodCon.consumerCond.Wait()
 		ms.prodCon.consumerCond.L.Unlock()
 		if err := ms.cancelCtx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		return nil
 	}
 
 	if err := waitForNext(); err != nil {
-		return zero, nil, err
+		return zero, nil, errtrace.Wrap(err)
 	}
 
 	isAvailable := func() bool {
@@ -518,7 +519,7 @@ func (ms *mediaStream[T, U]) Next(ctx context.Context) (T, func(), error) {
 	for !isAvailable() {
 		ms.prodCon.consumerCond.L.Lock()
 		if err := waitForNext(); err != nil {
-			return zero, nil, err
+			return zero, nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -531,7 +532,7 @@ func (ms *mediaStream[T, U]) Next(ctx context.Context) (T, func(), error) {
 	defer ms.prodCon.currentMu.RUnlock()
 	current := ms.prodCon.current
 	if current.Err != nil {
-		return zero, nil, current.Err
+		return zero, nil, errtrace.Wrap(current.Err)
 	}
 	current.Ref.Ref()
 	return current.Media, current.Release, nil
@@ -570,7 +571,7 @@ func (ms *mediaSource[T, U]) Stream(ctx context.Context, errHandlers ...ErrorHan
 	if !ok {
 		// TODO(erd): better to have no max like this and instead clean up over time.
 		if len(ms.producerConsumers)+1 == 256 {
-			return nil, errors.New("reached max producer consumers of 256")
+			return nil, errtrace.Wrap(errors.New("reached max producer consumers of 256"))
 		}
 		cancelCtx, cancel := context.WithCancel(WithMIMETypeHint(ms.rootCancelCtx, mimeType))
 		condMu := &sync.RWMutex{}
@@ -602,7 +603,7 @@ func (ms *mediaSource[T, U]) Stream(ctx context.Context, errHandlers ...ErrorHan
 				}
 			}
 			var zero T
-			return zero, nil, err
+			return zero, nil, errtrace.Wrap(err)
 		})
 		ms.producerConsumers[mimeType] = prodCon
 	}
@@ -654,7 +655,7 @@ func (ms *mediaSource[T, U]) Close(ctx context.Context) error {
 	err := ms.reader.Close(ctx)
 
 	if ms.driver == nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	driverRefs.mu.Lock()
 	defer driverRefs.mu.Unlock()
@@ -663,13 +664,13 @@ func (ms *mediaSource[T, U]) Close(ctx context.Context) error {
 	if rcv, ok := driverRefs.refs[label]; ok {
 		if rcv.Deref() {
 			delete(driverRefs.refs, label)
-			return multierr.Combine(err, ms.driver.Close())
+			return errtrace.Wrap(multierr.Combine(err, ms.driver.Close()))
 		}
 	} else {
-		return multierr.Combine(err, ms.driver.Close())
+		return errtrace.Wrap(multierr.Combine(err, ms.driver.Close()))
 	}
 
 	// Do not close if a driver is being referenced. Client will decide what to do if
 	// they encounter this error.
-	return multierr.Combine(err, &DriverInUseError{label})
+	return errtrace.Wrap(multierr.Combine(err, &DriverInUseError{label}))
 }

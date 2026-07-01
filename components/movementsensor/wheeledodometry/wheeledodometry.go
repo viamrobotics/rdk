@@ -14,6 +14,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
@@ -94,27 +95,27 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if cfg.Base == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "base"))
 	}
 	deps = append(deps, cfg.Base)
 
 	if len(cfg.LeftMotors) == 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "left motors")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "left motors"))
 	}
 	deps = append(deps, cfg.LeftMotors...)
 
 	if len(cfg.RightMotors) == 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "right motors")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "right motors"))
 	}
 	deps = append(deps, cfg.RightMotors...)
 
 	if len(cfg.LeftMotors) != len(cfg.RightMotors) {
-		return nil, nil, errors.New("mismatch number of left and right motors")
+		return nil, nil, errtrace.Wrap(errors.New("mismatch number of left and right motors"))
 	}
 
 	// Temporary validation check until support for more than one left and right motor each is added.
 	if len(cfg.LeftMotors) > 1 || len(cfg.RightMotors) > 1 {
-		return nil, nil, errors.New("wheeled odometry only supports one left and right motor each")
+		return nil, nil, errtrace.Wrap(errors.New("wheeled odometry only supports one left and right motor each"))
 	}
 
 	return deps, nil, nil
@@ -124,10 +125,10 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 func (o *odometry) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	if len(o.motors) > 0 {
 		if err := o.motors[0].left.Stop(ctx, nil); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := o.motors[0].right.Stop(ctx, nil); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -140,7 +141,7 @@ func (o *odometry) reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// set the new timeIntervalMSecs
@@ -155,16 +156,16 @@ func (o *odometry) reconfigure(ctx context.Context, deps resource.Dependencies, 
 	// set baseWidth and wheelCircumference from the new base properties
 	newBase, err := base.FromProvider(deps, newConf.Base)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	props, err := newBase.Properties(ctx, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	o.baseWidth = props.WidthMeters
 	o.wheelCircumference = props.WheelCircumferenceMeters
 	if o.baseWidth == 0 || o.wheelCircumference == 0 {
-		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
+		return errtrace.Wrap(errors.New("base width or wheel circumference are 0, movement sensor cannot be created"))
 	}
 	o.base = newBase
 	o.logger.Debugf("using base %v for wheeled_odometry sensor", newBase.Name().ShortName())
@@ -175,26 +176,26 @@ func (o *odometry) reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 		motorLeft, err = motor.FromProvider(deps, newConf.LeftMotors[i])
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		properties, err := motorLeft.Properties(ctx, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if !properties.PositionReporting {
-			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
+			return errtrace.Wrap(motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i]))
 		}
 
 		motorRight, err = motor.FromProvider(deps, newConf.RightMotors[i])
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		properties, err = motorRight.Properties(ctx, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if !properties.PositionReporting {
-			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
+			return errtrace.Wrap(motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i]))
 		}
 
 		// append if motors have been added, replace if motors have changed
@@ -224,7 +225,7 @@ func (o *odometry) reconfigure(ctx context.Context, deps resource.Dependencies, 
 	for !o.coordUpToDate.Load() {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		default:
 		}
 		time.Sleep(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
@@ -248,7 +249,7 @@ func newWheeledOdometry(
 	}
 
 	if err := o.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return o, nil
@@ -261,7 +262,7 @@ func (o *odometry) AngularVelocity(ctx context.Context, extra map[string]interfa
 }
 
 func (o *odometry) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
+	return r3.Vector{}, errtrace.Wrap(movementsensor.ErrMethodUnimplementedLinearAcceleration)
 }
 
 func (o *odometry) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
@@ -279,7 +280,7 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 		return yawToCompassHeading(o.orientation.Yaw), nil
 	}
 
-	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
+	return 0, errtrace.Wrap(movementsensor.ErrMethodUnimplementedCompassHeading)
 }
 
 // computes the compass heading in degrees from a yaw in radians, with 0 -> 360 and Z down.
@@ -313,7 +314,7 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, o, extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// movementsensor.Readings calls all the APIs with their owm mutex lock in this driver
@@ -390,8 +391,10 @@ func (o *odometry) trackPosition() {
 				fs := []utils.FloatFunc{}
 
 				// Always use the first pair until more than one pair of motors is supported in this model.
-				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].left.Position(ctx, nil) })
-				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].right.Position(ctx, nil) })
+				fs = append(fs, func(ctx context.Context) (float64, error) { return errtrace.Wrap2(o.motors[0].left.Position(ctx, nil)) })
+				fs = append(fs, func(ctx context.Context) (float64, error) {
+					return errtrace.Wrap2(o.motors[0].right.Position(ctx, nil))
+				})
 
 				return fs
 			}
@@ -495,7 +498,7 @@ func (o *odometry) DoCommand(ctx context.Context,
 		for !o.coordUpToDate.Load() {
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				return nil, errtrace.Wrap(ctx.Err())
 			default:
 			}
 			time.Sleep(time.Duration(o.timeIntervalMSecs) * time.Millisecond)

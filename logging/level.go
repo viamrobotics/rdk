@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -99,21 +100,22 @@ func LevelFromString(inp string) (Level, error) {
 		return ERROR, nil
 	}
 
-	return DEBUG, fmt.Errorf("unknown log level: %q", inp)
+	return DEBUG, errtrace.Wrap(fmt.Errorf("unknown log level: %q", inp))
 }
 
 // MarshalJSON converts a log level to a json string.
 func (level Level) MarshalJSON() ([]byte, error) {
-	return json.Marshal(level.String())
+	return errtrace.Wrap2(json.Marshal(level.String()))
 }
 
 // UnmarshalJSON converts a json string to a log level.
 func (level *Level) UnmarshalJSON(data []byte) (err error) {
 	var levelStr string
 	if err := json.Unmarshal(data, &levelStr); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	*level, err = LevelFromString(levelStr)
+	err = errtrace.Wrap(err)
 	return
 }

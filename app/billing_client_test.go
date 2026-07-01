@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -231,7 +232,7 @@ func TestBillingClient(t *testing.T) {
 		mockStream := &inject.BillingServiceGetInvoicePdfClient{
 			RecvFunc: func() (*pb.GetInvoicePdfResponse, error) {
 				if count >= chunkCount {
-					return nil, io.EOF
+					return nil, errtrace.Wrap(io.EOF)
 				}
 				chunk := chunks[count]
 				count++

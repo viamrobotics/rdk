@@ -21,6 +21,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	ut "go.viam.com/rdk/utils"
 )
 
@@ -54,10 +55,10 @@ func init() {
 		func(r io.Reader) (image.Image, error) {
 			rawBytes, err := io.ReadAll(r)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			if len(rawBytes) < RawRGBAHeaderLength {
-				return nil, io.EOF
+				return nil, errtrace.Wrap(io.EOF)
 			}
 			header := rawBytes[:RawRGBAHeaderLength]
 			width := int(binary.BigEndian.Uint32(header[4:8]))
@@ -71,7 +72,7 @@ func init() {
 			imgBytes := make([]byte, RawRGBAHeaderLength)
 			_, err := io.ReadFull(r, imgBytes)
 			if err != nil {
-				return image.Config{}, err
+				return image.Config{}, errtrace.Wrap(err)
 			}
 			header := imgBytes[:RawRGBAHeaderLength]
 			width := binary.BigEndian.Uint32(header[4:8])
@@ -90,7 +91,7 @@ func init() {
 		func(r io.Reader) (image.Image, error) {
 			dm, err := ReadDepthMap(r)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			return dm, nil
 		},
@@ -99,7 +100,7 @@ func init() {
 			imgBytes := make([]byte, RawDepthHeaderLength)
 			_, err := io.ReadFull(r, imgBytes)
 			if err != nil {
-				return image.Config{}, err
+				return image.Config{}, errtrace.Wrap(err)
 			}
 			header := imgBytes[:RawDepthHeaderLength]
 			width := binary.BigEndian.Uint64(header[8:16])
@@ -119,18 +120,18 @@ func init() {
 func ReadImageFromFile(path string) (image.Image, error) {
 	switch {
 	case strings.HasSuffix(path, ".dat.gz"), strings.HasSuffix(path, ".dat"):
-		return ParseRawDepthMap(path)
+		return errtrace.Wrap2(ParseRawDepthMap(path))
 	default:
 		//nolint:gosec
 		f, err := os.Open(path)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		defer utils.UncheckedErrorFunc(f.Close)
 
 		img, _, err := image.Decode(f)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return img, nil
 	}
@@ -140,7 +141,7 @@ func ReadImageFromFile(path string) (image.Image, error) {
 func NewImageFromFile(fn string) (*Image, error) {
 	img, err := ReadImageFromFile(fn)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return ConvertImage(img), nil
 }
@@ -149,9 +150,9 @@ func NewImageFromFile(fn string) (*Image, error) {
 func NewDepthMapFromFile(ctx context.Context, fn string) (*DepthMap, error) {
 	img, err := ReadImageFromFile(fn)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return ConvertImageToDepthMap(ctx, img)
+	return errtrace.Wrap2(ConvertImageToDepthMap(ctx, img))
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.
@@ -159,10 +160,10 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	//nolint:gosec
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
-		err = multierr.Combine(err, f.Close())
+		err = errtrace.Wrap(multierr.Combine(err, f.Close()))
 	}()
 	if dm, ok := img.(*DepthMap); ok {
 		img = dm.ToGray16Picture()
@@ -170,15 +171,15 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 
 	switch filepath.Ext(path) {
 	case ".png":
-		return png.Encode(f, img)
+		return errtrace.Wrap(png.Encode(f, img))
 	case ".jpg", ".jpeg":
-		return jpeg.Encode(f, img, &jpeg.Options{Quality: 75})
+		return errtrace.Wrap(jpeg.Encode(f, img, &jpeg.Options{Quality: 75}))
 	case ".ppm":
-		return ppm.Encode(f, img)
+		return errtrace.Wrap(ppm.Encode(f, img))
 	case ".qoi":
-		return qoi.Encode(f, img)
+		return errtrace.Wrap(qoi.Encode(f, img))
 	default:
-		return errors.Errorf("rimage.WriteImageToFile unsupported format: %s", filepath.Ext(path))
+		return errtrace.Wrap(errors.Errorf("rimage.WriteImageToFile unsupported format: %s", filepath.Ext(path)))
 	}
 }
 
@@ -188,7 +189,7 @@ func ConvertImageSafe(img image.Image) (*Image, error) {
 	if lazyImg, ok := img.(*LazyEncodedImage); ok {
 		decodedImg, err := lazyImg.DecodedImage()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		img = decodedImg
 	}
@@ -252,7 +253,7 @@ func CloneImage(img image.Image) *Image {
 func SaveImage(pic image.Image, loc string) error {
 	f, err := os.Create(filepath.Clean(loc))
 	if err != nil {
-		return errors.Wrapf(err, "can't save at location %s", loc)
+		return errtrace.Wrap(errors.Wrapf(err, "can't save at location %s", loc))
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
@@ -262,12 +263,12 @@ func SaveImage(pic image.Image, loc string) error {
 	if lazyImg, ok := pic.(*LazyEncodedImage); ok {
 		decodedPic, err := lazyImg.DecodedImage()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		pic = decodedPic
 	}
 	if err = jpeg.Encode(f, pic, &jpeg.Options{Quality: 75}); err != nil {
-		return errors.Wrapf(err, "the 'image' will not encode")
+		return errtrace.Wrap(errors.Wrapf(err, "the 'image' will not encode"))
 	}
 	return nil
 }
@@ -287,14 +288,14 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 		if err != nil {
 			img, _, err = image.Decode(bytes.NewReader(imgBytes))
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 		return img, nil
 	default:
 		img, _, err := image.Decode(bytes.NewReader(imgBytes))
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return img, nil
 	}
@@ -315,15 +316,15 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		// LazyImage holds bytes different from requested mime type: decode and re-encode
 		err := lazy.DecodeImage()
 		if err != nil {
-			return nil, errors.Errorf("could not decode LazyEncodedImage: %v", err)
+			return nil, errtrace.Wrap(errors.Errorf("could not decode LazyEncodedImage: %v", err))
 		}
-		return EncodeImage(ctx, lazy.decodedImage, actualOutMIME)
+		return errtrace.Wrap2(EncodeImage(ctx, lazy.decodedImage, actualOutMIME))
 	}
 	var buf bytes.Buffer
 	switch actualOutMIME {
 	case ut.MimeTypeRawDepth:
 		if _, err := WriteViamDepthMapTo(img, &buf); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case ut.MimeTypeRawRGBA:
 		// Here we create a custom header to prepend to Raw RGBA data. Credit to
@@ -342,21 +343,21 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		buf.Write(imgStruct.Pix)
 	case ut.MimeTypePNG:
 		if err := png.Encode(&buf, img); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case ut.MimeTypeJPEG:
 		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 75}); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case ut.MimeTypeQOI:
 		if err := qoi.Encode(&buf, img); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case ut.MimeTypeH264:
 		frame := img.(H264)
 		buf.Write(frame.Bytes)
 	default:
-		return nil, errors.Errorf("do not know how to encode %q", actualOutMIME)
+		return nil, errtrace.Wrap(errors.Errorf("do not know how to encode %q", actualOutMIME))
 	}
 
 	return buf.Bytes(), nil

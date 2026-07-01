@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -15,7 +16,7 @@ import (
 
 // ErrReadingsNil is the returned error if sensor readings are nil.
 var ErrReadingsNil = func(sensorType, sensorName string) error {
-	return fmt.Errorf("%v component %v Readings should not return nil readings", sensorType, sensorName)
+	return errtrace.Wrap(fmt.Errorf("%v component %v Readings should not return nil readings", sensorType, sensorName))
 }
 
 // serviceServer implements the SensorService from sensor.proto.
@@ -36,18 +37,18 @@ func (s *serviceServer) GetReadings(
 ) (*commonpb.GetReadingsResponse, error) {
 	sensorDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	readings, err := sensorDevice.Readings(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if readings == nil {
-		return nil, ErrReadingsNil("sensor", req.Name)
+		return nil, errtrace.Wrap(ErrReadingsNil("sensor", req.Name))
 	}
 	m, err := protoutils.ReadingGoToProto(readings)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetReadingsResponse{Readings: m}, nil
 }
@@ -58,16 +59,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	sensorDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, sensorDevice, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, sensorDevice, req))
 }
 
 // GetStatus returns the status of the sensor.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

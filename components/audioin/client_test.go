@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/audioin"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -194,7 +195,7 @@ func TestAudioInClientGetAudioError(t *testing.T) {
 	injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 		extra map[string]interface{}) (chan *audioin.AudioChunk, error,
 	) {
-		return nil, errGetAudioFailed
+		return nil, errtrace.Wrap(errGetAudioFailed)
 	}
 
 	_, err = client.GetAudio(ctx, rutils.CodecPCM16, 5.0, 0, nil)
@@ -219,7 +220,7 @@ func TestAudioInClientPropertiesError(t *testing.T) {
 
 	// Test Properties error
 	injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
-		return rutils.Properties{}, errPropertiesFailed
+		return rutils.Properties{}, errtrace.Wrap(errPropertiesFailed)
 	}
 
 	_, err = client.Properties(ctx, nil)

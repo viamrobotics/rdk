@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -59,7 +60,7 @@ func (fCfg *FooConfig) Validate(path string) ([]string, []string, error) {
 
 	if fCfg.RequiredMotor == "" {
 		return nil, nil,
-			fmt.Errorf(`expected "required_motor" attribute for foo %q`, path)
+			errtrace.Wrap(fmt.Errorf(`expected "required_motor" attribute for foo %q`, path))
 	}
 	requiredDeps = append(requiredDeps, fCfg.RequiredMotor)
 
@@ -93,7 +94,7 @@ func newFoo(ctx context.Context,
 	}
 
 	if err := f.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return f, nil
@@ -104,13 +105,13 @@ func (f *foo) reconfigure(ctx context.Context, deps resource.Dependencies,
 ) error {
 	fooConfig, err := resource.NativeConfig[*FooConfig](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	f.requiredMotor, err = motor.FromProvider(deps, fooConfig.RequiredMotor)
 	if err != nil {
-		return fmt.Errorf("could not get required motor %s from dependencies",
-			fooConfig.RequiredMotor)
+		return errtrace.Wrap(fmt.Errorf("could not get required motor %s from dependencies",
+			fooConfig.RequiredMotor))
 	}
 
 	// Resolve the optional motor by name. If the config value is a fully qualified
@@ -134,7 +135,7 @@ func (f *foo) reconfigure(ctx context.Context, deps resource.Dependencies,
 func (f *foo) DoCommand(ctx context.Context, req map[string]any) (map[string]any, error) {
 	cmd, ok := req["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' string")
+		return nil, errtrace.Wrap(errors.New("missing 'command' string"))
 	}
 
 	// "required_motor_state" will check the state of the required motor.
@@ -164,7 +165,7 @@ func (f *foo) DoCommand(ctx context.Context, req map[string]any) (map[string]any
 	}
 
 	// The command must've been something else (unrecognized).
-	return nil, fmt.Errorf("unknown command string %s", cmd)
+	return nil, errtrace.Wrap(fmt.Errorf("unknown command string %s", cmd))
 }
 
 // MutualOptionalChildConfig contains _another_ MOC that this MOC will optionally depend
@@ -179,7 +180,7 @@ type MutualOptionalChildConfig struct {
 func (mocCfg *MutualOptionalChildConfig) Validate(path string) ([]string, []string, error) {
 	if mocCfg.OtherMOC == "" {
 		return nil, nil,
-			fmt.Errorf(`expected "other_moc" attribute for MOC %q`, path)
+			errtrace.Wrap(fmt.Errorf(`expected "other_moc" attribute for MOC %q`, path))
 	}
 	return nil, []string{mocCfg.OtherMOC}, nil
 }
@@ -212,7 +213,7 @@ func newMutualOptionalChild(ctx context.Context,
 
 	mutualOptionalChildConfig, err := resource.NativeConfig[*MutualOptionalChildConfig](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	moc.otherMOC, err = generic.FromProvider(deps, mutualOptionalChildConfig.OtherMOC)
@@ -228,7 +229,7 @@ func newMutualOptionalChild(ctx context.Context,
 func (moc *mutualOptionalChild) DoCommand(ctx context.Context, req map[string]any) (map[string]any, error) {
 	cmd, ok := req["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' string")
+		return nil, errtrace.Wrap(errors.New("missing 'command' string"))
 	}
 
 	// "other_moc_state" will check the state of the required motor.
@@ -264,7 +265,7 @@ func (moc *mutualOptionalChild) DoCommand(ctx context.Context, req map[string]an
 	}
 
 	// The command must've been something else (unrecognized).
-	return nil, fmt.Errorf("unknown command string %s", cmd)
+	return nil, errtrace.Wrap(fmt.Errorf("unknown command string %s", cmd))
 }
 
 // `moc` is notably missing a `Reconfigure` method. Modular resources with optional
@@ -320,7 +321,7 @@ func (p *pointerTarget) Close(_ context.Context) error {
 
 func (p *pointerTarget) DoCommand(_ context.Context, _ map[string]any) (map[string]any, error) {
 	if p.closed.Load() {
-		return nil, errors.New("pointerTarget is closed")
+		return nil, errtrace.Wrap(errors.New("pointerTarget is closed"))
 	}
 	return map[string]any{"instance_id": p.instanceID}, nil
 }
@@ -335,7 +336,7 @@ type PointerHolderConfig struct {
 // construction time and a Go pointer can be captured.
 func (c *PointerHolderConfig) Validate(path string) ([]string, []string, error) {
 	if c.Target == "" {
-		return nil, nil, fmt.Errorf(`expected "target" attribute for pointer-holder %q`, path)
+		return nil, nil, errtrace.Wrap(fmt.Errorf(`expected "target" attribute for pointer-holder %q`, path))
 	}
 	return []string{c.Target}, nil, nil
 }
@@ -353,15 +354,15 @@ type pointerHolder struct {
 func newPointerHolder(_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
 	cfg, err := resource.NativeConfig[*PointerHolderConfig](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	target, ok := deps[generic.Named(cfg.Target)]
 	if !ok {
-		return nil, fmt.Errorf("pointer-holder could not find target %q in dependencies", cfg.Target)
+		return nil, errtrace.Wrap(fmt.Errorf("pointer-holder could not find target %q in dependencies", cfg.Target))
 	}
 	return &pointerHolder{Named: conf.ResourceName().AsNamed(), target: target}, nil
 }
 
 func (p *pointerHolder) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
-	return p.target.DoCommand(ctx, cmd)
+	return errtrace.Wrap2(p.target.DoCommand(ctx, cmd))
 }

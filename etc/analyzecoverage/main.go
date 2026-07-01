@@ -30,6 +30,7 @@ import (
 	"go.viam.com/utils"
 	"golang.org/x/tools/cover"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -42,7 +43,7 @@ func main() {
 func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error {
 	profileDataAll, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	profileDatas := bytes.Split(profileDataAll, []byte("mode: "))
 
@@ -54,7 +55,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 		var err error
 		gitHubRunID, err = strconv.ParseInt(gitHubRunIDStr, 10, 64)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	gitHubRunNumberStr, ok := os.LookupEnv("GITHUB_RUN_NUMBER")
@@ -62,7 +63,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 		var err error
 		gitHubRunNumber, err = strconv.ParseInt(gitHubRunNumberStr, 10, 64)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	gitHubRunAttemptStr, ok := os.LookupEnv("GITHUB_RUN_ATTEMPT")
@@ -70,7 +71,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 		var err error
 		gitHubRunAttempt, err = strconv.ParseInt(gitHubRunAttemptStr, 10, 64)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -90,10 +91,10 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 	defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := client.Ping(ctx, readpref.Primary()); err != nil {
-		return multierr.Combine(err, client.Disconnect(ctx))
+		return errtrace.Wrap(multierr.Combine(err, client.Disconnect(ctx)))
 	}
 	defer func() {
 		utils.UncheckedError(client.Disconnect(ctx))
@@ -116,7 +117,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 		newData := append([]byte("mode: "), data...)
 		results, err := funcOutput(bytes.NewReader(newData))
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		for pkgName, result := range results {
 			pctCovered := percent(result.covered, result.total)
@@ -195,7 +196,7 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 		closestPastResultsErr,
 	)
 	//nolint:gosec
-	return os.WriteFile("code-coverage-results.md", []byte(mdOutput), 0o644)
+	return errtrace.Wrap(os.WriteFile("code-coverage-results.md", []byte(mdOutput), 0o644))
 }
 
 func generateBadge(summary coverageResult) string {
@@ -323,12 +324,12 @@ type funcOutputResult struct {
 func funcOutput(profileData io.Reader) (map[string]*funcOutputResult, error) {
 	profiles, err := cover.ParseProfilesFromReader(profileData)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dirs, err := findPkgs(profiles)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	results := map[string]*funcOutputResult{}
@@ -336,11 +337,11 @@ func funcOutput(profileData io.Reader) (map[string]*funcOutputResult, error) {
 		fn := profile.FileName
 		file, err := findFile(dirs, fn)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		funcs, err := findFuncs(file)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// Now match up functions and profile blocks.
 		for _, f := range funcs {
@@ -362,7 +363,7 @@ func findFuncs(name string) ([]*FuncExtent, error) {
 	fset := token.NewFileSet()
 	parsedFile, err := parser.ParseFile(fset, name, nil, 0)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	visitor := &FuncVisitor{
 		fset:    fset,
@@ -473,7 +474,7 @@ func findPkgs(profiles []*cover.Profile) (map[string]*Pkg, error) {
 	cmd.Stderr = &stderr
 	stdout, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("cannot run go list: %w\n%s", err, stderr.Bytes())
+		return nil, errtrace.Wrap(fmt.Errorf("cannot run go list: %w\n%s", err, stderr.Bytes()))
 	}
 	dec := json.NewDecoder(bytes.NewReader(stdout))
 	for {
@@ -483,7 +484,7 @@ func findPkgs(profiles []*cover.Profile) (map[string]*Pkg, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("decoding go list json: %w", err)
+			return nil, errtrace.Wrap(fmt.Errorf("decoding go list json: %w", err))
 		}
 		pkgs[pkg.ImportPath] = &pkg
 	}
@@ -502,10 +503,10 @@ func findFile(pkgs map[string]*Pkg, file string) (string, error) {
 			return filepath.Join(pkg.Dir, path.Base(file)), nil
 		}
 		if pkg.Error != nil {
-			return "", errors.New(pkg.Error.Err)
+			return "", errtrace.Wrap(errors.New(pkg.Error.Err))
 		}
 	}
-	return "", fmt.Errorf("did not find package for %s in go list output", file)
+	return "", errtrace.Wrap(fmt.Errorf("did not find package for %s in go list output", file))
 }
 
 func percent(covered, total int64) float64 {
@@ -579,9 +580,9 @@ func findClosestMergeBaseResults(
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			if len(out) != 0 {
-				return "", fmt.Errorf("error running git rev-parse %s: %s", checkRef, string(out))
+				return "", errtrace.Wrap(fmt.Errorf("error running git rev-parse %s: %s", checkRef, string(out)))
 			}
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 		return strings.TrimSuffix(string(out), "\n"), nil
 	}
@@ -591,16 +592,16 @@ func findClosestMergeBaseResults(
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if len(out) != 0 {
-			return nil, fmt.Errorf(
+			return nil, errtrace.Wrap(fmt.Errorf(
 				"error running git merge-base %s(%s) %s(%s): %s",
 				branchName,
 				branchSha,
 				baseRef,
 				baseSha,
 				string(out),
-			)
+			))
 		}
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	possibleMergeBaseRoot := strings.TrimSuffix(string(out), "\n")
 	possibleMergeBaseCurr := possibleMergeBaseRoot
@@ -616,7 +617,7 @@ func findClosestMergeBaseResults(
 			var err error
 			possibleMergeBaseCurr, err = revParse(possibleMergeBaseRoot, i)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 
@@ -642,7 +643,7 @@ func findClosestMergeBaseResults(
 				"merge base coverage results not available, using HEAD(%s)=%s as no other closest candidate was found",
 				baseRef, baseSha)
 		} else {
-			return nil, errors.New("failed to find any suitable merge base to compare against")
+			return nil, errtrace.Wrap(errors.New("failed to find any suitable merge base to compare against"))
 		}
 	}
 
@@ -661,5 +662,5 @@ func findClosestMergeBaseResults(
 			packages: mergeBaseCovResults,
 			summary:  mergeBaseSummaryResult,
 		},
-	}, mergeBaseErr
+	}, errtrace.Wrap(mergeBaseErr)
 }

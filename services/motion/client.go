@@ -9,6 +9,7 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -48,11 +49,11 @@ func NewClientFromConn(
 func (c *client) Move(ctx context.Context, req MoveReq) (bool, error) {
 	protoReq, err := req.ToProto(c.name)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	resp, err := c.client.Move(ctx, protoReq)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.Success, nil
 }
@@ -60,17 +61,17 @@ func (c *client) Move(ctx context.Context, req MoveReq) (bool, error) {
 func (c *client) MoveOnMap(ctx context.Context, req MoveOnMapReq) (ExecutionID, error) {
 	protoReq, err := req.toProto(c.name)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, errtrace.Wrap(err)
 	}
 
 	resp, err := c.client.MoveOnMap(ctx, protoReq)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, errtrace.Wrap(err)
 	}
 
 	executionID, err := uuid.Parse(resp.ExecutionId)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, errtrace.Wrap(err)
 	}
 
 	return executionID, nil
@@ -82,17 +83,17 @@ func (c *client) MoveOnGlobe(
 ) (ExecutionID, error) {
 	protoReq, err := req.toProto(c.name)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, errtrace.Wrap(err)
 	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, protoReq)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, errtrace.Wrap(err)
 	}
 
 	executionID, err := uuid.Parse(resp.ExecutionId)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, errtrace.Wrap(err)
 	}
 
 	return executionID, nil
@@ -107,11 +108,11 @@ func (c *client) GetPose(
 ) (*referenceframe.PoseInFrame, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	resp, err := c.robotClient.GetPose(ctx, &robotpb.GetPoseRequest{
@@ -121,7 +122,7 @@ func (c *client) GetPose(
 		Extra:                  ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
@@ -129,20 +130,20 @@ func (c *client) GetPose(
 func (c *client) StopPlan(ctx context.Context, req StopPlanReq) error {
 	ext, err := vprotoutils.StructToStructPb(req.Extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.StopPlan(ctx, &pb.StopPlanRequest{
 		Name:          c.name,
 		ComponentName: req.ComponentName,
 		Extra:         ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) ListPlanStatuses(ctx context.Context, req ListPlanStatusesReq) ([]PlanStatusWithID, error) {
 	ext, err := vprotoutils.StructToStructPb(req.Extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.ListPlanStatuses(ctx, &pb.ListPlanStatusesRequest{
 		Name:            c.name,
@@ -150,18 +151,18 @@ func (c *client) ListPlanStatuses(ctx context.Context, req ListPlanStatusesReq) 
 		Extra:           ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pswids := make([]PlanStatusWithID, 0, len(resp.PlanStatusesWithIds))
 	for _, status := range resp.PlanStatusesWithIds {
 		pswid, err := planStatusWithIDFromProto(status)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		pswids = append(pswids, pswid)
 	}
-	return pswids, err
+	return pswids, errtrace.Wrap(err)
 }
 
 func (c *client) PlanHistory(
@@ -170,31 +171,31 @@ func (c *client) PlanHistory(
 ) ([]PlanWithStatus, error) {
 	protoReq, err := req.toProto(c.name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetPlan(ctx, protoReq)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	statusHistory := make([]PlanWithStatus, 0, len(resp.ReplanHistory))
 	for _, status := range resp.ReplanHistory {
 		s, err := planWithStatusFromProto(status)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		statusHistory = append(statusHistory, s)
 	}
 	pws, err := planWithStatusFromProto(resp.CurrentPlanWithStatus)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return append([]PlanWithStatus{pws}, statusHistory...), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

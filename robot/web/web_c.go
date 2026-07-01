@@ -11,6 +11,7 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	webstream "go.viam.com/rdk/robot/web/stream"
@@ -23,7 +24,7 @@ func (svc *webService) BuiltInReconfigure(ctx context.Context, _ resource.Depend
 	if !svc.isRunning {
 		return nil
 	}
-	return svc.streamServer.AddNewStreams(svc.cancelCtx)
+	return errtrace.Wrap(svc.streamServer.AddNewStreams(svc.cancelCtx))
 }
 
 func (svc *webService) closeStreamServer() {
@@ -55,15 +56,15 @@ func (svc *webService) initStreamServer(ctx context.Context, srv rpc.Server) err
 	}
 
 	if err := svc.streamServer.AddNewStreams(svc.cancelCtx); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return srv.RegisterServiceServer(
+	return errtrace.Wrap(srv.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
 		svc.streamServer,
 		streampb.RegisterStreamServiceHandlerFromEndpoint,
-	)
+	))
 }
 
 type filterXML struct {
@@ -73,7 +74,7 @@ type filterXML struct {
 
 func (fxml *filterXML) Write(bs []byte) (int, error) {
 	if fxml.called {
-		return 0, errors.New("cannot write more than once")
+		return 0, errtrace.Wrap(errors.New("cannot write more than once"))
 	}
 	lines := bytes.Split(bs, []byte("\n"))
 	// HACK: these lines are XML Document Type Definition strings
@@ -83,5 +84,5 @@ func (fxml *filterXML) Write(bs []byte) (int, error) {
 	if err == nil {
 		fxml.called = true
 	}
-	return n, err
+	return n, errtrace.Wrap(err)
 }

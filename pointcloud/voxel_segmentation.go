@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -113,7 +114,7 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 			for p, d := range pts {
 				err := nonPlane.Set(p, d)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, errtrace.Wrap(err)
 				}
 			}
 		} else { // create an array of planes

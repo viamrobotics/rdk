@@ -2,6 +2,7 @@
 package buses
 
 import (
+	"braces.dev/errtrace"
 	"context"
 )
 
@@ -35,10 +36,10 @@ type I2CRegister struct {
 
 // ReadByteData reads a byte from the I2C channel register.
 func (reg *I2CRegister) ReadByteData(ctx context.Context) (byte, error) {
-	return reg.Handle.ReadByteData(ctx, reg.Register)
+	return errtrace.Wrap2(reg.Handle.ReadByteData(ctx, reg.Register))
 }
 
 // WriteByteData writes a byte to the I2C channel register.
 func (reg *I2CRegister) WriteByteData(ctx context.Context, data byte) error {
-	return reg.Handle.WriteByteData(ctx, reg.Register, data)
+	return errtrace.Wrap(reg.Handle.WriteByteData(ctx, reg.Register, data))
 }

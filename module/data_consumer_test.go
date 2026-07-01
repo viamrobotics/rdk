@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/app"
 	"go.viam.com/rdk/utils"
 )
@@ -25,17 +26,17 @@ func (m *mockClient) TabularDataByMQL(
 	queryMap, ok := query[0]["$match"].(map[string]any)
 
 	if !ok {
-		return nil, errors.New("Type error")
+		return nil, errtrace.Wrap(errors.New("Type error"))
 	}
 
 	m.partID, ok = queryMap["part_id"].(string)
 	if !ok {
-		return nil, errors.New("Type error")
+		return nil, errtrace.Wrap(errors.New("Type error"))
 	}
 
 	m.resourceName, ok = queryMap["component_name"].(string)
 	if !ok {
-		return nil, errors.New("Type error")
+		return nil, errtrace.Wrap(errors.New("Type error"))
 	}
 
 	return query, nil

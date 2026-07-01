@@ -1,6 +1,7 @@
 package armplanning
 
 import (
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -55,7 +56,7 @@ func (pr *PlanRequestWithWorldState) ToPlanRequestWorldStateTransformsIgnored() 
 		pr.StartState.Configuration(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &PlanRequest{

@@ -18,6 +18,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	modgen "go.viam.com/rdk/cli/module_generate/scripts"
 	"go.viam.com/rdk/resource"
@@ -214,10 +215,10 @@ func TestAddModel(t *testing.T) {
 		origClient := modgen.CreateGetClientCodeRequest
 		origResource := modgen.CreateGetResourceCodeRequest
 		modgen.CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
-			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverClient.URL, nil)
+			return errtrace.Wrap2(http.NewRequestWithContext(context.Background(), http.MethodGet, serverClient.URL, nil))
 		}
 		modgen.CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, tryagain bool) (*http.Request, error) {
-			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverResource.URL, nil)
+			return errtrace.Wrap2(http.NewRequestWithContext(context.Background(), http.MethodGet, serverResource.URL, nil))
 		}
 		defer func() {
 			modgen.CreateGetClientCodeRequest = origClient
@@ -612,11 +613,11 @@ func TestGenerateModuleAction(t *testing.T) {
 		}))
 		defer serverResource.Close()
 		modgen.CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
-			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverClient.URL, nil)
+			return errtrace.Wrap2(http.NewRequestWithContext(context.Background(), http.MethodGet, serverClient.URL, nil))
 		}
 
 		modgen.CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, tryagain bool) (*http.Request, error) {
-			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverResource.URL, nil)
+			return errtrace.Wrap2(http.NewRequestWithContext(context.Background(), http.MethodGet, serverResource.URL, nil))
 		}
 
 		err = generateGolangStubs(testModule)
@@ -687,7 +688,7 @@ func TestGenerateModuleAction(t *testing.T) {
 					return content, nil
 				}
 			}
-			return "", fmt.Errorf("unexpected template URL: %s", url)
+			return "", errtrace.Wrap(fmt.Errorf("unexpected template URL: %s", url))
 		}
 
 		err := generateCppStubs(cppModule)
@@ -724,10 +725,10 @@ func TestGenerateModuleAction(t *testing.T) {
 
 	t.Run("test check version", func(t *testing.T) {
 		checkPython := func(output string) error {
-			return checkVersionCompatible(output, "Python", minPythonVersion)
+			return errtrace.Wrap(checkVersionCompatible(output, "Python", minPythonVersion))
 		}
 		checkGo := func(output string) error {
-			return checkVersionCompatible(output, "Go", minGoVersion)
+			return errtrace.Wrap(checkVersionCompatible(output, "Go", minGoVersion))
 		}
 
 		// supported versions

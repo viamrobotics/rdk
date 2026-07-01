@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"braces.dev/errtrace"
 	"bytes"
 	"context"
 	"fmt"
@@ -50,9 +51,9 @@ func checkError(err interface{}) error {
 	if err != nil {
 		switch e := err.(type) {
 		case error:
-			return e
+			return errtrace.Wrap(e)
 		default:
-			return fmt.Errorf("%v", err)
+			return errtrace.Wrap(fmt.Errorf("%v", err))
 		}
 	}
 	return nil
@@ -73,7 +74,7 @@ func (lei *LazyEncodedImage) DecodeImage() error {
 			lei.mimeType,
 		)
 	})
-	return checkError(lei.decodeImageErr)
+	return errtrace.Wrap(checkError(lei.decodeImageErr))
 }
 
 // DecodeConfig decodes the image configuration. Returns nil if no errors occurred.
@@ -93,17 +94,17 @@ func (lei *LazyEncodedImage) DecodeConfig() error {
 			lei.colorModel = header.ColorModel
 		}
 	})
-	return checkError(lei.decodeConfigErr)
+	return errtrace.Wrap(checkError(lei.decodeConfigErr))
 }
 
 // DecodeAll decodes the image and its configuration. Returns nil if no errors occurred.
 // This method is idempotent.
 func (lei *LazyEncodedImage) DecodeAll() error {
 	if err := lei.DecodeConfig(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := lei.DecodeImage(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -125,7 +126,7 @@ func (lei *LazyEncodedImage) RawData() []byte {
 func (lei *LazyEncodedImage) DecodedImage() (image.Image, error) {
 	err := lei.DecodeImage()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return lei.decodedImage, nil
 }
@@ -137,7 +138,7 @@ func (lei *LazyEncodedImage) DecodedImage() (image.Image, error) {
 func (lei *LazyEncodedImage) ColorModelSafe() (color.Model, error) {
 	err := lei.DecodeConfig()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return lei.colorModel, nil
 }
@@ -161,7 +162,7 @@ func (lei *LazyEncodedImage) ColorModel() color.Model {
 func (lei *LazyEncodedImage) BoundsSafe() (image.Rectangle, error) {
 	err := lei.DecodeConfig()
 	if err != nil {
-		return image.Rectangle{}, err
+		return image.Rectangle{}, errtrace.Wrap(err)
 	}
 	return *lei.bounds, nil
 }
@@ -186,7 +187,7 @@ func (lei *LazyEncodedImage) Bounds() image.Rectangle {
 func (lei *LazyEncodedImage) AtSafe(x, y int) (color.Color, error) {
 	err := lei.DecodeImage()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return lei.decodedImage.At(x, y), nil
 }

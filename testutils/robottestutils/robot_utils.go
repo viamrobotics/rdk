@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot/client"
@@ -64,21 +65,21 @@ func NewRobotClient(
 // MakeTempConfig writes a config.Config object to a temporary file for testing.
 func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (string, error) {
 	if err := cfg.Ensure(false, logger); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	output, err := json.Marshal(cfg)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	file, err := os.CreateTemp(t.TempDir(), "fake-*")
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	_, err = file.Write(output)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
-	return file.Name(), file.Close()
+	return file.Name(), errtrace.Wrap(file.Close())
 }
 
 // ServerProcessCfg is an opaque type used to configure the viam server
@@ -159,7 +160,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 //
 // WaitForServing will return true if the server has started successfully in the allotted time, and
 // false otherwise.
-//nolint
+// nolint
 func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	// Message:"\n\\_ 2024-02-07T20:47:03.576Z\tINFO\trobot_server\tweb/web.go:598\tserving\t{\"url\":\"http://127.0.0.1:20000\"}"
 	successRegex := regexp.MustCompile(fmt.Sprintf("\tserving\t.*:%d\"", port))

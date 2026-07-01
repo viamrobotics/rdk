@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -102,14 +103,14 @@ func (pF *PoseInFrame) String() string {
 // MarshalJSON converts a PoseInFrame to JSON through its protobuf representation.
 func (pF *PoseInFrame) MarshalJSON() ([]byte, error) {
 	pFProto := PoseInFrameToProtobuf(pF)
-	return protojson.Marshal(pFProto)
+	return errtrace.Wrap2(protojson.Marshal(pFProto))
 }
 
 // UnmarshalJSON parses a PoseInFrame from its protobuf representation in JSON bytes.
 func (pF *PoseInFrame) UnmarshalJSON(data []byte) error {
 	var pFProto commonpb.PoseInFrame
 	if err := protojson.Unmarshal(data, &pFProto); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	newPF := ProtobufToPoseInFrame(&pFProto)
 	*pF = *newPF
@@ -160,10 +161,10 @@ func (lF *LinkInFrame) ToStaticFrame(name string) (Frame, error) {
 		// deep copy geometry
 		newGeom := lF.geometry.Transform(spatialmath.NewZeroPose())
 		newGeom.SetLabel(name)
-		return NewStaticFrameWithGeometry(name, pose, newGeom)
+		return errtrace.Wrap2(NewStaticFrameWithGeometry(name, pose, newGeom))
 	}
 
-	return NewStaticFrame(name, pose)
+	return errtrace.Wrap2(NewStaticFrame(name, pose))
 }
 
 // PoseInFrameToProtobuf converts a PoseInFrame struct to a PoseInFrame protobuf message.
@@ -195,10 +196,10 @@ func ProtobufToPoseInFrame(proto *commonpb.PoseInFrame) *PoseInFrame {
 // LinkInFrameToTransformProtobuf converts a LinkInFrame struct to a Transform protobuf message.
 func LinkInFrameToTransformProtobuf(framedLink *LinkInFrame) (*commonpb.Transform, error) {
 	if framedLink.PoseInFrame == nil {
-		return nil, ErrNilPoseInFrame
+		return nil, errtrace.Wrap(ErrNilPoseInFrame)
 	}
 	if framedLink.name == "" {
-		return nil, ErrEmptyStringFrameName
+		return nil, errtrace.Wrap(ErrEmptyStringFrameName)
 	}
 	tform := &commonpb.Transform{
 		ReferenceFrame:      framedLink.name,
@@ -215,12 +216,12 @@ func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, 
 	var err error
 	frameName := proto.GetReferenceFrame()
 	if frameName == "" {
-		return nil, ErrEmptyStringFrameName
+		return nil, errtrace.Wrap(ErrEmptyStringFrameName)
 	}
 	poseInObserverFrame := proto.GetPoseInObserverFrame()
 	parentFrame := poseInObserverFrame.GetReferenceFrame()
 	if parentFrame == "" {
-		return nil, ErrEmptyStringFrameName
+		return nil, errtrace.Wrap(ErrEmptyStringFrameName)
 	}
 	poseMsg := poseInObserverFrame.GetPose()
 	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
@@ -228,7 +229,7 @@ func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, 
 	if proto.PhysicalObject != nil {
 		geometry, err = NewGeometryFromProto(proto.PhysicalObject)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return NewLinkInFrame(parentFrame, pose, frameName, geometry), nil
@@ -241,7 +242,7 @@ func LinkInFramesToTransformsProtobuf(linkSlice []*LinkInFrame) ([]*commonpb.Tra
 	for i, link := range linkSlice {
 		protoTf, err := LinkInFrameToTransformProtobuf(link)
 		if err != nil {
-			return nil, errors.Wrapf(err, "conversion error at index %d", i)
+			return nil, errtrace.Wrap(errors.Wrapf(err, "conversion error at index %d", i))
 		}
 		protoTransforms = append(protoTransforms, protoTf)
 	}
@@ -255,7 +256,7 @@ func LinkInFramesFromTransformsProtobuf(protoSlice []*commonpb.Transform) ([]*Li
 	for i, protoTransform := range protoSlice {
 		link, err := LinkInFrameFromTransformProtobuf(protoTransform)
 		if err != nil {
-			return nil, errors.Wrapf(err, "conversion error at index %d", i)
+			return nil, errtrace.Wrap(errors.Wrapf(err, "conversion error at index %d", i))
 		}
 		links = append(links, link)
 	}
@@ -332,7 +333,7 @@ func GeometriesInFrameToProtobuf(framedGeometries *GeometriesInFrame) *commonpb.
 func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*GeometriesInFrame, error) {
 	geometries, err := NewGeometriesFromProto(proto.GetGeometries())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return NewGeometriesInFrame(proto.GetReferenceFrame(), geometries), nil
 }
@@ -348,27 +349,27 @@ func (gF *GeometriesInFrame) MarshalJSON() ([]byte, error) {
 	for _, geometry := range gF.geometries {
 		config, err := spatialmath.NewGeometryConfig(geometry)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		configs = append(configs, config)
 	}
-	return json.Marshal(geometriesInFrameJSON{
+	return errtrace.Wrap2(json.Marshal(geometriesInFrameJSON{
 		Frame:      gF.frame,
 		Geometries: configs,
-	})
+	}))
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (gF *GeometriesInFrame) UnmarshalJSON(data []byte) error {
 	var raw geometriesInFrameJSON
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	geometries := make([]spatialmath.Geometry, 0, len(raw.Geometries))
 	for _, config := range raw.Geometries {
 		geometry, err := config.ParseConfig()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		geometries = append(geometries, geometry)
 	}

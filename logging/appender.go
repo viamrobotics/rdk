@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"braces.dev/errtrace"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -92,16 +93,16 @@ func ZapcoreFieldsToJSON(fields []zapcore.Field) (result string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if perr, ok := r.(error); ok {
-				err = fmt.Errorf("panic serializing log fields: %w", perr)
+				err = errtrace.Wrap(fmt.Errorf("panic serializing log fields: %w", perr))
 				return
 			}
-			err = fmt.Errorf("panic serializing log fields: %v", r)
+			err = errtrace.Wrap(fmt.Errorf("panic serializing log fields: %v", r))
 		}
 	}()
 	jsonEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{SkipLineEnding: true})
 	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, fields)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	return string(buf.Bytes()), nil

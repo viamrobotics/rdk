@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
@@ -79,25 +80,25 @@ type cacheEntry struct {
 // Validate checks that the config attributes are valid for a replay camera.
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Source == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "source")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "source"))
 	}
 
 	if cfg.RobotID == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "robot_id")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "robot_id"))
 	}
 
 	if cfg.LocationID == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "location_id")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "location_id"))
 	}
 
 	if cfg.OrganizationID == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "organization_id")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "organization_id"))
 	}
 	if cfg.APIKey == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "api_key")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "api_key"))
 	}
 	if cfg.APIKeyID == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "api_key_id")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "api_key_id"))
 	}
 
 	var err error
@@ -105,7 +106,7 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Interval.Start != "" {
 		startTime, err = time.Parse(timeFormat, cfg.Interval.Start)
 		if err != nil {
-			return nil, nil, errors.New("invalid time format for start time (UTC), use RFC3339")
+			return nil, nil, errtrace.Wrap(errors.New("invalid time format for start time (UTC), use RFC3339"))
 		}
 	}
 
@@ -113,16 +114,16 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Interval.End != "" {
 		endTime, err = time.Parse(timeFormat, cfg.Interval.End)
 		if err != nil {
-			return nil, nil, errors.New("invalid time format for end time (UTC), use RFC3339")
+			return nil, nil, errtrace.Wrap(errors.New("invalid time format for end time (UTC), use RFC3339"))
 		}
 	}
 
 	if cfg.Interval.Start != "" && cfg.Interval.End != "" && startTime.After(endTime) {
-		return nil, nil, errors.New("invalid config, end time (UTC) must be after start time (UTC)")
+		return nil, nil, errtrace.Wrap(errors.New("invalid config, end time (UTC) must be after start time (UTC)"))
 	}
 
 	if cfg.BatchSize != nil && (*cfg.BatchSize > uint64(maxCacheSize) || *cfg.BatchSize == 0) {
-		return nil, nil, errors.Errorf("batch_size must be between 1 and %d", maxCacheSize)
+		return nil, nil, errtrace.Wrap(errors.Errorf("batch_size must be between 1 and %d", maxCacheSize))
 	}
 
 	return []string{cloud.InternalServiceName.String()}, nil, nil
@@ -160,7 +161,7 @@ func newPCDCamera(
 	}
 
 	if err := cam.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return cam, nil
@@ -175,13 +176,13 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context, extra map[string]in
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return nil, errors.New("session closed")
+		return nil, errtrace.Wrap(errors.New("session closed"))
 	}
 
 	// Retrieve next cached data and remove from cache, if no data remains in the cache, download a
 	// new batch
 	if len(replay.cache) != 0 {
-		return replay.getDataFromCache(ctx)
+		return errtrace.Wrap2(replay.getDataFromCache(ctx))
 	}
 
 	// Retrieve data from the cloud. If the batch size is > 1, only metadata is returned here, otherwise
@@ -197,11 +198,11 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context, extra map[string]in
 		IncludeBinary: replay.limit == 1,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if len(resp.GetData()) == 0 {
-		return nil, ErrEndOfDataset
+		return nil, errtrace.Wrap(ErrEndOfDataset)
 	}
 	replay.lastData = resp.GetLast()
 
@@ -210,12 +211,12 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context, extra map[string]in
 	if replay.limit == 1 {
 		pc, err := decodeResponseData(resp.GetData())
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		if err := addGRPCMetadata(ctx,
 			resp.GetData()[0].GetMetadata().GetTimeRequested(),
 			resp.GetData()[0].GetMetadata().GetTimeReceived()); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return pc, nil
 	}
@@ -236,10 +237,10 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context, extra map[string]in
 	defer cancelTimeout()
 	replay.downloadBatch(ctxTimeout)
 	if ctxTimeout.Err() != nil {
-		return nil, errors.Wrap(ctxTimeout.Err(), "failed to download batch")
+		return nil, errtrace.Wrap(errors.Wrap(ctxTimeout.Err(), "failed to download batch"))
 	}
 
-	return replay.getDataFromCache(ctx)
+	return errtrace.Wrap2(replay.getDataFromCache(ctx))
 }
 
 // downloadBatch iterates through the current cache, performing the download of the respective data in
@@ -266,26 +267,26 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 func (replay *pcdCamera) getDataFromHTTP(ctx context.Context, dataURL string) (pointcloud.PointCloud, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dataURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	req.Header.Add("key_id", replay.APIKeyID)
 	req.Header.Add("key", replay.APIKey)
 
 	res, err := replay.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	pc, err := pointcloud.ReadPCD(res.Body, "")
 	if err != nil {
-		return nil, multierr.Combine(err, res.Body.Close())
+		return nil, errtrace.Wrap(multierr.Combine(err, res.Body.Close()))
 	}
 	if res.StatusCode != http.StatusOK {
-		return nil, multierr.Combine(errors.New(res.Status), res.Body.Close())
+		return nil, errtrace.Wrap(multierr.Combine(errors.New(res.Status), res.Body.Close()))
 	}
 
 	if err := res.Body.Close(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return pc, nil
@@ -299,11 +300,11 @@ func (replay *pcdCamera) getDataFromCache(ctx context.Context) (pointcloud.Point
 	data := replay.cache[0]
 	replay.cache = replay.cache[1:]
 	if data.err != nil {
-		return nil, errors.Wrap(data.err, "cache data contained an error")
+		return nil, errtrace.Wrap(errors.Wrap(data.err, "cache data contained an error"))
 	}
 
 	if err := addGRPCMetadata(ctx, data.timeRequested, data.timeReceived); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return data.pc, nil
@@ -321,7 +322,7 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeReceived.AsTime().Format(time.RFC3339Nano))
 		}
 		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -334,7 +335,7 @@ func (replay *pcdCamera) Images(
 	filterSourceNames []string,
 	extra map[string]interface{},
 ) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-	return nil, resource.ResponseMetadata{}, errors.New("Images is unimplemented")
+	return nil, resource.ResponseMetadata{}, errtrace.Wrap(errors.New("Images is unimplemented"))
 }
 
 // Properties is a part of the camera interface and returns the camera.Properties struct with SupportsPCD set to true.
@@ -348,7 +349,7 @@ func (replay *pcdCamera) Properties(ctx context.Context) (camera.Properties, err
 // Stream is a part of the camera interface but is not implemented for replay.
 func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	var stream gostream.VideoStream
-	return stream, errors.New("Stream is unimplemented")
+	return stream, errtrace.Wrap(errors.New("Stream is unimplemented"))
 }
 
 func (replay *pcdCamera) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
@@ -372,19 +373,19 @@ func (replay *pcdCamera) reconfigure(ctx context.Context, deps resource.Dependen
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return errors.New("session closed")
+		return errtrace.Wrap(errors.New("session closed"))
 	}
 
 	replayCamConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	replay.APIKey = replayCamConfig.APIKey
 	replay.APIKeyID = replayCamConfig.APIKeyID
 
 	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Update cloud connection if needed
@@ -394,7 +395,7 @@ func (replay *pcdCamera) reconfigure(ctx context.Context, deps resource.Dependen
 
 		if err := replay.initCloudConnection(ctx); err != nil {
 			replay.closeCloudConnection(ctx)
-			return errors.Wrap(err, "failure to connect to the cloud")
+			return errtrace.Wrap(errors.Wrap(err, "failure to connect to the cloud"))
 		}
 	}
 
@@ -419,7 +420,7 @@ func (replay *pcdCamera) reconfigure(ctx context.Context, deps resource.Dependen
 		startTime, err := time.Parse(timeFormat, replayCamConfig.Interval.Start)
 		if err != nil {
 			replay.closeCloudConnection(ctx)
-			return errors.New("invalid time format for start time, missed during config validation")
+			return errtrace.Wrap(errors.New("invalid time format for start time, missed during config validation"))
 		}
 		replay.filter.Interval.Start = timestamppb.New(startTime)
 	}
@@ -428,7 +429,7 @@ func (replay *pcdCamera) reconfigure(ctx context.Context, deps resource.Dependen
 		endTime, err := time.Parse(timeFormat, replayCamConfig.Interval.End)
 		if err != nil {
 			replay.closeCloudConnection(ctx)
-			return errors.New("invalid time format for end time, missed during config validation")
+			return errtrace.Wrap(errors.New("invalid time format for end time, missed during config validation"))
 		}
 		replay.filter.Interval.End = timestamppb.New(endTime)
 	}
@@ -454,7 +455,7 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 
 	_, conn, err := replay.cloudConnSvc.AcquireConnectionAPIKey(ctx, replay.APIKey, replay.APIKeyID)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	dataServiceClient := datapb.NewDataServiceClient(conn)
 
@@ -467,12 +468,12 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 // decodeResponseData decodes the pcd file byte array.
 func decodeResponseData(respData []*datapb.BinaryData) (pointcloud.PointCloud, error) {
 	if len(respData) == 0 {
-		return nil, errors.New("no response data; this should never happen")
+		return nil, errtrace.Wrap(errors.New("no response data; this should never happen"))
 	}
 
 	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()), "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return pc, nil

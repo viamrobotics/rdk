@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/encoder"
 )
 
@@ -51,7 +52,7 @@ func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (f
 // checkEncPosType checks that the position type of an encoder is in ticks.
 func checkEncPosType(posType encoder.PositionType) error {
 	if posType != encoder.PositionTypeTicks {
-		return fmt.Errorf("expected %v got %v", encoder.PositionTypeTicks.String(), posType.String())
+		return errtrace.Wrap(fmt.Errorf("expected %v got %v", encoder.PositionTypeTicks.String(), posType.String()))
 	}
 	return nil
 }

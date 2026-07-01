@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -100,13 +101,13 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var err error
 	switch {
 	case conf.Model != "" && conf.ModelFilePath != "":
-		return nil, nil, errors.New("can only populate either ArmModel or ModelPath - not both")
+		return nil, nil, errtrace.Wrap(errors.New("can only populate either ArmModel or ModelPath - not both"))
 	case conf.Model != "" && conf.ModelFilePath == "":
 		_, err = modelFromName(conf.Model, "")
 	case conf.Model == "" && conf.ModelFilePath != "":
 		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
 	}
-	return nil, nil, err
+	return nil, nil, errtrace.Wrap(err)
 }
 
 // NewArm is the `func init` registered constructor intended to be consumed/invoked by the resource
@@ -115,7 +116,7 @@ func NewArm(ctx context.Context, deps resource.Dependencies, resConf resource.Co
 ) (arm.Arm, error) {
 	armConf, err := resource.NativeConfig[*Config](resConf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	speed := 1.0 // 1 radian per second
@@ -125,7 +126,7 @@ func NewArm(ctx context.Context, deps resource.Dependencies, resConf resource.Co
 
 	model, err := buildModel(resConf.Name, armConf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return newArm(resConf.ResourceName().AsNamed(), armConf.Model, model, speed, armConf.SimulateTime, logger), nil
@@ -263,17 +264,17 @@ func (sa *simulatedArm) EndPosition(
 	sa.mu.Lock()
 	defer sa.mu.Unlock()
 
-	return sa.model.Transform(sa.currInputs)
+	return errtrace.Wrap2(sa.model.Transform(sa.currInputs))
 }
 
 func (sa *simulatedArm) MoveToPosition(
 	ctx context.Context, pose spatialmath.Pose, extra map[string]interface{},
 ) error {
-	return armplanning.MoveArm(ctx, sa.logger, sa, pose)
+	return errtrace.Wrap(armplanning.MoveArm(ctx, sa.logger, sa, pose))
 }
 
 func (sa *simulatedArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	return sa.JointPositions(ctx, nil)
+	return errtrace.Wrap2(sa.JointPositions(ctx, nil))
 }
 
 func (sa *simulatedArm) JointPositions(
@@ -292,7 +293,7 @@ func (sa *simulatedArm) MoveToJointPositions(
 	ctx context.Context, target []referenceframe.Input, extra map[string]interface{},
 ) error {
 	if err := arm.CheckDesiredJointPositions(ctx, sa, target); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	sa.mu.Lock()
@@ -309,11 +310,11 @@ func (sa *simulatedArm) MoveToJointPositions(
 		select {
 		case <-ctx.Done():
 			// Command cancelation.
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 
 		case <-sa.ctx.Done():
 			// `simulatedArm.Close` was called or robot shutdown.
-			return sa.ctx.Err()
+			return errtrace.Wrap(sa.ctx.Err())
 
 		default:
 			// Poll for completion:
@@ -331,7 +332,7 @@ func (sa *simulatedArm) MoveToJointPositions(
 			}
 
 			if stopped {
-				return errors.New("stopped before reaching target")
+				return errtrace.Wrap(errors.New("stopped before reaching target"))
 			}
 
 			time.Sleep(time.Millisecond)
@@ -347,7 +348,7 @@ func (sa *simulatedArm) MoveThroughJointPositions(
 ) error {
 	for _, goal := range positions {
 		if err := sa.MoveToJointPositions(ctx, goal, nil); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -355,7 +356,7 @@ func (sa *simulatedArm) MoveThroughJointPositions(
 }
 
 func (sa *simulatedArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	return sa.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
+	return errtrace.Wrap(sa.MoveThroughJointPositions(ctx, inputSteps, nil, nil))
 }
 
 func (sa *simulatedArm) IsMoving(ctx context.Context) (bool, error) {

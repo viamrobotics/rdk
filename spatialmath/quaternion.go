@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -305,7 +306,7 @@ func oppositeHemisphere(q1, q2 quat.Number) bool {
 
 // MarshalJSON marshals to W, X, Y, Z json.
 func (q Quaternion) MarshalJSON() ([]byte, error) {
-	return json.Marshal(quaternionJSONFromQuaternion(&q))
+	return errtrace.Wrap2(json.Marshal(quaternionJSONFromQuaternion(&q)))
 }
 
 type quaternionJSON struct {

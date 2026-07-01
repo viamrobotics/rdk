@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/button"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -43,7 +44,7 @@ func TestClient(t *testing.T) {
 	injectButton2 := inject.NewButton(failButtonName)
 	injectButton2.PushFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		buttonPushed = failButtonName
-		return errCantPush
+		return errtrace.Wrap(errCantPush)
 	}
 
 	buttonSvc, err := resource.NewAPIResourceCollection(

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -24,10 +25,10 @@ func WithTrustedEnvironment(ctx context.Context, trusted bool) (context.Context,
 	if alreadySet != nil {
 		currentTrust, ok := alreadySet.(*atomic.Bool)
 		if !ok || currentTrust == nil {
-			return nil, errors.Errorf("trust value is not a bool but %v (%T)", alreadySet, alreadySet)
+			return nil, errtrace.Wrap(errors.Errorf("trust value is not a bool but %v (%T)", alreadySet, alreadySet))
 		}
 		if !currentTrust.Load() && trusted {
-			return nil, errors.New("cannot elevate trust")
+			return nil, errtrace.Wrap(errors.New("cannot elevate trust"))
 		}
 		currentTrust.Store(trusted)
 		return ctx, nil

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"braces.dev/errtrace"
 	"github.com/urfave/cli/v3"
 )
 
@@ -31,7 +32,7 @@ func getProfiles() (map[string]profile, error) {
 	rd, err := os.ReadFile(getCLIProfilesPath())
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		emptyDict := make(map[string]profile)
 		emptyJSON, err := json.Marshal(emptyDict)
@@ -44,7 +45,7 @@ func getProfiles() (map[string]profile, error) {
 
 	profiles := make(map[string]profile)
 	if err := json.Unmarshal(rd, &profiles); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return profiles, nil
 }
@@ -52,25 +53,25 @@ func getProfiles() (map[string]profile, error) {
 func writeProfiles(profiles map[string]profile) error {
 	md, err := json.MarshalIndent(profiles, "", "  ")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	//nolint:gosec
-	return os.WriteFile(getCLIProfilesPath(), md, 0o640)
+	return errtrace.Wrap(os.WriteFile(getCLIProfilesPath(), md, 0o640))
 }
 
 func addOrUpdateProfile(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs, isAdd bool) error {
 	profiles, err := getProfiles()
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return err
+			return errtrace.Wrap(err)
 		}
 		profiles = make(map[string]profile)
 	}
 
 	profile, alreadyExists := profiles[args.ProfileName]
 	if isAdd && alreadyExists {
-		return fmt.Errorf("attempted to add new profile %s but it already existed", args.ProfileName)
+		return errtrace.Wrap(fmt.Errorf("attempted to add new profile %s but it already existed", args.ProfileName))
 	}
 	profile.APIKey.KeyCrypto = args.Key
 	profile.APIKey.KeyID = args.KeyID
@@ -78,7 +79,7 @@ func addOrUpdateProfile(ctx context.Context, cmd *cli.Command, args addOrUpdateP
 	profiles[args.ProfileName] = profile
 
 	if err := writeProfiles(profiles); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var addOrUpdate string
@@ -90,7 +91,7 @@ func addOrUpdateProfile(ctx context.Context, cmd *cli.Command, args addOrUpdateP
 		conf, err := configFromCacheInner(getCLIProfilePath(profile.Name))
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return err
+				return errtrace.Wrap(err)
 			}
 			conf = &Config{}
 		}
@@ -101,7 +102,7 @@ func addOrUpdateProfile(ctx context.Context, cmd *cli.Command, args addOrUpdateP
 		// if we're updating, make sure we actually store the updated config
 		err = storeConfigToCache(conf)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -111,12 +112,12 @@ func addOrUpdateProfile(ctx context.Context, cmd *cli.Command, args addOrUpdateP
 
 // AddProfileAction adds a new CLI profile.
 func AddProfileAction(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs) error {
-	return addOrUpdateProfile(ctx, cmd, args, true)
+	return errtrace.Wrap(addOrUpdateProfile(ctx, cmd, args, true))
 }
 
 // UpdateProfileAction updates an existing CLI profile, or adds it if it doesn't already exist.
 func UpdateProfileAction(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs) error {
-	return addOrUpdateProfile(ctx, cmd, args, false)
+	return errtrace.Wrap(addOrUpdateProfile(ctx, cmd, args, false))
 }
 
 type removeProfileArgs struct {
@@ -144,17 +145,17 @@ func whichProfile(args *globalArgs) (*string, bool) {
 func RemoveProfileAction(ctx context.Context, cmd *cli.Command, args removeProfileArgs) error {
 	profiles, err := getProfiles()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	delete(profiles, args.ProfileName)
 	if err := os.Remove(getCLIProfilePath(args.ProfileName)); err != nil {
 		if !os.IsNotExist(err) {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	if err := writeProfiles(profiles); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Successfully deleted profile %s", args.ProfileName)
@@ -166,7 +167,7 @@ func RemoveProfileAction(ctx context.Context, cmd *cli.Command, args removeProfi
 func ListProfilesAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	profiles, err := getProfiles()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	for p := range profiles {

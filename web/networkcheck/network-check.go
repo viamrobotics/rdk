@@ -19,6 +19,7 @@ import (
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -89,13 +90,13 @@ const (
 func getDefaultGateway(ctx context.Context) (string, error) {
 	switch runtime.GOOS {
 	case "linux":
-		return getDefaultGatewayLinux()
+		return errtrace.Wrap2(getDefaultGatewayLinux())
 	case "darwin":
-		return getDefaultGatewayDarwin(ctx)
+		return errtrace.Wrap2(getDefaultGatewayDarwin(ctx))
 	case "windows":
-		return getDefaultGatewayWindows(ctx)
+		return errtrace.Wrap2(getDefaultGatewayWindows(ctx))
 	default:
-		return "", fmt.Errorf("unsupported OS for gateway detection: %s", runtime.GOOS)
+		return "", errtrace.Wrap(fmt.Errorf("unsupported OS for gateway detection: %s", runtime.GOOS))
 	}
 }
 
@@ -103,9 +104,9 @@ func getDefaultGateway(ctx context.Context) (string, error) {
 func getDefaultGatewayLinux() (string, error) {
 	data, err := os.ReadFile("/proc/net/route")
 	if err != nil {
-		return "", fmt.Errorf("reading /proc/net/route: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("reading /proc/net/route: %w", err))
 	}
-	return parseDefaultGatewayLinux(string(data))
+	return errtrace.Wrap2(parseDefaultGatewayLinux(string(data)))
 }
 
 // parseDefaultGatewayLinux extracts the default gateway IP from /proc/net/route content.
@@ -135,7 +136,7 @@ func parseDefaultGatewayLinux(data string) (string, error) {
 		}
 	}
 	if bestGW == "" {
-		return "", fmt.Errorf("default gateway not found in /proc/net/route")
+		return "", errtrace.Wrap(fmt.Errorf("default gateway not found in /proc/net/route"))
 	}
 	return bestGW, nil
 }
@@ -144,9 +145,9 @@ func parseDefaultGatewayLinux(data string) (string, error) {
 func getDefaultGatewayDarwin(ctx context.Context) (string, error) {
 	out, err := exec.CommandContext(ctx, "route", "-n", "get", "default").Output()
 	if err != nil {
-		return "", fmt.Errorf("running route command: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("running route command: %w", err))
 	}
-	return parseDefaultGatewayDarwin(string(out))
+	return errtrace.Wrap2(parseDefaultGatewayDarwin(string(out)))
 }
 
 // parseDefaultGatewayDarwin extracts the default gateway IP from `route -n get default` output.
@@ -160,7 +161,7 @@ func parseDefaultGatewayDarwin(data string) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("gateway not found in route output")
+	return "", errtrace.Wrap(fmt.Errorf("gateway not found in route output"))
 }
 
 // getDefaultGatewayWindows uses `route PRINT 0.0.0.0` to find the default gateway on Windows.
@@ -172,9 +173,9 @@ func parseDefaultGatewayDarwin(data string) (string, error) {
 func getDefaultGatewayWindows(ctx context.Context) (string, error) {
 	out, err := exec.CommandContext(ctx, "route", "PRINT", "0.0.0.0").Output()
 	if err != nil {
-		return "", fmt.Errorf("running route PRINT: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("running route PRINT: %w", err))
 	}
-	return parseDefaultGatewayWindows(string(out))
+	return errtrace.Wrap2(parseDefaultGatewayWindows(string(out)))
 }
 
 // parseDefaultGatewayWindows extracts the default gateway IP from `route PRINT 0.0.0.0` output.
@@ -198,7 +199,7 @@ func parseDefaultGatewayWindows(data string) (string, error) {
 		}
 	}
 	if bestGW == "" {
-		return "", fmt.Errorf("default gateway not found in route PRINT output")
+		return "", errtrace.Wrap(fmt.Errorf("default gateway not found in route PRINT output"))
 	}
 	return bestGW, nil
 }
@@ -217,7 +218,7 @@ func openICMPConn() (*icmp.PacketConn, string, error) {
 	if err == nil {
 		return conn, udp4Network, nil
 	}
-	return nil, "", fmt.Errorf("failed to open ICMP socket (requires root or CAP_NET_RAW): %w", err)
+	return nil, "", errtrace.Wrap(fmt.Errorf("failed to open ICMP socket (requires root or CAP_NET_RAW): %w", err))
 }
 
 // probePacketLoss sends count ICMP echo requests to target and returns a PacketLossResult.
@@ -756,11 +757,11 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 		stun.BindingRequest,
 	}...)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	bindRequestRaw, err := bindRequest.MarshalBinary()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var stunResponses []*STUNResponse
@@ -919,11 +920,11 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		stun.BindingRequest,
 	}...)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	bindRequestRaw, err := bindRequest.MarshalBinary()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var stunResponses []*STUNResponse

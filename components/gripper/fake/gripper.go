@@ -5,6 +5,7 @@ import (
 	"context"
 	"sync"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -24,7 +25,7 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	if conf.ModelFilePath != "" {
 		if _, err := referenceframe.KinematicModelFromFile(conf.ModelFilePath, ""); err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	}
 	return nil, nil, nil
@@ -53,7 +54,7 @@ func NewGripper(ctx context.Context, deps resource.Dependencies, conf resource.C
 		logger:     logger,
 	}
 	if err := g.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return g, nil
 }
@@ -68,14 +69,14 @@ func (g *Gripper) reconfigure(_ context.Context, _ resource.Dependencies, conf r
 		var err error
 		newConf, err = resource.NativeConfig[*Config](conf)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
 		geometry, err := conf.Frame.Geometry.ParseConfig()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		g.geometries = []spatialmath.Geometry{geometry}
 	}
@@ -83,13 +84,13 @@ func (g *Gripper) reconfigure(_ context.Context, _ resource.Dependencies, conf r
 	if newConf.ModelFilePath != "" {
 		model, err := referenceframe.KinematicModelFromFile(newConf.ModelFilePath, g.Name().ShortName())
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		g.model = model
 	} else {
 		model, err := gripper.MakeModel(g.Name().ShortName(), g.geometries)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		g.model = model
 	}
@@ -168,7 +169,7 @@ func (g *Gripper) Geometries(ctx context.Context, extra map[string]interface{}) 
 	if len(g.model.DoF()) > 0 {
 		gif, err := g.model.Geometries(g.inputs)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return gif.Geometries(), nil
 	}

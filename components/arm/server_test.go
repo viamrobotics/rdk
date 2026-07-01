@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -42,7 +43,7 @@ func newServer(logger logging.Logger) (pb.ArmServiceServer, *inject.Arm, *inject
 	}
 	armSvc, err := resource.NewAPIResourceCollection(arm.API, arms)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return arm.NewRPCServiceServer(armSvc, logger).(pb.ArmServiceServer), injectArm, injectArm2, nil
 }
@@ -63,7 +64,7 @@ func TestServer(t *testing.T) {
 	goodKinematics := func(ctx context.Context) (referenceframe.Model, error) {
 		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo", nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return model, nil
 	}
@@ -71,7 +72,7 @@ func TestServer(t *testing.T) {
 	goodKinematicsJSON := func(ctx context.Context) (referenceframe.Model, error) {
 		model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5e.json"), "foo")
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return model, nil
 	}
@@ -95,7 +96,7 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
-		return nil, errGeometriesUnimplemented
+		return nil, errtrace.Wrap(errGeometriesUnimplemented)
 	}
 	injectArm.MoveThroughJointPositionsFunc = func(
 		ctx context.Context,
@@ -117,25 +118,25 @@ func TestServer(t *testing.T) {
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	positionDegs2 := &pb.JointPositions{Values: []float64{4.0, 5.0, 6.0, 4.0, 5.0, 6.0}}
 	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return nil, errGetPoseFailed
+		return nil, errtrace.Wrap(errGetPoseFailed)
 	}
 	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
-		return nil, errGetJointsFailed
+		return nil, errtrace.Wrap(errGetJointsFailed)
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
-		return errMoveToPositionFailed
+		return errtrace.Wrap(errMoveToPositionFailed)
 	}
 
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp []referenceframe.Input, extra map[string]interface{}) error {
 		capArmJointPos = jp
-		return errMoveToJointPositionFailed
+		return errtrace.Wrap(errMoveToJointPositionFailed)
 	}
 	injectArm2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errKinematicsUnimplemented
+		return nil, errtrace.Wrap(errKinematicsUnimplemented)
 	}
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopUnimplemented
+		return errtrace.Wrap(errStopUnimplemented)
 	}
 
 	t.Run("arm position", func(t *testing.T) {
@@ -438,7 +439,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectArm.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = armServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testArmName})
 		test.That(t, err, test.ShouldNotBeNil)

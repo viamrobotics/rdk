@@ -23,6 +23,7 @@ import (
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -76,11 +77,11 @@ func NewCloudManager(
 	packagesDataDir := filepath.Join(packagesDir, "data")
 
 	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &cloudManager{
@@ -101,7 +102,7 @@ func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 
 	p, ok := m.managedPackages[name]
 	if !ok {
-		return "", ErrPackageMissing
+		return "", errtrace.Wrap(ErrPackageMissing)
 	}
 
 	return p.LocalDataDirectory(m.packagesDir), nil
@@ -137,11 +138,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		statusFile, err := readStatusFile(p, m.packagesDir)
 		if err != nil {
 			m.logger.Errorf("Failed reading status file for synced package %s: %v", p.Name, err)
-			return multierr.Append(outErr, err)
+			return errtrace.Wrap(multierr.Append(outErr, err))
 		}
 		if statusFile.Status == syncStatusFailed {
 			m.logger.Errorf("Package %s was fully downloaded but failed to unzip, please try a different version", p.Name)
-			return multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name))
+			return errtrace.Wrap(multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name)))
 		}
 		newManagedPackages[PackageName(p.Name)] = &p
 	}
@@ -156,7 +157,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
 			m.logger.Errorf("Context canceled. Canceling cloud package manager sync. Time spent: %v", time.Since(start))
-			return multierr.Append(outErr, err)
+			return errtrace.Wrap(multierr.Append(outErr, err))
 		}
 
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
@@ -196,10 +197,10 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 				err = writeStatusFile(p, statusFile, m.packagesDir)
 				if err != nil {
-					return "", "", err
+					return "", "", errtrace.Wrap(err)
 				}
 
-				return m.downloadFileWithChecksum(ctx, url, dstPath)
+				return errtrace.Wrap3(m.downloadFileWithChecksum(ctx, url, dstPath))
 			},
 		)
 		if err != nil {
@@ -235,7 +236,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	// swap for new managed packags.
 	m.managedPackages = newManagedPackages
 
-	return outErr
+	return errtrace.Wrap(outErr)
 }
 
 func (m *cloudManager) validateAndGetChangedPackages(
@@ -278,11 +279,11 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 
 	allErrors = commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
 	if allErrors != nil {
-		return allErrors
+		return errtrace.Wrap(allErrors)
 	}
 
 	allErrors = multierr.Append(allErrors, m.mlModelSymlinkCleanup())
-	return allErrors
+	return errtrace.Wrap(allErrors)
 }
 
 // symlink packages/package-name to packages/data/ml_model/orgid-package-name-ver for backwards compatibility
@@ -290,13 +291,13 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 	symlinkPath, err := rutils.SafeJoinDir(m.packagesDir, p.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	localDataDir := p.LocalDataDirectory(m.packagesDir)
 	if err := linkFile(localDataDir, symlinkPath); err != nil {
-		return fmt.Errorf("failed linking ml_model package %s:%s. localDataDir: %q symlinkPath: %q Err: %w",
-			p.Package, p.Version, localDataDir, symlinkPath, err)
+		return errtrace.Wrap(fmt.Errorf("failed linking ml_model package %s:%s. localDataDir: %q symlinkPath: %q Err: %w",
+			p.Package, p.Version, localDataDir, symlinkPath, err))
 	}
 	return nil
 }
@@ -307,7 +308,7 @@ func (m *cloudManager) mlModelSymlinkCleanup() error {
 	var allErrors error
 	files, err := os.ReadDir(m.packagesDir)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// The only symlinks in this directory are those created for MLModels
@@ -332,7 +333,7 @@ func (m *cloudManager) mlModelSymlinkCleanup() error {
 			allErrors = multierr.Append(allErrors, err)
 		}
 	}
-	return allErrors
+	return errtrace.Wrap(allErrors)
 }
 
 func sanitizeURLForLogs(u string) string {
@@ -419,25 +420,25 @@ func (m *cloudManager) downloadFileWithChecksum(
 	getReq.Header = headers
 
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 
 	//nolint:bodyclose /// closed in UncheckedErrorFunc
 	resp, err := m.httpClient.Do(getReq)
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("invalid status code %d", resp.StatusCode)
+		return "", "", errtrace.Wrap(fmt.Errorf("invalid status code %d", resp.StatusCode))
 	}
 
 	contentType := resp.Header.Get("Content-Type")
 	checksum := getGoogleHash(resp.Header, "crc32c")
 	expectedChecksumBytes, err := base64.StdEncoding.DecodeString(checksum)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to decode expected checksum: %q %w", checksum, err)
+		return "", "", errtrace.Wrap(fmt.Errorf("failed to decode expected checksum: %q %w", checksum, err))
 	}
 
 	if stat, err := os.Stat(downloadPath); err == nil {
@@ -446,7 +447,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 
 	g := getter.HttpGetter{
@@ -461,18 +462,18 @@ func (m *cloudManager) downloadFileWithChecksum(
 		fileSizeProgress(progressCtx, m.logger, downloadPath, resp.ContentLength)
 	})
 	if err := g.GetFile(downloadPath, parsedURL); err != nil {
-		return "", "", errw.Wrap(err, "downloading file")
+		return "", "", errtrace.Wrap(errw.Wrap(err, "downloading file"))
 	}
 
 	hash := crc32Hash()
 	destFile, err := os.Open(downloadPath) //nolint:gosec
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(destFile.Close)
 	_, err = io.Copy(hash, destFile)
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 
 	trimmedChecksumBytes := trimLeadingZeroes(expectedChecksumBytes)
@@ -480,13 +481,13 @@ func (m *cloudManager) downloadFileWithChecksum(
 
 	if !bytes.Equal(trimmedOutHashBytes, trimmedChecksumBytes) {
 		utils.UncheckedError(os.Remove(downloadPath))
-		return checksum, contentType, fmt.Errorf(
+		return checksum, contentType, errtrace.Wrap(fmt.Errorf(
 			"download did not match expected hash:\n"+
 				"  pre-trimmed: %x vs. %x\n"+
 				"  trimmed:     %x vs. %x",
 			expectedChecksumBytes, hash.Sum(nil),
 			trimmedChecksumBytes, trimmedOutHashBytes,
-		)
+		))
 	}
 
 	return checksum, contentType, nil
@@ -527,12 +528,12 @@ func crc32Hash() hash.Hash32 {
 
 func safeLink(parent, link string) (string, error) {
 	if filepath.IsAbs(link) {
-		return link, fmt.Errorf("cannot link '%s' to '%s', symlink target '%s' cannot be an absolute path", link, parent, link)
+		return link, errtrace.Wrap(fmt.Errorf("cannot link '%s' to '%s', symlink target '%s' cannot be an absolute path", link, parent, link))
 	}
 
 	_, err := rutils.SafeJoinDir(parent, link)
 	if err != nil {
-		return link, err
+		return link, errtrace.Wrap(err)
 	}
 	return link, nil
 }
@@ -540,7 +541,7 @@ func safeLink(parent, link string) (string, error) {
 func linkFile(from, to string) error {
 	link, err := os.Readlink(to)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if link == from {
@@ -552,7 +553,7 @@ func linkFile(from, to string) error {
 		utils.UncheckedError(os.Remove(from))
 	}
 
-	return os.Symlink(from, to)
+	return errtrace.Wrap(os.Symlink(from, to))
 }
 
 // SyncOne is a no-op for cloudManager.

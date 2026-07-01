@@ -3,6 +3,7 @@ package genericlinux
 import (
 	"fmt"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	"go.viam.com/rdk/logging"
@@ -19,12 +20,12 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	for idx, c := range conf.AnalogReaders {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	}
 	for idx, c := range conf.DigitalInterrupts {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	}
 	return nil, nil, nil
@@ -57,7 +58,7 @@ func ConstPinDefs(gpioMappings map[string]GPIOBoardMapping) ConfigConverter {
 	return func(conf resource.Config, logger logging.Logger) (*LinuxBoardConfig, error) {
 		newConf, err := resource.NativeConfig[*Config](conf)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		return &LinuxBoardConfig{

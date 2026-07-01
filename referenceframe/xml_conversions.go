@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -74,7 +75,7 @@ type mesh struct {
 func newCollision(g spatialmath.Geometry) (*collision, error) {
 	cfg, err := spatialmath.NewGeometryConfig(g)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	urdf := &collision{
 		Origin: newPose(g.Pose()),
@@ -87,13 +88,13 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 		urdf.Geometry.Sphere = &sphere{Radius: utils.MMToMeters(cfg.R)}
 	case spatialmath.MeshType:
 		if cfg.MeshFilePath == "" {
-			return nil, errors.New("mesh geometry does not have an original file path set")
+			return nil, errtrace.Wrap(errors.New("mesh geometry does not have an original file path set"))
 		}
 		urdf.Geometry.Mesh = &mesh{Filename: cfg.MeshFilePath}
 	case spatialmath.CapsuleType:
-		return nil, errors.New("use newCollisions for capsule geometries")
+		return nil, errtrace.Wrap(errors.New("use newCollisions for capsule geometries"))
 	default:
-		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type))
+		return nil, errtrace.Wrap(fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type)))
 	}
 	return urdf, nil
 }
@@ -104,13 +105,13 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 func newCollisions(g spatialmath.Geometry) ([]collision, error) {
 	cfg, err := spatialmath.NewGeometryConfig(g)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if cfg.Type == spatialmath.CapsuleType {
 		colls, err := newCollisionsFromCapsule(g)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		result := make([]collision, 0, len(colls))
 		for _, c := range colls {
@@ -121,7 +122,7 @@ func newCollisions(g spatialmath.Geometry) ([]collision, error) {
 
 	coll, err := newCollision(g)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return []collision{*coll}, nil
 }
@@ -210,7 +211,7 @@ func tryParseCapsuleFromCollisions(collisions []collision) (spatialmath.Geometry
 	// Pattern matches! Create the capsule
 	// Capsule length = cylinder length + 2*radius (total tip-to-tip)
 	capsuleLength := cylLength + 2*cylRadius
-	return spatialmath.NewCapsule(cylOrigin, cylRadius, capsuleLength, "")
+	return errtrace.Wrap2(spatialmath.NewCapsule(cylOrigin, cylRadius, capsuleLength, ""))
 }
 
 // newCollisionsFromCapsule decomposes a capsule geometry into URDF collision elements
@@ -218,10 +219,10 @@ func tryParseCapsuleFromCollisions(collisions []collision) (spatialmath.Geometry
 func newCollisionsFromCapsule(g spatialmath.Geometry) ([]*collision, error) {
 	cfg, err := spatialmath.NewGeometryConfig(g)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if cfg.Type != spatialmath.CapsuleType {
-		return nil, errors.New("geometry is not a capsule")
+		return nil, errtrace.Wrap(errors.New("geometry is not a capsule"))
 	}
 
 	radius := cfg.R
@@ -274,34 +275,34 @@ func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh, decimationRati
 	switch {
 	case c.Geometry.Box != nil:
 		dims := spaceDelimitedStringToFloatSlice(c.Geometry.Box.Size)
-		return spatialmath.NewBox(
+		return errtrace.Wrap2(spatialmath.NewBox(
 			origin,
 			r3.Vector{X: utils.MetersToMM(dims[0]), Y: utils.MetersToMM(dims[1]), Z: utils.MetersToMM(dims[2])},
 			"",
-		)
+		))
 	case c.Geometry.Sphere != nil:
-		return spatialmath.NewSphere(origin, utils.MetersToMM(c.Geometry.Sphere.Radius), "")
+		return errtrace.Wrap2(spatialmath.NewSphere(origin, utils.MetersToMM(c.Geometry.Sphere.Radius), ""))
 	case c.Geometry.Cylinder != nil:
 		// Standalone cylinders are not natively supported in spatialmath.
 		// Use the cylinder+two-spheres pattern to represent a capsule instead.
-		return nil, errors.New("standalone cylinder geometry not supported; use cylinder + two spheres pattern for capsule")
+		return nil, errtrace.Wrap(errors.New("standalone cylinder geometry not supported; use cylinder + two spheres pattern for capsule"))
 	case c.Geometry.Mesh != nil:
 		meshPath := normalizeURDFMeshPath(c.Geometry.Mesh.Filename)
 
 		// Check if mesh map is provided
 		if meshMap == nil {
-			return nil, fmt.Errorf("mesh geometry requires mesh map to be provided, but got nil for mesh: %s", meshPath)
+			return nil, errtrace.Wrap(fmt.Errorf("mesh geometry requires mesh map to be provided, but got nil for mesh: %s", meshPath))
 		}
 
 		// Look up mesh proto in the provided map
 		protoMesh, ok := meshMap[meshPath]
 		if !ok {
-			return nil, fmt.Errorf("mesh file not found in mesh map: %s", meshPath)
+			return nil, errtrace.Wrap(fmt.Errorf("mesh file not found in mesh map: %s", meshPath))
 		}
 
 		mesh, err := spatialmath.NewMeshFromProto(origin, protoMesh, "")
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// Decimate mesh if a decimation ratio in (0, 1) was specified.
 		if decimationRatio > 0 && decimationRatio < 1 {
@@ -318,7 +319,7 @@ func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh, decimationRati
 		mesh.SetOriginalFilePath(meshPath)
 		return mesh, nil
 	default:
-		return nil, errors.New("couldn't parse xml: no geometry defined")
+		return nil, errtrace.Wrap(errors.New("couldn't parse xml: no geometry defined"))
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -35,7 +36,7 @@ func newServer(logger logging.Logger) (pb.MovementSensorServiceServer, *inject.M
 	}
 	gpsSvc, err := resource.NewAPIResourceCollection(movementsensor.API, gpss)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return movementsensor.NewRPCServiceServer(gpsSvc, logger).(pb.MovementSensorServiceServer),
 		injectMovementSensor, injectMovementSensor2, nil
@@ -54,7 +55,7 @@ func TestServer(t *testing.T) {
 	}
 
 	injectMovementSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return nil, errReadingsFailed
+		return nil, errtrace.Wrap(errReadingsFailed)
 	}
 
 	t.Run("GetReadings", func(t *testing.T) {
@@ -88,7 +89,7 @@ func TestServer(t *testing.T) {
 			return loc, alt, nil
 		}
 		injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-			return nil, 0, errLocation
+			return nil, 0, errtrace.Wrap(errLocation)
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -124,7 +125,7 @@ func TestServer(t *testing.T) {
 		}
 
 		injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-			return r3.Vector{}, errLinearVelocity
+			return r3.Vector{}, errtrace.Wrap(errLinearVelocity)
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -149,7 +150,7 @@ func TestServer(t *testing.T) {
 			return spatialmath.AngularVelocity{0, 0, angZ}, nil
 		}
 		injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-			return spatialmath.AngularVelocity{}, errAngularVelocity
+			return spatialmath.AngularVelocity{}, errtrace.Wrap(errAngularVelocity)
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -175,7 +176,7 @@ func TestServer(t *testing.T) {
 			return ori, nil
 		}
 		injectMovementSensor2.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-			return nil, errOrientation
+			return nil, errtrace.Wrap(errOrientation)
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -206,7 +207,7 @@ func TestServer(t *testing.T) {
 		heading := 202.
 		injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) { return heading, nil }
 		injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-			return 0.0, errCompassHeading
+			return 0.0, errtrace.Wrap(errCompassHeading)
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -231,7 +232,7 @@ func TestServer(t *testing.T) {
 			return props, nil
 		}
 		injectMovementSensor2.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-			return nil, errProperties
+			return nil, errtrace.Wrap(errProperties)
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -256,7 +257,7 @@ func TestServer(t *testing.T) {
 			return acc, nil
 		}
 		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
-			return nil, errAccuracy
+			return nil, errtrace.Wrap(errAccuracy)
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -320,7 +321,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectMovementSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = gpsServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)

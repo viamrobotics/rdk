@@ -19,6 +19,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -94,7 +95,7 @@ func shortHash(input string, n int) (string, error) {
 	hash := md5.New() //nolint:gosec
 	_, err := hash.Write([]byte(input))
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return hex.EncodeToString(hash.Sum(nil))[:n], nil
 }
@@ -337,7 +338,7 @@ func (m *MockBuffer) Close() {
 // WriteBinary writes binary sensor data.
 func (m *MockBuffer) WriteBinary(item *v1.SensorData, mimeType string) error {
 	if err := m.ctx.Err(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if !isBinary(item) {
@@ -355,7 +356,7 @@ func (m *MockBuffer) WriteBinary(item *v1.SensorData, mimeType string) error {
 // WriteTabular writes tabular sensor data to the Writes channel.
 func (m *MockBuffer) WriteTabular(item *v1.SensorData) error {
 	if err := m.ctx.Err(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if isBinary(item) {
 		m.t.Errorf("MockBuffer.WriteTabular called with binary data. item: %#v\n", item)

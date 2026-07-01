@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -16,11 +17,11 @@ import (
 func samePath(path1, path2 string) (bool, error) {
 	abs1, err := filepath.Abs(path1)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	abs2, err := filepath.Abs(path2)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return abs1 == abs2, nil
 }
@@ -68,12 +69,12 @@ func ParseFileType(raw string) string {
 
 func parseBillingAddress(address string) (*apppb.BillingAddress, error) {
 	if address == "" {
-		return nil, errors.New("address is empty")
+		return nil, errtrace.Wrap(errors.New("address is empty"))
 	}
 
 	splitAddress := strings.Split(address, ",")
 	if len(splitAddress) != 5 && len(splitAddress) != 6 {
-		return nil, errors.Errorf("address: %s does not follow the format: line1, line2 (optional), city, state, zipcode, country", address)
+		return nil, errtrace.Wrap(errors.Errorf("address: %s does not follow the format: line1, line2 (optional), city, state, zipcode, country", address))
 	}
 
 	if len(splitAddress) == 5 {
@@ -104,7 +105,7 @@ func parseTimeString(timeStr string) (*timestamppb.Timestamp, error) {
 
 	t, err := time.Parse(time.RFC3339, timeStr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not parse time string: %s", timeStr)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "could not parse time string: %s", timeStr))
 	}
 
 	return timestamppb.New(t), nil

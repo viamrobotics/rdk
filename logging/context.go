@@ -3,6 +3,7 @@ package logging
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -64,7 +65,7 @@ func UnaryClientInterceptor(
 		ctx = metadata.AppendToOutgoingContext(ctx, dtNameMetadataKey, GetName(ctx))
 	}
 
-	return invoker(ctx, method, req, reply, cc, opts...)
+	return errtrace.Wrap(invoker(ctx, method, req, reply, cc, opts...))
 }
 
 // UnaryServerInterceptor checks the incoming RPC metadata for a distributed tracing directive and
@@ -77,7 +78,7 @@ func UnaryServerInterceptor(
 ) (interface{}, error) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return handler(ctx, req)
+		return errtrace.Wrap2(handler(ctx, req))
 	}
 
 	values := meta.Get(dtNameMetadataKey)
@@ -85,5 +86,5 @@ func UnaryServerInterceptor(
 		ctx = EnableDebugModeWithKey(ctx, values[0])
 	}
 
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }

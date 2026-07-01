@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"braces.dev/errtrace"
 	"go.uber.org/multierr"
 )
 
@@ -26,7 +27,7 @@ func (ems *embeddedMediaStream[T, U]) initStream(ctx context.Context) error {
 	}
 	stream, err := ems.src.Stream(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	ems.stream = stream
 	return nil
@@ -37,9 +38,9 @@ func (ems *embeddedMediaStream[T, U]) Next(ctx context.Context) (T, func(), erro
 	defer ems.mu.Unlock()
 	if err := ems.initStream(ctx); err != nil {
 		var zero T
-		return zero, nil, err
+		return zero, nil, errtrace.Wrap(err)
 	}
-	return ems.stream.Next(ctx)
+	return errtrace.Wrap3(ems.stream.Next(ctx))
 }
 
 func (ems *embeddedMediaStream[T, U]) Close(ctx context.Context) error {
@@ -48,7 +49,7 @@ func (ems *embeddedMediaStream[T, U]) Close(ctx context.Context) error {
 	if ems.stream == nil {
 		return nil
 	}
-	return ems.stream.Close(ctx)
+	return errtrace.Wrap(ems.stream.Close(ctx))
 }
 
 // NewEmbeddedMediaStreamFromReader returns a media stream from a media reader that is
@@ -69,11 +70,11 @@ type embeddedMediaReaderStream[T, U any] struct {
 }
 
 func (emrs *embeddedMediaReaderStream[T, U]) Next(ctx context.Context) (T, func(), error) {
-	return emrs.stream.Next(ctx)
+	return errtrace.Wrap3(emrs.stream.Next(ctx))
 }
 
 func (emrs *embeddedMediaReaderStream[T, U]) Close(ctx context.Context) error {
-	return multierr.Combine(emrs.stream.Close(ctx), emrs.src.Close(ctx))
+	return errtrace.Wrap(multierr.Combine(emrs.stream.Close(ctx), emrs.src.Close(ctx)))
 }
 
 type contextValue byte

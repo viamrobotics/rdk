@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"braces.dev/errtrace"
 	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
 )
@@ -23,12 +24,12 @@ type setFirebaseConfigArgs struct {
 func SetFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args setFirebaseConfigArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	configJSON, err := os.ReadFile(args.FirebaseConfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to read firebase config file %q: %w", args.FirebaseConfigPath, err)
+		return errtrace.Wrap(fmt.Errorf("failed to read firebase config file %q: %w", args.FirebaseConfigPath, err))
 	}
 
 	_, err = client.client.SetFirebaseConfig(ctx, &apppb.SetFirebaseConfigRequest{
@@ -37,7 +38,7 @@ func SetFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args setFire
 		ConfigJson: string(configJSON),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to set firebase config: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to set firebase config: %w", err))
 	}
 
 	return nil
@@ -52,14 +53,14 @@ type readFirebaseConfigArgs struct {
 func ReadFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args readFirebaseConfigArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resp, err := client.client.GetFirebaseConfig(ctx, &apppb.GetFirebaseConfigRequest{
 		OrgId: args.OrgID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to read firebase config: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to read firebase config: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "Firebase config for organization %q:", args.OrgID)
@@ -76,7 +77,7 @@ type deleteFirebaseConfigArgs struct {
 func DeleteFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args deleteFirebaseConfigArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.client.DeleteFirebaseConfig(ctx, &apppb.DeleteFirebaseConfigRequest{
@@ -84,7 +85,7 @@ func DeleteFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args dele
 		AppId: args.AppID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to delete firebase config: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to delete firebase config: %w", err))
 	}
 
 	return nil

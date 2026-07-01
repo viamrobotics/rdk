@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/mat"
@@ -69,10 +70,10 @@ func Convert2DPointsToHomogeneousPoints(pts []r2.Point) []r3.Vector {
 // ComputeFundamentalMatrixAllPoints compute the fundamental matrix from all points.
 func ComputeFundamentalMatrixAllPoints(pts1, pts2 []r2.Point, normalize bool) (*mat.Dense, error) {
 	if len(pts1) != len(pts2) {
-		return nil, errors.New("sets of points pts1 and pts2 must have the same number of elements")
+		return nil, errtrace.Wrap(errors.New("sets of points pts1 and pts2 must have the same number of elements"))
 	}
 	if len(pts1) < 8 {
-		return nil, errors.New("sets of points must have at least 8 elements")
+		return nil, errtrace.Wrap(errors.New("sets of points must have at least 8 elements"))
 	}
 	nPoints := len(pts1)
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
@@ -55,10 +56,10 @@ type packageExportArgs struct {
 func PackageExportAction(ctx context.Context, cmd *cli.Command, args packageExportArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.packageExportAction(ctx, args.OrgID, args.Name, args.Version, args.Type, args.Destination)
+	return errtrace.Wrap(client.packageExportAction(ctx, args.OrgID, args.Name, args.Version, args.Type, args.Destination))
 }
 
 func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, error) {
@@ -78,7 +79,7 @@ func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, err
 	case PackageTypeMLTraining:
 		packageTypeProto = packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING
 	default:
-		return nil, errors.New("invalid package type " + packageType)
+		return nil, errtrace.Wrap(errors.New("invalid package type " + packageType))
 	}
 	return &packageTypeProto, nil
 }
@@ -86,11 +87,11 @@ func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, err
 func (c *viamClient) getPackageDownloadURL(ctx context.Context, orgID, name, version, packageType string) (string, error) {
 	if orgID == "" || name == "" {
 		if orgID != "" || name != "" {
-			return "", fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
+			return "", errtrace.Wrap(fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName))
 		}
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return "", errors.Wrap(err, "trying to get package ID from meta.json")
+			return "", errtrace.Wrap(errors.Wrap(err, "trying to get package ID from meta.json"))
 		}
 		orgID, name, _ = strings.Cut(manifest.ModuleID, ":")
 	}
@@ -98,7 +99,7 @@ func (c *viamClient) getPackageDownloadURL(ctx context.Context, orgID, name, ver
 	packageID := path.Join(orgID, name)
 	packageTypeProto, err := convertPackageTypeToProto(packageType)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	resp, err := c.packageClient.GetPackage(ctx,
@@ -110,7 +111,7 @@ func (c *viamClient) getPackageDownloadURL(ctx context.Context, orgID, name, ver
 		},
 	)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.GetPackage().GetUrl(), nil
 }
@@ -118,11 +119,11 @@ func (c *viamClient) getPackageDownloadURL(ctx context.Context, orgID, name, ver
 func (c *viamClient) packageExportAction(ctx context.Context, orgID, name, version, packageType, destination string) error {
 	packageURL, err := c.getPackageDownloadURL(ctx, orgID, name, version, packageType)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = downloadPackageFromURL(ctx, c.authFlow.httpClient, destination, name, version, packageURL, c.conf.Auth)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
@@ -130,17 +131,17 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 ) (string, error) {
 	packagePath := filepath.Join(destination, version, name+".tar.gz")
 	if err := os.MkdirAll(filepath.Dir(packagePath), 0o700); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	//nolint:gosec
 	packageFile, err := os.Create(packagePath)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, packageURL, nil)
 	if err != nil {
-		return "", errors.Wrapf(err, serverErrorMessage)
+		return "", errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 
 	// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
@@ -156,10 +157,10 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	}
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(err, serverErrorMessage)
+		return "", errtrace.Wrap(errors.Wrapf(err, serverErrorMessage))
 	}
 	if res.StatusCode != http.StatusOK {
-		return "", errors.New(serverErrorMessage)
+		return "", errtrace.Wrap(errors.New(serverErrorMessage))
 	}
 	defer func() {
 		utils.UncheckedError(res.Body.Close())
@@ -171,7 +172,7 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 	}
 
@@ -191,20 +192,20 @@ type packageUploadArgs struct {
 // PackageUploadAction is the corresponding action for "packages upload".
 func PackageUploadAction(ctx context.Context, cmd *cli.Command, args packageUploadArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to upload a package")
+		return errtrace.Wrap(errors.New("must provide an organization ID to upload a package"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = convertPackageTypeToProto(args.Type)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := validatePackageUploadRequest(cmd, args); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resp, err := client.uploadPackage(
@@ -230,7 +231,7 @@ func PackageUploadAction(ctx context.Context, cmd *cli.Command, args packageUplo
 		},
 	)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Successfully uploaded package %s, version: %s!", resp.GetId(), resp.GetVersion())
@@ -245,16 +246,16 @@ func (c *viamClient) uploadPackage(
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	stream, err := c.packageClient.CreatePackage(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	packageTypeProto, err := convertPackageTypeToProto(packageType)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// If version is empty, set to some default
 	if version == "" {
@@ -273,7 +274,7 @@ func (c *viamClient) uploadPackage(
 		},
 	}
 	if err := stream.Send(req); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var errs error
@@ -285,14 +286,14 @@ func (c *viamClient) uploadPackage(
 
 	resp, closeErr := stream.CloseAndRecv()
 	errs = multierr.Combine(errs, closeErr)
-	return resp, errs
+	return resp, errtrace.Wrap(errs)
 }
 
 func getBytesFromFile(file *os.File) ([]byte, error) {
 	byteArr := make([]byte, moduleUploadChunkSize)
 	numBytesRead, err := file.Read(byteArr)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if numBytesRead < moduleUploadChunkSize {
 		byteArr = byteArr[:numBytesRead]
@@ -304,7 +305,7 @@ func getBytesFromFile(file *os.File) ([]byte, error) {
 func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, int, error) {
 	byteArr, err := getBytesFromFile(file)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errtrace.Wrap(err)
 	}
 	return &packagespb.CreatePackageRequest{
 		Package: &packagespb.CreatePackageRequest_Contents{
@@ -322,11 +323,11 @@ func validatePackageUploadRequest(_ *cli.Command, args packageUploadArgs) error 
 
 	if packageType == "ml_model" {
 		if args.ModelFramework == "" {
-			return errors.New("must pass in a model-framework if package is of type `ml_model`")
+			return errtrace.Wrap(errors.New("must pass in a model-framework if package is of type `ml_model`"))
 		}
 
 		if !slices.Contains(modelFrameworks, args.ModelFramework) {
-			return errors.New("framework must be of type " + strings.Join(modelFrameworks, ", "))
+			return errtrace.Wrap(errors.New("framework must be of type " + strings.Join(modelFrameworks, ", ")))
 		}
 	}
 

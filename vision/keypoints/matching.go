@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -112,11 +113,11 @@ func MatchDescriptors(desc1, desc2 []Descriptor, cfg *MatchingConfig, logger log
 func GetMatchingKeyPoints(matches []DescriptorMatch, kps1, kps2 KeyPoints) (KeyPoints, KeyPoints, error) {
 	if len(kps1) < len(matches) {
 		err := errors.New("there are more matches than keypoints in first set")
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if len(kps2) < len(matches) {
 		err := errors.New("there are more matches than keypoints in second set")
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	matchedKps1 := make(KeyPoints, len(matches))
 	matchedKps2 := make(KeyPoints, len(matches))

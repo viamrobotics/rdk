@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -62,14 +63,14 @@ type WebcamConfig struct {
 // Validate ensures all parts of the config are valid.
 func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 	if c.Width < 0 || c.Height < 0 {
-		return nil, nil, fmt.Errorf(
+		return nil, nil, errtrace.Wrap(fmt.Errorf(
 			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
-			c.Width, c.Height)
+			c.Width, c.Height))
 	}
 	if c.FrameRate < 0 {
-		return nil, nil, fmt.Errorf(
+		return nil, nil, errtrace.Wrap(fmt.Errorf(
 			"got illegal negative frame rate (%.2f) field set for webcam camera",
-			c.FrameRate)
+			c.FrameRate))
 	}
 
 	return []string{}, nil, nil
@@ -150,7 +151,7 @@ func NewWebcam(
 
 	nativeConf, err := resource.NativeConfig[*WebcamConfig](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(nativeConf.CameraParameters, nativeConf.DistortionParameters)
@@ -158,7 +159,7 @@ func NewWebcam(
 	c.targetPath = nativeConf.Path
 	reader, driver, label, err := findReaderAndDriver(nativeConf, c.targetPath, c.logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find camera: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to find camera: %w", err))
 	}
 
 	c.reader = reader
@@ -187,10 +188,10 @@ func NewWebcam(
 // Must be called with mu held.
 func (c *webcam) ensureActive() error {
 	if c.closed {
-		return errClosed
+		return errtrace.Wrap(errClosed)
 	}
 	if c.disconnected {
-		return errDisconnected
+		return errtrace.Wrap(errDisconnected)
 	}
 	return nil
 }
@@ -199,7 +200,7 @@ func (c *webcam) ensureActive() error {
 // Performs I/O operations, so must be called without holding mu.
 func isCameraConnected(driver driverutils.Driver) (bool, error) {
 	if driver == nil {
-		return false, fmt.Errorf("cannot determine camera status: %w", errNoDriver)
+		return false, errtrace.Wrap(fmt.Errorf("cannot determine camera status: %w", errNoDriver))
 	}
 
 	// TODO(RSDK-1959): this only works for linux
@@ -368,14 +369,14 @@ func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{})
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if err := c.ensureActive(); err != nil {
-		return nil, resource.ResponseMetadata{}, err
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 	}
 
 	if c.buffer.frame == nil {
 		if c.buffer.err != nil {
-			return nil, resource.ResponseMetadata{}, c.buffer.err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(c.buffer.err)
 		}
-		return nil, resource.ResponseMetadata{}, errNoFrames
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(errNoFrames)
 	}
 
 	img := c.buffer.frame
@@ -391,7 +392,7 @@ func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{})
 	}
 	namedImg, err := camera.NamedImageFromImage(img, c.Name().Name, utils.MimeTypeJPEG, data.Annotations{})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("failed to create named image: %w", err)
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("failed to create named image: %w", err))
 	}
 
 	return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
@@ -402,7 +403,7 @@ func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
 	defer c.mu.Unlock()
 
 	if err := c.ensureActive(); err != nil {
-		return camera.Properties{}, err
+		return camera.Properties{}, errtrace.Wrap(err)
 	}
 
 	var frameRate float32
@@ -420,7 +421,7 @@ func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
 }
 
 func (c *webcam) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
-	return nil, errors.New("not supported for webcams")
+	return nil, errtrace.Wrap(errors.New("not supported for webcams"))
 }
 
 func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
@@ -434,7 +435,7 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.mu.Lock()
 	if c.closed {
 		c.mu.Unlock()
-		return fmt.Errorf("webcam already closed: %w", errClosed)
+		return errtrace.Wrap(fmt.Errorf("webcam already closed: %w", errClosed))
 	}
 	c.closed = true
 
@@ -457,7 +458,7 @@ func (c *webcam) Close(ctx context.Context) error {
 	if oldDriver != nil {
 		err := oldDriver.Close()
 		if err != nil {
-			return fmt.Errorf("webcam failed to close (failed to close camera driver): %w", err)
+			return errtrace.Wrap(fmt.Errorf("webcam failed to close (failed to close camera driver): %w", err))
 		}
 	}
 

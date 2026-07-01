@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/posetracker"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -41,7 +42,7 @@ func newServer(logger logging.Logger) (pb.PoseTrackerServiceServer, *inject.Pose
 
 	injectSvc, err := resource.NewAPIResourceCollection(posetracker.API, resourceMap)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return posetracker.NewRPCServiceServer(injectSvc, logger).(pb.PoseTrackerServiceServer), injectPT1, injectPT2, nil
 }
@@ -64,7 +65,7 @@ func TestGetPoses(t *testing.T) {
 	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		referenceframe.FrameSystemPoses, error,
 	) {
-		return nil, errPoseFailed
+		return nil, errtrace.Wrap(errPoseFailed)
 	}
 
 	t.Run("get poses fails on failing pose tracker", func(t *testing.T) {
@@ -143,7 +144,7 @@ func TestGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	workingPT.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = ptServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: workingPTName})
 	test.That(t, err, test.ShouldNotBeNil)

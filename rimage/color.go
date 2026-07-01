@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/floats"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -56,7 +57,7 @@ func NewColorFromHex(hex string) (Color, error) {
 	var r, g, b uint8
 	n, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b)
 	if n != 3 || err != nil {
-		return Color(0), errors.Wrapf(err, "couldn't parse hex (%s) n: %d", hex, n)
+		return Color(0), errtrace.Wrap(errors.Wrapf(err, "couldn't parse hex (%s) n: %d", hex, n))
 	}
 	return NewColor(r, g, b), nil
 }

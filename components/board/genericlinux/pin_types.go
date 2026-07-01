@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 )
 
@@ -43,7 +44,7 @@ func (conf *PinDefinition) UnmarshalJSON(text []byte) error {
 		PwmID:      -1,
 	}
 	if err := json.Unmarshal(text, &aux); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	*conf = PinDefinition(aux)
 	return nil
@@ -52,21 +53,21 @@ func (conf *PinDefinition) UnmarshalJSON(text []byte) error {
 // Validate ensures all parts of the config are valid.
 func (conf *PinDefinition) Validate(path string) error {
 	if conf.Name == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "name"))
 	}
 
 	if conf.DeviceName == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "device_name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "device_name"))
 	}
 
 	// We use -1 as a sentinel value indicating that this pin does not have GPIO capabilities.
 	// Besides that, the line number must be non-negative.
 	if conf.LineNumber < -1 {
-		return resource.NewConfigValidationError(path, errors.New("line_number on gpio chip must be at least zero"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("line_number on gpio chip must be at least zero")))
 	}
 
 	if conf.PwmChipSysfsDir != "" && conf.PwmID == -1 {
-		return resource.NewConfigValidationError(path, errors.New("must supply pwm_id for the pwm chip"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("must supply pwm_id for the pwm chip")))
 	}
 
 	return nil

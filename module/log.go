@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -31,14 +32,14 @@ func (ma *moduleAppender) setModule(m *Module) {
 // possible, outputs the log entry to the underlying stream.
 func (ma *moduleAppender) Write(log zapcore.Entry, fields []zapcore.Field) error {
 	if ma.module == nil {
-		return ma.stdoutAppender.Write(log, fields)
+		return errtrace.Wrap(ma.stdoutAppender.Write(log, fields))
 	}
 
 	// Only give 5 seconds for ModuleLog call in case parent (RDK) is shutting
 	// down or otherwise unreachable.
 	moduleLogCtx, moduleLogCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer moduleLogCancel()
-	return ma.module.parent.Log(moduleLogCtx, log, fields)
+	return errtrace.Wrap(ma.module.parent.Log(moduleLogCtx, log, fields))
 }
 
 // Sync is a no-op (moduleAppenders do not currently have buffers that needs

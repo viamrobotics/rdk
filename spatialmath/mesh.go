@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -210,17 +211,17 @@ func NewMeshFromPLYFile(path string) (*Mesh, error) {
 	//nolint:gosec
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	//nolint:errcheck
 	defer file.Close()
 	bytes, err := io.ReadAll(file)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	mesh, err := newMeshFromBytes(NewZeroPose(), bytes, path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	mesh.SetOriginalFilePath(path)
 	return mesh, nil
@@ -231,17 +232,17 @@ func NewMeshFromSTLFile(path string) (*Mesh, error) {
 	//nolint:gosec
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	//nolint:errcheck
 	defer file.Close()
 	bytes, err := io.ReadAll(file)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	mesh, err := newMeshFromSTLBytes(NewZeroPose(), bytes, path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	mesh.SetOriginalFilePath(path)
 	return mesh, nil
@@ -251,7 +252,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 	// the library we are using for PLY parsing is fragile, so
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.Wrap(errors.Errorf("%v", r), "error reading mesh")
+			err = errtrace.Wrap(errors.Wrap(errors.Errorf("%v", r), "error reading mesh"))
 		}
 	}()
 
@@ -265,20 +266,20 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		for _, i := range idxIface.([]any) {
 			x, err := cast.ToFloat64E(vertices[cast.ToInt(i)]["x"])
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			y, err := cast.ToFloat64E(vertices[cast.ToInt(i)]["y"])
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			z, err := cast.ToFloat64E(vertices[cast.ToInt(i)]["z"])
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			pts = append(pts, r3.Vector{X: x * 1000, Y: y * 1000, Z: z * 1000})
 		}
 		if len(pts) != 3 {
-			return nil, errors.New("triangle did not have three points")
+			return nil, errtrace.Wrap(errors.New("triangle did not have three points"))
 		}
 		tri := NewTriangle(pts[0], pts[1], pts[2])
 		triangles = append(triangles, tri)
@@ -305,7 +306,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 	//   2 bytes - attribute byte count (unused)
 
 	if len(data) < 84 {
-		return nil, errors.New("STL file too small")
+		return nil, errtrace.Wrap(errors.New("STL file too small"))
 	}
 
 	// Read number of triangles (bytes 80-83, little endian uint32)
@@ -313,7 +314,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 
 	expectedSize := 84 + int(numTriangles)*50
 	if len(data) < expectedSize {
-		return nil, fmt.Errorf("STL file size mismatch: expected %d bytes, got %d", expectedSize, len(data))
+		return nil, errtrace.Wrap(fmt.Errorf("STL file size mismatch: expected %d bytes, got %d", expectedSize, len(data)))
 	}
 
 	triangles := make([]*Triangle, numTriangles)
@@ -362,11 +363,11 @@ func readSTLVertex(data []byte, offset int) r3.Vector {
 func NewMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
 	switch m.ContentType {
 	case string(plyType):
-		return newMeshFromBytes(pose, m.Mesh, label)
+		return errtrace.Wrap2(newMeshFromBytes(pose, m.Mesh, label))
 	case string(stlType):
-		return newMeshFromSTLBytes(pose, m.Mesh, label)
+		return errtrace.Wrap2(newMeshFromSTLBytes(pose, m.Mesh, label))
 	default:
-		return nil, fmt.Errorf("unsupported Mesh type: %s", m.ContentType)
+		return nil, errtrace.Wrap(fmt.Errorf("unsupported Mesh type: %s", m.ContentType))
 	}
 }
 
@@ -457,22 +458,22 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		if encompassed {
 			return true, -1, nil
 		}
-		return m.collidesWithGeometryBVH(other, collisionBufferMM)
+		return errtrace.Wrap3(m.collidesWithGeometryBVH(other, collisionBufferMM))
 	case *Mesh:
-		return m.collidesWithMesh(other, collisionBufferMM)
+		return errtrace.Wrap3(m.collidesWithMesh(other, collisionBufferMM))
 	case *Cylinder:
-		return other.CollidesWith(m, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(m, collisionBufferMM))
 	case *capsule, *point, *sphere:
-		return m.collidesWithGeometryBVH(other, collisionBufferMM)
+		return errtrace.Wrap3(m.collidesWithGeometryBVH(other, collisionBufferMM))
 	case *Triangle:
 		// Wrap in a Mesh so we get the negative-cache short-circuit in
 		// collidesWithMesh — RRT smoothing re-checks the same triangle at the
 		// same pose, and the geometry-BVH path has no negCache. The wrap is
 		// cheap now that NewMesh defers PLY serialization (ensurePLYBytes).
 		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		return m.collidesWithMesh(triMesh, collisionBufferMM)
+		return errtrace.Wrap3(m.collidesWithMesh(triMesh, collisionBufferMM))
 	default:
-		return true, math.Inf(1), newCollisionTypeUnsupportedError(m, g)
+		return true, math.Inf(1), errtrace.Wrap(newCollisionTypeUnsupportedError(m, g))
 	}
 }
 
@@ -500,7 +501,7 @@ func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 	for _, pt := range m.ToPoints(1) {
 		collides, _, err := NewPoint(pt, "").CollidesWith(g, defaultCollisionBufferMM)
 		if err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 		if !collides {
 			return false, nil
@@ -518,7 +519,7 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		if encompassed {
 			return 0, nil
 		}
-		return m.distanceFromMesh(other.toMesh())
+		return errtrace.Wrap2(m.distanceFromMesh(other.toMesh()))
 	case *capsule:
 		return capsuleVsMeshDistance(other, m), nil
 	case *point:
@@ -527,13 +528,13 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		return m.distanceFromSphere(other), nil
 	case *Triangle:
 		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		return m.distanceFromMesh(triMesh)
+		return errtrace.Wrap2(m.distanceFromMesh(triMesh))
 	case *Mesh:
-		return m.distanceFromMesh(other)
+		return errtrace.Wrap2(m.distanceFromMesh(other))
 	case *Cylinder:
-		return other.DistanceFrom(m)
+		return errtrace.Wrap2(other.DistanceFrom(m))
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(m, g)
+		return math.Inf(-1), errtrace.Wrap(newCollisionTypeUnsupportedError(m, g))
 	}
 }
 
@@ -633,7 +634,7 @@ func (m *Mesh) ensureBVH() *bvhNode {
 //     smoothing) this turns a ~1ms BVH walk into a hash lookup.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64, error) {
 	if len(m.triangles) == 0 || len(other.triangles) == 0 {
-		return false, 0, errors.New("cannot check collision on mesh with no triangles")
+		return false, 0, errtrace.Wrap(errors.New("cannot check collision on mesh with no triangles"))
 	}
 
 	var (
@@ -659,7 +660,7 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 
 	collides, dist, witness, err := bvhCollidesWithBVHTracked(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
 	if err != nil {
-		return false, 0, err
+		return false, 0, errtrace.Wrap(err)
 	}
 	if m.state != nil && other.state != nil {
 		if collides && witness[0] != nil && witness[1] != nil {
@@ -714,13 +715,13 @@ func witnessStillCollides(t1, t2 *Triangle, pose1, pose2 Pose, collisionBufferMM
 func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
 	bvh := m.ensureBVH()
 	if bvh == nil {
-		return false, 0, errors.New("cannot check collision on mesh with no triangles")
+		return false, 0, errtrace.Wrap(errors.New("cannot check collision on mesh with no triangles"))
 	}
 
 	otherMin, otherMax := computeGeometryAABB(other)
 	collides, dist, witness, err := bvhCollidesWithGeometryTracked(bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
 	if err != nil {
-		return false, 0, err
+		return false, 0, errtrace.Wrap(err)
 	}
 	if collides && witness != nil && m.state != nil {
 		if otherLabel := other.Label(); otherLabel != "" {
@@ -750,10 +751,10 @@ func witnessTriCollidesWith(tri *Triangle, meshPose Pose, other Geometry, collis
 // Uses BVH acceleration for O(log n * log m) performance.
 func (m *Mesh) distanceFromMesh(other *Mesh) (float64, error) {
 	if len(m.triangles) == 0 || len(other.triangles) == 0 {
-		return 0, errors.New("cannot compute distance on mesh with no triangles")
+		return 0, errtrace.Wrap(errors.New("cannot compute distance on mesh with no triangles"))
 	}
 	// Pass poses to BVH distance - BVH stores geometries in local space
-	return bvhDistanceFromBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose)
+	return errtrace.Wrap2(bvhDistanceFromBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose))
 }
 
 // ResetCache clears the mesh's lazily-built collision state: the BVH, the
@@ -851,16 +852,16 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 func (m *Mesh) UnmarshalJSON(data []byte) error {
 	var g commonpb.Geometry
 	if err := protojson.Unmarshal(data, &g); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if _, ok := g.GeometryType.(*commonpb.Geometry_Mesh); !ok {
-		return errors.New("geometry is not a mesh")
+		return errtrace.Wrap(errors.New("geometry is not a mesh"))
 	}
 
 	pose := NewPoseFromProtobuf(g.GetCenter())
 	mesh, err := NewMeshFromProto(pose, g.GetMesh(), g.Label)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// Copy fields explicitly to avoid copying sync.Once.
 	m.pose = mesh.pose
@@ -877,7 +878,7 @@ func (m *Mesh) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements the json.Marshaler interface.
 func (m *Mesh) MarshalJSON() ([]byte, error) {
-	return protojson.Marshal(m.ToProtobuf())
+	return errtrace.Wrap2(protojson.Marshal(m.ToProtobuf()))
 }
 
 // TrianglesToPLYBytes converts the mesh's triangles to bytes in PLY format. The boolean determines

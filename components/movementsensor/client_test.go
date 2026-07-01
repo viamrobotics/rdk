@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -91,31 +92,31 @@ func TestClient(t *testing.T) {
 
 	injectMovementSensor2 := &inject.MovementSensor{}
 	injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return nil, 0, errLocation
+		return nil, 0, errtrace.Wrap(errLocation)
 	}
 	injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-		return r3.Vector{}, errLinearVelocity
+		return r3.Vector{}, errtrace.Wrap(errLinearVelocity)
 	}
 	injectMovementSensor2.LinearAccelerationFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-		return r3.Vector{}, errLinearAcceleration
+		return r3.Vector{}, errtrace.Wrap(errLinearAcceleration)
 	}
 	injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-		return spatialmath.AngularVelocity{}, errAngularVelocity
+		return spatialmath.AngularVelocity{}, errtrace.Wrap(errAngularVelocity)
 	}
 	injectMovementSensor2.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-		return nil, errOrientation
+		return nil, errtrace.Wrap(errOrientation)
 	}
 	injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, errCompassHeading
+		return 0, errtrace.Wrap(errCompassHeading)
 	}
 	injectMovementSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return nil, errReadingsFailed
+		return nil, errtrace.Wrap(errReadingsFailed)
 	}
 	injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
-		return nil, errAccuracy
+		return nil, errtrace.Wrap(errAccuracy)
 	}
 	injectMovementSensor2.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-		return nil, errProperties
+		return nil, errtrace.Wrap(errProperties)
 	}
 
 	gpsSvc, err := resource.NewAPIResourceCollection(movementsensor.API, map[resource.Name]movementsensor.MovementSensor{

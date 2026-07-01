@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 
+	"braces.dev/errtrace"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/utilities"
 	"google.golang.org/grpc"
@@ -48,23 +49,23 @@ func request_SummationService_Sum_0(ctx context.Context, marshaler runtime.Marsh
 
 	val, ok = pathParams["name"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "missing parameter %s", "name"))
 	}
 
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err))
 	}
 
 	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_SummationService_Sum_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	msg, err := client.Sum(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -81,23 +82,23 @@ func local_request_SummationService_Sum_0(ctx context.Context, marshaler runtime
 
 	val, ok = pathParams["name"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "missing parameter %s", "name"))
 	}
 
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err))
 	}
 
 	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_SummationService_Sum_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	msg, err := server.Sum(ctx, &protoReq)
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -140,7 +141,7 @@ func RegisterSummationServiceHandlerServer(ctx context.Context, mux *runtime.Ser
 func RegisterSummationServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		if err != nil {
@@ -157,13 +158,13 @@ func RegisterSummationServiceHandlerFromEndpoint(ctx context.Context, mux *runti
 		}()
 	}()
 
-	return RegisterSummationServiceHandler(ctx, mux, conn)
+	return errtrace.Wrap(RegisterSummationServiceHandler(ctx, mux, conn))
 }
 
 // RegisterSummationServiceHandler registers the http handlers for service SummationService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
 func RegisterSummationServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterSummationServiceHandlerClient(ctx, mux, NewSummationServiceClient(conn))
+	return errtrace.Wrap(RegisterSummationServiceHandlerClient(ctx, mux, NewSummationServiceClient(conn)))
 }
 
 // RegisterSummationServiceHandlerClient registers the http handlers for service SummationService

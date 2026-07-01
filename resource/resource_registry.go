@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -166,12 +167,12 @@ func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	if rs.RPCServiceServerConstructor == nil {
 		return nil
 	}
-	return rpcServer.RegisterServiceServer(
+	return errtrace.Wrap(rpcServer.RegisterServiceServer(
 		ctx,
 		rs.RPCServiceDesc,
 		rs.RPCServiceServerConstructor(apiGetter, logger),
 		rs.RPCServiceHandler,
-	)
+	))
 }
 
 // AssociatedConfig defines the contract for a config that is associated with another config.
@@ -308,7 +309,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 			conf Config,
 			logger logging.Logger,
 		) (Resource, error) {
-			return typed.Constructor(ctx, deps, conf, logger)
+			return errtrace.Wrap2(typed.Constructor(ctx, deps, conf, logger))
 		}
 	}
 	if typed.DeprecatedRobotConstructor != nil {
@@ -318,12 +319,12 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 			conf Config,
 			logger logging.Logger,
 		) (Resource, error) {
-			return typed.DeprecatedRobotConstructor(ctx, r, conf, logger)
+			return errtrace.Wrap2(typed.DeprecatedRobotConstructor(ctx, r, conf, logger))
 		}
 	}
 	if typed.AttributeMapConverter != nil {
 		reg.AttributeMapConverter = func(attributes utils.AttributeMap) (ConfigValidator, error) {
-			return typed.AttributeMapConverter(attributes)
+			return errtrace.Wrap2(typed.AttributeMapConverter(attributes))
 		}
 	}
 
@@ -417,7 +418,7 @@ func makeGenericAssociatedConfigRegistration[AssocT AssociatedConfig](
 	}
 	if typed.AttributeMapConverter != nil {
 		reg.AttributeMapConverter = func(attributes utils.AttributeMap) (AssociatedConfig, error) {
-			return typed.AttributeMapConverter(attributes)
+			return errtrace.Wrap2(typed.AttributeMapConverter(attributes))
 		}
 	}
 
@@ -436,9 +437,9 @@ func (g specificSubtypeGetter[ResourceT]) Resource(name string) (ResourceT, erro
 	res, err := g.untyped.Resource(name)
 	if err != nil {
 		var zero ResourceT
-		return zero, err
+		return zero, errtrace.Wrap(err)
 	}
-	return AsType[ResourceT](res)
+	return errtrace.Wrap2(AsType[ResourceT](res))
 }
 
 // genericSubypeCollection wraps a typed collection so that it can be used generically. It ensures
@@ -448,7 +449,7 @@ type genericSubypeCollection[ResourceT Resource] struct {
 }
 
 func (g genericSubypeCollection[ResourceT]) Resource(name string) (Resource, error) {
-	return g.typed.Resource(name)
+	return errtrace.Wrap2(g.typed.Resource(name))
 }
 
 func (g genericSubypeCollection[ResourceT]) ReplaceAll(resources map[Name]Resource) error {
@@ -456,31 +457,31 @@ func (g genericSubypeCollection[ResourceT]) ReplaceAll(resources map[Name]Resour
 	for k, v := range resources {
 		typed, err := AsType[ResourceT](v)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		copied[k] = typed
 	}
-	return g.typed.ReplaceAll(copied)
+	return errtrace.Wrap(g.typed.ReplaceAll(copied))
 }
 
 func (g genericSubypeCollection[ResourceT]) Add(resName Name, res Resource) error {
 	typed, err := AsType[ResourceT](res)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return g.typed.Add(resName, typed)
+	return errtrace.Wrap(g.typed.Add(resName, typed))
 }
 
 func (g genericSubypeCollection[ResourceT]) Remove(name Name) error {
-	return g.typed.Remove(name)
+	return errtrace.Wrap(g.typed.Remove(name))
 }
 
 func (g genericSubypeCollection[ResourceT]) ReplaceOne(resName Name, res Resource) error {
 	typed, err := AsType[ResourceT](res)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return g.typed.ReplaceOne(resName, typed)
+	return errtrace.Wrap(g.typed.ReplaceOne(resName, typed))
 }
 
 // makeGenericResourceRegistrationAPI allows a registration to be generic and ensures all input/output types
@@ -529,7 +530,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 			name Name,
 			logger logging.Logger,
 		) (Resource, error) {
-			return typed.RPCClient(ctx, conn, remoteName, name, logger)
+			return errtrace.Wrap2(typed.RPCClient(ctx, conn, remoteName, name, logger))
 		}
 	}
 
@@ -559,7 +560,7 @@ func LookupAPIRegistration[ResourceT Resource](api API) (APIRegistration[Resourc
 	if registration, ok := RegisteredAPIs()[api]; ok {
 		typed, err := utils.AssertType[APIRegistration[ResourceT]](registration.typedVersion)
 		if err != nil {
-			return zero, false, err
+			return zero, false, errtrace.Wrap(err)
 		}
 		return typed, true, nil
 	}
@@ -593,6 +594,6 @@ func StatusFunc[ResourceT Resource, StatusU proto.Message](
 	f func(ctx context.Context, res ResourceT) (StatusU, error),
 ) func(ctx context.Context, res ResourceT) (any, error) {
 	return func(ctx context.Context, res ResourceT) (any, error) {
-		return f(ctx, res)
+		return errtrace.Wrap2(f(ctx, res))
 	}
 }

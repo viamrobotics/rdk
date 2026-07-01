@@ -9,6 +9,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -35,7 +36,7 @@ func CreateCombinedIKSolver(
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(logger, -1, true, true, maxTime)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		ik.solvers = append(ik.solvers, nloptSolver)
 	}
@@ -97,5 +98,5 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 
 	activeSolvers.Wait()
 
-	return totalSolutionsFound, metas, solveErrors
+	return totalSolutionsFound, metas, errtrace.Wrap(solveErrors)
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -43,8 +44,8 @@ func NewService(
 	defaultCamera string,
 ) (Service, error) {
 	if cf == nil && df == nil && s3f == nil {
-		return nil, errors.Errorf(
-			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name)
+		return nil, errtrace.Wrap(errors.Errorf(
+			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name))
 	}
 
 	p := Properties{false, false, false}
@@ -59,7 +60,7 @@ func NewService(
 	}
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
-		return camera.FromProvider(deps, cameraName)
+		return errtrace.Wrap2(camera.FromProvider(deps, cameraName))
 	}
 
 	return &vizModel{
@@ -87,8 +88,8 @@ func DeprecatedNewService(
 	defaultCamera string,
 ) (Service, error) {
 	if cf == nil && df == nil && s3f == nil {
-		return nil, errors.Errorf(
-			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name)
+		return nil, errtrace.Wrap(errors.Errorf(
+			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name))
 	}
 
 	p := Properties{false, false, false}
@@ -105,7 +106,7 @@ func DeprecatedNewService(
 	logger := r.Logger()
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
-		return camera.FromProvider(r, cameraName)
+		return errtrace.Wrap2(camera.FromProvider(r, cameraName))
 	}
 
 	return &vizModel{
@@ -131,16 +132,16 @@ func (vm *vizModel) Detections(
 	defer span.End()
 
 	if vm.detectorFunc == nil {
-		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
+		return nil, errtrace.Wrap(errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name()))
 	}
 	if img == nil {
-		return nil, errors.New("nil image input to Detections")
+		return nil, errtrace.Wrap(errors.New("nil image input to Detections"))
 	}
 	decoded, err := img.Image(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return vm.detectorFunc(ctx, decoded)
+	return errtrace.Wrap2(vm.detectorFunc(ctx, decoded))
 }
 
 // DetectionsFromCamera returns the detections of the next image from the given camera.
@@ -153,26 +154,26 @@ func (vm *vizModel) DetectionsFromCamera(
 	defer span.End()
 
 	if cameraName == "" && vm.defaultCamera == "" {
-		return nil, errors.New("no camera name provided and no default camera found")
+		return nil, errtrace.Wrap(errors.New("no camera name provided and no default camera found"))
 	} else if cameraName == "" {
 		cameraName = vm.defaultCamera
 	}
 	if vm.detectorFunc == nil {
-		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
+		return nil, errtrace.Wrap(errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name()))
 	}
 
 	cam, err := vm.getCamera(cameraName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "could not find camera named %s", cameraName))
 	}
 	namedImages, _, err := cam.Images(ctx, nil, extra)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "could not get image from %s", cameraName))
 	}
 	if len(namedImages) == 0 {
-		return nil, errors.Errorf("no images returned from camera %s", cameraName)
+		return nil, errtrace.Wrap(errors.Errorf("no images returned from camera %s", cameraName))
 	}
-	return vm.Detections(ctx, &namedImages[0], extra)
+	return errtrace.Wrap2(vm.Detections(ctx, &namedImages[0], extra))
 }
 
 // Classifications returns the classifications of given image if the model implements classifications.Classifier.
@@ -186,20 +187,20 @@ func (vm *vizModel) Classifications(
 	defer span.End()
 
 	if vm.classifierFunc == nil {
-		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
+		return nil, errtrace.Wrap(errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name()))
 	}
 	if img == nil {
-		return nil, errors.New("nil image input to Classifications")
+		return nil, errtrace.Wrap(errors.New("nil image input to Classifications"))
 	}
 	decoded, err := img.Image(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	fullClassifications, err := vm.classifierFunc(ctx, decoded)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get classifications from image")
+		return nil, errtrace.Wrap(errors.Wrap(err, "could not get classifications from image"))
 	}
-	return fullClassifications.TopN(n)
+	return errtrace.Wrap2(fullClassifications.TopN(n))
 }
 
 // ClassificationsFromCamera returns the classifications of the next image from the given camera.
@@ -213,26 +214,26 @@ func (vm *vizModel) ClassificationsFromCamera(
 	defer span.End()
 
 	if cameraName == "" && vm.defaultCamera == "" {
-		return nil, errors.New("no camera name provided and no default camera found")
+		return nil, errtrace.Wrap(errors.New("no camera name provided and no default camera found"))
 	} else if cameraName == "" {
 		cameraName = vm.defaultCamera
 	}
 	if vm.classifierFunc == nil {
-		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
+		return nil, errtrace.Wrap(errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name()))
 	}
 
 	cam, err := vm.getCamera(cameraName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "could not find camera named %s", cameraName))
 	}
 	namedImages, _, err := cam.Images(ctx, nil, extra)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "could not get image from %s", cameraName))
 	}
 	if len(namedImages) == 0 {
-		return nil, errors.Errorf("no images returned from camera %s", cameraName)
+		return nil, errtrace.Wrap(errors.Errorf("no images returned from camera %s", cameraName))
 	}
-	return vm.Classifications(ctx, &namedImages[0], n, extra)
+	return errtrace.Wrap2(vm.Classifications(ctx, &namedImages[0], n, extra))
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D.
@@ -245,18 +246,18 @@ func (vm *vizModel) GetObjectPointClouds(
 	defer span.End()
 
 	if vm.segmenter3DFunc == nil {
-		return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.Named.Name().String())
+		return nil, errtrace.Wrap(errors.Errorf("vision model %q does not implement a 3D segmenter", vm.Named.Name().String()))
 	}
 	if cameraName == "" && vm.defaultCamera == "" {
-		return nil, errors.New("no camera name provided and no default camera found")
+		return nil, errtrace.Wrap(errors.New("no camera name provided and no default camera found"))
 	} else if cameraName == "" {
 		cameraName = vm.defaultCamera
 	}
 	cam, err := vm.getCamera(cameraName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return vm.segmenter3DFunc(ctx, cam)
+	return errtrace.Wrap2(vm.segmenter3DFunc(ctx, cam))
 }
 
 // GetProperties returns a Properties object that details the vision capabilities of the model.
@@ -277,20 +278,20 @@ func (vm *vizModel) CaptureAllFromCamera(
 	defer span.End()
 
 	if cameraName == "" && vm.defaultCamera == "" {
-		return viscapture.VisCapture{}, errors.New("no camera name provided and no default camera found")
+		return viscapture.VisCapture{}, errtrace.Wrap(errors.New("no camera name provided and no default camera found"))
 	} else if cameraName == "" {
 		cameraName = vm.defaultCamera
 	}
 	cam, err := vm.getCamera(cameraName)
 	if err != nil {
-		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
+		return viscapture.VisCapture{}, errtrace.Wrap(errors.Wrapf(err, "could not find camera named %s", cameraName))
 	}
 	namedImages, _, err := cam.Images(ctx, nil, extra)
 	if err != nil {
-		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
+		return viscapture.VisCapture{}, errtrace.Wrap(errors.Wrapf(err, "could not get image from %s", cameraName))
 	}
 	if len(namedImages) == 0 {
-		return viscapture.VisCapture{}, errors.Errorf("no images returned from camera %s", cameraName)
+		return viscapture.VisCapture{}, errtrace.Wrap(errors.Errorf("no images returned from camera %s", cameraName))
 	}
 	namedImg := &namedImages[0]
 
@@ -301,7 +302,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 		} else {
 			detections, err = vm.Detections(ctx, namedImg, extra)
 			if err != nil {
-				return viscapture.VisCapture{}, err
+				return viscapture.VisCapture{}, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -314,7 +315,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 		} else {
 			classifications, err = vm.Classifications(ctx, namedImg, 0, extra)
 			if err != nil {
-				return viscapture.VisCapture{}, err
+				return viscapture.VisCapture{}, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -326,7 +327,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 		} else {
 			objPCD, err = vm.GetObjectPointClouds(ctx, cameraName, extra)
 			if err != nil {
-				return viscapture.VisCapture{}, err
+				return viscapture.VisCapture{}, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -347,5 +348,5 @@ func (vm *vizModel) Close(ctx context.Context) error {
 	if vm.closerFunc == nil {
 		return nil
 	}
-	return vm.closerFunc(ctx)
+	return errtrace.Wrap(vm.closerFunc(ctx))
 }

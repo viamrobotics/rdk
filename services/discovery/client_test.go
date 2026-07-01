@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -33,7 +34,7 @@ func TestClient(t *testing.T) {
 
 	failingDiscovery := inject.NewDiscoveryService(failDiscoveryName)
 	failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
-		return nil, errDiscoverFailed
+		return nil, errtrace.Wrap(errDiscoverFailed)
 	}
 	failingDiscovery.DoFunc = func(
 		ctx context.Context,
@@ -42,7 +43,7 @@ func TestClient(t *testing.T) {
 		map[string]interface{},
 		error,
 	) {
-		return nil, errDoFailed
+		return nil, errtrace.Wrap(errDoFailed)
 	}
 
 	resourceMap := map[resource.Name]discovery.Service{

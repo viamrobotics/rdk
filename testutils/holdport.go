@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 )
@@ -25,7 +26,7 @@ type HoldPortListener struct {
 // Close is invoked by the server's stop method. Arm a past deadline to unblock
 // Accept instead of closing the socket, so the port stays bound.
 func (h *HoldPortListener) Close() error {
-	return h.SetDeadline(time.Unix(1, 0))
+	return errtrace.Wrap(h.SetDeadline(time.Unix(1, 0)))
 }
 
 // Rearm clears the deadline so the next server can accept on the listener. Call

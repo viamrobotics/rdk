@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/logging"
@@ -76,7 +77,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	case conf.ArmModel == "" && conf.ModelFilePath != "":
 		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
 	}
-	return nil, nil, err
+	return nil, nil, errtrace.Wrap(err)
 }
 
 func init() {
@@ -92,7 +93,7 @@ func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Confi
 		logger: logger,
 	}
 	if err := a.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return a, nil
 }
@@ -117,7 +118,7 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 		model, err = modelFromName(Model.Name, cfg.Name)
 	}
 
-	return model, err
+	return model, errtrace.Wrap(err)
 }
 
 // Arm is a fake arm that can simply read and set properties.
@@ -138,19 +139,19 @@ type Arm struct {
 func (a *Arm) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	model, err := buildModel(conf, newConf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dof := len(model.DoF())
 	if dof == 0 {
-		return errors.New("fake arm built with zero degrees-of-freedom, nothing will show up on the Control tab " +
+		return errtrace.Wrap(errors.New("fake arm built with zero degrees-of-freedom, nothing will show up on the Control tab " +
 			"you have either given a kinematics file that resulted in a zero degrees-of-freedom arm or omitted both" +
-			"the arm-model and model-path from attributes")
+			"the arm-model and model-path from attributes"))
 	}
 
 	a.mu.Lock()
@@ -165,11 +166,11 @@ func (a *Arm) reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := a.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return a.model.Transform(joints)
+	return errtrace.Wrap2(a.model.Transform(joints))
 }
 
 // MoveToPosition sets the position.
@@ -179,12 +180,12 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 
 	model := a.model
 	if _, err := model.Transform(a.joints); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	plan, err := motionplan.GetGlobal().PlanFrameMotion(ctx, a.logger, pose, model, a.joints, nil, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	copy(a.joints, plan[len(plan)-1])
 	return nil
@@ -193,13 +194,13 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 // MoveToJointPositions sets the joints.
 func (a *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.Input, extra map[string]interface{}) error {
 	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	_, err := a.model.Transform(joints)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	copy(a.joints, joints)
 	return nil
@@ -214,7 +215,7 @@ func (a *Arm) MoveThroughJointPositions(
 ) error {
 	for _, goal := range positions {
 		if err := a.MoveToJointPositions(ctx, goal, nil); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -260,7 +261,7 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs moves the fake arm to the given inputs.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	return a.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
+	return errtrace.Wrap(a.MoveThroughJointPositions(ctx, inputSteps, nil, nil))
 }
 
 // Close does nothing.
@@ -276,13 +277,13 @@ func (a *Arm) Close(ctx context.Context) error {
 func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	inputs, err := a.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	gif, err := a.model.Geometries(inputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return gif.Geometries(), nil
 }
@@ -314,22 +315,22 @@ func (a *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (ma
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur5eModel:
-		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(ur5eJSON, name))
 	case ur7eModel:
-		return referenceframe.UnmarshalModelJSON(ur7eJSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(ur7eJSON, name))
 	case ur20Model:
-		return referenceframe.UnmarshalModelJSON(ur20JSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(ur20JSON, name))
 	case xArm6Model:
-		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(xarm6JSON, name))
 	case xArm7Model:
-		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(xarm7JSON, name))
 	case lite6Model:
-		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(lite6JSON, name))
 	case dofbotModel:
-		return referenceframe.UnmarshalModelJSON(dofbotJSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(dofbotJSON, name))
 	case Model.Name:
-		return referenceframe.UnmarshalModelJSON(fakejson, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(fakejson, name))
 	default:
-		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
+		return nil, errtrace.Wrap(errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model))
 	}
 }

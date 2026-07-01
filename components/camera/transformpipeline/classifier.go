@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
@@ -42,12 +43,12 @@ func newClassificationsTransform(
 ) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*classifierConfig](am)
 	if err != nil {
-		return nil, camera.UnspecifiedStream, err
+		return nil, camera.UnspecifiedStream, errtrace.Wrap(err)
 	}
 
 	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
-		return nil, camera.UnspecifiedStream, err
+		return nil, camera.UnspecifiedStream, errtrace.Wrap(err)
 	}
 	var cameraModel transform.PinholeCameraModel
 	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
@@ -75,9 +76,9 @@ func newClassificationsTransform(
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, classifier, &cameraModel, camera.ColorStream)
 	if err != nil {
-		return nil, camera.UnspecifiedStream, err
+		return nil, camera.UnspecifiedStream, errtrace.Wrap(err)
 	}
-	return src, camera.ColorStream, err
+	return src, camera.ColorStream, errtrace.Wrap(err)
 }
 
 // Read returns the image overlaid with at most max_classifications labels from the classification.
@@ -89,27 +90,27 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 
 	srv, err := vision.FromProvider(cs.r, cs.classifierName)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
+		return nil, nil, errtrace.Wrap(errors.Wrap(err, "source_classifier can't find vision service"))
 	}
 	// get image from source camera
 	img, release, err := camera.ReadImage(ctx, cs.src)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get next source image")
+		return nil, nil, errtrace.Wrap(errors.Wrap(err, "could not get next source image"))
 	}
 	namedImg, err := camera.NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not create named image")
+		return nil, nil, errtrace.Wrap(errors.Wrap(err, "could not create named image"))
 	}
 	classifications, err := srv.Classifications(ctx, &namedImg, int(cs.maxClassifications), map[string]interface{}{})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get classifications")
+		return nil, nil, errtrace.Wrap(errors.Wrap(err, "could not get classifications"))
 	}
 	// overlay labels on the source image
 	classifications = cs.confFilter(classifications)
 	classifications = cs.labelFilter(classifications)
 	res, err := classification.Overlay(img, classifications)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not overlay labels")
+		return nil, nil, errtrace.Wrap(errors.Wrap(err, "could not overlay labels"))
 	}
 	return res, release, nil
 }

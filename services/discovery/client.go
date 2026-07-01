@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
@@ -47,13 +48,13 @@ func (c *client) DiscoverResources(ctx context.Context, extra map[string]any) ([
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	req := &pb.DiscoverResourcesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.DiscoverResources(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	protoConfigs := resp.GetDiscoveries()
 
@@ -61,7 +62,7 @@ func (c *client) DiscoverResources(ctx context.Context, extra map[string]any) ([
 	for _, proto := range protoConfigs {
 		config, err := config.ComponentConfigFromProto(proto, c.logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		discoveredConfigs = append(discoveredConfigs, *config)
 	}
@@ -72,9 +73,9 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	ctx, span := trace.StartSpan(ctx, "discovery::client::DoCommand")
 	defer span.End()
 
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/gostream/codec"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
@@ -63,7 +64,7 @@ type MediaReleasePair[T any] struct {
 // new connections.
 func NewStream(config StreamConfig, logger logging.Logger) (Stream, error) {
 	if config.VideoEncoderFactory == nil {
-		return nil, errors.New("video encoder factory must be set")
+		return nil, errtrace.Wrap(errors.New("video encoder factory must be set"))
 	}
 	if config.TargetFrameRate == 0 {
 		config.TargetFrameRate = defaultTargetFrameRate
@@ -142,7 +143,7 @@ func (bs *basicStream) Start() {
 // if we also need to support writing audio RTP packets, we should split
 // this method into WriteVideoRTP and WriteAudioRTP.
 func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
-	return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
+	return errtrace.Wrap(bs.videoTrackLocal.rtpTrack.WriteRTP(pkt))
 }
 
 func (bs *basicStream) Stop() {
@@ -178,7 +179,7 @@ func (bs *basicStream) StreamingReady() (<-chan struct{}, context.Context) {
 
 func (bs *basicStream) InputVideoFrames(props prop.Video) (chan<- MediaReleasePair[image.Image], error) {
 	if bs.config.VideoEncoderFactory == nil {
-		return nil, errors.New("no video in stream")
+		return nil, errtrace.Wrap(errors.New("no video in stream"))
 	}
 	return bs.inputImageChan, nil
 }
@@ -306,5 +307,5 @@ func (bs *basicStream) processOutputFrames() {
 func (bs *basicStream) initVideoCodec(width, height int) error {
 	var err error
 	bs.videoEncoder, err = bs.config.VideoEncoderFactory.New(width, height, bs.config.TargetFrameRate, bs.logger)
-	return err
+	return errtrace.Wrap(err)
 }

@@ -9,6 +9,7 @@ import (
 
 	pb "go.viam.com/api/component/gantry/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -125,7 +126,7 @@ type Gantry interface {
 //
 //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Gantry, error) {
-	return resource.FromDependencies[Gantry](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Gantry](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named gantry from the given Robot.
@@ -133,12 +134,12 @@ func FromDependencies(deps resource.Dependencies, name string) (Gantry, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
-	return robot.ResourceFromRobot[Gantry](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Gantry](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Gantry from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Gantry, error) {
-	return resource.FromProvider[Gantry](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Gantry](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.

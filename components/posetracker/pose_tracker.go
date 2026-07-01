@@ -7,6 +7,7 @@ import (
 
 	pb "go.viam.com/api/component/posetracker/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -54,7 +55,7 @@ type PoseTracker interface {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
-	return robot.ResourceFromRobot[PoseTracker](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[PoseTracker](r, Named(name)))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named pose tracker from a collection of
@@ -62,10 +63,10 @@ func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 //
 //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (PoseTracker, error) {
-	return resource.FromDependencies[PoseTracker](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[PoseTracker](deps, Named(name)))
 }
 
 // FromProvider is a helper for getting the named PoseTracker from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (PoseTracker, error) {
-	return resource.FromProvider[PoseTracker](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[PoseTracker](provider, Named(name)))
 }

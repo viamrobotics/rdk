@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -113,12 +114,12 @@ type RobotFrameSystem interface {
 
 // FromDependencies is a helper for getting the framesystem from a collection of dependencies.
 func FromDependencies(deps resource.Dependencies) (Service, error) {
-	return resource.FromProvider[Service](deps, PublicServiceName)
+	return errtrace.Wrap2(resource.FromProvider[Service](deps, PublicServiceName))
 }
 
 // FromProvider is a helper for getting the named arm from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider) (Service, error) {
-	return resource.FromProvider[Service](provider, PublicServiceName)
+	return errtrace.Wrap2(resource.FromProvider[Service](provider, PublicServiceName))
 }
 
 // New returns a new frame system service for the given robot.
@@ -129,7 +130,7 @@ func New(ctx context.Context, deps resource.Dependencies, logger logging.Logger)
 		logger:     logger,
 	}
 	if err := fs.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return fs, nil
 }
@@ -205,7 +206,7 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	components := make(map[string]resource.Resource)
 	for name, r := range deps {
 		if _, present := components[name.Name]; present {
-			return DuplicateResourceNameError(name.Name)
+			return errtrace.Wrap(DuplicateResourceNameError(name.Name))
 		}
 		components[name.Name] = r
 	}
@@ -213,7 +214,7 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	sortedParts, unlinkedParts := referenceframe.TopologicallySortParts(fsCfg.Parts)
@@ -245,14 +246,14 @@ func (svc *frameSystemService) GetPose(
 		destinationFrame = referenceframe.World
 	}
 	if componentName == "" {
-		return nil, errors.New("must provide component name")
+		return nil, errtrace.Wrap(errors.New("must provide component name"))
 	}
-	return svc.TransformPose(
+	return errtrace.Wrap2(svc.TransformPose(
 		ctx,
 		referenceframe.NewPoseInFrame(componentName, spatialmath.NewZeroPose()),
 		destinationFrame,
 		supplementalTransforms,
-	)
+	))
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
@@ -267,7 +268,7 @@ func (svc *frameSystemService) TransformPose(
 
 	fs, err := referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	svc.partsMu.RLock()
@@ -275,12 +276,12 @@ func (svc *frameSystemService) TransformPose(
 
 	input, err := svc.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	tf, err := fs.Transform(input.ToLinearInputs(), pose, dst)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return tf.(*referenceframe.PoseInFrame), nil
 }
@@ -295,19 +296,19 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 		dstName = referenceframe.World
 	}
 	if srcName == "" {
-		return nil, errors.New("srcName cannot be empty, must provide name of point cloud origin")
+		return nil, errtrace.Wrap(errors.New("srcName cannot be empty, must provide name of point cloud origin"))
 	}
 	// get transform pose needed to get to destination frame
 	sourceFrameZero := referenceframe.NewPoseInFrame(srcName, spatialmath.NewZeroPose())
 	theTransform, err := svc.TransformPose(ctx, sourceFrameZero, dstName, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// returned the transformed pointcloud where the transform was applied to each point
 	pc := srcpc.CreateNewRecentered(theTransform.Pose())
 	err = pointcloud.ApplyOffset(srcpc, theTransform.Pose(), pc)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return pc, nil
 }
@@ -317,7 +318,7 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	fs, err := NewFromService(ctx, svc, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	input := referenceframe.NewZeroInputs(fs)
 
@@ -331,17 +332,17 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 		// add component to map
 		component, ok := svc.components[name]
 		if !ok {
-			return nil, DependencyNotFoundError(name)
+			return nil, errtrace.Wrap(DependencyNotFoundError(name))
 		}
 		inputEnabled, ok := component.(InputEnabled)
 		if !ok {
-			return nil, NotInputEnabledError(component)
+			return nil, errtrace.Wrap(NotInputEnabledError(component))
 		}
 
 		// add input to map
 		pos, err := inputEnabled.CurrentInputs(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		input[name] = pos
 	}
@@ -358,9 +359,9 @@ func NewFromService(
 ) (*referenceframe.FrameSystem, error) {
 	fsCfg, err := service.FrameSystemConfig(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
+	return errtrace.Wrap2(referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms))
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.

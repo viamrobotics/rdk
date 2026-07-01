@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 )
@@ -157,7 +158,7 @@ func VectorField2DFromDense(magnitude, direction *mat.Dense) (*VectorField2D, er
 	magH, magW := magnitude.Dims()
 	dirH, dirW := direction.Dims()
 	if magW != dirW && magH != dirH {
-		return nil, errors.Errorf("cannot make VectorField2D from two matrices of different sizes (%v,%v), (%v,%v)", magW, magH, dirW, dirH)
+		return nil, errtrace.Wrap(errors.Errorf("cannot make VectorField2D from two matrices of different sizes (%v,%v), (%v,%v)", magW, magH, dirW, dirH))
 	}
 	maxMag := 0.0
 	g := make([]Vec2D, 0, dirW*dirH)

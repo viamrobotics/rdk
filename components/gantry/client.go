@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -60,14 +61,14 @@ func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.PositionsMm, nil
 }
@@ -75,14 +76,14 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]
 func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	lengths, err := c.client.GetLengths(ctx, &pb.GetLengthsRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return lengths.LengthsMm, nil
 }
@@ -90,14 +91,14 @@ func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 func (c *client) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	homed, err := c.client.Home(ctx, &pb.HomeRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return homed.Homed, nil
 }
@@ -105,7 +106,7 @@ func (c *client) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 func (c *client) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if speedsMmPerSec == nil {
@@ -121,31 +122,31 @@ func (c *client) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec
 		SpeedsMmPerSec: speedsMmPerSec,
 		Extra:          ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.Stop(ctx, &pb.StopRequest{Name: c.name, Extra: ext})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
+	return errtrace.Wrap2(referenceframe.NewGeometriesFromProto(resp.GetGeometries()))
 }
 
 func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
@@ -155,11 +156,11 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if c.model == nil {
 		resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		model, err := referenceframe.KinematicModelFromProtobuf(c.name, resp)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		c.model = model
 	}
@@ -169,7 +170,7 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := c.Position(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return res, nil
 }
@@ -179,24 +180,24 @@ func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.
 		speeds := []float64{}
 		err := c.MoveToPosition(ctx, goal, speeds, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	resp, err := c.client.IsMoving(ctx, &pb.IsMovingRequest{Name: c.name})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.IsMoving, nil
 }

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/worldstatestore"
@@ -22,7 +23,7 @@ const testWorldStateStoreServiceName = "worldstatestore1"
 func newServer(m map[resource.Name]worldstatestore.Service, logger logging.Logger) (pb.WorldStateStoreServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(worldstatestore.API, m)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return worldstatestore.NewRPCServiceServer(coll, logger).(pb.WorldStateStoreServiceServer), nil
 }
@@ -92,7 +93,7 @@ func TestServerListUUIDs(t *testing.T) {
 	t.Run("ListUUIDs with error", func(t *testing.T) {
 		expectedErr := errors.New("fake error")
 		injectWSS.ListUUIDsFunc = func(ctx context.Context, extra map[string]any) ([][]byte, error) {
-			return nil, expectedErr
+			return nil, errtrace.Wrap(expectedErr)
 		}
 
 		req := &pb.ListUUIDsRequest{Name: testWorldStateStoreServiceName}
@@ -155,7 +156,7 @@ func TestServerGetTransform(t *testing.T) {
 			uuid []byte,
 			extra map[string]any,
 		) (*commonpb.Transform, error) {
-			return nil, expectedErr
+			return nil, errtrace.Wrap(expectedErr)
 		}
 
 		req := &pb.GetTransformRequest{
@@ -251,7 +252,7 @@ func TestServerStreamTransformChanges(t *testing.T) {
 			ctx context.Context,
 			extra map[string]any,
 		) (*worldstatestore.TransformChangeStream, error) {
-			return nil, expectedErr
+			return nil, errtrace.Wrap(expectedErr)
 		}
 
 		req := &pb.StreamTransformChangesRequest{Name: testWorldStateStoreServiceName}
@@ -310,7 +311,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectWSS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testWorldStateStoreServiceName})
 	test.That(t, err, test.ShouldNotBeNil)

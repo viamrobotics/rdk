@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -402,11 +403,11 @@ func (rc *RequestCounter) UnaryInterceptor(
 	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
 		if ok := rc.incrInFlight(resource, pc); !ok {
 			numInFlightRequestsForClient := rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
-			return nil, &RequestLimitExceededError{
+			return nil, errtrace.Wrap(&RequestLimitExceededError{
 				resource:                     resource,
 				limit:                        rc.inFlightLimit,
 				numInFlightRequestsForClient: numInFlightRequestsForClient,
-			}
+			})
 		}
 		defer rc.decrInFlight(resource, pc)
 	}
@@ -444,7 +445,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	}
 
 	resp, err = handler(ctx, req)
-	return resp, err
+	return resp, errtrace.Wrap(err)
 }
 
 func (rc *RequestCounter) ensureLimit() {
@@ -567,9 +568,9 @@ func (rc *RequestCounter) StreamInterceptor(
 			rc:           rc,
 			requestKey:   atomic.Pointer[string]{},
 		}
-		return handler(srv, &wrappedStream)
+		return errtrace.Wrap(handler(srv, &wrappedStream))
 	}
-	return handler(srv, ss)
+	return errtrace.Wrap(handler(srv, ss))
 }
 
 type wrappedStreamWithRC struct {
@@ -596,7 +597,7 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 		w.rc.preRequestIncrement(requestKey)
 	}
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (w *wrappedStreamWithRC) SendMsg(m any) error {
@@ -609,7 +610,7 @@ func (w *wrappedStreamWithRC) SendMsg(m any) error {
 	}
 
 	err := w.ServerStream.SendMsg(m)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func extractViamAPI(fullMethod string) apiMethod {

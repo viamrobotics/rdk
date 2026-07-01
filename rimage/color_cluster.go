@@ -3,6 +3,7 @@ package rimage
 import (
 	"image"
 
+	"braces.dev/errtrace"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
@@ -29,7 +30,7 @@ func (o HSVObservation) Distance(point clusters.Coordinates) float64 {
 
 // ClusterFromImage TODO.
 func ClusterFromImage(img *Image, numClusters int) ([]Color, error) {
-	return ClusterHSV(img.data, numClusters)
+	return errtrace.Wrap2(ClusterHSV(img.data, numClusters))
 }
 
 // ClusterHSV TODO.
@@ -43,7 +44,7 @@ func ClusterHSV(data []Color, numClusters int) ([]Color, error) {
 
 	clusters, err := km.Partition(all, numClusters)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	res := []Color{}

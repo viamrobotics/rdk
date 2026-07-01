@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/sensor"
@@ -46,7 +47,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	var err error
 	myMod, err = module.NewModuleFromArgs(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterComponent(
@@ -57,7 +58,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterService(
@@ -66,7 +67,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newOther})
 	err = myMod.AddModelFromRegistry(ctx, genericservice.API, otherModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterComponent(
@@ -75,7 +76,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor})
 	err = myMod.AddModelFromRegistry(ctx, motor.API, testMotorModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterComponent(
@@ -84,7 +85,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSlow})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, testSlowModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterComponent(
@@ -93,7 +94,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, *fsDepConfig]{Constructor: newFSDependent})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, testFSDependentModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterComponent(
@@ -102,13 +103,13 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, *sensorDepConfig]{Constructor: newSensorDependent})
 	err = myMod.AddModelFromRegistry(ctx, sensor.API, testSensorDependentModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	<-ctx.Done()
 
@@ -118,7 +119,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	if sleepTime != "" {
 		sleepDuration, err := time.ParseDuration(sleepTime)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		time.Sleep(sleepDuration)
 	}
@@ -136,7 +137,7 @@ func newHelper(
 		if !attemptedConstruction {
 			attemptedConstruction = true
 			logger.Warn("VIAM_TESTMODULE_FAIL_ON_FIRST causing intentional failure")
-			return nil, errors.New("gotta fail fast")
+			return nil, errtrace.Wrap(errors.New("gotta fail fast"))
 		}
 		logger.Info("VIAM_TESTMODULE_FAIL_ON_FIRST not failing this time")
 	}
@@ -145,13 +146,13 @@ func newHelper(
 	if len(conf.DependsOn) > 0 {
 		dependsOnSensor, err = sensor.FromProvider(deps, conf.DependsOn[0])
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
 	// deps contains at least $framesystem
 	if len(deps) > 1 && dependsOnSensor == nil {
-		return nil, fmt.Errorf("sensor not found in deps: %v", deps)
+		return nil, errtrace.Wrap(fmt.Errorf("sensor not found in deps: %v", deps))
 	}
 
 	return &helper{
@@ -173,7 +174,7 @@ type helper struct {
 func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
 	cmd, ok := req["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' string")
+		return nil, errtrace.Wrap(errors.New("missing 'command' string"))
 	}
 
 	switch req["command"] {
@@ -196,34 +197,34 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		// For testing module reloading & unexpected exists
 		os.Exit(1)
 		// unreachable return statement needed for compilation
-		return nil, errors.New("unreachable error")
+		return nil, errtrace.Wrap(errors.New("unreachable error"))
 	case "write_data_file":
 		// For testing that the module's data directory has been created and that the VIAM_MODULE_DATA env var exists
 		filename, ok := req["filename"].(string)
 		if !ok {
-			return nil, errors.New("missing 'filename' string")
+			return nil, errtrace.Wrap(errors.New("missing 'filename' string"))
 		}
 		contents, ok := req["contents"].(string)
 		if !ok {
-			return nil, errors.New("missing 'contents' string")
+			return nil, errtrace.Wrap(errors.New("missing 'contents' string"))
 		}
 		dataFilePath := filepath.Join(os.Getenv("VIAM_MODULE_DATA"), filename)
 		err := os.WriteFile(dataFilePath, []byte(contents), 0o600)
 		if err != nil {
-			return map[string]interface{}{}, err
+			return map[string]interface{}{}, errtrace.Wrap(err)
 		}
 		return map[string]interface{}{"fullpath": dataFilePath}, nil
 	case "get_working_directory":
 		// For testing that modules are started with the correct working directory
 		workingDir, err := os.Getwd()
 		if err != nil {
-			return map[string]interface{}{}, err
+			return map[string]interface{}{}, errtrace.Wrap(err)
 		}
 		return map[string]interface{}{"path": workingDir}, nil
 	case "log":
 		level, err := logging.LevelFromString(req["level"].(string))
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		msg := req["msg"].(string)
@@ -245,7 +246,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		return map[string]any{"num_reconfigurations": h.numReconfigurations}, nil
 	case "do_readings_on_dep":
 		_, err := h.dependsOnSensor.Readings(ctx, nil)
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	case "get_trace_id":
 		traceID := trace.FromContext(ctx).SpanContext().TraceID().String()
 		return map[string]any{"trace_id": traceID}, nil
@@ -253,9 +254,9 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		if clientInfo, ok := client.GetViamClientInfo(ctx); ok {
 			return map[string]any{"viam_client_info": clientInfo}, nil
 		}
-		return nil, fmt.Errorf("no viam client info in ctx")
+		return nil, errtrace.Wrap(fmt.Errorf("no viam client info in ctx"))
 	default:
-		return nil, fmt.Errorf("unknown command string %s", cmd)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown command string %s", cmd))
 	}
 }
 
@@ -279,14 +280,14 @@ type other struct {
 func (o *other) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
 	cmd, ok := req["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' string")
+		return nil, errtrace.Wrap(errors.New("missing 'command' string"))
 	}
 
 	switch req["command"] {
 	case "log":
 		level, err := logging.LevelFromString(req["level"].(string))
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		msg := req["msg"].(string)
@@ -304,7 +305,7 @@ func (o *other) DoCommand(ctx context.Context, req map[string]interface{}) (map[
 	case "get_num_reconfigurations":
 		return map[string]any{"num_reconfigurations": o.numReconfigurations}, nil
 	default:
-		return nil, fmt.Errorf("unknown command string %s", cmd)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown command string %s", cmd))
 	}
 }
 
@@ -385,7 +386,7 @@ func newSlow(
 ) (resource.Resource, error) {
 	configDuration, err := time.ParseDuration(conf.Attributes.String("config_duration"))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	time.Sleep(configDuration)
 	return &slow{
@@ -410,7 +411,7 @@ func newFSDependent(
 ) (resource.Resource, error) {
 	fs, err := framesystem.FromDependencies(deps)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &fsDependent{
 		Named: conf.ResourceName().AsNamed(),
@@ -441,7 +442,7 @@ type fsDependent struct {
 func (fd *fsDependent) DoCommand(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 	fsCfg, err := fd.fs.FrameSystemConfig(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return map[string]interface{}{"fsCfg": fsCfg.String()}, nil
 }
@@ -451,11 +452,11 @@ func newSensorDependent(
 ) (resource.Resource, error) {
 	config, err := resource.NativeConfig[*sensorDepConfig](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	s, err := sensor.FromProvider(deps, config.Sensor)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &sensorDependent{
 		Named:  conf.ResourceName().AsNamed(),
@@ -473,7 +474,7 @@ type sensorDepConfig struct {
 func (sc *sensorDepConfig) Validate(_ string) ([]string, []string, error) {
 	sensorValidateCalls++
 	if sc.Sensor == "" {
-		return nil, nil, errors.New("empty sensor")
+		return nil, nil, errtrace.Wrap(errors.New("empty sensor"))
 	}
 	return []string{sc.Sensor}, []string{}, nil
 }
@@ -487,7 +488,7 @@ type sensorDependent struct {
 
 // Readings always returns Readings from the sensor held inside the struct.
 func (sd *sensorDependent) Readings(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
-	return sd.sensor.Readings(ctx, map[string]interface{}{})
+	return errtrace.Wrap2(sd.sensor.Readings(ctx, map[string]interface{}{}))
 }
 
 // DoCommand returns the number of times validate has been called on this module.

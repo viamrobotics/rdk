@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -97,7 +98,7 @@ func DoSolve(ctx context.Context, solver Solver, totalAttempts *atomic.Int32, so
 ) ([][]float64, []SeedSolveMetaData, error) {
 	limits, err := fixLimits(len(seeds), limits)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	solutionGen := make(chan *Solution)
@@ -118,11 +119,11 @@ func DoSolve(ctx context.Context, solver Solver, totalAttempts *atomic.Int32, so
 	}
 
 	if solveErrors != nil {
-		return nil, nil, solveErrors
+		return nil, nil, errtrace.Wrap(solveErrors)
 	}
 
 	if len(solutions) == 0 {
-		return nil, nil, fmt.Errorf("unable to solve for position")
+		return nil, nil, errtrace.Wrap(fmt.Errorf("unable to solve for position"))
 	}
 
 	return solutions, meta, nil
@@ -134,11 +135,11 @@ func fixLimits(numSeeds int, limits [][]referenceframe.Limit) ([][]referencefram
 	}
 
 	if len(limits) == 0 {
-		return nil, fmt.Errorf("have no limits")
+		return nil, errtrace.Wrap(fmt.Errorf("have no limits"))
 	}
 
 	if len(limits) > 1 {
-		return nil, fmt.Errorf("if not specifying limit for every seed, can only specify 1, not %d", len(limits))
+		return nil, errtrace.Wrap(fmt.Errorf("if not specifying limit for every seed, can only specify 1, not %d", len(limits)))
 	}
 
 	newLimits := [][]referenceframe.Limit{}

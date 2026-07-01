@@ -4,6 +4,7 @@ import (
 	"math"
 	"slices"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -28,7 +29,7 @@ func computeJointSensitivities(
 ) ([]float64, error) {
 	inputsSchema, err := startNotMine.GetSchema(frameSystem)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	rawRatios := []float64{}

@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/audioin"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -35,25 +36,25 @@ func (a *AudioIn) GetAudio(ctx context.Context, codec string, durationSeconds fl
 	extra map[string]interface{}) (chan *audioin.AudioChunk, error,
 ) {
 	if a.GetAudioFunc == nil {
-		return a.AudioIn.GetAudio(ctx, codec, durationSeconds, previousTimestampNs, extra)
+		return errtrace.Wrap2(a.AudioIn.GetAudio(ctx, codec, durationSeconds, previousTimestampNs, extra))
 	}
-	return a.GetAudioFunc(ctx, codec, durationSeconds, previousTimestampNs, extra)
+	return errtrace.Wrap2(a.GetAudioFunc(ctx, codec, durationSeconds, previousTimestampNs, extra))
 }
 
 // Properties returns the injected Properties or the real version.
 func (a *AudioIn) Properties(ctx context.Context, extra map[string]interface{}) (utils.Properties, error) {
 	if a.PropertiesFunc == nil {
-		return a.AudioIn.Properties(ctx, extra)
+		return errtrace.Wrap2(a.AudioIn.Properties(ctx, extra))
 	}
-	return a.PropertiesFunc(ctx, extra)
+	return errtrace.Wrap2(a.PropertiesFunc(ctx, extra))
 }
 
 // DoCommand returns the injected docommand or the real version.
 func (a *AudioIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if a.DoFunc == nil {
-		return a.AudioIn.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(a.AudioIn.DoCommand(ctx, cmd))
 	}
-	return a.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(a.DoFunc(ctx, cmd))
 }
 
 // Close calls the injected Close or the real version.
@@ -62,18 +63,18 @@ func (a *AudioIn) Close(ctx context.Context) error {
 		if a.AudioIn == nil {
 			return nil
 		}
-		return a.AudioIn.Close(ctx)
+		return errtrace.Wrap(a.AudioIn.Close(ctx))
 	}
-	return a.CloseFunc(ctx)
+	return errtrace.Wrap(a.CloseFunc(ctx))
 }
 
 // Status calls the injected Status or the real version.
 func (a *AudioIn) Status(ctx context.Context) (map[string]interface{}, error) {
 	if a.StatusFunc != nil {
-		return a.StatusFunc(ctx)
+		return errtrace.Wrap2(a.StatusFunc(ctx))
 	}
 	if a.AudioIn != nil {
-		return a.AudioIn.Status(ctx)
+		return errtrace.Wrap2(a.AudioIn.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

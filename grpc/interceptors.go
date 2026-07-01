@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 )
 
@@ -32,7 +33,7 @@ func EnsureTimeoutUnaryServerInterceptor(ctx context.Context, req interface{},
 		defer cancel()
 	}
 
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }
 
 // EnsureTimeoutUnaryClientInterceptor sets a default timeout on the context if one is
@@ -50,7 +51,7 @@ func EnsureTimeoutUnaryClientInterceptor(
 		defer cancel()
 	}
 
-	return invoker(ctx, method, req, reply, cc, opts...)
+	return errtrace.Wrap(invoker(ctx, method, req, reply, cc, opts...))
 }
 
 // The following code is for appending/extracting grpc metadata regarding module names/origins via
@@ -88,7 +89,7 @@ func (mc *ModInterceptors) UnaryClientInterceptor(
 	opts ...grpc.CallOption,
 ) error {
 	ctx = metadata.AppendToOutgoingContext(ctx, modNameMetadataKey, mc.ModName)
-	return invoker(ctx, method, req, reply, cc, opts...)
+	return errtrace.Wrap(invoker(ctx, method, req, reply, cc, opts...))
 }
 
 // ModPeerConnTracker is an object (owned by the web service) that manages Module <-> PeerConnection
@@ -133,7 +134,7 @@ func ResourceNameTaggingUnaryServerInterceptor(
 			}
 		}
 	}
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }
 
 // ModInfoUnaryServerInterceptor checks the incoming RPC metadata for a module name and attaches any
@@ -146,7 +147,7 @@ func (tracker *ModPeerConnTracker) ModInfoUnaryServerInterceptor(
 ) (interface{}, error) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return handler(ctx, req)
+		return errtrace.Wrap2(handler(ctx, req))
 	}
 
 	values := meta.Get(modNameMetadataKey)
@@ -165,5 +166,5 @@ func (tracker *ModPeerConnTracker) ModInfoUnaryServerInterceptor(
 		}
 	}
 
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }

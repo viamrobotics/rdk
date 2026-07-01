@@ -4,6 +4,7 @@ package navigation
 import (
 	"errors"
 
+	"braces.dev/errtrace"
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	commonpb "go.viam.com/api/common/v1"
@@ -21,7 +22,7 @@ type Path struct {
 // NewPath constructs a Path from a slice of geo.Points and ID.
 func NewPath(id primitive.ObjectID, geoPoints []*geo.Point) (*Path, error) {
 	if len(geoPoints) == 0 {
-		return nil, errors.New("cannot instantiate path with no geoPoints")
+		return nil, errtrace.Wrap(errors.New("cannot instantiate path with no geoPoints"))
 	}
 	return &Path{
 		destinationWaypointID: id,
@@ -45,7 +46,7 @@ func PathSliceToProto(paths []*Path) ([]*pb.Path, error) {
 	for _, path := range paths {
 		pbPath, err := PathToProto(path)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		pbPaths = append(pbPaths, pbPath)
 	}
@@ -55,7 +56,7 @@ func PathSliceToProto(paths []*Path) ([]*pb.Path, error) {
 // PathToProto converts the Path struct into an equivalent Protobuf message.
 func PathToProto(path *Path) (*pb.Path, error) {
 	if path == nil {
-		return nil, errNilPath
+		return nil, errtrace.Wrap(errNilPath)
 	}
 	var pbGeoPoints []*commonpb.GeoPoint
 	for _, pt := range path.geoPoints {
@@ -75,7 +76,7 @@ func ProtoSliceToPaths(pbPaths []*pb.Path) ([]*Path, error) {
 	for _, pbPath := range pbPaths {
 		path, err := ProtoToPath(pbPath)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		paths = append(paths, path)
 	}
@@ -85,7 +86,7 @@ func ProtoSliceToPaths(pbPaths []*pb.Path) ([]*Path, error) {
 // ProtoToPath converts the Path Protobuf message into an equivalent struct.
 func ProtoToPath(path *pb.Path) (*Path, error) {
 	if path == nil {
-		return nil, errNilPath
+		return nil, errtrace.Wrap(errNilPath)
 	}
 	geoPoints := []*geo.Point{}
 	for _, pt := range path.GetGeopoints() {
@@ -93,8 +94,8 @@ func ProtoToPath(path *pb.Path) (*Path, error) {
 	}
 	id, err := primitive.ObjectIDFromHex(path.GetDestinationWaypointId())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return NewPath(id, geoPoints)
+	return errtrace.Wrap2(NewPath(id, geoPoints))
 }

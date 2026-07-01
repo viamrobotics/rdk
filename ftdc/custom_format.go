@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -42,14 +43,14 @@ type schema struct {
 func writeSchema(schema *schema, output io.Writer) error {
 	// New schema byte
 	if _, err := output.Write([]byte{0x1}); err != nil {
-		return fmt.Errorf("Error writing schema bit: %w", err)
+		return errtrace.Wrap(fmt.Errorf("Error writing schema bit: %w", err))
 	}
 
 	encoder := json.NewEncoder(output)
 	// `json.Encoder.Encode` assumes it convenient to append a newline character at the very
 	// end. This newline has been included in the format specification. Parsers must read over that.
 	if err := encoder.Encode(schema.fieldOrder); err != nil {
-		return fmt.Errorf("Error writing schema: %w", err)
+		return errtrace.Wrap(fmt.Errorf("Error writing schema: %w", err))
 	}
 
 	return nil
@@ -63,7 +64,7 @@ func writeSchema(schema *schema, output io.Writer) error {
 func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 	numPts := len(curr)
 	if len(prev) != 0 && numPts != len(prev) {
-		return fmt.Errorf("Bad input sizes. Prev: %v Curr: %v", len(prev), len(curr))
+		return errtrace.Wrap(fmt.Errorf("Bad input sizes. Prev: %v Curr: %v", len(prev), len(curr)))
 	}
 
 	// We first have to calculate the "diff bits".
@@ -108,19 +109,19 @@ func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 	}
 
 	if _, err := output.Write(diffBits); err != nil {
-		return fmt.Errorf("Error writing diff bits: %w", err)
+		return errtrace.Wrap(fmt.Errorf("Error writing diff bits: %w", err))
 	}
 
 	// Write time between diff bits and values.
 	if err := binary.Write(output, binary.BigEndian, time); err != nil {
-		return fmt.Errorf("Error writing time: %w", err)
+		return errtrace.Wrap(fmt.Errorf("Error writing time: %w", err))
 	}
 
 	// Write out values for metrics that changed across reading.
 	for idx, diff := range diffs {
 		if math.Abs(float64(diff)) > epsilon {
 			if err := binary.Write(output, binary.BigEndian, curr[idx]); err != nil {
-				return fmt.Errorf("Error writing values: %w", err)
+				return errtrace.Wrap(fmt.Errorf("Error writing values: %w", err))
 			}
 		}
 	}
@@ -155,9 +156,9 @@ func flatten(value reflect.Value) ([]string, []float32, error) {
 	//nolint:exhaustive
 	switch value.Kind() {
 	case reflect.Struct:
-		return flattenStruct(value)
+		return errtrace.Wrap3(flattenStruct(value))
 	case reflect.Map:
-		return flattenMap(value)
+		return errtrace.Wrap3(flattenMap(value))
 	default:
 		// We can get here, for example, if a struct member is typed as an `any`, but the value is
 		// nil. More antagonistically, this also catches weird types such as channels.
@@ -225,7 +226,7 @@ func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 			value.Kind() == reflect.Map:
 			subFields, subNumbers, err := flatten(value)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errtrace.Wrap(err)
 			}
 
 			for _, subField := range subFields {
@@ -233,7 +234,7 @@ func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 			}
 			numbers = append(numbers, subNumbers...)
 		case isNumeric(value.Kind()):
-			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", value.Kind())
+			return nil, nil, errtrace.Wrap(fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", value.Kind()))
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
 			// `channel`, or `string`. We follow suit in ignoring these types.
@@ -286,7 +287,7 @@ func flattenStruct(value reflect.Value) ([]string, []float32, error) {
 			rField.Kind() == reflect.Map:
 			subFields, subNumbers, err := flatten(rField)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errtrace.Wrap(err)
 			}
 
 			thisFieldName := rType.Field(memberIdx).Name
@@ -296,7 +297,7 @@ func flattenStruct(value reflect.Value) ([]string, []float32, error) {
 
 			numbers = append(numbers, subNumbers...)
 		case isNumeric(rField.Kind()):
-			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", rField.Kind())
+			return nil, nil, errtrace.Wrap(fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", rField.Kind()))
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
 			// `channel`, or `string`. We follow suit in ignoring these types.
@@ -370,7 +371,7 @@ func Parse(rawReader io.Reader) ([]FlatDatum, int64, error) {
 	logger := logging.NewLogger("")
 	logger.SetLevel(logging.ERROR)
 
-	return ParseWithLogger(rawReader, logger)
+	return errtrace.Wrap3(ParseWithLogger(rawReader, logger))
 }
 
 // ParseWithLogger parses with a logger for output. It returns a slice of flat datums and
@@ -401,6 +402,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 
 			if schema == nil {
 				retErr = errors.New("could not read first byte")
+				retErr = errtrace.Wrap(retErr)
 				return
 			}
 		}
@@ -429,6 +431,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 			continue
 		} else if schema == nil {
 			retErr = errors.New("first byte of FTDC data must be the magic 0x1 representing a new schema")
+			retErr = errtrace.Wrap(retErr)
 			return
 		}
 
@@ -439,6 +442,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		diffedFieldsIndexes, err := readDiffBits(reader, schema)
 		if err != nil {
 			logger.Debugw("Error reading diff bits. Returning.", "error", err.Error())
+			retErr = errtrace.Wrap(retErr)
 			return
 		}
 		logger.Debugw("Diff bits",
@@ -450,6 +454,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		if err = binary.Read(reader, binary.BigEndian, &dataTime); err != nil {
 			logger.Debugw("Error reading time", "error", err)
 			retErr = err
+			retErr = errtrace.Wrap(retErr)
 			return
 		}
 		logger.Debugw("Read time", "time", dataTime, "seconds", dataTime/1e9)
@@ -458,6 +463,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		// further ahead than the previous recorded timestamp (> a day ahead), we are in a bad
 		// state and need to return.
 		if lastTimestampRead != 0 && (dataTime < lastTimestampRead || dataTime > (lastTimestampRead+nsInADay)) {
+			retErr = errtrace.Wrap(retErr)
 			return
 		}
 		lastTimestampRead = dataTime
@@ -468,6 +474,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		if err != nil {
 			logger.Debugw("Error reading data", "error", err)
 			retErr = err
+			retErr = errtrace.Wrap(retErr)
 			return
 		}
 		logger.Debugw("Read data", "data", data)
@@ -485,6 +492,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		logger.Debugw("Hydrated data", "data", ret[len(ret)-1].Readings)
 	}
 
+	retErr = errtrace.Wrap(retErr)
 	return
 }
 
@@ -566,7 +574,7 @@ func readDiffBits(reader *bufio.Reader, schema *schema) ([]int, error) {
 	diffBytes := make([]byte, numBytes)
 	_, err := io.ReadFull(reader, diffBytes)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var ret []int
@@ -596,8 +604,8 @@ func readDiffBits(reader *bufio.Reader, schema *schema) ([]int, error) {
 // is the post-hydration list and consequently matches the `schema.fieldOrder` size.
 func readData(reader *bufio.Reader, schema *schema, diffedFields []int, prevValues []float32) ([]float32, error) {
 	if prevValues != nil && len(prevValues) != len(schema.fieldOrder) {
-		return nil, fmt.Errorf("Parser error. Mismatched `prevValues` and schema size. PrevValues: %d Schema: %d",
-			len(prevValues), len(schema.fieldOrder))
+		return nil, errtrace.Wrap(fmt.Errorf("Parser error. Mismatched `prevValues` and schema size. PrevValues: %d Schema: %d",
+			len(prevValues), len(schema.fieldOrder)))
 	}
 
 	var ret []float32
@@ -618,7 +626,7 @@ func readData(reader *bufio.Reader, schema *schema, diffedFields []int, prevValu
 			// `reader`. Parse the value from the `reader`.
 			ret = append(ret, 0.0)
 			if err := binary.Read(reader, binary.BigEndian, &ret[dataIdx]); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		} else {
 			// Otherwise, the metric did not change. Use the previous value.

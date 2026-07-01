@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	mlinferencepb "go.viam.com/api/app/mlinference/v1"
@@ -27,11 +28,11 @@ type mlInferenceInferArgs struct {
 // MLInferenceInferAction is the corresponding action for 'inference infer'.
 func MLInferenceInferAction(ctx context.Context, cmd *cli.Command, args mlInferenceInferArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to run an ML inference")
+		return errtrace.Wrap(errors.New("must provide an organization ID to run an ML inference"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.mlRunInference(
@@ -39,7 +40,7 @@ func MLInferenceInferAction(ctx context.Context, cmd *cli.Command, args mlInfere
 		args.OrgID, args.BinaryDataID,
 		args.ModelOrgID, args.ModelName, args.ModelVersion)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -49,7 +50,7 @@ func (c *viamClient) mlRunInference(ctx context.Context, orgID, binaryDataID, mo
 	modelName, modelVersion string,
 ) (*mlinferencepb.GetInferenceResponse, error) {
 	if err := c.ensureLoggedIn(ctx); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	req := &mlinferencepb.GetInferenceRequest{
@@ -61,7 +62,7 @@ func (c *viamClient) mlRunInference(ctx context.Context, orgID, binaryDataID, mo
 
 	resp, err := c.mlInferenceClient.GetInference(context.Background(), req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "received error from server")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	c.printInferenceResponse(resp)
 	return resp, nil

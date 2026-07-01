@@ -8,6 +8,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -36,7 +37,7 @@ func NewController(
 ) (input.Controller, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	m := mux{
@@ -49,7 +50,7 @@ func NewController(
 	for _, s := range newConf.Sources {
 		c, err := input.FromProvider(deps, s)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		m.sources = append(m.sources, c)
 	}
@@ -131,7 +132,7 @@ func (m *mux) Controls(ctx context.Context, extra map[string]interface{}) ([]inp
 		}
 	}
 	if !ok {
-		return nil, errs
+		return nil, errtrace.Wrap(errs)
 	}
 	var controlsOut []input.Control
 	for c := range controlMap {
@@ -161,7 +162,7 @@ func (m *mux) Events(ctx context.Context, extra map[string]interface{}) (map[inp
 		}
 	}
 	if !ok {
-		return nil, errs
+		return nil, errtrace.Wrap(errs)
 	}
 	return eventsOut, nil
 }
@@ -207,7 +208,7 @@ func (m *mux) RegisterControlCallback(
 		ok = true
 	}
 	if !ok {
-		return errs
+		return errtrace.Wrap(errs)
 	}
 	return nil
 }

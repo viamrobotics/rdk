@@ -5,12 +5,13 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
 // NewNotFoundError is used when a resource is not found.
 func NewNotFoundError(name Name) error {
-	return &notFoundError{name}
+	return errtrace.Wrap(&notFoundError{name})
 }
 
 // IsNotFoundError returns if the given error is any kind of not found error.
@@ -30,7 +31,7 @@ func (e *notFoundError) Error() string {
 
 // NewNotAvailableError is used when a resource is not available because of some error.
 func NewNotAvailableError(name Name, err error) error {
-	return &notAvailableError{name, err}
+	return errtrace.Wrap(&notAvailableError{name, err})
 }
 
 // IsNotAvailableError returns if the given error is any kind of not available error.
@@ -52,7 +53,7 @@ func (e *notAvailableError) Error() string {
 // instead must be rebuilt. Almost all models/drivers should be able to reconfigure in
 // place to support the best user experience.
 func NewMustRebuildError(name Name) error {
-	return &mustRebuildError{name: name}
+	return errtrace.Wrap(&mustRebuildError{name: name})
 }
 
 // IsMustRebuildError returns whether or not the given error is a MustRebuildError.
@@ -72,17 +73,17 @@ func (e *mustRebuildError) Error() string {
 // DependencyNotFoundError is used when a resource is not found in a dependencies.
 func DependencyNotFoundError(name Name) error {
 	// This error represents a logical configuration error. No need to include a stack trace.
-	return fmt.Errorf("Resource missing from dependencies. Resource: %v", name)
+	return errtrace.Wrap(fmt.Errorf("Resource missing from dependencies. Resource: %v", name))
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
 func DependencyTypeError[T Resource](name Name, actual interface{}) error {
 	// This error represents a coding error. Include a stack trace for diagnostics.
-	return errors.Errorf("dependency %v should be an implementation of %s but it was a %T", name, utils.TypeStr[T](), actual)
+	return errtrace.Wrap(errors.Errorf("dependency %v should be an implementation of %s but it was a %T", name, utils.TypeStr[T](), actual))
 }
 
 // TypeError is used when a resource is an unexpected type.
 func TypeError[T Resource](actual Resource) error {
 	// This error represents a coding error. Include a stack trace for diagnostics.
-	return errors.Errorf("expected implementation of %s but it was a %T", utils.TypeStr[T](), actual)
+	return errtrace.Wrap(errors.Errorf("expected implementation of %s but it was a %T", utils.TypeStr[T](), actual))
 }

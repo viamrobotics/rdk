@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
@@ -53,12 +54,12 @@ func (vs *sourceBasedCamera) Name() resource.Name {
 
 // Define DoCommand to fulfill Named interface.
 func (vs *sourceBasedCamera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return vs.VideoSource.DoCommand(ctx, cmd)
+	return errtrace.Wrap2(vs.VideoSource.DoCommand(ctx, cmd))
 }
 
 // Define Status to resolve ambiguity between VideoSource and resource.Named.
 func (vs *sourceBasedCamera) Status(ctx context.Context) (map[string]interface{}, error) {
-	return vs.VideoSource.Status(ctx)
+	return errtrace.Wrap2(vs.VideoSource.Status(ctx))
 }
 
 func (vs *sourceBasedCamera) SubscribeRTP(
@@ -67,16 +68,16 @@ func (vs *sourceBasedCamera) SubscribeRTP(
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
 	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+		return errtrace.Wrap2(vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB))
 	}
-	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
+	return rtppassthrough.NilSubscription, errtrace.Wrap(errors.New("SubscribeRTP unimplemented"))
 }
 
 func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+		return errtrace.Wrap(vs.rtpPassthroughSource.Unsubscribe(ctx, id))
 	}
-	return errors.New("Unsubscribe unimplemented")
+	return errtrace.Wrap(errors.New("Unsubscribe unimplemented"))
 }
 
 func (vs *videoSource) SubscribeRTP(
@@ -85,16 +86,16 @@ func (vs *videoSource) SubscribeRTP(
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
 	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+		return errtrace.Wrap2(vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB))
 	}
-	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
+	return rtppassthrough.NilSubscription, errtrace.Wrap(errors.New("SubscribeRTP unimplemented"))
 }
 
 func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+		return errtrace.Wrap(vs.rtpPassthroughSource.Unsubscribe(ctx, id))
 	}
-	return errors.New("Unsubscribe unimplemented")
+	return errtrace.Wrap(errors.New("Unsubscribe unimplemented"))
 }
 
 // NewPinholeModelWithBrownConradyDistortion is DEPRECATED!!! Please implement cameras according to the camera.Camera interface.
@@ -125,7 +126,7 @@ func NewVideoSourceFromReader(
 	syst *transform.PinholeCameraModel, imageType ImageType,
 ) (VideoSource, error) {
 	if reader == nil {
-		return nil, errors.New("cannot have a nil reader")
+		return nil, errtrace.Wrap(errors.New("cannot have a nil reader"))
 	}
 	var rtpPassthroughSource rtppassthrough.Source
 	passthrough, isRTPPassthrough := reader.(rtppassthrough.Source)
@@ -139,7 +140,7 @@ func NewVideoSourceFromReader(
 		if ok {
 			props, err := srcCam.Properties(ctx)
 			if err != nil {
-				return nil, NewPropertiesError("source camera")
+				return nil, errtrace.Wrap(NewPropertiesError("source camera"))
 			}
 
 			var cameraModel transform.PinholeCameraModel
@@ -171,7 +172,7 @@ func WrapVideoSourceWithProjector(
 	syst *transform.PinholeCameraModel, imageType ImageType,
 ) (VideoSource, error) {
 	if source == nil {
-		return nil, errors.New("cannot have a nil source")
+		return nil, errtrace.Wrap(errors.New("cannot have a nil source"))
 	}
 
 	actualSystem := syst
@@ -180,7 +181,7 @@ func WrapVideoSourceWithProjector(
 		if ok {
 			props, err := srcCam.Properties(ctx)
 			if err != nil {
-				return nil, NewPropertiesError("source camera")
+				return nil, errtrace.Wrap(NewPropertiesError("source camera"))
 			}
 			var cameraModel transform.PinholeCameraModel
 			cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
@@ -211,7 +212,7 @@ type videoSource struct {
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-	return vs.videoSource.Stream(ctx, errHandlers...)
+	return errtrace.Wrap2(vs.videoSource.Stream(ctx, errHandlers...))
 }
 
 // Images is for getting simultaneous images from different sensors
@@ -225,11 +226,11 @@ func (vs *videoSource) Images(
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::Images")
 	defer span.End()
 	if c, ok := vs.actualSource.(ImagesSource); ok {
-		return c.Images(ctx, filterSourceNames, extra)
+		return errtrace.Wrap3(c.Images(ctx, filterSourceNames, extra))
 	}
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "videoSource: call to get Images failed")
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(errors.Wrap(err, "videoSource: call to get Images failed"))
 	}
 	defer func() {
 		if release != nil {
@@ -239,7 +240,7 @@ func (vs *videoSource) Images(
 	ts := time.Now()
 	namedImg, err := NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, err
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 	}
 	return []NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: ts}, nil
 }
@@ -252,28 +253,28 @@ func (vs *videoSource) NextPointCloud(
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
 	defer span.End()
 	if c, ok := vs.actualSource.(PointCloudSource); ok {
-		return c.NextPointCloud(ctx, extra)
+		return errtrace.Wrap2(c.NextPointCloud(ctx, extra))
 	}
 	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
+		return nil, errtrace.Wrap(transform.NewNoIntrinsicsError("cannot do a projection to a point cloud"))
 	}
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	defer release()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot project to a point cloud")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "cannot project to a point cloud"))
 	}
 	return depthadapter.ToPointCloud(dm, vs.system.PinholeCameraIntrinsics), nil
 }
 
 func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if res, ok := vs.videoSource.(resource.Resource); ok {
-		return res.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(res.DoCommand(ctx, cmd))
 	}
-	return nil, resource.ErrDoUnimplemented
+	return nil, errtrace.Wrap(resource.ErrDoUnimplemented)
 }
 
 func (vs *videoSource) Name() resource.Name {
@@ -310,14 +311,14 @@ func (vs *videoSource) Status(ctx context.Context) (map[string]interface{}, erro
 
 func (vs *videoSource) Close(ctx context.Context) error {
 	if res, ok := vs.actualSource.(resource.Resource); ok {
-		return res.Close(ctx)
+		return errtrace.Wrap(res.Close(ctx))
 	}
-	return vs.videoSource.Close(ctx)
+	return errtrace.Wrap(vs.videoSource.Close(ctx))
 }
 
 func (vs *videoSource) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	if res, ok := vs.actualSource.(resource.Shaped); ok {
-		return res.Geometries(ctx, extra)
+		return errtrace.Wrap2(res.Geometries(ctx, extra))
 	}
-	return nil, errors.New("videoSource: geometries unavailable")
+	return nil, errtrace.Wrap(errors.New("videoSource: geometries unavailable"))
 }

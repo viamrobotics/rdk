@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -40,7 +41,7 @@ func TestClient(t *testing.T) {
 
 	injectSensor2 := &inject.Sensor{}
 	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return nil, errReadingsFailed
+		return nil, errtrace.Wrap(errReadingsFailed)
 	}
 
 	sensorSvc, err := resource.NewAPIResourceCollection(

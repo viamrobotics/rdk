@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -22,7 +23,7 @@ type encoderToRPM struct {
 func newEncoderSpeed(config BlockConfig, logger logging.Logger) (Block, error) {
 	e := &encoderToRPM{cfg: config, logger: logger}
 	if err := e.reset(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return e, nil
 }
@@ -38,10 +39,10 @@ func (b *encoderToRPM) Next(ctx context.Context, x []*Signal, dt time.Duration) 
 
 func (b *encoderToRPM) reset() error {
 	if !b.cfg.Attribute.Has("ticks_per_revolution") {
-		return errors.Errorf("encoderToRPM block %s doesn't have a ticks_per_revolution field", b.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("encoderToRPM block %s doesn't have a ticks_per_revolution field", b.cfg.Name))
 	}
 	if len(b.cfg.DependsOn) != 1 {
-		return errors.Errorf("invalid number of inputs for encoderToRPM block %s expected 1 got %d", b.cfg.Name, len(b.cfg.DependsOn))
+		return errtrace.Wrap(errors.Errorf("invalid number of inputs for encoderToRPM block %s expected 1 got %d", b.cfg.Name, len(b.cfg.DependsOn)))
 	}
 	b.ticksPerRevolution = b.cfg.Attribute["ticks_per_revolution"].(int) // default 0
 	b.prevEncCount = 0
@@ -53,14 +54,14 @@ func (b *encoderToRPM) reset() error {
 func (b *encoderToRPM) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.reset()
+	return errtrace.Wrap(b.reset())
 }
 
 func (b *encoderToRPM) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset()
+	return errtrace.Wrap(b.reset())
 }
 
 func (b *encoderToRPM) Output(ctx context.Context) []*Signal {

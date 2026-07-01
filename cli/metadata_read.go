@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
@@ -21,20 +22,20 @@ type metadataReadArgs struct {
 // MetadataReadAction is the action for the CLI command "viam metadata read".
 func MetadataReadAction(ctx context.Context, cmd *cli.Command, args metadataReadArgs) error {
 	if args.OrgID == "" && args.LocationID == "" && args.MachineID == "" && args.PartID == "" {
-		return errors.New("You must specify at least one of --organization-id, --location-id, --machine-id, --machine-part-id")
+		return errtrace.Wrap(errors.New("You must specify at least one of --organization-id, --location-id, --machine-id, --machine-part-id"))
 	}
 
 	viamClient, err := newViamClient(ctx, cmd)
 	if err != nil {
 		printf(cmd.Root().ErrWriter, "error initializing the Viam client: "+err.Error())
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Organization
 	if args.OrgID != "" {
 		err = displayOrganizationMetadata(ctx, cmd, viamClient.client, args.OrgID)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -42,7 +43,7 @@ func MetadataReadAction(ctx context.Context, cmd *cli.Command, args metadataRead
 	if args.LocationID != "" {
 		err = displayLocationMetadata(ctx, cmd, viamClient.client, args.LocationID)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -50,7 +51,7 @@ func MetadataReadAction(ctx context.Context, cmd *cli.Command, args metadataRead
 	if args.MachineID != "" {
 		err = displayMachineMetadata(ctx, cmd, viamClient.client, args.MachineID)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -58,7 +59,7 @@ func MetadataReadAction(ctx context.Context, cmd *cli.Command, args metadataRead
 	if args.PartID != "" {
 		err = displayMachinePartMetadata(ctx, cmd, viamClient.client, args.PartID)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -70,10 +71,10 @@ func displayOrganizationMetadata(ctx context.Context, cmd *cli.Command, viamClie
 		OrganizationId: organizationID,
 	})
 	if err != nil {
-		return errors.Wrap(err, "error fetching organization metadata")
+		return errtrace.Wrap(errors.Wrap(err, "error fetching organization metadata"))
 	}
 
-	return displayMetadata(cmd, "organization", organizationID, resp.GetData())
+	return errtrace.Wrap(displayMetadata(cmd, "organization", organizationID, resp.GetData()))
 }
 
 func displayLocationMetadata(ctx context.Context, cmd *cli.Command, viamClient apppb.AppServiceClient, locationID string) error {
@@ -81,10 +82,10 @@ func displayLocationMetadata(ctx context.Context, cmd *cli.Command, viamClient a
 		LocationId: locationID,
 	})
 	if err != nil {
-		return errors.Wrap(err, "error fetching location metadata")
+		return errtrace.Wrap(errors.Wrap(err, "error fetching location metadata"))
 	}
 
-	return displayMetadata(cmd, "location", locationID, resp.GetData())
+	return errtrace.Wrap(displayMetadata(cmd, "location", locationID, resp.GetData()))
 }
 
 func displayMachineMetadata(ctx context.Context, cmd *cli.Command, viamClient apppb.AppServiceClient, machineID string) error {
@@ -92,10 +93,10 @@ func displayMachineMetadata(ctx context.Context, cmd *cli.Command, viamClient ap
 		Id: machineID,
 	})
 	if err != nil {
-		return errors.Wrap(err, "error fetching machine metadata")
+		return errtrace.Wrap(errors.Wrap(err, "error fetching machine metadata"))
 	}
 
-	return displayMetadata(cmd, "machine", machineID, resp.GetData())
+	return errtrace.Wrap(displayMetadata(cmd, "machine", machineID, resp.GetData()))
 }
 
 func displayMachinePartMetadata(ctx context.Context, cmd *cli.Command, viamClient apppb.AppServiceClient, partID string) error {
@@ -103,22 +104,22 @@ func displayMachinePartMetadata(ctx context.Context, cmd *cli.Command, viamClien
 		Id: partID,
 	})
 	if err != nil {
-		return errors.Wrap(err, "error fetching machine part metadata")
+		return errtrace.Wrap(errors.Wrap(err, "error fetching machine part metadata"))
 	}
 
-	return displayMetadata(cmd, "part", partID, resp.GetData())
+	return errtrace.Wrap(displayMetadata(cmd, "part", partID, resp.GetData()))
 }
 
 func displayMetadata(cmd *cli.Command, metadataType, metadataTypeID string, metadata *structpb.Struct) error {
 	jsonData, err := metadata.MarshalJSON()
 	if err != nil {
-		return errors.Wrap(err, "error formatting metadata into JSON")
+		return errtrace.Wrap(errors.Wrap(err, "error formatting metadata into JSON"))
 	}
 
 	var prettyJSON bytes.Buffer
 	err = json.Indent(&prettyJSON, jsonData, "", "\t")
 	if err != nil {
-		return errors.Wrap(err, "error formatting metadata into JSON")
+		return errtrace.Wrap(errors.Wrap(err, "error formatting metadata into JSON"))
 	}
 
 	printf(cmd.Root().Writer, "\nMetadata for %s %s:\n", metadataType, metadataTypeID)

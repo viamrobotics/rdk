@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 )
@@ -33,34 +34,34 @@ func (s *Sensor) Close(ctx context.Context) error {
 		if s.Sensor == nil {
 			return nil
 		}
-		return s.Sensor.Close(ctx)
+		return errtrace.Wrap(s.Sensor.Close(ctx))
 	}
-	return s.CloseFunc(ctx)
+	return errtrace.Wrap(s.CloseFunc(ctx))
 }
 
 // Readings calls the injected Readings or the real version.
 func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	if s.ReadingsFunc == nil {
-		return s.Sensor.Readings(ctx, extra)
+		return errtrace.Wrap2(s.Sensor.Readings(ctx, extra))
 	}
-	return s.ReadingsFunc(ctx, extra)
+	return errtrace.Wrap2(s.ReadingsFunc(ctx, extra))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (s *Sensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		return s.Sensor.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(s.Sensor.DoCommand(ctx, cmd))
 	}
-	return s.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(s.DoFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (s *Sensor) Status(ctx context.Context) (map[string]interface{}, error) {
 	if s.StatusFunc != nil {
-		return s.StatusFunc(ctx)
+		return errtrace.Wrap2(s.StatusFunc(ctx))
 	}
 	if s.Sensor != nil {
-		return s.Sensor.Status(ctx)
+		return errtrace.Wrap2(s.Sensor.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

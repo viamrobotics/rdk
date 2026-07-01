@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -33,22 +34,22 @@ func (dct *DepthColorWarpTransforms) RGBDToPointCloud(
 	crop ...image.Rectangle,
 ) (pointcloud.PointCloud, error) {
 	if img == nil {
-		return nil, errors.New("no rgb image channel. Cannot project to Pointcloud")
+		return nil, errtrace.Wrap(errors.New("no rgb image channel. Cannot project to Pointcloud"))
 	}
 	if dm == nil {
-		return nil, errors.New("no depth channel. Cannot project to Pointcloud")
+		return nil, errtrace.Wrap(errors.New("no depth channel. Cannot project to Pointcloud"))
 	}
 	var rect *image.Rectangle
 	if len(crop) > 1 {
-		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+		return nil, errtrace.Wrap(errors.Errorf("cannot have more than one cropping rectangle, got %v", crop))
 	}
 	if len(crop) == 1 {
 		rect = &crop[0]
 	}
 	// Check dimensions, they should be equal between the color and depth frame
 	if img.Bounds() != dm.Bounds() {
-		return nil, errors.Errorf("depth map and color dimensions don't match Depth(%d,%d) != Color(%d,%d)",
-			dm.Width(), dm.Height(), img.Width(), img.Height())
+		return nil, errtrace.Wrap(errors.Errorf("depth map and color dimensions don't match Depth(%d,%d) != Color(%d,%d)",
+			dm.Width(), dm.Height(), img.Width(), img.Height()))
 	}
 	// All points now in Common frame
 	pc := pointcloud.NewBasicEmpty()
@@ -74,7 +75,7 @@ func (dct *DepthColorWarpTransforms) RGBDToPointCloud(
 			i, j := float64(x-dct.OutputOrigin.X), float64(y-dct.OutputOrigin.Y)
 			err := pc.Set(pointcloud.NewVector(i, j, float64(z)), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -85,17 +86,17 @@ func (dct *DepthColorWarpTransforms) RGBDToPointCloud(
 func (dct *DepthColorWarpTransforms) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap,
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	if col == nil {
-		return nil, nil, errors.New("no color image present to align")
+		return nil, nil, errtrace.Wrap(errors.New("no color image present to align"))
 	}
 	if dep == nil {
-		return nil, nil, errors.New("no depth image present to align")
+		return nil, nil, errtrace.Wrap(errors.New("no depth image present to align"))
 	}
 	if col.Width() != dct.ColorInputSize.X ||
 		col.Height() != dct.ColorInputSize.Y ||
 		dep.Width() != dct.DepthInputSize.X ||
 		dep.Height() != dct.DepthInputSize.Y {
-		return nil, nil, errors.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
-			col.Width(), col.Height(), dep.Width(), dep.Height(), dct.AlignConfig)
+		return nil, nil, errtrace.Wrap(errors.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
+			col.Width(), col.Height(), dep.Width(), dep.Height(), dct.AlignConfig))
 	}
 
 	c2 := rimage.WarpImage(col, dct.ColorTransform, dct.OutputSize)
@@ -112,7 +113,7 @@ func (dct *DepthColorWarpTransforms) PointCloudToRGBD(
 	meta := cloud.MetaData()
 	// Needs to be a pointcloud with color
 	if !meta.HasColor {
-		return nil, nil, errors.New("pointcloud has no color information, cannot create an image with depth")
+		return nil, nil, errtrace.Wrap(errors.New("pointcloud has no color information, cannot create an image with depth"))
 	}
 	// Image and Depthmap will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.
@@ -145,7 +146,7 @@ func NewDepthColorWarpTransforms(config *AlignConfig, logger logging.Logger) (*D
 	if config.WarpFromCommon {
 		config, err = config.ComputeWarpFromCommon(logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 

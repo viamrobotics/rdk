@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
 )
@@ -34,7 +35,7 @@ func Dial(ctx context.Context, address string, logger logging.Logger, opts ...rp
 	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultDialTimeout)
 	defer cancel()
 
-	return rpc.Dial(ctx, address, logger, optsCopy...)
+	return errtrace.Wrap2(rpc.Dial(ctx, address, logger, optsCopy...))
 }
 
 // InferSignalingServerAddress returns the appropriate WebRTC signaling server address

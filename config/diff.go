@@ -9,6 +9,7 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"go.viam.com/utils/pexec"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 )
 
@@ -55,7 +56,7 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	if revealSensitiveConfigDiffs {
 		PrettyDiff, err = prettyDiff(left, right)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -112,18 +113,18 @@ func diffTracing(left, right *Config) bool {
 func prettyDiff(left, right Config) (string, error) {
 	leftMd, err := json.Marshal(left)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	rightMd, err := json.Marshal(right)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	var leftClone, rightClone Config
 	if err := json.Unmarshal(leftMd, &leftClone); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	if err := json.Unmarshal(rightMd, &rightClone); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	left = leftClone
 	right = rightClone
@@ -179,11 +180,11 @@ func prettyDiff(left, right Config) (string, error) {
 
 	leftMd, err = json.MarshalIndent(left, "", " ")
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	rightMd, err = json.MarshalIndent(right, "", " ")
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	dmp := diffmatchpatch.New()

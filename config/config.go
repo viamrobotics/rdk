@@ -21,6 +21,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -152,18 +153,18 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	if c.Cloud != nil {
 		// Adds default for RefreshInterval if not set.
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	// Adds default BindAddress and HeartbeatWindow if not set.
 	if err := c.Network.Validate("network"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Updates ValidatedKeySet once validated.
 	if err := c.Auth.Validate("auth"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Check jobs, modules, remotes, packages, and processes, and log errors for lack of
@@ -247,7 +248,7 @@ func (c Config) FindComponent(name string) *resource.Config {
 func (c *Config) SetToCache(cfg *Config) error {
 	md, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	c.toCache = md
 	return nil
@@ -256,14 +257,14 @@ func (c *Config) SetToCache(cfg *Config) error {
 // StoreToCache caches the toCache.
 func (c *Config) StoreToCache() error {
 	if c.toCache == nil {
-		return errors.New("no unprocessed config to cache")
+		return errtrace.Wrap(errors.New("no unprocessed config to cache"))
 	}
 	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	reader := bytes.NewReader(c.toCache)
 	path := getCloudCacheFilePath(c.Cloud.ID)
-	return artifact.AtomicStore(path, reader, c.Cloud.ID)
+	return errtrace.Wrap(artifact.AtomicStore(path, reader, c.Cloud.ID))
 }
 
 // UnmarshalJSON unmarshals JSON into the config and adjusts some
@@ -271,7 +272,7 @@ func (c *Config) StoreToCache() error {
 func (c *Config) UnmarshalJSON(data []byte) error {
 	var conf configData
 	if err := json.Unmarshal(data, &conf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	for idx := range conf.Components {
 		conf.Components[idx].AdjustPartialNames(resource.APITypeComponentName)
@@ -310,7 +311,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		c.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
 	}
 
-	return json.Marshal(configData{
+	return errtrace.Wrap2(json.Marshal(configData{
 		Cloud:                   c.Cloud,
 		Modules:                 c.Modules,
 		Remotes:                 c.Remotes,
@@ -328,7 +329,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		DisableLogDeduplication: c.DisableLogDeduplication,
 		Jobs:                    c.Jobs,
 		Tracing:                 c.Tracing,
-	})
+	}))
 }
 
 // CopyOnlyPublicFields returns a deep-copy of the current config only preserving JSON exported fields.
@@ -337,12 +338,12 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 	// copied.
 	tmpJSON, err := json.Marshal(c)
 	if err != nil {
-		return nil, errors.Wrap(err, "error marshaling config")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error marshaling config"))
 	}
 	var cfg Config
 	err = json.Unmarshal(tmpJSON, &cfg)
 	if err != nil {
-		return nil, errors.Wrap(err, "error unmarshaling config")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error unmarshaling config"))
 	}
 
 	return &cfg, nil
@@ -402,7 +403,7 @@ func (conf Remote) Equals(other Remote) bool {
 func (conf *Remote) UnmarshalJSON(data []byte) error {
 	var temp remoteData
 	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	*conf = Remote{
 		Name:                      temp.Name,
@@ -418,14 +419,14 @@ func (conf *Remote) UnmarshalJSON(data []byte) error {
 	if temp.ConnectionCheckInterval != "" {
 		dur, err := time.ParseDuration(temp.ConnectionCheckInterval)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		conf.ConnectionCheckInterval = dur
 	}
 	if temp.ReconnectInterval != "" {
 		dur, err := time.ParseDuration(temp.ReconnectInterval)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		conf.ReconnectInterval = dur
 	}
@@ -454,7 +455,7 @@ func (conf Remote) MarshalJSON() ([]byte, error) {
 	if conf.ReconnectInterval != 0 {
 		temp.ReconnectInterval = conf.ReconnectInterval.String()
 	}
-	return json.Marshal(temp)
+	return errtrace.Wrap2(json.Marshal(temp))
 }
 
 // RemoteAuth specifies how to authenticate against a remote. If no credentials are
@@ -477,26 +478,26 @@ type RemoteAuth struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Remote) Validate(path string) ([]string, []string, error) {
 	if conf.alreadyValidated {
-		return nil, nil, conf.cachedErr
+		return nil, nil, errtrace.Wrap(conf.cachedErr)
 	}
 	conf.cachedErr = conf.validate(path)
 	conf.alreadyValidated = true
-	return nil, nil, conf.cachedErr
+	return nil, nil, errtrace.Wrap(conf.cachedErr)
 }
 
 func (conf *Remote) validate(path string) error {
 	if conf.Name == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "name"))
 	}
 	if err := rutils.ValidateRemoteName(conf.Name); err != nil {
-		return resource.NewConfigValidationError(path, err)
+		return errtrace.Wrap(resource.NewConfigValidationError(path, err))
 	}
 	if conf.Address == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "address")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "address"))
 	}
 	if conf.Frame != nil {
 		if conf.Frame.Parent == "" {
-			return resource.NewConfigValidationFieldRequiredError(path, "frame.parent")
+			return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "frame.parent"))
 		}
 	}
 
@@ -594,7 +595,7 @@ func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
 func (config *Cloud) UnmarshalJSON(data []byte) error {
 	var temp cloudData
 	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	*config = Cloud{
 		ID:                temp.ID,
@@ -617,7 +618,7 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 	if temp.RefreshInterval != "" {
 		dur, err := time.ParseDuration(temp.RefreshInterval)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		config.RefreshInterval = dur
 	}
@@ -647,25 +648,25 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 	if config.RefreshInterval != 0 {
 		temp.RefreshInterval = config.RefreshInterval.String()
 	}
-	return json.Marshal(temp)
+	return errtrace.Wrap2(json.Marshal(temp))
 }
 
 // Validate ensures all parts of the config are valid. Adds default for RefreshInterval if not set.
 func (config *Cloud) Validate(path string, fromCloud bool) error {
 	if config.ID == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "id")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "id"))
 	}
 	if fromCloud {
 		if config.FQDN == "" {
-			return resource.NewConfigValidationFieldRequiredError(path, "fqdn")
+			return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "fqdn"))
 		}
 		if config.LocalFQDN == "" {
-			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
+			return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "local_fqdn"))
 		}
 	} else if config.APIKey.IsPartiallySet() {
-		return resource.NewConfigValidationFieldRequiredError(path, "api_key")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "api_key"))
 	} else if config.Secret == "" && !config.APIKey.IsFullySet() {
-		return resource.NewConfigValidationFieldRequiredError(path, "api_key")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "api_key"))
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
@@ -676,10 +677,10 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 // ValidateTLS ensures TLS fields are valid.
 func (config *Cloud) ValidateTLS(path string) error {
 	if config.TLSCertificate == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "tls_certificate")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "tls_certificate"))
 	}
 	if config.TLSPrivateKey == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "tls_private_key"))
 	}
 	return nil
 }
@@ -739,7 +740,7 @@ func (nc NetworkConfig) MarshalJSON() ([]byte, error) {
 	if nc.BindAddressDefaultSet {
 		nc.BindAddress = ""
 	}
-	return json.Marshal(nc.NetworkConfigData)
+	return errtrace.Wrap2(json.Marshal(nc.NetworkConfigData))
 }
 
 // DefaultBindAddress is the default address that will be listened on. This default may
@@ -750,20 +751,20 @@ const DefaultBindAddress = "localhost:8080"
 // Validate ensures all parts of the config are valid. Adds default BindAddress and HeartbeatWindow if not set.
 func (nc *NetworkConfig) Validate(path string) error {
 	if nc.BindAddress != "" && nc.Listener != nil {
-		return resource.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener")))
 	}
 	if nc.BindAddress == "" {
 		nc.BindAddress = DefaultBindAddress
 		nc.BindAddressDefaultSet = true
 	}
 	if _, _, err := net.SplitHostPort(nc.BindAddress); err != nil {
-		return resource.NewConfigValidationError(path, errors.Wrap(err, "error validating bind_address"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.Wrap(err, "error validating bind_address")))
 	}
 	if (nc.TLSCertFile == "") != (nc.TLSKeyFile == "") {
-		return resource.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file")))
 	}
 
-	return nc.Sessions.Validate(path + ".sessions")
+	return errtrace.Wrap(nc.Sessions.Validate(path + ".sessions"))
 }
 
 // SessionsConfig configures various parameters used in session management.
@@ -782,12 +783,12 @@ type sessionsConfigData struct {
 func (sc *SessionsConfig) UnmarshalJSON(data []byte) error {
 	var temp sessionsConfigData
 	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if temp.HeartbeatWindow != "" {
 		dur, err := time.ParseDuration(temp.HeartbeatWindow)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		sc.HeartbeatWindow = dur
 	}
@@ -800,7 +801,7 @@ func (sc SessionsConfig) MarshalJSON() ([]byte, error) {
 	if sc.HeartbeatWindow != 0 {
 		temp.HeartbeatWindow = sc.HeartbeatWindow.String()
 	}
-	return json.Marshal(temp)
+	return errtrace.Wrap2(json.Marshal(temp))
 }
 
 // DefaultSessionHeartbeatWindow is the default session heartbeat window to use when not specified.
@@ -813,7 +814,7 @@ func (sc *SessionsConfig) Validate(path string) error {
 		sc.HeartbeatWindow = DefaultSessionHeartbeatWindow
 	} else if sc.HeartbeatWindow < 30*time.Millisecond ||
 		sc.HeartbeatWindow > time.Minute {
-		return resource.NewConfigValidationError(path, errors.New("heartbeat_window must be between [30ms, 1m]"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("heartbeat_window must be between [30ms, 1m]")))
 	}
 
 	return nil
@@ -838,7 +839,7 @@ type trafficTunnelEndpointData struct {
 func (tte *TrafficTunnelEndpoint) UnmarshalJSON(data []byte) error {
 	var temp trafficTunnelEndpointData
 	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	tte.Port = temp.Port
@@ -846,7 +847,7 @@ func (tte *TrafficTunnelEndpoint) UnmarshalJSON(data []byte) error {
 	if temp.ConnectionTimeout != "" {
 		dur, err := time.ParseDuration(temp.ConnectionTimeout)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		tte.ConnectionTimeout = dur
 	}
@@ -863,7 +864,7 @@ func (tte *TrafficTunnelEndpoint) MarshalJSON() ([]byte, error) {
 	if tte.ConnectionTimeout != 0 {
 		temp.ConnectionTimeout = tte.ConnectionTimeout.String()
 	}
-	return json.Marshal(temp)
+	return errtrace.Wrap2(json.Marshal(temp))
 }
 
 // AuthConfig describes authentication and authorization settings for the web server.
@@ -915,33 +916,33 @@ func (c *ExternalAuthConfig) Validate(path string) error {
 	jwksPath := fmt.Sprintf("%s.jwks", path)
 	jsonJWKs, err := json.Marshal(c.JSONKeySet)
 	if err != nil {
-		return resource.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to marshal jwks"))
+		return errtrace.Wrap(resource.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to marshal jwks")))
 	}
 
 	keyset, err := jwks.ParseKeySet(string(jsonJWKs))
 	if err != nil {
-		return resource.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to parse jwks"))
+		return errtrace.Wrap(resource.NewConfigValidationError(jwksPath, errors.Wrap(err, "failed to parse jwks")))
 	}
 
 	if keyset.Len() == 0 {
-		return resource.NewConfigValidationError(jwksPath, errors.New("must contain at least 1 key"))
+		return errtrace.Wrap(resource.NewConfigValidationError(jwksPath, errors.New("must contain at least 1 key")))
 	}
 
 	for i := 0; i < keyset.Len(); i++ {
 		// validate keys
 		key, ok := keyset.Get(i)
 		if !ok {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i), errors.New("failed to parse jwks, missing index"))
+			return errtrace.Wrap(resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i), errors.New("failed to parse jwks, missing index")))
 		}
 
 		if _, ok := allowedKeyTypesForExternalAuth[key.KeyType().String()]; !ok {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
-				errors.Errorf("failed to parse jwks, invalid key type (%s) only (RSA) supported", key.KeyType().String()))
+			return errtrace.Wrap(resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
+				errors.Errorf("failed to parse jwks, invalid key type (%s) only (RSA) supported", key.KeyType().String())))
 		}
 
 		if _, ok := allowedAlgsForExternalAuth[key.Algorithm()]; !ok {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
-				errors.Errorf("failed to parse jwks, invalid alg (%s) type only (RS256, RS384, RS512) supported", key.Algorithm()))
+			return errtrace.Wrap(resource.NewConfigValidationError(fmt.Sprintf("%s.%d", jwksPath, i),
+				errors.Errorf("failed to parse jwks, invalid alg (%s) type only (RS256, RS384, RS512) supported", key.Algorithm())))
 		}
 	}
 
@@ -979,16 +980,16 @@ func (config *AuthConfig) Validate(path string) error {
 	for idx, handler := range config.Handlers {
 		handlerPath := fmt.Sprintf("%s.%s.%d", path, "handlers", idx)
 		if _, ok := seenTypes[string(handler.Type)]; ok {
-			return resource.NewConfigValidationError(handlerPath, errors.Errorf("duplicate handler type %q", handler.Type))
+			return errtrace.Wrap(resource.NewConfigValidationError(handlerPath, errors.Errorf("duplicate handler type %q", handler.Type)))
 		}
 		seenTypes[string(handler.Type)] = struct{}{}
 		if err := handler.Validate(handlerPath); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	if config.ExternalAuthConfig != nil {
 		if err := config.ExternalAuthConfig.Validate(fmt.Sprintf("%s.%s", path, "external_auth_config")); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -997,17 +998,17 @@ func (config *AuthConfig) Validate(path string) error {
 // Validate ensures all parts of the config are valid.
 func (config *AuthHandlerConfig) Validate(path string) error {
 	if config.Type == "" {
-		return resource.NewConfigValidationError(path, errors.New("handler must have type"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("handler must have type")))
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
 		if len(config.Config.StringSlice("keys")) == 0 {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("keys is required"))
+			return errtrace.Wrap(resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("keys is required")))
 		}
 	case rpc.CredentialsTypeExternal:
-		return errors.New("robot cannot issue external auth tokens")
+		return errtrace.Wrap(errors.New("robot cannot issue external auth tokens"))
 	default:
-		return resource.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type)))
 	}
 	return nil
 }
@@ -1032,7 +1033,7 @@ func ParseAPIKeys(handler AuthHandlerConfig) map[string]string {
 func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 	cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &tls.Config{
 		MinVersion: tls.VersionTLS12,
@@ -1053,7 +1054,7 @@ func ProcessConfig(in *Config) (*Config, error) {
 		if in.Cloud.TLSCertificate != "" {
 			tlsConfig, err := CreateTLSWithCert(in)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			out.Network.TLSConfig = tlsConfig
 		}
@@ -1103,36 +1104,36 @@ type PackageConfig struct {
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
 	if p.alreadyValidated {
-		return p.cachedErr
+		return errtrace.Wrap(p.cachedErr)
 	}
 
 	if p.Status != nil {
 		p.alreadyValidated = true
 		p.cachedErr = resource.NewConfigValidationError(path, errors.New(p.Status.Error))
-		return p.cachedErr
+		return errtrace.Wrap(p.cachedErr)
 	}
 
 	p.cachedErr = p.validate(path)
 	p.alreadyValidated = true
-	return p.cachedErr
+	return errtrace.Wrap(p.cachedErr)
 }
 
 func (p *PackageConfig) validate(path string) error {
 	if p.Name == "" {
-		return resource.NewConfigValidationError(path, errors.New("empty package name"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("empty package name")))
 	}
 
 	if p.Package == "" {
-		return resource.NewConfigValidationError(path, errors.New("empty package id"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("empty package id")))
 	}
 
 	if !slices.Contains(SupportedPackageTypes, p.Type) {
-		return resource.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be one of: %v",
-			p.Type, SupportedPackageTypes))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be one of: %v",
+			p.Type, SupportedPackageTypes)))
 	}
 
 	if err := rutils.ValidatePackageName(p.Name); err != nil {
-		return resource.NewConfigValidationError(path, err)
+		return errtrace.Wrap(resource.NewConfigValidationError(path, err))
 	}
 
 	return nil
@@ -1284,14 +1285,14 @@ type JobConfigData struct {
 
 // MarshalJSON marshals out this config.
 func (jc JobConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(jc.JobConfigData)
+	return errtrace.Wrap2(json.Marshal(jc.JobConfigData))
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
 func (jc *JobConfig) UnmarshalJSON(data []byte) error {
 	var temp JobConfigData
 	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	*jc = JobConfig{
@@ -1303,16 +1304,16 @@ func (jc *JobConfig) UnmarshalJSON(data []byte) error {
 // Validate checks that every required field is present.
 func (jc *JobConfig) Validate(path string) error {
 	if jc.Name == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "name"))
 	}
 	if jc.Method == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "method")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "method"))
 	}
 	if jc.Resource == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "resource")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "resource"))
 	}
 	if jc.Schedule == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "schedule"))
 	}
 	// At this point, the schedule could still be invalid (not a golang duration string or a
 	// cron expression). Such errors will be caught later, when the job manager will try to

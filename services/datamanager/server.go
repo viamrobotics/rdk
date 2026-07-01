@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/datamanager/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -27,10 +28,10 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger loggin
 func (server *serviceServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := svc.Sync(ctx, req.Extra.AsMap()); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.SyncResponse{}, nil
 }
@@ -41,11 +42,11 @@ func (server *serviceServer) UploadBinaryDataToDatasets(
 ) (*pb.UploadBinaryDataToDatasetsResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := svc.UploadBinaryDataToDatasets(ctx, req.GetBinaryData(), req.GetDatasetIds(), req.GetTags(),
 		req.GetMimeType(), req.Extra.AsMap()); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.UploadBinaryDataToDatasetsResponse{}, nil
 }
@@ -56,16 +57,16 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // GetStatus returns the status of the datamanager service.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

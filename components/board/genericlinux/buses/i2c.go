@@ -9,6 +9,7 @@ import (
 	fmtnolint "fmt"
 	"sync"
 
+	"braces.dev/errtrace"
 	"periph.io/x/conn/v3/i2c"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
@@ -37,7 +38,7 @@ type i2cBus struct {
 func NewI2cBus(deviceName string) (I2C, error) {
 	b := &i2cBus{}
 	if err := b.reset(deviceName); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return b, nil
 }
@@ -48,7 +49,7 @@ func (bus *i2cBus) reset(deviceName string) error {
 
 	if bus.closeableBus != nil { // Close any old bus we used to have
 		if err := bus.closeableBus.Close(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		bus.closeableBus = nil
 	}
@@ -68,7 +69,7 @@ func (bus *i2cBus) OpenHandle(addr byte) (I2CHandle, error) {
 		newBus, err := i2creg.Open(bus.deviceName)
 		if err != nil {
 			bus.mu.Unlock() // We never created a handle, so unlock the bus for next time.
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		bus.closeableBus = newBus
 	}
@@ -86,7 +87,7 @@ type I2cHandle struct { // Implements the I2CHandle interface
 // Write writes the given bytes to the handle. For I2C devices that organize their data into
 // registers, prefer using WriteBlockData instead.
 func (h *I2cHandle) Write(ctx context.Context, tx []byte) error {
-	return h.device.Tx(tx, nil)
+	return errtrace.Wrap(h.device.Tx(tx, nil))
 }
 
 // Read reads the given number of bytes from the handle. For I2C devices that organize their data
@@ -95,7 +96,7 @@ func (h *I2cHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	buffer := make([]byte, count)
 	err := h.device.Tx(nil, buffer)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return buffer, nil
 }
@@ -108,7 +109,7 @@ func (h *I2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	fullW := make([]byte, len(w)+1)
 	fullW[0] = register
 	copy(fullW[1:], w)
-	return h.device.Tx(fullW, r)
+	return errtrace.Wrap(h.device.Tx(fullW, r))
 }
 
 // ReadByteData reads a single byte from the given register on this I2C device.
@@ -116,14 +117,14 @@ func (h *I2cHandle) ReadByteData(ctx context.Context, register byte) (byte, erro
 	result := make([]byte, 1)
 	err := h.transactAtRegister(register, nil, result)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return result[0], nil
 }
 
 // WriteByteData writes a single byte to the given register on this I2C device.
 func (h *I2cHandle) WriteByteData(ctx context.Context, register, data byte) error {
-	return h.transactAtRegister(register, []byte{data}, nil)
+	return errtrace.Wrap(h.transactAtRegister(register, []byte{data}, nil))
 }
 
 // ReadBlockData reads the given number of bytes from the I2C device, starting at the given
@@ -132,14 +133,14 @@ func (h *I2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes u
 	result := make([]byte, numBytes)
 	err := h.transactAtRegister(register, nil, result)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return result, nil
 }
 
 // WriteBlockData writes the given bytes into the given register on the I2C device.
 func (h *I2cHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
-	return h.transactAtRegister(register, data, nil)
+	return errtrace.Wrap(h.transactAtRegister(register, data, nil))
 }
 
 // Close closes the handle to the device, and unlocks the I2C bus.

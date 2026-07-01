@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -40,30 +41,30 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 	if options.BaseURL == "" {
 		options.BaseURL = "https://app.viam.com"
 	} else if !strings.HasPrefix(options.BaseURL, "http://") && !strings.HasPrefix(options.BaseURL, "https://") {
-		return nil, errors.New("use valid URL")
+		return nil, errtrace.Wrap(errors.New("use valid URL"))
 	}
 	if !strings.HasSuffix(options.BaseURL, ":443") {
 		options.BaseURL += ":443"
 	}
 	serviceHost, err := url.Parse(options.BaseURL)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var conn rpc.ClientConn
 	if len(options.DialOptions) > 0 {
 		conn, err = dialDirectGRPC(ctx, serviceHost.Host, logger, options.DialOptions...)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		if options.Credentials.Payload == "" || options.Entity == "" {
-			return nil, errors.New("entity and payload cannot be empty")
+			return nil, errtrace.Wrap(errors.New("entity and payload cannot be empty"))
 		}
 		opts := rpc.WithEntityCredentials(options.Entity, options.Credentials)
 		conn, err = dialDirectGRPC(ctx, serviceHost.Host, logger, opts)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return &ViamClient{conn: conn}, nil
@@ -85,7 +86,7 @@ func CreateViamClientWithAPIKey(
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: apiKey,
 	}
-	return CreateViamClientWithOptions(ctx, options, logger)
+	return errtrace.Wrap2(CreateViamClientWithOptions(ctx, options, logger))
 }
 
 // CreateViamClientFromEnvVars creates a ViamClient using credentials set in the environment
@@ -100,25 +101,25 @@ func CreateViamClientFromEnvVars(ctx context.Context, options *Options, logger l
 	apiKey := os.Getenv(utils.APIKeyEnvVar)
 	apiKeyID := os.Getenv(utils.APIKeyIDEnvVar)
 	if apiKey == "" || apiKeyID == "" {
-		return nil, fmt.Errorf("api key (%s) and/or api key ID (%s) were set improperly, cannot be empty", apiKey, apiKeyID)
+		return nil, errtrace.Wrap(fmt.Errorf("api key (%s) and/or api key ID (%s) were set improperly, cannot be empty", apiKey, apiKeyID))
 	}
 
-	return CreateViamClientWithAPIKey(ctx, *options, apiKey, apiKeyID, logger)
+	return errtrace.Wrap2(CreateViamClientWithAPIKey(ctx, *options, apiKey, apiKeyID, logger))
 }
 
 // ConnectFromCLIToken creates a ViamClient using cached CLI credentials.
 func ConnectFromCLIToken(ctx context.Context, logger logging.Logger) (*ViamClient, error) {
 	c, err := utils.ConfigFromPath(utils.GetCLICachePath())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dopts, err := c.DialOptions()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return CreateViamClientWithOptions(ctx, WithDialOptions(dopts...), logger)
+	return errtrace.Wrap2(CreateViamClientWithOptions(ctx, WithDialOptions(dopts...), logger))
 }
 
 // AppClient initializes and returns an AppClient instance used to make app method calls.
@@ -173,5 +174,5 @@ func (c *ViamClient) ProvisioningClient() *ProvisioningClient {
 
 // Close closes the gRPC connection.
 func (c *ViamClient) Close() error {
-	return c.conn.Close()
+	return errtrace.Wrap(c.conn.Close())
 }

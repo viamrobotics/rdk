@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -31,11 +32,11 @@ func NewName(api API, name string) Name {
 func (n *Name) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	newN, err := NewFromString(s)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	*n = newN
 	return nil
@@ -51,7 +52,7 @@ func newRemoteName(remoteName string, api API, name string) Name {
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
 	if !resRegexValidator.MatchString(resourceName) {
-		return Name{}, errors.Errorf("string %q is not a fully qualified resource name", resourceName)
+		return Name{}, errtrace.Wrap(errors.Errorf("string %q is not a fully qualified resource name", resourceName))
 	}
 	matches := resRegexValidator.FindStringSubmatch(resourceName)
 	rAPIParts := strings.Split(matches[1], ":")
@@ -127,13 +128,13 @@ func (n Name) ShortName() string {
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
 	if n.Name == "" {
-		return errors.New("name field for resource is empty")
+		return errtrace.Wrap(errors.New("name field for resource is empty"))
 	}
 	if err := n.API.Validate(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := ContainsReservedCharacter(n.Name); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }

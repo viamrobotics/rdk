@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
@@ -99,13 +100,13 @@ func (w *firstMessageServerStreamWrapper) RecvMsg(m interface{}) error {
 	if w.firstMsg != nil {
 		msgTarget := protoutils.MessageToProtoV1(m)
 		if msgTarget == nil {
-			return errors.Errorf("expected message to be a proto.Message but got %T", m)
+			return errtrace.Wrap(errors.Errorf("expected message to be a proto.Message but got %T", m))
 		}
 		msg := w.firstMsg
 		w.firstMsg = nil
-		return msg.ConvertToDeterministic(msgTarget)
+		return errtrace.Wrap(msg.ConvertToDeterministic(msgTarget))
 	}
-	return w.ServerStream.RecvMsg(m)
+	return errtrace.Wrap(w.ServerStream.RecvMsg(m))
 }
 
 func (m *SessionManager) safetyMonitoredResourceFromStream(
@@ -123,7 +124,7 @@ func (m *SessionManager) safetyMonitoredResourceFromStream(
 
 	if err := stream.RecvMsg(firstMsg); err != nil {
 		// this error counts
-		return resource.Name{}, nil, err
+		return resource.Name{}, nil, errtrace.Wrap(err)
 	}
 
 	newStream := &firstMessageServerStreamWrapper{ServerStream: stream, firstMsg: firstMsg}
@@ -154,14 +155,14 @@ func (m *SessionManager) UnaryServerInterceptor(
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
 	if _, _, isMonitored := m.safetyMonitoredTypeAndMethod(info.FullMethod); !isMonitored {
-		return handler(ctx, req)
+		return errtrace.Wrap2(handler(ctx, req))
 	}
 	safetyMonitoredResourceName := m.safetyMonitoredResourceFromUnary(req, info.FullMethod)
 	ctx, err := associateSession(ctx, m, safetyMonitoredResourceName, info.FullMethod)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }
 
 // StreamServerInterceptor associates the current session (if present) in the current context before
@@ -173,20 +174,20 @@ func (m *SessionManager) StreamServerInterceptor(
 	handler grpc.StreamHandler,
 ) error {
 	if _, _, isMonitored := m.safetyMonitoredTypeAndMethod(info.FullMethod); !isMonitored {
-		return handler(srv, ss)
+		return errtrace.Wrap(handler(srv, ss))
 	}
 	safetyMonitoredResource, wrappedStream, err := m.safetyMonitoredResourceFromStream(ss, info.FullMethod)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if wrappedStream != nil {
 		ss = wrappedStream
 	}
 	ctx, err := associateSession(ss.Context(), m, safetyMonitoredResource, info.FullMethod)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return handler(srv, &ssStreamContextWrapper{ss, ctx})
+	return errtrace.Wrap(handler(srv, &ssStreamContextWrapper{ss, ctx}))
 }
 
 // associateSession creates a new context associated with the session, if found, from an incoming context.
@@ -214,7 +215,7 @@ func associateSession(
 	sessID, err = sessionFromMetadata(meta)
 	if err != nil {
 		m.logger.CWarnw(ctx, "failed to get session id from metadata", "error", err)
-		return ctx, err
+		return ctx, errtrace.Wrap(err)
 	}
 	if sessID == uuid.Nil {
 		return ctx, nil
@@ -222,7 +223,7 @@ func associateSession(
 	authEntity, _ := rpc.ContextAuthEntity(ctx)
 	sess, err := m.FindByID(ctx, sessID, authEntity.Entity)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return session.ToContext(ctx, sess), nil
 }
@@ -236,11 +237,11 @@ func sessionFromMetadata(meta metadata.MD) (uuid.UUID, error) {
 	case 1:
 		sessID, err := uuid.Parse(values[0])
 		if err != nil {
-			return uuid.UUID{}, err
+			return uuid.UUID{}, errtrace.Wrap(err)
 		}
 		return sessID, nil
 	default:
-		return uuid.UUID{}, errors.New("found more than one session id in metadata")
+		return uuid.UUID{}, errtrace.Wrap(errors.New("found more than one session id in metadata"))
 	}
 }
 

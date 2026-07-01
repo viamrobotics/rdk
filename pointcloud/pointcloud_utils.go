@@ -7,12 +7,13 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/stat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
 func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
-	return BoundingBoxFromPointCloudWithLabel(cloud, "")
+	return errtrace.Wrap2(BoundingBoxFromPointCloudWithLabel(cloud, ""))
 }
 
 // BoundingBoxFromPointCloudWithLabel returns a Geometry object that encompasses all the points in the given point cloud.
@@ -30,7 +31,7 @@ func BoundingBoxFromPointCloudWithLabel(cloud PointCloud, label string) (spatial
 	mean := r3.Vector{meta.TotalX() / n, meta.TotalY() / n, meta.TotalZ() / n}
 
 	// calculate the dimensions of the bounding box formed by finding the dimensions of each axes' extrema
-	return spatialmath.NewBox(spatialmath.NewPoseFromPoint(mean), dims, label)
+	return errtrace.Wrap2(spatialmath.NewBox(spatialmath.NewPoseFromPoint(mean), dims, label))
 }
 
 // PrunePointClouds removes point clouds from a slice if the point cloud has less than nMin points.
@@ -50,10 +51,10 @@ func PrunePointClouds(clouds []PointCloud, nMin int) []PointCloud {
 // NOTE(bh): Returns a new point cloud, but could be modified to filter and change the original point cloud.
 func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(in, out PointCloud) error, error) {
 	if meanK <= 0 {
-		return nil, errors.Errorf("argument meanK must be a positive int, got %d", meanK)
+		return nil, errtrace.Wrap(errors.Errorf("argument meanK must be a positive int, got %d", meanK))
 	}
 	if stdDevThresh <= 0.0 {
-		return nil, errors.Errorf("argument stdDevThresh must be a positive float, got %.2f", stdDevThresh)
+		return nil, errtrace.Wrap(errors.Errorf("argument stdDevThresh must be a positive float, got %.2f", stdDevThresh))
 	}
 	filterFunc := func(pc, filteredCloud PointCloud) error {
 		// create data type that can do nearest neighbors
@@ -82,7 +83,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(in, out Poi
 			if avgDistances[i] < threshold {
 				err := filteredCloud.Set(points[i].P, points[i].D)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		}

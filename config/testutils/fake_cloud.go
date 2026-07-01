@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -125,7 +126,7 @@ func (s *FakeCloudServer) Shutdown() error {
 
 	err := s.rpcServer.Stop()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	s.exitWg.Wait()
@@ -155,12 +156,12 @@ func (s *FakeCloudServer) Config(ctx context.Context, req *pb.ConfigRequest) (*p
 	defer s.mu.Unlock()
 
 	if s.errConfigAndCerts != nil {
-		return nil, s.errConfigAndCerts
+		return nil, errtrace.Wrap(s.errConfigAndCerts)
 	}
 
 	d, ok := s.deviceConfigs[req.Id]
 	if !ok {
-		return nil, status.Error(codes.NotFound, "config for device not found")
+		return nil, errtrace.Wrap(status.Error(codes.NotFound, "config for device not found"))
 	}
 
 	return &pb.ConfigResponse{Config: d.cfg}, nil
@@ -172,12 +173,12 @@ func (s *FakeCloudServer) Certificate(ctx context.Context, req *pb.CertificateRe
 	defer s.mu.Unlock()
 
 	if s.errConfigAndCerts != nil {
-		return nil, s.errConfigAndCerts
+		return nil, errtrace.Wrap(s.errConfigAndCerts)
 	}
 
 	d, ok := s.deviceConfigs[req.Id]
 	if !ok {
-		return nil, status.Error(codes.NotFound, "cert for device not found")
+		return nil, errtrace.Wrap(status.Error(codes.NotFound, "cert for device not found"))
 	}
 
 	return d.certs, nil
@@ -185,12 +186,12 @@ func (s *FakeCloudServer) Certificate(ctx context.Context, req *pb.CertificateRe
 
 // Log impl.
 func (s *FakeCloudServer) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Log not implemented")
+	return nil, errtrace.Wrap(status.Error(codes.Unimplemented, "method Log not implemented"))
 }
 
 // NeedsRestart impl.
 func (s *FakeCloudServer) NeedsRestart(ctx context.Context, req *pb.NeedsRestartRequest) (*pb.NeedsRestartResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method NeedsRestart not implemented")
+	return nil, errtrace.Wrap(status.Error(codes.Unimplemented, "method NeedsRestart not implemented"))
 }
 
 func (s *FakeCloudServer) robotSecretAuthenticate(ctx context.Context, entity, payload string) (map[string]string, error) {
@@ -199,11 +200,11 @@ func (s *FakeCloudServer) robotSecretAuthenticate(ctx context.Context, entity, p
 
 	_, ok := s.deviceConfigs[entity]
 	if !ok {
-		return nil, errors.New("failed to auth device not found in fake server")
+		return nil, errtrace.Wrap(errors.New("failed to auth device not found in fake server"))
 	}
 
 	if payload != FakeCredentialPayLoad {
-		return nil, errors.New("failed to auth device payload does not match")
+		return nil, errtrace.Wrap(errors.New("failed to auth device payload does not match"))
 	}
 
 	return map[string]string{}, nil
@@ -215,7 +216,7 @@ func (s *FakeCloudServer) robotSecretEntityDataLoad(ctx context.Context, claims 
 
 	_, ok := s.deviceConfigs[claims.Entity()]
 	if !ok {
-		return nil, errors.New("failed to verify entity in fake server")
+		return nil, errtrace.Wrap(errors.New("failed to verify entity in fake server"))
 	}
 
 	return map[string]string{}, nil

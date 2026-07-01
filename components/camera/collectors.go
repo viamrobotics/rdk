@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/utils"
@@ -45,7 +46,7 @@ func (m method) String() string {
 func newNextPointCloudCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -59,13 +60,13 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, nextPointCloud.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, nextPointCloud.String(), err))
 		}
 		bytes, err := pointcloud.ToBytes(pc)
 		if err != nil {
-			return res, errors.Errorf("failed to convert returned point cloud to PCD: %v", err)
+			return res, errtrace.Wrap(errors.Errorf("failed to convert returned point cloud to PCD: %v", err))
 		}
 		ts := data.Timestamps{
 			TimeRequested: timeRequested,
@@ -76,13 +77,13 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 			MimeType: utils.MimeTypePCD,
 		}}), nil
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func newReadImageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// choose the best/fastest representation
 	mimeType := params.MethodParams["mime_type"]
@@ -91,7 +92,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		strWrapper := wrapperspb.String(utils.MimeTypeJPEG)
 		mimeType, err = anypb.New(strWrapper)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -104,7 +105,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		// If that fails, try to unmarshal as Value
 		val := &structpb.Value{}
 		if err := mimeType.UnmarshalTo(val); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		mimeStr = val.GetStringValue()
 	}
@@ -120,15 +121,15 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
 
-			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, readImage.String(), err))
 		}
 
 		if len(resImgs) == 0 {
 			err = errors.New("no images returned from camera")
-			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, readImage.String(), err))
 		}
 
 		// Select the corresponding image based on requested mime type if provided
@@ -150,7 +151,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 
 		imgBytes, err := img.Bytes(ctx)
 		if err != nil {
-			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, readImage.String(), err))
 		}
 
 		mimeType := img.mimeType
@@ -164,13 +165,13 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			Payload:     imgBytes,
 		}}), nil
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func newGetImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -185,35 +186,35 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 		if ok {
 			unmarshaledFilterSourceNames, err := data.UnmarshalToValueOrString(filterSourceNamesAny)
 			if err != nil {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
 			switch v := unmarshaledFilterSourceNames.(type) {
 			case []interface{}:
 				for _, nameInterface := range v {
 					name, ok := nameInterface.(string)
 					if !ok {
-						return res, fmt.Errorf("filter_source_names must be a list of strings, but got as an element %T", nameInterface)
+						return res, errtrace.Wrap(fmt.Errorf("filter_source_names must be a list of strings, but got as an element %T", nameInterface))
 					}
 					filterSourceNames = append(filterSourceNames, name)
 				}
 			default:
-				return res, fmt.Errorf("filter_source_names must be a list of strings, but got %T", v)
+				return res, errtrace.Wrap(fmt.Errorf("filter_source_names must be a list of strings, but got %T", v))
 			}
 		}
 
 		resImgs, resMetadata, err := camera.Images(ctx, filterSourceNames, data.FromDMExtraMap)
 		if err != nil {
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, getImages.String(), err))
 		}
 
 		var binaries []data.Binary
 		for _, img := range resImgs {
 			imgBytes, err := img.Bytes(ctx)
 			if err != nil {
-				return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
+				return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, getImages.String(), err))
 			}
 			annotations := img.Annotations
 			annotations.Classifications = append(annotations.Classifications, data.Classification{Label: img.SourceName})
@@ -229,7 +230,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 		}
 		return data.NewBinaryCaptureResult(ts, binaries), nil
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -237,30 +238,30 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(camera, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newGetWorldPoseCollector returns a collector to capture the camera's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	if _, err := assertCamera(resource); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertCamera(resource interface{}) (Camera, error) {
 	cam, ok := resource.(Camera)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return cam, nil
 }

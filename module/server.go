@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -69,12 +70,12 @@ func (s *Server) InstanceNames() []string {
 
 // EnsureAuthed is unsupported.
 func (s *Server) EnsureAuthed(ctx context.Context) (context.Context, error) {
-	return nil, errors.New("EnsureAuthed is unsupported")
+	return nil, errtrace.Wrap(errors.New("EnsureAuthed is unsupported"))
 }
 
 // Start is unsupported.
 func (s *Server) Start() error {
-	return errors.New("start unsupported on module grpc server")
+	return errtrace.Wrap(errors.New("start unsupported on module grpc server"))
 }
 
 // Serve begins listening/serving grpc.
@@ -82,12 +83,12 @@ func (s *Server) Serve(listener net.Listener) error {
 	s.mu.Lock()
 	s.addr = listener.Addr()
 	s.mu.Unlock()
-	return s.server.Serve(listener)
+	return errtrace.Wrap(s.server.Serve(listener))
 }
 
 // ServeTLS is unsupported.
 func (s *Server) ServeTLS(listener net.Listener, certFile, keyFile string, tlsConfig *tls.Config) error {
-	return errors.New("tls unsupported on module grpc server")
+	return errtrace.Wrap(errors.New("tls unsupported on module grpc server"))
 }
 
 // Stop performs a GracefulStop() on the underlying grpc server.
@@ -185,23 +186,23 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 			if err != nil {
 				errs = multierr.Combine(errs, err)
 				if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
-					return nil, errs
+					return nil, errtrace.Wrap(errs)
 				}
 				continue
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return nil, errtrace.Wrap(fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc))
 			}
 			rpcAPI.Desc = svcDesc
 		}
 		for _, m := range h.Models {
 			model, err := resource.NewModelFromString(m)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			hMap[*rpcAPI] = append(hMap[*rpcAPI], model)
 		}
 	}
-	return hMap, errs
+	return hMap, errtrace.Wrap(errs)
 }

@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -31,14 +32,14 @@ func (p *PlanState) MarshalJSON() ([]byte, error) {
 		Poses:         p.poses,
 		Configuration: p.structuredConfiguration,
 	}
-	return json.Marshal(stateJSON)
+	return errtrace.Wrap2(json.Marshal(stateJSON))
 }
 
 // UnmarshalJSON deserializes a PlanState from JSON.
 func (p *PlanState) UnmarshalJSON(data []byte) error {
 	var stateJSON planStateJSON
 	if err := json.Unmarshal(data, &stateJSON); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	p.poses = stateJSON.Poses
 	p.structuredConfiguration = stateJSON.Configuration
@@ -81,10 +82,10 @@ func (p *PlanState) ComputePoses(ctx context.Context, fs *referenceframe.FrameSy
 	}
 
 	if len(p.structuredConfiguration) == 0 {
-		return nil, errors.New("cannot computes poses, neither poses nor configuration are populated")
+		return nil, errtrace.Wrap(errors.New("cannot computes poses, neither poses nor configuration are populated"))
 	}
 
-	return p.structuredConfiguration.ComputePoses(fs)
+	return errtrace.Wrap2(p.structuredConfiguration.ComputePoses(fs))
 }
 
 // Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.
@@ -119,18 +120,18 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 			for fName, pifIface := range frameSystemPoseMap {
 				pifJSON, err := json.Marshal(pifIface)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				pifPb := &commonpb.PoseInFrame{}
 				err = json.Unmarshal(pifJSON, pifPb)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				pif := referenceframe.ProtobufToPoseInFrame(pifPb)
 				ps.poses[fName] = pif
 			}
 		} else {
-			return nil, errors.New("could not decode contents of poses")
+			return nil, errtrace.Wrap(errors.New("could not decode contents of poses"))
 		}
 	} else {
 		ps.poses = nil
@@ -144,16 +145,16 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 						if val, ok := inputIface.(float64); ok {
 							floats = append(floats, val)
 						} else {
-							return nil, errors.New("configuration input array did not contain floats")
+							return nil, errtrace.Wrap(errors.New("configuration input array did not contain floats"))
 						}
 					}
 					ps.structuredConfiguration[fName] = floats
 				} else {
-					return nil, errors.New("configuration did not contain array of inputs")
+					return nil, errtrace.Wrap(errors.New("configuration did not contain array of inputs"))
 				}
 			}
 		} else {
-			return nil, errors.New("could not decode contents of configuration")
+			return nil, errtrace.Wrap(errors.New("could not decode contents of configuration"))
 		}
 	} else {
 		ps.structuredConfiguration = nil

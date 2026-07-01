@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/test"
 )
 
@@ -78,7 +79,7 @@ func TestWaitForError(t *testing.T) {
 		time.Millisecond,
 		func(ctx context.Context) (bool, error) {
 			if atomic.AddInt64(&count, 1) == 5 {
-				return false, errors.New("blah")
+				return false, errtrace.Wrap(errors.New("blah"))
 			}
 			return false, nil
 		},
@@ -182,7 +183,7 @@ func (m *mock) stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 func (m *mock) stopFail(ctx context.Context, extra map[string]interface{}) error {
-	return errors.New("Stop failed")
+	return errtrace.Wrap(errors.New("Stop failed"))
 }
 
 func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/sensor"
@@ -39,7 +40,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	var err error
 	myMod, err = module.NewModuleFromArgs(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterComponent(
@@ -48,7 +49,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterComponent(
@@ -57,7 +58,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor})
 	err = myMod.AddModelFromRegistry(ctx, motor.API, testMotorModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resource.RegisterComponent(
@@ -66,13 +67,13 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSensorDependent})
 	err = myMod.AddModelFromRegistry(ctx, sensor.API, testSensorDependentModel)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	<-ctx.Done()
 	return nil
@@ -86,7 +87,7 @@ func newHelper(
 	if len(conf.DependsOn) > 0 {
 		dependsOnGeneric, err = generic.FromProvider(deps, conf.DependsOn[0])
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return &helper{
@@ -110,7 +111,7 @@ type helper struct {
 func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
 	cmd, ok := req["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' string")
+		return nil, errtrace.Wrap(errors.New("missing 'command' string"))
 	}
 
 	switch req["command"] {
@@ -130,39 +131,39 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		// For testing module liveliness
 		return req, nil
 	case "echo_dep":
-		return h.dependsOnGeneric.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		return errtrace.Wrap2(h.dependsOnGeneric.DoCommand(ctx, map[string]interface{}{"command": "echo"}))
 	case "kill_module":
 		// For testing module reloading & unexpected exists
 		os.Exit(1)
 		// unreachable return statement needed for compilation
-		return nil, errors.New("unreachable error")
+		return nil, errtrace.Wrap(errors.New("unreachable error"))
 	case "write_data_file":
 		// For testing that the module's data directory has been created and that the VIAM_MODULE_DATA env var exists
 		filename, ok := req["filename"].(string)
 		if !ok {
-			return nil, errors.New("missing 'filename' string")
+			return nil, errtrace.Wrap(errors.New("missing 'filename' string"))
 		}
 		contents, ok := req["contents"].(string)
 		if !ok {
-			return nil, errors.New("missing 'contents' string")
+			return nil, errtrace.Wrap(errors.New("missing 'contents' string"))
 		}
 		dataFilePath := filepath.Join(os.Getenv("VIAM_MODULE_DATA"), filename)
 		err := os.WriteFile(dataFilePath, []byte(contents), 0o600)
 		if err != nil {
-			return map[string]interface{}{}, err
+			return map[string]interface{}{}, errtrace.Wrap(err)
 		}
 		return map[string]interface{}{"fullpath": dataFilePath}, nil
 	case "get_working_directory":
 		// For testing that modules are started with the correct working directory
 		workingDir, err := os.Getwd()
 		if err != nil {
-			return map[string]interface{}{}, err
+			return map[string]interface{}{}, errtrace.Wrap(err)
 		}
 		return map[string]interface{}{"path": workingDir}, nil
 	case "log":
 		level, err := logging.LevelFromString(req["level"].(string))
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		msg := req["msg"].(string)
@@ -179,7 +180,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 
 		return map[string]any{}, nil
 	default:
-		return nil, fmt.Errorf("unknown command string %s", cmd)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown command string %s", cmd))
 	}
 }
 

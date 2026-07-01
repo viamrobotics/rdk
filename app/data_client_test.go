@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -490,7 +491,7 @@ func TestDataClient(t *testing.T) {
 		mockStream := &inject.DataServiceExportTabularDataClient{
 			RecvFunc: func() (*pb.ExportTabularDataResponse, error) {
 				if sentOnce {
-					return nil, io.EOF
+					return nil, errtrace.Wrap(io.EOF)
 				}
 
 				sentOnce = true

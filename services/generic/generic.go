@@ -7,6 +7,7 @@ package generic
 import (
 	pb "go.viam.com/api/service/generic/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -41,13 +42,13 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (resource.Resource, error) {
-	return robot.ResourceFromRobot[resource.Resource](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[resource.Resource](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Generic
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (resource.Resource, error) {
-	return resource.FromProvider[Service](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Service](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all generic names from the given Robot.

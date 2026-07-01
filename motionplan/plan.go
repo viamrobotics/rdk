@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -66,11 +67,11 @@ func NewSimplePlanFromTrajectory(
 		for frame := range inputNode.Keys() {
 			tf, err := fs.Transform(inputNode, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			pose, ok := tf.(*referenceframe.PoseInFrame)
 			if !ok {
-				return nil, fmt.Errorf("pose not transformable")
+				return nil, errtrace.Wrap(fmt.Errorf("pose not transformable"))
 			}
 			poseMap[frame] = pose
 		}
@@ -107,14 +108,14 @@ type simplePlanJSON struct {
 
 // MarshalJSON implements json.Marshaler for SimplePlan.
 func (plan *SimplePlan) MarshalJSON() ([]byte, error) {
-	return json.Marshal(simplePlanJSON{Path: plan.path, Traj: plan.traj})
+	return errtrace.Wrap2(json.Marshal(simplePlanJSON{Path: plan.path, Traj: plan.traj}))
 }
 
 // UnmarshalJSON implements json.Unmarshaler for SimplePlan.
 func (plan *SimplePlan) UnmarshalJSON(data []byte) error {
 	var planJSON simplePlanJSON
 	if err := json.Unmarshal(data, &planJSON); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	plan.path = planJSON.Path
 	plan.traj = planJSON.Traj
@@ -139,7 +140,7 @@ func (path Path) GetFramePoses(frameName string) ([]spatialmath.Pose, error) {
 	for _, step := range path {
 		poseInFrame, ok := step[frameName]
 		if !ok {
-			return nil, fmt.Errorf("frame named %s not found in path", frameName)
+			return nil, errtrace.Wrap(fmt.Errorf("frame named %s not found in path", frameName))
 		}
 		poses = append(poses, poseInFrame.Pose())
 	}
@@ -163,7 +164,7 @@ func (traj Trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Inpu
 	for _, step := range traj {
 		frameStep, ok := step[frameName]
 		if !ok {
-			return nil, fmt.Errorf("frame named %s not found in trajectory", frameName)
+			return nil, errtrace.Wrap(fmt.Errorf("frame named %s not found in trajectory", frameName))
 		}
 		solution = append(solution, frameStep)
 	}

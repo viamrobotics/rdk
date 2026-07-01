@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -46,7 +47,7 @@ func (x *streamServer) Context() context.Context {
 
 func (x *streamServer) Send(m *pb.StreamEventsResponse) error {
 	if x.fail {
-		return errSendFailed
+		return errtrace.Wrap(errSendFailed)
 	}
 	if x.messageCh == nil {
 		return nil
@@ -66,7 +67,7 @@ func newServer(logger logging.Logger) (
 	}
 	inputControllerSvc, err := resource.NewAPIResourceCollection(input.API, inputControllers)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return input.NewRPCServiceServer(inputControllerSvc, logger).(pb.InputControllerServiceServer),
 		injectInputController, injectInputController2, nil
@@ -114,7 +115,7 @@ func TestServer(t *testing.T) {
 		ctrlFunc input.ControlFunction,
 		extra map[string]interface{},
 	) error {
-		return errRegisterFailed
+		return errtrace.Wrap(errRegisterFailed)
 	}
 
 	t.Run("GetControls", func(t *testing.T) {
@@ -286,7 +287,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
 		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
-			return errors.New("can't inject event")
+			return errtrace.Wrap(errors.New("can't inject event"))
 		}
 
 		event1 := input.Event{
@@ -357,7 +358,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectInputController.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = inputControllerServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testInputControllerName})
 		test.That(t, err, test.ShouldNotBeNil)

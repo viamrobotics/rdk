@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
@@ -165,7 +166,7 @@ func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 				sourceNames []string,
 				extra map[string]interface{},
 			) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-				return nil, resource.ResponseMetadata{}, expectedErr
+				return nil, resource.ResponseMetadata{}, errtrace.Wrap(expectedErr)
 			},
 		}
 		_, err := camerautils.GetStreamableNamedImageFromCamera(context.Background(), cam)
@@ -303,7 +304,7 @@ func TestVideoSourceFromCameraFalsyVideoProps(t *testing.T) {
 			sourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-			return nil, resource.ResponseMetadata{}, errors.New("this should not be called")
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(errors.New("this should not be called"))
 		},
 	}
 
@@ -369,7 +370,7 @@ func TestVideoSourceFromCamera_SourceSelection(t *testing.T) {
 			if len(sourceNames) == 1 && sourceNames[0] == "streamable" {
 				return []camera.NamedImage{streamableImg}, resource.ResponseMetadata{}, nil
 			}
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected source filter: %v", sourceNames)
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unexpected source filter: %v", sourceNames))
 		},
 	}
 
@@ -414,14 +415,14 @@ func TestVideoSourceFromCamera_Recovery(t *testing.T) {
 			if sourceNames[0] == "good" {
 				goodSourceCallCount++
 				if goodSourceCallCount == 1 {
-					return nil, resource.ResponseMetadata{}, errors.New("source 'good' is gone")
+					return nil, resource.ResponseMetadata{}, errtrace.Wrap(errors.New("source 'good' is gone"))
 				}
-				return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected call to source 'good' after failure")
+				return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unexpected call to source 'good' after failure"))
 			}
 			if sourceNames[0] == "fallback" {
 				return []camera.NamedImage{fallbackNamedImage}, resource.ResponseMetadata{}, nil
 			}
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("unknown source %q", sourceNames[0])
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unknown source %q", sourceNames[0]))
 		},
 	}
 
@@ -480,7 +481,7 @@ func TestVideoSourceFromCamera_ImagesError(t *testing.T) {
 			sourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-			return nil, resource.ResponseMetadata{}, expectedErr
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(expectedErr)
 		},
 	}
 
@@ -517,7 +518,7 @@ func TestVideoSourceFromCamera_MultipleStreamableSources(t *testing.T) {
 			if len(sourceNames) == 1 && sourceNames[0] == "good1" {
 				return []camera.NamedImage{namedA}, resource.ResponseMetadata{}, nil
 			}
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected source filter: %v", sourceNames)
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unexpected source filter: %v", sourceNames))
 		},
 	}
 
@@ -586,7 +587,7 @@ func TestVideoSourceFromCamera_FilterNoImages(t *testing.T) {
 				firstServed = true
 				return []camera.NamedImage{}, resource.ResponseMetadata{}, nil
 			}
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected sequence: %v", sourceNames)
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unexpected sequence: %v", sourceNames))
 		},
 	}
 
@@ -630,7 +631,7 @@ func TestVideoSourceFromCamera_FilterMultipleImages(t *testing.T) {
 				// This simulates older camera APIs that don't support filtering
 				return []camera.NamedImage{good, good}, resource.ResponseMetadata{}, nil
 			}
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected source filter: %v", sourceNames)
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unexpected source filter: %v", sourceNames))
 		},
 	}
 
@@ -679,7 +680,7 @@ func TestVideoSourceFromCamera_FilterMultipleImages_NoMatchingSource(t *testing.
 			if len(sourceNames) == 1 && sourceNames[0] == "source2" {
 				return []camera.NamedImage{img2}, resource.ResponseMetadata{}, nil
 			}
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected source filter: %v", sourceNames)
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unexpected source filter: %v", sourceNames))
 		},
 	}
 
@@ -765,7 +766,7 @@ func TestVideoSourceFromCamera_InvalidImageFirst_ThenValidAlsoAvailable(t *testi
 			if len(sourceNames) == 1 && sourceNames[0] == "good" {
 				return []camera.NamedImage{validNamed}, resource.ResponseMetadata{}, nil
 			}
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected filter: %v", sourceNames)
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unexpected filter: %v", sourceNames))
 		},
 	}
 
@@ -807,7 +808,7 @@ func TestVideoSourceFromCamera_FilterMismatchedSourceName(t *testing.T) {
 				// After reset, success
 				return []camera.NamedImage{good}, resource.ResponseMetadata{}, nil
 			}
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected filter: %v", sourceNames)
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unexpected filter: %v", sourceNames))
 		},
 	}
 

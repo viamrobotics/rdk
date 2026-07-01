@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	appClient "go.viam.com/rdk/app"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
@@ -38,7 +39,7 @@ func configFromCacheInner(configPath string) (_ *Config, err error) {
 	//nolint: gosec
 	rd, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var conf Config
 
@@ -51,7 +52,7 @@ func configFromCacheInner(configPath string) (_ *Config, err error) {
 		return &conf, nil
 	}
 
-	return nil, errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to parse cached config")
+	return nil, errtrace.Wrap(errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to parse cached config"))
 }
 
 // ConfigFromCache parses the cached json into a Config. Removes the config from cache on any error.
@@ -62,7 +63,7 @@ func ConfigFromCache(c *cli.Command) (*Config, error) {
 	var profileSpecified bool
 	globalArgs, err := getGlobalArgs(c)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if !globalArgs.DisableProfiles {
 		whichProf, profileSpecified = whichProfile(globalArgs)
@@ -79,7 +80,7 @@ func ConfigFromCache(c *cli.Command) (*Config, error) {
 		// if someone explicitly asked for a profile via CLI flag and we were unable to provide
 		// it, we should error out rather than trying to infer what they might prefer instead
 		if profileSpecified {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		// A profile has been set as an env var but not specified by flag. Since the env var
@@ -90,16 +91,16 @@ func ConfigFromCache(c *cli.Command) (*Config, error) {
 		}
 	}
 
-	return configFromCacheInner(rutils.GetCLICachePath())
+	return errtrace.Wrap2(configFromCacheInner(rutils.GetCLICachePath()))
 }
 
 func removeConfigFromCache() error {
-	return os.Remove(rutils.GetCLICachePath())
+	return errtrace.Wrap(os.Remove(rutils.GetCLICachePath()))
 }
 
 func (conf *Config) updateLastUpdateCheck() error {
 	conf.LastUpdateCheck = time.Now().Format(time.RFC3339)
-	return storeConfigToCache(conf)
+	return errtrace.Wrap(storeConfigToCache(conf))
 }
 
 func storeConfigToCache(cfg *Config) error {
@@ -111,15 +112,15 @@ func storeConfigToCache(cfg *Config) error {
 		path = rutils.GetCLICachePath()
 	}
 	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	md, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	//nolint:gosec
-	return os.WriteFile(path, md, 0o640)
+	return errtrace.Wrap(os.WriteFile(path, md, 0o640))
 }
 
 // TODO(RSDK-9727) - `LatestVersion` is no longer used anywhere. Confirm that it's safe to
@@ -139,23 +140,23 @@ type Config struct {
 func (conf *Config) tryUnmarshallWithToken(configBytes []byte) error {
 	conf.Auth = &token{}
 	if err := json.Unmarshal(configBytes, &conf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if conf.Auth != nil && conf.Auth.(*token).User.Email != "" {
 		return nil
 	}
-	return errors.New("config did not contain a user token")
+	return errtrace.Wrap(errors.New("config did not contain a user token"))
 }
 
 func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 	conf.Auth = &apiKey{}
 	if err := json.Unmarshal(configBytes, &conf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if conf.Auth != nil && conf.Auth.(*apiKey).KeyID != "" {
 		return nil
 	}
-	return errors.New("config did not contain an api key")
+	return errtrace.Wrap(errors.New("config did not contain an api key"))
 }
 
 // DialOptions constructs an rpc.DialOption slice from config.
@@ -166,7 +167,7 @@ func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
 	}
 	_, opts, err := rutils.ParseBaseURL(baseURL, true)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return append(opts, conf.Auth.dialOpts()), nil
 }
@@ -174,38 +175,38 @@ func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
 // ConnectToMachine connects to a Viam machine using the cached CLI token.
 func ConnectToMachine(ctx context.Context, hostname string, logger logging.Logger) (robot.Robot, error) {
 	if hostname == "" {
-		return nil, errors.New("hostname is required")
+		return nil, errtrace.Wrap(errors.New("hostname is required"))
 	}
 
 	c, err := ConfigFromCache(nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dopts, err := c.DialOptions()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return robotClient.New(
+	return errtrace.Wrap2(robotClient.New(
 		ctx,
 		hostname,
 		logger,
 		robotClient.WithDialOptions(dopts...),
-	)
+	))
 }
 
 // ConnectToApp connects to the Viam app using the cached CLI token.
 func ConnectToApp(ctx context.Context, logger logging.Logger) (*appClient.ViamClient, error) {
 	c, err := ConfigFromCache(nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dopts, err := c.DialOptions()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return appClient.CreateViamClientWithOptions(ctx, appClient.WithDialOptions(dopts...), logger)
+	return errtrace.Wrap2(appClient.CreateViamClientWithOptions(ctx, appClient.WithDialOptions(dopts...), logger))
 }

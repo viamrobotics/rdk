@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"braces.dev/errtrace"
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"math/rand"
@@ -15,7 +16,7 @@ func AssertType[T any](from interface{}) (T, error) {
 	var zero T
 	asserted, ok := from.(T)
 	if !ok {
-		return zero, NewUnexpectedTypeError[T](from)
+		return zero, errtrace.Wrap(NewUnexpectedTypeError[T](from))
 	}
 	return asserted, nil
 }
@@ -86,7 +87,7 @@ func MapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
 	for _, item := range items {
 		newItem, err := fn(item)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		ret = append(ret, newItem)
 	}

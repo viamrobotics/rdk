@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -45,7 +46,7 @@ type Loop struct {
 
 // NewLoop construct a new control loop for a specific endpoint.
 func NewLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
-	return createLoop(logger, cfg, m)
+	return errtrace.Wrap2(createLoop(logger, cfg, m))
 }
 
 func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
@@ -59,13 +60,13 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 	}
 	l.running.Store(false)
 	if l.cfg.Frequency == 0.0 || l.cfg.Frequency > 200 {
-		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
+		return nil, errtrace.Wrap(errors.New("loop frequency shouldn't be 0 or above 200Hz"))
 	}
 	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
 		blk, err := l.createBlock(bcfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		l.blocks[bcfg.Name] = &controlBlockInternal{blk: blk, blockType: bcfg.Type}
 		if bcfg.Type == blockEndpoint {
@@ -76,7 +77,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 		for _, dep := range b.blk.Config(l.cancelCtx).DependsOn {
 			blockDep, ok := l.blocks[dep]
 			if !ok {
-				return nil, errors.Errorf("block %s depends on %s but it does not exist", b.blk.Config(l.cancelCtx).Name, dep)
+				return nil, errtrace.Wrap(errors.Errorf("block %s depends on %s but it does not exist", b.blk.Config(l.cancelCtx).Name, dep))
 			}
 			blockDep.outs = append(blockDep.outs, make(chan []*Signal))
 			b.ins = append(b.ins, blockDep.outs[len(blockDep.outs)-1])
@@ -165,7 +166,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 func (l *Loop) OutputAt(ctx context.Context, name string) ([]*Signal, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return []*Signal{}, errors.Errorf("cannot return Signals for nonexistent %s", name)
+		return []*Signal{}, errtrace.Wrap(errors.Errorf("cannot return Signals for nonexistent %s", name))
 	}
 	return blk.blk.Output(ctx), nil
 }
@@ -174,7 +175,7 @@ func (l *Loop) OutputAt(ctx context.Context, name string) ([]*Signal, error) {
 func (l *Loop) ConfigAt(ctx context.Context, name string) (BlockConfig, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return BlockConfig{}, errors.Errorf("cannot return Config for nonexistent %s", name)
+		return BlockConfig{}, errtrace.Wrap(errors.Errorf("cannot return Config for nonexistent %s", name))
 	}
 	return blk.blk.Config(ctx), nil
 }
@@ -194,9 +195,9 @@ func (l *Loop) ConfigsAtType(ctx context.Context, bType string) []BlockConfig {
 func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig) error {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return errors.Errorf("cannot return Config for nonexistent %s", name)
+		return errtrace.Wrap(errors.Errorf("cannot return Config for nonexistent %s", name))
 	}
-	return blk.blk.UpdateConfig(ctx, config)
+	return errtrace.Wrap(blk.blk.UpdateConfig(ctx, config))
 }
 
 // BlockList returns the list of blocks in a control loop error when the list is empty.
@@ -222,7 +223,7 @@ func (l *Loop) Frequency(ctx context.Context) (float64, error) {
 // Start starts the loop.
 func (l *Loop) Start() error {
 	if len(l.ts) == 0 {
-		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
+		return errtrace.Wrap(errors.New("cannot start the control loop if there are no blocks depending on an impulse"))
 	}
 	l.logger.Infof("Running control loop at %1.4f Hz, %+v\r\n", l.cfg.Frequency, l.dt)
 	l.ct = controlTicker{
@@ -268,7 +269,7 @@ func (l *Loop) Start() error {
 // StartBenchmark special start function to benchmark speed of complex loop configurations.
 func (l *Loop) startBenchmark(loops int) error {
 	if len(l.ts) == 0 {
-		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
+		return errtrace.Wrap(errors.New("cannot start the control loop if there are no blocks depending on an impulse"))
 	}
 	waitCh := make(chan struct{})
 	l.activeBackgroundWorkers.Add(1)

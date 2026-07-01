@@ -3,6 +3,7 @@ package control
 import (
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -72,10 +73,10 @@ func (f *iirFilter) calculateABCoeffs() error {
 	fc := 2.0 * f.cutOffFreq / f.smpFreq
 
 	if fc > 1 {
-		return errors.New("ratio 2 * cutOffFreq/smpFreq cannot be below 1 (Nyquist frequency)")
+		return errtrace.Wrap(errors.New("ratio 2 * cutOffFreq/smpFreq cannot be below 1 (Nyquist frequency)"))
 	}
 	if f.n%2 != 0 {
-		return errors.New("order of the filter must be an even number")
+		return errtrace.Wrap(errors.New("order of the filter must be an even number"))
 	}
 	np := f.n / 2
 	f.aCoeffs = make([]float64, f.n+3)
@@ -140,17 +141,17 @@ func (f *iirFilter) Reset() error {
 	f.x = make([]float64, f.n)
 	f.y = make([]float64, f.n)
 	err := f.calculateABCoeffs()
-	return err
+	return errtrace.Wrap(err)
 }
 
 func design(fp, fs, gp, gs, smpFreq float64) (*iirFilter, error) {
 	wp := 2.0 * fp / smpFreq
 	ws := 2.0 * fs / smpFreq
 	if wp > 1.0 {
-		return nil, errors.New("passband frequency should be between [0,0.5*fs]")
+		return nil, errtrace.Wrap(errors.New("passband frequency should be between [0,0.5*fs]"))
 	}
 	if ws > 1.0 {
-		return nil, errors.New("stopband frequency should be between [0,0.5*fs]")
+		return nil, errtrace.Wrap(errors.New("stopband frequency should be between [0,0.5*fs]"))
 	}
 	wp = math.Tan(math.Pi * wp / 2.0)
 	ws = math.Tan(math.Pi * ws / 2.0)
@@ -161,7 +162,7 @@ func design(fp, fs, gp, gs, smpFreq float64) (*iirFilter, error) {
 		n++
 	}
 	if n == 0 {
-		return nil, errors.New("filter order is 0")
+		return nil, errtrace.Wrap(errors.New("filter order is 0"))
 	}
 	wc := wp / math.Pow((math.Pow(10.0, gp/10.0)-1), 1.0/(2.0*float64(n)))
 	fc := (1.0 / math.Pi) * math.Atan(wc) * smpFreq

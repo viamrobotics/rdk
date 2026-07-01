@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
@@ -42,12 +43,12 @@ func newDetectionsTransform(
 ) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*detectorConfig](am)
 	if err != nil {
-		return nil, camera.UnspecifiedStream, err
+		return nil, camera.UnspecifiedStream, errtrace.Wrap(err)
 	}
 
 	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
-		return nil, camera.UnspecifiedStream, err
+		return nil, camera.UnspecifiedStream, errtrace.Wrap(err)
 	}
 	var cameraModel transform.PinholeCameraModel
 	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
@@ -70,9 +71,9 @@ func newDetectionsTransform(
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, detector, &cameraModel, camera.ColorStream)
 	if err != nil {
-		return nil, camera.UnspecifiedStream, err
+		return nil, camera.UnspecifiedStream, errtrace.Wrap(err)
 	}
-	return src, camera.ColorStream, err
+	return src, camera.ColorStream, errtrace.Wrap(err)
 }
 
 // Read returns the image overlaid with the detection bounding boxes.
@@ -82,20 +83,20 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	// get the bounding boxes from the service
 	srv, err := vision.FromProvider(ds.r, ds.detectorName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("source_detector cant find vision service: %w", err))
 	}
 	// get image from source camera
 	img, release, err := camera.ReadImage(ctx, ds.src)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("could not get next source image: %w", err))
 	}
 	namedImg, err := camera.NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not create named image: %w", err)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("could not create named image: %w", err))
 	}
 	dets, err := srv.Detections(ctx, &namedImg, map[string]interface{}{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get detections: %w", err)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("could not get detections: %w", err))
 	}
 	// overlay detections of the source image
 	dets = ds.confFilter(dets)
@@ -103,7 +104,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 
 	res, err := objectdetection.Overlay(img, dets)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not overlay bounding boxes: %w", err)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("could not overlay bounding boxes: %w", err))
 	}
 	return res, release, nil
 }

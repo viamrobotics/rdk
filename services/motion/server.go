@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -28,29 +29,29 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger loggin
 func (server *serviceServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	r, err := MoveReqFromProto(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	success, err := svc.Move(ctx, r)
-	return &pb.MoveResponse{Success: success}, err
+	return &pb.MoveResponse{Success: success}, errtrace.Wrap(err)
 }
 
 func (server *serviceServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapRequest) (*pb.MoveOnMapResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	r, err := moveOnMapRequestFromProto(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	id, err := svc.MoveOnMap(ctx, r)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.MoveOnMapResponse{ExecutionId: id.String()}, nil
@@ -59,16 +60,16 @@ func (server *serviceServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapReq
 func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlobeRequest) (*pb.MoveOnGlobeResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	r, err := moveOnGlobeRequestFromProto(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	id, err := svc.MoveOnGlobe(ctx, r)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.MoveOnGlobeResponse{ExecutionId: id.String()}, nil
@@ -80,18 +81,18 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if req.ComponentName == "" {
-		return nil, errors.New("must provide component name")
+		return nil, errtrace.Wrap(errors.New("must provide component name"))
 	}
 	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pose, err := svc.GetPose(ctx, req.ComponentName, req.DestinationFrame, transforms, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
@@ -100,14 +101,14 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 func (server *serviceServer) StopPlan(ctx context.Context, req *pb.StopPlanRequest) (*pb.StopPlanResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	componentName := req.GetComponentName()
 	r := StopPlanReq{ComponentName: componentName, Extra: req.Extra.AsMap()}
 	err = svc.StopPlan(ctx, r)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.StopPlanResponse{}, nil
@@ -116,13 +117,13 @@ func (server *serviceServer) StopPlan(ctx context.Context, req *pb.StopPlanReque
 func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListPlanStatusesRequest) (*pb.ListPlanStatusesResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	r := ListPlanStatusesReq{OnlyActivePlans: req.GetOnlyActivePlans(), Extra: req.Extra.AsMap()}
 	statuses, err := svc.ListPlanStatuses(ctx, r)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	protoStatuses := make([]*pb.PlanStatusWithID, 0, len(statuses))
@@ -136,17 +137,17 @@ func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListP
 func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.GetPlanResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	r, err := getPlanRequestFromProto(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	planHistory, err := svc.PlanHistory(ctx, r)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cpws := planHistory[0].ToProto()
@@ -165,16 +166,16 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // GetStatus returns the status of the motion service.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

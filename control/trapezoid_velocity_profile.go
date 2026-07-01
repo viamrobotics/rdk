@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -39,7 +40,7 @@ type trapezoidVelocityGenerator struct {
 func newTrapezoidVelocityProfile(config BlockConfig, logger logging.Logger) (Block, error) {
 	t := &trapezoidVelocityGenerator{cfg: config, logger: logger}
 	if err := t.reset(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return t, nil
 }
@@ -104,10 +105,10 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt t
 
 func (s *trapezoidVelocityGenerator) reset() error {
 	if !s.cfg.Attribute.Has("max_acc") {
-		return errors.Errorf("trapezoidale velocity profile block %s needs max_acc field", s.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("trapezoidale velocity profile block %s needs max_acc field", s.cfg.Name))
 	}
 	if !s.cfg.Attribute.Has("max_vel") {
-		return errors.Errorf("trapezoidale velocity profile block %s needs max_vel field", s.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("trapezoidale velocity profile block %s needs max_vel field", s.cfg.Name))
 	}
 	s.maxAcc = s.cfg.Attribute["max_acc"].(float64)
 	s.maxVel = s.cfg.Attribute["max_vel"].(float64)
@@ -146,14 +147,14 @@ func (s *trapezoidVelocityGenerator) reset() error {
 func (s *trapezoidVelocityGenerator) Reset(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.reset()
+	return errtrace.Wrap(s.reset())
 }
 
 func (s *trapezoidVelocityGenerator) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cfg = config
-	return s.reset()
+	return errtrace.Wrap(s.reset())
 }
 
 func (s *trapezoidVelocityGenerator) Output(ctx context.Context) []*Signal {

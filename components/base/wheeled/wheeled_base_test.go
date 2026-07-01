@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
@@ -22,7 +23,9 @@ import (
 
 func createFakeMotor() motor.Motor {
 	return &inject.Motor{
-		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("stop error") },
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			return errtrace.Wrap(errors.New("stop error"))
+		},
 		// SetRPMFunc: func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 
 		// },
@@ -474,7 +477,7 @@ func TestValidate(t *testing.T) {
 func waitForMotorsToStop(ctx context.Context, wb *wheeledBase) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		}
 
 		anyOn := false
@@ -483,7 +486,7 @@ func waitForMotorsToStop(ctx context.Context, wb *wheeledBase) error {
 		for _, m := range wb.allMotors {
 			isOn, _, err := m.IsPowered(ctx, nil)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			if isOn {
 				anyOn = true
@@ -498,7 +501,7 @@ func waitForMotorsToStop(ctx context.Context, wb *wheeledBase) error {
 
 		if anyOff {
 			// once one motor turns off, we turn them all off
-			return wb.Stop(ctx, nil)
+			return errtrace.Wrap(wb.Stop(ctx, nil))
 		}
 	}
 }

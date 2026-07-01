@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 )
 
@@ -34,7 +35,7 @@ func (m method) String() string {
 func newReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	sensorResource, err := assertSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -46,7 +47,7 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 		for k, v := range arg {
 			unmarshaledValue, err := data.UnmarshalToValueOrString(v)
 			if err != nil {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
 			argMap[k] = unmarshaledValue
 		}
@@ -56,15 +57,15 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, readings.String(), err))
 		}
 
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResultReadings(ts, values)
+		return errtrace.Wrap2(data.NewTabularCaptureResultReadings(ts, values))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -72,30 +73,30 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	sensorResource, err := assertSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(sensorResource, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newGetWorldPoseCollector returns a collector to capture the sensor's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	if _, err := assertSensor(resource); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertSensor(resource interface{}) (Sensor, error) {
 	sensorResource, ok := resource.(Sensor)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 
 	return sensorResource, nil

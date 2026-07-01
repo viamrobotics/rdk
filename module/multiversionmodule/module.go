@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -41,11 +42,11 @@ func (cfg *config) Validate(_ string) ([]string, []string, error) {
 	switch VERSION {
 	case "v2":
 		if cfg.Parameter == "" {
-			return nil, nil, errors.New("version 2 requires a parameter")
+			return nil, nil, errtrace.Wrap(errors.New("version 2 requires a parameter"))
 		}
 	case "v3":
 		if cfg.Motor == "" {
-			return nil, nil, errors.New("version 3 requires a motor")
+			return nil, nil, errtrace.Wrap(errors.New("version 3 requires a motor"))
 		}
 		return []string{cfg.Motor}, nil, nil
 	default:
@@ -68,12 +69,12 @@ func newComponent(_ context.Context,
 ) (resource.Resource, error) {
 	newConf, err := resource.NativeConfig[*config](conf)
 	if err != nil {
-		return nil, errors.Wrap(err, "create component failed due to config parsing")
+		return nil, errtrace.Wrap(errors.Wrap(err, "create component failed due to config parsing"))
 	}
 	if VERSION == "v3" {
 		// Version 3 should have a motor in the deps
 		if _, err := motor.FromProvider(deps, newConf.Motor); err != nil {
-			return nil, errors.Wrapf(err, "failed to resolve motor %q for version 3", newConf.Motor)
+			return nil, errtrace.Wrap(errors.Wrapf(err, "failed to resolve motor %q for version 3", newConf.Motor))
 		}
 	}
 	return &component{

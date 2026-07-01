@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -48,7 +49,7 @@ func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, l
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
 		geometry, err := conf.Frame.Geometry.ParseConfig()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		b.Geometry = []spatialmath.Geometry{geometry}
 	}

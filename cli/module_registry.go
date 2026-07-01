@@ -26,6 +26,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	vutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	modconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
@@ -147,11 +148,11 @@ func CreateModuleAction(ctx context.Context, cmd *cli.Command, args createModule
 	} else {
 		client, err = newViamClient(ctx, cmd)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		org, err = resolveOrg(ctx, client, publicNamespaceArg, orgIDArg)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -163,15 +164,15 @@ func CreateModuleAction(ctx context.Context, cmd *cli.Command, args createModule
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
 		modManifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return errors.New("another meta.json already exists in the current directory. Delete it and try again")
+			return errtrace.Wrap(errors.New("another meta.json already exists in the current directory. Delete it and try again"))
 		}
 		manifestModuleID, err := parseModuleID(modManifest.ModuleID)
 		if err != nil ||
 			manifestModuleID.name != moduleNameArg ||
 			(manifestModuleID.prefix != org.GetId() && manifestModuleID.prefix != org.GetPublicNamespace()) {
-			return errors.Errorf("a different module's meta.json already exists in the current directory. "+
+			return errtrace.Wrap(errors.Errorf("a different module's meta.json already exists in the current directory. "+
 				"Either delete that meta.json, or edit its module_id (%q) to match the args passed to this command",
-				modManifest.ModuleID)
+				modManifest.ModuleID))
 		}
 		shouldWriteNewEmptyManifest = false
 	}
@@ -187,11 +188,11 @@ func CreateModuleAction(ctx context.Context, cmd *cli.Command, args createModule
 	} else {
 		response, err := client.createModule(ctx, moduleNameArg, org.GetId())
 		if err != nil {
-			return errors.Wrap(err, "failed to register the module on app.viam.com")
+			return errtrace.Wrap(errors.Wrap(err, "failed to register the module on app.viam.com"))
 		}
 		returnedModuleID, err = parseModuleID(response.GetModuleId())
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		printf(cmd.Root().Writer, "Successfully created '%s'", returnedModuleID.String())
 		if response.GetUrl() != "" {
@@ -206,7 +207,7 @@ func CreateModuleAction(ctx context.Context, cmd *cli.Command, args createModule
 			Visibility: moduleVisibilityPrivate,
 		}
 		if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		printf(cmd.Root().Writer, "Configuration for the module has been written to meta.json")
@@ -226,24 +227,24 @@ func UpdateModuleAction(ctx context.Context, cmd *cli.Command, args updateModule
 
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	validateModels(cmd.Root().ErrWriter, &manifest)
 
 	response, err := client.updateModule(ctx, moduleID, manifest)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "Module successfully updated! You can view your changes online here: %s", response.GetUrl())
 
@@ -251,13 +252,13 @@ func UpdateModuleAction(ctx context.Context, cmd *cli.Command, args updateModule
 	if isValidOrgID(moduleID.prefix) {
 		org, err := client.getOrg(ctx, moduleID.prefix)
 		if err != nil {
-			return errors.Wrap(err, "failed to update meta.json with new information from Viam")
+			return errtrace.Wrap(errors.Wrap(err, "failed to update meta.json with new information from Viam"))
 		}
 		if org.PublicNamespace != "" {
 			moduleID.prefix = org.PublicNamespace
 			manifest.ModuleID = moduleID.String()
 			if err := writeManifest(manifestPath, manifest); err != nil {
-				return errors.Wrap(err, "failed to update meta.json with new information from Viam")
+				return errtrace.Wrap(errors.Wrap(err, "failed to update meta.json with new information from Viam"))
 			}
 		}
 	}
@@ -291,7 +292,7 @@ func UploadModuleAction(ctx context.Context, cmd *cli.Command, args uploadModule
 		moduleUploadPath = cmd.Args().First()
 	}
 	if moduleUploadPath == "" {
-		return errors.New("nothing to upload -- please provide a path to your module. Use --help for more information")
+		return errtrace.Wrap(errors.New("nothing to upload -- please provide a path to your module. Use --help for more information"))
 	}
 
 	// Clean the version argument to ensure compatibility with github tag standards
@@ -299,16 +300,16 @@ func UploadModuleAction(ctx context.Context, cmd *cli.Command, args uploadModule
 
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var moduleID moduleID
 	// if the manifest cant be found, use passed in arguments to determine the module id
 	if _, err = os.Stat(manifestPath); err != nil {
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
-			return errors.New("unable to find the meta.json. " +
+			return errtrace.Wrap(errors.New("unable to find the meta.json. " +
 				"If you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and org-id)",
-			)
+			))
 		}
 		moduleID.name = nameArg
 		if publicNamespaceArg != "" {
@@ -320,28 +321,28 @@ func UploadModuleAction(ctx context.Context, cmd *cli.Command, args uploadModule
 		// if we can find a manifest, use that
 		manifest, err := loadManifest(manifestPath)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		moduleID, err = parseModuleID(manifest.ModuleID)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if nameArg != "" && (nameArg != moduleID.name) {
 			// This is almost certainly a mistake we want to catch
-			return errors.Errorf("module name %q was supplied on the command line but the meta.json has a module ID of %q", nameArg,
-				moduleID.name)
+			return errtrace.Wrap(errors.Errorf("module name %q was supplied on the command line but the meta.json has a module ID of %q", nameArg,
+				moduleID.name))
 		}
 
 		moduleID, err = validateModuleID(ctx, client, moduleID.String(), publicNamespaceArg, orgIDArg)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		validateModels(cmd.Root().ErrWriter, &manifest)
 
 		_, err = client.updateModule(ctx, moduleID, manifest)
 		if err != nil {
-			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
+			return errtrace.Wrap(errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json"))
 		}
 	}
 
@@ -349,22 +350,22 @@ func UploadModuleAction(ctx context.Context, cmd *cli.Command, args uploadModule
 	if !isTarball(tarballPath) {
 		tarballPath, err = createTarballForUpload(moduleUploadPath, cmd.Root().Writer)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		defer utils.RemoveFileNoError(tarballPath)
 	}
 
 	if !forceUploadArg {
 		if err := validateModuleFile(ctx, client, cmd, moduleID, tarballPath, versionArg, platformArg, moduleUploadPath); err != nil {
-			return fmt.Errorf(
+			return errtrace.Wrap(fmt.Errorf(
 				"error validating module: %w. For more details, please visit: https://docs.viam.com/dev/tools/cli#module ",
-				err)
+				err))
 		}
 	}
 
 	response, err := client.uploadModuleFile(ctx, moduleID, versionArg, platformArg, constraints, tarballPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
@@ -385,13 +386,13 @@ func validateModels(errWriter io.Writer, manifest *ModuleManifest) {
 func validateModelAPI(modelAPI string) error {
 	api, err := resource.ParseAPIString(modelAPI)
 	if err != nil {
-		return errors.Wrap(err, "unparseable model string")
+		return errtrace.Wrap(errors.Wrap(err, "unparseable model string"))
 	}
 	if err := api.Validate(); err != nil {
-		return errors.Wrap(err, "failed to validate API")
+		return errtrace.Wrap(errors.Wrap(err, "failed to validate API"))
 	}
 	if !slices.Contains(rdkAPITypes, api.Type.Name) {
-		return unknownRdkAPITypeError{APIType: api.Type.Name}
+		return errtrace.Wrap(unknownRdkAPITypeError{APIType: api.Type.Name})
 	}
 	return nil
 }
@@ -407,7 +408,7 @@ func UpdateModelsAction(ctx context.Context, cmd *cli.Command, args updateModels
 
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	binary := args.Binary
@@ -415,11 +416,11 @@ func UpdateModelsAction(ctx context.Context, cmd *cli.Command, args updateModels
 		binary = manifest.Entrypoint
 	}
 	if binary == "" {
-		return errors.New("no binary specified: use --binary or set entrypoint in meta.json")
+		return errtrace.Wrap(errors.New("no binary specified: use --binary or set entrypoint in meta.json"))
 	}
 	binary, err = filepath.Abs(binary)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// if the path is a directory or doesn't exist, fall back to looking for a
@@ -428,14 +429,14 @@ func UpdateModelsAction(ctx context.Context, cmd *cli.Command, args updateModels
 	if info, statErr := os.Stat(binary); statErr != nil || info.IsDir() {
 		innerManifest, loadErr := loadManifest(filepath.Join(filepath.Dir(binary), "meta.json"))
 		if loadErr != nil || innerManifest.Entrypoint == "" {
-			return errors.Errorf("could not find binary or meta.json at %s", binary)
+			return errtrace.Wrap(errors.Errorf("could not find binary or meta.json at %s", binary))
 		}
 		binary = filepath.Join(filepath.Dir(binary), innerManifest.Entrypoint)
 	}
 
 	newModels, err := readModels(binary, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Get the directory containing the meta.json file
@@ -458,7 +459,7 @@ func UpdateModelsAction(ctx context.Context, cmd *cli.Command, args updateModels
 	}
 
 	manifest.Models = newModels
-	return writeManifest(args.Module, manifest)
+	return errtrace.Wrap(writeManifest(args.Module, manifest))
 }
 
 func (c *viamClient) createModule(ctx context.Context, moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
@@ -466,14 +467,14 @@ func (c *viamClient) createModule(ctx context.Context, moduleName, organizationI
 		Name:           moduleName,
 		OrganizationId: organizationID,
 	}
-	return c.client.CreateModule(ctx, &req)
+	return errtrace.Wrap2(c.client.CreateModule(ctx, &req))
 }
 
 func (c *viamClient) getModule(ctx context.Context, moduleID moduleID) (*apppb.GetModuleResponse, error) {
 	req := apppb.GetModuleRequest{
 		ModuleId: moduleID.String(),
 	}
-	return c.client.GetModule(ctx, &req)
+	return errtrace.Wrap2(c.client.GetModule(ctx, &req))
 }
 
 func (c *viamClient) updateModule(ctx context.Context, moduleID moduleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
@@ -487,7 +488,7 @@ func (c *viamClient) updateModule(ctx context.Context, moduleID moduleID, manife
 	}
 	visibility, err := visibilityToProto(manifest.Visibility)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var markdownDocs *string
@@ -517,7 +518,7 @@ func (c *viamClient) updateModule(ctx context.Context, moduleID moduleID, manife
 	if manifest.FirstRun != "" {
 		req.FirstRun = &manifest.FirstRun
 	}
-	return c.client.UpdateModule(ctx, &req)
+	return errtrace.Wrap2(c.client.UpdateModule(ctx, &req))
 }
 
 func (c *viamClient) uploadModuleFile(
@@ -531,12 +532,12 @@ func (c *viamClient) uploadModuleFile(
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer vutils.UncheckedErrorFunc(file.Close)
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
 		ModuleId:     moduleID.String(),
@@ -548,7 +549,7 @@ func (c *viamClient) uploadModuleFile(
 		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
 	}
 	if err := stream.Send(req); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var errs error
@@ -560,7 +561,7 @@ func (c *viamClient) uploadModuleFile(
 
 	resp, closeErr := stream.CloseAndRecv()
 	errs = multierr.Combine(errs, closeErr)
-	return resp, errs
+	return resp, errtrace.Wrap(errs)
 }
 
 func validateModuleFile(
@@ -568,7 +569,7 @@ func validateModuleFile(
 ) error {
 	getModuleResp, err := client.getModule(ctx, moduleID)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if versionHasOnlyApps(getModuleResp.Module, version) {
@@ -577,17 +578,17 @@ func validateModuleFile(
 
 	entrypoint, err := getEntrypointForVersion(getModuleResp.Module, version)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer vutils.UncheckedErrorFunc(file.Close)
 	archive, err := gzip.NewReader(file)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	tarReader := tar.NewReader(archive)
@@ -598,14 +599,14 @@ func validateModuleFile(
 	foundEntrypoint := false
 	for {
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		header, err := tarReader.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return errors.Wrapf(err, "error reading %s", file.Name())
+			return errtrace.Wrap(errors.Wrapf(err, "error reading %s", file.Name()))
 		}
 		if header.Typeflag == tar.TypeLink || header.Typeflag == tar.TypeSymlink {
 			base := filepath.Base(tarballPath)
@@ -625,15 +626,15 @@ func validateModuleFile(
 				filepath.Clean(path) == filepath.Clean(entrypoint)+".exe") {
 			info := header.FileInfo()
 			if info.IsDir() {
-				return errors.Errorf(
+				return errtrace.Wrap(errors.Errorf(
 					"the module archive contains a directory at the entrypoint %q instead of an executable file",
-					entrypoint)
+					entrypoint))
 			}
 
 			if info.Mode().Perm()&0o100 == 0 {
-				return errors.Errorf(
+				return errtrace.Wrap(errors.Errorf(
 					"the module archive contains a file at the entrypoint %q, but that file is not marked as executable",
-					entrypoint)
+					entrypoint))
 			}
 			// executable file at entrypoint. validation succeeded.
 			// continue looping to find symlinks
@@ -667,10 +668,10 @@ func validateModuleFile(
 			extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
 		}
 		if !isTarball(uploadPath) {
-			return fmt.Errorf("archive for uploading must be a *.tar.gz file, provided %s%s", uploadPath, extraErrInfo)
+			return errtrace.Wrap(fmt.Errorf("archive for uploading must be a *.tar.gz file, provided %s%s", uploadPath, extraErrInfo))
 		}
-		return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
-			entrypoint, extraErrInfo)
+		return errtrace.Wrap(errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
+			entrypoint, extraErrInfo))
 	}
 	// success
 	return nil
@@ -700,8 +701,8 @@ func visibilityToProto(visibility string) (apppb.Visibility, error) {
 		return apppb.Visibility_VISIBILITY_PUBLIC_UNLISTED, nil
 	default:
 		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
-			errors.Errorf("invalid module visibility. must be either %q, %q, or %q",
-				moduleVisibilityPublic, moduleVisibilityPrivate, moduleVisibilityPublicUnlisted)
+			errtrace.Wrap(errors.Errorf("invalid module visibility. must be either %q, %q, or %q",
+				moduleVisibilityPublic, moduleVisibilityPrivate, moduleVisibilityPublicUnlisted))
 	}
 }
 
@@ -761,9 +762,9 @@ func parseModuleID(id string) (moduleID, error) {
 	// This parsing is intentionally lenient so that the backend does the real validation
 	splitModuleName := strings.Split(id, ":")
 	if len(splitModuleName) != 2 {
-		return moduleID{}, errors.Errorf("invalid module name '%s'."+
+		return moduleID{}, errtrace.Wrap(errors.Errorf("invalid module name '%s'."+
 			" Module name must be in the form 'public-namespace:module-name' for public modules"+
-			" or 'org-id:module-name' for private modules in organizations without a public namespace", id)
+			" or 'org-id:module-name' for private modules in organizations without a public namespace", id))
 	}
 	return moduleID{prefix: splitModuleName[0], name: splitModuleName[1]}, nil
 }
@@ -782,25 +783,25 @@ func validateModuleID(
 ) (moduleID, error) {
 	modID, err := parseModuleID(manifestModuleID)
 	if err != nil {
-		return moduleID{}, err
+		return moduleID{}, errtrace.Wrap(err)
 	}
 
 	// if either publicNamespaceArg or orgIDArg are set, check that they match the passed moduleID
 	if publicNamespaceArg != "" || orgIDArg != "" {
 		org, err := resolveOrg(ctx, client, publicNamespaceArg, orgIDArg)
 		if err != nil {
-			return moduleID{}, err
+			return moduleID{}, errtrace.Wrap(err)
 		}
 		expectedOrg, err := getOrgByModuleIDPrefix(ctx, client, modID.prefix)
 		if err != nil {
-			return moduleID{}, err
+			return moduleID{}, errtrace.Wrap(err)
 		}
 		if org.GetId() != expectedOrg.GetId() {
 			// This is almost certainly a user mistake
 			// Preferring org name rather than orgid here because the manifest probably has it specified in terms of
 			// public_namespace so returning the ids would be frustrating
-			return moduleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
-				expectedOrg.GetName(), org.GetName())
+			return moduleID{}, errtrace.Wrap(errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
+				expectedOrg.GetName(), org.GetName()))
 		}
 	}
 	return modID, nil
@@ -811,33 +812,33 @@ func validateModuleID(
 func resolveOrg(ctx context.Context, client *viamClient, publicNamespace, orgID string) (*apppb.Organization, error) {
 	if orgID != "" {
 		if publicNamespace != "" {
-			return nil, errors.New("cannot specify both org-id and public-namespace")
+			return nil, errtrace.Wrap(errors.New("cannot specify both org-id and public-namespace"))
 		}
 		if !isValidOrgID(orgID) {
-			return nil, errors.Errorf("provided org-id %q is not a valid org-id", orgID)
+			return nil, errtrace.Wrap(errors.Errorf("provided org-id %q is not a valid org-id", orgID))
 		}
 		org, err := client.getOrg(ctx, orgID)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return org, nil
 	}
 	// Use publicNamespace to back-derive what the org is
 	if publicNamespace == "" {
-		return nil, errors.New("must provide either org-id or public-namespace")
+		return nil, errtrace.Wrap(errors.New("must provide either org-id or public-namespace"))
 	}
 	org, err := client.getUserOrgByPublicNamespace(ctx, publicNamespace)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return org, nil
 }
 
 func getOrgByModuleIDPrefix(ctx context.Context, client *viamClient, moduleIDPrefix string) (*apppb.Organization, error) {
 	if isValidOrgID(moduleIDPrefix) {
-		return client.getOrg(ctx, moduleIDPrefix)
+		return errtrace.Wrap2(client.getOrg(ctx, moduleIDPrefix))
 	}
-	return client.getUserOrgByPublicNamespace(ctx, moduleIDPrefix)
+	return errtrace.Wrap2(client.getUserOrgByPublicNamespace(ctx, moduleIDPrefix))
 }
 
 // isValidOrgID checks if the str is a valid uuid.
@@ -851,11 +852,11 @@ func loadManifest(manifestPath string) (ModuleManifest, error) {
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return ModuleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
+			return ModuleManifest{}, errtrace.Wrap(errors.Wrapf(err, "cannot find %s", manifestPath))
 		}
-		return ModuleManifest{}, err
+		return ModuleManifest{}, errtrace.Wrap(err)
 	}
-	return parseManifest(manifestBytes)
+	return errtrace.Wrap2(parseManifest(manifestBytes))
 }
 
 // parseManifest unmarshals raw meta.json bytes into a ModuleManifest. It is
@@ -864,7 +865,7 @@ func loadManifest(manifestPath string) (ModuleManifest, error) {
 func parseManifest(manifestBytes []byte) (ModuleManifest, error) {
 	var manifest ModuleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		return ModuleManifest{}, err
+		return ModuleManifest{}, errtrace.Wrap(err)
 	}
 	return manifest, nil
 }
@@ -879,22 +880,22 @@ func loadManifestOrNil(path string) (*ModuleManifest, error) {
 		//nolint:nilnil
 		return nil, nil
 	}
-	return nil, err
+	return nil, errtrace.Wrap(err)
 }
 
 func writeManifest(manifestPath string, manifest ModuleManifest) error {
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	//nolint:gosec
 	manifestFile, err := os.Create(manifestPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create %s", manifestPath)
+		return errtrace.Wrap(errors.Wrapf(err, "failed to create %s", manifestPath))
 	}
 	defer func() { vutils.UncheckedError(manifestFile.Close()) }()
 	if _, err := manifestFile.Write(manifestBytes); err != nil {
-		return errors.Wrapf(err, "failed to write manifest to %s", manifestPath)
+		return errtrace.Wrap(errors.Wrapf(err, "failed to write manifest to %s", manifestPath))
 	}
 
 	return nil
@@ -918,7 +919,7 @@ func getEntrypointForVersion(mod *apppb.Module, version string) (string, error) 
 		}
 	}
 	if mod.Entrypoint == "" {
-		return "", errors.New("no entrypoint has been set for your module. add one to your meta.json and then update your module")
+		return "", errtrace.Wrap(errors.New("no entrypoint has been set for your module. add one to your meta.json and then update your module"))
 	}
 	// if there is no entrypoint set yet, use the last uploaded entrypoint
 	return mod.Entrypoint, nil
@@ -927,7 +928,7 @@ func getEntrypointForVersion(mod *apppb.Module, version string) (string, error) 
 func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, error) {
 	tmpFile, err := os.CreateTemp("", "module-upload-*.tar.gz")
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create temporary archive file")
+		return "", errtrace.Wrap(errors.Wrap(err, "failed to create temporary archive file"))
 	}
 	defer func() {
 		if err := tmpFile.Close(); err != nil {
@@ -938,16 +939,16 @@ func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, 
 	tmpFileWriter := bufio.NewWriter(tmpFile)
 	archiveFiles, err := getArchiveFilePaths([]string{moduleUploadPath})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to find files to compress in %q", moduleUploadPath)
+		return "", errtrace.Wrap(errors.Wrapf(err, "failed to find files to compress in %q", moduleUploadPath))
 	}
 	if len(archiveFiles) == 0 {
-		return "", errors.Errorf("failed to find any files in %q", moduleUploadPath)
+		return "", errtrace.Wrap(errors.Errorf("failed to find any files in %q", moduleUploadPath))
 	}
 	if err := createArchive(archiveFiles, tmpFileWriter, stdout); err != nil {
-		return "", errors.Wrap(err, "failed to create temp archive")
+		return "", errtrace.Wrap(errors.Wrap(err, "failed to create temp archive"))
 	}
 	if err := tmpFileWriter.Flush(); err != nil {
-		return "", errors.Wrap(err, "failed to flush buffer while creating temp archive")
+		return "", errtrace.Wrap(errors.Wrap(err, "failed to flush buffer while creating temp archive"))
 	}
 	return tmpFile.Name(), nil
 }
@@ -955,7 +956,7 @@ func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, 
 func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	tmpdir, err := os.MkdirTemp("", "viam-cli-test-*")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpdir); err != nil {
@@ -966,7 +967,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 
 	// allows a module to start without connecting to a parent
 	if err := os.Setenv(module.NoModuleParentEnvVar, "true"); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	//nolint:errcheck
 	defer os.Unsetenv(module.NoModuleParentEnvVar)
@@ -988,13 +989,13 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	defer vutils.UncheckedErrorFunc(func() error { return mgr.Close(context.Background()) })
+	defer vutils.UncheckedErrorFunc(func() error { return errtrace.Wrap(mgr.Close(context.Background())) })
 
 	err = mgr.Add(context.TODO(), cfg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	res := []ModuleComponent{}
@@ -1054,7 +1055,7 @@ func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
 ) error {
 	stat, err := file.Stat()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	fileSize := stat.Size()
 	uploadedBytes := 0
@@ -1065,7 +1066,7 @@ func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		}
 		// Get the next UploadRequest from the file.
 		uploadReq, bytesCount, err := getRequest(file)
@@ -1076,11 +1077,11 @@ func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
 		}
 
 		if err != nil {
-			return errors.Wrap(err, "could not read file")
+			return errtrace.Wrap(errors.Wrap(err, "could not read file"))
 		}
 
 		if err = stream.Send(uploadReq); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		uploadedBytes += bytesCount
@@ -1094,7 +1095,7 @@ func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
 func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, int, error) {
 	byteArr, err := getBytesFromFile(file)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errtrace.Wrap(err)
 	}
 	return &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_File{
@@ -1116,7 +1117,7 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return "", errors.Wrap(err, "trying to get package ID from meta.json")
+			return "", errtrace.Wrap(errors.Wrap(err, "trying to get package ID from meta.json"))
 		}
 		moduleID = manifest.ModuleID
 	}
@@ -1124,7 +1125,7 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 	req := &apppb.GetModuleRequest{ModuleId: moduleID}
 	res, err := c.client.GetModule(ctx, req)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	requestedVersion := flags.Version
 	platform := flags.Platform
@@ -1134,7 +1135,7 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 	var packageID string
 	if !IsReloadVersion(requestedVersion) {
 		if len(res.Module.Versions) == 0 {
-			return "", errors.New("module has 0 uploaded versions, nothing to download")
+			return "", errtrace.Wrap(errors.New("module has 0 uploaded versions, nothing to download"))
 		}
 
 		var ver *apppb.VersionHistory
@@ -1148,11 +1149,11 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 				}
 			}
 			if ver == nil {
-				return "", fmt.Errorf("version %s not found in versions for module", requestedVersion)
+				return "", errtrace.Wrap(fmt.Errorf("version %s not found in versions for module", requestedVersion))
 			}
 		}
 		if len(ver.Files) == 0 {
-			return "", fmt.Errorf("version %s has 0 files uploaded", ver.Version)
+			return "", errtrace.Wrap(fmt.Errorf("version %s has 0 files uploaded", ver.Version))
 		}
 
 		if platform == "" {
@@ -1160,7 +1161,7 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 			infof(cmd.Root().ErrWriter, "using default platform %s", platform)
 		}
 		if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
-			return "", fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+			return "", errtrace.Wrap(fmt.Errorf("platform %s not present for version %s", platform, ver.Version))
 		}
 		fullVersion = fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
 		packageID = strings.ReplaceAll(moduleID, ":", "/")
@@ -1178,23 +1179,23 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 		Type:       &packageType,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
-	return downloadPackageFromURL(ctx, c.authFlow.httpClient,
+	return errtrace.Wrap2(downloadPackageFromURL(ctx, c.authFlow.httpClient,
 		flags.Destination, destName,
 		fullVersion, pkg.Package.Url, c.conf.Auth,
-	)
+	))
 }
 
 // DownloadModuleAction downloads a module.
 func DownloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadModuleFlags) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = client.downloadModuleAction(ctx, cmd, flags)
-	return err
+	return errtrace.Wrap(err)
 }
 
 // getMarkdownContent reads and returns the content from a markdown file path.
@@ -1213,7 +1214,7 @@ func getMarkdownContent(markdownPath string) (string, error) {
 	//nolint:gosec
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to read markdown file at %s", filePath)
+		return "", errtrace.Wrap(errors.Wrapf(err, "failed to read markdown file at %s", filePath))
 	}
 
 	if anchor == "" {
@@ -1263,10 +1264,10 @@ func getMarkdownContent(markdownPath string) (string, error) {
 
 	// If the section matching the anchor is not found, return an error
 	if sectionStart == -1 {
-		return "", errors.Errorf(
+		return "", errtrace.Wrap(errors.Errorf(
 			"section #%s not found in %s. Check the format of your markdown_link and ensure the anchor is correct. "+
 				"You can anchor to the following headings: %v", anchor, filePath, possibleAnchors,
-		)
+		))
 	}
 
 	// Find end of section (next heading of same or higher level)

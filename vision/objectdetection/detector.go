@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/vision"
 )
 
@@ -18,7 +19,7 @@ type Detector func(context.Context, image.Image) ([]Detection, error)
 // Build zips up a preprocessor-detector-postprocessor stream into a detector.
 func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error) {
 	if det == nil {
-		return nil, errors.New("must have a Detector to build a detection pipeline")
+		return nil, errtrace.Wrap(errors.New("must have a Detector to build a detection pipeline"))
 	}
 	if prep == nil {
 		prep = func(img image.Image) image.Image { return img }
@@ -30,7 +31,7 @@ func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error
 		preprocessed := prep(img)
 		detections, err := det(ctx, preprocessed)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return post(detections), nil
 	}, nil

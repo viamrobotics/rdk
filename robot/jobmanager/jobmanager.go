@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -121,7 +122,7 @@ func New(
 
 	scheduler, err := gocron.NewScheduler()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer func() {
 		if err != nil {
@@ -135,7 +136,7 @@ func New(
 	}
 	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	jm := &JobManager{
@@ -163,7 +164,7 @@ func (jm *JobManager) Close() error {
 	jm.isClosed = true
 	jm.logger.CInfo(jm.ctx, "JobManager is shutting down.")
 	utils.UncheckedError(jm.conn.Close())
-	return jm.scheduler.Shutdown()
+	return errtrace.Wrap(jm.scheduler.Shutdown())
 }
 
 // createDescriptorSourceAndgRPCMethod sets up a DescriptorSource for grpc translations
@@ -184,7 +185,7 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 	resourceType = strings.ReplaceAll(resourceType, "_", "")
 	services, err := descSource.ListServices()
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", errtrace.Wrap(err)
 	}
 	var grpcService string
 	for _, srv := range services {
@@ -194,7 +195,7 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 		}
 	}
 	if grpcService == "" {
-		return nil, "", "", errors.Errorf("could not find a service for type: %s", resourceType)
+		return nil, "", "", errtrace.Wrap(errors.Errorf("could not find a service for type: %s", resourceType))
 	}
 	return descSource, grpcService, method, nil
 }
@@ -216,7 +217,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 		res, err := jm.getResource(jc.Resource)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Could not get resource", "error", err.Error())
-			return err
+			return errtrace.Wrap(err)
 		}
 		if jc.Method == "DoCommand" {
 			jobLogger.CDebugw(jm.ctx, "Job triggered", "name", jc.Name)
@@ -224,7 +225,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 			response, err := res.DoCommand(jm.ctx, jc.Command)
 			if err != nil {
 				jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
-				return err
+				return errtrace.Wrap(err)
 			}
 			jobLogger.CDebugw(jm.ctx, "Job succeeded", "name", jc.Name, "response", response)
 			return nil
@@ -233,7 +234,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 		descSource, grpcService, grpcMethod, err := jm.createDescriptorSourceAndgRPCMethod(res, jc.Method)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "grpc setup failed", "error", err)
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		gRPCArgument := resource.GetResourceNameOverride(grpcService, grpcMethod)
@@ -243,7 +244,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 		argumentBytes, err := json.Marshal(argumentMap)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "could not serialize gRPC method arguments", "error", err.Error())
-			return err
+			return errtrace.Wrap(err)
 		}
 		options := grpcurl.FormatOptions{
 			EmitJSONDefaultFields: true,
@@ -257,7 +258,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 			options)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "could not create parser and formatter for grpc requests", "error", err.Error())
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		buffer := bytes.NewBuffer(make([]byte, 0))
@@ -271,18 +272,18 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethodCombined, nil, h, rf.Next)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Job failed", "name", jc.Name, "error", err.Error())
-			return err
+			return errtrace.Wrap(err)
 		} else if h.Status != nil && h.Status.Err() != nil {
 			// if job panics, it seems to be captured here.
 			jobLogger.CWarnw(jm.ctx, "Job failed", "name", jc.Name, "error", h.Status.Err())
-			return h.Status.Err()
+			return errtrace.Wrap(h.Status.Err())
 		}
 		response := map[string]any{}
 		err = json.Unmarshal(buffer.Bytes(), &response)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "name", jc.Name,
 				"error", err.Error())
-			return err
+			return errtrace.Wrap(err)
 		}
 		jobLogger.CDebugw(jm.ctx, "Job succeeded", "name", jc.Name, "response", response)
 		return nil
@@ -294,10 +295,10 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 			select {
 			case <-ctx.Done():
 				// Job cancelled (e.g. from schedule modification)
-				return err
+				return errtrace.Wrap(err)
 			case <-jm.ctx.Done():
 				// JM shutting down
-				return err
+				return errtrace.Wrap(err)
 			default:
 			}
 			err = jobFunc(ctx)
@@ -311,7 +312,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 				}
 			}
 			if !continuous {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}

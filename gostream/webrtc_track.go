@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pion/rtp"
 	"github.com/pion/rtp/codecs"
 	"github.com/viamrobotics/webrtc/v3"
@@ -66,7 +67,7 @@ func (s *trackLocalStaticRTP) Bind(t webrtc.TrackLocalContext) (webrtc.RTPCodecP
 		return codec, nil
 	}
 
-	return webrtc.RTPCodecParameters{}, webrtc.ErrUnsupportedCodec
+	return webrtc.RTPCodecParameters{}, errtrace.Wrap(webrtc.ErrUnsupportedCodec)
 }
 
 // Unbind implements the teardown logic when the track is no longer needed. This happens
@@ -83,7 +84,7 @@ func (s *trackLocalStaticRTP) Unbind(t webrtc.TrackLocalContext) error {
 		}
 	}
 
-	return webrtc.ErrUnbindFailed
+	return errtrace.Wrap(webrtc.ErrUnbindFailed)
 }
 
 // ID is the unique identifier for this Track. This should be unique for the
@@ -137,7 +138,7 @@ func (s *trackLocalStaticRTP) WriteRTP(p *rtp.Packet) error {
 		}
 	}
 
-	return multierr.Combine(writeErrs...)
+	return errtrace.Wrap(multierr.Combine(writeErrs...))
 }
 
 // Write writes a RTP Packet as a buffer to the trackLocalStaticRTP
@@ -147,10 +148,10 @@ func (s *trackLocalStaticRTP) WriteRTP(p *rtp.Packet) error {
 func (s *trackLocalStaticRTP) Write(b []byte) (n int, err error) {
 	packet := &rtp.Packet{}
 	if err = packet.Unmarshal(b); err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
-	return len(b), s.WriteRTP(packet)
+	return len(b), errtrace.Wrap(s.WriteRTP(packet))
 }
 
 // trackLocalStaticSample is a TrackLocal that has a pre-set codec and accepts Samples.
@@ -196,7 +197,7 @@ const rtpOutboundMTU = 1200
 func (s *trackLocalStaticSample) Bind(t webrtc.TrackLocalContext) (webrtc.RTPCodecParameters, error) {
 	codec, err := s.rtpTrack.Bind(t)
 	if err != nil {
-		return codec, err
+		return codec, errtrace.Wrap(err)
 	}
 
 	s.rtpTrack.mu.Lock()
@@ -210,7 +211,7 @@ func (s *trackLocalStaticSample) Bind(t webrtc.TrackLocalContext) (webrtc.RTPCod
 
 	payloader, err := payloaderForCodec(codec.RTPCodecCapability)
 	if err != nil {
-		return codec, err
+		return codec, errtrace.Wrap(err)
 	}
 
 	// TODO(erd): I think we need to do this for each bind
@@ -230,7 +231,7 @@ func (s *trackLocalStaticSample) Bind(t webrtc.TrackLocalContext) (webrtc.RTPCod
 // Unbind implements the teardown logic when the track is no longer needed. This happens
 // because a track has been stopped.
 func (s *trackLocalStaticSample) Unbind(t webrtc.TrackLocalContext) error {
-	return s.rtpTrack.Unbind(t)
+	return errtrace.Wrap(s.rtpTrack.Unbind(t))
 }
 
 // WriteData writes already encoded data to the trackLocalStaticSample
@@ -264,7 +265,7 @@ func (s *trackLocalStaticSample) WriteData(frame []byte) error {
 		}
 	}
 
-	return multierr.Combine(writeErrs...)
+	return errtrace.Wrap(multierr.Combine(writeErrs...))
 }
 
 // Do a fuzzy find for a codec in the list of codecs
@@ -285,7 +286,7 @@ func codecParametersFuzzySearch(needle webrtc.RTPCodecParameters, haystack []web
 		}
 	}
 
-	return webrtc.RTPCodecParameters{}, webrtc.ErrCodecNotFound
+	return webrtc.RTPCodecParameters{}, errtrace.Wrap(webrtc.ErrCodecNotFound)
 }
 
 func payloaderForCodec(codec webrtc.RTPCodecCapability) (rtp.Payloader, error) {
@@ -301,7 +302,7 @@ func payloaderForCodec(codec webrtc.RTPCodecCapability) (rtp.Payloader, error) {
 	case strings.ToLower(webrtc.MimeTypePCMU), strings.ToLower(webrtc.MimeTypePCMA):
 		return &codecs.G711Payloader{}, nil
 	default:
-		return nil, webrtc.ErrNoPayloaderForCodec
+		return nil, errtrace.Wrap(webrtc.ErrNoPayloaderForCodec)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -80,22 +81,22 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	var dur *durationpb.Duration
 	if duration != nil {
 		dur = durationpb.New(*duration)
 	}
 	_, err = c.client.SetPowerMode(ctx, &pb.SetPowerModeRequest{Name: c.boardName, PowerMode: mode, Duration: dur, Extra: ext})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.boardName, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.boardName, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.boardName)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.boardName))
 }
 
 // analogClient satisfies a gRPC based board.AnalogReader. Refer to the interface
@@ -109,7 +110,7 @@ type analogClient struct {
 func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return AnalogValue{}, err
+		return AnalogValue{}, errtrace.Wrap(err)
 	}
 	// the api method is named ReadAnalogReader, it is named differently than
 	// the board interface functions.
@@ -119,7 +120,7 @@ func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) 
 		Extra:            ext,
 	})
 	if err != nil {
-		return AnalogValue{}, err
+		return AnalogValue{}, errtrace.Wrap(err)
 	}
 	return AnalogValue{Value: int(resp.Value), Min: resp.MinRange, Max: resp.MaxRange, StepSize: resp.StepSize}, nil
 }
@@ -127,7 +128,7 @@ func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) 
 func (ac *analogClient) Write(ctx context.Context, value int, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = ac.client.client.WriteAnalog(ctx, &pb.WriteAnalogRequest{
 		Name:  ac.boardName,
@@ -136,7 +137,7 @@ func (ac *analogClient) Write(ctx context.Context, value int, extra map[string]i
 		Extra: ext,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -152,7 +153,7 @@ type digitalInterruptClient struct {
 func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	resp, err := dic.client.client.GetDigitalInterruptValue(ctx, &pb.GetDigitalInterruptValueRequest{
 		BoardName:            dic.boardName,
@@ -160,7 +161,7 @@ func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]i
 		Extra:                ext,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return resp.Value, nil
 }
@@ -174,7 +175,7 @@ func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt,
 ) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	stream := &interruptStream{
 		extra:  ext,
@@ -183,7 +184,7 @@ func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt,
 
 	err = stream.startStream(ctx, interrupts, ch)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	c.mu.Lock()
@@ -217,7 +218,7 @@ type gpioPinClient struct {
 func (gpc *gpioPinClient) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = gpc.client.client.SetGPIO(ctx, &pb.SetGPIORequest{
 		Name:  gpc.boardName,
@@ -225,13 +226,13 @@ func (gpc *gpioPinClient) Set(ctx context.Context, high bool, extra map[string]i
 		High:  high,
 		Extra: ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	resp, err := gpc.client.client.GetGPIO(ctx, &pb.GetGPIORequest{
 		Name:  gpc.boardName,
@@ -239,7 +240,7 @@ func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]interface{})
 		Extra: ext,
 	})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.High, nil
 }
@@ -247,7 +248,7 @@ func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]interface{})
 func (gpc *gpioPinClient) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return math.NaN(), err
+		return math.NaN(), errtrace.Wrap(err)
 	}
 	resp, err := gpc.client.client.PWM(ctx, &pb.PWMRequest{
 		Name:  gpc.boardName,
@@ -255,7 +256,7 @@ func (gpc *gpioPinClient) PWM(ctx context.Context, extra map[string]interface{})
 		Extra: ext,
 	})
 	if err != nil {
-		return math.NaN(), err
+		return math.NaN(), errtrace.Wrap(err)
 	}
 	return resp.DutyCyclePct, nil
 }
@@ -263,7 +264,7 @@ func (gpc *gpioPinClient) PWM(ctx context.Context, extra map[string]interface{})
 func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = gpc.client.client.SetPWM(ctx, &pb.SetPWMRequest{
 		Name:         gpc.boardName,
@@ -271,13 +272,13 @@ func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64, extr
 		DutyCyclePct: dutyCyclePct,
 		Extra:        ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (gpc *gpioPinClient) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	resp, err := gpc.client.client.PWMFrequency(ctx, &pb.PWMFrequencyRequest{
 		Name:  gpc.boardName,
@@ -285,7 +286,7 @@ func (gpc *gpioPinClient) PWMFreq(ctx context.Context, extra map[string]interfac
 		Extra: ext,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return uint(resp.FrequencyHz), nil
 }
@@ -293,7 +294,7 @@ func (gpc *gpioPinClient) PWMFreq(ctx context.Context, extra map[string]interfac
 func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = gpc.client.client.SetPWMFrequency(ctx, &pb.SetPWMFrequencyRequest{
 		Name:        gpc.boardName,
@@ -301,5 +302,5 @@ func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint, extra map
 		FrequencyHz: uint64(freqHz),
 		Extra:       ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }

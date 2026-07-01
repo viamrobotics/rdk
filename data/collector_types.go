@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -48,7 +49,7 @@ func NewTabularCaptureResultReadings(ts Timestamps, readings map[string]interfac
 	var res CaptureResult
 	values, err := rprotoutils.ReadingGoToProto(readings)
 	if err != nil {
-		return res, err
+		return res, errtrace.Wrap(err)
 	}
 
 	return CaptureResult{
@@ -70,7 +71,7 @@ func NewTabularCaptureResultDoCommand(ts Timestamps, readings map[string]interfa
 	var res CaptureResult
 	values, err := rprotoutils.ReadingGoToProto(readings)
 	if err != nil {
-		return res, err
+		return res, errtrace.Wrap(err)
 	}
 
 	return CaptureResult{
@@ -91,7 +92,7 @@ func NewTabularCaptureResult(ts Timestamps, i interface{}) (CaptureResult, error
 	var res CaptureResult
 	readings, err := protoutils.StructToStructPbIgnoreOmitEmpty(i)
 	if err != nil {
-		return res, err
+		return res, errtrace.Wrap(err)
 	}
 
 	return CaptureResult{
@@ -144,40 +145,40 @@ func (cr *CaptureResult) ToProto() []*datasyncPB.SensorData {
 // Validate returns an error if the *CaptureResult is invalid.
 func (cr *CaptureResult) Validate() error {
 	if cr.Timestamps.TimeRequested.IsZero() {
-		return errors.New("Timestamps.TimeRequested must be set")
+		return errtrace.Wrap(errors.New("Timestamps.TimeRequested must be set"))
 	}
 
 	if cr.Timestamps.TimeReceived.IsZero() {
-		return errors.New("Timestamps.TimeRequested must be set")
+		return errtrace.Wrap(errors.New("Timestamps.TimeRequested must be set"))
 	}
 
 	switch cr.Type {
 	case CaptureTypeTabular:
 		if len(cr.Binaries) > 0 {
-			return errors.New("tabular result can't contain binary data")
+			return errtrace.Wrap(errors.New("tabular result can't contain binary data"))
 		}
 		if cr.TabularData.Payload == nil {
-			return errors.New("tabular result must have non empty tabular data")
+			return errtrace.Wrap(errors.New("tabular result must have non empty tabular data"))
 		}
 		return nil
 	case CaptureTypeBinary:
 		if cr.TabularData.Payload != nil {
-			return errors.New("binary result can't contain tabular data")
+			return errtrace.Wrap(errors.New("binary result can't contain tabular data"))
 		}
 		if len(cr.Binaries) == 0 {
-			return errors.New("binary result must have non empty binary data")
+			return errtrace.Wrap(errors.New("binary result must have non empty binary data"))
 		}
 
 		for _, b := range cr.Binaries {
 			if len(b.Payload) == 0 {
-				return errors.New("binary results can't have empty binary payload")
+				return errtrace.Wrap(errors.New("binary results can't have empty binary payload"))
 			}
 		}
 		return nil
 	case CaptureTypeUnspecified:
-		return fmt.Errorf("unknown CaptureResultType: %d", cr.Type)
+		return errtrace.Wrap(fmt.Errorf("unknown CaptureResultType: %d", cr.Type))
 	default:
-		return fmt.Errorf("unknown CaptureResultType: %d", cr.Type)
+		return errtrace.Wrap(fmt.Errorf("unknown CaptureResultType: %d", cr.Type))
 	}
 }
 

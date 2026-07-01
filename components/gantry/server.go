@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -36,11 +37,11 @@ func (s *serviceServer) GetPosition(
 ) (*pb.GetPositionResponse, error) {
 	gantry, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pos, err := gantry.Position(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// if the position is nil, return an empty array.
@@ -58,11 +59,11 @@ func (s *serviceServer) GetLengths(
 ) (*pb.GetLengthsResponse, error) {
 	gantry, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	lengthsMm, err := gantry.Lengths(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// if the value returned is nil, return an empty array.
@@ -79,11 +80,11 @@ func (s *serviceServer) Home(
 ) (*pb.HomeResponse, error) {
 	gantry, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	homed, err := gantry.Home(ctx, req.Extra.AsMap())
 	if err != nil {
-		return &pb.HomeResponse{Homed: homed}, err
+		return &pb.HomeResponse{Homed: homed}, errtrace.Wrap(err)
 	}
 	return &pb.HomeResponse{Homed: homed}, nil
 }
@@ -96,9 +97,9 @@ func (s *serviceServer) MoveToPosition(
 	operation.CancelOtherWithLabel(ctx, req.Name)
 	gantry, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.SpeedsMmPerSec, req.Extra.AsMap())
+	return &pb.MoveToPositionResponse{}, errtrace.Wrap(gantry.MoveToPosition(ctx, req.PositionsMm, req.SpeedsMmPerSec, req.Extra.AsMap()))
 }
 
 // Stop stops the gantry specified.
@@ -106,20 +107,20 @@ func (s *serviceServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.Stop
 	operation.CancelOtherWithLabel(ctx, req.Name)
 	gantry, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return &pb.StopResponse{}, gantry.Stop(ctx, req.Extra.AsMap())
+	return &pb.StopResponse{}, errtrace.Wrap(gantry.Stop(ctx, req.Extra.AsMap()))
 }
 
 // IsMoving queries of a component is in motion.
 func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
 	gantry, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	moving, err := gantry.IsMoving(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
@@ -127,11 +128,11 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
 	gantry, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	model, err := gantry.Kinematics(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return referenceframe.KinematicModelToProtobuf(model), nil
 }
@@ -139,7 +140,7 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
@@ -149,25 +150,25 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 		if strings.Contains(err.Error(), unimplemented) {
 			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			model, err := referenceframe.KinematicModelFromProtobuf(req.GetName(), kinematicsPbResp)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
 			posResp, err := s.GetPosition(ctx, &pb.GetPositionRequest{Name: req.GetName()})
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			gifs, err := model.Geometries(posResp.PositionsMm)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
 				gifs.Geometries())}, nil
 		}
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
@@ -178,16 +179,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	gantry, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, gantry, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, gantry, req))
 }
 
 // GetStatus returns the status of the gantry.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

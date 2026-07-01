@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
@@ -128,19 +129,19 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 	// Defers a function that will stop and clean up if the context errors
 	defer func(ctx context.Context) {
 		if errors.Is(ctx.Err(), context.Canceled) {
-			err = multierr.Combine(ctx.Err(), stop(ctx, map[string]interface{}{}))
+			err = errtrace.Wrap(multierr.Combine(ctx.Err(), stop(ctx, map[string]interface{}{})))
 		} else {
-			err = ctx.Err()
+			err = errtrace.Wrap(ctx.Err())
 		}
 	}(ctx)
-	return sm.WaitForSuccess(
+	return errtrace.Wrap(sm.WaitForSuccess(
 		ctx,
 		pollTime,
 		func(ctx context.Context) (res bool, err error) {
 			res, _, err = powered.IsPowered(ctx, nil)
-			return !res, err
+			return !res, errtrace.Wrap(err)
 		},
-	)
+	))
 }
 
 // WaitForSuccess will call testFunc every pollTime until it returns true or an error.
@@ -155,14 +156,14 @@ func (sm *SingleOperationManager) WaitForSuccess(
 	for {
 		res, err := testFunc(ctx)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if res {
 			return nil
 		}
 
 		if !utils.SelectContextOrWait(ctx, pollTime) {
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		}
 	}
 }

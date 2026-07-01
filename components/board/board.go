@@ -13,6 +13,7 @@ import (
 
 	pb "go.viam.com/api/component/board/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -196,7 +197,7 @@ type AnalogValue struct {
 // dependencies. Use FromProvider instead.
 // //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Board, error) {
-	return resource.FromDependencies[Board](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Board](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named board from the given Robot.
@@ -204,12 +205,12 @@ func FromDependencies(deps resource.Dependencies, name string) (Board, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Board, error) {
-	return robot.ResourceFromRobot[Board](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Board](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Board from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Board, error) {
-	return resource.FromProvider[Board](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Board](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.

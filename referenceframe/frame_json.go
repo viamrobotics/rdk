@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	"braces.dev/errtrace"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -75,32 +76,32 @@ type DHParamConfig struct {
 // NOTE: this will not work if more than one Geometry is returned by the Geometries function.
 func NewLinkConfig(frame Frame) (*LinkConfig, error) {
 	if len(frame.DoF()) > 0 {
-		return nil, fmt.Errorf("cannot create link config for Frame with %d DoF", len(frame.DoF()))
+		return nil, errtrace.Wrap(fmt.Errorf("cannot create link config for Frame with %d DoF", len(frame.DoF())))
 	}
 
 	pose, err := frame.Transform([]Input{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	orient, err := spatial.NewOrientationConfig(pose.Orientation())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var geom *spatial.GeometryConfig
 	gif, err := frame.Geometries([]Input{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	geometries := gif.Geometries()
 	if len(geometries) > 0 {
 		// TODO: when we support having multiple geometries on a pb.Frame in the API this will need to go away
 		if len(geometries) > 1 {
-			return nil, fmt.Errorf("cannot create link config for Frame with %d geometries", len(geometries))
+			return nil, errtrace.Wrap(fmt.Errorf("cannot create link config for Frame with %d geometries", len(geometries)))
 		}
 		geom, err = spatial.NewGeometryConfig(geometries[0])
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -116,13 +117,13 @@ func NewLinkConfig(frame Frame) (*LinkConfig, error) {
 func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 	pose, err := cfg.Pose()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var geom spatial.Geometry
 	if cfg.Geometry != nil {
 		geom, err = cfg.Geometry.ParseConfig()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		if geom.Label() == "" {
 			geom.SetLabel(cfg.ID)
@@ -137,7 +138,7 @@ func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
 	if cfg.Orientation != nil {
 		orient, err := cfg.Orientation.ParseConfig()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return spatial.NewPose(pt, orient), nil
 	}
@@ -153,7 +154,7 @@ func (cfg *JointConfig) ToFrame() (Frame, error) {
 	case PrismaticJoint:
 		limit = Limit{Min: cfg.Min, Max: cfg.Max}
 	default:
-		return nil, NewUnsupportedJointTypeError(cfg.Type)
+		return nil, errtrace.Wrap(NewUnsupportedJointTypeError(cfg.Type))
 	}
 	// Mimic joints are driven by their source joint and have no independent limits.
 	if cfg.Mimic != nil {
@@ -161,11 +162,11 @@ func (cfg *JointConfig) ToFrame() (Frame, error) {
 	}
 	switch cfg.Type {
 	case RevoluteJoint:
-		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(), limit)
+		return errtrace.Wrap2(NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(), limit))
 	case PrismaticJoint:
-		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis), limit)
+		return errtrace.Wrap2(NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis), limit))
 	default:
-		return nil, NewUnsupportedJointTypeError(cfg.Type)
+		return nil, errtrace.Wrap(NewUnsupportedJointTypeError(cfg.Type))
 	}
 }
 
@@ -175,7 +176,7 @@ func (cfg *DHParamConfig) ToDHFrames() (Frame, Frame, error) {
 	rFrame, err := NewRotationalFrame(jointID, spatial.R4AA{RX: 0, RY: 0, RZ: 1},
 		Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// Link part of DH param
@@ -185,16 +186,16 @@ func (cfg *DHParamConfig) ToDHFrames() (Frame, Frame, error) {
 	if cfg.Geometry != nil {
 		geometryCreator, err := cfg.Geometry.ParseConfig()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		lFrame, err = NewStaticFrameWithGeometry(linkID, pose, geometryCreator)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	} else {
 		lFrame, err = NewStaticFrame(cfg.ID, pose)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	}
 	return rFrame, lFrame, nil
@@ -208,13 +209,13 @@ func frameToJSON(frame Frame) ([]byte, error) {
 	}
 	for name, f := range registeredFrameImplementers {
 		if reflect.ValueOf(frame).Type().Elem() == f {
-			return json.Marshal(&typedFrame{
+			return errtrace.Wrap2(json.Marshal(&typedFrame{
 				FrameType: name,
 				Frame:     frame,
-			})
+			}))
 		}
 	}
-	return []byte{}, fmt.Errorf("Frame of type %T is not a registered Frame implementation", frame)
+	return []byte{}, errtrace.Wrap(fmt.Errorf("Frame of type %T is not a registered Frame implementation", frame))
 }
 
 // jsonToFrame converts raw JSON into a Frame by using a key called "frame_type"
@@ -223,28 +224,28 @@ func frameToJSON(frame Frame) ([]byte, error) {
 func jsonToFrame(data json.RawMessage) (Frame, error) {
 	var sF map[string]json.RawMessage
 	if err := json.Unmarshal(data, &sF); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var frameType string
 	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if _, ok := sF["frame"]; !ok {
-		return nil, fmt.Errorf("no frame data found for frame, type was %s", frameType)
+		return nil, errtrace.Wrap(fmt.Errorf("no frame data found for frame, type was %s", frameType))
 	}
 
 	implementer, ok := registeredFrameImplementers[frameType]
 	if !ok {
-		return nil, fmt.Errorf("%s is not a registered Frame implementation", frameType)
+		return nil, errtrace.Wrap(fmt.Errorf("%s is not a registered Frame implementation", frameType))
 	}
 	frameZeroStruct := reflect.New(implementer).Elem()
 	frame := frameZeroStruct.Addr().Interface()
 	frameI, err := utils.AssertType[Frame](frame)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := json.Unmarshal(sF["frame"], frame); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return frameI, nil

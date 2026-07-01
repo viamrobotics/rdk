@@ -19,6 +19,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
@@ -52,7 +53,7 @@ func (mS *mockStream) Stop() {
 }
 
 func (mS *mockStream) WriteRTP(pkt *rtp.Packet) error {
-	return mS.writeRTPFunc(pkt)
+	return errtrace.Wrap(mS.writeRTPFunc(pkt))
 }
 
 // BEGIN Not tested gostream functions.
@@ -63,7 +64,7 @@ func (mS *mockStream) StreamingReady() (<-chan struct{}, context.Context) {
 
 func (mS *mockStream) InputVideoFrames(props prop.Video) (chan<- gostream.MediaReleasePair[image.Image], error) {
 	test.That(mS.t, "should not be called", test.ShouldBeFalse)
-	return nil, errors.New("unimplemented")
+	return nil, errtrace.Wrap(errors.New("unimplemented"))
 }
 
 func (mS *mockStream) InputAudioChunks(props prop.Audio) (chan<- gostream.MediaReleasePair[wave.Audio], error) {
@@ -98,14 +99,14 @@ func (s *mockRTPPassthroughSource) SubscribeRTP(
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
-	return s.subscribeRTPFunc(ctx, bufferSize, packetsCB)
+	return errtrace.Wrap2(s.subscribeRTPFunc(ctx, bufferSize, packetsCB))
 }
 
 func (s *mockRTPPassthroughSource) Unsubscribe(
 	ctx context.Context,
 	id rtppassthrough.SubscriptionID,
 ) error {
-	return s.unsubscribeFunc(ctx, id)
+	return errtrace.Wrap(s.unsubscribeFunc(ctx, id))
 }
 
 var camName = "my-cam"
@@ -156,13 +157,13 @@ func TestStreamState(t *testing.T) {
 			packetsCB rtppassthrough.PacketCallback,
 		) (rtppassthrough.Subscription, error) {
 			subscribeRTPCount.Add(1)
-			return rtppassthrough.NilSubscription, errors.New("unimplemented")
+			return rtppassthrough.NilSubscription, errtrace.Wrap(errors.New("unimplemented"))
 		}
 
 		// Because SubscribeRTP will always fail, UnsubscribeRTP must not be called.
 		unsubscribeFunc := func(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 			test.That(t, "should not be called", test.ShouldBeFalse)
-			return errors.New("unimplemented")
+			return errtrace.Wrap(errors.New("unimplemented"))
 		}
 
 		mockRTPPassthroughSource := &mockRTPPassthroughSource{
@@ -475,7 +476,7 @@ func TestStreamState(t *testing.T) {
 			defer subsAndCancelByIDMu.Unlock()
 			defer subscribeRTPCount.Add(1)
 			if subscribeRTPReturnError.Load() {
-				return rtppassthrough.NilSubscription, errors.New("SubscribeRTP returned error")
+				return rtppassthrough.NilSubscription, errtrace.Wrap(errors.New("SubscribeRTP returned error"))
 			}
 			terminatedCtx, terminatedFn := context.WithCancel(context.Background())
 			id := uuid.New()

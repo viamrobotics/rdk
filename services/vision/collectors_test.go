@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	datatu "go.viam.com/rdk/data/testutils"
@@ -102,7 +103,7 @@ func convertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any
 	for key, paramVal := range params {
 		anyVal, err := convertStringToAnyPB(paramVal)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		methodParams[key] = anyVal
 	}
@@ -124,7 +125,7 @@ func convertStringToAnyPB(str string) (*anypb.Any, error) {
 	}
 	anyVal, err := anypb.New(wrappedVal)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return anyVal, nil
 }
@@ -222,7 +223,7 @@ func newVisionService(img image.Image) visionservice.Service {
 	) (viscapture.VisCapture, error) {
 		namedImg, err := camera.NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
 		if err != nil {
-			return viscapture.VisCapture{}, err
+			return viscapture.VisCapture{}, errtrace.Wrap(err)
 		}
 		return viscapture.VisCapture{
 			Image:           &namedImg,

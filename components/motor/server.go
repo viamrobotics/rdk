@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/motor/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -32,9 +33,9 @@ func (server *serviceServer) SetPower(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return &pb.SetPowerResponse{}, motor.SetPower(ctx, req.GetPowerPct(), req.Extra.AsMap())
+	return &pb.SetPowerResponse{}, errtrace.Wrap(motor.SetPower(ctx, req.GetPowerPct(), req.Extra.AsMap()))
 }
 
 // GoFor requests the motor of the underlying robot to go for a certain amount based off
@@ -47,10 +48,10 @@ func (server *serviceServer) GoFor(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return &pb.GoForResponse{}, motor.GoFor(ctx, req.GetRpm(), req.GetRevolutions(), req.Extra.AsMap())
+	return &pb.GoForResponse{}, errtrace.Wrap(motor.GoFor(ctx, req.GetRpm(), req.GetRevolutions(), req.Extra.AsMap()))
 }
 
 // GetPosition reports the position of the motor of the underlying robot
@@ -64,12 +65,12 @@ func (server *serviceServer) GetPosition(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	pos, err := motor.Position(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetPositionResponse{Position: pos}, nil
 }
@@ -82,13 +83,13 @@ func (server *serviceServer) GetProperties(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	props, err := motor.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return PropertiesToProtoResponse(props)
+	return errtrace.Wrap2(PropertiesToProtoResponse(props))
 }
 
 // Stop turns the motor of the underlying robot off.
@@ -99,10 +100,10 @@ func (server *serviceServer) Stop(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return &pb.StopResponse{}, motor.Stop(ctx, req.Extra.AsMap())
+	return &pb.StopResponse{}, errtrace.Wrap(motor.Stop(ctx, req.Extra.AsMap()))
 }
 
 // IsPowered returns whether or not the motor of the underlying robot is currently on.
@@ -113,12 +114,12 @@ func (server *serviceServer) IsPowered(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	isOn, powerPct, err := motor.IsPowered(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.IsPoweredResponse{IsOn: isOn, PowerPct: powerPct}, nil
 }
@@ -132,10 +133,10 @@ func (server *serviceServer) GoTo(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return &pb.GoToResponse{}, motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions(), req.Extra.AsMap())
+	return &pb.GoToResponse{}, errtrace.Wrap(motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions(), req.Extra.AsMap()))
 }
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
@@ -147,10 +148,10 @@ func (server *serviceServer) SetRPM(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return &pb.SetRPMResponse{}, motor.SetRPM(ctx, req.GetRpm(), req.Extra.AsMap())
+	return &pb.SetRPMResponse{}, errtrace.Wrap(motor.SetRPM(ctx, req.GetRpm(), req.Extra.AsMap()))
 }
 
 // ResetZeroPosition sets the current position of the motor specified by the request
@@ -162,21 +163,21 @@ func (server *serviceServer) ResetZeroPosition(
 	motorName := req.GetName()
 	motor, err := server.coll.Resource(motorName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return &pb.ResetZeroPositionResponse{}, motor.ResetZeroPosition(ctx, req.GetOffset(), req.Extra.AsMap())
+	return &pb.ResetZeroPositionResponse{}, errtrace.Wrap(motor.ResetZeroPosition(ctx, req.GetOffset(), req.Extra.AsMap()))
 }
 
 // IsMoving queries of a component is in motion.
 func (server *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
 	motor, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	moving, err := motor.IsMoving(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
@@ -187,16 +188,16 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	motor, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, motor, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, motor, req))
 }
 
 // GetStatus returns the status of the motor.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

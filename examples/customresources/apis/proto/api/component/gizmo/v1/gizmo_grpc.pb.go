@@ -9,6 +9,7 @@ package v1
 import (
 	context "context"
 
+	"braces.dev/errtrace"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -43,7 +44,7 @@ func (c *gizmoServiceClient) DoOne(ctx context.Context, in *DoOneRequest, opts .
 	out := new(DoOneResponse)
 	err := c.cc.Invoke(ctx, "/acme.component.gizmo.v1.GizmoService/DoOne", in, out, opts...)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return out, nil
 }
@@ -51,7 +52,7 @@ func (c *gizmoServiceClient) DoOne(ctx context.Context, in *DoOneRequest, opts .
 func (c *gizmoServiceClient) DoOneClientStream(ctx context.Context, opts ...grpc.CallOption) (GizmoService_DoOneClientStreamClient, error) {
 	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[0], "/acme.component.gizmo.v1.GizmoService/DoOneClientStream", opts...)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	x := &gizmoServiceDoOneClientStreamClient{stream}
 	return x, nil
@@ -68,16 +69,16 @@ type gizmoServiceDoOneClientStreamClient struct {
 }
 
 func (x *gizmoServiceDoOneClientStreamClient) Send(m *DoOneClientStreamRequest) error {
-	return x.ClientStream.SendMsg(m)
+	return errtrace.Wrap(x.ClientStream.SendMsg(m))
 }
 
 func (x *gizmoServiceDoOneClientStreamClient) CloseAndRecv() (*DoOneClientStreamResponse, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	m := new(DoOneClientStreamResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return m, nil
 }
@@ -85,14 +86,14 @@ func (x *gizmoServiceDoOneClientStreamClient) CloseAndRecv() (*DoOneClientStream
 func (c *gizmoServiceClient) DoOneServerStream(ctx context.Context, in *DoOneServerStreamRequest, opts ...grpc.CallOption) (GizmoService_DoOneServerStreamClient, error) {
 	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[1], "/acme.component.gizmo.v1.GizmoService/DoOneServerStream", opts...)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	x := &gizmoServiceDoOneServerStreamClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return x, nil
 }
@@ -109,7 +110,7 @@ type gizmoServiceDoOneServerStreamClient struct {
 func (x *gizmoServiceDoOneServerStreamClient) Recv() (*DoOneServerStreamResponse, error) {
 	m := new(DoOneServerStreamResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return m, nil
 }
@@ -117,7 +118,7 @@ func (x *gizmoServiceDoOneServerStreamClient) Recv() (*DoOneServerStreamResponse
 func (c *gizmoServiceClient) DoOneBiDiStream(ctx context.Context, opts ...grpc.CallOption) (GizmoService_DoOneBiDiStreamClient, error) {
 	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[2], "/acme.component.gizmo.v1.GizmoService/DoOneBiDiStream", opts...)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	x := &gizmoServiceDoOneBiDiStreamClient{stream}
 	return x, nil
@@ -134,13 +135,13 @@ type gizmoServiceDoOneBiDiStreamClient struct {
 }
 
 func (x *gizmoServiceDoOneBiDiStreamClient) Send(m *DoOneBiDiStreamRequest) error {
-	return x.ClientStream.SendMsg(m)
+	return errtrace.Wrap(x.ClientStream.SendMsg(m))
 }
 
 func (x *gizmoServiceDoOneBiDiStreamClient) Recv() (*DoOneBiDiStreamResponse, error) {
 	m := new(DoOneBiDiStreamResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return m, nil
 }
@@ -149,7 +150,7 @@ func (c *gizmoServiceClient) DoTwo(ctx context.Context, in *DoTwoRequest, opts .
 	out := new(DoTwoResponse)
 	err := c.cc.Invoke(ctx, "/acme.component.gizmo.v1.GizmoService/DoTwo", in, out, opts...)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return out, nil
 }
@@ -158,7 +159,7 @@ func (c *gizmoServiceClient) DoCommand(ctx context.Context, in *DoCommandRequest
 	out := new(DoCommandResponse)
 	err := c.cc.Invoke(ctx, "/acme.component.gizmo.v1.GizmoService/DoCommand", in, out, opts...)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return out, nil
 }
@@ -181,22 +182,22 @@ type UnimplementedGizmoServiceServer struct {
 }
 
 func (UnimplementedGizmoServiceServer) DoOne(context.Context, *DoOneRequest) (*DoOneResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DoOne not implemented")
+	return nil, errtrace.Wrap(status.Errorf(codes.Unimplemented, "method DoOne not implemented"))
 }
 func (UnimplementedGizmoServiceServer) DoOneClientStream(GizmoService_DoOneClientStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method DoOneClientStream not implemented")
+	return errtrace.Wrap(status.Errorf(codes.Unimplemented, "method DoOneClientStream not implemented"))
 }
 func (UnimplementedGizmoServiceServer) DoOneServerStream(*DoOneServerStreamRequest, GizmoService_DoOneServerStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method DoOneServerStream not implemented")
+	return errtrace.Wrap(status.Errorf(codes.Unimplemented, "method DoOneServerStream not implemented"))
 }
 func (UnimplementedGizmoServiceServer) DoOneBiDiStream(GizmoService_DoOneBiDiStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method DoOneBiDiStream not implemented")
+	return errtrace.Wrap(status.Errorf(codes.Unimplemented, "method DoOneBiDiStream not implemented"))
 }
 func (UnimplementedGizmoServiceServer) DoTwo(context.Context, *DoTwoRequest) (*DoTwoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DoTwo not implemented")
+	return nil, errtrace.Wrap(status.Errorf(codes.Unimplemented, "method DoTwo not implemented"))
 }
 func (UnimplementedGizmoServiceServer) DoCommand(context.Context, *DoCommandRequest) (*DoCommandResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DoCommand not implemented")
+	return nil, errtrace.Wrap(status.Errorf(codes.Unimplemented, "method DoCommand not implemented"))
 }
 func (UnimplementedGizmoServiceServer) mustEmbedUnimplementedGizmoServiceServer() {}
 
@@ -214,23 +215,23 @@ func RegisterGizmoServiceServer(s grpc.ServiceRegistrar, srv GizmoServiceServer)
 func _GizmoService_DoOne_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DoOneRequest)
 	if err := dec(in); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if interceptor == nil {
-		return srv.(GizmoServiceServer).DoOne(ctx, in)
+		return errtrace.Wrap2(srv.(GizmoServiceServer).DoOne(ctx, in))
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/acme.component.gizmo.v1.GizmoService/DoOne",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GizmoServiceServer).DoOne(ctx, req.(*DoOneRequest))
+		return errtrace.Wrap2(srv.(GizmoServiceServer).DoOne(ctx, req.(*DoOneRequest)))
 	}
-	return interceptor(ctx, in, info, handler)
+	return errtrace.Wrap2(interceptor(ctx, in, info, handler))
 }
 
 func _GizmoService_DoOneClientStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(GizmoServiceServer).DoOneClientStream(&gizmoServiceDoOneClientStreamServer{stream})
+	return errtrace.Wrap(srv.(GizmoServiceServer).DoOneClientStream(&gizmoServiceDoOneClientStreamServer{stream}))
 }
 
 type GizmoService_DoOneClientStreamServer interface {
@@ -244,13 +245,13 @@ type gizmoServiceDoOneClientStreamServer struct {
 }
 
 func (x *gizmoServiceDoOneClientStreamServer) SendAndClose(m *DoOneClientStreamResponse) error {
-	return x.ServerStream.SendMsg(m)
+	return errtrace.Wrap(x.ServerStream.SendMsg(m))
 }
 
 func (x *gizmoServiceDoOneClientStreamServer) Recv() (*DoOneClientStreamRequest, error) {
 	m := new(DoOneClientStreamRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return m, nil
 }
@@ -258,9 +259,9 @@ func (x *gizmoServiceDoOneClientStreamServer) Recv() (*DoOneClientStreamRequest,
 func _GizmoService_DoOneServerStream_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(DoOneServerStreamRequest)
 	if err := stream.RecvMsg(m); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return srv.(GizmoServiceServer).DoOneServerStream(m, &gizmoServiceDoOneServerStreamServer{stream})
+	return errtrace.Wrap(srv.(GizmoServiceServer).DoOneServerStream(m, &gizmoServiceDoOneServerStreamServer{stream}))
 }
 
 type GizmoService_DoOneServerStreamServer interface {
@@ -273,11 +274,11 @@ type gizmoServiceDoOneServerStreamServer struct {
 }
 
 func (x *gizmoServiceDoOneServerStreamServer) Send(m *DoOneServerStreamResponse) error {
-	return x.ServerStream.SendMsg(m)
+	return errtrace.Wrap(x.ServerStream.SendMsg(m))
 }
 
 func _GizmoService_DoOneBiDiStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(GizmoServiceServer).DoOneBiDiStream(&gizmoServiceDoOneBiDiStreamServer{stream})
+	return errtrace.Wrap(srv.(GizmoServiceServer).DoOneBiDiStream(&gizmoServiceDoOneBiDiStreamServer{stream}))
 }
 
 type GizmoService_DoOneBiDiStreamServer interface {
@@ -291,13 +292,13 @@ type gizmoServiceDoOneBiDiStreamServer struct {
 }
 
 func (x *gizmoServiceDoOneBiDiStreamServer) Send(m *DoOneBiDiStreamResponse) error {
-	return x.ServerStream.SendMsg(m)
+	return errtrace.Wrap(x.ServerStream.SendMsg(m))
 }
 
 func (x *gizmoServiceDoOneBiDiStreamServer) Recv() (*DoOneBiDiStreamRequest, error) {
 	m := new(DoOneBiDiStreamRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return m, nil
 }
@@ -305,37 +306,37 @@ func (x *gizmoServiceDoOneBiDiStreamServer) Recv() (*DoOneBiDiStreamRequest, err
 func _GizmoService_DoTwo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DoTwoRequest)
 	if err := dec(in); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if interceptor == nil {
-		return srv.(GizmoServiceServer).DoTwo(ctx, in)
+		return errtrace.Wrap2(srv.(GizmoServiceServer).DoTwo(ctx, in))
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/acme.component.gizmo.v1.GizmoService/DoTwo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GizmoServiceServer).DoTwo(ctx, req.(*DoTwoRequest))
+		return errtrace.Wrap2(srv.(GizmoServiceServer).DoTwo(ctx, req.(*DoTwoRequest)))
 	}
-	return interceptor(ctx, in, info, handler)
+	return errtrace.Wrap2(interceptor(ctx, in, info, handler))
 }
 
 func _GizmoService_DoCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DoCommandRequest)
 	if err := dec(in); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if interceptor == nil {
-		return srv.(GizmoServiceServer).DoCommand(ctx, in)
+		return errtrace.Wrap2(srv.(GizmoServiceServer).DoCommand(ctx, in))
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/acme.component.gizmo.v1.GizmoService/DoCommand",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GizmoServiceServer).DoCommand(ctx, req.(*DoCommandRequest))
+		return errtrace.Wrap2(srv.(GizmoServiceServer).DoCommand(ctx, req.(*DoCommandRequest)))
 	}
-	return interceptor(ctx, in, info, handler)
+	return errtrace.Wrap2(interceptor(ctx, in, info, handler))
 }
 
 // GizmoService_ServiceDesc is the grpc.ServiceDesc for GizmoService service.

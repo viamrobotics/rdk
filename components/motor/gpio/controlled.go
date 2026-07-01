@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/control"
@@ -26,14 +27,14 @@ func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal
 		return nil
 	}
 	power := state[0].GetSignalValueAt(0)
-	return cm.real.SetPower(ctx, power, nil)
+	return errtrace.Wrap(cm.real.SetPower(ctx, power, nil))
 }
 
 // State gets the state of the motor for the built-in control loop.
 func (cm *controlledMotor) State(ctx context.Context) ([]float64, error) {
 	ticks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, nil)
 	pos := ticks + cm.offsetInTicks
-	return []float64{pos}, err
+	return []float64{pos}, errtrace.Wrap(err)
 }
 
 // updateControlBlockPosVel updates the trap profile and the constant set point for position and velocity control.
@@ -41,12 +42,12 @@ func (cm *controlledMotor) updateControlBlock(ctx context.Context, setPoint, max
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control
 	dependsOn := []string{cm.blockNames[control.BlockNameConstant][0], cm.blockNames[control.BlockNameEndpoint][0]}
 	if err := control.UpdateTrapzBlock(ctx, cm.blockNames[control.BlockNameTrapezoidal][0], maxVel, dependsOn, cm.loop); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Update the Constant block with the given setPoint for position control
 	if err := control.UpdateConstantBlock(ctx, cm.blockNames[control.BlockNameConstant][0], setPoint, cm.loop); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -75,7 +76,7 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 
 	pl, err := control.SetupPIDControlConfig(cm.configPIDVals, cm.Name().ShortName(), options, cm, cm.logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	cm.controlLoopConfig = *pl.ControlConf
@@ -89,10 +90,10 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 func (cm *controlledMotor) startControlLoop() error {
 	loop, err := control.NewLoop(cm.logger, cm.controlLoopConfig, cm)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := loop.Start(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	cm.loop = loop
 
@@ -108,7 +109,7 @@ func setupMotorWithControls(
 ) (motor.Motor, error) {
 	conf, err := resource.NativeConfig[*Config](cfg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	tpr := float64(conf.TicksPerRotation)
@@ -134,10 +135,10 @@ func setupMotorWithControls(
 
 	// setup control loop
 	if conf.ControlParameters == nil {
-		return nil, motor.NewControlParametersUnimplementedError()
+		return nil, errtrace.Wrap(motor.NewControlParametersUnimplementedError())
 	}
 	if err := cm.setupControlLoop(conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return cm, nil
@@ -173,18 +174,18 @@ func (cm *controlledMotor) SetPower(ctx context.Context, powerPct float64, extra
 	if cm.loop != nil {
 		cm.loop.Pause()
 	}
-	return cm.real.SetPower(ctx, powerPct, nil)
+	return errtrace.Wrap(cm.real.SetPower(ctx, powerPct, nil))
 }
 
 // IsPowered returns whether or not the motor is currently on, and the percent power (between 0
 // and 1, if the motor is off then the percent power will be 0).
 func (cm *controlledMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-	return cm.real.IsPowered(ctx, extra)
+	return errtrace.Wrap3(cm.real.IsPowered(ctx, extra))
 }
 
 // IsMoving returns if the motor is moving or not.
 func (cm *controlledMotor) IsMoving(ctx context.Context) (bool, error) {
-	return cm.real.IsMoving(ctx)
+	return errtrace.Wrap2(cm.real.IsMoving(ctx))
 }
 
 // Stop stops rpmMonitor and stops the real motor.
@@ -199,19 +200,19 @@ func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{
 		// update pid controller to use the current state as the desired state
 		currentTicks, _, err := cm.enc.Position(context.Background(), encoder.PositionTypeTicks, extra)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := cm.updateControlBlock(context.Background(), currentTicks+cm.offsetInTicks, cm.maxRPM*cm.ticksPerRotation/60); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
-	return cm.real.Stop(context.Background(), nil)
+	return errtrace.Wrap(cm.real.Stop(context.Background(), nil))
 }
 
 // Close cleanly shuts down the motor.
 func (cm *controlledMotor) Close(ctx context.Context) error {
 	if err := cm.Stop(ctx, nil); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if cm.loop != nil {
 		cm.loop.Stop()
@@ -234,7 +235,7 @@ func (cm *controlledMotor) Properties(ctx context.Context, extra map[string]inte
 func (cm *controlledMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ticks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
 	// offsetTicks in Rotation can be changed by ResetPosition
@@ -247,10 +248,10 @@ func (cm *controlledMotor) Position(ctx context.Context, extra map[string]interf
 func (cm *controlledMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	// Stop the motor if resetting position
 	if err := cm.Stop(ctx, extra); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := cm.enc.ResetPosition(ctx, extra); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	cm.mu.Lock()
@@ -267,7 +268,7 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 	// no op manager added, we're relying on GoFor's oepration manager in this driver
 	pos, err := cm.Position(ctx, extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	rotations := targetPosition - pos
 
@@ -280,7 +281,7 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 		cm.logger.CDebug(ctx, "GoTo distance nearly zero, not moving")
 		return nil
 	}
-	return cm.GoFor(ctx, rpm, rotations, extra)
+	return errtrace.Wrap(cm.GoFor(ctx, rpm, rotations, extra))
 }
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
@@ -293,17 +294,17 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 		cm.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := cm.checkTuningStatus(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if cm.loop == nil {
 		// create new control loop
 		if err := cm.startControlLoop(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -312,7 +313,7 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 	goalPos := math.Inf(int(rpm))
 	// setPoint is +/- infinity, maxVel is calculated velVal
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	cm.loop.Resume()
 
@@ -333,26 +334,26 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		cm.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := motor.CheckRevolutions(revolutions); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := cm.checkTuningStatus(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if cm.loop == nil {
 		// create new control loop
 		if err := cm.startControlLoop(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -363,7 +364,7 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	// when rev = 0, only velocity is controlled
 	// setPoint is +/- infinity, maxVel is calculated velVal
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	cm.loop.Resume()
 
@@ -376,9 +377,9 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		if rdkutils.Float64AlmostEqual(pos+cm.offsetInTicks, goalPos, 2.0) {
 			stopErr := cm.Stop(ctx, extra)
 			errs = multierr.Combine(errs, stopErr)
-			return true, errs
+			return true, errtrace.Wrap(errs)
 		}
-		return false, errs
+		return false, errtrace.Wrap(errs)
 	}
 	err = cm.opMgr.WaitForSuccess(
 		ctx,
@@ -388,7 +389,7 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	// Ignore the context canceled error - this occurs when the motor is stopped
 	// at the beginning of goForInternal
 	if !errors.Is(err, context.Canceled) {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -429,9 +430,9 @@ func (cm *controlledMotor) checkTuningStatus() error {
 
 	if needsTuning {
 		if done {
-			return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+			return errtrace.Wrap(control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals))
 		}
-		return control.TuningInProgressErr(cm.Name().ShortName())
+		return errtrace.Wrap(control.TuningInProgressErr(cm.Name().ShortName()))
 	}
 
 	return nil

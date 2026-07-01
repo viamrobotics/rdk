@@ -9,6 +9,7 @@ import (
 
 	uts "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
@@ -108,7 +109,7 @@ func ComputeBRIEFDescriptors(img *image.Gray, sp *SamplePairs, kps *FASTKeypoint
 	normalized := kernel.Normalize()
 	blurred, err := rimage.ConvolveGray(img, normalized, image.Point{2, 2}, 0)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// compute descriptors
 

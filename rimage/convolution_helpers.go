@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 
+	"braces.dev/errtrace"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -120,7 +121,7 @@ func PaddingFloat64(img *mat.Dense, kernelSize, anchor image.Point, border Borde
 	originalSize := image.Point{w, h}
 	p, err := computePaddingSizes(kernelSize, anchor)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	rect := getImageRectangleFromPaddingSizes(p, originalSize)
 	newW, newH := rect.Max.X, rect.Max.Y
@@ -146,7 +147,7 @@ func PaddingGray(img *image.Gray, kernelSize, anchor image.Point, border BorderP
 	originalSize := img.Bounds().Size()
 	p, err := computePaddingSizes(kernelSize, anchor)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	rect := getImageRectangleFromPaddingSizes(p, originalSize)
 	padded := image.NewGray(rect)
@@ -187,7 +188,7 @@ func PaddingGray(img *image.Gray, kernelSize, anchor image.Point, border BorderP
 			padded.Set(x, y, pixel)
 		})
 	default:
-		return nil, errors.New("unknown Border type")
+		return nil, errtrace.Wrap(errors.New("unknown Border type"))
 	}
 	return padded, nil
 }
@@ -196,13 +197,13 @@ func PaddingGray(img *image.Gray, kernelSize, anchor image.Point, border BorderP
 func computePaddingSizes(kernelSize, anchor image.Point) (Paddings, error) {
 	var p Paddings
 	if kernelSize.X < 0 || kernelSize.Y < 0 {
-		return p, errors.New("kernel size is negative")
+		return p, errtrace.Wrap(errors.New("kernel size is negative"))
 	}
 	if anchor.X < 0 || anchor.Y < 0 {
-		return p, errors.New("anchor value is negative")
+		return p, errtrace.Wrap(errors.New("anchor value is negative"))
 	}
 	if anchor.X > kernelSize.X || anchor.Y > kernelSize.Y {
-		return p, errors.New("anchor value outside of the kernel")
+		return p, errtrace.Wrap(errors.New("anchor value outside of the kernel"))
 	}
 
 	p = Paddings{

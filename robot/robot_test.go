@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
@@ -31,7 +32,7 @@ func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		if name.Name == "arm2" {
-			return nil, resource.NewNotFoundError(name)
+			return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 		}
 		if name.Name == "arm3" {
 			return arm3, nil

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -41,24 +42,24 @@ func init() {
 			) (camera.Camera, error) {
 				actualR, err := utils.AssertType[robot.Robot](r)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				newConf, err := resource.NativeConfig[*transformConfig](conf)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				sourceName := newConf.Source
 				source, err := camera.FromProvider(actualR, sourceName)
 				if err != nil {
-					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
+					return nil, errtrace.Wrap(fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err))
 				}
 				vs, err := videoSourceFromCamera(ctx, source)
 				if err != nil {
-					return nil, fmt.Errorf("failed to create video source from camera: %w", err)
+					return nil, errtrace.Wrap(fmt.Errorf("failed to create video source from camera: %w", err))
 				}
 				src, err := newTransformPipeline(ctx, vs, conf.ResourceName().AsNamed(), newConf, actualR, logger)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				return src, nil
 			},
@@ -77,15 +78,15 @@ type transformConfig struct {
 func (cfg *transformConfig) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if len(cfg.Source) == 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "source")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "source"))
 	}
 
 	if cfg.CameraParameters != nil {
 		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
-			return nil, nil, errors.Errorf(
+			return nil, nil, errtrace.Wrap(errors.Errorf(
 				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for transform camera",
 				cfg.CameraParameters.Width, cfg.CameraParameters.Height,
-			)
+			))
 		}
 	}
 
@@ -100,9 +101,9 @@ type videoSource struct {
 
 func (sc *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	if sc.vs != nil {
-		return sc.vs.Stream(ctx, errHandlers...)
+		return errtrace.Wrap2(sc.vs.Stream(ctx, errHandlers...))
 	}
-	return sc.Stream(ctx, errHandlers...)
+	return errtrace.Wrap2(sc.Stream(ctx, errHandlers...))
 }
 
 // videoSourceFromCamera is a hack to allow us to use Stream to pipe frames through the pipeline
@@ -115,7 +116,7 @@ func videoSourceFromCamera(ctx context.Context, cam camera.Camera) (camera.Video
 	}
 	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrVideoSourceCreation, err)
+		return nil, errtrace.Wrap(fmt.Errorf("%w: %w", ErrVideoSourceCreation, err))
 	}
 	return &videoSource{
 		Camera: cam,
@@ -132,10 +133,10 @@ func newTransformPipeline(
 	logger logging.Logger,
 ) (camera.VideoSource, error) {
 	if source == nil {
-		return nil, errors.New("no source camera for transform pipeline")
+		return nil, errtrace.Wrap(errors.New("no source camera for transform pipeline"))
 	}
 	if len(cfg.Pipeline) == 0 {
-		return nil, errors.New("pipeline has no transforms in it")
+		return nil, errtrace.Wrap(errors.New("pipeline has no transforms in it"))
 	}
 	// check if the source produces a depth image or color image
 	img, err := camera.DecodeImageFromCamera(ctx, source, nil, nil)
@@ -154,28 +155,28 @@ func newTransformPipeline(
 	pipeline := make([]camera.VideoSource, 0, len(cfg.Pipeline))
 	lastSource, err := videoSourceFromCamera(ctx, source)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for _, tr := range cfg.Pipeline {
 		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		streamSrc, err := videoSourceFromCamera(ctx, src)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		pipeline = append(pipeline, streamSrc)
 		lastSource = streamSrc
 		streamType = newStreamType
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
-	return camera.NewVideoSourceFromReader(
+	return errtrace.Wrap2(camera.NewVideoSourceFromReader(
 		ctx,
 		transformPipeline{named, pipeline, lastSource, cfg.CameraParameters, logger},
 		&cameraModel,
 		streamType,
-	)
+	))
 }
 
 type transformPipeline struct {
@@ -191,7 +192,7 @@ func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), erro
 	defer span.End()
 	img, err := camera.DecodeImageFromCamera(ctx, tp.src, nil, nil)
 	if err != nil {
-		return nil, func() {}, err
+		return nil, func() {}, errtrace.Wrap(err)
 	}
 	return img, func() {}, nil
 }
@@ -202,11 +203,11 @@ func (tp transformPipeline) NextPointCloud(ctx context.Context, extra map[string
 	if lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource); ok {
 		pc, err := lastElem.NextPointCloud(ctx, extra)
 		if err != nil {
-			return nil, errors.Wrap(err, "function NextPointCloud not defined for last videosource in transform pipeline")
+			return nil, errtrace.Wrap(errors.Wrap(err, "function NextPointCloud not defined for last videosource in transform pipeline"))
 		}
 		return pc, nil
 	}
-	return nil, errors.New("function NextPointCloud not defined for last videosource in transform pipeline")
+	return nil, errtrace.Wrap(errors.New("function NextPointCloud not defined for last videosource in transform pipeline"))
 }
 
 func (tp transformPipeline) Close(ctx context.Context) error {

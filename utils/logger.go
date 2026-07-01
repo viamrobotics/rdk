@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -13,7 +14,7 @@ func NewFilePathDebugLogger(filepath, name string) (logging.Logger, error) {
 
 	logger, err := logConfig.Build()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return logging.FromZapCompatible(logger.Sugar().Named(name)), nil

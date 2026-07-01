@@ -28,6 +28,7 @@ import (
 	"gonum.org/v1/gonum/stat/combin"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	fakearm "go.viam.com/rdk/components/arm/fake"
@@ -161,7 +162,7 @@ func setupInjectRobot(logger logging.Logger) *inject.Robot {
 				case camera.API:
 					conf := resource.NewEmptyConfig(name, resource.DefaultModelFamily.WithModel("fake"))
 					conf.ConvertedAttributes = &fakecamera.Config{}
-					return fakecamera.NewCamera(context.Background(), resource.Dependencies{}, conf, logger)
+					return errtrace.Wrap2(fakecamera.NewCamera(context.Background(), resource.Dependencies{}, conf, logger))
 				case gripper.API:
 					return &fakegripper.Gripper{Named: name.AsNamed()}, nil
 				case input.API:
@@ -176,7 +177,7 @@ func setupInjectRobot(logger logging.Logger) *inject.Robot {
 				}
 			}
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 
 	return injectRobot
@@ -1349,7 +1350,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 				}
 			}
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 
 	manager := managerForDummyRobot(t, injectRobot)
@@ -1376,7 +1377,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 				return grpc.NewForeignResource(rName, nil), nil
 			}
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 
 	armDesc, err := grpcreflect.LoadServiceDescriptor(&armpb.ArmService_ServiceDesc)
@@ -1427,7 +1428,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 				return grpc.NewForeignResource(rName, nil), nil
 			}
 		}
-		return nil, resource.NewNotFoundError(name)
+		return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 	}
 
 	gripperDesc, err := grpcreflect.LoadServiceDescriptor(&gripperpb.GripperService_ServiceDesc)
@@ -1829,7 +1830,7 @@ type dummyRobot struct {
 
 // GetResource implements resource.Provider for a dummyRobot by looking up a resource by name.
 func (rr *dummyRobot) GetResource(name resource.Name) (resource.Resource, error) {
-	return rr.ResourceByName(name)
+	return errtrace.Wrap2(rr.ResourceByName(name))
 }
 
 // newDummyRobot returns a new dummy robot wrapping a given robot.Robot
@@ -1856,9 +1857,9 @@ func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.Modu
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
-		return nil, errors.New("offline")
+		return nil, errtrace.Wrap(errors.New("offline"))
 	}
-	return rr.robot.GetModelsFromModules(ctx)
+	return errtrace.Wrap2(rr.robot.GetModelsFromModules(ctx))
 }
 
 func (rr *dummyRobot) RemoteNames() []string {
@@ -1896,10 +1897,10 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (resource.Resource, err
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
-		return nil, errors.New("offline")
+		return nil, errtrace.Wrap(errors.New("offline"))
 	}
 	_, res, err := rr.manager.ResourceByName(name)
-	return res, err
+	return res, errtrace.Wrap(err)
 }
 
 // FrameSystemConfig returns a remote robot's FrameSystem Config.
@@ -1962,58 +1963,58 @@ func (rr *dummyRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error)
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
-		return cloud.Metadata{}, errors.New("offline")
+		return cloud.Metadata{}, errtrace.Wrap(errors.New("offline"))
 	}
-	return rr.robot.CloudMetadata(ctx)
+	return errtrace.Wrap2(rr.robot.CloudMetadata(ctx))
 }
 
 func (rr *dummyRobot) Close(ctx context.Context) error {
-	return rr.robot.Close(ctx)
+	return errtrace.Wrap(rr.robot.Close(ctx))
 }
 
 func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
-		return errors.New("offline")
+		return errtrace.Wrap(errors.New("offline"))
 	}
-	return rr.robot.StopAll(ctx, extra)
+	return errtrace.Wrap(rr.robot.StopAll(ctx, extra))
 }
 
 func (rr *dummyRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
-		return errors.New("offline")
+		return errtrace.Wrap(errors.New("offline"))
 	}
-	return rr.robot.RestartModule(ctx, req)
+	return errtrace.Wrap(rr.robot.RestartModule(ctx, req))
 }
 
 func (rr *dummyRobot) Shutdown(ctx context.Context) error {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
-		return errors.New("offline")
+		return errtrace.Wrap(errors.New("offline"))
 	}
-	return rr.robot.Shutdown(ctx)
+	return errtrace.Wrap(rr.robot.Shutdown(ctx))
 }
 
 func (rr *dummyRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
-		return robot.MachineStatus{}, errors.New("offline")
+		return robot.MachineStatus{}, errtrace.Wrap(errors.New("offline"))
 	}
-	return rr.robot.MachineStatus(ctx)
+	return errtrace.Wrap2(rr.robot.MachineStatus(ctx))
 }
 
 func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	if rr.offline {
-		return robot.VersionResponse{}, errors.New("offline")
+		return robot.VersionResponse{}, errtrace.Wrap(errors.New("offline"))
 	}
-	return rr.robot.Version(ctx)
+	return errtrace.Wrap2(rr.robot.Version(ctx))
 }
 
 // ListTunnels returns information on available traffic tunnels.

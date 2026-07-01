@@ -8,6 +8,7 @@ import (
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -54,19 +55,19 @@ func (m method) String() string {
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	if _, err := assertMovementSensor(resource); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertMovementSensor(resource interface{}) (MovementSensor, error) {
 	ms, ok := resource.(MovementSensor)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return ms, nil
 }
@@ -78,7 +79,7 @@ func assertMovementSensor(resource interface{}) (MovementSensor, error) {
 func newLinearVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -89,20 +90,20 @@ func newLinearVelocityCollector(resource interface{}, params data.CollectorParam
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, position.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, position.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetLinearVelocityResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetLinearVelocityResponse{
 			LinearVelocity: &v1.Vector3{
 				X: vec.X,
 				Y: vec.Y,
 				Z: vec.Z,
 			},
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newPositionCollector returns a collector to register a position method. If one is already registered
@@ -110,7 +111,7 @@ func newLinearVelocityCollector(resource interface{}, params data.CollectorParam
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -121,9 +122,9 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, linearVelocity.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, linearVelocity.String(), err))
 		}
 		var lat, lng float64
 		if pos != nil {
@@ -131,15 +132,15 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			lng = pos.Lng()
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
 			Coordinate: &v1.GeoPoint{
 				Latitude:  lat,
 				Longitude: lng,
 			},
 			AltitudeM: float32(altitude),
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newAngularVelocityCollector returns a collector to register an angular velocity method. If one is already registered
@@ -149,7 +150,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 func newAngularVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -160,20 +161,20 @@ func newAngularVelocityCollector(resource interface{}, params data.CollectorPara
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, angularVelocity.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, angularVelocity.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetAngularVelocityResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetAngularVelocityResponse{
 			AngularVelocity: &v1.Vector3{
 				X: vel.X,
 				Y: vel.Y,
 				Z: vel.Z,
 			},
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newCompassHeadingCollector returns a collector to register a compass heading method. If one is already registered
@@ -181,7 +182,7 @@ func newAngularVelocityCollector(resource interface{}, params data.CollectorPara
 func newCompassHeadingCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -192,16 +193,16 @@ func newCompassHeadingCollector(resource interface{}, params data.CollectorParam
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, compassHeading.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, compassHeading.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetCompassHeadingResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetCompassHeadingResponse{
 			Value: heading,
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newLinearAccelerationCollector returns a collector to register a linear acceleration method. If one is already registered
@@ -211,7 +212,7 @@ func newCompassHeadingCollector(resource interface{}, params data.CollectorParam
 func newLinearAccelerationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -222,20 +223,20 @@ func newLinearAccelerationCollector(resource interface{}, params data.CollectorP
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, linearAcceleration.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, linearAcceleration.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetLinearAccelerationResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetLinearAccelerationResponse{
 			LinearAcceleration: &v1.Vector3{
 				X: accel.X,
 				Y: accel.Y,
 				Z: accel.Z,
 			},
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newOrientationCollector returns a collector to register an orientation method. If one is already registered
@@ -243,7 +244,7 @@ func newLinearAccelerationCollector(resource interface{}, params data.CollectorP
 func newOrientationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -254,25 +255,25 @@ func newOrientationCollector(resource interface{}, params data.CollectorParams) 
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, orientation.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, orientation.String(), err))
 		}
 		var orientVector *spatialmath.OrientationVectorDegrees
 		if orient != nil {
 			orientVector = orient.OrientationVectorDegrees()
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetOrientationResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetOrientationResponse{
 			Orientation: &v1.Orientation{
 				OX:    orientVector.OX,
 				OY:    orientVector.OY,
 				OZ:    orientVector.OZ,
 				Theta: orientVector.Theta,
 			},
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newReadingsCollector returns a collector to register a readings method. If one is already registered
@@ -280,7 +281,7 @@ func newOrientationCollector(resource interface{}, params data.CollectorParams) 
 func newReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -291,15 +292,15 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, readings.String(), err))
 		}
 
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResultReadings(ts, values)
+		return errtrace.Wrap2(data.NewTabularCaptureResultReadings(ts, values))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -307,9 +308,9 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(ms, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }

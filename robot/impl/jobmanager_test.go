@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/audioin"
 	"go.viam.com/rdk/components/audioout"
@@ -175,7 +176,7 @@ func TestJobManagerHistory(t *testing.T) {
 		if cmd["command"] == "pass" {
 			return nil, nil
 		}
-		return nil, errors.New("fail")
+		return nil, errtrace.Wrap(errors.New("fail"))
 	}
 	fakeSensorModelPanic := resource.DefaultModelFamily.WithModel("fakesensorPanic")
 	injectSensorPanic := inject.NewSensor("fakesensorPanic")
@@ -449,7 +450,7 @@ func TestJobManagerConfigChanges(t *testing.T) {
 		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 			myCommand, exists := cmd["command"]
 			if !exists {
-				return nil, errors.New("command not in the map")
+				return nil, errtrace.Wrap(errors.New("command not in the map"))
 			}
 			if myCommand == "first 1" {
 				doCommandFirstCount1.Add(1)
@@ -474,14 +475,14 @@ func TestJobManagerConfigChanges(t *testing.T) {
 			doCommandThirdCount.Add(1)
 			boolVal, ok := cmd["bool"].(bool)
 			if !ok {
-				return nil, errors.New("bool argument must be a boolean")
+				return nil, errtrace.Wrap(errors.New("bool argument must be a boolean"))
 			}
 			doCommandBoolCheck.Store(boolVal)
 			logger.Info(cmd["int"])
 			intVal, ok := cmd["int"].(int)
 			logger.Info(intVal)
 			if !ok {
-				return nil, errors.New("int argument must be an integer")
+				return nil, errtrace.Wrap(errors.New("int argument must be an integer"))
 			}
 			doCommandIntCheck.Store(int64(intVal))
 			return map[string]any{
@@ -1833,10 +1834,10 @@ func TestJobManagerErrors(t *testing.T) {
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	dummyArm := inject.NewArm("arm")
 	dummyArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
-		return nil, errors.New("test error api function")
+		return nil, errtrace.Wrap(errors.New("test error api function"))
 	}
 	dummyArm.DoFunc = func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
-		return nil, errors.New("test error do command")
+		return nil, errtrace.Wrap(errors.New("test error do command"))
 	}
 	resource.RegisterComponent(
 		arm.API,

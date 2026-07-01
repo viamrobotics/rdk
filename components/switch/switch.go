@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/api/component/switch/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -90,7 +91,7 @@ type Switch interface {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Switch, error) {
-	return robot.ResourceFromRobot[Switch](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Switch](r, Named(name)))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named switch component from a collection of dependencies.
@@ -98,12 +99,12 @@ func FromRobot(r robot.Robot, name string) (Switch, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Switch, error) {
-	return resource.FromDependencies[Switch](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Switch](deps, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Switch from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Switch, error) {
-	return resource.FromProvider[Switch](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Switch](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all switch names from the given Robot.

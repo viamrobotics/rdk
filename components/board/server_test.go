@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -35,7 +36,7 @@ func newServer(logger logging.Logger) (pb.BoardServiceServer, *inject.Board, err
 	}
 	boardSvc, err := resource.NewAPIResourceCollection(board.API, boards)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	return board.NewRPCServiceServer(boardSvc, logger).(pb.BoardServiceServer), injectBoard, nil
 }
@@ -97,7 +98,7 @@ func TestServerSetGPIO(t *testing.T) {
 
 			injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
 				actualExtra = extra
-				return tc.injectErr
+				return errtrace.Wrap(tc.injectErr)
 			}
 
 			_, err = server.SetGPIO(ctx, tc.req)
@@ -180,7 +181,7 @@ func TestServerGetGPIO(t *testing.T) {
 
 			injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 				actualExtra = extra
-				return tc.injectResult, tc.injectErr
+				return tc.injectResult, errtrace.Wrap(tc.injectErr)
 			}
 
 			resp, err := server.GetGPIO(ctx, tc.req)
@@ -265,7 +266,7 @@ func TestServerPWM(t *testing.T) {
 
 			injectGPIOPin.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 				actualExtra = extra
-				return tc.injectResult, tc.injectErr
+				return tc.injectResult, errtrace.Wrap(tc.injectErr)
 			}
 
 			resp, err := server.PWM(ctx, tc.req)
@@ -339,7 +340,7 @@ func TestServerSetPWM(t *testing.T) {
 
 			injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 				actualExtra = extra
-				return tc.injectErr
+				return errtrace.Wrap(tc.injectErr)
 			}
 
 			_, err = server.SetPWM(ctx, tc.req)
@@ -423,7 +424,7 @@ func TestServerPWMFrequency(t *testing.T) {
 
 			injectGPIOPin.PWMFreqFunc = func(ctx context.Context, extra map[string]interface{}) (uint, error) {
 				actualExtra = extra
-				return tc.injectResult, tc.injectErr
+				return tc.injectResult, errtrace.Wrap(tc.injectErr)
 			}
 
 			resp, err := server.PWMFrequency(ctx, tc.req)
@@ -497,7 +498,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 
 			injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 				actualExtra = extra
-				return tc.injectErr
+				return errtrace.Wrap(tc.injectErr)
 			}
 
 			_, err = server.SetPWMFrequency(ctx, tc.req)
@@ -600,13 +601,13 @@ func TestServerReadAnalogReader(t *testing.T) {
 				if tc.expRespErr == board.ErrAnalogByNameReturnNil(testBoardName).Error() {
 					return nil, nil
 				}
-				return tc.injectAnalog, tc.injectAnalogErr
+				return tc.injectAnalog, errtrace.Wrap(tc.injectAnalogErr)
 			}
 
 			if tc.injectAnalog != nil {
 				tc.injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 					actualExtra = extra
-					return tc.injectVal, tc.injectErr
+					return tc.injectVal, errtrace.Wrap(tc.injectErr)
 				}
 			}
 
@@ -682,7 +683,7 @@ func TestServerWriteAnalog(t *testing.T) {
 			injectAnalog := inject.Analog{}
 			injectAnalog.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
 				actualExtra = extra
-				return tc.injectErr
+				return errtrace.Wrap(tc.injectErr)
 			}
 			injectBoard.AnalogByNameFunc = func(pin string) (board.Analog, error) {
 				if tc.expRespErr == board.ErrAnalogByNameReturnNil(testBoardName).Error() {
@@ -791,13 +792,13 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 				if tc.expRespErr == board.ErrDigitalInterruptByNameReturnNil(testBoardName).Error() {
 					return nil, nil
 				}
-				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptErr
+				return tc.injectDigitalInterrupt, errtrace.Wrap(tc.injectDigitalInterruptErr)
 			}
 
 			if tc.injectDigitalInterrupt != nil {
 				tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
 					actualExtra = extra
-					return tc.injectResult, tc.injectErr
+					return tc.injectResult, errtrace.Wrap(tc.injectErr)
 				}
 			}
 
@@ -830,7 +831,7 @@ func (x *streamTicksServer) Context() context.Context {
 
 func (x *streamTicksServer) Send(m *pb.StreamTicksResponse) error {
 	if x.fail {
-		return errSendFailed
+		return errtrace.Wrap(errSendFailed)
 	}
 	if x.ticksChan == nil {
 		return nil
@@ -917,14 +918,14 @@ func TestStreamTicks(t *testing.T) {
 			) error {
 				actualExtra = extra
 				callbacks = append(callbacks, ch)
-				return tc.streamTicksErr
+				return errtrace.Wrap(tc.streamTicksErr)
 			}
 
 			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
 				if name == "digital1" {
-					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptErr
+					return tc.injectDigitalInterrupts[0], errtrace.Wrap(tc.injectDigitalInterruptErr)
 				} else if name == "digital2" {
-					return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptErr
+					return tc.injectDigitalInterrupts[1], errtrace.Wrap(tc.injectDigitalInterruptErr)
 				}
 				return nil, nil
 			}
@@ -997,7 +998,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectBoard.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testBoardName})
 	test.That(t, err, test.ShouldNotBeNil)

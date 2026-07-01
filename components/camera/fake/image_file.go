@@ -11,6 +11,7 @@ import (
 	"slices"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -32,9 +33,9 @@ func init() {
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*fileSourceConfig](conf)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
-				return newCamera(context.Background(), conf.ResourceName(), newConf, logger)
+				return errtrace.Wrap2(newCamera(context.Background(), conf.ResourceName(), newConf, logger))
 			},
 		})
 }
@@ -61,7 +62,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 		imgType,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return camera.FromVideoSource(name, src), nil
 }
@@ -90,9 +91,9 @@ type fileSourceConfig struct {
 func (c fileSourceConfig) Validate(path string) ([]string, []string, error) {
 	if c.CameraParameters != nil {
 		if c.CameraParameters.Width < 0 || c.CameraParameters.Height < 0 {
-			return nil, nil, fmt.Errorf(
+			return nil, nil, errtrace.Wrap(fmt.Errorf(
 				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for image_file camera",
-				c.CameraParameters.Height, c.CameraParameters.Width)
+				c.CameraParameters.Height, c.CameraParameters.Width))
 		}
 	}
 
@@ -101,7 +102,7 @@ func (c fileSourceConfig) Validate(path string) ([]string, []string, error) {
 		case "pizza", "dog", "crowd":
 			// valid options
 		default:
-			return nil, nil, fmt.Errorf("preloaded_image must be one of: pizza, dog, crowd. Got: %s", c.PreloadedImage)
+			return nil, nil, errtrace.Wrap(fmt.Errorf("preloaded_image must be one of: pizza, dog, crowd. Got: %s", c.PreloadedImage))
 		}
 	}
 
@@ -111,14 +112,14 @@ func (c fileSourceConfig) Validate(path string) ([]string, []string, error) {
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PreloadedImage == "" {
-		return nil, nil, errors.New("no image file to read, so not implemented")
+		return nil, nil, errtrace.Wrap(errors.New("no image file to read, so not implemented"))
 	}
 	if fs.ColorFN == "" && fs.PreloadedImage == "" { // only depth info
 		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
-		return img, func() {}, err
+		return img, func() {}, errtrace.Wrap(err)
 	}
 
 	var img image.Image
@@ -131,10 +132,10 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
-	return img, func() {}, err
+	return img, func() {}, errtrace.Wrap(err)
 }
 
 // Images returns the saved color and depth image if they are present.
@@ -144,25 +145,25 @@ func (fs *fileSource) Images(
 	extra map[string]interface{},
 ) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PreloadedImage == "" {
-		return nil, resource.ResponseMetadata{}, errors.New("no image files to read, so not implemented")
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(errors.New("no image files to read, so not implemented"))
 	}
 	imgs := []camera.NamedImage{}
 
 	validSourceNames := []string{"preloaded", "color", "depth"}
 	for _, name := range filterSourceNames {
 		if !slices.Contains(validSourceNames, name) {
-			return nil, resource.ResponseMetadata{}, fmt.Errorf("invalid source name: %s", name)
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("invalid source name: %s", name))
 		}
 	}
 
 	if fs.PreloadedImage != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "preloaded")) {
 		img, err := getPreloadedImage(fs.PreloadedImage)
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		namedImg, err := camera.NamedImageFromImage(img, "preloaded", utils.MimeTypeJPEG, data.Annotations{})
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		imgs = append(imgs, namedImg)
 	}
@@ -170,12 +171,12 @@ func (fs *fileSource) Images(
 	if fs.ColorFN != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "color")) {
 		img, err := rimage.ReadImageFromFile(fs.ColorFN)
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 
 		namedImg, err := camera.NamedImageFromImage(img, "color", utils.MimeTypeJPEG, data.Annotations{})
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		imgs = append(imgs, namedImg)
 	}
@@ -183,11 +184,11 @@ func (fs *fileSource) Images(
 	if fs.DepthFN != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "depth")) {
 		dm, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		namedImg, err := camera.NamedImageFromImage(dm, "depth", utils.MimeTypeRawDepth, data.Annotations{})
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		imgs = append(imgs, namedImg)
 	}
@@ -200,27 +201,27 @@ func (fs *fileSource) Images(
 // or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if fs.PointCloudFN != "" {
-		return pointcloud.NewFromFile(fs.PointCloudFN, "")
+		return errtrace.Wrap2(pointcloud.NewFromFile(fs.PointCloudFN, ""))
 	}
 	if fs.Intrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
+		return nil, errtrace.Wrap(transform.NewNoIntrinsicsError("camera intrinsics not found in config"))
 	}
 	if fs.ColorFN == "" { // only depth info
 		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return depthadapter.ToPointCloud(img, fs.Intrinsics), nil
 	}
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return fs.Intrinsics.RGBDToPointCloud(img, dm)
+	return errtrace.Wrap2(fs.Intrinsics.RGBDToPointCloud(img, dm))
 }
 
 func (fs *fileSource) Close(ctx context.Context) error {
@@ -249,20 +250,20 @@ func (ss *StaticSource) Images(
 	extra map[string]interface{},
 ) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if ss.ColorImg == nil && ss.DepthImg == nil {
-		return nil, resource.ResponseMetadata{}, errors.New("no image files stored, so not implemented")
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(errors.New("no image files stored, so not implemented"))
 	}
 	imgs := []camera.NamedImage{}
 	if ss.ColorImg != nil {
 		namedImg, err := camera.NamedImageFromImage(ss.ColorImg, "color", utils.MimeTypeJPEG, data.Annotations{})
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		imgs = append(imgs, namedImg)
 	}
 	if ss.DepthImg != nil {
 		namedImg, err := camera.NamedImageFromImage(ss.DepthImg, "depth", utils.MimeTypeRawDepth, data.Annotations{})
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		imgs = append(imgs, namedImg)
 	}
@@ -273,17 +274,17 @@ func (ss *StaticSource) Images(
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
 func (ss *StaticSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if ss.Proj == nil {
-		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
+		return nil, errtrace.Wrap(transform.NewNoIntrinsicsError("camera intrinsics not found in config"))
 	}
 	if ss.DepthImg == nil {
-		return nil, errors.New("no depth info to project to pointcloud")
+		return nil, errtrace.Wrap(errors.New("no depth info to project to pointcloud"))
 	}
 	col := rimage.ConvertImage(ss.ColorImg)
 	dm, err := rimage.ConvertImageToDepthMap(context.Background(), ss.DepthImg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return ss.Proj.RGBDToPointCloud(col, dm)
+	return errtrace.Wrap2(ss.Proj.RGBDToPointCloud(col, dm))
 }
 
 // Close does nothing.
@@ -302,13 +303,13 @@ func getPreloadedImage(name string) (*rimage.Image, error) {
 	case "crowd":
 		imageBase64 = crowdBase64
 	default:
-		return nil, fmt.Errorf("unknown preloaded image: %s", name)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown preloaded image: %s", name))
 	}
 
 	d := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(imageBase64))
 	img, err := jpeg.Decode(d)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode image: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to decode image: %w", err))
 	}
 	return rimage.ConvertImage(img), nil
 }

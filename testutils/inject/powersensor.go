@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/resource"
 )
@@ -33,41 +34,41 @@ func (i *PowerSensor) Name() resource.Name {
 // DoCommand calls the injected DoCommand or the real version.
 func (i *PowerSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if i.DoFunc == nil {
-		return i.PowerSensor.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(i.PowerSensor.DoCommand(ctx, cmd))
 	}
-	return i.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(i.DoFunc(ctx, cmd))
 }
 
 // Voltage func or passthrough.
 func (i *PowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
 	if i.VoltageFunc == nil {
-		return i.PowerSensor.Voltage(ctx, cmd)
+		return errtrace.Wrap3(i.PowerSensor.Voltage(ctx, cmd))
 	}
-	return i.VoltageFunc(ctx, cmd)
+	return errtrace.Wrap3(i.VoltageFunc(ctx, cmd))
 }
 
 // Current func or passthrough.
 func (i *PowerSensor) Current(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
 	if i.CurrentFunc == nil {
-		return i.PowerSensor.Current(ctx, cmd)
+		return errtrace.Wrap3(i.PowerSensor.Current(ctx, cmd))
 	}
-	return i.CurrentFunc(ctx, cmd)
+	return errtrace.Wrap3(i.CurrentFunc(ctx, cmd))
 }
 
 // Power func or passthrough.
 func (i *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (float64, error) {
 	if i.PowerFunc == nil {
-		return i.PowerSensor.Power(ctx, cmd)
+		return errtrace.Wrap2(i.PowerSensor.Power(ctx, cmd))
 	}
-	return i.PowerFunc(ctx, cmd)
+	return errtrace.Wrap2(i.PowerFunc(ctx, cmd))
 }
 
 // Readings func or passthrough.
 func (i *PowerSensor) Readings(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if i.ReadingsFunc == nil {
-		return i.PowerSensor.Readings(ctx, cmd)
+		return errtrace.Wrap2(i.PowerSensor.Readings(ctx, cmd))
 	}
-	return i.ReadingsFunc(ctx, cmd)
+	return errtrace.Wrap2(i.ReadingsFunc(ctx, cmd))
 }
 
 // Close calls the injected Close or the real version.
@@ -76,18 +77,18 @@ func (i *PowerSensor) Close(ctx context.Context) error {
 		if i.PowerSensor == nil {
 			return nil
 		}
-		return i.PowerSensor.Close(ctx)
+		return errtrace.Wrap(i.PowerSensor.Close(ctx))
 	}
-	return i.CloseFunc()
+	return errtrace.Wrap(i.CloseFunc())
 }
 
 // Status calls the injected Status or the real version.
 func (i *PowerSensor) Status(ctx context.Context) (map[string]interface{}, error) {
 	if i.StatusFunc != nil {
-		return i.StatusFunc(ctx)
+		return errtrace.Wrap2(i.StatusFunc(ctx))
 	}
 	if i.PowerSensor != nil {
-		return i.PowerSensor.Status(ctx)
+		return errtrace.Wrap2(i.PowerSensor.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

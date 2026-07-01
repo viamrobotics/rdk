@@ -7,6 +7,7 @@ import (
 	"iter"
 	"math"
 
+	"braces.dev/errtrace"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -58,7 +59,7 @@ func NewDelimitedProtoReader[T any, M interface {
 // is a noop.
 func (o *DelimitedProtoWriter[_]) Close() error {
 	if closer, ok := o.writer.(io.Closer); ok {
-		return closer.Close()
+		return errtrace.Wrap(closer.Close())
 	}
 	return nil
 }
@@ -75,19 +76,19 @@ func (o *DelimitedProtoWriter[M]) Append(message M) error {
 	marshaller := proto.MarshalOptions{}
 	buffer, err := marshaller.MarshalAppend(buffer, message)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	messageLen := uint32(len(buffer) - 4)
 	binary.LittleEndian.PutUint32(buffer, messageLen)
 	_, err = o.writer.Write(buffer)
-	return err
+	return errtrace.Wrap(err)
 }
 
 // Close will close the underlying reader if it is a [io.Closer]. Otherwise it
 // is a noop.
 func (o *RawDelimitedProtoReader) Close() error {
 	if closer, ok := o.reader.(io.Closer); ok {
-		return closer.Close()
+		return errtrace.Wrap(closer.Close())
 	}
 	return nil
 }
@@ -158,7 +159,7 @@ func splitMessages(data []byte, atEOF bool) (advance int, token []byte, err erro
 		// Not enough data to contain a full message + its length.
 		if atEOF {
 			// Also reached EOF; invalid state.
-			return 0, nil, bufio.ErrFinalToken
+			return 0, nil, errtrace.Wrap(bufio.ErrFinalToken)
 		}
 		// Otherwise, request bufio read more in and try again.
 		return 0, nil, nil
@@ -168,7 +169,7 @@ func splitMessages(data []byte, atEOF bool) (advance int, token []byte, err erro
 	if len(messageBytes) < int(messageSize) {
 		if atEOF {
 			// Don't have enough bytes but also reached EOF; invalid state.
-			return 0, nil, bufio.ErrFinalToken
+			return 0, nil, errtrace.Wrap(bufio.ErrFinalToken)
 		}
 		// Don't have the entire message in the buffer, request bufio read more in
 		// and try again.

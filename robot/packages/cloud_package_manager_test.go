@@ -21,6 +21,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	putils "go.viam.com/rdk/robot/packages/testutils"
@@ -62,7 +63,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("missing package on server", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"}}
 		err = pm.Sync(ctx, input, []config.Module{})
@@ -75,7 +76,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("valid packages on server", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
@@ -92,7 +93,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("sync continues on error", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
@@ -113,7 +114,7 @@ func TestCloud(t *testing.T) {
 
 		// create a package manager and Sync to download the package
 		_, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 		pkgDir := pkg.LocalDataDirectory(pm.(*cloudManager).packagesDir)
 		module := config.Module{ExePath: pkgDir + "/some-text.txt"}
 		fakeServer.StorePackage(pkg)
@@ -135,7 +136,7 @@ func TestCloud(t *testing.T) {
 		// close previous package manager, make sure new PM *doesn't* re-download with intact package sync file
 		pm.Close(ctx)
 		_, pm = newPackageManager(t, client, fakeServer, logger, pm.(*cloudManager).packagesDir)
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 		fakeServer.StorePackage(pkg)
 		// sleep to make super sure modification time increments
 		time.Sleep(10 * time.Millisecond)
@@ -160,7 +161,7 @@ func TestCloud(t *testing.T) {
 
 		// create fresh packageManager to simulate a reboot, i.e. so the system doesn't think the module is already managed.
 		_, pm = newPackageManager(t, client, fakeServer, logger, pm.(*cloudManager).packagesDir)
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 		fakeServer.StorePackage(pkg)
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
@@ -179,7 +180,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("sync and clean should remove file", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
@@ -210,7 +211,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("second sync should not call http server", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
@@ -241,7 +242,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("upgrade version", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
@@ -267,7 +268,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("invalid checksum", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		fakeServer.SetInvalidChecksum(true)
 
@@ -288,7 +289,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("leading zeroes checksum", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		fakeServer.SetChecksumWithLeadingZeroes(true)
 
@@ -307,7 +308,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("invalid gcs download", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		fakeServer.SetInvalidHTTPRes(true)
 
@@ -328,7 +329,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("invalid tar", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+		defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 		fakeServer.SetInvalidTar(true)
 
@@ -490,7 +491,7 @@ func TestPackageRefs(t *testing.T) {
 	defer utils.UncheckedErrorFunc(conn.Close)
 
 	packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
-	defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+	defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(pm.Close(context.Background())) })
 
 	input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"}}
 	fakeServer.StorePackage(input...)

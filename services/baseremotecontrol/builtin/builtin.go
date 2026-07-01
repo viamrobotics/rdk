@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	vutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
@@ -56,12 +57,12 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if conf.InputControllerName == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "input_controller")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "input_controller"))
 	}
 	deps = append(deps, conf.InputControllerName)
 
 	if conf.BaseName == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "base"))
 	}
 	deps = append(deps, conf.BaseName)
 
@@ -75,7 +76,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 		}
 
 		if !configModeExists {
-			return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("Control mode '%s' is not in %v", conf.ControlModeName, modes))
+			return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.Errorf("Control mode '%s' is not in %v", conf.ControlModeName, modes)))
 		}
 	}
 
@@ -118,7 +119,7 @@ func NewBuiltIn(
 	}
 	remoteSvc.state.init()
 	if err := remoteSvc.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	remoteSvc.eventProcessor()
 
@@ -132,15 +133,15 @@ func (svc *builtIn) reconfigure(
 ) error {
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	base1, err := base.FromProvider(deps, svcConfig.BaseName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	controller, err := input.FromProvider(deps, svcConfig.InputControllerName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var controlMode1 controlMode
@@ -166,7 +167,7 @@ func (svc *builtIn) reconfigure(
 	svc.instance.Add(1)
 
 	if err := svc.registerCallbacks(ctx, &svc.state); err != nil {
-		return errors.Errorf("error with starting remote control service: %q", err)
+		return errtrace.Wrap(errors.Errorf("error with starting remote control service: %q", err))
 	}
 
 	return nil
@@ -258,7 +259,7 @@ func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState)
 				)
 			}
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			err = svc.inputController.RegisterControlCallback(ctx,
 				control,
@@ -267,11 +268,11 @@ func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState)
 				map[string]interface{}{},
 			)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			return nil
 		}(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil

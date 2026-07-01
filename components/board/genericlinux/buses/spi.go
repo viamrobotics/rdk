@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"periph.io/x/conn/v3/physic"
@@ -51,27 +52,27 @@ func (sb *spiBus) reset(bus string) {
 
 func (sh *spiHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
 	if sh.isClosed {
-		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
+		return nil, errtrace.Wrap(errors.New("can't use Xfer() on an already closed SPIHandle"))
 	}
 
 	busPtr := sh.bus.bus.Load()
 	if busPtr == nil {
-		return nil, errors.New("no bus selected")
+		return nil, errtrace.Wrap(errors.New("no bus selected"))
 	}
 
 	port, err := spireg.Open(fmt.Sprintf("SPI%s.%s", *busPtr, chipSelect))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer func() {
-		err = multierr.Combine(err, port.Close())
+		err = errtrace.Wrap(multierr.Combine(err, port.Close()))
 	}()
 	conn, err := port.Connect(physic.Hertz*physic.Frequency(baud), spi.Mode(mode), 8)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	rx = make([]byte, len(tx))
-	return rx, conn.Tx(tx, rx)
+	return rx, errtrace.Wrap(conn.Tx(tx, rx))
 }
 
 func (sh *spiHandle) Close() error {

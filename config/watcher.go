@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -29,13 +30,13 @@ type Watcher interface {
 // given config.
 func NewWatcher(ctx context.Context, config *Config, logger logging.Logger, conn rpc.ClientConn) (Watcher, error) {
 	if err := config.Ensure(false, logger); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if config.Cloud != nil {
 		return newCloudWatcher(ctx, config, logger, conn), nil
 	}
 	if config.ConfigFilePath != "" {
-		return newFSWatcher(ctx, config.ConfigFilePath, logger, conn)
+		return errtrace.Wrap2(newFSWatcher(ctx, config.ConfigFilePath, logger, conn))
 	}
 	return noopWatcher{}, nil
 }
@@ -135,10 +136,10 @@ type fsConfigWatcher struct {
 func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger, conn rpc.ClientConn) (*fsConfigWatcher, error) {
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := fsWatcher.Add(configPath); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
@@ -166,7 +167,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger,
 						// Re-add to watcher. Will be a new inode if it was saved atomically.
 						// Adding the same path twice (WRITE case) is a no-op (no error).
 						// Old watches are auto removed from fsWatcher when file is deleted or renamed (REMOVE case).
-						defer utils.UncheckedErrorFunc(func() error { return fsWatcher.Add(configPath) })
+						defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(fsWatcher.Add(configPath)) })
 
 						if err != nil {
 							logger.Errorw("error reading config file after write", "error", err)
@@ -211,7 +212,7 @@ func (w *fsConfigWatcher) Config() <-chan *Config {
 func (w *fsConfigWatcher) Close() error {
 	w.cancel()
 	<-w.watcherDoneCh
-	return w.fsWatcher.Close()
+	return errtrace.Wrap(w.fsWatcher.Close())
 }
 
 // A noopWatcher does nothing.

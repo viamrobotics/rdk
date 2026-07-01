@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 )
 
@@ -27,16 +28,16 @@ func LoadORBConfiguration(file string) (*ORBConfig, error) {
 	configFile, err := os.Open(filePath)
 	defer utils.UncheckedErrorFunc(configFile.Close)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	jsonParser := json.NewDecoder(configFile)
 	err = jsonParser.Decode(&config)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	err = config.Validate(file)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &config, nil
 }
@@ -44,16 +45,16 @@ func LoadORBConfiguration(file string) (*ORBConfig, error) {
 // Validate ensures all parts of the ORBConfig are valid.
 func (config *ORBConfig) Validate(path string) error {
 	if config.Layers < 1 {
-		return resource.NewConfigValidationError(path, errors.New("n_layers should be >= 1"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("n_layers should be >= 1")))
 	}
 	if config.DownscaleFactor <= 1 {
-		return resource.NewConfigValidationError(path, errors.New("downscale_factor should be greater than 1"))
+		return errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("downscale_factor should be greater than 1")))
 	}
 	if config.FastConf == nil {
-		return resource.NewConfigValidationFieldRequiredError(path, "fast")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "fast"))
 	}
 	if config.BRIEFConf == nil {
-		return resource.NewConfigValidationFieldRequiredError(path, "brief")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "brief"))
 	}
 	return nil
 }
@@ -62,19 +63,19 @@ func (config *ORBConfig) Validate(path string) error {
 func ComputeORBKeypoints(im *image.Gray, sp *SamplePairs, cfg *ORBConfig) ([]Descriptor, KeyPoints, error) {
 	pyramid, err := GetImagePyramid(im)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if cfg.Layers <= 0 {
 		err = errors.New("number of layers should be > 0")
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if cfg.DownscaleFactor <= 1 {
 		err = errors.New("number of layers should be >= 2")
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if len(pyramid.Scales) < cfg.Layers {
 		err = errors.New("more layers than actual number of octaves in image pyramid")
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	orbDescriptors := []Descriptor{}
 	orbPoints := make(KeyPoints, 0)
@@ -90,7 +91,7 @@ func ComputeORBKeypoints(im *image.Gray, sp *SamplePairs, cfg *ORBConfig) ([]Des
 		orbPoints = append(orbPoints, rescaledFASTKps.Points...)
 		descs, err := ComputeBRIEFDescriptors(currentImage, sp, &rescaledFASTKps, cfg.BRIEFConf)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		orbDescriptors = append(orbDescriptors, descs...)
 	}

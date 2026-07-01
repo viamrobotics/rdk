@@ -7,6 +7,7 @@ import (
 	"math"
 	"time"
 
+	"braces.dev/errtrace"
 	geo "github.com/kellydunn/golang-geo"
 )
 
@@ -40,7 +41,7 @@ func (sb *sensorBase) MoveStraight(
 		if sb.loop != nil {
 			sb.loop.Pause()
 		}
-		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+		return errtrace.Wrap(sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra))
 	}
 	if sb.position == nil {
 		sb.logger.CWarn(ctx,
@@ -55,13 +56,13 @@ func (sb *sensorBase) MoveStraight(
 
 	// check tuning status
 	if err := sb.checkTuningStatus(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// make sure the control loop is enabled
 	if sb.loop == nil {
 		if err := sb.startControlLoop(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -80,7 +81,7 @@ func (sb *sensorBase) MoveStraight(
 	// grab the initial heading for MoveStraight to clamp to. Will return 0 if no supporting sensors were configured.
 	initialHeading, _, err := sb.headingFunc(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// initialize relevant parameters for moving straight
@@ -91,7 +92,7 @@ func (sb *sensorBase) MoveStraight(
 	if sb.position != nil {
 		initPos, _, err = sb.position.Position(ctx, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -110,25 +111,25 @@ func (sb *sensorBase) MoveStraight(
 				sb.logger.Warnf("Context cancelled during MoveStraight ", ctx.Err())
 				return nil
 			}
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		case <-ticker.C:
 			var errDist float64
 
 			angVelDes, err := sb.calcHeadingControl(ctx, initialHeading)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			if sb.position != nil {
 				errDist, err = sb.calcPositionError(ctx, distanceMm, initPos)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			} else {
 				currTime := time.Now()
 				vels, err := sb.velocities.LinearVelocity(ctx, nil)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				deltaTime := currTime.Sub(prevTime).Seconds()
 				// calculate the estimated change in position based on the latest velocity
@@ -139,23 +140,23 @@ func (sb *sensorBase) MoveStraight(
 			}
 
 			if errDist < moveStraightErrTarget {
-				return sb.Stop(ctx, nil)
+				return errtrace.Wrap(sb.Stop(ctx, nil))
 			}
 
 			linVelDes := calcLinVel(errDist, mmPerSec, slowDownDist)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			// update velocity controller
 			if err := sb.updateControlConfig(ctx, linVelDes/1000.0, angVelDes); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			// exit if the straight takes too long
 			if time.Since(startTime) > timeOut {
 				sb.logger.CWarn(ctx, "exceeded time for MoveStraight call, stopping base")
-				return sb.Stop(ctx, nil)
+				return errtrace.Wrap(sb.Stop(ctx, nil))
 			}
 		}
 	}
@@ -165,7 +166,7 @@ func (sb *sensorBase) MoveStraight(
 func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float64) (float64, error) {
 	currHeading, _, err := sb.headingFunc(ctx)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
 	headingErr := initHeading - currHeading
@@ -179,7 +180,7 @@ func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float6
 func (sb *sensorBase) calcPositionError(ctx context.Context, distanceMm int, initPos *geo.Point) (float64, error) {
 	pos, _, err := sb.position.Position(ctx, nil)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
 	// the currDist will always return as positive, so we need the goal distanceMm to be positive

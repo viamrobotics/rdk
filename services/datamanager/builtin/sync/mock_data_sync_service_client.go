@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"braces.dev/errtrace"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -83,9 +84,9 @@ func (c MockDataSyncServiceClient) DataCaptureUpload(
 		err := errors.New("DataCaptureUpload unimplemented")
 		c.T.Log(err)
 		c.T.FailNow()
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return c.DataCaptureUploadFunc(ctx, in, opts...)
+	return errtrace.Wrap2(c.DataCaptureUploadFunc(ctx, in, opts...))
 }
 
 // FileUpload is needed to satisfy the interface.
@@ -97,9 +98,9 @@ func (c MockDataSyncServiceClient) FileUpload(
 		err := errors.New("FileUpload unimplmented")
 		c.T.Log(err)
 		c.T.FailNow()
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return c.FileUploadFunc(ctx, opts...)
+	return errtrace.Wrap2(c.FileUploadFunc(ctx, opts...))
 }
 
 // StreamingDataCaptureUpload is needed to satisfy the interface.
@@ -111,9 +112,9 @@ func (c MockDataSyncServiceClient) StreamingDataCaptureUpload(
 		err := errors.New("StreamingDataCaptureUpload unimplmented")
 		c.T.Log(err)
 		c.T.FailNow()
-		return nil, errors.New("StreamingDataCaptureUpload unimplmented")
+		return nil, errtrace.Wrap(errors.New("StreamingDataCaptureUpload unimplmented"))
 	}
-	return c.StreamingDataCaptureUploadFunc(ctx, opts...)
+	return errtrace.Wrap2(c.StreamingDataCaptureUploadFunc(ctx, opts...))
 }
 
 // ClientStreamingMock is a generic mock for a client streaming GRPC client.
@@ -130,9 +131,9 @@ func (m *ClientStreamingMock[Req, Res]) Send(in Req) error {
 		err := errors.New("Send unimplmented")
 		m.T.Log(err)
 		m.T.FailNow()
-		return err
+		return errtrace.Wrap(err)
 	}
-	return m.SendFunc(in)
+	return errtrace.Wrap(m.SendFunc(in))
 }
 
 // CloseAndRecv implemnents CloseAndRecv for a generic mock for a client streaming GRPC client.
@@ -142,9 +143,9 @@ func (m *ClientStreamingMock[Req, Res]) CloseAndRecv() (Res, error) {
 		m.T.Log(err)
 		m.T.FailNow()
 		var zero Res
-		return zero, err
+		return zero, errtrace.Wrap(err)
 	}
-	return m.CloseAndRecvFunc()
+	return errtrace.Wrap2(m.CloseAndRecvFunc())
 }
 
 // NoOpClientStream is a mock for a GRPC ClientStream that does nothing.

@@ -5,6 +5,7 @@ import (
 
 	motionpb "go.viam.com/api/service/motion/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -22,7 +23,7 @@ func FrameSystemPosesToProto(ps referenceframe.FrameSystemPoses) *motionpb.PlanS
 // FrameSystemPosesFromProto converts a *pb.PlanStep to a PlanStep.
 func FrameSystemPosesFromProto(ps *motionpb.PlanStep) (referenceframe.FrameSystemPoses, error) {
 	if ps == nil {
-		return referenceframe.FrameSystemPoses{}, errors.New("received nil *pb.PlanStep")
+		return referenceframe.FrameSystemPoses{}, errtrace.Wrap(errors.New("received nil *pb.PlanStep"))
 	}
 
 	step := make(referenceframe.FrameSystemPoses, len(ps.Step))

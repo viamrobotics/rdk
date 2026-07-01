@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -58,26 +59,26 @@ func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 func (c *client) Open(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.Open(ctx, &pb.OpenRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	resp, err := c.client.Grab(ctx, &pb.GrabRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.Success, nil
 }
@@ -85,14 +86,14 @@ func (c *client) Grab(ctx context.Context, extra map[string]interface{}) (bool, 
 func (c *client) IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (HoldingStatus, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return HoldingStatus{}, err
+		return HoldingStatus{}, errtrace.Wrap(err)
 	}
 	resp, err := c.client.IsHoldingSomething(ctx, &pb.IsHoldingSomethingRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return HoldingStatus{}, err
+		return HoldingStatus{}, errtrace.Wrap(err)
 	}
 	return HoldingStatus{
 		IsHoldingSomething: resp.IsHoldingSomething,
@@ -103,27 +104,27 @@ func (c *client) IsHoldingSomething(ctx context.Context, extra map[string]interf
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.Stop(ctx, &pb.StopRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	resp, err := c.client.IsMoving(ctx, &pb.IsMovingRequest{Name: c.name})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.IsMoving, nil
 }
@@ -131,16 +132,16 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
+	return errtrace.Wrap2(referenceframe.NewGeometriesFromProto(resp.GetGeometries()))
 }
 
 func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
@@ -156,7 +157,7 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if err == nil {
 		model, err := referenceframe.KinematicModelFromProtobuf(c.name, resp)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		c.model = model
 		return c.model, nil
@@ -164,7 +165,7 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	// fall back on the old method of providing a model
 	geometries, err := c.Geometries(ctx, nil)
 	if err == nil {
-		return MakeModel(c.name, geometries)
+		return errtrace.Wrap2(MakeModel(c.name, geometries))
 	}
 	// if all else fails, we don't want this to error, return a simple model
 	return referenceframe.NewSimpleModel(c.name), nil
@@ -173,7 +174,7 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	resp, err := c.client.GetCurrentInputs(ctx, &pb.GetCurrentInputsRequest{Name: c.name})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	inputs := make([]referenceframe.Input, len(resp.Values))
 	for i, v := range resp.Values {
@@ -192,7 +193,7 @@ func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.
 			Name:   c.name,
 			Values: values,
 		}); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil

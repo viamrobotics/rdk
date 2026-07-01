@@ -17,6 +17,7 @@ import (
 	"go.viam.com/test"
 	goprotoutils "go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -48,7 +49,7 @@ func newServer(logger logging.Logger) (pb.CameraServiceServer, *inject.Camera, *
 	}
 	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, cameras)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, errtrace.Wrap(err)
 	}
 	return camera.NewRPCServiceServer(cameraSvc, logger).(pb.CameraServiceServer), injectCamera, injectCameraDepth, injectCamera2, nil
 }
@@ -99,12 +100,12 @@ func TestServer(t *testing.T) {
 		color := rimage.NewImage(40, 50)
 		colorImg, err := camera.NamedImageFromImage(color, "color", utils.MimeTypeJPEG, annotations1)
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		depth := rimage.NewEmptyDepthMap(10, 20)
 		depthImg, err := camera.NamedImageFromImage(depth, "depth", utils.MimeTypeRawDepth, annotations2)
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 
 		if len(filterSourceNames) == 0 {
@@ -120,7 +121,7 @@ func TestServer(t *testing.T) {
 			case "depth":
 				images = append(images, depthImg)
 			default:
-				return nil, resource.ResponseMetadata{}, fmt.Errorf("unknown source name: %s", src)
+				return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("unknown source name: %s", src))
 			}
 		}
 		ts := time.UnixMilli(12345)
@@ -159,26 +160,26 @@ func TestServer(t *testing.T) {
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		namedImg, err := camera.NamedImageFromImage(depthImage, "", utils.MimeTypeRawDepth, data.Annotations{})
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
 	// bad camera
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
-		return nil, errGeneratePointCloudFailed
+		return nil, errtrace.Wrap(errGeneratePointCloudFailed)
 	}
 	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
-		return camera.Properties{}, errPropertiesFailed
+		return camera.Properties{}, errtrace.Wrap(errPropertiesFailed)
 	}
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
-		return nil, errCameraProjectorFailed
+		return nil, errtrace.Wrap(errCameraProjectorFailed)
 	}
 	injectCamera2.ImagesFunc = func(
 		ctx context.Context,
 		filterSourceNames []string,
 		extra map[string]interface{},
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-		return nil, resource.ResponseMetadata{}, errGetImageFailed
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(errGetImageFailed)
 	}
 
 	t.Run("GetPointCloud", func(t *testing.T) {
@@ -380,7 +381,7 @@ func TestServer(t *testing.T) {
 
 		// camera with Status returning error
 		injectCamera.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -397,7 +398,7 @@ func TestServer(t *testing.T) {
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, extra, test.ShouldBeEmpty)
-			return nil, resource.ResponseMetadata{}, errGetImageFailed
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(errGetImageFailed)
 		}
 
 		_, err := cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
@@ -414,7 +415,7 @@ func TestServer(t *testing.T) {
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
-			return nil, resource.ResponseMetadata{}, errGetImageFailed
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(errGetImageFailed)
 		}
 
 		ext, err := goprotoutils.StructToStructPb(map[string]interface{}{"hello": "world"})
@@ -436,7 +437,7 @@ func TestServer(t *testing.T) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
 
-			return nil, resource.ResponseMetadata{}, errGetImageFailed
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(errGetImageFailed)
 		}
 
 		// one kvp created with data.FromDMContextKey
@@ -459,7 +460,7 @@ func TestServer(t *testing.T) {
 			test.That(t, len(extra), test.ShouldEqual, 2)
 			test.That(t, extra["hello"], test.ShouldEqual, "world")
 			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
-			return nil, resource.ResponseMetadata{}, errGetImageFailed
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(errGetImageFailed)
 		}
 
 		// use values from data and camera

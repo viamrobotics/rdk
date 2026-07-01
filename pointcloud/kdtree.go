@@ -6,6 +6,7 @@ import (
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/spatial/kdtree"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -155,7 +156,7 @@ func (kd *KDTree) Size() int {
 func (kd *KDTree) Set(p r3.Vector, d Data) error {
 	kd.tree.Insert(treeComparableR3Vector{p}, false)
 	if err := kd.points.Set(p, d); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	kd.meta.Merge(p, d)
 	return nil

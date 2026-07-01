@@ -20,6 +20,7 @@ import (
 	"github.com/iancoleman/orderedmap"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
@@ -421,7 +422,7 @@ const epsilon = 1e-9
 
 func (rr ratioReading) toValue() (float32, error) {
 	if math.Abs(rr.Denominator) < epsilon {
-		return 0.0, fmt.Errorf("divide by zero error, metric: %v", rr.GraphName)
+		return 0.0, errtrace.Wrap(fmt.Errorf("divide by zero error, metric: %v", rr.GraphName))
 	}
 
 	if rr.isRate {
@@ -826,7 +827,7 @@ func parseStringAsTime(inp string) (time.Time, error) {
 		// This is a CLI. It's acceptable to output to stdout.
 		//nolint:forbidigo
 		fmt.Printf("Error parsing start time. Working example: `2024-09-24T18:00:00` Inp: %q Err: %v\n", inp, err)
-		return time.Time{}, err
+		return time.Time{}, errtrace.Wrap(err)
 	}
 
 	return goTime, nil
@@ -840,7 +841,7 @@ func parseStringAsTime(inp string) (time.Time, error) {
 func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, []int64, error) {
 	info, err := os.Stat(ftdcPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// If path is not a directory, we can just open the file and get its datums.
@@ -848,14 +849,14 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, []in
 		//nolint:gosec
 		ftdcFile, err := os.Open(ftdcPath)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		//nolint:errcheck
 		defer ftdcFile.Close()
 
 		flatDatums, lastTimestamp, err := ftdc.ParseWithLogger(ftdcFile, logger)
 		logger.Debugw("File boundary found", "timestamp_ns", lastTimestamp)
-		return flatDatums, []int64{lastTimestamp}, err
+		return flatDatums, []int64{lastTimestamp}, errtrace.Wrap(err)
 	}
 
 	// If path is a directory, we will walk it and get all of the FTDC datums.
@@ -864,20 +865,20 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, []in
 	err = filepath.WalkDir(ftdcPath, fs.WalkDirFunc(func(path string, d fs.DirEntry, walkErr error) error {
 		// For now, no recursive parsing.
 		if d.IsDir() && path != ftdcPath {
-			return filepath.SkipDir
+			return errtrace.Wrap(filepath.SkipDir)
 		}
 		if !strings.HasSuffix(path, ".ftdc") {
 			return nil
 		}
 
 		if walkErr != nil {
-			return walkErr
+			return errtrace.Wrap(walkErr)
 		}
 
 		//nolint:gosec
 		ftdcReader, err := os.Open(path)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		//nolint:errcheck
 		defer ftdcReader.Close()
@@ -897,11 +898,11 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, []in
 		return nil
 	}))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	if len(flatDatums) < 1 {
-		return nil, nil, errors.New("provided a directory with no FTDC files")
+		return nil, nil, errtrace.Wrap(errors.New("provided a directory with no FTDC files"))
 	}
 
 	return flatDatums, fileBoundaryTimestamps, nil

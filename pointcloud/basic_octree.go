@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -87,12 +88,12 @@ func NewFromMesh(mesh *spatialmath.Mesh) (*BasicOctree, error) {
 	pc := NewBasicPointCloud(len(meshPts))
 	for _, pt := range meshPts {
 		if err := pc.Set(pt, NewBasicData()); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	octree, err := ToBasicOctree(pc, 0)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	octree.SetLabel(mesh.Label())
 	return octree, nil
@@ -117,7 +118,7 @@ func ToBasicOctree(cloud PointCloud, confidenceThreshold int) (*BasicOctree, err
 		return true
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return basicOctree, nil
 }
@@ -157,13 +158,13 @@ func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
 		if octree.toStore == nil {
 			octree.toStore = NewBasicPointCloud(0)
 		}
-		return octree.toStore.Set(p, d)
+		return errtrace.Wrap(octree.toStore.Set(p, d))
 	}
 	if !octree.checkPointPlacement(p) {
-		return errors.New("error point is outside the bounds of this octree")
+		return errtrace.Wrap(errors.New("error point is outside the bounds of this octree"))
 	}
 	_, err := octree.helperSet(p, d, 0)
-	return err
+	return errtrace.Wrap(err)
 }
 
 // At traverses a basic octree to see if a point exists at the specified location. If a point does exist, its data
@@ -313,7 +314,7 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 				"",
 			)
 			if err != nil {
-				return false, collisionBufferMM, err
+				return false, collisionBufferMM, errtrace.Wrap(err)
 			}
 			octree.boxCache.Store(&newBox)
 			box = newBox
@@ -324,7 +325,7 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 		// Check whether our geom collides with the area represented by the octree. If false, we can skip
 		collide, dist, err := geom.CollidesWith(box, collisionBufferMM)
 		if err != nil {
-			return false, collisionBufferMM, err
+			return false, collisionBufferMM, errtrace.Wrap(err)
 		}
 		if !collide {
 			return false, dist, nil
@@ -333,7 +334,7 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 		for _, child := range octree.node.children {
 			collide, dist, err = child.CollidesWith(geom, collisionBufferMM)
 			if err != nil {
-				return false, collisionBufferMM, err
+				return false, collisionBufferMM, errtrace.Wrap(err)
 			}
 			if collide {
 				return true, -1, nil
@@ -344,16 +345,16 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 	case leafNodeEmpty:
 		return false, math.Inf(1), nil
 	case leafNodeFilled:
-		return geom.CollidesWith(octree.node.pointGeometry(), collisionBufferMM)
+		return errtrace.Wrap3(geom.CollidesWith(octree.node.pointGeometry(), collisionBufferMM))
 	}
-	return false, collisionBufferMM, errors.New("unknown octree node type")
+	return false, collisionBufferMM, errtrace.Wrap(errors.New("unknown octree node type"))
 }
 
 // DistanceFrom returns the distance from the given octree to the given geometry.
 func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
 	collides, dist, err := octree.CollidesWith(geom, floatEpsilon)
 	if err != nil {
-		return math.Inf(1), err
+		return math.Inf(1), errtrace.Wrap(err)
 	}
 	if collides {
 		return -1, nil
@@ -364,7 +365,7 @@ func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, err
 // EncompassedBy returns true if the given octree is within the given geometry.
 // TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry) (bool, error) {
-	return false, errors.New("not implemented")
+	return false, errtrace.Wrap(errors.New("not implemented"))
 }
 
 // SetLabel sets the label of this octree.
@@ -426,7 +427,7 @@ func (octree *BasicOctree) ToPoints(resolution float64) []r3.Vector {
 // MarshalJSON marshals JSON from the octree.
 // TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
-	return nil, errors.New("not implemented")
+	return nil, errtrace.Wrap(errors.New("not implemented"))
 }
 
 // FinalizeAfterReading fix it all.
@@ -543,7 +544,7 @@ func (octree *BasicOctree) PointsWithinRadius(center r3.Vector, radius float64) 
 	// Create a sphere geometry at the center with the given radius
 	sphere, err := spatialmath.NewSphere(spatialmath.NewPoseFromPoint(center), radius, "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return octree.PointsCollidingWith([]spatialmath.Geometry{sphere}, floatEpsilon), nil

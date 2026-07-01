@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
@@ -33,7 +34,7 @@ func GetCLICachePath() string {
 func ParseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOption, error) {
 	baseURLParsed, err := url.Parse(baseURL)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// Go URL parsing can place the host in Path if no scheme is provided; place
@@ -63,8 +64,8 @@ func ParseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOp
 		// Check if URL is even valid with a TCP dial.
 		conn, err := net.DialTimeout("tcp", baseURLParsed.Host, 10*time.Second)
 		if err != nil {
-			return nil, nil, fmt.Errorf("base URL %q (needed for auth) is currently unreachable (%v). "+
-				"Ensure URL is valid and you are connected to internet", err.Error(), baseURLParsed.Host)
+			return nil, nil, errtrace.Wrap(fmt.Errorf("base URL %q (needed for auth) is currently unreachable (%v). "+
+				"Ensure URL is valid and you are connected to internet", err.Error(), baseURLParsed.Host))
 		}
 		utils.UncheckedError(conn.Close())
 	}
@@ -82,7 +83,7 @@ func ParseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOp
 func (c *CLIConfig) DialOptions() ([]rpc.DialOption, error) {
 	_, baseOpts, err := ParseBaseURL(c.BaseURL, true)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var authOpt rpc.DialOption
@@ -94,7 +95,7 @@ func (c *CLIConfig) DialOptions() ([]rpc.DialOption, error) {
 			Payload: c.Auth.KeyCrypto,
 		})
 	} else {
-		return nil, fmt.Errorf("config does not contain valid token or API key")
+		return nil, errtrace.Wrap(fmt.Errorf("config does not contain valid token or API key"))
 	}
 
 	return append(baseOpts, authOpt), nil
@@ -106,14 +107,14 @@ func ConfigFromPath(configPath string) (*CLIConfig, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no cached CLI credentials found at %q, run 'viam login' first", configPath)
+			return nil, errtrace.Wrap(fmt.Errorf("no cached CLI credentials found at %q, run 'viam login' first", configPath))
 		}
-		return nil, fmt.Errorf("failed to read CLI config: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to read CLI config: %w", err))
 	}
 
 	var configData CLIConfig
 	if err := json.Unmarshal(data, &configData); err != nil {
-		return nil, fmt.Errorf("failed to parse CLI config: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to parse CLI config: %w", err))
 	}
 
 	return &configData, nil

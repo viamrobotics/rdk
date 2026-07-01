@@ -7,6 +7,7 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -226,7 +227,7 @@ func vectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
 func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMap) float64, error) {
 	kernel, err := savitskyGolayKernel(radius, polyOrder)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	k := len(kernel)
 	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
@@ -282,7 +283,7 @@ func savitskyGolayKernel(radius, order int) ([][]float64, error) {
 	exps := polyExponents(order)
 	nTerms := len(exps)
 	if nElements < nTerms {
-		return nil, fmt.Errorf("n elements in window (%d) is less than terms to solve (%d)", nElements, nTerms)
+		return nil, errtrace.Wrap(fmt.Errorf("n elements in window (%d) is less than terms to solve (%d)", nElements, nTerms))
 	}
 	xRange, yRange := makeRangeArray(windowSize), makeRangeArray(windowSize)
 	A := mat.NewDense(nElements, nTerms, nil)
@@ -297,7 +298,7 @@ func savitskyGolayKernel(radius, order int) ([][]float64, error) {
 	var solution mat.Dense
 	I := eye(nElements)
 	if err := solution.Solve(A, I); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// Get the row used to calculate the a0 coefficients and form it back into a square
 	coefs := solution.RowView(0).(*mat.VecDense).RawVector().Data

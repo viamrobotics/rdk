@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -44,14 +45,14 @@ func NewClientFromConn(
 func (c *client) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, false, err
+		return 0, false, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetVoltage(ctx, &pb.GetVoltageRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return 0, false, err
+		return 0, false, errtrace.Wrap(err)
 	}
 	return resp.Volts,
 		resp.IsAc,
@@ -62,14 +63,14 @@ func (c *client) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 func (c *client) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, false, err
+		return 0, false, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetCurrent(ctx, &pb.GetCurrentRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return 0, false, err
+		return 0, false, errtrace.Wrap(err)
 	}
 	return resp.Amperes,
 		resp.IsAc,
@@ -80,14 +81,14 @@ func (c *client) Current(ctx context.Context, extra map[string]interface{}) (flo
 func (c *client) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetPower(ctx, &pb.GetPowerRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return resp.Watts, nil
 }
@@ -95,23 +96,23 @@ func (c *client) Power(ctx context.Context, extra map[string]interface{}) (float
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetReadings(ctx, &commonpb.GetReadingsRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return protoutils.ReadingProtoToGo(resp.Readings)
+	return errtrace.Wrap2(protoutils.ReadingProtoToGo(resp.Readings))
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

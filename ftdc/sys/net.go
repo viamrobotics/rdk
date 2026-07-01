@@ -1,6 +1,7 @@
 package sys
 
 import (
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/ftdc"
 )
 
@@ -30,5 +31,5 @@ type networkStats struct {
 
 // NewNetUsageStatser returns a network ftdc statser.
 func NewNetUsageStatser() (ftdc.Statser, error) {
-	return newNetUsage()
+	return errtrace.Wrap2(newNetUsage())
 }

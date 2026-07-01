@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -16,7 +17,7 @@ type RotationMatrix struct {
 // NewRotationMatrix creates the rotation matrix from a slice of floats.
 func NewRotationMatrix(m []float64) (*RotationMatrix, error) {
 	if len(m) != 9 {
-		return nil, newRotationMatrixInputError(m)
+		return nil, errtrace.Wrap(newRotationMatrixInputError(m))
 	}
 	mat := [9]float64{m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]}
 	return &RotationMatrix{mat}, nil

@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -320,7 +321,7 @@ func expandAABBBuffer(minPt, maxPt r3.Vector, buffer float64) (r3.Vector, r3.Vec
 // The BVH nodes store geometries in local space; poses are applied lazily during traversal.
 func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
 	collides, dist, _, err := bvhCollidesWithBVHTracked(node1, node2, pose1, pose2, collisionBufferMM)
-	return collides, dist, err
+	return collides, dist, errtrace.Wrap(err)
 }
 
 // bvhCollidesWithBVHTracked is the witness-tracking variant of bvhCollidesWithBVH.
@@ -343,7 +344,7 @@ func bvhCollidesWithBVHTracked(node1, node2 *bvhNode, pose1, pose2 Pose, collisi
 	min2, max2 := transformAABBCached(node2.min, node2.max, &pc2)
 
 	collides, dist, err := bvhCollidesWithBVHRec(node1, min1, max1, node2, min2, max2, &pc1, &pc2, collisionBufferMM, &witness)
-	return collides, dist, witness, err
+	return collides, dist, witness, errtrace.Wrap(err)
 }
 
 // bvhCollidesWithBVHRec is the recursive worker for bvhCollidesWithBVH.
@@ -365,7 +366,7 @@ func bvhCollidesWithBVHRec(
 	}
 
 	if node1.geoms != nil && node2.geoms != nil {
-		return leafCollidesWithLeaf(node1.geoms, node2.geoms, pc1.pose, pc2.pose, collisionBufferMM, witness)
+		return errtrace.Wrap3(leafCollidesWithLeaf(node1.geoms, node2.geoms, pc1.pose, pc2.pose, collisionBufferMM, witness))
 	}
 
 	if node1.geoms != nil {
@@ -373,7 +374,7 @@ func bvhCollidesWithBVHRec(
 		l2Min, l2Max := transformAABBCached(node2.left.min, node2.left.max, pc2)
 		leftCollide, leftDist, err := bvhCollidesWithBVHRec(node1, min1, max1, node2.left, l2Min, l2Max, pc1, pc2, collisionBufferMM, witness)
 		if err != nil {
-			return false, 0, err
+			return false, 0, errtrace.Wrap(err)
 		}
 		if leftCollide {
 			return true, leftDist, nil
@@ -381,7 +382,7 @@ func bvhCollidesWithBVHRec(
 		r2Min, r2Max := transformAABBCached(node2.right.min, node2.right.max, pc2)
 		rightCollide, rightDist, err := bvhCollidesWithBVHRec(node1, min1, max1, node2.right, r2Min, r2Max, pc1, pc2, collisionBufferMM, witness)
 		if err != nil {
-			return false, 0, err
+			return false, 0, errtrace.Wrap(err)
 		}
 		if rightCollide {
 			return true, rightDist, nil
@@ -395,7 +396,7 @@ func bvhCollidesWithBVHRec(
 		l1Min, l1Max = expandAABBBuffer(l1Min, l1Max, collisionBufferMM)
 		leftCollide, leftDist, err := bvhCollidesWithBVHRec(node1.left, l1Min, l1Max, node2, min2, max2, pc1, pc2, collisionBufferMM, witness)
 		if err != nil {
-			return false, 0, err
+			return false, 0, errtrace.Wrap(err)
 		}
 		if leftCollide {
 			return true, leftDist, nil
@@ -404,7 +405,7 @@ func bvhCollidesWithBVHRec(
 		r1Min, r1Max = expandAABBBuffer(r1Min, r1Max, collisionBufferMM)
 		rightCollide, rightDist, err := bvhCollidesWithBVHRec(node1.right, r1Min, r1Max, node2, min2, max2, pc1, pc2, collisionBufferMM, witness)
 		if err != nil {
-			return false, 0, err
+			return false, 0, errtrace.Wrap(err)
 		}
 		if rightCollide {
 			return true, rightDist, nil
@@ -444,7 +445,7 @@ func bvhCollidesWithBVHRec(
 		}
 		collide, dist, err := bvhCollidesWithBVHRec(p.n1, p.pMin1, p.pMax1, p.n2, p.pMin2, p.pMax2, pc1, pc2, collisionBufferMM, witness)
 		if err != nil {
-			return false, 0, err
+			return false, 0, errtrace.Wrap(err)
 		}
 		if collide {
 			return true, dist, nil
@@ -480,7 +481,7 @@ func leafCollidesWithLeaf(
 	// a new *Triangle per Geometry.Transform call. Eliminates ~8 heap allocations per
 	// leaf pair in the hot path.
 	if allLeafTriangles(geoms1) && allLeafTriangles(geoms2) {
-		return triangleLeafCollide(geoms1, geoms2, pose1, pose2, collisionBufferMM, witness)
+		return errtrace.Wrap3(triangleLeafCollide(geoms1, geoms2, pose1, pose2, collisionBufferMM, witness))
 	}
 
 	minDist := math.Inf(1)
@@ -494,7 +495,7 @@ func leafCollidesWithLeaf(
 		for j, worldG2 := range worldGeoms2 {
 			collides, dist, err := worldG1.CollidesWith(worldG2, collisionBufferMM)
 			if err != nil {
-				return false, 0, err
+				return false, 0, errtrace.Wrap(err)
 			}
 			if collides {
 				// Record the local-space triangle pair (not the world-space copies)
@@ -643,18 +644,18 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) (float64, erro
 
 	// Both are leaves - compute exact distance
 	if node1.geoms != nil && node2.geoms != nil {
-		return leafDistanceFromLeaf(node1.geoms, node2.geoms, pose1, pose2)
+		return errtrace.Wrap2(leafDistanceFromLeaf(node1.geoms, node2.geoms, pose1, pose2))
 	}
 
 	// Recurse into children
 	if node1.geoms != nil {
 		leftDist, err := bvhDistanceFromBVH(node1, node2.left, pose1, pose2)
 		if err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 		rightDist, err := bvhDistanceFromBVH(node1, node2.right, pose1, pose2)
 		if err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 		return math.Min(leftDist, rightDist), nil
 	}
@@ -662,11 +663,11 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) (float64, erro
 	if node2.geoms != nil {
 		leftDist, err := bvhDistanceFromBVH(node1.left, node2, pose1, pose2)
 		if err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 		rightDist, err := bvhDistanceFromBVH(node1.right, node2, pose1, pose2)
 		if err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 		return math.Min(leftDist, rightDist), nil
 	}
@@ -683,7 +684,7 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) (float64, erro
 	for _, pair := range pairs {
 		dist, err := bvhDistanceFromBVH(pair[0], pair[1], pose1, pose2)
 		if err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 		if dist < minDist {
 			minDist = dist
@@ -710,7 +711,7 @@ func bvhCollidesWithGeometryTracked(
 ) (bool, float64, *Triangle, error) {
 	var witness *Triangle
 	collides, dist, err := bvhCollidesWithGeometryRec(node, bvhPose, other, otherMin, otherMax, buffer, &witness)
-	return collides, dist, witness, err
+	return collides, dist, witness, errtrace.Wrap(err)
 }
 
 func bvhCollidesWithGeometryRec(
@@ -761,7 +762,7 @@ func bvhCollidesWithGeometryRec(
 				}
 				collides, dist, err := worldT.CollidesWith(other, buffer)
 				if err != nil {
-					return false, 0, err
+					return false, 0, errtrace.Wrap(err)
 				}
 				if collides {
 					if witness != nil {
@@ -781,7 +782,7 @@ func bvhCollidesWithGeometryRec(
 			worldG := g.Transform(bvhPose)
 			collides, dist, err := worldG.CollidesWith(other, buffer)
 			if err != nil {
-				return false, 0, err
+				return false, 0, errtrace.Wrap(err)
 			}
 			if collides {
 				return true, -1, nil
@@ -796,11 +797,11 @@ func bvhCollidesWithGeometryRec(
 	// Internal node: recurse
 	leftCollide, leftDist, err := bvhCollidesWithGeometryRec(node.left, bvhPose, other, otherMin, otherMax, buffer, witness)
 	if err != nil || leftCollide {
-		return leftCollide, leftDist, err
+		return leftCollide, leftDist, errtrace.Wrap(err)
 	}
 	rightCollide, rightDist, err := bvhCollidesWithGeometryRec(node.right, bvhPose, other, otherMin, otherMax, buffer, witness)
 	if err != nil || rightCollide {
-		return rightCollide, rightDist, err
+		return rightCollide, rightDist, errtrace.Wrap(err)
 	}
 	return false, math.Min(leftDist, rightDist), nil
 }
@@ -824,7 +825,7 @@ func leafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose) (float64
 			// Use the Geometry interface's DistanceFrom method
 			dist, err := worldG1.DistanceFrom(worldG2)
 			if err != nil {
-				return 0, err
+				return 0, errtrace.Wrap(err)
 			}
 			if dist < minDist {
 				minDist = dist

@@ -6,6 +6,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"
@@ -47,73 +48,73 @@ func (ns *NavigationService) Name() resource.Name {
 // Mode calls the injected ModeFunc or the real version.
 func (ns *NavigationService) Mode(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 	if ns.ModeFunc == nil {
-		return ns.Service.Mode(ctx, extra)
+		return errtrace.Wrap2(ns.Service.Mode(ctx, extra))
 	}
-	return ns.ModeFunc(ctx, extra)
+	return errtrace.Wrap2(ns.ModeFunc(ctx, extra))
 }
 
 // SetMode calls the injected SetModeFunc or the real version.
 func (ns *NavigationService) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
 	if ns.SetModeFunc == nil {
-		return ns.Service.SetMode(ctx, mode, extra)
+		return errtrace.Wrap(ns.Service.SetMode(ctx, mode, extra))
 	}
-	return ns.SetModeFunc(ctx, mode, extra)
+	return errtrace.Wrap(ns.SetModeFunc(ctx, mode, extra))
 }
 
 // Location calls the injected LocationFunc or the real version.
 func (ns *NavigationService) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 	if ns.LocationFunc == nil {
-		return ns.Service.Location(ctx, extra)
+		return errtrace.Wrap2(ns.Service.Location(ctx, extra))
 	}
-	return ns.LocationFunc(ctx, extra)
+	return errtrace.Wrap2(ns.LocationFunc(ctx, extra))
 }
 
 // Waypoints calls the injected WaypointsFunc or the real version.
 func (ns *NavigationService) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
 	if ns.WaypointsFunc == nil {
-		return ns.Service.Waypoints(ctx, extra)
+		return errtrace.Wrap2(ns.Service.Waypoints(ctx, extra))
 	}
-	return ns.WaypointsFunc(ctx, extra)
+	return errtrace.Wrap2(ns.WaypointsFunc(ctx, extra))
 }
 
 // AddWaypoint calls the injected AddWaypointFunc or the real version.
 func (ns *NavigationService) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
 	if ns.AddWaypointFunc == nil {
-		return ns.Service.AddWaypoint(ctx, point, extra)
+		return errtrace.Wrap(ns.Service.AddWaypoint(ctx, point, extra))
 	}
-	return ns.AddWaypointFunc(ctx, point, extra)
+	return errtrace.Wrap(ns.AddWaypointFunc(ctx, point, extra))
 }
 
 // RemoveWaypoint calls the injected RemoveWaypointFunc or the real version.
 func (ns *NavigationService) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	if ns.RemoveWaypointFunc == nil {
-		return ns.Service.RemoveWaypoint(ctx, id, extra)
+		return errtrace.Wrap(ns.Service.RemoveWaypoint(ctx, id, extra))
 	}
-	return ns.RemoveWaypointFunc(ctx, id, extra)
+	return errtrace.Wrap(ns.RemoveWaypointFunc(ctx, id, extra))
 }
 
 // Obstacles calls the injected Obstacles or the real version.
 func (ns *NavigationService) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error) {
 	if ns.ObstaclesFunc == nil {
-		return ns.Service.Obstacles(ctx, extra)
+		return errtrace.Wrap2(ns.Service.Obstacles(ctx, extra))
 	}
-	return ns.ObstaclesFunc(ctx, extra)
+	return errtrace.Wrap2(ns.ObstaclesFunc(ctx, extra))
 }
 
 // Paths calls the injected Paths or the real version.
 func (ns *NavigationService) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 	if ns.PathsFunc == nil {
-		return ns.Service.Paths(ctx, extra)
+		return errtrace.Wrap2(ns.Service.Paths(ctx, extra))
 	}
-	return ns.PathsFunc(ctx, extra)
+	return errtrace.Wrap2(ns.PathsFunc(ctx, extra))
 }
 
 // Properties calls the injected Properties or the real variant.
 func (ns *NavigationService) Properties(ctx context.Context) (navigation.Properties, error) {
 	if ns.PropertiesFunc == nil {
-		return ns.Service.Properties(ctx)
+		return errtrace.Wrap2(ns.Service.Properties(ctx))
 	}
-	return ns.PropertiesFunc(ctx)
+	return errtrace.Wrap2(ns.PropertiesFunc(ctx))
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
@@ -121,18 +122,18 @@ func (ns *NavigationService) DoCommand(ctx context.Context,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	if ns.DoCommandFunc == nil {
-		return ns.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(ns.Service.DoCommand(ctx, cmd))
 	}
-	return ns.DoCommandFunc(ctx, cmd)
+	return errtrace.Wrap2(ns.DoCommandFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (ns *NavigationService) Status(ctx context.Context) (map[string]interface{}, error) {
 	if ns.StatusFunc != nil {
-		return ns.StatusFunc(ctx)
+		return errtrace.Wrap2(ns.StatusFunc(ctx))
 	}
 	if ns.Service != nil {
-		return ns.Service.Status(ctx)
+		return errtrace.Wrap2(ns.Service.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }
@@ -143,7 +144,7 @@ func (ns *NavigationService) Close(ctx context.Context) error {
 		if ns.Service == nil {
 			return nil
 		}
-		return ns.Service.Close(ctx)
+		return errtrace.Wrap(ns.Service.Close(ctx))
 	}
-	return ns.CloseFunc(ctx)
+	return errtrace.Wrap(ns.CloseFunc(ctx))
 }

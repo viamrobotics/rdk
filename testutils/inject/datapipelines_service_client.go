@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	datapipelinesPb "go.viam.com/api/app/datapipelines/v1"
 	"google.golang.org/grpc"
 )
@@ -33,9 +34,9 @@ func (client *DataPipelinesServiceClient) ListDataPipelines(ctx context.Context,
 	opts ...grpc.CallOption,
 ) (*datapipelinesPb.ListDataPipelinesResponse, error) {
 	if client.ListDataPipelinesFunc == nil {
-		return client.DataPipelinesServiceClient.ListDataPipelines(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataPipelinesServiceClient.ListDataPipelines(ctx, in, opts...))
 	}
-	return client.ListDataPipelinesFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.ListDataPipelinesFunc(ctx, in, opts...))
 }
 
 // GetDataPipeline calls the injected GetDataPipeline or the real version.
@@ -43,9 +44,9 @@ func (client *DataPipelinesServiceClient) GetDataPipeline(ctx context.Context, i
 	opts ...grpc.CallOption,
 ) (*datapipelinesPb.GetDataPipelineResponse, error) {
 	if client.GetDataPipelineFunc == nil {
-		return client.DataPipelinesServiceClient.GetDataPipeline(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataPipelinesServiceClient.GetDataPipeline(ctx, in, opts...))
 	}
-	return client.GetDataPipelineFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.GetDataPipelineFunc(ctx, in, opts...))
 }
 
 // CreateDataPipeline calls the injected CreateDataPipeline or the real version.
@@ -53,9 +54,9 @@ func (client *DataPipelinesServiceClient) CreateDataPipeline(ctx context.Context
 	opts ...grpc.CallOption,
 ) (*datapipelinesPb.CreateDataPipelineResponse, error) {
 	if client.CreateDataPipelineFunc == nil {
-		return client.DataPipelinesServiceClient.CreateDataPipeline(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataPipelinesServiceClient.CreateDataPipeline(ctx, in, opts...))
 	}
-	return client.CreateDataPipelineFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.CreateDataPipelineFunc(ctx, in, opts...))
 }
 
 // RenameDataPipeline calls the injected RenameDataPipeline or the real version.
@@ -63,9 +64,9 @@ func (client *DataPipelinesServiceClient) RenameDataPipeline(ctx context.Context
 	opts ...grpc.CallOption,
 ) (*datapipelinesPb.RenameDataPipelineResponse, error) {
 	if client.RenameDataPipelineFunc == nil {
-		return client.DataPipelinesServiceClient.RenameDataPipeline(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataPipelinesServiceClient.RenameDataPipeline(ctx, in, opts...))
 	}
-	return client.RenameDataPipelineFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.RenameDataPipelineFunc(ctx, in, opts...))
 }
 
 // DeleteDataPipeline calls the injected DeleteDataPipeline or the real version.
@@ -73,9 +74,9 @@ func (client *DataPipelinesServiceClient) DeleteDataPipeline(ctx context.Context
 	opts ...grpc.CallOption,
 ) (*datapipelinesPb.DeleteDataPipelineResponse, error) {
 	if client.DeleteDataPipelineFunc == nil {
-		return client.DataPipelinesServiceClient.DeleteDataPipeline(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataPipelinesServiceClient.DeleteDataPipeline(ctx, in, opts...))
 	}
-	return client.DeleteDataPipelineFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.DeleteDataPipelineFunc(ctx, in, opts...))
 }
 
 // EnableDataPipeline calls the injected EnableDataPipeline or the real version.
@@ -83,9 +84,9 @@ func (client *DataPipelinesServiceClient) EnableDataPipeline(ctx context.Context
 	opts ...grpc.CallOption,
 ) (*datapipelinesPb.EnableDataPipelineResponse, error) {
 	if client.EnableDataPipelineFunc == nil {
-		return client.DataPipelinesServiceClient.EnableDataPipeline(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataPipelinesServiceClient.EnableDataPipeline(ctx, in, opts...))
 	}
-	return client.EnableDataPipelineFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.EnableDataPipelineFunc(ctx, in, opts...))
 }
 
 // DisableDataPipeline calls the injected DisableDataPipeline or the real version.
@@ -93,9 +94,9 @@ func (client *DataPipelinesServiceClient) DisableDataPipeline(ctx context.Contex
 	opts ...grpc.CallOption,
 ) (*datapipelinesPb.DisableDataPipelineResponse, error) {
 	if client.DisableDataPipelineFunc == nil {
-		return client.DataPipelinesServiceClient.DisableDataPipeline(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataPipelinesServiceClient.DisableDataPipeline(ctx, in, opts...))
 	}
-	return client.DisableDataPipelineFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.DisableDataPipelineFunc(ctx, in, opts...))
 }
 
 // ListDataPipelineRuns calls the injected ListDataPipelineRuns or the real version.
@@ -103,7 +104,7 @@ func (client *DataPipelinesServiceClient) ListDataPipelineRuns(ctx context.Conte
 	opts ...grpc.CallOption,
 ) (*datapipelinesPb.ListDataPipelineRunsResponse, error) {
 	if client.ListDataPipelineRunsFunc == nil {
-		return client.DataPipelinesServiceClient.ListDataPipelineRuns(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataPipelinesServiceClient.ListDataPipelineRuns(ctx, in, opts...))
 	}
-	return client.ListDataPipelineRunsFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.ListDataPipelineRunsFunc(ctx, in, opts...))
 }

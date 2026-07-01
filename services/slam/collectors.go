@@ -7,6 +7,7 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -36,7 +37,7 @@ func (m method) String() string {
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -44,18 +45,18 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		var res data.CaptureResult
 		pose, err := slam.Position(ctx)
 		if err != nil {
-			return res, data.NewFailedToReadError(params.ComponentName, position.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, position.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)})
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func newPointCloudMapCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -64,12 +65,12 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 		// edited maps do not need to be captured because they should not be modified
 		f, err := slam.PointCloudMap(ctx, false)
 		if err != nil {
-			return res, data.NewFailedToReadError(params.ComponentName, pointCloudMap.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, pointCloudMap.String(), err))
 		}
 
 		pcd, err := HelperConcatenateChunksToFull(f)
 		if err != nil {
-			return res, data.NewFailedToReadError(params.ComponentName, pointCloudMap.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, pointCloudMap.String(), err))
 		}
 
 		ts := data.Timestamps{
@@ -81,7 +82,7 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 			MimeType: utils.MimeTypePCD,
 		}}), nil
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -89,17 +90,17 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(slam, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertSLAM(resource interface{}) (Service, error) {
 	slamService, ok := resource.(Service)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return slamService, nil
 }

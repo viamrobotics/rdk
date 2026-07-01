@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -125,7 +126,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	createKeyFunc = func(ctx context.Context, in *apppb.CreateKeyRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.CreateKeyResponse, error) {
-		return nil, errors.New("multiple orgs on the location")
+		return nil, errtrace.Wrap(errors.New("multiple orgs on the location"))
 	}
 
 	asc = &inject.AppServiceClient{
@@ -194,7 +195,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	createKeyFunc = func(ctx context.Context, in *apppb.CreateKeyRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.CreateKeyResponse, error) {
-		return nil, errors.New("multiple orgs on the location")
+		return nil, errtrace.Wrap(errors.New("multiple orgs on the location"))
 	}
 
 	asc = &inject.AppServiceClient{

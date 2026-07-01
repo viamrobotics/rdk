@@ -1,6 +1,7 @@
 package generic
 
 import (
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 )
@@ -23,11 +24,11 @@ func (m method) String() string {
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	generic, err := assertGeneric(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(generic, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // Service is the interface that wraps the DoCommand method.
@@ -38,7 +39,7 @@ type Service interface {
 func assertGeneric(resource interface{}) (Service, error) {
 	generic, ok := resource.(Service)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return generic, nil
 }

@@ -21,6 +21,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 )
@@ -101,12 +102,12 @@ func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
 	//nolint:gosec
 	file, err := os.Open(fn)
 	if err != nil {
-		return errors.Wrapf(err, "error opening %s", fn)
+		return errtrace.Wrap(errors.Wrapf(err, "error opening %s", fn))
 	}
 	defer utils.UncheckedErrorFunc(file.Close)
 
 	decoder := json.NewDecoder(file)
-	return decoder.Decode(out)
+	return errtrace.Wrap(decoder.Decode(out))
 }
 
 // GotDebugImage TODO.
@@ -194,7 +195,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(d.inrootPrimary, d.glob))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	defer func() {
@@ -264,7 +265,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 	theTemplate := template.New("foo")
 	_, err = theTemplate.Parse(testHelperHTML)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	htmlOutFile := filepath.Join(d.out, d.name+".html")
@@ -273,10 +274,10 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 	//nolint:gosec
 	outFile, err := os.OpenFile(htmlOutFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
-		err = multierr.Combine(err, outFile.Close())
+		err = errtrace.Wrap(multierr.Combine(err, outFile.Close()))
 	}()
-	return theTemplate.Execute(outFile, &d.output)
+	return errtrace.Wrap(theTemplate.Execute(outFile, &d.output))
 }

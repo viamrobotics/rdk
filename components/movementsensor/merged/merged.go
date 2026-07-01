@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -75,7 +76,7 @@ func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resour
 	}
 
 	if err := m.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &m, nil
@@ -84,7 +85,7 @@ func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resour
 func (m *merged) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.mu.Lock()
@@ -144,49 +145,49 @@ func (m *merged) reconfigure(ctx context.Context, deps resource.Dependencies, co
 			return ms, nil
 		}
 
-		return nil, fmt.Errorf("%v not supported by any sensor in list %#v", propname, names)
+		return nil, errtrace.Wrap(fmt.Errorf("%v not supported by any sensor in list %#v", propname, names))
 	}
 
 	m.ori, err = firstGoodSensorWithProperties(
 		deps, newConf.Orientation, m.logger,
 		&movementsensor.Properties{OrientationSupported: true}, "orientation")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.pos, err = firstGoodSensorWithProperties(
 		deps, newConf.Position, m.logger,
 		&movementsensor.Properties{PositionSupported: true}, "position")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.compass, err = firstGoodSensorWithProperties(
 		deps, newConf.CompassHeading, m.logger,
 		&movementsensor.Properties{CompassHeadingSupported: true}, "compass_heading")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.linVel, err = firstGoodSensorWithProperties(
 		deps, newConf.LinearVelocity, m.logger,
 		&movementsensor.Properties{LinearVelocitySupported: true}, "linear_velocity")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.angVel, err = firstGoodSensorWithProperties(
 		deps, newConf.AngularVelocity, m.logger,
 		&movementsensor.Properties{AngularVelocitySupported: true}, "angular_velocity")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.linAcc, err = firstGoodSensorWithProperties(
 		deps, newConf.LinearAcceleration, m.logger,
 		&movementsensor.Properties{LinearAccelerationSupported: true}, "linear_acceleration")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -198,9 +199,9 @@ func (m *merged) Position(ctx context.Context, extra map[string]interface{}) (*g
 
 	if m.pos == nil {
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(),
-			movementsensor.ErrMethodUnimplementedPosition
+			errtrace.Wrap(movementsensor.ErrMethodUnimplementedPosition)
 	}
-	return m.pos.Position(ctx, extra)
+	return errtrace.Wrap3(m.pos.Position(ctx, extra))
 }
 
 func (m *merged) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
@@ -214,9 +215,9 @@ func (m *merged) Orientation(ctx context.Context, extra map[string]interface{}) 
 		nanOri.OZ = math.NaN()
 		nanOri.Theta = math.NaN()
 		return nanOri,
-			movementsensor.ErrMethodUnimplementedOrientation
+			errtrace.Wrap(movementsensor.ErrMethodUnimplementedOrientation)
 	}
-	return m.ori.Orientation(ctx, extra)
+	return errtrace.Wrap2(m.ori.Orientation(ctx, extra))
 }
 
 func (m *merged) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
@@ -225,9 +226,9 @@ func (m *merged) CompassHeading(ctx context.Context, extra map[string]interface{
 
 	if m.compass == nil {
 		return math.NaN(),
-			movementsensor.ErrMethodUnimplementedCompassHeading
+			errtrace.Wrap(movementsensor.ErrMethodUnimplementedCompassHeading)
 	}
-	return m.compass.CompassHeading(ctx, extra)
+	return errtrace.Wrap2(m.compass.CompassHeading(ctx, extra))
 }
 
 func (m *merged) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -236,9 +237,9 @@ func (m *merged) LinearVelocity(ctx context.Context, extra map[string]interface{
 
 	if m.linVel == nil {
 		return r3.Vector{X: math.NaN(), Y: math.NaN(), Z: math.NaN()},
-			movementsensor.ErrMethodUnimplementedLinearVelocity
+			errtrace.Wrap(movementsensor.ErrMethodUnimplementedLinearVelocity)
 	}
-	return m.linVel.LinearVelocity(ctx, extra)
+	return errtrace.Wrap2(m.linVel.LinearVelocity(ctx, extra))
 }
 
 func (m *merged) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
@@ -247,9 +248,9 @@ func (m *merged) AngularVelocity(ctx context.Context, extra map[string]interface
 
 	if m.angVel == nil {
 		return spatialmath.AngularVelocity{X: math.NaN(), Y: math.NaN(), Z: math.NaN()},
-			movementsensor.ErrMethodUnimplementedAngularVelocity
+			errtrace.Wrap(movementsensor.ErrMethodUnimplementedAngularVelocity)
 	}
-	return m.angVel.AngularVelocity(ctx, extra)
+	return errtrace.Wrap2(m.angVel.AngularVelocity(ctx, extra))
 }
 
 func (m *merged) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -258,9 +259,9 @@ func (m *merged) LinearAcceleration(ctx context.Context, extra map[string]interf
 
 	if m.linAcc == nil {
 		return r3.Vector{X: math.NaN(), Y: math.NaN(), Z: math.NaN()},
-			movementsensor.ErrMethodUnimplementedLinearAcceleration
+			errtrace.Wrap(movementsensor.ErrMethodUnimplementedLinearAcceleration)
 	}
-	return m.linAcc.LinearAcceleration(ctx, extra)
+	return errtrace.Wrap2(m.linAcc.LinearAcceleration(ctx, extra))
 }
 
 func mapWithSensorName(name string, accMap map[string]float32) map[string]float32 {
@@ -392,7 +393,7 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (*m
 		CompassDegreeError: compassDegreeError,
 	}
 
-	return &acc, errs
+	return &acc, errtrace.Wrap(errs)
 }
 
 func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
@@ -412,7 +413,7 @@ func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (
 func (m *merged) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	// we're already in lock in this driver
 	// don't lock the mutex again for the Readings call
-	return movementsensor.DefaultAPIReadings(ctx, m, extra)
+	return errtrace.Wrap2(movementsensor.DefaultAPIReadings(ctx, m, extra))
 }
 
 func (m *merged) Close(context.Context) error {

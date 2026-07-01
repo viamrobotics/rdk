@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -306,7 +307,7 @@ type someResource struct {
 func (s *someResource) Close(ctx context.Context) error {
 	s.closeCap = append(s.closeCap, ctx.Value("foo"))
 	if s.shouldErr {
-		return errors.New("bad close")
+		return errtrace.Wrap(errors.New("bad close"))
 	}
 	return nil
 }
@@ -319,9 +320,9 @@ type anotherResource struct {
 // Close calls the injected Close or the real version.
 func (a *anotherResource) Close(ctx context.Context) error {
 	if a.CloseFunc == nil {
-		return errors.New("oops")
+		return errtrace.Wrap(errors.New("oops"))
 	}
-	return a.CloseFunc(ctx)
+	return errtrace.Wrap(a.CloseFunc(ctx))
 }
 
 func TestClose(t *testing.T) {
@@ -334,7 +335,7 @@ func TestClose(t *testing.T) {
 	)
 
 	ourRes.CloseFunc = func(ctx context.Context) error {
-		return node.Close(ctx)
+		return errtrace.Wrap(node.Close(ctx))
 	}
 
 	// This pattern fails the test faster on deadlocks instead of having to wait for the full

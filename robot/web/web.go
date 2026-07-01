@@ -40,6 +40,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -101,7 +102,7 @@ type resourceGetterForAPI struct {
 }
 
 func (r resourceGetterForAPI) Resource(name string) (resource.Resource, error) {
-	return r.robot.FindBySimpleNameAndAPI(name, r.api)
+	return errtrace.Wrap2(r.robot.FindBySimpleNameAndAPI(name, r.api))
 }
 
 type webService struct {
@@ -163,7 +164,7 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.isRunning {
-		return errors.New("web server already started")
+		return errtrace.Wrap(errors.New("web server already started"))
 	}
 	svc.isRunning = true
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -176,7 +177,7 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 			svc.cancelFunc()
 		}
 		svc.isRunning = false
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -185,7 +186,7 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger logging.Logger) (err error) {
 	defer func() {
 		if err != nil {
-			err = utils.FilterOutError(err, context.Canceled)
+			err = errtrace.Wrap(utils.FilterOutError(err, context.Canceled))
 			if err != nil {
 				logger.Errorw("error running web", "error", err)
 			}
@@ -193,20 +194,20 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 	}()
 
 	if err := r.StartWeb(ctx, o); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	<-ctx.Done()
 	logger.Info("viam-server shutting down")
-	return ctx.Err()
+	return errtrace.Wrap(ctx.Err())
 }
 
 // RunWebWithConfig starts the web server on the robot with a robot config and blocks until we cancel the context.
 func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger logging.Logger) error {
 	o, err := weboptions.FromConfig(cfg)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return RunWeb(ctx, r, o, logger)
+	return errtrace.Wrap(RunWeb(ctx, r, o, logger))
 }
 
 // Address returns the address the service is listening on.
@@ -226,7 +227,7 @@ func (svc *webService) ModuleAddresses() config.ParentSockAddrs {
 // returns (listener, addr, error).
 func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpMode bool) error {
 	if tcpMode && svc.tcpModServer != nil || !tcpMode && svc.unixModServer != nil {
-		return errors.New("module service already started")
+		return errtrace.Wrap(errors.New("module service already started"))
 	}
 
 	// Create a viam-module-[randomString] temporary directory to store UDS sock files for
@@ -242,12 +243,12 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	// below (automatically by listening).
 	dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
 	if err != nil {
-		return errors.WithMessage(err, "could not create module socket directory")
+		return errtrace.Wrap(errors.WithMessage(err, "could not create module socket directory"))
 	}
 	//nolint:gosec
 	err = os.Chmod(dir, 0o777)
 	if err != nil {
-		return errors.WithMessage(err, "could not update permissions on module socket directory")
+		return errtrace.Wrap(errors.WithMessage(err, "could not update permissions on module socket directory"))
 	}
 
 	var lis net.Listener
@@ -256,21 +257,21 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
 		lis, err = net.Listen("tcp", addr)
 		if err != nil {
-			return errors.WithMessage(err, "failed to listen over TCP")
+			return errtrace.Wrap(errors.WithMessage(err, "failed to listen over TCP"))
 		}
 	} else {
 		addr, err = module.CreateSocketAddress(dir, "parent")
 		if err != nil {
-			return errors.WithMessage(err, "could not create filepath for parent socket")
+			return errtrace.Wrap(errors.WithMessage(err, "could not create filepath for parent socket"))
 		}
 		lis, err = net.Listen("unix", addr)
 		if err != nil {
-			return errors.WithMessage(err, "failed to listen over UDS")
+			return errtrace.Wrap(errors.WithMessage(err, "failed to listen over UDS"))
 		}
 		//nolint:gosec
 		err = os.Chmod(addr, 0o776)
 		if err != nil {
-			return errors.WithMessage(err, "could not update permissions on parent socket")
+			return errtrace.Wrap(errors.WithMessage(err, "could not update permissions on parent socket"))
 		}
 	}
 
@@ -306,14 +307,14 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 			svc.logger.Errorw("panicked while calling unary server method for module request",
 				"panic", fmt.Sprintf("%v", p),
 				"stack", debug.Stack())
-			return status.Errorf(codes.Internal, "%v", p)
+			return errtrace.Wrap(status.Errorf(codes.Internal, "%v", p))
 		}))))
 	streamInterceptors = append(streamInterceptors, grpc_recovery.StreamServerInterceptor(grpc_recovery.WithRecoveryHandler(
 		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
 			svc.logger.Errorw("panicked while calling stream server method for module request",
 				"panic", fmt.Sprintf("%v", p),
 				"stack", debug.Stack())
-			return status.Errorf(codes.Internal, "%v", p)
+			return errtrace.Wrap(status.Errorf(codes.Internal, "%v", p))
 		}))))
 
 	opManager := svc.r.OperationManager()
@@ -351,15 +352,15 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		svc.unixModServer = server
 	}
 	if err := server.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := svc.initStreamServer(ctx, server); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := svc.initAPIResourceCollections(ctx, server); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	svc.modWorkers.Add(1)
@@ -391,10 +392,10 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		svc.logger.Infow("Not starting unix socket grpc module server", "reason", reason)
 	} else {
 		if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
-	return svc.startProtocolModuleParentServer(ctx, true)
+	return errtrace.Wrap(svc.startProtocolModuleParentServer(ctx, true))
 }
 
 // Stop stops the main web service prior to actually closing (it leaves the module server running.)
@@ -428,27 +429,27 @@ func (svc *webService) Close(ctx context.Context) error {
 		utils.UncheckedError(svc.streamServer.Close())
 	}
 	svc.modWorkers.Wait()
-	return multierr.Combine(errs...)
+	return errtrace.Wrap(multierr.Combine(errs...))
 }
 
 // runWeb takes the given robot and options and runs the web server. This function will
 // block until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (err error) {
 	if options.Network.BindAddress != "" && options.Network.Listener != nil {
-		return errors.New("may only set one of network bind address or listener")
+		return errtrace.Wrap(errors.New("may only set one of network bind address or listener"))
 	}
 	listener := options.Network.Listener
 
 	if listener == nil {
 		listener, err = net.Listen("tcp", options.Network.BindAddress)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	listenerTCPAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {
-		return errors.Errorf("expected *net.TCPAddr but got %T", listener.Addr())
+		return errtrace.Wrap(errors.Errorf("expected *net.TCPAddr but got %T", listener.Addr()))
 	}
 
 	if options.NoTLS {
@@ -465,13 +466,13 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	if options.FQDN == "" {
 		options.FQDN, err = rpc.InstanceNameFromAddress(svc.addr)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	rpcOpts, err := svc.initRPCOptions(listenerTCPAddr, options)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	otelStatsHandler := otelgrpc.NewServerHandler(
@@ -483,7 +484,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	ioLogger := svc.logger.Sublogger("networking")
 	svc.rpcServer, err = rpc.NewServer(ioLogger, rpcOpts...)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if options.SignalingAddress == "" {
@@ -496,15 +497,15 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		grpcserver.New(svc.r),
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := svc.initAPIResourceCollections(ctx, svc.rpcServer); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := svc.initStreamServer(ctx, svc.rpcServer); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if options.Debug {
@@ -514,13 +515,13 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 			&echoserver.Server{},
 			echopb.RegisterEchoServiceHandlerFromEndpoint,
 		); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	httpServer, err := svc.initHTTPServer(listenerTCPAddr, options)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Serve
@@ -581,7 +582,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		}
 	})
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 // RequestCounter returns the request counter object.
@@ -646,7 +647,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 			ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
 			defer span.End()
 
-			return handler(ctx, req)
+			return errtrace.Wrap2(handler(ctx, req))
 		})
 	}
 
@@ -656,7 +657,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 
 	authOpts, err := svc.initAuthHandlers(listenerTCPAddr, options)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	rpcOpts = append(rpcOpts, authOpts...)
 
@@ -698,7 +699,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 
 	if options.Managed && len(options.Auth.Handlers) == 1 {
 		if options.BakedAuthEntity == "" || options.BakedAuthCreds.Type == "" {
-			return nil, errors.New("expected baked in local UI credentials since managed")
+			return nil, errtrace.Wrap(errors.New("expected baked in local UI credentials since managed"))
 		}
 	}
 
@@ -737,7 +738,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 				apiKeys := config.ParseAPIKeys(handler)
 
 				if len(apiKeys) == 0 {
-					return nil, errors.Errorf("%q handler requires non-empty API keys", handler.Type)
+					return nil, errtrace.Wrap(errors.Errorf("%q handler requires non-empty API keys", handler.Type))
 				}
 
 				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
@@ -746,7 +747,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 				if len(locationSecrets) == 0 {
 					secret := handler.Config.String("secret")
 					if secret == "" {
-						return nil, errors.Errorf("%q handler requires non-empty secret", handler.Type)
+						return nil, errtrace.Wrap(errors.Errorf("%q handler requires non-empty secret", handler.Type))
 					}
 					locationSecrets = []string{secret}
 				}
@@ -757,7 +758,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 				))
 			case rpc.CredentialsTypeExternal:
 			default:
-				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
+				return nil, errtrace.Wrap(errors.Errorf("do not know how to handle auth for %q", handler.Type))
 			}
 		}
 	}
@@ -778,7 +779,7 @@ func (svc *webService) initAPIResourceCollections(ctx context.Context, server rp
 	for api, apiReg := range apiRegs {
 		apiGetter := resourceGetterForAPI{api, svc.r}
 		if err := apiReg.RegisterRPCService(ctx, server, apiGetter, svc.logger); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -794,7 +795,7 @@ func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options webo
 		Addr:           listenerTCPAddr.String(),
 	})
 	if err != nil {
-		return httpServer, err
+		return httpServer, errtrace.Wrap(err)
 	}
 	httpServer.TLSConfig = options.Network.TLSConfig.Clone()
 
@@ -863,11 +864,11 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	// method will be in the form of PackageName.ServiceName/MethodName
 	method, ok := googlegrpc.MethodFromServerStream(stream)
 	if !ok {
-		return grpc.UnimplementedError
+		return errtrace.Wrap(grpc.UnimplementedError)
 	}
 	subType, methodDesc, err := robot.TypeAndMethodDescFromMethod(svc.r, method)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	firstMsg := dynamic.NewMessage(methodDesc.GetInputType())
@@ -876,7 +877,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	// the message into firstMsg - it will error out if the received message cannot
 	// be marshalled into the expected type.
 	if err := stream.RecvMsg(firstMsg); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// We expect each message to contain a "name" argument which will allow us to route
@@ -884,7 +885,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.API)
 	if err != nil {
 		svc.logger.Errorw("unable to route foreign message", "error", err)
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// foreignServiceHandler is invoked as a stream handler, so unary interceptors never run here.
@@ -900,7 +901,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	foreignRes, ok := resource.(*grpc.ForeignResource)
 	if !ok {
 		svc.logger.Errorf("expected resource to be a foreign RPC resource but was %T", foreignRes)
-		return grpc.UnimplementedError
+		return errtrace.Wrap(grpc.UnimplementedError)
 	}
 
 	foreignClient := foreignRes.NewStub()
@@ -914,7 +915,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 
 		bidiStream, err := foreignClient.InvokeRpcBidiStream(ctx, methodDesc)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		var wg sync.WaitGroup
@@ -955,32 +956,32 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 			resp, err := bidiStream.RecvMsg()
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
-					return err
+					return errtrace.Wrap(err)
 				}
 				break
 			}
 
 			if err := stream.SendMsg(resp); err != nil {
 				cancel()
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 
 		wg.Wait()
 		if err := sendErr.Load(); err != nil && !errors.Is(*err, io.EOF) {
-			return *err
+			return errtrace.Wrap(*err)
 		}
 
 		return nil
 	case methodDesc.IsClientStreaming():
 		clientStream, err := foreignClient.InvokeRpcClientStream(stream.Context(), methodDesc)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		// process first message before waiting for more messages
 		err = clientStream.SendMsg(firstMsg)
 		if err != nil && !errors.Is(err, io.EOF) {
-			return err
+			return errtrace.Wrap(err)
 		}
 		for err == nil {
 			msg := dynamic.NewMessage(methodDesc.GetInputType())
@@ -989,7 +990,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 					break
 				}
 
-				return err
+				return errtrace.Wrap(err)
 			}
 			if fqName.ContainsRemoteNames() {
 				msg.SetFieldByName("name", fqName.PopRemote().ShortName())
@@ -998,39 +999,39 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 				if errors.Is(err, io.EOF) {
 					break
 				}
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 		resp, err := clientStream.CloseAndReceive()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
-		return stream.SendMsg(resp)
+		return errtrace.Wrap(stream.SendMsg(resp))
 	case methodDesc.IsServerStreaming():
 		secondMsg := dynamic.NewMessage(methodDesc.GetInputType())
 		if err := stream.RecvMsg(secondMsg); err == nil {
-			return errors.Errorf(
+			return errtrace.Wrap(errors.Errorf(
 				"method %q is a server-streaming RPC, but request data contained more than 1 message",
-				methodDesc.GetFullyQualifiedName())
+				methodDesc.GetFullyQualifiedName()))
 		} else if !errors.Is(err, io.EOF) {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		serverStream, err := foreignClient.InvokeRpcServerStream(stream.Context(), methodDesc, firstMsg)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		for {
 			resp, err := serverStream.RecvMsg()
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
-					return err
+					return errtrace.Wrap(err)
 				}
 				break
 			}
 			if err := stream.SendMsg(resp); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 
@@ -1038,9 +1039,9 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	default:
 		invokeResp, err := foreignClient.InvokeRpc(stream.Context(), methodDesc, firstMsg)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
-		return stream.SendMsg(invokeResp)
+		return errtrace.Wrap(stream.SendMsg(invokeResp))
 	}
 }
 

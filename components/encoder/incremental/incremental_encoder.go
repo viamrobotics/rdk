@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
@@ -71,14 +72,14 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if conf.Pins.A == "" {
-		return nil, nil, errors.New("expected nonempty string for a")
+		return nil, nil, errtrace.Wrap(errors.New("expected nonempty string for a"))
 	}
 	if conf.Pins.B == "" {
-		return nil, nil, errors.New("expected nonempty string for b")
+		return nil, nil, errtrace.Wrap(errors.New("expected nonempty string for b"))
 	}
 
 	if len(conf.BoardName) == 0 {
-		return nil, nil, errors.New("expected nonempty board")
+		return nil, nil, errtrace.Wrap(errors.New("expected nonempty board"))
 	}
 	deps = append(deps, conf.BoardName)
 
@@ -104,7 +105,7 @@ func NewIncrementalEncoder(
 		pState:       0,
 	}
 	if err := e.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return e, nil
 }
@@ -117,7 +118,7 @@ func (e *Encoder) reconfigure(
 ) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	e.mu.Lock()
@@ -132,16 +133,16 @@ func (e *Encoder) reconfigure(
 
 	board, err := board.FromProvider(deps, newConf.BoardName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	encA, err := board.DigitalInterruptByName(newConf.Pins.A)
 	if err != nil {
-		return multierr.Combine(errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.A), err)
+		return errtrace.Wrap(multierr.Combine(errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.A), err))
 	}
 	encB, err := board.DigitalInterruptByName(newConf.Pins.B)
 	if err != nil {
-		return multierr.Combine(errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.B), err)
+		return errtrace.Wrap(multierr.Combine(errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.B), err))
 	}
 
 	if !needRestart {
@@ -293,7 +294,7 @@ func (e *Encoder) Position(
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
 	if positionType == encoder.PositionTypeDegrees {
-		return math.NaN(), encoder.PositionTypeUnspecified, encoder.NewPositionTypeUnsupportedError(positionType)
+		return math.NaN(), encoder.PositionTypeUnspecified, errtrace.Wrap(encoder.NewPositionTypeUnsupportedError(positionType))
 	}
 	res := atomic.LoadInt64(&e.position)
 	return float64(res), e.positionType, nil

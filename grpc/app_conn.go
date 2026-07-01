@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/connectivity"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/rdk/web/networkcheck"
@@ -33,7 +34,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 
 	grpcURL, err := url.Parse(appAddress)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
@@ -128,5 +129,5 @@ func (ac *AppConn) Close() error {
 		ac.dialer.Stop()
 	}
 
-	return ac.ReconfigurableClientConn.Close()
+	return errtrace.Wrap(ac.ReconfigurableClientConn.Close())
 }

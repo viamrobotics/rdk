@@ -22,6 +22,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gantry"
@@ -326,7 +327,7 @@ func TestFileDeletion(t *testing.T) {
 				return []referenceframe.Input{1.0, 2.0, 3.0, 4.0}, nil
 			},
 			KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-				return nil, errors.New("KinematicsFunc unimplemented")
+				return nil, errtrace.Wrap(errors.New("KinematicsFunc unimplemented"))
 			},
 		},
 		gantry.Named("gantry1"): &inject.Gantry{
@@ -496,11 +497,11 @@ func TestSync(t *testing.T) {
 						) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 							outBytes, err := rimage.EncodeImage(ctx, imgPng, utils.MimeTypeJPEG)
 							if err != nil {
-								return nil, resource.ResponseMetadata{}, err
+								return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 							}
 							namedImg, err := camera.NamedImageFromBytes(outBytes, "", utils.MimeTypeJPEG, data.Annotations{})
 							if err != nil {
-								return nil, resource.ResponseMetadata{}, err
+								return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 							}
 							return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 						},
@@ -544,11 +545,11 @@ func TestSync(t *testing.T) {
 				_ ...grpc.CallOption,
 			) (*v1.DataCaptureUploadResponse, error) {
 				if err := ctx.Err(); err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				select {
 				case <-ctx.Done():
-					return nil, ctx.Err()
+					return nil, errtrace.Wrap(ctx.Err())
 				case successChan <- in:
 					return &v1.DataCaptureUploadResponse{}, nil
 				}
@@ -563,22 +564,22 @@ func TestSync(t *testing.T) {
 					_ ...grpc.CallOption,
 				) (*v1.DataCaptureUploadResponse, error) {
 					if err := ctx.Err(); err != nil {
-						return nil, err
+						return nil, errtrace.Wrap(err)
 					}
 
 					if fail.Load() {
 						t.Log("FAIL!")
 						select {
 						case <-ctx.Done():
-							return nil, ctx.Err()
+							return nil, errtrace.Wrap(ctx.Err())
 						case failChan <- in:
-							return nil, errors.New("transient error")
+							return nil, errtrace.Wrap(errors.New("transient error"))
 						}
 					}
 
 					select {
 					case <-ctx.Done():
-						return nil, ctx.Err()
+						return nil, errtrace.Wrap(ctx.Err())
 					case successChan <- in:
 						return &v1.DataCaptureUploadResponse{}, nil
 					}
@@ -950,7 +951,7 @@ func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n 
 				fNames = append(fNames, f.Name())
 			}
 			logger.Errorf("target: %d, iterations: %d, captureFiles: %d, files: %v", n, i, captureFiles, fNames)
-			return err
+			return errtrace.Wrap(err)
 		}
 		files = getAllFileInfos(captureDir)
 		captureFiles = 0

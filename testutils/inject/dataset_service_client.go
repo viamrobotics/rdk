@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	"google.golang.org/grpc"
 )
@@ -29,9 +30,9 @@ func (client *DatasetServiceClient) CreateDataset(ctx context.Context, in *datas
 	opts ...grpc.CallOption,
 ) (*datasetpb.CreateDatasetResponse, error) {
 	if client.CreateDatasetFunc == nil {
-		return client.DatasetServiceClient.CreateDataset(ctx, in, opts...)
+		return errtrace.Wrap2(client.DatasetServiceClient.CreateDataset(ctx, in, opts...))
 	}
-	return client.CreateDatasetFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.CreateDatasetFunc(ctx, in, opts...))
 }
 
 // DeleteDataset calls the injected DeleteDataset or the real version.
@@ -39,9 +40,9 @@ func (client *DatasetServiceClient) DeleteDataset(ctx context.Context, in *datas
 	opts ...grpc.CallOption,
 ) (*datasetpb.DeleteDatasetResponse, error) {
 	if client.DeleteDatasetFunc == nil {
-		return client.DatasetServiceClient.DeleteDataset(ctx, in, opts...)
+		return errtrace.Wrap2(client.DatasetServiceClient.DeleteDataset(ctx, in, opts...))
 	}
-	return client.DeleteDatasetFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.DeleteDatasetFunc(ctx, in, opts...))
 }
 
 // RenameDataset calls the injected RenameDataset or the real version.
@@ -49,9 +50,9 @@ func (client *DatasetServiceClient) RenameDataset(ctx context.Context, in *datas
 	opts ...grpc.CallOption,
 ) (*datasetpb.RenameDatasetResponse, error) {
 	if client.RenameDatasetFunc == nil {
-		return client.DatasetServiceClient.RenameDataset(ctx, in, opts...)
+		return errtrace.Wrap2(client.DatasetServiceClient.RenameDataset(ctx, in, opts...))
 	}
-	return client.RenameDatasetFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.RenameDatasetFunc(ctx, in, opts...))
 }
 
 // ListDatasetsByOrganizationID calls the injected ListDatasetsByOrganizationID or the real version.
@@ -59,9 +60,9 @@ func (client *DatasetServiceClient) ListDatasetsByOrganizationID(ctx context.Con
 	opts ...grpc.CallOption,
 ) (*datasetpb.ListDatasetsByOrganizationIDResponse, error) {
 	if client.ListDatasetsByOrganizationIDFunc == nil {
-		return client.DatasetServiceClient.ListDatasetsByOrganizationID(ctx, in, opts...)
+		return errtrace.Wrap2(client.DatasetServiceClient.ListDatasetsByOrganizationID(ctx, in, opts...))
 	}
-	return client.ListDatasetsByOrganizationIDFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.ListDatasetsByOrganizationIDFunc(ctx, in, opts...))
 }
 
 // ListDatasetsByIDs calls the injected ListDatasetsByIDs or the real version.
@@ -69,9 +70,9 @@ func (client *DatasetServiceClient) ListDatasetsByIDs(ctx context.Context, in *d
 	opts ...grpc.CallOption,
 ) (*datasetpb.ListDatasetsByIDsResponse, error) {
 	if client.ListDatasetsByIDsFunc == nil {
-		return client.DatasetServiceClient.ListDatasetsByIDs(ctx, in, opts...)
+		return errtrace.Wrap2(client.DatasetServiceClient.ListDatasetsByIDs(ctx, in, opts...))
 	}
-	return client.ListDatasetsByIDsFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.ListDatasetsByIDsFunc(ctx, in, opts...))
 }
 
 // MergeDatasets calls the injected MergeDatasets or the real version.
@@ -79,7 +80,7 @@ func (client *DatasetServiceClient) MergeDatasets(ctx context.Context, in *datas
 	opts ...grpc.CallOption,
 ) (*datasetpb.MergeDatasetsResponse, error) {
 	if client.MergeDatasetsFunc == nil {
-		return client.DatasetServiceClient.MergeDatasets(ctx, in, opts...)
+		return errtrace.Wrap2(client.DatasetServiceClient.MergeDatasets(ctx, in, opts...))
 	}
-	return client.MergeDatasetsFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.MergeDatasetsFunc(ctx, in, opts...))
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/app"
 	"go.viam.com/rdk/utils"
 )
@@ -33,7 +34,7 @@ func (r *ResourceDataConsumer) setDataClient(ctx context.Context) error {
 
 	viamClient, err := app.CreateViamClientFromEnvVars(ctx, nil, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	r.dataClient = viamClient.DataClient()
 	return nil
@@ -45,7 +46,7 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(
 ) ([]map[string]any, error) {
 	err := r.setDataClient(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	orgID := os.Getenv(utils.PrimaryOrgIDEnvVar)
@@ -76,5 +77,5 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(
 		queryOpts = &opts.TabularDataByMQLOptions
 	}
 
-	return r.dataClient.TabularDataByMQL(ctx, orgID, query, queryOpts)
+	return errtrace.Wrap2(r.dataClient.TabularDataByMQL(ctx, orgID, query, queryOpts))
 }

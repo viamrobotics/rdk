@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -39,65 +40,65 @@ func (g *Gantry) Name() resource.Name {
 // Position calls the injected Position or the real version.
 func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	if g.PositionFunc == nil {
-		return g.Gantry.Position(ctx, extra)
+		return errtrace.Wrap2(g.Gantry.Position(ctx, extra))
 	}
-	return g.PositionFunc(ctx, extra)
+	return errtrace.Wrap2(g.PositionFunc(ctx, extra))
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
 func (g *Gantry) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
 	if g.MoveToPositionFunc == nil {
-		return g.Gantry.MoveToPosition(ctx, positions, speeds, extra)
+		return errtrace.Wrap(g.Gantry.MoveToPosition(ctx, positions, speeds, extra))
 	}
-	return g.MoveToPositionFunc(ctx, positions, speeds, extra)
+	return errtrace.Wrap(g.MoveToPositionFunc(ctx, positions, speeds, extra))
 }
 
 // Lengths calls the injected Lengths or the real version.
 func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	if g.LengthsFunc == nil {
-		return g.Gantry.Lengths(ctx, extra)
+		return errtrace.Wrap2(g.Gantry.Lengths(ctx, extra))
 	}
-	return g.LengthsFunc(ctx, extra)
+	return errtrace.Wrap2(g.LengthsFunc(ctx, extra))
 }
 
 // Stop calls the injected Stop or the real version.
 func (g *Gantry) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if g.StopFunc == nil {
-		return g.Gantry.Stop(ctx, extra)
+		return errtrace.Wrap(g.Gantry.Stop(ctx, extra))
 	}
-	return g.StopFunc(ctx, extra)
+	return errtrace.Wrap(g.StopFunc(ctx, extra))
 }
 
 // Home calls the injected Home or the real version.
 func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	if g.HomeFunc == nil {
-		return g.Gantry.Home(ctx, extra)
+		return errtrace.Wrap2(g.Gantry.Home(ctx, extra))
 	}
-	return g.HomeFunc(ctx, extra)
+	return errtrace.Wrap2(g.HomeFunc(ctx, extra))
 }
 
 // IsMoving calls the injected IsMoving or the real version.
 func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	if g.IsMovingFunc == nil {
-		return g.Gantry.IsMoving(ctx)
+		return errtrace.Wrap2(g.Gantry.IsMoving(ctx))
 	}
-	return g.IsMovingFunc(ctx)
+	return errtrace.Wrap2(g.IsMovingFunc(ctx))
 }
 
 // Kinematics returns the kinematic model associated with the gantry.
 func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if g.KinematicsFunc == nil {
-		return g.Gantry.Kinematics(ctx)
+		return errtrace.Wrap2(g.Gantry.Kinematics(ctx))
 	}
-	return g.KinematicsFunc(ctx)
+	return errtrace.Wrap2(g.KinematicsFunc(ctx))
 }
 
 // Geometries returns the geometries of the gantry.
 func (g *Gantry) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	if g.GeometriesFunc == nil {
-		return g.Gantry.Geometries(ctx, extra)
+		return errtrace.Wrap2(g.Gantry.Geometries(ctx, extra))
 	}
-	return g.GeometriesFunc(ctx)
+	return errtrace.Wrap2(g.GeometriesFunc(ctx))
 }
 
 // Close calls the injected Close or the real version.
@@ -106,26 +107,26 @@ func (g *Gantry) Close(ctx context.Context) error {
 		if g.Gantry == nil {
 			return nil
 		}
-		return g.Gantry.Close(ctx)
+		return errtrace.Wrap(g.Gantry.Close(ctx))
 	}
-	return g.CloseFunc(ctx)
+	return errtrace.Wrap(g.CloseFunc(ctx))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (g *Gantry) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if g.DoFunc == nil {
-		return g.Gantry.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(g.Gantry.DoCommand(ctx, cmd))
 	}
-	return g.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(g.DoFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (g *Gantry) Status(ctx context.Context) (map[string]interface{}, error) {
 	if g.StatusFunc != nil {
-		return g.StatusFunc(ctx)
+		return errtrace.Wrap2(g.StatusFunc(ctx))
 	}
 	if g.Gantry != nil {
-		return g.Gantry.Status(ctx)
+		return errtrace.Wrap2(g.Gantry.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

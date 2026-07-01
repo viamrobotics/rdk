@@ -4,6 +4,7 @@ package delaunay
 import (
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
@@ -20,7 +21,7 @@ type Triangulation struct {
 func Triangulate(points []Point) (*Triangulation, error) {
 	t := newTriangulator(points)
 	err := t.triangulate()
-	return &Triangulation{points, t.convexHull(), t.triangles, t.halfedges}, err
+	return &Triangulation{points, t.convexHull(), t.triangles, t.halfedges}, errtrace.Wrap(err)
 }
 
 func (t *Triangulation) area() float64 {
@@ -43,10 +44,10 @@ func (t *Triangulation) Validate() error {
 	// verify halfedges
 	for i1, i2 := range t.Halfedges {
 		if i1 != -1 && t.Halfedges[i1] != i2 {
-			return errors.New("invalid halfedge connection")
+			return errtrace.Wrap(errors.New("invalid halfedge connection"))
 		}
 		if i2 != -1 && t.Halfedges[i2] != i1 {
-			return errors.New("invalid halfedge connection")
+			return errtrace.Wrap(errors.New("invalid halfedge connection"))
 		}
 	}
 
@@ -57,14 +58,14 @@ func (t *Triangulation) Validate() error {
 	area2 := polygonArea(hull2)
 	area3 := t.area()
 	if math.Abs(area1-area2) > 1e-9 || math.Abs(area1-area3) > 1e-9 {
-		return errors.New("hull areas disagree")
+		return errtrace.Wrap(errors.New("hull areas disagree"))
 	}
 
 	// verify convex hull perimeter
 	perimeter1 := polygonPerimeter(hull1)
 	perimeter2 := polygonPerimeter(hull2)
 	if math.Abs(perimeter1-perimeter2) > 1e-9 {
-		return errors.New("hull perimeters disagree")
+		return errtrace.Wrap(errors.New("hull perimeters disagree"))
 	}
 
 	return nil

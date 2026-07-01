@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/samber/lo"
 	"go.uber.org/zap/zapcore"
 	apppb "go.viam.com/api/app/v1"
@@ -63,14 +64,14 @@ type mockRobotService struct {
 
 func (ms *mockRobotService) Log(ctx context.Context, req *apppb.LogRequest) (*apppb.LogResponse, error) {
 	if ms.expectedID != req.Id {
-		return nil, fmt.Errorf("expected id %q but got %q", ms.expectedID, req.Id)
+		return nil, errtrace.Wrap(fmt.Errorf("expected id %q but got %q", ms.expectedID, req.Id))
 	}
 	ms.logsMu.Lock()
 	defer ms.logsMu.Unlock()
 	if ms.logFailForSizeCount > 0 {
 		logsLeft := ms.logFailForSizeCount
 		ms.logFailForSizeCount -= len(req.Logs)
-		return &apppb.LogResponse{}, fmt.Errorf("not right now, %d log(s) left", logsLeft)
+		return &apppb.LogResponse{}, errtrace.Wrap(fmt.Errorf("not right now, %d log(s) left", logsLeft))
 	}
 	ms.logs = append(ms.logs, req.Logs...)
 	ms.logBatches = append(ms.logBatches, req.Logs)

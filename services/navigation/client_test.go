@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -104,35 +105,35 @@ func TestClient(t *testing.T) {
 	}
 
 	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
-		return navigation.ModeManual, errors.New("failure to retrieve mode")
+		return navigation.ModeManual, errtrace.Wrap(errors.New("failure to retrieve mode"))
 	}
 	var receivedFailingMode navigation.Mode
 	failingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
 		receivedFailingMode = mode
-		return errors.New("failure to set mode")
+		return errtrace.Wrap(errors.New("failure to set mode"))
 	}
 	failingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
-		return nil, errors.New("failure to retrieve location")
+		return nil, errtrace.Wrap(errors.New("failure to retrieve location"))
 	}
 	failingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
-		return nil, errors.New("failure to retrieve waypoints")
+		return nil, errtrace.Wrap(errors.New("failure to retrieve waypoints"))
 	}
 	var receivedFailingPoint *geo.Point
 	failingNavigationService.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
 		receivedFailingPoint = point
-		return errors.New("failure to add waypoint")
+		return errtrace.Wrap(errors.New("failure to add waypoint"))
 	}
 	var receivedFailingID primitive.ObjectID
 	failingNavigationService.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 		receivedFailingID = id
-		return errors.New("failure to remove waypoint")
+		return errtrace.Wrap(errors.New("failure to remove waypoint"))
 	}
 	failingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-		return nil, errors.New("unimplemented")
+		return nil, errtrace.Wrap(errors.New("unimplemented"))
 	}
 
 	failingNavigationService.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
-		return navigation.Properties{}, errors.New("unimplemented")
+		return navigation.Properties{}, errtrace.Wrap(errors.New("unimplemented"))
 	}
 
 	workingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{

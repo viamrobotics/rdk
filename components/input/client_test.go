@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/input"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -211,7 +212,7 @@ func TestClient(t *testing.T) {
 		test.That(t, btnEv.Time.Before(time.Now()), test.ShouldBeTrue)
 
 		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
-			return errTriggerEvent
+			return errtrace.Wrap(errTriggerEvent)
 		}
 		event1 := input.Event{
 			Time:    time.Now().UTC(),

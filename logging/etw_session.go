@@ -3,6 +3,7 @@
 package logging
 
 import (
+	"braces.dev/errtrace"
 	"context"
 	"fmt"
 	"os"
@@ -50,7 +51,7 @@ type logmanSessionController struct {
 // before we recreate it.
 func (l *logmanSessionController) Start(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Dir(l.outputPath), 0o755); err != nil {
-		return fmt.Errorf("create etl dir: %w", err)
+		return errtrace.Wrap(fmt.Errorf("create etl dir: %w", err))
 	}
 
 	// Best-effort cleanup: stop any orphaned runtime session. Ignore errors —
@@ -68,7 +69,7 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 		"-ft", "2",
 		"-ets",
 	); err != nil {
-		return fmt.Errorf("logman create trace: %w", err)
+		return errtrace.Wrap(fmt.Errorf("logman create trace: %w", err))
 	}
 
 	return nil
@@ -76,7 +77,7 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 
 func (l *logmanSessionController) Stop(ctx context.Context) error {
 	if err := l.logman(ctx, "stop", l.name, "-ets"); err != nil {
-		return fmt.Errorf("logman stop: %w", err)
+		return errtrace.Wrap(fmt.Errorf("logman stop: %w", err))
 	}
 	return nil
 }
@@ -84,7 +85,7 @@ func (l *logmanSessionController) Stop(ctx context.Context) error {
 func (l *logmanSessionController) logman(ctx context.Context, args ...string) error {
 	cmdCtx, cancel := context.WithTimeout(ctx, logmanTimeout)
 	defer cancel()
-	return exec.CommandContext(cmdCtx, "logman", args...).Run()
+	return errtrace.Wrap(exec.CommandContext(cmdCtx, "logman", args...).Run())
 }
 
 // bracedGUID returns g wrapped in {…} regardless of whether the input already

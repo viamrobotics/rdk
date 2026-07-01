@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"braces.dev/errtrace"
 	"go.viam.com/utils"
 )
 
@@ -16,11 +17,11 @@ func GetDeviceInfo(modelName string) (utils.StringSet, error) {
 
 	switch {
 	case strings.HasPrefix(arch, "amd"):
-		return stringSetFromX86(modelName)
+		return errtrace.Wrap2(stringSetFromX86(modelName))
 	case strings.HasPrefix(arch, "arm"):
-		return stringSetFromARM(modelName)
+		return errtrace.Wrap2(stringSetFromARM(modelName))
 	default:
-		return nil, noBoardError(modelName)
+		return nil, errtrace.Wrap(noBoardError(modelName))
 	}
 }
 
@@ -31,9 +32,9 @@ func stringSetFromARM(modelName string) (utils.StringSet, error) {
 	compatiblesRd, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, noBoardError(modelName)
+			return nil, errtrace.Wrap(noBoardError(modelName))
 		}
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	compatiblesStr := string(compatiblesRd)
@@ -49,9 +50,9 @@ func stringSetFromX86(modelName string) (utils.StringSet, error) {
 	compatiblesRd, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, noBoardError(modelName)
+			return nil, errtrace.Wrap(noBoardError(modelName))
 		}
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	compatiblesRd = bytes.TrimSpace(compatiblesRd)
@@ -60,5 +61,5 @@ func stringSetFromX86(modelName string) (utils.StringSet, error) {
 }
 
 func noBoardError(modelName string) error {
-	return fmt.Errorf("could not determine %q model", modelName)
+	return errtrace.Wrap(fmt.Errorf("could not determine %q model", modelName))
 }

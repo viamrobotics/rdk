@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"gorgonia.org/tensor"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
@@ -20,7 +21,7 @@ import (
 func newServer(resources map[resource.Name]mlmodel.Service, logger logging.Logger) (pb.MLModelServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(mlmodel.API, resources)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return mlmodel.NewRPCServiceServer(coll, logger).(pb.MLModelServiceServer), nil
 }
@@ -217,7 +218,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	mockSrv.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMLModelServiceName})
 	test.That(t, err, test.ShouldNotBeNil)

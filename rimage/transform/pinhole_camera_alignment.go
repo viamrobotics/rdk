@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/spatialmath"
@@ -48,7 +49,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 	err := json.Unmarshal(byteJSON, intrinExtrin)
 	if err != nil {
 		err = errors.Wrap(err, "error parsing byte array")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	temp := struct {
 		R []float64 `json:"rotation_rads"`
@@ -57,14 +58,14 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 	err = json.Unmarshal(intrinExtrin.ExtrinsicD2C, &temp)
 	if err != nil {
 		err = errors.Wrap(err, "error parsing byte array")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if len(temp.T) != 3 {
-		return nil, errors.Errorf("length of translation is %d, should be 3", len(temp.T))
+		return nil, errtrace.Wrap(errors.Errorf("length of translation is %d, should be 3", len(temp.T)))
 	}
 	orientation, err := spatialmath.NewRotationMatrix(temp.R)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pose := spatialmath.NewPose(r3.Vector{temp.T[0], temp.T[1], temp.T[2]}, orientation)
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
@@ -81,28 +82,28 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
 		err = errors.Wrap(err, "error opening JSON file")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
 	byteValue, err := io.ReadAll(jsonFile)
 	if err != nil {
 		err = errors.Wrap(err, "error reading JSON data")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue)
+	return errtrace.Wrap2(NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue))
 }
 
 // CheckValid checks if the fields for DepthColorIntrinsicsExtrinsics have valid inputs.
 func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 	if dcie == nil {
-		return errors.New("pointer to DepthColorIntrinsicsExtrinsics is nil")
+		return errtrace.Wrap(errors.New("pointer to DepthColorIntrinsicsExtrinsics is nil"))
 	}
 	if dcie.ColorCamera.Width == 0 || dcie.ColorCamera.Height == 0 {
-		return errors.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+		return errtrace.Wrap(errors.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height))
 	}
 	if dcie.DepthCamera.Width == 0 || dcie.DepthCamera.Height == 0 {
-		return errors.Errorf("invalid DepthSize (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height)
+		return errtrace.Wrap(errors.Errorf("invalid DepthSize (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height))
 	}
 	return nil
 }
@@ -112,12 +113,12 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Image, d *rimage.DepthMap,
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	if c == nil {
-		return nil, nil, errors.New("no color image present to align")
+		return nil, nil, errtrace.Wrap(errors.New("no color image present to align"))
 	}
 	if d == nil {
-		return nil, nil, errors.New("no depth image present to align")
+		return nil, nil, errtrace.Wrap(errors.New("no depth image present to align"))
 	}
-	return dcie.TransformDepthCoordToColorCoord(c, d)
+	return errtrace.Wrap3(dcie.TransformDepthCoordToColorCoord(c, d))
 }
 
 // TransformDepthCoordToColorCoord changes the coordinate system of the depth map to be in same coordinate system
@@ -127,13 +128,13 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	if col.Height() != dcie.ColorCamera.Height || col.Width() != dcie.ColorCamera.Width {
 		return nil, nil,
-			errors.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)",
-				dcie.ColorCamera.Width, dcie.ColorCamera.Height, col.Width(), col.Height())
+			errtrace.Wrap(errors.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)",
+				dcie.ColorCamera.Width, dcie.ColorCamera.Height, col.Width(), col.Height()))
 	}
 	if dep.Height() != dcie.DepthCamera.Height || dep.Width() != dcie.DepthCamera.Width {
 		return nil, nil,
-			errors.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)",
-				dcie.DepthCamera.Width, dcie.DepthCamera.Height, dep.Width(), dep.Height())
+			errtrace.Wrap(errors.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)",
+				dcie.DepthCamera.Width, dcie.DepthCamera.Height, dep.Width(), dep.Height()))
 	}
 	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
 	for dy := 0; dy < dcie.DepthCamera.Height; dy++ {
@@ -165,7 +166,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
 func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Point, depth rimage.Depth) (r3.Vector, error) {
-	return intrinsics2DPtTo3DPt(point, depth, &dcie.ColorCamera)
+	return errtrace.Wrap2(intrinsics2DPtTo3DPt(point, depth, &dcie.ColorCamera))
 }
 
 // RGBDToPointCloud takes an Image and DepthMap and uses the camera parameters to project it to a pointcloud.
@@ -175,12 +176,12 @@ func (dcie *DepthColorIntrinsicsExtrinsics) RGBDToPointCloud(
 ) (pointcloud.PointCloud, error) {
 	var rect *image.Rectangle
 	if len(crop) > 1 {
-		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+		return nil, errtrace.Wrap(errors.Errorf("cannot have more than one cropping rectangle, got %v", crop))
 	}
 	if len(crop) == 1 {
 		rect = &crop[0]
 	}
-	return intrinsics2DTo3D(img, dm, &dcie.ColorCamera, rect)
+	return errtrace.Wrap2(intrinsics2DTo3D(img, dm, &dcie.ColorCamera, rect))
 }
 
 // PointCloudToRGBD takes a PointCloud with color info and returns an Image and DepthMap
@@ -188,7 +189,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) RGBDToPointCloud(
 func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToRGBD(
 	cloud pointcloud.PointCloud,
 ) (*rimage.Image, *rimage.DepthMap, error) {
-	return intrinsics3DTo2D(cloud, &dcie.ColorCamera)
+	return errtrace.Wrap3(intrinsics3DTo2D(cloud, &dcie.ColorCamera))
 }
 
 // DepthPixelToColorPixel takes a pixel+depth (x,y, depth) from the depth camera and output is the coordinates
@@ -230,7 +231,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ApplyRigidBodyTransform(pts pointclo
 		return true
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return transformedPoints, nil
 }

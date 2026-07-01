@@ -9,6 +9,7 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
@@ -70,12 +71,12 @@ type configData struct {
 func (conf *Config) UnmarshalJSON(data []byte) error {
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if _, ok := m["api"]; ok {
 		var confData configData
 		if err := json.Unmarshal(data, &confData); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		conf.Name = confData.Name
 		conf.API = confData.API
@@ -90,7 +91,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 
 	var typeSpecificConf typeSpecificConfigData
 	if err := json.Unmarshal(data, &typeSpecificConf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	conf.Name = typeSpecificConf.Name
 	// this will get adjusted later
@@ -106,7 +107,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON marshals JSON from the config.
 func (conf Config) MarshalJSON() ([]byte, error) {
-	return json.Marshal(configData{
+	return errtrace.Wrap2(json.Marshal(configData{
 		Name:                      conf.Name,
 		API:                       conf.API,
 		Model:                     conf.Model,
@@ -115,7 +116,7 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 		LogConfiguration:          conf.LogConfiguration,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Attributes:                conf.Attributes,
-	})
+	}))
 }
 
 // NativeConfig returns the native config from the given config via its
@@ -135,7 +136,7 @@ func NativeConfig[T any](conf Config) (T, error) {
 			"incorrect config type: NativeConfig %w. Make sure the config type registered to the "+
 				"resource matches the one passed into NativeConfig", err)
 	}
-	return val, err
+	return val, errtrace.Wrap(err)
 }
 
 // NewEmptyConfig returns a new, empty config for the given name and model.
@@ -164,14 +165,14 @@ type associatedResourceConfigData struct {
 func (assoc *AssociatedResourceConfig) UnmarshalJSON(data []byte) error {
 	var confData associatedResourceConfigData
 	if err := json.Unmarshal(data, &confData); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	assoc.Attributes = confData.Attributes
 
 	api, err := NewPossibleRDKServiceAPIFromString(confData.API)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	assoc.API = api
 	return nil
@@ -179,10 +180,10 @@ func (assoc *AssociatedResourceConfig) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON marshals JSON from the config.
 func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(associatedResourceConfigData{
+	return errtrace.Wrap2(json.Marshal(associatedResourceConfigData{
 		API:        assoc.API.String(),
 		Attributes: assoc.Attributes,
-	})
+	}))
 }
 
 // Equals checks if the two configs are deeply equal to each other. Validation
@@ -260,11 +261,11 @@ func (conf *Config) ResourceName() Name {
 // dependencies.
 func (conf *Config) Validate(path, defaultAPIType string) ([]string, []string, error) {
 	if conf.alreadyValidated {
-		return conf.cachedImplicitDeps, conf.cachedOptionalImplicitDeps, conf.cachedErr
+		return conf.cachedImplicitDeps, conf.cachedOptionalImplicitDeps, errtrace.Wrap(conf.cachedErr)
 	}
 	conf.cachedImplicitDeps, conf.cachedOptionalImplicitDeps, conf.cachedErr = conf.validate(path, defaultAPIType)
 	conf.alreadyValidated = true
-	return conf.cachedImplicitDeps, conf.cachedOptionalImplicitDeps, conf.cachedErr
+	return conf.cachedImplicitDeps, conf.cachedOptionalImplicitDeps, errtrace.Wrap(conf.cachedErr)
 }
 
 // AdjustPartialNames assumes this config comes from a place where the resource
@@ -304,30 +305,30 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, []string, e
 	conf.AdjustPartialNames(defaultAPIType)
 
 	if conf.Name == "" {
-		return nil, nil, NewConfigValidationFieldRequiredError(path, "name")
+		return nil, nil, errtrace.Wrap(NewConfigValidationFieldRequiredError(path, "name"))
 	}
 
 	if err := utils.ValidateResourceName(conf.Name); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	if err := ContainsReservedCharacter(conf.Name); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	if err := conf.Model.Validate(); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// this effectively checks reserved characters and the rest for namespace and type
 	if err := conf.API.Validate(); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if conf.ConvertedAttributes != nil {
 		var err error
 		requiredDeps, optionalDeps, err = conf.ConvertedAttributes.Validate(path)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 	}
 	return requiredDeps, optionalDeps, nil
@@ -355,7 +356,7 @@ func TransformAttributeMap[T any](attributes utils.AttributeMap) (T, error) {
 		var ok bool
 		out, ok = reflect.New(toT.Elem()).Interface().(T)
 		if !ok {
-			return out, errors.Errorf("failed to allocate default config type %T", out)
+			return out, errtrace.Wrap(errors.Errorf("failed to allocate default config type %T", out))
 		}
 		forResult = out
 	} else {
@@ -369,11 +370,11 @@ func TransformAttributeMap[T any](attributes utils.AttributeMap) (T, error) {
 		Metadata: &md,
 	})
 	if err != nil {
-		return out, err
+		return out, errtrace.Wrap(err)
 	}
 	if err := decoder.Decode(attributes); err != nil {
 		// strip \n\n from mapstructure library's Decoder.Decode
-		return out, fmt.Errorf("%s", strings.ReplaceAll(err.Error(), "\n\n", " "))
+		return out, errtrace.Wrap(fmt.Errorf("%s", strings.ReplaceAll(err.Error(), "\n\n", " ")))
 	}
 	if attributes.Has("attributes") || len(md.Unused) == 0 {
 		return out, nil
@@ -403,7 +404,7 @@ func TransformAttributeMap[T any](attributes utils.AttributeMap) (T, error) {
 
 // NewConfigValidationError returns a config validation error occurring at a given path.
 func NewConfigValidationError(path string, err error) error {
-	return fmt.Errorf("Error validating. Path: %q Error: %w", path, err)
+	return errtrace.Wrap(fmt.Errorf("Error validating. Path: %q Error: %w", path, err))
 }
 
 // FieldRequiredError describes a missing field on a config object.
@@ -426,7 +427,7 @@ func (fre FieldRequiredError) String() string {
 // NewConfigValidationFieldRequiredError returns a config validation error for a field missing at a
 // given path.
 func NewConfigValidationFieldRequiredError(path, field string) error {
-	return FieldRequiredError{path, field}
+	return errtrace.Wrap(FieldRequiredError{path, field})
 }
 
 // GetFieldFromFieldRequiredError returns the `Field` object from a `FieldRequiredError`.

@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -133,7 +134,7 @@ func TestValidateWindowsCloudBuild(t *testing.T) {
 		return ModuleManifest{Models: nil}, nil
 	}
 	fetchFailed := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
-		return ModuleManifest{}, errors.New("network down")
+		return ModuleManifest{}, errtrace.Wrap(errors.New("network down"))
 	}
 	fetchUncalled := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
 		t.Fatal("githubFetchManifest should not have been called")
@@ -510,7 +511,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 			GetRobotFunc: func(ctx context.Context, req *apppb.GetRobotRequest,
 				opts ...grpc.CallOption,
 			) (*apppb.GetRobotResponse, error) {
-				return nil, errors.New("robot not found")
+				return nil, errtrace.Wrap(errors.New("robot not found"))
 			},
 		}
 
@@ -542,7 +543,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 			GetLocationFunc: func(ctx context.Context, req *apppb.GetLocationRequest,
 				opts ...grpc.CallOption,
 			) (*apppb.GetLocationResponse, error) {
-				return nil, errors.New("location not found")
+				return nil, errtrace.Wrap(errors.New("location not found"))
 			},
 		}
 

@@ -7,6 +7,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
@@ -37,13 +38,13 @@ func NewSLAMLocalizer(slam slam.Service) Localizer {
 func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	pose, err := s.Position(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pose = spatialmath.Compose(pose, SLAMOrientationAdjustment)
 
 	// Slam poses are returned such that theta=0 points along the +X axis
 	// We must rotate 90 degrees to match the base convention of y = forwards
-	return referenceframe.NewPoseInFrame(referenceframe.World, pose), err
+	return referenceframe.NewPoseInFrame(referenceframe.World, pose), errtrace.Wrap(err)
 }
 
 // movementSensorLocalizer is a struct which only wraps an existing movementsensor.
@@ -67,18 +68,18 @@ func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Po
 func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	gp, _, err := m.Position(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var o spatialmath.Orientation
 	properties, err := m.Properties(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	switch {
 	case properties.CompassHeadingSupported:
 		headingLeft, err := m.CompassHeading(ctx, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// CompassHeading is a left-handed value. Convert to be right-handed. Use math.Mod to ensure that 0 reports 0 rather than 360.
 		heading := math.Mod(math.Abs(headingLeft-360), 360)
@@ -86,10 +87,10 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	case properties.OrientationSupported:
 		o, err = m.Orientation(ctx, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	default:
-		return nil, errors.New("could not get orientation from Localizer")
+		return nil, errtrace.Wrap(errors.New("could not get orientation from Localizer"))
 	}
 
 	pose := spatialmath.NewPose(spatialmath.GeoPointToPoint(gp, m.origin), o)
@@ -112,11 +113,11 @@ type yForwards2dLocalizer struct {
 func (y *yForwards2dLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	currPos, err := y.Localizer.CurrentPosition(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	newPose, err := spatialmath.ProjectOrientationTo2dRotation(currPos.Pose())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), newPose)
 	newPiF.SetName(currPos.Name())

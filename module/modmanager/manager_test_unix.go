@@ -3,7 +3,8 @@
 package modmanager
 
 import "syscall"
+import "braces.dev/errtrace"
 
 func kill(pid int, signal syscall.Signal) error {
-	return syscall.Kill(pid, signal)
+	return errtrace.Wrap(syscall.Kill(pid, signal))
 }

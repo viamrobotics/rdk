@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/etc/winlogproc"
 )
 
@@ -157,7 +158,7 @@ func applyLastFilter(dir string, dur time.Duration) error {
 		path := filepath.Join(dir, "processed", name)
 		latest, err := winlogproc.MaxTimestampInTSV(path)
 		if err != nil {
-			return fmt.Errorf("max ts in %s: %w", name, err)
+			return errtrace.Wrap(fmt.Errorf("max ts in %s: %w", name, err))
 		}
 		if latest.IsZero() {
 			fmt.Fprintf(os.Stderr, "-last: %s has no parseable timestamps; skipping\n", name)
@@ -167,7 +168,7 @@ func applyLastFilter(dir string, dur time.Duration) error {
 		fmt.Fprintf(os.Stderr, "-last %s: anchor=%s cutoff=%s\n",
 			name, latest.Format(time.RFC3339Nano), cutoff.Format(time.RFC3339Nano))
 		if err := winlogproc.FilterProcessedTSV(path, cutoff, time.Time{}); err != nil {
-			return fmt.Errorf("filter %s: %w", name, err)
+			return errtrace.Wrap(fmt.Errorf("filter %s: %w", name, err))
 		}
 	}
 	return nil

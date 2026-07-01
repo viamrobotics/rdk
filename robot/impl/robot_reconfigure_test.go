@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
+	"braces.dev/errtrace"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	rdktestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
@@ -88,11 +89,11 @@ func TestRobotReconfigure(t *testing.T) {
 				convAttrs := conf.ConvertedAttributes.(*mockFakeConfig)
 				for _, dep := range convAttrs.InferredDep {
 					if _, ok := deps[mockNamed(dep)]; !ok {
-						return nil, errors.Errorf("inferred dependency %q cannot be found", mockNamed(dep))
+						return nil, errtrace.Wrap(errors.Errorf("inferred dependency %q cannot be found", mockNamed(dep)))
 					}
 				}
 				if convAttrs.ShouldFail {
-					return nil, errors.Errorf("cannot build %q for some obscure reason", conf.Name)
+					return nil, errtrace.Wrap(errors.Errorf("cannot build %q for some obscure reason", conf.Name))
 				}
 				return &mockFake{
 					Named:       conf.ResourceName().AsNamed(),
@@ -135,7 +136,7 @@ func TestRobotReconfigure(t *testing.T) {
 			mockDepName := convAttrs.MockDep
 			mockDep, ok := deps[mockNamed(mockDepName)]
 			if !ok {
-				return nil, errors.New("missing dependency")
+				return nil, errtrace.Wrap(errors.New("missing dependency"))
 			}
 			parent := mockDep.(*mockFake)
 			slot := convAttrs.Slot

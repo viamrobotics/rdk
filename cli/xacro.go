@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"braces.dev/errtrace"
 	"github.com/urfave/cli/v3"
 )
 
@@ -92,7 +93,7 @@ type urdfLimit struct {
 // XacroConvertAction converts a xacro file to URDF format.
 func XacroConvertAction(ctx context.Context, cmd *cli.Command, args xacroConvertArgs) error {
 	if _, err := exec.LookPath(dockerExecutable); err != nil {
-		return fmt.Errorf("%s not found - please install Docker to use xacro conversion: %w", dockerExecutable, err)
+		return errtrace.Wrap(fmt.Errorf("%s not found - please install Docker to use xacro conversion: %w", dockerExecutable, err))
 	}
 
 	packageXMLPath := args.PackageXML
@@ -101,18 +102,18 @@ func XacroConvertAction(ctx context.Context, cmd *cli.Command, args xacroConvert
 	}
 
 	if _, err := os.Stat(packageXMLPath); os.IsNotExist(err) {
-		return fmt.Errorf("%s not found at %s (specify with --package-xml if in a different location)", packageXMLFilename, packageXMLPath)
+		return errtrace.Wrap(fmt.Errorf("%s not found at %s (specify with --package-xml if in a different location)", packageXMLFilename, packageXMLPath))
 	}
 
 	pkgName, err := extractPackageName(packageXMLPath)
 	if err != nil {
-		return fmt.Errorf("failed to detect package name: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to detect package name: %w", err))
 	}
 	printf(cmd.Root().Writer, "Detected package: %s\n", pkgName)
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if packageXMLPath != packageXMLFilename {
@@ -125,25 +126,25 @@ func XacroConvertAction(ctx context.Context, cmd *cli.Command, args xacroConvert
 	}
 
 	if _, err := os.Stat(absInputFile); os.IsNotExist(err) {
-		return fmt.Errorf("input file not found: %s (check the path is correct)", args.InputFile)
+		return errtrace.Wrap(fmt.Errorf("input file not found: %s (check the path is correct)", args.InputFile))
 	}
 
 	// Fail early before expensive Docker processing
 	if err := validateOutputWritable(args.OutputFile); err != nil {
-		return fmt.Errorf("output path not writable: %w (check directory exists and you have write permissions)", err)
+		return errtrace.Wrap(fmt.Errorf("output path not writable: %w (check directory exists and you have write permissions)", err))
 	}
 
 	relInputFile, err := filepath.Rel(cwd, absInputFile)
 	if err != nil {
-		return fmt.Errorf("failed to compute relative path for input: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to compute relative path for input: %w", err))
 	}
 
 	dependentPkgs, err := discoverDependentPackages(absInputFile, cwd, pkgName)
 	if err != nil {
-		return fmt.Errorf(
+		return errtrace.Wrap(fmt.Errorf(
 			"failed to discover dependent packages: %w\n\nSuggestion: Ensure dependent packages are in the same parent directory as this package",
 			err,
-		)
+		))
 	}
 	if len(dependentPkgs) > 0 {
 		printf(cmd.Root().Writer, "Found dependent packages: %s\n", strings.Join(getPackageNames(dependentPkgs), ", "))
@@ -151,7 +152,7 @@ func XacroConvertAction(ctx context.Context, cmd *cli.Command, args xacroConvert
 
 	dockerArgs, err := processXacroArgs(args.Args, cwd, pkgName)
 	if err != nil {
-		return fmt.Errorf("failed to process xacro arguments: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to process xacro arguments: %w", err))
 	}
 
 	rosDistro := args.RosDistro
@@ -189,7 +190,7 @@ func XacroConvertAction(ctx context.Context, cmd *cli.Command, args xacroConvert
 		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "Cannot connect") {
 			errMsg += fmt.Sprintf("\n\nSuggestion: Check that Docker is running (try '%s ps')", dockerExecutable)
 		}
-		return fmt.Errorf("%s", errMsg)
+		return errtrace.Wrap(fmt.Errorf("%s", errMsg))
 	}
 
 	output := stdout.String()
@@ -203,17 +204,17 @@ func XacroConvertAction(ctx context.Context, cmd *cli.Command, args xacroConvert
 			if writeErr := os.WriteFile(args.OutputFile, []byte(output), fileOutputPerm); writeErr == nil {
 				printf(cmd.Root().Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.OutputFile)
 			}
-			return fmt.Errorf(
+			return errtrace.Wrap(fmt.Errorf(
 				"failed to collapse fixed joints: %w\n\nSuggestion: The uncollapsed URDF has been saved. "+
 					"Try running without --collapse-fixed-joints, or check the URDF structure",
 				err,
-			)
+			))
 		}
 		output = collapsed
 	}
 
 	if err := os.WriteFile(args.OutputFile, []byte(output), fileOutputPerm); err != nil {
-		return fmt.Errorf("failed to write output file: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to write output file: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "Success! Generated: %s\n", args.OutputFile)
@@ -232,25 +233,25 @@ func validateOutputWritable(outputPath string) error {
 	dir := filepath.Dir(outputPath)
 	if dir != "" && dir != "." {
 		if info, err := os.Stat(dir); err != nil {
-			return fmt.Errorf("output directory does not exist: %s", dir)
+			return errtrace.Wrap(fmt.Errorf("output directory does not exist: %s", dir))
 		} else if !info.IsDir() {
-			return fmt.Errorf("output directory path is not a directory: %s", dir)
+			return errtrace.Wrap(fmt.Errorf("output directory path is not a directory: %s", dir))
 		}
 	}
 
 	//nolint:gosec // G304: Output path specified by user
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, fileOutputPerm)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := f.Close(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Remove empty test file (don't leave artifacts if we just created it)
 	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() == 0 {
 		if err := os.Remove(outputPath); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -296,16 +297,16 @@ func extractPackageName(packageXMLPath string) (string, error) {
 	//nolint:gosec // G304: Package XML path specified by user
 	data, err := os.ReadFile(packageXMLPath)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	var pkg packageXML
 	if err := xml.Unmarshal(data, &pkg); err != nil {
-		return "", fmt.Errorf("failed to parse package.xml at %s: %w", packageXMLPath, err)
+		return "", errtrace.Wrap(fmt.Errorf("failed to parse package.xml at %s: %w", packageXMLPath, err))
 	}
 
 	if pkg.Name == "" {
-		return "", fmt.Errorf("package.xml at %s does not contain a <name> element", packageXMLPath)
+		return "", errtrace.Wrap(fmt.Errorf("package.xml at %s does not contain a <name> element", packageXMLPath))
 	}
 
 	return strings.TrimSpace(pkg.Name), nil
@@ -319,7 +320,7 @@ func processXacroArgs(args []string, cwd, pkgName string) ([]string, error) {
 	for _, arg := range args {
 		processed, err := processArgIfFilePath(arg, cwd, pkgName)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		dockerArgs = append(dockerArgs, processed)
 	}
@@ -340,7 +341,7 @@ func processArgIfFilePath(arg, cwd, pkgName string) (string, error) {
 	if stat, err := os.Stat(value); err == nil && stat.Mode().IsRegular() {
 		relPath, err := filepath.Rel(cwd, value)
 		if err != nil {
-			return "", fmt.Errorf("failed to compute relative path for %s: %w", value, err)
+			return "", errtrace.Wrap(fmt.Errorf("failed to compute relative path for %s: %w", value, err))
 		}
 		return fmt.Sprintf("%s%s%s/%s", key, xacroArgSeparator, pkgName, relPath), nil
 	}
@@ -358,7 +359,7 @@ type packageInfo struct {
 func discoverDependentPackages(xacroPath, currentPkgDir, currentPkgName string) ([]packageInfo, error) {
 	pkgNames := make(map[string]bool)
 	if err := scanXacroForDependencies(xacroPath, currentPkgDir, pkgNames); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	delete(pkgNames, currentPkgName)
@@ -383,7 +384,7 @@ func scanXacroForDependencies(xacroPath, currentPkgDir string, pkgNames map[stri
 	//nolint:gosec // G304: Xacro files are user input for conversion
 	data, err := os.ReadFile(xacroPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	content := string(data)
@@ -567,7 +568,7 @@ func appendVolumeMounts(cmd []string, mainPkg, mainPath string, deps []packageIn
 func collapseFixedJoints(urdfContent string) (string, error) {
 	var robot urdfRobot
 	if err := xml.Unmarshal([]byte(urdfContent), &robot); err != nil {
-		return "", fmt.Errorf("failed to parse URDF: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("failed to parse URDF: %w", err))
 	}
 
 	childLinks := make(map[string]int)
@@ -613,7 +614,7 @@ func collapseFixedJoints(urdfContent string) (string, error) {
 
 	output, err := xml.MarshalIndent(&robot, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal URDF: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("failed to marshal URDF: %w", err))
 	}
 
 	return xml.Header + string(output) + "\n", nil

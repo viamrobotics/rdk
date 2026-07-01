@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
@@ -28,7 +29,7 @@ type Config struct {
 // Validation error will stop the associated resource from building.
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Summer == "" {
-		return nil, nil, fmt.Errorf(`expected "summer" attribute for myGizmo %q`, path)
+		return nil, nil, errtrace.Wrap(fmt.Errorf(`expected "summer" attribute for myGizmo %q`, path))
 	}
 
 	// there are no dependencies for this model, so we return an empty list of strings
@@ -43,7 +44,7 @@ func init() {
 			conf resource.Config,
 			logger logging.Logger,
 		) (gizmoapi.Gizmo, error) {
-			return NewMyGizmoSummer(deps, conf, logger)
+			return errtrace.Wrap2(NewMyGizmoSummer(deps, conf, logger))
 		},
 	})
 }
@@ -68,7 +69,7 @@ func NewMyGizmoSummer(
 		logger: logger,
 	}
 	if err := g.reconfigure(context.Background(), deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return g, nil
 }
@@ -78,11 +79,11 @@ func (g *myActualGizmo) reconfigure(ctx context.Context, deps resource.Dependenc
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	gizmoConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	summer, err := resource.FromProvider[summationapi.Summation](deps, summationapi.Named(gizmoConfig.Summer))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	g.mySummerMu.Lock()
@@ -105,13 +106,13 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 
 	n, err := strconv.ParseFloat(arg1, 64)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 
 	var sum float64
 	sum, err = g.mySummer.Sum(ctx, []float64{n})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return sum == n, nil
 }
@@ -140,7 +141,7 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 	defer g.mySummerMu.Unlock()
 
 	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
-		return false, errors.New("TestMetadataAcrossTwoModules-ClientStream-good")
+		return false, errtrace.Wrap(errors.New("TestMetadataAcrossTwoModules-ClientStream-good"))
 	}
 
 	if len(arg1) == 0 {
@@ -150,13 +151,13 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 	for _, arg := range arg1 {
 		n, err := strconv.ParseFloat(arg, 64)
 		if err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 		ns = append(ns, n)
 	}
 	sum, err := g.mySummer.Sum(ctx, ns)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return sum == 5, nil
 }
@@ -166,16 +167,16 @@ func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]b
 	defer g.mySummerMu.Unlock()
 
 	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
-		return []bool{false}, errors.New("TestMetadataAcrossTwoModules-ServerStream-good")
+		return []bool{false}, errtrace.Wrap(errors.New("TestMetadataAcrossTwoModules-ServerStream-good"))
 	}
 
 	n, err := strconv.ParseFloat(arg1, 64)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	sum, err := g.mySummer.Sum(ctx, []float64{n})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return []bool{sum == n, false, true, false}, nil
 }
@@ -185,7 +186,7 @@ func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]b
 	defer g.mySummerMu.Unlock()
 
 	if allExpectedMetadataPresentTestHelper(maps.Collect(metadata.All(ctx))) {
-		return []bool{false}, errors.New("TestMetadataAcrossTwoModules-BiDiStream-good")
+		return []bool{false}, errtrace.Wrap(errors.New("TestMetadataAcrossTwoModules-BiDiStream-good"))
 	}
 
 	var rets []bool
@@ -194,11 +195,11 @@ func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]b
 		g.logger.Info(arg)
 		n, err := strconv.ParseFloat(arg, 64)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		sum, err := g.mySummer.Sum(ctx, []float64{n})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		rets = append(rets, sum == n)
 	}
@@ -215,7 +216,7 @@ func (g *myActualGizmo) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 	}
 	sum, err := g.mySummer.Sum(ctx, []float64{n, 3.0})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return fmt.Sprintf("sum=%v", sum), nil
 }

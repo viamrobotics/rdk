@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 )
 
@@ -22,17 +23,17 @@ func (m method) String() string {
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	shell, err := assertShell(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(shell, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertShell(resource interface{}) (Service, error) {
 	shell, ok := resource.(Service)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return shell, nil
 }

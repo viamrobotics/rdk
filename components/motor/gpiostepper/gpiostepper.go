@@ -38,6 +38,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -76,22 +77,22 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if cfg.BoardName == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "board"))
 	}
 	if cfg.TicksPerRotation == 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation"))
 	}
 	if cfg.Pins.Direction == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "dir")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "dir"))
 	}
 	if cfg.Pins.Step == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "step")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "step"))
 	}
 	if cfg.Microsteps < 0 {
-		return nil, nil, resource.NewConfigValidationError(path, errors.New("microsteps must be >= 0 (0 defaults to 1)"))
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("microsteps must be >= 0 (0 defaults to 1)")))
 	}
 	if cfg.MaxRPM < 0 {
-		return nil, nil, resource.NewConfigValidationError(path, errors.New("max_rpm must be >= 0"))
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("max_rpm must be >= 0")))
 	}
 	deps = append(deps, cfg.BoardName)
 	return deps, nil, nil
@@ -114,7 +115,7 @@ func (m *gpioStepper) enable(ctx context.Context, high bool) error {
 		err = multierr.Combine(err, m.enablePinLow.Set(ctx, !high, nil))
 	}
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 func newGPIOStepper(
@@ -125,16 +126,16 @@ func newGPIOStepper(
 ) (motor.Motor, error) {
 	mc, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	b, err := board.FromProvider(deps, mc.BoardName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if mc.TicksPerRotation == 0 {
-		return nil, errors.New("expected ticks_per_rotation in config for motor")
+		return nil, errtrace.Wrap(errors.New("expected ticks_per_rotation in config for motor"))
 	}
 
 	microsteps := max(mc.Microsteps, 1)
@@ -151,25 +152,25 @@ func newGPIOStepper(
 	if mc.Pins.EnablePinHigh != "" {
 		m.enablePinHigh, err = b.GPIOPinByName(mc.Pins.EnablePinHigh)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	if mc.Pins.EnablePinLow != "" {
 		m.enablePinLow, err = b.GPIOPinByName(mc.Pins.EnablePinLow)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
 	// set the required step and direction pins
 	m.stepPin, err = b.GPIOPinByName(mc.Pins.Step)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	m.dirPin, err = b.GPIOPinByName(mc.Pins.Direction)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	switch {
@@ -198,7 +199,7 @@ func newGPIOStepper(
 
 	err = m.enable(ctx, false)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return m, nil
@@ -259,16 +260,16 @@ func (m *gpioStepper) rpmToFreqHz(rpm float64) uint {
 // Must be called under m.lock.
 func (m *gpioStepper) startPWM(ctx context.Context, forward bool, freqHz uint) (float64, error) {
 	if err := m.dirPin.Set(ctx, forward, nil); err != nil {
-		return 0, fmt.Errorf("error setting direction pin: %w", err)
+		return 0, errtrace.Wrap(fmt.Errorf("error setting direction pin: %w", err))
 	}
 	if err := m.enable(ctx, true); err != nil {
-		return 0, fmt.Errorf("error enabling motor: %w", err)
+		return 0, errtrace.Wrap(fmt.Errorf("error enabling motor: %w", err))
 	}
 	if err := m.stepPin.SetPWMFreq(ctx, freqHz, nil); err != nil {
-		return 0, fmt.Errorf("error setting PWM frequency: %w", err)
+		return 0, errtrace.Wrap(fmt.Errorf("error setting PWM frequency: %w", err))
 	}
 	if err := m.stepPin.SetPWM(ctx, 0.5, nil); err != nil {
-		return 0, fmt.Errorf("error setting PWM duty cycle: %w", err)
+		return 0, errtrace.Wrap(fmt.Errorf("error setting PWM duty cycle: %w", err))
 	}
 
 	// Read back confirmed frequency. Non-fatal: fall back to requested freq on error.
@@ -295,10 +296,10 @@ func (m *gpioStepper) startPWM(ctx context.Context, forward bool, freqHz uint) (
 
 // stopHardware stops PWM and disables the motor. Idempotent.
 func (m *gpioStepper) stopHardware(ctx context.Context) error {
-	return multierr.Combine(
+	return errtrace.Wrap(multierr.Combine(
 		m.stepPin.SetPWM(ctx, 0, nil),
 		m.enable(ctx, false),
-	)
+	))
 }
 
 // trackPosition is a per-movement goroutine that estimates position based on elapsed time
@@ -360,14 +361,14 @@ func (m *gpioStepper) trackPosition(ctx context.Context, doneCh chan<- error,
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) <= .0001 {
-		return m.Stop(ctx, nil)
+		return errtrace.Wrap(m.Stop(ctx, nil))
 	}
 
 	if m.minDelay == 0 {
-		return errors.Errorf(
+		return errtrace.Wrap(errors.Errorf(
 			"if you want to set the power, set 'stepper_delay_usec' in the motor config at "+
 				"the minimum time delay between pulses for your stepper motor (%s)",
-			m.Name().Name)
+			m.Name().Name))
 	}
 
 	m.opMgr.CancelRunning(ctx)
@@ -391,7 +392,7 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 	actualFreq, err := m.startPWM(ctx, forward, freqHz)
 	if err != nil {
 		m.lock.Unlock()
-		return err
+		return errtrace.Wrap(err)
 	}
 	trackCtx, cancel := context.WithCancel(context.Background())
 	m.trackingCancel = cancel
@@ -416,11 +417,11 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
-		return multierr.Combine(m.Stop(ctx, nil), motor.NewZeroRPMError())
+		return errtrace.Wrap(multierr.Combine(m.Stop(ctx, nil), motor.NewZeroRPMError()))
 	}
 
 	if err := motor.CheckRevolutions(revolutions); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var d int64 = 1
@@ -439,7 +440,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	actualFreq, err := m.startPWM(ctx, forward, m.rpmToFreqHz(rpm))
 	if err != nil {
 		m.lock.Unlock()
-		return err
+		return errtrace.Wrap(err)
 	}
 	trackCtx, cancel := context.WithCancel(ctx)
 	m.trackingCancel = cancel
@@ -460,7 +461,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 			err = multierr.Combine(err, hwErr)
 		}
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
@@ -469,7 +470,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.Name().Name)
+		return errtrace.Wrap(errors.Wrapf(err, "error in GoTo from motor (%s)", m.Name().Name))
 	}
 	moveDistance := positionRevolutions - curPos
 
@@ -481,13 +482,13 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	}
 
 	m.logger.CDebugf(ctx, "motor (%s) going to %.2f at rpm %.2f", m.Name().Name, moveDistance, math.Abs(rpm))
-	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
+	return errtrace.Wrap(m.GoFor(ctx, math.Abs(rpm), moveDistance, extra))
 }
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 	if math.Abs(rpm) <= .0001 {
-		return m.Stop(ctx, nil)
+		return errtrace.Wrap(m.Stop(ctx, nil))
 	}
 
 	m.opMgr.CancelRunning(ctx)
@@ -508,7 +509,7 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 	actualFreq, err := m.startPWM(ctx, forward, m.rpmToFreqHz(rpm))
 	if err != nil {
 		m.lock.Unlock()
-		return err
+		return errtrace.Wrap(err)
 	}
 	trackCtx, cancel := context.WithCancel(context.Background())
 	m.trackingCancel = cancel
@@ -527,7 +528,7 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.stopTracking()
 	if err := m.stopHardware(ctx); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	pos := int64(-1 * offset * float64(m.stepsPerRotation))
 	m.stepPosition.Store(pos)
@@ -558,7 +559,7 @@ func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
 func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stopTracking()
 	m.targetStepPosition.Store(m.stepPosition.Load())
-	return m.stopHardware(ctx)
+	return errtrace.Wrap(m.stopHardware(ctx))
 }
 
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
@@ -567,16 +568,16 @@ func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) er
 func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.Name().Name)
+		return on, 0.0, errtrace.Wrap(errors.Wrapf(err, "error in IsPowered from motor (%s)", m.Name().Name))
 	}
 	percent := 0.0
 	if on {
 		percent = 1.0
 	}
-	return on, percent, err
+	return on, percent, errtrace.Wrap(err)
 }
 
 func (m *gpioStepper) Close(ctx context.Context) error {
 	m.stopTracking()
-	return m.stopHardware(ctx)
+	return errtrace.Wrap(m.stopHardware(ctx))
 }

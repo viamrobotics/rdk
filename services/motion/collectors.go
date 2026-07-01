@@ -1,6 +1,7 @@
 package motion
 
 import (
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 )
 
@@ -22,17 +23,17 @@ func (m method) String() string {
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	motion, err := assertMotion(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(motion, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertMotion(resource interface{}) (Service, error) {
 	motion, ok := resource.(Service)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return motion, nil
 }

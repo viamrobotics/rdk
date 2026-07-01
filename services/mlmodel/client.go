@@ -6,6 +6,7 @@ import (
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	rprotoutils "go.viam.com/rdk/protoutils"
@@ -45,7 +46,7 @@ func NewClientFromConn(
 func (c *client) Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
 	tensorProto, err := TensorsToProto(tensors)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if tensors == nil {
 		tensorProto = nil
@@ -55,11 +56,11 @@ func (c *client) Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, err
 		InputTensors: tensorProto,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	tensorResp, err := ml.ProtoToTensors(resp.OutputTensors)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return tensorResp, nil
 }
@@ -69,13 +70,13 @@ func (c *client) Metadata(ctx context.Context) (MLMetadata, error) {
 		Name: c.name,
 	})
 	if err != nil {
-		return MLMetadata{}, err
+		return MLMetadata{}, errtrace.Wrap(err)
 	}
 	return protoToMetadata(resp.Metadata), nil
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 // protoToMetadata takes a pb.Metadata protobuf message and turns it into an MLMetadata struct.

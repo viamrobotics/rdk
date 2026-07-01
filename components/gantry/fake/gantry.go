@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -28,7 +29,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	if conf.ModelFilePath != "" {
 		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
 	}
-	return nil, nil, err
+	return nil, nil, errtrace.Wrap(err)
 }
 
 func makeGantryModel(cfg resource.Config, newConf *Config) (referenceframe.Model, error) {
@@ -47,10 +48,10 @@ func makeGantryModel(cfg resource.Config, newConf *Config) (referenceframe.Model
 	}
 
 	if len(model.DoF()) != 1 {
-		return nil, fmt.Errorf("gantry model must have exactly one degree of freedom, got %d", len(model.DoF()))
+		return nil, errtrace.Wrap(fmt.Errorf("gantry model must have exactly one degree of freedom, got %d", len(model.DoF())))
 	}
 
-	return model, err
+	return model, errtrace.Wrap(err)
 }
 
 func init() {
@@ -64,7 +65,7 @@ func init() {
 				conf resource.Config,
 				logger logging.Logger,
 			) (gantry.Gantry, error) {
-				return NewGantry(conf, logger)
+				return errtrace.Wrap2(NewGantry(conf, logger))
 			},
 		})
 }
@@ -73,12 +74,12 @@ func init() {
 func NewGantry(conf resource.Config, logger logging.Logger) (gantry.Gantry, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	m, err := makeGantryModel(conf, newConf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &Gantry{
@@ -123,7 +124,7 @@ func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
 	for i, position := range positionsMm {
 		if position < 0 || position > g.lengthsMm[i] {
-			return fmt.Errorf("position %v out of range [0, %v]", position, g.lengthsMm[i])
+			return errtrace.Wrap(fmt.Errorf("position %v out of range [0, %v]", position, g.lengthsMm[i]))
 		}
 	}
 
@@ -146,11 +147,11 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 func (g *Gantry) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	inputs, err := g.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	gif, err := g.model.Geometries(inputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return gif.Geometries(), nil
 }
@@ -164,7 +165,7 @@ func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := g.Position(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return res, nil
 }
@@ -174,7 +175,7 @@ func (g *Gantry) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.
 	for _, goal := range inputSteps {
 		err := g.MoveToPosition(ctx, goal, g.speedsMmPerSec, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil

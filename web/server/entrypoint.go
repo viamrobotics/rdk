@@ -23,6 +23,7 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -99,16 +100,16 @@ func logStartupInfo(logger logging.Logger) {
 func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	ctx, err = rutils.WithTrustedEnvironment(ctx, !argsParsed.UntrustedEnv)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if argsParsed.DumpResourcesPath != "" {
-		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
+		return errtrace.Wrap(dumpResourceRegistrations(argsParsed.DumpResourcesPath))
 	}
 
 	// The root logger has the name "rdk" and represents the root of the logger tree. We use
@@ -158,11 +159,13 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if argsParsed.Version {
 		// log startup info here and return if version flag.
 		logStartupInfo(rootLogger)
+		err = errtrace.Wrap(err)
 		return
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
 		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTests */)
+		err = errtrace.Wrap(err)
 		return
 	}
 
@@ -177,17 +180,18 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	if argsParsed.ConfigFile == "" {
 		rootLogger.Error("please specify a config file through the -config parameter.")
+		err = errtrace.Wrap(err)
 		return
 	}
 
 	if argsParsed.CPUProfile != "" {
 		f, err := os.Create(argsParsed.CPUProfile)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		defer pprof.StopCPUProfile()
 	}
@@ -206,7 +210,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Read the config from disk and use it to initialize the remote logger.
 	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, configLogger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if argsParsed.OutputTelemetry {
@@ -217,7 +221,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			TracesDisabled:    true,
 		})
 		if err := exporter.Start(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		defer exporter.Stop()
 	}
@@ -231,7 +235,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		appConnLogger := networkingLogger.Sublogger("app_connection")
 		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, cloudCreds, appConnLogger)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		defer utils.UncheckedErrorFunc(appConn.Close)
 
@@ -241,7 +245,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			signalingConn, err = grpc.NewAppConn(
 				ctx, cloud.SignalingAddress, cloud.ID, cloudCreds, signalingConnLogger)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			defer utils.UncheckedErrorFunc(signalingConn.Close)
 		} else {
@@ -260,7 +264,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
 			)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			defer netAppender.Close()
 
@@ -296,7 +300,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		rootLogger.Error("Fatal error running server, exiting now:", err)
 	}
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 // runServer is an entry point to starting the web server after the local config is read. Once the local config
@@ -311,7 +315,7 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	// config.Read will add a timeout using contextutils.GetTimeoutCtx, so no need to add a separate timeout.
 	cfg, err := config.Read(ctx, s.args.ConfigFile, s.configLogger, s.conn)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// If the "file" config debug flag is set here when the config has a cloud connection, the flag will never be unset.
 	// Then, logging_level.go/refreshLogLevelInLock will always set the log level to debug even if the cloud config
@@ -326,13 +330,13 @@ func (s *robotServer) runServer(ctx context.Context) error {
 		s.rootLogger.Errorw("error serving web", "error", err)
 	}
 
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, error) {
 	options, err := weboptions.FromConfig(cfg)
 	if err != nil {
-		return weboptions.Options{}, err
+		return weboptions.Options{}, errtrace.Wrap(err)
 	}
 	options.Pprof = s.args.WebProfile || cfg.EnableWebProfile
 	options.Debug = s.args.Debug || cfg.Debug
@@ -349,7 +353,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	if len(options.Auth.Handlers) == 0 {
 		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
 		if err != nil {
-			return weboptions.Options{}, err
+			return weboptions.Options{}, errtrace.Wrap(err)
 		}
 		if host == "" || host == "0.0.0.0" || host == "::" {
 			// Use rootLogger instead of networkingLogger here to be user-facing. This log has
@@ -365,7 +369,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 	out, err := config.ProcessConfig(in)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	out.Debug = s.args.Debug || in.Debug
 	out.EnableWebProfile = s.args.WebProfile || in.EnableWebProfile
@@ -499,7 +503,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		if cloudRestartCheckerActive != nil {
 			<-cloudRestartCheckerActive
 		}
-		err = multierr.Combine(err, rpcDialer.Close())
+		err = errtrace.Wrap(multierr.Combine(err, rpcDialer.Close()))
 	}()
 	defer cancel()
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
@@ -566,7 +570,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	s.configLogger.CInfo(ctx, "Processing initial robot config...")
 	fullProcessedConfig, err := s.processConfig(cfg)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Update logger registry as soon as we have fully processed config. Further
@@ -642,7 +646,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.rootLogger, robotOptions...)
 	if err != nil {
 		cancel()
-		return err
+		return errtrace.Wrap(err)
 	}
 	s.configLogger.CInfow(ctx, "Robot created with minimal config", "time_to_create", time.Since(startTime).String())
 
@@ -650,17 +654,17 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	theRobot = myRobot
 	theRobotLock.Unlock()
 	defer func() {
-		err = multierr.Combine(err, theRobot.Close(context.Background()))
+		err = errtrace.Wrap(multierr.Combine(err, theRobot.Close(context.Background())))
 	}()
 
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(ctx, cfg, s.configLogger, s.conn)
 	if err != nil {
 		cancel()
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
-		err = multierr.Combine(err, watcher.Close())
+		err = errtrace.Wrap(multierr.Combine(err, watcher.Close()))
 	}()
 
 	onWatchDone := make(chan struct{})
@@ -683,9 +687,9 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// Create initial web options with `minimalProcessedConfig`.
 	options, err := s.createWebOptions(&minimalProcessedConfig)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return web.RunWeb(ctx, theRobot, options, s.rootLogger)
+	return errtrace.Wrap(web.RunWeb(ctx, theRobot, options, s.rootLogger))
 }
 
 // dumpResourceRegistrations prints all builtin resource registrations as a json array
@@ -726,11 +730,11 @@ func dumpResourceRegistrations(outputPath string) error {
 	// marshall and print the registrations to the provided file
 	jsonResult, err := json.MarshalIndent(resources, "", "\t")
 	if err != nil {
-		return errors.Wrap(err, "unable to marshall resources")
+		return errtrace.Wrap(errors.Wrap(err, "unable to marshall resources"))
 	}
 
 	if err := os.WriteFile(outputPath, jsonResult, 0o600); err != nil {
-		return errors.Wrap(err, "unable to write resulting object to stdout")
+		return errtrace.Wrap(errors.Wrap(err, "unable to write resulting object to stdout"))
 	}
 	return nil
 }

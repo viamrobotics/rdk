@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
@@ -169,13 +170,13 @@ func (w *GraphNode) Resource() (Resource, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	if w.state == NodeStateRemoving {
-		return nil, errPendingRemoval
+		return nil, errtrace.Wrap(errPendingRemoval)
 	}
 	if w.lastErr != nil {
-		return nil, w.lastErr
+		return nil, errtrace.Wrap(w.lastErr)
 	}
 	if w.current == nil {
-		return nil, errNotInitalized
+		return nil, errtrace.Wrap(errNotInitalized)
 	}
 	return w.current, nil
 }
@@ -214,7 +215,7 @@ func (w *GraphNode) UnsafeResource() (Resource, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	if w.current == nil {
-		return nil, errNotInitalized
+		return nil, errtrace.Wrap(errNotInitalized)
 	}
 	return w.current, nil
 }
@@ -517,14 +518,14 @@ func (w *GraphNode) Close(ctx context.Context) error {
 	w.mu.Unlock()
 	// TODO(RSDK-7928): we might want to make this transition a node to an "unconfigured"
 	// or "removing" state.
-	return current.Close(ctx)
+	return errtrace.Wrap(current.Close(ctx))
 }
 
 func (w *GraphNode) replace(other *GraphNode) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.current != nil {
-		return errors.New("may only replace an uninitialized node")
+		return errtrace.Wrap(errors.New("may only replace an uninitialized node"))
 	}
 	if w == other {
 		return nil

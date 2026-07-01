@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -73,7 +74,7 @@ func (dcd *doCommandDepender) Close(ctx context.Context) error {
 
 func (dcd *doCommandDepender) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	if dcd.closed {
-		return nil, errors.New("was closed")
+		return nil, errtrace.Wrap(errors.New("was closed"))
 	}
 
 	// Dan: I do some fancy stuff here to chain the API calls through to dependencies. But the
@@ -95,7 +96,7 @@ func (dcd *doCommandDepender) DoCommand(ctx context.Context, cmd map[string]any)
 
 		resp, err := dcd.dependsOn[0].DoCommand(ctx, cmd)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		resp["incoming"] = resp["incoming"].(int) + 1
@@ -105,7 +106,7 @@ func (dcd *doCommandDepender) DoCommand(ctx context.Context, cmd map[string]any)
 		for _, dep := range dcd.dependsOn {
 			_, err := dep.DoCommand(ctx, cmd)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 
@@ -151,7 +152,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 
 			cfg, err := resource.NativeConfig[*doCommandDependerConfig](rcfg)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
 			ret := &doCommandDepender{
@@ -162,7 +163,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 			for _, depStr := range cfg.DependsOn {
 				dep, err := generic.FromProvider(deps, depStr)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 
 				ret.dependsOn = append(ret.dependsOn, dep)

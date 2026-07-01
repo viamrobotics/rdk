@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -216,10 +217,10 @@ type RestartModuleRequest struct {
 func ResourceByName(r Robot, name string) (resource.Resource, error) {
 	all := AllResourcesByName(r, name)
 	if len(all) == 0 {
-		return nil, fmt.Errorf("no resource named [%s]", name)
+		return nil, errtrace.Wrap(fmt.Errorf("no resource named [%s]", name))
 	}
 	if len(all) > 1 {
-		return nil, fmt.Errorf("too many resources named [%s] %d", name, len(all))
+		return nil, errtrace.Wrap(fmt.Errorf("too many resources named [%s] %d", name, len(all)))
 	}
 	return all[0], nil
 }
@@ -259,7 +260,7 @@ func NamesByAPI(r Robot, api resource.API) []string {
 func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCAPI, *desc.MethodDescriptor, error) {
 	methodParts := strings.Split(method, "/")
 	if len(methodParts) != 3 {
-		return nil, nil, grpc.UnimplementedError
+		return nil, nil, errtrace.Wrap(grpc.UnimplementedError)
 	}
 	protoSvc := methodParts[1]    // e.g. viam.component.arm.v1.ArmService
 	protoMethod := methodParts[2] // e.g. DoCommand
@@ -273,11 +274,11 @@ func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCAPI, *des
 		}
 	}
 	if foundType == nil {
-		return nil, nil, grpc.UnimplementedError
+		return nil, nil, errtrace.Wrap(grpc.UnimplementedError)
 	}
 	methodDesc := foundType.Desc.FindMethodByName(protoMethod)
 	if methodDesc == nil {
-		return nil, nil, grpc.UnimplementedError
+		return nil, nil, errtrace.Wrap(grpc.UnimplementedError)
 	}
 
 	return foundType, methodDesc, nil
@@ -292,18 +293,18 @@ func ResourceFromProtoMessage(
 	// we assume a convention that there will be a field called name that will be the resource
 	// name and a string.
 	if !msg.HasFieldName("name") {
-		return nil, resource.Name{}, errors.New("unable to determine resource name due to missing 'name' field")
+		return nil, resource.Name{}, errtrace.Wrap(errors.New("unable to determine resource name due to missing 'name' field"))
 	}
 	name, ok := msg.GetFieldByName("name").(string)
 	if !ok || name == "" {
-		return nil, resource.Name{}, fmt.Errorf("unable to determine resource name due to invalid name field %v", name)
+		return nil, resource.Name{}, errtrace.Wrap(fmt.Errorf("unable to determine resource name due to invalid name field %v", name))
 	}
 
 	fqName := resource.NewName(api, name)
 
 	res, err := robot.ResourceByName(fqName)
 	if err != nil {
-		return nil, resource.Name{}, err
+		return nil, resource.Name{}, errtrace.Wrap(err)
 	}
 	return res, fqName, nil
 }
@@ -313,13 +314,13 @@ func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T,
 	var zero T
 	res, err := robot.ResourceByName(name)
 	if err != nil {
-		return zero, err
+		return zero, errtrace.Wrap(err)
 	}
 
 	part, ok := res.(T)
 
 	if !ok {
-		return zero, resource.TypeError[T](res)
+		return zero, errtrace.Wrap(resource.TypeError[T](res))
 	}
 	return part, nil
 }
@@ -387,7 +388,7 @@ func version() (VersionResponse, error) {
 
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return result, errors.New("error reading build info")
+		return result, errtrace.Wrap(errors.New("error reading build info"))
 	}
 	deps := make(map[string]*debug.Module, len(info.Deps))
 	for _, dep := range info.Deps {

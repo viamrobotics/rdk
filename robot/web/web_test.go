@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
@@ -1159,7 +1160,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 		return robot.MachineStatus{}, nil
 	}
 	iRobot.(*inject.Robot).FindBySimpleNameAndAPIFunc = func(s string, a resource.API) (resource.Resource, error) {
-		return nil, resource.NewNotFoundError(resource.NewName(a, s))
+		return nil, errtrace.Wrap(resource.NewNotFoundError(resource.NewName(a, s)))
 	}
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
@@ -1444,7 +1445,7 @@ func (srv *echoServer) EchoMultiple(
 	req *echopb.EchoMultipleRequest,
 	server echopb.TestEchoService_EchoMultipleServer,
 ) error {
-	return server.Send(&echopb.EchoMultipleResponse{})
+	return errtrace.Wrap(server.Send(&echopb.EchoMultipleResponse{}))
 }
 
 func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoResponse, error) {
@@ -1459,11 +1460,11 @@ func (srv *echoServer) EchoBiDi(stream echopb.TestEchoService_EchoBiDiServer) er
 			return nil
 		}
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		for _, ch := range in.GetMessage() {
 			if err := stream.Send(&echopb.EchoBiDiResponse{Message: fmt.Sprintf("%c", ch)}); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -1492,7 +1493,7 @@ func signJWKBasedExternalAccessToken(
 		Method: jwt.SigningMethodRS256,
 	}
 
-	return token.SignedString(key)
+	return errtrace.Wrap2(token.SignedString(key))
 }
 
 func TestPerRequestFTDC(t *testing.T) {
@@ -1541,7 +1542,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	injectArm := injectArmRes.(*inject.Arm)
 	// Mutate the arm to have its `EndPosition` RPC call return an error.
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return nil, errors.New("error")
+		return nil, errtrace.Wrap(errors.New("error"))
 	}
 
 	// Try calling `EndPosition` again. Assert it returned an error.
@@ -1710,7 +1711,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				})
 				return func(ctx context.Context) error {
 					_, err := armClient.EndPosition(ctx, nil)
-					return err
+					return errtrace.Wrap(err)
 				}
 			},
 		)
@@ -1738,7 +1739,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				})
 				return func(ctx context.Context) error {
 					_, err := robotClient.MachineStatus(ctx)
-					return err
+					return errtrace.Wrap(err)
 				}
 			},
 		)
@@ -1914,7 +1915,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		// state until the disconnect has propagated, so that createClientInformationFromPC
 		// sees the PC as closed when it runs.
 		svc.RequestCounter().beforeLogHook = func(serverSidePC *webrtc.PeerConnection) {
-			utils.UncheckedErrorFunc(func() error { return armClient2.Close(ctx) })
+			utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(armClient2.Close(ctx)) })
 			utils.UncheckedErrorFunc(conn2.Close)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				test.That(tb, pcIsClosed(serverSidePC), test.ShouldBeTrue)

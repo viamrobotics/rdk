@@ -11,6 +11,7 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -296,7 +297,7 @@ func getSensorData(dir string) ([]*v1.SensorData, error) {
 		}
 		d, err := data.SensorDataFromCaptureFilePath(path)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		sd = append(sd, d...)
 	}

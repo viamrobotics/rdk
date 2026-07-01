@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	toggleswitch "go.viam.com/rdk/components/switch"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -54,15 +55,15 @@ func TestClient(t *testing.T) {
 	injectSwitch2 := inject.NewSwitch(failSwitchName)
 	injectSwitch2.SetPositionFunc = func(ctx context.Context, position uint32, extra map[string]interface{}) error {
 		switchName = failSwitchName
-		return errCantSetPosition
+		return errtrace.Wrap(errCantSetPosition)
 	}
 	injectSwitch2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		switchName = failSwitchName
-		return 0, errCantGetPosition
+		return 0, errtrace.Wrap(errCantGetPosition)
 	}
 	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 		switchName = failSwitchName
-		return 0, nil, errCantGetNumberOfPositions
+		return 0, nil, errtrace.Wrap(errCantGetNumberOfPositions)
 	}
 	injectSwitch2.DoFunc = testutils.EchoFunc
 

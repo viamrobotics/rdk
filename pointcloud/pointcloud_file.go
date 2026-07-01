@@ -18,6 +18,7 @@ import (
 	lzf "github.com/zhuyie/golzf"
 	"gonum.org/v1/gonum/num/quat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,20 +38,20 @@ const (
 func NewFromFile(filename, pcStructureType string) (PointCloud, error) {
 	cfg, err := Find(pcStructureType)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	switch filepath.Ext(filename) {
 	case ".las":
-		return newFromLASFile(filename, cfg)
+		return errtrace.Wrap2(newFromLASFile(filename, cfg))
 	case ".pcd":
 		f, err := os.Open(filepath.Clean(filename))
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return readPCD(f, cfg)
+		return errtrace.Wrap2(readPCD(f, cfg))
 	default:
-		return nil, errors.Errorf("do not know how to read file %q", filename)
+		return nil, errtrace.Wrap(errors.Errorf("do not know how to read file %q", filename))
 	}
 }
 
@@ -78,12 +79,12 @@ func _pcdIntToColor(c int) color.NRGBA {
 // ToBytes takes a pointcloud object and converts it to bytes.
 func ToBytes(cloud PointCloud) ([]byte, error) {
 	if cloud == nil {
-		return nil, errors.New("pointcloud cannot be nil")
+		return nil, errtrace.Wrap(errors.New("pointcloud cannot be nil"))
 	}
 	var buf bytes.Buffer
 	buf.Grow(200 + (cloud.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes, 200 is header size
 	if err := ToPCD(cloud, &buf, PCDBinary); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return buf.Bytes(), nil
 }
@@ -94,7 +95,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 
 	_, err = fmt.Fprintf(out, "VERSION .7\n")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if cloud.MetaData().HasColor {
 		_, err = fmt.Fprintf(out, "FIELDS x y z rgb\n"+
@@ -114,7 +115,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 			"COUNT 1 1 1\n")
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = fmt.Fprintf(out, "WIDTH %d\n"+
 		"HEIGHT %d\n"+ // TODO (aidanglickman): If we support structured PointClouds, update this
@@ -125,24 +126,24 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 		1,
 		cloud.Size())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	switch outputType {
 	case PCDBinary:
 		_, err = fmt.Fprintf(out, "DATA binary\n")
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	case PCDAscii:
 		_, err = fmt.Fprintf(out, "DATA ascii\n")
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	case PCDCompressed:
 		_, err = fmt.Fprintf(out, "DATA binary_compressed\n")
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	if outputType == PCDCompressed {
@@ -151,7 +152,7 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 		err = writePCDData(cloud, out, outputType)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -198,7 +199,7 @@ func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 		}
 		return err == nil
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func readFloat(n uint32) float64 {
@@ -235,13 +236,13 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 	field, value, _ := strings.Cut(line, " ")
 	tokens := strings.Split(value, " ")
 	if field != name {
-		return fmt.Errorf("line is supposed to start with %s but is %s", name, line)
+		return errtrace.Wrap(fmt.Errorf("line is supposed to start with %s but is %s", name, line))
 	}
 
 	switch name {
 	case "VERSION":
 		if value != ".7" && value != "0.7" { // This can be expanded later if desired, though I doubt we will need/want that
-			return fmt.Errorf("unsupported pcd version %s", value)
+			return errtrace.Wrap(fmt.Errorf("unsupported pcd version %s", value))
 		}
 	case "FIELDS":
 		switch value {
@@ -250,55 +251,55 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 		case "x y z rgb":
 			pcdHeader.fields = pcdPointColor
 		default:
-			return fmt.Errorf("unsupported pcd fields %s", value)
+			return errtrace.Wrap(fmt.Errorf("unsupported pcd fields %s", value))
 		}
 	case "SIZE":
 		if len(tokens) != int(pcdHeader.fields) {
-			return fmt.Errorf("unexpected number of fields %d in SIZE line", len(tokens))
+			return errtrace.Wrap(fmt.Errorf("unexpected number of fields %d in SIZE line", len(tokens)))
 		}
 		pcdHeader.size = make([]uint64, len(tokens))
 		for i, token := range tokens {
 			pcdHeader.size[i], err = strconv.ParseUint(token, 10, 64)
 			if err != nil {
-				return fmt.Errorf("invalid SIZE field %s", token)
+				return errtrace.Wrap(fmt.Errorf("invalid SIZE field %s", token))
 			}
 		}
 	case "TYPE":
 		if len(tokens) != int(pcdHeader.fields) {
-			return fmt.Errorf("unexpected number of fields %d in TYPE line", len(tokens))
+			return errtrace.Wrap(fmt.Errorf("unexpected number of fields %d in TYPE line", len(tokens)))
 		}
 		copy(pcdHeader.valTypes, tokens)
 
 	case "COUNT":
 		if len(tokens) != int(pcdHeader.fields) {
-			return fmt.Errorf("unexpected number of fields %d in COUNT line", len(tokens))
+			return errtrace.Wrap(fmt.Errorf("unexpected number of fields %d in COUNT line", len(tokens)))
 		}
 		pcdHeader.count = make([]uint64, len(tokens))
 		for i, token := range tokens {
 			pcdHeader.count[i], err = strconv.ParseUint(token, 10, 64)
 			if err != nil {
-				return fmt.Errorf("invalid COUNT field %s: %w", token, err)
+				return errtrace.Wrap(fmt.Errorf("invalid COUNT field %s: %w", token, err))
 			}
 		}
 	case "WIDTH":
 		pcdHeader.width, err = strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return fmt.Errorf("invalid WIDTH field %s: %w", value, err)
+			return errtrace.Wrap(fmt.Errorf("invalid WIDTH field %s: %w", value, err))
 		}
 	case "HEIGHT":
 		pcdHeader.height, err = strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return fmt.Errorf("invalid HEIGHT field %s: %w", value, err)
+			return errtrace.Wrap(fmt.Errorf("invalid HEIGHT field %s: %w", value, err))
 		}
 	case "VIEWPOINT":
 		if len(tokens) != 7 {
-			return fmt.Errorf("unexpected number of fields in VIEWPOINT line. Expected 7, got %d", len(tokens))
+			return errtrace.Wrap(fmt.Errorf("unexpected number of fields in VIEWPOINT line. Expected 7, got %d", len(tokens)))
 		}
 		viewpoint := [7]float64{}
 		for i, token := range tokens {
 			viewpoint[i], err = strconv.ParseFloat(token, 64)
 			if err != nil {
-				return fmt.Errorf("invalid VIEWPOINT field %s: %w", token, err)
+				return errtrace.Wrap(fmt.Errorf("invalid VIEWPOINT field %s: %w", token, err))
 			}
 		}
 		pcdHeader.viewpoint = spatialmath.NewPose(
@@ -309,10 +310,10 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 		var points uint64
 		points, err = strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return fmt.Errorf("invalid POINTS field %s: %w", value, err)
+			return errtrace.Wrap(fmt.Errorf("invalid POINTS field %s: %w", value, err))
 		}
 		if points != pcdHeader.width*pcdHeader.height {
-			return fmt.Errorf("POINTS field %d does not match WIDTH*HEIGHT %d", points, pcdHeader.width*pcdHeader.height)
+			return errtrace.Wrap(fmt.Errorf("POINTS field %d does not match WIDTH*HEIGHT %d", points, pcdHeader.width*pcdHeader.height))
 		}
 		pcdHeader.points = points
 	case "DATA":
@@ -324,7 +325,7 @@ func parsePCDHeaderLine(line string, index int, pcdHeader *pcdHeader) error {
 		case "binary_compressed":
 			pcdHeader.data = PCDCompressed
 		default:
-			return fmt.Errorf("unsupported data type %s", value)
+			return errtrace.Wrap(fmt.Errorf("unsupported data type %s", value))
 		}
 	}
 
@@ -337,7 +338,7 @@ func parsePCDHeader(in *bufio.Reader) (*pcdHeader, error) {
 	for headerLineCount < len(pcdHeaderFields) {
 		line, err := in.ReadString('\n')
 		if err != nil {
-			return nil, fmt.Errorf("error reading header line %d: %w", headerLineCount, err)
+			return nil, errtrace.Wrap(fmt.Errorf("error reading header line %d: %w", headerLineCount, err))
 		}
 		line, _, _ = strings.Cut(line, pcdCommentChar)
 		line = strings.TrimSpace(line)
@@ -346,7 +347,7 @@ func parsePCDHeader(in *bufio.Reader) (*pcdHeader, error) {
 		}
 		err = parsePCDHeaderLine(line, headerLineCount, header)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		headerLineCount++
 	}
@@ -357,17 +358,17 @@ func parsePCDHeader(in *bufio.Reader) (*pcdHeader, error) {
 func ReadPCD(inRaw io.Reader, pcStructureType string) (PointCloud, error) {
 	cfg, err := Find(pcStructureType)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return readPCD(inRaw, cfg)
+	return errtrace.Wrap2(readPCD(inRaw, cfg))
 }
 
 func readPCD(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
 	pc, err := readPCDHelper(inRaw, cfg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return pc.FinalizeAfterReading()
+	return errtrace.Wrap2(pc.FinalizeAfterReading())
 }
 
 func readPCDHelper(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
@@ -375,43 +376,43 @@ func readPCDHelper(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
 
 	header, err := parsePCDHeader(in)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	pc := cfg.NewWithParams(int(header.points))
 
 	switch header.data {
 	case PCDAscii:
-		return readPCDASCII(in, *header, pc)
+		return errtrace.Wrap2(readPCDASCII(in, *header, pc))
 	case PCDBinary:
-		return readPCDBinary(in, *header, pc)
+		return errtrace.Wrap2(readPCDBinary(in, *header, pc))
 	case PCDCompressed:
-		return readPCDCompressed(in, *header, pc)
+		return errtrace.Wrap2(readPCDCompressed(in, *header, pc))
 	default:
-		return nil, fmt.Errorf("unsupported pcd data type %v", header.data)
+		return nil, errtrace.Wrap(fmt.Errorf("unsupported pcd data type %v", header.data))
 	}
 }
 
 func extractPCDPointASCII(in *bufio.Reader, header pcdHeader, i int) (PointAndData, error) {
 	line, err := in.ReadString('\n')
 	if err != nil {
-		return PointAndData{}, err
+		return PointAndData{}, errtrace.Wrap(err)
 	}
 	line = strings.TrimSpace(line)
 	tokens := strings.Split(line, " ")
 	if len(tokens) != int(header.fields) {
-		return PointAndData{}, fmt.Errorf("unexpected number of fields in point %d", i)
+		return PointAndData{}, errtrace.Wrap(fmt.Errorf("unexpected number of fields in point %d", i))
 	}
 	point := make([]float64, len(tokens))
 	for j, token := range tokens {
 		point[j], err = strconv.ParseFloat(token, 64)
 		if err != nil {
-			return PointAndData{}, fmt.Errorf("invalid point %d field %s: %w", i, token, err)
+			return PointAndData{}, errtrace.Wrap(fmt.Errorf("invalid point %d field %s: %w", i, token, err))
 		}
 	}
 	pcPoint, data, err := readSliceToPoint(point, header)
 	if err != nil {
-		return PointAndData{}, err
+		return PointAndData{}, errtrace.Wrap(err)
 	}
 
 	return PointAndData{P: pcPoint, D: data}, nil
@@ -421,11 +422,11 @@ func readPCDASCII(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud
 	for i := 0; i < int(header.points); i++ {
 		pd, err := extractPCDPointASCII(in, header, i)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		err = pc.Set(pd.P, pd.D)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return pc, nil
@@ -441,7 +442,7 @@ func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, er
 			break
 		}
 		if err != nil {
-			return PointAndData{}, err
+			return PointAndData{}, errtrace.Wrap(err)
 		}
 		pointBuf[j] = readFloat(binary.LittleEndian.Uint32(buf))
 	}
@@ -452,7 +453,7 @@ func extractPCDPointBinary(in *bufio.Reader, header pcdHeader) (PointAndData, er
 	if header.fields == pcdPointColor && !errors.Is(err, io.EOF) {
 		buf, err := readBuffer(in, header, 3)
 		if err != nil {
-			return PointAndData{}, err
+			return PointAndData{}, errtrace.Wrap(err)
 		}
 		colorBuf := int(binary.LittleEndian.Uint32(buf))
 		colorData = NewColoredData(_pcdIntToColor(colorBuf))
@@ -468,11 +469,11 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointClou
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		err = pc.Set(pd.P, pd.D)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return pc, nil
@@ -483,10 +484,10 @@ func readBuffer(in *bufio.Reader, header pcdHeader, index int) ([]byte, error) {
 	buf := make([]byte, header.size[index])
 	read, err := io.ReadFull(in, buf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if read != int(header.size[index]) {
-		return nil, fmt.Errorf("unexpected number of bytes read %d", read)
+		return nil, errtrace.Wrap(fmt.Errorf("unexpected number of bytes read %d", read))
 	}
 	return buf, nil
 }
@@ -503,7 +504,7 @@ func readSliceToPoint(slice []float64, header pcdHeader) (r3.Vector, Data, error
 		color := NewColoredData(_pcdIntToColor(int(slice[3])))
 		return pos, color, nil
 	default:
-		return r3.Vector{}, nil, fmt.Errorf("unsupported pcd field type %d", header.fields)
+		return r3.Vector{}, nil, errtrace.Wrap(fmt.Errorf("unsupported pcd field type %d", header.fields))
 	}
 }
 
@@ -512,7 +513,7 @@ func readSliceToPoint(slice []float64, header pcdHeader) (r3.Vector, Data, error
 func reorganizeToStructureOfArrays(cloud PointCloud) ([]byte, error) {
 	size := cloud.Size()
 	if size == 0 {
-		return nil, errors.New("empty point cloud")
+		return nil, errtrace.Wrap(errors.New("empty point cloud"))
 	}
 
 	hasColor := cloud.MetaData().HasColor
@@ -598,7 +599,7 @@ func writePCDCompressed(cloud PointCloud, out io.Writer) error {
 	// Reorganize data to structure-of-arrays format
 	uncompressedData, err := reorganizeToStructureOfArrays(cloud)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Compress the data using LZF
@@ -606,25 +607,25 @@ func writePCDCompressed(cloud PointCloud, out io.Writer) error {
 	compressedData := make([]byte, len(uncompressedData)+len(uncompressedData)/64+16+3)
 	compressedBytes, err := lzf.Compress(uncompressedData, compressedData)
 	if err != nil {
-		return errors.Wrap(err, "failed to compress point cloud data")
+		return errtrace.Wrap(errors.Wrap(err, "failed to compress point cloud data"))
 	}
 	compressedData = compressedData[:compressedBytes]
 
 	// Write compressed size (4 bytes)
 	compressedSize := uint32(len(compressedData))
 	if err := binary.Write(out, binary.LittleEndian, compressedSize); err != nil {
-		return errors.Wrap(err, "failed to write compressed size")
+		return errtrace.Wrap(errors.Wrap(err, "failed to write compressed size"))
 	}
 
 	// Write uncompressed size (4 bytes)
 	uncompressedSize := uint32(len(uncompressedData))
 	if err := binary.Write(out, binary.LittleEndian, uncompressedSize); err != nil {
-		return errors.Wrap(err, "failed to write uncompressed size")
+		return errtrace.Wrap(errors.Wrap(err, "failed to write uncompressed size"))
 	}
 
 	// Write compressed data
 	if _, err := out.Write(compressedData); err != nil {
-		return errors.Wrap(err, "failed to write compressed data")
+		return errtrace.Wrap(errors.Wrap(err, "failed to write compressed data"))
 	}
 
 	return nil
@@ -635,33 +636,33 @@ func readPCDCompressed(in *bufio.Reader, header pcdHeader, pc PointCloud) (Point
 	// Read compressed size (4 bytes)
 	var compressedSize uint32
 	if err := binary.Read(in, binary.LittleEndian, &compressedSize); err != nil {
-		return nil, errors.Wrap(err, "failed to read compressed size")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to read compressed size"))
 	}
 
 	// Read uncompressed size (4 bytes)
 	var uncompressedSize uint32
 	if err := binary.Read(in, binary.LittleEndian, &uncompressedSize); err != nil {
-		return nil, errors.Wrap(err, "failed to read uncompressed size")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to read uncompressed size"))
 	}
 
 	// Read compressed data
 	compressedData := make([]byte, compressedSize)
 	if _, err := io.ReadFull(in, compressedData); err != nil {
-		return nil, errors.Wrap(err, "failed to read compressed data")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to read compressed data"))
 	}
 
 	// Decompress the data
 	uncompressedData := make([]byte, uncompressedSize)
 	decompressedBytes, err := lzf.Decompress(compressedData, uncompressedData)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to decompress point cloud data")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to decompress point cloud data"))
 	}
 	if decompressedBytes != int(uncompressedSize) {
-		return nil, fmt.Errorf("decompressed size mismatch: expected %d, got %d", uncompressedSize, decompressedBytes)
+		return nil, errtrace.Wrap(fmt.Errorf("decompressed size mismatch: expected %d, got %d", uncompressedSize, decompressedBytes))
 	}
 
 	// Parse the decompressed data from structure-of-arrays format
-	return parseStructureOfArrays(uncompressedData, header, pc)
+	return errtrace.Wrap2(parseStructureOfArrays(uncompressedData, header, pc))
 }
 
 // parseStructureOfArrays parses structure-of-arrays format data back to point cloud.
@@ -678,7 +679,7 @@ func parseStructureOfArrays(data []byte, header pcdHeader, pc PointCloud) (Point
 	}
 
 	if len(data) != expectedSize {
-		return nil, fmt.Errorf("unexpected data size: got %d, expected %d", len(data), expectedSize)
+		return nil, errtrace.Wrap(fmt.Errorf("unexpected data size: got %d, expected %d", len(data), expectedSize))
 	}
 
 	// Parse structure-of-arrays format
@@ -712,7 +713,7 @@ func parseStructureOfArrays(data []byte, header pcdHeader, pc PointCloud) (Point
 		}
 
 		if err := pc.Set(point, colorData); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 

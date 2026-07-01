@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sync"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -48,14 +49,14 @@ func newMySum(ctx context.Context,
 		Named: conf.ResourceName().AsNamed(),
 	}
 	if err := summer.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return summer, nil
 }
 
 func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 	if len(nums) == 0 {
-		return 0, errors.New("must provide at least one number to sum")
+		return 0, errtrace.Wrap(errors.New("must provide at least one number to sum"))
 	}
 
 	numGood := 0
@@ -83,7 +84,7 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 	}
 	if numGood == 5 {
 		// used for TestMetadataAcrossTwoModules test only. in other cases, numGood should be 0
-		return -1, errors.New("TestMetadataAcrossTwoModules-good")
+		return -1, errtrace.Wrap(errors.New("TestMetadataAcrossTwoModules-good"))
 	}
 
 	var ret float64
@@ -102,7 +103,7 @@ func (m *mySum) reconfigure(ctx context.Context, deps resource.Dependencies, con
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	sumConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.mu.Lock()

@@ -25,6 +25,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -100,11 +101,11 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 	var zero T
 	res, err := resources.Lookup(name)
 	if err != nil {
-		return zero, DependencyNotFoundError(name)
+		return zero, errtrace.Wrap(DependencyNotFoundError(name))
 	}
 	typedRes, ok := res.(T)
 	if !ok {
-		return zero, DependencyTypeError[T](name, res)
+		return zero, errtrace.Wrap(DependencyTypeError[T](name, res))
 	}
 	return typedRes, nil
 }
@@ -114,18 +115,18 @@ func FromProvider[T Resource](provider Provider, name Name) (T, error) {
 	var zero T
 	res, err := provider.GetResource(name)
 	if err != nil {
-		return zero, err
+		return zero, errtrace.Wrap(err)
 	}
 	typedRes, ok := res.(T)
 	if !ok {
-		return zero, DependencyTypeError[T](name, res)
+		return zero, errtrace.Wrap(DependencyTypeError[T](name, res))
 	}
 	return typedRes, nil
 }
 
 // GetResource implements Provider for Dependencies by looking up a resource by name.
 func (d Dependencies) GetResource(name Name) (Resource, error) {
-	return d.Lookup(name)
+	return errtrace.Wrap2(d.Lookup(name))
 }
 
 // Lookup searches for a given dependency by name.
@@ -140,7 +141,7 @@ func (d Dependencies) Lookup(name Name) (Resource, error) {
 					continue
 				}
 				if res != nil {
-					return nil, utils.NewRemoteResourceClashError(name.Name)
+					return nil, errtrace.Wrap(utils.NewRemoteResourceClashError(name.Name))
 				}
 				res = depRes
 			}
@@ -148,7 +149,7 @@ func (d Dependencies) Lookup(name Name) (Resource, error) {
 				return res, nil
 			}
 		}
-		return nil, DependencyNotFoundError(name)
+		return nil, errtrace.Wrap(DependencyNotFoundError(name))
 	}
 	return res, nil
 }
@@ -162,14 +163,14 @@ type RPCAPI struct {
 
 // errReservedCharacterUsed is used when a reserved character is wrongly used in a name.
 func errReservedCharacterUsed(val, reservedChar string) error {
-	return errors.Errorf("reserved character %s used in name:%q", reservedChar, val)
+	return errtrace.Wrap(errors.Errorf("reserved character %s used in name:%q", reservedChar, val))
 }
 
 // ContainsReservedCharacter returns error if string contains a reserved character.
 func ContainsReservedCharacter(val string) error {
 	for _, char := range reservedChars {
 		if strings.Contains(val, char) {
-			return errReservedCharacterUsed(val, char)
+			return errtrace.Wrap(errReservedCharacterUsed(val, char))
 		}
 	}
 	return nil
@@ -301,7 +302,7 @@ func (s selfNamed) Name() Name {
 
 // DoCommand always returns unimplemented but can be implemented by the embedder.
 func (s selfNamed) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, ErrDoUnimplemented
+	return nil, errtrace.Wrap(ErrDoUnimplemented)
 }
 
 // Status always returns an empty status map but can be implemented by the embedder.
@@ -314,7 +315,7 @@ func AsType[T Resource](from Resource) (T, error) {
 	res, ok := from.(T)
 	if !ok {
 		var zero T
-		return zero, TypeError[T](from)
+		return zero, errtrace.Wrap(TypeError[T](from))
 	}
 	return res, nil
 }
@@ -332,7 +333,7 @@ func NewCloseOnlyResource(name Name, closeFunc func(ctx context.Context) error) 
 }
 
 func (r *closeOnlyResource) Close(ctx context.Context) error {
-	return r.closeFunc(ctx)
+	return errtrace.Wrap(r.closeFunc(ctx))
 }
 
 // Status is a combination of a resources node status and the cloudMetadata associated with that resource.

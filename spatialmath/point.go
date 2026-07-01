@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 )
@@ -29,9 +30,9 @@ func (pt *point) String() string {
 func (pt point) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(&pt)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return json.Marshal(config)
+	return errtrace.Wrap2(json.Marshal(config))
 }
 
 // Label returns the labels of this point.
@@ -82,9 +83,9 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
-		return other.CollidesWith(pt, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(pt, collisionBufferMM))
 	case *Cylinder:
-		return other.CollidesWith(pt, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(pt, collisionBufferMM))
 	case *box:
 		c, d := pointVsBoxCollision(pt.position, other, collisionBufferMM)
 		return c, d, nil
@@ -110,7 +111,7 @@ func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 		}
 		return false, dist, nil
 	default:
-		return true, collisionBufferMM, newCollisionTypeUnsupportedError(pt, g)
+		return true, collisionBufferMM, errtrace.Wrap(newCollisionTypeUnsupportedError(pt, g))
 	}
 }
 
@@ -118,9 +119,9 @@ func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
-		return other.DistanceFrom(pt)
+		return errtrace.Wrap2(other.DistanceFrom(pt))
 	case *Cylinder:
-		return other.DistanceFrom(pt)
+		return errtrace.Wrap2(other.DistanceFrom(pt))
 	case *box:
 		return pointVsBoxDistance(pt.position, other), nil
 	case *sphere:
@@ -130,7 +131,7 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 	case *point:
 		return pt.position.Sub(other.position).Norm(), nil
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(pt, g)
+		return math.Inf(-1), errtrace.Wrap(newCollisionTypeUnsupportedError(pt, g))
 	}
 }
 
@@ -141,7 +142,7 @@ func (pt *point) EncompassedBy(g Geometry) (bool, error) {
 		return cyl.containsPoint(pt.position), nil
 	}
 	collides, _, err := pt.CollidesWith(g, defaultCollisionBufferMM)
-	return collides, err
+	return collides, errtrace.Wrap(err)
 }
 
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \

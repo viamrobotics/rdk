@@ -8,6 +8,7 @@ import (
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -29,7 +30,7 @@ func FillDepthMap(dm *DepthMap, img *Image) (*DepthMap, error) {
 					rayPoints := pointsFromRayMarching(point.X, point.Y, 8, sixteenPoints, iwd)
 					clusterDepths, clusterColors, err := clusterEdgePoints(rayPoints, iwd)
 					if err != nil {
-						return nil, err
+						return nil, errtrace.Wrap(err)
 					}
 					val := matchDepthToClosestColor(iwd.Color.Get(point), clusterColors[0], clusterColors[1], clusterDepths[0], clusterDepths[1])
 					iwd.Depth.Set(point.X, point.Y, val)
@@ -167,7 +168,7 @@ func clusterEdgePoints(borderPoints map[image.Point]bool, iwd *imageWithDepth) (
 	km := kmeans.New()
 	clusters, err := km.Partition(d, 2) // cluster into 2 partitions
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	clusterDepths := make([]float64, 0, 2)
 	clusterColors := make([]Color, 0, 2)

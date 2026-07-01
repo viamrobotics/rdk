@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"braces.dev/errtrace"
 	toggleswitch "go.viam.com/rdk/components/switch"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -63,7 +64,7 @@ func NewSwitch(
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if newConf.PositionCount != nil {
@@ -86,7 +87,7 @@ func (s *Switch) SetPosition(ctx context.Context, position uint32, extra map[str
 	defer s.mu.Unlock()
 
 	if position >= s.positionCount {
-		return fmt.Errorf("switch component %v position %d is invalid (valid range: 0-%d)", s.Name(), position, s.positionCount-1)
+		return errtrace.Wrap(fmt.Errorf("switch component %v position %d is invalid (valid range: 0-%d)", s.Name(), position, s.positionCount-1))
 	}
 	s.position = position
 	return nil

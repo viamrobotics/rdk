@@ -6,6 +6,7 @@ import (
 	"io"
 	"time"
 
+	"braces.dev/errtrace"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/rpc"
 )
@@ -128,7 +129,7 @@ func (c *BillingClient) GetCurrentMonthUsage(ctx context.Context, orgID string) 
 		OrgId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return getCurrentMonthUsageResponseFromProto(resp), nil
 }
@@ -139,7 +140,7 @@ func (c *BillingClient) GetOrgBillingInformation(ctx context.Context, orgID stri
 		OrgId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return getOrgBillingInformationResponseFromProto(resp), nil
 }
@@ -150,7 +151,7 @@ func (c *BillingClient) GetInvoicesSummary(ctx context.Context, orgID string) (f
 		OrgId: orgID,
 	})
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errtrace.Wrap(err)
 	}
 	var invoices []*InvoiceSummary
 	for _, invoice := range resp.Invoices {
@@ -166,7 +167,7 @@ func (c *BillingClient) GetInvoicePDF(ctx context.Context, id, orgID string) ([]
 		OrgId: orgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var data []byte
@@ -176,7 +177,7 @@ func (c *BillingClient) GetInvoicePDF(ctx context.Context, id, orgID string) ([]
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return data, err
+			return data, errtrace.Wrap(err)
 		}
 		data = append(data, resp.Chunk...)
 	}
@@ -190,7 +191,7 @@ func (c *BillingClient) SendPaymentRequiredEmail(ctx context.Context, customerOr
 		CustomerOrgId:     customerOrgID,
 		BillingOwnerOrgId: billingOwnerOrgID,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 func usageCostTypeFromProto(costType pb.UsageCostType) UsageCostType {

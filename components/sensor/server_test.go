@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -31,7 +32,7 @@ func newServer(logger logging.Logger) (pb.SensorServiceServer, *inject.Sensor, *
 	}
 	sensorSvc, err := resource.NewAPIResourceCollection(sensor.API, sensors)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return sensor.NewRPCServiceServer(sensorSvc, logger).(pb.SensorServiceServer), injectSensor, injectSensor2, nil
 }
@@ -49,7 +50,7 @@ func TestServer(t *testing.T) {
 	}
 
 	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return nil, errReadingsFailed
+		return nil, errtrace.Wrap(errReadingsFailed)
 	}
 
 	t.Run("GetReadings", func(t *testing.T) {
@@ -101,7 +102,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = sensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSensorName})
 		test.That(t, err, test.ShouldNotBeNil)

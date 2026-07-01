@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -63,7 +64,7 @@ func (c *client) DetectionsFromCamera(
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetDetectionsFromCamera(ctx, &pb.GetDetectionsFromCameraRequest{
 		Name:       c.name,
@@ -71,9 +72,9 @@ func (c *client) DetectionsFromCamera(
 		Extra:      ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoToDets(resp.Detections)
+	return errtrace.Wrap2(protoToDets(resp.Detections))
 }
 
 func (c *client) Detections(ctx context.Context, img *camera.NamedImage, extra map[string]interface{},
@@ -81,19 +82,19 @@ func (c *client) Detections(ctx context.Context, img *camera.NamedImage, extra m
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Detections")
 	defer span.End()
 	if img == nil {
-		return nil, errors.New("nil image input to given client.Detections")
+		return nil, errtrace.Wrap(errors.New("nil image input to given client.Detections"))
 	}
 	imgBytes, err := img.Bytes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	bounds, err := img.Bounds()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
 		Name:     c.name,
@@ -104,16 +105,16 @@ func (c *client) Detections(ctx context.Context, img *camera.NamedImage, extra m
 		Extra:    ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoToDets(resp.Detections)
+	return errtrace.Wrap2(protoToDets(resp.Detections))
 }
 
 func protoToDets(protoDets []*pb.Detection) ([]objdet.Detection, error) {
 	detections := make([]objdet.Detection, 0, len(protoDets))
 	for _, d := range protoDets {
 		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
-			return nil, fmt.Errorf("invalid detection %+v", d)
+			return nil, errtrace.Wrap(fmt.Errorf("invalid detection %+v", d))
 		}
 		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
 		var det objdet.Detection
@@ -139,7 +140,7 @@ func (c *client) ClassificationsFromCamera(
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetClassificationsFromCamera(ctx, &pb.GetClassificationsFromCameraRequest{
 		Name:       c.name,
@@ -148,7 +149,7 @@ func (c *client) ClassificationsFromCamera(
 		Extra:      ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return protoToClas(resp.Classifications), nil
 }
@@ -159,19 +160,19 @@ func (c *client) Classifications(ctx context.Context, img *camera.NamedImage,
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Classifications")
 	defer span.End()
 	if img == nil {
-		return nil, errors.New("nil image input to given client.Classifications")
+		return nil, errtrace.Wrap(errors.New("nil image input to given client.Classifications"))
 	}
 	imgBytes, err := img.Bytes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	bounds, err := img.Bounds()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetClassifications(ctx, &pb.GetClassificationsRequest{
 		Name:     c.name,
@@ -183,7 +184,7 @@ func (c *client) Classifications(ctx context.Context, img *camera.NamedImage,
 		Extra:    ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return protoToClas(resp.Classifications), nil
 }
@@ -204,7 +205,7 @@ func (c *client) GetObjectPointClouds(
 ) ([]*vision.Object, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.GetObjectPointCloudsRequest{
 		Name:       c.name,
@@ -213,13 +214,13 @@ func (c *client) GetObjectPointClouds(
 		Extra:      ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if resp.MimeType != utils.MimeTypePCD {
-		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown pc mime type %s", resp.MimeType))
 	}
-	return protoToObjects(resp.Objects)
+	return errtrace.Wrap2(protoToObjects(resp.Objects))
 }
 
 func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) {
@@ -227,7 +228,7 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 	for i, o := range pco {
 		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.PointCloud), "")
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// Sets the label to the first non-empty label of any geometry; defaults to the empty string.
 		label := func() string {
@@ -244,7 +245,7 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 			objects[i], err = vision.NewObjectWithLabel(pc, label, nil)
 		}
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return objects, nil
@@ -256,7 +257,7 @@ func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}
 
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
@@ -264,7 +265,7 @@ func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &Properties{resp.ClassificationsSupported, resp.DetectionsSupported, resp.ObjectPointCloudsSupported}, nil
@@ -280,7 +281,7 @@ func (c *client) CaptureAllFromCamera(
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return viscapture.VisCapture{}, err
+		return viscapture.VisCapture{}, errtrace.Wrap(err)
 	}
 	resp, err := c.client.CaptureAllFromCamera(ctx, &pb.CaptureAllFromCameraRequest{
 		Name:                    c.name,
@@ -292,19 +293,19 @@ func (c *client) CaptureAllFromCamera(
 		Extra:                   ext,
 	})
 	if err != nil {
-		return viscapture.VisCapture{}, err
+		return viscapture.VisCapture{}, errtrace.Wrap(err)
 	}
 
 	dets, err := protoToDets(resp.Detections)
 	if err != nil {
-		return viscapture.VisCapture{}, err
+		return viscapture.VisCapture{}, errtrace.Wrap(err)
 	}
 
 	class := protoToClas(resp.Classifications)
 
 	objPCD, err := protoToObjects(resp.Objects)
 	if err != nil {
-		return viscapture.VisCapture{}, err
+		return viscapture.VisCapture{}, errtrace.Wrap(err)
 	}
 
 	var img *camera.NamedImage
@@ -313,7 +314,7 @@ func (c *client) CaptureAllFromCamera(
 			resp.Image.Image, resp.Image.GetSourceName(), resp.Image.GetMimeType(), data.Annotations{},
 		)
 		if err != nil {
-			return viscapture.VisCapture{}, err
+			return viscapture.VisCapture{}, errtrace.Wrap(err)
 		}
 		img = &namedImg
 	}
@@ -338,9 +339,9 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::DoCommand")
 	defer span.End()
 
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

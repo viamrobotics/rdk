@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/data"
 	datatu "go.viam.com/rdk/data/testutils"
@@ -120,7 +121,7 @@ func newBoard() board.Board {
 		if name == "analog" {
 			return analog, nil
 		}
-		return nil, errors.New("analog not found")
+		return nil, errtrace.Wrap(errors.New("analog not found"))
 	}
 	gpioPin := &inject.GPIOPin{}
 	gpioPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
@@ -130,7 +131,7 @@ func newBoard() board.Board {
 		if name == "gpio" {
 			return gpioPin, nil
 		}
-		return nil, errors.New("gpio pin not found")
+		return nil, errtrace.Wrap(errors.New("gpio pin not found"))
 	}
 	b.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil

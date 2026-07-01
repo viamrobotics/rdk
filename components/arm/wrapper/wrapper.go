@@ -7,6 +7,7 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -28,10 +29,10 @@ var model = resource.DefaultModelFamily.WithModel("wrapper_arm")
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if cfg.ArmName == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "arm-name"))
 	}
 	if _, err := referenceframe.KinematicModelFromFile(cfg.ModelFilePath, ""); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	deps = append(deps, cfg.ArmName)
 	return deps, nil, nil
@@ -65,7 +66,7 @@ func NewWrapperArm(
 		opMgr:  operation.NewSingleOperationManager(),
 	}
 	if err := a.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return a, nil
 }
@@ -74,16 +75,16 @@ func NewWrapperArm(
 func (wrapper *Arm) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	model, err := referenceframe.KinematicModelFromFile(newConf.ModelFilePath, conf.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	newArm, err := arm.FromProvider(deps, newConf.ArmName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	wrapper.mu.Lock()
@@ -101,30 +102,30 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 
 	joints, err := wrapper.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return wrapper.model.Transform(joints)
+	return errtrace.Wrap2(wrapper.model.Transform(joints))
 }
 
 // MoveToPosition sets the position.
 func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
-	return armplanning.MoveArm(ctx, wrapper.logger, wrapper, pos)
+	return errtrace.Wrap(armplanning.MoveArm(ctx, wrapper.logger, wrapper, pos))
 }
 
 // MoveToJointPositions sets the joints.
 func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.Input, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
 	if err := arm.CheckDesiredJointPositions(ctx, wrapper, joints); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
 
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
-	return wrapper.actual.MoveToJointPositions(ctx, joints, extra)
+	return errtrace.Wrap(wrapper.actual.MoveToJointPositions(ctx, joints, extra))
 }
 
 // MoveThroughJointPositions moves the arm sequentially through the given joints.
@@ -137,11 +138,11 @@ func (wrapper *Arm) MoveThroughJointPositions(
 	for _, goal := range positions {
 		// check that joint positions are not out of bounds
 		if err := arm.CheckDesiredJointPositions(ctx, wrapper, goal); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		err := wrapper.MoveToJointPositions(ctx, goal, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -154,7 +155,7 @@ func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interfa
 
 	joints, err := wrapper.actual.JointPositions(ctx, extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return joints, nil
 }
@@ -166,7 +167,7 @@ func (wrapper *Arm) Stop(ctx context.Context, extra map[string]interface{}) erro
 
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
-	return wrapper.actual.Stop(ctx, extra)
+	return errtrace.Wrap(wrapper.actual.Stop(ctx, extra))
 }
 
 // IsMoving returns whether the arm is moving.
@@ -183,12 +184,12 @@ func (wrapper *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error
 
 // CurrentInputs returns the current inputs of the arm.
 func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	return wrapper.actual.JointPositions(ctx, nil)
+	return errtrace.Wrap2(wrapper.actual.JointPositions(ctx, nil))
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	return wrapper.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
+	return errtrace.Wrap(wrapper.MoveThroughJointPositions(ctx, inputSteps, nil, nil))
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
@@ -196,11 +197,11 @@ func (wrapper *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referencefra
 func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	inputs, err := wrapper.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	gif, err := wrapper.model.Geometries(inputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return gif.Geometries(), nil
 }
@@ -209,7 +210,7 @@ func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}
 func (wrapper *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
 	models, err := wrapper.actual.Get3DModels(ctx, extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return models, nil
 }

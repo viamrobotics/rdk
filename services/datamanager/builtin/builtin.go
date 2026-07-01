@@ -24,6 +24,7 @@ import (
 	goutils "go.viam.com/utils"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -59,13 +60,13 @@ func init() {
 		logger logging.Logger,
 	) (datamanager.Service, error) {
 		// we inject v1.NewDataSyncServiceClient and datasync.ConnToConnectivityStateEnabled as dependencies for tests
-		return New(
+		return errtrace.Wrap2(New(
 			ctx,
 			deps,
 			conf,
 			v1.NewDataSyncServiceClient,
 			logger,
-		)
+		))
 	}
 	resource.RegisterService(
 		datamanager.API,
@@ -127,7 +128,7 @@ func New(
 	}
 
 	if err := svc.BuiltInReconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return svc, nil
 }
@@ -158,7 +159,7 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 	defer b.logger.Info("Sync END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.sync.Sync(ctx, extra)
+	return errtrace.Wrap(b.sync.Sync(ctx, extra))
 }
 
 // Reconfigure updates the data manager service when the config has changed.
@@ -184,25 +185,25 @@ func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependen
 	if err != nil {
 		// If this error occurs it is due to the builtin.Config not being a native config which is a
 		// static error that could only be introduced at compile time.
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if !utils.IsTrustedEnvironment(ctx) && c.CaptureDir != "" && c.CaptureDir != shared.ViamCaptureDotDir {
 		// see comment above this error definition for when this happens
-		return ErrCaptureDirectoryConfigurationDisabled
+		return errtrace.Wrap(ErrCaptureDirectoryConfigurationDisabled)
 	}
 
 	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		// If this error occurs it's a resource graph error
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	captureConfig := c.captureConfig(b.logger)
 	collectorConfigsByResource, err := lookupCollectorConfigsByResource(deps, conf, captureConfig.CaptureDir, b.logger)
 	if err != nil {
 		// If this error occurs it's a resource graph error
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Catalog of every weak-dep resource keyed by short name. Lets the capture control sensor
@@ -363,11 +364,11 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	}
 	jsonBytes, err := json.Marshal(raw)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal reading: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to marshal reading: %w", err))
 	}
 	var controlList []datamanager.CaptureConfigReading
 	if err := json.Unmarshal(jsonBytes, &controlList); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal reading: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to unmarshal reading: %w", err))
 	}
 	if len(controlList) == 0 {
 		return nil, nil
@@ -390,11 +391,11 @@ func parseSequencesFromReadings(
 	}
 	jsonBytes, err := json.Marshal(raw)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal sequences reading: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to marshal sequences reading: %w", err))
 	}
 	var sequences []datamanager.SequenceReading
 	if err := json.Unmarshal(jsonBytes, &sequences); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal sequences reading: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to unmarshal sequences reading: %w", err))
 	}
 	if len(sequences) == 0 {
 		return nil, nil
@@ -439,7 +440,7 @@ func lookupCollectorConfigsByResource(
 		assocCfg, err := utils.AssertType[*datamanager.AssociatedConfig](rawAssocCfg)
 		if err != nil {
 			// This would only happen if there is a bug in resource graph
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		res, err := deps.Lookup(name)
 		if err != nil {
@@ -469,7 +470,7 @@ func (b *builtIn) UploadBinaryDataToDatasets(ctx context.Context,
 	defer b.logger.Debug("UploadBinaryDataToDatasets END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.sync.UploadBinaryDataToDatasets(ctx, binaryData, datasetIDs, tags, mimeType)
+	return errtrace.Wrap(b.sync.UploadBinaryDataToDatasets(ctx, binaryData, datasetIDs, tags, mimeType))
 }
 
 // TODO (DATA-4528): Don't ignore the extra field in the UploadImageToDatasets request.
@@ -484,11 +485,11 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	defer b.logger.Debug("UploadImageToDataset END")
 	imgBytes, err := datamanager.ConvertImageToBytes(image, mimeType)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
+	return errtrace.Wrap(b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType))
 }
 
 type dataManagerStats struct {

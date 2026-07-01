@@ -17,6 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
@@ -124,7 +125,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 
 	// Add base dependencies
 	if conf.BaseName == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "base"))
 	}
 	deps = append(deps, conf.BaseName)
 
@@ -143,15 +144,15 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	// Ensure map_type is valid and a movement sensor is available if MapType is GPS (or default)
 	mapType, err := navigation.StringToMapType(conf.MapType)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if mapType == navigation.GPSMap && conf.MovementSensorName == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "movement_sensor"))
 	}
 
 	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
 		if obstacleDetectorPair.VisionServiceName == "" || obstacleDetectorPair.CameraName == "" {
-			return nil, nil, resource.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
+			return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service")))
 		}
 		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionServiceName).String())
 		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.CameraName).String())
@@ -159,34 +160,34 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 
 	// Ensure store is valid
 	if err := conf.Store.Validate(path); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// Ensure inputs are non-negative
 	if conf.DegPerSec < 0 {
-		return nil, nil, errNegativeDegPerSec
+		return nil, nil, errtrace.Wrap(errNegativeDegPerSec)
 	}
 	if conf.MetersPerSec < 0 {
-		return nil, nil, errNegativeMetersPerSec
+		return nil, nil, errtrace.Wrap(errNegativeMetersPerSec)
 	}
 	if conf.PositionPollingFrequencyHz < 0 {
-		return nil, nil, errNegativePositionPollingFrequencyHz
+		return nil, nil, errtrace.Wrap(errNegativePositionPollingFrequencyHz)
 	}
 	if conf.ObstaclePollingFrequencyHz < 0 {
-		return nil, nil, errNegativeObstaclePollingFrequencyHz
+		return nil, nil, errtrace.Wrap(errNegativeObstaclePollingFrequencyHz)
 	}
 	if conf.PlanDeviationM < 0 {
-		return nil, nil, errNegativePlanDeviationM
+		return nil, nil, errtrace.Wrap(errNegativePlanDeviationM)
 	}
 	if conf.ReplanCostFactor < 0 {
-		return nil, nil, errNegativeReplanCostFactor
+		return nil, nil, errtrace.Wrap(errNegativeReplanCostFactor)
 	}
 
 	// Ensure obstacles have no translation
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, nil, errObstacleGeomWithTranslation
+				return nil, nil, errtrace.Wrap(errObstacleGeomWithTranslation)
 			}
 		}
 	}
@@ -195,7 +196,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	for _, region := range conf.BoundingRegions {
 		for _, geoms := range region.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, nil, errBoundingRegionsGeomWithTranslation
+				return nil, nil, errtrace.Wrap(errBoundingRegionsGeomWithTranslation)
 			}
 		}
 	}
@@ -215,7 +216,7 @@ func NewBuiltIn(
 		logger: logger,
 	}
 	if err := navSvc.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return navSvc, nil
@@ -260,7 +261,7 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 		if name == framesystem.InternalServiceName {
 			fsService, ok := dep.(framesystem.Service)
 			if !ok {
-				return errors.New("frame system service is invalid type")
+				return errtrace.Wrap(errors.New("frame system service is invalid type"))
 			}
 			svc.fsService = fsService
 			break
@@ -269,7 +270,7 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Set optional variables
@@ -306,7 +307,7 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 	if svcConfig.MapType != "" {
 		mapType, err = navigation.StringToMapType(svcConfig.MapType)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -322,7 +323,7 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 	if svcConfig.LogFilePath != "" {
 		logger, err := rdkutils.NewFilePathDebugLogger(svcConfig.LogFilePath, "navigation")
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		svc.logger = logger
 	}
@@ -330,13 +331,13 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Parse base from the configuration
 	baseComponent, err := base.FromProvider(deps, svcConfig.BaseName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Parse motion services from the configuration
 	motionSvc, err := motion.FromProvider(deps, motionServiceName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
@@ -344,11 +345,11 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromProvider(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		camera, err := camera.FromProvider(deps, pbObstacleDetectorPair.CameraName)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
 			VisionServiceName: visionSvc.Name().Name, CameraName: camera.Name().Name,
@@ -360,7 +361,7 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 	if mapType == navigation.GPSMap {
 		movementSensor, err := movementsensor.FromProvider(deps, svcConfig.MovementSensorName)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		svc.movementSensor = movementSensor
 	}
@@ -369,7 +370,7 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 	if svc.storeType != string(storeCfg.Type) {
 		newStore, err := navigation.NewStoreFromConfig(ctx, svcConfig.Store)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		svc.store = newStore
 		svc.storeType = string(storeCfg.Type)
@@ -378,13 +379,13 @@ func (svc *builtIn) reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Parse obstacles from the configuration
 	newObstacles, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.Obstacles)
 	if err != nil {
-		return errors.Wrap(errObstacleGeomParse, err.Error())
+		return errtrace.Wrap(errors.Wrap(errObstacleGeomParse, err.Error()))
 	}
 
 	// Parse bounding regions from the configuration
 	newBoundingRegions, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.BoundingRegions)
 	if err != nil {
-		return errors.Wrap(errBoundingRegionsGeomParse, err.Error())
+		return errtrace.Wrap(errors.Wrap(errBoundingRegionsGeomParse, err.Error()))
 	}
 
 	svc.mode = navigation.ModeManual
@@ -436,7 +437,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	svc.mode = mode
 
 	if !slices.Contains(availableModesByMapType[svc.mapType], svc.mode) {
-		return errors.Errorf("%v mode is unavailable for map type %v", svc.mode.String(), svc.mapType.String())
+		return errtrace.Wrap(errors.Errorf("%v mode is unavailable for map type %v", svc.mode.String(), svc.mapType.String()))
 	}
 
 	switch svc.mode {
@@ -454,15 +455,15 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 	defer svc.mu.RUnlock()
 
 	if svc.movementSensor == nil {
-		return nil, errors.New("no way to get location")
+		return nil, errtrace.Wrap(errors.New("no way to get location"))
 	}
 	loc, _, err := svc.movementSensor.Position(ctx, extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	compassHeading, err := svc.movementSensor.CompassHeading(ctx, extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
 	movementSensorPoseInBase, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
@@ -479,7 +480,7 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 
 	movementSensor2dOrientation, err := spatialmath.ProjectOrientationTo2dRotation(movementSensorPoseInBase.Pose())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// When rotation about the +Z axis, an OV theta is right handed but compass heading is left handed. Account for this.
 	compassHeading -= movementSensor2dOrientation.Orientation().OrientationVectorDegrees().Theta
@@ -487,13 +488,13 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 		compassHeading += 360
 	}
 	geoPose := spatialmath.NewGeoPose(loc, compassHeading)
-	return geoPose, err
+	return geoPose, errtrace.Wrap(err)
 }
 
 func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
 	wps, err := svc.store.Waypoints(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	wpsCopy := make([]navigation.Waypoint, 0, len(wps))
 	wpsCopy = append(wpsCopy, wps...)
@@ -503,7 +504,7 @@ func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{})
 func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
 	svc.logger.CInfof(ctx, "AddWaypoint called with %#v", *point)
 	_, err := svc.store.AddWaypoint(ctx, point)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
@@ -516,12 +517,12 @@ func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, e
 		}
 		svc.waypointInProgress = nil
 	}
-	return svc.store.RemoveWaypoint(ctx, id)
+	return errtrace.Wrap(svc.store.RemoveWaypoint(ctx, id))
 }
 
 func (svc *builtIn) waypointReached(ctx context.Context) error {
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return errtrace.Wrap(ctx.Err())
 	}
 
 	svc.mu.RLock()
@@ -529,9 +530,9 @@ func (svc *builtIn) waypointReached(ctx context.Context) error {
 	svc.mu.RUnlock()
 
 	if wp == nil {
-		return errors.New("can't mark waypoint reached since there is none in progress")
+		return errtrace.Wrap(errors.New("can't mark waypoint reached since there is none in progress"))
 	}
-	return svc.store.WaypointVisited(ctx, wp.ID)
+	return errtrace.Wrap(svc.store.WaypointVisited(ctx, wp.ID))
 }
 
 func (svc *builtIn) Close(ctx context.Context) error {
@@ -539,7 +540,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	defer svc.actionMu.Unlock()
 
 	svc.stopActiveMode()
-	return svc.store.Close(ctx)
+	return errtrace.Wrap(svc.store.Close(ctx))
 }
 
 func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
@@ -557,7 +558,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	defer cancelFn()
 	executionID, err := svc.motionService.MoveOnGlobe(cancelCtx, req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	executionWaypoint := executionWaypoint{executionID: executionID, waypoint: wp}
@@ -593,10 +594,10 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 		},
 	)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return svc.waypointReached(cancelCtx)
+	return errtrace.Wrap(svc.waypointReached(cancelCtx))
 }
 
 func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
@@ -663,7 +664,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		// get the vision service
 		visSvc, ok := svc.visionServicesByName[detector.VisionServiceName]
 		if !ok {
-			return nil, fmt.Errorf("vision service with name: %s not found", detector.VisionServiceName)
+			return nil, errtrace.Wrap(fmt.Errorf("vision service with name: %s not found", detector.VisionServiceName))
 		}
 
 		svc.logger.CDebugf(
@@ -676,7 +677,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		// get the detections
 		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		// determine transform from camera to movement sensor
@@ -723,14 +724,14 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		// get current geo position of robot
 		gp, _, err := svc.movementSensor.Position(ctx, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		// instantiate a localizer and use it to get our current position
 		localizer := motion.NewMovementSensorLocalizer(svc.movementSensor, gp, spatialmath.NewZeroPose())
 		currentPIF, err := localizer.CurrentPosition(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		// convert orientation of currentPIF to be left handed
@@ -818,7 +819,7 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 
 	ewp, ok := rawExecutionWaypoint.(executionWaypoint)
 	if !ok {
-		return nil, errors.New("execution corrupt")
+		return nil, errtrace.Wrap(errors.New("execution corrupt"))
 	}
 
 	ph, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{
@@ -827,21 +828,21 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		LastPlanOnly:  true,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	path := ph[0].Plan.Path()
 	geoPoints := make([]*geo.Point, 0, len(path))
 	poses, err := path.GetFramePoses(svc.base.Name().ShortName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for _, p := range poses {
 		geoPoints = append(geoPoints, geo.NewPoint(p.Point().Y, p.Point().X))
 	}
 	navPath, err := navigation.NewPath(ewp.waypoint.ID, geoPoints)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return []*navigation.Path{navPath}, nil
 }

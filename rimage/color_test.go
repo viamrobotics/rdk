@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -351,7 +352,7 @@ func TestColorHSVDistanceChess3(t *testing.T) {
 func readColorsFromFile(fn string) ([]Color, error) {
 	raw, err := os.ReadFile(fn)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	all := []Color{}
@@ -362,7 +363,7 @@ func readColorsFromFile(fn string) ([]Color, error) {
 		}
 		myColor, err := NewColorFromHex(squareColor)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		all = append(all, myColor)
 	}

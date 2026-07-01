@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
@@ -22,7 +23,7 @@ type FakeConvertedAttributes struct {
 // in the struct, meant to implement the validator interface in component.go.
 func (convAttr *FakeConvertedAttributes) Validate(path string) ([]string, []string, error) {
 	if convAttr.Thing == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "Thing")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "Thing"))
 	}
 	return nil, nil, nil
 }

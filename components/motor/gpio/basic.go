@@ -9,6 +9,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -23,12 +24,12 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 		mc.MaxPowerPct = 1.0
 	}
 	if mc.MaxPowerPct < 0.06 || mc.MaxPowerPct > 1.0 {
-		return nil, errors.New("max_power_pct must be between 0.06 and 1.0")
+		return nil, errtrace.Wrap(errors.New("max_power_pct must be between 0.06 and 1.0"))
 	}
 
 	motorType, err := mc.Pins.MotorType("")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	} else if motorType == AB {
 		logger.Warnf(
 			"Motor %s has been configured with A and B pins, but no PWM. Make sure your motor driver doesn't also require a PWM pin.",
@@ -63,19 +64,19 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 	case ABPwm, AB:
 		a, err := b.GPIOPinByName(mc.Pins.A)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		m.A = a
 
 		b, err := b.GPIOPinByName(mc.Pins.B)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		m.B = b
 	case DirectionPwm:
 		direction, err := b.GPIOPinByName(mc.Pins.Direction)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		m.Direction = direction
 	}
@@ -83,7 +84,7 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 	if (motorType == ABPwm) || (motorType == DirectionPwm) {
 		pwm, err := b.GPIOPinByName(mc.Pins.PWM)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		m.PWM = pwm
 	}
@@ -91,14 +92,14 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 	if mc.Pins.EnablePinHigh != "" {
 		enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		m.EnablePinHigh = enablePinHigh
 	}
 	if mc.Pins.EnablePinLow != "" {
 		enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		m.EnablePinLow = enablePinLow
 	}
@@ -169,7 +170,7 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 		pwmErr := errors.Wrap(m.PWM.Set(ctx, false, extra), "could not set PWM pin to low")
 		errs = multierr.Combine(errs, pwmErr)
 	}
-	return errs
+	return errtrace.Wrap(errs)
 }
 
 // setPWM sets the associated pins (as discovered) and sets PWM to the given power percentage.
@@ -194,7 +195,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	switch m.motorType {
 	case ABPwm, DirectionPwm:
 		if math.Abs(powerPct) <= 0.001 {
-			return m.turnOff(context.Background(), extra)
+			return errtrace.Wrap(m.turnOff(context.Background(), extra))
 		}
 		pwmPin = m.PWM
 	case AB:
@@ -212,16 +213,16 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 			}
 			powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 		default:
-			return m.turnOff(ctx, extra)
+			return errtrace.Wrap(m.turnOff(ctx, extra))
 		}
 	}
 
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
-	return multierr.Combine(
+	return errtrace.Wrap(multierr.Combine(
 		errs,
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq, extra),
 		pwmPin.SetPWM(ctx, powerPct, extra),
-	)
+	))
 }
 
 // SetPower instructs the motor to operate at an rpm, where the sign of the rpm
@@ -229,7 +230,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	ctx, finish := m.opMgr.New(ctx)
 	defer finish()
-	return m.setPower(ctx, powerPct, extra)
+	return errtrace.Wrap(m.setPower(ctx, powerPct, extra))
 }
 
 // setPower drives the pins for the requested power. m.mu is taken internally to serialize
@@ -237,7 +238,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 // each public entrypoint that invokes this method.
 func (m *Motor) setPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) <= 0.01 {
-		return m.Stop(ctx, extra)
+		return errtrace.Wrap(m.Stop(ctx, extra))
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -248,10 +249,10 @@ func (m *Motor) setPower(ctx context.Context, powerPct float64, extra map[string
 		if m.dirFlip {
 			x = !x
 		}
-		return multierr.Combine(
+		return errtrace.Wrap(multierr.Combine(
 			m.Direction.Set(ctx, x, extra),
 			m.setPWM(ctx, powerPct, extra),
-		)
+		))
 	case ABPwm, AB:
 		a := m.A
 		b := m.B
@@ -259,18 +260,18 @@ func (m *Motor) setPower(ctx context.Context, powerPct float64, extra map[string
 			a = m.B
 			b = m.A
 		}
-		return multierr.Combine(
+		return errtrace.Wrap(multierr.Combine(
 			a.Set(ctx, !math.Signbit(powerPct), extra),
 			b.Set(ctx, math.Signbit(powerPct), extra),
 			m.setPWM(ctx, powerPct, extra), // Must be last for A/B only drivers
-		)
+		))
 	}
 
 	if !math.Signbit(powerPct) {
-		return m.setPWM(ctx, powerPct, extra)
+		return errtrace.Wrap(m.setPWM(ctx, powerPct, extra))
 	}
 
-	return errors.New("trying to go backwards but don't have dir or a&b pins")
+	return errtrace.Wrap(errors.New("trying to go backwards but don't have dir or a&b pins"))
 }
 
 // GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
@@ -278,7 +279,7 @@ func (m *Motor) setPower(ctx context.Context, powerPct float64, extra map[string
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if m.maxRPM == 0 {
-		return errors.New("not supported, define max_rpm attribute != 0")
+		return errtrace.Wrap(errors.New("not supported, define max_rpm attribute != 0"))
 	}
 
 	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
@@ -286,11 +287,11 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := motor.CheckRevolutions(revolutions); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
@@ -302,11 +303,11 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	defer finish()
 
 	if err := m.setPower(ctx, powerPct, extra); err != nil {
-		return errors.Wrap(err, "error in GoFor")
+		return errtrace.Wrap(errors.Wrap(err, "error in GoFor"))
 	}
 
 	if utils.SelectContextOrWait(ctx, waitDur) {
-		return m.Stop(ctx, extra)
+		return errtrace.Wrap(m.Stop(ctx, extra))
 	}
 	return nil
 }
@@ -327,7 +328,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	defer finish()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.setPWM(context.Background(), 0, extra)
+	return errtrace.Wrap(m.setPWM(context.Background(), 0, extra))
 }
 
 // IsMoving returns if the motor is currently on or off.
@@ -339,13 +340,13 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 
 // GoTo is not supported.
 func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-	return motor.NewGoToUnsupportedError(m.Name().ShortName())
+	return errtrace.Wrap(motor.NewGoToUnsupportedError(m.Name().ShortName()))
 }
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 	if m.maxRPM == 0 {
-		return errors.New("not supported, define max_rpm attribute != 0")
+		return errtrace.Wrap(errors.New("not supported, define max_rpm attribute != 0"))
 	}
 
 	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
@@ -353,13 +354,13 @@ func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interf
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	powerPct := rpm / m.maxRPM
 	err = m.SetPower(ctx, powerPct, extra)
 	if err != nil {
-		return errors.Wrap(err, "error in GoFor")
+		return errtrace.Wrap(errors.Wrap(err, "error in GoFor"))
 	}
 
 	return nil
@@ -367,7 +368,7 @@ func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interf
 
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
+	return errtrace.Wrap(motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName()))
 }
 
 // DirectionMoving returns the direction we are currently moving in, with 1 representing

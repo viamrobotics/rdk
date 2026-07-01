@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	"go.viam.com/utils"
@@ -21,7 +22,7 @@ func (c *viamClient) downloadSequenceDataset(
 	ctx context.Context, datasetID, dst string, pollInterval, maxWait time.Duration,
 ) error {
 	if err := os.MkdirAll(dst, 0o700); err != nil {
-		return errors.Wrapf(err, "could not create destination directory %s", dst)
+		return errtrace.Wrap(errors.Wrapf(err, "could not create destination directory %s", dst))
 	}
 
 	printf(c.c.Root().Writer, "Starting export for dataset %s", datasetID)
@@ -29,19 +30,19 @@ func (c *viamClient) downloadSequenceDataset(
 		ctx, &datasetpb.StartSequenceDatasetExportRequest{DatasetId: datasetID},
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to start sequence dataset export")
+		return errtrace.Wrap(errors.Wrap(err, "failed to start sequence dataset export"))
 	}
 	jobID := startResp.GetJobId()
 	printf(c.c.Root().Writer, "Export job %s queued; polling every %s (max %s)", jobID, pollInterval, maxWait)
 
 	getResp, err := c.pollUntilTerminal(ctx, jobID, pollInterval, maxWait)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dstPath := filepath.Join(dst, datasetID+".zip")
 	if err := downloadSignedURL(ctx, getResp.GetDownloadUrl(), dstPath); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(c.c.Root().Writer, "Wrote %s", dstPath)
 	return nil
@@ -52,28 +53,28 @@ func (c *viamClient) downloadSequenceDataset(
 func downloadSignedURL(ctx context.Context, signedURL, dst string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, signedURL, nil)
 	if err != nil {
-		return errors.Wrap(err, "building download request")
+		return errtrace.Wrap(errors.Wrap(err, "building download request"))
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "downloading export zip")
+		return errtrace.Wrap(errors.Wrap(err, "downloading export zip"))
 	}
 	//nolint:errcheck
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024)) //nolint:errcheck
-		return fmt.Errorf("download HTTP %d: %s", resp.StatusCode, string(body))
+		return errtrace.Wrap(fmt.Errorf("download HTTP %d: %s", resp.StatusCode, string(body)))
 	}
 
 	out, err := os.Create(dst) //nolint:gosec
 	if err != nil {
-		return errors.Wrapf(err, "could not create %s", dst)
+		return errtrace.Wrap(errors.Wrapf(err, "could not create %s", dst))
 	}
 	//nolint:errcheck
 	defer out.Close()
 	if _, err := io.Copy(out, resp.Body); err != nil {
 		utils.UncheckedError(os.Remove(dst))
-		return errors.Wrap(err, "writing export zip to disk")
+		return errtrace.Wrap(errors.Wrap(err, "writing export zip to disk"))
 	}
 	return nil
 }
@@ -88,27 +89,27 @@ func (c *viamClient) pollUntilTerminal(
 	for {
 		resp, err := c.datasetClient.GetSequenceDatasetExport(ctx, &datasetpb.GetSequenceDatasetExportRequest{JobId: jobID})
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to fetch export job status")
+			return nil, errtrace.Wrap(errors.Wrapf(err, "failed to fetch export job status"))
 		}
 		switch resp.GetStatus() {
 		case datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_COMPLETED:
 			return resp, nil
 		case datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_FAILED:
-			return nil, fmt.Errorf("export job %s failed: %s", jobID, resp.GetErrorMessage())
+			return nil, errtrace.Wrap(fmt.Errorf("export job %s failed: %s", jobID, resp.GetErrorMessage()))
 		case datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_RUNNING,
 			datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_UNSPECIFIED:
 			// keep polling
 		default:
-			return nil, fmt.Errorf("export job %s returned unknown status: %s", jobID, resp.GetStatus())
+			return nil, errtrace.Wrap(fmt.Errorf("export job %s returned unknown status: %s", jobID, resp.GetStatus()))
 		}
 
 		if time.Now().After(deadline) {
-			return nil, fmt.Errorf("export job %s timed out after %s; still RUNNING", jobID, maxWait)
+			return nil, errtrace.Wrap(fmt.Errorf("export job %s timed out after %s; still RUNNING", jobID, maxWait))
 		}
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, errtrace.Wrap(ctx.Err())
 		case <-time.After(pollInterval):
 		}
 	}

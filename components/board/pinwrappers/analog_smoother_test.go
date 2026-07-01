@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -27,14 +28,14 @@ func (t *testAnalog) Read(ctx context.Context, extra map[string]interface{}) (bo
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.stop || t.n >= t.lim {
-		return board.AnalogValue{}, errStopReading
+		return board.AnalogValue{}, errtrace.Wrap(errStopReading)
 	}
 	t.n++
 	return board.AnalogValue{Value: t.r.Intn(100), Min: 0, Max: 3.3, StepSize: 0.1}, nil
 }
 
 func (t *testAnalog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+	return errtrace.Wrap(grpc.UnimplementedError)
 }
 
 func (t *testAnalog) Close(ctx context.Context) error {

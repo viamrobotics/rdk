@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -45,12 +46,12 @@ const (
 func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	ips, err := utils.GetAllLocalIPv4s()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	arch := runtime.GOARCH
@@ -93,7 +94,7 @@ func getCloudCacheFilePath(id string) string {
 func readFromCache(id string) (*Config, error) {
 	r, err := os.Open(getCloudCacheFilePath(id))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(r.Close)
 
@@ -107,14 +108,14 @@ func readFromCache(id string) (*Config, error) {
 			utils.UncheckedErrorFunc(r.Close)
 		}
 		clearCache(id)
-		return nil, errors.Wrap(err, "cannot parse the cached config as json")
+		return nil, errtrace.Wrap(errors.Wrap(err, "cannot parse the cached config as json"))
 	}
 	return unprocessedConfig, nil
 }
 
 func clearCache(id string) {
 	utils.UncheckedErrorFunc(func() error {
-		return os.Remove(getCloudCacheFilePath(id))
+		return errtrace.Wrap(os.Remove(getCloudCacheFilePath(id)))
 	})
 }
 
@@ -126,13 +127,13 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
 		// Check cache?
-		return tlsConfig{}, err
+		return tlsConfig{}, errtrace.Wrap(err)
 	}
 	if res.TlsCertificate == "" {
-		return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
+		return tlsConfig{}, errtrace.Wrap(errors.New("no TLS certificate yet from cloud; try again later"))
 	}
 	if res.TlsPrivateKey == "" {
-		return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
+		return tlsConfig{}, errtrace.Wrap(errors.New("no TLS private key yet from cloud; try again later"))
 	}
 
 	return tlsConfig{
@@ -187,7 +188,7 @@ func readFromCloud(
 	cloudCfg := originalCfg.Cloud
 	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger, conn)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// process the config
@@ -197,14 +198,14 @@ func readFromCloud(
 			// We could not process the cached config; clear it so we don't keep reusing a bad cache.
 			logger.Warn("Detected failure to process the cached config, clearing cache.")
 			clearCache(cloudCfg.ID)
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// A freshly fetched cloud config we cannot process locally is malformed. The robot cannot
 		// apply it, and it will fail identically on every refresh, so surface it loudly.
-		return nil, malformedConfigError{err}
+		return nil, errtrace.Wrap(malformedConfigError{err})
 	}
 	if cfg.Cloud == nil {
-		return nil, errors.New("expected config to have cloud section")
+		return nil, errtrace.Wrap(errors.New("expected config to have cloud section"))
 	}
 
 	tls := tlsConfig{
@@ -218,7 +219,7 @@ func readFromCloud(
 		// Try to get TLS information from the cached config (if it exists) even if we
 		// got a new config from the cloud.
 		if err := tls.readFromCache(cloudCfg.ID, logger); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -236,7 +237,7 @@ func readFromCloud(
 		if err != nil {
 			cancel()
 			if !errors.As(err, &context.DeadlineExceeded) {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
@@ -296,7 +297,7 @@ func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
 	case errors.Is(err, fs.ErrNotExist):
 		logger.Warn("No cached config, using cloud TLS config.")
 	case err != nil:
-		return err
+		return errtrace.Wrap(err)
 	case cachedCfg.Cloud == nil:
 		logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
 	default:
@@ -306,7 +307,7 @@ func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
 			if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
 				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
 				clearCache(id)
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 
@@ -325,10 +326,10 @@ func Read(
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return FromReader(ctx, filePath, bytes.NewReader(buf), logger, conn)
+	return errtrace.Wrap2(FromReader(ctx, filePath, bytes.NewReader(buf), logger, conn))
 }
 
 // ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
@@ -338,10 +339,10 @@ func ReadLocalConfig(
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return fromReaderLocal(filePath, bytes.NewReader(buf), logger)
+	return errtrace.Wrap2(fromReaderLocal(filePath, bytes.NewReader(buf), logger))
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -353,7 +354,7 @@ func FromReader(
 	logger logging.Logger,
 	conn rpc.ClientConn,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, r, logger, conn)
+	return errtrace.Wrap2(fromReader(ctx, originalPath, r, logger, conn))
 }
 
 // fromReaderLocal reads a config from the given reader and specifies
@@ -369,13 +370,13 @@ func fromReaderLocal(
 	}
 	err := json.NewDecoder(r).Decode(&unprocessedConfig)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode Config from json")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "failed to decode Config from json"))
 	}
 	cfgFromDisk, err := processConfigLocalConfig(&unprocessedConfig, logger)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to process Config")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "failed to process Config"))
 	}
-	return cfgFromDisk, err
+	return cfgFromDisk, errtrace.Wrap(err)
 }
 
 // fromReader reads a config from the given reader and specifies
@@ -390,7 +391,7 @@ func fromReader(
 	// First read and process config from disk
 	cfgFromDisk, err := fromReaderLocal(originalPath, r, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if conn != nil && cfgFromDisk.Cloud != nil {
@@ -414,10 +415,10 @@ func fromReader(
 					cfgFromDisk.Network.BindAddress)
 			}
 		}
-		return cfg, err
+		return cfg, errtrace.Wrap(err)
 	}
 
-	return cfgFromDisk, err
+	return cfgFromDisk, errtrace.Wrap(err)
 }
 
 // ProcessLocal validates the current config assuming it came from a local file and
@@ -426,7 +427,7 @@ func fromReader(
 func (c *Config) ProcessLocal(logger logging.Logger) error {
 	processed, err := processConfigLocalConfig(c, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	*c = *processed
 	return nil
@@ -436,14 +437,14 @@ func (c *Config) ProcessLocal(logger logging.Logger) error {
 // and config validated with the assumption the config came from the cloud.
 // Returns an error if the unprocessedConfig is non-valid.
 func processConfigFromCloud(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
-	return processConfig(unprocessedConfig, true, logger)
+	return errtrace.Wrap2(processConfig(unprocessedConfig, true, logger))
 }
 
 // processConfigLocalConfig returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from a local file.
 // Returns an error if the unprocessedConfig is non-valid.
 func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
-	return processConfig(unprocessedConfig, false, logger)
+	return errtrace.Wrap2(processConfig(unprocessedConfig, false, logger))
 }
 
 // additionalModuleEnvVars will get additional environment variables for modules using other parts of the config.
@@ -483,7 +484,7 @@ func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig, tracing TracingConfi
 // ProcessLocalConfigForTesting invokes processConfig with fromCloud: false. To be used
 // for testing that is not in this package but needs the side effects of processConfig.
 func ProcessLocalConfigForTesting(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
-	return processConfig(unprocessedConfig, false, logger)
+	return errtrace.Wrap2(processConfig(unprocessedConfig, false, logger))
 }
 
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
@@ -493,7 +494,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// Ensure validates the config but also substitutes in some defaults. Implicit dependencies for builtin resource
 	// models are not filled in until attributes are converted.
 	if err := unprocessedConfig.Ensure(fromCloud, logger); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// The unprocessed config is cached, so make a deep copy before continuing. By caching a relatively
@@ -501,7 +502,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// Also ensures validation happens again on resources, remotes, and modules since the cached validation fields are not public.
 	cfg, err := unprocessedConfig.CopyOnlyPublicFields()
 	if err != nil {
-		return nil, errors.Wrap(err, "error copying config")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error copying config"))
 	}
 
 	// Copy does not preserve ConfigFilePath since it preserves only JSON-exported fields and so we need
@@ -561,7 +562,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			if err != nil {
 				// if any of the conversion errors, the function will exit and no part of the new config will be returned
 				// until it is corrected.
-				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
+				return errtrace.Wrap(errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model))
 			}
 			confs[idx].ConvertedAttributes = converted
 		}
@@ -569,10 +570,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	}
 
 	if err := processResources(cfg.Components); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := processResources(cfg.Services); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Look through all associated configs for a resource config and link it to the configs that each associated config is linked to
@@ -590,7 +591,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			if conv.AttributeMapConverter != nil {
 				converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {
-					return errors.Wrap(err, "error converting associated resource config attributes")
+					return errtrace.Wrap(errors.Wrap(err, "error converting associated resource config attributes"))
 				}
 				// associated resource configs for local resources might be missing the resource name,
 				// which can be inferred from its resource config.
@@ -619,23 +620,23 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 			// convert and associate user-written associated resource configs here.
 			if err := convertAndAssociateResourceConfigs(&resName, conf.AssociatedResourceConfigs); err != nil {
-				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
+				return errtrace.Wrap(errors.Wrapf(err, "error processing associated service configs for %q", resName))
 			}
 		}
 		return nil
 	}
 
 	if err := processAssociations(cfg.Components); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := processAssociations(cfg.Services); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// associated configs can be put on resources in remotes as well, so check remote configs
 	for _, c := range cfg.Remotes {
 		if err := convertAndAssociateResourceConfigs(nil, c.AssociatedResourceConfigs); err != nil {
-			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
+			return nil, errtrace.Wrap(errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name))
 		}
 	}
 
@@ -650,7 +651,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return cfg, nil
@@ -711,13 +712,13 @@ func getFromCloudOrCache(
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
 					// No cache to fall back to, return original error.
-					return nil, cached, errors.Wrap(
+					return nil, cached, errtrace.Wrap(errors.Wrap(
 						err,
 						"error getting cloud config, cached config does not exist; returning error from cloud config attempt",
-					)
+					))
 				}
 				// return cache err
-				return nil, cached, errors.Wrap(cacheErr, "error reading cache after getting cloud config failed")
+				return nil, cached, errtrace.Wrap(errors.Wrap(cacheErr, "error reading cache after getting cloud config failed"))
 			}
 
 			lastUpdated := "unknown"
@@ -738,7 +739,7 @@ func getFromCloudOrCache(
 			return cachedConfig, cached, nil
 		}
 
-		return nil, cached, errors.Wrap(err, "error getting cloud config")
+		return nil, cached, errtrace.Wrap(errors.Wrap(err, "error getting cloud config"))
 	}
 
 	return cfg, cached, nil
@@ -755,7 +756,7 @@ func getFromCloudGRPC(
 ) (*Config, error) {
 	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
-		return nil, errors.WithMessage(err, "error getting agent info")
+		return nil, errtrace.Wrap(errors.WithMessage(err, "error getting agent info"))
 	}
 
 	service := apppb.NewRobotServiceClient(conn)
@@ -766,14 +767,14 @@ func getFromCloudGRPC(
 		malformed := isCloudConfigMalformed(err)
 		err = errors.WithMessage(err, "error getting config from config endpoint")
 		if malformed {
-			return nil, malformedConfigError{err}
+			return nil, errtrace.Wrap(malformedConfigError{err})
 		}
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// The cloud served a config we could not decode from proto, so it is malformed.
-		return nil, malformedConfigError{errors.WithMessage(err, "error converting config from proto")}
+		return nil, errtrace.Wrap(malformedConfigError{errors.WithMessage(err, "error converting config from proto")})
 	}
 
 	return cfg, nil
@@ -783,7 +784,7 @@ func getFromCloudGRPC(
 func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (rpc.ClientConn, error) {
 	u, err := url.Parse(cloudCfg.AppAddress)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
@@ -799,7 +800,7 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logger.Sublogger("networking"), dialOpts...)
+	return errtrace.Wrap2(rpc.DialDirectGRPC(ctx, u.Host, logger.Sublogger("networking"), dialOpts...))
 }
 
 // CreateNewGRPCClientWithAPIKey creates a new grpc cloud configured to communicate with the robot service
@@ -809,7 +810,7 @@ func CreateNewGRPCClientWithAPIKey(ctx context.Context, cloudCfg *Cloud,
 ) (rpc.ClientConn, error) {
 	u, err := url.Parse(cloudCfg.AppAddress)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
@@ -825,5 +826,5 @@ func CreateNewGRPCClientWithAPIKey(ctx context.Context, cloudCfg *Cloud,
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logger.Sublogger("networking"), dialOpts...)
+	return errtrace.Wrap2(rpc.DialDirectGRPC(ctx, u.Host, logger.Sublogger("networking"), dialOpts...))
 }

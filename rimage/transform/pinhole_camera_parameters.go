@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 )
@@ -24,7 +25,7 @@ var ErrNoIntrinsics = errors.New("camera intrinsic parameters are not available"
 
 // NewNoIntrinsicsError is used when the intriniscs are not defined.
 func NewNoIntrinsicsError(msg string) error {
-	return errors.Wrapf(ErrNoIntrinsics, "%s", msg)
+	return errtrace.Wrap(errors.Wrapf(ErrNoIntrinsics, "%s", msg))
 }
 
 // PinholeCameraModel is the model of a pinhole camera.
@@ -54,12 +55,12 @@ func (params *PinholeCameraModel) DistortionMap() func(u, v float64) (float64, f
 //nolint:dupl
 func (params *PinholeCameraModel) UndistortImage(img *rimage.Image) (*rimage.Image, error) {
 	if img == nil {
-		return nil, errors.New("input image is nil")
+		return nil, errtrace.Wrap(errors.New("input image is nil"))
 	}
 	// Check dimensions, they should be equal between the color image and what the intrinsics expect
 	if params.Width != img.Width() || params.Height != img.Height() {
-		return nil, errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
-			img.Width(), img.Height(), params.Width, params.Height)
+		return nil, errtrace.Wrap(errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
+			img.Width(), img.Height(), params.Width, params.Height))
 	}
 	undistortedImg := rimage.NewImage(params.Width, params.Height)
 	distortionMap := params.DistortionMap()
@@ -85,12 +86,12 @@ func (params *PinholeCameraModel) UndistortImage(img *rimage.Image) (*rimage.Ima
 //nolint:dupl
 func (params *PinholeCameraModel) UndistortDepthMap(dm *rimage.DepthMap) (*rimage.DepthMap, error) {
 	if dm == nil {
-		return nil, errors.New("input DepthMap is nil")
+		return nil, errtrace.Wrap(errors.New("input DepthMap is nil"))
 	}
 	// Check dimensions, they should be equal between the color image and what the intrinsics expect
 	if params.Width != dm.Width() || params.Height != dm.Height() {
-		return nil, errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
-			dm.Width(), dm.Height(), params.Width, params.Height)
+		return nil, errtrace.Wrap(errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
+			dm.Width(), dm.Height(), params.Width, params.Height))
 	}
 	undistortedDm := rimage.NewEmptyDepthMap(params.Width, params.Height)
 	distortionMap := params.DistortionMap()
@@ -121,22 +122,22 @@ type PinholeCameraIntrinsics struct {
 // CheckValid checks if the fields for PinholeCameraIntrinsics have valid inputs.
 func (params *PinholeCameraIntrinsics) CheckValid() error {
 	if params == nil {
-		return NewNoIntrinsicsError("Intrinsics do not exist")
+		return errtrace.Wrap(NewNoIntrinsicsError("Intrinsics do not exist"))
 	}
 	if params.Width == 0 || params.Height == 0 {
-		return NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", params.Width, params.Height))
+		return errtrace.Wrap(NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", params.Width, params.Height)))
 	}
 	if params.Fx <= 0 {
-		return NewNoIntrinsicsError(fmt.Sprintf("Invalid focal length Fx = %#v", params.Fx))
+		return errtrace.Wrap(NewNoIntrinsicsError(fmt.Sprintf("Invalid focal length Fx = %#v", params.Fx)))
 	}
 	if params.Fy <= 0 {
-		return NewNoIntrinsicsError(fmt.Sprintf("Invalid focal length Fy = %#v", params.Fy))
+		return errtrace.Wrap(NewNoIntrinsicsError(fmt.Sprintf("Invalid focal length Fy = %#v", params.Fy)))
 	}
 	if params.Ppx < 0 {
-		return NewNoIntrinsicsError(fmt.Sprintf("Invalid principal X point Ppx = %#v", params.Ppx))
+		return errtrace.Wrap(NewNoIntrinsicsError(fmt.Sprintf("Invalid principal X point Ppx = %#v", params.Ppx)))
 	}
 	if params.Ppy < 0 {
-		return NewNoIntrinsicsError(fmt.Sprintf("Invalid principal Y point Ppy = %#v", params.Ppy))
+		return errtrace.Wrap(NewNoIntrinsicsError(fmt.Sprintf("Invalid principal Y point Ppy = %#v", params.Ppy)))
 	}
 	return nil
 }
@@ -148,21 +149,21 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath string) (*PinholeCameraIntr
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
 		err = errors.Wrap(err, "error opening JSON file")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
 	byteValue, err2 := io.ReadAll(jsonFile)
 	if err2 != nil {
 		err2 = errors.Wrap(err2, "error reading JSON data")
-		return nil, err2
+		return nil, errtrace.Wrap(err2)
 	}
 	// Parse into map
 	intrinsics := &PinholeCameraIntrinsics{}
 	err = json.Unmarshal(byteValue, intrinsics)
 	if err != nil {
 		err = errors.Wrap(err, "error parsing JSON string")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return intrinsics, nil
 }
@@ -198,7 +199,7 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
 func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d rimage.Depth) (r3.Vector, error) {
-	return intrinsics2DPtTo3DPt(point, d, params)
+	return errtrace.Wrap2(intrinsics2DPtTo3DPt(point, d, params))
 }
 
 // RGBDToPointCloud takes an Image and Depth map and uses the camera parameters to project it to a pointcloud.
@@ -208,12 +209,12 @@ func (params *PinholeCameraIntrinsics) RGBDToPointCloud(
 ) (pointcloud.PointCloud, error) {
 	var rect *image.Rectangle
 	if len(crop) > 1 {
-		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+		return nil, errtrace.Wrap(errors.Errorf("cannot have more than one cropping rectangle, got %v", crop))
 	}
 	if len(crop) == 1 {
 		rect = &crop[0]
 	}
-	return intrinsics2DTo3D(img, dm, params, rect)
+	return errtrace.Wrap2(intrinsics2DTo3D(img, dm, params, rect))
 }
 
 // PointCloudToRGBD takes a PointCloud with color info and returns an Image and DepthMap from the
@@ -224,7 +225,7 @@ func (params *PinholeCameraIntrinsics) PointCloudToRGBD(
 	if params == nil {
 		return nil, nil, nil
 	}
-	return intrinsics3DTo2D(cloud, params)
+	return errtrace.Wrap3(intrinsics3DTo2D(cloud, params))
 }
 
 // ProjectPointCloudToRGBPlane projects points in a pointcloud to a given camera image plane.
@@ -252,7 +253,7 @@ func ProjectPointCloudToRGBPlane(
 		return true
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return coordinates, nil
 }
@@ -286,7 +287,7 @@ func intrinsics2DPtTo3DPt(pt image.Point, d rimage.Depth, pci *PinholeCameraIntr
 func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics) (*rimage.Image, *rimage.DepthMap, error) {
 	// Needs to be a pointcloud with color
 	if !cloud.MetaData().HasColor {
-		return nil, nil, errors.New("pointcloud has no color information, cannot create an image with depth")
+		return nil, nil, errtrace.Wrap(errors.New("pointcloud has no color information, cannot create an image with depth"))
 	}
 	// Image and DepthMap will be in the camera frame of the camera specified by PinholeCameraIntrinsics.
 	// Points outside of the frame will be discarded.
@@ -313,15 +314,15 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 func intrinsics2DTo3D(img *rimage.Image, dm *rimage.DepthMap, pci *PinholeCameraIntrinsics, crop *image.Rectangle,
 ) (pointcloud.PointCloud, error) {
 	if img == nil {
-		return nil, errors.New("no rgb channel. Cannot project to Pointcloud")
+		return nil, errtrace.Wrap(errors.New("no rgb channel. Cannot project to Pointcloud"))
 	}
 	if dm == nil {
-		return nil, errors.New("no depth channel. Cannot project to Pointcloud")
+		return nil, errtrace.Wrap(errors.New("no depth channel. Cannot project to Pointcloud"))
 	}
 	// Check dimensions, they should be equal between the color and depth frame
 	if img.Bounds() != dm.Bounds() {
-		return nil, errors.Errorf("depth map and color dimensions don't match Depth(%d,%d) != Color(%d,%d)",
-			dm.Width(), dm.Height(), img.Width(), img.Height())
+		return nil, errtrace.Wrap(errors.Errorf("depth map and color dimensions don't match Depth(%d,%d) != Color(%d,%d)",
+			dm.Width(), dm.Height(), img.Width(), img.Height()))
 	}
 	startX, startY := 0, 0
 	endX, endY := img.Width(), img.Height()
@@ -339,7 +340,7 @@ func intrinsics2DTo3D(img *rimage.Image, dm *rimage.DepthMap, pci *PinholeCamera
 			r, g, b := img.GetXY(x, y).RGB255()
 			err := pc.Set(pointcloud.NewVector(px, py, pz), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}

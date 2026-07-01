@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/audioout"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -47,10 +48,10 @@ func (s *playStreamServer) Context() context.Context { return s.ctx }
 
 func (s *playStreamServer) Recv() (*pb.PlayStreamRequest, error) {
 	if s.recvErr != nil {
-		return nil, s.recvErr
+		return nil, errtrace.Wrap(s.recvErr)
 	}
 	if len(s.msgs) == 0 {
-		return nil, io.EOF
+		return nil, errtrace.Wrap(io.EOF)
 	}
 	m := s.msgs[0]
 	s.msgs = s.msgs[1:]
@@ -87,7 +88,7 @@ func newServer(logger logging.Logger) (pb.AudioOutServiceServer, *inject.AudioOu
 	}
 	audioOutSvc, err := resource.NewAPIResourceCollection(audioout.API, audioOuts)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return audioout.NewRPCServiceServer(audioOutSvc, logger).(pb.AudioOutServiceServer), injectAudioOut, injectAudioOut2, nil
 }
@@ -125,7 +126,7 @@ func TestServer(t *testing.T) {
 
 		// Test play error
 		injectAudioOut.PlayFunc = func(ctx context.Context, data []byte, info *rutils.AudioInfo, extra map[string]interface{}) error {
-			return errPlayFailed
+			return errtrace.Wrap(errPlayFailed)
 		}
 
 		_, err = audioOutServer.Play(context.Background(), playReq)
@@ -211,7 +212,7 @@ func TestServer(t *testing.T) {
 			injectAudioOut.PlayStreamFunc = func(ctx context.Context, info *rutils.AudioInfo,
 				chunks <-chan []byte, extra map[string]interface{},
 			) error {
-				return errPlayStreamFailed
+				return errtrace.Wrap(errPlayStreamFailed)
 			}
 
 			cancelCtx, cancel := context.WithCancel(context.Background())
@@ -262,7 +263,7 @@ func TestServer(t *testing.T) {
 
 		// Test properties error
 		injectAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
-			return rutils.Properties{}, errPropertiesFailed
+			return rutils.Properties{}, errtrace.Wrap(errPropertiesFailed)
 		}
 		_, err = audioOutServer.GetProperties(
 			context.Background(),
@@ -311,7 +312,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectAudioOut.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = audioOutServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testAudioOutName})
 		test.That(t, err, test.ShouldNotBeNil)

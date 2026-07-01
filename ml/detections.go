@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"gorgonia.org/tensor"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/utils"
 )
@@ -26,15 +27,15 @@ func FormatDetectionOutputs(outNameMap *sync.Map, outMap Tensors, origW, origH i
 	// use the outNameMap to find the tensor names, or guess and cache the names
 	locationName, categoryName, scoreName, err := findDetectionTensorNames(outMap, outNameMap)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	locations, err := ConvertToFloat64Slice(outMap[locationName].Data())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	scores, err := ConvertToFloat64Slice(outMap[scoreName].Data())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	hasCategoryTensor := false
 	categories := make([]float64, len(scores)) // default 0 category if no category output
@@ -42,7 +43,7 @@ func FormatDetectionOutputs(outNameMap *sync.Map, outMap Tensors, origW, origH i
 		hasCategoryTensor = true
 		categories, err = ConvertToFloat64Slice(outMap[categoryName].Data())
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	// sometimes categories are stuffed into the score output. separate them out.
@@ -55,19 +56,19 @@ func FormatDetectionOutputs(outNameMap *sync.Map, outMap Tensors, origW, origH i
 			}
 			scores, categories, err = extractCategoriesFromScores(scores, nCategories)
 			if err != nil {
-				return nil, errors.Wrap(err, "could not extract categories from score tensor")
+				return nil, errtrace.Wrap(errors.Wrap(err, "could not extract categories from score tensor"))
 			}
 		}
 	}
 
 	// Now reshape outMap into Detections
 	if len(categories) != len(scores) || 4*len(scores) != len(locations) {
-		return nil, errors.Errorf(
+		return nil, errtrace.Wrap(errors.Errorf(
 			"output tensor sizes did not match each other as expected. score: %v, category: %v, location: %v",
 			len(scores),
 			len(categories),
 			len(locations),
-		)
+		))
 	}
 	detections := make([]data.BoundingBox, 0, len(scores))
 	detectionBoxesAreProportional := false
@@ -103,7 +104,7 @@ func FormatDetectionOutputs(outNameMap *sync.Map, outMap Tensors, origW, origH i
 			})
 		} else {
 			if labelNum >= len(labels) {
-				return nil, errors.Errorf("cannot access label number %v from label file with %v labels", labelNum, len(labels))
+				return nil, errtrace.Wrap(errors.Errorf("cannot access label number %v from label file with %v labels", labelNum, len(labels)))
 			}
 			detections = append(detections, data.BoundingBox{
 				Confidence:     &scores[i],
@@ -129,26 +130,26 @@ func findDetectionTensorNames(outMap Tensors, nameMap *sync.Map) (string, string
 	if okLoc && okCat && okScores { // names are known
 		locString, ok := loc.(string)
 		if !ok {
-			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", loc)
+			return "", "", "", errtrace.Wrap(errors.Errorf("name map was not storing string, but a type %T", loc))
 		}
 		catString, ok := cat.(string)
 		if !ok {
-			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", cat)
+			return "", "", "", errtrace.Wrap(errors.Errorf("name map was not storing string, but a type %T", cat))
 		}
 		scoreString, ok := score.(string)
 		if !ok {
-			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", score)
+			return "", "", "", errtrace.Wrap(errors.Errorf("name map was not storing string, but a type %T", score))
 		}
 		return locString, catString, scoreString, nil
 	}
 	if okLoc && okScores { // names are known, just no categories
 		locString, ok := loc.(string)
 		if !ok {
-			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", loc)
+			return "", "", "", errtrace.Wrap(errors.Errorf("name map was not storing string, but a type %T", loc))
 		}
 		scoreString, ok := score.(string)
 		if !ok {
-			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", score)
+			return "", "", "", errtrace.Wrap(errors.Errorf("name map was not storing string, but a type %T", score))
 		}
 		if len(outMap[scoreString].Shape()) == 3 || len(outMap) == 2 { // the categories are in the score
 			return locString, "", scoreString, nil
@@ -168,7 +169,7 @@ func findDetectionTensorNames(outMap Tensors, nameMap *sync.Map) (string, string
 	// last, do a hack-y thing to try to guess the tensor names for the detection output tensors
 	locationName, categoryName, scoreName, err := guessDetectionTensorNames(outMap)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", errtrace.Wrap(err)
 	}
 	nameMap.Store(detectorLocationName, locationName)
 	nameMap.Store(detectorCategoryName, categoryName)
@@ -208,11 +209,11 @@ func guessDetectionTensorNames(outMap Tensors) (string, string, string, error) {
 		if t.Dims() == 1 { // usually n-detections has its own tensor
 			val, err := t.At(0)
 			if err != nil {
-				return "", "", "", err
+				return "", "", "", errtrace.Wrap(err)
 			}
 			val64, err := ConvertToFloat64Slice(val)
 			if err != nil {
-				return "", "", "", err
+				return "", "", "", errtrace.Wrap(err)
 			}
 			nDetections = int(val64[0])
 			foundTensor[name] = true
@@ -232,7 +233,7 @@ func guessDetectionTensorNames(outMap Tensors) (string, string, string, error) {
 			}
 		}
 		if _, ok := mappedNames[detectorLocationName]; !ok {
-			return "", "", "", errors.Errorf("could not find an output tensor named 'location' among [%s]", strings.Join(outNames, ", "))
+			return "", "", "", errtrace.Wrap(errors.Errorf("could not find an output tensor named 'location' among [%s]", strings.Join(outNames, ", ")))
 		}
 	}
 	if !okCat { // guess the name of the category tensor
@@ -256,21 +257,21 @@ func guessDetectionTensorNames(outMap Tensors) (string, string, string, error) {
 				if nDetections == 0 {
 					whole, err = tensor.Sum(t)
 					if err != nil {
-						return "", "", "", err
+						return "", "", "", errtrace.Wrap(err)
 					}
 				} else {
 					s, err := t.Slice(nil, tensor.S(0, nDetections))
 					if err != nil {
-						return "", "", "", err
+						return "", "", "", errtrace.Wrap(err)
 					}
 					whole, err = tensor.Sum(s)
 					if err != nil {
-						return "", "", "", err
+						return "", "", "", errtrace.Wrap(err)
 					}
 				}
 				val, err := ConvertToFloat64Slice(whole.Data())
 				if err != nil {
-					return "", "", "", err
+					return "", "", "", errtrace.Wrap(err)
 				}
 				if math.Mod(val[0], 1) == 0 {
 					mappedNames[detectorCategoryName] = name
@@ -280,7 +281,7 @@ func guessDetectionTensorNames(outMap Tensors) (string, string, string, error) {
 			}
 		}
 		if _, ok := mappedNames[detectorCategoryName]; !ok {
-			return "", "", "", errors.Errorf("could not find an output tensor named 'category' among [%s]", strings.Join(outNames, ", "))
+			return "", "", "", errtrace.Wrap(errors.Errorf("could not find an output tensor named 'category' among [%s]", strings.Join(outNames, ", ")))
 		}
 	}
 	if !okScores { // guess the name of the scores tensor
@@ -297,7 +298,7 @@ func guessDetectionTensorNames(outMap Tensors) (string, string, string, error) {
 			}
 		}
 		if _, ok := mappedNames[detectorScoreName]; !ok {
-			return "", "", "", errors.Errorf("could not find an output tensor named 'score' among [%s]", strings.Join(outNames, ", "))
+			return "", "", "", errtrace.Wrap(errors.Errorf("could not find an output tensor named 'score' among [%s]", strings.Join(outNames, ", ")))
 		}
 	}
 	return mappedNames[detectorLocationName], mappedNames[detectorCategoryName], mappedNames[detectorScoreName], nil
@@ -310,7 +311,7 @@ func extractCategoriesFromScores(scores []float64, nCategories int) ([]float64, 
 	}
 	// ensure even division of data into categories
 	if len(scores)%nCategories != 0 {
-		return nil, nil, errors.Errorf("nCategories %v does not divide evenly into score tensor of length %v", nCategories, len(scores))
+		return nil, nil, errtrace.Wrap(errors.Errorf("nCategories %v does not divide evenly into score tensor of length %v", nCategories, len(scores)))
 	}
 	nEntries := len(scores) / nCategories
 	newCategories := make([]float64, 0, nEntries)
@@ -318,7 +319,7 @@ func extractCategoriesFromScores(scores []float64, nCategories int) ([]float64, 
 	for i := 0; i < nEntries; i++ {
 		argMax, floatMax, err := argMaxAndMax(scores[nCategories*i : nCategories*i+nCategories])
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		newCategories = append(newCategories, float64(argMax))
 		newScores = append(newScores, floatMax)
@@ -328,7 +329,7 @@ func extractCategoriesFromScores(scores []float64, nCategories int) ([]float64, 
 
 func argMaxAndMax(slice []float64) (int, float64, error) {
 	if len(slice) == 0 {
-		return 0, 0.0, errors.New("slice cannot be nil or empty")
+		return 0, 0.0, errtrace.Wrap(errors.New("slice cannot be nil or empty"))
 	}
 	argMax := 0
 	floatMax := -math.MaxFloat64

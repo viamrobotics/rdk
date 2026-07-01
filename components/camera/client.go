@@ -25,6 +25,7 @@ import (
 	"go.viam.com/utils/trace"
 	"golang.org/x/exp/slices"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
@@ -187,7 +188,7 @@ func (c *client) Images(
 
 	convertedExtra, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, err
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
 		Name:              c.name,
@@ -195,7 +196,7 @@ func (c *client) Images(
 		Extra:             convertedExtra,
 	})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not get images from the camera %w", err)
+		return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("camera client: could not get images from the camera %w", err))
 	}
 
 	images := make([]NamedImage, 0, len(resp.Images))
@@ -203,7 +204,7 @@ func (c *client) Images(
 	for _, img := range resp.Images {
 		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType, data.AnnotationsFromProto(img.Annotations))
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		images = append(images, namedImg)
 	}
@@ -218,7 +219,7 @@ func (c *client) NextPointCloud(ctx context.Context, extra map[string]interface{
 
 	extraStructPb, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
@@ -228,19 +229,19 @@ func (c *client) NextPointCloud(ctx context.Context, extra map[string]interface{
 	})
 	getPcdSpan.End()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if resp.MimeType != utils.MimeTypePCD {
-		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown pc mime type %s", resp.MimeType))
 	}
 
-	return func() (pointcloud.PointCloud, error) {
+	return errtrace.Wrap2(func() (pointcloud.PointCloud, error) {
 		_, span := trace.StartSpan(ctx, "camera::client::NextPointCloud::ReadPCD")
 		defer span.End()
 
-		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud), "")
-	}()
+		return errtrace.Wrap2(pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud), ""))
+	}())
 }
 
 func (c *client) Properties(ctx context.Context) (Properties, error) {
@@ -249,7 +250,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		Name: c.name,
 	})
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 	if intrinsics := resp.IntrinsicParameters; intrinsics != nil {
 		result.IntrinsicParams = &transform.PinholeCameraIntrinsics{
@@ -294,33 +295,33 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	model := transform.DistortionType(strings.ToLower(resp.DistortionParameters.Model))
 	distorter, err := transform.NewDistorter(model, resp.DistortionParameters.Parameters)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 	result.DistortionParams = distorter
 	return result, nil
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	ext, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
+	return errtrace.Wrap2(referenceframe.NewGeometriesFromProto(resp.GetGeometries()))
 }
 
 // TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.
@@ -400,7 +401,7 @@ func (c *client) SubscribeRTP(
 	// Create a Subscription object and allocate a ring buffer of RTP packets.
 	sub, rtpPacketBuffer, err := rtppassthrough.NewSubscription(bufferSize)
 	if err != nil {
-		return sub, err
+		return sub, errtrace.Wrap(err)
 	}
 	g := utils.NewGuard(func() {
 		c.logger.CDebug(ctx, "Error subscribing to RTP. Closing passthrough buffer.")
@@ -410,7 +411,7 @@ func (c *client) SubscribeRTP(
 
 	// RTP Passthrough only works over PeerConnection video tracks.
 	if c.conn.PeerConn() == nil {
-		return rtppassthrough.NilSubscription, ErrNoPeerConnection
+		return rtppassthrough.NilSubscription, errtrace.Wrap(ErrNoPeerConnection)
 	}
 
 	// Calling `AddStream(streamId)` on the remote viam-server/module will eventually result in
@@ -425,7 +426,7 @@ func (c *client) SubscribeRTP(
 	tracker, ok := c.conn.(grpc.Tracker)
 	if !ok {
 		c.logger.CErrorw(ctx, "Client conn is not a `Tracker`", "connType", fmt.Sprintf("%T", c.conn))
-		return rtppassthrough.NilSubscription, ErrNoSharedPeerConnection
+		return rtppassthrough.NilSubscription, errtrace.Wrap(ErrNoSharedPeerConnection)
 	}
 
 	c.logger.CDebugw(ctx, "SubscribeRTP", "subID", sub.ID.String(), "name", c.Name(), "bufAndCBByID", c.bufAndCBToString())
@@ -450,9 +451,9 @@ func (c *client) SubscribeRTP(
 		select {
 		case <-c.trackClosed:
 		case <-ctx.Done():
-			return rtppassthrough.NilSubscription, fmt.Errorf("track not closed within SubscribeRTP provided context %w", ctx.Err())
+			return rtppassthrough.NilSubscription, errtrace.Wrap(fmt.Errorf("track not closed within SubscribeRTP provided context %w", ctx.Err()))
 		case <-healthyClientCh:
-			return rtppassthrough.NilSubscription, errors.New("camera client is closed")
+			return rtppassthrough.NilSubscription, errtrace.Wrap(errors.New("camera client is closed"))
 		}
 
 		// Create channels for two important events: when a video track is established an when a
@@ -475,15 +476,15 @@ func (c *client) SubscribeRTP(
 		// callback invoked.
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.trackName()}); err != nil {
 			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "trackName", c.trackName(), "err", err)
-			return rtppassthrough.NilSubscription, err
+			return rtppassthrough.NilSubscription, errtrace.Wrap(err)
 		}
 
 		c.logger.CDebugw(ctx, "SubscribeRTP waiting for track", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
 		select {
 		case <-ctx.Done():
-			return rtppassthrough.NilSubscription, fmt.Errorf("track not received within SubscribeRTP provided context %w", ctx.Err())
+			return rtppassthrough.NilSubscription, errtrace.Wrap(fmt.Errorf("track not received within SubscribeRTP provided context %w", ctx.Err()))
 		case <-healthyClientCh:
-			return rtppassthrough.NilSubscription, errors.New("track not received before client closed")
+			return rtppassthrough.NilSubscription, errtrace.Wrap(errors.New("track not received before client closed"))
 		case <-trackReceived:
 			c.logger.CDebugw(ctx, "SubscribeRTP received track data", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
 		}
@@ -593,7 +594,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	defer span.End()
 
 	if c.conn.PeerConn() == nil {
-		return ErrNoPeerConnection
+		return errtrace.Wrap(ErrNoPeerConnection)
 	}
 
 	c.healthyClientChMu.Lock()
@@ -606,7 +607,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	if !ok {
 		c.logger.CWarnw(ctx, "Unsubscribe called with unknown subID", "subID", id.String())
 		c.rtpPassthroughMu.Unlock()
-		return ErrUnknownSubscriptionID
+		return errtrace.Wrap(ErrUnknownSubscriptionID)
 	}
 
 	if len(c.runningStreams) > 1 {
@@ -632,7 +633,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 		c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "trackName",
 			c.trackName(), "subID", id.String(), "err", err)
 		c.rtpPassthroughMu.Unlock()
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// We can only remove `runningStreams` when `RemoveStream` succeeds. If there was an error, the

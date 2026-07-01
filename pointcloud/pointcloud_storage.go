@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
@@ -24,5 +25,5 @@ const (
 // newOutOfRangeErr returns an error informing that a value is numerically out of range to
 // be stored precisely.
 func newOutOfRangeErr(dim string, val float64) error {
-	return errors.Errorf("%s component (%v) is out of range [%v,%v]", dim, val, minPreciseFloat64, maxPreciseFloat64)
+	return errtrace.Wrap(errors.Errorf("%s component (%v) is out of range [%v,%v]", dim, val, minPreciseFloat64, maxPreciseFloat64))
 }

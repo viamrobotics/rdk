@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/encoder/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -30,11 +31,11 @@ func (s *serviceServer) GetPosition(
 ) (*pb.GetPositionResponse, error) {
 	enc, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	position, positionType, err := enc.Position(ctx, ToEncoderPositionType(req.PositionType), req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetPositionResponse{
 		Value:        float32(position),
@@ -51,10 +52,10 @@ func (s *serviceServer) ResetPosition(
 	encName := req.GetName()
 	enc, err := s.coll.Resource(encName)
 	if err != nil {
-		return nil, errors.Errorf("no encoder (%s) found", encName)
+		return nil, errtrace.Wrap(errors.Errorf("no encoder (%s) found", encName))
 	}
 
-	return &pb.ResetPositionResponse{}, enc.ResetPosition(ctx, req.Extra.AsMap())
+	return &pb.ResetPositionResponse{}, errtrace.Wrap(enc.ResetPosition(ctx, req.Extra.AsMap()))
 }
 
 // GetProperties returns a message of booleans indicating which optional features the robot's encoder supports.
@@ -65,13 +66,13 @@ func (s *serviceServer) GetProperties(
 	encoderName := req.GetName()
 	enc, err := s.coll.Resource(encoderName)
 	if err != nil {
-		return nil, errors.Errorf("no encoder (%s) found", encoderName)
+		return nil, errtrace.Wrap(errors.Errorf("no encoder (%s) found", encoderName))
 	}
 	features, err := enc.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return PropertiesToProtoResponse(features)
+	return errtrace.Wrap2(PropertiesToProtoResponse(features))
 }
 
 // DoCommand receives arbitrary commands.
@@ -80,16 +81,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	enc, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, enc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, enc, req))
 }
 
 // GetStatus returns the status of the encoder.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

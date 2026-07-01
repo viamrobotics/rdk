@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -17,7 +18,7 @@ func TestBuildFunc(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must have a Detector")
 	// detector that creates an error
 	det := func(context.Context, image.Image) ([]Detection, error) {
-		return nil, errors.New("detector error")
+		return nil, errtrace.Wrap(errors.New("detector error"))
 	}
 	ctx := context.Background()
 	pipeline, err := Build(nil, det, nil)

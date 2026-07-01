@@ -29,6 +29,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	gen "go.viam.com/rdk/cli/module_generate/scripts"
 )
@@ -96,14 +97,14 @@ func GenerateModuleAction(ctx context.Context, cmd *cli.Command, args generateMo
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
 		if !isInteractive() {
-			return errors.New("authentication required; run `viam login` before using module generate non-interactively")
+			return errtrace.Wrap(errors.New("authentication required; run `viam login` before using module generate non-interactively"))
 		}
 		shouldContinueGeneration := promptUnauthenticated()
 		if !shouldContinueGeneration {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
-	return c.generateModuleAction(ctx, cmd, args)
+	return errtrace.Wrap(c.generateModuleAction(ctx, cmd, args))
 }
 
 func promptUnauthenticated() bool {
@@ -160,7 +161,7 @@ func promptGenerateType() (string, error) {
 		),
 	).WithWidth(77)
 	if err := form.Run(); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return generateType, nil
 }
@@ -171,7 +172,7 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 		var err error
 		generateType, err = promptGenerateType()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -182,19 +183,19 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 	}
 	if shared.Visibility == "" || shared.Namespace == "" {
 		if err := promptSharedInputs(shared); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	switch generateType {
 	case "module", "":
-		return c.generateModule(ctx, cmd, args, shared)
+		return errtrace.Wrap(c.generateModule(ctx, cmd, args, shared))
 	case "app":
-		return c.generateApp(ctx, cmd, args, shared)
+		return errtrace.Wrap(c.generateApp(ctx, cmd, args, shared))
 	case "module+app":
-		return c.generateModuleAndApp(ctx, cmd, args, shared)
+		return errtrace.Wrap(c.generateModuleAndApp(ctx, cmd, args, shared))
 	default:
-		return fmt.Errorf("invalid generate type %q: must be module, app, or module+app", generateType)
+		return errtrace.Wrap(fmt.Errorf("invalid generate type %q: must be module, app, or module+app", generateType))
 	}
 }
 
@@ -226,13 +227,13 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 
 	if app.AppName == "" || app.AppType == "" {
 		if err := promptAppUser(app); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	gArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	globalArgs := *gArgs
 
@@ -247,7 +248,7 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	}
 	if !args.DryRun {
 		if err := wrapResolveOrg(ctx, cmd, c, moduleInputs); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -256,7 +257,7 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		debugf(cmd.Root().Writer, globalArgs.Debug, "Registering app with Viam")
 		moduleResponse, err := c.createModule(ctx, moduleName, moduleInputs.OrgID)
 		if err != nil {
-			return errors.Wrap(err, "failed to register app")
+			return errtrace.Wrap(errors.Wrap(err, "failed to register app"))
 		}
 		registryURL = moduleResponse.GetUrl()
 	}
@@ -273,7 +274,7 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 
 	// Create root directory
 	if err := setupDirectories(cmd, moduleName, globalArgs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Generate meta.json using the shared manifest function with app fields
@@ -281,7 +282,7 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	if shared.RegisterOnApp {
 		parsedID, err := parseModuleID(fmt.Sprintf("%s:%s", moduleInputs.Namespace, moduleName))
 		if err != nil {
-			return errors.Wrap(err, "failed to parse module identifier")
+			return errtrace.Wrap(errors.Wrap(err, "failed to parse module identifier"))
 		}
 		modID = parsedID
 	} else {
@@ -295,15 +296,15 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		Namespace:  moduleInputs.Namespace,
 	}
 	if err := renderManifest(cmd, modID.String(), appModuleInputs, globalArgs, app); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Copy non-template files and render template files (skip meta.json since we generated it above)
 	if err := copyLanguageTemplate(cmd, "app", moduleName, globalArgs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := renderAppTemplate(cmd, moduleName, data, globalArgs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Render README content into dist/index.html so the default page shows setup instructions
@@ -354,11 +355,11 @@ func renderAppTemplate(cmd *cli.Command, moduleName string, data appTemplateData
 	appPath := path.Join(templatesPath, "app")
 	tempDir, err := fs.Sub(templates, appPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
+	return errtrace.Wrap(fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
 			destPath := filepath.Join(moduleName, strings.ReplaceAll(filePath, templatePrefix, ""))
@@ -366,32 +367,32 @@ func renderAppTemplate(cmd *cli.Command, moduleName string, data appTemplateData
 
 			tFile, err := templates.Open(path.Join(appPath, filePath))
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			defer utils.UncheckedErrorFunc(tFile.Close)
 			tBytes, err := io.ReadAll(tFile)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			tmpl, err := template.New(filePath).Parse(string(tBytes))
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			//nolint:gosec
 			destFile, err := os.Create(destPath)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			defer utils.UncheckedErrorFunc(destFile.Close)
 
 			if err := tmpl.Execute(destFile, data); err != nil {
-				return errors.Wrapf(err, "error rendering template %s", destPath)
+				return errtrace.Wrap(errors.Wrapf(err, "error rendering template %s", destPath))
 			}
 		}
 		return nil
-	})
+	}))
 }
 
 func promptAppUser(app *appInputs) error {
@@ -409,14 +410,14 @@ func promptAppUser(app *appInputs) error {
 				Suggestions([]string{"my-app"}).
 				Validate(func(s string) error {
 					if s == "" {
-						return errors.New("app name must not be empty")
+						return errtrace.Wrap(errors.New("app name must not be empty"))
 					}
 					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
-						return errors.New("app names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
+						return errtrace.Wrap(errors.New("app names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter"))
 					}
 					if _, err := os.Stat(s); err == nil {
-						return errors.New("this app directory already exists")
+						return errtrace.Wrap(errors.New("this app directory already exists"))
 					}
 					return nil
 				}),
@@ -432,7 +433,7 @@ func promptAppUser(app *appInputs) error {
 		),
 	).WithHeight(25).WithWidth(88)
 	if err := form.Run(); err != nil {
-		return errors.Wrap(err, "encountered an error generating app")
+		return errtrace.Wrap(errors.Wrap(err, "encountered an error generating app"))
 	}
 
 	return nil
@@ -454,11 +455,11 @@ func promptAddAppInputs(app *appInputs) error {
 				Suggestions([]string{"my-app"}).
 				Validate(func(s string) error {
 					if s == "" {
-						return errors.New("app name must not be empty")
+						return errtrace.Wrap(errors.New("app name must not be empty"))
 					}
 					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
-						return errors.New("app names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
+						return errtrace.Wrap(errors.New("app names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter"))
 					}
 					return nil
 				}),
@@ -474,7 +475,7 @@ func promptAddAppInputs(app *appInputs) error {
 		),
 	).WithHeight(25).WithWidth(88)
 	if err := form.Run(); err != nil {
-		return errors.Wrap(err, "encountered an error adding app")
+		return errtrace.Wrap(errors.Wrap(err, "encountered an error adding app"))
 	}
 	return nil
 }
@@ -494,27 +495,27 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	}
 
 	if err := newModule.CheckResourceAndSetType(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if newModule.HasEmptyInput() {
 		if !isInteractive() {
-			return errors.New("missing required flags for non-interactive mode; " +
-				"provide --name, --language, --public-namespace, --resource-subtype, and --model-name")
+			return errtrace.Wrap(errors.New("missing required flags for non-interactive mode; " +
+				"provide --name, --language, --public-namespace, --resource-subtype, and --model-name"))
 		}
 		if err := promptModuleInputs(newModule); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		newModule.Visibility = shared.Visibility
 		newModule.Namespace = shared.Namespace
 		newModule.RegisterOnApp = shared.RegisterOnApp
 	}
 	if err := checkLanguageVersion(newModule.Language); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if !args.DryRun {
 		if err := wrapResolveOrg(ctx, cmd, c, newModule); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	populateAdditionalInfo(newModule)
@@ -525,7 +526,7 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	nonFatalError := false
 	gArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	globalArgs := *gArgs
 
@@ -591,7 +592,7 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 		s.Action(action)
 		err := s.Run()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else {
 		action()
@@ -600,14 +601,14 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	if fatalError != nil {
 		err := os.RemoveAll(newModule.ModuleName)
 		if err != nil {
-			return errors.Wrap(fatalError, fmt.Sprintf("some steps of module generation failed, "+
-				"incomplete module located at %s", newModule.ModuleName))
+			return errtrace.Wrap(errors.Wrap(fatalError, fmt.Sprintf("some steps of module generation failed, "+
+				"incomplete module located at %s", newModule.ModuleName)))
 		}
-		return errors.Wrap(fatalError, "unable to generate module")
+		return errtrace.Wrap(errors.Wrap(fatalError, "unable to generate module"))
 	}
 
 	if nonFatalError {
-		return fmt.Errorf("some steps of module generation failed, incomplete module located at %s", newModule.ModuleName)
+		return errtrace.Wrap(fmt.Errorf("some steps of module generation failed, incomplete module located at %s", newModule.ModuleName))
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -642,11 +643,11 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 		RegisterOnApp:   args.Register,
 	}
 	if err := newModule.CheckResourceAndSetType(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if newModule.HasEmptyInput() {
 		if err := promptModuleInputs(newModule); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		newModule.Namespace = shared.Namespace
 		newModule.Visibility = shared.Visibility
@@ -657,7 +658,7 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 	app := &appInputs{AppName: args.AppName, AppType: args.AppType}
 	if app.AppName == "" || app.AppType == "" {
 		if err := promptAddAppInputs(app); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -674,7 +675,7 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 	filledArgs.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
 	filledArgs.ModelName = newModule.ModelName
 	if err := c.generateModule(ctx, cmd, filledArgs, shared); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Add the app to the newly generated module directory.
@@ -691,7 +692,7 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 
 	gArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	globalArgs := *gArgs
 
@@ -730,12 +731,12 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 	} else {
 		s.Action(action)
 		if err := s.Run(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	if fatalError != nil {
-		return fatalError
+		return errtrace.Wrap(fatalError)
 	}
 
 	cwd, err := os.Getwd()
@@ -799,7 +800,7 @@ func promptSharedInputs(shared *sharedInputs) error {
 				Placeholder("my-namespace").
 				Validate(func(s string) error {
 					if s == "" {
-						return errors.New("namespace or org ID must not be empty")
+						return errtrace.Wrap(errors.New("namespace or org ID must not be empty"))
 					}
 					return nil
 				}),
@@ -807,7 +808,7 @@ func promptSharedInputs(shared *sharedInputs) error {
 		),
 	).WithHeight(25).WithWidth(88)
 	if err := form.Run(); err != nil {
-		return errors.Wrap(err, "encountered an error in shared prompts")
+		return errtrace.Wrap(errors.Wrap(err, "encountered an error in shared prompts"))
 	}
 	return nil
 }
@@ -872,11 +873,11 @@ func resourceAndModelFields(module *modulegen.ModuleInputs) []huh.Field {
 			Value(&module.ModelName).
 			Validate(func(s string) error {
 				if s == "" {
-					return errors.New("model name must not be empty")
+					return errtrace.Wrap(errors.New("model name must not be empty"))
 				}
 				match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 				if !match || err != nil {
-					return errors.New("model names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
+					return errtrace.Wrap(errors.New("model names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter"))
 				}
 				return nil
 			}),
@@ -899,14 +900,14 @@ func promptModuleInputs(module *modulegen.ModuleInputs) error {
 			Suggestions([]string{"my-module"}).
 			Validate(func(s string) error {
 				if s == "" {
-					return errors.New("module name must not be empty")
+					return errtrace.Wrap(errors.New("module name must not be empty"))
 				}
 				match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 				if !match || err != nil {
-					return errors.New("module names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
+					return errtrace.Wrap(errors.New("module names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter"))
 				}
 				if _, err := os.Stat(s); err == nil {
-					return errors.New("this module directory already exists")
+					return errtrace.Wrap(errors.New("this module directory already exists"))
 				}
 				return nil
 			}),
@@ -924,7 +925,7 @@ func promptModuleInputs(module *modulegen.ModuleInputs) error {
 	fields = append(fields, resourceAndModelFields(module)...)
 	form := huh.NewForm(huh.NewGroup(fields...)).WithHeight(25).WithWidth(88)
 	if err := form.Run(); err != nil {
-		return errors.Wrap(err, "encountered an error generating module")
+		return errtrace.Wrap(errors.Wrap(err, "encountered an error generating module"))
 	}
 	return nil
 }
@@ -939,7 +940,7 @@ func promptAddModelInputs(module *modulegen.ModuleInputs) error {
 	fields = append(fields, resourceAndModelFields(module)...)
 	form := huh.NewForm(huh.NewGroup(fields...)).WithHeight(25).WithWidth(88)
 	if err := form.Run(); err != nil {
-		return errors.Wrap(err, "encountered an error adding model")
+		return errtrace.Wrap(errors.Wrap(err, "encountered an error adding model"))
 	}
 	return nil
 }
@@ -959,19 +960,19 @@ func wrapResolveOrg(ctx context.Context, cmd *cli.Command, c *viamClient, newMod
 		// If newModule.Namespace is NOT a UUID
 		org, err := resolveOrg(ctx, c, newModule.Namespace, "")
 		if err != nil {
-			return catchResolveOrgErr(ctx, cmd, c, newModule, err)
+			return errtrace.Wrap(catchResolveOrgErr(ctx, cmd, c, newModule, err))
 		}
 		newModule.OrgID = org.GetId()
 	} else {
 		// If newModule.Namespace is a UUID/OrgID
 		org, err := resolveOrg(ctx, c, "", newModule.Namespace)
 		if err != nil {
-			return catchResolveOrgErr(ctx, cmd, c, newModule, err)
+			return errtrace.Wrap(catchResolveOrgErr(ctx, cmd, c, newModule, err))
 		}
 		newModule.OrgID = newModule.Namespace
 		newModule.Namespace = org.GetPublicNamespace()
 		if newModule.Namespace == "" {
-			return errors.New("cannot create module in an organization with no public namespace. Set a namespace for your organization")
+			return errtrace.Wrap(errors.New("cannot create module in an organization with no public namespace. Set a namespace for your organization"))
 		}
 	}
 	return nil
@@ -990,15 +991,15 @@ func catchResolveOrgErr(ctx context.Context, cmd *cli.Command, c *viamClient, ne
 		err := c.loginAction(ctx, cmd)
 		cmd.Root().Writer = originalWriter
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
-		return wrapResolveOrg(ctx, cmd, c, newModule)
+		return errtrace.Wrap(wrapResolveOrg(ctx, cmd, c, newModule))
 	}
 	if strings.Contains(caughtErr.Error(), "none of your organizations have a public namespace") ||
 		strings.Contains(caughtErr.Error(), "no organization found for") {
-		return errors.Wrapf(caughtErr, "cannot create module for an organization of which you are not a member")
+		return errtrace.Wrap(errors.Wrapf(caughtErr, "cannot create module for an organization of which you are not a member"))
 	}
-	return caughtErr
+	return errtrace.Wrap(caughtErr)
 }
 
 // populateAdditionalInfo fills in additional info in newModule.
@@ -1050,7 +1051,7 @@ func setupDirectories(cmd *cli.Command, moduleName string, globalArgs globalArgs
 	debugf(cmd.Root().Writer, globalArgs.Debug, "Setting up directories")
 	err := os.Mkdir(moduleName, 0o750)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1062,61 +1063,61 @@ func renderCommonFiles(cmd *cli.Command, module modulegen.ModuleInputs, globalAr
 	// Render .viam-gen-info
 	infoBytes, err := json.MarshalIndent(module, "", "  ")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	infoFilePath := filepath.Join(module.ModuleName, ".viam-gen-info")
 	//nolint:gosec
 	infoFile, err := os.Create(infoFilePath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create %s", infoFilePath)
+		return errtrace.Wrap(errors.Wrapf(err, "failed to create %s", infoFilePath))
 	}
 	defer utils.UncheckedErrorFunc(infoFile.Close)
 
 	if _, err := infoFile.Write(infoBytes); err != nil {
-		return errors.Wrapf(err, "failed to write generator info to %s", infoFilePath)
+		return errtrace.Wrap(errors.Wrapf(err, "failed to write generator info to %s", infoFilePath))
 	}
 
 	// Render README.md
 	if err := renderReadme(module); err != nil {
-		return errors.Wrap(err, "failed to render README.md")
+		return errtrace.Wrap(errors.Wrap(err, "failed to render README.md"))
 	}
 
 	// Render model documentation file
 	if err := renderModelDoc(module); err != nil {
-		return errors.Wrap(err, "failed to render model documentation")
+		return errtrace.Wrap(errors.Wrap(err, "failed to render model documentation"))
 	}
 
 	// Render workflows for cloud build
 	debugf(cmd.Root().Writer, globalArgs.Debug, "\tCreating cloud build workflow")
 	destWorkflowPath := filepath.Join(module.ModuleName, ".github")
 	if err = os.Mkdir(destWorkflowPath, 0o750); err != nil {
-		return errors.Wrap(err, "failed to create cloud build workflow")
+		return errtrace.Wrap(errors.Wrap(err, "failed to create cloud build workflow"))
 	}
 
 	workflowPath := path.Join(templatesPath, ".github")
 	workflowFS, err := fs.Sub(templates, workflowPath)
 	if err != nil {
-		return errors.Wrap(err, "failed to create cloud build workflow")
+		return errtrace.Wrap(errors.Wrap(err, "failed to create cloud build workflow"))
 	}
 
 	err = fs.WalkDir(workflowFS, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if d.IsDir() {
 			if d.Name() != ".github" {
 				debugf(cmd.Root().Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
 				err = os.Mkdir(filepath.Join(destWorkflowPath, filePath), 0o750)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
 			debugf(cmd.Root().Writer, globalArgs.Debug, "\t\tCopying file %s", filePath)
 			srcFile, err := templates.Open(path.Join(workflowPath, filePath))
 			if err != nil {
-				return errors.Wrapf(err, "error opening file %s", srcFile)
+				return errtrace.Wrap(errors.Wrapf(err, "error opening file %s", srcFile))
 			}
 			defer utils.UncheckedErrorFunc(srcFile.Close)
 
@@ -1124,19 +1125,19 @@ func renderCommonFiles(cmd *cli.Command, module modulegen.ModuleInputs, globalAr
 			//nolint:gosec
 			destFile, err := os.Create(destPath)
 			if err != nil {
-				return errors.Wrapf(err, "failed to create file %s", destPath)
+				return errtrace.Wrap(errors.Wrapf(err, "failed to create file %s", destPath))
 			}
 			defer utils.UncheckedErrorFunc(destFile.Close)
 
 			_, err = io.Copy(destFile, srcFile)
 			if err != nil {
-				return errors.Wrapf(err, "error executing template for %s", destPath)
+				return errtrace.Wrap(errors.Wrapf(err, "error executing template for %s", destPath))
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to render all common files")
+		return errtrace.Wrap(errors.Wrap(err, "failed to render all common files"))
 	}
 	return nil
 }
@@ -1151,18 +1152,18 @@ func copyLanguageTemplate(cmd *cli.Command, language, moduleName string, globalA
 	languagePath := path.Join(templatesPath, language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	err = fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if d.IsDir() {
 			if d.Name() != language {
 				debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying %s directory", d.Name())
 				err = os.MkdirAll(filepath.Join(moduleName, filePath), 0o750)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
@@ -1176,7 +1177,7 @@ func copyLanguageTemplate(cmd *cli.Command, language, moduleName string, globalA
 			debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying file %s", filePath)
 			srcFile, err := templates.Open(path.Join(languagePath, filePath))
 			if err != nil {
-				return errors.Wrapf(err, "error opening file %s", srcFile)
+				return errtrace.Wrap(errors.Wrapf(err, "error opening file %s", srcFile))
 			}
 			defer utils.UncheckedErrorFunc(srcFile.Close)
 
@@ -1184,26 +1185,26 @@ func copyLanguageTemplate(cmd *cli.Command, language, moduleName string, globalA
 			//nolint:gosec
 			destFile, err := os.Create(destPath)
 			if err != nil {
-				return errors.Wrapf(err, "failed to create file %s", destPath)
+				return errtrace.Wrap(errors.Wrapf(err, "failed to create file %s", destPath))
 			}
 			defer utils.UncheckedErrorFunc(destFile.Close)
 
 			_, err = io.Copy(destFile, srcFile)
 			if err != nil {
-				return errors.Wrapf(err, "error executing template for %s", destPath)
+				return errtrace.Wrap(errors.Wrapf(err, "error executing template for %s", destPath))
 			}
 			if filepath.Ext(destPath) == ".sh" && runtime.GOOS != osWindows {
 				//nolint:gosec
 				err = os.Chmod(destPath, 0o750)
 				if err != nil {
-					return errors.Wrapf(err, "error making file executable for %s", destPath)
+					return errtrace.Wrap(errors.Wrapf(err, "error making file executable for %s", destPath))
 				}
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return errors.Wrapf(err, "failed to render all %s files", language)
+		return errtrace.Wrap(errors.Wrapf(err, "failed to render all %s files", language))
 	}
 	return nil
 }
@@ -1218,7 +1219,7 @@ func renderTemplate(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs 
 	languagePath := path.Join(templatesPath, module.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	err = fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
@@ -1227,34 +1228,34 @@ func renderTemplate(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs 
 
 			tFile, err := templates.Open(path.Join(languagePath, filePath))
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			defer utils.UncheckedErrorFunc(tFile.Close)
 			tBytes, err := io.ReadAll(tFile)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			tmpl, err := template.New(filePath).Parse(string(tBytes))
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			//nolint:gosec
 			destFile, err := os.Create(destPath)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			defer utils.UncheckedErrorFunc(destFile.Close)
 
 			err = tmpl.Execute(destFile, module)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 		return nil
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // Generate stubs for the resource.
@@ -1262,25 +1263,25 @@ func generateStubs(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs g
 	debugf(cmd.Root().Writer, globalArgs.Debug, "Generating %s stubs", module.Language)
 	switch module.Language {
 	case python:
-		return generatePythonStubs(module)
+		return errtrace.Wrap(generatePythonStubs(module))
 	case golang:
-		return generateGolangStubs(module)
+		return errtrace.Wrap(generateGolangStubs(module))
 	case cpp:
-		return generateCppStubs(module)
+		return errtrace.Wrap(generateCppStubs(module))
 	default:
-		return errors.Errorf("cannot generate stubs for language %s", module.Language)
+		return errtrace.Wrap(errors.Errorf("cannot generate stubs for language %s", module.Language))
 	}
 }
 
 func generateCppStubs(module modulegen.ModuleInputs) error {
 	rendered, err := gen.RenderCppTemplates(module)
 	if err != nil {
-		return errors.Wrap(err, "cannot generate cpp stubs -- generator script encountered an error")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate cpp stubs -- generator script encountered an error"))
 	}
 
 	srcDir := filepath.Join(module.ModuleName, "src")
 	if err = os.MkdirAll(srcDir, 0o750); err != nil {
-		return errors.Wrap(err, "cannot generate cpp stubs -- unable to create src directory")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate cpp stubs -- unable to create src directory"))
 	}
 
 	filesToWrite := []struct {
@@ -1297,11 +1298,11 @@ func generateCppStubs(module modulegen.ModuleInputs) error {
 	for _, f := range filesToWrite {
 		file, err := os.Create(f.path)
 		if err != nil {
-			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to open %s", f.path)
+			return errtrace.Wrap(errors.Wrapf(err, "cannot generate cpp stubs -- unable to open %s", f.path))
 		}
 		defer utils.UncheckedErrorFunc(file.Close)
 		if _, err = file.Write(f.data); err != nil {
-			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to write to %s", f.path)
+			return errtrace.Wrap(errors.Wrapf(err, "cannot generate cpp stubs -- unable to write to %s", f.path))
 		}
 	}
 
@@ -1311,24 +1312,24 @@ func generateCppStubs(module modulegen.ModuleInputs) error {
 func generateGolangStubs(module modulegen.ModuleInputs) error {
 	out, err := gen.RenderGoTemplates(module, false)
 	if err != nil {
-		return errors.Wrap(err, "cannot generate go stubs -- generator script encountered an error")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate go stubs -- generator script encountered an error"))
 	}
 	modulePath := filepath.Join(module.ModuleName, "module.go")
 	//nolint:gosec
 	moduleFile, err := os.Create(modulePath)
 	if err != nil {
-		return errors.Wrap(err, "cannot generate go stubs -- unable to open file")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate go stubs -- unable to open file"))
 	}
 	defer utils.UncheckedErrorFunc(moduleFile.Close)
 	_, err = moduleFile.Write(out)
 	if err != nil {
-		return errors.Wrap(err, "cannot generate go stubs -- unable to write to file")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate go stubs -- unable to write to file"))
 	}
 
 	// run goimports on module file out here
 	err = runGoImports(moduleFile)
 	if err != nil {
-		return errors.Wrap(err, "cannot generate go stubs -- unable to sort imports")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate go stubs -- unable to sort imports"))
 	}
 
 	return nil
@@ -1339,7 +1340,7 @@ func runGoImports(moduleFile *os.File) error {
 	// check if the gopath is set
 	goPath, err := checkGoPath()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// check if goimports exists in the bin directory
@@ -1352,7 +1353,7 @@ func runGoImports(moduleFile *os.File) error {
 		// installing goimports
 		installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
 		if err := installCmd.Run(); err != nil {
-			return fmt.Errorf("failed to install goimports: %w", err)
+			return errtrace.Wrap(fmt.Errorf("failed to install goimports: %w", err))
 		}
 	}
 
@@ -1361,38 +1362,38 @@ func runGoImports(moduleFile *os.File) error {
 	formatCmd := exec.Command(goImportsPath, "-w", moduleFile.Name())
 	_, err = formatCmd.Output()
 	if err != nil {
-		return fmt.Errorf("failed to run goimports: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to run goimports: %w", err))
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 func checkGoPath() (string, error) {
 	goPathCmd := exec.Command("go", "env", "GOPATH")
 	goPathBytes, err := goPathCmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get GOPATH: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("failed to get GOPATH: %w", err))
 	}
 	goPath := strings.TrimSpace(string(goPathBytes))
 
-	return goPath, err
+	return goPath, errtrace.Wrap(err)
 }
 
 func checkVersionCompatible(versionOutput, languageName, minVersion string) error {
 	re := regexp.MustCompile(`(\d+\.\d+[\.\d]*)`)
 	match := re.FindString(versionOutput)
 	if match == "" {
-		return fmt.Errorf("cannot parse %s version from output: %s", languageName, strings.TrimSpace(versionOutput))
+		return errtrace.Wrap(fmt.Errorf("cannot parse %s version from output: %s", languageName, strings.TrimSpace(versionOutput)))
 	}
 	detected, err := semver.NewVersion(match)
 	if err != nil {
-		return fmt.Errorf("cannot parse %s version from output: %s", languageName, strings.TrimSpace(versionOutput))
+		return errtrace.Wrap(fmt.Errorf("cannot parse %s version from output: %s", languageName, strings.TrimSpace(versionOutput)))
 	}
 	minimum := semver.MustParse(minVersion)
 	if detected.LessThan(minimum) {
-		return fmt.Errorf(
+		return errtrace.Wrap(fmt.Errorf(
 			"detected %s version %s, which is not supported by the module generator. Please upgrade to %s >= %s",
 			languageName, detected, languageName, minVersion,
-		)
+		))
 	}
 	return nil
 }
@@ -1416,13 +1417,13 @@ func checkLanguageVersion(language string) error {
 		return nil
 	}
 	if cmd == "" {
-		return fmt.Errorf("%s runtime not found. Please install %s >= %s", displayName, displayName, minVersion)
+		return errtrace.Wrap(fmt.Errorf("%s runtime not found. Please install %s >= %s", displayName, displayName, minVersion))
 	}
 	versionOutput, err := exec.Command(cmd, versionFlag).Output() //nolint:gosec
 	if err != nil {
-		return errors.Wrapf(err, "%s runtime not found", displayName)
+		return errtrace.Wrap(errors.Wrapf(err, "%s runtime not found", displayName))
 	}
-	return checkVersionCompatible(string(versionOutput), displayName, minVersion)
+	return errtrace.Wrap(checkVersionCompatible(string(versionOutput), displayName, minVersion))
 }
 
 // findPythonCommand returns the python command to use, checking "python3" then "python".
@@ -1444,18 +1445,18 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := findPythonCommand()
 	if pythonCmd == "" {
-		return errors.New("cannot generate python stubs -- python runtime not found")
+		return errtrace.Wrap(errors.New("cannot generate python stubs -- python runtime not found"))
 	}
 	cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
 	_, err := cmd.Output()
 	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment"))
 	}
-	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(venvName) })
+	defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(os.RemoveAll(venvName)) })
 
 	script, err := scripts.ReadFile(path.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate python stubs -- unable to open generator script"))
 	}
 
 	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
@@ -1467,19 +1468,19 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error"))
 	}
 
 	resourcePath := filepath.Join(module.ModuleName, "src", "models", fmt.Sprintf("%s.py", module.ModelSnake))
 	//nolint:gosec
 	resourceFile, err := os.Create(resourcePath)
 	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- unable to open file")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate python stubs -- unable to open file"))
 	}
 	defer utils.UncheckedErrorFunc(resourceFile.Close)
 	_, err = resourceFile.Write(out)
 	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- unable to write to file")
+		return errtrace.Wrap(errors.Wrap(err, "cannot generate python stubs -- unable to write to file"))
 	}
 
 	return nil
@@ -1495,32 +1496,32 @@ func getLatestSDKTag(ctx context.Context, cmd *cli.Command, language string, glo
 	case cpp:
 		repo = "viam-cpp-sdk"
 	default:
-		return "", errors.New("cannot produce template -- unexpected language was selected")
+		return "", errtrace.Wrap(errors.New("cannot produce template -- unexpected language was selected"))
 	}
 	debugf(cmd.Root().Writer, globalArgs.Debug, "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
+		return "", errtrace.Wrap(errors.Wrapf(err, "cannot get latest %s release", repo))
 	}
 	//nolint:bodyclose
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
+		return "", errtrace.Wrap(errors.Wrapf(err, "cannot get latest %s release", repo))
 	}
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("unexpected http GET status: %s", resp.Status)
+		return "", errtrace.Wrap(errors.Errorf("unexpected http GET status: %s", resp.Status))
 	}
 	var result interface{}
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
-		return "", errors.Wrap(err, "could not decode json")
+		return "", errtrace.Wrap(errors.Wrap(err, "could not decode json"))
 	}
 	releases := result.([]interface{})
 	if len(releases) == 0 {
-		return "", errors.Errorf("could not get latest %s release", repo)
+		return "", errtrace.Wrap(errors.Errorf("could not get latest %s release", repo))
 	}
 	latest := releases[0]
 	version := latest.(map[string]interface{})["tag_name"].(string)
@@ -1537,11 +1538,11 @@ func createModuleAndManifest(
 		debugf(cmd.Root().Writer, globalArgs.Debug, "Registering module with Viam")
 		moduleResponse, err := c.createModule(ctx, module.ModuleName, module.OrgID)
 		if err != nil {
-			return "", errors.Wrap(err, "failed to register module")
+			return "", errtrace.Wrap(errors.Wrap(err, "failed to register module"))
 		}
 		moduleID, err = parseModuleID(moduleResponse.GetModuleId())
 		if err != nil {
-			return "", errors.Wrap(err, "failed to parse module identifier")
+			return "", errtrace.Wrap(errors.Wrap(err, "failed to parse module identifier"))
 		}
 		registryURL = moduleResponse.GetUrl()
 	} else {
@@ -1551,7 +1552,7 @@ func createModuleAndManifest(
 	}
 	err := renderManifest(cmd, moduleID.String(), module, globalArgs, nil)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to render manifest")
+		return "", errtrace.Wrap(errors.Wrap(err, "failed to render manifest"))
 	}
 	return registryURL, nil
 }
@@ -1561,29 +1562,29 @@ func renderReadme(module modulegen.ModuleInputs) error {
 	readmeTemplatePath, err := templates.Open(path.Join(templatesPath, defaultReadmeFilename))
 	readmeDest := filepath.Join(module.ModuleName, defaultReadmeFilename)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(readmeTemplatePath.Close)
 	tBytes, err := io.ReadAll(readmeTemplatePath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	tmpl, err := template.New(defaultReadmeFilename).Parse(string(tBytes))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	//nolint:gosec
 	destFile, err := os.Create(readmeDest)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(destFile.Close)
 
 	err = tmpl.Execute(destFile, module)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1593,31 +1594,31 @@ func renderModelDoc(module modulegen.ModuleInputs) error {
 	const modelDocTemplate = "MODEL_DOC.md"
 	modelDocTemplatePath, err := templates.Open(path.Join(templatesPath, modelDocTemplate))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(modelDocTemplatePath.Close)
 
 	tBytes, err := io.ReadAll(modelDocTemplatePath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	tmpl, err := template.New(modelDocTemplate).Parse(string(tBytes))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	modelDocDest := filepath.Join(module.ModuleName, module.ModelReadmeLink)
 	//nolint:gosec
 	destFile, err := os.Create(modelDocDest)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(destFile.Close)
 
 	err = tmpl.Execute(destFile, module)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -1711,7 +1712,7 @@ func renderManifest(
 	}
 
 	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -1724,13 +1725,13 @@ func readViamGenInfo(dir string) (*modulegen.ModuleInputs, error) {
 	data, err := os.ReadFile(infoPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, errors.New(".viam-gen-info not found; run this command from within a module directory created with `viam module generate`")
+			return nil, errtrace.Wrap(errors.New(".viam-gen-info not found; run this command from within a module directory created with `viam module generate`"))
 		}
-		return nil, errors.Wrap(err, "cannot read .viam-gen-info")
+		return nil, errtrace.Wrap(errors.Wrap(err, "cannot read .viam-gen-info"))
 	}
 	var info modulegen.ModuleInputs
 	if err := json.Unmarshal(data, &info); err != nil {
-		return nil, errors.Wrap(err, "cannot parse .viam-gen-info")
+		return nil, errtrace.Wrap(errors.Wrap(err, "cannot parse .viam-gen-info"))
 	}
 	return &info, nil
 }
@@ -1740,20 +1741,20 @@ func readViamGenInfo(dir string) (*modulegen.ModuleInputs, error) {
 func addGolangModelFile(dir string, module modulegen.ModuleInputs) error {
 	out, err := gen.RenderGoTemplates(module, true)
 	if err != nil {
-		return errors.Wrap(err, "generator script encountered an error")
+		return errtrace.Wrap(errors.Wrap(err, "generator script encountered an error"))
 	}
 	modelFilePath := filepath.Join(dir, module.ModelSnake+".go")
 	//nolint:gosec
 	modelFile, err := os.Create(modelFilePath)
 	if err != nil {
-		return errors.Wrap(err, "unable to create model file")
+		return errtrace.Wrap(errors.Wrap(err, "unable to create model file"))
 	}
 	defer utils.UncheckedErrorFunc(modelFile.Close)
 	if _, err = modelFile.Write(out); err != nil {
-		return errors.Wrap(err, "unable to write model file")
+		return errtrace.Wrap(errors.Wrap(err, "unable to write model file"))
 	}
 	if err = runGoImports(modelFile); err != nil {
-		return errors.Wrap(err, "unable to sort imports")
+		return errtrace.Wrap(errors.Wrap(err, "unable to sort imports"))
 	}
 	return nil
 }
@@ -1764,7 +1765,7 @@ func addGoModelToMain(mainGoPath string, module modulegen.ModuleInputs) error {
 	//nolint:gosec
 	data, err := os.ReadFile(mainGoPath)
 	if err != nil {
-		return errors.Wrap(err, "unable to read main.go")
+		return errtrace.Wrap(errors.Wrap(err, "unable to read main.go"))
 	}
 	content := string(data)
 
@@ -1776,7 +1777,7 @@ func addGoModelToMain(mainGoPath string, module modulegen.ModuleInputs) error {
 		// Insert before the blank line + closing ) that ends the import block.
 		const importBlockEnd = "\n)\n\nfunc main"
 		if !strings.Contains(content, importBlockEnd) {
-			return errors.New("cannot locate import block closing in main.go; file may have been manually edited")
+			return errtrace.Wrap(errors.New("cannot locate import block closing in main.go; file may have been manually edited"))
 		}
 		content = strings.Replace(content, importBlockEnd, "\n"+newImport+importBlockEnd, 1)
 	}
@@ -1785,12 +1786,12 @@ func addGoModelToMain(mainGoPath string, module modulegen.ModuleInputs) error {
 	const mmFunc = "module.ModularMain("
 	mmIdx := strings.Index(content, mmFunc)
 	if mmIdx == -1 {
-		return errors.New("cannot find module.ModularMain call in main.go; file may have been manually edited")
+		return errtrace.Wrap(errors.New("cannot find module.ModularMain call in main.go; file may have been manually edited"))
 	}
 	afterMM := content[mmIdx+len(mmFunc):]
 	closingIdx := strings.Index(afterMM, ")")
 	if closingIdx == -1 {
-		return errors.New("cannot find closing ) of module.ModularMain in main.go")
+		return errtrace.Wrap(errors.New("cannot find closing ) of module.ModularMain in main.go"))
 	}
 	newAPIModel := fmt.Sprintf(", resource.APIModel{%s.API, %s.%s}",
 		module.ResourceSubtypeAlias, module.ModuleLowercase, module.ModelPascal)
@@ -1798,7 +1799,7 @@ func addGoModelToMain(mainGoPath string, module modulegen.ModuleInputs) error {
 	content = content[:insertAt] + newAPIModel + content[insertAt:]
 
 	//nolint:gosec
-	return os.WriteFile(mainGoPath, []byte(content), 0o644)
+	return errtrace.Wrap(os.WriteFile(mainGoPath, []byte(content), 0o644))
 }
 
 // addPythonModelFiles generates a Python stub file for the new model in src/models/ and
@@ -1807,17 +1808,17 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := findPythonCommand()
 	if pythonCmd == "" {
-		return errors.New("python runtime not found")
+		return errtrace.Wrap(errors.New("python runtime not found"))
 	}
 	cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
 	if _, err := cmd.Output(); err != nil {
-		return errors.Wrap(err, "unable to create python virtual environment")
+		return errtrace.Wrap(errors.Wrap(err, "unable to create python virtual environment"))
 	}
-	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(venvName) })
+	defer utils.UncheckedErrorFunc(func() error { return errtrace.Wrap(os.RemoveAll(venvName)) })
 
 	script, err := scripts.ReadFile(path.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
-		return errors.Wrap(err, "unable to open generator script")
+		return errtrace.Wrap(errors.Wrap(err, "unable to open generator script"))
 	}
 
 	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
@@ -1831,25 +1832,25 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-			return fmt.Errorf("generator script encountered an error:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
+			return errtrace.Wrap(fmt.Errorf("generator script encountered an error:\n%s", strings.TrimSpace(string(exitErr.Stderr))))
 		}
-		return errors.Wrap(err, "generator script encountered an error")
+		return errtrace.Wrap(errors.Wrap(err, "generator script encountered an error"))
 	}
 
 	resourcePath := filepath.Join("src", "models", fmt.Sprintf("%s.py", module.ModelSnake))
 	//nolint:gosec
 	resourceFile, err := os.Create(resourcePath)
 	if err != nil {
-		return errors.Wrap(err, "unable to create model file")
+		return errtrace.Wrap(errors.Wrap(err, "unable to create model file"))
 	}
 	defer utils.UncheckedErrorFunc(resourceFile.Close)
 	if _, err = resourceFile.Write(out); err != nil {
-		return errors.Wrap(err, "unable to write model file")
+		return errtrace.Wrap(errors.Wrap(err, "unable to write model file"))
 	}
 
 	mainPyPath := filepath.Join("src", "main.py")
 	if err := addPythonModelImport(mainPyPath, module.ModelSnake, module.ModelPascal); err != nil {
-		return errors.Wrap(err, "unable to update main.py")
+		return errtrace.Wrap(errors.Wrap(err, "unable to update main.py"))
 	}
 	return nil
 }
@@ -1860,7 +1861,7 @@ func addPythonModelImport(mainPyPath, modelSnake, modelPascal string) error {
 	//nolint:gosec
 	data, err := os.ReadFile(mainPyPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	content := string(data)
 	importLine := fmt.Sprintf("from models.%s import %s as %sModel\n", modelSnake, modelPascal, modelPascal)
@@ -1872,7 +1873,7 @@ func addPythonModelImport(mainPyPath, modelSnake, modelPascal string) error {
 		content = strings.TrimRight(content, "\n") + "\n" + importLine + "\n"
 	}
 	//nolint:gosec
-	return os.WriteFile(mainPyPath, []byte(content), 0o644)
+	return errtrace.Wrap(os.WriteFile(mainPyPath, []byte(content), 0o644))
 }
 
 // addCppModelFiles generates the per-model C++ source and header files in src/ and
@@ -1880,12 +1881,12 @@ func addPythonModelImport(mainPyPath, modelSnake, modelPascal string) error {
 func addCppModelFiles(module modulegen.ModuleInputs) error {
 	rendered, err := gen.RenderCppTemplates(module)
 	if err != nil {
-		return errors.Wrap(err, "generator script encountered an error")
+		return errtrace.Wrap(errors.Wrap(err, "generator script encountered an error"))
 	}
 
 	srcDir := "src"
 	if err := os.MkdirAll(srcDir, 0o750); err != nil {
-		return errors.Wrap(err, "unable to create src directory")
+		return errtrace.Wrap(errors.Wrap(err, "unable to create src directory"))
 	}
 
 	filesToWrite := []struct {
@@ -1898,19 +1899,19 @@ func addCppModelFiles(module modulegen.ModuleInputs) error {
 	for _, f := range filesToWrite {
 		file, err := os.Create(f.path)
 		if err != nil {
-			return errors.Wrapf(err, "unable to create %s", f.path)
+			return errtrace.Wrap(errors.Wrapf(err, "unable to create %s", f.path))
 		}
 		defer utils.UncheckedErrorFunc(file.Close)
 		if _, err = file.Write(f.data); err != nil {
-			return errors.Wrapf(err, "unable to write to %s", f.path)
+			return errtrace.Wrap(errors.Wrapf(err, "unable to write to %s", f.path))
 		}
 	}
 
 	if err := addCppModelToMainCpp("main.cpp", module); err != nil {
-		return errors.Wrap(err, "unable to update main.cpp")
+		return errtrace.Wrap(errors.Wrap(err, "unable to update main.cpp"))
 	}
 	if err := addCppModelToCMakeLists("CMakeLists.txt", module); err != nil {
-		return errors.Wrap(err, "unable to update CMakeLists.txt")
+		return errtrace.Wrap(errors.Wrap(err, "unable to update CMakeLists.txt"))
 	}
 	return nil
 }
@@ -1926,7 +1927,7 @@ func addCppModelToMainCpp(mainCppPath string, module modulegen.ModuleInputs) err
 	//nolint:gosec
 	data, err := os.ReadFile(mainCppPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	content := string(data)
 
@@ -1934,11 +1935,11 @@ func addCppModelToMainCpp(mainCppPath string, module modulegen.ModuleInputs) err
 	newInclude := fmt.Sprintf("#include \"%s.hpp\"\n", module.ModelSnake)
 	lastInclude := strings.LastIndex(content, "#include \"")
 	if lastInclude == -1 {
-		return errors.New("cannot find #include section in main.cpp")
+		return errtrace.Wrap(errors.New("cannot find #include section in main.cpp"))
 	}
 	endOfLine := strings.Index(content[lastInclude:], "\n")
 	if endOfLine == -1 {
-		return errors.New("malformed #include in main.cpp")
+		return errtrace.Wrap(errors.New("malformed #include in main.cpp"))
 	}
 	content = content[:lastInclude+endOfLine+1] + newInclude + content[lastInclude+endOfLine+1:]
 
@@ -1947,7 +1948,7 @@ func addCppModelToMainCpp(mainCppPath string, module modulegen.ModuleInputs) err
 	const mrsAnchor = "\n    std::vector<std::shared_ptr<viam::sdk::ModelRegistration>> mrs = {"
 	mrsIdx := strings.Index(content, mrsAnchor)
 	if mrsIdx == -1 {
-		return errors.New("cannot find model registrations vector in main.cpp")
+		return errtrace.Wrap(errors.New("cannot find model registrations vector in main.cpp"))
 	}
 	// %[1]s = ModelSnake  (underscores, for C++ variable names)
 	// %[2]s = Namespace   (namespace string in model triple)
@@ -1975,7 +1976,7 @@ func addCppModelToMainCpp(mainCppPath string, module modulegen.ModuleInputs) err
 	mrsIdx = strings.Index(content, mrsAnchor)
 	endOfMrs := strings.Index(content[mrsIdx:], "};\n")
 	if endOfMrs == -1 {
-		return errors.New("cannot find end of model registrations vector in main.cpp")
+		return errtrace.Wrap(errors.New("cannot find end of model registrations vector in main.cpp"))
 	}
 	insertAt := mrsIdx + endOfMrs + len("};\n")
 	content = content[:insertAt] +
@@ -1983,7 +1984,7 @@ func addCppModelToMainCpp(mainCppPath string, module modulegen.ModuleInputs) err
 		content[insertAt:]
 
 	//nolint:gosec
-	return os.WriteFile(mainCppPath, []byte(content), 0o644)
+	return errtrace.Wrap(os.WriteFile(mainCppPath, []byte(content), 0o644))
 }
 
 // addCppModelToCMakeLists adds the new model's source file to the add_executable target in
@@ -1999,19 +2000,19 @@ func addCppModelToCMakeLists(cMakeListsPath string, module modulegen.ModuleInput
 	//nolint:gosec
 	data, err := os.ReadFile(cMakeListsPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	content := string(data)
 
 	const anchor = ")\n\ntarget_include_directories"
 	idx := strings.Index(content, anchor)
 	if idx == -1 {
-		return errors.New("cannot find add_executable block in CMakeLists.txt")
+		return errtrace.Wrap(errors.New("cannot find add_executable block in CMakeLists.txt"))
 	}
 	content = content[:idx] + fmt.Sprintf("    src/%s.cpp\n", module.ModelSnake) + content[idx:]
 
 	//nolint:gosec
-	return os.WriteFile(cMakeListsPath, []byte(content), 0o644)
+	return errtrace.Wrap(os.WriteFile(cMakeListsPath, []byte(content), 0o644))
 }
 
 // renderModelDocToDir creates the per-model documentation file in dir.
@@ -2019,34 +2020,34 @@ func renderModelDocToDir(dir string, module modulegen.ModuleInputs) error {
 	const modelDocTemplate = "MODEL_DOC.md"
 	modelDocTemplatePath, err := templates.Open(path.Join(templatesPath, modelDocTemplate))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(modelDocTemplatePath.Close)
 
 	tBytes, err := io.ReadAll(modelDocTemplatePath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	tmpl, err := template.New(modelDocTemplate).Parse(string(tBytes))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	modelDocDest := filepath.Join(dir, module.ModelReadmeLink)
 	//nolint:gosec
 	destFile, err := os.Create(modelDocDest)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(destFile.Close)
-	return tmpl.Execute(destFile, module)
+	return errtrace.Wrap(tmpl.Execute(destFile, module))
 }
 
 // addModelToManifest appends a new model entry to the meta.json at manifestPath.
 func addModelToManifest(manifestPath string, newModel modulegen.ModuleInputs) error {
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	markdownLink := newModel.ModelReadmeLink
 	manifest.Models = append(manifest.Models, ModuleComponent{
@@ -2054,7 +2055,7 @@ func addModelToManifest(manifestPath string, newModel modulegen.ModuleInputs) er
 		Model:        newModel.ModelTriple,
 		MarkdownLink: &markdownLink,
 	})
-	return writeManifest(manifestPath, manifest)
+	return errtrace.Wrap(writeManifest(manifestPath, manifest))
 }
 
 // AddModelAction adds a new model to an existing module created by `viam module generate`.
@@ -2063,7 +2064,7 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 	// Read module-level info (language, namespace, name) from .viam-gen-info.
 	genInfo, err := readViamGenInfo(".")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	newModel := &modulegen.ModuleInputs{
@@ -2077,13 +2078,13 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 
 	// If a resource subtype was provided via flag, validate it and set Resource/ResourceType.
 	if err := newModel.CheckResourceAndSetType(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Prompt for any fields that are still unset.
 	if newModel.Resource == "" || newModel.ModelName == "" {
 		if err := promptAddModelInputs(newModel); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -2096,13 +2097,13 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 
 	gArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	globalArgs := *gArgs
 
 	sdkVersion, err := getLatestSDKTag(ctx, cmd, newModel.Language, globalArgs)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	newModel.SDKVersion = sdkVersion[1:]
 	// C++ SDK tags are of the form "release/vx.y.z"; strip the prefix so SDKVersion is always "x.y.z".
@@ -2113,11 +2114,11 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 	// Guard against adding a model that already exists in meta.json.
 	manifest, err := loadManifest(defaultManifestFilename)
 	if err != nil {
-		return errors.Wrap(err, "failed to read meta.json")
+		return errtrace.Wrap(errors.Wrap(err, "failed to read meta.json"))
 	}
 	for _, model := range manifest.Models {
 		if model.Model == newModel.ModelTriple {
-			return fmt.Errorf("model %q already exists in meta.json", newModel.ModelTriple)
+			return errtrace.Wrap(fmt.Errorf("model %q already exists in meta.json", newModel.ModelTriple))
 		}
 	}
 
@@ -2165,12 +2166,12 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 	} else {
 		s.Action(action)
 		if err := s.Run(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	if fatalError != nil {
-		return fatalError
+		return errtrace.Wrap(fatalError)
 	}
 
 	cwd, err := os.Getwd()
@@ -2188,30 +2189,30 @@ func addGoWebappFile(dir string, data appTemplateData) error {
 	appPath := path.Join(templatesPath, "app")
 	tFile, err := templates.Open(path.Join(appPath, tmplName))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(tFile.Close)
 	tBytes, err := io.ReadAll(tFile)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	tmpl, err := template.New(tmplName).Parse(string(tBytes))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	destPath := filepath.Join(dir, "webapp.go")
 	//nolint:gosec
 	destFile, err := os.Create(destPath)
 	if err != nil {
-		return errors.Wrap(err, "unable to create webapp.go")
+		return errtrace.Wrap(errors.Wrap(err, "unable to create webapp.go"))
 	}
 	defer utils.UncheckedErrorFunc(destFile.Close)
 	if err := tmpl.Execute(destFile, data); err != nil {
-		return errors.Wrap(err, "error rendering webapp template")
+		return errtrace.Wrap(errors.Wrap(err, "error rendering webapp template"))
 	}
 	if err := runGoImports(destFile); err != nil {
-		return errors.Wrap(err, "unable to sort imports")
+		return errtrace.Wrap(errors.Wrap(err, "unable to sort imports"))
 	}
 	return nil
 }
@@ -2222,7 +2223,7 @@ func addGoWebappToMain(mainGoPath string, data appTemplateData) error {
 	//nolint:gosec
 	rawData, err := os.ReadFile(mainGoPath)
 	if err != nil {
-		return errors.Wrap(err, "unable to read main.go")
+		return errtrace.Wrap(errors.Wrap(err, "unable to read main.go"))
 	}
 	content := string(rawData)
 
@@ -2232,7 +2233,7 @@ func addGoWebappToMain(mainGoPath string, data appTemplateData) error {
 		newImport := "\t\"go.viam.com/rdk/components/generic\""
 		const importBlockEnd = "\n)\n\nfunc main"
 		if !strings.Contains(content, importBlockEnd) {
-			return errors.New("cannot locate import block in main.go; file may have been manually edited")
+			return errtrace.Wrap(errors.New("cannot locate import block in main.go; file may have been manually edited"))
 		}
 		content = strings.Replace(content, importBlockEnd, "\n"+newImport+importBlockEnd, 1)
 	}
@@ -2241,19 +2242,19 @@ func addGoWebappToMain(mainGoPath string, data appTemplateData) error {
 	const mmFunc = "module.ModularMain("
 	mmIdx := strings.Index(content, mmFunc)
 	if mmIdx == -1 {
-		return errors.New("cannot find module.ModularMain call in main.go; file may have been manually edited")
+		return errtrace.Wrap(errors.New("cannot find module.ModularMain call in main.go; file may have been manually edited"))
 	}
 	afterMM := content[mmIdx+len(mmFunc):]
 	closingIdx := strings.Index(afterMM, ")")
 	if closingIdx == -1 {
-		return errors.New("cannot find closing ) of module.ModularMain in main.go")
+		return errtrace.Wrap(errors.New("cannot find closing ) of module.ModularMain in main.go"))
 	}
 	newAPIModel := fmt.Sprintf(", resource.APIModel{API: generic.API, Model: %s.Model}", data.ModuleLowercase)
 	insertAt := mmIdx + len(mmFunc) + closingIdx
 	content = content[:insertAt] + newAPIModel + content[insertAt:]
 
 	//nolint:gosec
-	return os.WriteFile(mainGoPath, []byte(content), 0o644)
+	return errtrace.Wrap(os.WriteFile(mainGoPath, []byte(content), 0o644))
 }
 
 // addAppStaticFiles copies the static app files (auth.js, dist/index.html) into dir.
@@ -2264,7 +2265,7 @@ func addAppStaticFiles(dir string) error {
 	// Ensure the dist/ directory exists.
 	distDir := filepath.Join(dir, "dist")
 	if err := os.MkdirAll(distDir, 0o750); err != nil {
-		return errors.Wrap(err, "unable to create dist directory")
+		return errtrace.Wrap(errors.Wrap(err, "unable to create dist directory"))
 	}
 
 	// Copy static files only if they don't already exist.
@@ -2278,16 +2279,16 @@ func addAppStaticFiles(dir string) error {
 		}
 		srcFile, err := templates.Open(path.Join(appTemplatePath, f.src))
 		if err != nil {
-			return errors.Wrapf(err, "unable to open template %s", f.src)
+			return errtrace.Wrap(errors.Wrapf(err, "unable to open template %s", f.src))
 		}
 		defer utils.UncheckedErrorFunc(srcFile.Close)
 		srcBytes, err := io.ReadAll(srcFile)
 		if err != nil {
-			return errors.Wrapf(err, "unable to read template %s", f.src)
+			return errtrace.Wrap(errors.Wrapf(err, "unable to read template %s", f.src))
 		}
 		//nolint:gosec
 		if err := os.WriteFile(f.dst, srcBytes, 0o644); err != nil {
-			return errors.Wrapf(err, "unable to write %s", f.dst)
+			return errtrace.Wrap(errors.Wrapf(err, "unable to write %s", f.dst))
 		}
 	}
 	return nil
@@ -2301,7 +2302,7 @@ func updateMakefileForApp(makefilePath string) error {
 	//nolint:gosec
 	data, err := os.ReadFile(makefilePath)
 	if err != nil {
-		return errors.Wrap(err, "unable to read Makefile")
+		return errtrace.Wrap(errors.Wrap(err, "unable to read Makefile"))
 	}
 	content := string(data)
 
@@ -2315,11 +2316,11 @@ func updateMakefileForApp(makefilePath string) error {
 	const moduleBinaryAssign = "MODULE_BINARY :="
 	mbIdx := strings.Index(content, moduleBinaryAssign)
 	if mbIdx == -1 {
-		return errors.New("cannot locate MODULE_BINARY in Makefile")
+		return errtrace.Wrap(errors.New("cannot locate MODULE_BINARY in Makefile"))
 	}
 	eolIdx := strings.Index(content[mbIdx:], "\n")
 	if eolIdx == -1 {
-		return errors.New("malformed Makefile: MODULE_BINARY line has no newline")
+		return errtrace.Wrap(errors.New("malformed Makefile: MODULE_BINARY line has no newline"))
 	}
 	content = content[:mbIdx+eolIdx+1] + entrypointDecl + "\n.DEFAULT_GOAL := all\n" + content[mbIdx+eolIdx+1:]
 
@@ -2352,7 +2353,7 @@ func updateMakefileForApp(makefilePath string) error {
 			content = content[:lineEnd] + " $(ENTRYPOINT)" + content[lineEnd:]
 		}
 	} else {
-		return errors.New("cannot locate module.tar.gz target in Makefile")
+		return errtrace.Wrap(errors.New("cannot locate module.tar.gz target in Makefile"))
 	}
 
 	// 5. Add vmodutils to the setup target if not already present.
@@ -2363,14 +2364,14 @@ func updateMakefileForApp(makefilePath string) error {
 	}
 
 	//nolint:gosec
-	return os.WriteFile(makefilePath, []byte(content), 0o644)
+	return errtrace.Wrap(os.WriteFile(makefilePath, []byte(content), 0o644))
 }
 
 // addAppToManifest appends a new application entry (and its webapp model if absent) to meta.json.
 func addAppToManifest(manifestPath string, app *appInputs, data appTemplateData) error {
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Register the webapp generic component model if it isn't already listed.
@@ -2395,7 +2396,7 @@ func addAppToManifest(manifestPath string, app *appInputs, data appTemplateData)
 		Entrypoint: "dist/index.html",
 	})
 
-	return writeManifest(manifestPath, manifest)
+	return errtrace.Wrap(writeManifest(manifestPath, manifest))
 }
 
 // AddAppAction adds a web application to an existing Go module created by `viam module generate`.
@@ -2404,12 +2405,12 @@ func AddAppAction(_ context.Context, cmd *cli.Command, args addAppArgs) error {
 	// Read module-level info (language, namespace, name) from .viam-gen-info.
 	genInfo, err := readViamGenInfo(".")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if genInfo.Language != golang {
-		return fmt.Errorf("add-app currently only supports Go modules (this module uses %s); "+
-			"build-system integration for other languages is not yet implemented", genInfo.Language)
+		return errtrace.Wrap(fmt.Errorf("add-app currently only supports Go modules (this module uses %s); "+
+			"build-system integration for other languages is not yet implemented", genInfo.Language))
 	}
 
 	app := &appInputs{
@@ -2420,13 +2421,13 @@ func AddAppAction(_ context.Context, cmd *cli.Command, args addAppArgs) error {
 	// Prompt for any fields that are still unset.
 	if app.AppName == "" || app.AppType == "" {
 		if err := promptAddAppInputs(app); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	gArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	globalArgs := *gArgs
 
@@ -2438,11 +2439,11 @@ func AddAppAction(_ context.Context, cmd *cli.Command, args addAppArgs) error {
 	// Guard against adding an app that already exists in meta.json.
 	manifest, err := loadManifest(defaultManifestFilename)
 	if err != nil {
-		return errors.Wrap(err, "failed to read meta.json")
+		return errtrace.Wrap(errors.Wrap(err, "failed to read meta.json"))
 	}
 	for _, existingApp := range manifest.Apps {
 		if existingApp.Name == app.AppName {
-			return fmt.Errorf("app %q already exists in meta.json", app.AppName)
+			return errtrace.Wrap(fmt.Errorf("app %q already exists in meta.json", app.AppName))
 		}
 	}
 
@@ -2491,12 +2492,12 @@ func AddAppAction(_ context.Context, cmd *cli.Command, args addAppArgs) error {
 	} else {
 		s.Action(action)
 		if err := s.Run(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	if fatalError != nil {
-		return fatalError
+		return errtrace.Wrap(fatalError)
 	}
 
 	cwd, err := os.Getwd()

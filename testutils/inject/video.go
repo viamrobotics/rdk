@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/video"
 )
@@ -40,26 +41,26 @@ func (v *Video) GetVideo(
 	extra map[string]interface{},
 ) (chan *video.Chunk, error) {
 	if v.GetVideoFunc == nil {
-		return v.Service.GetVideo(ctx, startTime, endTime, videoCodec, videoContainer, extra)
+		return errtrace.Wrap2(v.Service.GetVideo(ctx, startTime, endTime, videoCodec, videoContainer, extra))
 	}
-	return v.GetVideoFunc(ctx, startTime, endTime, videoCodec, videoContainer, extra)
+	return errtrace.Wrap2(v.GetVideoFunc(ctx, startTime, endTime, videoCodec, videoContainer, extra))
 }
 
 // DoCommand calls the injected DoFunc if set, otherwise calls the embedded Service's DoCommand method.
 func (v *Video) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if v.DoFunc == nil {
-		return v.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(v.Service.DoCommand(ctx, cmd))
 	}
-	return v.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(v.DoFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (v *Video) Status(ctx context.Context) (map[string]interface{}, error) {
 	if v.StatusFunc != nil {
-		return v.StatusFunc(ctx)
+		return errtrace.Wrap2(v.StatusFunc(ctx))
 	}
 	if v.Service != nil {
-		return v.Service.Status(ctx)
+		return errtrace.Wrap2(v.Service.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

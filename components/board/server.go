@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -16,15 +17,15 @@ import (
 var (
 	// ErrGPIOPinByNameReturnNil is the error returned when a gpio pin is nil.
 	ErrGPIOPinByNameReturnNil = func(boardName string) error {
-		return fmt.Errorf("board component %v GPIOPinByName should not return nil pin", boardName)
+		return errtrace.Wrap(fmt.Errorf("board component %v GPIOPinByName should not return nil pin", boardName))
 	}
 	// ErrAnalogByNameReturnNil is the error returned when an analog is nil.
 	ErrAnalogByNameReturnNil = func(boardName string) error {
-		return fmt.Errorf("board component %v AnalogByName should not return nil analog", boardName)
+		return errtrace.Wrap(fmt.Errorf("board component %v AnalogByName should not return nil analog", boardName))
 	}
 	// ErrDigitalInterruptByNameReturnNil is the error returned when a digital interrupt is nil.
 	ErrDigitalInterruptByNameReturnNil = func(boardName string) error {
-		return fmt.Errorf("board component %v DigitalInterruptByName should not return nil digital interrupt", boardName)
+		return errtrace.Wrap(fmt.Errorf("board component %v DigitalInterruptByName should not return nil digital interrupt", boardName))
 	}
 )
 
@@ -44,38 +45,38 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Board], logger logging.
 func (s *serviceServer) SetGPIO(ctx context.Context, req *pb.SetGPIORequest) (*pb.SetGPIOResponse, error) {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	p, err := b.GPIOPinByName(req.Pin)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if p == nil {
-		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+		return nil, errtrace.Wrap(ErrGPIOPinByNameReturnNil(req.Name))
 	}
 
-	return &pb.SetGPIOResponse{}, p.Set(ctx, req.High, req.Extra.AsMap())
+	return &pb.SetGPIOResponse{}, errtrace.Wrap(p.Set(ctx, req.High, req.Extra.AsMap()))
 }
 
 // GetGPIO gets the high/low state of a given pin of a board of the underlying robot.
 func (s *serviceServer) GetGPIO(ctx context.Context, req *pb.GetGPIORequest) (*pb.GetGPIOResponse, error) {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	p, err := b.GPIOPinByName(req.Pin)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if p == nil {
-		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+		return nil, errtrace.Wrap(ErrGPIOPinByNameReturnNil(req.Name))
 	}
 
 	high, err := p.Get(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetGPIOResponse{High: high}, nil
 }
@@ -84,20 +85,20 @@ func (s *serviceServer) GetGPIO(ctx context.Context, req *pb.GetGPIORequest) (*p
 func (s *serviceServer) PWM(ctx context.Context, req *pb.PWMRequest) (*pb.PWMResponse, error) {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	p, err := b.GPIOPinByName(req.Pin)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if p == nil {
-		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+		return nil, errtrace.Wrap(ErrGPIOPinByNameReturnNil(req.Name))
 	}
 
 	pwm, err := p.PWM(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.PWMResponse{DutyCyclePct: pwm}, nil
 }
@@ -106,38 +107,38 @@ func (s *serviceServer) PWM(ctx context.Context, req *pb.PWMRequest) (*pb.PWMRes
 func (s *serviceServer) SetPWM(ctx context.Context, req *pb.SetPWMRequest) (*pb.SetPWMResponse, error) {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	p, err := b.GPIOPinByName(req.Pin)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if p == nil {
-		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+		return nil, errtrace.Wrap(ErrGPIOPinByNameReturnNil(req.Name))
 	}
 
-	return &pb.SetPWMResponse{}, p.SetPWM(ctx, req.DutyCyclePct, req.Extra.AsMap())
+	return &pb.SetPWMResponse{}, errtrace.Wrap(p.SetPWM(ctx, req.DutyCyclePct, req.Extra.AsMap()))
 }
 
 // PWMFrequency gets the PWM frequency of the given pin of a board of the underlying robot.
 func (s *serviceServer) PWMFrequency(ctx context.Context, req *pb.PWMFrequencyRequest) (*pb.PWMFrequencyResponse, error) {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	p, err := b.GPIOPinByName(req.Pin)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if p == nil {
-		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+		return nil, errtrace.Wrap(ErrGPIOPinByNameReturnNil(req.Name))
 	}
 
 	freq, err := p.PWMFreq(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.PWMFrequencyResponse{FrequencyHz: uint64(freq)}, nil
 }
@@ -150,18 +151,18 @@ func (s *serviceServer) SetPWMFrequency(
 ) (*pb.SetPWMFrequencyResponse, error) {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	p, err := b.GPIOPinByName(req.Pin)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if p == nil {
-		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+		return nil, errtrace.Wrap(ErrGPIOPinByNameReturnNil(req.Name))
 	}
 
-	return &pb.SetPWMFrequencyResponse{}, p.SetPWMFreq(ctx, uint(req.FrequencyHz), req.Extra.AsMap())
+	return &pb.SetPWMFrequencyResponse{}, errtrace.Wrap(p.SetPWMFreq(ctx, uint(req.FrequencyHz), req.Extra.AsMap()))
 }
 
 // ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
@@ -171,20 +172,20 @@ func (s *serviceServer) ReadAnalogReader(
 ) (*pb.ReadAnalogReaderResponse, error) {
 	b, err := s.coll.Resource(req.BoardName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	theReader, err := b.AnalogByName(req.AnalogReaderName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if theReader == nil {
-		return nil, ErrAnalogByNameReturnNil(req.BoardName)
+		return nil, errtrace.Wrap(ErrAnalogByNameReturnNil(req.BoardName))
 	}
 
 	analogValue, err := theReader.Read(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.ReadAnalogReaderResponse{
 		Value:    int32(analogValue.Value),
@@ -201,20 +202,20 @@ func (s *serviceServer) WriteAnalog(
 ) (*pb.WriteAnalogResponse, error) {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	analog, err := b.AnalogByName(req.Pin)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if analog == nil {
-		return nil, ErrAnalogByNameReturnNil(req.Name)
+		return nil, errtrace.Wrap(ErrAnalogByNameReturnNil(req.Name))
 	}
 
 	err = analog.Write(ctx, int(req.Value), req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.WriteAnalogResponse{}, nil
@@ -227,20 +228,20 @@ func (s *serviceServer) GetDigitalInterruptValue(
 ) (*pb.GetDigitalInterruptValueResponse, error) {
 	b, err := s.coll.Resource(req.BoardName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	interrupt, err := b.DigitalInterruptByName(req.DigitalInterruptName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if interrupt == nil {
-		return nil, ErrDigitalInterruptByNameReturnNil(req.BoardName)
+		return nil, errtrace.Wrap(ErrDigitalInterruptByNameReturnNil(req.BoardName))
 	}
 
 	val, err := interrupt.Value(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetDigitalInterruptValueResponse{Value: val}, nil
 }
@@ -251,7 +252,7 @@ func (s *serviceServer) StreamTicks(
 ) error {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	ticksChan := make(chan Tick)
@@ -260,36 +261,36 @@ func (s *serviceServer) StreamTicks(
 	for _, name := range req.PinNames {
 		di, err := b.DigitalInterruptByName(name)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		interrupts = append(interrupts, di)
 	}
 	err = b.StreamTicks(server.Context(), interrupts, ticksChan, req.Extra.AsMap())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Send an empty response first so the client doesn't block while checking for errors.
 	err = server.Send(&pb.StreamTicksResponse{})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	for {
 		select {
 		case <-server.Context().Done():
-			return server.Context().Err()
+			return errtrace.Wrap(server.Context().Err())
 		default:
 		}
 
 		select {
 		case <-server.Context().Done():
-			return server.Context().Err()
+			return errtrace.Wrap(server.Context().Err())
 		case msg := <-ticksChan:
 			err := server.Send(&pb.StreamTicksResponse{PinName: msg.Name, High: msg.High, Time: msg.TimestampNanosec})
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -301,18 +302,18 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	b, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, b, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, b, req))
 }
 
 // GetStatus returns the status of the board.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }
 
 func (s *serviceServer) SetPowerMode(ctx context.Context,
@@ -320,21 +321,21 @@ func (s *serviceServer) SetPowerMode(ctx context.Context,
 ) (*pb.SetPowerModeResponse, error) {
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if req.Duration == nil {
 		err = b.SetPowerMode(ctx, req.PowerMode, nil, req.Extra.AsMap())
 	} else {
 		if err := req.Duration.CheckValid(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		duration := req.Duration.AsDuration()
 		err = b.SetPowerMode(ctx, req.PowerMode, &duration, req.Extra.AsMap())
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.SetPowerModeResponse{}, nil

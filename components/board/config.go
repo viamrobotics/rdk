@@ -1,6 +1,7 @@
 package board
 
 import "go.viam.com/rdk/resource"
+import "braces.dev/errtrace"
 
 // SPIConfig enumerates a specific, shareable SPI bus.
 type SPIConfig struct {
@@ -11,7 +12,7 @@ type SPIConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *SPIConfig) Validate(path string) error {
 	if config.Name == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "name"))
 	}
 	return nil
 }
@@ -25,10 +26,10 @@ type I2CConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *I2CConfig) Validate(path string) error {
 	if config.Name == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "name"))
 	}
 	if config.Bus == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "bus")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "bus"))
 	}
 	return nil
 }
@@ -44,7 +45,7 @@ type AnalogReaderConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *AnalogReaderConfig) Validate(path string) error {
 	if config.Name == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "name"))
 	}
 	return nil
 }
@@ -58,10 +59,10 @@ type DigitalInterruptConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *DigitalInterruptConfig) Validate(path string) error {
 	if config.Name == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "name")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "name"))
 	}
 	if config.Pin == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "pin")
+		return errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "pin"))
 	}
 	return nil
 }

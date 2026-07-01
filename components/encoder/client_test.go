@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/encoder"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -56,17 +57,17 @@ func TestClient(t *testing.T) {
 	}
 
 	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errSetToZeroFailed
+		return errtrace.Wrap(errSetToZeroFailed)
 	}
 	failingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
-		return 0, encoder.PositionTypeUnspecified, errPositionUnavailable
+		return 0, encoder.PositionTypeUnspecified, errtrace.Wrap(errPositionUnavailable)
 	}
 	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
-		return encoder.Properties{}, errGetPropertiesFailed
+		return encoder.Properties{}, errtrace.Wrap(errGetPropertiesFailed)
 	}
 
 	resourceMap := map[resource.Name]encoder.Encoder{

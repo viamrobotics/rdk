@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -68,7 +69,7 @@ func (slamSvc *SLAM) getCount() int {
 func (slamSvc *SLAM) Position(ctx context.Context) (spatialmath.Pose, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::Position")
 	defer span.End()
-	return fakePosition(ctx, datasetDirectory, slamSvc)
+	return errtrace.Wrap2(fakePosition(ctx, datasetDirectory, slamSvc))
 }
 
 // PointCloudMap returns a callback function which will return the next chunk of the current pointcloud
@@ -77,7 +78,7 @@ func (slamSvc *SLAM) PointCloudMap(ctx context.Context, returnEditedMap bool) (f
 	ctx, span := trace.StartSpan(ctx, "slam::fake::PointCloudMap")
 	defer span.End()
 	slamSvc.incrementDataCount()
-	return fakePointCloudMap(ctx, datasetDirectory, slamSvc)
+	return errtrace.Wrap2(fakePointCloudMap(ctx, datasetDirectory, slamSvc))
 }
 
 // InternalState returns a callback function which will return the next chunk of the current internal
@@ -85,7 +86,7 @@ func (slamSvc *SLAM) PointCloudMap(ctx context.Context, returnEditedMap bool) (f
 func (slamSvc *SLAM) InternalState(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::InternalState")
 	defer span.End()
-	return fakeInternalState(ctx, datasetDirectory, slamSvc)
+	return errtrace.Wrap2(fakeInternalState(ctx, datasetDirectory, slamSvc))
 }
 
 // Properties returns the mapping mode of the slam service as well as a boolean indicating if it is running
@@ -119,12 +120,12 @@ func (slamSvc *SLAM) incrementDataCount() {
 func (slamSvc *SLAM) Limits(ctx context.Context, useEditedMap bool) ([]referenceframe.Limit, error) {
 	data, err := slam.PointCloudMapFull(ctx, slamSvc, useEditedMap)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	pc, err := pointcloud.ReadPCD(bytes.NewReader(data), "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	dims := pc.MetaData()

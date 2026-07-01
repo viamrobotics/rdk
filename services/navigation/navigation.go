@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -81,7 +82,7 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 	case "GPS", "":
 		return GPSMap, nil
 	}
-	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
+	return 0, errtrace.Wrap(errors.Errorf("invalid map_type '%v' given", mapTypeName))
 }
 
 // Properties returns information about the MapType that the configured navigation service is using.
@@ -224,13 +225,13 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Service](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Navigation service
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Service, error) {
-	return resource.FromProvider[Service](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Service](provider, Named(name)))
 }
 
 func mapTypeToProtobuf(mapType MapType) servicepb.MapType {
@@ -253,6 +254,6 @@ func protobufToMapType(mapType servicepb.MapType) (MapType, error) {
 	case servicepb.MapType_MAP_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
-		return 0, errors.New("map type unspecified")
+		return 0, errtrace.Wrap(errors.New("map type unspecified"))
 	}
 }

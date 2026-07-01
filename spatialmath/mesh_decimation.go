@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
@@ -14,13 +15,13 @@ import (
 // that guarantees containment and avoids collision false negatives.
 func (m *Mesh) ConservativeDecimate(targetTriangles int) (*Mesh, error) {
 	if targetTriangles <= 0 {
-		return nil, errors.New("target triangle count must be positive")
+		return nil, errtrace.Wrap(errors.New("target triangle count must be positive"))
 	}
 	if len(m.triangles) == 0 {
-		return nil, errors.New("cannot decimate mesh with no triangles")
+		return nil, errtrace.Wrap(errors.New("cannot decimate mesh with no triangles"))
 	}
 	if targetTriangles < len(boxTriangles) {
-		return nil, errors.Errorf("target triangle count must be at least %d", len(boxTriangles))
+		return nil, errtrace.Wrap(errors.Errorf("target triangle count must be at least %d", len(boxTriangles)))
 	}
 	if len(m.triangles) <= targetTriangles {
 		return m, nil
@@ -78,12 +79,12 @@ type quickHullFace struct {
 
 func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles int) ([]*Triangle, error) {
 	if targetTriangles < len(boxTriangles) {
-		return nil, errors.Errorf("target triangle count must be at least %d", len(boxTriangles))
+		return nil, errtrace.Wrap(errors.Errorf("target triangle count must be at least %d", len(boxTriangles)))
 	}
 
 	vertices := uniqueTriangleVertices(triangles)
 	if len(vertices) < 4 {
-		return nil, errors.New("need at least 4 unique vertices to build conservative hull")
+		return nil, errtrace.Wrap(errors.New("need at least 4 unique vertices to build conservative hull"))
 	}
 
 	// First, try the full convex hull of ALL vertices. If it fits the target
@@ -105,11 +106,11 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 	hullInput := selectSupportVertices(vertices, vertexBudget)
 	faces, hullPoints, err = quickHull3D(hullInput, floatEpsilon)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	hullTris := hullFacesToTriangles(faces, hullPoints)
 	if len(hullTris) == 0 {
-		return nil, errors.New("failed to build conservative hull")
+		return nil, errtrace.Wrap(errors.New("failed to build conservative hull"))
 	}
 
 	// Strict containment: if sampled hull misses extremes, scale it outward just enough to contain all vertices.
@@ -120,7 +121,7 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 	}
 
 	if len(hullTris) > targetTriangles {
-		return nil, errors.Errorf("conservative hull has %d triangles, expected <= %d", len(hullTris), targetTriangles)
+		return nil, errtrace.Wrap(errors.Errorf("conservative hull has %d triangles, expected <= %d", len(hullTris), targetTriangles))
 	}
 	return hullTris, nil
 }
@@ -137,7 +138,7 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 func slicedConvexHullDecimate(triangles []*Triangle, targetTriangles int) ([]*Triangle, error) {
 	vertices := uniqueTriangleVertices(triangles)
 	if len(vertices) < 4 {
-		return nil, errors.New("need at least 4 unique vertices")
+		return nil, errtrace.Wrap(errors.New("need at least 4 unique vertices"))
 	}
 
 	// Find the longest AABB axis.
@@ -210,7 +211,7 @@ func slicedConvexHullDecimate(triangles []*Triangle, targetTriangles int) ([]*Tr
 		}
 	}
 
-	return nil, errors.New("sliced hull exceeds target triangle count")
+	return nil, errtrace.Wrap(errors.New("sliced hull exceeds target triangle count"))
 }
 
 // meshTriangleVolume computes the volume of a closed triangle mesh using the
@@ -391,7 +392,7 @@ func (m edgeToFaceMap) neighbor(a, b int) int {
 
 func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector, error) {
 	if len(points) < 4 {
-		return nil, nil, errors.New("need at least 4 points for 3D hull")
+		return nil, nil, errtrace.Wrap(errors.New("need at least 4 points for 3D hull"))
 	}
 
 	i0, i1 := 0, 0
@@ -404,7 +405,7 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 		}
 	}
 	if i0 == i1 {
-		return nil, nil, errors.New("degenerate point set")
+		return nil, nil, errtrace.Wrap(errors.New("degenerate point set"))
 	}
 
 	lineDir := points[i1].Sub(points[i0])
@@ -420,7 +421,7 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 		}
 	}
 	if i2 < 0 || maxLineDist <= eps {
-		return nil, nil, errors.New("points are nearly collinear")
+		return nil, nil, errtrace.Wrap(errors.New("points are nearly collinear"))
 	}
 
 	baseNormal := PlaneNormal(points[i0], points[i1], points[i2])
@@ -436,7 +437,7 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 		}
 	}
 	if i3 < 0 || maxPlaneDist <= eps {
-		return nil, nil, errors.New("points are nearly coplanar")
+		return nil, nil, errtrace.Wrap(errors.New("points are nearly coplanar"))
 	}
 
 	interior := centroidOfPoints([]r3.Vector{points[i0], points[i1], points[i2], points[i3]})

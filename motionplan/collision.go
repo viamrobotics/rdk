@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -52,7 +53,7 @@ func collisionSpecifications(
 	// Get names of all geometries in frame system
 	for frameName, geomsInFrame := range frameSystemGeometries {
 		if _, ok := validGeoms[frameName]; ok {
-			return nil, referenceframe.NewDuplicateGeometryNameError(frameName)
+			return nil, errtrace.Wrap(referenceframe.NewDuplicateGeometryNameError(frameName))
 		}
 		validGeoms[frameName] = true
 		for _, geom := range geomsInFrame.Geometries() {
@@ -63,7 +64,7 @@ func collisionSpecifications(
 				continue
 			}
 			if _, ok := validGeoms[geomName]; ok {
-				return nil, referenceframe.NewDuplicateGeometryNameError(geomName)
+				return nil, errtrace.Wrap(referenceframe.NewDuplicateGeometryNameError(geomName))
 			}
 			validGeoms[geomName] = true
 		}
@@ -105,7 +106,7 @@ func collisionSpecifications(
 			availNames = append(availNames, name)
 		}
 
-		return nil, fmt.Errorf("geometry specification allow name %s does not match any known geometries. Available: %v", cName, availNames)
+		return nil, errtrace.Wrap(fmt.Errorf("geometry specification allow name %s does not match any known geometries. Available: %v", cName, availNames))
 	}
 
 	// Create the structures that specify the allowed collisions
@@ -115,11 +116,11 @@ func collisionSpecifications(
 			allow2 := allowPair.Frame2
 			allowNames1, err := allowNameToSubGeoms(allow1)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			allowNames2, err := allowNameToSubGeoms(allow2)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			for _, allowName1 := range allowNames1 {
 				for _, allowName2 := range allowNames2 {
@@ -147,11 +148,11 @@ func checkCollisionsHinted(
 ) ([]Collision, float64, error) {
 	ggMap, err := createUniqueCollisionMap(gg)
 	if err != nil {
-		return nil, math.Inf(-1), err
+		return nil, math.Inf(-1), errtrace.Wrap(err)
 	}
 	otherMap, err := createUniqueCollisionMap(other)
 	if err != nil {
-		return nil, math.Inf(-1), err
+		return nil, math.Inf(-1), errtrace.Wrap(err)
 	}
 
 	seen := map[[2]string]bool{}
@@ -178,7 +179,7 @@ func checkCollisionsHinted(
 		if err != nil {
 			isCollision, distance, err = yGeometry.CollidesWith(xGeometry, collisionBufferMM)
 			if err != nil {
-				return false, err
+				return false, errtrace.Wrap(err)
 			}
 		}
 		if elapsed := time.Since(start); elapsed > slowCollisionThreshold {
@@ -209,12 +210,12 @@ func checkCollisionsHinted(
 					return false, true, nil
 				}
 				stop, err := checkOnePair(xName, yName, xGeom, yGeom)
-				return stop, true, err
+				return stop, true, errtrace.Wrap(err)
 			}
 			for _, pair := range [2][2]string{{h[0], h[1]}, {h[1], h[0]}} {
 				stop, _, err := tryHint(pair[0], pair[1])
 				if err != nil {
-					return nil, 0, err
+					return nil, 0, errtrace.Wrap(err)
 				}
 				if stop {
 					return collisions, math.Inf(1), nil
@@ -230,7 +231,7 @@ func checkCollisionsHinted(
 			}
 			stop, err := checkOnePair(xName, yName, xGeometry, yGeometry)
 			if err != nil {
-				return nil, math.Inf(-1), err
+				return nil, math.Inf(-1), errtrace.Wrap(err)
 			}
 			if stop {
 				return collisions, minDistance, nil
@@ -268,7 +269,7 @@ func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialm
 			unnamedCnt++
 		}
 		if _, present := geomMap[label]; present {
-			return nil, referenceframe.NewDuplicateGeometryNameError(label)
+			return nil, errtrace.Wrap(referenceframe.NewDuplicateGeometryNameError(label))
 		}
 		geomMap[label] = geom
 	}

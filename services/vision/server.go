@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -43,15 +44,15 @@ func (server *serviceServer) GetDetections(
 	defer span.End()
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	namedImg, err := camera.NamedImageFromBytes(req.Image, "", req.MimeType, data.Annotations{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	detections, err := svc.Detections(ctx, &namedImg, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetDetectionsResponse{
 		Detections: detsToProto(detections),
@@ -66,11 +67,11 @@ func (server *serviceServer) GetDetectionsFromCamera(
 	defer span.End()
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	detections, err := svc.DetectionsFromCamera(ctx, req.CameraName, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetDetectionsFromCameraResponse{
 		Detections: detsToProto(detections),
@@ -117,15 +118,15 @@ func (server *serviceServer) GetClassifications(
 	defer span.End()
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	namedImg, err := camera.NamedImageFromBytes(req.Image, "", req.MimeType, data.Annotations{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	classifications, err := svc.Classifications(ctx, &namedImg, int(req.N), req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetClassificationsResponse{
 		Classifications: clasToProto(classifications),
@@ -140,11 +141,11 @@ func (server *serviceServer) GetClassificationsFromCamera(
 	defer span.End()
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	classifications, err := svc.ClassificationsFromCamera(ctx, req.CameraName, int(req.N), req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetClassificationsFromCameraResponse{
 		Classifications: clasToProto(classifications),
@@ -171,15 +172,15 @@ func (server *serviceServer) GetObjectPointClouds(
 ) (*pb.GetObjectPointCloudsResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	protoSegments, err := segmentsToProto(req.CameraName, objects)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.GetObjectPointCloudsResponse{
@@ -197,7 +198,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 		}
 		err := pointcloud.ToPCD(seg, &buf, pointcloud.PCDBinary)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		geoms := []*commonpb.Geometry{}
 		if seg.Geometry != nil {
@@ -222,11 +223,11 @@ func (server *serviceServer) GetProperties(ctx context.Context,
 	defer span.End()
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	props, err := svc.GetProperties(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	out := &pb.GetPropertiesResponse{
@@ -245,7 +246,7 @@ func (server *serviceServer) CaptureAllFromCamera(
 	defer span.End()
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	captOptions := viscapture.CaptureOptions{
 		ReturnImage:           req.ReturnImage,
@@ -260,21 +261,21 @@ func (server *serviceServer) CaptureAllFromCamera(
 		req.Extra.AsMap(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	objProto, err := segmentsToProto(req.CameraName, capt.Objects)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	imgProto, err := namedImageToProto(ctx, capt.Image, req.CameraName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	extraProto, err := protoutils.StructToStructPb(capt.Extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.CaptureAllFromCameraResponse{
 		Image:           imgProto,
@@ -291,7 +292,7 @@ func namedImageToProto(ctx context.Context, img *camera.NamedImage, cameraName s
 	}
 	imgBytes, err := img.Bytes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &camerapb.Image{
 		Image:      imgBytes,
@@ -309,16 +310,16 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return rprotoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // GetStatus returns the status of the vision service.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return rprotoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceServer(ctx, res, req))
 }

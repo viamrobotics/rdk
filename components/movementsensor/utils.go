@@ -5,6 +5,7 @@ import (
 	"math"
 	"sync"
 
+	"braces.dev/errtrace"
 	geo "github.com/kellydunn/golang-geo"
 )
 
@@ -90,7 +91,7 @@ func (le *LastError) Get() error {
 	// Wipe everything out
 	le.errs = make([]error, le.size)
 	le.count = 0
-	return errToReturn
+	return errtrace.Wrap(errToReturn)
 }
 
 // LastPosition stores the last position seen by the movement sensor.

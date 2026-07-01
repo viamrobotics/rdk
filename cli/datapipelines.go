@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/urfave/cli/v3"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"go.mongodb.org/mongo-driver/bson"
@@ -33,18 +34,18 @@ type datapipelineListArgs struct {
 // DatapipelineListAction lists all data pipelines for an organization.
 func DatapipelineListAction(ctx context.Context, cmd *cli.Command, args datapipelineListArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to list data pipelines")
+		return errtrace.Wrap(errors.New("must provide an organization ID to list data pipelines"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resp, err := client.datapipelinesClient.ListDataPipelines(context.Background(), &datapipelinespb.ListDataPipelinesRequest{
 		OrganizationId: args.OrgID,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	for _, pipeline := range resp.GetDataPipelines() {
@@ -72,21 +73,21 @@ type datapipelineCreateArgs struct {
 // DatapipelineCreateAction creates a new data pipeline.
 func DatapipelineCreateAction(ctx context.Context, cmd *cli.Command, args datapipelineCreateArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to create a data pipeline")
+		return errtrace.Wrap(errors.New("must provide an organization ID to create a data pipeline"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dataSourceType, err := dataSourceTypeToProto(args.DataSourceType, pipelineDataSourceTypes)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resp, err := client.datapipelinesClient.CreateDataPipeline(context.Background(), &datapipelinespb.CreateDataPipelineRequest{
@@ -98,7 +99,7 @@ func DatapipelineCreateAction(ctx context.Context, cmd *cli.Command, args datapi
 		EnableBackfill: &args.EnableBackfill,
 	})
 	if err != nil {
-		return fmt.Errorf("error creating data pipeline: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error creating data pipeline: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "%s (ID: %s) created.", args.Name, resp.GetId())
@@ -115,7 +116,7 @@ type datapipelineRenameArgs struct {
 func DatapipelineRenameAction(ctx context.Context, cmd *cli.Command, args datapipelineRenameArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.datapipelinesClient.RenameDataPipeline(context.Background(), &datapipelinespb.RenameDataPipelineRequest{
@@ -123,7 +124,7 @@ func DatapipelineRenameAction(ctx context.Context, cmd *cli.Command, args datapi
 		Name: args.Name,
 	})
 	if err != nil {
-		return fmt.Errorf("error updating data pipeline: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error updating data pipeline: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "%s (id: %s) renamed.", args.Name, args.ID)
@@ -138,14 +139,14 @@ type datapipelineDeleteArgs struct {
 func DatapipelineDeleteAction(ctx context.Context, cmd *cli.Command, args datapipelineDeleteArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.datapipelinesClient.DeleteDataPipeline(context.Background(), &datapipelinespb.DeleteDataPipelineRequest{
 		Id: args.ID,
 	})
 	if err != nil {
-		return fmt.Errorf("error deleting data pipeline: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error deleting data pipeline: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "data pipeline (id: %s) deleted.", args.ID)
@@ -160,14 +161,14 @@ type datapipelineDescribeArgs struct {
 func DatapipelineDescribeAction(ctx context.Context, cmd *cli.Command, args datapipelineDescribeArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resp, err := client.datapipelinesClient.GetDataPipeline(context.Background(), &datapipelinespb.GetDataPipelineRequest{
 		Id: args.ID,
 	})
 	if err != nil {
-		return fmt.Errorf("error getting data pipeline: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error getting data pipeline: %w", err))
 	}
 	pipeline := resp.GetDataPipeline()
 
@@ -176,7 +177,7 @@ func DatapipelineDescribeAction(ctx context.Context, cmd *cli.Command, args data
 		PageSize: 1,
 	})
 	if err != nil {
-		return fmt.Errorf("error getting list of pipeline runs: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error getting list of pipeline runs: %w", err))
 	}
 	runs := runsResp.Runs
 
@@ -223,14 +224,14 @@ type datapipelineEnableArgs struct {
 func DatapipelineEnableAction(ctx context.Context, cmd *cli.Command, args datapipelineEnableArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.datapipelinesClient.EnableDataPipeline(context.Background(), &datapipelinespb.EnableDataPipelineRequest{
 		Id: args.ID,
 	})
 	if err != nil {
-		return fmt.Errorf("error enabling data pipeline: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error enabling data pipeline: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "data pipeline (id: %s) enabled.", args.ID)
@@ -245,14 +246,14 @@ type datapipelineDisableArgs struct {
 func DatapipelineDisableAction(ctx context.Context, cmd *cli.Command, args datapipelineDisableArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.datapipelinesClient.DisableDataPipeline(context.Background(), &datapipelinespb.DisableDataPipelineRequest{
 		Id: args.ID,
 	})
 	if err != nil {
-		return fmt.Errorf("error disabling data pipeline: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error disabling data pipeline: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "data pipeline (id: %s) disabled.", args.ID)
@@ -261,33 +262,33 @@ func DatapipelineDisableAction(ctx context.Context, cmd *cli.Command, args datap
 
 func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	if mqlFile != "" && mql != "" {
-		return nil, errors.New("MQL and MQL file cannot both be provided")
+		return nil, errtrace.Wrap(errors.New("MQL and MQL file cannot both be provided"))
 	}
 
 	if mqlFile != "" {
 		//nolint:gosec // mqlFile is a user-provided path for reading MQL query files
 		content, err := os.ReadFile(mqlFile)
 		if err != nil {
-			return nil, fmt.Errorf("error reading MQL file: %w", err)
+			return nil, errtrace.Wrap(fmt.Errorf("error reading MQL file: %w", err))
 		}
 		mql = string(content)
 	}
 
 	if mql == "" {
-		return nil, errors.New("missing MQL query")
+		return nil, errtrace.Wrap(errors.New("missing MQL query"))
 	}
 
 	// Parse the MQL stages JSON (using JSON5 for unquoted keys + comments).
 	var mqlArray []bson.M
 	if err := json5.Unmarshal([]byte(mql), &mqlArray); err != nil {
-		return nil, fmt.Errorf("unable to parse MQL argument: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("unable to parse MQL argument: %w", err))
 	}
 
 	var mqlBinary [][]byte
 	for _, stage := range mqlArray {
 		bytes, err := bson.Marshal(stage)
 		if err != nil {
-			return nil, fmt.Errorf("error converting MQL stage to BSON: %w", err)
+			return nil, errtrace.Wrap(fmt.Errorf("error converting MQL stage to BSON: %w", err))
 		}
 		mqlBinary = append(mqlBinary, bytes)
 	}
@@ -302,14 +303,14 @@ func (c *viamClient) resolvePipelineIDByName(ctx context.Context, orgID, name st
 		OrganizationId: orgID,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to list data pipelines: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("failed to list data pipelines: %w", err))
 	}
 	for _, p := range resp.GetDataPipelines() {
 		if p.GetName() == name {
 			return p.GetId(), nil
 		}
 	}
-	return "", fmt.Errorf("no data pipeline found with name %q", name)
+	return "", errtrace.Wrap(fmt.Errorf("no data pipeline found with name %q", name))
 }
 
 func mqlJSON(mql [][]byte) (string, error) {
@@ -317,14 +318,14 @@ func mqlJSON(mql [][]byte) (string, error) {
 	for _, bsonBytes := range mql {
 		var stage bson.M
 		if err := bson.Unmarshal(bsonBytes, &stage); err != nil {
-			return "", fmt.Errorf("error unmarshaling BSON stage: %w", err)
+			return "", errtrace.Wrap(fmt.Errorf("error unmarshaling BSON stage: %w", err))
 		}
 		stages = append(stages, stage)
 	}
 
 	jsonBytes, err := json.MarshalIndent(stages, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("error marshaling stages to JSON: %w", err)
+		return "", errtrace.Wrap(fmt.Errorf("error marshaling stages to JSON: %w", err))
 	}
 
 	return string(jsonBytes), nil

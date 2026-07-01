@@ -3,6 +3,7 @@ package operation
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -25,7 +26,7 @@ func UnaryClientInterceptor(
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, opidMetadataKey, op.ID.String())
 	}
-	return invoker(ctx, method, req, reply, cc, opts...)
+	return errtrace.Wrap(invoker(ctx, method, req, reply, cc, opts...))
 }
 
 // StreamClientInterceptor adds the operation id from the current context (if any) to the
@@ -41,7 +42,7 @@ func StreamClientInterceptor(
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, opidMetadataKey, op.ID.String())
 	}
-	return streamer(ctx, desc, cc, method, opts...)
+	return errtrace.Wrap2(streamer(ctx, desc, cc, method, opts...))
 }
 
 // UnaryServerInterceptor creates a new operation in the current context before passing
@@ -67,7 +68,7 @@ func (m *Manager) UnaryServerInterceptor(
 			m.logger.CDebugw(ctx, "error while setting header", "err", err)
 		}
 	}
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }
 
 // StreamServerInterceptor creates a new operation in the current context before passing
@@ -84,7 +85,7 @@ func (m *Manager) StreamServerInterceptor(
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
 		utils.UncheckedError(ss.SetHeader(metadata.MD{opidMetadataKey: []string{op.ID.String()}}))
 	}
-	return handler(srv, &ssStreamContextWrapper{ss, ctx})
+	return errtrace.Wrap(handler(srv, &ssStreamContextWrapper{ss, ctx}))
 }
 
 // CreateFromIncomingContext creates a new operation from an incoming context.
@@ -112,11 +113,11 @@ func GetOrCreateFromMetadata(meta metadata.MD) (uuid.UUID, error) {
 	case 1:
 		opid, err := uuid.Parse(values[0])
 		if err != nil {
-			return uuid.UUID{}, err
+			return uuid.UUID{}, errtrace.Wrap(err)
 		}
 		return opid, nil
 	default:
-		return uuid.UUID{}, errors.New("found more than one operation id in metadata")
+		return uuid.UUID{}, errtrace.Wrap(errors.New("found more than one operation id in metadata"))
 	}
 }
 

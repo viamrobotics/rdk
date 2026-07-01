@@ -13,6 +13,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/video"
@@ -29,7 +30,7 @@ func (x *testGetVideoServer) Context() context.Context { return x.ctx }
 
 func (x *testGetVideoServer) Send(m *pb.GetVideoResponse) error {
 	_, err := x.writer.Write(m.VideoData)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func newServer(logger logging.Logger) (pb.VideoServiceServer, *inject.Video, *inject.Video, error) {
@@ -41,7 +42,7 @@ func newServer(logger logging.Logger) (pb.VideoServiceServer, *inject.Video, *in
 	}
 	videoSvc, err := resource.NewAPIResourceCollection(video.API, videos)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	videoServer := video.NewRPCServiceServer(videoSvc, logger).(pb.VideoServiceServer)
 	return videoServer, videoInject, videoInject2, nil
@@ -94,7 +95,7 @@ func TestServer(t *testing.T) {
 			videoCodec, videoContainer string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
-			return nil, io.EOF
+			return nil, errtrace.Wrap(io.EOF)
 		}
 		stream := &testGetVideoServer{ctx: context.Background(), writer: &bytes.Buffer{}}
 		err := videoServer.GetVideo(getVideoRequest, stream)
@@ -125,7 +126,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectVideo.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = videoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "video1"})
 	test.That(t, err, test.ShouldNotBeNil)

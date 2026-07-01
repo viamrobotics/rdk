@@ -21,6 +21,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/logging"
@@ -60,11 +61,11 @@ func NewCamera(
 ) (camera.Camera, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	_, _, paramErr := newConf.Validate("")
 	if paramErr != nil {
-		return nil, paramErr
+		return nil, errtrace.Wrap(paramErr)
 	}
 	width := initialWidth
 	if newConf.Width > 0 {
@@ -95,7 +96,7 @@ func NewCamera(
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if cam.RTPPassthrough {
@@ -104,12 +105,12 @@ func NewCamera(
 		d := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(worldJpeg))
 		img, err := jpeg.Decode(d)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		cam.cacheImage = img
 		if err := cam.startPassthrough(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return camera.FromVideoSource(conf.ResourceName(), src), nil
@@ -127,19 +128,19 @@ type Config struct {
 // Validate checks that the config attributes are valid for a fake camera.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	if conf.Height > 10000 || conf.Width > 10000 {
-		return nil, nil, errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels")
+		return nil, nil, errtrace.Wrap(errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels"))
 	}
 
 	if conf.Height < 0 || conf.Width < 0 {
-		return nil, nil, errors.New("cannot use negative pixel height and width for fake cameras")
+		return nil, nil, errtrace.Wrap(errors.New("cannot use negative pixel height and width for fake cameras"))
 	}
 
 	if conf.Height%2 != 0 {
-		return nil, nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height))
 	}
 
 	if conf.Width%2 != 0 {
-		return nil, nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width))
 	}
 
 	return nil, nil, nil
@@ -194,7 +195,7 @@ type Camera struct {
 // Geometries returns Geometries.
 func (c *Camera) Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
 	box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 40, Y: 40, Z: 10}, "box")
-	return []spatialmath.Geometry{box}, err
+	return []spatialmath.Geometry{box}, errtrace.Wrap(err)
 }
 
 // Read always returns the same image of a yellow to blue gradient.
@@ -251,7 +252,7 @@ func (c *Camera) NextPointCloud(ctx context.Context, extra map[string]interface{
 			thisColor := color.NRGBA{uint8(255 - (255 * dist)), uint8(255 - (255 * dist)), uint8(0 + (255 * dist)), 255}
 			err := dm.Set(r3.Vector{X: x, Y: y, Z: 255 * dist}, pointcloud.NewColoredData(thisColor))
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -271,14 +272,14 @@ func (c *Camera) SubscribeRTP(
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
 	if !c.RTPPassthrough {
-		return rtppassthrough.NilSubscription, ErrRTPPassthroughNotEnabled
+		return rtppassthrough.NilSubscription, errtrace.Wrap(ErrRTPPassthroughNotEnabled)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	sub, buf, err := rtppassthrough.NewSubscription(bufferSize)
 	if err != nil {
-		return rtppassthrough.NilSubscription, err
+		return rtppassthrough.NilSubscription, errtrace.Wrap(err)
 	}
 	webrtcPayloadMaxSize := 1188 // 1200 - 12 (RTP header)
 	encoder := &rtph264.Encoder{
@@ -288,7 +289,7 @@ func (c *Camera) SubscribeRTP(
 
 	if err := encoder.Init(); err != nil {
 		buf.Close()
-		return rtppassthrough.NilSubscription, err
+		return rtppassthrough.NilSubscription, errtrace.Wrap(err)
 	}
 
 	c.bufAndCBByID[sub.ID] = bufAndCB{
@@ -302,13 +303,13 @@ func (c *Camera) SubscribeRTP(
 // Unsubscribe terminates the subscription.
 func (c *Camera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 	if !c.RTPPassthrough {
-		return ErrRTPPassthroughNotEnabled
+		return errtrace.Wrap(ErrRTPPassthroughNotEnabled)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	bufAndCB, ok := c.bufAndCBByID[id]
 	if !ok {
-		return errors.New("id not found")
+		return errtrace.Wrap(errors.New("id not found"))
 	}
 	delete(c.bufAndCBByID, id)
 	bufAndCB.buf.Close()
@@ -324,25 +325,25 @@ func (c *Camera) startPassthrough() error {
 	}
 
 	if err := encoder.Init(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	rtpTime := &rtptime.Encoder{ClockRate: forma.ClockRate()}
 	err := rtpTime.Initialize()
 	if err != nil {
 		c.logger.Error(err.Error())
-		return err
+		return errtrace.Wrap(err)
 	}
 	start := time.Now()
 	b, err := base64.StdEncoding.DecodeString(worldH264Base64)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return err
+		return errtrace.Wrap(err)
 	}
 	aus, err := h264.AnnexBUnmarshal(b)
 	if err != nil {
 		c.logger.Error(err.Error())
-		return err
+		return errtrace.Wrap(err)
 	}
 	f := func() {
 		defer c.unsubscribeAll()

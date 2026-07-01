@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/module/trace"
 	"go.viam.com/rdk/resource"
@@ -53,18 +54,18 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	defer span.End()
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	m.registerMu.Lock()
 	defer m.registerMu.Unlock()
 	if m.pc == nil {
-		return nil, errors.New("module has no peer connection")
+		return nil, errtrace.Wrap(errors.New("module has no peer connection"))
 	}
 	vcss, ok := m.streamSourceByName[name]
 	if !ok {
 		err := errors.New("unknown stream for resource")
 		m.logger.CWarnw(ctx, err.Error(), "name", name.String(), "streamSourceByName", fmt.Sprintf("%#v", m.streamSourceByName))
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if _, ok = m.activeResourceStreams[name]; ok {
@@ -73,12 +74,12 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	}
 
 	if len(m.activeResourceStreams) >= maxSupportedWebRTCTRacks {
-		return nil, errMaxSupportedWebRTCTrackLimit
+		return nil, errtrace.Wrap(errMaxSupportedWebRTCTrackLimit)
 	}
 
 	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
 	if err != nil {
-		return nil, fmt.Errorf("error creating a new TrackLocalStaticRTP: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("error creating a new TrackLocalStaticRTP: %w", err))
 	}
 
 	sub, err := vcss.SubscribeRTP(ctx, rtpBufferSize, func(pkts []*rtp.Packet) {
@@ -89,7 +90,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		}
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error setting up stream subscription: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("error setting up stream subscription: %w", err))
 	}
 
 	m.logger.CDebugw(ctx, "AddStream calling AddTrack", "name", name.String(), "subID", sub.ID.String())
@@ -97,9 +98,9 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	if err != nil {
 		err = fmt.Errorf("error adding track: %w", err)
 		if unsubErr := vcss.Unsubscribe(ctx, sub.ID); unsubErr != nil {
-			return nil, multierr.Combine(err, unsubErr)
+			return nil, errtrace.Wrap(multierr.Combine(err, unsubErr))
 		}
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	removeTrackOnSubTerminate := func() {
@@ -134,26 +135,26 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 	defer span.End()
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	m.registerMu.Lock()
 	defer m.registerMu.Unlock()
 	if m.pc == nil {
-		return nil, errors.New("module has no peer connection")
+		return nil, errtrace.Wrap(errors.New("module has no peer connection"))
 	}
 	vcss, ok := m.streamSourceByName[name]
 	if !ok {
-		return nil, fmt.Errorf("unknown stream for resource %s", name)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown stream for resource %s", name))
 	}
 
 	prs, ok := m.activeResourceStreams[name]
 	if !ok {
-		return nil, fmt.Errorf("stream %s is not active", name)
+		return nil, errtrace.Wrap(fmt.Errorf("stream %s is not active", name))
 	}
 
 	if err := vcss.Unsubscribe(ctx, prs.subID); err != nil {
 		m.logger.CWarnw(ctx, "RemoveStream > Unsubscribe", "name", name.String(), "subID", prs.subID.String(), "err", err)
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	delete(m.activeResourceStreams, name)

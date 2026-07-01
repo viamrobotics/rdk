@@ -13,6 +13,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/control"
@@ -238,7 +239,7 @@ func msDependencies(t *testing.T, msNames []string,
 					OrientationSupported:     true,
 					AngularVelocitySupported: true,
 					LinearVelocitySupported:  true,
-				}, errors.New("bad sensor")
+				}, errtrace.Wrap(errors.New("bad sensor"))
 			}
 			deps[movementsensor.Named(msName)] = ms
 

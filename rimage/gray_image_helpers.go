@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"image/draw"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -30,8 +31,8 @@ func MakeGray(pic *Image) *image.Gray {
 func MultiplyGrays(g1, g2 *image.Gray) (*image.Gray16, error) {
 	newPic := image.NewGray16(g1.Bounds())
 	if !SameImgSize(g1, g2) {
-		return nil, errors.Errorf("these images aren't the same size (%d %d) != (%d %d)",
-			g1.Bounds().Max.X, g1.Bounds().Max.Y, g2.Bounds().Max.X, g2.Bounds().Max.Y)
+		return nil, errtrace.Wrap(errors.Errorf("these images aren't the same size (%d %d) != (%d %d)",
+			g1.Bounds().Max.X, g1.Bounds().Max.Y, g2.Bounds().Max.X, g2.Bounds().Max.Y))
 	}
 	for y := g1.Bounds().Min.Y; y < g1.Bounds().Max.Y; y++ {
 		for x := g1.Bounds().Min.X; x < g1.Bounds().Max.X; x++ {

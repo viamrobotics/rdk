@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -19,7 +20,7 @@ type ImagePyramid struct {
 // downscaleNearestGrayImage downscales an image.Gray by factor.
 func downscaleNearestGrayImage(img *image.Gray, factor float64) (*image.Gray, error) {
 	if img == nil {
-		return nil, errors.New("input image is nil")
+		return nil, errtrace.Wrap(errors.New("input image is nil"))
 	}
 	imgRect := img.Bounds()
 	newRect := image.Rectangle{
@@ -78,7 +79,7 @@ func GetImagePyramid(img *image.Gray) (*ImagePyramid, error) {
 		im := images[i-1]
 		downsized, err := downscaleNearestGrayImage(im, 2.)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		images[i] = downsized
 		scales[i] = int(math.Pow(2, float64(i)))

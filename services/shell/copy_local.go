@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -33,7 +34,7 @@ func NewLocalFileCopyFactory(
 	// fixup destination to something we can work with
 	destination, err := fixPeerPath(destination, true, relativeToHome)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &localFileCopyFactory{destination: destination, preserve: preserve}, nil
 }
@@ -54,10 +55,10 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 		// as a directory
 		dstInfo, err := os.Stat(f.destination)
 		if err != nil || dstInfo == nil || !dstInfo.IsDir() {
-			return nil, fmt.Errorf("%q does not exist or is not a directory", f.destination)
+			return nil, errtrace.Wrap(fmt.Errorf("%q does not exist or is not a directory", f.destination))
 		}
 		if err := os.MkdirAll(filepath.Dir(f.destination), 0o750); err != nil {
-			return nil, fmt.Errorf("MkdirAll all failed (%s): %w", f.destination, err)
+			return nil, errtrace.Wrap(fmt.Errorf("MkdirAll all failed (%s): %w", f.destination, err))
 		}
 	case CopyFilesSourceTypeSingleFile, CopyFilesSourceTypeSingleDirectory:
 		// for single files (a machine:~/some/dir_or_file):
@@ -76,7 +77,7 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 		// if destination exists and
 		if err == nil {
 			if dstInfo == nil {
-				return nil, fmt.Errorf("expected file info for %q", f.destination)
+				return nil, errtrace.Wrap(fmt.Errorf("expected file info for %q", f.destination))
 			}
 			switch {
 			case dstInfo.IsDir():
@@ -88,17 +89,17 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 				rename = true
 			default:
 				// it is a file and the source is a directory, error
-				return nil, fmt.Errorf("destination %q is an existing file", f.destination)
+				return nil, errtrace.Wrap(fmt.Errorf("destination %q is an existing file", f.destination))
 			}
 		} else { // or if destination does not exist and
 			parent := filepath.Dir(f.destination)
 			parentInfo, err := os.Stat(parent)
 			if err != nil {
 				// the parent does not exist, then error
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			if parentInfo == nil {
-				return nil, fmt.Errorf("expected file info for %q", parent)
+				return nil, errtrace.Wrap(fmt.Errorf("expected file info for %q", parent))
 			}
 			// if the parent exists and
 			if parentInfo.IsDir() {
@@ -107,7 +108,7 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 				rename = true
 			} else {
 				// it is a file, then error
-				return nil, fmt.Errorf("parent of destination %q is an existing file, not a directory", f.destination)
+				return nil, errtrace.Wrap(fmt.Errorf("parent of destination %q is an existing file, not a directory", f.destination))
 			}
 		}
 
@@ -118,7 +119,7 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 	case CopyFilesSourceTypeMultipleUnknown:
 		fallthrough
 	default:
-		return nil, fmt.Errorf("do not know how to process source copy type %q", sourceType)
+		return nil, errtrace.Wrap(fmt.Errorf("do not know how to process source copy type %q", sourceType))
 	}
 	return &localFileCopier{
 		sourceType:   sourceType,
@@ -162,31 +163,31 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 
 	fileInfo, err := file.Data.Stat()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if fileInfo == nil {
-		return fmt.Errorf("expected file info for %q to be non-nil", fileName)
+		return errtrace.Wrap(fmt.Errorf("expected file info for %q to be non-nil", fileName))
 	}
 
 	parentPath := filepath.Dir(fullPath)
 	if parentPath == "" {
-		return fmt.Errorf("expected non-empty parent path to destination %q", copier.dst)
+		return errtrace.Wrap(fmt.Errorf("expected non-empty parent path to destination %q", copier.dst))
 	}
 	if fileInfo, err := os.Stat(parentPath); err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
-			return err
+			return errtrace.Wrap(err)
 		}
 		// this will later be updated with chmod for a specific directory. It's safe to make
 		// directories here because we assume whoever constructed us has validated the top-level
 		// directory as existing or created.
 		//nolint:gosec // this is from an authenticated/authorized connection
 		if err := os.MkdirAll(parentPath, 0o755); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else if fileInfo == nil {
-		return fmt.Errorf("expected file info for %q to be non-nil", parentPath)
+		return errtrace.Wrap(fmt.Errorf("expected file info for %q to be non-nil", parentPath))
 	} else if !fileInfo.IsDir() {
-		return fmt.Errorf("invariant: parent path %q should have been a directory", parentPath)
+		return errtrace.Wrap(fmt.Errorf("invariant: parent path %q should have been a directory", parentPath))
 	}
 
 	var fileMode fs.FileMode
@@ -204,12 +205,12 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 	if fileInfo.IsDir() {
 		if err := os.Mkdir(fullPath, fileMode); err != nil {
 			if !errors.Is(err, fs.ErrExist) {
-				return err
+				return errtrace.Wrap(err)
 			}
 			if copier.preserve {
 				// Update the mode since it maye have been created via mkdirall above
 				if err := os.Chmod(fullPath, fileMode); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		}
@@ -222,7 +223,7 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 		//nolint:gosec // this is from an authenticated/authorized connection
 		localFile, err := os.OpenFile(fullPathTmp, os.O_CREATE|os.O_WRONLY, fileMode)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		_, copyErr := io.Copy(localFile, file.Data)
 		closeErr := localFile.Close()
@@ -232,24 +233,24 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 			if errors.Is(cleanupErr, fs.ErrNotExist) {
 				cleanupErr = nil
 			}
-			return multierr.Combine(copyErr, closeErr, cleanupErr)
+			return errtrace.Wrap(multierr.Combine(copyErr, closeErr, cleanupErr))
 		}
 		if closeErr != nil {
-			return closeErr
+			return errtrace.Wrap(closeErr)
 		}
 		if err := os.Rename(fullPathTmp, fullPath); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	if copier.preserve {
 		// Update the mode since it maye have been created via mkdirall above
 		// or modified by umask
 		if err := os.Chmod(fullPath, fileMode); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		// Note(erd): maybe support access time in the future if needed
 		if err := os.Chtimes(fullPath, time.Now(), modTime); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -280,18 +281,18 @@ func NewLocalFileReadCopier(
 	for _, p := range paths {
 		p, err := fixPeerPath(p, false, relativeToHome)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		//nolint:gosec // this is from an authenticated/authorized connection
 		fileToCopy, err := os.Open(p)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		if !allowRecursive {
 			fileInfo, err := fileToCopy.Stat()
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			if fileInfo.IsDir() {
 				details := &errdetails.BadRequest_FieldViolation{
@@ -300,15 +301,15 @@ func NewLocalFileReadCopier(
 				}
 				s, err := status.New(codes.InvalidArgument, ErrMsgDirectoryCopyRequestNoRecursion).WithDetails(details)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
-				return nil, s.Err()
+				return nil, errtrace.Wrap(s.Err())
 			}
 		}
 		filesToCopy = append(filesToCopy, fileToCopy)
 	}
 	if len(filesToCopy) == 0 {
-		return nil, errors.New("no files provided to copy")
+		return nil, errtrace.Wrap(errors.New("no files provided to copy"))
 	}
 	return &localFileReadCopier{filesToCopy: filesToCopy, copyFactory: copyFactory}, nil
 }
@@ -328,7 +329,7 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 	if len(reader.filesToCopy) == 1 {
 		fileInfo, err := reader.filesToCopy[0].Stat()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if fileInfo.IsDir() {
 			sourceType = CopyFilesSourceTypeSingleDirectory
@@ -341,7 +342,7 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 
 	copier, err := reader.copyFactory.MakeFileCopier(ctx, sourceType)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(copier.Close(ctx))
@@ -356,17 +357,17 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 	copyFiles = func(relDir string, files []*os.File) error {
 		for _, f := range files {
 			if ctx.Err() != nil {
-				return ctx.Err()
+				return errtrace.Wrap(ctx.Err())
 			}
 
 			fileInfo, err := f.Stat()
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			if fileInfo.IsDir() {
 				filesEntriesInDir, err := f.ReadDir(0)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				filesInDir := make([]*os.File, 0, len(filesEntriesInDir))
 				for _, dirEntry := range filesEntriesInDir {
@@ -377,13 +378,13 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 						for _, f := range filesInDir {
 							utils.UncheckedError(f.Close())
 						}
-						return err
+						return errtrace.Wrap(err)
 					}
 					filesInDir = append(filesInDir, entryFile)
 				}
 
 				if err := copyFiles(makeRelName(relDir, f), filesInDir); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 
@@ -391,14 +392,14 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 				RelativeName: makeRelName(relDir, f),
 				Data:         f,
 			}); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 
 		return nil
 	}
 	if err := copyFiles("", reader.filesToCopy); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -413,7 +414,7 @@ func (reader *localFileReadCopier) Close(ctx context.Context) error {
 			errs = multierr.Combine(errs, err)
 		}
 	}
-	return errs
+	return errtrace.Wrap(errs)
 }
 
 var errUnexpectedEmptyPath = errors.New("unexpected empty path")
@@ -426,7 +427,7 @@ func fixPeerPath(path string, allowEmpty, relativeToHome bool) (string, error) {
 	if !filepath.IsAbs(path) {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 
 		switch {
@@ -434,14 +435,14 @@ func fixPeerPath(path string, allowEmpty, relativeToHome bool) (string, error) {
 			path = strings.Replace(path, "~", homeDir, 1)
 		case path == "":
 			if !allowEmpty {
-				return "", errUnexpectedEmptyPath
+				return "", errtrace.Wrap(errUnexpectedEmptyPath)
 			}
 			if relativeToHome {
 				path = homeDir
 			} else {
 				path, err = filepath.Abs("")
 				if err != nil {
-					return "", err
+					return "", errtrace.Wrap(err)
 				}
 			}
 		case relativeToHome:
@@ -451,7 +452,7 @@ func fixPeerPath(path string, allowEmpty, relativeToHome bool) (string, error) {
 			// To path has us use CWD paths
 			path, err = filepath.Abs(path)
 			if err != nil {
-				return "", err
+				return "", errtrace.Wrap(err)
 			}
 		}
 	}

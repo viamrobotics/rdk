@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -20,7 +21,7 @@ import (
 func newServer(resourceMap map[resource.Name]datamanager.Service, logger logging.Logger) (pb.DataManagerServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(datamanager.API, resourceMap)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return datamanager.NewRPCServiceServer(coll, logger).(pb.DataManagerServiceServer), nil
 }
@@ -40,7 +41,7 @@ func TestServerSync(t *testing.T) {
 			resourceMap: map[resource.Name]datamanager.Service{
 				datamanager.Named(testDataManagerServiceName): &inject.DataManagerService{
 					SyncFunc: func(ctx context.Context, extra map[string]interface{}) error {
-						return errors.New("fake sync error")
+						return errtrace.Wrap(errors.New("fake sync error"))
 					},
 				},
 			},
@@ -131,7 +132,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectDS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testDataManagerServiceName})
 	test.That(t, err, test.ShouldNotBeNil)

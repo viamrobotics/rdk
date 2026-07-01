@@ -13,6 +13,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/component/movementsensor/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -190,7 +191,7 @@ type MovementSensor interface {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (MovementSensor, error) {
-	return resource.FromDependencies[MovementSensor](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[MovementSensor](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named MovementSensor from the given Robot.
@@ -198,12 +199,12 @@ func FromDependencies(deps resource.Dependencies, name string) (MovementSensor, 
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
-	return robot.ResourceFromRobot[MovementSensor](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[MovementSensor](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named MovementSensor from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (MovementSensor, error) {
-	return resource.FromProvider[MovementSensor](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[MovementSensor](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all MovementSensor names from the given Robot.
@@ -218,7 +219,7 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	pos, altitude, err := g.Position(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedPosition.Error()) {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		readings["position"] = pos
@@ -228,7 +229,7 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	vel, err := g.LinearVelocity(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedLinearVelocity.Error()) {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		readings["linear_velocity"] = vel
@@ -237,7 +238,7 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	la, err := g.LinearAcceleration(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedLinearAcceleration.Error()) {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		readings["linear_acceleration"] = la
@@ -246,7 +247,7 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	avel, err := g.AngularVelocity(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedAngularVelocity.Error()) {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		readings["angular_velocity"] = avel
@@ -255,7 +256,7 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	compass, err := g.CompassHeading(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedCompassHeading.Error()) {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		readings["compass"] = compass
@@ -264,7 +265,7 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	ori, err := g.Orientation(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedOrientation.Error()) {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		readings["orientation"] = ori

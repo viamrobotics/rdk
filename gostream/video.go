@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 
+	"braces.dev/errtrace"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
 )
@@ -40,7 +41,7 @@ func NewVideoSourceForDriver(d driver.Driver, r VideoReader, p prop.Video) Video
 // ReadImage gets a single image from a video source. Using this has less of a guarantee
 // than VideoSource.Stream that the Nth image follows the N-1th image.
 func ReadImage(ctx context.Context, source VideoSource) (image.Image, func(), error) {
-	return ReadMedia(ctx, source)
+	return errtrace.Wrap3(ReadMedia(ctx, source))
 }
 
 // NewEmbeddedVideoStream returns a video stream from a video source that is

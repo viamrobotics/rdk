@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 )
 
@@ -28,54 +29,54 @@ type GPIOPin struct {
 func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.setCap = []interface{}{ctx, high}
 	if gp.SetFunc == nil {
-		return gp.GPIOPin.Set(ctx, high, extra)
+		return errtrace.Wrap(gp.GPIOPin.Set(ctx, high, extra))
 	}
-	return gp.SetFunc(ctx, high, extra)
+	return errtrace.Wrap(gp.SetFunc(ctx, high, extra))
 }
 
 // Get calls the injected Get or the real version.
 func (gp *GPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	gp.getCap = []interface{}{ctx}
 	if gp.GetFunc == nil {
-		return gp.GPIOPin.Get(ctx, extra)
+		return errtrace.Wrap2(gp.GPIOPin.Get(ctx, extra))
 	}
-	return gp.GetFunc(ctx, extra)
+	return errtrace.Wrap2(gp.GetFunc(ctx, extra))
 }
 
 // PWM calls the injected PWM or the real version.
 func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	gp.pwmCap = []interface{}{ctx}
 	if gp.PWMFunc == nil {
-		return gp.GPIOPin.PWM(ctx, extra)
+		return errtrace.Wrap2(gp.GPIOPin.PWM(ctx, extra))
 	}
-	return gp.PWMFunc(ctx, extra)
+	return errtrace.Wrap2(gp.PWMFunc(ctx, extra))
 }
 
 // SetPWM calls the injected SetPWM or the real version.
 func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	gp.setPWMCap = []interface{}{ctx, dutyCyclePct}
 	if gp.SetPWMFunc == nil {
-		return gp.GPIOPin.SetPWM(ctx, dutyCyclePct, extra)
+		return errtrace.Wrap(gp.GPIOPin.SetPWM(ctx, dutyCyclePct, extra))
 	}
-	return gp.SetPWMFunc(ctx, dutyCyclePct, extra)
+	return errtrace.Wrap(gp.SetPWMFunc(ctx, dutyCyclePct, extra))
 }
 
 // PWMFreq calls the injected PWMFreq or the real version.
 func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	gp.pwmFreqCap = []interface{}{ctx}
 	if gp.PWMFreqFunc == nil {
-		return gp.GPIOPin.PWMFreq(ctx, extra)
+		return errtrace.Wrap2(gp.GPIOPin.PWMFreq(ctx, extra))
 	}
-	return gp.PWMFreqFunc(ctx, extra)
+	return errtrace.Wrap2(gp.PWMFreqFunc(ctx, extra))
 }
 
 // SetPWMFreq calls the injected SetPWMFreq or the real version.
 func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.setPWMFreqCap = []interface{}{ctx, freqHz}
 	if gp.SetPWMFreqFunc == nil {
-		return gp.GPIOPin.SetPWMFreq(ctx, freqHz, extra)
+		return errtrace.Wrap(gp.GPIOPin.SetPWMFreq(ctx, freqHz, extra))
 	}
-	return gp.SetPWMFreqFunc(ctx, freqHz, extra)
+	return errtrace.Wrap(gp.SetPWMFreqFunc(ctx, freqHz, extra))
 }
 
 // SetCap returns the last parameters received by Set, and then clears them.

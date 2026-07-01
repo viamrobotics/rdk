@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -223,13 +224,13 @@ func TestClientFailures(t *testing.T) {
 	srv := &inject.WorldStateStoreService{}
 	expectedErr := errors.New("fake error")
 	srv.ListUUIDsFunc = func(ctx context.Context, extra map[string]any) ([][]byte, error) {
-		return nil, expectedErr
+		return nil, errtrace.Wrap(expectedErr)
 	}
 	srv.GetTransformFunc = func(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
-		return nil, expectedErr
+		return nil, errtrace.Wrap(expectedErr)
 	}
 	srv.StreamTransformChangesFunc = func(ctx context.Context, extra map[string]any) (*worldstatestore.TransformChangeStream, error) {
-		return nil, expectedErr
+		return nil, errtrace.Wrap(expectedErr)
 	}
 
 	m := map[resource.Name]worldstatestore.Service{

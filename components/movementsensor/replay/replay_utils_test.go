@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
@@ -62,7 +63,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 		dataIndex, err = getNextDataAfterFilter(filter, last)
 		if err != nil {
 			if i == 0 {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			continue
 		}
@@ -76,7 +77,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 
 		timeReq, timeRec, err := timestampsFromIndex(dataIndex)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		last = fmt.Sprint(dataIndex)
@@ -104,7 +105,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 func timestampsFromIndex(index int) (*timestamppb.Timestamp, *timestamppb.Timestamp, error) {
 	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, index))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed parsing time")
+		return nil, nil, errtrace.Wrap(errors.Wrap(err, "failed parsing time"))
 	}
 	timeRec := timeReq.Add(time.Second)
 	return timestamppb.New(timeReq), timestamppb.New(timeRec), nil
@@ -114,28 +115,28 @@ func timestampsFromIndex(index int) (*timestamppb.Timestamp, *timestamppb.Timest
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
 	if filter.ComponentName != "" && filter.ComponentName != validSource {
-		return 0, ErrEndOfDataset
+		return 0, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	// Basic robot_id filter
 	if filter.RobotId != "" && filter.RobotId != validRobotID {
-		return 0, ErrEndOfDataset
+		return 0, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	// Basic location_id filter
 	if len(filter.LocationIds) == 0 {
-		return 0, errors.New("issue occurred with transmitting LocationIds to the cloud")
+		return 0, errtrace.Wrap(errors.New("issue occurred with transmitting LocationIds to the cloud"))
 	}
 	if filter.LocationIds[0] != "" && filter.LocationIds[0] != validLocationID {
-		return 0, ErrEndOfDataset
+		return 0, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	// Basic organization_id filter
 	if len(filter.OrganizationIds) == 0 {
-		return 0, errors.New("issue occurred with transmitting OrganizationIds to the cloud")
+		return 0, errtrace.Wrap(errors.New("issue occurred with transmitting OrganizationIds to the cloud"))
 	}
 	if filter.OrganizationIds[0] != "" && filter.OrganizationIds[0] != validOrganizationID {
-		return 0, ErrEndOfDataset
+		return 0, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	// Apply the time-based filter based on the seconds value in the start and end fields. Because our mock data
@@ -154,14 +155,14 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 		endIntervalIndex = filter.Interval.End.AsTime().Second()
 	}
 	if last == "" {
-		return checkDataEndCondition(startIntervalIndex, endIntervalIndex, availableDataNum)
+		return errtrace.Wrap2(checkDataEndCondition(startIntervalIndex, endIntervalIndex, availableDataNum))
 	}
 	lastFileNum, err := strconv.Atoi(last)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
-	return checkDataEndCondition(lastFileNum+1, endIntervalIndex, availableDataNum)
+	return errtrace.Wrap2(checkDataEndCondition(lastFileNum+1, endIntervalIndex, availableDataNum))
 }
 
 // checkDataEndCondition will return the index of the data to be returned after checking the amount of data available and the end
@@ -170,7 +171,7 @@ func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, erro
 	if i < endIntervalIndex && i < availableDataNum {
 		return i, nil
 	}
-	return 0, ErrEndOfDataset
+	return 0, errtrace.Wrap(ErrEndOfDataset)
 }
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
@@ -225,7 +226,7 @@ func createNewReplayMovementSensor(ctx context.Context, t *testing.T, replayMove
 	cfg := resource.Config{ConvertedAttributes: replayMovementSensorCfg}
 	replay, err := newReplayMovementSensor(ctx, resources, cfg, logger)
 
-	return replay, resources, closeRPCFunc, err
+	return replay, resources, closeRPCFunc, errtrace.Wrap(err)
 }
 
 // resourcesFromDeps returns a list of dependencies from the provided robot.

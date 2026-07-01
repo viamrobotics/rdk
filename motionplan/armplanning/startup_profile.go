@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -38,14 +39,14 @@ func checkStartupPerf(logger logging.Logger) (time.Duration, error) {
 
 	req, err := readRequestFromBytes(wineAdjustJSON)
 	if err != nil {
-		return totalTime, err
+		return totalTime, errtrace.Wrap(err)
 	}
 
 	for i := range 4 {
 		start := time.Now()
 		_, _, err = PlanMotion(context.Background(), logger, req)
 		if err != nil {
-			return totalTime, err
+			return totalTime, errtrace.Wrap(err)
 		}
 		if i > 0 {
 			totalTime += time.Since(start)
@@ -60,7 +61,7 @@ func readRequestFromBytes(data []byte) (*PlanRequest, error) {
 	req := &PlanRequest{}
 	err := json.NewDecoder(bytes.NewReader(data)).Decode(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return req, nil
 }

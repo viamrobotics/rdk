@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -283,12 +284,12 @@ func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 	select {
 	case <-s.cloudConn.ready:
 	default:
-		return errors.New("not connected to the cloud")
+		return errtrace.Wrap(errors.New("not connected to the cloud"))
 	}
 	s.configMu.Lock()
 	config := s.config
 	s.configMu.Unlock()
-	return s.walkDirsAndSendFilesToSync(ctx, config)
+	return errtrace.Wrap(s.walkDirsAndSendFilesToSync(ctx, config))
 }
 
 type cloudConn struct {
@@ -379,7 +380,7 @@ func newCloudConn(
 	defer grpcCancel()
 	partID, conn, err := cloudConnSvc.AcquireConnection(grpcCtx)
 	if err != nil {
-		return "", nil, err
+		return "", nil, errtrace.Wrap(err)
 	}
 
 	return partID, conn, nil
@@ -484,7 +485,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
 		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger, uploadingBytesCounter)
 		if err != nil {
-			return 0, errors.Wrap(err, errMetadata)
+			return 0, errtrace.Wrap(errors.Wrap(err, errMetadata))
 		}
 		logger.Debugf("uploadDataCaptureFile uploaded: %d bytes", bytesUploaded)
 		return bytesUploaded, nil
@@ -535,7 +536,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
 		)
 		if err != nil {
-			return 0, errors.Wrap(err, errMetadata)
+			return 0, errtrace.Wrap(errors.Wrap(err, errMetadata))
 		}
 		logger.Debugf("uploadArbitraryFile uploaded: %d bytes", bytesUploaded)
 		return bytesUploaded, nil
@@ -606,7 +607,7 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 		s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
 	}()
 
-	return <-errChan
+	return errtrace.Wrap(<-errChan)
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
@@ -615,18 +616,18 @@ func moveFailedData(path, parentDir string, cause error, logger logging.Logger) 
 	// Remove the parentDir part of the path to the corrupted data
 	relativePath, err := filepath.Rel(parentDir, path)
 	if err != nil {
-		return errors.Wrapf(err, "failed to move file to failed directory: error getting relative path between: %s and %s", parentDir, path)
+		return errtrace.Wrap(errors.Wrapf(err, "failed to move file to failed directory: error getting relative path between: %s and %s", parentDir, path))
 	}
 	// Create a new directory parentDir/corrupted/pathToFile
 	newDir := filepath.Join(parentDir, FailedDir, filepath.Dir(relativePath))
 	if err := os.MkdirAll(newDir, 0o700); err != nil {
-		return errors.Wrapf(err, "failed to move file to failed directory: error making new failed directory: %s", newDir)
+		return errtrace.Wrap(errors.Wrapf(err, "failed to move file to failed directory: error making new failed directory: %s", newDir))
 	}
 	// Move the file from parentDir/pathToFile/file.ext to parentDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
 	logger.Warnf("moving file that data manager failed to sync due to err: %v, from %s to %s", cause, path, newPath)
 	if err := os.Rename(path, newPath); err != nil {
-		return errors.Wrapf(err, "failed to move file to failed directory: error moving: %s to %s", path, newPath)
+		return errtrace.Wrap(errors.Wrapf(err, "failed to move file to failed directory: error moving: %s to %s", path, newPath))
 	}
 	return nil
 }
@@ -693,11 +694,11 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err := ctx.Err(); err != nil {
 				// if the context is cancelled, bail out
-				return filepath.SkipAll
+				return errtrace.Wrap(filepath.SkipAll)
 			}
 
 			if err := s.configCtx.Err(); err != nil {
-				return filepath.SkipAll
+				return errtrace.Wrap(filepath.SkipAll)
 			}
 
 			if err != nil {
@@ -708,7 +709,7 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 			// Do not sync the files in the corrupted data directory or in the directory that holds files
 			// that are simultaneously uploaded and added to a dataset.
 			if info.IsDir() && (info.Name() == FailedDir || info.Name() == DatasetDir) {
-				return filepath.SkipDir
+				return errtrace.Wrap(filepath.SkipDir)
 			}
 
 			if info.IsDir() {
@@ -733,7 +734,7 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 		errs = append(errs, err)
 	}
 	errs = append(errs, ctx.Err(), s.configCtx.Err())
-	return multierr.Combine(errs...)
+	return errtrace.Wrap(multierr.Combine(errs...))
 }
 
 func readyToSyncFile(timeSinceMod time.Duration, path string, info fs.FileInfo, fileLastModifiedMillis int, fileTracker *fileTracker) bool {

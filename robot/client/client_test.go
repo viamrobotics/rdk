@@ -42,6 +42,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -105,7 +106,7 @@ type mockRPCSubtypesUnimplemented struct {
 func (ms *mockRPCSubtypesUnimplemented) ResourceNames(
 	ctx context.Context, req *pb.ResourceNamesRequest,
 ) (*pb.ResourceNamesResponse, error) {
-	return ms.ResourceNamesFunc(req)
+	return errtrace.Wrap2(ms.ResourceNamesFunc(req))
 }
 
 func (ms *mockRPCSubtypesUnimplemented) GetMachineStatus(
@@ -128,7 +129,7 @@ func (ms *mockRPCSubtypesImplemented) ResourceRPCSubtypes(
 func (ms *mockRPCSubtypesImplemented) ResourceNames(
 	ctx context.Context, req *pb.ResourceNamesRequest,
 ) (*pb.ResourceNamesResponse, error) {
-	return ms.ResourceNamesFunc(req)
+	return errtrace.Wrap2(ms.ResourceNamesFunc(req))
 }
 
 func (ms *mockRPCSubtypesImplemented) GetMachineStatus(
@@ -194,7 +195,7 @@ func makeRPCServer(logger logging.Logger, option rpc.ServerOption) (rpc.Server, 
 		}
 		return server, listener, nil
 	}
-	return nil, nil, err
+	return nil, nil, errtrace.Wrap(err)
 }
 
 func TestUnimplementedRPCSubtypes(t *testing.T) {
@@ -355,7 +356,7 @@ func TestStatusClient(t *testing.T) {
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		namedImg, err := camera.NamedImageFromBytes(imgBuf.Bytes(), "", rutils.MimeTypePNG, data.Annotations{})
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
@@ -898,11 +899,11 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 			// after that.
 			if strings.HasSuffix(info.FullMethod, "RobotService/GetMachineStatus") {
 				if unaryStatusCallReceived {
-					return nil, status.Error(codes.Unknown, io.ErrClosedPipe.Error())
+					return nil, errtrace.Wrap(status.Error(codes.Unknown, io.ErrClosedPipe.Error()))
 				}
 				unaryStatusCallReceived = true
 			}
-			return handler(ctx, req)
+			return errtrace.Wrap2(handler(ctx, req))
 		},
 	)
 	gServer := grpc.NewServer(justOneUnaryStatusCall)
@@ -974,7 +975,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 			if strings.HasSuffix(info.FullMethod, "RobotService/StreamStatus") {
 				streamStatusCallReceived = true
 			}
-			return handler(srv, ss)
+			return errtrace.Wrap(handler(srv, ss))
 		},
 	)
 
@@ -1383,15 +1384,15 @@ func TestClientGetModelsFromModules(t *testing.T) {
 
 func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error {
 	if part.FrameConfig.Name() != otherPart.FrameConfig.Name() {
-		return fmt.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name())
+		return errtrace.Wrap(fmt.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name()))
 	}
 	frameConfig := part.FrameConfig
 	otherFrameConfig := otherPart.FrameConfig
 	if frameConfig.Parent() != otherFrameConfig.Parent() {
-		return fmt.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
+		return errtrace.Wrap(fmt.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent()))
 	}
 	if !spatialmath.R3VectorAlmostEqual(frameConfig.Pose().Point(), otherFrameConfig.Pose().Point(), 1e-8) {
-		return errors.New("translations of parts not equal")
+		return errtrace.Wrap(errors.New("translations of parts not equal"))
 	}
 
 	orient := frameConfig.Pose().Orientation()
@@ -1400,12 +1401,12 @@ func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error 
 	switch {
 	case orient == nil && otherOrient != nil:
 		if !spatialmath.QuaternionAlmostEqual(otherOrient.Quaternion(), quat.Number{1, 0, 0, 0}, 1e-5) {
-			return errors.New("orientations of parts not equal")
+			return errtrace.Wrap(errors.New("orientations of parts not equal"))
 		}
 	case otherOrient == nil:
-		return errors.New("orientation not returned for other part")
+		return errtrace.Wrap(errors.New("orientation not returned for other part"))
 	case !spatialmath.OrientationAlmostEqual(orient, otherOrient):
-		return errors.New("orientations of parts not equal")
+		return errtrace.Wrap(errors.New("orientations of parts not equal"))
 	}
 	return nil
 }
@@ -1473,7 +1474,7 @@ func TestClientConfig(t *testing.T) {
 
 	configErr := errors.New("failed to retrieve config")
 	failingRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
-		return nil, configErr
+		return nil, errtrace.Wrap(configErr)
 	}
 
 	pb.RegisterRobotServiceServer(workingServer, server.New(workingRobot))
@@ -1923,7 +1924,7 @@ func TestLoggingInterceptor(t *testing.T) {
 				return robot.MachineStatus{Config: config.Revision{Revision: "oliver"}, State: robot.StateRunning}, nil
 			}
 
-			return robot.MachineStatus{State: robot.StateRunning}, errors.New("shouldn't happen")
+			return robot.MachineStatus{State: robot.StateRunning}, errtrace.Wrap(errors.New("shouldn't happen"))
 		},
 	}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -2043,7 +2044,7 @@ func TestCurrentInputs(t *testing.T) {
 			return expectedInputs[testName.ShortName()], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
+			return errtrace.Wrap2(referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), ""))
 		},
 	}
 	injectArm2 := &inject.Arm{
@@ -2051,7 +2052,7 @@ func TestCurrentInputs(t *testing.T) {
 			return expectedInputs[testName2.ShortName()], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+			return errtrace.Wrap2(referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), ""))
 		},
 	}
 	resourceNames := []resource.Name{testName, testName2}

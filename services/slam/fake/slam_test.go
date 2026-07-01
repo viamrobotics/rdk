@@ -14,6 +14,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
@@ -208,7 +209,7 @@ func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 			return fullBytes, nil
 		}
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		fullBytes = append(fullBytes, chunk...)

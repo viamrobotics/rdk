@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"braces.dev/errtrace"
 	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
@@ -25,7 +26,7 @@ func (m *moduleOtelExporter) Stop(ctx context.Context) error {
 func (m *moduleOtelExporter) UploadTraces(ctx context.Context, protoSpans []*v1.ResourceSpans) error {
 	parent := m.mod.parent
 	if parent == nil {
-		return errors.New("parent connection not available")
+		return errtrace.Wrap(errors.New("parent connection not available"))
 	}
-	return parent.SendTraces(ctx, protoSpans)
+	return errtrace.Wrap(parent.SendTraces(ctx, protoSpans))
 }

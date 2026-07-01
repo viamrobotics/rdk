@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -23,7 +24,7 @@ type Config struct {
 // Validation error will stop the associated resource from building.
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Arg1 == "" {
-		return nil, nil, fmt.Errorf(`expected "arg1" attribute for myGizmo %q`, path)
+		return nil, nil, errtrace.Wrap(fmt.Errorf(`expected "arg1" attribute for myGizmo %q`, path))
 	}
 
 	// there are no dependencies for this model, so we return an empty list of strings
@@ -38,7 +39,7 @@ func init() {
 			conf resource.Config,
 			logger logging.Logger,
 		) (gizmoapi.Gizmo, error) {
-			return NewMyGizmo(deps, conf, logger)
+			return errtrace.Wrap2(NewMyGizmo(deps, conf, logger))
 		},
 	})
 }
@@ -61,7 +62,7 @@ func NewMyGizmo(
 		Named: conf.ResourceName().AsNamed(),
 	}
 	if err := g.reconfigure(context.Background(), deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return g, nil
 }
@@ -71,7 +72,7 @@ func (g *myActualGizmo) reconfigure(ctx context.Context, deps resource.Dependenc
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	gizmoConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	g.myArgMu.Lock()

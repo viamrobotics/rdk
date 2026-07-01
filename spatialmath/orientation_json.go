@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"braces.dev/errtrace"
 	"encoding/json"
 	"fmt"
 )
@@ -32,11 +33,11 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 
 	bytes, err := json.Marshal(o)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	value := map[string]any{}
 	if err := json.Unmarshal(bytes, &value); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	switch oType := o.(type) {
@@ -51,7 +52,7 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 	case *Quaternion:
 		return &OrientationConfig{Type: QuaternionType, Value: value}, nil
 	default:
-		return nil, newOrientationTypeUnsupportedError(fmt.Sprintf("%T", oType))
+		return nil, errtrace.Wrap(newOrientationTypeUnsupportedError(fmt.Sprintf("%T", oType)))
 	}
 }
 
@@ -59,7 +60,7 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 func (config *OrientationConfig) ParseConfig() (Orientation, error) {
 	bytes, err := json.Marshal(config.Value)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// use the type to unmarshal the value
@@ -70,38 +71,38 @@ func (config *OrientationConfig) ParseConfig() (Orientation, error) {
 		var o OrientationVectorDegrees
 		err = json.Unmarshal(bytes, &o)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return &o, o.IsValid()
+		return &o, errtrace.Wrap(o.IsValid())
 	case OrientationVectorRadiansType:
 		var o OrientationVector
 		err = json.Unmarshal(bytes, &o)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return &o, o.IsValid()
+		return &o, errtrace.Wrap(o.IsValid())
 	case AxisAnglesType:
 		var o R4AA
 		err = json.Unmarshal(bytes, &o)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return &o, nil
 	case EulerAnglesType:
 		var o EulerAngles
 		err = json.Unmarshal(bytes, &o)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return &o, nil
 	case QuaternionType:
 		var oj quaternionJSON
 		err = json.Unmarshal(bytes, &oj)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return oj.toQuaternion(), nil
 	default:
-		return nil, newOrientationTypeUnsupportedError(string(config.Type))
+		return nil, errtrace.Wrap(newOrientationTypeUnsupportedError(string(config.Type)))
 	}
 }

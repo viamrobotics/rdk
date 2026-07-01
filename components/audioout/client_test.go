@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/audioout"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -191,7 +192,7 @@ func TestAudioOutClientPlayError(t *testing.T) {
 
 	// Test Play error
 	injectAudioOut.PlayFunc = func(ctx context.Context, data []byte, info *rutils.AudioInfo, extra map[string]interface{}) error {
-		return errPlayFailed
+		return errtrace.Wrap(errPlayFailed)
 	}
 
 	audioData := []byte{1, 2, 3, 4}
@@ -224,7 +225,7 @@ func TestAudioOutClientPlayStreamError(t *testing.T) {
 	injectAudioOut.PlayStreamFunc = func(ctx context.Context, info *rutils.AudioInfo,
 		chunks <-chan []byte, extra map[string]interface{},
 	) error {
-		return errPlayStreamFailed
+		return errtrace.Wrap(errPlayStreamFailed)
 	}
 
 	audioInfo := &rutils.AudioInfo{
@@ -259,7 +260,7 @@ func TestAudioOutClientPropertiesError(t *testing.T) {
 
 	// Test Properties error
 	injectAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
-		return rutils.Properties{}, errPropertiesFailed
+		return rutils.Properties{}, errtrace.Wrap(errPropertiesFailed)
 	}
 
 	_, err = client.Properties(ctx, nil)

@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -38,16 +39,16 @@ type CollectorParams struct {
 // Validate validates that p contains all required parameters.
 func (p CollectorParams) Validate() error {
 	if p.Target == nil {
-		return errors.New("missing required parameter target")
+		return errtrace.Wrap(errors.New("missing required parameter target"))
 	}
 	if p.Logger == nil {
-		return errors.New("missing required parameter logger")
+		return errtrace.Wrap(errors.New("missing required parameter logger"))
 	}
 	if p.ComponentName == "" {
-		return errors.New("missing required parameter component name")
+		return errtrace.Wrap(errors.New("missing required parameter component name"))
 	}
 	if p.DataType != CaptureTypeBinary && p.DataType != CaptureTypeTabular {
-		return errors.New("invalid DataType")
+		return errtrace.Wrap(errors.New("invalid DataType"))
 	}
 	return nil
 }

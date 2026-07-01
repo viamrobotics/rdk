@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -55,7 +56,7 @@ func init() {
 
 // Validate for esp32 will always return an unsupported error.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
-	return []string{}, nil, errUnsupported
+	return []string{}, nil, errtrace.Wrap(errUnsupported)
 }
 
 func newEsp32Board(
@@ -64,5 +65,5 @@ func newEsp32Board(
 	conf resource.Config,
 	logger logging.Logger,
 ) (board.Board, error) {
-	return nil, errUnsupported
+	return nil, errtrace.Wrap(errUnsupported)
 }

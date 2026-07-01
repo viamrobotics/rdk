@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
@@ -162,7 +163,7 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 	}
 
 	wg.Wait()
-	return time.Since(start), bigError
+	return time.Since(start), errtrace.Wrap(bigError)
 }
 
 // FloatFunc is for GetInParallel.
@@ -209,5 +210,5 @@ func GetInParallel(ctx context.Context, fs []FloatFunc) (time.Duration, []float6
 	}
 
 	wg.Wait()
-	return time.Since(start), results, bigError
+	return time.Since(start), results, errtrace.Wrap(bigError)
 }

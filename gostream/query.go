@@ -15,6 +15,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -52,9 +53,9 @@ func GetNamedScreenSource(
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getScreenDriver(constraints, &name, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return newVideoSourceFromDriver(d, selectedMedia)
+	return errtrace.Wrap2(newVideoSourceFromDriver(d, selectedMedia))
 }
 
 // GetPatternedScreenSource attempts to find a screen device by the given label pattern.
@@ -65,9 +66,9 @@ func GetPatternedScreenSource(
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getScreenDriverPattern(constraints, labelPattern, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return newVideoSourceFromDriver(d, selectedMedia)
+	return errtrace.Wrap2(newVideoSourceFromDriver(d, selectedMedia))
 }
 
 // GetNamedVideoSource attempts to find a video device (not a screen) by the given name.
@@ -78,9 +79,9 @@ func GetNamedVideoSource(
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getUserVideoDriver(constraints, &name, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return newVideoSourceFromDriver(d, selectedMedia)
+	return errtrace.Wrap2(newVideoSourceFromDriver(d, selectedMedia))
 }
 
 // GetPatternedVideoSource attempts to find a video device (not a screen) by the given label pattern.
@@ -91,9 +92,9 @@ func GetPatternedVideoSource(
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getUserVideoDriverPattern(constraints, labelPattern, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return newVideoSourceFromDriver(d, selectedMedia)
+	return errtrace.Wrap2(newVideoSourceFromDriver(d, selectedMedia))
 }
 
 // GetAnyScreenSource attempts to find any suitable screen device.
@@ -103,9 +104,9 @@ func GetAnyScreenSource(
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getScreenDriver(constraints, nil, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return newVideoSourceFromDriver(d, selectedMedia)
+	return errtrace.Wrap2(newVideoSourceFromDriver(d, selectedMedia))
 }
 
 // GetAnyVideoSource attempts to find any suitable video device (not a screen).
@@ -115,9 +116,9 @@ func GetAnyVideoSource(
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getUserVideoDriver(constraints, nil, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return newVideoSourceFromDriver(d, selectedMedia)
+	return errtrace.Wrap2(newVideoSourceFromDriver(d, selectedMedia))
 }
 
 // DeviceInfo describes a driver.
@@ -193,7 +194,7 @@ func getScreenDriver(
 	if constraints.Video != nil {
 		constraints.Video(&videoConstraints)
 	}
-	return selectScreen(videoConstraints, label, logger)
+	return errtrace.Wrap3(selectScreen(videoConstraints, label, logger))
 }
 
 func getScreenDriverPattern(
@@ -205,7 +206,7 @@ func getScreenDriverPattern(
 	if constraints.Video != nil {
 		constraints.Video(&videoConstraints)
 	}
-	return selectScreenPattern(videoConstraints, labelPattern, logger)
+	return errtrace.Wrap3(selectScreenPattern(videoConstraints, labelPattern, logger))
 }
 
 func getUserVideoDriver(
@@ -217,7 +218,7 @@ func getUserVideoDriver(
 	if constraints.Video != nil {
 		constraints.Video(&videoConstraints)
 	}
-	return selectVideo(videoConstraints, label, logger)
+	return errtrace.Wrap3(selectVideo(videoConstraints, label, logger))
 }
 
 func getUserVideoDriverPattern(
@@ -229,7 +230,7 @@ func getUserVideoDriverPattern(
 	if constraints.Video != nil {
 		constraints.Video(&videoConstraints)
 	}
-	return selectVideoPattern(videoConstraints, labelPattern, logger)
+	return errtrace.Wrap3(selectVideoPattern(videoConstraints, labelPattern, logger))
 }
 
 func newVideoSourceFromDriver(
@@ -238,21 +239,21 @@ func newVideoSourceFromDriver(
 ) (MediaSource[image.Image], error) {
 	recorder, ok := videoDriver.(driver.VideoRecorder)
 	if !ok {
-		return nil, errors.New("driver not a driver.VideoRecorder")
+		return nil, errtrace.Wrap(errors.New("driver not a driver.VideoRecorder"))
 	}
 
 	if ok, err := driver.IsAvailable(videoDriver); !errors.Is(err, availability.ErrUnimplemented) && !ok {
-		return nil, errors.Wrap(err, "video driver not available")
+		return nil, errtrace.Wrap(errors.Wrap(err, "video driver not available"))
 	} else if driverStatus := videoDriver.Status(); driverStatus != driver.StateClosed {
-		return nil, errors.New("video driver in use")
+		return nil, errtrace.Wrap(errors.New("video driver in use"))
 	} else if err := videoDriver.Open(); err != nil {
-		return nil, errors.Wrap(err, "cannot open video driver")
+		return nil, errtrace.Wrap(errors.Wrap(err, "cannot open video driver"))
 	}
 
 	mediaProp.DiscardFramesOlderThan = time.Second
 	reader, err := recorder.VideoRecord(mediaProp)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return newMediaSource[image.Image](videoDriver, mediaReaderFuncNoCtx[image.Image](reader.Read), mediaProp.Video), nil
 }
@@ -282,7 +283,7 @@ func selectVideo(
 	label *string,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
-	return selectBestDriver(getVideoFilterBase(), getVideoFilter(label), constraints, logger)
+	return errtrace.Wrap3(selectBestDriver(getVideoFilterBase(), getVideoFilter(label), constraints, logger))
 }
 
 func selectVideoPattern(
@@ -290,7 +291,7 @@ func selectVideoPattern(
 	labelPattern *regexp.Regexp,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
-	return selectBestDriver(getVideoFilterBase(), getVideoFilterPattern(labelPattern), constraints, logger)
+	return errtrace.Wrap3(selectBestDriver(getVideoFilterBase(), getVideoFilterPattern(labelPattern), constraints, logger))
 }
 
 func selectScreen(
@@ -298,7 +299,7 @@ func selectScreen(
 	label *string,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
-	return selectBestDriver(getScreenFilterBase(), getScreenFilter(label), constraints, logger)
+	return errtrace.Wrap3(selectBestDriver(getScreenFilterBase(), getScreenFilter(label), constraints, logger))
 }
 
 func selectScreenPattern(
@@ -306,7 +307,7 @@ func selectScreenPattern(
 	labelPattern *regexp.Regexp,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
-	return selectBestDriver(getScreenFilterBase(), getScreenFilterPattern(labelPattern), constraints, logger)
+	return errtrace.Wrap3(selectBestDriver(getScreenFilterBase(), getScreenFilterPattern(labelPattern), constraints, logger))
 }
 
 func getVideoFilterBase() driver.FilterFn {
@@ -401,7 +402,7 @@ func selectBestDriver(
 	}
 
 	if bestDriver == nil {
-		return nil, prop.Media{}, ErrNotFound
+		return nil, prop.Media{}, errtrace.Wrap(ErrNotFound)
 	}
 
 	logger.Debugw("winning driver", "label", bestDriver.Info().Label, "props", bestProp)

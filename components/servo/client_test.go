@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/servo"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -48,13 +49,13 @@ func TestClient(t *testing.T) {
 	}
 
 	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
-		return errMoveFailed
+		return errtrace.Wrap(errMoveFailed)
 	}
 	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-		return 0, errPositionUnreadable
+		return 0, errtrace.Wrap(errPositionUnreadable)
 	}
 	failingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopFailed
+		return errtrace.Wrap(errStopFailed)
 	}
 
 	resourceMap := map[resource.Name]servo.Servo{

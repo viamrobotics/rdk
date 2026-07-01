@@ -7,6 +7,7 @@ import (
 	pb "go.viam.com/api/component/powersensor/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 )
 
@@ -43,19 +44,19 @@ func (m method) String() string {
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	if _, err := assertPowerSensor(resource); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertPowerSensor(resource interface{}) (PowerSensor, error) {
 	ps, ok := resource.(PowerSensor)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return ps, nil
 }
@@ -67,7 +68,7 @@ func assertPowerSensor(resource interface{}) (PowerSensor, error) {
 func newVoltageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -78,18 +79,18 @@ func newVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, voltage.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, voltage.String(), err))
 		}
 
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetVoltageResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetVoltageResponse{
 			Volts: volts,
 			IsAc:  isAc,
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newCurrentCollector returns a collector to register a current method. If one is already registered
@@ -99,7 +100,7 @@ func newVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 func newCurrentCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -110,17 +111,17 @@ func newCurrentCollector(resource interface{}, params data.CollectorParams) (dat
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, current.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, current.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetCurrentResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetCurrentResponse{
 			Amperes: curr,
 			IsAc:    isAc,
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newPowerCollector returns a collector to register a power method. If one is already registered
@@ -128,7 +129,7 @@ func newCurrentCollector(resource interface{}, params data.CollectorParams) (dat
 func newPowerCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -139,16 +140,16 @@ func newPowerCollector(resource interface{}, params data.CollectorParams) (data.
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, power.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, power.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.GetPowerResponse{
+		return errtrace.Wrap2(data.NewTabularCaptureResult(ts, pb.GetPowerResponse{
 			Watts: pwr,
-		})
+		}))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newReadingsCollector returns a collector to register a readings method. If one is already registered
@@ -156,7 +157,7 @@ func newPowerCollector(resource interface{}, params data.CollectorParams) (data.
 func newReadingsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -167,14 +168,14 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
 			if data.IsNoCaptureToStoreError(err) {
-				return res, err
+				return res, errtrace.Wrap(err)
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)
+			return res, errtrace.Wrap(data.NewFailedToReadError(params.ComponentName, readings.String(), err))
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResultReadings(ts, values)
+		return errtrace.Wrap2(data.NewTabularCaptureResultReadings(ts, values))
 	})
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -182,9 +183,9 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(ps, params)
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }

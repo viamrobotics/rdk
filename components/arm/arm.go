@@ -11,6 +11,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -157,7 +158,7 @@ type Arm interface {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Arm, error) {
-	return resource.FromDependencies[Arm](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Arm](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named Arm from the given Robot.
@@ -165,12 +166,12 @@ func FromDependencies(deps resource.Dependencies, name string) (Arm, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Arm, error) {
-	return robot.ResourceFromRobot[Arm](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Arm](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named arm from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Arm, error) {
-	return resource.FromProvider[Arm](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Arm](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
@@ -183,15 +184,15 @@ func NamesFromRobot(r robot.Robot) []string {
 func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []referenceframe.Input) error {
 	currentJointPos, err := a.JointPositions(ctx, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	model, err := a.Kinematics(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	limits := model.DoF()
 
-	return checkDesiredJointPositions(limits, currentJointPos, desiredInputs)
+	return errtrace.Wrap(checkDesiredJointPositions(limits, currentJointPos, desiredInputs))
 }
 
 func checkDesiredJointPositions(
@@ -212,12 +213,12 @@ func checkDesiredJointPositions(
 			min = currPosition
 		}
 		if val > max || val < min {
-			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v",
+			return errtrace.Wrap(fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v",
 				i,
 				utils.RadToDeg(min),
 				utils.RadToDeg(max),
 				utils.RadToDeg(val),
-			)
+			))
 		}
 	}
 	return nil

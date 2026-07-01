@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 )
 
@@ -158,9 +159,9 @@ func BoundingSphere(geometry Geometry) (Geometry, error) {
 		r += g.length / 2
 	case *point:
 	default:
-		return nil, errGeometryTypeUnsupported
+		return nil, errtrace.Wrap(errGeometryTypeUnsupported)
 	}
-	return NewSphere(NewZeroPose(), r, geometry.Label())
+	return errtrace.Wrap2(NewSphere(NewZeroPose(), r, geometry.Label()))
 }
 
 // ClosestPointsSegmentTriangle takes a line segment and a triangle, and returns the point on each closest to the other.

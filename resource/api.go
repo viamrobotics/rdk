@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -73,22 +74,22 @@ func (n APINamespace) WithServiceType(subtypeName string) API {
 // Validate ensures that important fields exist and are valid.
 func (t APIType) Validate() error {
 	if t.Namespace == "" {
-		return errors.New("namespace field for resource missing or invalid")
+		return errtrace.Wrap(errors.New("namespace field for resource missing or invalid"))
 	}
 	if t.Name == "" {
-		return errors.New("type field for resource missing or invalid")
+		return errtrace.Wrap(errors.New("type field for resource missing or invalid"))
 	}
 	if err := ContainsReservedCharacter(string(t.Namespace)); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := ContainsReservedCharacter(t.Name); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if !singleFieldRegexValidator.MatchString(string(t.Namespace)) {
-		return errors.Errorf("string %q is not a valid type namespace", t.Namespace)
+		return errtrace.Wrap(errors.Errorf("string %q is not a valid type namespace", t.Namespace))
 	}
 	if !singleFieldRegexValidator.MatchString(t.Name) {
-		return errors.Errorf("string %q is not a valid type name", t.Name)
+		return errtrace.Wrap(errors.Errorf("string %q is not a valid type name", t.Name))
 	}
 	return nil
 }
@@ -101,16 +102,16 @@ func (t APIType) String() string {
 // Validate ensures that important fields exist and are valid.
 func (a API) Validate() error {
 	if err := a.Type.Validate(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if a.SubtypeName == "" {
-		return errors.New("subtype field for resource missing or invalid")
+		return errtrace.Wrap(errors.New("subtype field for resource missing or invalid"))
 	}
 	if err := ContainsReservedCharacter(a.SubtypeName); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if !singleFieldRegexValidator.MatchString(a.SubtypeName) {
-		return errors.Errorf("string %q is not a valid subtype name", a.SubtypeName)
+		return errtrace.Wrap(errors.Errorf("string %q is not a valid subtype name", a.SubtypeName))
 	}
 	return nil
 }
@@ -122,7 +123,7 @@ func (a API) String() string {
 
 // MarshalJSON marshals the API name in its triplet form.
 func (a API) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.String())
+	return errtrace.Wrap2(json.Marshal(a.String()))
 }
 
 // ParseAPIString builds an API{} struct from a colon-delimited triple.
@@ -130,7 +131,7 @@ func ParseAPIString(apiStr string) (API, error) {
 	ret := API{}
 	matches := apiRegexValidator.FindStringSubmatch(apiStr)
 	if matches == nil {
-		return ret, fmt.Errorf("not a valid API config string. Input: `%v`", apiStr)
+		return ret, errtrace.Wrap(fmt.Errorf("not a valid API config string. Input: `%v`", apiStr))
 	}
 	return APINamespace(matches[1]).WithType(matches[2]).WithSubtype(matches[3]), nil
 }
@@ -143,7 +144,7 @@ func (a *API) UnmarshalJSON(data []byte) error {
 		// If the value is a string, parse it.
 		parsed, err := ParseAPIString(apiStr)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		*a = parsed
 		return nil
@@ -151,11 +152,11 @@ func (a *API) UnmarshalJSON(data []byte) error {
 
 	var tempSt map[string]string
 	if err := json.Unmarshal(data, &tempSt); err != nil {
-		return fmt.Errorf("API config value is neither a string nor JSON object. Input: %v", string(data))
+		return errtrace.Wrap(fmt.Errorf("API config value is neither a string nor JSON object. Input: %v", string(data)))
 	}
 
 	*a = APINamespace(tempSt["namespace"]).WithType(tempSt["type"]).WithSubtype(tempSt["subtype"])
-	return a.Validate()
+	return errtrace.Wrap(a.Validate())
 }
 
 // NewAPI return a new API from a triplet like acme:component:gizmo.
@@ -166,7 +167,7 @@ func NewAPI(namespace, typeName, subtypeName string) API {
 // NewAPIFromString creates a new API from a fully qualified string in the format namespace:type:subtype.
 func NewAPIFromString(apiStr string) (API, error) {
 	if !apiRegexValidator.MatchString(apiStr) {
-		return API{}, errors.Errorf("string %q is not a valid api name", apiStr)
+		return API{}, errtrace.Wrap(errors.Errorf("string %q is not a valid api name", apiStr))
 	}
 	matches := apiRegexValidator.FindStringSubmatch(apiStr)
 	return APINamespace(matches[1]).WithType(matches[2]).WithSubtype(matches[3]), nil
@@ -180,7 +181,7 @@ func NewPossibleRDKServiceAPIFromString(apiStr string) (API, error) {
 		return api, nil
 	}
 	if !singleFieldRegexValidator.MatchString(apiStr) {
-		return API{}, apiErr
+		return API{}, errtrace.Wrap(apiErr)
 	}
 
 	// assume it is a builtin service

@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -90,7 +91,7 @@ type dmPointCloudAdapter struct {
 func (dm *dmPointCloudAdapter) safeCacheSet(pt r3.Vector, d pointcloud.Data) error {
 	dm.cacheLock.Lock()
 	defer dm.cacheLock.Unlock()
-	return dm.cache.Set(pt, d)
+	return errtrace.Wrap(dm.cache.Set(pt, d))
 }
 
 func (dm *dmPointCloudAdapter) Size() int {
@@ -125,7 +126,7 @@ func (dm *dmPointCloudAdapter) MetaData() pointcloud.MetaData {
 }
 
 func (dm *dmPointCloudAdapter) Set(p r3.Vector, d pointcloud.Data) error {
-	return errors.New("dmPointCloudAdapter Does not support Set")
+	return errtrace.Wrap(errors.New("dmPointCloudAdapter Does not support Set"))
 }
 
 func (dm *dmPointCloudAdapter) At(x, y, z float64) (pointcloud.Data, bool) {

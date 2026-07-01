@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 )
@@ -23,17 +24,17 @@ func (pp *ParallelProjection) RGBDToPointCloud(
 	crop ...image.Rectangle,
 ) (pointcloud.PointCloud, error) {
 	if img == nil {
-		return nil, errors.New("no rgb image to project to pointcloud")
+		return nil, errtrace.Wrap(errors.New("no rgb image to project to pointcloud"))
 	}
 	if dm == nil {
-		return nil, errors.New("no depth map to project to pointcloud")
+		return nil, errtrace.Wrap(errors.New("no depth map to project to pointcloud"))
 	}
 	if dm.Bounds() != img.Bounds() {
-		return nil, errors.Errorf("rgb image and depth map are not the same size img(%v) != depth(%v)", img.Bounds(), dm.Bounds())
+		return nil, errtrace.Wrap(errors.Errorf("rgb image and depth map are not the same size img(%v) != depth(%v)", img.Bounds(), dm.Bounds()))
 	}
 	var rect *image.Rectangle
 	if len(crop) > 1 {
-		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+		return nil, errtrace.Wrap(errors.Errorf("cannot have more than one cropping rectangle, got %v", crop))
 	}
 	if len(crop) == 1 {
 		rect = &crop[0]
@@ -56,7 +57,7 @@ func (pp *ParallelProjection) RGBDToPointCloud(
 			r, g, b := c.RGB255()
 			err := pc.Set(pointcloud.NewVector(float64(x), float64(y), float64(z)), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -68,7 +69,7 @@ func (pp *ParallelProjection) PointCloudToRGBD(cloud pointcloud.PointCloud) (*ri
 	meta := cloud.MetaData()
 	// Needs to be a pointcloud with color
 	if !meta.HasColor {
-		return nil, nil, errors.New("pointcloud has no color information, cannot create an image with depth")
+		return nil, nil, errtrace.Wrap(errors.New("pointcloud has no color information, cannot create an image with depth"))
 	}
 	// Image and DepthMap will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.

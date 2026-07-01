@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -75,12 +76,12 @@ func dilate(center image.Point, dm, kernel *DepthMap) Depth {
 // image preprocessing to smooth, prune, and fill in noise in the image.
 func MorphFilter(inDM, outDM *DepthMap, kernelSize, iterations int, process func(center image.Point, dm, kernel *DepthMap) Depth) error {
 	if kernelSize%2 == 0 {
-		return fmt.Errorf("kernelSize must be an odd number, input was %d", kernelSize)
+		return errtrace.Wrap(fmt.Errorf("kernelSize must be an odd number, input was %d", kernelSize))
 	}
 	width, height := inDM.Width(), inDM.Height()
 	widthOut, heightOut := outDM.Width(), outDM.Height()
 	if widthOut != width || heightOut != height {
-		return fmt.Errorf("dimensions of inDM and outDM must match. in(%d,%d) != out(%d,%d)", width, height, widthOut, heightOut)
+		return errtrace.Wrap(fmt.Errorf("dimensions of inDM and outDM must match. in(%d,%d) != out(%d,%d)", width, height, widthOut, heightOut))
 	}
 	kernel := makeStructuringElement(kernelSize)
 	*outDM = *inDM
@@ -105,11 +106,11 @@ func ClosingMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 	tempDM := NewEmptyDepthMap(dm.Width(), dm.Height())
 	err := MorphFilter(dm, tempDM, kernelSize, iterations, dilate)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	err = MorphFilter(tempDM, outDM, kernelSize, iterations, erode)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return outDM, nil
 }
@@ -122,11 +123,11 @@ func OpeningMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 	tempDM := NewEmptyDepthMap(dm.Width(), dm.Height())
 	err := MorphFilter(dm, tempDM, kernelSize, iterations, erode)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	err = MorphFilter(tempDM, outDM, kernelSize, iterations, dilate)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return outDM, nil
 }

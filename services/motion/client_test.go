@@ -15,6 +15,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -179,7 +180,7 @@ func TestClient(t *testing.T) {
 
 		passedErr := errors.New("fake move error")
 		injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
-			return false, passedErr
+			return false, errtrace.Wrap(passedErr)
 		}
 		passedErr = errors.New("fake GetPose error")
 		injectMS.GetPoseFunc = func(
@@ -189,7 +190,7 @@ func TestClient(t *testing.T) {
 			supplementalTransform []*referenceframe.LinkInFrame,
 			extra map[string]interface{},
 		) (*referenceframe.PoseInFrame, error) {
-			return nil, passedErr
+			return nil, errtrace.Wrap(passedErr)
 		}
 
 		// Move
@@ -216,7 +217,7 @@ func TestClient(t *testing.T) {
 			injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 				t.Log("should not be called")
 				t.FailNow()
-				return uuid.Nil, errors.New("should not be reached")
+				return uuid.Nil, errtrace.Wrap(errors.New("should not be reached"))
 			}
 
 			req := motion.MoveOnMapReq{
@@ -234,7 +235,7 @@ func TestClient(t *testing.T) {
 		t.Run("returns error if client returns error", func(t *testing.T) {
 			errExpected := errors.New("some client error")
 			injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-				return uuid.Nil, errExpected
+				return uuid.Nil, errtrace.Wrap(errExpected)
 			}
 
 			req := motion.MoveOnMapReq{
@@ -306,7 +307,7 @@ func TestClient(t *testing.T) {
 			injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				t.Log("should not be called")
 				t.FailNow()
-				return uuid.Nil, errors.New("should not be reached")
+				return uuid.Nil, errtrace.Wrap(errors.New("should not be reached"))
 			}
 
 			req := motion.MoveOnGlobeReq{
@@ -325,7 +326,7 @@ func TestClient(t *testing.T) {
 		t.Run("returns error if client returns error", func(t *testing.T) {
 			errExpected := errors.New("some client error")
 			injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
-				return uuid.Nil, errExpected
+				return uuid.Nil, errtrace.Wrap(errExpected)
 			}
 
 			req := motion.MoveOnGlobeReq{
@@ -377,7 +378,7 @@ func TestClient(t *testing.T) {
 				ctx context.Context,
 				req motion.StopPlanReq,
 			) error {
-				return errExpected
+				return errtrace.Wrap(errExpected)
 			}
 
 			req := motion.StopPlanReq{ComponentName: "mybase"}
@@ -416,7 +417,7 @@ func TestClient(t *testing.T) {
 				ctx context.Context,
 				req motion.ListPlanStatusesReq,
 			) ([]motion.PlanStatusWithID, error) {
-				return nil, errExpected
+				return nil, errtrace.Wrap(errExpected)
 			}
 			req := motion.ListPlanStatusesReq{}
 			resp, err := client.ListPlanStatuses(ctx, req)
@@ -496,7 +497,7 @@ func TestClient(t *testing.T) {
 		t.Run("returns error if client returns error", func(t *testing.T) {
 			errExpected := errors.New("some client error")
 			injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
-				return nil, errExpected
+				return nil, errtrace.Wrap(errExpected)
 			}
 
 			req := motion.PlanHistoryReq{ComponentName: "mybase"}

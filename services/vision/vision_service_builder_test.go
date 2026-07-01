@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -131,11 +132,11 @@ func TestDefaultCameraSettings(t *testing.T) {
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		switch name {
 		case camera.Named(testCameraName):
-			return nil, errors.New("default camera is being used when camera name should instead")
+			return nil, errtrace.Wrap(errors.New("default camera is being used when camera name should instead"))
 		case camera.Named(secondCameraName):
 			return fakeCamera, nil
 		default:
-			return nil, errors.New("camera not found")
+			return nil, errtrace.Wrap(errors.New("camera not found"))
 		}
 	}
 	svc, err = vision.DeprecatedNewService(vision.Named("testService"), &r, nil, c.Classify, d.Detect, s.Segment, testCameraName)

@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -39,7 +40,7 @@ func TestClient(t *testing.T) {
 		map[string]interface{},
 		error,
 	) {
-		return nil, errDoFailed
+		return nil, errtrace.Wrap(errDoFailed)
 	}
 
 	resourceMap := map[resource.Name]resource.Resource{

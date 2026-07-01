@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -81,25 +82,25 @@ type Config struct {
 // Validate returns components which will be depended upon weakly due to the above matcher.
 func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.SyncIntervalMins < 0 {
-		return nil, nil, errors.New("sync_interval_mins can't be negative")
+		return nil, nil, errtrace.Wrap(errors.New("sync_interval_mins can't be negative"))
 	}
 	if c.MaximumNumSyncThreads < 0 {
-		return nil, nil, errors.New("maximum_num_sync_threads can't be negative")
+		return nil, nil, errtrace.Wrap(errors.New("maximum_num_sync_threads can't be negative"))
 	}
 	if c.FileLastModifiedMillis < 0 {
-		return nil, nil, errors.New("file_last_modified_millis can't be negative")
+		return nil, nil, errtrace.Wrap(errors.New("file_last_modified_millis can't be negative"))
 	}
 	if c.MaximumCaptureFileSizeBytes < 0 {
-		return nil, nil, errors.New("maximum_capture_file_size_bytes can't be negative")
+		return nil, nil, errtrace.Wrap(errors.New("maximum_capture_file_size_bytes can't be negative"))
 	}
 	if c.DeleteEveryNthWhenDiskFull < 0 {
-		return nil, nil, errors.New("delete_every_nth_when_disk_full can't be negative")
+		return nil, nil, errtrace.Wrap(errors.New("delete_every_nth_when_disk_full can't be negative"))
 	}
 	if c.DiskUsageDeletionThreshold < 0 {
-		return nil, nil, errors.New("disk_usage_deletion_threshold can't be negative")
+		return nil, nil, errtrace.Wrap(errors.New("disk_usage_deletion_threshold can't be negative"))
 	}
 	if c.CaptureDirDeletionThreshold < 0 {
-		return nil, nil, errors.New("capture_dir_deletion_threshold can't be negative")
+		return nil, nil, errtrace.Wrap(errors.New("capture_dir_deletion_threshold can't be negative"))
 	}
 	return []string{cloud.InternalServiceName.String()}, []string{framesystem.InternalServiceName.String()}, nil
 }

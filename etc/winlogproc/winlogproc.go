@@ -14,6 +14,7 @@
 package winlogproc
 
 import (
+	"braces.dev/errtrace"
 	"bufio"
 	"encoding/xml"
 	"errors"
@@ -53,7 +54,7 @@ func Eventlog(in, out string) error {
 	//nolint:gosec
 	inFile, err := os.Open(in)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer inFile.Close() //nolint:errcheck // read-only file.
 
@@ -74,9 +75,9 @@ func Eventlog(in, out string) error {
 		rows = append(rows, [4]string{parts[0], parts[1], parts[3], parts[4]})
 	}
 	if err := sc.Err(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return writeSortedRows(out, rows)
+	return errtrace.Wrap(writeSortedRows(out, rows))
 }
 
 // traceEvent matches the shape tracerpt -of XML emits per ETW event.
@@ -108,7 +109,7 @@ func Trace(in, out string, after, before time.Time) error {
 	//nolint:gosec
 	inFile, err := os.Open(in)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer inFile.Close() //nolint:errcheck // read-only file.
 
@@ -120,7 +121,7 @@ func Trace(in, out string, after, before time.Time) error {
 			break
 		}
 		if tokErr != nil {
-			return tokErr
+			return errtrace.Wrap(tokErr)
 		}
 		se, ok := tok.(xml.StartElement)
 		if !ok || se.Name.Local != "Event" {
@@ -128,7 +129,7 @@ func Trace(in, out string, after, before time.Time) error {
 		}
 		var ev traceEvent
 		if err := dec.DecodeElement(&ev, &se); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		var t, lvl, cal, msg string
 		for _, d := range ev.EventData.Data {
@@ -159,7 +160,7 @@ func Trace(in, out string, after, before time.Time) error {
 		}
 		rows = append(rows, [4]string{t, lvl, cal, msg})
 	}
-	return writeSortedRows(out, rows)
+	return errtrace.Wrap(writeSortedRows(out, rows))
 }
 
 // MaxTimestampInTSV scans a processed time<TAB>level<TAB>caller<TAB>
@@ -170,7 +171,7 @@ func MaxTimestampInTSV(path string) (time.Time, error) {
 	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, errtrace.Wrap(err)
 	}
 	defer f.Close() //nolint:errcheck // read-only file.
 	var maxTime time.Time
@@ -189,7 +190,7 @@ func MaxTimestampInTSV(path string) (time.Time, error) {
 			maxTime = ts
 		}
 	}
-	return maxTime, sc.Err()
+	return maxTime, errtrace.Wrap(sc.Err())
 }
 
 // FilterProcessedTSV rewrites a processed time<TAB>level<TAB>caller<TAB>
@@ -201,7 +202,7 @@ func FilterProcessedTSV(path string, after, before time.Time) error {
 	//nolint:gosec
 	in, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	var kept []string
 	for _, line := range strings.Split(string(in), "\n") {
@@ -227,14 +228,14 @@ func FilterProcessedTSV(path string, after, before time.Time) error {
 	//nolint:gosec // CLI-supplied path; rewrites the file we just read.
 	out, err := os.Create(path)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer out.Close() //nolint:errcheck // best-effort; write errors surface via WriteString below.
 	w := bufio.NewWriter(out)
 	defer w.Flush() //nolint:errcheck // best-effort flush on the deferred path.
 	for _, line := range kept {
 		if _, err := w.WriteString(line + "\n"); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -256,14 +257,14 @@ func writeSortedRows(out string, rows [][4]string) error {
 	//nolint:gosec // CLI-supplied output path.
 	outFile, err := os.Create(out)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer outFile.Close() //nolint:errcheck
 	w := bufio.NewWriter(outFile)
 	defer w.Flush() //nolint:errcheck
 	for _, r := range rows {
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3]); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil

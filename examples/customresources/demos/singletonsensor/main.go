@@ -11,6 +11,7 @@ import (
 	"os"
 	"sync/atomic"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
@@ -25,7 +26,7 @@ type config struct {
 
 func (cfg *config) Validate(path string) ([]string, []string, error) {
 	if cfg.LockPath == "" {
-		return nil, nil, errors.New("lock_path required")
+		return nil, nil, errtrace.Wrap(errors.New("lock_path required"))
 	}
 	return nil, []string{sensor.Named("opt").String()}, nil
 }
@@ -50,24 +51,24 @@ func main() {
 func newSensor(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (sensor.Sensor, error) {
 	cfg, err := resource.NativeConfig[*config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if _, err := os.Stat(cfg.LockPath); err == nil {
 		if rmErr := os.Remove(cfg.LockPath); rmErr != nil {
-			return nil, rmErr
+			return nil, errtrace.Wrap(rmErr)
 		}
 		if !refused.Swap(true) {
-			return nil, errors.New("singleton-sensor: lock present at " + cfg.LockPath)
+			return nil, errtrace.Wrap(errors.New("singleton-sensor: lock present at " + cfg.LockPath))
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	f, err := os.Create(cfg.LockPath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := f.Close(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &singletonSensor{Named: conf.ResourceName().AsNamed()}, nil
 }
@@ -79,7 +80,7 @@ func (s *singletonSensor) Close(context.Context) error {
 
 func (s *singletonSensor) Readings(context.Context, map[string]interface{}) (map[string]interface{}, error) {
 	if s.closed.Load() {
-		return nil, errors.New("sensor is closed")
+		return nil, errtrace.Wrap(errors.New("sensor is closed"))
 	}
 	return map[string]interface{}{}, nil
 }

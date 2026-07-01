@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -35,12 +36,12 @@ func (s *serviceServer) MoveStraight(
 	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	err = base.MoveStraight(ctx, int(req.GetDistanceMm()), req.GetMmPerSec(), req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.MoveStraightResponse{}, nil
 }
@@ -54,12 +55,12 @@ func (s *serviceServer) Spin(
 	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	err = base.Spin(ctx, req.GetAngleDeg(), req.GetDegsPerSec(), req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.SpinResponse{}, nil
 }
@@ -71,7 +72,7 @@ func (s *serviceServer) SetPower(
 	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	err = base.SetPower(
@@ -81,7 +82,7 @@ func (s *serviceServer) SetPower(
 		req.Extra.AsMap(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.SetPowerResponse{}, nil
 }
@@ -93,7 +94,7 @@ func (s *serviceServer) SetVelocity(
 	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	err = base.SetVelocity(
@@ -103,7 +104,7 @@ func (s *serviceServer) SetVelocity(
 		req.Extra.AsMap(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.SetVelocityResponse{}, nil
 }
@@ -116,10 +117,10 @@ func (s *serviceServer) Stop(
 	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err = base.Stop(ctx, req.Extra.AsMap()); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.StopResponse{}, nil
 }
@@ -128,11 +129,11 @@ func (s *serviceServer) Stop(
 func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
 	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	moving, err := base.IsMoving(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
@@ -144,24 +145,24 @@ func (s *serviceServer) GetProperties(
 	baseName := req.GetName()
 	base, err := s.coll.Resource(baseName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	features, err := base.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return PropertiesToProtoResponse(features)
+	return errtrace.Wrap2(PropertiesToProtoResponse(features))
 }
 
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
@@ -172,16 +173,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, base, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, base, req))
 }
 
 // GetStatus returns the status of the base.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

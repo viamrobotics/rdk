@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 
+	"braces.dev/errtrace"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/utilities"
 	"google.golang.org/grpc"
@@ -48,23 +49,23 @@ func request_GizmoService_DoOne_0(ctx context.Context, marshaler runtime.Marshal
 
 	val, ok = pathParams["name"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "missing parameter %s", "name"))
 	}
 
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err))
 	}
 
 	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoOne_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	msg, err := client.DoOne(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -81,23 +82,23 @@ func local_request_GizmoService_DoOne_0(ctx context.Context, marshaler runtime.M
 
 	val, ok = pathParams["name"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "missing parameter %s", "name"))
 	}
 
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err))
 	}
 
 	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoOne_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	msg, err := server.DoOne(ctx, &protoReq)
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -106,7 +107,7 @@ func request_GizmoService_DoOneClientStream_0(ctx context.Context, marshaler run
 	stream, err := client.DoOneClientStream(ctx)
 	if err != nil {
 		grpclog.Infof("Failed to start streaming: %v", err)
-		return nil, metadata, err
+		return nil, metadata, errtrace.Wrap(err)
 	}
 	dec := marshaler.NewDecoder(req.Body)
 	for {
@@ -117,31 +118,31 @@ func request_GizmoService_DoOneClientStream_0(ctx context.Context, marshaler run
 		}
 		if err != nil {
 			grpclog.Infof("Failed to decode request: %v", err)
-			return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+			return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 		}
 		if err = stream.Send(&protoReq); err != nil {
 			if err == io.EOF {
 				break
 			}
 			grpclog.Infof("Failed to send request: %v", err)
-			return nil, metadata, err
+			return nil, metadata, errtrace.Wrap(err)
 		}
 	}
 
 	if err := stream.CloseSend(); err != nil {
 		grpclog.Infof("Failed to terminate client stream: %v", err)
-		return nil, metadata, err
+		return nil, metadata, errtrace.Wrap(err)
 	}
 	header, err := stream.Header()
 	if err != nil {
 		grpclog.Infof("Failed to get header from client: %v", err)
-		return nil, metadata, err
+		return nil, metadata, errtrace.Wrap(err)
 	}
 	metadata.HeaderMD = header
 
 	msg, err := stream.CloseAndRecv()
 	metadata.TrailerMD = stream.Trailer()
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -151,19 +152,19 @@ func request_GizmoService_DoOneServerStream_0(ctx context.Context, marshaler run
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
 	if berr != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", berr))
 	}
 	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	stream, err := client.DoOneServerStream(ctx, &protoReq)
 	if err != nil {
-		return nil, metadata, err
+		return nil, metadata, errtrace.Wrap(err)
 	}
 	header, err := stream.Header()
 	if err != nil {
-		return nil, metadata, err
+		return nil, metadata, errtrace.Wrap(err)
 	}
 	metadata.HeaderMD = header
 	return stream, metadata, nil
@@ -175,22 +176,22 @@ func request_GizmoService_DoOneBiDiStream_0(ctx context.Context, marshaler runti
 	stream, err := client.DoOneBiDiStream(ctx)
 	if err != nil {
 		grpclog.Infof("Failed to start streaming: %v", err)
-		return nil, metadata, err
+		return nil, metadata, errtrace.Wrap(err)
 	}
 	dec := marshaler.NewDecoder(req.Body)
 	handleSend := func() error {
 		var protoReq DoOneBiDiStreamRequest
 		err := dec.Decode(&protoReq)
 		if err == io.EOF {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err != nil {
 			grpclog.Infof("Failed to decode request: %v", err)
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := stream.Send(&protoReq); err != nil {
 			grpclog.Infof("Failed to send request: %v", err)
-			return err
+			return errtrace.Wrap(err)
 		}
 		return nil
 	}
@@ -207,7 +208,7 @@ func request_GizmoService_DoOneBiDiStream_0(ctx context.Context, marshaler runti
 	header, err := stream.Header()
 	if err != nil {
 		grpclog.Infof("Failed to get header from client: %v", err)
-		return nil, metadata, err
+		return nil, metadata, errtrace.Wrap(err)
 	}
 	metadata.HeaderMD = header
 	return stream, metadata, nil
@@ -230,23 +231,23 @@ func request_GizmoService_DoTwo_0(ctx context.Context, marshaler runtime.Marshal
 
 	val, ok = pathParams["name"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "missing parameter %s", "name"))
 	}
 
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err))
 	}
 
 	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoTwo_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	msg, err := client.DoTwo(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -263,23 +264,23 @@ func local_request_GizmoService_DoTwo_0(ctx context.Context, marshaler runtime.M
 
 	val, ok = pathParams["name"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "missing parameter %s", "name"))
 	}
 
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err))
 	}
 
 	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoTwo_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	msg, err := server.DoTwo(ctx, &protoReq)
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -300,23 +301,23 @@ func request_GizmoService_DoCommand_0(ctx context.Context, marshaler runtime.Mar
 
 	val, ok = pathParams["name"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "missing parameter %s", "name"))
 	}
 
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err))
 	}
 
 	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoCommand_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	msg, err := client.DoCommand(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -333,23 +334,23 @@ func local_request_GizmoService_DoCommand_0(ctx context.Context, marshaler runti
 
 	val, ok = pathParams["name"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "missing parameter %s", "name"))
 	}
 
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err))
 	}
 
 	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoCommand_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+		return nil, metadata, errtrace.Wrap(status.Errorf(codes.InvalidArgument, "%v", err))
 	}
 
 	msg, err := server.DoCommand(ctx, &protoReq)
-	return msg, metadata, err
+	return msg, metadata, errtrace.Wrap(err)
 
 }
 
@@ -463,7 +464,7 @@ func RegisterGizmoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 func RegisterGizmoServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		if err != nil {
@@ -480,13 +481,13 @@ func RegisterGizmoServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.S
 		}()
 	}()
 
-	return RegisterGizmoServiceHandler(ctx, mux, conn)
+	return errtrace.Wrap(RegisterGizmoServiceHandler(ctx, mux, conn))
 }
 
 // RegisterGizmoServiceHandler registers the http handlers for service GizmoService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
 func RegisterGizmoServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterGizmoServiceHandlerClient(ctx, mux, NewGizmoServiceClient(conn))
+	return errtrace.Wrap(RegisterGizmoServiceHandlerClient(ctx, mux, NewGizmoServiceClient(conn)))
 }
 
 // RegisterGizmoServiceHandlerClient registers the http handlers for service GizmoService
@@ -558,7 +559,7 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			return
 		}
 
-		forward_GizmoService_DoOneServerStream_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+		forward_GizmoService_DoOneServerStream_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return errtrace.Wrap2(resp.Recv()) }, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -580,7 +581,7 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			return
 		}
 
-		forward_GizmoService_DoOneBiDiStream_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+		forward_GizmoService_DoOneBiDiStream_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return errtrace.Wrap2(resp.Recv()) }, mux.GetForwardResponseOptions()...)
 
 	})
 

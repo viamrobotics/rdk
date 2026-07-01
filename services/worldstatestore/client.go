@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -49,17 +50,17 @@ func (c *client) ListUUIDs(ctx context.Context, extra map[string]interface{}) ([
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	req := &pb.ListUUIDsRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.ListUUIDs(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	uuids := resp.GetUuids()
 	if uuids == nil {
-		return nil, ErrNilResponse
+		return nil, errtrace.Wrap(ErrNilResponse)
 	}
 
 	return uuids, nil
@@ -71,17 +72,17 @@ func (c *client) GetTransform(ctx context.Context, uuid []byte, extra map[string
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	req := &pb.GetTransformRequest{Name: c.name, Uuid: uuid, Extra: ext}
 	resp, err := c.client.GetTransform(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	obj := resp.GetTransform()
 	if obj == nil {
-		return nil, ErrNilResponse
+		return nil, errtrace.Wrap(ErrNilResponse)
 	}
 
 	return obj, nil
@@ -94,18 +95,18 @@ func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]in
 
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	req := &pb.StreamTransformChangesRequest{Name: c.name, Extra: ext}
 	stream, err := c.client.StreamTransformChanges(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// Check the initial response immediately to catch early errors.
 	_, err = stream.Recv()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	iter := &TransformChangeStream{
@@ -113,12 +114,12 @@ func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]in
 			resp, err := stream.Recv()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					return TransformChange{}, io.EOF
+					return TransformChange{}, errtrace.Wrap(io.EOF)
 				}
 				if ctx.Err() != nil || errors.Is(err, context.Canceled) {
-					return TransformChange{}, ctx.Err()
+					return TransformChange{}, errtrace.Wrap(ctx.Err())
 				}
-				return TransformChange{}, err
+				return TransformChange{}, errtrace.Wrap(err)
 			}
 			change := TransformChange{
 				ChangeType: resp.ChangeType,
@@ -139,9 +140,9 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	ctx, span := trace.StartSpan(ctx, "worldstatestore::client::DoCommand")
 	defer span.End()
 
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

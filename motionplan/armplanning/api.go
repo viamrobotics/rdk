@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -63,17 +64,17 @@ func (req *PlanRequest) GetWorldState() *referenceframe.WorldState {
 // validatePlanRequest ensures PlanRequests are not malformed.
 func (req *PlanRequest) validatePlanRequest() error {
 	if req == nil {
-		return errors.New("PlanRequest cannot be nil")
+		return errtrace.Wrap(errors.New("PlanRequest cannot be nil"))
 	}
 	if req.FrameSystem == nil {
-		return errors.New("PlanRequest cannot have nil framesystem")
+		return errtrace.Wrap(errors.New("PlanRequest cannot have nil framesystem"))
 	}
 
 	if req.StartState == nil {
-		return errors.New("PlanRequest cannot have nil StartState")
+		return errtrace.Wrap(errors.New("PlanRequest cannot have nil StartState"))
 	}
 	if req.StartState.structuredConfiguration == nil {
-		return errors.New("PlanRequest cannot have nil StartState configuration")
+		return errtrace.Wrap(errors.New("PlanRequest cannot have nil StartState configuration"))
 	}
 	if req.PlannerOptions == nil {
 		req.PlannerOptions = NewBasicPlannerOptions()
@@ -83,33 +84,33 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if len(req.StartState.structuredConfiguration) > 0 {
 		_, err := req.StartState.structuredConfiguration.ComputePoses(req.FrameSystem)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	// if we have start poses, check we have valid frames
 	for fName, pif := range req.StartState.poses {
 		if req.FrameSystem.Frame(fName) == nil {
-			return referenceframe.NewFrameMissingError(fName)
+			return errtrace.Wrap(referenceframe.NewFrameMissingError(fName))
 		}
 		if req.FrameSystem.Frame(pif.Parent()) == nil {
-			return referenceframe.NewParentFrameMissingError(fName, pif.Parent())
+			return errtrace.Wrap(referenceframe.NewParentFrameMissingError(fName, pif.Parent()))
 		}
 	}
 
 	if req.ObstaclesInWorldFrame != nil && req.ObstaclesInWorldFrame.Parent() != referenceframe.World {
-		return errors.Errorf("ObstaclesInWorldFrame must be parented by %q, got %q",
-			referenceframe.World, req.ObstaclesInWorldFrame.Parent())
+		return errtrace.Wrap(errors.Errorf("ObstaclesInWorldFrame must be parented by %q, got %q",
+			referenceframe.World, req.ObstaclesInWorldFrame.Parent()))
 	}
 
 	if len(req.Goals) == 0 {
-		return errors.New("PlanRequest must have at least one goal")
+		return errtrace.Wrap(errors.New("PlanRequest must have at least one goal"))
 	}
 
 	if req.PlannerOptions.MeshesAsOctrees {
 		// convert any meshes in the obstacles to octrees
 		if req.ObstaclesInWorldFrame == nil {
-			return errors.New("PlanRequest must have non-nil ObstaclesInWorldFrame if 'meshes_as_octrees' option is enabled")
+			return errtrace.Wrap(errors.New("PlanRequest must have non-nil ObstaclesInWorldFrame if 'meshes_as_octrees' option is enabled"))
 		}
 
 		pcdGeometries := make([]spatialmath.Geometry, 0, len(req.ObstaclesInWorldFrame.Geometries()))
@@ -117,7 +118,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 			if mesh, ok := geometry.(*spatialmath.Mesh); ok {
 				octree, err := pointcloud.NewFromMesh(mesh)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 
 				geometry = octree
@@ -134,12 +135,12 @@ func (req *PlanRequest) validatePlanRequest() error {
 	for _, goalState := range req.Goals {
 		for fName, pif := range goalState.poses {
 			if len(goalState.structuredConfiguration) > 0 {
-				return errors.New("individual goals cannot have both configuration and poses populated")
+				return errtrace.Wrap(errors.New("individual goals cannot have both configuration and poses populated"))
 			}
 
 			goalParentFrame := pif.Parent()
 			if req.FrameSystem.Frame(goalParentFrame) == nil {
-				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
+				return errtrace.Wrap(referenceframe.NewParentFrameMissingError(fName, goalParentFrame))
 			}
 		}
 	}
@@ -163,11 +164,11 @@ func PlanFrameMotion(ctx context.Context,
 	// ephemerally create a framesystem containing just the frame for the solve
 	fs := referenceframe.NewEmptyFrameSystem("")
 	if err := fs.AddFrame(f, fs.World()); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	planOpts, err := NewPlannerOptionsFromExtra(planningOpts)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	plan, _, err := PlanMotion(ctx, logger, &PlanRequest{
 		FrameSystem: fs,
@@ -179,9 +180,9 @@ func PlanFrameMotion(ctx context.Context,
 		PlannerOptions: planOpts,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return plan.Trajectory().GetFrameInputs(f.Name())
+	return errtrace.Wrap2(plan.Trajectory().GetFrameInputs(f.Name()))
 }
 
 // SolutionNodeInfo captures per-node data from getSolutions for visualization and debugging.
@@ -277,7 +278,7 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	}()
 
 	if err := request.validatePlanRequest(); err != nil {
-		return nil, meta, err
+		return nil, meta, errtrace.Wrap(err)
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
@@ -291,12 +292,12 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
 	if request.StartState.structuredConfiguration == nil {
-		return nil, meta, errors.New("must populate start state configuration")
+		return nil, meta, errtrace.Wrap(errors.New("must populate start state configuration"))
 	}
 
 	sfPlanner, err := newPlanManager(ctx, logger, request, meta)
 	if err != nil {
-		return nil, meta, err
+		return nil, meta, errtrace.Wrap(err)
 	}
 
 	trajAsInps, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
@@ -306,7 +307,7 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 			meta.PartialError = err
 			logger.Infof("returning partial plan, error: %v", err)
 		} else {
-			return nil, meta, err
+			return nil, meta, errtrace.Wrap(err)
 		}
 	}
 
@@ -314,7 +315,7 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 
 	t, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
 	if err != nil {
-		return nil, meta, err
+		return nil, meta, errtrace.Wrap(err)
 	}
 
 	return t, meta, nil
@@ -368,22 +369,22 @@ var defaultArmPlannerOptions = &motionplan.Constraints{
 func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialmath.Pose) error {
 	inputs, err := a.CurrentInputs(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	model, err := a.Kinematics(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if _, err = model.Transform(inputs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	plan, err := PlanFrameMotion(ctx, logger, dst, model, inputs, defaultArmPlannerOptions, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
+	return errtrace.Wrap(a.MoveThroughJointPositions(ctx, plan, nil, nil))
 }
 
 // ReadRequestFromFile reads a PlanRequest from a json file. This method is compatible with legacy
@@ -393,7 +394,7 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
 	f, err := os.Open(fileName) //nolint:gosec
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
@@ -401,12 +402,12 @@ func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
 
 	var raw json.RawMessage
 	if err = decoder.Decode(&raw); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var probe map[string]json.RawMessage
 	if err = json.Unmarshal(raw, &probe); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if _, hasWorldState := probe["world_state"]; hasWorldState {
@@ -414,14 +415,14 @@ func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
 		// `PlanRequest`.
 		legacy := &PlanRequestWithWorldState{}
 		if err = json.Unmarshal(raw, legacy); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return legacy.ToPlanRequestWorldStateTransformsIgnored()
+		return errtrace.Wrap2(legacy.ToPlanRequestWorldStateTransformsIgnored())
 	}
 
 	req := &PlanRequest{}
 	if err = json.Unmarshal(raw, req); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return req, nil
@@ -431,18 +432,18 @@ func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
 func (req *PlanRequest) WriteToFile(fileName string) error {
 	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(file.Close)
 
 	data, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = file.Write(data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -454,7 +455,7 @@ func (req *PlanRequest) WriteToFile(fileName string) error {
 func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.Plan, error) {
 	f, err := os.Open(fileName) //nolint:gosec
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
@@ -462,7 +463,7 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 
 	req := &PlanRequest{}
 	if err = decoder.Decode(req); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	plan := &motionplan.SimplePlan{}
@@ -470,7 +471,7 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 		if errors.Is(err, io.EOF) {
 			return req, nil, nil
 		}
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	return req, plan, nil
@@ -484,29 +485,29 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 func (req *PlanRequest) WriteRequestAndResponseToFile(filename string, resp motionplan.Plan) error {
 	file, err := os.OpenFile(filepath.Clean(filename), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(file.Close)
 
 	data, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = file.Write(data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if resp != nil {
 		data, err = json.Marshal(resp)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		_, err = file.Write(data)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 

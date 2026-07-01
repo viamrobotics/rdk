@@ -14,6 +14,7 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 	"gorgonia.org/tensor"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -81,7 +82,7 @@ func TensorsToProto(ts ml.Tensors) (*servicepb.FlatTensors, error) {
 	for name, t := range ts {
 		tp, err := tensorToProto(t)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to convert tensor %q to proto message", name)
+			return nil, errtrace.Wrap(errors.Wrapf(err, "failed to convert tensor %q to proto message", name))
 		}
 		pbts.Tensors[name] = tp
 	}
@@ -124,7 +125,7 @@ func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 		case tensor.Float64:
 			ftpb.Tensor = &servicepb.FlatTensor_DoubleTensor{DoubleTensor: &servicepb.FlatTensorDataDouble{}}
 		default:
-			return nil, errors.Errorf("cannot turn empty tensor of dtype %v into proto message", t.Dtype())
+			return nil, errtrace.Wrap(errors.Errorf("cannot turn empty tensor of dtype %v into proto message", t.Dtype()))
 		}
 		return ftpb, nil
 	}
@@ -213,7 +214,7 @@ func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 			},
 		}
 	default:
-		return nil, errors.Errorf("cannot turn underlying tensor data of type %T into proto message", data)
+		return nil, errtrace.Wrap(errors.Errorf("cannot turn underlying tensor data of type %T into proto message", data))
 	}
 	return ftpb, nil
 }
@@ -257,7 +258,7 @@ func (mm MLMetadata) toProto() (*servicepb.Metadata, error) {
 	for _, inp := range mm.Inputs {
 		inproto, err := inp.toProto()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		inputInfo = append(inputInfo, inproto)
 	}
@@ -266,7 +267,7 @@ func (mm MLMetadata) toProto() (*servicepb.Metadata, error) {
 	for _, outp := range mm.Outputs {
 		outproto, err := outp.toProto()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		outputInfo = append(outputInfo, outproto)
 	}
@@ -306,7 +307,7 @@ func (tf TensorInfo) toProto() (*servicepb.TensorInfo, error) {
 	pbtf.AssociatedFiles = associatedFiles
 	extra, err := vprotoutils.StructToStructPb(tf.Extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pbtf.Extra = extra
 	return pbtf, nil
@@ -372,7 +373,7 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Service](r, Named(name)))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named ml model service from a collection of dependencies.
@@ -380,11 +381,11 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
-	return resource.FromDependencies[Service](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Service](deps, Named(name)))
 }
 
 // FromProvider is a helper for getting the named ML model service
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Service, error) {
-	return resource.FromProvider[Service](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Service](provider, Named(name)))
 }

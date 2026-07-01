@@ -1,6 +1,7 @@
 package audioout
 
 import (
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 )
 
@@ -21,19 +22,19 @@ func (m method) String() string {
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	if _, err := assertAudioOut(resource); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return data.NewCollector(cFunc, params)
+	return errtrace.Wrap2(data.NewCollector(cFunc, params))
 }
 
 func assertAudioOut(resource interface{}) (AudioOut, error) {
 	audioOut, ok := resource.(AudioOut)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(API)
+		return nil, errtrace.Wrap(data.InvalidInterfaceErr(API))
 	}
 	return audioOut, nil
 }

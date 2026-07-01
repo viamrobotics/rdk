@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -35,14 +36,14 @@ type filterStruct struct {
 func newFilter(config BlockConfig, logger logging.Logger) (Block, error) {
 	f := &filterStruct{cfg: config, logger: logger}
 	if err := f.initFilter(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return f, nil
 }
 
 func (f *filterStruct) initFilter() error {
 	if !f.cfg.Attribute.Has("type") {
-		return errors.Errorf("filter %s config should have a type field", f.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("filter %s config should have a type field", f.cfg.Name))
 	}
 	f.y = make([]*Signal, 1)
 	f.y[0] = makeSignal(f.cfg.Name, f.cfg.Type)
@@ -50,22 +51,22 @@ func (f *filterStruct) initFilter() error {
 	switch filterType(fType) {
 	case filterFIRMovingAverage:
 		if !f.cfg.Attribute.Has("filter_size") {
-			return errors.Errorf("filter %s of type %s should have a filter_size field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a filter_size field", f.cfg.Name, fType))
 		}
 		flt := movingAverageFilter{
 			filterSize: f.cfg.Attribute["filter_size"].(int), // default 0
 		}
 		f.filter = &flt
-		return f.filter.Reset()
+		return errtrace.Wrap(f.filter.Reset())
 	case filterFIRWindowedSinc:
 		if !f.cfg.Attribute.Has("fs") {
-			return errors.Errorf("filter %s of type %s should have a fs field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a fs field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("fc") {
-			return errors.Errorf("filter %s of type %s should have a fc field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a fc field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("kernel_size") {
-			return errors.Errorf("filter %s of type %s should have a kernel_size field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a kernel_size field", f.cfg.Name, fType))
 		}
 		flt := firWindowedSinc{
 			smpFreq:    f.cfg.Attribute["fs"].(float64),
@@ -73,22 +74,22 @@ func (f *filterStruct) initFilter() error {
 			kernelSize: f.cfg.Attribute["kernel_size"].(int), // default 0,
 		}
 		f.filter = &flt
-		return f.filter.Reset()
+		return errtrace.Wrap(f.filter.Reset())
 	case filterIIRButterworth:
 		if !f.cfg.Attribute.Has("fs") {
-			return errors.Errorf("filter %s of type %s should have a fs field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a fs field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("fc") {
-			return errors.Errorf("filter %s of type %s should have a fc field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a fc field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("gp") {
-			return errors.Errorf("filter %s of type %s should have a gp field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a gp field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("gs") {
-			return errors.Errorf("filter %s of type %s should have a gs field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a gs field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("order") {
-			return errors.Errorf("filter %s of type %s should have a order field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a order field", f.cfg.Name, fType))
 		}
 		flt := iirFilter{
 			smpFreq:    f.cfg.Attribute["fs"].(float64),
@@ -98,28 +99,28 @@ func (f *filterStruct) initFilter() error {
 			fltType:    f.cfg.Attribute["filter_type"].(string),
 		}
 		f.filter = &flt
-		return f.filter.Reset()
+		return errtrace.Wrap(f.filter.Reset())
 	case filterIIRChebyshevTypeI:
 		if !f.cfg.Attribute.Has("fs") {
-			return errors.Errorf("filter %s of type %s should have a fs field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a fs field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("fc") {
-			return errors.Errorf("filter %s of type %s should have a fc field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a fc field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("gp") {
-			return errors.Errorf("filter %s of type %s should have a gp field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a gp field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("gs") {
-			return errors.Errorf("filter %s of type %s should have a gs field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a gs field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("order") {
-			return errors.Errorf("filter %s of type %s should have a order field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a order field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("ripple") {
-			return errors.Errorf("filter %s of type %s should have a ripple field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a ripple field", f.cfg.Name, fType))
 		}
 		if !f.cfg.Attribute.Has("filter_type") {
-			return errors.Errorf("filter %s of type %s should have a filter_type field", f.cfg.Name, fType)
+			return errtrace.Wrap(errors.Errorf("filter %s of type %s should have a filter_type field", f.cfg.Name, fType))
 		}
 		flt := iirFilter{
 			smpFreq:    f.cfg.Attribute["fs"].(float64), // default 0,0
@@ -129,9 +130,9 @@ func (f *filterStruct) initFilter() error {
 			fltType:    f.cfg.Attribute["filter_type"].(string),
 		}
 		f.filter = &flt
-		return f.filter.Reset()
+		return errtrace.Wrap(f.filter.Reset())
 	default:
-		return errors.Errorf("unsupported filter type %s for filter %s", fType, f.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("unsupported filter type %s for filter %s", fType, f.cfg.Name))
 	}
 }
 
@@ -149,7 +150,7 @@ func (f *filterStruct) Next(ctx context.Context, x []*Signal, dt time.Duration) 
 func (f *filterStruct) Reset(ctx context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.filter.Reset()
+	return errtrace.Wrap(f.filter.Reset())
 }
 
 func (f *filterStruct) Config(ctx context.Context) BlockConfig {
@@ -160,7 +161,7 @@ func (f *filterStruct) UpdateConfig(ctx context.Context, config BlockConfig) err
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.cfg = config
-	return f.initFilter()
+	return errtrace.Wrap(f.initFilter())
 }
 
 func (f *filterStruct) Output(ctx context.Context) []*Signal {

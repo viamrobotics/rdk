@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -256,11 +257,11 @@ func NewPointCloudFromProto(pointCloud *commonpb.PointCloud, label string) (*Bas
 	reader := bytes.NewReader(pointCloud.PointCloud)
 	pc, err := ReadPCD(reader, BasicOctreeType)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	octree, ok := pc.(*BasicOctree)
 	if !ok {
-		return nil, fmt.Errorf("why did ReadPCD not return a BasicOctree but a %T", pc)
+		return nil, errtrace.Wrap(fmt.Errorf("why did ReadPCD not return a BasicOctree but a %T", pc))
 	}
 	octree.confidenceThreshold = 0
 	octree.SetLabel(label)

@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 )
 
@@ -20,7 +21,7 @@ type CloudConnectionService struct {
 // AcquireConnection returns a connection to the rpc server stored in the cloud connection service object.
 func (cloudConnService *CloudConnectionService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
 	if cloudConnService.AcquireConnectionErr != nil {
-		return "", nil, cloudConnService.AcquireConnectionErr
+		return "", nil, errtrace.Wrap(cloudConnService.AcquireConnectionErr)
 	}
 	return "hello", cloudConnService.Conn, nil
 }
@@ -30,7 +31,7 @@ func (cloudConnService *CloudConnectionService) AcquireConnectionAPIKey(ctx cont
 	apiKey, apiKeyID string,
 ) (string, rpc.ClientConn, error) {
 	if cloudConnService.AcquireConnectionErr != nil {
-		return "", nil, cloudConnService.AcquireConnectionErr
+		return "", nil, errtrace.Wrap(cloudConnService.AcquireConnectionErr)
 	}
 	return "hello", cloudConnService.Conn, nil
 }

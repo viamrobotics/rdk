@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -87,10 +88,10 @@ func TestClient(t *testing.T) {
 	}
 	injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extraOptions = extra
-		return errStopUnimplemented
+		return errtrace.Wrap(errStopUnimplemented)
 	}
 	injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errKinematicsUnimplemented
+		return nil, errtrace.Wrap(errKinematicsUnimplemented)
 	}
 	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
@@ -117,7 +118,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	injectArm2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errKinematicsUnimplemented
+		return nil, errtrace.Wrap(errKinematicsUnimplemented)
 	}
 
 	armSvc, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{

@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -62,11 +63,11 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[r3.Vector]bool) (pc.PointClo
 		return true
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if len(seen) != len(inMap) {
 		err = errors.New("map of points contains invalid points not found in the point cloud")
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	return mapCloud, nonMapCloud, nil
 }
@@ -121,7 +122,7 @@ func SegmentPlaneWRTGround(ctx context.Context, cloud pc.PointCloud, nIterations
 			equations = append(equations, currentEquation)
 		}
 	}
-	return findBestEq(ctx, cloud, len(equations), equations, pts, data, dstThreshold)
+	return errtrace.Wrap3(findBestEq(ctx, cloud, len(equations), equations, pts, data, dstThreshold))
 }
 
 // SegmentPlane segments the biggest plane in the 3D Pointcloud.
@@ -164,7 +165,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 		equations = append(equations, currentEquation)
 	}
 
-	return findBestEq(ctx, cloud, nIterations, equations, pts, data, threshold)
+	return errtrace.Wrap3(findBestEq(ctx, cloud, nIterations, equations, pts, data, threshold))
 }
 
 func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equations [][4]float64,
@@ -215,7 +216,7 @@ func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equat
 				}
 		},
 	); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	bestIdx := 0
@@ -242,7 +243,7 @@ func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equat
 			err = nonPlaneCloud.Set(pt, data[i])
 		}
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", pt.X, pt.Y, pt.Z)
+			return nil, nil, errtrace.Wrap(errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", pt.X, pt.Y, pt.Z))
 		}
 	}
 
@@ -300,11 +301,11 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 	var err error
 	plane, nonPlaneCloud, err := SegmentPlane(ctx, pcps.cloud, pcps.nIterations, pcps.distanceThreshold)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	planeCloud, err := plane.PointCloud()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if planeCloud.Size() <= pcps.minPoints {
 		return planes, pcps.cloud, nil
@@ -315,11 +316,11 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 		lastNonPlaneCloud = nonPlaneCloud
 		smallerPlane, smallerNonPlaneCloud, err := SegmentPlane(ctx, nonPlaneCloud, pcps.nIterations, pcps.distanceThreshold)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		planeCloud, err := smallerPlane.PointCloud()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		if planeCloud.Size() <= pcps.minPoints {
 			// this cloud is not valid so revert to last
@@ -338,11 +339,11 @@ func (pcps *pointCloudPlaneSegmentation) FindGroundPlane(ctx context.Context) (p
 	plane, nonPlaneCloud, err := SegmentPlaneWRTGround(ctx, pcps.cloud, pcps.nIterations,
 		pcps.angleThreshold, pcps.distanceThreshold, pcps.normalVec)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	planeCloud, err := plane.PointCloud()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if planeCloud.Size() <= pcps.minPoints {
 		return nil, pcps.cloud, nil
@@ -361,16 +362,16 @@ type VoxelGridPlaneConfig struct {
 // CheckValid checks to see in the inputs values are valid.
 func (vgpc *VoxelGridPlaneConfig) CheckValid() error {
 	if vgpc.WeightThresh < 0 {
-		return errors.Errorf("weight_threshold cannot be less than 0, got %v", vgpc.WeightThresh)
+		return errtrace.Wrap(errors.Errorf("weight_threshold cannot be less than 0, got %v", vgpc.WeightThresh))
 	}
 	if vgpc.AngleThresh < -360 || vgpc.AngleThresh > 360 {
-		return errors.Errorf("angle_threshold must be in degrees, between -360 and 360, got %v", vgpc.AngleThresh)
+		return errtrace.Wrap(errors.Errorf("angle_threshold must be in degrees, between -360 and 360, got %v", vgpc.AngleThresh))
 	}
 	if vgpc.CosineThresh < -1 || vgpc.CosineThresh > 1 {
-		return errors.Errorf("cosine_threshold must be between -1 and 1, got %v", vgpc.CosineThresh)
+		return errtrace.Wrap(errors.Errorf("cosine_threshold must be between -1 and 1, got %v", vgpc.CosineThresh))
 	}
 	if vgpc.DistanceThresh < 0 {
-		return errors.Errorf("distance_threshold cannot be less than 0, got %v", vgpc.DistanceThresh)
+		return errtrace.Wrap(errors.Errorf("distance_threshold cannot be less than 0, got %v", vgpc.DistanceThresh))
 	}
 	return nil
 }
@@ -390,14 +391,14 @@ func (vgps *voxelGridPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Pl
 	vgps.SegmentPlanesRegionGrowing(vgps.config.WeightThresh, vgps.config.AngleThresh, vgps.config.CosineThresh, vgps.config.DistanceThresh)
 	planes, nonPlaneCloud, err := vgps.GetPlanesFromLabels()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	return planes, nonPlaneCloud, nil
 }
 
 // FindGroundPlane is yet to be implemented.
 func (vgps *voxelGridPlaneSegmentation) FindGroundPlane(ctx context.Context) (pc.Plane, pc.PointCloud, error) {
-	return nil, nil, errors.New("function not yet implemented")
+	return nil, nil, errtrace.Wrap(errors.New("function not yet implemented"))
 }
 
 // SplitPointCloudByPlane divides the point cloud in two point clouds, given the equation of a plane.
@@ -419,7 +420,7 @@ func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud,
 		return err == nil
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	return aboveCloud, belowCloud, nil
 }
@@ -436,7 +437,7 @@ func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane, threshold f
 		return err == nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return thresholdCloud, nil
 }
@@ -463,7 +464,7 @@ func PointCloudSegmentsToMask(params transform.PinholeCameraIntrinsics, segments
 			return true
 		})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	img.createPalette()

@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -47,7 +48,7 @@ func (cloud *roundingPointCloud) Set(p r3.Vector, d Data) error {
 	p = r3.Vector{math.Round(p.X), math.Round(p.Y), math.Round(p.Z)}
 	_, pointExists := cloud.At(p.X, p.Y, p.Z)
 	if err := cloud.points.Set(p, d); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if !pointExists {
 		cloud.meta.Merge(p, d)

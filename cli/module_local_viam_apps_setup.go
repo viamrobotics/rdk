@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
@@ -43,7 +44,7 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 	viamClient, err := newViamClient(ctx, cmd)
 	if err != nil {
 		printf(cmd.Root().ErrWriter, "error initializing the Viam client: "+err.Error())
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	localAppTesting := localAppTestingServer{
@@ -63,12 +64,12 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 
 		machineAPIKeyID, machineAPIKey, err := getMachineAPIKeys(ctx, viamClient.client, args.MachineID)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		machineHostname, err := getMachineHostname(ctx, viamClient.client, args.MachineID)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		localAppTesting.machineID = args.MachineID
@@ -91,7 +92,7 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 	}
 
 	if err := startServerInBackground(httpServer, cmd.Root().Writer); err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to start server: %w", err))
 	}
 
 	if err := openbrowser(fmt.Sprintf("%s/start", localAppTesting.serverURL)); err != nil {
@@ -103,7 +104,7 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 	<-notifyCtx.Done()
 
 	if err := httpServer.Shutdown(context.Background()); err != nil {
-		return fmt.Errorf("error shutting down server: %w", err)
+		return errtrace.Wrap(fmt.Errorf("error shutting down server: %w", err))
 	}
 
 	return nil
@@ -114,12 +115,12 @@ func getMachineAPIKeys(ctx context.Context, viamAppClient apppb.AppServiceClient
 		RobotId: machineID,
 	})
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 
 	keys := resp.GetApiKeys()
 	if len(keys) == 0 {
-		return "", "", errors.Errorf("Machine %s has no API keys", machineID)
+		return "", "", errtrace.Wrap(errors.Errorf("Machine %s has no API keys", machineID))
 	}
 
 	return keys[0].GetApiKey().GetId(), keys[0].GetApiKey().GetKey(), nil
@@ -130,7 +131,7 @@ func getMachineHostname(ctx context.Context, viamAppClient apppb.AppServiceClien
 		RobotId: machineID,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	robotParts := resp.GetParts()
@@ -140,7 +141,7 @@ func getMachineHostname(ctx context.Context, viamAppClient apppb.AppServiceClien
 		}
 	}
 
-	return "", errors.New("Could not resolve machine hostname, no main part found")
+	return "", errtrace.Wrap(errors.New("Could not resolve machine hostname, no main part found"))
 }
 
 // setupHTTPServerSingleMachineApp creates and configures an HTTP server for a single-machine Viam app.
@@ -281,7 +282,7 @@ func (l *localAppTestingServer) addBaseTagToHTMLResponse() func(resp *http.Respo
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return fmt.Errorf("error reading response body: %w", err)
+				return errtrace.Wrap(fmt.Errorf("error reading response body: %w", err))
 			}
 			if err := resp.Body.Close(); err != nil {
 				printf(l.logger, "Error closing response body: %v", err)
@@ -378,7 +379,7 @@ func startServerInBackground(server *http.Server, writer io.Writer) error {
 
 	select {
 	case err := <-errChan:
-		return err
+		return errtrace.Wrap(err)
 	case <-time.After(1000 * time.Millisecond):
 		return nil // Server started successfully
 	}

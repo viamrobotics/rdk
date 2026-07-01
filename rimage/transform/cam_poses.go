@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/mat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -41,9 +42,9 @@ func (cp *CamPose) Pose() (spatialmath.Pose, error) {
 	translation := r3.Vector{cp.Translation.At(0, 0), cp.Translation.At(1, 0), cp.Translation.At(2, 0)}
 	rotation, err := spatialmath.NewRotationMatrix(cp.Rotation.RawMatrix().Data)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return spatialmath.NewPose(translation, rotation), err
+	return spatialmath.NewPose(translation, rotation), errtrace.Wrap(err)
 }
 
 // adjustPoseSign adjusts the sign of a pose.
@@ -62,14 +63,14 @@ func adjustPoseSign(pose *mat.Dense) *mat.Dense {
 func GetPossibleCameraPoses(essMat *mat.Dense) ([]*mat.Dense, error) {
 	R1, R2, t, err := DecomposeEssentialMatrix(essMat)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// svd
 	var svd mat.SVD
 	ok := svd.Factorize(essMat, mat.SVDFull)
 	if !ok {
 		err = errors.New("failed to factorize A")
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// poses
 	var tOpp mat.Dense
@@ -128,14 +129,14 @@ func GetLinearTriangulatedPoints(pose *mat.Dense, pts1, pts2 []r3.Vector) ([]r3.
 		ok := svd.Factorize(&A, mat.SVDFull)
 		if !ok {
 			err := errors.New("failed to factorize A")
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// Determine the rank of the A matrix with a near zero condition threshold.
 		const rcond = 1e-15
 		rank := svd.Rank(rcond)
 		if rank == 0 {
 			err := errors.New("zero rank system")
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		var V mat.Dense
 		svd.VTo(&V)
@@ -196,20 +197,20 @@ func GetCorrectCameraPose(poses []*mat.Dense, pts1, pts2 []r3.Vector) *mat.Dense
 // at the same time).
 func EstimateNewPose(pts1, pts2 []r2.Point, k *mat.Dense) (*CamPose, error) {
 	if len(pts1) != len(pts2) {
-		return nil, errors.New("the 2 sets of points don't have the same number of elements")
+		return nil, errtrace.Wrap(errors.New("the 2 sets of points don't have the same number of elements"))
 	}
 	fundamentalMatrix, err := ComputeFundamentalMatrixAllPoints(pts1, pts2, true)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	essentialMatrix, err := GetEssentialMatrixFromFundamental(k, k, fundamentalMatrix)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	poses, err := GetPossibleCameraPoses(essentialMatrix)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pts1H := Convert2DPointsToHomogeneousPoints(pts1)
 	pts2H := Convert2DPointsToHomogeneousPoints(pts2)

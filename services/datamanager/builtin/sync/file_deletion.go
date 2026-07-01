@@ -13,6 +13,7 @@ import (
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/diskusage"
@@ -115,7 +116,7 @@ func deleteExcessFiles(
 		captureDirToFSThreshold,
 		logger)
 	if err != nil {
-		return 0, errors.Wrap(err, "error checking file system stats")
+		return 0, errtrace.Wrap(errors.Wrap(err, "error checking file system stats"))
 	}
 
 	if !shouldDelete {
@@ -123,7 +124,7 @@ func deleteExcessFiles(
 	}
 
 	logger.Warnf("current disk usage of the data capture directory exceeds threshold (%f)", captureDirToFSThreshold)
-	return deleteFiles(ctx, fileTracker, deleteEveryNth, captureDir, logger)
+	return errtrace.Wrap2(deleteFiles(ctx, fileTracker, deleteEveryNth, captureDir, logger))
 }
 
 func shouldDeleteBasedOnDiskUsage(
@@ -153,7 +154,7 @@ func shouldDeleteBasedOnDiskUsage(
 		logger.Warnf("Disk nearing capacity but data capture directory is below %f of that size, file deletion will not run",
 			captureDirToFSThreshold)
 	}
-	return shouldDelete, err
+	return shouldDelete, errtrace.Wrap(err)
 }
 
 // returns false, nil if the threshold is not exceeded
@@ -168,13 +169,13 @@ func exceedsDeletionThreshold(
 	var dirSize float64
 	readSize := func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		}
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		if d.IsDir() {
@@ -186,11 +187,11 @@ func exceedsDeletionThreshold(
 			if errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 		dirSize += float64(fileInfo.Size())
 		if dirSize/fileSystemSizeBytes >= captureDirToFSUsageRatio {
-			return errAtSizeThreshold
+			return errtrace.Wrap(errAtSizeThreshold)
 		}
 		return nil
 	}
@@ -200,7 +201,7 @@ func exceedsDeletionThreshold(
 		if errors.Is(err, errAtSizeThreshold) {
 			return true, nil
 		}
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return false, nil
 }
@@ -217,7 +218,7 @@ func deleteFiles(
 	logger.Infof("Deleting every %dth file", deleteEveryNth)
 	fileDeletion := func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		}
 		if err != nil {
 			// this can happen if after we start walking the dir, the file changes from .prog to .capture
@@ -226,7 +227,7 @@ func deleteFiles(
 			if errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		if d.IsDir() {
@@ -238,7 +239,7 @@ func deleteFiles(
 			if errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 		isCompletedDataCaptureFile := strings.Contains(fileInfo.Name(), data.CompletedCaptureFileExt)
 		// if at nth file and the file is not currently being written, mark as in progress if possible
@@ -250,7 +251,7 @@ func deleteFiles(
 			if err := os.Remove(path); err != nil {
 				logger.Warnw("error deleting file", "error", err)
 				fileTracker.unmarkInProgress(path)
-				return err
+				return errtrace.Wrap(err)
 			}
 			logger.Infof("successfully deleted %s", d.Name())
 			deletedFileCount++
@@ -262,5 +263,5 @@ func deleteFiles(
 		return nil
 	}
 	err := filepath.WalkDir(captureDirPath, fileDeletion)
-	return deletedFileCount, err
+	return deletedFileCount, errtrace.Wrap(err)
 }

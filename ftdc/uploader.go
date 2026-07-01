@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -72,12 +73,12 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 	// Get file timestamps
 	fileTimes, err := utils.GetFileTimes(filename)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	binaryClient, err := uploader.dataSyncClient.FileUpload(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	err = binaryClient.Send(&v1.FileUploadRequest{
@@ -96,19 +97,19 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 		if !errors.Is(err, io.EOF) {
 			// When the error is not an EOF, it means the client code encountered an error. Return
 			// that directly.
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		// `Send` returning an EOF means the an error originated outside of the client code. We
 		// must call `RecvMsg` to get the underlying error.
 		m := &v1.FileUploadResponse{}
 		err = binaryClient.RecvMsg(m)
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	file, err := os.Open(filename) //nolint: gosec
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer viamutils.UncheckedErrorFunc(file.Close)
 
@@ -131,14 +132,14 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 			if !errors.Is(err, io.EOF) {
 				// When the error is not an EOF, it means the client code encountered an error. Return
 				// that directly.
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			// `Send` returning an EOF means the an error originated outside of the client code. We
 			// must call `RecvMsg` to get the underlying error.
 			m := &v1.FileUploadResponse{}
 			err = binaryClient.RecvMsg(m)
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -148,5 +149,5 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 		// has acknowledged receipt of the full file.
 		return nil
 	}
-	return err
+	return errtrace.Wrap(err)
 }

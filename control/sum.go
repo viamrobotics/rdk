@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -28,7 +29,7 @@ type sum struct {
 func newSum(config BlockConfig, logger logging.Logger) (Block, error) {
 	s := &sum{cfg: config, logger: logger}
 	if err := s.reset(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return s, nil
 }
@@ -81,17 +82,17 @@ func (b *sum) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signa
 
 func (b *sum) reset() error {
 	if !b.cfg.Attribute.Has("sum_string") {
-		return errors.Errorf("sum block %s doesn't have a sum_string", b.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("sum block %s doesn't have a sum_string", b.cfg.Name))
 	}
 	if len(b.cfg.DependsOn) != len(b.cfg.Attribute["sum_string"].(string)) {
-		return errors.Errorf("invalid number of inputs for sum block %s expected %d got %d",
+		return errtrace.Wrap(errors.Errorf("invalid number of inputs for sum block %s expected %d got %d",
 			b.cfg.Name, len(b.cfg.Attribute["sum_string"].(string)),
-			len(b.cfg.DependsOn))
+			len(b.cfg.DependsOn)))
 	}
 	b.operation = make(map[string]sumOperand)
 	for idx, c := range b.cfg.Attribute["sum_string"].(string) {
 		if c != '+' && c != '-' {
-			return errors.Errorf("expected +/- for sum block %s got %c", b.cfg.Name, c)
+			return errtrace.Wrap(errors.Errorf("expected +/- for sum block %s got %c", b.cfg.Name, c))
 		}
 		b.operation[b.cfg.DependsOn[idx]] = sumOperand(c)
 	}
@@ -106,14 +107,14 @@ func (b *sum) reset() error {
 func (b *sum) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.reset()
+	return errtrace.Wrap(b.reset())
 }
 
 func (b *sum) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
-	return b.reset()
+	return errtrace.Wrap(b.reset())
 }
 
 func (b *sum) Output(ctx context.Context) []*Signal {

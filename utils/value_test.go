@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 )
@@ -31,7 +32,7 @@ type myAssertIfc interface {
 type myAssertInt int
 
 func (m myAssertInt) method1() error {
-	return errors.New("cool 8)")
+	return errtrace.Wrap(errors.New("cool 8)"))
 }
 
 func TestFilterMap(t *testing.T) {

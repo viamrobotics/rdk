@@ -15,6 +15,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	datatu "go.viam.com/rdk/data/testutils"
@@ -180,11 +181,11 @@ func newCamera(
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		leftImg, err := camera.NamedImageFromImage(left, "left", utils.MimeTypeJPEG, annotations1)
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 		rightImg, err := camera.NamedImageFromImage(right, "right", utils.MimeTypeJPEG, annotations2)
 		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
+			return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 		}
 
 		allImgs := []camera.NamedImage{leftImg, rightImg}

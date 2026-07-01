@@ -17,6 +17,7 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
@@ -38,7 +39,7 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				conf resource.Config,
 				logger logging.Logger,
 			) (board.Board, error) {
-				return NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logger)
+				return errtrace.Wrap2(NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logger))
 			},
 		})
 }
@@ -63,7 +64,7 @@ func NewBoard(
 	}
 
 	if err := b.reconfigure(ctx, nil, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return b, nil
 }
@@ -76,20 +77,20 @@ func (b *Board) reconfigure(
 ) error {
 	newConf, err := b.convertConfig(conf, b.logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if err := b.reconfigureGpios(newConf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := b.reconfigureAnalogReaders(ctx, newConf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := b.reconfigureInterrupts(newConf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -115,7 +116,7 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 		// Otherwise, remove the pin because it's not in the new mapping.
 		if pin, ok := b.gpios[oldName]; ok {
 			if err := pin.Close(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			delete(b.gpios, oldName)
 			continue
@@ -125,7 +126,7 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 		// digital interrupt.
 		if interrupt, ok := b.interrupts[oldName]; ok {
 			if err := interrupt.Close(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			delete(b.interrupts, oldName)
 			continue
@@ -172,8 +173,8 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 			continue
 		}
 
-		return fmt.Errorf("during reconfiguration, old pin '%s' should be renamed to '%s', but "+
-			"it doesn't exist!?", oldName, newName)
+		return errtrace.Wrap(fmt.Errorf("during reconfiguration, old pin '%s' should be renamed to '%s', but "+
+			"it doesn't exist!?", oldName, newName))
 	}
 
 	// Now move all the pins back from the temporary data structures.
@@ -198,7 +199,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 	for _, c := range newConf.AnalogReaders {
 		channel, err := strconv.Atoi(c.Channel)
 		if err != nil {
-			return errors.Errorf("bad analog pin (%s)", c.Channel)
+			return errtrace.Wrap(errors.Errorf("bad analog pin (%s)", c.Channel))
 		}
 
 		bus := buses.NewSpiBus(c.SPIBus)
@@ -271,7 +272,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 		if newConfig := findNewDigIntConfig(oldInterrupt, newConf.DigitalInterrupts, b.logger); newConfig == nil {
 			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
 			if err := oldInterrupt.Close(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			if newGpioConfig, ok := b.gpioMappings[oldInterrupt.config.Pin]; ok {
 				b.gpios[oldInterrupt.config.Pin] = b.createGpioPin(newGpioConfig)
@@ -299,7 +300,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 			// is explicit (e.g., its name is still "38" but it's been moved to pin 37). Close the
 			// old one and initialize it anew.
 			if err := interrupt.Close(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			// Although we delete the implicit interrupt from b.interrupts, it's still in
 			// oldInterrupts, so we haven't lost the channels it reports to and can still copy them
@@ -309,7 +310,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 
 		if oldPin, ok := b.gpios[config.Pin]; ok {
 			if err := oldPin.Close(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			delete(b.gpios, config.Pin)
 		}
@@ -323,11 +324,11 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 
 		gpioMapping, ok := b.gpioMappings[config.Pin]
 		if !ok {
-			return fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Pin)
+			return errtrace.Wrap(fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Pin))
 		}
 		interrupt, err := newDigitalInterrupt(config, gpioMapping, oldInterrupt)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		b.interrupts[config.Name] = interrupt
 	}
@@ -370,7 +371,7 @@ type Board struct {
 func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	a, ok := b.analogReaders[name]
 	if !ok {
-		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, errtrace.Wrap(errors.Errorf("can't find AnalogReader (%s)", name))
 	}
 	return a, nil
 }
@@ -389,15 +390,15 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, err
 	// remove its GPIO capabilities and turn it into a digital interrupt.
 	gpio, ok := b.gpios[name]
 	if !ok {
-		return nil, fmt.Errorf("can't find GPIO (%s)", name)
+		return nil, errtrace.Wrap(fmt.Errorf("can't find GPIO (%s)", name))
 	}
 	if err := gpio.Close(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	mapping, ok := b.gpioMappings[name]
 	if !ok {
-		return nil, fmt.Errorf("can't create digital interrupt on unknown pin %s", name)
+		return nil, errtrace.Wrap(fmt.Errorf("can't create digital interrupt on unknown pin %s", name))
 	}
 	defaultInterruptConfig := board.DigitalInterruptConfig{
 		Name: name,
@@ -405,7 +406,7 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, err
 	}
 	interrupt, err := newDigitalInterrupt(defaultInterruptConfig, mapping, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	delete(b.gpios, name)
@@ -424,7 +425,7 @@ func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 		return interrupt, nil
 	}
 
-	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
+	return nil, errtrace.Wrap(errors.Errorf("cannot find GPIO for unknown pin: %s", pinName))
 }
 
 // SetPowerMode sets the board to the given power mode. If provided,
@@ -436,7 +437,7 @@ func (b *Board) SetPowerMode(
 	duration *time.Duration,
 	extra map[string]interface{},
 ) error {
-	return grpc.UnimplementedError
+	return errtrace.Wrap(grpc.UnimplementedError)
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
@@ -447,7 +448,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	for _, i := range interrupts {
 		raw, ok := i.(*digitalInterrupt)
 		if !ok {
-			return errors.New("cannot stream ticks to an interrupt not associated with this board")
+			return errtrace.Wrap(errors.New("cannot stream ticks to an interrupt not associated with this board"))
 		}
 		rawInterrupts = append(rawInterrupts, raw)
 	}
@@ -486,5 +487,5 @@ func (b *Board) Close(ctx context.Context) error {
 	for _, reader := range b.analogReaders {
 		err = multierr.Combine(err, reader.Close(ctx))
 	}
-	return err
+	return errtrace.Wrap(err)
 }

@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -129,20 +130,20 @@ func (c *Config) shouldWritePlan(start time.Time, err error) bool {
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.NumThreads < 0 {
-		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads))
 	}
 
 	if c.LogPlannerErrors && c.PlanFilePath == "" {
-		return nil, nil, fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors))
 	}
 
 	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
-		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS))
 	}
 
 	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
 	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
-		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha))
 	}
 
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
@@ -176,7 +177,7 @@ func NewBuiltIn(
 	}
 
 	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return ms, nil
 }
@@ -199,7 +200,7 @@ func (ms *builtIn) BuiltInReconfigure(
 	defer ms.mu.Unlock()
 	config, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	ms.conf = config
 
@@ -256,18 +257,18 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	ms.applyDefaultExtras(req.Extra)
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
-	return err == nil, err
+	return err == nil, errtrace.Wrap(err)
 }
 
 func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	return uuid.Nil, fmt.Errorf("MoveOnMap not supported by builtin")
+	return uuid.Nil, errtrace.Wrap(fmt.Errorf("MoveOnMap not supported by builtin"))
 }
 
 func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
-	return uuid.Nil, fmt.Errorf("MoveOnGlobeReqe not supported by builtin")
+	return uuid.Nil, errtrace.Wrap(fmt.Errorf("MoveOnGlobeReqe not supported by builtin"))
 }
 
 // GetPose is deprecated.
@@ -281,28 +282,28 @@ func (ms *builtIn) GetPose(
 	ms.logger.Warn("GetPose is deprecated. Please switch to using the GetPose method defined on the FrameSystem service")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.fsService.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	return errtrace.Wrap2(ms.fsService.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 }
 
 func (ms *builtIn) StopPlan(
 	ctx context.Context,
 	req motion.StopPlanReq,
 ) error {
-	return fmt.Errorf("StopPlan not supported by builtin")
+	return errtrace.Wrap(fmt.Errorf("StopPlan not supported by builtin"))
 }
 
 func (ms *builtIn) ListPlanStatuses(
 	ctx context.Context,
 	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
-	return nil, fmt.Errorf("ListPlanStatuses not supported by builtin")
+	return nil, errtrace.Wrap(fmt.Errorf("ListPlanStatuses not supported by builtin"))
 }
 
 func (ms *builtIn) PlanHistory(
 	ctx context.Context,
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
-	return nil, fmt.Errorf("PlanHistory not supported by builtin")
+	return nil, errtrace.Wrap(fmt.Errorf("PlanHistory not supported by builtin"))
 }
 
 // DoCommand supports two commands which are specified through the command map
@@ -317,7 +318,7 @@ func (ms *builtIn) PlanHistory(
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
-		return resp, err
+		return resp, errtrace.Wrap(err)
 	}
 
 	ms.mu.RLock()
@@ -326,18 +327,18 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	if req, ok := cmd[DoPlan]; ok {
 		s, err := utils.AssertType[string](req)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		var moveReqProto pb.MoveRequest
 		err = protojson.Unmarshal([]byte(s), &moveReqProto)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		fields := moveReqProto.Extra.AsMap()
 		if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
 			v, err := structpb.NewStruct(extra)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			moveReqProto.Extra = v
 		}
@@ -348,11 +349,11 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		plan, err := ms.plan(ctx, moveReq, obsLogger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		partialLogString := "returning partial plan up to waypoint"
@@ -381,7 +382,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	if req, ok := cmd[DoExecute]; ok {
 		var trajectory motionplan.Trajectory
 		if err := mapstructure.Decode(req, &trajectory); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// if included and set to true
 		epsilon := math.MaxFloat64
@@ -397,7 +398,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			resp[DoExecuteCheckStart] = "resource at starting location"
 		}
 		if err := ms.execute(ctx, trajectory, epsilon); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		resp[DoExecute] = true
 	}
@@ -407,20 +408,20 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
 	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	for fName, mods := range ms.conf.InputRangeOverride {
 		f := frameSys.Frame(fName)
 		if f == nil {
-			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
+			return nil, errtrace.Wrap(fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName))
 		}
 
 		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
 
 		sm, ok := f.(*referenceframe.SimpleModel)
 		if !ok {
-			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
+			return nil, errtrace.Wrap(fmt.Errorf("can only override joints for SimpleModel for now, not %T", f))
 		}
 
 		// Resolve override keys: match by name first, then by stringified moveable-frame index
@@ -436,18 +437,18 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 				}
 			}
 			if !matched {
-				return nil, fmt.Errorf("can't find mod (%s)", key)
+				return nil, errtrace.Wrap(fmt.Errorf("can't find mod (%s)", key))
 			}
 		}
 
 		newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		err = frameSys.ReplaceFrame(newModel)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -457,27 +458,27 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
 	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// build maps of relevant components and inputs from initial inputs
 	fsInputs, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 
 	movingFrame := frameSys.Frame(req.ComponentName)
 	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
+		return nil, errtrace.Wrap(fmt.Errorf("component named %s not found in robot frame system", req.ComponentName))
 	}
 
 	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if len(waypoints) == 0 {
-		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
+		return nil, errtrace.Wrap(errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state"))
 	}
 
 	// The contents of waypoints can be gigantic, and if so, making copies of `extra` becomes the majority of motion planning runtime.
@@ -500,7 +501,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			for fName, destination := range wp.Poses() {
 				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				goalPose, _ := tf.(*referenceframe.PoseInFrame)
 				step[fName] = goalPose
@@ -513,14 +514,14 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 
 	obstaclesInWorldFrame, err := req.WorldState.ObstaclesInWorldFrame(frameSys, fsInputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	planRequest := &armplanning.PlanRequest{
@@ -553,7 +554,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
 	}
-	return plan, err
+	return plan, errtrace.Wrap(err)
 }
 
 // planTeleopMulti plans a trajectory for multiple components simultaneously.
@@ -582,7 +583,7 @@ func (ms *builtIn) planTeleopMulti(
 	for fName, destination := range goals {
 		tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, referenceframe.World)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		goalPose, _ := tf.(*referenceframe.PoseInFrame)
 		worldGoals[fName] = goalPose
@@ -593,7 +594,7 @@ func (ms *builtIn) planTeleopMulti(
 
 	planOpts, err := armplanning.NewPlannerOptionsFromExtra(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	planRequest := &armplanning.PlanRequest{
@@ -604,7 +605,7 @@ func (ms *builtIn) planTeleopMulti(
 	}
 
 	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
-	return plan, err
+	return plan, errtrace.Wrap(err)
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
@@ -620,19 +621,19 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 
 				r, ok := ms.components[name]
 				if !ok {
-					return fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
+					return errtrace.Wrap(fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name))
 				}
 				ie, err := utils.AssertType[framesystem.InputEnabled](r)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				curr, err := ie.CurrentInputs(ctx)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				if referenceframe.InputsLinfDistance(curr, inputs) > epsilon {
-					return fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
-						name, epsilon, inputs, curr)
+					return errtrace.Wrap(fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
+						name, epsilon, inputs, curr))
 				}
 				currStep[name] = append(currStep[name], inputs)
 			}
@@ -689,11 +690,11 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			}
 			r, ok := ms.components[name]
 			if !ok {
-				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
+				return errtrace.Wrap(fmt.Errorf("plan had step for resource %s but it was not found in the motion", name))
 			}
 			ie, err := utils.AssertType[framesystem.InputEnabled](r)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
@@ -701,7 +702,7 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 					//nolint:errcheck
 					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -733,13 +734,13 @@ func waypointsFromRequest(
 		if startStateMap, ok := startStateIface.(map[string]interface{}); ok {
 			startState, err = armplanning.DeserializePlanState(startStateMap)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errtrace.Wrap(err)
 			}
 		} else {
-			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
+			return nil, nil, errtrace.Wrap(errors.New("extras start_state could not be interpreted as map[string]interface{}"))
 		}
 		if len(startState.Configuration()) == 0 {
-			return nil, nil, fmt.Errorf("can't specify start_state without joint configuration")
+			return nil, nil, errtrace.Wrap(fmt.Errorf("can't specify start_state without joint configuration"))
 		}
 	} else {
 		startState = armplanning.NewPlanState(nil, fsInputs)
@@ -751,15 +752,15 @@ func waypointsFromRequest(
 				if wpMap, ok := wpIface.(map[string]interface{}); ok {
 					wp, err := armplanning.DeserializePlanState(wpMap)
 					if err != nil {
-						return nil, nil, err
+						return nil, nil, errtrace.Wrap(err)
 					}
 					waypoints = append(waypoints, wp)
 				} else {
-					return nil, nil, errors.New("element in extras waypoints could not be interpreted as map[string]interface{}")
+					return nil, nil, errtrace.Wrap(errors.New("element in extras waypoints could not be interpreted as map[string]interface{}"))
 				}
 			}
 		} else {
-			return nil, nil, errors.New("Invalid 'waypoints' extra type. Expected an array")
+			return nil, nil, errtrace.Wrap(errors.New("Invalid 'waypoints' extra type. Expected an array"))
 		}
 	}
 
@@ -768,11 +769,11 @@ func waypointsFromRequest(
 		if goalStateMap, ok := goalStateIface.(map[string]interface{}); ok {
 			goalState, err := armplanning.DeserializePlanState(goalStateMap)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errtrace.Wrap(err)
 			}
 			waypoints = append(waypoints, goalState)
 		} else {
-			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
+			return nil, nil, errtrace.Wrap(errors.New("extras goal_state could not be interpreted as map[string]interface{}"))
 		}
 	} else if req.Destination != nil {
 		goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName: req.Destination}, nil)
@@ -821,9 +822,9 @@ func (ms *builtIn) writePlanRequest(
 
 	dir := filepath.Dir(fn)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	ms.logger.Infof("writing plan to %s", fn)
-	return req.WriteRequestAndResponseToFile(fn, plan)
+	return errtrace.Wrap(req.WriteRequestAndResponseToFile(fn, plan))
 }

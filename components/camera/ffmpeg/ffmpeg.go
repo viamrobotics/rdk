@@ -15,6 +15,7 @@ import (
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	viamutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -43,9 +44,9 @@ type FilterConfig struct {
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.CameraParameters != nil {
 		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
-			return nil, nil, fmt.Errorf(
+			return nil, nil, errtrace.Wrap(fmt.Errorf(
 				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for ffmpeg camera",
-				cfg.CameraParameters.Width, cfg.CameraParameters.Height)
+				cfg.CameraParameters.Width, cfg.CameraParameters.Height))
 		}
 	}
 	return []string{}, nil, nil
@@ -60,12 +61,12 @@ func init() {
 		) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
 			src, err := NewFFMPEGCamera(ctx, newConf, logger)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			return camera.FromVideoSource(conf.ResourceName(), src), nil
 		},
@@ -94,7 +95,7 @@ func (writer stderrWriter) Write(p []byte) (n int, err error) {
 func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.VideoSource, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// parse attributes into ffmpeg keyword maps
 	outArgs := make(map[string]interface{}, len(conf.OutputKWArgs))
@@ -191,25 +192,25 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 		select {
 		case <-cancelableCtx.Done():
-			return nil, nil, cancelableCtx.Err()
+			return nil, nil, errtrace.Wrap(cancelableCtx.Err())
 		case <-ctx.Done():
-			return nil, nil, ctx.Err()
+			return nil, nil, errtrace.Wrap(ctx.Err())
 		case <-gotFirstFrame:
 		}
 		latest := latestFrame.Load()
 		if latest == nil {
-			return nil, func() {}, errors.New("no frame yet")
+			return nil, func() {}, errtrace.Wrap(errors.New("no frame yet"))
 		}
 		return *latest, func() {}, nil
 	})
 
 	ffCam.VideoReader = reader
-	return camera.NewVideoSourceFromReader(
+	return errtrace.Wrap2(camera.NewVideoSourceFromReader(
 		ctx,
 		ffCam,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: conf.CameraParameters},
 		camera.ColorStream,
-	)
+	))
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

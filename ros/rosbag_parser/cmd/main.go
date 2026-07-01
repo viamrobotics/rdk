@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -40,15 +41,15 @@ func saveImageAsPng(img image.Image, filename string) error {
 	//nolint:gosec
 	f, err := os.Create(path + filename)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	err = png.Encode(f, img)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	err = f.Close()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -58,20 +59,20 @@ func extractPlanes(ctx context.Context, img *rimage.Image, dm *rimage.DepthMap) 
 	// Set camera matrices in image-with-depth
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("ros/data/intel515_parameters.json"))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Get the pointcloud from the image-with-depth
 	pcl, err := camera.RGBDToPointCloud(img, dm)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Extract the planes from the point cloud
 	planeSeg := segmentation.NewPointCloudPlaneSegmentation(pcl, 50, 150000)
 	planes, _, err := planeSeg.FindPlanes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Project the pointcloud planes into an image
@@ -79,13 +80,13 @@ func extractPlanes(ctx context.Context, img *rimage.Image, dm *rimage.DepthMap) 
 	for _, plane := range planes {
 		cloud, err := plane.PointCloud()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		segments = append(segments, cloud)
 	}
 	segImage, err := segmentation.PointCloudSegmentsToMask(camera.ColorCamera, segments)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return segImage, nil
@@ -95,18 +96,18 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	var argsParsed Arguments
 
 	if err := goutils.ParseFlags(args, &argsParsed); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	rb, err := ros.ReadBag(argsParsed.RosbagFile)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	topics := []string{"/L515_ImageWithDepth"}
 	err = ros.WriteTopicsJSON(rb, 0, 0, topics)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var message ros.L515Message
@@ -119,41 +120,41 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 				if errors.Is(err, io.EOF) {
 					break
 				}
-				return err
+				return errtrace.Wrap(err)
 			}
 			err = json.Unmarshal(measurement[:len(measurement)-1], &message)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			// Create & display image
 			img1, _, err := image.Decode(bytes.NewReader(message.ColorData.Data))
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			img2, _, err := image.Decode(bytes.NewReader(message.DepthData.Data))
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			img := rimage.ConvertImage(img1)
 			dm, err := rimage.ConvertImageToDepthMap(context.Background(), img2)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			imgNrgba := rimage.Overlay(img, dm)
 			err = saveImageAsPng(imgNrgba, "img_"+fmt.Sprint(count)+".png")
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			// Apply plane segmentation on image
 			segImg, err := extractPlanes(ctx, img, dm)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			err = saveImageAsPng(segImg, "seg_img_"+fmt.Sprint(count)+".png")
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			count++

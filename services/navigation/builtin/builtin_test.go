@@ -15,6 +15,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
@@ -723,7 +724,7 @@ func TestPaths(t *testing.T) {
 		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
 		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return uuid.Nil, err
+				return uuid.Nil, errtrace.Wrap(err)
 			}
 			s.Lock()
 			defer s.Unlock()
@@ -770,7 +771,7 @@ func TestPaths(t *testing.T) {
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			if err := ctx.Err(); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			s.RLock()
 			defer s.RUnlock()
@@ -784,7 +785,7 @@ func TestPaths(t *testing.T) {
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
 			if err := ctx.Err(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			s.Lock()
 			defer s.Unlock()
@@ -866,7 +867,7 @@ func TestStartWaypoint(t *testing.T) {
 			s.Lock()
 			defer s.Unlock()
 			if err := ctx.Err(); err != nil {
-				return uuid.Nil, err
+				return uuid.Nil, errtrace.Wrap(err)
 			}
 			count := counter.Inc()
 			if count > 1 {
@@ -909,12 +910,12 @@ func TestStartWaypoint(t *testing.T) {
 			s.RLock()
 			defer s.RUnlock()
 			if err := ctx.Err(); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			history := make([]motion.PlanWithStatus, len(s.pws))
 			copy(history, s.pws)
 			if len(history) == 0 {
-				return nil, errors.New("no plan")
+				return nil, errtrace.Wrap(errors.New("no plan"))
 			}
 			return history, nil
 		}
@@ -923,7 +924,7 @@ func TestStartWaypoint(t *testing.T) {
 			s.Lock()
 			defer s.Unlock()
 			if err := ctx.Err(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			if s.sprs == nil {
 				s.sprs = []motion.StopPlanReq{}
@@ -1037,7 +1038,7 @@ func TestStartWaypoint(t *testing.T) {
 		mogCalled := make(chan struct{}, 1)
 		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return uuid.Nil, err
+				return uuid.Nil, errtrace.Wrap(err)
 			}
 
 			s.Lock()
@@ -1053,7 +1054,7 @@ func TestStartWaypoint(t *testing.T) {
 		// PlanHistory always reports execution is in progress
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			if err := ctx.Err(); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			return []motion.PlanWithStatus{
 				{
@@ -1069,7 +1070,7 @@ func TestStartWaypoint(t *testing.T) {
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
 			if err := ctx.Err(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			return nil
 		}
@@ -1145,7 +1146,7 @@ func TestStartWaypoint(t *testing.T) {
 		}
 		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return uuid.Nil, err
+				return uuid.Nil, errtrace.Wrap(err)
 			}
 			s.Lock()
 			defer s.Unlock()
@@ -1160,9 +1161,9 @@ func TestStartWaypoint(t *testing.T) {
 			count := mogCounter.Inc()
 			switch count {
 			case 0:
-				return uuid.Nil, errors.New("motion error")
+				return uuid.Nil, errtrace.Wrap(errors.New("motion error"))
 			case 1:
-				return uuid.Nil, context.Canceled
+				return uuid.Nil, errtrace.Wrap(context.Canceled)
 			case 2, 3, 4:
 				executionID := executionIDs[count-2]
 				s.pws = []motion.PlanWithStatus{
@@ -1192,19 +1193,19 @@ func TestStartWaypoint(t *testing.T) {
 			default:
 				t.Error("unexpected call to MOG")
 				t.Fail()
-				return uuid.Nil, errors.New("unexpected call to MOG")
+				return uuid.Nil, errtrace.Wrap(errors.New("unexpected call to MOG"))
 			}
 		}
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			if err := ctx.Err(); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			switch planHistoryCounter.Inc() {
 			case 1:
-				return nil, errors.New("motion error")
+				return nil, errtrace.Wrap(errors.New("motion error"))
 			case 2:
-				return nil, context.Canceled
+				return nil, errtrace.Wrap(context.Canceled)
 			default:
 				s.RLock()
 				defer s.RUnlock()
@@ -1216,7 +1217,7 @@ func TestStartWaypoint(t *testing.T) {
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
 			if err := ctx.Err(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			s.Lock()
 			defer s.Unlock()
@@ -1301,7 +1302,7 @@ func TestStartWaypoint(t *testing.T) {
 			executionID := uuid.New()
 			s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 				if err := ctx.Err(); err != nil {
-					return uuid.Nil, err
+					return uuid.Nil, errtrace.Wrap(err)
 				}
 				s.Lock()
 				defer s.Unlock()
@@ -1326,7 +1327,7 @@ func TestStartWaypoint(t *testing.T) {
 			modeFlag := make(chan struct{}, 1)
 			s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 				if err := ctx.Err(); err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 				s.RLock()
 				defer s.RUnlock()
@@ -1341,7 +1342,7 @@ func TestStartWaypoint(t *testing.T) {
 
 			s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
 				if err := ctx.Err(); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				s.Lock()
 				defer s.Unlock()
@@ -1413,7 +1414,7 @@ func TestStartWaypoint(t *testing.T) {
 		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
 		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return uuid.Nil, err
+				return uuid.Nil, errtrace.Wrap(err)
 			}
 			executionID := executionIDs[(counter.Inc())]
 			s.Lock()
@@ -1456,7 +1457,7 @@ func TestStartWaypoint(t *testing.T) {
 		defer planHistoryCalledCancelFn()
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			if err := ctx.Err(); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			s.RLock()
 			defer s.RUnlock()
@@ -1468,7 +1469,7 @@ func TestStartWaypoint(t *testing.T) {
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
 			if err := ctx.Err(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			s.Lock()
 			defer s.Unlock()
@@ -1549,7 +1550,7 @@ func TestStartWaypoint(t *testing.T) {
 		// MoveOnGlobe will behave as if it created a new plan & queue up a goroutine which will then behave as if the plan succeeded
 		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			if err := ctx.Err(); err != nil {
-				return uuid.Nil, err
+				return uuid.Nil, errtrace.Wrap(err)
 			}
 			executionID := executionIDs[(counter.Inc())]
 			s.Lock()
@@ -1589,7 +1590,7 @@ func TestStartWaypoint(t *testing.T) {
 
 		s.injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			if err := ctx.Err(); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			s.RLock()
 			defer s.RUnlock()
@@ -1600,7 +1601,7 @@ func TestStartWaypoint(t *testing.T) {
 
 		s.injectMS.StopPlanFunc = func(ctx context.Context, req motion.StopPlanReq) error {
 			if err := ctx.Err(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			s.Lock()
 			defer s.Unlock()
@@ -1898,13 +1899,13 @@ func createFrameSystemService(
 ) (framesystem.Service, error) {
 	fsSvc, err := framesystem.New(ctx, deps, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	conf := resource.Config{
 		ConvertedAttributes: &framesystem.Config{Parts: fsParts},
 	}
 	if err := fsSvc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	deps[fsSvc.Name()] = fsSvc
 

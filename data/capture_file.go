@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 )
 
@@ -81,17 +82,17 @@ type CaptureFile struct {
 // ReadCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
 func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	if !IsDataCaptureFile(f) {
-		return nil, errors.Errorf("%s is not a data capture file", f.Name())
+		return nil, errtrace.Wrap(errors.Errorf("%s is not a data capture file", f.Name()))
 	}
 	finfo, err := f.Stat()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	md := &v1.DataCaptureMetadata{}
 	initOffset, err := pbutil.ReadDelimited(f, md)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read DataCaptureMetadata from %s", f.Name())
+		return nil, errtrace.Wrap(errors.Wrapf(err, "failed to read DataCaptureMetadata from %s", f.Name()))
 	}
 
 	ret := CaptureFile{
@@ -115,13 +116,13 @@ func NewCaptureFile(dir string, md *v1.DataCaptureMetadata) (*CaptureFile, error
 	//nolint:gosec
 	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Then write first metadata message to the file.
 	n, err := pbutil.WriteDelimited(f, md)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &CaptureFile{
 		path:              f.Name(),
@@ -145,16 +146,16 @@ func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 	defer f.lock.Unlock()
 
 	if err := f.writer.Flush(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if _, err := f.file.Seek(f.readOffset, io.SeekStart); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	r := v1.SensorData{}
 	read, err := pbutil.ReadDelimited(f.file, &r)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	f.readOffset += int64(read)
 
@@ -167,11 +168,11 @@ func (f *CaptureFile) WriteNext(data *v1.SensorData) error {
 	defer f.lock.Unlock()
 
 	if _, err := f.file.Seek(f.writeOffset, 0); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	n, err := pbutil.WriteDelimited(f.writer, data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	f.size += int64(n)
 	f.writeOffset += int64(n)
@@ -182,7 +183,7 @@ func (f *CaptureFile) WriteNext(data *v1.SensorData) error {
 func (f *CaptureFile) Flush() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	return f.writer.Flush()
+	return errtrace.Wrap(f.writer.Flush())
 }
 
 // Reset resets the read pointer of f.
@@ -209,16 +210,16 @@ func (f *CaptureFile) Close() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if err := f.writer.Flush(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Rename file to indicate that it is done being written.
 	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
 	newName := withoutExt + CompletedCaptureFileExt
 	if err := f.file.Close(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return os.Rename(f.file.Name(), newName)
+	return errtrace.Wrap(os.Rename(f.file.Name(), newName))
 }
 
 // Delete deletes the file.
@@ -226,9 +227,9 @@ func (f *CaptureFile) Delete() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if err := f.file.Close(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return os.Remove(f.GetPath())
+	return errtrace.Wrap(os.Remove(f.GetPath()))
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
@@ -269,14 +270,14 @@ func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
 	//nolint:gosec
 	f, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	dcFile, err := ReadCaptureFile(f)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return SensorDataFromCaptureFile(dcFile)
+	return errtrace.Wrap2(SensorDataFromCaptureFile(dcFile))
 }
 
 // SensorDataFromCaptureFile returns all readings in f.
@@ -291,7 +292,7 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				break
 			}
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		ret = append(ret, next)
 	}
@@ -323,7 +324,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 	// compute absolute file positions for the SectionReader later.
 	seekOffset := f.readOffset
 	if _, err := f.file.Seek(seekOffset, io.SeekStart); err != nil {
-		return nil, 0, nil, err
+		return nil, 0, nil, errtrace.Wrap(err)
 	}
 
 	// The capture file is a sequence of length-delimited protobuf records. Each record
@@ -332,7 +333,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 	varintCR := &countingByteReader{r: f.file}
 	outerLen, err := binary.ReadUvarint(varintCR)
 	if err != nil {
-		return nil, 0, nil, err // io.EOF means no more messages
+		return nil, 0, nil, errtrace.Wrap(err) // io.EOF means no more messages
 	}
 
 	// msgStart is the absolute file offset of the first byte of the SensorData fields
@@ -361,7 +362,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, 0, nil, fmt.Errorf("reading SensorData field tag: %w", err)
+			return nil, 0, nil, errtrace.Wrap(fmt.Errorf("reading SensorData field tag: %w", err))
 		}
 
 		// Protobuf tag encoding: upper bits are the field number, lower 3 bits are the wire type.
@@ -380,10 +381,10 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			case protowire.Fixed64Type:
 				_, skipErr = io.CopyN(io.Discard, inner, 8)
 			default:
-				return nil, 0, nil, fmt.Errorf("%w: unsupported wire type %d for field %d", ErrUnparsableBinaryCapture, wireType, fieldNum)
+				return nil, 0, nil, errtrace.Wrap(fmt.Errorf("%w: unsupported wire type %d for field %d", ErrUnparsableBinaryCapture, wireType, fieldNum))
 			}
 			if skipErr != nil {
-				return nil, 0, nil, fmt.Errorf("skipping field %d (wire type %d): %w", fieldNum, wireType, skipErr)
+				return nil, 0, nil, errtrace.Wrap(fmt.Errorf("skipping field %d (wire type %d): %w", fieldNum, wireType, skipErr))
 			}
 			continue
 		}
@@ -391,26 +392,26 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 		// For BytesType fields the value is: [fieldLen varint] [fieldLen bytes].
 		fieldLen, err := binary.ReadUvarint(inner)
 		if err != nil {
-			return nil, 0, nil, fmt.Errorf("reading field length for SensorData field %d: %w", fieldNum, err)
+			return nil, 0, nil, errtrace.Wrap(fmt.Errorf("reading field length for SensorData field %d: %w", fieldNum, err))
 		}
 
 		switch fieldNum { //nolint:exhaustive
 		case 1: // SensorMetadata — small proto message, safe to read fully into memory.
 			const maxSensorMetaBytes = 1024 * 1024 // 1 MiB; metadata is always tiny in practice
 			if fieldLen > maxSensorMetaBytes {
-				return nil, 0, nil, fmt.Errorf("%w: %d bytes (limit %d)", ErrSensorMetadataTooLarge, fieldLen, maxSensorMetaBytes)
+				return nil, 0, nil, errtrace.Wrap(fmt.Errorf("%w: %d bytes (limit %d)", ErrSensorMetadataTooLarge, fieldLen, maxSensorMetaBytes))
 			}
 			metaBytes := make([]byte, fieldLen)
 			if _, err := io.ReadFull(inner, metaBytes); err != nil {
-				return nil, 0, nil, fmt.Errorf("reading SensorMetadata bytes: %w", err)
+				return nil, 0, nil, errtrace.Wrap(fmt.Errorf("reading SensorMetadata bytes: %w", err))
 			}
 			sensorMeta = &v1.SensorMetadata{}
 			if err := proto.Unmarshal(metaBytes, sensorMeta); err != nil {
-				return nil, 0, nil, fmt.Errorf("unmarshaling SensorMetadata: %w", err)
+				return nil, 0, nil, errtrace.Wrap(fmt.Errorf("unmarshaling SensorMetadata: %w", err))
 			}
 		case 3: // binary payload (SensorData.binary oneof field)
 			if sensorMeta == nil {
-				return nil, 0, nil, errors.New("binary payload field appeared before SensorMetadata in capture file")
+				return nil, 0, nil, errtrace.Wrap(errors.New("binary payload field appeared before SensorMetadata in capture file"))
 			}
 			// inner.count is the number of bytes consumed from msgStart so far, so
 			// msgStart+inner.count is the absolute file offset where the payload bytes begin.
@@ -419,12 +420,12 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 		default:
 			// Unknown field — skip the value bytes and continue.
 			if _, err := io.CopyN(io.Discard, inner, int64(fieldLen)); err != nil {
-				return nil, 0, nil, fmt.Errorf("skipping SensorData field %d: %w", fieldNum, err)
+				return nil, 0, nil, errtrace.Wrap(fmt.Errorf("skipping SensorData field %d: %w", fieldNum, err))
 			}
 		}
 	}
 
-	return nil, 0, nil, ErrNoBinaryField
+	return nil, 0, nil, errtrace.Wrap(ErrNoBinaryField)
 }
 
 // countingByteReader wraps an io.Reader and tracks the total number of bytes read.
@@ -441,13 +442,13 @@ func (c *countingByteReader) ReadByte() (byte, error) {
 	if n == 1 {
 		return b[0], nil
 	}
-	return 0, err
+	return 0, errtrace.Wrap(err)
 }
 
 func (c *countingByteReader) Read(p []byte) (int, error) {
 	n, err := c.r.Read(p)
 	c.count += int64(n)
-	return n, err
+	return n, errtrace.Wrap(err)
 }
 
 // CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions

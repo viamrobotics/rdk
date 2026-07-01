@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -37,19 +38,19 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if err := addConvertedAttributes(conf); err != nil {
-		return nil, fmt.Errorf("unable to convert attributes when adding resource: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("unable to convert attributes when adding resource: %w", err))
 	}
 
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
-		return nil, fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model)
+		return nil, errtrace.Wrap(fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model))
 	}
 	if resInfo.Constructor == nil {
-		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
+		return nil, errtrace.Wrap(fmt.Errorf("invariant: no constructor for %q", conf.Model))
 	}
 
 	resLogger := m.logger.Sublogger(conf.ResourceName().String())
@@ -66,7 +67,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	err = m.addResource(ctx, req.Dependencies, conf, resLogger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.AddResourceResponse{}, nil
@@ -77,11 +78,11 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	// it is assumed the caller robot has handled model differences
 	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if err := addConvertedAttributes(conf); err != nil {
-		return nil, fmt.Errorf("unable to convert attributes when reconfiguring resource: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("unable to convert attributes when reconfiguring resource: %w", err))
 	}
 
 	m.mu.Lock()
@@ -91,7 +92,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	deps, err := m.getDependenciesForConstruction(ctx, req.Dependencies)
 	m.registerMu.Unlock()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var logLevel *logging.Level
@@ -106,7 +107,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	if _, err = m.rebuildResource(ctx, deps, conf, logLevel, nil); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if errors.Is(ctx.Err(), context.Canceled) {
@@ -125,17 +126,17 @@ func (m *Module) ValidateConfig(ctx context.Context,
 ) (*pb.ValidateConfigResponse, error) {
 	c, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if err := addConvertedAttributes(c); err != nil {
-		return nil, fmt.Errorf("unable to convert attributes for validation: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("unable to convert attributes for validation: %w", err))
 	}
 
 	if c.ConvertedAttributes != nil {
 		implicitRequiredDeps, implicitOptionalDeps, err := c.ConvertedAttributes.Validate(c.Name)
 		if err != nil {
-			return nil, fmt.Errorf("error validating resource: %w", err)
+			return nil, errtrace.Wrap(fmt.Errorf("error validating resource: %w", err))
 		}
 		resp := &pb.ValidateConfigResponse{
 			Dependencies:         implicitRequiredDeps,
@@ -156,12 +157,12 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 
 	name, err := resource.NewFromString(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	err = m.removeResource(ctx, name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.RemoveResourceResponse{}, nil
@@ -172,9 +173,9 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 	// Refresh parent to ensure it has the most up-to-date resources before calling
 	// ResourceByName.
 	if err := m.parent.Refresh(ctx); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return m.parent.ResourceByName(name)
+	return errtrace.Wrap2(m.parent.ResourceByName(name))
 }
 
 // getLocalResource returns a resource from within the module by name. `getLocalResource` must be
@@ -186,7 +187,7 @@ func (m *Module) getLocalResource(_ context.Context, name resource.Name) (resour
 		}
 	}
 
-	return nil, resource.NewNotFoundError(name)
+	return nil, errtrace.Wrap(resource.NewNotFoundError(name))
 }
 
 // addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
@@ -197,7 +198,7 @@ func addConvertedAttributes(cfg *resource.Config) error {
 	if ok && reg.AttributeMapConverter != nil {
 		converted, err := reg.AttributeMapConverter(cfg.Attributes)
 		if err != nil {
-			return fmt.Errorf("error converting attributes for resource: %w", err)
+			return errtrace.Wrap(fmt.Errorf("error converting attributes for resource: %w", err))
 		}
 		cfg.ConvertedAttributes = converted
 	}
@@ -211,7 +212,7 @@ func addConvertedAttributes(cfg *resource.Config) error {
 		if conv.AttributeMapConverter != nil {
 			converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 			if err != nil {
-				return fmt.Errorf("error converting associated resource config attributes: %w", err)
+				return errtrace.Wrap(fmt.Errorf("error converting associated resource config attributes: %w", err))
 			}
 			// associated resource configs for resources might be missing a resource name
 			// which can be inferred from its resource config.
@@ -235,7 +236,7 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
-		return fmt.Errorf("invariant: registration does not exist for %q", api)
+		return errtrace.Wrap(fmt.Errorf("invariant: registration does not exist for %q", api))
 	}
 
 	newColl := apiInfo.MakeEmptyCollection()
@@ -244,17 +245,17 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 	if !ok {
 		return nil
 	}
-	return apiInfo.RegisterRPCService(ctx, m.server, newColl, m.logger)
+	return errtrace.Wrap(apiInfo.RegisterRPCService(ctx, m.server, newColl, m.logger))
 }
 
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, model resource.Model) error {
 	resInfo, ok := resource.LookupRegistration(api, model)
 	if !ok {
-		return fmt.Errorf("resource with API %q and model %q not yet registered", api, model)
+		return errtrace.Wrap(fmt.Errorf("resource with API %q and model %q not yet registered", api, model))
 	}
 	if resInfo.Constructor == nil {
-		return fmt.Errorf("invariant: no constructor for %q", model)
+		return errtrace.Wrap(fmt.Errorf("invariant: no constructor for %q", model))
 	}
 
 	m.registerMu.Lock()
@@ -262,13 +263,13 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 	m.registerMu.Unlock()
 	if !ok {
 		if err := m.addAPIFromRegistry(ctx, api); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
-		return fmt.Errorf("invariant: registration does not exist for %q", api)
+		return errtrace.Wrap(fmt.Errorf("invariant: registration does not exist for %q", api))
 	}
 	if apiInfo.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
@@ -292,7 +293,7 @@ func (m *Module) getDependenciesForConstruction(ctx context.Context, depStrings 
 	for _, c := range depStrings {
 		depName, err := resource.NewFromString(c)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		// If the dependency is local to this module, add the resource object directly, rather than
@@ -306,7 +307,7 @@ func (m *Module) getDependenciesForConstruction(ctx context.Context, depStrings 
 		// Get a viam-server client object that can access the dependency.
 		clientRes, err := m.GetParentResource(ctx, depName)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		deps[depName] = clientRes
 	}
@@ -322,20 +323,20 @@ func (m *Module) addResource(
 	deps, err := m.getDependenciesForConstruction(ctx, depStrings)
 	m.registerMu.Unlock()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
-		return fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model)
+		return errtrace.Wrap(fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model))
 	}
 	if resInfo.Constructor == nil {
-		return fmt.Errorf("invariant: no constructor for %q", conf.Model)
+		return errtrace.Wrap(fmt.Errorf("invariant: no constructor for %q", conf.Model))
 	}
 
 	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// If context has errored, even if construction succeeded we should close the resource and
@@ -346,7 +347,7 @@ func (m *Module) addResource(
 	if ctx.Err() != nil {
 		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource",
 			"err", ctx.Err().Error())
-		return multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
+		return errtrace.Wrap(multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx)))
 	}
 
 	m.registerMu.Lock()
@@ -354,12 +355,12 @@ func (m *Module) addResource(
 
 	coll, ok := m.collections[conf.API]
 	if !ok {
-		return fmt.Errorf("module cannot service api: %s", conf.API)
+		return errtrace.Wrap(fmt.Errorf("module cannot service api: %s", conf.API))
 	}
 
 	// If adding the resource name to the collection fails, close the resource and return an error.
 	if err := coll.Add(conf.ResourceName(), res); err != nil {
-		return multierr.Combine(err, res.Close(ctx))
+		return errtrace.Wrap(multierr.Combine(err, res.Close(ctx)))
 	}
 
 	m.resLoggers[res] = resLogger
@@ -480,13 +481,13 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	coll, ok := m.collections[resName.API]
 	if !ok {
 		m.registerMu.Unlock()
-		return fmt.Errorf("no grpc service for %+v", resName)
+		return errtrace.Wrap(fmt.Errorf("no grpc service for %+v", resName))
 	}
 
 	res, err := coll.Resource(resName.Name)
 	if err != nil {
 		m.registerMu.Unlock()
-		return err
+		return errtrace.Wrap(err)
 	}
 	m.registerMu.Unlock()
 
@@ -518,7 +519,7 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 		}
 	}
 
-	return coll.Remove(resName)
+	return errtrace.Wrap(coll.Remove(resName))
 }
 
 // rebuildResource will rebuild resource and, if successful, return the new resource
@@ -541,13 +542,13 @@ func (m *Module) rebuildResource(
 	coll, ok := m.collections[conf.API]
 	if !ok {
 		m.registerMu.Unlock()
-		return nil, fmt.Errorf("no rpc service for %+v", conf)
+		return nil, errtrace.Wrap(fmt.Errorf("no rpc service for %+v", conf))
 	}
 
 	res, err := coll.Resource(conf.ResourceName().Name)
 	if err != nil {
 		m.registerMu.Unlock()
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	resLogger, hasLogger := m.resLoggers[res]
@@ -566,19 +567,19 @@ func (m *Module) rebuildResource(
 
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
-		return nil, fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model)
+		return nil, errtrace.Wrap(fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model))
 	}
 	if resInfo.Constructor == nil {
-		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
+		return nil, errtrace.Wrap(fmt.Errorf("invariant: no constructor for %q", conf.Model))
 	}
 
 	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if err := coll.ReplaceOne(conf.ResourceName(), newRes); err != nil {
-		return nil, multierr.Combine(err, newRes.Close(ctx))
+		return nil, errtrace.Wrap(multierr.Combine(err, newRes.Close(ctx)))
 	}
 
 	m.registerMu.Lock()

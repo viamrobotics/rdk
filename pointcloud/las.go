@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"image/color"
 
+	"braces.dev/errtrace"
 	"github.com/edaniels/lidario"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
@@ -19,7 +20,7 @@ const pointValueDataTag = "rc|pv"
 func newFromLASFile(fn string, cfg TypeConfig) (PointCloud, error) {
 	lf, err := lidario.NewLasFile(fn, "r")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(lf.Close)
 
@@ -38,7 +39,7 @@ func newFromLASFile(fn string, cfg TypeConfig) (PointCloud, error) {
 	for i := 0; i < lf.Header.NumberPoints; i++ {
 		p, err := lf.LasPoint(i)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		data := p.PointData()
 
@@ -61,20 +62,21 @@ func newFromLASFile(fn string, cfg TypeConfig) (PointCloud, error) {
 		}
 
 		if err := pc.Set(v, dd); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
-	return pc.FinalizeAfterReading()
+	return errtrace.Wrap2(pc.FinalizeAfterReading())
 }
 
 func writeToLASFile(cloud PointCloud, fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
+		err = errtrace.Wrap(err)
 		return
 	}
 	defer func() {
 		cerr := lf.Close()
-		err = multierr.Combine(err, cerr)
+		err = errtrace.Wrap(multierr.Combine(err, cerr))
 	}()
 
 	meta := cloud.MetaData()
@@ -86,6 +88,7 @@ func writeToLASFile(cloud PointCloud, fn string) (err error) {
 	if err = lf.AddHeader(lidario.LasHeader{
 		PointFormatID: byte(pointFormatID),
 	}); err != nil {
+		err = errtrace.Wrap(err)
 		return
 	}
 
@@ -158,14 +161,17 @@ func writeToLASFile(cloud PointCloud, fn string) (err error) {
 			BinaryData:              buf.Bytes(),
 			RecordLengthAfterHeader: buf.Len(),
 		}); err != nil {
+			err = errtrace.Wrap(err)
 			return
 		}
 	}
 	if lastErr != nil {
 		err = lastErr
+		err = errtrace.Wrap(err)
 		return
 	}
 
 	//nolint:nakedret
+	err = errtrace.Wrap(err)
 	return
 }

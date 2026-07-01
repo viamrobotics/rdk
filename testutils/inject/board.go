@@ -6,6 +6,7 @@ import (
 
 	boardpb "go.viam.com/api/component/board/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/resource"
 )
@@ -42,9 +43,9 @@ func (b *Board) Name() resource.Name {
 func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	b.analogByNameCap = []interface{}{name}
 	if b.AnalogByNameFunc == nil {
-		return b.Board.AnalogByName(name)
+		return errtrace.Wrap2(b.Board.AnalogByName(name))
 	}
-	return b.AnalogByNameFunc(name)
+	return errtrace.Wrap2(b.AnalogByNameFunc(name))
 }
 
 // AnalogByNameCap returns the last parameters received by AnalogByName, and then clears them.
@@ -60,9 +61,9 @@ func (b *Board) AnalogByNameCap() []interface{} {
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.digitalInterruptByNameCap = []interface{}{name}
 	if b.DigitalInterruptByNameFunc == nil {
-		return b.Board.DigitalInterruptByName(name)
+		return errtrace.Wrap2(b.Board.DigitalInterruptByName(name))
 	}
-	return b.DigitalInterruptByNameFunc(name)
+	return errtrace.Wrap2(b.DigitalInterruptByNameFunc(name))
 }
 
 // DigitalInterruptByNameCap returns the last parameters received by DigitalInterruptByName, and then clears them.
@@ -78,9 +79,9 @@ func (b *Board) DigitalInterruptByNameCap() []interface{} {
 func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	b.gpioPinByNameCap = []interface{}{name}
 	if b.GPIOPinByNameFunc == nil {
-		return b.Board.GPIOPinByName(name)
+		return errtrace.Wrap2(b.Board.GPIOPinByName(name))
 	}
-	return b.GPIOPinByNameFunc(name)
+	return errtrace.Wrap2(b.GPIOPinByNameFunc(name))
 }
 
 // GPIOPinByNameCap returns the last parameters received by GPIOPinByName, and then clears them.
@@ -98,17 +99,17 @@ func (b *Board) Close(ctx context.Context) error {
 		if b.Board == nil {
 			return nil
 		}
-		return b.Board.Close(ctx)
+		return errtrace.Wrap(b.Board.Close(ctx))
 	}
-	return b.CloseFunc(ctx)
+	return errtrace.Wrap(b.CloseFunc(ctx))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
-		return b.Board.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(b.Board.DoCommand(ctx, cmd))
 	}
-	return b.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(b.DoFunc(ctx, cmd))
 }
 
 // SetPowerMode sets the board to the given power mode. If
@@ -116,9 +117,9 @@ func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 // the specified duration.
 func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration, extra map[string]interface{}) error {
 	if b.SetPowerModeFunc == nil {
-		return b.Board.SetPowerMode(ctx, mode, duration, extra)
+		return errtrace.Wrap(b.Board.SetPowerMode(ctx, mode, duration, extra))
 	}
-	return b.SetPowerModeFunc(ctx, mode, duration, extra)
+	return errtrace.Wrap(b.SetPowerModeFunc(ctx, mode, duration, extra))
 }
 
 // StreamTicks calls the injected StreamTicks or the real version.
@@ -126,18 +127,18 @@ func (b *Board) StreamTicks(ctx context.Context,
 	interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
 ) error {
 	if b.StreamTicksFunc == nil {
-		return b.Board.StreamTicks(ctx, interrupts, ch, extra)
+		return errtrace.Wrap(b.Board.StreamTicks(ctx, interrupts, ch, extra))
 	}
-	return b.StreamTicksFunc(ctx, interrupts, ch, extra)
+	return errtrace.Wrap(b.StreamTicksFunc(ctx, interrupts, ch, extra))
 }
 
 // Status calls the injected Status or the real version.
 func (b *Board) Status(ctx context.Context) (map[string]interface{}, error) {
 	if b.StatusFunc != nil {
-		return b.StatusFunc(ctx)
+		return errtrace.Wrap2(b.StatusFunc(ctx))
 	}
 	if b.Board != nil {
-		return b.Board.Status(ctx)
+		return errtrace.Wrap2(b.Board.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

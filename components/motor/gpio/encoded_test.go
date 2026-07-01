@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
@@ -81,7 +82,7 @@ func injectMotor(vals *injectedState) motor.Motor {
 	m := inject.NewMotor(motorName)
 	m.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		}
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
@@ -117,7 +118,7 @@ func injectMotor(vals *injectedState) motor.Motor {
 	}
 	m.IsMovingFunc = func(ctx context.Context) (bool, error) {
 		on, _, err := m.IsPowered(ctx, nil)
-		return on, err
+		return on, errtrace.Wrap(err)
 	}
 	return m
 }

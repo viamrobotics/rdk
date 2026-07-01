@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"braces.dev/errtrace"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -23,10 +24,10 @@ var (
 // ValidateResourceName validates that the resource follows our naming requirements.
 func ValidateResourceName(name string) error {
 	if len(name) > 60 {
-		return fmt.Errorf("name %q must be 60 characters or fewer", name)
+		return errtrace.Wrap(fmt.Errorf("name %q must be 60 characters or fewer", name))
 	}
 	if !validResourceNameRegex.MatchString(name) {
-		return fmt.Errorf("name %q %s", name, validResourceNameExplanation)
+		return errtrace.Wrap(fmt.Errorf("name %q %s", name, validResourceNameExplanation))
 	}
 	return nil
 }
@@ -36,10 +37,10 @@ func ValidateResourceName(name string) error {
 // accepts valid socket paths.
 func ValidateModuleName(name string) error {
 	if len(name) > 200 {
-		return fmt.Errorf("module name %q must be 200 characters or fewer", name)
+		return errtrace.Wrap(fmt.Errorf("module name %q must be 200 characters or fewer", name))
 	}
 	if !validResourceNameRegex.MatchString(name) {
-		return fmt.Errorf("module name %q %s", name, validResourceNameExplanation)
+		return errtrace.Wrap(fmt.Errorf("module name %q %s", name, validResourceNameExplanation))
 	}
 	return nil
 }
@@ -47,10 +48,10 @@ func ValidateModuleName(name string) error {
 // ValidatePackageName validates that the package follows our naming requirements.
 func ValidatePackageName(name string) error {
 	if len(name) > 200 {
-		return fmt.Errorf("package name %q must be 200 characters or fewer", name)
+		return errtrace.Wrap(fmt.Errorf("package name %q must be 200 characters or fewer", name))
 	}
 	if !validResourceNameRegex.MatchString(name) {
-		return fmt.Errorf("package name %q %s", name, validResourceNameExplanation)
+		return errtrace.Wrap(fmt.Errorf("package name %q %s", name, validResourceNameExplanation))
 	}
 	return nil
 }
@@ -58,7 +59,7 @@ func ValidatePackageName(name string) error {
 // ValidateRemoteName validates that the remote follows our naming requirements.
 func ValidateRemoteName(name string) error {
 	// same as resource name validation for now
-	return ValidateResourceName(name)
+	return errtrace.Wrap(ValidateResourceName(name))
 }
 
 // A TypedName stores both the name and type of the variable.

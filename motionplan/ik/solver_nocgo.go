@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/logging"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -20,7 +21,7 @@ func CreateNloptSolver(
 	exact, useRelTol bool,
 	maxTime time.Duration,
 ) (*NloptIK, error) {
-	return nil, errors.New("nlopt is not supported on this build")
+	return nil, errtrace.Wrap(errors.New("nlopt is not supported on this build"))
 }
 
 // NloptIK mimics the type in the cgo compiled code.
@@ -35,7 +36,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	minFunc CostFunc,
 	rseed int,
 ) (int, []SeedSolveMetaData, error) {
-	return 0, nil, errors.New("Cannot solve without cgo")
+	return 0, nil, errtrace.Wrap(errors.New("Cannot solve without cgo"))
 }
 
 // DoF returns nil. The solver isn't real.

@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
@@ -138,7 +139,7 @@ func (i *imageWithDepth) CropToDepthData() (*imageWithDepth, error) {
 	}
 
 	if maxY <= minY {
-		return nil, errors.Errorf("invalid depth data: %v %v", minY, maxY)
+		return nil, errtrace.Wrap(errors.Errorf("invalid depth data: %v %v", minY, maxY))
 	}
 
 	for minX = 0; minX < i.Width(); minX++ {
@@ -187,18 +188,18 @@ func (i *imageWithDepth) Overlay() *image.NRGBA {
 func newImageWithDepth(ctx context.Context, colorFN, depthFN string, isAligned bool) (*imageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "cannot read color file (%s)", colorFN))
 	}
 
 	dm, err := NewDepthMapFromFile(ctx, depthFN)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
+		return nil, errtrace.Wrap(errors.Wrapf(err, "cannot read depth file (%s)", depthFN))
 	}
 
 	if isAligned {
 		if img.Width() != dm.Width() || img.Height() != dm.Height() {
-			return nil, errors.Errorf("color and depth size doesn't match %d,%d vs %d,%d",
-				img.Width(), img.Height(), dm.Width(), dm.Height())
+			return nil, errtrace.Wrap(errors.Errorf("color and depth size doesn't match %d,%d vs %d,%d",
+				img.Width(), img.Height(), dm.Width(), dm.Height()))
 		}
 	}
 
@@ -237,15 +238,15 @@ func cloneToImageWithDepth(img image.Image) *imageWithDepth {
 // and depth into the given buffer.
 func (i *imageWithDepth) RawBytesWrite(buf *bytes.Buffer) error {
 	if i.Color == nil || i.Depth == nil {
-		return errors.New("for raw bytes need depth and color info")
+		return errtrace.Wrap(errors.New("for raw bytes need depth and color info"))
 	}
 
 	if i.Color.Width() != i.Depth.Width() {
-		return errors.New("widths don't match")
+		return errtrace.Wrap(errors.New("widths don't match"))
 	}
 
 	if i.Color.Height() != i.Depth.Height() {
-		return errors.New("heights don't match")
+		return errtrace.Wrap(errors.New("heights don't match"))
 	}
 
 	buf.Write(utils.RawBytesFromSlice(i.Depth.data))

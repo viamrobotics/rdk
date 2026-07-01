@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	shelltestutils "go.viam.com/rdk/services/shell/testutils"
 )
 
@@ -307,7 +308,7 @@ func TestRecoverSendErr(t *testing.T) {
 		recvCalled := false
 		got := recoverSendErr(realErr, func() error {
 			recvCalled = true
-			return errors.New("should not be used")
+			return errtrace.Wrap(errors.New("should not be used"))
 		})
 		test.That(t, got, test.ShouldEqual, realErr)
 		test.That(t, recvCalled, test.ShouldBeFalse)
@@ -315,7 +316,7 @@ func TestRecoverSendErr(t *testing.T) {
 
 	t.Run("masked closed-pipe send error is replaced by the real status from recv", func(t *testing.T) {
 		got := recoverSendErr(io.ErrClosedPipe, func() error {
-			return realErr
+			return errtrace.Wrap(realErr)
 		})
 		test.That(t, got, test.ShouldEqual, realErr)
 	})
@@ -323,7 +324,7 @@ func TestRecoverSendErr(t *testing.T) {
 	t.Run("closed-pipe is kept when recv yields nothing more useful", func(t *testing.T) {
 		for _, recvErr := range []error{nil, io.EOF, io.ErrClosedPipe} {
 			got := recoverSendErr(io.ErrClosedPipe, func() error {
-				return recvErr
+				return errtrace.Wrap(recvErr)
 			})
 			test.That(t, got, test.ShouldEqual, io.ErrClosedPipe)
 		}
@@ -347,7 +348,7 @@ func (mem *inMemoryRPCCopyWriter) WaitLastACK() error {
 }
 
 func (mem *inMemoryRPCCopyWriter) recoverSendErr(sendErr error) error {
-	return sendErr
+	return errtrace.Wrap(sendErr)
 }
 
 func (mem *inMemoryRPCCopyWriter) Close() error {
@@ -363,7 +364,7 @@ type inMemoryRPCCopyReader struct {
 
 func (mem *inMemoryRPCCopyReader) NextFileData() (*pb.FileData, error) {
 	if len(mem.fileDatas) == 0 {
-		return nil, io.EOF
+		return nil, errtrace.Wrap(io.EOF)
 	}
 	next := mem.fileDatas[0]
 	mem.fileDatas = mem.fileDatas[1:]
@@ -395,14 +396,14 @@ func (mem *inMemoryFileCopier) Copy(ctx context.Context, file File) error {
 	var buf bytes.Buffer
 	n, err := io.Copy(&buf, file.Data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	info, err := file.Data.Stat()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if info.Size() != n {
-		return fmt.Errorf("size mismatch %d!=%d (read)", info.Size(), n)
+		return errtrace.Wrap(fmt.Errorf("size mismatch %d!=%d (read)", info.Size(), n))
 	}
 	mem.files[file.RelativeName] = copiedFile{
 		name:  file.RelativeName,

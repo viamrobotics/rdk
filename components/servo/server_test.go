@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -32,7 +33,7 @@ func newServer(logger logging.Logger) (pb.ServoServiceServer, *inject.Servo, *in
 	}
 	injectSvc, err := resource.NewAPIResourceCollection(servo.API, resourceMap)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return servo.NewRPCServiceServer(injectSvc, logger).(pb.ServoServiceServer), injectServo, injectServo2, nil
 }
@@ -48,7 +49,7 @@ func TestServoMove(t *testing.T) {
 		return nil
 	}
 	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
-		return errMoveFailed
+		return errtrace.Wrap(errMoveFailed)
 	}
 
 	extra := map[string]interface{}{"foo": "Move"}
@@ -83,7 +84,7 @@ func TestServoGetPosition(t *testing.T) {
 		return 20, nil
 	}
 	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-		return 0, errPositionUnreadable
+		return 0, errtrace.Wrap(errPositionUnreadable)
 	}
 
 	extra := map[string]interface{}{"foo": "Move"}
@@ -118,7 +119,7 @@ func TestServoStop(t *testing.T) {
 		return nil
 	}
 	failingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopFailed
+		return errtrace.Wrap(errStopFailed)
 	}
 
 	extra := map[string]interface{}{"foo": "Move"}
@@ -161,7 +162,7 @@ func TestServoGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	workingServo.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = servoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testServoName})
 	test.That(t, err, test.ShouldNotBeNil)

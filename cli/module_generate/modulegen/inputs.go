@@ -2,6 +2,7 @@
 package modulegen
 
 import (
+	"braces.dev/errtrace"
 	"errors"
 	"fmt"
 	"strings"
@@ -124,13 +125,13 @@ func (inputs *ModuleInputs) CheckResourceAndSetType() error {
 		return nil
 	}
 	if inputs.ResourceSubtype == "generic" {
-		return errors.New(
-			"resource subtype 'generic' cannot be differentiated; please specify either 'generic-service' or 'generic-component'")
+		return errtrace.Wrap(errors.New(
+			"resource subtype 'generic' cannot be differentiated; please specify either 'generic-service' or 'generic-component'"))
 	}
 	for _, resource := range Resources {
 		splitResource := strings.Split(resource, " ")
 		if len(splitResource) != 2 {
-			return errors.New("resource not formatted correctly in code base; this shouldn't happen. please consider filing a ticket")
+			return errtrace.Wrap(errors.New("resource not formatted correctly in code base; this shouldn't happen. please consider filing a ticket"))
 		}
 		subtype := splitResource[0]
 		// make sure we support subtypes that are passed with different spacers (e.g.,
@@ -150,5 +151,5 @@ func (inputs *ModuleInputs) CheckResourceAndSetType() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("given resource subtype '%s' does not exist", inputs.ResourceSubtype)
+	return errtrace.Wrap(fmt.Errorf("given resource subtype '%s' does not exist", inputs.ResourceSubtype))
 }

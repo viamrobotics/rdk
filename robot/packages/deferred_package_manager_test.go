@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	putils "go.viam.com/rdk/robot/packages/testutils"
@@ -56,7 +57,7 @@ func TestDeferredPackageManager(t *testing.T) {
 			ctx,
 			func(c context.Context) (pb.PackageServiceClient, error) {
 				v := <-mockChan
-				return v.client, v.err
+				return v.client, errtrace.Wrap(v.err)
 			},
 			cloudConfig,
 			packagesDir,

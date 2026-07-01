@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -24,7 +25,7 @@ func init() {
 			conf resource.Config,
 			logger logging.Logger,
 		) (encoder.Encoder, error) {
-			return NewEncoder(ctx, conf, logger)
+			return errtrace.Wrap2(NewEncoder(ctx, conf, logger))
 		},
 	})
 }
@@ -43,7 +44,7 @@ func NewEncoder(
 	}
 	newConf, err := resource.NativeConfig[*Config](cfg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	e.mu.Lock()
 	e.updateRate = newConf.UpdateRate
@@ -90,7 +91,7 @@ func (e *fakeEncoder) Position(
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
 	if positionType == encoder.PositionTypeDegrees {
-		return math.NaN(), encoder.PositionTypeUnspecified, encoder.NewPositionTypeUnsupportedError(positionType)
+		return math.NaN(), encoder.PositionTypeUnspecified, errtrace.Wrap(encoder.NewPositionTypeUnsupportedError(positionType))
 	}
 	e.mu.RLock()
 	defer e.mu.RUnlock()

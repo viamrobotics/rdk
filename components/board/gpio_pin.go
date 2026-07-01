@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -112,14 +113,14 @@ type GPIOPin interface {
 // the preferred duty cycle value if it is, and an error if it is not.
 func ValidatePWMDutyCycle(dutyCyclePct float64) (float64, error) {
 	if dutyCyclePct < 0.0 {
-		return 0.0, errors.New("cannot set negative duty cycle")
+		return 0.0, errtrace.Wrap(errors.New("cannot set negative duty cycle"))
 	}
 	if dutyCyclePct > 1.0 {
 		if dutyCyclePct < 1.01 {
 			// Someone was probably setting it to 1 and had a roundoff error.
 			return 1.0, nil
 		}
-		return 0.0, fmt.Errorf("cannot set duty cycle to %f: range is 0.0 to 1.0", dutyCyclePct)
+		return 0.0, errtrace.Wrap(fmt.Errorf("cannot set duty cycle to %f: range is 0.0 to 1.0", dutyCyclePct))
 	}
 	return dutyCyclePct, nil
 }

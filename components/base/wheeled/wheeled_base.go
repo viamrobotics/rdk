@@ -41,6 +41,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -67,24 +68,24 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if cfg.WidthMM == 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "width_mm")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "width_mm"))
 	}
 
 	if cfg.WheelCircumferenceMM == 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm"))
 	}
 
 	if len(cfg.Left) == 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "left")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "left"))
 	}
 	if len(cfg.Right) == 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "right")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "right"))
 	}
 
 	if len(cfg.Left) != len(cfg.Right) {
-		return nil, nil, resource.NewConfigValidationError(path,
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path,
 			fmt.Errorf("left and right need to have the same number of motors, not %d vs %d",
-				len(cfg.Left), len(cfg.Right)))
+				len(cfg.Left), len(cfg.Right))))
 	}
 
 	deps = append(deps, cfg.Left...)
@@ -124,7 +125,7 @@ func (wb *wheeledBase) reconfigure(ctx context.Context, deps resource.Dependenci
 	if conf.Frame != nil {
 		frame, err := conf.Frame.ParseConfig()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if geom := frame.Geometry(); geom != nil {
 			wb.geometries = append(wb.geometries, geom)
@@ -133,7 +134,7 @@ func (wb *wheeledBase) reconfigure(ctx context.Context, deps resource.Dependenci
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if newConf.SpinSlipFactor == 0 {
@@ -148,12 +149,12 @@ func (wb *wheeledBase) reconfigure(ctx context.Context, deps resource.Dependenci
 			for _, name := range fromConfig {
 				select {
 				case <-ctx.Done():
-					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger)
+					return newMotors, errtrace.Wrap(rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger))
 				default:
 				}
 				m, err := motor.FromProvider(deps, name)
 				if err != nil {
-					return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
+					return newMotors, errtrace.Wrap(errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name))
 				}
 				newMotors = append(newMotors, m)
 			}
@@ -162,14 +163,14 @@ func (wb *wheeledBase) reconfigure(ctx context.Context, deps resource.Dependenci
 			for i := range curr {
 				select {
 				case <-ctx.Done():
-					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger)
+					return newMotors, errtrace.Wrap(rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger))
 				default:
 				}
 				if (curr)[i].Name().String() != (fromConfig)[i] {
 					for _, name := range fromConfig {
 						m, err := motor.FromProvider(deps, name)
 						if err != nil {
-							return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
+							return newMotors, errtrace.Wrap(errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name))
 						}
 						newMotors = append(newMotors, m)
 					}
@@ -183,12 +184,12 @@ func (wb *wheeledBase) reconfigure(ctx context.Context, deps resource.Dependenci
 	left, err := updateMotors(wb.left, newConf.Left, "left")
 	wb.left = left
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	right, err := updateMotors(wb.right, newConf.Right, "right")
 	wb.right = right
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	wb.allMotors = append(wb.allMotors, wb.left...)
@@ -214,7 +215,7 @@ func createWheeledBase(
 ) (base.Base, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	wb := wheeledBase{
@@ -228,7 +229,7 @@ func createWheeledBase(
 	}
 
 	if err := wb.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &wb, nil
@@ -241,22 +242,22 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 	wb.logger.CDebugf(ctx, "received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	if math.Abs(angleDeg) < 0.0001 {
-		return fmt.Errorf("cannot move base %v for an angle that is nearly 0", wb.Name().ShortName())
+		return errtrace.Wrap(fmt.Errorf("cannot move base %v for an angle that is nearly 0", wb.Name().ShortName()))
 	}
 
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := wb.Stop(ctx, nil)
 		if err != nil {
-			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
+			return errtrace.Wrap(errors.Errorf("error when trying to spin at a speed of 0: %v", err))
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Spin math
 	rpm, revolutions := wb.spinMath(angleDeg, degsPerSec)
 
-	return wb.runAllGoFor(ctx, -rpm, revolutions, rpm, revolutions)
+	return errtrace.Wrap(wb.runAllGoFor(ctx, -rpm, revolutions, rpm, revolutions))
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
@@ -267,9 +268,9 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
 		err := wb.Stop(ctx, nil)
 		if err != nil {
-			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
+			return errtrace.Wrap(errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err))
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Straight math
@@ -278,7 +279,7 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	// start new operation after all calculations are made
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
-	return wb.runAllGoFor(ctx, rpm, rotations, rpm, rotations)
+	return errtrace.Wrap(wb.runAllGoFor(ctx, rpm, rotations, rpm, rotations))
 }
 
 // runAllGoFor executes `motor.GoFor` commands in parallel for left and right motors,
@@ -297,12 +298,12 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 		defer wb.mu.Unlock()
 		for _, m := range wb.left {
 			motor := m
-			ret = append(ret, func(ctx context.Context) error { return motor.GoFor(ctx, leftRPM, leftRotations, nil) })
+			ret = append(ret, func(ctx context.Context) error { return errtrace.Wrap(motor.GoFor(ctx, leftRPM, leftRotations, nil)) })
 		}
 
 		for _, m := range wb.right {
 			motor := m
-			ret = append(ret, func(ctx context.Context) error { return motor.GoFor(ctx, rightRPM, rightRotations, nil) })
+			ret = append(ret, func(ctx context.Context) error { return errtrace.Wrap(motor.GoFor(ctx, rightRPM, rightRotations, nil)) })
 		}
 		return ret
 	}()
@@ -311,7 +312,7 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 		err := multierr.Combine(err, wb.Stop(ctx, nil))
 		// Ignore the context canceled error - this occurs when the base is stopped by the user.
 		if !errors.Is(err, context.Canceled) {
-			return err
+			return errtrace.Wrap(err)
 		}
 		// Log the context canceled error as a warning.
 		// This can happen when the UI is closed or something went wrong during the operation.
@@ -342,13 +343,13 @@ func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float
 		for _, m := range wb.left {
 			// create a new motor variable, otherwise SetRPM is always executed on the first motor in wb.left
 			motor := m
-			ret = append(ret, func(ctx context.Context) error { return motor.SetRPM(ctx, leftRPM, nil) })
+			ret = append(ret, func(ctx context.Context) error { return errtrace.Wrap(motor.SetRPM(ctx, leftRPM, nil)) })
 		}
 
 		for _, m := range wb.right {
 			// create a new motor variable, otherwise SetRPM is always executed on the first motor in wb.right
 			motor := m
-			ret = append(ret, func(ctx context.Context) error { return motor.SetRPM(ctx, rightRPM, nil) })
+			ret = append(ret, func(ctx context.Context) error { return errtrace.Wrap(motor.SetRPM(ctx, rightRPM, nil)) })
 		}
 		return ret
 	}()
@@ -357,7 +358,7 @@ func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float
 		err := multierr.Combine(err, wb.Stop(ctx, nil))
 		// Ignore the context canceled error - this occurs when the base is stopped by the user.
 		if !errors.Is(err, context.Canceled) {
-			return err
+			return errtrace.Wrap(err)
 		}
 		// Log the context canceled error as a warning.
 		// This can happen when the UI is closed or something went wrong during the operation.
@@ -416,7 +417,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	// and interpret that as a signal to stop the base
 	if linear.Norm() == 0 && angular.Norm() == 0 {
 		wb.logger.CDebug(ctx, "received a SetVelocity command of linear 0,0,0, and angular 0,0,0, stopping base")
-		return wb.Stop(ctx, nil)
+		return errtrace.Wrap(wb.Stop(ctx, nil))
 	}
 
 	leftRPM, rightRPM := wb.velocityMath(linear.Y, angular.Z)
@@ -424,7 +425,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	// start new operation after all calculations are made
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
-	return wb.runAllSetRPM(ctx, leftRPM, rightRPM)
+	return errtrace.Wrap(wb.runAllSetRPM(ctx, leftRPM, rightRPM))
 }
 
 // SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
@@ -440,7 +441,7 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 	// and interpret that as a signal to stop the base
 	if linear.Norm() == 0 && angular.Norm() == 0 {
 		wb.logger.CDebug(ctx, "received a SetPower command of linear 0,0,0, and angular 0,0,0, stopping base")
-		return wb.Stop(ctx, nil)
+		return errtrace.Wrap(wb.Stop(ctx, nil))
 	}
 
 	lPower, rPower := wb.differentialDrive(linear.Y, angular.Z)
@@ -453,18 +454,18 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 		defer wb.mu.Unlock()
 		for _, m := range wb.left {
 			motor := m
-			ret = append(ret, func(ctx context.Context) error { return motor.SetPower(ctx, lPower, extra) })
+			ret = append(ret, func(ctx context.Context) error { return errtrace.Wrap(motor.SetPower(ctx, lPower, extra)) })
 		}
 
 		for _, m := range wb.right {
 			motor := m
-			ret = append(ret, func(ctx context.Context) error { return motor.SetPower(ctx, rPower, extra) })
+			ret = append(ret, func(ctx context.Context) error { return errtrace.Wrap(motor.SetPower(ctx, rPower, extra)) })
 		}
 		return ret
 	}()
 
 	if _, err := rdkutils.RunInParallel(ctx, setPowerFuncs); err != nil {
-		return multierr.Combine(err, wb.Stop(ctx, nil))
+		return errtrace.Wrap(multierr.Combine(err, wb.Stop(ctx, nil)))
 	}
 	return nil
 }
@@ -520,18 +521,18 @@ func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) e
 		defer wb.mu.Unlock()
 		for _, m := range wb.left {
 			motor := m
-			ret = append(ret, func(ctx context.Context) error { return motor.Stop(ctx, extra) })
+			ret = append(ret, func(ctx context.Context) error { return errtrace.Wrap(motor.Stop(ctx, extra)) })
 		}
 
 		for _, m := range wb.right {
 			motor := m
-			ret = append(ret, func(ctx context.Context) error { return motor.Stop(ctx, extra) })
+			ret = append(ret, func(ctx context.Context) error { return errtrace.Wrap(motor.Stop(ctx, extra)) })
 		}
 		return ret
 	}()
 
 	if _, err := rdkutils.RunInParallel(ctx, stopFuncs); err != nil {
-		return multierr.Combine(err)
+		return errtrace.Wrap(multierr.Combine(err))
 	}
 	return nil
 }
@@ -540,10 +541,10 @@ func (wb *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 	for _, m := range wb.allMotors {
 		isMoving, _, err := m.IsPowered(ctx, nil)
 		if err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 		if isMoving {
-			return true, err
+			return true, errtrace.Wrap(err)
 		}
 	}
 	return false, nil
@@ -551,7 +552,7 @@ func (wb *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 
 // Close is called from the client to close the instance of the wheeledBase.
 func (wb *wheeledBase) Close(ctx context.Context) error {
-	return wb.Stop(ctx, nil)
+	return errtrace.Wrap(wb.Stop(ctx, nil))
 }
 
 func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {

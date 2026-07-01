@@ -1,6 +1,6 @@
 // Package mpserver is a webserver for diagnosing motion plans.
 //
-//nolint // This is a self-contained program. Most lint errors do not help find bugs.
+// nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (
@@ -22,6 +22,7 @@ import (
 	"github.com/golang/geo/r3"
 	viz "github.com/viam-labs/motion-tools/client/client"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -697,7 +698,7 @@ func stringsToLinearInputs(data map[string][]string) (*referenceframe.LinearInpu
 		for idx, s := range strs {
 			v, err := strconv.ParseFloat(s, 64)
 			if err != nil {
-				return nil, fmt.Errorf("frame %s index %d: %w", frameName, idx, err)
+				return nil, errtrace.Wrap(fmt.Errorf("frame %s index %d: %w", frameName, idx, err))
 			}
 			floats[idx] = v
 		}
@@ -727,18 +728,18 @@ func findPlanFiles(root string) ([]string, error) {
 	var files []string
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if !entry.IsDir() && filepath.Ext(path) == ".json" {
 			rel, err := filepath.Rel(rdkRoot, path)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			files = append(files, rel)
 		}
 		return nil
 	})
-	return files, err
+	return files, errtrace.Wrap(err)
 }
 
 func buildFrameInfo(fs *referenceframe.FrameSystem) []frameInfo {
@@ -811,37 +812,37 @@ func componentsToSpatialPose(pc poseComponents) (spatialmath.Pose, error) {
 	parse := func(label, s string) (float64, error) {
 		v, err := strconv.ParseFloat(s, 64)
 		if err != nil {
-			return 0, fmt.Errorf("parsing %s: %w", label, err)
+			return 0, errtrace.Wrap(fmt.Errorf("parsing %s: %w", label, err))
 		}
 		return v, nil
 	}
 	x, err := parse("x", pc.X)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	y, err := parse("y", pc.Y)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	z, err := parse("z", pc.Z)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	w, err := parse("w", pc.W)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	qi, err := parse("i", pc.I)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	qj, err := parse("j", pc.J)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	qk, err := parse("k", pc.K)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return spatialmath.NewPose(r3.Vector{X: x, Y: y, Z: z}, &spatialmath.Quaternion{Real: w, Imag: qi, Jmag: qj, Kmag: qk}), nil
 }
@@ -850,11 +851,11 @@ func componentsToSpatialPose(pc poseComponents) (spatialmath.Pose, error) {
 // world frame and encoded as poseComponents (string-valued scalars).
 func computeGoalPoseMap(req *armplanning.PlanRequest, goalIdx int) (map[string]poseComponents, error) {
 	if goalIdx < 0 || goalIdx >= len(req.Goals) {
-		return nil, fmt.Errorf("goal index %d out of range (have %d goals)", goalIdx, len(req.Goals))
+		return nil, errtrace.Wrap(fmt.Errorf("goal index %d out of range (have %d goals)", goalIdx, len(req.Goals)))
 	}
 	poses, err := req.Goals[goalIdx].ComputePoses(context.Background(), req.FrameSystem)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	result := make(map[string]poseComponents, len(poses))
 	for frameName, poseValue := range poses {
@@ -911,7 +912,7 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 	for _, goalPlanState := range req.Goals {
 		poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		for _, poseValue := range poses {
 			poseInWorldFrame := poseValue.Transform(
@@ -921,26 +922,26 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 			goalPoses = append(goalPoses, poseInWorldFrame.Pose())
 		}
 	}
-	return viz.DrawPoses(goalPoses, []string{"blue"}, true)
+	return errtrace.Wrap(viz.DrawPoses(goalPoses, []string{"blue"}, true))
 }
 
 func renderState(relPath string) error {
 	req, err := armplanning.ReadRequestFromFile(filepath.Join(rdkRoot, relPath))
 	if err != nil {
-		return fmt.Errorf("reading plan file: %w", err)
+		return errtrace.Wrap(fmt.Errorf("reading plan file: %w", err))
 	}
 	startInputs := req.StartState.Configuration()
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
-		return fmt.Errorf("clearing visualizer: %w", err)
+		return errtrace.Wrap(fmt.Errorf("clearing visualizer: %w", err))
 	}
 	if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, startInputs); err != nil {
-		return fmt.Errorf("drawing world state: %w", err)
+		return errtrace.Wrap(fmt.Errorf("drawing world state: %w", err))
 	}
 	if err := viz.DrawFrameSystem(req.FrameSystem, startInputs); err != nil {
-		return fmt.Errorf("drawing frame system: %w", err)
+		return errtrace.Wrap(fmt.Errorf("drawing frame system: %w", err))
 	}
 	if err := drawGoalPoses(req); err != nil {
-		return fmt.Errorf("drawing goal poses: %w", err)
+		return errtrace.Wrap(fmt.Errorf("drawing goal poses: %w", err))
 	}
 	return nil
 }
@@ -950,16 +951,16 @@ func renderState(relPath string) error {
 func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest, steps []*referenceframe.LinearInputs) error {
 	startInputs := req.StartState.Configuration()
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, startInputs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := viz.DrawFrameSystem(req.FrameSystem, startInputs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := drawGoalPoses(req); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	for idx, step := range steps {
 		if ctx.Err() != nil {
@@ -973,20 +974,20 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 					FS:                 req.FrameSystem,
 				}, 2)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			for _, mp := range midPoints {
 				if ctx.Err() != nil {
 					return nil
 				}
 				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				time.Sleep(renderFramePeriod)
 			}
 		}
 		if err := viz.DrawFrameSystem(req.FrameSystem, step.ToFrameSystemInputs()); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		time.Sleep(renderFramePeriod)
 	}
@@ -1375,7 +1376,7 @@ func interpolateShadows(
 			frame := fs.Frame(frameName)
 			interp, err := frame.Interpolate(startConfig, endConfig, t)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			cfg.Put(frameName, interp)
 		}
@@ -1413,7 +1414,7 @@ func drawShadows(ctx context.Context, fs *referenceframe.FrameSystem, configs []
 		}
 		gifs, err := referenceframe.FrameSystemGeometries(fs, cfg.ToFrameSystemInputs())
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		shadowColor := shadowColors[idx%len(shadowColors)]
 		for frameName, gif := range gifs {
@@ -1432,7 +1433,7 @@ func drawShadows(ctx context.Context, fs *referenceframe.FrameSystem, configs []
 				colors[i] = shadowColor
 			}
 			if err := viz.DrawGeometries(shadowGIF, colors); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 		time.Sleep(shadowFramePeriod)
@@ -1514,5 +1515,5 @@ func RunServer() error {
 	addr := "localhost:8080"
 	logger.Infof("listening on http://%s", addr)
 	//nolint
-	return http.ListenAndServe(addr, nil)
+	return errtrace.Wrap(http.ListenAndServe(addr, nil))
 }

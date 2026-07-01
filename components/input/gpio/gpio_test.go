@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
@@ -73,7 +74,7 @@ func setup(t *testing.T) *setupResult {
 		} else if name == "interrupt2" {
 			return s.interrupt2, nil
 		}
-		return nil, fmt.Errorf("unknown digital interrupt: %s", name)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown digital interrupt: %s", name))
 	}
 	b.StreamTicksFunc = func(
 		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
@@ -135,7 +136,7 @@ func setup(t *testing.T) *setupResult {
 		case "analog3":
 			return s.analog3, nil
 		default:
-			return nil, fmt.Errorf("unknown analog: %s", name)
+			return nil, errtrace.Wrap(fmt.Errorf("unknown analog: %s", name))
 		}
 	}
 

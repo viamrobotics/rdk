@@ -10,6 +10,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
@@ -75,11 +76,11 @@ func getNormalizationMatrix(pts *mat.Dense) *mat.Dense {
 func SelectFourPointPairs(p1, p2 []r2.Point) ([]r2.Point, []r2.Point, error) {
 	if len(p1) != len(p2) {
 		err := errors.New("p1 and p2 should have the same length")
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	indices, err := utils.SelectNIndicesWithoutReplacement(4, len(p1))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// create 2 4-point-slices of selected indices

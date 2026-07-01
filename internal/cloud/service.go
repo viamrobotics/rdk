@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -79,7 +80,7 @@ type cloudManagedService struct {
 // This means that if `Close` has been called on the `cloudManagedService`, `AcquireConnection` can still return an open connection.
 func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
 	if cm.conn == nil {
-		return "", nil, ErrNotCloudManaged
+		return "", nil, errtrace.Wrap(ErrNotCloudManaged)
 	}
 
 	return cm.cloudCfg.ID, cm.conn, nil
@@ -91,10 +92,10 @@ func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
 	cm.dialerMu.RLock()
 	defer cm.dialerMu.RUnlock()
 	if !cm.managed {
-		return "", nil, ErrNotCloudManaged
+		return "", nil, errtrace.Wrap(ErrNotCloudManaged)
 	}
 	if cm.dialer == nil {
-		return "", nil, errors.New("service closed")
+		return "", nil, errtrace.Wrap(errors.New("service closed"))
 	}
 
 	ctx = rpc.ContextWithDialer(ctx, cm.dialer)
@@ -107,7 +108,7 @@ func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
 	timeOutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	conn, err := config.CreateNewGRPCClientWithAPIKey(timeOutCtx, &cm.cloudCfg, apiKey, apiKeyID, cm.logger)
-	return cm.cloudCfg.ID, conn, err
+	return cm.cloudCfg.ID, conn, errtrace.Wrap(err)
 }
 
 func (cm *cloudManagedService) Close(ctx context.Context) error {

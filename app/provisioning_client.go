@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	pb "go.viam.com/api/provisioning/v1"
 	"go.viam.com/utils/rpc"
 )
@@ -54,7 +55,7 @@ func newProvisioningClient(conn rpc.ClientConn) *ProvisioningClient {
 func (c *ProvisioningClient) GetSmartMachineStatus(ctx context.Context) (*GetSmartMachineStatusResponse, error) {
 	resp, err := c.client.GetSmartMachineStatus(ctx, &pb.GetSmartMachineStatusRequest{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return getSmartMachineStatusResponseFromProto(resp), nil
 }
@@ -66,7 +67,7 @@ func (c *ProvisioningClient) SetNetworkCredentials(ctx context.Context, credenti
 		Ssid: ssid,
 		Psk:  psk,
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // SetSmartMachineCredentials sets the smart machine credentials.
@@ -74,14 +75,14 @@ func (c *ProvisioningClient) SetSmartMachineCredentials(ctx context.Context, clo
 	_, err := c.client.SetSmartMachineCredentials(ctx, &pb.SetSmartMachineCredentialsRequest{
 		Cloud: cloudConfigToProto(cloud),
 	})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // GetNetworkList gets the list of networks that are visible to the smart machine.
 func (c *ProvisioningClient) GetNetworkList(ctx context.Context) ([]*NetworkInfo, error) {
 	resp, err := c.client.GetNetworkList(ctx, &pb.GetNetworkListRequest{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var networks []*NetworkInfo
 	for _, network := range resp.Networks {

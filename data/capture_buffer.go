@@ -3,6 +3,7 @@ package data
 import (
 	"sync"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 )
@@ -50,22 +51,22 @@ func (b *CaptureBuffer) WriteBinary(item *v1.SensorData, mimeType string) error 
 	defer b.lock.Unlock()
 
 	if !IsBinary(item) {
-		return errInvalidBinarySensorData
+		return errtrace.Wrap(errInvalidBinarySensorData)
 	}
 
 	// assign mime type to DataCaptureMetadata
 	b.MetaData.MimeType = mimeType
 	binFile, err := NewCaptureFile(b.Directory, b.MetaData)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := binFile.WriteNext(item); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := binFile.Close(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -81,28 +82,28 @@ func (b *CaptureBuffer) WriteTabular(item *v1.SensorData) error {
 	defer b.lock.Unlock()
 
 	if IsBinary(item) {
-		return errInvalidTabularSensorData
+		return errtrace.Wrap(errInvalidTabularSensorData)
 	}
 
 	if b.nextFile == nil {
 		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		b.nextFile = nextFile
 	} else if b.nextFile.Size() > b.maxCaptureFileSize {
 		if err := b.nextFile.Close(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		b.nextFile = nextFile
 	}
 
 	if err := b.nextFile.WriteNext(item); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -129,7 +130,7 @@ func (b *CaptureBuffer) Flush() error {
 		return nil
 	}
 	if err := b.nextFile.Close(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	b.nextFile = nil
 	return nil

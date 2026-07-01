@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -28,7 +29,7 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[AudioOut], logger loggi
 func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlayResponse, error) {
 	a, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var info *rutils.AudioInfo
@@ -38,7 +39,7 @@ func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 
 	err = a.Play(ctx, req.AudioData, info, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.PlayResponse{}, nil
@@ -47,16 +48,16 @@ func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) error {
 	first, err := stream.Recv()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	init := first.GetInit()
 	if init == nil {
-		return errors.New("first PlayStreamRequest must be PlayStreamInit")
+		return errtrace.Wrap(errors.New("first PlayStreamRequest must be PlayStreamInit"))
 	}
 
 	a, err := s.coll.Resource(init.GetName())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var info *rutils.AudioInfo
@@ -98,25 +99,25 @@ func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) e
 	playErr := a.PlayStream(ctx, info, chunks, init.GetExtra().AsMap())
 	if playErr != nil {
 		// Returning cancels stream.Context() so the recv goroutine exits.
-		return playErr
+		return errtrace.Wrap(playErr)
 	}
 	// PlayStream returning nil means recv already wrote to recvErr and exited.
 	if recvDone := <-recvErr; recvDone != nil {
-		return recvDone
+		return errtrace.Wrap(recvDone)
 	}
 
-	return stream.SendAndClose(&pb.PlayStreamResponse{})
+	return errtrace.Wrap(stream.SendAndClose(&pb.PlayStreamResponse{}))
 }
 
 func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetPropertiesRequest) (*commonpb.GetPropertiesResponse, error) {
 	a, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	props, err := a.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetPropertiesResponse{
 		SupportedCodecs: props.SupportedCodecs,
@@ -131,16 +132,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	audioOut, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, audioOut, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, audioOut, req))
 }
 
 // GetStatus returns the status of the audioout.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

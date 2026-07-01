@@ -6,6 +6,7 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/worldstatestore"
 )
@@ -36,33 +37,33 @@ func (wosSvc *WorldStateStoreService) Name() resource.Name {
 // ListUUIDs calls the injected ListUUIDsFunc or the real version.
 func (wosSvc *WorldStateStoreService) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
 	if wosSvc.ListUUIDsFunc == nil {
-		return nil, errors.New("ListUUIDsFunc not set")
+		return nil, errtrace.Wrap(errors.New("ListUUIDsFunc not set"))
 	}
-	return wosSvc.ListUUIDsFunc(ctx, extra)
+	return errtrace.Wrap2(wosSvc.ListUUIDsFunc(ctx, extra))
 }
 
 // GetTransform calls the injected GetTransformFunc or the real version.
 func (wosSvc *WorldStateStoreService) GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
 	if wosSvc.GetTransformFunc == nil {
-		return nil, errors.New("GetTransformFunc not set")
+		return nil, errtrace.Wrap(errors.New("GetTransformFunc not set"))
 	}
-	return wosSvc.GetTransformFunc(ctx, uuid, extra)
+	return errtrace.Wrap2(wosSvc.GetTransformFunc(ctx, uuid, extra))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (wosSvc *WorldStateStoreService) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if wosSvc.DoFunc == nil {
-		return nil, errors.New("DoCommandFunc not set")
+		return nil, errtrace.Wrap(errors.New("DoCommandFunc not set"))
 	}
-	return wosSvc.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(wosSvc.DoFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (wosSvc *WorldStateStoreService) Status(ctx context.Context) (map[string]interface{}, error) {
 	if wosSvc.StatusFunc == nil {
-		return nil, errors.New("StatusFunc not set")
+		return nil, errtrace.Wrap(errors.New("StatusFunc not set"))
 	}
-	return wosSvc.StatusFunc(ctx)
+	return errtrace.Wrap2(wosSvc.StatusFunc(ctx))
 }
 
 // StreamTransformChanges calls the injected StreamTransformChangesFunc or the real version.
@@ -71,7 +72,7 @@ func (wosSvc *WorldStateStoreService) StreamTransformChanges(
 	extra map[string]any,
 ) (*worldstatestore.TransformChangeStream, error) {
 	if wosSvc.StreamTransformChangesFunc == nil {
-		return nil, errors.New("StreamTransformChangesFunc not set")
+		return nil, errtrace.Wrap(errors.New("StreamTransformChangesFunc not set"))
 	}
-	return wosSvc.StreamTransformChangesFunc(ctx, extra)
+	return errtrace.Wrap2(wosSvc.StreamTransformChangesFunc(ctx, extra))
 }

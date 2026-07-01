@@ -14,6 +14,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
@@ -42,7 +43,7 @@ type simpleSource struct {
 func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath(s.filePath+".dat.gz"))
-	return img, func() {}, err
+	return img, func() {}, errtrace.Wrap(err)
 }
 
 func (s *simpleSource) Close(ctx context.Context) error {
@@ -56,7 +57,7 @@ type simpleSourceWithPCD struct {
 func (s *simpleSourceWithPCD) Read(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath(s.filePath+".dat.gz"))
-	return img, func() {}, err
+	return img, func() {}, errtrace.Wrap(err)
 }
 
 func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
@@ -174,7 +175,7 @@ type cloudSource struct {
 
 func (cs *cloudSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	p := pointcloud.NewBasicEmpty()
-	return p, p.Set(pointcloud.NewVector(0, 0, 0), nil)
+	return p, errtrace.Wrap(p.Set(pointcloud.NewVector(0, 0, 0), nil))
 }
 
 func TestCameraWithNoProjector(t *testing.T) {
@@ -274,11 +275,11 @@ func TestImages(t *testing.T) {
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			if len(extra) == 0 {
-				return nil, resource.ResponseMetadata{}, fmt.Errorf("extra parameters required")
+				return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("extra parameters required"))
 			}
 			namedImg, err := camera.NamedImageFromImage(respImg, source1Name, rutils.MimeTypeRawRGBA, annotations1)
 			if err != nil {
-				return nil, resource.ResponseMetadata{}, err
+				return nil, resource.ResponseMetadata{}, errtrace.Wrap(err)
 			}
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		}
@@ -339,7 +340,7 @@ func TestImages(t *testing.T) {
 				if img, ok := availableSources[sourceName]; ok {
 					result = append(result, img)
 				} else {
-					return nil, resource.ResponseMetadata{}, fmt.Errorf("requested source name not found: %s", sourceName)
+					return nil, resource.ResponseMetadata{}, errtrace.Wrap(fmt.Errorf("requested source name not found: %s", sourceName))
 				}
 			}
 			return result, resource.ResponseMetadata{}, nil

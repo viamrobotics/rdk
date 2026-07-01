@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/motor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -70,31 +71,31 @@ func TestClient(t *testing.T) {
 	}
 
 	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-		return errSetPowerFailed
+		return errtrace.Wrap(errSetPowerFailed)
 	}
 	failingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
-		return errGoForFailed
+		return errtrace.Wrap(errGoForFailed)
 	}
 	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
-		return errGoToFailed
+		return errtrace.Wrap(errGoToFailed)
 	}
 	failingMotor.SetRPMFunc = func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-		return errSetRPMFailed
+		return errtrace.Wrap(errSetRPMFailed)
 	}
 	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
-		return errResetZeroFailed
+		return errtrace.Wrap(errResetZeroFailed)
 	}
 	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, errPositionUnavailable
+		return 0, errtrace.Wrap(errPositionUnavailable)
 	}
 	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
-		return motor.Properties{}, errPropertiesNotFound
+		return motor.Properties{}, errtrace.Wrap(errPropertiesNotFound)
 	}
 	failingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopFailed
+		return errtrace.Wrap(errStopFailed)
 	}
 	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-		return false, 0.0, errIsPoweredFailed
+		return false, 0.0, errtrace.Wrap(errIsPoweredFailed)
 	}
 
 	resourceMap := map[resource.Name]motor.Motor{

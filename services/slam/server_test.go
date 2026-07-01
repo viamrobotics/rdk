@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -105,10 +106,10 @@ func TestWorkingServer(t *testing.T) {
 			f := func() ([]byte, error) {
 				n, err := reader.Read(serverBuffer)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 
-				return serverBuffer[:n], err
+				return serverBuffer[:n], errtrace.Wrap(err)
 			}
 
 			return f, nil
@@ -137,10 +138,10 @@ func TestWorkingServer(t *testing.T) {
 			f := func() ([]byte, error) {
 				n, err := reader.Read(serverBuffer)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 
-				return serverBuffer[:n], err
+				return serverBuffer[:n], errtrace.Wrap(err)
 			}
 
 			return f, nil
@@ -167,10 +168,10 @@ func TestWorkingServer(t *testing.T) {
 				serverBuffer := make([]byte, chunkSizeInternalState)
 				n, err := reader.Read(serverBuffer)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 
-				return serverBuffer[:n], err
+				return serverBuffer[:n], errtrace.Wrap(err)
 			}
 			return f, nil
 		}
@@ -235,10 +236,10 @@ func TestWorkingServer(t *testing.T) {
 			f := func() ([]byte, error) {
 				n, err := reader.Read(serverBuffer)
 				if err != nil {
-					return nil, err
+					return nil, errtrace.Wrap(err)
 				}
 
-				return serverBuffer[:n], err
+				return serverBuffer[:n], errtrace.Wrap(err)
 			}
 			return f, nil
 		}
@@ -285,7 +286,7 @@ func TestFailingServer(t *testing.T) {
 
 	t.Run("failing GetPosition", func(t *testing.T) {
 		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
-			return nil, errors.New("failure to get position")
+			return nil, errtrace.Wrap(errors.New("failure to get position"))
 		}
 
 		req := &pb.GetPositionRequest{
@@ -299,7 +300,7 @@ func TestFailingServer(t *testing.T) {
 	t.Run("failing GetPointCloudMap", func(t *testing.T) {
 		// PointCloudMapFunc failure
 		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
-			return nil, errors.New("failure to get pointcloud map")
+			return nil, errtrace.Wrap(errors.New("failure to get pointcloud map"))
 		}
 
 		reqPointCloudMap := &pb.GetPointCloudMapRequest{Name: testSlamServiceName}
@@ -311,7 +312,7 @@ func TestFailingServer(t *testing.T) {
 		// Callback failure
 		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 			f := func() ([]byte, error) {
-				return []byte{}, errors.New("callback error")
+				return []byte{}, errtrace.Wrap(errors.New("callback error"))
 			}
 			return f, nil
 		}
@@ -324,7 +325,7 @@ func TestFailingServer(t *testing.T) {
 	t.Run("failing GetInternalState", func(t *testing.T) {
 		// InternalStateFunc error
 		injectSvc.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-			return nil, errors.New("failure to get internal state")
+			return nil, errtrace.Wrap(errors.New("failure to get internal state"))
 		}
 
 		req := &pb.GetInternalStateRequest{Name: testSlamServiceName}
@@ -335,7 +336,7 @@ func TestFailingServer(t *testing.T) {
 		// Callback failure
 		injectSvc.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			f := func() ([]byte, error) {
-				return []byte{}, errors.New("callback error")
+				return []byte{}, errtrace.Wrap(errors.New("callback error"))
 			}
 			return f, nil
 		}
@@ -346,7 +347,7 @@ func TestFailingServer(t *testing.T) {
 
 	t.Run("failing GetProperties", func(t *testing.T) {
 		injectSvc.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
-			return slam.Properties{}, errors.New("failure to get properties")
+			return slam.Properties{}, errtrace.Wrap(errors.New("failure to get properties"))
 		}
 		reqInfo := &pb.GetPropertiesRequest{Name: testSlamServiceName}
 
@@ -426,7 +427,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectSvc.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = slamServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSlamServiceName})
 	test.That(t, err, test.ShouldNotBeNil)

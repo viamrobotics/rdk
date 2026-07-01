@@ -6,6 +6,7 @@ import (
 	"image/draw"
 	"math"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -28,7 +29,7 @@ func IterateImage(img image.Image, f func(x, y int, c color.Color) bool) {
 func CompareImages(img1, img2 image.Image) (int, image.Image, error) {
 	bounds1 := img1.Bounds()
 	if bounds1 != img2.Bounds() {
-		return int(math.MaxInt32), nil, errors.Errorf("image bounds not equal: %+v, %+v", img1.Bounds(), img2.Bounds())
+		return int(math.MaxInt32), nil, errtrace.Wrap(errors.Errorf("image bounds not equal: %+v, %+v", img1.Bounds(), img2.Bounds()))
 	}
 
 	accumError := int(0)

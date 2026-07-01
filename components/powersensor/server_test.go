@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
@@ -40,7 +41,7 @@ func newServer(logger logging.Logger) (pb.PowerSensorServiceServer, *inject.Powe
 
 	powerSensorSvc, err := resource.NewAPIResourceCollection(sensor.API, powerSensors)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 
 	server := powersensor.NewRPCServiceServer(powerSensorSvc, logger).(pb.PowerSensorServiceServer)
@@ -67,7 +68,7 @@ func TestServerGetVoltage(t *testing.T) {
 
 	// fails on bad power sensor
 	failingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-		return 0, false, errVoltageFailed
+		return 0, false, errtrace.Wrap(errVoltageFailed)
 	}
 	req = &pb.GetVoltageRequest{Name: failingPowerSensorName}
 	resp, err = powerSensorServer.GetVoltage(context.Background(), req)
@@ -101,7 +102,7 @@ func TestServerGetCurrent(t *testing.T) {
 
 	// fails on bad power sensor
 	failingPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-		return 0, false, errCurrentFailed
+		return 0, false, errtrace.Wrap(errCurrentFailed)
 	}
 	req = &pb.GetCurrentRequest{Name: failingPowerSensorName}
 	resp, err = powerSensorServer.GetCurrent(context.Background(), req)
@@ -132,7 +133,7 @@ func TestServerGetPower(t *testing.T) {
 
 	// fails on bad power sensor
 	failingPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, errPowerFailed
+		return 0, errtrace.Wrap(errPowerFailed)
 	}
 	req = &pb.GetPowerRequest{Name: failingPowerSensorName}
 	resp, err = powerSensorServer.GetPower(context.Background(), req)
@@ -160,7 +161,7 @@ func TestServerGetReadings(t *testing.T) {
 	}
 
 	failingPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return nil, errReadingsFailed
+		return nil, errtrace.Wrap(errReadingsFailed)
 	}
 
 	expected := map[string]*structpb.Value{}
@@ -215,7 +216,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	workingPowerSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = powerSensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: workingPowerSensorName})
 	test.That(t, err, test.ShouldNotBeNil)

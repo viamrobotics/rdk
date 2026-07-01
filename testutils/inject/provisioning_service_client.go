@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	provisioningPb "go.viam.com/api/provisioning/v1"
 	"google.golang.org/grpc"
 )
@@ -25,9 +26,9 @@ func (psc *ProvisioningServiceClient) GetSmartMachineStatus(ctx context.Context,
 	opts ...grpc.CallOption,
 ) (*provisioningPb.GetSmartMachineStatusResponse, error) {
 	if psc.GetSmartMachineStatusFunc == nil {
-		return psc.ProvisioningServiceClient.GetSmartMachineStatus(ctx, in, opts...)
+		return errtrace.Wrap2(psc.ProvisioningServiceClient.GetSmartMachineStatus(ctx, in, opts...))
 	}
-	return psc.GetSmartMachineStatusFunc(ctx, in, opts...)
+	return errtrace.Wrap2(psc.GetSmartMachineStatusFunc(ctx, in, opts...))
 }
 
 // SetNetworkCredentials calls the injected SetNetworkCredentialsFunc or the real version.
@@ -35,9 +36,9 @@ func (psc *ProvisioningServiceClient) SetNetworkCredentials(ctx context.Context,
 	opts ...grpc.CallOption,
 ) (*provisioningPb.SetNetworkCredentialsResponse, error) {
 	if psc.SetNetworkCredentialsFunc == nil {
-		return psc.ProvisioningServiceClient.SetNetworkCredentials(ctx, in, opts...)
+		return errtrace.Wrap2(psc.ProvisioningServiceClient.SetNetworkCredentials(ctx, in, opts...))
 	}
-	return psc.SetNetworkCredentialsFunc(ctx, in, opts...)
+	return errtrace.Wrap2(psc.SetNetworkCredentialsFunc(ctx, in, opts...))
 }
 
 // SetSmartMachineCredentials calls the injected SetSmartMachineCredentialsFunc or the real version.
@@ -45,9 +46,9 @@ func (psc *ProvisioningServiceClient) SetSmartMachineCredentials(ctx context.Con
 	opts ...grpc.CallOption,
 ) (*provisioningPb.SetSmartMachineCredentialsResponse, error) {
 	if psc.SetSmartMachineCredentialsFunc == nil {
-		return psc.ProvisioningServiceClient.SetSmartMachineCredentials(ctx, in, opts...)
+		return errtrace.Wrap2(psc.ProvisioningServiceClient.SetSmartMachineCredentials(ctx, in, opts...))
 	}
-	return psc.SetSmartMachineCredentialsFunc(ctx, in, opts...)
+	return errtrace.Wrap2(psc.SetSmartMachineCredentialsFunc(ctx, in, opts...))
 }
 
 // GetNetworkList calls the injected GetNetworkListFunc or the real version.
@@ -55,7 +56,7 @@ func (psc *ProvisioningServiceClient) GetNetworkList(ctx context.Context, in *pr
 	opts ...grpc.CallOption,
 ) (*provisioningPb.GetNetworkListResponse, error) {
 	if psc.GetNetworkListFunc == nil {
-		return psc.ProvisioningServiceClient.GetNetworkList(ctx, in, opts...)
+		return errtrace.Wrap2(psc.ProvisioningServiceClient.GetNetworkList(ctx, in, opts...))
 	}
-	return psc.GetNetworkListFunc(ctx, in, opts...)
+	return errtrace.Wrap2(psc.GetNetworkListFunc(ctx, in, opts...))
 }

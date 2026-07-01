@@ -14,6 +14,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 )
 
@@ -36,14 +37,14 @@ func newDigitalInterrupt(
 ) (*digitalInterrupt, error) {
 	chip, err := gpio.OpenChip(pinMapping.GPIOChipDev)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(chip.Close)
 
 	line, err := chip.OpenLineWithEvents(
 		uint32(pinMapping.GPIO), gpio.Input, gpio.BothEdges, "viam-interrupt")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	di := digitalInterrupt{line: line, config: config}
@@ -76,7 +77,7 @@ func (di *digitalInterrupt) Close() error {
 		err = fmt.Errorf("closed digital interrupt %s, but it still had %d listeners",
 			di.config.Name, len(di.channels))
 	}
-	return multierr.Combine(err, di.line.Close())
+	return errtrace.Wrap(multierr.Combine(err, di.line.Close()))
 }
 
 func (di *digitalInterrupt) Name() string {
@@ -161,13 +162,13 @@ func (di *digitalInterrupt) RemoveChannel(ch chan board.Tick) {
 func (di *digitalInterrupt) Set(
 	ctx context.Context, isHigh bool, extra map[string]interface{},
 ) error {
-	return errors.New("cannot set value of a digital interrupt pin")
+	return errtrace.Wrap(errors.New("cannot set value of a digital interrupt pin"))
 }
 
 func (di *digitalInterrupt) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	value, err := di.line.Value()
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 
 	// We'd expect value to be either 0 or 1, but any non-zero value should be considered high.
@@ -175,23 +176,23 @@ func (di *digitalInterrupt) Get(ctx context.Context, extra map[string]interface{
 }
 
 func (di *digitalInterrupt) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return 0, errors.New("cannot get PWM of a digital interrupt pin")
+	return 0, errtrace.Wrap(errors.New("cannot get PWM of a digital interrupt pin"))
 }
 
 func (di *digitalInterrupt) SetPWM(
 	ctx context.Context, dutyCyclePct float64, extra map[string]interface{},
 ) error {
-	return errors.New("cannot set PWM of a digital interrupt pin")
+	return errtrace.Wrap(errors.New("cannot set PWM of a digital interrupt pin"))
 }
 
 func (di *digitalInterrupt) PWMFreq(
 	ctx context.Context, extra map[string]interface{},
 ) (uint, error) {
-	return 0, errors.New("cannot get PWM freq of a digital interrupt pin")
+	return 0, errtrace.Wrap(errors.New("cannot get PWM freq of a digital interrupt pin"))
 }
 
 func (di *digitalInterrupt) SetPWMFreq(
 	ctx context.Context, freqHz uint, extra map[string]interface{},
 ) error {
-	return errors.New("cannot set PWM freq of a digital interrupt pin")
+	return errtrace.Wrap(errors.New("cannot set PWM freq of a digital interrupt pin"))
 }

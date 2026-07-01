@@ -17,6 +17,7 @@ import (
 
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -96,16 +97,16 @@ const (
 // Validate checks if the config is valid.
 func (m *Module) Validate(path string) error {
 	if m.alreadyValidated {
-		return m.cachedErr
+		return errtrace.Wrap(m.cachedErr)
 	}
 	if m.Status != nil {
 		m.alreadyValidated = true
 		m.cachedErr = resource.NewConfigValidationError(path, errors.New(m.Status.Error))
-		return m.cachedErr
+		return errtrace.Wrap(m.cachedErr)
 	}
 	m.cachedErr = m.validate(path)
 	m.alreadyValidated = true
-	return m.cachedErr
+	return errtrace.Wrap(m.cachedErr)
 }
 
 func (m *Module) validate(path string) error {
@@ -114,20 +115,20 @@ func (m *Module) validate(path string) error {
 	if m.Type == ModuleTypeLocal {
 		exePath, err := utils.ExpandHomeDir(m.ExePath)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		_, err = os.Stat(exePath)
 		if err != nil {
-			return fmt.Errorf("module %s executable path error: %w", path, err)
+			return errtrace.Wrap(fmt.Errorf("module %s executable path error: %w", path, err))
 		}
 	}
 
 	if err := utils.ValidateModuleName(m.Name); err != nil {
-		return resource.NewConfigValidationError(path, err)
+		return errtrace.Wrap(resource.NewConfigValidationError(path, err))
 	}
 
 	if m.Name == reservedModuleName {
-		return fmt.Errorf("module %s cannot use the reserved name of %s", path, reservedModuleName)
+		return errtrace.Wrap(fmt.Errorf("module %s cannot use the reserved name of %s", path, reservedModuleName))
 	}
 
 	return nil
@@ -169,7 +170,7 @@ func (m Module) NeedsSyntheticPackage() bool {
 // SyntheticPackage creates a fake package for a module which can be used to access some package logic.
 func (m Module) SyntheticPackage() (PackageConfig, error) {
 	if m.Type != ModuleTypeLocal {
-		return PackageConfig{}, errors.New("SyntheticPackage only works on local modules")
+		return PackageConfig{}, errtrace.Wrap(errors.New("SyntheticPackage only works on local modules"))
 	}
 	var name string
 	if m.NeedsSyntheticPackage() {
@@ -187,7 +188,7 @@ func (m Module) ExeDir(packagesDir string) (string, error) {
 	}
 	pkg, err := m.SyntheticPackage()
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return pkg.LocalDataDirectory(packagesDir), nil
 }
@@ -196,12 +197,12 @@ func (m Module) ExeDir(packagesDir string) (string, error) {
 func parseJSONFile[T any](path string) (*T, error) {
 	f, err := os.Open(path) //nolint:gosec
 	if err != nil {
-		return nil, fmt.Errorf("reading json file: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("reading json file: %w", err))
 	}
 	var target T
 	err = json.NewDecoder(f).Decode(&target)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &target, nil
 }
@@ -213,14 +214,14 @@ func parseJSONFile[T any](path string) (*T, error) {
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	path, err := utils.ExpandHomeDir(m.ExePath)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	if !filepath.IsAbs(path) {
-		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", path)
+		return "", errtrace.Wrap(fmt.Errorf("expected ExePath to be absolute path, got %s", path))
 	}
 	exeDir, err := m.ExeDir(packagesDir)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
@@ -228,24 +229,24 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		// this is case 1, meta.json in exe folder.
 		metaPath, err := utils.SafeJoinDir(exeDir, "meta.json")
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 		_, err = os.Stat(metaPath)
 		if err == nil {
 			// this is case 1, meta.json in exe dir
 			meta, err := parseJSONFile[JSONManifest](metaPath)
 			if err != nil {
-				return "", err
+				return "", errtrace.Wrap(err)
 			}
 			entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
 			if err != nil {
-				return "", err
+				return "", errtrace.Wrap(err)
 			}
-			return filepath.Abs(entrypoint)
+			return errtrace.Wrap2(filepath.Abs(entrypoint))
 		}
 		if m.NeedsSyntheticPackage() {
 			// registry modules can use configured ExePath, but for local tarballs it is wrong, throw an error.
-			return "", errLocalTarballEntrypoint
+			return "", errtrace.Wrap(errLocalTarballEntrypoint)
 		}
 	}
 	return path, nil
@@ -272,7 +273,7 @@ func (m *Module) FirstRun(
 
 	unpackedModDir, err := m.ExeDir(localPackagesDir)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// check if FirstRun already ran successfully for this module version by checking if a success
@@ -351,11 +352,11 @@ func (m *Module) FirstRun(
 
 	stdOut, err := cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	stdErr, err := cmd.StderrPipe()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	scanOut := bufio.NewScanner(stdOut)
@@ -390,11 +391,11 @@ func (m *Module) FirstRun(
 	}()
 	if err := cmd.Start(); err != nil {
 		logger.Errorw("failed to start first run script", "error", err)
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := cmd.Wait(); err != nil {
 		logger.Errorw("first run script failed", "error", err)
-		return err
+		return errtrace.Wrap(err)
 	}
 	wg.Wait()
 	logger.Info("first run script succeeded")
@@ -441,7 +442,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 			if registryErr != nil {
 				// return from getJSONManifest() if the error returned does NOT indicate that the file wasn't found
 				if !os.IsNotExist(registryErr) {
-					return nil, "", fmt.Errorf("registry module: %w", registryErr)
+					return nil, "", errtrace.Wrap(fmt.Errorf("registry module: %w", registryErr))
 				}
 			}
 
@@ -462,10 +463,10 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		if registryTarballErr != nil {
 			if !os.IsNotExist(registryTarballErr) {
 				if online {
-					return nil, "", fmt.Errorf("registry module: %w", registryTarballErr)
+					return nil, "", errtrace.Wrap(fmt.Errorf("registry module: %w", registryTarballErr))
 				}
 
-				return nil, "", fmt.Errorf("local tarball: %w", registryTarballErr)
+				return nil, "", errtrace.Wrap(fmt.Errorf("local tarball: %w", registryTarballErr))
 			}
 		}
 
@@ -476,33 +477,33 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 
 	if online {
 		if !ok {
-			return nil, "", fmt.Errorf("registry module: failed to find meta.json. VIAM_MODULE_ROOT not set: %w", registryTarballErr)
+			return nil, "", errtrace.Wrap(fmt.Errorf("registry module: failed to find meta.json. VIAM_MODULE_ROOT not set: %w", registryTarballErr))
 		}
 
-		return nil, "", fmt.Errorf("registry module: failed to find meta.json: %w", errors.Join(registryErr, registryTarballErr))
+		return nil, "", errtrace.Wrap(fmt.Errorf("registry module: failed to find meta.json: %w", errors.Join(registryErr, registryTarballErr)))
 	}
 
 	if !localNonTarball {
-		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", registryTarballErr)
+		return nil, "", errtrace.Wrap(fmt.Errorf("local tarball: failed to find meta.json: %w", registryTarballErr))
 	}
 
-	return nil, "", errors.New("local non-tarball: did not search for meta.json")
+	return nil, "", errtrace.Wrap(errors.New("local non-tarball: did not search for meta.json"))
 }
 
 func findMetaJSONFile(dir string) (*JSONManifest, error) {
 	metaPath, err := utils.SafeJoinDir(dir, "meta.json")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	_, err = os.Stat(metaPath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	meta, err := parseJSONFile[JSONManifest](metaPath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return meta, nil

@@ -8,6 +8,7 @@ import (
 	pb "go.viam.com/api/service/video/v1"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -28,7 +29,7 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger loggin
 func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoService_GetVideoServer) error {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var start time.Time
@@ -54,7 +55,7 @@ func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoSe
 		extra,
 	)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Stream video chunks
@@ -75,7 +76,7 @@ func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoSe
 			}
 
 			if err := stream.Send(resp); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -90,16 +91,16 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // GetStatus returns the status of the video service.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

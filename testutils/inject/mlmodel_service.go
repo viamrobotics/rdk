@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
@@ -34,26 +35,26 @@ func (s *MLModelService) Infer(
 	tensors ml.Tensors,
 ) (ml.Tensors, error) {
 	if s.InferFunc == nil {
-		return s.Service.Infer(ctx, tensors)
+		return errtrace.Wrap2(s.Service.Infer(ctx, tensors))
 	}
-	return s.InferFunc(ctx, tensors)
+	return errtrace.Wrap2(s.InferFunc(ctx, tensors))
 }
 
 // Metadata calls the injected Metadata or the real variant.
 func (s *MLModelService) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	if s.MetadataFunc == nil {
-		return s.Service.Metadata(ctx)
+		return errtrace.Wrap2(s.Service.Metadata(ctx))
 	}
-	return s.MetadataFunc(ctx)
+	return errtrace.Wrap2(s.MetadataFunc(ctx))
 }
 
 // Status calls the injected Status or the real version.
 func (s *MLModelService) Status(ctx context.Context) (map[string]interface{}, error) {
 	if s.StatusFunc != nil {
-		return s.StatusFunc(ctx)
+		return errtrace.Wrap2(s.StatusFunc(ctx))
 	}
 	if s.Service != nil {
-		return s.Service.Status(ctx)
+		return errtrace.Wrap2(s.Service.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }
@@ -64,7 +65,7 @@ func (s *MLModelService) Close(ctx context.Context) error {
 		if s.Service == nil {
 			return nil
 		}
-		return s.Service.Close(ctx)
+		return errtrace.Wrap(s.Service.Close(ctx))
 	}
-	return s.CloseFunc(ctx)
+	return errtrace.Wrap(s.CloseFunc(ctx))
 }

@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 )
@@ -33,18 +34,18 @@ func (s *ShellService) DoCommand(ctx context.Context,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	if s.DoCommandFunc == nil {
-		return s.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(s.Service.DoCommand(ctx, cmd))
 	}
-	return s.DoCommandFunc(ctx, cmd)
+	return errtrace.Wrap2(s.DoCommandFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (s *ShellService) Status(ctx context.Context) (map[string]interface{}, error) {
 	if s.StatusFunc != nil {
-		return s.StatusFunc(ctx)
+		return errtrace.Wrap2(s.StatusFunc(ctx))
 	}
 	if s.Service != nil {
-		return s.Service.Status(ctx)
+		return errtrace.Wrap2(s.Service.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }
@@ -55,7 +56,7 @@ func (s *ShellService) Close(ctx context.Context) error {
 		if s.Service == nil {
 			return nil
 		}
-		return s.Service.Close(ctx)
+		return errtrace.Wrap(s.Service.Close(ctx))
 	}
-	return s.CloseFunc(ctx)
+	return errtrace.Wrap(s.CloseFunc(ctx))
 }

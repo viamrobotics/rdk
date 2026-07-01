@@ -3,6 +3,7 @@ package pointcloud
 import (
 	"image/color"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 )
 
@@ -18,7 +19,7 @@ func VectorsToPointCloud(vectors []r3.Vector, c color.NRGBA) (PointCloud, error)
 	for _, v := range vectors {
 		data := &basicData{hasColor: true, c: c}
 		if err := cloud.Set(v, data); err != nil {
-			return &cloud, err
+			return &cloud, errtrace.Wrap(err)
 		}
 	}
 	return &cloud, nil

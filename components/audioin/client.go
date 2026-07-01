@@ -11,6 +11,7 @@ import (
 	utils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -45,11 +46,11 @@ func NewClientFromConn(
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
@@ -57,7 +58,7 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 ) {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// This only sets up the stream,it doesn't send the request to the server yet
@@ -71,13 +72,13 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 		Extra:                        ext,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// receive one chunk outside of the goroutine to catch any errors
 	resp, err := stream.Recv()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// small buffered channel prevents blocking when receiver is temporarily slow
@@ -140,14 +141,14 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
-		return rutils.Properties{}, err
+		return rutils.Properties{}, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetProperties(ctx, &commonpb.GetPropertiesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return rutils.Properties{}, err
+		return rutils.Properties{}, errtrace.Wrap(err)
 	}
 
 	return rutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRateHz: resp.SampleRateHz, NumChannels: resp.NumChannels}, nil

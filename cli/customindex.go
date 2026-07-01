@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"braces.dev/errtrace"
 	"github.com/urfave/cli/v3"
 	pb "go.viam.com/api/app/data/v1"
 )
@@ -34,21 +35,21 @@ type createCustomIndexArgs struct {
 // using the provided index specification file in the arguments.
 func CreateCustomIndexAction(ctx context.Context, cmd *cli.Command, args createCustomIndexArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to create a custom index")
+		return errtrace.Wrap(errors.New("must provide an organization ID to create a custom index"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	collectionType, err := validateCollectionTypeArgs(cmd, args.CollectionType)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	indexSpec, err := readJSONToByteSlices(args.IndexPath)
 	if err != nil {
-		return fmt.Errorf("failed to read index spec from file: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to read index spec from file: %w", err))
 	}
 
 	_, err = client.dataClient.CreateIndex(context.Background(), &pb.CreateIndexRequest{
@@ -58,7 +59,7 @@ func CreateCustomIndexAction(ctx context.Context, cmd *cli.Command, args createC
 		IndexSpec:      indexSpec,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create index: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to create index: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "Create index request sent successfully")
@@ -76,16 +77,16 @@ type deleteCustomIndexArgs struct {
 // DeleteCustomIndexAction deletes a custom index for a specified organization and collection type using the provided index name.
 func DeleteCustomIndexAction(ctx context.Context, cmd *cli.Command, args deleteCustomIndexArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to delete a custom index")
+		return errtrace.Wrap(errors.New("must provide an organization ID to delete a custom index"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	collectionType, err := validateCollectionTypeArgs(cmd, args.CollectionType)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.dataClient.DeleteIndex(context.Background(), &pb.DeleteIndexRequest{
@@ -95,7 +96,7 @@ func DeleteCustomIndexAction(ctx context.Context, cmd *cli.Command, args deleteC
 		IndexName:      args.IndexName,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to delete index: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to delete index: %w", err))
 	}
 
 	printf(cmd.Root().Writer, "Index (name: %s) deleted successfully", args.IndexName)
@@ -112,16 +113,16 @@ type listCustomIndexesArgs struct {
 // ListCustomIndexesAction lists all custom indexes for a specified organization and collection type.
 func ListCustomIndexesAction(ctx context.Context, cmd *cli.Command, args listCustomIndexesArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to list custom indexes")
+		return errtrace.Wrap(errors.New("must provide an organization ID to list custom indexes"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	collectionType, err := validateCollectionTypeArgs(cmd, args.CollectionType)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	resp, err := client.dataClient.ListIndexes(context.Background(), &pb.ListIndexesRequest{
@@ -130,7 +131,7 @@ func ListCustomIndexesAction(ctx context.Context, cmd *cli.Command, args listCus
 		PipelineName:   &args.PipelineName,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list indexes: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to list indexes: %w", err))
 	}
 
 	if len(resp.Indexes) == 0 {
@@ -155,18 +156,18 @@ func validateCollectionTypeArgs(cmd *cli.Command, collectionType string) (pb.Ind
 	case pipelineSinkDataSourceType:
 		collectionTypeProto = pipelineSinkCollectionType
 	default:
-		return unspecifiedCollectionType, errInvalidCollectionType
+		return unspecifiedCollectionType, errtrace.Wrap(errInvalidCollectionType)
 	}
 
 	collectionTypeFlag := cmd.String(dataFlagCollectionType)
 	pipelineName := cmd.String(dataFlagPipelineName)
 
 	if collectionTypeFlag == pipelineSinkDataSourceType && pipelineName == "" {
-		return unspecifiedCollectionType, errPipelineNameRequired
+		return unspecifiedCollectionType, errtrace.Wrap(errPipelineNameRequired)
 	}
 
 	if collectionTypeFlag != pipelineSinkDataSourceType && pipelineName != "" {
-		return unspecifiedCollectionType, errPipelineNameNotAllowed
+		return unspecifiedCollectionType, errtrace.Wrap(errPipelineNameNotAllowed)
 	}
 
 	return collectionTypeProto, nil
@@ -176,7 +177,7 @@ func readJSONToByteSlices(filePath string) ([][]byte, error) {
 	//nolint:gosec // filePath is a user-provided path for a JSON file containing an index spec
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var indexSpec struct {
@@ -185,11 +186,11 @@ func readJSONToByteSlices(filePath string) ([][]byte, error) {
 	}
 
 	if err = json.Unmarshal(data, &indexSpec); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to unmarshal JSON: %w", err))
 	}
 
 	if len(indexSpec.Key) == 0 {
-		return nil, fmt.Errorf("missing required 'key' field in index spec")
+		return nil, errtrace.Wrap(fmt.Errorf("missing required 'key' field in index spec"))
 	}
 
 	result := make([][]byte, 0, 2)

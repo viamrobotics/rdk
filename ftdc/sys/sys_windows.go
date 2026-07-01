@@ -5,6 +5,7 @@ package sys
 import (
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/process"
 )
@@ -32,7 +33,7 @@ type UsageStatser struct {
 func newSysUsageStatser(pid int) (*UsageStatser, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &UsageStatser{proc}, nil
 }

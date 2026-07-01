@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
@@ -52,7 +53,7 @@ func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (ma
 	// We look for a map key called "command"
 	cmd, ok := req["command"]
 	if !ok {
-		return nil, errors.New("missing 'command' string")
+		return nil, errtrace.Wrap(errors.New("missing 'command' string"))
 	}
 
 	// If it's "get" we return the current total.
@@ -64,16 +65,16 @@ func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (ma
 	if cmd == "add" {
 		_, ok := req["value"]
 		if !ok {
-			return nil, errors.New("value must exist")
+			return nil, errtrace.Wrap(errors.New("value must exist"))
 		}
 		val, ok := req["value"].(float64)
 		if !ok {
-			return nil, errors.New("value must be a number")
+			return nil, errtrace.Wrap(errors.New("value must be a number"))
 		}
 		atomic.AddInt64(&c.total, int64(val))
 		// We return the new total after the addition.
 		return map[string]interface{}{"total": atomic.LoadInt64(&c.total)}, nil
 	}
 	// The command must've been something else.
-	return nil, fmt.Errorf("unknown command string %s", cmd)
+	return nil, errtrace.Wrap(fmt.Errorf("unknown command string %s", cmd))
 }

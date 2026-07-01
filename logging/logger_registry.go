@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"braces.dev/errtrace"
 	"fmt"
 	"regexp"
 	"sync"
@@ -47,7 +48,7 @@ func (lr *Registry) updateLoggerLevel(name string, level Level) error {
 	defer lr.mu.RUnlock()
 	logger, ok := lr.loggers[name]
 	if !ok {
-		return fmt.Errorf("logger named %s not recognized", name)
+		return errtrace.Wrap(fmt.Errorf("logger named %s not recognized", name))
 	}
 	logger.SetLevel(level)
 	return nil

@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -37,17 +38,17 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 	errTemp := err
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	input, oobInput, output, err := svc.Shell(srv.Context(), req.Extra.AsMap())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	inDone := make(chan error)
 	outDone := make(chan struct{})
 	defer func() {
-		retErr = multierr.Combine(retErr, <-inDone)
+		retErr = errtrace.Wrap(multierr.Combine(retErr, <-inDone))
 	}()
 
 	utils.PanicCapturingGo(func() {
@@ -110,18 +111,18 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 					DataErr: out.Error,
 					Eof:     out.EOF,
 				}); err != nil {
-					return srv.Context().Err()
+					return errtrace.Wrap(srv.Context().Err())
 				}
 				if out.EOF {
 					return nil
 				}
 			} else {
-				return srv.Send(&pb.ShellResponse{
+				return errtrace.Wrap(srv.Send(&pb.ShellResponse{
 					Eof: true,
-				})
+				}))
 			}
 		case <-srv.Context().Done():
-			return srv.Context().Err()
+			return errtrace.Wrap(srv.Context().Err())
 		}
 	}
 }
@@ -132,15 +133,15 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToMachineServer) error {
 	mdReq, err := srv.Recv()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	md, ok := mdReq.Request.(*pb.CopyFilesToMachineRequest_Metadata)
 	if !ok {
-		return errors.New("expected copy request metadata")
+		return errtrace.Wrap(errors.New("expected copy request metadata"))
 	}
 	svc, err := server.coll.Resource(md.Metadata.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	fileCopier, err := svc.CopyFilesToMachine(
 		srv.Context(),
@@ -153,9 +154,9 @@ func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToM
 		var errno syscall.Errno
 		if errors.As(err, &pathErr) && errors.As(pathErr.Err, &errno) && errno == syscall.EACCES {
 			// we use an error code here so CLI can detect this case and give instructions
-			return status.New(codes.PermissionDenied, err.Error()).Err()
+			return errtrace.Wrap(status.New(codes.PermissionDenied, err.Error()).Err())
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(fileCopier.Close(srv.Context()))
@@ -169,7 +170,7 @@ func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToM
 	defer func() {
 		utils.UncheckedError(reader.Close(srv.Context()))
 	}()
-	return reader.ReadAll(srv.Context())
+	return errtrace.Wrap(reader.ReadAll(srv.Context()))
 }
 
 // CopyFilesFromMachine is the server side RPC implementation of copying files from a machine.
@@ -178,24 +179,24 @@ func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToM
 func (server *serviceServer) CopyFilesFromMachine(srv pb.ShellService_CopyFilesFromMachineServer) error {
 	mdReq, err := srv.Recv()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	md, ok := mdReq.Request.(*pb.CopyFilesFromMachineRequest_Metadata)
 	if !ok {
-		return errors.New("expected copy request metadata")
+		return errtrace.Wrap(errors.New("expected copy request metadata"))
 	}
 	svc, err := server.coll.Resource(md.Metadata.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return svc.CopyFilesFromMachine(
+	return errtrace.Wrap(svc.CopyFilesFromMachine(
 		srv.Context(),
 		md.Metadata.Paths,
 		md.Metadata.AllowRecursion,
 		md.Metadata.Preserve,
 		newCopyFileFromMachineFactory(srv, md.Metadata.Preserve),
-		md.Metadata.Extra.AsMap())
+		md.Metadata.Extra.AsMap()))
 }
 
 // DoCommand receives arbitrary commands.
@@ -204,16 +205,16 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // GetStatus returns the status of the shell service.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

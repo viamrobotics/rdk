@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli/v3"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -31,24 +32,24 @@ type motionPrintArgs struct {
 func motionPrintConfigAction(ctx context.Context, cmd *cli.Command, args motionPrintArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dialCtx, fqdn, rpcOpts, err := client.prepareDial(ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	logger := globalArgs.createLogger()
 
 	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(robotClient.Close(ctx))
@@ -56,7 +57,7 @@ func motionPrintConfigAction(ctx context.Context, cmd *cli.Command, args motionP
 
 	frameSystem, err := robotClient.FrameSystemConfig(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "%v", frameSystem)
@@ -67,24 +68,24 @@ func motionPrintConfigAction(ctx context.Context, cmd *cli.Command, args motionP
 func motionPrintStatusAction(ctx context.Context, cmd *cli.Command, args motionPrintArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dialCtx, fqdn, rpcOpts, err := client.prepareDial(ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	logger := globalArgs.createLogger()
 
 	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(robotClient.Close(ctx))
@@ -92,12 +93,12 @@ func motionPrintStatusAction(ctx context.Context, cmd *cli.Command, args motionP
 
 	frameSystem, err := robotClient.FrameSystemConfig(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
-		return fmt.Errorf("no motion: %w", err)
+		return errtrace.Wrap(fmt.Errorf("no motion: %w", err))
 	}
 
 	for _, p := range frameSystem.Parts {
@@ -105,7 +106,7 @@ func motionPrintStatusAction(ctx context.Context, cmd *cli.Command, args motionP
 
 		pif, err := myMotion.GetPose(ctx, n, "world", nil, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		printf(cmd.Root().Writer, "%20s : %v", n, prettyString(pif.Pose()))
@@ -126,24 +127,24 @@ type motionGetPoseArgs struct {
 func motionGetPoseAction(ctx context.Context, cmd *cli.Command, args motionGetPoseArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dialCtx, fqdn, rpcOpts, err := client.prepareDial(ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	logger := globalArgs.createLogger()
 
 	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(robotClient.Close(ctx))
@@ -151,12 +152,12 @@ func motionGetPoseAction(ctx context.Context, cmd *cli.Command, args motionGetPo
 
 	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
-		return fmt.Errorf("no motion: %w", err)
+		return errtrace.Wrap(fmt.Errorf("no motion: %w", err))
 	}
 
 	pif, err := myMotion.GetPose(ctx, args.Component, "world", nil, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "%v", prettyString(pif.Pose()))
@@ -178,24 +179,24 @@ type motionSetPoseArgs struct {
 func motionSetPoseAction(ctx context.Context, cmd *cli.Command, args motionSetPoseArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dialCtx, fqdn, rpcOpts, err := client.prepareDial(ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	logger := globalArgs.createLogger()
 
 	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(robotClient.Close(ctx))
@@ -203,12 +204,12 @@ func motionSetPoseAction(ctx context.Context, cmd *cli.Command, args motionSetPo
 
 	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
-		return fmt.Errorf("no motion: %w", err)
+		return errtrace.Wrap(fmt.Errorf("no motion: %w", err))
 	}
 
 	pose, err := myMotion.GetPose(ctx, args.Component, "world", nil, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "start pose %v", pose)
@@ -249,7 +250,7 @@ func motionSetPoseAction(ctx context.Context, cmd *cli.Command, args motionSetPo
 	}
 	_, err = myMotion.Move(ctx, req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil

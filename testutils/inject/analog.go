@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 )
 
@@ -19,9 +20,9 @@ type Analog struct {
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 	a.readCap = []interface{}{ctx}
 	if a.ReadFunc == nil {
-		return a.Analog.Read(ctx, extra)
+		return errtrace.Wrap2(a.Analog.Read(ctx, extra))
 	}
-	return a.ReadFunc(ctx, extra)
+	return errtrace.Wrap2(a.ReadFunc(ctx, extra))
 }
 
 // ReadCap returns the last parameters received by Read, and then clears them.
@@ -37,9 +38,9 @@ func (a *Analog) ReadCap() []interface{} {
 func (a *Analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
 	a.writeCap = []interface{}{ctx, value}
 	if a.WriteFunc == nil {
-		return a.Analog.Write(ctx, value, extra)
+		return errtrace.Wrap(a.Analog.Write(ctx, value, extra))
 	}
-	return a.WriteFunc(ctx, value, extra)
+	return errtrace.Wrap(a.WriteFunc(ctx, value, extra))
 }
 
 // WriteCap returns the last parameters received by Write, and then clears them.

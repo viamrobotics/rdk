@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -36,12 +37,12 @@ func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositio
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	p, err := svc.Position(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(p)}, nil
@@ -59,13 +60,13 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	returnEditedMap := req.ReturnEditedMap != nil && *req.ReturnEditedMap
 
 	f, err := svc.PointCloudMap(ctx, returnEditedMap)
 	if err != nil {
-		return errors.Wrap(err, "getting callback function from PointCloudMap encountered an issue")
+		return errtrace.Wrap(errors.Wrap(err, "getting callback function from PointCloudMap encountered an issue"))
 	}
 
 	// In the future, channel buffer could be used here to optimize for latency
@@ -77,12 +78,12 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 		}
 
 		if err != nil {
-			return errors.Wrap(err, "getting data from callback function encountered an issue")
+			return errtrace.Wrap(errors.Wrap(err, "getting data from callback function encountered an issue"))
 		}
 
 		chunk := &pb.GetPointCloudMapResponse{PointCloudPcdChunk: rawChunk}
 		if err := stream.Send(chunk); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 }
@@ -98,12 +99,12 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	f, err := svc.InternalState(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// In the future, channel buffer could be used here to optimize for latency
@@ -115,12 +116,12 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 		}
 
 		if err != nil {
-			return errors.Wrap(err, "getting data from callback function encountered an issue")
+			return errtrace.Wrap(errors.Wrap(err, "getting data from callback function encountered an issue"))
 		}
 
 		chunk := &pb.GetInternalStateResponse{InternalStateChunk: rawChunk}
 		if err := stream.Send(chunk); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 }
@@ -135,12 +136,12 @@ func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPrope
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	prop, err := svc.Properties(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	sensorInfo := []*pb.SensorInfo{}
@@ -169,16 +170,16 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // GetStatus returns the status of the slam service.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

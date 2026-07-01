@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"go.viam.com/utils/pexec"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -81,7 +82,7 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 		if ok {
 			return result, nil
 		}
-		return nil, errors.New("not found")
+		return nil, errtrace.Wrap(errors.New("not found"))
 	}
 	r.FindBySimpleNameAndAPIFunc = func(name string, api resource.API) (resource.Resource, error) {
 		var remoteNames []string
@@ -99,13 +100,13 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 		case 1:
 			return remoteResults[0], nil
 		case 0:
-			return nil, &resource.MultipleMatchingRemoteNodesError{
+			return nil, errtrace.Wrap(&resource.MultipleMatchingRemoteNodesError{
 				Name:    name,
 				API:     api,
 				Remotes: remoteNames,
-			}
+			})
 		}
-		return nil, resource.NewNotFoundError(resource.NewName(api, name))
+		return nil, errtrace.Wrap(resource.NewNotFoundError(resource.NewName(api, name)))
 	}
 }
 
@@ -124,14 +125,14 @@ func (r *Robot) ResourceByName(name resource.Name) (resource.Resource, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ResourceByNameFunc == nil {
-		return r.LocalRobot.ResourceByName(name)
+		return errtrace.Wrap2(r.LocalRobot.ResourceByName(name))
 	}
-	return r.ResourceByNameFunc(name)
+	return errtrace.Wrap2(r.ResourceByNameFunc(name))
 }
 
 // GetResource calls the injected ResourceByName or the real version of GetResource.
 func (r *Robot) GetResource(name resource.Name) (resource.Resource, error) {
-	return r.ResourceByName(name)
+	return errtrace.Wrap2(r.ResourceByName(name))
 }
 
 // RemoteNames calls the injected RemoteNames or the real version.
@@ -169,9 +170,9 @@ func (r *Robot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.FindBySimpleNameAndAPIFunc == nil {
-		return r.LocalRobot.FindBySimpleNameAndAPI(name, api)
+		return errtrace.Wrap2(r.LocalRobot.FindBySimpleNameAndAPI(name, api))
 	}
-	return r.FindBySimpleNameAndAPIFunc(name, api)
+	return errtrace.Wrap2(r.FindBySimpleNameAndAPIFunc(name, api))
 }
 
 // OperationManager calls the injected OperationManager or the real version.
@@ -235,9 +236,9 @@ func (r *Robot) Close(ctx context.Context) error {
 		if r.LocalRobot == nil {
 			return nil
 		}
-		return r.LocalRobot.Close(ctx)
+		return errtrace.Wrap(r.LocalRobot.Close(ctx))
 	}
-	return r.CloseFunc(ctx)
+	return errtrace.Wrap(r.CloseFunc(ctx))
 }
 
 // StopAll calls the injected StopAll or the real version.
@@ -245,9 +246,9 @@ func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.StopAllFunc == nil {
-		return r.LocalRobot.StopAll(ctx, extra)
+		return errtrace.Wrap(r.LocalRobot.StopAll(ctx, extra))
 	}
-	return r.StopAllFunc(ctx, extra)
+	return errtrace.Wrap(r.StopAllFunc(ctx, extra))
 }
 
 // GetModelsFromModules calls the injected GetModelsFromModules or the real one.
@@ -255,9 +256,9 @@ func (r *Robot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleMode
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.GetModelsFromModulesFunc == nil {
-		return r.LocalRobot.GetModelsFromModules(ctx)
+		return errtrace.Wrap2(r.LocalRobot.GetModelsFromModules(ctx))
 	}
-	return r.GetModelsFromModulesFunc(ctx)
+	return errtrace.Wrap2(r.GetModelsFromModulesFunc(ctx))
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
@@ -265,10 +266,10 @@ func (r *Robot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, err
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.FrameSystemConfigFunc == nil {
-		return r.LocalRobot.FrameSystemConfig(ctx)
+		return errtrace.Wrap2(r.LocalRobot.FrameSystemConfig(ctx))
 	}
 
-	return r.FrameSystemConfigFunc(ctx)
+	return errtrace.Wrap2(r.FrameSystemConfigFunc(ctx))
 }
 
 // GetPose calls the injected GetPose or the real version.
@@ -281,9 +282,9 @@ func (r *Robot) GetPose(
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.GetPoseFunc == nil {
-		return r.LocalRobot.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+		return errtrace.Wrap2(r.LocalRobot.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 	}
-	return r.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	return errtrace.Wrap2(r.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 }
 
 // TransformPose calls the injected TransformPose or the real version.
@@ -296,9 +297,9 @@ func (r *Robot) TransformPose(
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.TransformPoseFunc == nil {
-		return r.LocalRobot.TransformPose(ctx, pose, dst, additionalTransforms)
+		return errtrace.Wrap2(r.LocalRobot.TransformPose(ctx, pose, dst, additionalTransforms))
 	}
-	return r.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
+	return errtrace.Wrap2(r.TransformPoseFunc(ctx, pose, dst, additionalTransforms))
 }
 
 // TransformPointCloud calls the injected TransformPointCloud or the real version.
@@ -307,9 +308,9 @@ func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointC
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.TransformPointCloudFunc == nil {
-		return r.LocalRobot.TransformPointCloud(ctx, srcpc, srcName, dstName)
+		return errtrace.Wrap2(r.LocalRobot.TransformPointCloud(ctx, srcpc, srcName, dstName))
 	}
-	return r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
+	return errtrace.Wrap2(r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName))
 }
 
 // CurrentInputs returns a map of the current inputs for each component of a machine's frame system
@@ -318,9 +319,9 @@ func (r *Robot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemIn
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.CurrentInputsFunc == nil {
-		return r.LocalRobot.CurrentInputs(ctx)
+		return errtrace.Wrap2(r.LocalRobot.CurrentInputs(ctx))
 	}
-	return r.CurrentInputs(ctx)
+	return errtrace.Wrap2(r.CurrentInputs(ctx))
 }
 
 // ModuleAddresses calls the injected ModuleAddresses or the real one.
@@ -328,9 +329,9 @@ func (r *Robot) ModuleAddresses() (config.ParentSockAddrs, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ModuleAddressesFunc == nil {
-		return r.LocalRobot.ModuleAddresses()
+		return errtrace.Wrap2(r.LocalRobot.ModuleAddresses())
 	}
-	return r.ModuleAddressesFunc()
+	return errtrace.Wrap2(r.ModuleAddressesFunc())
 }
 
 // CloudMetadata calls the injected CloudMetadata or the real one.
@@ -338,9 +339,9 @@ func (r *Robot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.CloudMetadataFunc == nil {
-		return r.LocalRobot.CloudMetadata(ctx)
+		return errtrace.Wrap2(r.LocalRobot.CloudMetadata(ctx))
 	}
-	return r.CloudMetadataFunc(ctx)
+	return errtrace.Wrap2(r.CloudMetadataFunc(ctx))
 }
 
 // MachineStatus calls the injected MachineStatus or the real one.
@@ -348,9 +349,9 @@ func (r *Robot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) 
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.MachineStatusFunc == nil {
-		return r.LocalRobot.MachineStatus(ctx)
+		return errtrace.Wrap2(r.LocalRobot.MachineStatus(ctx))
 	}
-	return r.MachineStatusFunc(ctx)
+	return errtrace.Wrap2(r.MachineStatusFunc(ctx))
 }
 
 // Shutdown calls the injected Shutdown or the real one.
@@ -358,9 +359,9 @@ func (r *Robot) Shutdown(ctx context.Context) error {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ShutdownFunc == nil {
-		return r.LocalRobot.Shutdown(ctx)
+		return errtrace.Wrap(r.LocalRobot.Shutdown(ctx))
 	}
-	return r.ShutdownFunc(ctx)
+	return errtrace.Wrap(r.ShutdownFunc(ctx))
 }
 
 // ListTunnels calls the injected ListTunnels or the real one.
@@ -368,9 +369,9 @@ func (r *Robot) ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ListTunnelsFunc == nil {
-		return r.LocalRobot.ListTunnels(ctx)
+		return errtrace.Wrap2(r.LocalRobot.ListTunnels(ctx))
 	}
-	return r.ListTunnelsFunc(ctx)
+	return errtrace.Wrap2(r.ListTunnelsFunc(ctx))
 }
 
 type noopSessionManager struct{}
@@ -384,7 +385,7 @@ func (m noopSessionManager) All() []*session.Session {
 }
 
 func (m noopSessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
-	return nil, session.ErrNoSession
+	return nil, errtrace.Wrap(session.ErrNoSession)
 }
 
 func (m noopSessionManager) AssociateResource(id uuid.UUID, resourceName resource.Name) {

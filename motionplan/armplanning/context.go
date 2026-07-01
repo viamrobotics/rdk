@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
@@ -61,7 +62,7 @@ func NewPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	var err error
 	pc.lis, err = request.StartState.LinearConfiguration().GetSchema(pc.fs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	for _, fn := range pc.fs.FrameNames() {
@@ -133,23 +134,23 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 	// moving target.
 	psc.goal, err = translateGoalsToWorldPosition(pc.fs, psc.start, psc.origGoal)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	psc.startPoses, err = start.ComputePoses(pc.fs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	psc.motionChains, err = motionChainsFromPlanState(pc.fs, goal)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// TODO: this is duplicated work as it's also done in motionplan.NewConstraintChecker
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pc.fs, start.ToFrameSystemInputs())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	movingRobotGeometries, staticRobotGeometries := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
@@ -167,7 +168,7 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 		pc.collisionCache,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return psc, nil
@@ -217,7 +218,7 @@ func (psc *PlanSegmentContext) CheckPath(
 			LastGoodInputs: validSegment.EndConfiguration,
 		}
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 // hashLinearInputs computes a deterministic FNV-1a hash over the float values
@@ -249,7 +250,7 @@ func translateGoalsToWorldPosition(
 	for f, pif := range goal {
 		tf, err := fs.Transform(start, pif, referenceframe.World)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		alteredGoals[f] = tf.(*referenceframe.PoseInFrame)

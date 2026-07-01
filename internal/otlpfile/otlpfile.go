@@ -12,6 +12,7 @@ import (
 	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/protoutils"
 )
 
@@ -49,7 +50,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 // Stop implements [otlptrace.Client]. It closes underlying resources.
 func (c *Client) Stop(ctx context.Context) error {
-	return c.writer.Close()
+	return errtrace.Wrap(c.writer.Close())
 }
 
 // UploadTraces implements [otlptrace.Client]. It saves the passed protoSpans
@@ -61,7 +62,7 @@ func (c *Client) UploadTraces(ctx context.Context, protoSpans []*v1.ResourceSpan
 	for _, span := range protoSpans {
 		errs = errors.Join(c.writer.Append(span))
 	}
-	return errs
+	return errtrace.Wrap(errs)
 }
 
 var _ otlptrace.Client = &Client{}

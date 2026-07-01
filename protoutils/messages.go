@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -119,7 +120,7 @@ func ConvertStringToAnyPB(str string) (*anypb.Any, error) {
 	}
 	anyVal, err := anypb.New(wrappedVal)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return anyVal, nil
 }
@@ -130,7 +131,7 @@ func ConvertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any
 	for key, paramVal := range params {
 		anyVal, err := ConvertStringToAnyPB(paramVal)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		methodParams[key] = anyVal
 	}
@@ -144,11 +145,11 @@ func ConvertMapToProtoAny(input map[string]interface{}) (map[string]*anypb.Any, 
 	for key, value := range input {
 		structValue, err := structpb.NewValue(value)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		anyValue, err := anypb.New(structValue)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		protoMap[key] = anyValue
 	}
@@ -180,14 +181,14 @@ func DoFromResourceClient(ctx context.Context, svc ClientDoCommander, name strin
 ) (map[string]interface{}, error) {
 	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := svc.DoCommand(ctx, &commonpb.DoCommandRequest{
 		Name:    name,
 		Command: command,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Result.AsMap(), nil
 }
@@ -200,11 +201,11 @@ func DoFromResourceServer(
 ) (*commonpb.DoCommandResponse, error) {
 	resp, err := res.DoCommand(ctx, req.Command.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pbRes, err := protoutils.StructToStructPb(resp)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.DoCommandResponse{Result: pbRes}, nil
 }
@@ -219,7 +220,7 @@ type ClientGetStatuser interface {
 func GetStatusFromResourceClient(ctx context.Context, svc ClientGetStatuser, name string) (map[string]interface{}, error) {
 	resp, err := svc.GetStatus(ctx, &commonpb.GetStatusRequest{Name: name})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Result.AsMap(), nil
 }
@@ -232,11 +233,11 @@ func GetStatusFromResourceServer(
 ) (*commonpb.GetStatusResponse, error) {
 	status, err := res.Status(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	result, err := structpb.NewStruct(status)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetStatusResponse{Result: result}, nil
 }

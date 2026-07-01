@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/components/sensor"
@@ -47,15 +48,15 @@ func TestClient(t *testing.T) {
 	}
 
 	failingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-		return 0, false, errVoltageFailed
+		return 0, false, errtrace.Wrap(errVoltageFailed)
 	}
 
 	failingPowerSensor.CurrentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-		return 0, false, errCurrentFailed
+		return 0, false, errtrace.Wrap(errCurrentFailed)
 	}
 
 	failingPowerSensor.PowerFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, errPowerFailed
+		return 0, errtrace.Wrap(errPowerFailed)
 	}
 
 	failingPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {

@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/posetracker"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -69,7 +70,7 @@ func TestClient(t *testing.T) {
 	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		referenceframe.FrameSystemPoses, error,
 	) {
-		return nil, errPoseFailed
+		return nil, errtrace.Wrap(errPoseFailed)
 	}
 
 	resourceMap := map[resource.Name]posetracker.PoseTracker{

@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -53,7 +54,7 @@ func (c *client) Position(ctx context.Context) (spatialmath.Pose, error) {
 
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	p := resp.GetPose()
@@ -67,7 +68,7 @@ func (c *client) PointCloudMap(ctx context.Context, returnEditedMap bool) (func(
 	ctx, span := trace.StartSpan(ctx, "slam::client::PointCloudMap")
 	defer span.End()
 
-	return PointCloudMapCallback(ctx, c.name, c.client, returnEditedMap)
+	return errtrace.Wrap2(PointCloudMapCallback(ctx, c.name, c.client, returnEditedMap))
 }
 
 // InternalState creates a request, calls the slam service InternalState and returns a callback
@@ -76,7 +77,7 @@ func (c *client) InternalState(ctx context.Context) (func() ([]byte, error), err
 	ctx, span := trace.StartSpan(ctx, "slam::client::InternalState")
 	defer span.End()
 
-	return InternalStateCallback(ctx, c.name, c.client)
+	return errtrace.Wrap2(InternalStateCallback(ctx, c.name, c.client))
 }
 
 // Properties returns information regarding the current SLAM session, including
@@ -91,19 +92,19 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return Properties{}, errors.Wrapf(err, "failure to get properties")
+		return Properties{}, errtrace.Wrap(errors.Wrapf(err, "failure to get properties"))
 	}
 
 	mappingMode, err := protobufToMappingMode(resp.MappingMode)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 
 	sensorInfo := []SensorInfo{}
 	for _, sInfo := range resp.SensorInfo {
 		sensorType, err := protobufToSensorType(sInfo.Type)
 		if err != nil {
-			return Properties{}, err
+			return Properties{}, errtrace.Wrap(err)
 		}
 		sensorInfo = append(sensorInfo, SensorInfo{
 			Name: sInfo.Name,
@@ -122,16 +123,16 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		InternalStateFileType: internalStateFileType,
 		SensorInfo:            sensorInfo,
 	}
-	return prop, err
+	return prop, errtrace.Wrap(err)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::DoCommand")
 	defer span.End()
 
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

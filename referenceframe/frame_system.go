@@ -15,6 +15,7 @@ import (
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -112,7 +113,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 	for _, tf := range additionalTransforms {
 		transformPart, err := LinkInFrameToFrameSystemPart(tf)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		allParts = append(allParts, transformPart)
 	}
@@ -125,14 +126,14 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 	fs := NewEmptyFrameSystem(name)
 	for _, part := range sortedParts {
 		if err := addPartToFS(fs, part); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
 	// Second pass: try to add unlinked parts whose parents now exist in the FS
 	// (e.g., frames parented to flattened internal frames like "arm1:base_link").
 	if err := addUnlinkedParts(fs, unlinkedParts); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return fs, nil
@@ -143,12 +144,12 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 func addPartToFS(fs *FrameSystem, part *FrameSystemPart) error {
 	modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err = fs.AddFrame(staticOffsetFrame, fs.lookupFrame(part.FrameConfig.Parent())); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return fs.AddFrame(modelFrame, staticOffsetFrame)
+	return errtrace.Wrap(fs.AddFrame(modelFrame, staticOffsetFrame))
 }
 
 // addUnlinkedParts retries adding parts whose parents weren't available during the first
@@ -160,7 +161,7 @@ func addUnlinkedParts(fs *FrameSystem, unlinked []*FrameSystemPart) error {
 		for _, part := range unlinked {
 			if fs.lookupFrame(part.FrameConfig.Parent()) != nil {
 				if err := addPartToFS(fs, part); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			} else {
 				stillUnlinked = append(stillUnlinked, part)
@@ -172,8 +173,8 @@ func addUnlinkedParts(fs *FrameSystem, unlinked []*FrameSystemPart) error {
 			for idx, part := range stillUnlinked {
 				strs[idx] = part.FrameConfig.Name()
 			}
-			return fmt.Errorf("Cannot construct frame system. Some parts are not linked to the world frame. Parts: %v",
-				strs)
+			return errtrace.Wrap(fmt.Errorf("Cannot construct frame system. Some parts are not linked to the world frame. Parts: %v",
+				strs))
 		}
 		unlinked = stillUnlinked
 	}
@@ -191,11 +192,11 @@ func (sfs *FrameSystem) World() Frame {
 // returned instead so that public callers see component-level structure only.
 func (sfs *FrameSystem) Parent(frame Frame) (Frame, error) {
 	if !sfs.frameExists(frame.Name()) {
-		return nil, NewFrameMissingError(frame.Name())
+		return nil, errtrace.Wrap(NewFrameMissingError(frame.Name()))
 	}
 	parentName, exists := sfs.parents[frame.Name()]
 	if !exists {
-		return nil, NewParentFrameNilError(frame.Name())
+		return nil, errtrace.Wrap(NewParentFrameNilError(frame.Name()))
 	}
 
 	// If the raw parent is an internal flattened frame, return the component's
@@ -346,14 +347,14 @@ func (sfs *FrameSystem) lookupFrame(name string) Frame {
 // callers see component-level frames rather than internal per-joint frames.
 func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	if !sfs.frameExists(query.Name()) {
-		return nil, NewFrameMissingError(query.Name())
+		return nil, errtrace.Wrap(NewFrameMissingError(query.Name()))
 	}
 	if query == sfs.world {
 		return []Frame{query}, nil
 	}
 	parentName, exists := sfs.parents[query.Name()]
 	if !exists {
-		return nil, NewParentFrameNilError(query.Name())
+		return nil, errtrace.Wrap(NewParentFrameNilError(query.Name()))
 	}
 
 	// If the raw parent is an internal flattened frame, skip the entire internal
@@ -367,7 +368,7 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 
 	parents, err := sfs.TracebackFrame(nextParent)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return append([]Frame{query}, parents...), nil
 }
@@ -384,15 +385,15 @@ func (sfs *FrameSystem) FrameNames() []string {
 func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 	// check to see if parent is in system
 	if parent == nil {
-		return NewParentFrameNilError(frame.Name())
+		return errtrace.Wrap(NewParentFrameNilError(frame.Name()))
 	}
 	if !sfs.frameExists(parent.Name()) {
-		return NewFrameMissingError(parent.Name())
+		return errtrace.Wrap(NewFrameMissingError(parent.Name()))
 	}
 
 	// check if frame with that name is already in system
 	if sfs.frameExists(frame.Name()) {
-		return NewFrameAlreadyExistsError(frame.Name())
+		return errtrace.Wrap(NewFrameAlreadyExistsError(frame.Name()))
 	}
 
 	// add to frame system
@@ -402,7 +403,7 @@ func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 
 	if sm := asFlattenableModel(frame); sm != nil {
 		if err := flattenModelIntoFS(sfs, sm, frame.Name(), parent); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -416,11 +417,11 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 		return object, nil
 	}
 	if !sfs.frameExists(src) {
-		return nil, NewFrameMissingError(src)
+		return nil, errtrace.Wrap(NewFrameMissingError(src))
 	}
 	srcFrame := sfs.lookupFrame(src)
 	if !sfs.frameExists(dst) {
-		return nil, NewFrameMissingError(dst)
+		return nil, errtrace.Wrap(NewFrameMissingError(dst))
 	}
 
 	var tfParentDQ spatial.DualQuaternion
@@ -433,14 +434,14 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 		// along the final transformation.
 		parentName, exists := sfs.parents[srcFrame.Name()]
 		if !exists {
-			return nil, NewParentFrameNilError(srcFrame.Name())
+			return nil, errtrace.Wrap(NewParentFrameNilError(srcFrame.Name()))
 		}
 		tfParentDQ, err = sfs.transformFromParent(inputs, sfs.lookupFrame(parentName), sfs.lookupFrame(dst))
 	} else {
 		tfParentDQ, err = sfs.transformFromParent(inputs, srcFrame, sfs.lookupFrame(dst))
 	}
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return object.Transform(&PoseInFrame{dst, &tfParentDQ, src, nil}), nil
@@ -457,16 +458,16 @@ func (sfs *FrameSystem) TransformToDQ(inputs *LinearInputs, frame, parent string
 	spatial.DualQuaternion, error,
 ) {
 	if !sfs.frameExists(frame) {
-		return spatial.DualQuaternion{}, NewFrameMissingError(frame)
+		return spatial.DualQuaternion{}, errtrace.Wrap(NewFrameMissingError(frame))
 	}
 
 	if !sfs.frameExists(parent) {
-		return spatial.DualQuaternion{}, NewFrameMissingError(parent)
+		return spatial.DualQuaternion{}, errtrace.Wrap(NewFrameMissingError(parent))
 	}
 
 	tfParent, err := sfs.transformFromParent(inputs, sfs.lookupFrame(frame), sfs.lookupFrame(parent))
 	if err != nil {
-		return spatial.DualQuaternion{}, err
+		return spatial.DualQuaternion{}, errtrace.Wrap(err)
 	}
 
 	ret := tfParent.Transformation(dualquat.Number{
@@ -489,16 +490,16 @@ func (sfs *FrameSystem) Name() string {
 func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Frame) error {
 	attachFrame := sfs.lookupFrame(attachTo.Name())
 	if attachFrame == nil {
-		return NewFrameMissingError(attachTo.Name())
+		return errtrace.Wrap(NewFrameMissingError(attachTo.Name()))
 	}
 
-	return systemToMerge.walkPublic(func(child, parent Frame) error {
+	return errtrace.Wrap(systemToMerge.walkPublic(func(child, parent Frame) error {
 		destParent := parent
 		if parent == systemToMerge.World() {
 			destParent = attachFrame
 		}
-		return sfs.AddFrame(child, destParent)
-	})
+		return errtrace.Wrap(sfs.AddFrame(child, destParent))
+	}))
 }
 
 // FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
@@ -508,7 +509,7 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 // internals (regenerated by AddFrame's auto-flatten) along with anything parented to them.
 func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 	if sfs.Frame(newRoot.Name()) == nil {
-		return nil, NewFrameMissingError(newRoot.Name())
+		return nil, errtrace.Wrap(NewFrameMissingError(newRoot.Name()))
 	}
 
 	newFS := NewEmptyFrameSystem(newRoot.Name() + "_FS")
@@ -533,10 +534,10 @@ func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 		if child.Name() == newRoot.Name() {
 			destParent = newFS.World()
 		}
-		return newFS.AddFrame(child, newFS.lookupFrame(destParent.Name()))
+		return errtrace.Wrap(newFS.AddFrame(child, newFS.lookupFrame(destParent.Name())))
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return newFS, nil
 }
@@ -548,7 +549,7 @@ func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 func (sfs *FrameSystem) DivideFrameSystem(newRoot Frame) (*FrameSystem, error) {
 	newFS, err := sfs.FrameSystemSubset(newRoot)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	sfs.RemoveFrame(newRoot)
 	return newFS, nil
@@ -562,7 +563,7 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame
 	}
 
 	if !sfs.frameExists(src.Name()) {
-		return ret, NewFrameMissingError(src.Name())
+		return ret, errtrace.Wrap(NewFrameMissingError(src.Name()))
 	}
 
 	// If src is nil it is interpreted as the world frame
@@ -570,10 +571,10 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame
 	if src != nil {
 		ret, err = sfs.composeTransforms(src, inputs)
 		if err != nil {
-			return ret, err
+			return ret, errtrace.Wrap(err)
 		}
 	}
-	return ret, err
+	return ret, errtrace.Wrap(err)
 }
 
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
@@ -584,15 +585,15 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame
 func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 	var replaceMe Frame
 	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
-		return fmt.Errorf("%s not found in frame system", replacementFrame.Name())
+		return errtrace.Wrap(fmt.Errorf("%s not found in frame system", replacementFrame.Name()))
 	}
 	if replaceMe == sfs.World() {
-		return errors.New("cannot replace the World frame of a frame system")
+		return errtrace.Wrap(errors.New("cannot replace the World frame of a frame system"))
 	}
 
 	rawParentName, exists := sfs.parents[replaceMe.Name()]
 	if !exists {
-		return NewParentFrameNilError(replaceMe.Name())
+		return errtrace.Wrap(NewParentFrameNilError(replaceMe.Name()))
 	}
 	replaceMeParent := sfs.lookupFrame(rawParentName)
 
@@ -614,10 +615,10 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 				continue // internal of the old component; torn down with the bundle
 			}
 			if oldInternals[parentName] && !replacementInternals[parentName] {
-				return fmt.Errorf(
+				return errtrace.Wrap(fmt.Errorf(
 					"cannot replace %q: child frame %q is parented to internal %q which the replacement does not produce",
 					replaceMe.Name(), childName, parentName,
-				)
+				))
 			}
 		}
 	}
@@ -640,14 +641,14 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 
 	// add replacementFrame to frame system with parent of replaceMe. AddFrame
 	// handles auto-flatten if replacementFrame is (or wraps) a SimpleModel.
-	return sfs.AddFrame(replacementFrame, replaceMeParent)
+	return errtrace.Wrap(sfs.AddFrame(replacementFrame, replaceMeParent))
 }
 
 // Returns the relative pose between the parent and the destination frame.
 func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame) (spatial.DualQuaternion, error) {
 	srcToWorld, err := sfs.GetFrameToWorldTransform(inputs, src)
 	if err != nil {
-		return spatial.DualQuaternion{}, err
+		return spatial.DualQuaternion{}, errtrace.Wrap(err)
 	}
 
 	if dst.Name() == World {
@@ -656,7 +657,7 @@ func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame
 
 	dstToWorld, err := sfs.GetFrameToWorldTransform(inputs, dst)
 	if err != nil {
-		return spatial.DualQuaternion{}, err
+		return spatial.DualQuaternion{}, errtrace.Wrap(err)
 	}
 
 	// transform from source to world, world to target parent
@@ -685,17 +686,17 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 				sourceInputs = sfs.resolveFrameInputs(linearInputs, mi.sourceFrameName)
 			}
 			if len(sourceInputs) == 0 {
-				return ret, fmt.Errorf("mimic source frame %q has no inputs", mi.sourceFrameName)
+				return ret, errtrace.Wrap(fmt.Errorf("mimic source frame %q has no inputs", mi.sourceFrameName))
 			}
 			derived := []Input{mi.multiplier*sourceInputs[0] + mi.offset}
 			pose, err = frame.Transform(derived)
 			if err != nil {
-				return ret, err
+				return ret, errtrace.Wrap(err)
 			}
 		} else if len(frame.DoF()) == 0 {
 			pose, err = frame.Transform([]Input{})
 			if err != nil {
-				return ret, err
+				return ret, errtrace.Wrap(err)
 			}
 		} else {
 			frameInputs := linearInputs.Get(frame.Name())
@@ -704,12 +705,12 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 			}
 			numMoveableFrames++
 			if len(frame.DoF()) != len(frameInputs) {
-				return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+				return ret, errtrace.Wrap(NewIncorrectDoFError(len(frameInputs), len(frame.DoF())))
 			}
 
 			pose, err = frame.Transform(frameInputs)
 			if err != nil {
-				return ret, err
+				return ret, errtrace.Wrap(err)
 			}
 		}
 
@@ -730,14 +731,14 @@ func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
 	}
 	worldFrameJSON, err := frameToJSON(sfs.World())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	typedFrames := make(map[string]json.RawMessage, 0)
 	for name, frame := range sfs.frames {
 		frameJSON, err := frameToJSON(frame)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		typedFrames[name] = frameJSON
 	}
@@ -747,7 +748,7 @@ func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
 		Frames:  typedFrames,
 		Parents: sfs.parents,
 	}
-	return json.Marshal(serializedFS)
+	return errtrace.Wrap2(json.Marshal(serializedFS))
 }
 
 // UnmarshalJSON parses a FrameSystem from JSON data.
@@ -763,26 +764,26 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	}
 	var serFS serializableFrameSystem
 	if err := json.Unmarshal(data, &serFS); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	worldFrame, err := jsonToFrame(serFS.World)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	frameMap := make(map[string]Frame, len(serFS.Frames))
 	for name, tF := range serFS.Frames {
 		frame, err := jsonToFrame(tF)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		frameMap[name] = frame
 	}
 
 	for name := range serFS.Parents {
 		if _, ok := frameMap[name]; !ok {
-			return fmt.Errorf("cannot deserialize frame system: parents map references unknown frame %q", name)
+			return errtrace.Wrap(fmt.Errorf("cannot deserialize frame system: parents map references unknown frame %q", name))
 		}
 	}
 
@@ -809,10 +810,10 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	sfs.world = worldFrame
 
 	err = tempFS.walkPublic(func(child, parent Frame) error {
-		return sfs.AddFrame(child, sfs.lookupFrame(parent.Name()))
+		return errtrace.Wrap(sfs.AddFrame(child, sfs.lookupFrame(parent.Name())))
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Collect anything in the json that wasn't reachable from World and surface as an error.
@@ -824,7 +825,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	}
 	if len(orphans) > 0 {
 		sort.Strings(orphans)
-		return fmt.Errorf("cannot deserialize frame system: frames not reachable from world: %v", orphans)
+		return errtrace.Wrap(fmt.Errorf("cannot deserialize frame system: frames not reachable from world: %v", orphans))
 	}
 	return nil
 }
@@ -923,17 +924,17 @@ func InterpolateFS(fs *FrameSystem, from, to *LinearInputs, by float64) (*Linear
 
 		frame := fs.Frame(fn)
 		if frame == nil {
-			return nil, NewFrameMissingError(fn)
+			return nil, errtrace.Wrap(NewFrameMissingError(fn))
 		}
 
 		toInputs := to.Get(fn)
 		if toInputs == nil {
-			return nil, fmt.Errorf("frame with name %s not found in `to` interpolation inputs", fn)
+			return nil, errtrace.Wrap(fmt.Errorf("frame with name %s not found in `to` interpolation inputs", fn))
 		}
 
 		interpInputs, err := frame.Interpolate(fromInputs, toInputs, by)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		interp.Put(fn, interpInputs)
@@ -962,7 +963,7 @@ func FrameSystemToPCD(system *FrameSystem, inputs FrameSystemInputs, logger logg
 // GeometriesInFrames with a World reference frame. `FrameSystemGeometriesLinearInputs` is preferred
 // for hot paths. This function is otherwise kept around for backwards compatibility.
 func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[string]*GeometriesInFrame, error) {
-	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs())
+	return errtrace.Wrap2(FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs()))
 }
 
 // FrameSystemGeometriesLinearInputs takes in a framesystem and returns a LinearInputs where all
@@ -995,32 +996,32 @@ func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInpu
 		}
 	}
 
-	return allGeometries, errAll
+	return allGeometries, errtrace.Wrap(errAll)
 }
 
 // ToProtobuf turns all the interfaces into serializable types.
 func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
-		return nil, ErrNoModelInformation
+		return nil, errtrace.Wrap(ErrNoModelInformation)
 	}
 	linkFrame, err := LinkInFrameToTransformProtobuf(part.FrameConfig)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var modelJSON SimpleModel
 	if part.ModelFrame != nil {
 		bytes, err := part.ModelFrame.MarshalJSON()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		err = json.Unmarshal(bytes, &modelJSON)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	kinematics, err := protoutils.StructToStructPb(modelJSON.modelConfig)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.FrameSystemConfig{
 		Frame:      linkFrame,
@@ -1032,7 +1033,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
 	frameConfig, err := LinkInFrameFromTransformProtobuf(fsc.Frame)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	part := &FrameSystemPart{
 		FrameConfig: frameConfig,
@@ -1041,14 +1042,14 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	if len(fsc.Kinematics.AsMap()) > 0 {
 		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		modelFrame, err := UnmarshalModelJSON(modelBytes, frameConfig.Name())
 		if err != nil {
 			if errors.Is(err, ErrNoModelInformation) {
 				return part, nil
 			}
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		part.ModelFrame = modelFrame
 	}
@@ -1058,7 +1059,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 // LinkInFrameToFrameSystemPart creates a FrameSystem part out of a PoseInFrame.
 func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, error) {
 	if transform.Name() == "" || transform.Parent() == "" {
-		return nil, ErrEmptyStringFrameName
+		return nil, errtrace.Wrap(ErrEmptyStringFrameName)
 	}
 	part := &FrameSystemPart{
 		FrameConfig: transform,
@@ -1069,7 +1070,7 @@ func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, err
 // createFramesFromPart will gather the frame information and build the frames from the given robot part.
 func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part == nil || part.FrameConfig == nil {
-		return nil, nil, errors.New("config for FrameSystemPart is nil")
+		return nil, nil, errtrace.Wrap(errors.New("config for FrameSystemPart is nil"))
 	}
 
 	var modelFrame Frame
@@ -1087,7 +1088,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	// If it is empty, the new frame will have the same origin as the parent.
 	staticOriginFrame, err := part.FrameConfig.ToStaticFrame(part.FrameConfig.Name() + "_origin")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	// If the user has specified a geometry, and the model is a zero DOF frame (e.g. a gripper), we want to overwrite the geometry
@@ -1095,17 +1096,17 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if len(modelFrame.DoF()) == 0 {
 		offsetGeom, err := staticOriginFrame.Geometries([]Input{})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		pose, err := modelFrame.Transform([]Input{})
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 		if len(offsetGeom.Geometries()) > 0 {
 			// If there are offset geometries, they should replace the static geometries, so the static frame is recreated with no geoms
 			noGeomFrame, err := NewStaticFrame(modelFrame.Name(), pose)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errtrace.Wrap(err)
 			}
 			modelFrame = noGeomFrame
 		}
@@ -1210,7 +1211,7 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 		ns := componentName + ":" + internalName
 		innerFrame := internalFS.Frame(internalName)
 		if innerFrame == nil {
-			return NewFrameMissingError(internalName)
+			return errtrace.Wrap(NewFrameMissingError(internalName))
 		}
 
 		internalParentName := internalFS.parents[internalName]
@@ -1221,12 +1222,12 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 			namespacedParent := componentName + ":" + internalParentName
 			parentFrame = outerFS.lookupFrame(namespacedParent)
 			if parentFrame == nil {
-				return NewFrameMissingError(namespacedParent)
+				return errtrace.Wrap(NewFrameMissingError(namespacedParent))
 			}
 		}
 
 		if err := outerFS.AddFrame(NewNamedFrame(innerFrame, ns), parentFrame); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -1334,7 +1335,7 @@ func (sfs *FrameSystem) walkPublic(visit func(child, parent Frame) error) error 
 				continue
 			}
 			if err := visit(sfs.frames[name], parentFrame); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -1351,12 +1352,12 @@ func (sfs *FrameSystem) Clone() (*FrameSystem, error) {
 	err := sfs.walkPublic(func(child, parent Frame) error {
 		cloned, err := clone(child)
 		if err != nil {
-			return fmt.Errorf("cloning frame %q: %w", child.Name(), err)
+			return errtrace.Wrap(fmt.Errorf("cloning frame %q: %w", child.Name(), err))
 		}
-		return newFS.AddFrame(cloned, newFS.lookupFrame(parent.Name()))
+		return errtrace.Wrap(newFS.AddFrame(cloned, newFS.lookupFrame(parent.Name())))
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return newFS, nil
 }
@@ -1374,7 +1375,7 @@ func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, erro
 
 	worldFrameEquality, err := framesAlmostEqual(fs1.World(), fs2.World(), epsilon)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	if !worldFrameEquality {
 		return false, nil
@@ -1394,7 +1395,7 @@ func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, erro
 		}
 		frameEquality, err := framesAlmostEqual(frame, frame2, epsilon)
 		if err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 		if !frameEquality {
 			return false, nil

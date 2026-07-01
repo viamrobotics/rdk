@@ -9,6 +9,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
@@ -44,7 +45,7 @@ func newNav(
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	navConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// here we set a default latitude, if the config latitude field is not omitted (omitempty)
@@ -126,13 +127,13 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 }
 
 func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error) {
-	return []*spatialmath.GeoGeometry{}, errUnimplemented
+	return []*spatialmath.GeoGeometry{}, errtrace.Wrap(errUnimplemented)
 }
 
 func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-	return []*navigation.Path{}, errUnimplemented
+	return []*navigation.Path{}, errtrace.Wrap(errUnimplemented)
 }
 
 func (svc *navSvc) Properties(ctx context.Context) (navigation.Properties, error) {
-	return navigation.Properties{}, errUnimplemented
+	return navigation.Properties{}, errtrace.Wrap(errUnimplemented)
 }

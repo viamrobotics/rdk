@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -27,12 +28,12 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				conf resource.Config,
 				logger logging.Logger,
 			) (board.Board, error) {
-				return nil, errors.New("linux boards are not supported on non-linux OSes")
+				return nil, errtrace.Wrap(errors.New("linux boards are not supported on non-linux OSes"))
 			},
 		})
 }
 
 // GetGPIOBoardMappings attempts to find a compatible GPIOBoardMapping for the given board.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[string]GPIOBoardMapping, error) {
-	return nil, errors.New("linux boards are not supported on non-linux OSes")
+	return nil, errtrace.Wrap(errors.New("linux boards are not supported on non-linux OSes"))
 }

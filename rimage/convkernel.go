@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"braces.dev/errtrace"
 	"errors"
 	"image"
 	"math"
@@ -21,7 +22,7 @@ type Kernel struct {
 // NewKernel creates a new Kernel with the given width and height. The value for every position of the kernel is 0.
 func NewKernel(width, height int) (*Kernel, error) {
 	if width < 0 || height < 0 {
-		return nil, errors.New("negative kernel size")
+		return nil, errtrace.Wrap(errors.New("negative kernel size"))
 	}
 	m := make([][]float64, height)
 	for i := range m {

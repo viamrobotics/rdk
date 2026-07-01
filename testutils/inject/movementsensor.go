@@ -7,6 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -56,17 +57,17 @@ func (i *MovementSensor) Close(ctx context.Context) error {
 		if i.MovementSensor == nil {
 			return nil
 		}
-		return i.MovementSensor.Close(ctx)
+		return errtrace.Wrap(i.MovementSensor.Close(ctx))
 	}
-	return i.CloseFunc()
+	return errtrace.Wrap(i.CloseFunc())
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (i *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if i.DoFunc == nil {
-		return i.MovementSensor.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(i.MovementSensor.DoCommand(ctx, cmd))
 	}
-	return i.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(i.DoFunc(ctx, cmd))
 }
 
 // Position func or passthrough.
@@ -74,92 +75,92 @@ func (i *MovementSensor) Position(ctx context.Context, extra map[string]interfac
 	i.Mu.Lock()
 	defer i.Mu.Unlock()
 	if i.PositionFunc == nil {
-		return i.MovementSensor.Position(ctx, extra)
+		return errtrace.Wrap3(i.MovementSensor.Position(ctx, extra))
 	}
 	i.PositionFuncExtraCap = extra
-	return i.PositionFunc(ctx, extra)
+	return errtrace.Wrap3(i.PositionFunc(ctx, extra))
 }
 
 // LinearVelocity func or passthrough.
 func (i *MovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	if i.LinearVelocityFunc == nil {
-		return i.MovementSensor.LinearVelocity(ctx, extra)
+		return errtrace.Wrap2(i.MovementSensor.LinearVelocity(ctx, extra))
 	}
 	i.LinearVelocityFuncExtraCap = extra
-	return i.LinearVelocityFunc(ctx, extra)
+	return errtrace.Wrap2(i.LinearVelocityFunc(ctx, extra))
 }
 
 // AngularVelocity func or passthrough.
 func (i *MovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	if i.AngularVelocityFunc == nil {
-		return i.MovementSensor.AngularVelocity(ctx, extra)
+		return errtrace.Wrap2(i.MovementSensor.AngularVelocity(ctx, extra))
 	}
 	i.AngularVelocityFuncExtraCap = extra
-	return i.AngularVelocityFunc(ctx, extra)
+	return errtrace.Wrap2(i.AngularVelocityFunc(ctx, extra))
 }
 
 // LinearAcceleration func or passthrough.
 func (i *MovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	if i.LinearAccelerationFunc == nil {
-		return i.MovementSensor.LinearAcceleration(ctx, extra)
+		return errtrace.Wrap2(i.MovementSensor.LinearAcceleration(ctx, extra))
 	}
 	i.LinearAccelerationExtraCap = extra
-	return i.LinearAccelerationFunc(ctx, extra)
+	return errtrace.Wrap2(i.LinearAccelerationFunc(ctx, extra))
 }
 
 // Orientation func or passthrough.
 func (i *MovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	if i.OrientationFunc == nil {
-		return i.MovementSensor.Orientation(ctx, extra)
+		return errtrace.Wrap2(i.MovementSensor.Orientation(ctx, extra))
 	}
 	i.OrientationFuncExtraCap = extra
-	return i.OrientationFunc(ctx, extra)
+	return errtrace.Wrap2(i.OrientationFunc(ctx, extra))
 }
 
 // CompassHeading func or passthrough.
 func (i *MovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	if i.CompassHeadingFunc == nil {
-		return i.MovementSensor.CompassHeading(ctx, extra)
+		return errtrace.Wrap2(i.MovementSensor.CompassHeading(ctx, extra))
 	}
 	i.CompassHeadingFuncExtraCap = extra
-	return i.CompassHeadingFunc(ctx, extra)
+	return errtrace.Wrap2(i.CompassHeadingFunc(ctx, extra))
 }
 
 // Properties func or passthrough.
 func (i *MovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	if i.PropertiesFunc == nil {
-		return i.MovementSensor.Properties(ctx, extra)
+		return errtrace.Wrap2(i.MovementSensor.Properties(ctx, extra))
 	}
 	i.PropertiesFuncExtraCap = extra
-	return i.PropertiesFunc(ctx, extra)
+	return errtrace.Wrap2(i.PropertiesFunc(ctx, extra))
 }
 
 // Accuracy func or passthrough.
 func (i *MovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
 	if i.AccuracyFunc == nil {
-		return i.MovementSensor.Accuracy(ctx, extra)
+		return errtrace.Wrap2(i.MovementSensor.Accuracy(ctx, extra))
 	}
 	i.AccuracyFuncExtraCap = extra
-	return i.AccuracyFunc(ctx, extra)
+	return errtrace.Wrap2(i.AccuracyFunc(ctx, extra))
 }
 
 // Readings func or passthrough.
 func (i *MovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	if i.ReadingsFunc == nil {
-		return i.MovementSensor.Readings(ctx, extra)
+		return errtrace.Wrap2(i.MovementSensor.Readings(ctx, extra))
 	}
 	i.ReadingsFuncExtraCap = extra
-	return i.ReadingsFunc(ctx, extra)
+	return errtrace.Wrap2(i.ReadingsFunc(ctx, extra))
 }
 
 // Status calls the injected Status or the real version.
 func (i *MovementSensor) Status(ctx context.Context) (map[string]interface{}, error) {
 	if i.StatusFunc != nil {
-		return i.StatusFunc(ctx)
+		return errtrace.Wrap2(i.StatusFunc(ctx))
 	}
 	if i.MovementSensor != nil {
-		return i.MovementSensor.Status(ctx)
+		return errtrace.Wrap2(i.MovementSensor.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

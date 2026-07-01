@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -132,7 +133,7 @@ func TestWorkingVideoClient(t *testing.T) {
 			videoContainer string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
-			return nil, io.EOF
+			return nil, errtrace.Wrap(io.EOF)
 		}
 
 		getVideoRequest := &pb.GetVideoRequest{

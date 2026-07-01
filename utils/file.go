@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/utils"
 )
 
@@ -33,7 +34,7 @@ func ResolveFile(fn string) string {
 func RemoveFileNoError(path string) {
 	utils.UncheckedErrorFunc(func() error {
 		if _, err := os.Stat(path); err == nil {
-			return os.Remove(path)
+			return errtrace.Wrap(os.Remove(path))
 		}
 		return nil
 	})
@@ -45,7 +46,7 @@ func RemoveFileNoError(path string) {
 func SafeJoinDir(parent, subdir string) (string, error) {
 	res := filepath.Join(parent, subdir)
 	if !strings.HasPrefix(filepath.Clean(res), filepath.Clean(parent)+string(os.PathSeparator)) {
-		return res, fmt.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
+		return res, errtrace.Wrap(fmt.Errorf("unsafe path join: '%s' with '%s'", parent, subdir))
 	}
 	return res, nil
 }
@@ -59,7 +60,7 @@ func ExpandHomeDir(path string) (string, error) {
 		(runtime.GOOS == "windows" && strings.HasPrefix(path, "~\\")) {
 		usr, err := user.Current()
 		if err != nil {
-			return "", fmt.Errorf("expanding home dir: %w", err)
+			return "", errtrace.Wrap(fmt.Errorf("expanding home dir: %w", err))
 		}
 		return filepath.Join(usr.HomeDir, path[min(2, len(path)):]), nil
 	}
@@ -83,7 +84,7 @@ type FileTimes struct {
 func GetFileTimes(path string) (FileTimes, error) {
 	info, err := os.Stat(path)
 	if err != nil {
-		return FileTimes{}, err
+		return FileTimes{}, errtrace.Wrap(err)
 	}
-	return getFileTimes(info)
+	return errtrace.Wrap2(getFileTimes(info))
 }

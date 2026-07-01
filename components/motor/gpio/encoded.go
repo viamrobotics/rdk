@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -34,7 +35,7 @@ func WrapMotorWithEncoder(
 	}
 
 	if mc.TicksPerRotation < 0 {
-		return nil, resource.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero"))
+		return nil, errtrace.Wrap(resource.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero")))
 	}
 
 	if mc.TicksPerRotation == 0 {
@@ -43,7 +44,7 @@ func WrapMotorWithEncoder(
 
 	mm, err := newEncodedMotor(c.ResourceName(), mc, m, e, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return mm, nil
@@ -59,7 +60,7 @@ func newEncodedMotor(
 ) (*EncodedMotor, error) {
 	localReal, err := resource.AsType[motor.Motor](realMotor)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if motorConfig.TicksPerRotation == 0 {
@@ -84,7 +85,7 @@ func newEncodedMotor(
 		"recommended: for more accurate motor control, configure 'control_parameters' in the motor config")
 
 	if em.rampRate < 0 {
-		return nil, fmt.Errorf("ramp rate can not be a negative number but is %v", em.rampRate)
+		return nil, errtrace.Wrap(fmt.Errorf("ramp rate can not be a negative number but is %v", em.rampRate))
 	}
 
 	if em.rampRate == 0 || em.rampRate > 0.5 {
@@ -93,7 +94,7 @@ func newEncodedMotor(
 	}
 
 	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
-		return nil, fmt.Errorf("max power pct needs to be (0, 1] but is %v", em.maxPowerPct)
+		return nil, errtrace.Wrap(fmt.Errorf("max power pct needs to be (0, 1] but is %v", em.maxPowerPct))
 	}
 	if em.maxPowerPct == 0 {
 		em.maxPowerPct = 1.0
@@ -131,13 +132,13 @@ type EncodedMotor struct {
 func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, direction float64) error {
 	lastTicks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	lastTime := time.Now().UnixNano()
 	_, lastPowerPct, err := m.real.IsPowered(ctx, nil)
 	if err != nil {
 		m.logger.Error(err)
-		return err
+		return errtrace.Wrap(err)
 	}
 	lastPowerPct = math.Abs(lastPowerPct) * direction
 	zeroRPMTracker := 0
@@ -156,14 +157,14 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 			m.logger.CInfof(ctx, "error getting encoder position, sleeping then continuing: %v", err)
 			if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 				m.logger.CInfof(ctx, "error sleeping, giving up %v", ctx.Err())
-				return err
+				return errtrace.Wrap(err)
 			}
 			continue
 		}
 		now := time.Now().UnixNano()
 		if (goalPos-currentTicks)*direction < 0 {
 			// stop motor when at or past goal position
-			return m.Stop(ctx, nil)
+			return errtrace.Wrap(m.Stop(ctx, nil))
 		}
 
 		// calculate RPM based on change in position and change in time
@@ -191,7 +192,7 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 
 		newPower, err := m.calcNewPowerPct(ctx, currentRPM, goalRPM, lastPowerPct, direction)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		m.logger.CDebug(ctx, "making adjustments")
@@ -225,7 +226,7 @@ func (m *EncodedMotor) calcNewPowerPct(
 	newPowerPct = fixPowerPct(newPowerPct, m.maxPowerPct)
 
 	if err := m.real.SetPower(ctx, newPowerPct, nil); err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return newPowerPct, nil
 }
@@ -239,7 +240,7 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 		m.makeAdjustmentsDone()
 	}
 	powerPct = fixPowerPct(powerPct, m.maxPowerPct)
-	return m.real.SetPower(ctx, powerPct, nil)
+	return errtrace.Wrap(m.real.SetPower(ctx, powerPct, nil))
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -252,10 +253,10 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	defer done()
 	currentTicks, posType, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := checkEncPosType(posType); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	warning, err := motor.CheckSpeed(rpm, m.cfg.MaxRPM)
@@ -263,17 +264,17 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := motor.CheckRevolutions(revolutions); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	goalPos, goalRPM, direction := encodedGoForMath(rpm, revolutions, currentTicks, m.ticksPerRotation)
 
 	if err := m.goForInternal(goalRPM, goalPos, direction); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	positionReached := func(ctx context.Context) (bool, error) {
@@ -283,9 +284,9 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		if (goalPos-currentTicks)*direction < 0 {
 			stopErr := m.Stop(ctx, extra)
 			errs = multierr.Combine(errs, stopErr)
-			return true, errs
+			return true, errtrace.Wrap(errs)
 		}
-		return false, errs
+		return false, errtrace.Wrap(errs)
 	}
 	err = m.opMgr.WaitForSuccess(
 		ctx,
@@ -295,7 +296,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	// Ignore the context canceled error - this occurs when the adjustmentsCtx is canceled
 	// with m.makeAdjustmentsDone in goForInternal and in Stop
 	if !errors.Is(err, context.Canceled) {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -349,7 +350,7 @@ func calcStartingPower(currPower, direction float64) float64 {
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
 	currRotations, err := m.Position(ctx, extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	rotations := targetPosition - currRotations
 
@@ -362,7 +363,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 		m.logger.CDebug(ctx, "GoTo distance nearly zero, not moving")
 		return nil
 	}
-	return m.GoFor(ctx, rpm, rotations, extra)
+	return errtrace.Wrap(m.GoFor(ctx, rpm, rotations, extra))
 }
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
@@ -375,13 +376,13 @@ func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	goalPos := math.Inf(int(rpm))
 	direction := sign(rpm)
 	if err := m.goForInternal(rpm, goalPos, direction); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -390,10 +391,10 @@ func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	if err := m.Stop(ctx, extra); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := m.encoder.ResetPosition(ctx, extra); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.mu.Lock()
@@ -408,10 +409,10 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ticks, posType, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	if err := checkEncPosType(posType); err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -429,12 +430,12 @@ func (m *EncodedMotor) Properties(ctx context.Context, extra map[string]interfac
 // IsPowered returns whether or not the motor is currently on, and the percent power (between 0
 // and 1, if the motor is off then the percent power will be 0).
 func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-	return m.real.IsPowered(ctx, extra)
+	return errtrace.Wrap3(m.real.IsPowered(ctx, extra))
 }
 
 // IsMoving returns if the motor is moving or not.
 func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
-	return m.real.IsMoving(ctx)
+	return errtrace.Wrap2(m.real.IsMoving(ctx))
 }
 
 // Stop stops makeAdjustments and stops the real motor.
@@ -444,13 +445,13 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()
 	}
-	return m.real.Stop(context.Background(), nil)
+	return errtrace.Wrap(m.real.Stop(context.Background(), nil))
 }
 
 // Close cleanly shuts down the motor.
 func (m *EncodedMotor) Close(ctx context.Context) error {
 	if err := m.Stop(ctx, nil); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	m.activeBackgroundWorkers.Wait()
 	return nil

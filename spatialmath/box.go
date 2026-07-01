@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -82,7 +83,7 @@ type box struct {
 func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 	// Negative dimensions not allowed. Zero dimensions are allowed for bounding boxes, etc.
 	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {
-		return nil, newBadGeometryDimensionsError(&box{})
+		return nil, errtrace.Wrap(newBadGeometryDimensionsError(&box{}))
 	}
 	halfSize := dims.Mul(0.5)
 	return &box{
@@ -107,9 +108,9 @@ func (b *box) String() string {
 func (b *box) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(b)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return json.Marshal(config)
+	return errtrace.Wrap2(json.Marshal(config))
 }
 
 // SetLabel sets the label of this box.
@@ -174,9 +175,9 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
-		return other.CollidesWith(b, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(b, collisionBufferMM))
 	case *Cylinder:
-		return other.CollidesWith(b, collisionBufferMM)
+		return errtrace.Wrap3(other.CollidesWith(b, collisionBufferMM))
 	case *box:
 		c, d := boxVsBoxCollision(b, other, collisionBufferMM)
 		if c {
@@ -196,16 +197,16 @@ func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64
 		col, d := pointVsBoxCollision(other.position, b, collisionBufferMM)
 		return col, d, nil
 	default:
-		return true, collisionBufferMM, newCollisionTypeUnsupportedError(b, g)
+		return true, collisionBufferMM, errtrace.Wrap(newCollisionTypeUnsupportedError(b, g))
 	}
 }
 
 func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
-		return other.DistanceFrom(b)
+		return errtrace.Wrap2(other.DistanceFrom(b))
 	case *Cylinder:
-		return other.DistanceFrom(b)
+		return errtrace.Wrap2(other.DistanceFrom(b))
 	case *box:
 		return boxVsBoxDistance(b, other), nil
 	case *sphere:
@@ -215,7 +216,7 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	case *point:
 		return pointVsBoxDistance(other.position, b), nil
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
+		return math.Inf(-1), errtrace.Wrap(newCollisionTypeUnsupportedError(b, g))
 	}
 }
 
@@ -234,7 +235,7 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 	case *point:
 		return false, nil
 	default:
-		return false, newCollisionTypeUnsupportedError(b, g)
+		return false, errtrace.Wrap(newCollisionTypeUnsupportedError(b, g))
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils/protoutils"
@@ -37,7 +38,7 @@ func FieldToProto(field zap.Field) (*structpb.Struct, error) {
 		field.String = field.Interface.(error).Error()
 	}
 
-	return protoutils.StructToStructPb(field)
+	return errtrace.Wrap2(protoutils.StructToStructPb(field))
 }
 
 // CallerFromProto reconstructs a zapcore.EntryCaller from its proto-encoded structpb.Struct
@@ -67,12 +68,12 @@ func CallerFromProto(caller *structpb.Struct) zapcore.EntryCaller {
 func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
 	fieldJSON, err := json.Marshal(field)
 	if err != nil {
-		return zap.Field{}, err
+		return zap.Field{}, errtrace.Wrap(err)
 	}
 
 	var zf zap.Field
 	if err := json.Unmarshal(fieldJSON, &zf); err != nil {
-		return zap.Field{}, err
+		return zap.Field{}, errtrace.Wrap(err)
 	}
 
 	//nolint:exhaustive
@@ -102,7 +103,7 @@ func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
 
 		parsedFloat, err := strconv.ParseFloat(zf.String, 64)
 		if err != nil {
-			return zf, err
+			return zf, errtrace.Wrap(err)
 		}
 		zf.Integer = int64(math.Float64bits(parsedFloat))
 		zf.String = ""
@@ -116,7 +117,7 @@ func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
 		}
 	}
 
-	return zf, err
+	return zf, errtrace.Wrap(err)
 }
 
 // FieldKeyAndValueFromProto examines a *structpb.Struct and returns its key
@@ -126,12 +127,12 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 
 	fieldJSON, err := json.Marshal(field)
 	if err != nil {
-		return "", nil, err
+		return "", nil, errtrace.Wrap(err)
 	}
 
 	var zf zap.Field
 	if err := json.Unmarshal(fieldJSON, &zf); err != nil {
-		return "", nil, err
+		return "", nil, errtrace.Wrap(err)
 	}
 
 	// This code is modeled after zapcore.Field.AddTo:
@@ -153,7 +154,7 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 
 		fieldValue, err = strconv.ParseFloat(zf.String, 64)
 		if err != nil {
-			return "", nil, err
+			return "", nil, errtrace.Wrap(err)
 		}
 	case zapcore.Float32Type:
 		fieldValue = math.Float32frombits(uint32(zf.Integer))

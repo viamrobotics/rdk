@@ -9,6 +9,7 @@ import (
 	"github.com/fogleman/gg"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -18,7 +19,7 @@ func Overlay(img image.Image, dets []Detection) (image.Image, error) {
 	boxOverlay := gg.NewContext(bounds.Dx(), bounds.Dy())
 	for _, det := range dets {
 		if !det.BoundingBox().In(bounds) {
-			return nil, errors.Errorf("bounding box (%v) does not fit in image (%v)", det.BoundingBox(), bounds)
+			return nil, errtrace.Wrap(errors.Errorf("bounding box (%v) does not fit in image (%v)", det.BoundingBox(), bounds))
 		}
 		drawDetection(boxOverlay, det)
 	}

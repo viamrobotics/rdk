@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -56,57 +57,57 @@ func (l *Loop) createBlock(cfg BlockConfig, logger logging.Logger) (Block, error
 	case blockEndpoint:
 		b, err := newEndpoint(cfg, logger, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	case blockSum:
 		b, err := newSum(cfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	case blockDerivative:
 		b, err := newDerivative(cfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	case blockTrapezoidalVelocityProfile:
 		b, err := newTrapezoidVelocityProfile(cfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	case blockGain:
 		b, err := newGain(cfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	case blockPID:
 		b, err := l.newPID(cfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	case blockFilter:
 		b, err := newFilter(cfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	case blockConstant:
 		b, err := newConstant(cfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	case blockEncoderToRPM:
 		b, err := newEncoderSpeed(cfg, logger)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return b, nil
 	}
-	return nil, errors.Errorf("unsupported block type %s", t)
+	return nil, errtrace.Wrap(errors.Errorf("unsupported block type %s", t))
 }

@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/worldstatestore"
@@ -69,7 +70,7 @@ func init() {
 		) (worldstatestore.Service, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			logger.Infof("new fake world state store with name: %s", newConf.WorldName)
 			return newFakeWorldStateStore(conf.ResourceName(), newConf, logger), nil
@@ -96,7 +97,7 @@ func (f *WorldStateStore) GetTransform(ctx context.Context, uuid []byte, extra m
 
 	transform, exists := f.transforms[string(uuid)]
 	if !exists {
-		return nil, errors.New("transform not found")
+		return nil, errtrace.Wrap(errors.New("transform not found"))
 	}
 
 	return transform, nil
@@ -114,7 +115,7 @@ func (f *WorldStateStore) StreamTransformChanges(
 func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if fps, ok := cmd["fps"].(float64); ok {
 		if fps <= 0 {
-			return nil, errors.New("fps must be greater than 0")
+			return nil, errtrace.Wrap(errors.New("fps must be greater than 0"))
 		}
 		f.mu.Lock()
 		f.fps = float64(fps)

@@ -10,6 +10,7 @@ import (
 	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -41,9 +42,9 @@ func (c *ReconfigurableClientConn) Invoke(
 	conn := c.conn
 	c.connMu.RUnlock()
 	if conn == nil {
-		return ErrNotConnected
+		return errtrace.Wrap(ErrNotConnected)
 	}
-	return conn.Invoke(ctx, method, args, reply, opts...)
+	return errtrace.Wrap(conn.Invoke(ctx, method, args, reply, opts...))
 }
 
 // NewStream creates a new stream using the underlying client connection. In the case of c.conn being closed in the middle of
@@ -58,9 +59,9 @@ func (c *ReconfigurableClientConn) NewStream(
 	conn := c.conn
 	c.connMu.RUnlock()
 	if conn == nil {
-		return nil, ErrNotConnected
+		return nil, errtrace.Wrap(ErrNotConnected)
 	}
-	return conn.NewStream(ctx, desc, method, opts...)
+	return errtrace.Wrap2(conn.NewStream(ctx, desc, method, opts...))
 }
 
 // ReplaceConn replaces the underlying client connection with the connection passed in. This does not close the
@@ -110,7 +111,7 @@ func (c *ReconfigurableClientConn) Close() error {
 	}
 	conn := c.conn
 	c.conn = nil
-	return conn.Close()
+	return errtrace.Wrap(conn.Close())
 }
 
 // AddOnTrackSub adds an OnTrack subscription for the track.

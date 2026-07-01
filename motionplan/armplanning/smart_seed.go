@@ -14,6 +14,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -107,7 +108,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 	wg.Wait()
 
 	if mainErr != nil {
-		return nil, mainErr
+		return nil, errtrace.Wrap(mainErr)
 	}
 
 	total := 0
@@ -170,7 +171,7 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 	}
 
 	if joint == len(limits) {
-		return cff.addToCache(f, values, t)
+		return errtrace.Wrap(cff.addToCache(f, values, t))
 	}
 
 	//nolint: revive
@@ -192,7 +193,7 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 		if joint > 0 || t < 0 || x%defaultNumThreads == t {
 			err := cff.buildCacheHelper(f, values, joint+1, t)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 
@@ -206,7 +207,7 @@ func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine [
 	inputs := append([]float64{}, inputsNotMine...)
 	p, err := frame.Transform(inputs)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	cff.entriesForCacheBuilding[t] = append(cff.entriesForCacheBuilding[t], smartSeedCacheEntry{inputs, p.Point()})
@@ -303,34 +304,34 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	var err error
 	frame := ssc.fs.Frame(goalFrame)
 	if frame == nil {
-		return "", nil, fmt.Errorf("no frame for %v", goalFrame)
+		return "", nil, errtrace.Wrap(fmt.Errorf("no frame for %v", goalFrame))
 	}
 	for {
 		if len(frame.DoF()) > 0 {
 			break
 		}
 		if frame == ssc.fs.World() {
-			return "", nil, fmt.Errorf("hit world, and no moving parts when looking to move %s", goalFrame)
+			return "", nil, errtrace.Wrap(fmt.Errorf("hit world, and no moving parts when looking to move %s", goalFrame))
 		}
 		frame, err = ssc.fs.Parent(frame)
 		if err != nil {
-			return "", nil, err
+			return "", nil, errtrace.Wrap(err)
 		}
 	}
 
 	{
 		p, err := ssc.fs.Parent(frame)
 		if err != nil {
-			return "", nil, err
+			return "", nil, errtrace.Wrap(err)
 		}
 		for p != ssc.fs.World() {
 			if len(p.DoF()) > 0 {
-				return "", nil, fmt.Errorf("frame %s has a parent %s which moves, can't use smart seeds",
-					frame.Name(), p.Name())
+				return "", nil, errtrace.Wrap(fmt.Errorf("frame %s has a parent %s which moves, can't use smart seeds",
+					frame.Name(), p.Name()))
 			}
 			p, err = ssc.fs.Parent(p)
 			if err != nil {
-				return "", nil, err
+				return "", nil, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -342,15 +343,15 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 
 	f2w1DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()))
 	if err != nil {
-		return "", nil, err
+		return "", nil, errtrace.Wrap(err)
 	}
 	f2w2DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalFrame))
 	if err != nil {
-		return "", nil, err
+		return "", nil, errtrace.Wrap(err)
 	}
 	f2w3DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()))
 	if err != nil {
-		return "", nil, err
+		return "", nil, errtrace.Wrap(err)
 	}
 
 	goalInWorld := spatialmath.Compose(goalPIF.Pose(), &spatialmath.DualQuaternion{f2w1DQ})
@@ -366,12 +367,12 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	// norm check and distance comparisons in findSeedsForFrame are correct.
 	parentFrame, err := ssc.fs.Parent(frame)
 	if err != nil {
-		return "", nil, err
+		return "", nil, errtrace.Wrap(err)
 	}
 	if parentFrame != ssc.fs.World() {
 		parentWorldDQ, err := ssc.fs.GetFrameToWorldTransform(inputs, parentFrame)
 		if err != nil {
-			return "", nil, err
+			return "", nil, errtrace.Wrap(err)
 		}
 		newPose = spatialmath.PoseBetween(&spatialmath.DualQuaternion{parentWorldDQ}, newPose)
 	}
@@ -386,7 +387,7 @@ func (ssc *smartSeedCache) findSeed(ctx context.Context,
 ) (*referenceframe.LinearInputs, error) {
 	ss, _, err := ssc.findSeeds(ctx, goal, start, 1, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if len(ss) == 0 {
 		return start, nil
@@ -408,7 +409,7 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	}
 
 	if len(goal) > 1 {
-		return nil, nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
+		return nil, nil, errtrace.Wrap(fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now"))
 	}
 
 	logger.Debugf("findSeeds goal: %v", goal)
@@ -423,13 +424,13 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 
 	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	logger.Debugf("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
 	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	fullSeeds := []*referenceframe.LinearInputs{}
@@ -523,7 +524,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 ) ([][]referenceframe.Input, []float64, error) {
 	frame := ssc.fs.Frame(frameName)
 	if frame == nil {
-		return nil, nil, fmt.Errorf("no frame %s", frameName)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("no frame %s", frameName))
 	}
 
 	goalPoint := goalPose.Point()
@@ -532,12 +533,12 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		frameName, goalPose, logging.FloatArrayFormat{"", start}, n, ssc.rawCache[frameName].maxNorm)
 
 	if n > ssc.rawCache[frameName].maxNorm {
-		return nil, nil, &tooFarError{ssc.rawCache[frameName].maxNorm, n}
+		return nil, nil, errtrace.Wrap(&tooFarError{ssc.rawCache[frameName].maxNorm, n})
 	}
 
 	startPose, err := frame.Transform(start)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	startDistance := myDistance(startPose.Point(), goalPoint)
@@ -685,7 +686,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 
 	f := ssc.fs.Frame(frameName)
 	if f == nil {
-		return fmt.Errorf("no frame: %s", f)
+		return errtrace.Wrap(fmt.Errorf("no frame: %s", f))
 	}
 
 	if len(f.DoF()) == 0 {
@@ -702,7 +703,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 		start := time.Now()
 		ccf, err = newCacheForFrame(f, logger)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		cacheBuildLogger.Infof("time to build: %v for: %v size: %d", time.Since(start), frameName, ccf.totalSize)
@@ -725,7 +726,7 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 	for _, frameName := range ssc.fs.FrameNames() {
 		err := ssc.buildCacheForFrame(frameName, logger)
 		if err != nil {
-			return fmt.Errorf("cannot build cache for frame: %s %w", frameName, err)
+			return errtrace.Wrap(fmt.Errorf("cannot build cache for frame: %s %w", frameName, err))
 		}
 	}
 
@@ -734,7 +735,7 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 
 func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSeedCache, error) {
 	if fs == nil {
-		return nil, fmt.Errorf("cannot build smart seed cache with nil FrameSystem")
+		return nil, errtrace.Wrap(fmt.Errorf("cannot build smart seed cache with nil FrameSystem"))
 	}
 	c := &smartSeedCache{
 		fs: fs,
@@ -742,7 +743,7 @@ func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSee
 
 	err := c.buildCache(logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return c, nil
@@ -751,5 +752,5 @@ func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSee
 // PrepSmartSeed preps the cache for a FrameSystem.
 func PrepSmartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) error {
 	_, err := smartSeed(fs, logger)
-	return err
+	return errtrace.Wrap(err)
 }

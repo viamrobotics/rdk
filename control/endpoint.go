@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -21,7 +22,7 @@ type endpoint struct {
 func newEndpoint(config BlockConfig, logger logging.Logger, ctr Controllable) (Block, error) {
 	e := &endpoint{cfg: config, logger: logger, ctr: ctr}
 	if err := e.reset(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return e, nil
 }
@@ -75,7 +76,7 @@ func (e *endpoint) reset() error {
 	}
 
 	if !motorOk && !baseOk {
-		return errors.Errorf("endpoint %s should have a motor_name field", e.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("endpoint %s should have a motor_name field", e.cfg.Name))
 	}
 
 	return nil
@@ -84,14 +85,14 @@ func (e *endpoint) reset() error {
 func (e *endpoint) Reset(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.reset()
+	return errtrace.Wrap(e.reset())
 }
 
 func (e *endpoint) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.cfg = config
-	return e.reset()
+	return errtrace.Wrap(e.reset())
 }
 
 func (e *endpoint) Output(ctx context.Context) []*Signal {

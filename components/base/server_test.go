@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/component/base/v1"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -35,7 +36,7 @@ func newServer(logger logging.Logger) (pb.BaseServiceServer, *inject.Base, *inje
 	}
 	baseSvc, err := resource.NewAPIResourceCollection(base.API, bases)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return base.NewRPCServiceServer(baseSvc, logger).(pb.BaseServiceServer), workingBase, brokenBase, nil
 }
@@ -71,7 +72,7 @@ func TestServer(t *testing.T) {
 			mmPerSec float64,
 			extra map[string]interface{},
 		) error {
-			return errMoveStraight
+			return errtrace.Wrap(errMoveStraight)
 		}
 		req = &pb.MoveStraightRequest{
 			Name:       failBaseName,
@@ -119,7 +120,7 @@ func TestServer(t *testing.T) {
 			angleDeg, degsPerSec float64,
 			extra map[string]interface{},
 		) error {
-			return errSpinFailed
+			return errtrace.Wrap(errSpinFailed)
 		}
 		req = &pb.SpinRequest{
 			Name:       failBaseName,
@@ -158,7 +159,7 @@ func TestServer(t *testing.T) {
 
 		// on a failing get properties
 		brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
-			return base.Properties{}, errPropertiesFailed
+			return base.Properties{}, errtrace.Wrap(errPropertiesFailed)
 		}
 		req = &pb.GetPropertiesRequest{Name: failBaseName}
 		resp, err = server.GetProperties(context.Background(), req)
@@ -184,7 +185,7 @@ func TestServer(t *testing.T) {
 
 		// on failing stop
 		brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-			return errStopFailed
+			return errtrace.Wrap(errStopFailed)
 		}
 		req = &pb.StopRequest{Name: failBaseName}
 		resp, err = server.Stop(context.Background(), req)
@@ -245,7 +246,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		workingBase.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = server.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testBaseName})
 		test.That(t, err, test.ShouldNotBeNil)

@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
@@ -60,18 +61,18 @@ type mlSubmitCustomTrainingJobArgs struct {
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
 func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitCustomTrainingJobArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to submit a custom ML training job")
+		return errtrace.Wrap(errors.New("must provide an organization ID to submit a custom ML training job"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
 		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "Submitted training job with ID %s", trainingJobID)
 	return nil
@@ -96,21 +97,21 @@ type mlSubmitCustomTrainingJobWithUploadArgs struct {
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
 func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, args mlSubmitCustomTrainingJobWithUploadArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to submit a custom training job with upload")
+		return errtrace.Wrap(errors.New("must provide an organization ID to submit a custom training job with upload"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if args.ModelName == args.ScriptName {
-		return errors.New("model name and script name must be different")
+		return errtrace.Wrap(errors.New("model name and script name must be different"))
 	}
 
 	resp, err := client.uploadTrainingScript(ctx, true, args.ModelType, args.Framework,
 		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	registryItemID := fmt.Sprintf("%s:%s", args.OrgID, args.ScriptName)
 
@@ -126,7 +127,7 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
 		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "Submitted training job with ID %s", trainingJobID)
 	return nil
@@ -158,12 +159,12 @@ type prettyPrintContainer struct {
 func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContainersArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
 		context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var returnContainers []prettyPrintContainer
@@ -181,7 +182,7 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	}
 	b, err := json.MarshalIndent(returnContainers, "", "  ")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "%s", b)
 	return nil
@@ -191,13 +192,13 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 func MLSubmitTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitTrainingJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	trainingJobID, err := client.mlSubmitTrainingJob(
 		args.DatasetID, args.ModelOrgID, args.ModelName, args.ModelVersion, args.ModelType,
 		args.ModelFramework, args.ModelLabels)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "Submitted training job with ID %s", trainingJobID)
 	return nil
@@ -212,13 +213,13 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 	}
 	modelTypeEnum, ok := mltrainingpb.ModelType_value["MODEL_TYPE_"+strings.ToUpper(modelType)]
 	if !ok || modelTypeEnum == int32(mltrainingpb.ModelType_MODEL_TYPE_UNSPECIFIED) {
-		return "", errors.Errorf("%s must be a valid ModelType, got %s. See `viam train submit --help` for supported options",
-			trainFlagModelType, modelType)
+		return "", errtrace.Wrap(errors.Errorf("%s must be a valid ModelType, got %s. See `viam train submit --help` for supported options",
+			trainFlagModelType, modelType))
 	}
 	modelFrameworkEnum, ok := mltrainingpb.ModelFramework_value["MODEL_FRAMEWORK_"+strings.ToUpper(modelFramework)]
 	if !ok || modelFrameworkEnum == int32(mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED) {
-		return "", errors.Errorf("%s must be a valid ModelFramework, got %s. See `viam train submit --help` for supported options",
-			trainFlagModelFramework, modelFramework)
+		return "", errtrace.Wrap(errors.Errorf("%s must be a valid ModelFramework, got %s. See `viam train submit --help` for supported options",
+			trainFlagModelFramework, modelFramework))
 	}
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
@@ -229,7 +230,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 			Tags: labels,
 		})
 	if err != nil {
-		return "", errors.Wrapf(err, "received error from server")
+		return "", errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	return resp.Id, nil
 }
@@ -240,9 +241,9 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 ) (string, error) {
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
-		return "", errors.Errorf("invalid training script name '%s'."+
+		return "", errtrace.Wrap(errors.Errorf("invalid training script name '%s'."+
 			" Training script name must be in the form 'public-namespace:registry-name' for public training scripts"+
-			" or 'org-id:registry-name' for private training scripts in organizations without a public namespace", registryItemID)
+			" or 'org-id:registry-name' for private training scripts in organizations without a public namespace", registryItemID))
 	}
 	if modelVersion == "" {
 		modelVersion = time.Now().Format("2006-01-02T15-04-05")
@@ -263,7 +264,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		for _, optionVal := range args {
 			splitOptionVal := strings.Split(optionVal, "=")
 			if len(splitOptionVal) != 2 {
-				return "", errors.Errorf("invalid format for command line arguments, passed: %s", args)
+				return "", errtrace.Wrap(errors.Errorf("invalid format for command line arguments, passed: %s", args))
 			}
 			argMap[splitOptionVal[0]] = splitOptionVal[1]
 		}
@@ -272,7 +273,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 
 	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(), req)
 	if err != nil {
-		return "", errors.Wrapf(err, "received error from server")
+		return "", errtrace.Wrap(errors.Wrapf(err, "received error from server"))
 	}
 	return resp.Id, nil
 }
@@ -285,11 +286,11 @@ type dataGetTrainingJobArgs struct {
 func DataGetTrainingJob(ctx context.Context, cmd *cli.Command, args dataGetTrainingJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	job, err := client.dataGetTrainingJob(args.JobID)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "Training job: %s", job)
 	return nil
@@ -299,7 +300,7 @@ func DataGetTrainingJob(ctx context.Context, cmd *cli.Command, args dataGetTrain
 func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.TrainingJobMetadata, error) {
 	resp, err := c.mlTrainingClient.GetTrainingJob(context.Background(), &mltrainingpb.GetTrainingJobRequest{Id: trainingJobID})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Metadata, nil
 }
@@ -312,11 +313,11 @@ type mlGetTrainingJobLogsArgs struct {
 func MLGetTrainingJobLogs(ctx context.Context, cmd *cli.Command, args mlGetTrainingJobLogsArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	logs, err := client.mlGetTrainingJobLogs(args.JobID)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if len(logs) == 0 {
@@ -338,7 +339,7 @@ func (c *viamClient) mlGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb
 		resp, err := c.mlTrainingClient.GetTrainingJobLogs(context.Background(),
 			&mltrainingpb.GetTrainingJobLogsRequest{Id: trainingJobID, PageToken: &page})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		allLogs = append(allLogs, resp.GetLogs()...)
 
@@ -358,11 +359,11 @@ type dataCancelTrainingJobArgs struct {
 func DataCancelTrainingJob(ctx context.Context, cmd *cli.Command, args dataCancelTrainingJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	id := args.JobID
 	if err := client.dataCancelTrainingJob(id); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "Successfully sent cancellation request for training job %s", id)
 	return nil
@@ -372,7 +373,7 @@ func DataCancelTrainingJob(ctx context.Context, cmd *cli.Command, args dataCance
 func (c *viamClient) dataCancelTrainingJob(trainingJobID string) error {
 	if _, err := c.mlTrainingClient.CancelTrainingJob(
 		context.Background(), &mltrainingpb.CancelTrainingJobRequest{Id: trainingJobID}); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -385,15 +386,15 @@ type dataListTrainingJobsArgs struct {
 // DataListTrainingJobs is the corresponding action for 'data train list'.
 func DataListTrainingJobs(ctx context.Context, cmd *cli.Command, args dataListTrainingJobsArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to list training jobs")
+		return errtrace.Wrap(errors.New("must provide an organization ID to list training jobs"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	jobs, err := client.dataListTrainingJobs(args.OrgID, args.JobStatus)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	for _, job := range jobs {
 		printf(cmd.Root().Writer, "Training job: %s\n", job)
@@ -408,8 +409,8 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 	}
 	statusEnum, ok := mltrainingpb.TrainingStatus_value[trainingStatusPrefix+strings.ToUpper(status)]
 	if !ok {
-		return nil, errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam train list --help` for supported options",
-			trainFlagJobStatus, status)
+		return nil, errtrace.Wrap(errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam train list --help` for supported options",
+			trainFlagJobStatus, status))
 	}
 
 	resp, err := c.mlTrainingClient.ListTrainingJobs(context.Background(), &mltrainingpb.ListTrainingJobsRequest{
@@ -417,7 +418,7 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 		Status:         mltrainingpb.TrainingStatus(statusEnum),
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Jobs, nil
 }
@@ -453,11 +454,11 @@ type mlTrainingUploadArgs struct {
 // MLTrainingUploadAction uploads a new custom training script.
 func MLTrainingUploadAction(ctx context.Context, cmd *cli.Command, args mlTrainingUploadArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to upload an ML training package")
+		return errtrace.Wrap(errors.New("must provide an organization ID to upload an ML training package"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = client.uploadTrainingScript(ctx, args.Draft, args.Type,
@@ -465,7 +466,7 @@ func MLTrainingUploadAction(ctx context.Context, cmd *cli.Command, args mlTraini
 		args.Version, args.Path, args.Visibility,
 	)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	moduleID := moduleID{
@@ -486,11 +487,11 @@ func (c *viamClient) uploadTrainingScript(
 ) {
 	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	metadataStruct, err := convertMetadataToStruct(*metadata)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	resp, err := c.uploadPackage(ctx, orgID,
@@ -501,7 +502,7 @@ func (c *viamClient) uploadTrainingScript(
 		metadataStruct,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp, nil
 }
@@ -517,18 +518,18 @@ type mlTrainingUpdateArgs struct {
 // MLTrainingUpdateAction updates the visibility of training scripts.
 func MLTrainingUpdateAction(ctx context.Context, cmd *cli.Command, args mlTrainingUpdateArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to update an ML training package")
+		return errtrace.Wrap(errors.New("must provide an organization ID to update an ML training package"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	err = client.updateTrainingScript(ctx, args.OrgID, args.ScriptName,
 		args.Visibility, args.Description, args.URL,
 	)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	moduleID := moduleID{
@@ -547,11 +548,11 @@ func (c *viamClient) updateTrainingScript(ctx context.Context, orgID, name, visi
 		ItemId: itemID,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	visibilityProto, err := convertVisibilityToProto(visibility)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// Get and validate description and visibility
 	updatedDescription := resp.GetItem().GetDescription()
@@ -559,7 +560,7 @@ func (c *viamClient) updateTrainingScript(ctx context.Context, orgID, name, visi
 		updatedDescription = description
 	}
 	if updatedDescription == "" && *visibilityProto == v1.Visibility_VISIBILITY_PUBLIC {
-		return errors.New("no existing description for registry item, description must be provided")
+		return errtrace.Wrap(errors.New("no existing description for registry item, description must be provided"))
 	}
 	var stringURL *string
 	if url != "" {
@@ -575,7 +576,7 @@ func (c *viamClient) updateTrainingScript(ctx context.Context, orgID, name, visi
 		Visibility:  *visibilityProto,
 		Url:         stringURL,
 	}); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -627,7 +628,7 @@ func createMetadata(draft bool, modelType, framework, url, visibility string) (*
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
 	if typeErr != nil || frameWorkErr != nil {
-		return nil, errors.Wrap(multierr.Combine(typeErr, frameWorkErr), "failed to set metadata")
+		return nil, errtrace.Wrap(errors.Wrap(multierr.Combine(typeErr, frameWorkErr), "failed to set metadata"))
 	}
 
 	return &MLMetadata{
@@ -650,7 +651,7 @@ func findValueOrSetDefault(arr []string, val, defaultVal string) (string, error)
 			return val, nil
 		}
 	}
-	return "", errors.New("value must be one of: " + strings.Join(arr, ", "))
+	return "", errtrace.Wrap(errors.New("value must be one of: " + strings.Join(arr, ", ")))
 }
 
 var (
@@ -670,7 +671,7 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[visibilityKey] = metadata.Visibility
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return metadataStruct, nil
 }
@@ -683,7 +684,7 @@ func convertVisibilityToProto(visibility string) (*v1.Visibility, error) {
 	case "private":
 		visibilityProto = v1.Visibility_VISIBILITY_PRIVATE
 	default:
-		return nil, errors.New("invalid visibility provided, must be either public or private")
+		return nil, errtrace.Wrap(errors.New("invalid visibility provided, must be either public or private"))
 	}
 
 	return &visibilityProto, nil
@@ -702,29 +703,29 @@ type mlTrainingScriptTestLocalArgs struct {
 func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args mlTrainingScriptTestLocalArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Check if Docker is available
 	if err := checkDockerAvailable(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	scriptDirAbs, datasetRootAbs, outputDirAbs, err := getAbsolutePaths(args)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Ensure the dataset file path is relative and doesn't escape the dataset root
 	datasetFileRelative := filepath.Clean(args.DatasetFile)
 	if !filepath.IsLocal(datasetFileRelative) {
-		return errors.Errorf("dataset file path must be relative to dataset root and cannot escape it: %s", args.DatasetFile)
+		return errtrace.Wrap(errors.Errorf("dataset file path must be relative to dataset root and cannot escape it: %s", args.DatasetFile))
 	}
 
 	// Validate required paths exist
 	if err := validatePaths(scriptDirAbs, datasetRootAbs,
 		filepath.Join(datasetRootAbs, datasetFileRelative), outputDirAbs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// ensure the dataset file path is in Linux format
@@ -732,7 +733,7 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 	// Create temporary training script
 	tmpScript, err := createTrainingScript(args.CustomArgs, datasetFileRelative)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	//nolint:errcheck
@@ -741,7 +742,7 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 	// Get container image name
 	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Build docker run command
@@ -763,18 +764,18 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 		// Check if the command was interrupted
 		if ctx.Err() == context.Canceled {
 			printf(cmd.Root().Writer, "\nTraining interrupted by user")
-			return errors.New("training interrupted")
+			return errtrace.Wrap(errors.New("training interrupted"))
 		}
 
 		// Provide additional context for platform-related errors
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "platform") || strings.Contains(errMsg, "architecture") {
-			return errors.Wrap(err, "failed to run training in Docker container. "+
+			return errtrace.Wrap(errors.Wrap(err, "failed to run training in Docker container. "+
 				"Note: Training containers only support linux/x86_64 (amd64). "+
-				"On ARM systems, ensure Docker Desktop is configured to enable Rosetta 2 emulation for x86_64 containers")
+				"On ARM systems, ensure Docker Desktop is configured to enable Rosetta 2 emulation for x86_64 containers"))
 		}
 
-		return errors.Wrap(err, "failed to run training in Docker container")
+		return errtrace.Wrap(errors.Wrap(err, "failed to run training in Docker container"))
 	}
 
 	return nil
@@ -784,24 +785,24 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 func createTrainingScript(customArgs []string, datasetFileRelative string) (string, error) {
 	scriptContent, err := buildTrainingScript(customArgs, datasetFileRelative)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	tmpScript, err := os.CreateTemp("", "viam-training-*.sh")
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create temporary script file")
+		return "", errtrace.Wrap(errors.Wrap(err, "failed to create temporary script file"))
 	}
 
 	//nolint:errcheck
 	defer tmpScript.Close()
 
 	if _, err := tmpScript.WriteString(scriptContent); err != nil {
-		return "", errors.Wrap(err, "failed to write to temporary script file")
+		return "", errtrace.Wrap(errors.Wrap(err, "failed to write to temporary script file"))
 	}
 
 	//nolint:gosec
 	if err := os.Chmod(tmpScript.Name(), 0o700); err != nil {
-		return "", errors.Wrap(err, "failed to make script executable")
+		return "", errtrace.Wrap(errors.Wrap(err, "failed to make script executable"))
 	}
 
 	return tmpScript.Name(), nil
@@ -837,10 +838,10 @@ func checkDockerAvailable() error {
 	cmd := exec.CommandContext(ctx, "docker", "--version")
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return errors.New("Docker command timed out. Please check if Docker is responding")
+			return errtrace.Wrap(errors.New("Docker command timed out. Please check if Docker is responding"))
 		}
-		return errors.New("Docker is not available. Please install Docker and ensure it is running. " +
-			"Visit https://docs.docker.com/get-docker/ for installation instructions")
+		return errtrace.Wrap(errors.New("Docker is not available. Please install Docker and ensure it is running. " +
+			"Visit https://docs.docker.com/get-docker/ for installation instructions"))
 	}
 
 	// Check if Docker daemon is running
@@ -850,9 +851,9 @@ func checkDockerAvailable() error {
 	cmd = exec.CommandContext(ctx, "docker", "ps")
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return errors.New("Docker daemon is not responding. It may be starting up - please wait and try again")
+			return errtrace.Wrap(errors.New("Docker daemon is not responding. It may be starting up - please wait and try again"))
 		}
-		return errors.New("Docker daemon is not running. Please start Docker and try again")
+		return errtrace.Wrap(errors.New("Docker daemon is not running. Please start Docker and try again"))
 	}
 
 	return nil
@@ -862,33 +863,33 @@ func checkDockerAvailable() error {
 func validatePaths(scriptDir, datasetRoot, datasetFile, outputDir string) error {
 	// Check training script directory exists
 	if _, err := os.Stat(scriptDir); os.IsNotExist(err) {
-		return errors.Errorf("training script directory does not exist: %s", scriptDir)
+		return errtrace.Wrap(errors.Errorf("training script directory does not exist: %s", scriptDir))
 	}
 
 	// Check for required files in training script directory
 	setupPyPath := filepath.Join(scriptDir, "setup.py")
 	if _, err := os.Stat(setupPyPath); os.IsNotExist(err) {
-		return errors.Errorf("setup.py not found in training script directory: %s", scriptDir)
+		return errtrace.Wrap(errors.Errorf("setup.py not found in training script directory: %s", scriptDir))
 	}
 
 	trainingPyPath := filepath.Join(scriptDir, "model", "training.py")
 	if _, err := os.Stat(trainingPyPath); os.IsNotExist(err) {
-		return errors.Errorf("model/training.py not found in training script directory: %s", scriptDir)
+		return errtrace.Wrap(errors.Errorf("model/training.py not found in training script directory: %s", scriptDir))
 	}
 
 	// Check dataset root directory exists
 	if _, err := os.Stat(datasetRoot); os.IsNotExist(err) {
-		return errors.Errorf("dataset root directory does not exist: %s", datasetRoot)
+		return errtrace.Wrap(errors.Errorf("dataset root directory does not exist: %s", datasetRoot))
 	}
 
 	// Check dataset file exists
 	if _, err := os.Stat(datasetFile); os.IsNotExist(err) {
-		return errors.Errorf("dataset file does not exist: %s", datasetFile)
+		return errtrace.Wrap(errors.Errorf("dataset file does not exist: %s", datasetFile))
 	}
 
 	// Ensure output directory exists
 	if err := os.MkdirAll(outputDir, 0o750); err != nil {
-		return errors.Wrapf(err, "failed to create model output directory")
+		return errtrace.Wrap(errors.Wrapf(err, "failed to create model output directory"))
 	}
 
 	return nil
@@ -897,15 +898,15 @@ func validatePaths(scriptDir, datasetRoot, datasetFile, outputDir string) error 
 func getAbsolutePaths(args mlTrainingScriptTestLocalArgs) (string, string, string, error) {
 	scriptDirAbs, err := filepath.Abs(args.TrainingScriptDirectory)
 	if err != nil {
-		return "", "", "", errors.Wrapf(err, "failed to get absolute path for training script directory")
+		return "", "", "", errtrace.Wrap(errors.Wrapf(err, "failed to get absolute path for training script directory"))
 	}
 	datasetRootAbs, err := filepath.Abs(args.DatasetRoot)
 	if err != nil {
-		return "", "", "", errors.Wrapf(err, "failed to get absolute path for dataset root directory")
+		return "", "", "", errtrace.Wrap(errors.Wrapf(err, "failed to get absolute path for dataset root directory"))
 	}
 	outputDirAbs, err := filepath.Abs(args.ModelOutputDirectory)
 	if err != nil {
-		return "", "", "", errors.Wrapf(err, "failed to get absolute path for output directory")
+		return "", "", "", errtrace.Wrap(errors.Wrapf(err, "failed to get absolute path for output directory"))
 	}
 	return scriptDirAbs, datasetRootAbs, outputDirAbs, nil
 }
@@ -916,14 +917,14 @@ func buildTrainingScript(customArgs []string, datasetFileRelative string) (strin
 	// Validate custom arguments format (key=value) before building script
 	for _, arg := range customArgs {
 		if !strings.Contains(arg, "=") {
-			return "", errors.Errorf("invalid custom argument format: %s (expected key=value)", arg)
+			return "", errtrace.Wrap(errors.Errorf("invalid custom argument format: %s (expected key=value)", arg))
 		}
 
 		// Validate that the key portion only contains safe characters
 		parts := strings.SplitN(arg, "=", 2)
 		key := parts[0]
 		if !isValidArgumentKey(key) {
-			return "", errors.Errorf("invalid argument key: %s (only alphanumeric characters, underscores, and hyphens are allowed)", key)
+			return "", errtrace.Wrap(errors.Errorf("invalid argument key: %s (only alphanumeric characters, underscores, and hyphens are allowed)", key))
 		}
 	}
 
@@ -973,7 +974,7 @@ func isValidArgumentKey(key string) bool {
 func getContainerImageURI(c *viamClient, version string) (string, error) {
 	res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list supported containers")
+		return "", errtrace.Wrap(errors.Wrapf(err, "failed to list supported containers"))
 	}
 
 	containerKeyList := []string{}

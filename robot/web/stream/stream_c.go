@@ -6,6 +6,7 @@ package webstream
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 )
@@ -18,5 +19,5 @@ func streamVideoSource(
 	backoffOpts *BackoffTuningOptions,
 	logger logging.Logger,
 ) error {
-	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger, stream.Name()), logger)
+	return errtrace.Wrap(gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger, stream.Name()), logger))
 }

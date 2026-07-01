@@ -4,6 +4,7 @@
 package diskusage
 
 import (
+	"braces.dev/errtrace"
 	"syscall"
 )
 
@@ -11,7 +12,7 @@ import (
 func Statfs(volumePath string) (DiskUsage, error) {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs(volumePath, &stat); err != nil {
-		return DiskUsage{}, err
+		return DiskUsage{}, errtrace.Wrap(err)
 	}
 	return DiskUsage{
 		AvailableBytes: stat.Bavail * uint64(stat.Bsize),

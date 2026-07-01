@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"braces.dev/errtrace"
 	"html/template"
 	"image/color"
 	"os"
@@ -103,7 +104,7 @@ func (x *ColorDiffs) output() string {
 // WriteTo writes the diff information out to a file.
 func (x *ColorDiffs) WriteTo(fn string) error {
 	//nolint:gosec
-	return os.WriteFile(fn, []byte(x.output()), 0o640)
+	return errtrace.Wrap(os.WriteFile(fn, []byte(x.output()), 0o640))
 }
 
 // ComputeColorDiffs computes the different between the all of the colors given.

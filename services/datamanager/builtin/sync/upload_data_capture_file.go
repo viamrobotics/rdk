@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
@@ -60,11 +61,11 @@ func uploadDataCaptureFile(
 			// File cannot be streamed due to unexpected format. Fall back with a warning.
 			logger.Warnf("cannot stream binary payload for %s, falling back to in-memory upload: %v", f.GetPath(), err)
 		default:
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 	}
 
-	return uploadFromMemory(ctx, f, conn, md, logger, bytesUploadingCounter)
+	return errtrace.Wrap2(uploadFromMemory(ctx, f, conn, md, logger, bytesUploadingCounter))
 }
 
 // uploadBinaryPayloads streams each binary payload in f directly from disk without
@@ -90,39 +91,39 @@ func uploadBinaryPayloads(
 		if err != nil {
 			if errors.Is(err, data.ErrNoBinaryField) {
 				if msgIdx == 0 {
-					return 0, err
+					return 0, errtrace.Wrap(err)
 				}
 				// binary capture files currently contain one message, so this should be unreachable
 				// but returning a fresh error prevents the outer switch from re-uploading already-streamed messages.
-				return 0, errors.New("unexpected shape of binary capture files")
+				return 0, errtrace.Wrap(errors.New("unexpected shape of binary capture files"))
 			}
-			return 0, errors.Wrap(err, "reading binary payload from capture file")
+			return 0, errtrace.Wrap(errors.Wrap(err, "reading binary payload from capture file"))
 		}
 		clonedMD := proto.Clone(uploadMD).(*datasyncPB.UploadMetadata)
 		if payloadLen > MaxUnaryFileSize {
 			logger.Debugf("streaming large binary payload (%d bytes), message %d: %s", payloadLen, msgIdx, f.GetPath())
 			if err := uploadLargeBinaryFromReader(ctx, conn.client, clonedMD, sensorMeta, r, f.GetPath(),
 				logger, bytesUploadingCounter); err != nil {
-				return 0, err
+				return 0, errtrace.Wrap(err)
 			}
 		} else {
 			logger.Debugf("uploading small binary payload (%d bytes), message %d: %s", payloadLen, msgIdx, f.GetPath())
 			payload, err := io.ReadAll(r)
 			if err != nil {
-				return 0, errors.Wrap(err, "reading binary payload into memory")
+				return 0, errtrace.Wrap(errors.Wrap(err, "reading binary payload into memory"))
 			}
 			sd := &datasyncPB.SensorData{
 				Metadata: sensorMeta,
 				Data:     &datasyncPB.SensorData_Binary{Binary: payload},
 			}
 			if err := uploadBinarySensorData(ctx, conn.client, clonedMD, sd, bytesUploadingCounter); err != nil {
-				return 0, err
+				return 0, errtrace.Wrap(err)
 			}
 		}
 		msgIdx++
 	}
 	if msgIdx == 0 {
-		return 0, data.ErrNoBinaryField
+		return 0, errtrace.Wrap(data.ErrNoBinaryField)
 	}
 	return uint64(f.Size()), nil
 }
@@ -139,7 +140,7 @@ func uploadFromMemory(
 ) (uint64, error) {
 	sensorData, err := data.SensorDataFromCaptureFile(f)
 	if err != nil {
-		return 0, errors.Wrap(err, "error reading sensor data")
+		return 0, errtrace.Wrap(errors.Wrap(err, "error reading sensor data"))
 	}
 
 	// Do not attempt to upload a file without any sensor readings.
@@ -151,21 +152,21 @@ func uploadFromMemory(
 
 	sensorDataTypeSet := captureTypesInSensorData(sensorData)
 	if len(sensorDataTypeSet) != 1 {
-		return 0, errMultipleReadingTypes
+		return 0, errtrace.Wrap(errMultipleReadingTypes)
 	}
 
 	_, isTabular := sensorDataTypeSet[data.CaptureTypeTabular]
 	if isLegacyGetImagesCaptureFile(md, isTabular) {
 		logger.Debugf("attemping to upload legacy camera.GetImages data: %s", f.GetPath())
-		return uint64(f.Size()), legacyUploadGetImages(ctx, conn, md, sensorData[0], f.Size(), f.GetPath(), logger, bytesUploadingCounter)
+		return uint64(f.Size()), errtrace.Wrap(legacyUploadGetImages(ctx, conn, md, sensorData[0], f.Size(), f.GetPath(), logger, bytesUploadingCounter))
 	}
 
 	if err := checkUploadMetadaTypeMatchesSensorDataType(md, sensorDataTypeSet); err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
 	metaData := uploadMetadata(conn.partID, md)
-	return uint64(f.Size()), uploadSensorData(ctx, conn.client, metaData, sensorData, f.Size(), f.GetPath(), logger, bytesUploadingCounter)
+	return uint64(f.Size()), errtrace.Wrap(uploadSensorData(ctx, conn.client, metaData, sensorData, f.Size(), f.GetPath(), logger, bytesUploadingCounter))
 }
 
 func checkUploadMetadaTypeMatchesSensorDataType(md *datasyncPB.DataCaptureMetadata, sensorDataTypeSet map[data.CaptureType]struct{}) error {
@@ -177,7 +178,7 @@ func checkUploadMetadaTypeMatchesSensorDataType(md *datasyncPB.DataCaptureMetada
 	}
 
 	if captureType.ToProto() != md.GetType() {
-		return errSensorDataTypesDontMatchUploadMetadata
+		return errtrace.Wrap(errSensorDataTypesDontMatchUploadMetadata)
 	}
 	return nil
 }
@@ -231,7 +232,7 @@ func legacyUploadGetImages(
 ) error {
 	var res cameraPB.GetImagesResponse
 	if err := mapstructure.Decode(sd.GetStruct().AsMap(), &res); err != nil {
-		return errors.Wrap(err, "failed to decode camera.GetImagesResponse")
+		return errtrace.Wrap(errors.Wrap(err, "failed to decode camera.GetImagesResponse"))
 	}
 	timeRequested, timeReceived := getImagesTimestamps(&res, sd)
 
@@ -253,7 +254,7 @@ func legacyUploadGetImages(
 		// TODO: This is wrong as the size describes the size of the entire GetImages response, but we are only
 		// uploading one of the 2 images in that response here.
 		if err := uploadSensorData(ctx, conn.client, metadata, newSensorData, size, path, logger, bytesUploadingCounter); err != nil {
-			return errors.Wrapf(err, "failed uploading GetImages image index: %d", i)
+			return errtrace.Wrap(errors.Wrapf(err, "failed uploading GetImages image index: %d", i))
 		}
 	}
 	return nil
@@ -293,9 +294,9 @@ func uploadSensorData(
 	case datasyncPB.DataType_DATA_TYPE_BINARY_SENSOR:
 		// If it's a large binary file, we need to upload it in chunks.
 		if uploadMD.GetType() == datasyncPB.DataType_DATA_TYPE_BINARY_SENSOR && fileSize > MaxUnaryFileSize {
-			return uploadMultipleLargeBinarySensorData(ctx, client, uploadMD, sensorData, path, logger, bytesUploadingCounter)
+			return errtrace.Wrap(uploadMultipleLargeBinarySensorData(ctx, client, uploadMD, sensorData, path, logger, bytesUploadingCounter))
 		}
-		return uploadMultipleBinarySensorData(ctx, client, uploadMD, sensorData, path, logger, bytesUploadingCounter)
+		return errtrace.Wrap(uploadMultipleBinarySensorData(ctx, client, uploadMD, sensorData, path, logger, bytesUploadingCounter))
 	case datasyncPB.DataType_DATA_TYPE_TABULAR_SENSOR:
 		// Otherwise use the unary endpoint
 		logger.Debugf("attempting to upload small binary file using DataCaptureUpload, file: %s", path)
@@ -303,14 +304,14 @@ func uploadSensorData(
 			Metadata:       uploadMD,
 			SensorContents: sensorData,
 		})
-		return errors.Wrap(err, "DataCaptureUpload failed")
+		return errtrace.Wrap(errors.Wrap(err, "DataCaptureUpload failed"))
 	case datasyncPB.DataType_DATA_TYPE_FILE:
 		fallthrough
 	case datasyncPB.DataType_DATA_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
 		logger.Errorf("%s: %s", errInvalidCaptureFileType.Error(), captureFileType)
-		return errInvalidCaptureFileType
+		return errtrace.Wrap(errInvalidCaptureFileType)
 	}
 }
 
@@ -331,7 +332,7 @@ func uploadBinarySensorData(
 		Metadata:       md,
 		SensorContents: []*datasyncPB.SensorData{sd},
 	}); err != nil {
-		return errors.Wrap(err, "DataCaptureUpload failed")
+		return errtrace.Wrap(errors.Wrap(err, "DataCaptureUpload failed"))
 	}
 
 	// Count bytes uploaded.
@@ -354,7 +355,7 @@ func uploadMultipleBinarySensorData(
 	// this is the common case
 	if len(sensorData) == 1 {
 		logger.Debugf("attempting to upload small binary file using DataCaptureUpload, sensor data, file: %s", path)
-		return uploadBinarySensorData(ctx, client, uploadMD, sensorData[0], bytesUploadingCounter)
+		return errtrace.Wrap(uploadBinarySensorData(ctx, client, uploadMD, sensorData[0], bytesUploadingCounter))
 	}
 
 	// we only go down this path if the capture method returned multiple binary
@@ -366,7 +367,7 @@ func uploadMultipleBinarySensorData(
 		// between calls if the data in the request struct changes
 		clonedMD := proto.Clone(uploadMD).(*datasyncPB.UploadMetadata)
 		if err := uploadBinarySensorData(ctx, client, clonedMD, sd, bytesUploadingCounter); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -383,7 +384,7 @@ func uploadMultipleLargeBinarySensorData(
 ) error {
 	if len(sensorData) == 1 {
 		logger.Debugf("attempting to upload large binary file using StreamingDataCaptureUpload, sensor data file: %s", path)
-		return uploadLargeBinarySensorData(ctx, client, uploadMD, sensorData[0], path, logger, bytesUploadingCounter)
+		return errtrace.Wrap(uploadLargeBinarySensorData(ctx, client, uploadMD, sensorData[0], path, logger, bytesUploadingCounter))
 	}
 
 	for i, sd := range sensorData {
@@ -393,7 +394,7 @@ func uploadMultipleLargeBinarySensorData(
 		// between calls if the data in the request struct changes
 		clonedMD := proto.Clone(uploadMD).(*datasyncPB.UploadMetadata)
 		if err := uploadLargeBinarySensorData(ctx, client, clonedMD, sd, path, logger, bytesUploadingCounter); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -410,7 +411,7 @@ func uploadLargeBinarySensorData(
 ) error {
 	c, err := client.StreamingDataCaptureUpload(ctx)
 	if err != nil {
-		return errors.Wrap(err, "error creating StreamingDataCaptureUpload client")
+		return errtrace.Wrap(errors.Wrap(err, "error creating StreamingDataCaptureUpload client"))
 	}
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
@@ -426,16 +427,16 @@ func uploadLargeBinarySensorData(
 		},
 	}
 	if err := c.Send(&datasyncPB.StreamingDataCaptureUploadRequest{UploadPacket: streamMD}); err != nil {
-		return errors.Wrap(err, "StreamingDataCaptureUpload failed sending metadata")
+		return errtrace.Wrap(errors.Wrap(err, "StreamingDataCaptureUpload failed sending metadata"))
 	}
 
 	// Then call the function to send the rest.
 	if err := sendStreamingDCRequests(ctx, c, bytes.NewReader(sd.GetBinary()), path, logger, bytesUploadingCounter); err != nil {
-		return errors.Wrap(err, "StreamingDataCaptureUpload failed to sync")
+		return errtrace.Wrap(errors.Wrap(err, "StreamingDataCaptureUpload failed to sync"))
 	}
 
 	if _, err = c.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "StreamingDataCaptureUpload CloseAndRecv failed")
+		return errtrace.Wrap(errors.Wrap(err, "StreamingDataCaptureUpload CloseAndRecv failed"))
 	}
 
 	return nil
@@ -455,7 +456,7 @@ func uploadLargeBinaryFromReader(
 ) error {
 	c, err := client.StreamingDataCaptureUpload(ctx)
 	if err != nil {
-		return errors.Wrap(err, "error creating StreamingDataCaptureUpload client")
+		return errtrace.Wrap(errors.Wrap(err, "error creating StreamingDataCaptureUpload client"))
 	}
 
 	fileExtensionFromMimeType := getFileExtFromStringMimeType(md.GetMimeType())
@@ -471,15 +472,15 @@ func uploadLargeBinaryFromReader(
 			},
 		},
 	}); err != nil {
-		return errors.Wrap(err, "StreamingDataCaptureUpload failed sending metadata")
+		return errtrace.Wrap(errors.Wrap(err, "StreamingDataCaptureUpload failed sending metadata"))
 	}
 
 	if err := sendStreamingDCRequests(ctx, c, r, path, logger, bytesUploadingCounter); err != nil {
-		return errors.Wrap(err, "StreamingDataCaptureUpload failed to sync")
+		return errtrace.Wrap(errors.Wrap(err, "StreamingDataCaptureUpload failed to sync"))
 	}
 
 	if _, err = c.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "StreamingDataCaptureUpload CloseAndRecv failed")
+		return errtrace.Wrap(errors.Wrap(err, "StreamingDataCaptureUpload CloseAndRecv failed"))
 	}
 	return nil
 }
@@ -497,7 +498,7 @@ func sendStreamingDCRequests(
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		default:
 			n, err := io.ReadFull(r, buf)
 			if n > 0 {
@@ -508,7 +509,7 @@ func sendStreamingDCRequests(
 				}
 				logger.Debugf("datasync.StreamingDataCaptureUpload sending chunk %d for file: %s", chunkCount, path)
 				if sendErr := stream.Send(uploadReq); sendErr != nil {
-					return sendErr
+					return errtrace.Wrap(sendErr)
 				}
 				if bytesUploadingCounter != nil {
 					bytesUploadingCounter.Add(uint64(n))
@@ -519,7 +520,7 @@ func sendStreamingDCRequests(
 				return nil
 			}
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}

@@ -14,6 +14,7 @@ import (
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	servicepb "go.viam.com/api/service/datamanager/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -77,7 +78,7 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
-	return resource.FromDependencies[Service](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Service](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named data manager service from the given Robot.
@@ -85,13 +86,13 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Service](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Data Manager service
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Service, error) {
-	return resource.FromProvider[Service](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Service](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all data manager services from the given Robot.
@@ -107,11 +108,11 @@ type AssociatedConfig struct {
 func newAssociatedConfig(attributes utils.AttributeMap) (*AssociatedConfig, error) {
 	md, err := json.Marshal(attributes)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var conf AssociatedConfig
 	if err := json.Unmarshal(md, &conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &conf, nil
 }

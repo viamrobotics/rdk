@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	"braces.dev/errtrace"
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
 )
@@ -24,7 +25,7 @@ func getArchiveFilePaths(rootpaths []string) ([]string, error) {
 	for _, pathRoot := range rootpaths {
 		err := filepath.WalkDir(filepath.Clean(pathRoot), func(path string, info fs.DirEntry, err error) error {
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			// If the file is regular (no mode type set) or is a symlink, add it to the files
 			// The only files we are excluding are special files:
@@ -35,7 +36,7 @@ func getArchiveFilePaths(rootpaths []string) ([]string, error) {
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return maps.Keys(files), nil
@@ -70,7 +71,7 @@ func createArchive(files []string, buf, stdout io.Writer) error {
 	for i, file := range files {
 		err := addToArchive(tw, file)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if stdout != nil {
 			compressPercent := int(math.Ceil(100 * float64(i+1) / float64(len(files))))
@@ -85,19 +86,19 @@ func addToArchive(tw *tar.Writer, filename string) error {
 	//nolint:gosec
 	file, err := os.Open(filename)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(file.Close)
 
 	info, err := file.Stat()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Create a tar Header from the FileInfo data
 	header, err := tar.FileInfoHeader(info, info.Name())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// See tar.FileInfoHeader:
 	//   Since fs.FileInfo's Name method only returns the base name of
@@ -112,13 +113,13 @@ func addToArchive(tw *tar.Writer, filename string) error {
 
 	err = tw.WriteHeader(header)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Copy file content to tar archive
 	_, err = io.Copy(tw, file)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil

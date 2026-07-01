@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -47,7 +48,7 @@ func newServer(logger logging.Logger) (pb.GantryServiceServer, *inject.Gantry, *
 	}
 	gantrySvc, err := resource.NewAPIResourceCollection(gantry.API, gantries)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return gantry.NewRPCServiceServer(gantrySvc, logger).(pb.GantryServiceServer), injectGantry, injectGantry2, nil
 }
@@ -62,7 +63,7 @@ func TestServer(t *testing.T) {
 	goodKinematicsJSON := func(ctx context.Context) (referenceframe.Model, error) {
 		model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/example_gantry.json"), "foo")
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		return model, nil
@@ -96,31 +97,31 @@ func TestServer(t *testing.T) {
 	}
 	injectGantry.KinematicsFunc = goodKinematicsJSON
 	injectGantry.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
-		return nil, errGeometriesUnimplemented
+		return nil, errtrace.Wrap(errGeometriesUnimplemented)
 	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
 	speed2 := []float64{100.0, 80.0, 120.0}
 	injectGantry2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-		return nil, errPositionFailed
+		return nil, errtrace.Wrap(errPositionFailed)
 	}
 	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		extra1 = extra
-		return false, errHomingFailed
+		return false, errtrace.Wrap(errHomingFailed)
 	}
 	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error {
 		gantryPos = pos
 		gantrySpeed = speed
-		return errMoveToPositionFailed
+		return errtrace.Wrap(errMoveToPositionFailed)
 	}
 	injectGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-		return nil, errLengthsFailed
+		return nil, errtrace.Wrap(errLengthsFailed)
 	}
 	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errStopFailed
+		return errtrace.Wrap(errStopFailed)
 	}
 	injectGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return nil, errKinematicsUnimplemented
+		return nil, errtrace.Wrap(errKinematicsUnimplemented)
 	}
 
 	//nolint:dupl
@@ -297,7 +298,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectGantry.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = gantryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testGantryName})
 		test.That(t, err, test.ShouldNotBeNil)

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	protoRdkUtils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -30,13 +31,13 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	var err error
 	cfg.Cloud, err = CloudConfigFromProto(proto.Cloud)
 	if err != nil {
-		return nil, errors.Wrap(err, "error converting cloud config from proto")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error converting cloud config from proto"))
 	}
 
 	if proto.Network != nil {
 		network, err := NetworkConfigFromProto(proto.Network, logger)
 		if err != nil {
-			return nil, errors.Wrap(err, "error converting network config from proto")
+			return nil, errtrace.Wrap(errors.Wrap(err, "error converting network config from proto"))
 		}
 		cfg.Network = *network
 	}
@@ -44,7 +45,7 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	if proto.Auth != nil {
 		auth, err := AuthConfigFromProto(proto.Auth, logger)
 		if err != nil {
-			return nil, errors.Wrap(err, "error converting auth config from proto")
+			return nil, errtrace.Wrap(errors.Wrap(err, "error converting auth config from proto"))
 		}
 		cfg.Auth = *auth
 	}
@@ -52,14 +53,14 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	if proto.Maintenance != nil {
 		maintenanceConfig, err := MaintenanceConfigFromProto(proto.Maintenance, logger)
 		if err != nil {
-			return nil, errors.Wrap(err, "error converting maintenance config from proto")
+			return nil, errtrace.Wrap(errors.Wrap(err, "error converting maintenance config from proto"))
 		}
 		cfg.MaintenanceConfig = maintenanceConfig
 	}
 
 	tracingCfg, err := TracingConfigFromProto(proto.Tracing, logger)
 	if err != nil {
-		return nil, errors.Wrap(err, "error converting tracing config from proto")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error converting tracing config from proto"))
 	}
 	cfg.Tracing = tracingCfg
 
@@ -91,12 +92,12 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 
 	attributes, err := protoutils.StructToStructPb(conf.Attributes)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert attributes configs")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert attributes configs"))
 	}
 
 	serviceConfigs, err := mapSliceWithErrors(conf.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert service configs")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert service configs"))
 	}
 
 	var logConfig *pb.LogConfiguration
@@ -119,7 +120,7 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 	if conf.Frame != nil {
 		frame, err := FrameConfigToProto(*conf.Frame)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert frame to proto config")
+			return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert frame to proto config"))
 		}
 		protoConf.Frame = frame
 	}
@@ -131,7 +132,7 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 func ComponentConfigFromProto(protoConf *pb.ComponentConfig, logger logging.Logger) (*resource.Config, error) {
 	serviceConfigs, err := mapSliceWithErrors(protoConf.ServiceConfigs, AssociatedResourceConfigFromProto)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert service configs")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert service configs"))
 	}
 
 	// for consistency, nil out empty maps and configs (otherwise go>proto>go conversion doesn't match)
@@ -146,12 +147,12 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig, logger logging.Logg
 
 	api, err := resource.NewAPIFromString(protoConf.GetApi())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	model, err := resource.NewModelFromString(protoConf.GetModel())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var logConfig *resource.LogConfig
@@ -179,7 +180,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig, logger logging.Logg
 	if protoConf.GetFrame() != nil {
 		frame, err := FrameConfigFromProto(protoConf.GetFrame())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert frame from proto config")
+			return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert frame from proto config"))
 		}
 		componentConf.Frame = frame
 	}
@@ -194,12 +195,12 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 
 	attributes, err := protoutils.StructToStructPb(conf.Attributes)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	serviceConfigs, err := mapSliceWithErrors(conf.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert service configs")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert service configs"))
 	}
 
 	var logConfig *pb.LogConfiguration
@@ -232,17 +233,17 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig, logger logging.Logger) 
 
 	serviceConfigs, err := mapSliceWithErrors(protoConf.ServiceConfigs, AssociatedResourceConfigFromProto)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert service configs")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert service configs"))
 	}
 
 	api, err := resource.NewAPIFromString(protoConf.GetApi())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	model, err := resource.NewModelFromString(protoConf.GetModel())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var logConfig *resource.LogConfig
@@ -349,7 +350,7 @@ func ProcessConfigFromProto(proto *pb.ProcessConfig, _ logging.Logger) (*pexec.P
 func AssociatedResourceConfigToProto(conf resource.AssociatedResourceConfig) (*pb.ResourceLevelServiceConfig, error) {
 	attributes, err := protoutils.StructToStructPb(conf.Attributes)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	proto := pb.ResourceLevelServiceConfig{
@@ -364,7 +365,7 @@ func AssociatedResourceConfigToProto(conf resource.AssociatedResourceConfig) (*p
 func AssociatedResourceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (resource.AssociatedResourceConfig, error) {
 	api, err := resource.NewPossibleRDKServiceAPIFromString(proto.GetType())
 	if err != nil {
-		return resource.AssociatedResourceConfig{}, err
+		return resource.AssociatedResourceConfig{}, errtrace.Wrap(err)
 	}
 
 	service := resource.AssociatedResourceConfig{
@@ -379,7 +380,7 @@ func AssociatedResourceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (re
 func FrameConfigToProto(frame referenceframe.LinkConfig) (*pb.Frame, error) {
 	pose, err := frame.Pose()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pt := pose.Point()
 	orient := pose.Orientation()
@@ -450,14 +451,14 @@ func FrameConfigToProto(frame referenceframe.LinkConfig) (*pb.Frame, error) {
 			Type: &pb.Orientation_Quaternion_{Quaternion: &config},
 		}
 	default:
-		return nil, errors.Errorf("Orientation type %s unsupported in json configuration", oType)
+		return nil, errtrace.Wrap(errors.Errorf("Orientation type %s unsupported in json configuration", oType))
 	}
 
 	proto.Orientation = &orientation
 	if frame.Geometry != nil {
 		proto.Geometry, err = frame.Geometry.ToProtobuf()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -516,22 +517,22 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 				Kmag: or.Quaternion.Z,
 			}
 		default:
-			return nil, errors.New("Orientation type unsupported")
+			return nil, errtrace.Wrap(errors.New("Orientation type unsupported"))
 		}
 		frame.Orientation, err = spatial.NewOrientationConfig(orient)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
 	if proto.GetGeometry() != nil {
 		geom, err := referenceframe.NewGeometryFromProto(proto.GetGeometry())
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		frame.Geometry, err = spatial.NewGeometryConfig(geom)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -542,12 +543,12 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 	serviceConfigs, err := mapSliceWithErrors(remote.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert service configs")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert service configs"))
 	}
 
 	remoteAuth, err := remoteAuthToProto(&remote.Auth)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert remote auth config")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert remote auth config"))
 	}
 
 	proto := pb.RemoteConfig{
@@ -566,7 +567,7 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 	if remote.Frame != nil {
 		frame, err := FrameConfigToProto(*remote.Frame)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert frame to proto config")
+			return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert frame to proto config"))
 		}
 		proto.Frame = frame
 	}
@@ -578,7 +579,7 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 func RemoteConfigFromProto(proto *pb.RemoteConfig, _ logging.Logger) (*Remote, error) {
 	associatedResourceConfigs, err := mapSliceWithErrors(proto.ServiceConfigs, AssociatedResourceConfigFromProto)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert service configs")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert service configs"))
 	}
 
 	remote := Remote{
@@ -596,7 +597,7 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig, _ logging.Logger) (*Remote, e
 	if proto.GetAuth() != nil {
 		remoteAuth, err := remoteAuthFromProto(proto.GetAuth())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert remote auth config")
+			return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert remote auth config"))
 		}
 		remote.Auth = *remoteAuth
 	}
@@ -604,7 +605,7 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig, _ logging.Logger) (*Remote, e
 	if proto.GetFrame() != nil {
 		remote.Frame, err = FrameConfigFromProto(proto.GetFrame())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert frame from proto config")
+			return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert frame from proto config"))
 		}
 	}
 
@@ -703,7 +704,7 @@ func TracingConfigToProto(cfg *TracingConfig) (*pb.TracingConfig, error) {
 func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 	handlers, err := mapSliceWithErrors(auth.Handlers, authHandlerConfigToProto)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	proto := pb.AuthConfig{
@@ -714,7 +715,7 @@ func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 	if auth.ExternalAuthConfig != nil {
 		jwksJSON, err := protoutils.StructToStructPb(auth.ExternalAuthConfig.JSONKeySet)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert JSONKeySet")
+			return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert JSONKeySet"))
 		}
 
 		proto.ExternalAuthConfig = &pb.ExternalAuthConfig{
@@ -729,7 +730,7 @@ func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, error) {
 	handlers, err := mapSliceWithErrors(proto.Handlers, authHandlerConfigFromProto)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	auth := AuthConfig{
@@ -750,7 +751,7 @@ func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, e
 func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 	locationSecrets, err := mapSliceWithErrors(cloud.LocationSecrets, locationSecretToProto)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.CloudConfig{
@@ -773,7 +774,7 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
 	locationSecrets, err := mapSliceWithErrors(proto.LocationSecrets, locationSecretFromProto)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &Cloud{
@@ -848,12 +849,12 @@ func locationSecretFromProto(secret *pb.LocationSecret) (LocationSecret, error) 
 func authHandlerConfigToProto(handler AuthHandlerConfig) (*pb.AuthHandlerConfig, error) {
 	attributes, err := protoutils.StructToStructPb(handler.Config)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert attributes configs")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to convert attributes configs"))
 	}
 
 	credType, err := credentialsTypeToProto(handler.Type)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	out := &pb.AuthHandlerConfig{
@@ -868,7 +869,7 @@ func authHandlerConfigFromProto(proto *pb.AuthHandlerConfig) (AuthHandlerConfig,
 	var handler AuthHandlerConfig
 	credType, err := credentialsTypeFromProto(proto.GetType())
 	if err != nil {
-		return handler, err
+		return handler, errtrace.Wrap(err)
 	}
 
 	return AuthHandlerConfig{
@@ -888,7 +889,7 @@ func credentialsTypeToProto(ct rpc.CredentialsType) (pb.CredentialsType, error) 
 	case rpc.CredentialsTypeExternal:
 		fallthrough
 	default:
-		return pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED, errors.New("unsupported credential type")
+		return pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED, errtrace.Wrap(errors.New("unsupported credential type"))
 	}
 }
 
@@ -905,7 +906,7 @@ func credentialsTypeFromProto(ct pb.CredentialsType) (rpc.CredentialsType, error
 	case pb.CredentialsType_CREDENTIALS_TYPE_INTERNAL:
 		fallthrough
 	default:
-		return "", errors.New("unsupported credential type")
+		return "", errtrace.Wrap(errors.New("unsupported credential type"))
 	}
 }
 
@@ -917,7 +918,7 @@ func remoteAuthToProto(auth *RemoteAuth) (*pb.RemoteAuth, error) {
 	if auth.Credentials != nil {
 		credType, err := credentialsTypeToProto(auth.Credentials.Type)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		proto.Credentials = &pb.RemoteAuth_Credentials{
@@ -937,7 +938,7 @@ func remoteAuthFromProto(proto *pb.RemoteAuth) (*RemoteAuth, error) {
 	if proto.Credentials != nil {
 		credType, err := credentialsTypeFromProto(proto.Credentials.GetType())
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		auth.Credentials = &rpc.Credentials{
@@ -954,7 +955,7 @@ func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 	for _, e := range a {
 		x, err := f(e)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		n = append(n, x)
 	}
@@ -1021,7 +1022,7 @@ func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
 	case PackageTypeSlamMap:
 		return packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP.Enum(), nil
 	default:
-		return packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum(), errors.Errorf("unknown package type %q", t)
+		return packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum(), errtrace.Wrap(errors.Errorf("unknown package type %q", t))
 	}
 }
 
@@ -1059,7 +1060,7 @@ func JobsConfigToProto(jc *JobConfig) (*pb.JobConfig, error) {
 	if jc.Command != nil {
 		command, err := protoutils.StructToStructPb(jc.Command)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		protoConfig.Command = command
 	}

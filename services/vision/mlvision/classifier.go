@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"gorgonia.org/tensor"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
@@ -26,18 +27,18 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 ) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
-		return nil, errors.New("could not get any metadata")
+		return nil, errtrace.Wrap(errors.New("could not get any metadata"))
 	}
 
 	// Set up input type, height, width, and labels
 	var inHeight, inWidth int
 	if len(md.Inputs) < 1 {
-		return nil, errors.New("no input tensors received")
+		return nil, errtrace.Wrap(errors.New("no input tensors received"))
 	}
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md, params.LabelPath)
 	if shapeLen := len(md.Inputs[0].Shape); shapeLen < 4 {
-		return nil, errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen)
+		return nil, errtrace.Wrap(errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen))
 	}
 	channelsFirst := false // if channelFirst is true, then shape is (1, 3, height, width)
 	if shape := md.Inputs[0].Shape; ml.GetIndex(shape, 3) == 1 {
@@ -82,26 +83,26 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 				tensor.WithBacking(rimage.ImageToFloatBuffer(resized, params.IsBGR, params.MeanValue, params.StdDev)),
 			)
 		default:
-			return nil, errors.Errorf("invalid input type of %s. try uint8 or float32", inType)
+			return nil, errtrace.Wrap(errors.Errorf("invalid input type of %s. try uint8 or float32", inType))
 		}
 		if channelsFirst {
 			err := inMap[inputName].T(0, 3, 1, 2)
 			if err != nil {
-				return nil, errors.New("could not transponse tensor of input image")
+				return nil, errtrace.Wrap(errors.New("could not transponse tensor of input image"))
 			}
 			err = inMap[inputName].Transpose()
 			if err != nil {
-				return nil, errors.New("could not transponse the data of the tensor of input image")
+				return nil, errtrace.Wrap(errors.New("could not transponse the data of the tensor of input image"))
 			}
 		}
 		outMap, err := mlm.Infer(ctx, inMap)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		classifications, err := ml.FormatClassificationOutputs(outNameMap, outMap, labels)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		if postprocessor != nil {
@@ -117,7 +118,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 // returned from attemptToBuildClassifier will fail ahead of time.
 func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) error {
 	if cf == nil {
-		return errors.New("nil classifier function")
+		return errtrace.Wrap(errors.New("nil classifier function"))
 	}
 
 	// test image to check if the classifier function works
@@ -125,7 +126,7 @@ func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) e
 
 	_, err := cf(ctx, img)
 	if err != nil {
-		return errors.Wrap(err, "cannot use model as a classifier")
+		return errtrace.Wrap(errors.Wrap(err, "cannot use model as a classifier"))
 	}
 	return nil
 }

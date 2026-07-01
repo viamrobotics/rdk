@@ -9,6 +9,7 @@ import (
 
 	pb "go.viam.com/api/component/encoder/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -130,7 +131,7 @@ func Named(name string) resource.Name {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Encoder, error) {
-	return resource.FromDependencies[Encoder](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Encoder](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named encoder from the given Robot.
@@ -138,12 +139,12 @@ func FromDependencies(deps resource.Dependencies, name string) (Encoder, error) 
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Encoder, error) {
-	return robot.ResourceFromRobot[Encoder](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Encoder](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Encoder from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Encoder, error) {
-	return resource.FromProvider[Encoder](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Encoder](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all encoder names from the given Robot.

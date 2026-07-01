@@ -7,6 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -93,7 +94,7 @@ func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interfac
 
 // Readings gets the readings of a fake movementsensor.
 func (f *MovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.DefaultAPIReadings(ctx, f, extra)
+	return errtrace.Wrap2(movementsensor.DefaultAPIReadings(ctx, f, extra))
 }
 
 // Properties returns the properties of a fake movementsensor.

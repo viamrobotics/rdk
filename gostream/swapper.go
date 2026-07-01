@@ -5,6 +5,7 @@ import (
 	"image"
 	"sync"
 
+	"braces.dev/errtrace"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -54,7 +55,7 @@ func (swapper *hotSwappableMediaSource[T, U]) Stream(
 
 	if swapper.src == nil {
 		swapper.mu.RUnlock()
-		return nil, errSwapperClosed
+		return nil, errtrace.Wrap(errSwapperClosed)
 	}
 
 	stream := &hotSwappableMediaSourceStream[T, U]{
@@ -71,7 +72,7 @@ func (swapper *hotSwappableMediaSource[T, U]) Stream(
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
 	if err := stream.init(ctx); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return stream, nil
@@ -104,11 +105,11 @@ func (swapper *hotSwappableMediaSource[T, U]) MediaProperties(ctx context.Contex
 
 	var zero U
 	if swapper.src == nil {
-		return zero, errSwapperClosed
+		return zero, errtrace.Wrap(errSwapperClosed)
 	}
 
 	if provider, ok := swapper.src.(MediaPropertyProvider[U]); ok {
-		return provider.MediaProperties(ctx)
+		return errtrace.Wrap2(provider.MediaProperties(ctx))
 	}
 	return zero, nil
 }
@@ -137,17 +138,17 @@ func (cs *hotSwappableMediaSourceStream[T, U]) init(ctx context.Context) error {
 	defer cs.parent.mu.RUnlock()
 	cs.cancelCtx = cs.parent.cancelCtx
 	if cs.parent.src == nil {
-		return errSwapperClosed
+		return errtrace.Wrap(errSwapperClosed)
 	}
 	cs.stream, err = cs.parent.src.Stream(ctx, cs.errHandlers...)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (cs *hotSwappableMediaSourceStream[T, U]) checkStream(ctx context.Context) error {
 	if cs.stream != nil && cs.cancelCtx.Err() == nil {
 		return nil
 	}
-	return cs.init(ctx)
+	return errtrace.Wrap(cs.init(ctx))
 }
 
 func (cs *hotSwappableMediaSourceStream[T, U]) Next(ctx context.Context) (T, func(), error) {
@@ -156,9 +157,9 @@ func (cs *hotSwappableMediaSourceStream[T, U]) Next(ctx context.Context) (T, fun
 
 	if err := cs.checkStream(ctx); err != nil {
 		var zero T
-		return zero, nil, err
+		return zero, nil, errtrace.Wrap(err)
 	}
-	return cs.stream.Next(ctx)
+	return errtrace.Wrap3(cs.stream.Next(ctx))
 }
 
 func (cs *hotSwappableMediaSourceStream[T, U]) Close(ctx context.Context) error {
@@ -168,5 +169,5 @@ func (cs *hotSwappableMediaSourceStream[T, U]) Close(ctx context.Context) error 
 	if cs.stream == nil {
 		return nil
 	}
-	return cs.stream.Close(ctx)
+	return errtrace.Wrap(cs.stream.Close(ctx))
 }

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/logging"
@@ -83,7 +84,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 		return 5
 	}
 	rcf := func(_ context.Context, _ rpc.ClientConn, _ string, name resource.Name, _ logging.Logger) (motor.Motor, error) {
-		return capColl.Resource(name.ShortName())
+		return errtrace.Wrap2(capColl.Resource(name.ShortName()))
 	}
 
 	test.That(t, func() {

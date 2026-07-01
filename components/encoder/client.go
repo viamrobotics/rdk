@@ -7,6 +7,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -50,13 +51,13 @@ func (c *client) Position(
 ) (float64, PositionType, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, PositionTypeUnspecified, err
+		return 0, PositionTypeUnspecified, errtrace.Wrap(err)
 	}
 	posType := ToProtoPositionType(positionType)
 	req := &pb.GetPositionRequest{Name: c.name, PositionType: &posType, Extra: ext}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
-		return 0, PositionTypeUnspecified, err
+		return 0, PositionTypeUnspecified, errtrace.Wrap(err)
 	}
 	posType1 := ToEncoderPositionType(&resp.PositionType)
 	return float64(resp.Value), posType1, nil
@@ -67,31 +68,31 @@ func (c *client) Position(
 func (c *client) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	req := &pb.ResetPositionRequest{Name: c.name, Extra: ext}
 	_, err = c.client.ResetPosition(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 	req := &pb.GetPropertiesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 	return ProtoFeaturesToProperties(resp), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }

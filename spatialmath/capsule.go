@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -43,13 +44,13 @@ type capsule struct {
 // NewCapsule instantiates a new capsule Geometry.
 func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, error) {
 	if radius <= 0 || length <= 0 {
-		return nil, newBadGeometryDimensionsError(&capsule{})
+		return nil, errtrace.Wrap(newBadGeometryDimensionsError(&capsule{}))
 	}
 	if length < radius*2 {
-		return nil, newBadCapsuleLengthError(length, radius)
+		return nil, errtrace.Wrap(newBadCapsuleLengthError(length, radius))
 	}
 	if length == radius*2 {
-		return NewSphere(offset, radius, label)
+		return errtrace.Wrap2(NewSphere(offset, radius, label))
 	}
 	return newCapsuleWithSegPoints(offset, radius, length, label), nil
 }
@@ -75,12 +76,12 @@ func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) 
 func (c *capsule) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(c)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	config.Type = "capsule"
 	config.R = c.radius
 	config.L = c.length
-	return json.Marshal(config)
+	return errtrace.Wrap2(json.Marshal(config))
 }
 
 // String returns a human readable string that represents the capsule.
@@ -158,7 +159,7 @@ func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, flo
 		// For other types, distance calculation is relatively cheap
 		dist, err := c.DistanceFrom(g)
 		if err != nil {
-			return true, dist, err
+			return true, dist, errtrace.Wrap(err)
 		}
 		if dist <= collisionBufferMM {
 			return true, -1, nil
@@ -170,9 +171,9 @@ func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, flo
 func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
-		return other.DistanceFrom(c)
+		return errtrace.Wrap2(other.DistanceFrom(c))
 	case *Cylinder:
-		return other.DistanceFrom(c)
+		return errtrace.Wrap2(other.DistanceFrom(c))
 	case *box:
 		return capsuleVsBoxDistance(c, other), nil
 	case *capsule:
@@ -182,7 +183,7 @@ func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
 	case *sphere:
 		return capsuleVsSphereDistance(c, other), nil
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(c, g)
+		return math.Inf(-1), errtrace.Wrap(newCollisionTypeUnsupportedError(c, g))
 	}
 }
 
@@ -201,7 +202,7 @@ func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
 	case *point:
 		return false, nil
 	default:
-		return true, newCollisionTypeUnsupportedError(c, g)
+		return true, errtrace.Wrap(newCollisionTypeUnsupportedError(c, g))
 	}
 }
 
@@ -372,7 +373,7 @@ func capsuleVsBoxSATDistance(c *capsule, b *box, centerDist r3.Vector) float64 {
 func CapsuleIntersectionWithPlane(g Geometry, planeNormal, planePoint r3.Vector, numPoints int) ([]r3.Vector, error) {
 	c, ok := g.(*capsule)
 	if !ok {
-		return nil, fmt.Errorf("unsupported geometry type: %T", g)
+		return nil, errtrace.Wrap(fmt.Errorf("unsupported geometry type: %T", g))
 	}
 
 	// Normalize the plane normal
@@ -382,7 +383,7 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal, planePoint r3.Vector,
 	centerToPlane := c.center.Sub(planePoint).Dot(planeNormal) * -1
 	// If the distance is greater than the capsule's half-length plus radius, there's no intersection
 	if math.Abs(centerToPlane) > c.length/2+c.radius {
-		return nil, errors.New("no intersection: plane is too far from capsule")
+		return nil, errtrace.Wrap(errors.New("no intersection: plane is too far from capsule"))
 	}
 
 	capVecNormalized := c.capVec.Normalize()
@@ -439,7 +440,7 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal, planePoint r3.Vector,
 
 		// At the end of the function, before returning the points:
 		if len(intersectionPoints) == 0 {
-			return nil, errors.New("no intersection points found")
+			return nil, errtrace.Wrap(errors.New("no intersection points found"))
 		}
 
 		return intersectionPoints, nil
@@ -496,7 +497,7 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal, planePoint r3.Vector,
 	}
 	// At the end of the function, before returning the points:
 	if len(intersectionPoints) == 0 {
-		return nil, errors.New("no intersection points found")
+		return nil, errtrace.Wrap(errors.New("no intersection points found"))
 	}
 
 	return intersectionPoints, nil

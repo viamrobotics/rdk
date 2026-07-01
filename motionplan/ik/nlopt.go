@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -92,7 +93,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 
 	ss.lowerBound, ss.upperBound = limitsToArrays(limits)
 	if len(ss.lowerBound) == 0 || len(ss.upperBound) == 0 {
-		return nil, errBadBounds
+		return nil, errtrace.Wrap(errBadBounds)
 	}
 
 	// nlopt returns INVALID_ARGS for zero-range variables - nudge the upper bound by a small epsilon.
@@ -109,7 +110,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	}
 	ss.opt, err = nlopt.NewNLopt(NloptAlg, uint(len(ss.lowerBound)))
 	if err != nil {
-		return nil, errors.Wrap(err, "nlopt creation error")
+		return nil, errtrace.Wrap(errors.Wrap(err, "nlopt creation error"))
 	}
 
 	err = multierr.Combine(
@@ -122,7 +123,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 		ss.opt.SetMaxEval(nloptStepsPerIter),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if ik.useRelTol {
 		err = multierr.Combine(
@@ -130,7 +131,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 			ss.opt.SetXtolRel(defaultGoalThreshold),
 		)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -183,11 +184,11 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	rseed int,
 ) (int, []SeedSolveMetaData, error) {
 	if len(seeds) == 0 {
-		return 0, nil, fmt.Errorf("no seeds")
+		return 0, nil, errtrace.Wrap(fmt.Errorf("no seeds"))
 	}
 
 	if len(seeds) != len(limits) {
-		return 0, nil, fmt.Errorf("need matching limits (%d) and seeds (%d) arrays", len(limits), len(seeds))
+		return 0, nil, errtrace.Wrap(fmt.Errorf("need matching limits (%d) and seeds (%d) arrays", len(limits), len(seeds)))
 	}
 
 	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
@@ -208,7 +209,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	for i, s := range seeds {
 		ss, err := ik.newSeedState(ctx, i, minFunc, s, limits[i], &iterations)
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, errtrace.Wrap(err)
 		}
 
 		seedStates = append(seedStates, ss)
@@ -247,7 +248,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// I (Eliot) think this is caused by a bug in how we compute the gradient
 			// When the absolute value of the gradient is too high, it blows up
 			if nloptErr.Error() != "nlopt: FAILURE" {
-				return solutionsFound, nil, nloptErr
+				return solutionsFound, nil, errtrace.Wrap(nloptErr)
 			}
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")

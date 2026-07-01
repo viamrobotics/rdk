@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/tunnel"
@@ -25,7 +26,7 @@ func TestReaderSenderLoop(t *testing.T) {
 		injectReader := &inject.ReadWriteCloser{
 			ReadFunc: func(p []byte) (n int, err error) {
 				readCt++
-				return 0, io.EOF
+				return 0, errtrace.Wrap(io.EOF)
 			},
 		}
 		sendCt := 0
@@ -46,7 +47,7 @@ func TestReaderSenderLoop(t *testing.T) {
 				readCt++
 				p[0] = 1
 				p[1] = 2
-				return 2, io.EOF
+				return 2, errtrace.Wrap(io.EOF)
 			},
 		}
 		sendCt := 0
@@ -74,7 +75,7 @@ func TestReaderSenderLoop(t *testing.T) {
 					p[1] = 2
 					return 2, nil
 				}
-				return 0, io.EOF
+				return 0, errtrace.Wrap(io.EOF)
 			},
 		}
 		sendCt := 0
@@ -101,7 +102,7 @@ func TestReaderSenderLoop(t *testing.T) {
 				readCt++
 				p[0] = 1
 				p[1] = 2
-				return 2, newErr
+				return 2, errtrace.Wrap(newErr)
 			},
 		}
 		sendCt := 0
@@ -135,7 +136,7 @@ func TestReaderSenderLoop(t *testing.T) {
 		sendFunc := func(buf []byte) error {
 			sendCt++
 			test.That(t, buf, test.ShouldResemble, []byte{1, 2})
-			return newErr
+			return errtrace.Wrap(newErr)
 		}
 		err := tunnel.ReaderSenderLoop(ctx, injectReader, sendFunc, connClosed, logger)
 		test.That(t, errors.Is(err, newErr), test.ShouldBeTrue)
@@ -160,7 +161,7 @@ func TestRecvWriterLoop(t *testing.T) {
 			if recvCt == 1 {
 				return []byte{1, 2}, nil
 			}
-			return nil, io.EOF
+			return nil, errtrace.Wrap(io.EOF)
 		}
 		writeCt := 0
 		injectWriter := &inject.ReadWriteCloser{
@@ -185,7 +186,7 @@ func TestRecvWriterLoop(t *testing.T) {
 			if recvCt == 1 {
 				return []byte{1, 2}, nil
 			}
-			return nil, io.EOF
+			return nil, errtrace.Wrap(io.EOF)
 		}
 		writeCt := 0
 		injectWriter := &inject.ReadWriteCloser{
@@ -210,7 +211,7 @@ func TestRecvWriterLoop(t *testing.T) {
 			if recvCt == 1 {
 				return []byte{1, 2}, nil
 			}
-			return nil, io.EOF
+			return nil, errtrace.Wrap(io.EOF)
 		}
 		writeCt := 0
 		injectWriter := &inject.ReadWriteCloser{
@@ -234,7 +235,7 @@ func TestRecvWriterLoop(t *testing.T) {
 		recvCt := 0
 		recvFunc := func() ([]byte, error) {
 			recvCt++
-			return nil, newErr
+			return nil, errtrace.Wrap(newErr)
 		}
 		writeCt := 0
 		injectWriter := &inject.ReadWriteCloser{
@@ -260,13 +261,13 @@ func TestRecvWriterLoop(t *testing.T) {
 			if recvCt < 3 {
 				return []byte{1, 2}, nil
 			}
-			return nil, io.EOF
+			return nil, errtrace.Wrap(io.EOF)
 		}
 		writeCt := 0
 		injectWriter := &inject.ReadWriteCloser{
 			WriteFunc: func(p []byte) (n int, err error) {
 				writeCt++
-				return 0, newErr
+				return 0, errtrace.Wrap(newErr)
 			},
 		}
 		err := tunnel.RecvWriterLoop(ctx, recvFunc, injectWriter, rsDone, logger)

@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
 	// TODO(RSDK-7884): change all referenced resources to mocks.
+	"braces.dev/errtrace"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -542,7 +543,7 @@ func TestFullResourceNameCollision(t *testing.T) {
 			case "arm3":
 				return arm3, nil
 			default:
-				return nil, errors.New("unknown armToRouteTo provided")
+				return nil, errtrace.Wrap(errors.New("unknown armToRouteTo provided"))
 			}
 		}},
 	)

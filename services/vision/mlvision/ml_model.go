@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -42,13 +43,13 @@ func init() {
 		) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*MLModelConfig](c)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			actualR, err := utils.AssertType[robot.Robot](r)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
-			return registerMLModelVisionService(ctx, c.ResourceName(), attrs, actualR, logger)
+			return errtrace.Wrap2(registerMLModelVisionService(ctx, c.ResourceName(), attrs, actualR, logger))
 		},
 	})
 }
@@ -74,27 +75,27 @@ type MLModelConfig struct {
 // Validate will add the ModelName as an implicit dependency to the robot.
 func (conf *MLModelConfig) Validate(path string) ([]string, []string, error) {
 	if conf.ModelName == "" {
-		return nil, nil, errors.New("mlmodel_name cannot be empty")
+		return nil, nil, errtrace.Wrap(errors.New("mlmodel_name cannot be empty"))
 	}
 	if conf.LabelPath != "" {
 		_, err := os.Stat(conf.LabelPath)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err)
+			return nil, nil, errtrace.Wrap(fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err))
 		}
 	}
 	if len(conf.MeanValue) != 0 {
 		if len(conf.MeanValue) < 3 {
-			return nil, nil, errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel")
+			return nil, nil, errtrace.Wrap(errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel"))
 		}
 	}
 	if len(conf.StdDev) != 0 {
 		if len(conf.StdDev) < 3 {
-			return nil, nil, errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel")
+			return nil, nil, errtrace.Wrap(errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel"))
 		}
 	}
 	for _, v := range conf.StdDev {
 		if v == 0.0 {
-			return nil, nil, errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0")
+			return nil, nil, errtrace.Wrap(errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0"))
 		}
 	}
 	return []string{conf.ModelName}, nil, nil
@@ -112,7 +113,7 @@ func registerMLModelVisionService(
 
 	mlm, err := mlmodel.FromProvider(r, params.ModelName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// the Maps that associates the tensor names as they are found in the model, to
@@ -127,21 +128,21 @@ func registerMLModelVisionService(
 	}
 	if len(params.BoxOrder) != 0 {
 		if len(params.BoxOrder) != 4 {
-			return nil, errors.Errorf(
+			return nil, errtrace.Wrap(errors.Errorf(
 				"attribute xmin_ymin_xmax_ymax_order for model %q must have only 4 entries in the list. Got %v",
 				params.ModelName,
 				params.BoxOrder,
-			)
+			))
 		}
 		checkOrder := map[int]bool{0: false, 1: false, 2: false, 3: false}
 		for _, entry := range params.BoxOrder {
 			val, ok := checkOrder[entry]
 			if !ok || val { // if val is true, it means value was repeated
-				return nil, errors.Errorf(
+				return nil, errtrace.Wrap(errors.Errorf(
 					"attribute xmin_ymin_xmax_ymax_order for model %q can only have entries 0, 1, 2 and 3, and only one instance of each. Got %v",
 					params.ModelName,
 					params.BoxOrder,
-				)
+				))
 			}
 			checkOrder[entry] = true
 		}
@@ -216,12 +217,12 @@ func registerMLModelVisionService(
 	if params.DefaultCamera != "" {
 		_, err = camera.FromProvider(r, params.DefaultCamera)
 		if err != nil {
-			return nil, errors.Errorf("could not find camera %q", params.DefaultCamera)
+			return nil, errtrace.Wrap(errors.Errorf("could not find camera %q", params.DefaultCamera))
 		}
 	}
 
 	// Don't return a close function, because you don't want to close the underlying ML service
-	return vision.DeprecatedNewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
+	return errtrace.Wrap2(vision.DeprecatedNewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera))
 }
 
 func getLabelsFromFile(labelPath string) []string {
@@ -291,5 +292,5 @@ func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]int, error) {
 			}
 		}
 	}
-	return nil, errors.New("could not grab bbox order")
+	return nil, errtrace.Wrap(errors.New("could not grab bbox order"))
 }

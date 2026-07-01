@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -120,16 +121,16 @@ func (server *Server) NewStream(config gostream.StreamConfig) (gostream.Stream, 
 	defer server.mu.Unlock()
 
 	if _, ok := server.nameToStreamState[config.Name]; ok {
-		return nil, &StreamAlreadyRegisteredError{config.Name}
+		return nil, errtrace.Wrap(&StreamAlreadyRegisteredError{config.Name})
 	}
 
 	stream, err := gostream.NewStream(config, server.logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if err = server.add(stream); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return stream, nil
@@ -159,7 +160,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	defer server.logger.Warnf("AddStream END %s", req.Name)
 
 	if !ok {
-		return nil, errors.New("can only add a stream over a WebRTC based connection")
+		return nil, errtrace.Wrap(errors.New("can only add a stream over a WebRTC based connection"))
 	}
 
 	server.mu.Lock()
@@ -178,13 +179,13 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		}
 		err := fmt.Errorf("no stream for %q, available streams: %s", req.Name, availableStreams)
 		server.logger.Error(err.Error())
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// return error if resource is not a camera
 	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
 	if isCamErr != nil {
-		return nil, errors.Errorf("stream is not a camera. streamName: %v", streamStateToAdd.Stream)
+		return nil, errtrace.Wrap(errors.Errorf("stream is not a camera. streamName: %v", streamStateToAdd.Stream))
 	}
 
 	var nameToPeerState map[string]*peerState
@@ -194,7 +195,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		if _, isStreaming := pcStreams[req.Name]; isStreaming {
 			err := errors.New("stream already active")
 			server.logger.Error(err.Error())
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		// if there is no active video data being sent, set up a callback to remove the peer
@@ -230,7 +231,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	addTrack := func(track webrtc.TrackLocal) error {
 		sender, err := pc.AddTrack(track)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		ps.senders = append(ps.senders, sender)
 		return nil
@@ -240,12 +241,12 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.VideoTrackLocal(); haveTrackLocal {
 		if err := addTrack(trackLocal); err != nil {
 			server.logger.Error(err.Error())
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	if err := streamStateToAdd.Increment(); err != nil {
 		server.logger.Error(err.Error())
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	guard.Success()
@@ -259,7 +260,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	server.logger.Infow("Removing video stream", "name", req.Name, "peerConn", fmt.Sprintf("%p", pc))
 	if !ok {
-		return nil, errors.New("can only remove a stream over a WebRTC based connection")
+		return nil, errtrace.Wrap(errors.New("can only remove a stream over a WebRTC based connection"))
 	}
 
 	server.mu.Lock()
@@ -288,12 +289,12 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	}
 	if errs != nil {
 		server.logger.Error(errs.Error())
-		return nil, errs
+		return nil, errtrace.Wrap(errs)
 	}
 
 	if err := streamToRemove.Decrement(); err != nil {
 		server.logger.Error(err.Error())
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	delete(server.activePeerStreams[pc], req.Name)
@@ -308,11 +309,11 @@ func (server *Server) GetStreamOptions(
 	req *streampb.GetStreamOptionsRequest,
 ) (*streampb.GetStreamOptionsResponse, error) {
 	if req.Name == "" {
-		return nil, errors.New("stream name is required")
+		return nil, errtrace.Wrap(errors.New("stream name is required"))
 	}
 	cam, err := camera.FromProvider(server.robot, req.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get camera from robot: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to get camera from robot: %w", err))
 	}
 	// If the camera properties do not have intrinsic parameters,
 	// we need to sample a frame to get the width and height.
@@ -325,7 +326,7 @@ func (server *Server) GetStreamOptions(
 		server.logger.Debug("width and height not found in camera properties")
 		width, height, err = sampleFrameSize(ctx, cam, server.logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to sample frame size: %w", err)
+			return nil, errtrace.Wrap(fmt.Errorf("failed to sample frame size: %w", err))
 		}
 	} else {
 		width, height = camProps.IntrinsicParams.Width, camProps.IntrinsicParams.Height
@@ -351,7 +352,7 @@ func (server *Server) SetStreamOptions(
 ) (*streampb.SetStreamOptionsResponse, error) {
 	cmd, err := validateSetStreamOptionsRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	server.mu.Lock()
 	defer server.mu.Unlock()
@@ -359,15 +360,15 @@ func (server *Server) SetStreamOptions(
 	case optionsCommandResize:
 		err = server.resizeVideoSource(ctx, req.Name, int(req.Resolution.Width), int(req.Resolution.Height))
 		if err != nil {
-			return nil, fmt.Errorf("failed to resize video source for stream %q: %w", req.Name, err)
+			return nil, errtrace.Wrap(fmt.Errorf("failed to resize video source for stream %q: %w", req.Name, err))
 		}
 	case optionsCommandReset:
 		err = server.resetVideoSource(ctx, req.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to reset video source for stream %q: %w", req.Name, err)
+			return nil, errtrace.Wrap(fmt.Errorf("failed to reset video source for stream %q: %w", req.Name, err))
 		}
 	default:
-		return nil, fmt.Errorf("unknown command type %v", cmd)
+		return nil, errtrace.Wrap(fmt.Errorf("unknown command type %v", cmd))
 	}
 	return &streampb.SetStreamOptionsResponse{}, nil
 }
@@ -375,24 +376,24 @@ func (server *Server) SetStreamOptions(
 // validateSetStreamOptionsRequest validates the request to set the stream options.
 func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int, error) {
 	if req.Name == "" {
-		return optionsCommandUnknown, errors.New("stream name is required in request")
+		return optionsCommandUnknown, errtrace.Wrap(errors.New("stream name is required in request"))
 	}
 	if req.Resolution == nil {
 		return optionsCommandReset, nil
 	}
 	if req.Resolution.Width <= 0 || req.Resolution.Height <= 0 {
 		return optionsCommandUnknown,
-			fmt.Errorf(
+			errtrace.Wrap(fmt.Errorf(
 				"invalid resolution to resize stream %q: width (%d) and height (%d) must be greater than 0",
 				req.Name, req.Resolution.Width, req.Resolution.Height,
-			)
+			))
 	}
 	if req.Resolution.Width%2 != 0 || req.Resolution.Height%2 != 0 {
 		return optionsCommandUnknown,
-			fmt.Errorf(
+			errtrace.Wrap(fmt.Errorf(
 				"invalid resolution to resize stream %q: width (%d) and height (%d) must be even",
 				req.Name, req.Resolution.Width, req.Resolution.Height,
-			)
+			))
 	}
 	return optionsCommandResize, nil
 }
@@ -407,20 +408,20 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	}
 	existing, ok := server.videoSources[name]
 	if !ok {
-		return fmt.Errorf("video source %q not found", name)
+		return errtrace.Wrap(fmt.Errorf("video source %q not found", name))
 	}
 	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		server.logger.Errorf("error getting camera %q from robot", name)
-		return err
+		return errtrace.Wrap(err)
 	}
 	streamState, ok := server.nameToStreamState[name]
 	if !ok {
-		return fmt.Errorf("stream state not found with name %q", name)
+		return errtrace.Wrap(fmt.Errorf("stream state not found with name %q", name))
 	}
 	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
 	if err != nil {
-		return fmt.Errorf("failed to create video source from camera: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to create video source from camera: %w", err))
 	}
 	resizer := gostream.NewResizeVideoSource(vs, width, height)
 	server.logger.Infof(
@@ -430,7 +431,7 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	existing.Swap(resizer)
 	err = streamState.Resize()
 	if err != nil {
-		return fmt.Errorf("failed to resize stream %q: %w", name, err)
+		return errtrace.Wrap(fmt.Errorf("failed to resize stream %q: %w", name, err))
 	}
 	return nil
 }
@@ -439,7 +440,7 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 	existing, ok := server.videoSources[name]
 	if !ok {
-		return fmt.Errorf("video source %q not found", name)
+		return errtrace.Wrap(fmt.Errorf("video source %q not found", name))
 	}
 	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
@@ -447,17 +448,17 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 	}
 	streamState, ok := server.nameToStreamState[name]
 	if !ok {
-		return fmt.Errorf("stream state not found with name %q", name)
+		return errtrace.Wrap(fmt.Errorf("stream state not found with name %q", name))
 	}
 	server.logger.Debug("resetting video source")
 	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
 	if err != nil {
-		return fmt.Errorf("failed to create video source from camera: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to create video source from camera: %w", err))
 	}
 	existing.Swap(vs)
 	err = streamState.Reset()
 	if err != nil {
-		return fmt.Errorf("failed to reset stream %q: %w", name, err)
+		return errtrace.Wrap(fmt.Errorf("failed to reset stream %q: %w", name, err))
 	}
 	return nil
 }
@@ -504,7 +505,7 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
 		stream, alreadyRegistered, err := server.createStream(config, name)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		} else if alreadyRegistered {
 			continue
 		}
@@ -529,13 +530,13 @@ func (server *Server) Close() error {
 	}
 	server.mu.Unlock()
 	server.activeBackgroundWorkers.Wait()
-	return errs
+	return errtrace.Wrap(errs)
 }
 
 func (server *Server) add(stream gostream.Stream) error {
 	streamName := stream.Name()
 	if _, ok := server.nameToStreamState[streamName]; ok {
-		return &StreamAlreadyRegisteredError{streamName}
+		return errtrace.Wrap(&StreamAlreadyRegisteredError{streamName})
 	}
 
 	logger := server.logger.Sublogger(streamName)
@@ -695,9 +696,9 @@ func (server *Server) createStream(config gostream.StreamConfig, name string) (g
 		server.logger.Debugf("%s stream already registered", name)
 		return nil, true, nil
 	} else if err != nil {
-		return nil, false, err
+		return nil, false, errtrace.Wrap(err)
 	}
-	return stream, false, err
+	return stream, false, errtrace.Wrap(err)
 }
 
 func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) error) {
@@ -721,18 +722,18 @@ func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) er
 func (server *Server) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	server.startStream(func(opts *BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
-		return streamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
+		return errtrace.Wrap(streamVideoSource(streamVideoCtx, source, stream, opts, server.logger))
 	})
 }
 
 func (server *Server) getFramerateFromCamera(name string) (int, error) {
 	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get camera from robot: %w", err)
+		return 0, errtrace.Wrap(fmt.Errorf("failed to get camera from robot: %w", err))
 	}
 	props, err := cam.Properties(context.Background())
 	if err != nil {
-		return 0, fmt.Errorf("failed to get camera properties: %w", err)
+		return 0, errtrace.Wrap(fmt.Errorf("failed to get camera properties: %w", err))
 	}
 	return int(props.FrameRate), nil
 }
@@ -778,7 +779,7 @@ func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logg
 	for i := 0; i < 5; i++ {
 		select {
 		case <-ctx.Done():
-			return 0, 0, ctx.Err()
+			return 0, 0, errtrace.Wrap(ctx.Err())
 		default:
 			namedImage, err := camerautils.GetStreamableNamedImageFromCamera(ctx, cam)
 			if err != nil {
@@ -797,7 +798,7 @@ func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logg
 			return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 		}
 	}
-	return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", lastErr)
+	return 0, 0, errtrace.Wrap(fmt.Errorf("failed to get frame after 5 attempts: %w", lastErr))
 }
 
 func removeStreamsOnPCDisconnect(server *Server, pc *webrtc.PeerConnection, peerConnectionState webrtc.PeerConnectionState) {

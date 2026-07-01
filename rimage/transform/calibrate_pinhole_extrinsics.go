@@ -13,6 +13,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/optimize"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -61,7 +62,7 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger logging.Logge
 	logger.Debugf("rotation: %v", rotation.RotationMatrix())
 	pose := spatialmath.NewPose(translation, rotation)
 	if err != nil {
-		return pose, fmt.Errorf("%+v: %w", res.Status, err)
+		return pose, errtrace.Wrap(fmt.Errorf("%+v: %w", res.Status, err))
 	}
 	return pose, nil
 }
@@ -75,16 +76,16 @@ func BuildExtrinsicOptProblem(conf *ExtrinsicCalibrationConfig) (*optimize.Probl
 	// check if the number of points in each image is the same
 	if len(conf.ColorPoints) != len(conf.DepthPoints) {
 		return nil,
-			errors.Errorf("number of color points (%d) does not equal number of depth points (%d)", len(conf.ColorPoints), len(conf.DepthPoints))
+			errtrace.Wrap(errors.Errorf("number of color points (%d) does not equal number of depth points (%d)", len(conf.ColorPoints), len(conf.DepthPoints)))
 	}
 	// check if there are at least 4 points in each image
 	if len(conf.ColorPoints) < 4 {
 		return nil,
-			errors.Errorf("need at least 4 points to calculate extrinsic matrix, only have %d", len(conf.ColorPoints))
+			errtrace.Wrap(errors.Errorf("need at least 4 points to calculate extrinsic matrix, only have %d", len(conf.ColorPoints)))
 	}
 	for i, pt := range conf.DepthPoints {
 		if pt.Z == 0.0 {
-			return nil, errors.Errorf("point %d has a depth of 0. Zero depth is not allowed", i)
+			return nil, errtrace.Wrap(errors.Errorf("point %d has a depth of 0. Zero depth is not allowed", i))
 		}
 	}
 	depthPx, depthPy := conf.DepthIntrinsics.Ppx, conf.DepthIntrinsics.Ppy

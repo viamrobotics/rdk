@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
@@ -711,7 +712,7 @@ func TestUpdateRobotPartRetryOnConflict(t *testing.T) {
 	) (*apppb.UpdateRobotPartResponse, error) {
 		updateCount++
 		if updateCount == 1 {
-			return nil, errors.New("concurrent modification")
+			return nil, errtrace.Wrap(errors.New("concurrent modification"))
 		}
 		return &apppb.UpdateRobotPartResponse{Part: &apppb.RobotPart{}}, nil
 	}

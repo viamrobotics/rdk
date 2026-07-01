@@ -21,6 +21,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
@@ -58,7 +59,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 
 	newFileNum, err := getNextDataAfterFilter(filter, last)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Construct response
@@ -66,12 +67,12 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 	if includeBinary {
 		data, err := getCompressedBytesFromArtifact(fmt.Sprintf(datasetDirectory, newFileNum))
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		timeReq, timeRec, err := timestampsFromFileNum(newFileNum)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		binaryData := datapb.BinaryData{
 			Binary: data,
@@ -97,7 +98,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 
 			timeReq, timeRec, err := timestampsFromFileNum(newFileNum + i)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
 			binaryData := datapb.BinaryData{
@@ -123,7 +124,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 func timestampsFromFileNum(fileNum int) (*timestamppb.Timestamp, *timestamppb.Timestamp, error) {
 	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, fileNum))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed parsing time")
+		return nil, nil, errtrace.Wrap(errors.Wrap(err, "failed parsing time"))
 	}
 	timeRec := timeReq.Add(time.Second)
 	return timestamppb.New(timeReq), timestamppb.New(timeRec), nil
@@ -181,7 +182,7 @@ func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *C
 	cfg := resource.Config{ConvertedAttributes: replayCamCfg}
 	cam, err := newPCDCamera(ctx, resources, cfg, logger)
 
-	return cam, resources, closeRPCFunc, err
+	return cam, resources, closeRPCFunc, errtrace.Wrap(err)
 }
 
 // resourcesFromDeps returns a list of dependencies from the provided robot.
@@ -205,28 +206,28 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
 	if filter.ComponentName != "" && filter.ComponentName != validSource {
-		return 0, ErrEndOfDataset
+		return 0, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	// Basic robot_id filter
 	if filter.RobotId != "" && filter.RobotId != validRobotID {
-		return 0, ErrEndOfDataset
+		return 0, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	// Basic location_id filter
 	if len(filter.LocationIds) == 0 {
-		return 0, errors.New("LocationIds in filter is empty")
+		return 0, errtrace.Wrap(errors.New("LocationIds in filter is empty"))
 	}
 	if filter.LocationIds[0] != "" && filter.LocationIds[0] != validLocationID {
-		return 0, ErrEndOfDataset
+		return 0, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	// Basic organization_id filter
 	if len(filter.OrganizationIds) == 0 {
-		return 0, errors.New("OrganizationIds in filter is empty")
+		return 0, errtrace.Wrap(errors.New("OrganizationIds in filter is empty"))
 	}
 	if filter.OrganizationIds[0] != "" && filter.OrganizationIds[0] != validOrganizationID {
-		return 0, ErrEndOfDataset
+		return 0, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	// Apply the time-based filter based on the seconds value in the start and end fields. Because artifacts
@@ -244,13 +245,13 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	}
 
 	if last == "" {
-		return getFile(start, end)
+		return errtrace.Wrap2(getFile(start, end))
 	}
 	lastFileNum, err := strconv.Atoi(last)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
-	return getFile(lastFileNum+1, end)
+	return errtrace.Wrap2(getFile(lastFileNum+1, end))
 }
 
 // getFile will return the next file to be returned after checking it satisfies the end condition.
@@ -258,7 +259,7 @@ func getFile(i, end int) (int, error) {
 	if i < end {
 		return i, nil
 	}
-	return 0, ErrEndOfDataset
+	return 0, errtrace.Wrap(ErrEndOfDataset)
 }
 
 // getCompressedBytesFromArtifact will return an array of bytes from the
@@ -266,12 +267,12 @@ func getFile(i, end int) (int, error) {
 func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 	artifactPath, err := artifact.Path(inputPath)
 	if err != nil {
-		return nil, ErrEndOfDataset
+		return nil, errtrace.Wrap(ErrEndOfDataset)
 	}
 	path := filepath.Clean(artifactPath)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, ErrEndOfDataset
+		return nil, errtrace.Wrap(ErrEndOfDataset)
 	}
 
 	return data, nil
@@ -282,13 +283,13 @@ func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
 	pcdFile, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(pcdFile.Close)
 
 	pcExpected, err := pointcloud.ReadPCD(pcdFile, "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return pcExpected, nil

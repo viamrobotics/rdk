@@ -9,6 +9,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/switch/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -16,7 +17,7 @@ import (
 
 // ErrInvalidPosition is the returned error if switch position is invalid.
 var ErrInvalidPosition = func(switchName string, position, maxPosition int) error {
-	return fmt.Errorf("switch component %v position %d is invalid (max: %d)", switchName, position, maxPosition)
+	return errtrace.Wrap(fmt.Errorf("switch component %v position %d is invalid (max: %d)", switchName, position, maxPosition))
 }
 
 // serviceServer implements the SwitchService from switch.proto.
@@ -35,20 +36,20 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Switch], logger logging
 func (s *serviceServer) SetPosition(ctx context.Context, req *pb.SetPositionRequest) (*pb.SetPositionResponse, error) {
 	sw, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return &pb.SetPositionResponse{}, sw.SetPosition(ctx, req.Position, req.Extra.AsMap())
+	return &pb.SetPositionResponse{}, errtrace.Wrap(sw.SetPosition(ctx, req.Position, req.Extra.AsMap()))
 }
 
 // GetPosition gets the current position of a switch of the underlying robot.
 func (s *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (*pb.GetPositionResponse, error) {
 	sw, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	position, err := sw.GetPosition(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetPositionResponse{Position: position}, nil
 }
@@ -59,14 +60,14 @@ func (s *serviceServer) GetNumberOfPositions(
 ) (*pb.GetNumberOfPositionsResponse, error) {
 	sw, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	count, labels, err := sw.GetNumberOfPositions(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if len(labels) > 0 && len(labels) != int(count) {
-		return nil, errors.New("the number of labels does not match the number of positions")
+		return nil, errtrace.Wrap(errors.New("the number of labels does not match the number of positions"))
 	}
 	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count, Labels: labels}, nil
 }
@@ -77,16 +78,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	sw, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, sw, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, sw, req))
 }
 
 // GetStatus returns the status of the switch.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

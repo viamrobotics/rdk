@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"braces.dev/errtrace"
 	"fmt"
 )
 
@@ -29,7 +30,7 @@ func Find(pcStructureType string) (TypeConfig, error) {
 
 	cfg, ok := pcTypes[pcStructureType]
 	if !ok {
-		return TypeConfig{}, fmt.Errorf("no point cloud type registered for [%s]", pcStructureType)
+		return TypeConfig{}, errtrace.Wrap(fmt.Errorf("no point cloud type registered for [%s]", pcStructureType))
 	}
 	return cfg, nil
 }

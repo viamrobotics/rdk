@@ -14,6 +14,7 @@ import (
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -26,21 +27,21 @@ type Model interface {
 // KinematicModelFromProtobuf returns a model from a protobuf message representing it.
 func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (Model, error) {
 	if resp == nil {
-		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
+		return nil, errtrace.Wrap(errors.New("*commonpb.GetKinematicsResponse can't be nil"))
 	}
 	format := resp.GetFormat()
 	data := resp.GetKinematicsData()
 
 	switch format {
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
-		return UnmarshalModelJSON(data, name)
+		return errtrace.Wrap2(UnmarshalModelJSON(data, name))
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
 		meshMap := resp.GetMeshesByUrdfFilepath()
 		modelconf, err := UnmarshalModelXML(data, name, meshMap, nil)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return modelconf.ParseConfig(name)
+		return errtrace.Wrap2(modelconf.ParseConfig(name))
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
 		if len(data) == 0 {
 			// No kinematics data — treat as an empty model. This preserves backward
@@ -50,9 +51,9 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 		fallthrough
 	default:
 		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
-			return nil, fmt.Errorf("unable to parse file of type %s", formatName)
+			return nil, errtrace.Wrap(fmt.Errorf("unable to parse file of type %s", formatName))
 		}
-		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
+		return nil, errtrace.Wrap(fmt.Errorf("unable to parse unknown file type %d", format))
 	}
 }
 
@@ -122,11 +123,11 @@ type mimicMapping struct {
 func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	switch {
 	case strings.HasSuffix(modelPath, ".urdf"):
-		return ParseModelXMLFile(modelPath, name, nil)
+		return errtrace.Wrap2(ParseModelXMLFile(modelPath, name, nil))
 	case strings.HasSuffix(modelPath, ".json"):
-		return ParseModelJSONFile(modelPath, name)
+		return errtrace.Wrap2(ParseModelJSONFile(modelPath, name))
 	default:
-		return nil, errors.New("only files with .json and .urdf file extensions are supported")
+		return nil, errtrace.Wrap(errors.New("only files with .json and .urdf file extensions are supported"))
 	}
 }
 
@@ -173,7 +174,7 @@ func NewSimpleModel(name string) *SimpleModel {
 // The primary output frame must exist in fs and determines what Transform() returns.
 func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleModel, error) {
 	if fs.Frame(primaryOutputFrame) == nil {
-		return nil, fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame)
+		return nil, errtrace.Wrap(fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame))
 	}
 
 	m := &SimpleModel{
@@ -192,7 +193,7 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 	}
 	schema, err := zeroInputs.GetSchema(fs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	m.inputSchema = schema
 	m.limits = schema.GetLimits()
@@ -210,7 +211,7 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 // their input is derived at runtime from the source frame's input.
 func NewModelWithMimics(name string, fs *FrameSystem, primaryOutputFrame string, mimics map[string]*mimicMapping) (*SimpleModel, error) {
 	if fs.Frame(primaryOutputFrame) == nil {
-		return nil, fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame)
+		return nil, errtrace.Wrap(fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame))
 	}
 
 	m := &SimpleModel{
@@ -239,7 +240,7 @@ func NewModelWithMimics(name string, fs *FrameSystem, primaryOutputFrame string,
 	for idx := range schema.metas {
 		frame := fs.Frame(schema.metas[idx].frameName)
 		if frame == nil {
-			return nil, NewFrameMissingError(schema.metas[idx].frameName)
+			return nil, errtrace.Wrap(NewFrameMissingError(schema.metas[idx].frameName))
 		}
 		schema.metas[idx].frame = frame
 	}
@@ -269,7 +270,7 @@ func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
 	for _, f := range frames {
 		frameName := f.Name()
 		if seen[frameName] {
-			return nil, NewDuplicateFrameNameError(frameName)
+			return nil, errtrace.Wrap(NewDuplicateFrameNameError(frameName))
 		}
 		seen[frameName] = true
 	}
@@ -278,12 +279,12 @@ func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
 	parent := fs.World()
 	for _, f := range frames {
 		if err := fs.AddFrame(f, parent); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		parent = f
 	}
 	lastFrame := parent.Name()
-	return NewModel(name, fs, lastFrame)
+	return errtrace.Wrap2(NewModel(name, fs, lastFrame))
 }
 
 // NewModelWithLimitOverrides constructs a new model identical to base but with the specified
@@ -292,13 +293,13 @@ func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
 func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
 	newFS, err := base.internalFS.Clone()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	for name, limit := range overrides {
 		frame := newFS.Frame(name)
 		if frame == nil || len(frame.DoF()) == 0 {
-			return nil, fmt.Errorf("frame %q not found or has no DoF", name)
+			return nil, errtrace.Wrap(fmt.Errorf("frame %q not found or has no DoF", name))
 		}
 		frame.DoF()[0] = limit
 	}
@@ -310,7 +311,7 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 		m, err = NewModel(base.name, newFS, base.primaryOutputFrame)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	m.modelConfig = base.modelConfig
 	return m, nil
@@ -350,9 +351,9 @@ func (m *SimpleModel) framesInOrder() []Frame {
 // toLinearInputs converts flat []Input to a *LinearInputs via the model's schema.
 func (m *SimpleModel) toLinearInputs(inputs []Input) (*LinearInputs, error) {
 	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(inputs), len(m.DoF())))
 	}
-	return m.inputSchema.FloatsToInputs(inputs)
+	return errtrace.Wrap2(m.inputSchema.FloatsToInputs(inputs))
 }
 
 // GenerateRandomConfiguration generates a list of radian joint positions that are random but valid for each joint.
@@ -456,7 +457,7 @@ var emptyInputs = []Input{}
 // When inputs are out of bounds, Transform returns both the computed pose and an OOB error.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(inputs), len(m.DoF())))
 	}
 
 	composedTransformation := spatialmath.DualQuaternion{
@@ -489,8 +490,8 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 			} else {
 				frameInputs = inputs[offset : offset+dof]
 				if err := frame.validInputs(frameInputs); err != nil {
-					return &composedTransformation, fmt.Errorf("Frame: %v.%v (joint %d): %w",
-						m.Name(), frame.Name(), offset, err)
+					return &composedTransformation, errtrace.Wrap(fmt.Errorf("Frame: %v.%v (joint %d): %w",
+						m.Name(), frame.Name(), offset, err))
 				}
 			}
 			orientation := frame.InputToOrientation(frameInputs[0])
@@ -514,7 +515,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
 			}
 			if err != nil {
-				return &composedTransformation, fmt.Errorf("joint %d: %w", offset, err)
+				return &composedTransformation, errtrace.Wrap(fmt.Errorf("joint %d: %w", offset, err))
 			}
 			composedTransformation = spatialmath.DualQuaternion{
 				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
@@ -537,7 +538,7 @@ func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error)
 
 		interpSubset, err := transform.Interpolate(fromSubset, toSubset, by)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		interp = append(interp, interpSubset...)
 	}
@@ -573,7 +574,7 @@ func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	li, err := m.toLinearInputs(inputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Inject derived inputs for mimic frames so the FrameSystem can compute their geometries.
@@ -588,8 +589,8 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 
 	allGeomsMap, err := FrameSystemGeometriesLinearInputs(m.internalFS, li)
 	if err != nil && len(allGeomsMap) == 0 {
-		return nil, fmt.Errorf("Error getting geometries. SimpleMode: %v Err: %w",
-			m.Name(), err)
+		return nil, errtrace.Wrap(fmt.Errorf("Error getting geometries. SimpleMode: %v Err: %w",
+			m.Name(), err))
 	}
 
 	// Collect geometries from all frames in the FS (not just schema-order) to include mimic frames.
@@ -604,7 +605,7 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 			geometries = append(geometries, geom)
 		}
 	}
-	return NewGeometriesInFrame(m.name, geometries), err
+	return NewGeometriesInFrame(m.name, geometries), errtrace.Wrap(err)
 }
 
 // DoF returns the number of degrees of freedom within a model.
@@ -621,13 +622,13 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 		InternalFS         *FrameSystem     `json:"internal_fs,omitempty"`
 		PrimaryOutputFrame string           `json:"primary_output_frame,omitempty"`
 	}
-	return json.Marshal(serialized{
+	return errtrace.Wrap2(json.Marshal(serialized{
 		Name:               m.name,
 		Model:              m.modelConfig,
 		Limits:             m.limits,
 		InternalFS:         m.internalFS,
 		PrimaryOutputFrame: m.primaryOutputFrame,
-	})
+	}))
 }
 
 // UnmarshalJSON deserializes a Model.
@@ -641,7 +642,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	}
 	var ser serialized
 	if err := json.Unmarshal(data, &ser); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	frameName := ser.Name
@@ -653,11 +654,11 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		// If Model is not nil, we build by parsing the config
 		parsed, err := ser.Model.ParseConfig(ser.Model.Name)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		newModel, ok := parsed.(*SimpleModel)
 		if !ok {
-			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
+			return errtrace.Wrap(fmt.Errorf("could not parse config for simple model, name: %v", ser.Name))
 		}
 		m.internalFS = newModel.internalFS
 		m.primaryOutputFrame = newModel.primaryOutputFrame
@@ -669,7 +670,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		// This happens if Model is nil. Model may be nil if we overrode model limits, or constructed directly from frames/framesystem.
 		rebuilt, err := NewModel(frameName, ser.InternalFS, ser.PrimaryOutputFrame)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		m.internalFS = rebuilt.internalFS
 		m.primaryOutputFrame = rebuilt.primaryOutputFrame
@@ -696,33 +697,33 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatialmath.Geometry) (Model, error) {
 	if len(limits) != 2 && len(limits) != 3 {
 		return nil,
-			errors.Errorf("Must have 2DOF state (x, y) or 3DOF state (x, y, theta) to create 2DMobileModelFrame, have %d dof", len(limits))
+			errtrace.Wrap(errors.Errorf("Must have 2DOF state (x, y) or 3DOF state (x, y, theta) to create 2DMobileModelFrame, have %d dof", len(limits)))
 	}
 
 	// build the model - SLAM convention is that the XY plane is the ground plane
 	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, limits[0])
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	y, err := NewTranslationalFrame("y", r3.Vector{Y: 1}, limits[1])
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	geometry, err := NewStaticFrameWithGeometry("geometry", spatialmath.NewZeroPose(), collisionGeometry)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var frames []Frame
 	if len(limits) == 3 {
 		theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), limits[2])
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		frames = []Frame{x, y, theta, geometry}
 	} else {
 		frames = []Frame{x, y, geometry}
 	}
 
-	return NewSerialModel(name, frames)
+	return errtrace.Wrap2(NewSerialModel(name, frames))
 }

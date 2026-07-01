@@ -19,6 +19,7 @@ import (
 	errw "github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
@@ -40,7 +41,7 @@ func partialDownloadPath(parentDir, rawURL string) (string, error) {
 
 	partialsDir := filepath.Join(parentDir, partialsDirName, rutils.HashString(rawURL, 7))
 	if err := os.MkdirAll(parentDir, 0o750); err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return filepath.Join(partialsDir, filename+".part"), nil
 }
@@ -61,7 +62,7 @@ func installPackage(
 ) error {
 	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(packagesDir), 0o700); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Force redownload of package archive.
@@ -89,25 +90,25 @@ func installPackage(
 	if supportsPartial {
 		var err error
 		if dstPath, err = partialDownloadPath(parentDir, url); err != nil {
-			return errw.Wrap(err, "creating partials dir")
+			return errtrace.Wrap(errw.Wrap(err, "creating partials dir"))
 		}
 	} else {
 		dstPath = p.LocalDownloadPath(packagesDir)
 	}
 	checksum, contentType, err := installFn(ctx, url, dstPath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if contentType != allowedContentType {
 		utils.UncheckedError(cleanup(packagesDir, p))
-		return fmt.Errorf("unknown content-type for package %s", contentType)
+		return errtrace.Wrap(fmt.Errorf("unknown content-type for package %s", contentType))
 	}
 
 	// unpack to temp directory to ensure we do an atomic rename once finished.
 	tmpDataPath, err := os.MkdirTemp(parentDir, "*.tmp")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	defer func() {
@@ -132,7 +133,7 @@ func installPackage(
 		}
 		utils.UncheckedError(writeStatusFile(p, statusFile, packagesDir))
 		utils.UncheckedError(cleanup(packagesDir, p))
-		return fmt.Errorf("failed to unzip archive, please try a different version: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to unzip archive, please try a different version: %w", err))
 	}
 
 	renameDest := p.LocalDataDirectory(packagesDir)
@@ -147,7 +148,7 @@ func installPackage(
 	err = os.Rename(tmpDataPath, renameDest)
 	if err != nil {
 		utils.UncheckedError(cleanup(packagesDir, p))
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	statusFile := packageSyncFile{
@@ -161,35 +162,35 @@ func installPackage(
 	err = writeStatusFile(p, statusFile, packagesDir)
 	if err != nil {
 		utils.UncheckedError(cleanup(packagesDir, p))
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
 }
 
 func cleanup(packagesDir string, p config.PackageConfig) error {
-	return errors.Join(
+	return errtrace.Wrap(errors.Join(
 		os.RemoveAll(p.LocalDataDirectory(packagesDir)),
 		os.Remove(p.LocalDownloadPath(packagesDir)),
-	)
+	))
 }
 
 // unpackFile extracts a tgz to a directory.
 func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	if err := os.MkdirAll(toDir, 0o700); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	//nolint:gosec // safe
 	f, err := os.Open(fromFile)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
 	archive, err := gzip.NewReader(f)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(archive.Close)
 
@@ -203,7 +204,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	tarReader := tar.NewReader(archive)
 	for {
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		header, err := tarReader.Next()
@@ -213,7 +214,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 		}
 
 		if err != nil {
-			return fmt.Errorf("read tar %w", err)
+			return errtrace.Wrap(fmt.Errorf("read tar %w", err))
 		}
 
 		path := header.Name
@@ -223,7 +224,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 		}
 
 		if path, err = rutils.SafeJoinDir(toDir, path); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		info := header.FileInfo()
@@ -231,7 +232,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(path, info.Mode()); err != nil {
-				return fmt.Errorf("failed to create directory %q %w", path, err)
+				return errtrace.Wrap(fmt.Errorf("failed to create directory %q %w", path, err))
 			}
 
 		case tar.TypeReg:
@@ -240,18 +241,18 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			// Ex: tar -czf package.tar.gz ./bin/module.exe
 			parent := filepath.Dir(path)
 			if err := os.MkdirAll(parent, 0o700); err != nil {
-				return fmt.Errorf("failed to create directory %q %w", parent, err)
+				return errtrace.Wrap(fmt.Errorf("failed to create directory %q %w", parent, err))
 			}
 			//nolint:gosec // path sanitized with rutils.SafeJoin
 			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600|info.Mode().Perm())
 			if err != nil {
-				return fmt.Errorf("failed to create file %q %w", path, err)
+				return errtrace.Wrap(fmt.Errorf("failed to create file %q %w", path, err))
 			}
 			if _, err := io.Copy(outFile, tarReader); err != nil && !errors.Is(err, io.EOF) { //nolint:gosec
-				return fmt.Errorf("failed to copy file %q %w", path, err)
+				return errtrace.Wrap(fmt.Errorf("failed to copy file %q %w", path, err))
 			}
 			if err := outFile.Sync(); err != nil {
-				return fmt.Errorf("failed to sync %q %w", path, err)
+				return errtrace.Wrap(fmt.Errorf("failed to sync %q %w", path, err))
 			}
 			utils.UncheckedError(outFile.Close())
 
@@ -259,13 +260,13 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			name := header.Linkname
 
 			if name, err = rutils.SafeJoinDir(toDir, name); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			links = append(links, link{Path: path, Name: name})
 		case tar.TypeSymlink:
 			linkTarget, err := safeLink(toDir, header.Linkname)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			symlinks = append(symlinks, link{Path: path, Name: linkTarget})
 		}
@@ -274,19 +275,19 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	// Now we make another pass creating the links
 	for i := range links {
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := linkFile(links[i].Name, links[i].Path); err != nil {
-			return fmt.Errorf("failed to create link %q %w", links[i].Path, err)
+			return errtrace.Wrap(fmt.Errorf("failed to create link %q %w", links[i].Path, err))
 		}
 	}
 
 	for i := range symlinks {
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := linkFile(symlinks[i].Name, symlinks[i].Path); err != nil {
-			return fmt.Errorf("failed to create link %q %w", links[i].Path, err)
+			return errtrace.Wrap(fmt.Errorf("failed to create link %q %w", links[i].Path, err))
 		}
 	}
 
@@ -302,7 +303,7 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			return nil
 		}
 
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var allErrors error
@@ -376,7 +377,7 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			allErrors = errors.Join(allErrors, os.RemoveAll(packageTypeDirName))
 		}
 	}
-	return allErrors
+	return errtrace.Wrap(allErrors)
 }
 
 // shouldDeletePackageEntry checks if a file or directory in the modules data directory should be deleted or not.
@@ -465,13 +466,13 @@ func readStatusFile(pkg config.PackageConfig, packagesDir string) (packageSyncFi
 	syncFileBytes, err := os.ReadFile(syncFileName)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return packageSyncFile{}, fmt.Errorf("cannot find %q %w", syncFileName, err)
+			return packageSyncFile{}, errtrace.Wrap(fmt.Errorf("cannot find %q %w", syncFileName, err))
 		}
-		return packageSyncFile{}, err
+		return packageSyncFile{}, errtrace.Wrap(err)
 	}
 	var syncFile packageSyncFile
 	if err := json.Unmarshal(syncFileBytes, &syncFile); err != nil {
-		return packageSyncFile{}, err
+		return packageSyncFile{}, errtrace.Wrap(err)
 	}
 	return syncFile, nil
 }
@@ -480,24 +481,24 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 	syncFileName := getSyncFileName(pkg.LocalDataDirectory(packagesDir))
 	if runtime.GOOS == "windows" {
 		if err := os.MkdirAll(pkg.LocalDataDirectory(packagesDir), os.ModeDir); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	statusFileBytes, err := json.MarshalIndent(statusFile, "", "  ")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	//nolint:gosec
 	syncFile, err := os.Create(syncFileName)
 	if err != nil {
-		return fmt.Errorf("failed to create %q %w", syncFileName, err)
+		return errtrace.Wrap(fmt.Errorf("failed to create %q %w", syncFileName, err))
 	}
 	if _, err := syncFile.Write(statusFileBytes); err != nil {
-		return fmt.Errorf("failed to write syncfile to %q %w", syncFileName, err)
+		return errtrace.Wrap(fmt.Errorf("failed to write syncfile to %q %w", syncFileName, err))
 	}
 	if err := syncFile.Sync(); err != nil {
-		return fmt.Errorf("failed to sync %q %w", syncFileName, err)
+		return errtrace.Wrap(fmt.Errorf("failed to sync %q %w", syncFileName, err))
 	}
 
 	return nil

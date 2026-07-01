@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	toggleswitch "go.viam.com/rdk/components/switch"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -38,7 +39,7 @@ func newServer(logger logging.Logger) (pb.SwitchServiceServer, *inject.Switch, *
 	}
 	switchSvc, err := resource.NewAPIResourceCollection(toggleswitch.API, switches)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, errtrace.Wrap(err)
 	}
 	return toggleswitch.NewRPCServiceServer(switchSvc, logger).(pb.SwitchServiceServer), injectSwitch, injectSwitch2, injectSwitch3, nil
 }
@@ -66,13 +67,13 @@ func TestServer(t *testing.T) {
 
 	injectSwitch2.SetPositionFunc = func(ctx context.Context, position uint32, extra map[string]interface{}) error {
 		switchName = testSwitchName2
-		return errCantSetPosition
+		return errtrace.Wrap(errCantSetPosition)
 	}
 	injectSwitch2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-		return 0, errCantGetPosition
+		return 0, errtrace.Wrap(errCantGetPosition)
 	}
 	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
-		return 0, nil, errCantGetNumberOfPositions
+		return 0, nil, errtrace.Wrap(errCantGetNumberOfPositions)
 	}
 
 	injectSwitch3.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
@@ -229,7 +230,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectSwitch.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = switchServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSwitchName})
 		test.That(t, err, test.ShouldNotBeNil)

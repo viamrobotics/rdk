@@ -30,6 +30,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/term"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -128,9 +129,9 @@ type loginActionArgs struct {
 func LoginAction(ctx context.Context, cmd *cli.Command, args loginActionArgs) error {
 	c, err := newViamClientInner(ctx, cmd, args.DisableBrowserOpen)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.loginAction(ctx, cmd)
+	return errtrace.Wrap(c.loginAction(ctx, cmd))
 }
 
 func (c *viamClient) loginAction(ctx context.Context, cmd *cli.Command) error {
@@ -161,7 +162,7 @@ func (c *viamClient) loginAction(ctx context.Context, cmd *cli.Command) error {
 	var err error
 	globalArgs, err := getGlobalArgs(c.c)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if currentToken != nil && currentToken.canRefresh() {
 		t, err = c.authFlow.refreshToken(ctx, currentToken)
@@ -175,14 +176,14 @@ func (c *viamClient) loginAction(ctx context.Context, cmd *cli.Command) error {
 		if err != nil {
 			debugf(c.c.Root().Writer, globalArgs.Debug, "Login error: %v", err)
 
-			return errors.New("error while logging in. Please try again")
+			return errtrace.Wrap(errors.New("error while logging in. Please try again"))
 		}
 	}
 
 	// write token to config.
 	c.conf.Auth = t
 	if err := storeConfigToCache(c.conf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	loggedInMessage(t, false)
@@ -198,9 +199,9 @@ type loginWithAPIKeyArgs struct {
 func LoginWithAPIKeyAction(ctx context.Context, cmd *cli.Command, args loginWithAPIKeyArgs) error {
 	c, err := newViamClientInner(ctx, cmd, false)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.loginWithAPIKeyAction(ctx, cmd, args)
+	return errtrace.Wrap(c.loginWithAPIKeyAction(ctx, cmd, args))
 }
 
 func (c viamClient) loginWithAPIKeyAction(ctx context.Context, cmd *cli.Command, args loginWithAPIKeyArgs) error {
@@ -210,14 +211,14 @@ func (c viamClient) loginWithAPIKeyAction(ctx context.Context, cmd *cli.Command,
 	}
 	c.conf.Auth = &key
 	if err := c.ensureLoggedIn(ctx); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := storeConfigToCache(c.conf); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// test the connection
 	if _, err := c.listOrganizations(ctx); err != nil {
-		return errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL)
+		return errtrace.Wrap(errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL))
 	}
 	printf(cmd.Root().Writer, "Successfully logged in with api key %q", key.KeyID)
 	return nil
@@ -227,16 +228,16 @@ func (c viamClient) loginWithAPIKeyAction(ctx context.Context, cmd *cli.Command,
 func PrintAccessTokenAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.printAccessTokenAction(cmd)
+	return errtrace.Wrap(c.printAccessTokenAction(cmd))
 }
 
 func (c *viamClient) printAccessTokenAction(cmd *cli.Command) error {
 	if token, ok := c.conf.Auth.(*token); ok {
 		printf(cmd.Root().Writer, token.AccessToken)
 	} else {
-		return errors.New("not logged in as a user. Cannot print access token. Run \"viam login\" to sign in with your account")
+		return errtrace.Wrap(errors.New("not logged in as a user. Cannot print access token. Run \"viam login\" to sign in with your account"))
 	}
 	return nil
 }
@@ -247,7 +248,7 @@ func LogoutAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	conf, err := ConfigFromCache(cmd)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return err
+			return errtrace.Wrap(err)
 		}
 		conf = &Config{}
 	}
@@ -256,7 +257,7 @@ func LogoutAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 		c:    cmd,
 		conf: conf,
 	}
-	return vc.logoutAction(cmd)
+	return errtrace.Wrap(vc.logoutAction(cmd))
 }
 
 func (c *viamClient) logoutAction(cmd *cli.Command) error {
@@ -266,7 +267,7 @@ func (c *viamClient) logoutAction(cmd *cli.Command) error {
 		return nil
 	}
 	if err := c.logout(); err != nil {
-		return errors.Wrap(err, "could not logout")
+		return errtrace.Wrap(errors.Wrap(err, "could not logout"))
 	}
 	printf(cmd.Root().Writer, "Logged out from %q", auth)
 	return nil
@@ -276,9 +277,9 @@ func (c *viamClient) logoutAction(cmd *cli.Command) error {
 func WhoAmIAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.whoAmIAction(cmd)
+	return errtrace.Wrap(c.whoAmIAction(cmd))
 }
 
 func (c *viamClient) whoAmIAction(cmd *cli.Command) error {
@@ -306,16 +307,16 @@ type organizationsAPIKeyCreateArgs struct {
 func OrganizationsAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args organizationsAPIKeyCreateArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.organizationsAPIKeyCreateAction(ctx, cmd, args)
+	return errtrace.Wrap(c.organizationsAPIKeyCreateAction(ctx, cmd, args))
 }
 
 func (c *viamClient) organizationsAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args organizationsAPIKeyCreateArgs) error {
 	var err error
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("must specify an org ID to create an API key for")
+		return errtrace.Wrap(errors.New("must specify an org ID to create an API key for"))
 	}
 	keyName := args.Name
 	if keyName == "" {
@@ -324,7 +325,7 @@ func (c *viamClient) organizationsAPIKeyCreateAction(ctx context.Context, cmd *c
 	}
 	resp, err := c.createOrganizationAPIKey(ctx, orgID, keyName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	infof(cmd.Root().Writer, "Successfully created key:")
 	printf(cmd.Root().Writer, "Key ID: %s ", resp.GetId())
@@ -348,7 +349,7 @@ func (c *viamClient) createOrganizationAPIKey(ctx context.Context, orgID, keyNam
 		},
 		Name: keyName,
 	}
-	return c.client.CreateKey(ctx, req)
+	return errtrace.Wrap2(c.client.CreateKey(ctx, req))
 }
 
 type locationAPIKeyCreateArgs struct {
@@ -361,11 +362,11 @@ type locationAPIKeyCreateArgs struct {
 func LocationAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args locationAPIKeyCreateArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	err = c.locationAPIKeyCreateAction(ctx, cmd, args)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args locationAPIKeyCreateArgs) error {
@@ -374,7 +375,7 @@ func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cmd *cli.Co
 	keyName := args.Name
 
 	if locationID == "" {
-		return errors.New("cannot create an api-key for a location without an ID")
+		return errtrace.Wrap(errors.New("cannot create an api-key for a location without an ID"))
 	}
 
 	if keyName == "" {
@@ -400,10 +401,10 @@ func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cmd *cli.Co
 	key, err := c.client.CreateKey(ctx, req)
 	if err != nil {
 		if strings.Contains(err.Error(), "multiple orgs") {
-			return errors.Errorf("cannot create api-key for location: %s as there are multiple orgs on the location. "+
-				"Please re-run the command with an organization-id flag set", locationID)
+			return errtrace.Wrap(errors.Errorf("cannot create api-key for location: %s as there are multiple orgs on the location. "+
+				"Please re-run the command with an organization-id flag set", locationID))
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	infof(cmd.Root().Writer, "Successfully created key: ")
@@ -423,10 +424,10 @@ type robotAPIKeyCreateArgs struct {
 func RobotAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args robotAPIKeyCreateArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	err = c.robotAPIKeyCreateAction(ctx, cmd, args)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args robotAPIKeyCreateArgs) error {
@@ -435,7 +436,7 @@ func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cmd *cli.Comma
 	orgID := args.OrgID
 
 	if robotID == "" {
-		return errors.New("cannot create an api-key for a machine without an ID")
+		return errtrace.Wrap(errors.New("cannot create an api-key for a machine without an ID"))
 	}
 
 	if keyName == "" {
@@ -465,10 +466,10 @@ func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cmd *cli.Comma
 	key, err := c.client.CreateKey(ctx, req)
 	if err != nil {
 		if strings.Contains(err.Error(), "multiple orgs") {
-			return errors.New("cannot create the machine api-key as there are multiple orgs on the location. " +
-				"Please re-run the command with an organization-id flag set")
+			return errtrace.Wrap(errors.New("cannot create the machine api-key as there are multiple orgs on the location. " +
+				"Please re-run the command with an organization-id flag set"))
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 	infof(cmd.Root().Writer, "Successfully created key:")
 	printf(cmd.Root().Writer, "Key ID: %s", key.GetId())
@@ -485,18 +486,18 @@ func (c *viamClient) ensureLoggedInInner(ctx context.Context) error {
 
 	globalArgs, err := getGlobalArgs(c.c)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if c.conf.Auth == nil {
-		return errors.New("not logged in: run the following command to login:\n\tviam login")
+		return errtrace.Wrap(errors.New("not logged in: run the following command to login:\n\tviam login"))
 	}
 
 	authToken, ok := c.conf.Auth.(*token)
 	if ok && authToken.isExpired() {
 		if !authToken.canRefresh() {
 			utils.UncheckedError(c.logout())
-			return errors.New("token expired and cannot refresh, logging out. Please log in again")
+			return errtrace.Wrap(errors.New("token expired and cannot refresh, logging out. Please log in again"))
 		}
 
 		// expired.
@@ -505,19 +506,19 @@ func (c *viamClient) ensureLoggedInInner(ctx context.Context) error {
 			debugFlag := globalArgs.Debug
 			debugf(c.c.Root().Writer, debugFlag, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-			return errors.New("error while refreshing token, logging out. Please log in again")
+			return errtrace.Wrap(errors.New("error while refreshing token, logging out. Please log in again"))
 		}
 
 		// write token to config.
 		c.conf.Auth = newToken
 		if err := storeConfigToCache(c.conf); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	rpcOpts, err := c.conf.DialOptions()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	conn, err := rpc.DialDirectGRPC(
@@ -527,7 +528,7 @@ func (c *viamClient) ensureLoggedInInner(ctx context.Context) error {
 		rpcOpts...,
 	)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	c.client = apppb.NewAppServiceClient(conn)
@@ -563,7 +564,7 @@ func (c *viamClient) ensureLoggedIn(ctx context.Context) error {
 	firstPassErr := c.ensureLoggedInInner(ctx)
 	// if err is nil we're good, if we have no profile set then trying to login with a profile is meaningless
 	if firstPassErr == nil || c.conf.profile == "" {
-		return firstPassErr
+		return errtrace.Wrap(firstPassErr)
 	}
 
 	// at this point we know that we're using a profile and are not logged in, so let's try logging in
@@ -571,11 +572,11 @@ func (c *viamClient) ensureLoggedIn(ctx context.Context) error {
 
 	profiles, err := getProfiles()
 	if err != nil {
-		return multierr.Combine(firstPassErr, err)
+		return errtrace.Wrap(multierr.Combine(firstPassErr, err))
 	}
 	profile, ok := profiles[c.conf.profile]
 	if !ok {
-		return errors.Errorf("Unable to login: profile %s not found", c.conf.profile)
+		return errtrace.Wrap(errors.Errorf("Unable to login: profile %s not found", c.conf.profile))
 	}
 
 	args := loginWithAPIKeyArgs{
@@ -585,17 +586,17 @@ func (c *viamClient) ensureLoggedIn(ctx context.Context) error {
 
 	// login using the API key associated with the profile
 	if err = c.loginWithAPIKeyAction(ctx, c.c, args); err != nil {
-		return multierr.Combine(firstPassErr, err)
+		return errtrace.Wrap(multierr.Combine(firstPassErr, err))
 	}
 
 	// ensure logged in and set clients
-	return c.ensureLoggedInInner(ctx)
+	return errtrace.Wrap(c.ensureLoggedInInner(ctx))
 }
 
 // logout logs out the client and clears the config.
 func (c *viamClient) logout() error {
 	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
-		return err
+		return errtrace.Wrap(err)
 	}
 	c.conf = &Config{}
 	return nil
@@ -607,17 +608,17 @@ func (c *viamClient) prepareDial(
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
 	if err := c.selectOrganization(ctx, orgStr); err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errtrace.Wrap(err)
 	}
 	if err := c.selectLocation(ctx, locStr); err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errtrace.Wrap(err)
 	}
 
 	part, err := c.robotPart(ctx, c.selectedOrg.Id, c.selectedLoc.Id, robotStr, partStr)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errtrace.Wrap(err)
 	}
-	return c.prepareDialInner(ctx, part.Fqdn, debug)
+	return errtrace.Wrap4(c.prepareDialInner(ctx, part.Fqdn, debug))
 }
 
 func (c *viamClient) prepareDialInner(
@@ -633,7 +634,7 @@ func (c *viamClient) prepareDialInner(
 
 	rpcOpts, err := c.conf.DialOptions()
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errtrace.Wrap(err)
 	}
 	if t, ok := c.conf.Auth.(*token); ok {
 		rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
@@ -717,12 +718,12 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 func (a *authFlow) loginAsUser(ctx context.Context, cmd *cli.Command) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "failed retrieving discovery endpoint"))
 	}
 
 	deviceCode, err := a.makeDeviceCodeRequest(ctx, discovery)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to return device code")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "failed to return device code"))
 	}
 
 	err = a.directUser(deviceCode)
@@ -734,15 +735,15 @@ func (a *authFlow) loginAsUser(ctx context.Context, cmd *cli.Command) (*token, e
 
 	token, err := a.waitForUser(ctx, deviceCode, discovery)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return buildToken(token, discovery.TokenEndPoint, a.clientID)
+	return errtrace.Wrap2(buildToken(token, discovery.TokenEndPoint, a.clientID))
 }
 
 func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
 	userData, err := userDataFromIDToken(t.IDToken)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &token{
@@ -765,7 +766,7 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, discovery.DeviceAuthorizationEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 	req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
@@ -773,23 +774,23 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 	//nolint:bodyclose
 	res, err := a.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(res.Body.Close)
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected response code %d %s", res.StatusCode, body)
+		return nil, errtrace.Wrap(fmt.Errorf("unexpected response code %d %s", res.StatusCode, body))
 	}
 
 	var resp deviceCodeResponse
 	err = json.Unmarshal(body, &resp)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &resp, nil
@@ -808,7 +809,7 @@ Ensure the code in the URL matches the one shown in your browser.
 		return nil
 	}
 
-	return openbrowser(code.VerificationURIComplete)
+	return errtrace.Wrap(openbrowser(code.VerificationURIComplete))
 }
 
 func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, discovery *openIDDiscoveryResponse) (*tokenResponse, error) {
@@ -818,7 +819,7 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 	waitInterval := defaultWaitInterval
 	for {
 		if !utils.SelectContextOrWait(ctxWithTimeout, waitInterval) {
-			return nil, fmt.Errorf("timed out getting token after %f seconds", waitInterval.Seconds())
+			return nil, errtrace.Wrap(fmt.Errorf("timed out getting token after %f seconds", waitInterval.Seconds()))
 		}
 
 		data := url.Values{}
@@ -828,7 +829,7 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, discovery.TokenEndPoint, strings.NewReader(data.Encode()))
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
@@ -836,12 +837,12 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 		//nolint:bodyclose // processTokenResponse() closes it
 		res, err := a.httpClient.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		resp, err := processTokenResponse(res)
 		if err != nil && !errors.Is(err, errAuthorizationPending) {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		} else if err == nil {
 			return resp, nil
 		}
@@ -853,25 +854,25 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 func (a *authFlow) loadOIDiscoveryEndpoint(ctx context.Context) (*openIDDiscoveryResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.oidcDiscoveryEndpoint, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	//nolint:bodyclose
 	res, err := a.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(res.Body.Close)
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	resp := openIDDiscoveryResponse{}
 	err = json.Unmarshal(body, &resp)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &resp, nil
@@ -890,7 +891,7 @@ func openbrowser(url string) error {
 	default:
 		err = errors.New("unsupported platform")
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 func userDataFromIDToken(token string) (*userData, error) {
@@ -902,15 +903,15 @@ func userDataFromIDToken(token string) (*userData, error) {
 	// from the call.
 	_, _, err := jwtParser.ParseUnverified(token, &userData)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if userData.Email == "" {
-		return nil, errors.New("missing email in id_token claims")
+		return nil, errtrace.Wrap(errors.New("missing email in id_token claims"))
 	}
 
 	if userData.Subject == "" {
-		return nil, errors.New("missing sub in id_token claims")
+		return nil, errtrace.Wrap(errors.New("missing sub in id_token claims"))
 	}
 
 	return &userData, nil
@@ -924,7 +925,7 @@ func (a *authFlow) refreshToken(ctx context.Context, t *token) (*token, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.TokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
@@ -932,17 +933,17 @@ func (a *authFlow) refreshToken(ctx context.Context, t *token) (*token, error) {
 	//nolint:bodyclose // processTokenResponse() closes it
 	res, err := a.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	resp, err := processTokenResponse(res)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	} else if resp == nil {
-		return nil, errors.New("expecting new token")
+		return nil, errtrace.Wrap(errors.New("expecting new token"))
 	}
 
-	return buildToken(resp, t.TokenURL, t.ClientID)
+	return errtrace.Wrap2(buildToken(resp, t.TokenURL, t.ClientID))
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {
@@ -950,39 +951,39 @@ func processTokenResponse(res *http.Response) (*tokenResponse, error) {
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if res.StatusCode != http.StatusOK {
 		resp := tokenErrorResponse{}
 		err = json.Unmarshal(body, &resp)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		if resp.Error == "authorization_pending" {
-			return nil, errAuthorizationPending
+			return nil, errtrace.Wrap(errAuthorizationPending)
 		}
 
-		return nil, fmt.Errorf("%s: %s", resp.Error, resp.ErrorDescription)
+		return nil, errtrace.Wrap(fmt.Errorf("%s: %s", resp.Error, resp.ErrorDescription))
 	}
 
 	resp := tokenResponse{}
 	err = json.Unmarshal(body, &resp)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if resp.AccessToken == "" {
-		return nil, errors.New("missing access_token in response")
+		return nil, errtrace.Wrap(errors.New("missing access_token in response"))
 	}
 
 	if resp.IDToken == "" {
-		return nil, errors.New("missing id_token in response")
+		return nil, errtrace.Wrap(errors.New("missing id_token in response"))
 	}
 
 	if resp.RefreshToken == "" {
-		return nil, errors.New("missing refresh_token in response")
+		return nil, errtrace.Wrap(errors.New("missing refresh_token in response"))
 	}
 
 	return &resp, nil

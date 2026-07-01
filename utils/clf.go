@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -14,7 +15,7 @@ import (
 // This does not appear to be an extensible format so it's easier
 // to write a reader/writer by just porting over the CARMEN C code.
 
-//nolint
+// nolint
 const clfHeader = `# CARMEN Logfile
 # file format is one message per line
 # message_name [message contents] ipc_timestamp ipc_hostname logger_timestamp
@@ -77,7 +78,7 @@ func (r *CLFReader) Process(f func(message CLFMessage) error) error {
 	for {
 		line, eof, err := r.readLine()
 		if err != nil || eof {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if line[0] != '#' {
 			break
@@ -87,17 +88,17 @@ func (r *CLFReader) Process(f func(message CLFMessage) error) error {
 	for {
 		line, eof, err := r.readLine()
 		if err != nil || eof {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		res, err := r.processLine(line)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		err = f(res)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 }
@@ -146,11 +147,11 @@ func (r *CLFReader) processLine(line string) (CLFMessage, error) {
 	messageType := CLFMessageType(parts[0])
 	switch messageType {
 	case CLFMessageTypeParam:
-		return parseCLFParamMessage(rest)
+		return errtrace.Wrap2(parseCLFParamMessage(rest))
 	case CLFMessageTypeOdometry:
-		return parseCLFPOdometryMessage(rest)
+		return errtrace.Wrap2(parseCLFPOdometryMessage(rest))
 	case CLFMessageTypeFrontLaser, CLFMessageTypeRearLaser:
-		return parseCLFOldLaserMessage(messageType, rest)
+		return errtrace.Wrap2(parseCLFOldLaserMessage(messageType, rest))
 	case CLFMessageTypeComment,
 		CLFMessageTypeSync,
 		CLFMessageTypeTruePos,
@@ -178,9 +179,9 @@ func (r *CLFReader) processLine(line string) (CLFMessage, error) {
 		CLFMessageTypeRemissionRLaser,
 		CLFMessageTypeRemissionLaser3,
 		CLFMessageTypeRemissionLaser4:
-		return nil, errors.Errorf("reading a %q is not yet implemented", parts[0])
+		return nil, errtrace.Wrap(errors.Errorf("reading a %q is not yet implemented", parts[0]))
 	default:
-		return nil, errors.Errorf("unknown message type %q", parts[0])
+		return nil, errtrace.Wrap(errors.Errorf("unknown message type %q", parts[0]))
 	}
 }
 
@@ -190,7 +191,7 @@ func (r *CLFReader) readLine() (string, bool, error) {
 		if errors.Is(err, io.EOF) {
 			return "", true, nil
 		} else if err != nil {
-			return "", false, err
+			return "", false, errtrace.Wrap(err)
 		}
 		line = strings.TrimSpace(line)
 		if len(line) == 0 {
@@ -227,13 +228,13 @@ type CLFParamMessage struct {
 
 func parseBaseMessage(messageType CLFMessageType, parts []string) (CLFBaseMessage, error) {
 	if len(parts) < 2 {
-		return CLFBaseMessage{}, errors.New("malformed message; expected timestamp/host info at end")
+		return CLFBaseMessage{}, errtrace.Wrap(errors.New("malformed message; expected timestamp/host info at end"))
 	}
 	if len(parts) == 2 {
 		// some weird unaccepted format that we will accept (see artifact_data/aces_samples.clf)
 		loggerTimestamp, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
-			return CLFBaseMessage{}, errors.Wrap(err, "error parsing logger_timestamp")
+			return CLFBaseMessage{}, errtrace.Wrap(errors.Wrap(err, "error parsing logger_timestamp"))
 		}
 		return CLFBaseMessage{
 			IPCHostname:     parts[0],
@@ -242,11 +243,11 @@ func parseBaseMessage(messageType CLFMessageType, parts []string) (CLFBaseMessag
 	}
 	ipcTimestamp, err := strconv.ParseFloat(parts[0], 64)
 	if err != nil {
-		return CLFBaseMessage{}, errors.Wrap(err, "error parsing ipc_timestamp")
+		return CLFBaseMessage{}, errtrace.Wrap(errors.Wrap(err, "error parsing ipc_timestamp"))
 	}
 	loggerTimestamp, err := strconv.ParseFloat(parts[2], 64)
 	if err != nil {
-		return CLFBaseMessage{}, errors.Wrap(err, "error parsing logger_timestamp")
+		return CLFBaseMessage{}, errtrace.Wrap(errors.Wrap(err, "error parsing logger_timestamp"))
 	}
 	return CLFBaseMessage{
 		MessageType:     messageType,
@@ -257,18 +258,18 @@ func parseBaseMessage(messageType CLFMessageType, parts []string) (CLFBaseMessag
 }
 
 func makeFieldError(typeName CLFMessageType, numFields int) error {
-	return errors.Errorf("expected %q to have %d fields", typeName, numFields)
+	return errtrace.Wrap(errors.Errorf("expected %q to have %d fields", typeName, numFields))
 }
 
 func parseCLFParamMessage(parts []string) (*CLFParamMessage, error) {
 	messageType := CLFMessageTypeParam
 	numFields := 2
 	if len(parts) < numFields {
-		return nil, makeFieldError(messageType, numFields)
+		return nil, errtrace.Wrap(makeFieldError(messageType, numFields))
 	}
 	bm, err := parseBaseMessage(messageType, parts[numFields:])
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &CLFParamMessage{
 		CLFMessage: bm,
@@ -292,35 +293,35 @@ func parseCLFPOdometryMessage(parts []string) (*CLFOdometryMessage, error) {
 	messageType := CLFMessageTypeOdometry
 	numFields := 6
 	if len(parts) < numFields {
-		return nil, makeFieldError(messageType, numFields)
+		return nil, errtrace.Wrap(makeFieldError(messageType, numFields))
 	}
 	bm, err := parseBaseMessage(messageType, parts[numFields:])
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	x, err := strconv.ParseFloat(parts[0], 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing x")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "error parsing x"))
 	}
 	y, err := strconv.ParseFloat(parts[1], 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing y")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "error parsing y"))
 	}
 	theta, err := strconv.ParseFloat(parts[2], 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing theta")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "error parsing theta"))
 	}
 	tv, err := strconv.ParseFloat(parts[3], 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing tv")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "error parsing tv"))
 	}
 	rv, err := strconv.ParseFloat(parts[4], 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing rv")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "error parsing rv"))
 	}
 	accel, err := strconv.ParseFloat(parts[5], 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error parsing accel")
+		return nil, errtrace.Wrap(errors.Wrapf(err, "error parsing accel"))
 	}
 	return &CLFOdometryMessage{
 		CLFMessage:            bm,
@@ -348,52 +349,52 @@ type CLFOldLaserMessage struct {
 func parseCLFOldLaserMessage(messageType CLFMessageType, parts []string) (*CLFOldLaserMessage, error) {
 	numFields := 8
 	if len(parts) < numFields {
-		return nil, makeFieldError(messageType, numFields)
+		return nil, errtrace.Wrap(makeFieldError(messageType, numFields))
 	}
 	bm, err := parseBaseMessage(messageType, parts[len(parts)-3:])
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	numReadings, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing num_readings")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error parsing num_readings"))
 	}
 	numFields = int(numReadings) + 7
 	if len(parts) < numFields {
-		return nil, makeFieldError(messageType, numFields)
+		return nil, errtrace.Wrap(makeFieldError(messageType, numFields))
 	}
 	var readings []float64 // untrusted, don't allocate in advance
 	for i := 0; i < int(numReadings); i++ {
 		reading, err := strconv.ParseFloat(parts[1+i], 64)
 		if err != nil {
-			return nil, errors.Wrap(err, "error parsing range_readings")
+			return nil, errtrace.Wrap(errors.Wrap(err, "error parsing range_readings"))
 		}
 		readings = append(readings, reading)
 	}
 	after := 1 + numReadings
 	x, err := strconv.ParseFloat(parts[after], 64)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing x")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error parsing x"))
 	}
 	y, err := strconv.ParseFloat(parts[after+1], 64)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing y")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error parsing y"))
 	}
 	theta, err := strconv.ParseFloat(parts[after+2], 64)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing theta")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error parsing theta"))
 	}
 	odomX, err := strconv.ParseFloat(parts[after+3], 64)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing odom_x")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error parsing odom_x"))
 	}
 	odomY, err := strconv.ParseFloat(parts[after+4], 64)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing odom_y")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error parsing odom_y"))
 	}
 	odomTheta, err := strconv.ParseFloat(parts[after+5], 64)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing odom_theta")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error parsing odom_theta"))
 	}
 	return &CLFOldLaserMessage{
 		CLFMessage:    bm,

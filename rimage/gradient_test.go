@@ -11,13 +11,14 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
 func writePicture(img image.Image, p string) error {
 	file, err := os.Create(p)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer file.Close()
 	png.Encode(file, img)

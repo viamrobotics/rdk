@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"braces.dev/errtrace"
 	"fmt"
 	"iter"
 )
@@ -19,13 +20,13 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 	for idx, meta := range li.schema.metas {
 		frame := fs.Frame(meta.frameName)
 		if frame == nil {
-			return nil, NewFrameMissingError(meta.frameName)
+			return nil, errtrace.Wrap(NewFrameMissingError(meta.frameName))
 		}
 
 		limits := frame.DoF()
 		if len(limits) != meta.dof {
-			return nil, fmt.Errorf("incorrect dof for frame %s %w",
-				meta.frameName, NewIncorrectDoFError(len(limits), meta.dof))
+			return nil, errtrace.Wrap(fmt.Errorf("incorrect dof for frame %s %w",
+				meta.frameName, NewIncorrectDoFError(len(limits), meta.dof)))
 		}
 
 		li.schema.metas[idx].frame = frame
@@ -66,8 +67,8 @@ func (lis *LinearInputsSchema) GetLinearInputs(fsi FrameSystemInputs) (*LinearIn
 	for _, meta := range lis.metas {
 		frameInputs := fsi[meta.frameName]
 		if len(frameInputs) != meta.dof {
-			return nil, fmt.Errorf("Frame DoF does not match Schema. Frame: %v DoF: %v Schema: %v",
-				meta.frameName, len(frameInputs), meta.dof)
+			return nil, errtrace.Wrap(fmt.Errorf("Frame DoF does not match Schema. Frame: %v DoF: %v Schema: %v",
+				meta.frameName, len(frameInputs), meta.dof))
 		}
 		inputs = append(inputs, frameInputs...)
 	}
@@ -85,7 +86,7 @@ func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, er
 		totDoF += lis.metas[idx].dof
 	}
 	if totDoF != len(inps) {
-		return nil, fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
+		return nil, errtrace.Wrap(fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps)))
 	}
 
 	return &LinearInputs{
@@ -274,7 +275,7 @@ func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 
 	ret := li.Get(frame.Name())
 	if ret == nil {
-		return nil, fmt.Errorf("no inputs for frame %s with dof: %d", frame.Name(), len(frame.DoF()))
+		return nil, errtrace.Wrap(fmt.Errorf("no inputs for frame %s with dof: %d", frame.Name(), len(frame.DoF())))
 	}
 
 	return ret, nil
@@ -285,7 +286,7 @@ func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
 	// This method is not expected to be called in hot paths. Reuse the
 	// `FrameSystemPoses.ComputePoses` method.
-	return li.ToFrameSystemInputs().ComputePoses(fs)
+	return errtrace.Wrap2(li.ToFrameSystemInputs().ComputePoses(fs))
 }
 
 // ToFrameSystemInputs creates a `FrameSystemInputs` with the same keys and values. This is a

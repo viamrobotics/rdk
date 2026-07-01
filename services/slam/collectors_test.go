@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
@@ -115,16 +116,16 @@ func getPointCloudMap(path string) (func() ([]byte, error), error) {
 	const chunkSizeBytes = 1 * 1024 * 1024
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	chunk := make([]byte, chunkSizeBytes)
 	f := func() ([]byte, error) {
 		bytesRead, err := file.Read(chunk)
 		if err != nil {
 			defer utils.UncheckedErrorFunc(file.Close)
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return chunk[:bytesRead], err
+		return chunk[:bytesRead], errtrace.Wrap(err)
 	}
 	return f, nil
 }
@@ -136,7 +137,7 @@ func newSlamService(pcdPath string) slam.Service {
 	}
 
 	s.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
-		return getPointCloudMap(pcdPath)
+		return errtrace.Wrap2(getPointCloudMap(pcdPath))
 	}
 
 	s.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

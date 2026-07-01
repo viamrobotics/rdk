@@ -19,6 +19,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sync/errgroup"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
@@ -118,7 +119,7 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 // ExportDot exports the resource graph as a DOT representation for visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
 func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, error) {
-	return manager.viz.GetSnapshot(index)
+	return errtrace.Wrap2(manager.viz.GetSnapshot(index))
 }
 
 func (manager *resourceManager) startModuleManager(
@@ -143,7 +144,7 @@ func (manager *resourceManager) startModuleManager(
 	}
 	modmanager, err := modmanager.NewManager(ctx, parentAddrs, logger, mmOpts)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	manager.modManagerLock.Lock()
 	manager.moduleManager = modmanager
@@ -601,7 +602,7 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 		}
 	}
 
-	return allErrs
+	return errtrace.Wrap(allErrs)
 }
 
 // closeAndUnsetResource attempts to close and unset the resource from the graph node. Should only be called within
@@ -609,13 +610,13 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 func (manager *resourceManager) closeAndUnsetResource(ctx context.Context, gNode *resource.GraphNode) error {
 	res, err := gNode.Resource()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	err = manager.closeResource(ctx, res)
 
 	// resource may fail to close, but even in that case, resource should be unset from the node
 	gNode.UnsetResource()
-	return err
+	return errtrace.Wrap(err)
 }
 
 // removeMarkedAndClose removes all resources marked for removal from the graph and
@@ -641,7 +642,7 @@ func (manager *resourceManager) removeMarkedAndClose(
 		}
 		allErrs = multierr.Combine(allErrs, manager.closeResource(ctx, res))
 	}
-	return allErrs
+	return errtrace.Wrap(allErrs)
 }
 
 // Close attempts to close/stop all parts.
@@ -668,7 +669,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 		}
 	}
 
-	return allErrs
+	return errtrace.Wrap(allErrs)
 }
 
 // Kill attempts to kill all module processes.
@@ -886,7 +887,7 @@ func (manager *resourceManager) completeConfig(
 						lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String(), lr.logger))
 					}
 				case <-ctx.Done():
-					return ctx.Err()
+					return errtrace.Wrap(ctx.Err())
 				}
 				return nil
 			}
@@ -911,7 +912,7 @@ func (manager *resourceManager) completeConfig(
 				lr.reconfigureWorkers.Add(1)
 				levelErrG.Go(func() error {
 					defer lr.reconfigureWorkers.Done()
-					return processResource()
+					return errtrace.Wrap(processResource())
 				})
 			}
 		} // for-each resource name
@@ -991,7 +992,7 @@ func cleanAppImageEnv() error {
 	if isAppImage {
 		err := os.Chdir(os.Getenv("APPRUN_CWD"))
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		// Reset original values where available
@@ -1006,7 +1007,7 @@ func cleanAppImageEnv() error {
 					err = os.Unsetenv(key)
 				}
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		}
@@ -1024,7 +1025,7 @@ func cleanAppImageEnv() error {
 			}
 		}
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		// Remove AppImage paths from path-like env vars
@@ -1045,7 +1046,7 @@ func cleanAppImageEnv() error {
 					err = os.Unsetenv(key)
 				}
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		}
@@ -1064,7 +1065,7 @@ func (manager *resourceManager) processRemote(
 	if err == nil {
 		err = res.Close(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -1079,7 +1080,7 @@ func (manager *resourceManager) processRemote(
 				err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
 			}
 		}
-		return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
+		return nil, errtrace.Wrap(fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err))
 	}
 	manager.logger.CInfow(ctx, "Connected now to remote", "remote", config.Name)
 	return robotClient, nil
@@ -1107,7 +1108,7 @@ func (manager *resourceManager) RemoteByName(name string) (internalRemoteRobot, 
 func (manager *resourceManager) markChildrenForUpdate(rName resource.Name) error {
 	sg, err := manager.resources.SubGraphFrom(rName)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	sorted := sg.TopologicalSort()
 	for _, name := range sorted {
@@ -1132,7 +1133,7 @@ func (manager *resourceManager) processResource(
 	if gNode.IsUninitialized() {
 		newRes, err := lr.newResource(ctx, gNode, conf)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return newRes, nil
 	}
@@ -1146,7 +1147,7 @@ func (manager *resourceManager) processResource(
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
 		)
-		return nil, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
+		return nil, errtrace.Wrap(multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode)))
 	}
 
 	if gNode.ResourceModel() != conf.Model {
@@ -1172,7 +1173,7 @@ func (manager *resourceManager) processResource(
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
 		)
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return newRes, nil
 }
@@ -1204,7 +1205,7 @@ func (manager *resourceManager) addToBeConstructedResource(
 		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* remove dependents */)
 		manager.logger.Errorw("Cannot add duplicate local resource. Rename the resource. Neither resource will be reachable through "+
 			"this machine until collision is fixed", "colliding name", name)
-		return fmt.Errorf("cannot add duplicate local resource %s", name)
+		return errtrace.Wrap(fmt.Errorf("cannot add duplicate local resource %s", name))
 	}
 
 	// Check for a full resource name collision and log an error if there is one.
@@ -1224,7 +1225,7 @@ func (manager *resourceManager) addToBeConstructedResource(
 	gNode := resource.NewUnconfiguredGraphNode(conf, deps)
 	gNode.UpdatePendingRevision(revision)
 	if err := manager.resources.AddNode(name, gNode); err != nil {
-		return fmt.Errorf("failed to add new node for unconfigured resource %q: %w", name, err)
+		return errtrace.Wrap(fmt.Errorf("failed to add new node for unconfigured resource %q: %w", name, err))
 	}
 	return nil
 }
@@ -1248,7 +1249,7 @@ func (manager *resourceManager) markResourceForUpdate(
 		}
 		return nil
 	}
-	return fmt.Errorf("cannot mark resource for update as it is not yet in resource graph %q", name)
+	return errtrace.Wrap(fmt.Errorf("cannot mark resource for update as it is not yet in resource graph %q", name))
 }
 
 // updateRevision updates the current revision of a node.
@@ -1349,7 +1350,7 @@ func (manager *resourceManager) updateResources(
 			"The processes config of this machine part has been ignored.")
 	}
 
-	return allErrs
+	return errtrace.Wrap(allErrs)
 }
 
 // ResourceByName returns the given resource by fully qualified name, if it
@@ -1366,7 +1367,7 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Nam
 	if gNode, ok := manager.resources.Node(name); ok {
 		res, err := gNode.Resource()
 		if err != nil {
-			return resource.Name{}, nil, resource.NewNotAvailableError(name, err)
+			return resource.Name{}, nil, errtrace.Wrap(resource.NewNotAvailableError(name, err))
 		}
 		return name.WithPrefix(gNode.GetPrefix()).PopRemote(), res, nil
 	}
@@ -1376,20 +1377,20 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Nam
 	if !name.ContainsRemoteNames() {
 		keys := manager.resources.FindNodesByShortNameAndAPI(name)
 		if len(keys) > 1 {
-			return resource.Name{}, nil, rutils.NewRemoteResourceClashError(name.Name)
+			return resource.Name{}, nil, errtrace.Wrap(rutils.NewRemoteResourceClashError(name.Name))
 		}
 		if len(keys) == 1 {
 			gNode, ok := manager.resources.Node(keys[0])
 			if ok {
 				res, err := gNode.Resource()
 				if err != nil {
-					return resource.Name{}, nil, resource.NewNotAvailableError(name, err)
+					return resource.Name{}, nil, errtrace.Wrap(resource.NewNotAvailableError(name, err))
 				}
 				return name.WithPrefix(gNode.GetPrefix()).PopRemote(), res, nil
 			}
 		}
 	}
-	return resource.Name{}, nil, resource.NewNotFoundError(name)
+	return resource.Name{}, nil, errtrace.Wrap(resource.NewNotFoundError(name))
 }
 
 // PartsMergeResult is the result of merging in parts together.

@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
@@ -185,7 +186,7 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 	// be the smallest (currently bumped to a 0.03 minimum) ratio value for joints in moving arms.
 	rawRatios, minRatio, err := sss.computeGoodCost(psc.goal)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0]) // s:1
@@ -209,13 +210,13 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 		sss.doingSmartSeeds = true
 		ssc, err := smartSeed(psc.pc.fs, logger)
 		if err != nil {
-			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
+			return nil, errtrace.Wrap(fmt.Errorf("cannot create smartSeeder: %w", err))
 		}
 
 		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 10 /* TODO */, logger)
 		if err != nil {
 			if errors.Is(err, &tooFarError{}) {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
@@ -252,7 +253,7 @@ func (sss *SolutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	rawRatios, err := computeJointSensitivities(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
 		sss.psc.pc.planOpts.GetGoalMetric(goal), sss.logger)
 	if err != nil {
-		return nil, 1, err
+		return nil, 1, errtrace.Wrap(err)
 	}
 
 	ratios := clampSensitivities(rawRatios, .03)
@@ -277,7 +278,7 @@ func (sss *SolutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
 	if err != nil {
-		return nil, minRatio, err
+		return nil, minRatio, errtrace.Wrap(err)
 	}
 
 	stepArc := &motionplan.SegmentFS{
@@ -582,12 +583,12 @@ func probeTightSeed(
 // terminate and return that one solution.
 func getSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) ([]*node, error) {
 	if psc.start.Len() == 0 {
-		return nil, fmt.Errorf("getSolutions start can't be empty")
+		return nil, errtrace.Wrap(fmt.Errorf("getSolutions start can't be empty"))
 	}
 
 	solvingState, err := NewSolutionSolvingState(ctx, psc, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	minFunc := psc.pc.LinearizeFSMetric(psc.pc.planOpts.GetGoalMetric(psc.goal))
@@ -631,7 +632,7 @@ func getSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.L
 	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)
 	if err != nil {
 		close(solutionGen)
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var solveError error
@@ -662,7 +663,7 @@ solutionLoop:
 		select {
 		case <-ctx.Done():
 			// We've been canceled. So have our workers. Can just return.
-			return nil, ctx.Err()
+			return nil, errtrace.Wrap(ctx.Err())
 		case stepSolution, ok := <-solutionGen:
 			if !ok {
 				logger.Debugf(
@@ -683,23 +684,23 @@ solutionLoop:
 	solveErrorLock.Lock()
 	defer solveErrorLock.Unlock()
 	if solveError != nil {
-		return nil, fmt.Errorf("solver had an error: %w", solveError)
+		return nil, errtrace.Wrap(fmt.Errorf("solver had an error: %w", solveError))
 	}
 
 	solvingState.flushFailuresToMeta()
 
 	if len(solvingState.solutions) == 0 {
 		if solvingState.fatal != nil {
-			return nil, solvingState.fatal
+			return nil, errtrace.Wrap(solvingState.fatal)
 		}
 
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
 		// were produced, or if non-zero solutions were produced, which constraints were violated.
 		if solvingState.failures.Count == 0 {
-			return nil, errIKSolve
+			return nil, errtrace.Wrap(errIKSolve)
 		}
 
-		return nil, solvingState.failures
+		return nil, errtrace.Wrap(solvingState.failures)
 	}
 
 	sort.Slice(solvingState.solutions, func(i, j int) bool {
@@ -708,7 +709,7 @@ solutionLoop:
 
 	err = solvingState.debugSeedInfoForWinner(solvingState.solutions[0].inputs, solveMeta)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return solvingState.solutions, nil
@@ -772,7 +773,7 @@ func (sss *SolutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 			for seedNumber, s := range sss.LinearSeeds {
 				step, err := sss.psc.pc.lis.FloatsToInputs(s)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				v := step.Get(frameName)[jointNumber]
 				myLimit := sss.SeedLimits[seedNumber][jointNumber]

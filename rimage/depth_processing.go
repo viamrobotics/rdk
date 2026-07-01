@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/geo/r2"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -19,19 +20,19 @@ func PreprocessDepthMap(dm *DepthMap, img *Image) (*DepthMap, error) {
 	// fill in small holes
 	dm, err = ClosingMorph(dm, 5, 1)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// fill in large holes using color info
 	if img != nil {
 		dm, err = FillDepthMap(dm, img)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	// smooth the sharp edges out
 	dm, err = OpeningMorph(dm, 5, 1)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return dm, nil
 }
@@ -44,7 +45,7 @@ func (cd *CannyEdgeDetector) DetectDepthEdges(dmIn *DepthMap, blur float64) (*im
 		validPoints := MissingDepthData(dmIn)
 		dm, err = SavitskyGolaySmoothing(dmIn, validPoints, int(blur), 3)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		dm = dmIn
@@ -55,16 +56,16 @@ func (cd *CannyEdgeDetector) DetectDepthEdges(dmIn *DepthMap, blur float64) (*im
 
 	nms, err := GradientNonMaximumSuppressionC8(dmMagnitude, dmDirection)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	low, high, err := GetHysteresisThresholds(dmMagnitude, nms, cd.highRatio, cd.lowRatio)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// low, high =
 	edges, err := EdgeHysteresisFiltering(dmMagnitude, low, high)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return edges, nil
 }
@@ -162,7 +163,7 @@ func SavitskyGolaySmoothing(dm *DepthMap, validPoints *image.Gray, radius, polyO
 	}
 	filter, err := savitskyGolayFilter(radius, polyOrder)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	dmForConv := expandDepthMapForConvolution(dm, radius)
 	zero := color.Gray{0}

@@ -8,6 +8,7 @@ import (
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/vision/classification"
 )
 
@@ -36,19 +37,19 @@ func FormatClassificationOutputs(
 	}
 	probabilityName, ok := pName.(string)
 	if !ok {
-		return nil, errors.Errorf("name map did not store a string of the tensor name, but an object of type %T instead", pName)
+		return nil, errtrace.Wrap(errors.Errorf("name map did not store a string of the tensor name, but an object of type %T instead", pName))
 	}
 	data, ok := outMap[probabilityName]
 	if !ok {
-		return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(TensorNames(outMap), ", "))
+		return nil, errtrace.Wrap(errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(TensorNames(outMap), ", ")))
 	}
 	probs, err := ConvertToFloat64Slice(data.Data())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	confs := checkClassificationScores(probs)
 	if labels != nil && len(labels) != len(confs) {
-		return nil, errors.Errorf("length of output (%d) expected to be length of label list (%d)", len(confs), len(labels))
+		return nil, errtrace.Wrap(errors.Errorf("length of output (%d) expected to be length of label list (%d)", len(confs), len(labels)))
 	}
 	classifications := make(classification.Classifications, 0, len(confs))
 	for i := 0; i < len(confs); i++ {
@@ -56,7 +57,7 @@ func FormatClassificationOutputs(
 			classifications = append(classifications, classification.NewClassification(confs[i], strconv.Itoa(i)))
 		} else {
 			if i >= len(labels) {
-				return nil, errors.Errorf("cannot access label number %v from label file with %v labels", i, len(labels))
+				return nil, errtrace.Wrap(errors.Errorf("cannot access label number %v from label file with %v labels", i, len(labels)))
 			}
 			classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
 		}

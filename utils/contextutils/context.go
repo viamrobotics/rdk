@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	grpcmetadata "google.golang.org/grpc/metadata"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -70,7 +71,7 @@ func ContextWithMetadataUnaryClientInterceptor(
 	opts = append(opts, grpc.Header(&header))
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	md := ctx.Value(MetadataContextKey)

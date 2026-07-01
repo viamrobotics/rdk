@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -41,7 +42,7 @@ func TestClient(t *testing.T) {
 		map[string]interface{},
 		error,
 	) {
-		return nil, errDoFailed
+		return nil, errtrace.Wrap(errDoFailed)
 	}
 
 	expectedGeometries := []spatialmath.Geometry{

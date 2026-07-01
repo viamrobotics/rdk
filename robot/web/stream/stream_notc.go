@@ -6,6 +6,7 @@ package webstream
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -19,5 +20,5 @@ func streamVideoSource(
 	backoffOpts *BackoffTuningOptions,
 	logger logging.Logger,
 ) error {
-	return errors.New("not implemented for non-cgo")
+	return errtrace.Wrap(errors.New("not implemented for non-cgo"))
 }

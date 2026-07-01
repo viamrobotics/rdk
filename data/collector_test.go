@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -233,7 +234,7 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 		var res CaptureResult
 		select {
 		case <-ctx.Done():
-			return res, fmt.Errorf("arbitrary wrapping message: %w", ctx.Err())
+			return res, errtrace.Wrap(fmt.Errorf("arbitrary wrapping message: %w", ctx.Err()))
 		case captured <- struct{}{}:
 		}
 		return dummyStructReading, nil
@@ -269,7 +270,7 @@ func TestLogErrorsOnlyOnce(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (CaptureResult, error) {
-		return CaptureResult{}, errors.New("I am an error")
+		return CaptureResult{}, errtrace.Wrap(errors.New("I am an error"))
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -353,7 +354,7 @@ func (b *signalingBuffer) WriteBinary(item *v1.SensorData, mimeType string) erro
 	case b.wrote <- struct{}{}:
 	case <-b.ctx.Done():
 	}
-	return ret
+	return errtrace.Wrap(ret)
 }
 
 func (b *signalingBuffer) WriteTabular(item *v1.SensorData) error {
@@ -362,11 +363,11 @@ func (b *signalingBuffer) WriteTabular(item *v1.SensorData) error {
 	case b.wrote <- struct{}{}:
 	case <-b.ctx.Done():
 	}
-	return ret
+	return errtrace.Wrap(ret)
 }
 
 func (b *signalingBuffer) Flush() error {
-	return b.bw.Flush()
+	return errtrace.Wrap(b.bw.Flush())
 }
 
 func (b *signalingBuffer) Path() string {

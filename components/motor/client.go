@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -43,7 +44,7 @@ func NewClientFromConn(
 func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	req := &pb.SetPowerRequest{
 		Name:     c.name,
@@ -51,13 +52,13 @@ func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[strin
 		Extra:    ext,
 	}
 	_, err = c.client.SetPower(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	req := &pb.GoForRequest{
 		Name:        c.name,
@@ -66,13 +67,13 @@ func (c *client) GoFor(ctx context.Context, rpm, revolutions float64, extra map[
 		Extra:       ext,
 	}
 	_, err = c.client.GoFor(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	req := &pb.GoToRequest{
 		Name:                c.name,
@@ -81,13 +82,13 @@ func (c *client) GoTo(ctx context.Context, rpm, positionRevolutions float64, ext
 		Extra:               ext,
 	}
 	_, err = c.client.GoTo(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	req := &pb.SetRPMRequest{
 		Name:  c.name,
@@ -95,13 +96,13 @@ func (c *client) SetRPM(ctx context.Context, rpm float64, extra map[string]inter
 		Extra: ext,
 	}
 	_, err = c.client.SetRPM(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	req := &pb.ResetZeroPositionRequest{
 		Name:   c.name,
@@ -109,18 +110,18 @@ func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra ma
 		Extra:  ext,
 	}
 	_, err = c.client.ResetZeroPosition(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	req := &pb.GetPositionRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 	return resp.GetPosition(), nil
 }
@@ -128,12 +129,12 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (fl
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 	req := &pb.GetPropertiesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return Properties{}, err
+		return Properties{}, errtrace.Wrap(err)
 	}
 	return ProtoFeaturesToProperties(resp), nil
 }
@@ -141,38 +142,38 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	req := &pb.StopRequest{Name: c.name, Extra: ext}
 	_, err = c.client.Stop(ctx, req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return false, 0.0, err
+		return false, 0.0, errtrace.Wrap(err)
 	}
 	req := &pb.IsPoweredRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.IsPowered(ctx, req)
 	if err != nil {
-		return false, 0.0, err
+		return false, 0.0, errtrace.Wrap(err)
 	}
 	return resp.GetIsOn(), resp.GetPowerPct(), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	resp, err := c.client.IsMoving(ctx, &pb.IsMovingRequest{Name: c.name})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.IsMoving, nil
 }

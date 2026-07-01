@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -38,7 +39,7 @@ func (cid *chunkImageDebug) Process(
 	cfg := imgConfig{}
 	err := pCtx.CurrentImgConfig(&cfg)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if true {
@@ -57,14 +58,14 @@ func (cid *chunkImageDebug) Process(
 			// this shows things with the cleaning, is it useful, not sure
 			out, err := ShapeWalkMultiple(img, dm, starts, ShapeWalkOptions{SkipCleaning: true}, logger)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			pCtx.GotDebugImage(out, "shapes-noclean")
 		}
 
 		out, err := ShapeWalkMultiple(img, dm, starts, ShapeWalkOptions{}, logger)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		pCtx.GotDebugImage(out, "shapes")
@@ -90,7 +91,7 @@ func (cid *chunkImageDebug) Process(
 				// run again with debugging on
 				_, err := ShapeWalkMultiple(img, dm, []image.Point{s.Start}, ShapeWalkOptions{Debug: true}, logger)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		}
@@ -99,7 +100,7 @@ func (cid *chunkImageDebug) Process(
 	if true {
 		out, err := ShapeWalkEntireDebug(img, dm, ShapeWalkOptions{}, logger)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		pCtx.GotDebugImage(out, "entire")
 	}

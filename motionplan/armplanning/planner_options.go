@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
@@ -143,15 +144,15 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 
 	jsonString, err := json.Marshal(extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	err = json.Unmarshal(jsonString, opt)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if opt.CollisionBufferMM < 0 {
-		return nil, errors.New("collision_buffer_mm can't be negative")
+		return nil, errtrace.Wrap(errors.New("collision_buffer_mm can't be negative"))
 	}
 
 	return opt, nil

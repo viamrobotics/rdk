@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/resource"
 )
@@ -39,89 +40,89 @@ func (m *Motor) Name() resource.Name {
 // SetPower calls the injected Power or the real version.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if m.SetPowerFunc == nil {
-		return m.Motor.SetPower(ctx, powerPct, extra)
+		return errtrace.Wrap(m.Motor.SetPower(ctx, powerPct, extra))
 	}
-	return m.SetPowerFunc(ctx, powerPct, extra)
+	return errtrace.Wrap(m.SetPowerFunc(ctx, powerPct, extra))
 }
 
 // GoFor calls the injected GoFor or the real version.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if m.GoForFunc == nil {
-		return m.Motor.GoFor(ctx, rpm, revolutions, extra)
+		return errtrace.Wrap(m.Motor.GoFor(ctx, rpm, revolutions, extra))
 	}
-	return m.GoForFunc(ctx, rpm, revolutions, extra)
+	return errtrace.Wrap(m.GoForFunc(ctx, rpm, revolutions, extra))
 }
 
 // GoTo calls the injected GoTo or the real version.
 func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	if m.GoToFunc == nil {
-		return m.Motor.GoTo(ctx, rpm, positionRevolutions, extra)
+		return errtrace.Wrap(m.Motor.GoTo(ctx, rpm, positionRevolutions, extra))
 	}
-	return m.GoToFunc(ctx, rpm, positionRevolutions, extra)
+	return errtrace.Wrap(m.GoToFunc(ctx, rpm, positionRevolutions, extra))
 }
 
 // SetRPM calls the injected SetRPM or the real version.
 func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 	if m.SetRPMFunc == nil {
-		return m.Motor.SetRPM(ctx, rpm, extra)
+		return errtrace.Wrap(m.Motor.SetRPM(ctx, rpm, extra))
 	}
-	return m.SetRPMFunc(ctx, rpm, extra)
+	return errtrace.Wrap(m.SetRPMFunc(ctx, rpm, extra))
 }
 
 // ResetZeroPosition calls the injected Zero or the real version.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	if m.ResetZeroPositionFunc == nil {
-		return m.Motor.ResetZeroPosition(ctx, offset, extra)
+		return errtrace.Wrap(m.Motor.ResetZeroPosition(ctx, offset, extra))
 	}
-	return m.ResetZeroPositionFunc(ctx, offset, extra)
+	return errtrace.Wrap(m.ResetZeroPositionFunc(ctx, offset, extra))
 }
 
 // Position calls the injected Position or the real version.
 func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	if m.PositionFunc == nil {
-		return m.Motor.Position(ctx, extra)
+		return errtrace.Wrap2(m.Motor.Position(ctx, extra))
 	}
-	return m.PositionFunc(ctx, extra)
+	return errtrace.Wrap2(m.PositionFunc(ctx, extra))
 }
 
 // Properties calls the injected Properties or the real version.
 func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 	if m.PropertiesFunc == nil {
-		return m.Motor.Properties(ctx, extra)
+		return errtrace.Wrap2(m.Motor.Properties(ctx, extra))
 	}
-	return m.PropertiesFunc(ctx, extra)
+	return errtrace.Wrap2(m.PropertiesFunc(ctx, extra))
 }
 
 // Stop calls the injected Off or the real version.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if m.StopFunc == nil {
-		return m.Motor.Stop(ctx, extra)
+		return errtrace.Wrap(m.Motor.Stop(ctx, extra))
 	}
-	return m.StopFunc(ctx, extra)
+	return errtrace.Wrap(m.StopFunc(ctx, extra))
 }
 
 // IsPowered calls the injected IsPowered or the real version.
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	if m.IsPoweredFunc == nil {
-		return m.Motor.IsPowered(ctx, extra)
+		return errtrace.Wrap3(m.Motor.IsPowered(ctx, extra))
 	}
-	return m.IsPoweredFunc(ctx, extra)
+	return errtrace.Wrap3(m.IsPoweredFunc(ctx, extra))
 }
 
 // DoCommand calls the injected DoCommand or the real version.
 func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if m.DoFunc == nil {
-		return m.Motor.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(m.Motor.DoCommand(ctx, cmd))
 	}
-	return m.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(m.DoFunc(ctx, cmd))
 }
 
 // IsMoving calls the injected IsMoving or the real version.
 func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	if m.IsMovingFunc == nil {
-		return m.Motor.IsMoving(ctx)
+		return errtrace.Wrap2(m.Motor.IsMoving(ctx))
 	}
-	return m.IsMovingFunc(ctx)
+	return errtrace.Wrap2(m.IsMovingFunc(ctx))
 }
 
 // Close calls the injected Close or the real version.
@@ -130,18 +131,18 @@ func (m *Motor) Close(ctx context.Context) error {
 		if m.Motor == nil {
 			return nil
 		}
-		return m.Motor.Close(ctx)
+		return errtrace.Wrap(m.Motor.Close(ctx))
 	}
-	return m.CloseFunc(ctx)
+	return errtrace.Wrap(m.CloseFunc(ctx))
 }
 
 // Status calls the injected Status or the real version.
 func (m *Motor) Status(ctx context.Context) (map[string]interface{}, error) {
 	if m.StatusFunc != nil {
-		return m.StatusFunc(ctx)
+		return errtrace.Wrap2(m.StatusFunc(ctx))
 	}
 	if m.Motor != nil {
-		return m.Motor.Status(ctx)
+		return errtrace.Wrap2(m.Motor.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }

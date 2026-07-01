@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -65,19 +66,19 @@ func buildRobotWithClassifier(logger logging.Logger) (robot.Robot, error) {
 	}
 	cfg.Components = append(cfg.Components, classifierComp)
 	if err := cfg.Ensure(false, logger); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	newConfFile, err := writeTempConfig(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer os.Remove(newConfFile)
 
 	// make the robot from new config
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, nil, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return r, nil
 }

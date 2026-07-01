@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -176,7 +177,7 @@ func TestClientSessionOptions(t *testing.T) {
 						// FindByID is called by SendSessionHeartbeat; use as a proxy for counting heartbeats
 						sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 							if id != sess1.ID() {
-								return nil, errors.New("session id mismatch")
+								return nil, errtrace.Wrap(errors.New("session id mismatch"))
 							}
 							capMu.Lock()
 							heartbeatCnt++
@@ -366,7 +367,7 @@ func TestClientSessionExpiration(t *testing.T) {
 					capMu.Lock()
 					if startCalledCnt != 0 && heartbeatCnt < 5 {
 						logger.Debug("premature start session")
-						return nil, errors.New("premature restart")
+						return nil, errtrace.Wrap(errors.New("premature restart"))
 					}
 
 					// shift to next session
@@ -387,16 +388,16 @@ func TestClientSessionExpiration(t *testing.T) {
 					if startCalledCnt == 1 && heartbeatCnt >= 5 { // expired until restart
 						capMu.Unlock()
 						logger.Debug("enough heartbeats once; expire the session")
-						return nil, session.ErrNoSession
+						return nil, errtrace.Wrap(session.ErrNoSession)
 					}
 					if startCalledCnt == 2 && heartbeatCnt >= 5 { // expired until restart
 						capMu.Unlock()
 						logger.Debug("enough heartbeats twice; expire the session")
-						return nil, session.ErrNoSession
+						return nil, errtrace.Wrap(session.ErrNoSession)
 					}
 					sess := sessions[startCalledCnt-1]
 					if id != sess.ID() {
-						return nil, errors.New("session id mismatch")
+						return nil, errtrace.Wrap(errors.New("session id mismatch"))
 					}
 					capMu.Unlock()
 					sess.Heartbeat(ctx) // gotta keep session alive
@@ -579,7 +580,7 @@ func TestClientSessionResume(t *testing.T) {
 				}
 				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					if id != sess1.ID() {
-						return nil, errors.New("session id mismatch")
+						return nil, errtrace.Wrap(errors.New("session id mismatch"))
 					}
 					capMu.Lock()
 					heartbeatCnt++
@@ -619,7 +620,7 @@ func TestClientSessionResume(t *testing.T) {
 				findByIDFuncBackup := sessMgr.FindByIDFunc
 				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					close(errFindCalled)
-					return nil, status.New(codes.Unavailable, "disconnected or something").Err()
+					return nil, errtrace.Wrap(status.New(codes.Unavailable, "disconnected or something").Err())
 				}
 				sessMgr.mu.Unlock()
 
@@ -675,7 +676,7 @@ type sessionManager struct {
 func (mgr *sessionManager) Start(ctx context.Context, ownerID string) (*session.Session, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	return mgr.StartFunc(ctx, ownerID)
+	return errtrace.Wrap2(mgr.StartFunc(ctx, ownerID))
 }
 
 func (mgr *sessionManager) All() []*session.Session {
@@ -685,7 +686,7 @@ func (mgr *sessionManager) All() []*session.Session {
 func (mgr *sessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	return mgr.FindByIDFunc(ctx, id, ownerID)
+	return errtrace.Wrap2(mgr.FindByIDFunc(ctx, id, ownerID))
 }
 
 func (mgr *sessionManager) AssociateResource(id uuid.UUID, resourceName resource.Name) {
@@ -717,17 +718,17 @@ func (mgr *sessionManager) sessionFromMetadata(ctx context.Context) (context.Con
 		mgr.mu.Lock()
 		if mgr.expired {
 			mgr.mu.Unlock()
-			return nil, session.ErrNoSession
+			return nil, errtrace.Wrap(session.ErrNoSession)
 		}
 		mgr.mu.Unlock()
 		sessID, err := uuid.Parse(values[0])
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		sess := session.NewWithID(ctx, sessID, "", time.Minute, nil)
 		return session.ToContext(ctx, sess), nil
 	default:
-		return nil, errors.New("found more than one session id in metadata")
+		return nil, errtrace.Wrap(errors.New("found more than one session id in metadata"))
 	}
 }
 
@@ -739,9 +740,9 @@ func (mgr *sessionManager) UnaryServerInterceptor(
 ) (interface{}, error) {
 	ctx, err := mgr.sessionFromMetadata(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }
 
 // StreamServerInterceptor associates the current session (if present) in the current context before
@@ -754,9 +755,9 @@ func (mgr *sessionManager) StreamServerInterceptor(
 ) error {
 	ctx, err := mgr.sessionFromMetadata(ss.Context())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return handler(srv, &ssStreamContextWrapper{ss, ctx})
+	return errtrace.Wrap(handler(srv, &ssStreamContextWrapper{ss, ctx}))
 }
 
 type ssStreamContextWrapper struct {
@@ -813,11 +814,11 @@ func (srv *echoServer) EchoResourceMultiple(
 	if ok {
 		res, err := srv.coll.Resource(req.Name)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		typed, err := resource.AsType[*dummyEcho](res)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		typed.mu.Lock()
 		typed.capSessID = sess.ID()

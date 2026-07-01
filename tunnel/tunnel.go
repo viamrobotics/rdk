@@ -10,6 +10,7 @@ import (
 	"net"
 	"strings"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -22,7 +23,7 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{},
 ) (filteredErr error) {
 	var anomalous bool
 	defer func() {
-		filteredErr = err
+		filteredErr = errtrace.Wrap(err)
 		if !anomalous {
 			logger.CDebugw(ctx, "ignoring non-anomalous error", "error", filteredErr)
 			filteredErr = nil
@@ -34,6 +35,7 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{},
 	select {
 	case <-closeChan:
 		if errors.Is(err, net.ErrClosed) {
+			filteredErr = errtrace.Wrap(filteredErr)
 			return
 		}
 	default:
@@ -42,24 +44,28 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{},
 	// context.Canceled indicates that the context on the bidi stream was canceled midway
 	// through sending or receiving.
 	if errors.Is(err, context.Canceled) {
+		filteredErr = errtrace.Wrap(filteredErr)
 		return
 	}
 
 	// "read/write on closed pipe" can occur on either side if the connection is closed or
 	// currently closing.
 	if errors.Is(err, io.ErrClosedPipe) {
+		filteredErr = errtrace.Wrap(filteredErr)
 		return
 	}
 
 	// EOF indicates that the connection passed in is not going to receive any more data
 	// and is not expecting any more data to be written to it.
 	if errors.Is(err, io.EOF) {
+		filteredErr = errtrace.Wrap(filteredErr)
 		return
 	}
 
 	// Depending on when the tunnel is closed, the server may not have a chance to complete
 	// sending the HTTP2 header (gRPC is implemented over HTTP2.)
 	if err != nil && strings.Contains(err.Error(), "missing HTTP content-type") {
+		filteredErr = errtrace.Wrap(filteredErr)
 		return
 	}
 
@@ -67,10 +73,12 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{},
 	// trailers.
 	if err != nil && strings.Contains(err.Error(),
 		"server closed the stream without sending trailers") {
+		filteredErr = errtrace.Wrap(filteredErr)
 		return
 	}
 
 	anomalous = true
+	filteredErr = errtrace.Wrap(filteredErr)
 	return
 }
 
@@ -85,9 +93,9 @@ func ReaderSenderLoop(
 ) (retErr error) {
 	var err, sendErr error
 	defer func() {
-		retErr = filterError(ctx, errors.Join(err, sendErr), connClosed, logger)
+		retErr = errtrace.Wrap(filterError(ctx, errors.Join(err, sendErr), connClosed, logger))
 		if retErr != nil {
-			retErr = fmt.Errorf("reader/sender loop err: %w", retErr)
+			retErr = errtrace.Wrap(fmt.Errorf("reader/sender loop err: %w", retErr))
 		}
 		logger.CDebug(ctx, "exiting reader/sender loop")
 	}()
@@ -95,8 +103,10 @@ func ReaderSenderLoop(
 	for {
 		select {
 		case <-ctx.Done():
+			retErr = errtrace.Wrap(retErr)
 			return
 		case <-connClosed:
+			retErr = errtrace.Wrap(retErr)
 			return
 		default:
 		}
@@ -110,10 +120,12 @@ func ReaderSenderLoop(
 		// considering the error
 		if nr > 0 {
 			if sendErr = sendFunc(buf[:nr]); sendErr != nil {
+				retErr = errtrace.Wrap(retErr)
 				return
 			}
 		}
 		if err != nil {
+			retErr = errtrace.Wrap(retErr)
 			return
 		}
 	}
@@ -130,19 +142,21 @@ func RecvWriterLoop(
 ) (retErr error) {
 	var err error
 	defer func() {
-		retErr = filterError(ctx, err, rsDone, logger)
+		retErr = errtrace.Wrap(filterError(ctx, err, rsDone, logger))
 		if retErr != nil {
-			retErr = fmt.Errorf("receiver/writer loop err: %w", retErr)
+			retErr = errtrace.Wrap(fmt.Errorf("receiver/writer loop err: %w", retErr))
 		}
 		logger.CDebug(ctx, "exiting receiver/writer loop")
 	}()
 	for {
 		if ctx.Err() != nil {
+			retErr = errtrace.Wrap(retErr)
 			return
 		}
 		var data []byte
 		data, err = recvFunc()
 		if err != nil {
+			retErr = errtrace.Wrap(retErr)
 			return
 		}
 		// For bidi streaming, Recv should be called on the client/server until it errors.

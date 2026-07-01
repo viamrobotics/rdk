@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -53,12 +54,12 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 	emptyFS := NewEmptyFrameSystem("")
 	gf, err := ws.ObstaclesInWorldFrame(emptyFS, NewNeutralFrameSystemInputs(emptyFS))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for _, g := range gf.Geometries() {
 		colls, err := newCollisions(g)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		links = append(links, linkXML{
 			Name:      g.Label(),
@@ -97,7 +98,7 @@ func UnmarshalModelXML(
 	urdf := &ModelConfigURDF{}
 	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct")
+		return nil, errtrace.Wrap(errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct"))
 	}
 
 	// Use default name if none is provided
@@ -122,7 +123,7 @@ func UnmarshalModelXML(
 			// Try to detect capsule pattern (cylinder + 2 spheres)
 			geometry, err = tryParseCapsuleFromCollisions(linkElem.Collision)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse capsule from collision geometries %v: %w", linkElem.Name, err)
+				return nil, errtrace.Wrap(fmt.Errorf("failed to parse capsule from collision geometries %v: %w", linkElem.Name, err))
 			}
 
 			// If not a capsule, fall back to first collision element
@@ -139,13 +140,13 @@ func UnmarshalModelXML(
 				}
 				geometry, err = linkElem.Collision[0].toGeometry(meshMap, decimationRatio)
 				if err != nil {
-					return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
+					return nil, errtrace.Wrap(fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err))
 				}
 			}
 
 			geoCfg, err := spatialmath.NewGeometryConfig(geometry)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			link.Geometry = geoCfg
 		}
@@ -177,7 +178,7 @@ func UnmarshalModelXML(
 			case RevoluteJoint:
 				thisJoint.Min, thisJoint.Max = utils.RadToDeg(jointElem.Limit.Lower), utils.RadToDeg(jointElem.Limit.Upper)
 			default:
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			if jointElem.Mimic != nil {
 				thisJoint.Mimic = &MimicConfig{
@@ -201,13 +202,13 @@ func UnmarshalModelXML(
 				Yaw:   childRPY[2],
 			})
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
 			// Add the transformation to the parent link which should be in the map of links
 			parentLink, ok := links[jointElem.Parent.Link]
 			if !ok {
-				return nil, NewFrameNotInListOfTransformsError(jointElem.Parent.Link)
+				return nil, errtrace.Wrap(NewFrameNotInListOfTransformsError(jointElem.Parent.Link))
 			}
 			parentLink.Translation = r3.Vector{
 				X: utils.MetersToMM(childXYZ[0]),
@@ -226,7 +227,7 @@ func UnmarshalModelXML(
 				Yaw:   linkRPY[2],
 			})
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
 			link := &LinkConfig{
@@ -237,13 +238,13 @@ func UnmarshalModelXML(
 			}
 			links[jointElem.Name] = link
 		default:
-			return nil, NewUnsupportedJointTypeError(jointElem.Type)
+			return nil, errtrace.Wrap(NewUnsupportedJointTypeError(jointElem.Type))
 		}
 
 		// Point the child link to this joint
 		childLink, ok := links[jointElem.Child.Link]
 		if !ok {
-			return nil, NewFrameNotInListOfTransformsError(jointElem.Child.Link)
+			return nil, errtrace.Wrap(NewFrameNotInListOfTransformsError(jointElem.Child.Link))
 		}
 		childLink.Parent = jointElem.Name
 	}
@@ -272,7 +273,7 @@ func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.
 	// Parse URDF to find mesh references
 	urdf := &ModelConfigURDF{}
 	if err := xml.Unmarshal(xmlData, urdf); err != nil {
-		return nil, errors.Wrap(err, "failed to parse URDF for mesh extraction")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to parse URDF for mesh extraction"))
 	}
 
 	meshMap := make(map[string]*commonpb.Mesh)
@@ -304,7 +305,7 @@ func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.
 			//nolint:gosec
 			meshBytes, err := os.ReadFile(absolutePath)
 			if err != nil {
-				return nil, fmt.Errorf("failed to load mesh file %s (referenced as %s): %w", absolutePath, originalPath, err)
+				return nil, errtrace.Wrap(fmt.Errorf("failed to load mesh file %s (referenced as %s): %w", absolutePath, originalPath, err))
 			}
 
 			// Determine mesh content type from file extension
@@ -314,7 +315,7 @@ func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.
 			} else if strings.HasSuffix(strings.ToLower(meshPath), ".stl") {
 				contentType = "stl"
 			} else {
-				return nil, fmt.Errorf("unsupported mesh file type (only .ply and .stl supported): %s", meshPath)
+				return nil, errtrace.Wrap(fmt.Errorf("unsupported mesh file type (only .ply and .stl supported): %s", meshPath))
 			}
 
 			meshMap[meshPath] = &commonpb.Mesh{
@@ -333,20 +334,20 @@ func ParseModelXMLFile(filename, modelName string, meshDecimationRatios []float6
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read URDF file")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to read URDF file"))
 	}
 
 	// Build mesh map by loading mesh files from disk
 	urdfDir := filepath.Dir(filename)
 	meshMap, err := buildMeshMapFromURDF(xmlData, urdfDir)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to build mesh map")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to build mesh map"))
 	}
 
 	mc, err := UnmarshalModelXML(xmlData, modelName, meshMap, meshDecimationRatios)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
-	return mc.ParseConfig(modelName)
+	return errtrace.Wrap2(mc.ParseConfig(modelName))
 }

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"strings"
 
+	"braces.dev/errtrace"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 	grpcmetadata "google.golang.org/grpc/metadata"
@@ -106,7 +107,7 @@ func ViamClientToServerMetadataUnaryClientInterceptor(
 			ctx = grpcmetadata.AppendToOutgoingContext(ctx, kvPairs...)
 		}
 	}
-	return invoker(ctx, method, req, reply, cc, opts...)
+	return errtrace.Wrap(invoker(ctx, method, req, reply, cc, opts...))
 }
 
 // ViamClientToServerMetadataStreamClientInterceptor converts the metadata map in the context to our wire format and adds it with
@@ -128,7 +129,7 @@ func ViamClientToServerMetadataStreamClientInterceptor(
 			ctx = grpcmetadata.AppendToOutgoingContext(ctx, kvPairs...)
 		}
 	}
-	return streamer(ctx, desc, cc, method, opts...)
+	return errtrace.Wrap2(streamer(ctx, desc, cc, method, opts...))
 }
 
 // ViamClientToServerMetadataUnaryServerInterceptor retrieves the metadata map using metadata.FromIncomingContext and converts from
@@ -154,7 +155,7 @@ func ViamClientToServerMetadataUnaryServerInterceptor(
 			ctx = Set(ctx, kvPairs...)
 		}
 	}
-	return handler(ctx, req)
+	return errtrace.Wrap2(handler(ctx, req))
 }
 
 // ViamClientToServerMetadataStreamServerInterceptor retrieves the metadata map using metadata.FromIncomingContext and converts from
@@ -179,8 +180,8 @@ func ViamClientToServerMetadataStreamServerInterceptor(
 		if len(kvPairs) > 0 {
 			ctx = Set(ctx, kvPairs...)
 			wrapped := &grpc_middleware.WrappedServerStream{ServerStream: ss, WrappedContext: ctx}
-			return handler(srv, wrapped)
+			return errtrace.Wrap(handler(srv, wrapped))
 		}
 	}
-	return handler(srv, ss)
+	return errtrace.Wrap(handler(srv, ss))
 }

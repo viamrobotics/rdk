@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -25,7 +26,7 @@ func Named(name string) resource.Name {
 // FromProvider is a helper for getting the named Gizmo
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Gizmo, error) {
-	return resource.FromProvider[Gizmo](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Gizmo](provider, Named(name)))
 }
 
 func init() {
@@ -70,11 +71,11 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Gizmo], logger logging.
 func (s *serviceServer) DoOne(ctx context.Context, req *pb.DoOneRequest) (*pb.DoOneResponse, error) {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := g.DoOne(ctx, req.Arg1)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.DoOneResponse{Ret1: resp}, nil
 }
@@ -94,34 +95,34 @@ func (s *serviceServer) DoOneClientStream(server pb.GizmoService_DoOneClientStre
 			continue
 		}
 		if name != msg.Name {
-			return errors.New("unexpected")
+			return errtrace.Wrap(errors.New("unexpected"))
 		}
 	}
 	g, err := s.coll.Resource(name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	resp, err := g.DoOneClientStream(server.Context(), args)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return server.SendAndClose(&pb.DoOneClientStreamResponse{Ret1: resp})
+	return errtrace.Wrap(server.SendAndClose(&pb.DoOneClientStreamResponse{Ret1: resp}))
 }
 
 func (s *serviceServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stream pb.GizmoService_DoOneServerStreamServer) error {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	resp, err := g.DoOneServerStream(stream.Context(), req.Arg1)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	for _, ret := range resp {
 		if err := stream.Send(&pb.DoOneServerStreamResponse{
 			Ret1: ret,
 		}); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -142,20 +143,20 @@ func (s *serviceServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamSe
 			continue
 		}
 		if name != msg.Name {
-			return errors.New("unexpected")
+			return errtrace.Wrap(errors.New("unexpected"))
 		}
 	}
 	g, err := s.coll.Resource(name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	resp, err := g.DoOneBiDiStream(server.Context(), args)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	for _, respRet := range resp {
 		if err := server.Send(&pb.DoOneBiDiStreamResponse{Ret1: respRet}); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -164,11 +165,11 @@ func (s *serviceServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamSe
 func (s *serviceServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.DoTwoResponse, error) {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := g.DoTwo(ctx, req.Arg1)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.DoTwoResponse{Ret1: resp}, nil
 }
@@ -176,15 +177,15 @@ func (s *serviceServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.Do
 func (s *serviceServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest) (*pb.DoCommandResponse, error) {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := g.DoCommand(ctx, req.Command.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pbResp, err := protoutils.StructToStructPb(resp)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.DoCommandResponse{Result: pbResp}, nil
 }
@@ -229,7 +230,7 @@ func (c *client) DoOne(ctx context.Context, arg1 string) (bool, error) {
 		Arg1: arg1,
 	})
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.Ret1, nil
 }
@@ -237,19 +238,19 @@ func (c *client) DoOne(ctx context.Context, arg1 string) (bool, error) {
 func (c *client) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
 	client, err := c.client.DoOneClientStream(ctx)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	for _, arg := range arg1 {
 		if err := client.Send(&pb.DoOneClientStreamRequest{
 			Name: c.name,
 			Arg1: arg,
 		}); err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 	}
 	resp, err := client.CloseAndRecv()
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return resp.Ret1, nil
 }
@@ -260,7 +261,7 @@ func (c *client) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, er
 		Arg1: arg1,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	var rets []bool
 	for {
@@ -269,7 +270,7 @@ func (c *client) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, er
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		rets = append(rets, resp.Ret1)
 	}
@@ -279,18 +280,18 @@ func (c *client) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, er
 func (c *client) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
 	client, err := c.client.DoOneBiDiStream(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for _, arg := range arg1 {
 		if err := client.Send(&pb.DoOneBiDiStreamRequest{
 			Name: c.name,
 			Arg1: arg,
 		}); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	if err := client.CloseSend(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var rets []bool
@@ -300,7 +301,7 @@ func (c *client) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, er
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		rets = append(rets, resp.Ret1)
 	}
@@ -313,7 +314,7 @@ func (c *client) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 		Arg1: arg1,
 	})
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	return resp.Ret1, nil
 }
@@ -321,14 +322,14 @@ func (c *client) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.DoCommand(ctx, &pb.DoCommandRequest{
 		Name:    c.name,
 		Command: command,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Result.AsMap(), nil
 }

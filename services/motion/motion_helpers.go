@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -21,12 +22,12 @@ func PollHistoryUntilSuccessOrError(
 ) error {
 	for {
 		if err := ctx.Err(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		ph, err := m.PlanHistory(ctx, req)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		status := ph[0].StatusHistory[0]
@@ -38,16 +39,16 @@ func PollHistoryUntilSuccessOrError(
 			if reason := status.Reason; reason != nil {
 				err = errors.Wrap(err, *reason)
 			}
-			return err
+			return errtrace.Wrap(err)
 
 		case PlanStateStopped:
-			return errors.New("plan stopped")
+			return errtrace.Wrap(errors.New("plan stopped"))
 
 		case PlanStateSucceeded:
 			return nil
 
 		default:
-			return fmt.Errorf("invalid plan state %d", status.State)
+			return errtrace.Wrap(fmt.Errorf("invalid plan state %d", status.State))
 		}
 
 		time.Sleep(interval)

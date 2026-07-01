@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
@@ -156,7 +157,7 @@ func (m *SessionManager) Start(ctx context.Context, ownerID string) (*session.Se
 	m.sessionResourceMu.Lock()
 	defer m.sessionResourceMu.Unlock()
 	if len(m.sessions) > maxSessions {
-		return nil, errors.New("too many concurrent sessions")
+		return nil, errtrace.Wrap(errors.New("too many concurrent sessions"))
 	}
 	m.sessions[sess.ID()] = sess
 	return sess, nil
@@ -171,7 +172,7 @@ func (m *SessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID str
 	sess, ok := m.sessions[id]
 	if !ok || !sess.CheckOwnerID(ownerID) {
 		m.sessionResourceMu.RUnlock()
-		return nil, session.ErrNoSession
+		return nil, errtrace.Wrap(session.ErrNoSession)
 	}
 	m.sessionResourceMu.RUnlock()
 	sess.Heartbeat(ctx)

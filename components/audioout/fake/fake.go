@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/audioout"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -48,19 +49,19 @@ func NewAudioOut(_ context.Context, _ resource.Dependencies, conf resource.Confi
 // Play simulates playing audio by blocking for the duration of playback.
 func (a *AudioOut) Play(ctx context.Context, data []byte, info *utils.AudioInfo, extra map[string]interface{}) error {
 	if len(data) == 0 {
-		return fmt.Errorf("no audio data provided")
+		return errtrace.Wrap(fmt.Errorf("no audio data provided"))
 	}
 
 	if info == nil {
-		return fmt.Errorf("audio info is required")
+		return errtrace.Wrap(fmt.Errorf("audio info is required"))
 	}
 
 	if info.Codec != "pcm16" {
-		return fmt.Errorf("codec %s not supported, only pcm16 is supported", info.Codec)
+		return errtrace.Wrap(fmt.Errorf("codec %s not supported, only pcm16 is supported", info.Codec))
 	}
 
 	if info.NumChannels <= 0 || info.SampleRateHz <= 0 {
-		return fmt.Errorf("invalid audio info, sample rate and num channels must be above zero")
+		return errtrace.Wrap(fmt.Errorf("invalid audio info, sample rate and num channels must be above zero"))
 	}
 
 	bytesPerSample := 2 // 16-bit = 2 bytes
@@ -75,7 +76,7 @@ func (a *AudioOut) Play(ctx context.Context, data []byte, info *utils.AudioInfo,
 	case <-time.After(time.Duration(duration * float64(time.Second))):
 		return nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return errtrace.Wrap(ctx.Err())
 	}
 }
 
@@ -83,13 +84,13 @@ func (a *AudioOut) Play(ctx context.Context, data []byte, info *utils.AudioInfo,
 // play each chunk for its real-time duration.
 func (a *AudioOut) PlayStream(ctx context.Context, info *utils.AudioInfo, chunks <-chan []byte, _ map[string]interface{}) error {
 	if info == nil {
-		return fmt.Errorf("audio info is required")
+		return errtrace.Wrap(fmt.Errorf("audio info is required"))
 	}
 	if info.Codec != "pcm16" {
-		return fmt.Errorf("codec %s not supported, only pcm16 is supported", info.Codec)
+		return errtrace.Wrap(fmt.Errorf("codec %s not supported, only pcm16 is supported", info.Codec))
 	}
 	if info.NumChannels <= 0 || info.SampleRateHz <= 0 {
-		return fmt.Errorf("invalid audio info, sample rate and num channels must be above zero")
+		return errtrace.Wrap(fmt.Errorf("invalid audio info, sample rate and num channels must be above zero"))
 	}
 
 	bytesPerSample := 2
@@ -98,7 +99,7 @@ func (a *AudioOut) PlayStream(ctx context.Context, info *utils.AudioInfo, chunks
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		case chunk, ok := <-chunks:
 			if !ok {
 				duration := float64(totalBytes) / float64(bytesPerSample*int(info.NumChannels)*int(info.SampleRateHz))
@@ -117,7 +118,7 @@ func (a *AudioOut) PlayStream(ctx context.Context, info *utils.AudioInfo, chunks
 			select {
 			case <-time.After(chunkDuration):
 			case <-ctx.Done():
-				return ctx.Err()
+				return errtrace.Wrap(ctx.Err())
 			}
 		}
 	}

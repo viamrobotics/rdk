@@ -7,6 +7,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -46,7 +47,7 @@ func NewGeoGeometryConfig(geo *GeoGeometry) (*GeoGeometryConfig, error) {
 	for _, geom := range geo.geometries {
 		gc, err := NewGeometryConfig(geom)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		geomCfgs = append(geomCfgs, gc)
 	}
@@ -65,7 +66,7 @@ func GeoGeometriesFromConfigs(configs []*GeoGeometryConfig) ([]*GeoGeometry, err
 	for _, cfg := range configs {
 		gob, err := GeoGeometriesFromConfig(cfg)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		gobs = append(gobs, gob...)
 	}
@@ -82,7 +83,7 @@ func GeoGeometriesFromConfig(config *GeoGeometryConfig) ([]*GeoGeometry, error) 
 
 		geom, err := navGeom.ParseConfig()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		gob.geometries = append(gob.geometries, geom)
 		gobs = append(gobs, &gob)

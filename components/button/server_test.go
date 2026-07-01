@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -31,7 +32,7 @@ func newServer(logger logging.Logger) (pb.ButtonServiceServer, *inject.Button, *
 	}
 	buttonSvc, err := resource.NewAPIResourceCollection(button.API, buttons)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return button.NewRPCServiceServer(buttonSvc, logger).(pb.ButtonServiceServer), injectButton, injectButton2, nil
 }
@@ -51,7 +52,7 @@ func TestServer(t *testing.T) {
 
 	injectButton2.PushFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		buttonPushed = testButtonName2
-		return errCantPush
+		return errtrace.Wrap(errCantPush)
 	}
 
 	t.Run("push", func(t *testing.T) {
@@ -112,7 +113,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		injectButton.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = buttonServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testButtonName})
 		test.That(t, err, test.ShouldNotBeNil)

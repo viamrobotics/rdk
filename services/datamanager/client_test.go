@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -104,7 +105,7 @@ func TestClient(t *testing.T) {
 
 		passedErr := errors.New("fake sync error")
 		injectDS.SyncFunc = func(ctx context.Context, extra map[string]interface{}) error {
-			return passedErr
+			return errtrace.Wrap(passedErr)
 		}
 
 		err = client2.Sync(context.Background(), map[string]interface{}{})

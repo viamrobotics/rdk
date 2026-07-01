@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -92,7 +93,7 @@ func newServer(logger logging.Logger) (pb.DiscoveryServiceServer, *inject.Discov
 	}
 	injectSvc, err := resource.NewAPIResourceCollection(discovery.API, resourceMap)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return discovery.NewRPCServiceServer(injectSvc, logger).(pb.DiscoveryServiceServer), injectDiscovery, injectDiscovery2, nil
 }
@@ -108,7 +109,7 @@ func TestDiscoveryServiceServer(t *testing.T) {
 			return testComponents, nil
 		}
 		failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
-			return nil, errDiscoverFailed
+			return nil, errtrace.Wrap(errDiscoverFailed)
 		}
 		resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: testDiscoveryName})
 		test.That(t, err, test.ShouldBeNil)
@@ -152,7 +153,7 @@ func TestDiscoveryServiceServer(t *testing.T) {
 			map[string]interface{},
 			error,
 		) {
-			return nil, errDoFailed
+			return nil, errtrace.Wrap(errDoFailed)
 		}
 
 		commandStruct, err := protoutils.StructToStructPb(testutils.TestCommand)
@@ -190,7 +191,7 @@ func TestDiscoveryServiceServer(t *testing.T) {
 		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 		workingDiscovery.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return nil, errGetStatusFailed
+			return nil, errtrace.Wrap(errGetStatusFailed)
 		}
 		_, err = discoveryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testDiscoveryName})
 		test.That(t, err, test.ShouldNotBeNil)

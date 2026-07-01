@@ -6,6 +6,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -68,9 +69,9 @@ func (mgs *MotionService) Name() resource.Name {
 // Move calls the injected Move or the real variant.
 func (mgs *MotionService) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	if mgs.MoveFunc == nil {
-		return mgs.Service.Move(ctx, req)
+		return errtrace.Wrap2(mgs.Service.Move(ctx, req))
 	}
-	return mgs.MoveFunc(ctx, req)
+	return errtrace.Wrap2(mgs.MoveFunc(ctx, req))
 }
 
 // MoveOnMap calls the injected MoveOnMap or the real variant.
@@ -79,17 +80,17 @@ func (mgs *MotionService) MoveOnMap(
 	req motion.MoveOnMapReq,
 ) (motion.ExecutionID, error) {
 	if mgs.MoveOnMapFunc == nil {
-		return mgs.Service.MoveOnMap(ctx, req)
+		return errtrace.Wrap2(mgs.Service.MoveOnMap(ctx, req))
 	}
-	return mgs.MoveOnMapFunc(ctx, req)
+	return errtrace.Wrap2(mgs.MoveOnMapFunc(ctx, req))
 }
 
 // MoveOnGlobe calls the injected MoveOnGlobe or the real variant.
 func (mgs *MotionService) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 	if mgs.MoveOnGlobeFunc == nil {
-		return mgs.Service.MoveOnGlobe(ctx, req)
+		return errtrace.Wrap2(mgs.Service.MoveOnGlobe(ctx, req))
 	}
-	return mgs.MoveOnGlobeFunc(ctx, req)
+	return errtrace.Wrap2(mgs.MoveOnGlobeFunc(ctx, req))
 }
 
 // GetPose calls the injected GetPose or the real variant.
@@ -101,9 +102,9 @@ func (mgs *MotionService) GetPose(
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if mgs.GetPoseFunc == nil {
-		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+		return errtrace.Wrap2(mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 	}
-	return mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	return errtrace.Wrap2(mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra))
 }
 
 // StopPlan calls the injected StopPlan or the real variant.
@@ -112,9 +113,9 @@ func (mgs *MotionService) StopPlan(
 	req motion.StopPlanReq,
 ) error {
 	if mgs.StopPlanFunc == nil {
-		return mgs.Service.StopPlan(ctx, req)
+		return errtrace.Wrap(mgs.Service.StopPlan(ctx, req))
 	}
-	return mgs.StopPlanFunc(ctx, req)
+	return errtrace.Wrap(mgs.StopPlanFunc(ctx, req))
 }
 
 // ListPlanStatuses calls the injected ListPlanStatuses or the real variant.
@@ -123,9 +124,9 @@ func (mgs *MotionService) ListPlanStatuses(
 	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
 	if mgs.ListPlanStatusesFunc == nil {
-		return mgs.Service.ListPlanStatuses(ctx, req)
+		return errtrace.Wrap2(mgs.Service.ListPlanStatuses(ctx, req))
 	}
-	return mgs.ListPlanStatusesFunc(ctx, req)
+	return errtrace.Wrap2(mgs.ListPlanStatusesFunc(ctx, req))
 }
 
 // PlanHistory calls the injected PlanHistory or the real variant.
@@ -134,9 +135,9 @@ func (mgs *MotionService) PlanHistory(
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
 	if mgs.PlanHistoryFunc == nil {
-		return mgs.Service.PlanHistory(ctx, req)
+		return errtrace.Wrap2(mgs.Service.PlanHistory(ctx, req))
 	}
-	return mgs.PlanHistoryFunc(ctx, req)
+	return errtrace.Wrap2(mgs.PlanHistoryFunc(ctx, req))
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
@@ -144,18 +145,18 @@ func (mgs *MotionService) DoCommand(ctx context.Context,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	if mgs.DoCommandFunc == nil {
-		return mgs.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(mgs.Service.DoCommand(ctx, cmd))
 	}
-	return mgs.DoCommandFunc(ctx, cmd)
+	return errtrace.Wrap2(mgs.DoCommandFunc(ctx, cmd))
 }
 
 // Status calls the injected Status or the real version.
 func (mgs *MotionService) Status(ctx context.Context) (map[string]interface{}, error) {
 	if mgs.StatusFunc != nil {
-		return mgs.StatusFunc(ctx)
+		return errtrace.Wrap2(mgs.StatusFunc(ctx))
 	}
 	if mgs.Service != nil {
-		return mgs.Service.Status(ctx)
+		return errtrace.Wrap2(mgs.Service.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }
@@ -166,7 +167,7 @@ func (mgs *MotionService) Close(ctx context.Context) error {
 		if mgs.Service == nil {
 			return nil
 		}
-		return mgs.Service.Close(ctx)
+		return errtrace.Wrap(mgs.Service.Close(ctx))
 	}
-	return mgs.CloseFunc(ctx)
+	return errtrace.Wrap(mgs.CloseFunc(ctx))
 }

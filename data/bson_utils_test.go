@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"braces.dev/errtrace"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -20,7 +21,7 @@ func bsonToStructPB(bsonMap bson.M) (*structpb.Struct, error) {
 	for k, v := range bsonMap {
 		value, err := convertBSONValueToStructPBValue(v)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		s.Fields[k] = value
 	}
@@ -44,7 +45,7 @@ func convertBSONValueToStructPBValue(v interface{}) (*structpb.Value, error) {
 	case bson.M:
 		s, err := bsonToStructPB(val)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return &structpb.Value{Kind: &structpb.Value_StructValue{StructValue: s}}, nil
 	case bson.A:
@@ -52,7 +53,7 @@ func convertBSONValueToStructPBValue(v interface{}) (*structpb.Value, error) {
 		for _, item := range val {
 			value, err := convertBSONValueToStructPBValue(item)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			list.Values = append(list.Values, value)
 		}
@@ -62,7 +63,7 @@ func convertBSONValueToStructPBValue(v interface{}) (*structpb.Value, error) {
 	case primitive.Timestamp:
 		jsonStr, err := json.Marshal(val)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: string(jsonStr)}}, nil
 	case primitive.JavaScript:
@@ -80,7 +81,7 @@ func convertBSONValueToStructPBValue(v interface{}) (*structpb.Value, error) {
 		if val.Subtype == bson.TypeBinaryUUID {
 			data, err := uuid.FromBytes(val.Data)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			return &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: data.String()}}, nil
 		}
@@ -92,7 +93,7 @@ func convertBSONValueToStructPBValue(v interface{}) (*structpb.Value, error) {
 		}
 		return &structpb.Value{Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: list}}}, nil
 	default:
-		return nil, fmt.Errorf("unsupported BSON type: %T", v)
+		return nil, errtrace.Wrap(fmt.Errorf("unsupported BSON type: %T", v))
 	}
 }
 

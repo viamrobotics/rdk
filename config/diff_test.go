@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
@@ -674,7 +675,7 @@ func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 	for idx := 0; idx < len(c.Components); idx++ {
 		requiredDeps, optionalDeps, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		c.Components[idx].ImplicitDependsOn = requiredDeps
 		c.Components[idx].ImplicitOptionalDependsOn = optionalDeps
@@ -683,7 +684,7 @@ func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 	for idx := 0; idx < len(c.Services); idx++ {
 		requiredDeps, optionalDeps, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		c.Services[idx].ImplicitDependsOn = requiredDeps
 		c.Services[idx].ImplicitOptionalDependsOn = optionalDeps

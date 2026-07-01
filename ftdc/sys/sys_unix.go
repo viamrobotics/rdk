@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/prometheus/procfs"
 )
 
@@ -42,7 +43,7 @@ type UsageStatser struct {
 func newSysUsageStatser(pid int) (*UsageStatser, error) {
 	process, err := procfs.NewProc(pid)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &UsageStatser{process}, nil

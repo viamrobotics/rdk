@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -65,7 +66,7 @@ type AudioIn interface {
 
 // FromProvider is a helper for getting the named Board from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (AudioIn, error) {
-	return resource.FromProvider[AudioIn](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[AudioIn](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all AudioIn names from the given Robot.

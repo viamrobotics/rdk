@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -83,16 +84,16 @@ func (m *localManager) Close(ctx context.Context) error {
 func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string) (string, string, error) {
 	path, err := rUtils.ExpandHomeDir(path)
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	src, err := os.Open(path) //nolint:gosec
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	defer src.Close()              //nolint:errcheck
 	dst, err := os.Create(dstPath) //nolint:gosec
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 
 	hash := crc32Hash()
@@ -101,7 +102,7 @@ func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string)
 	defer dst.Close() //nolint:errcheck
 	nBytes, err := io.Copy(out, src)
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	m.logger.Debugf("copied %d bytes to %s", nBytes, dstPath)
 	checksum := hash.Sum(nil)
@@ -165,7 +166,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
 			m.logger.Errorf("Context canceled. Canceling local package manager sync. Time spent: %v", time.Since(start))
-			return multierr.Append(outErr, err)
+			return errtrace.Wrap(multierr.Append(outErr, err))
 		}
 		m.logger.Debugf("Starting local package sync [%d/%d] %s", idx+1, len(changed), mod.Name)
 		pkg, err := mod.SyntheticPackage()
@@ -198,7 +199,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 	// swap for new managed packages.
 	m.managedModules = existing
 
-	return outErr
+	return errtrace.Wrap(outErr)
 }
 
 // Cleanup removes all unknown packages from the working directory.
@@ -220,21 +221,21 @@ func (m *localManager) Cleanup(ctx context.Context) error {
 		expectedPackageDirectories[pkg.LocalDataDirectory(m.packagesDir)] = true
 	}
 
-	return commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
+	return errtrace.Wrap(commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir))
 }
 
 // newerOrMissing takes two file paths. It returns true if src path is newer than dest, or if dest is missing.
 func newerOrMissing(src, dest string) (bool, error) {
 	srcStat, err := os.Stat(src)
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	destStat, err := os.Stat(dest)
 	if os.IsNotExist(err) {
 		return true, nil
 	}
 	if err != nil {
-		return false, err
+		return false, errtrace.Wrap(err)
 	}
 	return srcStat.ModTime().After(destStat.ModTime()), nil
 }
@@ -251,18 +252,18 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 
 	pkg, err := mod.SyntheticPackage()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
 	exePath, err := rUtils.ExpandHomeDir(mod.ExePath)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dirty, err := newerOrMissing(exePath, pkgDir)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if dirty {
@@ -270,7 +271,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
 		if err != nil {
-			return fmt.Errorf("failed installing package %s:%s installPath: %q err: %w", pkg.Package, pkg.Version, mod.ExePath, err)
+			return errtrace.Wrap(fmt.Errorf("failed installing package %s:%s installPath: %q err: %w", pkg.Package, pkg.Version, mod.ExePath, err))
 		}
 		m.managedModules[mod.Name] = &managedModule{module: mod}
 	}

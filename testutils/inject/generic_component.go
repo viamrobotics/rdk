@@ -4,6 +4,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -32,9 +33,9 @@ func (g *GenericComponent) Name() resource.Name {
 // DoCommand calls the injected DoCommand or the real version.
 func (g *GenericComponent) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if g.DoFunc == nil {
-		return g.Resource.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(g.Resource.DoCommand(ctx, cmd))
 	}
-	return g.DoFunc(ctx, cmd)
+	return errtrace.Wrap2(g.DoFunc(ctx, cmd))
 }
 
 // Close calls the injected Close or the real version.
@@ -43,18 +44,18 @@ func (g *GenericComponent) Close(ctx context.Context) error {
 		if g.Resource == nil {
 			return nil
 		}
-		return g.Resource.Close(ctx)
+		return errtrace.Wrap(g.Resource.Close(ctx))
 	}
-	return g.CloseFunc(ctx)
+	return errtrace.Wrap(g.CloseFunc(ctx))
 }
 
 // Status calls the injected Status or the real version.
 func (g *GenericComponent) Status(ctx context.Context) (map[string]interface{}, error) {
 	if g.StatusFunc != nil {
-		return g.StatusFunc(ctx)
+		return errtrace.Wrap2(g.StatusFunc(ctx))
 	}
 	if g.Resource != nil {
-		return g.Resource.Status(ctx)
+		return errtrace.Wrap2(g.Resource.Status(ctx))
 	}
 	return map[string]interface{}{}, nil
 }
@@ -62,10 +63,10 @@ func (g *GenericComponent) Status(ctx context.Context) (map[string]interface{}, 
 // Geometries calls the injected GeometriesFunc or the embedded resource's Geometries if it implements [resource.Shaped].
 func (g *GenericComponent) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	if g.GeometriesFunc != nil {
-		return g.GeometriesFunc(ctx, extra)
+		return errtrace.Wrap2(g.GeometriesFunc(ctx, extra))
 	}
 	if shaped, ok := g.Resource.(resource.Shaped); ok {
-		return shaped.Geometries(ctx, extra)
+		return errtrace.Wrap2(shaped.Geometries(ctx, extra))
 	}
 	return nil, nil
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -50,7 +51,7 @@ func NewOrientationVector() *OrientationVector {
 // IsValid returns an error if configuration is invalid.
 func (ovd *OrientationVectorDegrees) IsValid() error {
 	if ovd.computeNormal() == 0.0 { // avoid division by zero
-		return errors.New("OrientationVectorDegrees has a normal of 0, probably X, Y, and Z are all 0")
+		return errtrace.Wrap(errors.New("OrientationVectorDegrees has a normal of 0, probably X, Y, and Z are all 0"))
 	}
 	return nil
 }
@@ -58,7 +59,7 @@ func (ovd *OrientationVectorDegrees) IsValid() error {
 // IsValid returns an error if configuration is invalid.
 func (ov *OrientationVector) IsValid() error {
 	if ov.computeNormal() == 0.0 { // avoid division by zero
-		return errors.New("OrientationVector has a normal of 0, probably X, Y, and Z are all 0")
+		return errtrace.Wrap(errors.New("OrientationVector has a normal of 0, probably X, Y, and Z are all 0"))
 	}
 	return nil
 }

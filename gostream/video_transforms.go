@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 
+	"braces.dev/errtrace"
 	"github.com/disintegration/imaging"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.uber.org/multierr"
@@ -33,7 +34,7 @@ func NewResizeVideoSource(src VideoSource, width, height int) VideoSource {
 func (rvs resizeVideoSource) Read(ctx context.Context) (image.Image, func(), error) {
 	img, release, err := rvs.stream.Next(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if release != nil {
 		defer release()
@@ -44,5 +45,5 @@ func (rvs resizeVideoSource) Read(ctx context.Context) (image.Image, func(), err
 
 // Close closes the underlying source.
 func (rvs resizeVideoSource) Close(ctx context.Context) error {
-	return multierr.Combine(rvs.stream.Close(ctx), rvs.src.Close(ctx))
+	return errtrace.Wrap(multierr.Combine(rvs.stream.Close(ctx), rvs.src.Close(ctx)))
 }

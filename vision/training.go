@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -33,7 +34,7 @@ type ImageTrainingStore struct {
 func NewImageTrainingStore(ctx context.Context, mongoURI, db, collection string) (*ImageTrainingStore, error) {
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &ImageTrainingStore{client, client.Database(db).Collection(collection)}, nil
@@ -42,14 +43,14 @@ func NewImageTrainingStore(ctx context.Context, mongoURI, db, collection string)
 func (its *ImageTrainingStore) reset(ctx context.Context) error {
 	err := its.theCollection.Drop(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return its.BuildIndexes(ctx)
+	return errtrace.Wrap(its.BuildIndexes(ctx))
 }
 
 // Close TODO.
 func (its *ImageTrainingStore) Close(ctx context.Context) error {
-	return its.theClient.Disconnect(ctx)
+	return errtrace.Wrap(its.theClient.Disconnect(ctx))
 }
 
 // BuildIndexes TODO.
@@ -62,10 +63,10 @@ func (its *ImageTrainingStore) BuildIndexes(ctx context.Context) error {
 func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string, labels []string) (primitive.ObjectID, error) {
 	img, err := rimage.NewImageFromFile(fn)
 	if err != nil {
-		return primitive.ObjectID{}, err
+		return primitive.ObjectID{}, errtrace.Wrap(err)
 	}
 	md := map[string]interface{}{"filename": fn}
-	return its.StoreImage(ctx, img, md, labels)
+	return errtrace.Wrap2(its.StoreImage(ctx, img, md, labels))
 }
 
 // StoreImage TODO.
@@ -81,21 +82,21 @@ func (its *ImageTrainingStore) StoreImage(
 	bb := bytes.Buffer{}
 	err := png.Encode(&bb, img)
 	if err != nil {
-		return ti.ID, err
+		return ti.ID, errtrace.Wrap(err)
 	}
 	ti.Data = bb.Bytes()
 	ti.Labels = labels
 	ti.MetaData = metaData
 
 	_, err = its.theCollection.InsertOne(ctx, ti)
-	return ti.ID, err
+	return ti.ID, errtrace.Wrap(err)
 }
 
 // GetImage TODO.
 func (its *ImageTrainingStore) GetImage(ctx context.Context, id primitive.ObjectID) (TrainingImage, error) {
 	ti := TrainingImage{}
 	err := its.theCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&ti)
-	return ti, err
+	return ti, errtrace.Wrap(err)
 }
 
 // SetLabelsForImage TODO.
@@ -107,13 +108,13 @@ func (its *ImageTrainingStore) SetLabelsForImage(ctx context.Context, id primiti
 func (its *ImageTrainingStore) GetImagesForLabel(ctx context.Context, label string) ([]primitive.ObjectID, error) {
 	cursor, err := its.theCollection.Find(ctx, bson.M{"labels": label}, options.Find().SetProjection(bson.M{"_id": 1}))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	all := []TrainingImage{}
 	err = cursor.All(ctx, &all)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	res := []primitive.ObjectID{}
@@ -136,7 +137,7 @@ func (its *ImageTrainingStore) GetLabels(ctx context.Context) (map[string]int, e
 
 	cursor, err := its.theCollection.Aggregate(ctx, agg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	type T struct {
@@ -147,7 +148,7 @@ func (its *ImageTrainingStore) GetLabels(ctx context.Context) (map[string]int, e
 	var results []T
 	err = cursor.All(ctx, &results)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	res := map[string]int{}

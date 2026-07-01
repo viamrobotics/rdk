@@ -6,6 +6,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -93,17 +94,17 @@ func buildTransform(
 	case transformTypeUnspecified:
 		return source, stream, nil
 	case transformTypeRotate:
-		return newRotateTransform(ctx, source, stream, tr.Attributes)
+		return errtrace.Wrap3(newRotateTransform(ctx, source, stream, tr.Attributes))
 	case transformTypeResize:
-		return newResizeTransform(ctx, source, stream, tr.Attributes)
+		return errtrace.Wrap3(newResizeTransform(ctx, source, stream, tr.Attributes))
 	case transformTypeCrop:
-		return newCropTransform(ctx, source, stream, tr.Attributes)
+		return errtrace.Wrap3(newCropTransform(ctx, source, stream, tr.Attributes))
 	case transformTypeDetections:
-		return newDetectionsTransform(ctx, source, r, tr.Attributes)
+		return errtrace.Wrap3(newDetectionsTransform(ctx, source, r, tr.Attributes))
 	case transformTypeClassifications:
-		return newClassificationsTransform(ctx, source, r, tr.Attributes)
+		return errtrace.Wrap3(newClassificationsTransform(ctx, source, r, tr.Attributes))
 	default:
-		return nil, camera.UnspecifiedStream, fmt.Errorf("do not  know camera transform of type %q", tr.Type)
+		return nil, camera.UnspecifiedStream, errtrace.Wrap(fmt.Errorf("do not  know camera transform of type %q", tr.Type))
 	}
 }
 
@@ -112,7 +113,7 @@ func propsFromVideoSource(ctx context.Context, source camera.Camera) (camera.Pro
 
 	props, err := source.Properties(ctx)
 	if err != nil {
-		return camProps, err
+		return camProps, errtrace.Wrap(err)
 	}
 	camProps = props
 

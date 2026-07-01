@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/optimize"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
@@ -62,19 +63,19 @@ func printRot(o spatialmath.Orientation) string {
 func readConfig(cfgPath string) (*transform.ExtrinsicCalibrationConfig, error) {
 	f, err := os.Open(cfgPath) //nolint:gosec
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("path=%q", cfgPath))
+		return nil, errtrace.Wrap(errors.Wrap(err, fmt.Sprintf("path=%q", cfgPath)))
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
 	byteJSON, err := io.ReadAll(f)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	conf := &transform.ExtrinsicCalibrationConfig{}
 	err = json.Unmarshal(byteJSON, conf)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing byte array ")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error parsing byte array "))
 	}
 	return conf, nil
 }

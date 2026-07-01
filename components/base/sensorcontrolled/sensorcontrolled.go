@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/control"
@@ -48,19 +49,19 @@ type Config struct {
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	deps := []string{}
 	if len(cfg.MovementSensor) == 0 {
-		return nil, nil, resource.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("need at least one movement sensor for base")))
 	}
 	deps = append(deps, cfg.MovementSensor...)
 
 	if cfg.Base == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "base"))
 	}
 	deps = append(deps, cfg.Base)
 
 	for _, pidConf := range cfg.ControlParameters {
 		if pidConf.Type != typeLinVel && pidConf.Type != typeAngVel {
-			return nil, nil, resource.NewConfigValidationError(path,
-				errors.New("control_parameters type must be 'linear_velocity' or 'angular_velocity'"))
+			return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path,
+				errors.New("control_parameters type must be 'linear_velocity' or 'angular_velocity'")))
 		}
 	}
 
@@ -114,7 +115,7 @@ func createSensorBase(
 	}
 
 	if err := sb.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return sb, nil
@@ -124,7 +125,7 @@ func (sb *sensorBase) reconfigure(ctx context.Context, deps resource.Dependencie
 	newConf, err := resource.NativeConfig[*Config](conf)
 	sb.conf = newConf
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if sb.loop != nil {
@@ -151,7 +152,7 @@ func (sb *sensorBase) reconfigure(ctx context.Context, deps resource.Dependencie
 	for _, name := range newConf.MovementSensor {
 		ms, err := movementsensor.FromProvider(deps, name)
 		if err != nil {
-			return errors.Wrapf(err, "no movement sensor named (%s)", name)
+			return errtrace.Wrap(errors.Wrapf(err, "no movement sensor named (%s)", name))
 		}
 		sb.allSensors = append(sb.allSensors, ms)
 	}
@@ -198,12 +199,12 @@ func (sb *sensorBase) reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.determineHeadingFunc(ctx, orientation, compassHeading)
 
 	if orientation == nil && sb.velocities == nil {
-		return errNoGoodSensor
+		return errtrace.Wrap(errNoGoodSensor)
 	}
 
 	sb.controlledBase, err = base.FromProvider(deps, newConf.Base)
 	if err != nil {
-		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
+		return errtrace.Wrap(errors.Wrapf(err, "no base named (%s)", newConf.Base))
 	}
 
 	if sb.velocities != nil && len(newConf.ControlParameters) != 0 {
@@ -217,8 +218,8 @@ func (sb *sensorBase) reconfigure(ctx context.Context, deps resource.Dependencie
 				// configPIDVals at index 1 is angular
 				sb.configPIDVals[1] = pidConf
 			default:
-				return fmt.Errorf("control_parameters type '%v' not accepted, type must be 'linear_velocity' or 'angular_velocity'",
-					pidConf.Type)
+				return errtrace.Wrap(fmt.Errorf("control_parameters type '%v' not accepted, type must be 'linear_velocity' or 'angular_velocity'",
+					pidConf.Type))
 			}
 		}
 
@@ -227,7 +228,7 @@ func (sb *sensorBase) reconfigure(ctx context.Context, deps resource.Dependencie
 		sb.mu.Unlock()
 		if err := sb.setupControlLoop(sb.configPIDVals[0], sb.configPIDVals[1]); err != nil {
 			sb.mu.Lock()
-			return err
+			return errtrace.Wrap(err)
 		}
 		// relock the mutex after setting up the control loop since there is still a defer unlock
 		sb.mu.Lock()
@@ -245,7 +246,7 @@ func (sb *sensorBase) SetPower(
 	if sb.loop != nil {
 		sb.loop.Pause()
 	}
-	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
+	return errtrace.Wrap(sb.controlledBase.SetPower(ctx, linear, angular, extra))
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
@@ -256,22 +257,22 @@ func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) er
 		sb.loop.Pause()
 		// update pid controllers to be an at rest state
 		if err := sb.updateControlConfig(context.Background(), 0, 0); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
-	return sb.controlledBase.Stop(context.Background(), extra)
+	return errtrace.Wrap(sb.controlledBase.Stop(context.Background(), extra))
 }
 
 func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
-	return sb.controlledBase.IsMoving(ctx)
+	return errtrace.Wrap2(sb.controlledBase.IsMoving(ctx))
 }
 
 func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
-	return sb.controlledBase.Properties(ctx, extra)
+	return errtrace.Wrap2(sb.controlledBase.Properties(ctx, extra))
 }
 
 func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
-	return sb.controlledBase.Geometries(ctx, extra)
+	return errtrace.Wrap2(sb.controlledBase.Geometries(ctx, extra))
 }
 
 func (sb *sensorBase) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
@@ -295,7 +296,7 @@ func (sb *sensorBase) DoCommand(ctx context.Context, req map[string]interface{})
 
 func (sb *sensorBase) Close(ctx context.Context) error {
 	if err := sb.Stop(ctx, nil); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if sb.loop != nil {
 		sb.loop.Stop()
@@ -319,7 +320,7 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 		sb.headingFunc = func(ctx context.Context) (float64, bool, error) {
 			orient, err := orientation.Orientation(ctx, nil)
 			if err != nil {
-				return 0, false, err
+				return 0, false, errtrace.Wrap(err)
 			}
 			// this returns (-180-> 180)
 			yaw := rdkutils.RadToDeg(orient.EulerAngles().Yaw)
@@ -332,7 +333,7 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 		sb.headingFunc = func(ctx context.Context) (float64, bool, error) {
 			compass, err := compassHeading.CompassHeading(ctx, nil)
 			if err != nil {
-				return 0, false, err
+				return 0, false, errtrace.Wrap(err)
 			}
 			// flip compass heading to be CCW/Z up
 			compass = 360 - compass
@@ -371,9 +372,9 @@ func (sb *sensorBase) checkTuningStatus() error {
 
 	if needsTuning {
 		if done {
-			return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+			return errtrace.Wrap(control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals))
 		}
-		return control.TuningInProgressErr(sb.Name().ShortName())
+		return errtrace.Wrap(control.TuningInProgressErr(sb.Name().ShortName()))
 	}
 
 	return nil

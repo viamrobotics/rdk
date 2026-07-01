@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -171,7 +172,7 @@ func (imp *impl) Sync() error {
 		}
 	}
 
-	return multierr.Combine(errs...)
+	return errtrace.Wrap(multierr.Combine(errs...))
 }
 
 func (imp *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {

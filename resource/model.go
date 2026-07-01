@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -51,22 +52,22 @@ func (n ModelNamespace) WithFamily(name string) ModelFamily {
 // Validate ensures that important fields exist and are valid.
 func (f ModelFamily) Validate() error {
 	if f.Namespace == "" {
-		return NewConfigValidationFieldRequiredError("", "namespace")
+		return errtrace.Wrap(NewConfigValidationFieldRequiredError("", "namespace"))
 	}
 	if f.Name == "" {
-		return NewConfigValidationFieldRequiredError("", "model_family")
+		return errtrace.Wrap(NewConfigValidationFieldRequiredError("", "model_family"))
 	}
 	if err := ContainsReservedCharacter(string(f.Namespace)); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := ContainsReservedCharacter(f.Name); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if !singleFieldRegexValidator.MatchString(string(f.Namespace)) {
-		return errors.Errorf("string %q is not a valid model namespace", f.Namespace)
+		return errtrace.Wrap(errors.Errorf("string %q is not a valid model namespace", f.Namespace))
 	}
 	if !singleFieldRegexValidator.MatchString(f.Name) {
-		return errors.Errorf("string %q is not a valid model family", f.Name)
+		return errtrace.Wrap(errors.Errorf("string %q is not a valid model family", f.Name))
 	}
 	return nil
 }
@@ -96,22 +97,22 @@ func NewModelFromString(modelStr string) (Model, error) {
 	if singleFieldRegexValidator.MatchString(modelStr) {
 		return DefaultModelFamily.WithModel(modelStr), nil
 	}
-	return Model{}, errors.Errorf("string %q is not a valid model name", modelStr)
+	return Model{}, errtrace.Wrap(errors.Errorf("string %q is not a valid model name", modelStr))
 }
 
 // Validate ensures that important fields exist and are valid.
 func (m Model) Validate() error {
 	if err := m.Family.Validate(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if m.Name == "" {
-		return NewConfigValidationFieldRequiredError("", "name")
+		return errtrace.Wrap(NewConfigValidationFieldRequiredError("", "name"))
 	}
 	if err := ContainsReservedCharacter(m.Name); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if !singleFieldRegexValidator.MatchString(m.Name) {
-		return errors.Errorf("string %q is not a valid model name", m.Name)
+		return errtrace.Wrap(errors.Errorf("string %q is not a valid model name", m.Name))
 	}
 	return nil
 }
@@ -123,7 +124,7 @@ func (m Model) String() string {
 
 // MarshalJSON marshals the model name in its triplet form.
 func (m Model) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m.String())
+	return errtrace.Wrap2(json.Marshal(m.String()))
 }
 
 // UnmarshalJSON parses namespace:family:modelname strings to the full Model{} struct.
@@ -139,21 +140,21 @@ func (m *Model) UnmarshalJSON(data []byte) error {
 			*m = DefaultModelFamily.WithModel(modelStr)
 			return nil
 		default:
-			return fmt.Errorf("not a valid Model config string. Input: `%v`", modelStr)
+			return errtrace.Wrap(fmt.Errorf("not a valid Model config string. Input: `%v`", modelStr))
 		}
 	}
 
 	var tempModel map[string]string
 	if err := json.Unmarshal(data, &tempModel); err != nil {
-		return errors.Wrapf(err,
+		return errtrace.Wrap(errors.Wrapf(err,
 			"%q is not a valid model. "+
 				`models must be of the form "namespace:family:name", "name", or be valid nested JSON `+
-				`with "namespace", "model_family" and "name" fields`, modelStr)
+				`with "namespace", "model_family" and "name" fields`, modelStr))
 	}
 
 	m.Family.Namespace = ModelNamespace(tempModel["namespace"])
 	m.Family.Name = tempModel["model_family"]
 	m.Name = tempModel["name"]
 
-	return m.Validate()
+	return errtrace.Wrap(m.Validate())
 }

@@ -9,6 +9,7 @@ import (
 
 	pb "go.viam.com/api/component/gripper/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -100,7 +101,7 @@ type Gripper interface {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Gripper, error) {
-	return robot.ResourceFromRobot[Gripper](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Gripper](r, Named(name)))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named gripper from a collection of
@@ -108,12 +109,12 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 //
 //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Gripper, error) {
-	return resource.FromDependencies[Gripper](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Gripper](deps, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Gripper from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Gripper, error) {
-	return resource.FromProvider[Gripper](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Gripper](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
@@ -134,15 +135,15 @@ func MakeModel(name string, geometries []spatialmath.Geometry) (referenceframe.M
 	for _, g := range geometries {
 		f, err := referenceframe.NewStaticFrameWithGeometry(g.Label(), spatialmath.NewZeroPose(), g)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		lf, err := referenceframe.NewLinkConfig(f)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		lf.Parent = parent
 		parent = g.Label()
 		cfg.Links = append(cfg.Links, *lf)
 	}
-	return cfg.ParseConfig(name)
+	return errtrace.Wrap2(cfg.ParseConfig(name))
 }

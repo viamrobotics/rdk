@@ -19,12 +19,13 @@ import (
 	goutils "go.viam.com/utils"
 	"golang.org/x/sys/windows"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/etc/winlogproc"
 	"go.viam.com/rdk/logging"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/etc/winlogproc"
 )
 
 const (
@@ -162,7 +163,7 @@ type logLine struct {
 func parseProcessedLog(path string) ([]logLine, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	defer f.Close()
 	var lines []logLine
@@ -175,7 +176,7 @@ func parseProcessedLog(path string) ([]logLine, error) {
 		}
 		lines = append(lines, logLine{time: parts[0], level: parts[1], caller: parts[2], message: parts[3]})
 	}
-	return lines, sc.Err()
+	return lines, errtrace.Wrap(sc.Err())
 }
 
 // maxComparisonDiffs caps how many mismatch lines we surface via

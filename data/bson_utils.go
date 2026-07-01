@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 
+	"braces.dev/errtrace"
 	"go.mongodb.org/mongo-driver/bson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -13,7 +14,7 @@ func pbStructToBSON(s *structpb.Struct) (bson.M, error) {
 	for k, v := range s.Fields {
 		bsonValue, err := convertPBStructValueToBSON(v)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		bsonMap[k] = bsonValue
 	}
@@ -32,19 +33,19 @@ func convertPBStructValueToBSON(v *structpb.Value) (interface{}, error) {
 	case *structpb.Value_BoolValue:
 		return v.GetBoolValue(), nil
 	case *structpb.Value_StructValue:
-		return pbStructToBSON(v.GetStructValue())
+		return errtrace.Wrap2(pbStructToBSON(v.GetStructValue()))
 	case *structpb.Value_ListValue:
 		list := v.GetListValue()
 		var slice bson.A
 		for _, item := range list.Values {
 			bsonValue, err := convertPBStructValueToBSON(item)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			slice = append(slice, bsonValue)
 		}
 		return slice, nil
 	default:
-		return nil, fmt.Errorf("unsupported value type: %T", v.Kind)
+		return nil, errtrace.Wrap(fmt.Errorf("unsupported value type: %T", v.Kind))
 	}
 }

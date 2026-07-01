@@ -1,6 +1,7 @@
 package transform
 
 import "github.com/pkg/errors"
+import "braces.dev/errtrace"
 
 // BrownConrady is a struct for some terms of a modified Brown-Conrady model of distortion.
 type BrownConrady struct {
@@ -14,7 +15,7 @@ type BrownConrady struct {
 // CheckValid checks if the fields for BrownConrady have valid inputs.
 func (bc *BrownConrady) CheckValid() error {
 	if bc == nil {
-		return InvalidDistortionError("BrownConrady shaped distortion_parameters not provided")
+		return errtrace.Wrap(InvalidDistortionError("BrownConrady shaped distortion_parameters not provided"))
 	}
 	return nil
 }
@@ -22,7 +23,7 @@ func (bc *BrownConrady) CheckValid() error {
 // NewBrownConrady takes in a slice of floats that will be passed into the struct in order.
 func NewBrownConrady(inp []float64) (*BrownConrady, error) {
 	if len(inp) > 5 {
-		return nil, errors.Errorf("list of parameters too long, expected max 5, got %d", len(inp))
+		return nil, errtrace.Wrap(errors.Errorf("list of parameters too long, expected max 5, got %d", len(inp)))
 	}
 	if len(inp) == 0 {
 		return &BrownConrady{}, nil

@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -42,14 +43,14 @@ func (s *serviceServer) GetImages(
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, errors.Wrap(err, "camera server GetImages had an error getting the camera component")
+		return nil, errtrace.Wrap(errors.Wrap(err, "camera server GetImages had an error getting the camera component"))
 	}
 
 	if len(req.FilterSourceNames) > 1 {
 		seen := make(map[string]bool)
 		for _, sourceName := range req.FilterSourceNames {
 			if seen[sourceName] {
-				return nil, fmt.Errorf("duplicate source name in filter: %s", sourceName)
+				return nil, errtrace.Wrap(fmt.Errorf("duplicate source name in filter: %s", sourceName))
 			}
 			seen[sourceName] = true
 		}
@@ -59,13 +60,13 @@ func (s *serviceServer) GetImages(
 	// what to encode as. If it's color, just encode as JPEG.
 	imgs, metadata, err := cam.Images(ctx, req.FilterSourceNames, req.Extra.AsMap())
 	if err != nil {
-		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
+		return nil, errtrace.Wrap(errors.Wrap(err, "camera server GetImages could not call Images on the camera"))
 	}
 	imagesMessage := make([]*pb.Image, 0, len(imgs))
 	for _, img := range imgs {
 		imgBytes, err := img.Bytes(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "camera server GetImages could not get the image bytes")
+			return nil, errtrace.Wrap(errors.Wrap(err, "camera server GetImages could not get the image bytes"))
 		}
 		imgMes := &pb.Image{
 			SourceName:  img.SourceName,
@@ -94,7 +95,7 @@ func (s *serviceServer) GetPointCloud(
 	defer span.End()
 	camera, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// If the camera resource is a client, make the call directly so that we're not doing extra working
@@ -103,17 +104,17 @@ func (s *serviceServer) GetPointCloud(
 		// If the camera has a prefix on this viam-server but not the remote, we need to take it out before
 		// forwarding the request.
 		req.Name = camera.Name().Name
-		return camClient.client.GetPointCloud(ctx, req)
+		return errtrace.Wrap2(camClient.client.GetPointCloud(ctx, req))
 	}
 
 	pc, err := camera.NextPointCloud(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	bytes, err := pointcloud.ToBytes(pc)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &pb.GetPointCloudResponse{
@@ -129,11 +130,11 @@ func (s *serviceServer) GetProperties(
 	result := &pb.GetPropertiesResponse{}
 	camera, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	props, err := camera.Properties(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	intrinsics := props.IntrinsicParams
 	if intrinsics != nil {
@@ -187,28 +188,28 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	camera, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, camera, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, camera, req))
 }
 
 // GetStatus returns the status of the camera.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	cam, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, cam, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, cam, req))
 }
 
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }

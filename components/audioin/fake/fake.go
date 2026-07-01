@@ -9,6 +9,7 @@ import (
 
 	goutils "go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/audioin"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -49,10 +50,10 @@ type Config struct {
 // Validate validates the config.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	if conf.SampleRate != 0 && conf.SampleRate <= 0 {
-		return nil, nil, fmt.Errorf("sample_rate must be greater than 0 if provided, got %d", conf.SampleRate)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("sample_rate must be greater than 0 if provided, got %d", conf.SampleRate))
 	}
 	if conf.NumChannels != 0 && conf.NumChannels <= 0 {
-		return nil, nil, fmt.Errorf("num_channels must be greater than 0 if provided, got %d", conf.NumChannels)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("num_channels must be greater than 0 if provided, got %d", conf.NumChannels))
 	}
 	return nil, nil, nil
 }
@@ -61,7 +62,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 func NewAudioIn(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (audioin.AudioIn, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	sampleRate := defaultSampleRate

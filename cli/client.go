@@ -57,6 +57,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -124,15 +125,15 @@ type viamClient struct {
 func ListOrganizationsAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.listOrganizationsAction(ctx, cmd)
+	return errtrace.Wrap(c.listOrganizationsAction(ctx, cmd))
 }
 
 func (c *viamClient) listOrganizationsAction(ctx context.Context, cmd *cli.Command) error {
 	orgs, err := c.listOrganizations(ctx)
 	if err != nil {
-		return errors.Wrap(err, "could not list organizations")
+		return errtrace.Wrap(errors.Wrap(err, "could not list organizations"))
 	}
 	for i, org := range orgs {
 		if i == 0 {
@@ -157,20 +158,20 @@ type organizationsSupportEmailSetArgs struct {
 func OrganizationsSupportEmailSetAction(ctx context.Context, cmd *cli.Command, args organizationsSupportEmailSetArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("cannot set support email without an organization ID")
+		return errtrace.Wrap(errors.New("cannot set support email without an organization ID"))
 	}
 
 	supportEmail := args.SupportEmail
 	if supportEmail == "" {
-		return errors.New("cannot set support email to an empty string")
+		return errtrace.Wrap(errors.New("cannot set support email to an empty string"))
 	}
 
-	return c.organizationsSupportEmailSetAction(ctx, cmd, orgID, supportEmail)
+	return errtrace.Wrap(c.organizationsSupportEmailSetAction(ctx, cmd, orgID, supportEmail))
 }
 
 func (c *viamClient) organizationsSupportEmailSetAction(ctx context.Context, cmd *cli.Command, orgID, supportEmail string) error {
@@ -179,7 +180,7 @@ func (c *viamClient) organizationsSupportEmailSetAction(ctx context.Context, cmd
 		Email: supportEmail,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "Successfully set support email for organization %q to %q", orgID, supportEmail)
 	return nil
@@ -193,15 +194,15 @@ type organizationsSupportEmailGetArgs struct {
 func OrganizationsSupportEmailGetAction(ctx context.Context, cmd *cli.Command, args organizationsSupportEmailGetArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("cannot get support email without an organization ID")
+		return errtrace.Wrap(errors.New("cannot get support email without an organization ID"))
 	}
 
-	return c.organizationsSupportEmailGetAction(ctx, cmd, orgID)
+	return errtrace.Wrap(c.organizationsSupportEmailGetAction(ctx, cmd, orgID))
 }
 
 func (c *viamClient) organizationsSupportEmailGetAction(ctx context.Context, cmd *cli.Command, orgID string) error {
@@ -209,7 +210,7 @@ func (c *viamClient) organizationsSupportEmailGetAction(ctx context.Context, cmd
 		OrgId: orgID,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Support email for organization %q: %q", orgID, resp.GetEmail())
@@ -224,7 +225,7 @@ type disableAuthServiceArgs struct {
 // It asks for the user to confirm that they want to disable the auth service.
 func DisableAuthServiceConfirmation(ctx context.Context, cmd *cli.Command, args disableAuthServiceArgs) error {
 	if args.OrgID == "" {
-		return errors.New("cannot disable auth service without an organization ID")
+		return errtrace.Wrap(errors.New("cannot disable auth service without an organization ID"))
 	}
 
 	printf(cmd.Root().Writer, yellow, "WARNING!!\n")
@@ -233,16 +234,16 @@ func DisableAuthServiceConfirmation(ctx context.Context, cmd *cli.Command, args 
 		"OAuth applications and permanently deleted.\n", args.OrgID, args.OrgID))
 	printf(cmd.Root().Writer, yellow, "If you wish to continue, please type \"disable\":")
 	if err := ctx.Err(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	rawInput, err := bufio.NewReader(cmd.Root().Reader).ReadString('\n')
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if input := strings.ToUpper(strings.TrimSpace(rawInput)); input != "DISABLE" {
-		return errors.New("aborted")
+		return errtrace.Wrap(errors.New("aborted"))
 	}
 	return nil
 }
@@ -251,19 +252,19 @@ func DisableAuthServiceConfirmation(ctx context.Context, cmd *cli.Command, args 
 func DisableAuthServiceAction(ctx context.Context, cmd *cli.Command, args disableAuthServiceArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return c.disableAuthServiceAction(ctx, cmd, args.OrgID)
+	return errtrace.Wrap(c.disableAuthServiceAction(ctx, cmd, args.OrgID))
 }
 
 func (c *viamClient) disableAuthServiceAction(ctx context.Context, cmd *cli.Command, orgID string) error {
 	if orgID == "" {
-		return errors.New("cannot disable auth service without an organization ID")
+		return errtrace.Wrap(errors.New("cannot disable auth service without an organization ID"))
 	}
 
 	if _, err := c.client.DisableAuthService(ctx, &apppb.DisableAuthServiceRequest{OrgId: orgID}); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "disabled auth service for organization %q:\n", orgID)
@@ -278,21 +279,21 @@ type enableAuthServiceArgs struct {
 func EnableAuthServiceAction(ctx context.Context, cmd *cli.Command, args enableAuthServiceArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("cannot enable auth service without an organization ID")
+		return errtrace.Wrap(errors.New("cannot enable auth service without an organization ID"))
 	}
 
-	return c.enableAuthServiceAction(ctx, cmd, args.OrgID)
+	return errtrace.Wrap(c.enableAuthServiceAction(ctx, cmd, args.OrgID))
 }
 
 func (c *viamClient) enableAuthServiceAction(ctx context.Context, cmd *cli.Command, orgID string) error {
 	_, err := c.client.EnableAuthService(ctx, &apppb.EnableAuthServiceRequest{OrgId: orgID})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "enabled auth service for organization %q:\n", orgID)
@@ -308,25 +309,25 @@ type updateBillingServiceArgs struct {
 func UpdateBillingServiceAction(ctx context.Context, cmd *cli.Command, args updateBillingServiceArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("cannot update billing service without an organization ID")
+		return errtrace.Wrap(errors.New("cannot update billing service without an organization ID"))
 	}
 
 	address := args.Address
 	if address == "" {
-		return errors.New("cannot update billing service to an empty address")
+		return errtrace.Wrap(errors.New("cannot update billing service to an empty address"))
 	}
 
-	return c.updateBillingServiceAction(ctx, cmd, orgID, address)
+	return errtrace.Wrap(c.updateBillingServiceAction(ctx, cmd, orgID, address))
 }
 
 func (c *viamClient) updateBillingServiceAction(ctx context.Context, cmd *cli.Command, orgID, addressAsString string) error {
 	address, err := parseBillingAddress(addressAsString)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = c.client.UpdateBillingService(ctx, &apppb.UpdateBillingServiceRequest{
@@ -334,7 +335,7 @@ func (c *viamClient) updateBillingServiceAction(ctx context.Context, cmd *cli.Co
 		BillingAddress: address,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Successfully updated billing service for organization %q", orgID)
@@ -357,13 +358,13 @@ type getBillingConfigArgs struct {
 // GetBillingConfigAction corresponds to `organizations billing get`.
 func GetBillingConfigAction(ctx context.Context, cmd *cli.Command, args getBillingConfigArgs) error {
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to get billing config for")
+		return errtrace.Wrap(errors.New("must provide an organization ID to get billing config for"))
 	}
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.getBillingConfig(ctx, cmd, args.OrgID)
+	return errtrace.Wrap(c.getBillingConfig(ctx, cmd, args.OrgID))
 }
 
 func (c *viamClient) getBillingConfig(ctx context.Context, cmd *cli.Command, orgID string) error {
@@ -371,7 +372,7 @@ func (c *viamClient) getBillingConfig(ctx context.Context, cmd *cli.Command, org
 		OrgId: orgID,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Billing config for organization: %s", orgID)
@@ -403,25 +404,25 @@ type organizationEnableBillingServiceArgs struct {
 func OrganizationEnableBillingServiceAction(ctx context.Context, cmd *cli.Command, args organizationEnableBillingServiceArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("cannot enable billing service without an organization ID")
+		return errtrace.Wrap(errors.New("cannot enable billing service without an organization ID"))
 	}
 
 	address := args.Address
 	if address == "" {
-		return errors.New("cannot enable billing service to an empty address")
+		return errtrace.Wrap(errors.New("cannot enable billing service to an empty address"))
 	}
 
-	return client.organizationEnableBillingServiceAction(ctx, cmd, orgID, address)
+	return errtrace.Wrap(client.organizationEnableBillingServiceAction(ctx, cmd, orgID, address))
 }
 
 func (c *viamClient) organizationEnableBillingServiceAction(ctx context.Context, cmd *cli.Command, orgID, addressAsString string) error {
 	address, err := parseBillingAddress(addressAsString)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = c.client.EnableBillingService(ctx, &apppb.EnableBillingServiceRequest{
@@ -429,7 +430,7 @@ func (c *viamClient) organizationEnableBillingServiceAction(ctx context.Context,
 		BillingAddress: address,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "Successfully enabled billing service for organization %q", orgID)
 	return nil
@@ -443,20 +444,20 @@ type organizationDisableBillingServiceArgs struct {
 func OrganizationDisableBillingServiceAction(ctx context.Context, cmd *cli.Command, args organizationDisableBillingServiceArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("cannot disable billing service without an organization ID")
+		return errtrace.Wrap(errors.New("cannot disable billing service without an organization ID"))
 	}
-	return client.organizationDisableBillingServiceAction(ctx, cmd, orgID)
+	return errtrace.Wrap(client.organizationDisableBillingServiceAction(ctx, cmd, orgID))
 }
 
 func (c *viamClient) organizationDisableBillingServiceAction(ctx context.Context, cmd *cli.Command, orgID string) error {
 	if _, err := c.client.DisableBillingService(ctx, &apppb.DisableBillingServiceRequest{
 		OrgId: orgID,
 	}); err != nil {
-		return errors.WithMessage(err, "could not disable billing service")
+		return errtrace.Wrap(errors.WithMessage(err, "could not disable billing service"))
 	}
 
 	printf(cmd.Root().Writer, "Successfully disabled billing service for organization: %s", orgID)
@@ -472,25 +473,25 @@ type organizationsLogoSetArgs struct {
 func OrganizationLogoSetAction(ctx context.Context, cmd *cli.Command, args organizationsLogoSetArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("cannot set logo without an organization ID")
+		return errtrace.Wrap(errors.New("cannot set logo without an organization ID"))
 	}
 	logoFilePath := args.LogoPath
 	if logoFilePath == "" {
-		return errors.New("cannot set logo to an empty URL")
+		return errtrace.Wrap(errors.New("cannot set logo to an empty URL"))
 	}
 
-	return client.organizationLogoSetAction(ctx, cmd, orgID, logoFilePath)
+	return errtrace.Wrap(client.organizationLogoSetAction(ctx, cmd, orgID, logoFilePath))
 }
 
 func (c *viamClient) organizationLogoSetAction(ctx context.Context, cmd *cli.Command, orgID, logoFilePath string) error {
 	logoFile, err := os.Open(filepath.Clean(logoFilePath))
 	if err != nil {
-		return errors.WithMessagef(err, "could not open logo file: %s", logoFilePath)
+		return errtrace.Wrap(errors.WithMessagef(err, "could not open logo file: %s", logoFilePath))
 	}
 	defer func() {
 		if err := logoFile.Close(); err != nil {
@@ -500,11 +501,11 @@ func (c *viamClient) organizationLogoSetAction(ctx context.Context, cmd *cli.Com
 
 	logoBytes, err := io.ReadAll(logoFile)
 	if err != nil {
-		return errors.WithMessagef(err, "could not read logo file: %s", logoFilePath)
+		return errtrace.Wrap(errors.WithMessagef(err, "could not read logo file: %s", logoFilePath))
 	}
 
 	if len(logoBytes) > logoMaxSize {
-		return errors.Errorf("logo file is too large: %d bytes (max size is 200KB)", len(logoBytes))
+		return errtrace.Wrap(errors.Errorf("logo file is too large: %d bytes (max size is 200KB)", len(logoBytes)))
 	}
 
 	_, err = c.client.OrganizationSetLogo(ctx, &apppb.OrganizationSetLogoRequest{
@@ -512,7 +513,7 @@ func (c *viamClient) organizationLogoSetAction(ctx context.Context, cmd *cli.Com
 		Logo:  logoBytes,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Successfully set the logo for organization %s to logo at file-path: %s",
@@ -528,15 +529,15 @@ type organizationsLogoGetArgs struct {
 func OrganizationsLogoGetAction(ctx context.Context, cmd *cli.Command, args organizationsLogoGetArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("cannot get logo without an organization ID")
+		return errtrace.Wrap(errors.New("cannot get logo without an organization ID"))
 	}
 
-	return c.organizationsLogoGetAction(ctx, cmd, args.OrgID)
+	return errtrace.Wrap(c.organizationsLogoGetAction(ctx, cmd, args.OrgID))
 }
 
 func (c *viamClient) organizationsLogoGetAction(ctx context.Context, cmd *cli.Command, orgID string) error {
@@ -544,7 +545,7 @@ func (c *viamClient) organizationsLogoGetAction(ctx context.Context, cmd *cli.Co
 		OrgId: orgID,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if resp.GetUrl() == "" {
@@ -564,15 +565,15 @@ type listOAuthAppsArgs struct {
 func ListOAuthAppsAction(ctx context.Context, cmd *cli.Command, args listOAuthAppsArgs) error {
 	c, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	orgID := args.OrgID
 	if orgID == "" {
-		return errors.New("organization ID is required to list OAuth apps")
+		return errtrace.Wrap(errors.New("organization ID is required to list OAuth apps"))
 	}
 
-	return c.listOAuthAppsAction(ctx, cmd, orgID)
+	return errtrace.Wrap(c.listOAuthAppsAction(ctx, cmd, orgID))
 }
 
 func (c *viamClient) listOAuthAppsAction(ctx context.Context, cmd *cli.Command, orgID string) error {
@@ -580,7 +581,7 @@ func (c *viamClient) listOAuthAppsAction(ctx context.Context, cmd *cli.Command, 
 		OrgId: orgID,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if len(resp.ClientIds) == 0 {
@@ -603,12 +604,12 @@ type listLocationsArgs struct {
 func ListLocationsAction(ctx context.Context, cmd *cli.Command, args listLocationsArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	listLocations := func(orgID string) error {
 		locs, err := client.listLocations(ctx, orgID)
 		if err != nil {
-			return errors.Wrap(err, "could not list locations")
+			return errtrace.Wrap(errors.Wrap(err, "could not list locations"))
 		}
 		for _, loc := range locs {
 			printf(cmd.Root().Writer, "\t%s (id: %s)", loc.Name, loc.Id)
@@ -622,7 +623,7 @@ func ListLocationsAction(ctx context.Context, cmd *cli.Command, args listLocatio
 	if orgStr == "" { // if there's still not an orgStr, then we can fall back to the alphabetically first
 		orgs, err := client.listOrganizations(ctx)
 		if err != nil {
-			return errors.Wrap(err, "could not list organizations")
+			return errtrace.Wrap(errors.Wrap(err, "could not list organizations"))
 		}
 		for i, org := range orgs {
 			if i == 0 {
@@ -630,12 +631,12 @@ func ListLocationsAction(ctx context.Context, cmd *cli.Command, args listLocatio
 			}
 			printf(cmd.Root().Writer, "%s:", org.Name)
 			if err := listLocations(org.Id); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 		return nil
 	}
-	return listLocations(orgStr)
+	return errtrace.Wrap(listLocations(orgStr))
 }
 
 func printMachinePartStatus(cmd *cli.Command, parts []*apppb.RobotPart) {
@@ -668,16 +669,16 @@ type machinesPartListArgs struct {
 func MachinesPartListAction(ctx context.Context, cmd *cli.Command, args machinesPartListArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err = client.ensureLoggedIn(ctx); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	parts, err := client.robotParts(ctx, args.Organization, args.Location, args.Machine)
 	if err != nil {
-		return errors.Wrap(err, "could not get machine parts")
+		return errtrace.Wrap(errors.Wrap(err, "could not get machine parts"))
 	}
 
 	if len(parts) != 0 {
@@ -700,11 +701,11 @@ func printOrgAndLocNames(ctx *cli.Command, orgName, locName string) {
 
 func (c *viamClient) listAllRobotsInOrg(ctx context.Context, cmd *cli.Command, orgStr string) error {
 	if err := c.selectOrganization(ctx, orgStr); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	locations, err := c.listLocations(ctx, c.selectedOrg.Id)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	for _, loc := range locations {
@@ -716,7 +717,7 @@ func (c *viamClient) listAllRobotsInOrg(ctx context.Context, cmd *cli.Command, o
 		// info to differentiate _where_ a particular robot is
 		printOrgAndLocNames(cmd, c.selectedOrg.Name, loc.Name)
 		if err = c.listLocationRobots(ctx, cmd, c.selectedOrg.Name, loc.Name); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		printf(cmd.Root().Writer, "")
 	}
@@ -727,7 +728,7 @@ func (c *viamClient) listAllRobotsInOrg(ctx context.Context, cmd *cli.Command, o
 func (c *viamClient) listLocationRobots(ctx context.Context, cmd *cli.Command, orgStr, locStr string) error {
 	robots, err := c.listRobots(ctx, orgStr, locStr)
 	if err != nil {
-		return errors.Wrap(err, "could not list machines")
+		return errtrace.Wrap(errors.Wrap(err, "could not list machines"))
 	}
 
 	if orgStr == "" || locStr == "" {
@@ -739,7 +740,7 @@ func (c *viamClient) listLocationRobots(ctx context.Context, cmd *cli.Command, o
 			RobotId: robot.Id,
 		})
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		mainPartID := "<unknown>"
 		for _, part := range parts.Parts {
@@ -758,13 +759,13 @@ func (c *viamClient) lookupMachineByName(ctx context.Context, name, locStr, orgS
 		req := apppb.GetRobotRequest{Id: name}
 		resp, err := c.client.GetRobot(ctx, &req)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return resp.Robot, nil
 	}
 	orgs, err := c.listOrganizations(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	robots := map[string]*apppb.Robot{}
@@ -775,7 +776,7 @@ func (c *viamClient) lookupMachineByName(ctx context.Context, name, locStr, orgS
 		}
 		locs, err := c.listLocations(ctx, org.Id)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		for _, loc := range locs {
 			if locStr != "" && loc.Id != locStr && loc.Name != locStr {
@@ -787,9 +788,9 @@ func (c *viamClient) lookupMachineByName(ctx context.Context, name, locStr, orgS
 		}
 	}
 	if len(robots) == 0 {
-		return nil, fmt.Errorf("unable to find robot with name %s", name)
+		return nil, errtrace.Wrap(fmt.Errorf("unable to find robot with name %s", name))
 	} else if len(robots) != 1 {
-		return nil, fmt.Errorf("multiple robots match %s: %v", name, robots)
+		return nil, errtrace.Wrap(fmt.Errorf("multiple robots match %s: %v", name, robots))
 	}
 
 	var robot *apppb.Robot
@@ -806,13 +807,13 @@ func (c *viamClient) lookupLocationID(ctx context.Context, locStr, orgStr string
 	if orgStr != "" {
 		org, err := c.getOrg(ctx, orgStr)
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 		orgs = append(orgs, org)
 	} else {
 		orgs, err = c.listOrganizations(ctx)
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 	}
 	for _, org := range orgs {
@@ -822,7 +823,7 @@ func (c *viamClient) lookupLocationID(ctx context.Context, locStr, orgStr string
 		}
 		locs, err := c.listLocations(ctx, org.Id)
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 
 		for _, loc := range locs {
@@ -840,10 +841,10 @@ func (c *viamClient) lookupLocationID(ctx context.Context, locStr, orgStr string
 		if orgStr != "" {
 			orgAddenda = fmt.Sprintf(" in organization %q", orgStr)
 		}
-		return "", errors.Errorf("no location found for %q%q", locStr, orgAddenda)
+		return "", errtrace.Wrap(errors.Errorf("no location found for %q%q", locStr, orgAddenda))
 	}
 	if len(foundLocs) != 1 {
-		return "", errors.Errorf("multiple locations match %q: %v", locStr, foundLocs)
+		return "", errtrace.Wrap(errors.Errorf("multiple locations match %q: %v", locStr, foundLocs))
 	}
 
 	return foundLocs[0].Id, nil
@@ -858,23 +859,23 @@ type createMachineActionArgs struct {
 // CreateMachineAction is the corresponding action for 'machines create'.
 func CreateMachineAction(ctx context.Context, cmd *cli.Command, args createMachineActionArgs) error {
 	if args.Location == "" {
-		return errors.New("must provide a location to create a machine in")
+		return errtrace.Wrap(errors.New("must provide a location to create a machine in"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	locID, err := client.lookupLocationID(ctx, args.Location, args.Organization)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.NewRobotRequest{Name: args.Name, Location: locID}
 
 	resp, err := client.client.NewRobot(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	printf(cmd.Root().Writer, "created new machine with id %s", resp.Id)
 	return nil
@@ -890,18 +891,18 @@ type deleteMachineActionArgs struct {
 func DeleteMachineAction(ctx context.Context, cmd *cli.Command, args deleteMachineActionArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	robot, err := client.lookupMachineByName(ctx, args.Machine, args.Location, args.Organization)
 	robotID := robot.Id
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.DeleteRobotRequest{Id: robotID}
 	if _, err = client.client.DeleteRobot(ctx, &req); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "deleted machine %s", args.Machine)
@@ -919,22 +920,22 @@ type updateMachineActionArgs struct {
 // UpdateMachineAction is the corresponding action for 'machines move'.
 func UpdateMachineAction(ctx context.Context, cmd *cli.Command, args updateMachineActionArgs) error {
 	if args.NewName == "" && args.Location == "" {
-		return errors.New("must pass a new name or new location to update the machine")
+		return errtrace.Wrap(errors.New("must pass a new name or new location to update the machine"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	robot, err := client.lookupMachineByName(ctx, args.Machine, args.Location, args.Organization)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	id := robot.Id
 	locStr := robot.GetLocation()
 	currLocation, err := client.client.GetLocation(ctx, &apppb.GetLocationRequest{LocationId: locStr})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var orgID string
@@ -947,13 +948,13 @@ func UpdateMachineAction(ctx context.Context, cmd *cli.Command, args updateMachi
 
 	newLocID, err := client.lookupLocationID(ctx, args.NewLocation, orgID)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.UpdateRobotRequest{Id: id, Location: newLocID, Name: args.NewName}
 
 	if _, err = client.client.UpdateRobot(ctx, &req); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "updated machine %s", args.Machine)
@@ -964,14 +965,14 @@ func UpdateMachineAction(ctx context.Context, cmd *cli.Command, args updateMachi
 func ListRobotsAction(ctx context.Context, cmd *cli.Command, args listRobotsActionArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	orgStr := args.Organization
 	locStr := args.Location
 	if args.All {
-		return client.listAllRobotsInOrg(ctx, cmd, orgStr)
+		return errtrace.Wrap(client.listAllRobotsInOrg(ctx, cmd, orgStr))
 	}
-	return client.listLocationRobots(ctx, cmd, orgStr, locStr)
+	return errtrace.Wrap(client.listLocationRobots(ctx, cmd, orgStr, locStr))
 }
 
 type robotsStatusArgs struct {
@@ -985,16 +986,16 @@ func (c *viamClient) getOrgAndLocationNamesForRobot(ctx context.Context, robot *
 		ctx, &apppb.GetOrganizationsWithAccessToLocationRequest{LocationId: robot.Location},
 	)
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 	if len(orgs.OrganizationIdentities) == 0 {
-		return "", "", errors.Errorf("no parent org found for robot: %s", robot.Id)
+		return "", "", errtrace.Wrap(errors.Errorf("no parent org found for robot: %s", robot.Id))
 	}
 	org := orgs.OrganizationIdentities[0]
 
 	location, err := c.client.GetLocation(ctx, &apppb.GetLocationRequest{LocationId: robot.Location})
 	if err != nil {
-		return "", "", err
+		return "", "", errtrace.Wrap(err)
 	}
 
 	return org.Name, location.Location.Name, nil
@@ -1004,24 +1005,24 @@ func (c *viamClient) getOrgAndLocationNamesForRobot(ctx context.Context, robot *
 func RobotsStatusAction(ctx context.Context, cmd *cli.Command, args robotsStatusArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	orgStr := args.Organization
 	locStr := args.Location
 	robot, err := client.robot(ctx, orgStr, locStr, args.Machine)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	parts, err := client.robotParts(ctx, client.selectedOrg.Id, client.selectedLoc.Id, robot.Id)
 	if err != nil {
-		return errors.Wrap(err, "could not get machine parts")
+		return errtrace.Wrap(errors.Wrap(err, "could not get machine parts"))
 	}
 
 	if orgStr == "" || locStr == "" {
 		orgName, locName, err := client.getOrgAndLocationNamesForRobot(ctx, robot)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		printOrgAndLocNames(cmd, orgName, locName)
 	}
@@ -1053,7 +1054,7 @@ func getNumLogs(cmd *cli.Command, numLogs int) (int, error) {
 		return defaultNumLogs, nil
 	}
 	if numLogs > maxNumLogs {
-		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", generalFlagCount, maxNumLogs)
+		return 0, errtrace.Wrap(errors.Errorf("provided too high of a %q value. Maximum is %d", generalFlagCount, maxNumLogs))
 	}
 	return numLogs, nil
 }
@@ -1075,19 +1076,19 @@ type robotsLogsArgs struct {
 func RobotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Check if both start time and count are provided
 	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
 	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
 	if args.Start != "" && args.Count > 0 && args.End == "" {
-		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
+		return errtrace.Wrap(errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
 			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
 			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
 			"rather than the 10 logs closest to the start time. " +
 			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
-		)
+		))
 	}
 
 	orgStr := args.Organization
@@ -1095,7 +1096,7 @@ func RobotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs
 	robotStr := args.Machine
 	robot, err := client.robot(ctx, orgStr, locStr, robotStr)
 	if err != nil {
-		return errors.Wrap(err, "could not get machine")
+		return errtrace.Wrap(errors.Wrap(err, "could not get machine"))
 	}
 
 	// TODO(RSDK-9727) - this is a little inefficient insofar as a `robot` is created immediately
@@ -1103,7 +1104,7 @@ func RobotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs
 	// API for getting parts when we already have a `Robot`
 	parts, err := client.robotParts(ctx, orgStr, locStr, robotStr)
 	if err != nil {
-		return errors.Wrap(err, "could not get machine parts")
+		return errtrace.Wrap(errors.Wrap(err, "could not get machine parts"))
 	}
 
 	// Determine the output destination
@@ -1111,7 +1112,7 @@ func RobotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs
 	if args.Output != "" {
 		file, err := os.OpenFile(args.Output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 		if err != nil {
-			return errors.Wrap(err, "could not open file for writing")
+			return errtrace.Wrap(errors.Wrap(err, "could not open file for writing"))
 		}
 		//nolint:errcheck
 		defer file.Close()
@@ -1121,7 +1122,7 @@ func RobotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs
 		writer = cmd.Root().Writer
 	}
 
-	return client.fetchAndSaveLogs(ctx, robot, parts, args, writer)
+	return errtrace.Wrap(client.fetchAndSaveLogs(ctx, robot, parts, args, writer))
 }
 
 // fetchLogs fetches logs for all parts and writes them to the provided writer.
@@ -1136,18 +1137,18 @@ func (c *viamClient) fetchAndSaveLogs(
 				header := fmt.Sprintf("Robot: %s -> Location: %s -> Organization: %s -> Machine: %s\n",
 					robot.Name, args.Location, args.Organization, args.Machine)
 				if _, err := fmt.Fprintln(writer, header); err != nil {
-					return errors.Wrap(err, "failed to write robot header")
+					return errtrace.Wrap(errors.Wrap(err, "failed to write robot header"))
 				}
 			}
 
 			if _, err := fmt.Fprintf(writer, "===== Logs for Part: %s =====\n", part.Name); err != nil {
-				return errors.Wrap(err, "failed to write header to writer")
+				return errtrace.Wrap(errors.Wrap(err, "failed to write header to writer"))
 			}
 		}
 
 		// Stream logs for the part
 		if err := c.streamLogsForPart(ctx, part, args, writer); err != nil {
-			return errors.Wrapf(err, "could not stream logs for part %s", part.Name)
+			return errtrace.Wrap(errors.Wrapf(err, "could not stream logs for part %s", part.Name))
 		}
 	}
 	return nil
@@ -1157,7 +1158,7 @@ func (c *viamClient) fetchAndSaveLogs(
 func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
 	maxLogsToFetch, err := getNumLogs(c.c, args.Count)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if args.Start == "" {
@@ -1166,11 +1167,11 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 
 	startTime, err := parseTimeString(args.Start)
 	if err != nil {
-		return errors.Wrap(err, "invalid start time format")
+		return errtrace.Wrap(errors.Wrap(err, "invalid start time format"))
 	}
 	endTime, err := parseTimeString(args.End)
 	if err != nil {
-		return errors.Wrap(err, "invalid end time format")
+		return errtrace.Wrap(errors.Wrap(err, "invalid end time format"))
 	}
 
 	keyword := &args.Keyword
@@ -1194,7 +1195,7 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 			End:       endTime,
 		})
 		if err != nil {
-			return errors.Wrap(err, "failed to fetch logs")
+			return errtrace.Wrap(errors.Wrap(err, "failed to fetch logs"))
 		}
 
 		// End of pagination if no logs are returned.
@@ -1218,11 +1219,11 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 		for _, log := range resp.Logs {
 			formattedLog, err := formatLog(log, part.Name, args.Format)
 			if err != nil {
-				return errors.Wrap(err, "failed to format log")
+				return errtrace.Wrap(errors.Wrap(err, "failed to format log"))
 			}
 
 			if _, err := fmt.Fprintln(writer, formattedLog); err != nil {
-				return errors.Wrap(err, "failed to write log to writer")
+				return errtrace.Wrap(errors.Wrap(err, "failed to write log to writer"))
 			}
 		}
 
@@ -1257,7 +1258,7 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 		}
 		logJSON, err := json.Marshal(logMap)
 		if err != nil {
-			return "", errors.Wrap(err, "failed to marshal log to JSON")
+			return "", errtrace.Wrap(errors.Wrap(err, "failed to marshal log to JSON"))
 		}
 		return string(logJSON), nil
 	case "text", "":
@@ -1270,7 +1271,7 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 			fieldsString,
 		), nil
 	default:
-		return "", fmt.Errorf("invalid format: %s", format)
+		return "", errtrace.Wrap(fmt.Errorf("invalid format: %s", format))
 	}
 }
 
@@ -1284,19 +1285,19 @@ type machinesPartCreateArgs struct {
 func machinesPartCreateAction(ctx context.Context, cmd *cli.Command, args machinesPartCreateArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	robot, err := client.lookupMachineByName(ctx, args.Machine, args.Location, args.Organization)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.NewRobotPartRequest{PartName: args.PartName, RobotId: robot.Id}
 
 	resp, err := client.client.NewRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "created new machine part with ID %s", resp.PartId)
@@ -1313,19 +1314,19 @@ type machinesPartDeleteArgs struct {
 func machinesPartDeleteAction(ctx context.Context, cmd *cli.Command, args machinesPartDeleteArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.DeleteRobotPartRequest{PartId: part.Id}
 
 	_, err = client.client.DeleteRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully deleted part %s (ID: %s)", part.Name, part.Id)
@@ -1340,7 +1341,7 @@ func resourcesFromPartConfig(config map[string]any, resourceTypePlural string) (
 		}
 		r, ok := v.([]any)
 		if !ok {
-			return nil, fmt.Errorf("config %s were improperly formatted", resourceTypePlural)
+			return nil, errtrace.Wrap(fmt.Errorf("config %s were improperly formatted", resourceTypePlural))
 		}
 
 		resources = r
@@ -1352,7 +1353,7 @@ func resourcesFromPartConfig(config map[string]any, resourceTypePlural string) (
 	for _, r := range resources {
 		resource, ok := r.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("%s config was improperly formatted", resourceTypePlural)
+			return nil, errtrace.Wrap(fmt.Errorf("%s config was improperly formatted", resourceTypePlural))
 		}
 		typedResources = append(typedResources, resource)
 	}
@@ -1388,15 +1389,15 @@ type robotsPartAddResourceArgs struct {
 
 func robotsPartAddResourceAction(ctx context.Context, cmd *cli.Command, args robotsPartAddResourceArgs) error {
 	if args.API == "" && args.ResourceSubtype == "" {
-		return errors.New("cannot add a resource of unknown subtype; a subtype or fully qualified API triplet must be specified")
+		return errtrace.Wrap(errors.New("cannot add a resource of unknown subtype; a subtype or fully qualified API triplet must be specified"))
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config := part.RobotConfig.AsMap()
@@ -1421,10 +1422,10 @@ func robotsPartAddResourceAction(ctx context.Context, cmd *cli.Command, args rob
 		resourceMap := resourceMap(cmd)
 		resourceType = resourceMap[subtype]
 		if resourceType == "" {
-			return fmt.Errorf(
+			return errtrace.Wrap(fmt.Errorf(
 				"resource subtype %s is unknown; if you're trying to add a custom resource type then a fully qualified API is necessary",
 				subtype,
-			)
+			))
 		}
 		api = fmt.Sprintf("rdk:%s:%s", resourceType, subtype)
 	}
@@ -1440,13 +1441,13 @@ func robotsPartAddResourceAction(ctx context.Context, cmd *cli.Command, args rob
 	resourceTypePlural := resourceType + "s"
 	resources, err := resourcesFromPartConfig(config, resourceTypePlural)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// ensure no component already exists with the given name
 	for _, c := range resources {
 		if c["name"] == args.Name {
-			return fmt.Errorf("%s with name %s already exists", resourceType, args.Name)
+			return errtrace.Wrap(fmt.Errorf("%s with name %s already exists", resourceType, args.Name))
 		}
 	}
 
@@ -1460,13 +1461,13 @@ func robotsPartAddResourceAction(ctx context.Context, cmd *cli.Command, args rob
 
 	pbConfig, err := protoutils.StructToStructPb(config)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
 	_, err = client.client.UpdateRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully added resource %s to part %s", args.Name, args.Part)
@@ -1484,12 +1485,12 @@ type robotsPartRemoveResourceArgs struct {
 func robotsPartRemoveResourceAction(ctx context.Context, cmd *cli.Command, args robotsPartRemoveResourceArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config := part.RobotConfig.AsMap()
@@ -1497,7 +1498,7 @@ func robotsPartRemoveResourceAction(ctx context.Context, cmd *cli.Command, args 
 	for _, resourceType := range []string{"components", "services"} {
 		resources, err := resourcesFromPartConfig(config, resourceType)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		var updatedResources []map[string]any
 		for _, c := range resources {
@@ -1517,13 +1518,13 @@ func robotsPartRemoveResourceAction(ctx context.Context, cmd *cli.Command, args 
 
 	pbConfig, err := protoutils.StructToStructPb(config)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
 	_, err = client.client.UpdateRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully removed resource %s from part %s", args.Name, args.Part)
@@ -1539,10 +1540,10 @@ func parseJSONOrFile(s string) (map[string]any, error) {
 	}
 	data, err := os.ReadFile(s) //nolint:gosec // s is a user-provided path for a JSON file
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse as JSON (%w) and failed to read file %q: %w", jsonErr, s, err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to parse as JSON (%w) and failed to read file %q: %w", jsonErr, s, err))
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON from file %q: %w", s, err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to parse JSON from file %q: %w", s, err))
 	}
 	return result, nil
 }
@@ -1556,22 +1557,22 @@ type resourceEnableDisableArgs struct {
 }
 
 func resourceEnableAction(ctx context.Context, cmd *cli.Command, args resourceEnableDisableArgs) error {
-	return resourceEnableDisable(ctx, cmd, args, false)
+	return errtrace.Wrap(resourceEnableDisable(ctx, cmd, args, false))
 }
 
 func resourceDisableAction(ctx context.Context, cmd *cli.Command, args resourceEnableDisableArgs) error {
-	return resourceEnableDisable(ctx, cmd, args, true)
+	return errtrace.Wrap(resourceEnableDisable(ctx, cmd, args, true))
 }
 
 func resourceEnableDisable(ctx context.Context, cmd *cli.Command, args resourceEnableDisableArgs, disable bool) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	for _, name := range args.ResourceName {
 		if strings.TrimSpace(name) == "" {
-			return errors.New("--resource value must not be empty")
+			return errtrace.Wrap(errors.New("--resource value must not be empty"))
 		}
 	}
 
@@ -1587,7 +1588,7 @@ func resourceEnableDisable(ctx context.Context, cmd *cli.Command, args resourceE
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config := part.RobotConfig.AsMap()
@@ -1595,7 +1596,7 @@ func resourceEnableDisable(ctx context.Context, cmd *cli.Command, args resourceE
 	for _, resourceType := range []string{"components", "services", "modules"} {
 		resources, err := resourcesFromPartConfig(config, resourceType)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		for _, resource := range resources {
 			name, ok := resource["name"].(string)
@@ -1617,18 +1618,18 @@ func resourceEnableDisable(ctx context.Context, cmd *cli.Command, args resourceE
 	}
 
 	if len(updatedResources) == 0 {
-		return errors.New("no matching resources found in part config")
+		return errtrace.Wrap(errors.New("no matching resources found in part config"))
 	}
 
 	pbConfig, err := protoutils.StructToStructPb(config)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
 	_, err = client.client.UpdateRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	action := "enabled"
@@ -1651,17 +1652,17 @@ type machinesPartUpdateResourceArgs struct {
 func machinesPartUpdateResourceAction(ctx context.Context, cmd *cli.Command, args machinesPartUpdateResourceArgs) error {
 	updates, err := parseJSONOrFile(args.Config)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config := part.RobotConfig.AsMap()
@@ -1669,7 +1670,7 @@ func machinesPartUpdateResourceAction(ctx context.Context, cmd *cli.Command, arg
 	for _, resourceType := range []string{"components", "services"} {
 		resources, err := resourcesFromPartConfig(config, resourceType)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		for _, resource := range resources {
 			if resource["name"] == args.ResourceName {
@@ -1687,18 +1688,18 @@ func machinesPartUpdateResourceAction(ctx context.Context, cmd *cli.Command, arg
 	}
 
 	if !resourceFound {
-		return fmt.Errorf("resource %q not found in part config", args.ResourceName)
+		return errtrace.Wrap(fmt.Errorf("resource %q not found in part config", args.ResourceName))
 	}
 
 	pbConfig, err := protoutils.StructToStructPb(config)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
 	_, err = client.client.UpdateRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Successfully updated resource %q", args.ResourceName)
@@ -1739,7 +1740,7 @@ type machinesPartDeleteTriggerArgs struct {
 func machinesPartAddTriggerAction(ctx context.Context, cmd *cli.Command, args machinesPartAddTriggerArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var triggerConfig map[string]any
@@ -1750,44 +1751,44 @@ func machinesPartAddTriggerAction(ctx context.Context, cmd *cli.Command, args ma
 		// Non-interactive path: config and part are required flags.
 		triggerConfig, err = parseJSONOrFile(args.Config)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		partStr := strings.TrimSpace(args.Part)
 		if partStr == "" {
-			return errors.New("part is required when using --config; specify --part")
+			return errtrace.Wrap(errors.New("part is required when using --config; specify --part"))
 		}
 		part, err = client.robotPart(ctx, args.Organization, args.Location, args.Machine, partStr)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else {
 		// Get part ID
 		part, err = client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		triggerConfig, err = collectTriggerForm(part)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	config := part.RobotConfig.AsMap()
 
 	if err := validateTriggerConfig(cmd.Root().ErrWriter, config, triggerConfig); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	name, _ := triggerConfig["name"].(string)
 
 	if err := combineTriggers(config, triggerConfig, name); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully added trigger %q to part %s", name, part.Name)
@@ -1802,7 +1803,7 @@ func collectTriggerForm(part *apppb.RobotPart) (map[string]any, error) {
 		huh.NewInput().Title("Set a trigger name:").Value(&triggerName).
 			Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
-					return errors.New("trigger name cannot be empty")
+					return errtrace.Wrap(errors.New("trigger name cannot be empty"))
 				}
 				return nil
 			}),
@@ -1817,7 +1818,7 @@ func collectTriggerForm(part *apppb.RobotPart) (map[string]any, error) {
 			Value(&eventType),
 	))
 	if err := form.Run(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	event := map[string]any{"type": eventType}
@@ -1835,19 +1836,19 @@ func collectTriggerForm(part *apppb.RobotPart) (map[string]any, error) {
 				Value(&dataTypes).
 				Validate(func(s []string) error {
 					if len(s) == 0 {
-						return errors.New("select at least one data type")
+						return errtrace.Wrap(errors.New("select at least one data type"))
 					}
 					return nil
 				}),
 		)).Run(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		event["data_ingested"] = map[string]any{"data_types": toAnySlice(dataTypes)}
 
 	case triggerEventConditionalDataIngested:
 		conditionalEvent, err := collectConditionalDataIngested(part)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		event["conditional"] = conditionalEvent
 
@@ -1863,19 +1864,19 @@ func collectTriggerForm(part *apppb.RobotPart) (map[string]any, error) {
 				Value(&logLevels).
 				Validate(func(s []string) error {
 					if len(s) == 0 {
-						return errors.New("select at least one log level")
+						return errtrace.Wrap(errors.New("select at least one log level"))
 					}
 					return nil
 				}),
 		)).Run(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		event["log_levels"] = toAnySlice(logLevels)
 	}
 
 	notifications, err := collectNotifications(eventType)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return map[string]any{
@@ -1895,7 +1896,7 @@ func combineTriggers(config, triggerConfig map[string]any, name string) error {
 	for _, t := range triggers {
 		if tMap, ok := t.(map[string]any); ok {
 			if tMap["name"] == name {
-				return fmt.Errorf("trigger with name %q already exists", name)
+				return errtrace.Wrap(fmt.Errorf("trigger with name %q already exists", name))
 			}
 		}
 	}
@@ -1913,7 +1914,7 @@ func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, erro
 	subtypeByName := make(map[string]string)
 	resources, err := resourcesFromPartConfig(confMap, "components")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for _, r := range resources {
 		n, _ := r["name"].(string)
@@ -1928,7 +1929,7 @@ func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, erro
 		}
 	}
 	if len(resourceOpts) == 0 {
-		return nil, errors.New("this machine contains no components")
+		return nil, errtrace.Wrap(errors.New("this machine contains no components"))
 	}
 	// Select a resource.
 	var resourceName string
@@ -1936,12 +1937,12 @@ func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, erro
 		huh.NewSelect[string]().Title("Select a resource:").
 			Options(resourceOpts...).Value(&resourceName),
 	)).Run(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	subtype, ok := subtypeByName[resourceName]
 	if !ok {
-		return nil, fmt.Errorf("could not determine subtype for resource %q", resourceName)
+		return nil, errtrace.Wrap(fmt.Errorf("could not determine subtype for resource %q", resourceName))
 	}
 
 	// Select a data capture method.
@@ -1955,7 +1956,7 @@ func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, erro
 			huh.NewSelect[string]().Title("Select a data capture method:").
 				Options(methodOpts...).Value(&method),
 		)).Run(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		if err := huh.NewForm(huh.NewGroup(
@@ -1964,12 +1965,12 @@ func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, erro
 				Value(&method).
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {
-						return errors.New("method cannot be empty")
+						return errtrace.Wrap(errors.New("method cannot be empty"))
 					}
 					return nil
 				}),
 		)).Run(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -1983,7 +1984,7 @@ func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, erro
 			Value(&conditionKey).
 			Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
-					return errors.New("key cannot be empty")
+					return errtrace.Wrap(errors.New("key cannot be empty"))
 				}
 				return nil
 			}),
@@ -2003,12 +2004,12 @@ func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, erro
 			Value(&conditionValue).
 			Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
-					return errors.New("value cannot be empty")
+					return errtrace.Wrap(errors.New("value cannot be empty"))
 				}
 				return nil
 			}),
 	)).Run(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return map[string]any{
@@ -2041,20 +2042,20 @@ func parseValueString(s string) any {
 func collectNotifications(eventType string) ([]any, error) {
 	validateSeconds := func(s string) error {
 		if strings.TrimSpace(s) == "" {
-			return errors.New("value cannot be empty")
+			return errtrace.Wrap(errors.New("value cannot be empty"))
 		}
 		v, err := strconv.ParseFloat(s, 64)
 		if err != nil {
-			return errors.New("must be a number")
+			return errtrace.Wrap(errors.New("must be a number"))
 		}
 		switch eventType {
 		case triggerEventPartOnline, triggerEventPartOffline:
 			if v <= 0 {
-				return errors.New("must be over 0 for liveness triggers")
+				return errtrace.Wrap(errors.New("must be over 0 for liveness triggers"))
 			}
 		default:
 			if v < 0 {
-				return errors.New("must be >= 0")
+				return errtrace.Wrap(errors.New("must be >= 0"))
 			}
 		}
 		return nil
@@ -2068,7 +2069,7 @@ func collectNotifications(eventType string) ([]any, error) {
 		huh.NewNote().Title("Webhook notifications"),
 		huh.NewConfirm().Title("Add a webhook notification?").Value(&addWebhook),
 	)).Run(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for addWebhook {
 		var webhookURL, secondsStr string
@@ -2079,7 +2080,7 @@ func collectNotifications(eventType string) ([]any, error) {
 					Validate(func(s string) error {
 						u, parseErr := url.Parse(strings.TrimSpace(s))
 						if parseErr != nil || u.Scheme == "" || u.Host == "" {
-							return errors.New("not a valid url")
+							return errtrace.Wrap(errors.New("not a valid url"))
 						}
 						return nil
 					}),
@@ -2090,7 +2091,7 @@ func collectNotifications(eventType string) ([]any, error) {
 				huh.NewConfirm().Title("Add another webhook?").Value(&addAnother),
 			),
 		).Run(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
 		notifications = append(notifications, map[string]any{
@@ -2105,7 +2106,7 @@ func collectNotifications(eventType string) ([]any, error) {
 		huh.NewNote().Title("Email alerts"),
 		huh.NewConfirm().Title("Email all machine owners?").Value(&emailAll),
 	)).Run(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if emailAll {
 		var secondsStr string
@@ -2114,7 +2115,7 @@ func collectNotifications(eventType string) ([]any, error) {
 				Value(&secondsStr).
 				Validate(validateSeconds),
 		)).Run(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
 		notifications = append(notifications, map[string]any{
@@ -2127,7 +2128,7 @@ func collectNotifications(eventType string) ([]any, error) {
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewConfirm().Title("Email a specific email address?").Value(&addSpecific),
 	)).Run(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for addSpecific {
 		var email, secondsStr string
@@ -2137,7 +2138,7 @@ func collectNotifications(eventType string) ([]any, error) {
 				huh.NewInput().Title("Email address:").Value(&email).
 					Validate(func(s string) error {
 						if !strings.Contains(strings.TrimSpace(s), "@") {
-							return errors.New("must be a valid email address")
+							return errtrace.Wrap(errors.New("must be a valid email address"))
 						}
 						return nil
 					}),
@@ -2149,7 +2150,7 @@ func collectNotifications(eventType string) ([]any, error) {
 				huh.NewConfirm().Title("Add another email?").Value(&addAnother),
 			),
 		).Run(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
 		notifications = append(notifications, map[string]any{
@@ -2159,7 +2160,7 @@ func collectNotifications(eventType string) ([]any, error) {
 	}
 
 	if len(notifications) == 0 {
-		return nil, errors.New("at least one notification (webhook or email) is required")
+		return nil, errtrace.Wrap(errors.New("at least one notification (webhook or email) is required"))
 	}
 
 	return notifications, nil
@@ -2176,19 +2177,19 @@ func toAnySlice(ss []string) []any {
 func machinesPartDeleteTriggerAction(ctx context.Context, cmd *cli.Command, args machinesPartDeleteTriggerArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config := part.RobotConfig.AsMap()
 
 	triggers, err := resourcesFromPartConfig(config, "triggers")
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if len(triggers) == 0 {
 		printf(cmd.Root().Writer, "no triggers found on part %s", part.Name)
@@ -2201,7 +2202,7 @@ func machinesPartDeleteTriggerAction(ctx context.Context, cmd *cli.Command, args
 			return name
 		})
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		args.Name, _ = triggers[idx]["name"].(string)
 	}
@@ -2223,13 +2224,13 @@ func machinesPartDeleteTriggerAction(ctx context.Context, cmd *cli.Command, args
 
 	pbConfig, err := protoutils.StructToStructPb(config)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
 	_, err = client.client.UpdateRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully deleted trigger %q", args.Name)
@@ -2280,21 +2281,21 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	// name: required non-empty string
 	nameRaw, ok := triggerConfig["name"]
 	if !ok {
-		return errors.New("trigger config missing required field \"name\"")
+		return errtrace.Wrap(errors.New("trigger config missing required field \"name\""))
 	}
 	name, ok := nameRaw.(string)
 	if !ok || name == "" {
-		return errors.New("trigger \"name\" must be a non-empty string")
+		return errtrace.Wrap(errors.New("trigger \"name\" must be a non-empty string"))
 	}
 
 	// 2. event: required map
 	eventRaw, ok := triggerConfig["event"]
 	if !ok {
-		return errors.New("trigger config missing required field \"event\"")
+		return errtrace.Wrap(errors.New("trigger config missing required field \"event\""))
 	}
 	event, ok := eventRaw.(map[string]any)
 	if !ok {
-		return errors.New("trigger \"event\" must be an object")
+		return errtrace.Wrap(errors.New("trigger \"event\" must be an object"))
 	}
 
 	// 3. event.type: must be one of the valid types
@@ -2307,14 +2308,14 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	}
 	eventTypeRaw, ok := event["type"]
 	if !ok {
-		return errors.New("trigger event missing required field \"type\"")
+		return errtrace.Wrap(errors.New("trigger event missing required field \"type\""))
 	}
 	eventType, ok := eventTypeRaw.(string)
 	_, validType := validEventTypes[eventType]
 	if !ok || !validType {
-		return fmt.Errorf(
+		return errtrace.Wrap(fmt.Errorf(
 			"trigger event type must be one of: part_online, part_offline, "+
-				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw)
+				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw))
 	}
 
 	// warn about unknown event keys
@@ -2333,36 +2334,36 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	switch eventType {
 	case triggerEventPartDataSynced:
 		if err := validateDataSynced(event); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	case triggerEventConditionalDataIngested:
 		if err := validateConditionalDataIngested(w, event, config); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	case triggerEventConditionalLogsIngested:
 		if err := validateConditionalLogsIngested(event); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	// 5. notifications: required non-empty array
 	notificationsRaw, ok := triggerConfig["notifications"]
 	if !ok {
-		return errors.New("trigger config missing required field \"notifications\"")
+		return errtrace.Wrap(errors.New("trigger config missing required field \"notifications\""))
 	}
 	notifications, ok := notificationsRaw.([]any)
 	if !ok || len(notifications) == 0 {
-		return errors.New("trigger \"notifications\" must be a non-empty array")
+		return errtrace.Wrap(errors.New("trigger \"notifications\" must be a non-empty array"))
 	}
 
 	// 6. validate each notification
 	for i, nRaw := range notifications {
 		n, ok := nRaw.(map[string]any)
 		if !ok {
-			return fmt.Errorf("notification at index %d must be an object", i)
+			return errtrace.Wrap(fmt.Errorf("notification at index %d must be an object", i))
 		}
 		if err := validateNotification(w, n, i, eventType); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -2377,25 +2378,25 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 func validateDataSynced(event map[string]any) error {
 	diRaw, ok := event["data_ingested"]
 	if !ok {
-		return errors.New("event type \"part_data_ingested\" requires \"data_ingested\" field")
+		return errtrace.Wrap(errors.New("event type \"part_data_ingested\" requires \"data_ingested\" field"))
 	}
 	di, ok := diRaw.(map[string]any)
 	if !ok {
-		return errors.New("\"data_ingested\" must be an object")
+		return errtrace.Wrap(errors.New("\"data_ingested\" must be an object"))
 	}
 	dtRaw, ok := di["data_types"]
 	if !ok {
-		return errors.New("\"data_ingested\" requires \"data_types\" field")
+		return errtrace.Wrap(errors.New("\"data_ingested\" requires \"data_types\" field"))
 	}
 	dataTypes, ok := dtRaw.([]any)
 	if !ok || len(dataTypes) == 0 {
-		return errors.New("\"data_types\" must be a non-empty array")
+		return errtrace.Wrap(errors.New("\"data_types\" must be a non-empty array"))
 	}
 	validDataTypes := map[string]bool{"binary": true, "tabular": true, "file": true, "unspecified": true}
 	for _, dt := range dataTypes {
 		s, ok := dt.(string)
 		if !ok || !validDataTypes[s] {
-			return fmt.Errorf("invalid data type %q; must be one of: binary, tabular, file, unspecified", dt)
+			return errtrace.Wrap(fmt.Errorf("invalid data type %q; must be one of: binary, tabular, file, unspecified", dt))
 		}
 	}
 	return nil
@@ -2404,23 +2405,23 @@ func validateDataSynced(event map[string]any) error {
 func validateConditionalDataIngested(w io.Writer, event, config map[string]any) error {
 	condRaw, ok := event["conditional"]
 	if !ok {
-		return errors.New("event type \"conditional_data_ingested\" requires \"conditional\" field")
+		return errtrace.Wrap(errors.New("event type \"conditional_data_ingested\" requires \"conditional\" field"))
 	}
 	cond, ok := condRaw.(map[string]any)
 	if !ok {
-		return errors.New("\"conditional\" must be an object")
+		return errtrace.Wrap(errors.New("\"conditional\" must be an object"))
 	}
 	dcmRaw, ok := cond["data_capture_method"]
 	if !ok {
-		return errors.New("\"conditional\" requires \"data_capture_method\" field")
+		return errtrace.Wrap(errors.New("\"conditional\" requires \"data_capture_method\" field"))
 	}
 	dcm, ok := dcmRaw.(string)
 	if !ok || dcm == "" {
-		return errors.New("\"data_capture_method\" must be a non-empty string")
+		return errtrace.Wrap(errors.New("\"data_capture_method\" must be a non-empty string"))
 	}
 	parts := strings.Split(dcm, ":")
 	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		return fmt.Errorf("\"data_capture_method\" must have format subtype:name:method (e.g., sensor:my-sensor:Readings); got %q", dcm)
+		return errtrace.Wrap(fmt.Errorf("\"data_capture_method\" must have format subtype:name:method (e.g., sensor:my-sensor:Readings); got %q", dcm))
 	}
 	subtype := parts[0]
 	componentName := parts[1]
@@ -2428,7 +2429,7 @@ func validateConditionalDataIngested(w io.Writer, event, config map[string]any) 
 
 	// cross-reference against components and services in the part config
 	if err := validateComponentExists(config, subtype, componentName); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// validate method name against known methods for this subtype
@@ -2441,8 +2442,8 @@ func validateConditionalDataIngested(w io.Writer, event, config map[string]any) 
 			}
 		}
 		if !valid {
-			return fmt.Errorf("method %q is not a valid data capture method for %q; valid methods: %s",
-				methodName, subtype, strings.Join(methods, ", "))
+			return errtrace.Wrap(fmt.Errorf("method %q is not a valid data capture method for %q; valid methods: %s",
+				methodName, subtype, strings.Join(methods, ", ")))
 		}
 	} else {
 		warningf(w, "unknown subtype %q; cannot validate method %q. "+
@@ -2453,15 +2454,15 @@ func validateConditionalDataIngested(w io.Writer, event, config map[string]any) 
 	if conditionRaw, ok := cond["condition"]; ok {
 		condition, ok := conditionRaw.(map[string]any)
 		if !ok {
-			return errors.New("\"condition\" must be an object")
+			return errtrace.Wrap(errors.New("\"condition\" must be an object"))
 		}
 		if evalsRaw, ok := condition["evals"]; ok {
 			evals, ok := evalsRaw.([]any)
 			if !ok {
-				return errors.New("\"condition.evals\" must be an array")
+				return errtrace.Wrap(errors.New("\"condition.evals\" must be an array"))
 			}
 			if err := validateEvals(evals); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		}
 	}
@@ -2485,14 +2486,14 @@ func validateComponentExists(config map[string]any, subtype, componentName strin
 			api, _ := r["api"].(string)
 			apiParts := strings.Split(api, ":")
 			if len(apiParts) == 3 && apiParts[2] != subtype {
-				return fmt.Errorf("component %q has subtype %q (api: %s), but data_capture_method specifies subtype %q",
-					componentName, apiParts[2], api, subtype)
+				return errtrace.Wrap(fmt.Errorf("component %q has subtype %q (api: %s), but data_capture_method specifies subtype %q",
+					componentName, apiParts[2], api, subtype))
 			}
 			return nil
 		}
 	}
-	return fmt.Errorf("no component or service named %q found in the part config; "+
-		"data_capture_method must reference an existing component", componentName)
+	return errtrace.Wrap(fmt.Errorf("no component or service named %q found in the part config; "+
+		"data_capture_method must reference an existing component", componentName))
 }
 
 func validateEvals(evals []any) error {
@@ -2503,18 +2504,18 @@ func validateEvals(evals []any) error {
 	for i, eRaw := range evals {
 		e, ok := eRaw.(map[string]any)
 		if !ok {
-			return fmt.Errorf("eval at index %d must be an object", i)
+			return errtrace.Wrap(fmt.Errorf("eval at index %d must be an object", i))
 		}
 		opRaw, ok := e["operator"]
 		if !ok {
-			return fmt.Errorf("eval at index %d missing required field \"operator\"", i)
+			return errtrace.Wrap(fmt.Errorf("eval at index %d missing required field \"operator\"", i))
 		}
 		op, ok := opRaw.(string)
 		if !ok || !validOperators[op] {
-			return fmt.Errorf("eval at index %d has invalid operator %q; must be one of: lt, lte, gt, gte, eq, neq, regex", i, opRaw)
+			return errtrace.Wrap(fmt.Errorf("eval at index %d has invalid operator %q; must be one of: lt, lte, gt, gte, eq, neq, regex", i, opRaw))
 		}
 		if _, ok := e["value"]; !ok {
-			return fmt.Errorf("eval at index %d missing required field \"value\"", i)
+			return errtrace.Wrap(fmt.Errorf("eval at index %d missing required field \"value\"", i))
 		}
 	}
 	return nil
@@ -2523,17 +2524,17 @@ func validateEvals(evals []any) error {
 func validateConditionalLogsIngested(event map[string]any) error {
 	llRaw, ok := event["log_levels"]
 	if !ok {
-		return errors.New("event type \"conditional_logs_ingested\" requires \"log_levels\" field")
+		return errtrace.Wrap(errors.New("event type \"conditional_logs_ingested\" requires \"log_levels\" field"))
 	}
 	logLevels, ok := llRaw.([]any)
 	if !ok || len(logLevels) == 0 {
-		return errors.New("\"log_levels\" must be a non-empty array")
+		return errtrace.Wrap(errors.New("\"log_levels\" must be a non-empty array"))
 	}
 	validLevels := map[string]bool{"info": true, "warn": true, "error": true}
 	for _, ll := range logLevels {
 		s, ok := ll.(string)
 		if !ok || !validLevels[s] {
-			return fmt.Errorf("invalid log level %q; must be one of: info, warn, error", ll)
+			return errtrace.Wrap(fmt.Errorf("invalid log level %q; must be one of: info, warn, error", ll))
 		}
 	}
 	return nil
@@ -2547,32 +2548,32 @@ func validateNotification(w io.Writer, n map[string]any, index int, eventType st
 	// type
 	ntRaw, ok := n["type"]
 	if !ok {
-		return fmt.Errorf("notification at index %d missing required field \"type\"", index)
+		return errtrace.Wrap(fmt.Errorf("notification at index %d missing required field \"type\"", index))
 	}
 	nt, ok := ntRaw.(string)
 	if !ok || (nt != notifTypeWebhook && nt != notifTypeEmail) {
-		return fmt.Errorf("notification at index %d has invalid type %q; must be \"webhook\" or \"email\"", index, ntRaw)
+		return errtrace.Wrap(fmt.Errorf("notification at index %d has invalid type %q; must be \"webhook\" or \"email\"", index, ntRaw))
 	}
 
 	// value
 	valRaw, ok := n["value"]
 	if !ok {
-		return fmt.Errorf("notification at index %d missing required field \"value\"", index)
+		return errtrace.Wrap(fmt.Errorf("notification at index %d missing required field \"value\"", index))
 	}
 	val, ok := valRaw.(string)
 	if !ok || val == "" {
-		return fmt.Errorf("notification at index %d \"value\" must be a non-empty string", index)
+		return errtrace.Wrap(fmt.Errorf("notification at index %d \"value\" must be a non-empty string", index))
 	}
 
 	if nt == notifTypeWebhook {
 		u, err := url.Parse(val)
 		if err != nil || u.Scheme == "" || u.Host == "" {
-			return fmt.Errorf("notification at index %d has invalid webhook URL %q (must have scheme and host)", index, val)
+			return errtrace.Wrap(fmt.Errorf("notification at index %d has invalid webhook URL %q (must have scheme and host)", index, val))
 		}
 	}
 	if nt == notifTypeEmail {
 		if val != "all_machine_owners" && !strings.Contains(val, "@") {
-			return fmt.Errorf("notification at index %d has invalid email %q (must contain '@' or be \"all_machine_owners\")", index, val)
+			return errtrace.Wrap(fmt.Errorf("notification at index %d has invalid email %q (must contain '@' or be \"all_machine_owners\")", index, val))
 		}
 	}
 
@@ -2580,16 +2581,16 @@ func validateNotification(w io.Writer, n map[string]any, index int, eventType st
 	if sbnRaw, ok := n["seconds_between_notifications"]; ok {
 		sbn, ok := sbnRaw.(float64)
 		if !ok {
-			return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be a number", index)
+			return errtrace.Wrap(fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be a number", index))
 		}
 		switch eventType {
 		case triggerEventPartOnline, triggerEventPartOffline:
 			if sbn <= 0 {
-				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be over 0 for liveness triggers; got %v", index, sbn)
+				return errtrace.Wrap(fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be over 0 for liveness triggers; got %v", index, sbn))
 			}
 		case triggerEventPartDataSynced, triggerEventConditionalDataIngested:
 			if sbn < 0 {
-				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be >=0 for data triggers; got %v", index, sbn)
+				return errtrace.Wrap(fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be >=0 for data triggers; got %v", index, sbn))
 			}
 		}
 	}
@@ -2603,37 +2604,37 @@ func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) erro
 	// validate schedule
 	if schedule, ok := jobConfig["schedule"].(string); ok {
 		if err := validateJobSchedule(schedule); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else if !isUpdate {
-		return errors.New("job config must include 'schedule' field (string)")
+		return errtrace.Wrap(errors.New("job config must include 'schedule' field (string)"))
 	}
 
 	// validate resource
 	if resource, ok := jobConfig["resource"].(string); ok {
 		if resource == "" {
-			return errors.New("'resource' field must be a non-empty string")
+			return errtrace.Wrap(errors.New("'resource' field must be a non-empty string"))
 		}
 		if !resourceExistsInConfig(partConfig, resource) {
-			return fmt.Errorf("resource %q not found in part config", resource)
+			return errtrace.Wrap(fmt.Errorf("resource %q not found in part config", resource))
 		}
 	} else if !isUpdate {
-		return errors.New("job config must include 'resource' field (string)")
+		return errtrace.Wrap(errors.New("job config must include 'resource' field (string)"))
 	}
 
 	// validate method
 	if method, ok := jobConfig["method"].(string); ok {
 		if method == "" {
-			return errors.New("'method' field must be a non-empty string")
+			return errtrace.Wrap(errors.New("'method' field must be a non-empty string"))
 		}
 	} else if !isUpdate {
-		return errors.New("job config must include 'method' field (string)")
+		return errtrace.Wrap(errors.New("job config must include 'method' field (string)"))
 	}
 
 	// Validate command is a JSON object (map) if provided.
 	if command, ok := jobConfig["command"]; ok {
 		if _, ok := command.(map[string]any); !ok {
-			return errors.New("'command' field must be a JSON object")
+			return errtrace.Wrap(errors.New("'command' field must be a JSON object"))
 		}
 	}
 
@@ -2644,7 +2645,7 @@ func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) erro
 				"debug": true, "info": true, "warn": true, "warning": true, "error": true,
 			}
 			if !validLevels[strings.ToLower(level)] {
-				return fmt.Errorf("log_configuration level must be one of: debug, info, warn, warning, error; got %q", level)
+				return errtrace.Wrap(fmt.Errorf("log_configuration level must be one of: debug, info, warn, warning, error; got %q", level))
 			}
 		}
 	}
@@ -2683,19 +2684,19 @@ func validateJobSchedule(schedule string) error {
 		return nil
 	}
 
-	return errors.Errorf(
+	return errtrace.Wrap(errors.Errorf(
 		"invalid schedule %q: not a valid interval (%v) or cron expression (%v)",
 		schedule, intErr, cronErr,
-	)
+	))
 }
 
 func validateInterval(interval string) error {
 	d, err := time.ParseDuration(interval)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if d <= 0 {
-		return errors.New("interval must be a positive duration")
+		return errtrace.Wrap(errors.New("interval must be a positive duration"))
 	}
 	return nil
 }
@@ -2705,11 +2706,11 @@ func validateCronExpression(schedule string) error {
 	if withSeconds {
 		p := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 		if _, err := p.Parse(schedule); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else {
 		if _, err := cron.ParseStandard(schedule); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -2726,7 +2727,7 @@ type machinesPartAddJobArgs struct {
 func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machinesPartAddJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var jobConfig map[string]any
@@ -2737,22 +2738,22 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 		// Non-interactive path: config and part are required flags.
 		jobConfig, err = parseJSONOrFile(args.Config)
 		if err != nil {
-			return errors.Wrap(err, "failed to parse job config")
+			return errtrace.Wrap(errors.Wrap(err, "failed to parse job config"))
 		}
 
 		partStr := strings.TrimSpace(args.Part)
 		if partStr == "" {
-			return errors.New("part is required when using --config; specify --part")
+			return errtrace.Wrap(errors.New("part is required when using --config; specify --part"))
 		}
 		part, err = client.robotPart(ctx, args.Organization, args.Location, args.Machine, partStr)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else {
 		// Get part ID
 		part, err = client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		// 2. Build interactive form from the part config.
@@ -2761,7 +2762,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 		for _, key := range []string{"components", "services"} {
 			resources, err := resourcesFromPartConfig(confMap, key)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			for _, r := range resources {
 				if n, ok := r["name"].(string); ok && n != "" {
@@ -2770,7 +2771,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 			}
 		}
 		if len(resourceOpts) == 0 {
-			return errors.New("This machine contains no components or services")
+			return errtrace.Wrap(errors.New("This machine contains no components or services"))
 		}
 
 		// 3. Create the form and run it
@@ -2780,7 +2781,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 			huh.NewInput().Title("Set a job name:").Value(&name).
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {
-						return errors.New("job name cannot be empty")
+						return errtrace.Wrap(errors.New("job name cannot be empty"))
 					}
 					return nil
 				}),
@@ -2788,7 +2789,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 			huh.NewInput().Title("Set a method:").Value(&method).
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {
-						return errors.New("method cannot be empty")
+						return errtrace.Wrap(errors.New("method cannot be empty"))
 					}
 					return nil
 				}),
@@ -2812,7 +2813,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 					}
 					var cmd map[string]any
 					if err := json.Unmarshal([]byte(s), &cmd); err != nil {
-						return errors.Wrap(err, "invalid JSON object")
+						return errtrace.Wrap(errors.Wrap(err, "invalid JSON object"))
 					}
 					return nil
 				}),
@@ -2835,7 +2836,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 				Value(&scheduleType),
 		))
 		if err := form.Run(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		// 4. last page form loads based on what type of schedule is selected
@@ -2853,7 +2854,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 				),
 			)
 			if err := form2.Run(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			schedule = intervalStr
 		case "cron":
@@ -2868,7 +2869,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 				),
 			)
 			if err := form2.Run(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			schedule = cronExpr
 		default:
@@ -2886,7 +2887,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 			} else {
 				var cmd map[string]any
 				if err := json.Unmarshal([]byte(commandStr), &cmd); err != nil {
-					return errors.Wrapf(err, "invalid command JSON")
+					return errtrace.Wrap(errors.Wrapf(err, "invalid command JSON"))
 				}
 				jobConfig["command"] = cmd
 			}
@@ -2899,12 +2900,12 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 	// Validate required fields and format
 	name, ok := jobConfig["name"].(string)
 	if !ok || name == "" {
-		return errors.New("job config must include 'name' field (string)")
+		return errtrace.Wrap(errors.New("job config must include 'name' field (string)"))
 	}
 
 	config := part.RobotConfig.AsMap()
 	if err := validateJobConfig(jobConfig, config, false); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Get existing jobs array or create new one
@@ -2919,7 +2920,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 	for _, j := range jobs {
 		if jobMap, ok := j.(map[string]any); ok {
 			if jobMap["name"] == name {
-				return fmt.Errorf("job with name %s already exists on part %s", name, part.Name)
+				return errtrace.Wrap(fmt.Errorf("job with name %s already exists on part %s", name, part.Name))
 			}
 		}
 	}
@@ -2928,7 +2929,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 	config["jobs"] = jobs
 
 	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully added job %s to part %s", name, part.Name)
@@ -2947,22 +2948,22 @@ type machinesPartUpdateJobArgs struct {
 func machinesPartUpdateJobAction(ctx context.Context, cmd *cli.Command, args machinesPartUpdateJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	newJobConfig, err := parseJSONOrFile(args.Config)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse job config")
+		return errtrace.Wrap(errors.Wrap(err, "failed to parse job config"))
 	}
 
 	config := part.RobotConfig.AsMap()
 	if err := validateJobConfig(newJobConfig, config, true); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var jobs []any
@@ -2990,13 +2991,13 @@ func machinesPartUpdateJobAction(ctx context.Context, cmd *cli.Command, args mac
 	}
 
 	if !found {
-		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+		return errtrace.Wrap(fmt.Errorf("job %s not found on part %s", args.Name, part.Name))
 	}
 
 	config["jobs"] = jobs
 
 	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully updated job %s on part %s", args.Name, part.Name)
@@ -3014,12 +3015,12 @@ type machinesPartDeleteJobArgs struct {
 func machinesPartDeleteJobAction(ctx context.Context, cmd *cli.Command, args machinesPartDeleteJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config := part.RobotConfig.AsMap()
@@ -3047,13 +3048,13 @@ func machinesPartDeleteJobAction(ctx context.Context, cmd *cli.Command, args mac
 	}
 
 	if !found {
-		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+		return errtrace.Wrap(fmt.Errorf("job %s not found on part %s", args.Name, part.Name))
 	}
 
 	config["jobs"] = newJobs
 
 	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully deleted job %s from part %s", args.Name, part.Name)
@@ -3071,7 +3072,7 @@ type robotsPartStatusArgs struct {
 func RobotsPartStatusAction(ctx context.Context, cmd *cli.Command, args robotsPartStatusArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	orgStr := args.Organization
@@ -3079,17 +3080,17 @@ func RobotsPartStatusAction(ctx context.Context, cmd *cli.Command, args robotsPa
 	robotStr := args.Machine
 	part, err := client.robotPart(ctx, orgStr, locStr, robotStr, args.Part)
 	if err != nil {
-		return errors.Wrap(err, "could not get machine part")
+		return errtrace.Wrap(errors.Wrap(err, "could not get machine part"))
 	}
 
 	if orgStr == "" || locStr == "" || robotStr == "" {
 		robot, err := client.robot(ctx, orgStr, locStr, part.Robot)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		orgName, locName, err := client.getOrgAndLocationNamesForRobot(ctx, robot)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		printf(cmd.Root().Writer, "%s -> %s -> %s", orgName, locName, robot.Name)
 	}
@@ -3111,20 +3112,20 @@ type machinesPartHistoryArgs struct {
 func machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return client.machinesPartHistoryAction(ctx, cmd, args)
+	return errtrace.Wrap(client.machinesPartHistoryAction(ctx, cmd, args))
 }
 
 func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
 	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return errors.Wrap(err, "could not get machine part")
+		return errtrace.Wrap(errors.Wrap(err, "could not get machine part"))
 	}
 
 	resp, err := c.client.GetRobotPartHistory(ctx, &apppb.GetRobotPartHistoryRequest{Id: part.Id})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	history := resp.History
@@ -3163,17 +3164,17 @@ type robotsPartAddFragmentArgs struct {
 func RobotsPartAddFragmentAction(ctx context.Context, cmd *cli.Command, args robotsPartAddFragmentArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	fragmentResp, err := client.client.ListFragments(ctx, &apppb.ListFragmentsRequest{})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	pbFragments := fragmentResp.Fragments
@@ -3192,13 +3193,13 @@ func RobotsPartAddFragmentAction(ctx context.Context, cmd *cli.Command, args rob
 			}
 		}
 		if !found {
-			return fmt.Errorf("fragment %s not found", args.Fragment)
+			return errtrace.Wrap(fmt.Errorf("fragment %s not found", args.Fragment))
 		}
 	} else {
 		// No fragment specified, use fuzzyfinder
 		idx, err := fuzzyfinder.Find(pbFragments, func(i int) string { return pbFragments[i].Name })
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		idToAdd = pbFragments[idx].Id
 		nameToAdd = pbFragments[idx].Name
@@ -3214,7 +3215,7 @@ func RobotsPartAddFragmentAction(ctx context.Context, cmd *cli.Command, args rob
 		fragment := fragment.(map[string]any)
 		for k, v := range fragment {
 			if k == "id" && v.(string) == idToAdd {
-				return fmt.Errorf("fragment %s already exists on part %s", nameToAdd, part.Name)
+				return errtrace.Wrap(fmt.Errorf("fragment %s already exists on part %s", nameToAdd, part.Name))
 			}
 		}
 	}
@@ -3224,13 +3225,13 @@ func RobotsPartAddFragmentAction(ctx context.Context, cmd *cli.Command, args rob
 	conf["fragments"] = fragments
 	pbConf, err := protoutils.StructToStructPb(conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConf}
 	_, err = client.client.UpdateRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully added fragment %s to part %s", nameToAdd, part.Name)
@@ -3267,7 +3268,7 @@ func (c *viamClient) selectFragment(fragmentNamesToIDs map[string]string) (strin
 	)
 	err := form.Run()
 	if err != nil {
-		return "", "", errors.Wrap(err, "encountered an error in selecting fragment")
+		return "", "", errtrace.Wrap(errors.Wrap(err, "encountered an error in selecting fragment"))
 	}
 	return selectedFragmentName, fragmentNamesToIDs[selectedFragmentName], nil
 }
@@ -3289,7 +3290,7 @@ func (c *viamClient) getFragmentMap(ctx context.Context, cmd *cli.Command, part 
 			req := apppb.GetFragmentRequest{Id: fragmentID}
 			fragmentPb, err := c.client.GetFragment(ctx, &req)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			fragmentNamesToIDs[fragmentPb.Fragment.Name] = fragmentID
 		}
@@ -3302,17 +3303,17 @@ func (c *viamClient) getFragmentMap(ctx context.Context, cmd *cli.Command, part 
 func RobotsPartRemoveFragmentAction(ctx context.Context, cmd *cli.Command, args robotsPartRemoveFragmentArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	fragmentNamesToIDs, err := client.getFragmentMap(ctx, cmd, part)
 	if err != nil || fragmentNamesToIDs == nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var whichFragment, whichID string
@@ -3334,7 +3335,7 @@ func RobotsPartRemoveFragmentAction(ctx context.Context, cmd *cli.Command, args 
 				}
 			}
 			if !ok {
-				return errors.Errorf("fragment %s not found on part %s", args.Fragment, part.Name)
+				return errtrace.Wrap(errors.Errorf("fragment %s not found on part %s", args.Fragment, part.Name))
 			}
 		}
 	} else {
@@ -3344,12 +3345,12 @@ func RobotsPartRemoveFragmentAction(ctx context.Context, cmd *cli.Command, args 
 				names = append(names, fmt.Sprintf("  %s (%s)", name, id))
 			}
 			slices.Sort(names)
-			return fmt.Errorf("--fragment flag required in non-interactive mode; available fragments:\n%s",
-				strings.Join(names, "\n"))
+			return errtrace.Wrap(fmt.Errorf("--fragment flag required in non-interactive mode; available fragments:\n%s",
+				strings.Join(names, "\n")))
 		}
 		whichFragment, whichID, err = client.selectFragment(fragmentNamesToIDs)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -3368,13 +3369,13 @@ func RobotsPartRemoveFragmentAction(ctx context.Context, cmd *cli.Command, args 
 	conf["fragments"] = newFragments
 	pbConf, err := protoutils.StructToStructPb(conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConf}
 	_, err = client.client.UpdateRobotPart(ctx, &req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "successfully removed fragment %s from part %s", whichFragment, part.Name)
@@ -3397,10 +3398,10 @@ type robotsPartLogsArgs struct {
 func RobotsPartLogsAction(ctx context.Context, cmd *cli.Command, args robotsPartLogsArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.robotsPartLogsAction(ctx, cmd, args)
+	return errtrace.Wrap(client.robotsPartLogsAction(ctx, cmd, args))
 }
 
 func (c *viamClient) robotsPartLogsAction(ctx context.Context, cmd *cli.Command, args robotsPartLogsArgs) error {
@@ -3408,12 +3409,12 @@ func (c *viamClient) robotsPartLogsAction(ctx context.Context, cmd *cli.Command,
 	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
 	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
 	if args.Start != "" && args.Count > 0 && args.End == "" {
-		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
+		return errtrace.Wrap(errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
 			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
 			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
 			"rather than the 10 logs closest to the start time. " +
 			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
-		)
+		))
 	}
 
 	orgStr := args.Organization
@@ -3428,48 +3429,48 @@ func (c *viamClient) robotsPartLogsAction(ctx context.Context, cmd *cli.Command,
 		// helper API for getting logs from an already-existing `part`
 		part, err := c.robotPart(ctx, orgStr, locStr, robotStr, partStr)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		robot, err := c.robot(ctx, orgStr, locStr, part.Robot)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		orgName, locName, err := c.getOrgAndLocationNamesForRobot(ctx, robot)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		header = fmt.Sprintf("%s -> %s -> %s", orgName, locName, robot.Name)
 	}
 
 	startTime, err := parseTimeString(args.Start)
 	if err != nil {
-		return errors.Wrap(err, "invalid start time format")
+		return errtrace.Wrap(errors.Wrap(err, "invalid start time format"))
 	}
 	endTime, err := parseTimeString(args.End)
 	if err != nil {
-		return errors.Wrap(err, "invalid end time format")
+		return errtrace.Wrap(errors.Wrap(err, "invalid end time format"))
 	}
 
 	if args.Tail {
-		return c.tailRobotPartLogs(
+		return errtrace.Wrap(c.tailRobotPartLogs(
 			ctx, orgStr, locStr, robotStr, partStr,
 			args.Errors,
 			"",
 			header,
-		)
+		))
 	}
 	numLogs, err := getNumLogs(cmd, args.Count)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.printRobotPartLogs(
+	return errtrace.Wrap(c.printRobotPartLogs(
 		ctx, orgStr, locStr, robotStr, partStr,
 		args.Errors,
 		"",
 		header,
 		numLogs,
 		startTime, endTime,
-	)
+	))
 }
 
 type robotsPartRestartArgs struct {
@@ -3483,10 +3484,10 @@ type robotsPartRestartArgs struct {
 func RobotsPartRestartAction(ctx context.Context, cmd *cli.Command, args robotsPartRestartArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.robotPartRestart(ctx, cmd, args)
+	return errtrace.Wrap(client.robotPartRestart(ctx, cmd, args))
 }
 
 func (c *viamClient) robotPartRestart(ctx context.Context, cmd *cli.Command, args robotsPartRestartArgs) error {
@@ -3497,11 +3498,11 @@ func (c *viamClient) robotPartRestart(ctx context.Context, cmd *cli.Command, arg
 
 	part, err := c.robotPart(ctx, orgStr, locStr, robotStr, partStr)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	_, err = c.client.MarkPartForRestart(ctx, &apppb.MarkPartForRestartRequest{PartId: part.Id})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	infof(c.c.Root().Writer, "Request to restart part sent successfully")
 	return nil
@@ -3554,7 +3555,7 @@ func mergeComponentNameIntoData(data, componentName string) (string, error) {
 		dataMap = make(map[string]interface{})
 	} else {
 		if err := json.Unmarshal([]byte(data), &dataMap); err != nil {
-			return "", errors.Wrap(err, "failed to parse --data as JSON")
+			return "", errtrace.Wrap(errors.Wrap(err, "failed to parse --data as JSON"))
 		}
 	}
 
@@ -3565,7 +3566,7 @@ func mergeComponentNameIntoData(data, componentName string) (string, error) {
 
 	result, err := json.Marshal(dataMap)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to serialize data JSON")
+		return "", errtrace.Wrap(errors.Wrap(err, "failed to serialize data JSON"))
 	}
 	return string(result), nil
 }
@@ -3577,19 +3578,19 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 		svcMethod = cmd.Args().First()
 	}
 	if svcMethod == "" && args.Component == "" {
-		return errors.New("service method required")
+		return errtrace.Wrap(errors.New("service method required"))
 	}
 
 	viamClient, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
@@ -3603,12 +3604,12 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 		dialCtx, fqdn, rpcOpts, err := viamClient.prepareDial(
 			ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		robotClient, err := viamClient.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		defer func() {
 			utils.UncheckedError(robotClient.Close(ctx))
@@ -3624,12 +3625,12 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 			}
 		}
 		if foundAPI == nil {
-			return errors.Errorf("component %q not found on machine", args.Component)
+			return errtrace.Wrap(errors.Errorf("component %q not found on machine", args.Component))
 		}
 
 		// If method is a short name, expand it
 		if svcMethod == "" {
-			return errors.New("method is required when using --component")
+			return errtrace.Wrap(errors.New("method is required when using --component"))
 		}
 		if isShortMethodName(svcMethod) {
 			serviceName := apiToGRPCServiceName(*foundAPI)
@@ -3639,11 +3640,11 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 		// Merge component name into data
 		data, err = mergeComponentNameIntoData(data, args.Component)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
-	return viamClient.runRobotPartCommand(
+	return errtrace.Wrap(viamClient.runRobotPartCommand(
 		ctx,
 		args.Organization,
 		args.Location,
@@ -3654,7 +3655,7 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 		args.Stream,
 		globalArgs.Debug,
 		logger,
-	)
+	))
 }
 
 type robotsPartShellArgs struct {
@@ -3670,20 +3671,20 @@ func RobotsPartShellAction(ctx context.Context, cmd *cli.Command, args robotsPar
 
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Create logger based on presence of debugFlag.
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
 	}
 
-	return client.startRobotPartShell(
+	return errtrace.Wrap(client.startRobotPartShell(
 		ctx,
 		args.Organization,
 		args.Location,
@@ -3691,7 +3692,7 @@ func RobotsPartShellAction(ctx context.Context, cmd *cli.Command, args robotsPar
 		args.Part,
 		globalArgs.Debug,
 		logger,
-	)
+	))
 }
 
 var (
@@ -3747,32 +3748,32 @@ type machinesPartGetFTDCArgs struct {
 func MachinesPartGetFTDCAction(ctx context.Context, cmd *cli.Command, args machinesPartGetFTDCArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	logger := globalArgs.createLogger()
 
-	return client.machinesPartGetFTDCAction(ctx, cmd, args, globalArgs.Debug, logger)
+	return errtrace.Wrap(client.machinesPartGetFTDCAction(ctx, cmd, args, globalArgs.Debug, logger))
 }
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
 func MachinesPartCopyFilesAction(ctx context.Context, cmd *cli.Command, args machinesPartCopyFilesArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	logger := globalArgs.createLogger()
 
-	return client.machinesPartCopyFilesAction(ctx, cmd, args, logger)
+	return errtrace.Wrap(client.machinesPartCopyFilesAction(ctx, cmd, args, logger))
 }
 
 func (c *viamClient) machinesPartCopyFilesAction(
@@ -3783,7 +3784,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 ) error {
 	args := cmd.Args().Slice()
 	if len(args) == 0 {
-		return errNoFiles
+		return errtrace.Wrap(errNoFiles)
 	}
 
 	// the general format is
@@ -3798,10 +3799,10 @@ func (c *viamClient) machinesPartCopyFilesAction(
 
 		if strings.HasPrefix(args[len(args)-1], machinePrefix) {
 			if isFrom {
-				return false, "", nil, errLastArgOfFromMissing
+				return false, "", nil, errtrace.Wrap(errLastArgOfFromMissing)
 			}
 		} else if !isFrom {
-			return false, "", nil, errLastArgOfToMissing
+			return false, "", nil, errtrace.Wrap(errLastArgOfToMissing)
 		}
 
 		destination = args[len(args)-1]
@@ -3817,24 +3818,25 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		// all but the last arg are what we are copying to/from
 		for _, arg := range args[:len(args)-1] {
 			if isFrom && !strings.HasPrefix(arg, machinePrefix) {
-				return false, "", nil, copyFromPathInvalidError{arg}
+				return false, "", nil, errtrace.Wrap(copyFromPathInvalidError{arg})
 			}
 			if isFrom {
 				arg = strings.TrimPrefix(arg, machinePrefix)
 			}
 			paths = append(paths, arg)
 		}
+		err = errtrace.Wrap(err)
 		return
 	}
 
 	isFrom, destination, paths, err := determineDirection(args)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	pm := NewProgressManager([]*Step{
 		{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
@@ -3843,7 +3845,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		var copyFunc func() error
 		if isFrom {
 			copyFunc = func() error {
-				return c.copyFilesFromMachine(
+				return errtrace.Wrap(c.copyFilesFromMachine(
 					ctx,
 					flagArgs.Organization,
 					flagArgs.Location,
@@ -3855,11 +3857,11 @@ func (c *viamClient) machinesPartCopyFilesAction(
 					paths,
 					destination,
 					logger,
-				)
+				))
 			}
 		} else {
 			copyFunc = func() error {
-				return c.copyFilesToMachine(
+				return errtrace.Wrap(c.copyFilesToMachine(
 					ctx,
 					flagArgs.Organization,
 					flagArgs.Location,
@@ -3872,11 +3874,11 @@ func (c *viamClient) machinesPartCopyFilesAction(
 					destination,
 					logger,
 					flagArgs.NoProgress,
-				)
+				))
 			}
 		}
 		if err := pm.Start("copy"); err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 		defer pm.Stop()
 		attemptCount, err := c.retryableCopy(
@@ -3885,7 +3887,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			copyFunc,
 			isFrom,
 		)
-		return attemptCount, err
+		return attemptCount, errtrace.Wrap(err)
 	}
 	attemptCount, err := doCopy()
 	if err != nil {
@@ -3893,12 +3895,12 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
-			return errDirectoryCopyRequestNoRecursion
+			return errtrace.Wrap(errDirectoryCopyRequestNoRecursion)
 		}
-		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
+		return errtrace.Wrap(fmt.Errorf("all %d copy attempts failed, try again later", attemptCount))
 	}
 	if err := pm.Complete("copy"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }
@@ -3917,17 +3919,17 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		var err error
 		targetPath, err = os.Getwd()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	case 1:
 		targetPath = args[0]
 	default:
-		return wrongNumArgsError{numArgs, 0, 1}
+		return errtrace.Wrap(wrongNumArgsError{numArgs, 0, 1})
 	}
 
 	part, err := c.robotPart(ctx, flagArgs.Organization, flagArgs.Location, flagArgs.Machine, flagArgs.Part)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	// Intentional use of path instead of filepath: Windows understands both / and
 	// \ as path separators, and we don't want a cli running on Windows to send
@@ -3956,9 +3958,9 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
-			return errDirectoryCopyRequestNoRecursion
+			return errtrace.Wrap(errDirectoryCopyRequestNoRecursion)
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 	if !quiet {
 		printf(cmd.Root().Writer, "Done in %s.", time.Since(startTime))
@@ -3979,10 +3981,10 @@ type robotsPartTunnelArgs struct {
 func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.robotPartTunnel(ctx, cmd, args)
+	return errtrace.Wrap(client.robotPartTunnel(ctx, cmd, args))
 }
 
 func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.RobotClient, local, dest int) error {
@@ -3997,17 +3999,17 @@ func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.Ro
 			}
 		}
 		if !allowed {
-			return errors.Errorf(
+			return errtrace.Wrap(errors.Errorf(
 				"tunneling to destination port %v not allowed. "+
 					"Please ensure the traffic_tunnel_endpoints configuration is set correctly on the machine.",
 				dest,
-			)
+			))
 		}
 	}
 
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
-		return fmt.Errorf("failed to create listener %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to create listener %w", err))
 	}
 	infof(cmd.Root().Writer, "tunneling connections from local port %v to destination port %v on machine part...", local, dest)
 	go func() {
@@ -4057,7 +4059,7 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if globalArgs.Debug {
 		logger = logging.NewDebugLogger("cli")
@@ -4065,14 +4067,14 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(ctx, orgStr, locStr, robotStr, partStr, globalArgs.Debug)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return tunnelTraffic(ctx, cmd, robotClient, args.LocalPort, args.DestinationPort)
+	return errtrace.Wrap(tunnelTraffic(ctx, cmd, robotClient, args.LocalPort, args.DestinationPort))
 }
 
 // checkUpdateResponse holds the values used to hold release information.
@@ -4090,18 +4092,18 @@ func getLatestRelease() (getLatestReleaseResponse, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
 	if err != nil {
-		return getLatestReleaseResponse{}, err
+		return getLatestReleaseResponse{}, errtrace.Wrap(err)
 	}
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
 	if err != nil {
-		return getLatestReleaseResponse{}, err
+		return getLatestReleaseResponse{}, errtrace.Wrap(err)
 	}
 
 	err = json.NewDecoder(res.Body).Decode(&resp)
 	if err != nil {
-		return getLatestReleaseResponse{}, err
+		return getLatestReleaseResponse{}, errtrace.Wrap(err)
 	}
 
 	defer utils.UncheckedError(res.Body.Close())
@@ -4112,19 +4114,19 @@ func getLatestRelease() (getLatestReleaseResponse, error) {
 var getLatestReleaseVersionFunc = func() (string, error) {
 	resp, err := getLatestRelease()
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
-	return resp.TagName, err
+	return resp.TagName, errtrace.Wrap(err)
 }
 
 func localVersion() (*semver.Version, error) {
 	appVersion := rconfig.Version
 	if appVersion == "" {
-		return nil, errors.New("local build has no version set (dev build or missing ldflags)")
+		return nil, errtrace.Wrap(errors.New("local build has no version set (dev build or missing ldflags)"))
 	}
 	localVersion, err := semver.NewVersion(appVersion)
 	if err != nil {
-		return nil, errors.Errorf("failed to parse local build version %q: %v", appVersion, err)
+		return nil, errtrace.Wrap(errors.Errorf("failed to parse local build version %q: %v", appVersion, err))
 	}
 	return localVersion, nil
 }
@@ -4132,11 +4134,11 @@ func localVersion() (*semver.Version, error) {
 func latestVersion() (*semver.Version, error) {
 	latestRelease, err := getLatestReleaseVersionFunc()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get latest release information: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("failed to get latest release information: %w", err))
 	}
 	latestVersion, err := semver.NewVersion(latestRelease)
 	if err != nil {
-		return nil, errors.New("failed to parse latest release version")
+		return nil, errtrace.Wrap(errors.New("failed to parse latest release version"))
 	}
 	return latestVersion, nil
 }
@@ -4169,7 +4171,7 @@ func (conf *Config) checkUpdate(cmd *cli.Command) error {
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if globalArgs.Quiet {
 		return nil
@@ -4237,12 +4239,12 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// 1. check CLI to see if update needed, if this fails then try update anyways
 	if err := pm.Start("check"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	latestVersion, latestVersionErr := latestVersion()
 	if latestVersionErr != nil {
@@ -4256,7 +4258,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		if localVersion.GreaterThanEqual(latestVersion) {
 			msg := fmt.Sprintf("Already up to date (version %s)", localVersion.Original())
 			if err := pm.CompleteWithMessage("check", msg); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			if args.NoProgress {
 				infof(cmd.Root().Writer, msg)
@@ -4269,12 +4271,12 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		checkMsg = fmt.Sprintf("Update available: %s", latestVersion.Original())
 	}
 	if err := pm.CompleteWithMessage("check", checkMsg); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// 2. start the update parent step, which wraps all install work
 	if err := pm.Start("update"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	updatedMsg := "Updated successfully"
 	if latestVersion != nil {
@@ -4287,13 +4289,13 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 	isBrew, brewCheckErr := isRunningBrewBinary()
 	if brewCheckErr != nil {
 		if failErr := pm.Fail("update", brewCheckErr); failErr != nil {
-			return failErr
+			return errtrace.Wrap(failErr)
 		}
-		return errors.Errorf("CLI update failed: %v", brewCheckErr)
+		return errtrace.Wrap(errors.Errorf("CLI update failed: %v", brewCheckErr))
 	}
 	if isBrew {
 		if err := pm.Start("brew-upgrade"); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		pm.UpdateText("  → Updating via Homebrew — do not cancel. To recover if deleted: brew reinstall viam")
 		// force brew to grab the latest version before it updates - it doesn't do it by default
@@ -4301,9 +4303,9 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		upgraded, brewErr := tryBrewUpgrade()
 		if brewErr != nil {
 			if failErr := pm.Fail("brew-upgrade", brewErr); failErr != nil {
-				return failErr
+				return errtrace.Wrap(failErr)
 			}
-			return errors.Errorf("CLI update failed: %v", brewErr)
+			return errtrace.Wrap(errors.Errorf("CLI update failed: %v", brewErr))
 		}
 		// brew upgrade has run; pick the message from whether it upgraded and whether we could read the installed version.
 		installed, installedErr := installedBrewVersion()
@@ -4326,10 +4328,10 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 			brewMsg = fmt.Sprintf("Already up to date (version %s)", installed.Original())
 		}
 		if err := pm.Complete("brew-upgrade"); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if err := pm.CompleteWithMessage("update", brewMsg); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if args.NoProgress {
 			infof(cmd.Root().Writer, brewMsg)
@@ -4340,7 +4342,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 	// 4. get the local version binary path (use full path if no symlinks)
 	execPath, err := os.Executable()
 	if err != nil {
-		return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
+		return errtrace.Wrap(errors.Errorf("CLI update failed: failed to get executable path: %v", err))
 	}
 	localBinaryPath, err := filepath.EvalSymlinks(execPath)
 	if err != nil {
@@ -4350,33 +4352,33 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 
 	// 5. get the latest binary (from storage.googleapis.com) and write it into a temp file
 	if err := pm.Start("download"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	binaryURL := binaryURL()
 	latestBinaryPath, downloadErr := downloadBinaryIntoDir(binaryURL, directoryPath)
 	defer os.Remove(latestBinaryPath) //nolint:errcheck
 	if downloadErr != nil {
 		if failErr := pm.Fail("download", downloadErr); failErr != nil {
-			return failErr
+			return errtrace.Wrap(failErr)
 		}
-		return errors.Errorf("CLI update failed: failed to download binary: %v", downloadErr)
+		return errtrace.Wrap(errors.Errorf("CLI update failed: failed to download binary: %v", downloadErr))
 	}
 	if err := pm.Complete("download"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// 6. replace the old binary with the new one
 	if err := pm.Start("install"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
 		if failErr := pm.Fail("install", err); failErr != nil {
-			return failErr
+			return errtrace.Wrap(failErr)
 		}
-		return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
+		return errtrace.Wrap(errors.Errorf("CLI update failed: failed to replace binary: %v", err))
 	}
 	if err := pm.Complete("install"); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// 7. on Windows, ensure the CLI directory is in the user's PATH
@@ -4391,7 +4393,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		}
 	}
 	if err := pm.CompleteWithMessage("update", updatedMsg); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if args.NoProgress {
 		infof(cmd.Root().Writer, updatedMsg)
@@ -4418,15 +4420,15 @@ func installedBrewVersion() (*semver.Version, error) {
 	// output looks like: "viam 0.130.0"
 	out, err := exec.Command("brew", "list", "--versions", "viam").Output()
 	if err != nil {
-		return nil, errors.Errorf("failed to get installed brew version: %v", err)
+		return nil, errtrace.Wrap(errors.Errorf("failed to get installed brew version: %v", err))
 	}
 	fields := strings.Fields(string(out))
 	if len(fields) < 2 {
-		return nil, errors.Errorf("unexpected `brew list --versions viam` output: %q", strings.TrimSpace(string(out)))
+		return nil, errtrace.Wrap(errors.Errorf("unexpected `brew list --versions viam` output: %q", strings.TrimSpace(string(out))))
 	}
 	version, err := semver.NewVersion(fields[1])
 	if err != nil {
-		return nil, errors.Errorf("failed to parse installed brew version %q: %v", fields[1], err)
+		return nil, errtrace.Wrap(errors.Errorf("failed to parse installed brew version %q: %v", fields[1], err))
 	}
 	return version, nil
 }
@@ -4449,29 +4451,29 @@ func isRunningBrewBinary() (bool, error) {
 		if errors.As(err, &exitErr) {
 			return false, nil
 		}
-		return false, errors.Errorf("failed to check brew installation: %v", err)
+		return false, errtrace.Wrap(errors.Errorf("failed to check brew installation: %v", err))
 	}
 	// brew has viam installed, now we compare brew binary and running binary
 	execPath, err := os.Executable()
 	if err != nil {
-		return false, errors.Errorf("failed to get executable path: %v", err)
+		return false, errtrace.Wrap(errors.Errorf("failed to get executable path: %v", err))
 	}
 	resolved, err := filepath.EvalSymlinks(execPath)
 	if err != nil {
-		return false, errors.Errorf("failed to resolve executable path %q: %v", execPath, err)
+		return false, errtrace.Wrap(errors.Errorf("failed to resolve executable path %q: %v", execPath, err))
 	}
 	brewPrefixOut, err := exec.Command("brew", "--prefix", "viam").Output()
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-			return false, errors.Errorf("failed to get brew prefix for viam:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
+			return false, errtrace.Wrap(errors.Errorf("failed to get brew prefix for viam:\n%s", strings.TrimSpace(string(exitErr.Stderr))))
 		}
-		return false, errors.Wrap(err, "failed to get brew prefix for viam")
+		return false, errtrace.Wrap(errors.Wrap(err, "failed to get brew prefix for viam"))
 	}
 	brewBinary := filepath.Join(strings.TrimSpace(string(brewPrefixOut)), "bin", "viam")
 	resolvedBrewBinary, err := filepath.EvalSymlinks(brewBinary)
 	if err != nil {
-		return false, errors.Errorf("failed to resolve brew binary path %q: %v", brewBinary, err)
+		return false, errtrace.Wrap(errors.Errorf("failed to resolve brew binary path %q: %v", brewBinary, err))
 	}
 	return resolved == resolvedBrewBinary, nil
 }
@@ -4482,7 +4484,7 @@ func isRunningBrewBinary() (bool, error) {
 func tryBrewUpgrade() (bool, error) {
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {
-		return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+		return false, errtrace.Wrap(errors.Errorf("failed to upgrade CLI via brew: %v", err))
 	}
 	if strings.Contains(string(out), "already installed") {
 		return false, nil
@@ -4504,15 +4506,15 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 	// Download the binary
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, binaryURL, nil)
 	if err != nil {
-		return "", errors.Errorf("binary download failed: %v", err)
+		return "", errtrace.Wrap(errors.Errorf("binary download failed: %v", err))
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Errorf("binary download failed: %v", err)
+		return "", errtrace.Wrap(errors.Errorf("binary download failed: %v", err))
 	}
 	if resp.StatusCode != http.StatusOK {
 		utils.UncheckedError(resp.Body.Close())
-		return "", errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
+		return "", errtrace.Wrap(errors.Errorf("binary download failed: server returned status %d", resp.StatusCode))
 	}
 
 	// create a temp file that we write the downloaded binary into
@@ -4530,11 +4532,11 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 		utils.UncheckedError(resp.Body.Close())
 		if os.IsPermission(err) {
 			if goos == osWindows {
-				return "", errors.New("permission denied: run PowerShell as Administrator")
+				return "", errtrace.Wrap(errors.New("permission denied: run PowerShell as Administrator"))
 			}
-			return "", errors.New("permission denied: run 'sudo viam update'")
+			return "", errtrace.Wrap(errors.New("permission denied: run 'sudo viam update'"))
 		}
-		return "", errors.Errorf("failed to create temp file: %v", err)
+		return "", errtrace.Wrap(errors.Errorf("failed to create temp file: %v", err))
 	}
 
 	// Write downloaded content to temp file
@@ -4542,7 +4544,7 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 	utils.UncheckedError(resp.Body.Close())
 	utils.UncheckedError(latestBinaryFile.Close())
 	if err != nil {
-		return "", errors.Errorf("failed to write downloaded binary: %v", err)
+		return "", errtrace.Wrap(errors.Errorf("failed to write downloaded binary: %v", err))
 	}
 
 	// Make executable on Unix-like systems, if permissions are improperly set then no
@@ -4550,9 +4552,9 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 	if goos != osWindows {
 		if err := os.Chmod(latestBinaryPath, 0o755); err != nil { //nolint:gosec
 			if os.IsPermission(err) {
-				return "", errors.New("permission denied: run 'sudo viam update'")
+				return "", errtrace.Wrap(errors.New("permission denied: run 'sudo viam update'"))
 			}
-			return "", errors.Errorf("failed to make binary executable: %v", err)
+			return "", errtrace.Wrap(errors.Errorf("failed to make binary executable: %v", err))
 		}
 	}
 	return latestBinaryPath, nil
@@ -4566,19 +4568,19 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 		_ = os.Remove(oldPath) //nolint:errcheck
 		if err := os.Rename(localBinaryPath, oldPath); err != nil && !os.IsNotExist(err) {
 			if os.IsPermission(err) {
-				return errors.New("permission denied: run PowerShell as Administrator")
+				return errtrace.Wrap(errors.New("permission denied: run PowerShell as Administrator"))
 			}
-			return errors.Errorf("failed to rename old binary: %v", err)
+			return errtrace.Wrap(errors.Errorf("failed to rename old binary: %v", err))
 		}
 	}
 	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 		if os.IsPermission(err) {
 			if runtime.GOOS == osWindows {
-				return errors.New("permission denied: run PowerShell as Administrator")
+				return errtrace.Wrap(errors.New("permission denied: run PowerShell as Administrator"))
 			}
-			return errors.New("permission denied: run 'sudo viam update'")
+			return errtrace.Wrap(errors.New("permission denied: run 'sudo viam update'"))
 		}
-		return errors.Errorf("failed to replace binary: %v", err)
+		return errtrace.Wrap(errors.Errorf("failed to replace binary: %v", err))
 	}
 	return nil
 }
@@ -4592,7 +4594,7 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 	out, err := exec.Command("powershell", "-Command",
 		`[Environment]::GetEnvironmentVariable("Path", "User")`).Output()
 	if err != nil {
-		return errors.Errorf("failed to read user PATH: %v", err)
+		return errtrace.Wrap(errors.Errorf("failed to read user PATH: %v", err))
 	}
 	currentPath := strings.TrimSpace(string(out))
 
@@ -4615,7 +4617,7 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 		fmt.Sprintf(`[Environment]::SetEnvironmentVariable("Path", "%s", "User")`,
 			strings.ReplaceAll(newPath, `"`, `\"`)),
 	).Run(); err != nil {
-		return errors.Errorf("failed to update user PATH: %v", err)
+		return errtrace.Wrap(errors.Errorf("failed to update user PATH: %v", err))
 	}
 
 	infof(cmd.Root().Writer, "Added %s to your user PATH. Restart your terminal to use 'viam' from anywhere.", cleanDir)
@@ -4626,11 +4628,11 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 func VersionAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return errors.New("error reading build info")
+		return errtrace.Wrap(errors.New("error reading build info"))
 	}
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if globalArgs.Debug {
 		printf(cmd.Root().Writer, "%s", info.String())
@@ -4674,10 +4676,10 @@ func isProdBaseURL(baseURL *url.URL) bool {
 func newViamClient(ctx context.Context, cmd *cli.Command) (*viamClient, error) {
 	client, err := newViamClientInner(ctx, cmd, false)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := client.ensureLoggedIn(ctx); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return client, nil
 }
@@ -4692,7 +4694,7 @@ func isTLSLocalhost(url *url.URL) bool {
 func newViamClientInner(ctx context.Context, cmd *cli.Command, disableBrowserOpen bool) (*viamClient, error) {
 	baseURL, conf, err := getBaseURL(cmd)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if isTLSLocalhost(baseURL) {
 		warningf(
@@ -4725,7 +4727,7 @@ func newViamClientInner(ctx context.Context, cmd *cli.Command, disableBrowserOpe
 func getBaseURL(cmd *cli.Command) (*url.URL, *Config, error) {
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	conf, err := ConfigFromCache(cmd)
 	if err != nil {
@@ -4748,8 +4750,8 @@ func getBaseURL(cmd *cli.Command) (*url.URL, *Config, error) {
 	case conf.BaseURL == "" && baseURLArg != "":
 		conf.BaseURL = baseURLArg
 	case baseURLArg != "" && conf.BaseURL != "" && conf.BaseURL != baseURLArg:
-		return nil, nil, fmt.Errorf("cached base URL for this session is %q. "+
-			"Please logout and login again to use provided base URL %q", conf.BaseURL, baseURLArg)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("cached base URL for this session is %q. "+
+			"Please logout and login again to use provided base URL %q", conf.BaseURL, baseURLArg))
 	}
 
 	if conf.BaseURL != defaultBaseURL {
@@ -4757,7 +4759,7 @@ func getBaseURL(cmd *cli.Command) (*url.URL, *Config, error) {
 	}
 	baseURL, _, err := rutils.ParseBaseURL(conf.BaseURL, true)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	return baseURL, conf, nil
@@ -4766,7 +4768,7 @@ func getBaseURL(cmd *cli.Command) (*url.URL, *Config, error) {
 func (c *viamClient) loadOrganizations(ctx context.Context) error {
 	resp, err := c.client.ListOrganizations(ctx, &apppb.ListOrganizationsRequest{})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	c.orgs = &resp.Organizations
 	return nil
@@ -4780,12 +4782,12 @@ func (c *viamClient) selectOrganization(ctx context.Context, orgStr string) erro
 	c.locs = nil
 
 	if err := c.loadOrganizations(ctx); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	var orgIsID bool
 	if orgStr == "" {
 		if len(*c.orgs) == 0 {
-			return errors.New("no organizations to work with")
+			return errtrace.Wrap(errors.New("no organizations to work with"))
 		}
 		c.selectedOrg = (*c.orgs)[0]
 		return nil
@@ -4807,7 +4809,7 @@ func (c *viamClient) selectOrganization(ctx context.Context, orgStr string) erro
 		}
 	}
 	if foundOrg == nil {
-		return errors.Errorf("no organization found for %q", orgStr)
+		return errtrace.Wrap(errors.Errorf("no organization found for %q", orgStr))
 	}
 
 	c.selectedOrg = foundOrg
@@ -4820,7 +4822,7 @@ func (c *viamClient) selectOrganization(ctx context.Context, orgStr string) erro
 func (c *viamClient) getOrg(ctx context.Context, orgStr string) (*apppb.Organization, error) {
 	resp, err := c.client.ListOrganizations(ctx, &apppb.ListOrganizationsRequest{})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	organizations := resp.GetOrganizations()
 	var orgIsID bool
@@ -4836,37 +4838,37 @@ func (c *viamClient) getOrg(ctx context.Context, orgStr string) (*apppb.Organiza
 			return org, nil
 		}
 	}
-	return nil, errors.Errorf("no organization found for %q", orgStr)
+	return nil, errtrace.Wrap(errors.Errorf("no organization found for %q", orgStr))
 }
 
 // getUserOrgByPublicNamespace searches the logged in users orgs to see
 // if any have a matching public namespace.
 func (c *viamClient) getUserOrgByPublicNamespace(ctx context.Context, publicNamespace string) (*apppb.Organization, error) {
 	if err := c.loadOrganizations(ctx); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for _, org := range *c.orgs {
 		if org.PublicNamespace == publicNamespace {
 			return org, nil
 		}
 	}
-	return nil, errors.Errorf("none of your organizations have a public namespace of %q", publicNamespace)
+	return nil, errtrace.Wrap(errors.Errorf("none of your organizations have a public namespace of %q", publicNamespace))
 }
 
 func (c *viamClient) listOrganizations(ctx context.Context) ([]*apppb.Organization, error) {
 	if err := c.loadOrganizations(ctx); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return (*c.orgs), nil
 }
 
 func (c *viamClient) loadLocations(ctx context.Context) error {
 	if c.selectedOrg.Id == "" {
-		return errors.New("must select organization first")
+		return errtrace.Wrap(errors.New("must select organization first"))
 	}
 	resp, err := c.client.ListLocations(ctx, &apppb.ListLocationsRequest{OrganizationId: c.selectedOrg.Id})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	c.locs = &resp.Locations
 	return nil
@@ -4879,11 +4881,11 @@ func (c *viamClient) selectLocation(ctx context.Context, locStr string) error {
 	c.locs = nil
 
 	if err := c.loadLocations(ctx); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if locStr == "" {
 		if len(*c.locs) == 0 {
-			return errors.New("no locations to work with")
+			return errtrace.Wrap(errors.New("no locations to work with"))
 		}
 		c.selectedLoc = (*c.locs)[0]
 		return nil
@@ -4896,10 +4898,10 @@ func (c *viamClient) selectLocation(ctx context.Context, locStr string) error {
 		}
 	}
 	if len(foundLocs) == 0 {
-		return errors.Errorf("no location found for %q", locStr)
+		return errtrace.Wrap(errors.Errorf("no location found for %q", locStr))
 	}
 	if len(foundLocs) != 1 {
-		return errors.Errorf("multiple locations match %q: %v", locStr, foundLocs)
+		return errtrace.Wrap(errors.Errorf("multiple locations match %q: %v", locStr, foundLocs))
 	}
 
 	c.selectedLoc = foundLocs[0]
@@ -4908,26 +4910,26 @@ func (c *viamClient) selectLocation(ctx context.Context, locStr string) error {
 
 func (c *viamClient) listLocations(ctx context.Context, orgID string) ([]*apppb.Location, error) {
 	if err := c.selectOrganization(ctx, orgID); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := c.loadLocations(ctx); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return (*c.locs), nil
 }
 
 func (c *viamClient) listRobots(ctx context.Context, orgStr, locStr string) ([]*apppb.Robot, error) {
 	if err := c.selectOrganization(ctx, orgStr); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := c.selectLocation(ctx, locStr); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.ListRobots(ctx, &apppb.ListRobotsRequest{
 		LocationId: c.selectedLoc.Id,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Robots, nil
 }
@@ -4935,7 +4937,7 @@ func (c *viamClient) listRobots(ctx context.Context, orgStr, locStr string) ([]*
 func (c *viamClient) robot(ctx context.Context, orgStr, locStr, robotStr string) (*apppb.Robot, error) {
 	robots, err := c.listRobots(ctx, orgStr, locStr)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for _, robot := range robots {
 		if robot.Id == robotStr || robot.Name == robotStr {
@@ -4948,7 +4950,7 @@ func (c *viamClient) robot(ctx context.Context, orgStr, locStr, robotStr string)
 		Id: robotStr,
 	})
 	if err != nil {
-		return nil, errors.Errorf("no machine found for %q", robotStr)
+		return nil, errtrace.Wrap(errors.Errorf("no machine found for %q", robotStr))
 	}
 
 	return resp.GetRobot(), nil
@@ -4967,13 +4969,13 @@ func (c *viamClient) robotPart(ctx context.Context, orgStr, locStr, robotStr, pa
 		return resp.Part, nil
 	}
 
-	return nil, multierr.Combine(err, err2)
+	return nil, errtrace.Wrap(multierr.Combine(err, err2))
 }
 
 func (c *viamClient) robotPartInner(ctx context.Context, orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
 	parts, err := c.robotParts(ctx, orgStr, locStr, robotStr)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for _, part := range parts {
 		if part.Id == partStr || part.Name == partStr {
@@ -4987,7 +4989,7 @@ func (c *viamClient) robotPartInner(ctx context.Context, orgStr, locStr, robotSt
 			RobotId: robotStr,
 		})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		for _, part := range resp.Parts {
 			if part.Id == partStr || part.Name == partStr {
@@ -4999,14 +5001,14 @@ func (c *viamClient) robotPartInner(ctx context.Context, orgStr, locStr, robotSt
 		}
 	}
 
-	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
+	return nil, errtrace.Wrap(errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr))
 }
 
 // getRobotPart wraps GetRobotPart API.
 // note: overlaps with viamClient.robotPart, which wraps GetRobotParts.
 // Use this variant if you don't know the robot ID.
 func (c *viamClient) getRobotPart(ctx context.Context, partID string) (*apppb.GetRobotPartResponse, error) {
-	return c.client.GetRobotPart(ctx, &apppb.GetRobotPartRequest{Id: partID})
+	return errtrace.Wrap2(c.client.GetRobotPart(ctx, &apppb.GetRobotPartRequest{Id: partID}))
 }
 
 func (c *viamClient) updateRobotPart(
@@ -5014,7 +5016,7 @@ func (c *viamClient) updateRobotPart(
 ) error {
 	confStruct, err := structpb.NewStruct(confMap)
 	if err != nil {
-		return errors.Wrap(err, "in NewStruct")
+		return errtrace.Wrap(errors.Wrap(err, "in NewStruct"))
 	}
 	req := apppb.UpdateRobotPartRequest{
 		Id:              part.Id,
@@ -5023,7 +5025,7 @@ func (c *viamClient) updateRobotPart(
 		LastKnownUpdate: lastKnownUpdate,
 	}
 	_, err = c.client.UpdateRobotPart(ctx, &req)
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr, partStr string, errorsOnly bool,
@@ -5031,7 +5033,7 @@ func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr
 ) ([]*commonpb.LogEntry, error) {
 	part, err := c.robotPart(ctx, orgStr, locStr, robotStr, partStr)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Use page tokens to get batches of 100 up to numLogs and throw away any
@@ -5047,7 +5049,7 @@ func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr
 			End:        end,
 		})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		pageToken = resp.NextPageToken
@@ -5074,13 +5076,13 @@ func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr
 func (c *viamClient) robotParts(ctx context.Context, orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
 	robot, err := c.robot(ctx, orgStr, locStr, robotStr)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetRobotParts(ctx, &apppb.GetRobotPartsRequest{
 		RobotId: robot.Id,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return resp.Parts, nil
 }
@@ -5114,7 +5116,7 @@ func (c *viamClient) printRobotPartLogs(ctx context.Context, orgStr, locStr, rob
 ) error {
 	logs, err := c.robotPartLogs(ctx, orgStr, locStr, robotStr, partStr, errorsOnly, numLogs, start, end)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if header != "" {
@@ -5134,14 +5136,14 @@ func (c *viamClient) tailRobotPartLogs(
 ) error {
 	part, err := c.robotPart(ctx, orgStr, locStr, robotStr, partStr)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	tailClient, err := c.client.TailRobotPartLogs(ctx, &apppb.TailRobotPartLogsRequest{
 		Id:         part.Id,
 		ErrorsOnly: errorsOnly,
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if header != "" {
@@ -5154,7 +5156,7 @@ func (c *viamClient) tailRobotPartLogs(
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 		c.printRobotPartLogsInner(resp.Logs, indent)
 	}
@@ -5170,12 +5172,12 @@ func (c *viamClient) runRobotPartCommand(
 ) error {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(ctx, orgStr, locStr, robotStr, partStr, debug)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	conn, err := grpc.Dial(dialCtx, fqdn, logger, rpcOpts...)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(conn.Close())
@@ -5199,7 +5201,7 @@ func (c *viamClient) runRobotPartCommand(
 			strings.NewReader(data),
 			options)
 		if err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 
 		h := &grpcurl.DefaultEventHandler{
@@ -5217,7 +5219,7 @@ func (c *viamClient) runRobotPartCommand(
 			h,
 			rf.Next,
 		); err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 
 		if h.Status.Code() != codes.OK {
@@ -5231,7 +5233,7 @@ func (c *viamClient) runRobotPartCommand(
 
 	if streamDur == 0 {
 		_, err := invoke()
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	ticker := time.NewTicker(streamDur)
@@ -5242,7 +5244,7 @@ func (c *viamClient) runRobotPartCommand(
 			if errors.Is(err, context.Canceled) {
 				return nil
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		select {
@@ -5250,7 +5252,7 @@ func (c *viamClient) runRobotPartCommand(
 			return nil
 		case <-ticker.C:
 			if ok, err := invoke(); err != nil {
-				return err
+				return errtrace.Wrap(err)
 			} else if !ok {
 				return nil
 			}
@@ -5264,9 +5266,9 @@ func (c *viamClient) connectToShellService(ctx context.Context, orgStr, locStr, 
 ) (shell.Service, func(ctx context.Context) error, error) {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(ctx, orgStr, locStr, robotStr, partStr, debug)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
-	return c.connectToShellServiceInner(ctx, dialCtx, fqdn, rpcOpts, debug, logger)
+	return errtrace.Wrap3(c.connectToShellServiceInner(ctx, dialCtx, fqdn, rpcOpts, debug, logger))
 }
 
 // connectToShellServiceFqdn is a shell service dialer that doesn't check org or re-fetch the part.
@@ -5278,9 +5280,9 @@ func (c *viamClient) connectToShellServiceFqdn(
 ) (shell.Service, func(ctx context.Context) error, error) {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDialInner(ctx, partFqdn, debug)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
-	return c.connectToShellServiceInner(ctx, dialCtx, fqdn, rpcOpts, debug, logger)
+	return errtrace.Wrap3(c.connectToShellServiceInner(ctx, dialCtx, fqdn, rpcOpts, debug, logger))
 }
 
 func (c *viamClient) connectToRobot(
@@ -5294,11 +5296,11 @@ func (c *viamClient) connectToRobot(
 		printf(c.c.Root().Writer, "Establishing connection...")
 	}
 	if c.dialOverride != nil {
-		return c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
+		return errtrace.Wrap2(c.dialOverride(dialCtx, fqdn, rpcOpts, logger))
 	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not connect to machine part")
+		return nil, errtrace.Wrap(errors.Wrap(err, "could not connect to machine part"))
 	}
 	return robotClient, nil
 }
@@ -5313,7 +5315,7 @@ func (c *viamClient) connectToShellServiceInner(
 ) (shell.Service, func(ctx context.Context) error, error) {
 	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, debug, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	var successful bool
@@ -5333,17 +5335,17 @@ func (c *viamClient) connectToShellServiceInner(
 		}
 	}
 	if found == nil {
-		return nil, nil, errNoShellService
+		return nil, nil, errtrace.Wrap(errNoShellService)
 	}
 
 	shellRes, err := robotClient.ResourceByName(*found)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get shell service from machine part")
+		return nil, nil, errtrace.Wrap(errors.Wrap(err, "could not get shell service from machine part"))
 	}
 
 	shellSvc, ok := shellRes.(shell.Service)
 	if !ok {
-		return nil, nil, errors.New("could not get shell service from machine part")
+		return nil, nil, errtrace.Wrap(errors.New("could not get shell service from machine part"))
 	}
 	successful = true
 	return shellSvc, robotClient.Close, nil
@@ -5357,7 +5359,7 @@ func (c *viamClient) startRobotPartShell(
 ) error {
 	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(closeClient(ctx))
@@ -5376,7 +5378,7 @@ func (c *viamClient) startRobotPartShell(
 		"messages": []interface{}{getWinChMsg()},
 	})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if sig, ok := sigwinchSignal(); ok {
@@ -5400,7 +5402,7 @@ func (c *viamClient) startRobotPartShell(
 	stdinFd := int(os.Stdin.Fd())
 	oldTermState, err := term.MakeRaw(stdinFd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(term.Restore(stdinFd, oldTermState))
@@ -5489,7 +5491,7 @@ func (c *viamClient) retryableCopy(
 			pm.stepMap[attemptStepID] = attemptStep
 
 			if err := pm.Start(attemptStepID); err != nil {
-				return attempt, err
+				return attempt, errtrace.Wrap(err)
 			}
 		}
 
@@ -5499,7 +5501,7 @@ func (c *viamClient) retryableCopy(
 			// Success! Complete the step if this was a retry
 			if attemptStepID != "" {
 				if err := pm.Complete(attemptStepID); err != nil {
-					return attempt, err
+					return attempt, errtrace.Wrap(err)
 				}
 			}
 			return attempt, nil
@@ -5521,11 +5523,11 @@ func (c *viamClient) retryableCopy(
 						"Alternatively, run the RDK as root.")
 				}
 				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
+				return attempt, errtrace.Wrap(copyErr)
 			} else if s.Code() == codes.InvalidArgument {
 				warningf(cmd.Root().ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
 				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
+				return attempt, errtrace.Wrap(copyErr)
 			}
 		}
 
@@ -5543,7 +5545,7 @@ func (c *viamClient) retryableCopy(
 			pm.steps = append(pm.steps, attemptStep)
 			pm.stepMap[attemptStepID] = attemptStep
 			if err := pm.Start(attemptStepID); err != nil {
-				return attempt, err
+				return attempt, errtrace.Wrap(err)
 			}
 		}
 
@@ -5552,7 +5554,7 @@ func (c *viamClient) retryableCopy(
 	}
 
 	// All attempts failed - return the error from the copy function
-	return maxCopyAttempts, copyErr
+	return maxCopyAttempts, errtrace.Wrap(copyErr)
 }
 
 func (c *viamClient) copyFilesToMachine(
@@ -5568,9 +5570,9 @@ func (c *viamClient) copyFilesToMachine(
 ) error {
 	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.copyFilesToMachineInner(ctx, shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return errtrace.Wrap(c.copyFilesToMachineInner(ctx, shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress))
 }
 
 // copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
@@ -5587,9 +5589,9 @@ func (c *viamClient) copyFilesToFqdn(
 ) error {
 	shellSvc, closeClient, err := c.connectToShellServiceFqdn(ctx, fqdn, debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
-	return c.copyFilesToMachineInner(ctx, shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return errtrace.Wrap(c.copyFilesToMachineInner(ctx, shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress))
 }
 
 // copyFilesToMachineInner is the common logic for both copyFiles variants.
@@ -5614,7 +5616,7 @@ func (c *viamClient) copyFilesToMachineInner(
 		// this as a tee reader.
 		readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		defer func() {
 			if err := readCopier.Close(ctx); err != nil {
@@ -5623,7 +5625,7 @@ func (c *viamClient) copyFilesToMachineInner(
 		}()
 
 		// ReadAll the files into the copier.
-		return readCopier.ReadAll(ctx)
+		return errtrace.Wrap(readCopier.ReadAll(ctx))
 	}
 
 	// Calculate total size of all files to be copied
@@ -5631,12 +5633,12 @@ func (c *viamClient) copyFilesToMachineInner(
 	for _, path := range paths {
 		info, err := os.Stat(path)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		if info.IsDir() && allowRecursion {
 			err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				if !info.IsDir() {
 					totalSize += info.Size()
@@ -5644,7 +5646,7 @@ func (c *viamClient) copyFilesToMachineInner(
 				return nil
 			})
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 		} else if !info.IsDir() {
 			totalSize += info.Size()
@@ -5677,7 +5679,7 @@ func (c *viamClient) copyFilesToMachineInner(
 	// Create a new read copier with the progress tracking factory
 	readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, progressFactory)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		if err := readCopier.Close(ctx); err != nil {
@@ -5687,7 +5689,7 @@ func (c *viamClient) copyFilesToMachineInner(
 
 	// ReadAll the files into the copier.
 	err = readCopier.ReadAll(ctx)
-	return err
+	return errtrace.Wrap(err)
 }
 
 // progressTrackingFactory wraps a copy factory to track progress.
@@ -5699,7 +5701,7 @@ type progressTrackingFactory struct {
 func (ptf *progressTrackingFactory) MakeFileCopier(ctx context.Context, sourceType shell.CopyFilesSourceType) (shell.FileCopier, error) {
 	copier, err := ptf.factory.MakeFileCopier(ctx, sourceType)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &progressTrackingCopier{
 		copier:     copier,
@@ -5717,7 +5719,7 @@ func (ptc *progressTrackingCopier) Copy(ctx context.Context, file shell.File) er
 	// Get file size
 	info, err := file.Data.Stat()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	fileSize := info.Size()
 
@@ -5735,13 +5737,13 @@ func (ptc *progressTrackingCopier) Copy(ctx context.Context, file shell.File) er
 		Data:         progressReader,
 	}
 
-	return ptc.copier.Copy(ctx, progressFile)
+	return errtrace.Wrap(ptc.copier.Copy(ctx, progressFile))
 }
 
 func (ptc *progressTrackingCopier) Close(ctx context.Context) error {
 	//nolint:errcheck // progress display is non-critical
 	_, _ = os.Stdout.WriteString("\n")
-	return ptc.copier.Close(ctx)
+	return errtrace.Wrap(ptc.copier.Close(ctx))
 }
 
 // progressReader wraps a reader to track progress.
@@ -5759,15 +5761,15 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 		pr.copied += int64(n)
 		pr.onProgress(pr.copied, pr.fileName, pr.fileSize)
 	}
-	return n, err
+	return n, errtrace.Wrap(err)
 }
 
 func (pr *progressReader) Stat() (fs.FileInfo, error) {
-	return pr.reader.Stat()
+	return errtrace.Wrap2(pr.reader.Stat())
 }
 
 func (pr *progressReader) Close() error {
-	return pr.reader.Close()
+	return errtrace.Wrap(pr.reader.Close())
 }
 
 func (c *viamClient) copyFilesFromMachine(
@@ -5782,7 +5784,7 @@ func (c *viamClient) copyFilesFromMachine(
 ) error {
 	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		utils.UncheckedError(closeClient(ctx))
@@ -5791,11 +5793,11 @@ func (c *viamClient) copyFilesFromMachine(
 	// prepare a factory that understands how to work with our local filesystem.
 	factory, err := shell.NewLocalFileCopyFactory(destination, preserve, false)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// let the shell service figure out how to grab the files for and pass them to our copier.
-	return shellSvc.CopyFilesFromMachine(ctx, paths, allowRecursion, preserve, factory, nil)
+	return errtrace.Wrap(shellSvc.CopyFilesFromMachine(ctx, paths, allowRecursion, preserve, factory, nil))
 }
 
 func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
@@ -5810,7 +5812,7 @@ func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
 	for i, field := range fields {
 		key, value, err := logging.FieldKeyAndValueFromProto(field)
 		if err != nil {
-			return "", err
+			return "", errtrace.Wrap(err)
 		}
 		if i > 0 {
 			// split fields with space and comma after first entry
@@ -5841,21 +5843,21 @@ const (
 func ReadOAuthAppAction(ctx context.Context, cmd *cli.Command, args readOAuthAppArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to read OAuth app")
+		return errtrace.Wrap(errors.New("must provide an organization ID to read OAuth app"))
 	}
 
-	return client.readOAuthAppAction(ctx, cmd, args.OrgID, args.ClientID)
+	return errtrace.Wrap(client.readOAuthAppAction(ctx, cmd, args.OrgID, args.ClientID))
 }
 
 func (c *viamClient) readOAuthAppAction(ctx context.Context, cmd *cli.Command, orgID, clientID string) error {
 	req := &apppb.ReadOAuthAppRequest{OrgId: orgID, ClientId: clientID}
 	resp, err := c.client.ReadOAuthApp(ctx, req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	config := resp.OauthConfig
@@ -5893,11 +5895,11 @@ type deleteOAuthAppArgs struct {
 // It asks for the user to confirm that they want to delete the oauth app.
 func DeleteOAuthAppConfirmation(ctx context.Context, cmd *cli.Command, args deleteOAuthAppArgs) error {
 	if args.OrgID == "" {
-		return errors.New("cannot delete oauth app without an organization ID")
+		return errtrace.Wrap(errors.New("cannot delete oauth app without an organization ID"))
 	}
 
 	if args.ClientID == "" {
-		return errors.New("cannot delete oauth app without a client ID")
+		return errtrace.Wrap(errors.New("cannot delete oauth app without a client ID"))
 	}
 
 	printf(cmd.Root().Writer, yellow, "WARNING!!\n")
@@ -5905,17 +5907,17 @@ func DeleteOAuthAppConfirmation(ctx context.Context, cmd *cli.Command, args dele
 		"Once deleted, any existing apps that rely on this OAuth application will no longer be able to authenticate users.\n", args.ClientID))
 	printf(cmd.Root().Writer, yellow, "If you wish to continue, please type \"delete\":")
 	if err := ctx.Err(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	rawInput, err := bufio.NewReader(cmd.Root().Reader).ReadString('\n')
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	input := strings.ToUpper(strings.TrimSpace(rawInput))
 	if input != "DELETE" {
-		return errors.New("aborted")
+		return errtrace.Wrap(errors.New("aborted"))
 	}
 	return nil
 }
@@ -5924,10 +5926,10 @@ func DeleteOAuthAppConfirmation(ctx context.Context, cmd *cli.Command, args dele
 func DeleteOAuthAppAction(ctx context.Context, cmd *cli.Command, args deleteOAuthAppArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.deleteOAuthAppAction(ctx, cmd, args.OrgID, args.ClientID)
+	return errtrace.Wrap(client.deleteOAuthAppAction(ctx, cmd, args.OrgID, args.ClientID))
 }
 
 func (c *viamClient) deleteOAuthAppAction(ctx context.Context, cmd *cli.Command, orgID, clientID string) error {
@@ -5938,7 +5940,7 @@ func (c *viamClient) deleteOAuthAppAction(ctx context.Context, cmd *cli.Command,
 
 	_, err := c.client.DeleteOAuthApp(ctx, req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Successfully deleted OAuth application")
@@ -5966,9 +5968,9 @@ func pkceToProto(stringPKCE string) (apppb.PKCE, error) {
 	case PKCEUnspecified:
 		return apppb.PKCE_PKCE_UNSPECIFIED, nil
 	}
-	return apppb.PKCE_PKCE_UNSPECIFIED, errors.Errorf("--%s must be a valid PKCE, got %s. "+
+	return apppb.PKCE_PKCE_UNSPECIFIED, errtrace.Wrap(errors.Errorf("--%s must be a valid PKCE, got %s. "+
 		"See `viam organizations auth-service oauth-app update --help` for supported options",
-		oauthAppFlagPKCE, stringPKCE)
+		oauthAppFlagPKCE, stringPKCE))
 }
 
 type clientAuthentication string
@@ -5992,9 +5994,9 @@ func clientAuthToProto(clientAuth string) (apppb.ClientAuthentication, error) {
 	case ClientAuthenticationUnspecified:
 		return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_UNSPECIFIED, nil
 	}
-	return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_UNSPECIFIED, errors.Errorf("--%s must be a valid ClientAuthentication, got %s. "+
+	return apppb.ClientAuthentication_CLIENT_AUTHENTICATION_UNSPECIFIED, errtrace.Wrap(errors.Errorf("--%s must be a valid ClientAuthentication, got %s. "+
 		"See `viam organizations auth-service oauth-app update --help` for supported options",
-		oauthAppFlagClientAuthentication, clientAuth)
+		oauthAppFlagClientAuthentication, clientAuth))
 }
 
 type urlValidation string
@@ -6015,9 +6017,9 @@ func urlValidationToProto(urlValid string) (apppb.URLValidation, error) {
 	case URLValidationUnspecified:
 		return apppb.URLValidation_URL_VALIDATION_UNSPECIFIED, nil
 	}
-	return apppb.URLValidation_URL_VALIDATION_UNSPECIFIED, errors.Errorf("--%s must be a valid UrlValidation, got %s. "+
+	return apppb.URLValidation_URL_VALIDATION_UNSPECIFIED, errtrace.Wrap(errors.Errorf("--%s must be a valid UrlValidation, got %s. "+
 		"See `viam organizations auth-service oauth-app update --help` for supported options",
-		oauthAppFlagURLValidation, urlValid)
+		oauthAppFlagURLValidation, urlValid))
 }
 
 type enabledGrant string
@@ -6047,9 +6049,9 @@ func enabledGrantToProto(eg string) (apppb.EnabledGrant, error) {
 	case EnabledGrantUnspecified:
 		return apppb.EnabledGrant_ENABLED_GRANT_UNSPECIFIED, nil
 	}
-	return apppb.EnabledGrant_ENABLED_GRANT_UNSPECIFIED, errors.Errorf("%s must consist of valid EnabledGrants, got %s. "+
+	return apppb.EnabledGrant_ENABLED_GRANT_UNSPECIFIED, errtrace.Wrap(errors.Errorf("%s must consist of valid EnabledGrants, got %s. "+
 		"See `viam organizations auth-service oauth-app update --help` for supported options",
-		oauthAppFlagEnabledGrants, eg)
+		oauthAppFlagEnabledGrants, eg))
 }
 
 type createOAuthAppArgs struct {
@@ -6069,21 +6071,21 @@ type createOAuthAppArgs struct {
 func CreateOAuthAppAction(ctx context.Context, cmd *cli.Command, args createOAuthAppArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to create an OAuth app")
+		return errtrace.Wrap(errors.New("must provide an organization ID to create an OAuth app"))
 	}
 
-	return client.createOAuthAppAction(ctx, cmd, args)
+	return errtrace.Wrap(client.createOAuthAppAction(ctx, cmd, args))
 }
 
 func (c *viamClient) createOAuthAppAction(ctx context.Context, cmd *cli.Command, args createOAuthAppArgs) error {
 	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
 		args.LogoutURI, args.InviteRedirectURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := &apppb.CreateOAuthAppRequest{
@@ -6094,7 +6096,7 @@ func (c *viamClient) createOAuthAppAction(ctx context.Context, cmd *cli.Command,
 
 	response, err := c.client.CreateOAuthApp(ctx, req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Successfully created OAuth app %s with client ID %s and client secret %s",
@@ -6120,21 +6122,21 @@ type updateOAuthAppArgs struct {
 func UpdateOAuthAppAction(ctx context.Context, cmd *cli.Command, args updateOAuthAppArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
-	return client.updateOAuthAppAction(ctx, cmd, args)
+	return errtrace.Wrap(client.updateOAuthAppAction(ctx, cmd, args))
 }
 
 func (c *viamClient) updateOAuthAppAction(ctx context.Context, cmd *cli.Command, args updateOAuthAppArgs) error {
 	req, err := createUpdateOAuthAppRequest(args)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = c.client.UpdateOAuthApp(ctx, req)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	printf(cmd.Root().Writer, "Successfully updated OAuth app %s", args.ClientID)
@@ -6146,21 +6148,21 @@ func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI,
 ) (*apppb.OAuthConfig, error) {
 	clientAuthProto, err := clientAuthToProto(clientAuthentication)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pkceProto, err := pkceToProto(pkce)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	urlValidationProto, err := urlValidationToProto(urlValidation)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	egProto, err := enabledGrantsToProto(enabledGrants)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &apppb.OAuthConfig{
@@ -6177,7 +6179,7 @@ func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI,
 
 func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
 	if args.OrgID == "" {
-		return nil, errors.New("must provide an organization ID to update OAuth app")
+		return nil, errtrace.Wrap(errors.New("must provide an organization ID to update OAuth app"))
 	}
 	orgID := args.OrgID
 	clientID := args.ClientID
@@ -6186,7 +6188,7 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 	oauthConfig, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
 		args.LogoutURI, args.InviteRedirectURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	req := &apppb.UpdateOAuthAppRequest{
 		OrgId:       orgID,
@@ -6205,7 +6207,7 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 	for _, eg := range enabledGrants {
 		enabledGrant, err := enabledGrantToProto(eg)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		enabledGrantsProto = append(enabledGrantsProto, enabledGrant)
 	}

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -81,9 +82,9 @@ func TestClientWorkingService(t *testing.T) {
 		f := func() ([]byte, error) {
 			n, err := reader.Read(clientBuffer)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
-			return clientBuffer[:n], err
+			return clientBuffer[:n], errtrace.Wrap(err)
 		}
 		return f, nil
 	}
@@ -94,10 +95,10 @@ func TestClientWorkingService(t *testing.T) {
 		f := func() ([]byte, error) {
 			n, err := reader.Read(clientBuffer)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 
-			return clientBuffer[:n], err
+			return clientBuffer[:n], errtrace.Wrap(err)
 		}
 		return f, nil
 	}
@@ -301,19 +302,19 @@ func TestFailingClient(t *testing.T) {
 	failingSLAMService := &inject.SLAMService{}
 
 	failingSLAMService.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
-		return nil, errors.New("failure to get position")
+		return nil, errtrace.Wrap(errors.New("failure to get position"))
 	}
 
 	failingSLAMService.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
-		return nil, errors.New("failure during get pointcloud map")
+		return nil, errtrace.Wrap(errors.New("failure during get pointcloud map"))
 	}
 
 	failingSLAMService.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		return nil, errors.New("failure during get internal state")
+		return nil, errtrace.Wrap(errors.New("failure during get internal state"))
 	}
 
 	failingSLAMService.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
-		return slam.Properties{}, errors.New("failure to get properties")
+		return slam.Properties{}, errtrace.Wrap(errors.New("failure to get properties"))
 	}
 
 	failingSvc, err := resource.NewAPIResourceCollection(slam.API, map[resource.Name]slam.Service{slam.Named(nameFail): failingSLAMService})
@@ -375,14 +376,14 @@ func TestFailingClient(t *testing.T) {
 
 	failingSLAMService.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
-			return nil, errors.New("failure during callback")
+			return nil, errtrace.Wrap(errors.New("failure during callback"))
 		}
 		return f, nil
 	}
 
 	failingSLAMService.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
-			return nil, errors.New("failure during callback")
+			return nil, errtrace.Wrap(errors.New("failure during callback"))
 		}
 		return f, nil
 	}

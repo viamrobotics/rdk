@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -23,11 +24,11 @@ var ErrEmptyComponentName = errors.New("component name cannot be empty")
 func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	worldStateMsg, err := r.WorldState.ToProtobuf()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	reqPB := &pb.MoveRequest{
 		Name:          name,
@@ -48,7 +49,7 @@ func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
 func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
 	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
 	if err != nil {
-		return MoveReq{}, err
+		return MoveReq{}, errtrace.Wrap(err)
 	}
 	dst := req.GetDestination()
 	var destination *referenceframe.PoseInFrame
@@ -69,24 +70,24 @@ func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
 // planWithStatusFromProto converts a *pb.PlanWithStatus to a PlanWithStatus.
 func planWithStatusFromProto(pws *pb.PlanWithStatus) (PlanWithStatus, error) {
 	if pws == nil {
-		return PlanWithStatus{}, errors.New("received nil *pb.PlanWithStatus")
+		return PlanWithStatus{}, errtrace.Wrap(errors.New("received nil *pb.PlanWithStatus"))
 	}
 
 	plan, err := planFromProto(pws.Plan)
 	if err != nil {
-		return PlanWithStatus{}, err
+		return PlanWithStatus{}, errtrace.Wrap(err)
 	}
 
 	status, err := planStatusFromProto(pws.Status)
 	if err != nil {
-		return PlanWithStatus{}, err
+		return PlanWithStatus{}, errtrace.Wrap(err)
 	}
 	statusHistory := []PlanStatus{}
 	statusHistory = append(statusHistory, status)
 	for _, s := range pws.StatusHistory {
 		ps, err := planStatusFromProto(s)
 		if err != nil {
-			return PlanWithStatus{}, err
+			return PlanWithStatus{}, errtrace.Wrap(err)
 		}
 		statusHistory = append(statusHistory, ps)
 	}
@@ -100,7 +101,7 @@ func planWithStatusFromProto(pws *pb.PlanWithStatus) (PlanWithStatus, error) {
 // planStatusFromProto converts a *pb.PlanStatus to a PlanStatus.
 func planStatusFromProto(ps *pb.PlanStatus) (PlanStatus, error) {
 	if ps == nil {
-		return PlanStatus{}, errors.New("received nil *pb.PlanStatus")
+		return PlanStatus{}, errtrace.Wrap(errors.New("received nil *pb.PlanStatus"))
 	}
 
 	return PlanStatus{
@@ -113,26 +114,26 @@ func planStatusFromProto(ps *pb.PlanStatus) (PlanStatus, error) {
 // planStatusWithIDFromProto converts a *pb.PlanStatus to a PlanStatus.
 func planStatusWithIDFromProto(ps *pb.PlanStatusWithID) (PlanStatusWithID, error) {
 	if ps == nil {
-		return PlanStatusWithID{}, errors.New("received nil *pb.PlanStatusWithID")
+		return PlanStatusWithID{}, errtrace.Wrap(errors.New("received nil *pb.PlanStatusWithID"))
 	}
 
 	planID, err := uuid.Parse(ps.PlanId)
 	if err != nil {
-		return PlanStatusWithID{}, err
+		return PlanStatusWithID{}, errtrace.Wrap(err)
 	}
 
 	executionID, err := uuid.Parse(ps.ExecutionId)
 	if err != nil {
-		return PlanStatusWithID{}, err
+		return PlanStatusWithID{}, errtrace.Wrap(err)
 	}
 
 	status, err := planStatusFromProto(ps.Status)
 	if err != nil {
-		return PlanStatusWithID{}, err
+		return PlanStatusWithID{}, errtrace.Wrap(err)
 	}
 
 	if ps.ComponentName == "" {
-		return PlanStatusWithID{}, ErrEmptyComponentName
+		return PlanStatusWithID{}, errtrace.Wrap(ErrEmptyComponentName)
 	}
 
 	return PlanStatusWithID{
@@ -146,21 +147,21 @@ func planStatusWithIDFromProto(ps *pb.PlanStatusWithID) (PlanStatusWithID, error
 // planFromProto converts a *pb.Plan to a Plan.
 func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 	if p == nil {
-		return PlanWithMetadata{}, errors.New("received nil *pb.Plan")
+		return PlanWithMetadata{}, errtrace.Wrap(errors.New("received nil *pb.Plan"))
 	}
 
 	id, err := uuid.Parse(p.Id)
 	if err != nil {
-		return PlanWithMetadata{}, err
+		return PlanWithMetadata{}, errtrace.Wrap(err)
 	}
 
 	executionID, err := uuid.Parse(p.ExecutionId)
 	if err != nil {
-		return PlanWithMetadata{}, err
+		return PlanWithMetadata{}, errtrace.Wrap(err)
 	}
 
 	if p.ComponentName == "" {
-		return PlanWithMetadata{}, ErrEmptyComponentName
+		return PlanWithMetadata{}, errtrace.Wrap(ErrEmptyComponentName)
 	}
 
 	plan := PlanWithMetadata{
@@ -177,7 +178,7 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 	for _, s := range p.Steps {
 		step, err := motionplan.FrameSystemPosesFromProto(s)
 		if err != nil {
-			return PlanWithMetadata{}, err
+			return PlanWithMetadata{}, errtrace.Wrap(err)
 		}
 		steps = append(steps, step)
 	}
@@ -207,11 +208,11 @@ func planStateFromProto(ps pb.PlanState) PlanState {
 func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if r.Destination == nil {
-		return nil, errors.New("must provide a destination")
+		return nil, errtrace.Wrap(errors.New("must provide a destination"))
 	}
 
 	req := &pb.MoveOnGlobeRequest{
@@ -249,11 +250,11 @@ func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
 
 func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, error) {
 	if req == nil {
-		return MoveOnGlobeReq{}, errors.New("received nil *pb.MoveOnGlobeRequest")
+		return MoveOnGlobeReq{}, errtrace.Wrap(errors.New("received nil *pb.MoveOnGlobeRequest"))
 	}
 
 	if req.Destination == nil {
-		return MoveOnGlobeReq{}, errors.New("must provide a destination")
+		return MoveOnGlobeReq{}, errtrace.Wrap(errors.New("must provide a destination"))
 	}
 
 	// Optionals
@@ -266,7 +267,7 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 	for _, eachProtoObst := range obstaclesProto {
 		convObst, err := referenceframe.GeoGeometryFromProtobuf(eachProtoObst)
 		if err != nil {
-			return MoveOnGlobeReq{}, err
+			return MoveOnGlobeReq{}, errtrace.Wrap(err)
 		}
 		obstacles = append(obstacles, convObst)
 	}
@@ -276,20 +277,20 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 	for _, eachProtoObst := range boundingRegionGeometriesProto {
 		convObst, err := referenceframe.GeoGeometryFromProtobuf(eachProtoObst)
 		if err != nil {
-			return MoveOnGlobeReq{}, err
+			return MoveOnGlobeReq{}, errtrace.Wrap(err)
 		}
 		boundingRegionGeometries = append(boundingRegionGeometries, convObst)
 	}
 
 	protoComponentName := req.GetComponentName()
 	if protoComponentName == "" {
-		return MoveOnGlobeReq{}, ErrEmptyComponentName
+		return MoveOnGlobeReq{}, errtrace.Wrap(ErrEmptyComponentName)
 	}
 	componentName := protoComponentName
 	destination := geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude())
 	protoMovementSensorName := req.GetMovementSensorName()
 	if protoMovementSensorName == "" {
-		return MoveOnGlobeReq{}, errors.New("movement sensor name cannot be empty")
+		return MoveOnGlobeReq{}, errtrace.Wrap(errors.New("movement sensor name cannot be empty"))
 	}
 	movementSensorName := protoMovementSensorName
 	motionCfg := configurationFromProto(req.MotionConfiguration)
@@ -309,7 +310,7 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
 	ext, err := vprotoutils.StructToStructPb(req.Extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var executionIDPtr *string
@@ -328,14 +329,14 @@ func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
 
 func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
 	if req.GetComponentName() == "" {
-		return PlanHistoryReq{}, ErrEmptyComponentName
+		return PlanHistoryReq{}, errtrace.Wrap(ErrEmptyComponentName)
 	}
 
 	executionID := uuid.Nil
 	if executionIDStr := req.GetExecutionId(); executionIDStr != "" {
 		id, err := uuid.Parse(executionIDStr)
 		if err != nil {
-			return PlanHistoryReq{}, err
+			return PlanHistoryReq{}, errtrace.Wrap(err)
 		}
 		executionID = id
 	}
@@ -350,24 +351,24 @@ func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
 
 func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 	if req == nil {
-		return MoveOnMapReq{}, errors.New("received nil *pb.MoveOnMapRequest")
+		return MoveOnMapReq{}, errtrace.Wrap(errors.New("received nil *pb.MoveOnMapRequest"))
 	}
 	if req.GetDestination() == nil {
-		return MoveOnMapReq{}, errors.New("received nil *commonpb.Pose for destination")
+		return MoveOnMapReq{}, errtrace.Wrap(errors.New("received nil *commonpb.Pose for destination"))
 	}
 	protoComponentName := req.GetComponentName()
 	if protoComponentName == "" {
-		return MoveOnMapReq{}, ErrEmptyComponentName
+		return MoveOnMapReq{}, errtrace.Wrap(ErrEmptyComponentName)
 	}
 	protoSlamServiceName := req.GetSlamServiceName()
 	if protoSlamServiceName == "" {
-		return MoveOnMapReq{}, errors.New("SlamService name cannot be empty")
+		return MoveOnMapReq{}, errtrace.Wrap(errors.New("SlamService name cannot be empty"))
 	}
 	geoms := []spatialmath.Geometry{}
 	if obs := req.GetObstacles(); len(obs) > 0 {
 		convertedGeom, err := referenceframe.NewGeometriesFromProto(obs)
 		if err != nil {
-			return MoveOnMapReq{}, errors.Wrap(err, "cannot convert obstacles into geometries")
+			return MoveOnMapReq{}, errtrace.Wrap(errors.Wrap(err, "cannot convert obstacles into geometries"))
 		}
 		geoms = convertedGeom
 	}
@@ -384,10 +385,10 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if r.Destination == nil {
-		return nil, errors.New("must provide a destination")
+		return nil, errtrace.Wrap(errors.New("must provide a destination"))
 	}
 	req := &pb.MoveOnMapRequest{
 		Name:            name,

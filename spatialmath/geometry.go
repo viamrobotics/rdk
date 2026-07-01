@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 )
@@ -130,14 +131,14 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.MeshFilePath = gType.originalFilePath
 		config.Label = gType.label
 	default:
-		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
+		return nil, errtrace.Wrap(fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType)))
 	}
 	offset := g.Pose()
 	o := offset.Orientation()
 	config.TranslationOffset = offset.Point()
 	orientationConfig, err := NewOrientationConfig(o)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	config.OrientationOffset = *orientationConfig
 	return config, nil
@@ -148,25 +149,25 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	// determine offset to use
 	orientation, err := config.OrientationOffset.ParseConfig()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	offset := NewPose(config.TranslationOffset, orientation)
 
 	// build GeometryCreator depending on specified type
 	switch config.Type {
 	case BoxType:
-		return NewBox(offset, r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, config.Label)
+		return errtrace.Wrap2(NewBox(offset, r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, config.Label))
 	case SphereType:
-		return NewSphere(offset, config.R, config.Label)
+		return errtrace.Wrap2(NewSphere(offset, config.R, config.Label))
 	case CapsuleType:
-		return NewCapsule(offset, config.R, config.L, config.Label)
+		return errtrace.Wrap2(NewCapsule(offset, config.R, config.L, config.Label))
 	case CylinderType:
-		return NewCylinder(offset, config.R, config.L, config.Label)
+		return errtrace.Wrap2(NewCylinder(offset, config.R, config.L, config.Label))
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
 	case MeshType:
 		if len(config.MeshData) == 0 {
-			return nil, fmt.Errorf("mesh geometry requires mesh data")
+			return nil, errtrace.Wrap(fmt.Errorf("mesh geometry requires mesh data"))
 		}
 		// Create proto Mesh and use NewMeshFromProto
 		protoMesh := &commonpb.Mesh{
@@ -175,7 +176,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		}
 		mesh, err := NewMeshFromProto(offset, protoMesh, config.Label)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		// Preserve the original file path for round-tripping
 		if config.MeshFilePath != "" {
@@ -198,14 +199,14 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, fmt.Errorf("%w: %s", errGeometryTypeUnsupported, string(config.Type))
+	return nil, errtrace.Wrap(fmt.Errorf("%w: %s", errGeometryTypeUnsupported, string(config.Type)))
 }
 
 // ToProtobuf converts a GeometryConfig to Protobuf.
 func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 	creator, err := config.ParseConfig()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return creator.ToProtobuf(), nil
 }

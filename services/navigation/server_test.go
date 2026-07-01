@@ -13,6 +13,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
@@ -107,7 +108,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("failing mode function", func(t *testing.T) {
 		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
-			return 0, errors.New("mode failed")
+			return 0, errtrace.Wrap(errors.New("mode failed"))
 		}
 		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetMode(context.Background(), req)
@@ -172,7 +173,7 @@ func TestServer(t *testing.T) {
 	t.Run("failing set mode function", func(t *testing.T) {
 		// internal set mode failure
 		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
-			return errors.New("failed to set mode")
+			return errtrace.Wrap(errors.New("failed to set mode"))
 		}
 		req := &pb.SetModeRequest{
 			Name: testSvcName1.ShortName(),
@@ -219,7 +220,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("failing location function", func(t *testing.T) {
 		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
-			return nil, errors.New("location retrieval failed")
+			return nil, errtrace.Wrap(errors.New("location retrieval failed"))
 		}
 		req := &pb.GetLocationRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetLocation(context.Background(), req)
@@ -246,7 +247,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("failing waypoints function", func(t *testing.T) {
 		injectSvc.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
-			return nil, errors.New("waypoints retrieval failed")
+			return nil, errtrace.Wrap(errors.New("waypoints retrieval failed"))
 		}
 		req := &pb.GetWaypointsRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetWaypoints(context.Background(), req)
@@ -287,7 +288,7 @@ func TestServer(t *testing.T) {
 		addWaypointCalled := false
 		injectSvc.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
 			addWaypointCalled = true
-			return errors.New("failed to add waypoint")
+			return errtrace.Wrap(errors.New("failed to add waypoint"))
 		}
 		req := &pb.AddWaypointRequest{
 			Name: testSvcName1.ShortName(),
@@ -341,7 +342,7 @@ func TestServer(t *testing.T) {
 
 		// fail on failing function
 		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
-			return errors.New("failed to remove waypoint")
+			return errtrace.Wrap(errors.New("failed to remove waypoint"))
 		}
 		req = &pb.RemoveWaypointRequest{
 			Name: testSvcName1.ShortName(),
@@ -369,7 +370,7 @@ func TestServer(t *testing.T) {
 	t.Run("failing Paths", func(t *testing.T) {
 		expectedErr := errors.New("unimplemented")
 		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-			return nil, expectedErr
+			return nil, errtrace.Wrap(expectedErr)
 		}
 		req := &pb.GetPathsRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetPaths(context.Background(), req)
@@ -392,7 +393,7 @@ func TestServer(t *testing.T) {
 	t.Run("failing Properties", func(t *testing.T) {
 		expectedErr := errors.New("unimplemented")
 		injectSvc.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
-			return navigation.Properties{}, expectedErr
+			return navigation.Properties{}, errtrace.Wrap(expectedErr)
 		}
 		req := &pb.GetPropertiesRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetProperties(context.Background(), req)
@@ -484,7 +485,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	injectSvc.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = navServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSvcName1.ShortName()})
 	test.That(t, err, test.ShouldNotBeNil)

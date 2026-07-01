@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	viamgrpc "go.viam.com/rdk/grpc"
@@ -35,7 +36,7 @@ func TestClient(t *testing.T) {
 	srv.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage, extra map[string]interface{}) ([]objectdetection.Detection, error) {
 		decoded, err := img.Image(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		det1 := objectdetection.NewDetection(decoded.Bounds(), image.Rect(5, 10, 15, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil

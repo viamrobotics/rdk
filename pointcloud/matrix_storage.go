@@ -3,6 +3,7 @@ package pointcloud
 import (
 	"sync"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 )
 
@@ -22,13 +23,13 @@ func (ms *matrixStorage) Set(v r3.Vector, d Data) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
-		return newOutOfRangeErr("x", v.X)
+		return errtrace.Wrap(newOutOfRangeErr("x", v.X))
 	}
 	if v.Y > maxPreciseFloat64 || v.Y < minPreciseFloat64 {
-		return newOutOfRangeErr("y", v.Y)
+		return errtrace.Wrap(newOutOfRangeErr("y", v.Y))
 	}
 	if v.Z > maxPreciseFloat64 || v.Z < minPreciseFloat64 {
-		return newOutOfRangeErr("z", v.Z)
+		return errtrace.Wrap(newOutOfRangeErr("z", v.Z))
 	}
 	if i, found := ms.indexMap[v]; found {
 		ms.points[i].D = d

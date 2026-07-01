@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -40,7 +41,7 @@ func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Conf
 		logger: logger,
 	}
 	if err := b.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return b, nil
 }
@@ -54,29 +55,29 @@ func (b *myBase) reconfigure(ctx context.Context, deps resource.Dependencies, co
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	baseConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	b.left, err = motor.FromProvider(deps, baseConfig.LeftMotor)
 	if err != nil {
-		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.LeftMotor)
+		return errtrace.Wrap(errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.LeftMotor))
 	}
 
 	b.right, err = motor.FromProvider(deps, baseConfig.RightMotor)
 	if err != nil {
-		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
+		return errtrace.Wrap(errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor))
 	}
 
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
 		geometry, err := conf.Frame.Geometry.ParseConfig()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		b.geometries = []spatialmath.Geometry{geometry}
 	}
 
 	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
-	return multierr.Combine(b.left.Stop(context.Background(), nil), b.right.Stop(context.Background(), nil))
+	return errtrace.Wrap(multierr.Combine(b.left.Stop(context.Background(), nil), b.right.Stop(context.Background(), nil)))
 }
 
 // DoCommand simply echos whatever was sent.
@@ -96,10 +97,10 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	// check if the attribute fields for the right and left motors are non-empty
 	// this makes them reuqired for the model to successfully build
 	if cfg.LeftMotor == "" {
-		return nil, nil, fmt.Errorf(`expected "motorL" attribute for mybase %q`, path)
+		return nil, nil, errtrace.Wrap(fmt.Errorf(`expected "motorL" attribute for mybase %q`, path))
 	}
 	if cfg.RightMotor == "" {
-		return nil, nil, fmt.Errorf(`expected "motorR" attribute for mybase %q`, path)
+		return nil, nil, errtrace.Wrap(fmt.Errorf(`expected "motorR" attribute for mybase %q`, path))
 	}
 
 	// Return the left and right motor names so that `newBase` can access them as dependencies.
@@ -116,29 +117,29 @@ type myBase struct {
 
 // MoveStraight does nothing.
 func (b *myBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-	return errUnimplemented
+	return errtrace.Wrap(errUnimplemented)
 }
 
 // Spin does nothing.
 func (b *myBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	return errUnimplemented
+	return errtrace.Wrap(errUnimplemented)
 }
 
 // SetVelocity does nothing.
 func (b *myBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	return errUnimplemented
+	return errtrace.Wrap(errUnimplemented)
 }
 
 // SetPower computes relative power between the wheels and sets power for both motors.
 func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	b.logger.CDebugf(ctx, "SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
 	if math.Abs(linear.Y) < 0.01 && math.Abs(angular.Z) < 0.01 {
-		return b.Stop(ctx, extra)
+		return errtrace.Wrap(b.Stop(ctx, extra))
 	}
 	sum := math.Abs(linear.Y) + math.Abs(angular.Z)
 	err1 := b.left.SetPower(ctx, (linear.Y-angular.Z)/sum, extra)
 	err2 := b.right.SetPower(ctx, (linear.Y+angular.Z)/sum, extra)
-	return multierr.Combine(err1, err2)
+	return errtrace.Wrap(multierr.Combine(err1, err2))
 }
 
 // Stop halts motion.
@@ -146,7 +147,7 @@ func (b *myBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	b.logger.CDebug(ctx, "Stop")
 	err1 := b.left.Stop(ctx, extra)
 	err2 := b.right.Stop(ctx, extra)
-	return multierr.Combine(err1, err2)
+	return errtrace.Wrap(multierr.Combine(err1, err2))
 }
 
 // IsMoving returns true if either motor is active.
@@ -154,10 +155,10 @@ func (b *myBase) IsMoving(ctx context.Context) (bool, error) {
 	for _, m := range []motor.Motor{b.left, b.right} {
 		isMoving, _, err := m.IsPowered(ctx, nil)
 		if err != nil {
-			return false, err
+			return false, errtrace.Wrap(err)
 		}
 		if isMoving {
-			return true, err
+			return true, errtrace.Wrap(err)
 		}
 	}
 	return false, nil
@@ -178,5 +179,5 @@ func (b *myBase) Geometries(ctx context.Context, extra map[string]interface{}) (
 
 // Close stops motion during shutdown.
 func (b *myBase) Close(ctx context.Context) error {
-	return b.Stop(ctx, nil)
+	return errtrace.Wrap(b.Stop(ctx, nil))
 }

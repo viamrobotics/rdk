@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -60,7 +61,7 @@ func smoothPath(
 	if !psc.pc.request.myTestOptions.doNotCloseObstacles {
 		steps, err = addCloseObstacleWaypoints(ctx, psc, steps)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return steps, nil
@@ -85,7 +86,7 @@ func addCloseObstacleWaypoints(
 		// Get waypoints that are close to obstacles in this segment
 		closeWaypoints, err := findCloseObstacleWaypoints(ctx, psc, steps[i-1], steps[i])
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		// Add close waypoints before the current step
@@ -119,7 +120,7 @@ func findCloseObstacleWaypoints(
 
 	interpolated, err := motionplan.InterpolateSegmentFS(segment, psc.pc.planOpts.Resolution)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if len(interpolated) < 3 {
@@ -136,7 +137,7 @@ func findCloseObstacleWaypoints(
 
 		closestObstacle, err := psc.Checker.CheckStateFSConstraints(ctx, state)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		if closestObstacle < max(.1, 10*psc.pc.planOpts.CollisionBufferMM) {

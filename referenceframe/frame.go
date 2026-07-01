@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"braces.dev/errtrace"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -144,7 +145,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 	}
 	dof := m.DoF()
 	if len(reference) != len(dof) {
-		return nil, NewIncorrectDoFError(len(reference), len(dof))
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(reference), len(dof)))
 	}
 	pos := make([]Input, 0, len(dof))
 	for i, limit := range dof {
@@ -265,11 +266,11 @@ func (bf *baseFrame) DoF() []Limit {
 func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	err := bf.validInputs(from)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	err = bf.validInputs(to)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return interpolateInputs(from, to, by), nil
 }
@@ -278,7 +279,7 @@ func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 func (bf *baseFrame) validInputs(inputs []Input) error {
 	var errAll error
 	if len(inputs) != len(bf.limits) {
-		return NewIncorrectDoFError(len(inputs), len(bf.limits))
+		return errtrace.Wrap(NewIncorrectDoFError(len(inputs), len(bf.limits)))
 	}
 
 	for i := 0; i < len(bf.limits); i++ {
@@ -289,7 +290,7 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 		}
 	}
 
-	return errAll
+	return errtrace.Wrap(errAll)
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
@@ -310,7 +311,7 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
-		return nil, NewIncorrectDoFError(len(input), 0)
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(input), 0))
 	}
 	newGeom := sf.geometry.Transform(sf.transform)
 	if newGeom.Label() == "" {
@@ -326,7 +327,7 @@ func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
 
 	err := json.Unmarshal(data, &inner)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	sf.staticFrame = &inner
 	return nil
@@ -351,7 +352,7 @@ func (nf *namedFrame) Name() string {
 func (nf *namedFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	gif, err := nf.Frame.Geometries(inputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return NewGeometriesInFrame(nf.name, gif.geometries), nil
 }
@@ -375,12 +376,12 @@ type namedFrameJSON struct {
 func (nf *namedFrame) MarshalJSON() ([]byte, error) {
 	innerJSON, err := frameToJSON(nf.Frame)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return json.Marshal(&namedFrameJSON{
+	return errtrace.Wrap2(json.Marshal(&namedFrameJSON{
 		Name:       nf.name,
 		InnerFrame: innerJSON,
-	})
+	}))
 }
 
 // UnmarshalJSON reconstructs a namedFrame, dispatching the wrapped inner frame
@@ -388,11 +389,11 @@ func (nf *namedFrame) MarshalJSON() ([]byte, error) {
 func (nf *namedFrame) UnmarshalJSON(data []byte) error {
 	var j namedFrameJSON
 	if err := json.Unmarshal(data, &j); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	inner, err := jsonToFrame(j.InnerFrame)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	nf.Frame = inner
 	nf.name = j.Name
@@ -408,7 +409,7 @@ func NewNamedFrame(frame Frame, name string) Frame {
 // Pose is not allowed to be nil.
 func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
-		return nil, errors.New("pose is not allowed to be nil")
+		return nil, errtrace.Wrap(errors.New("pose is not allowed to be nil"))
 	}
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, nil}, nil
 }
@@ -422,7 +423,7 @@ func NewZeroStaticFrame(name string) Frame {
 // It also has an associated geometry representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
 func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial.Geometry) (Frame, error) {
 	if pose == nil {
-		return nil, errors.New("pose is not allowed to be nil")
+		return nil, errtrace.Wrap(errors.New("pose is not allowed to be nil"))
 	}
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
 }
@@ -441,7 +442,7 @@ func (sf *staticFrame) Hash() int {
 // Transform returns the pose associated with this static Frame.
 func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != 0 {
-		return nil, NewIncorrectDoFError(len(input), 0)
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(input), 0))
 	}
 	return sf.transform, nil
 }
@@ -462,7 +463,7 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
-		return nil, NewIncorrectDoFError(len(input), 0)
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(input), 0))
 	}
 	newGeom := sf.geometry.Transform(spatial.NewZeroPose())
 	if newGeom.Label() == "" {
@@ -479,23 +480,23 @@ func (sf staticFrame) MarshalJSON() ([]byte, error) {
 
 	orientationConfig, err := spatial.NewOrientationConfig(sf.transform.Orientation())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	temp.Orientation = orientationConfig
 
 	if sf.geometry != nil {
 		temp.Geometry, err = spatial.NewGeometryConfig(sf.geometry)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
-	return json.Marshal(temp)
+	return errtrace.Wrap2(json.Marshal(temp))
 }
 
 func (sf *staticFrame) UnmarshalJSON(data []byte) error {
 	var lc LinkConfig
 	if err := json.Unmarshal(data, &lc); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var transform spatial.Pose
@@ -503,7 +504,7 @@ func (sf *staticFrame) UnmarshalJSON(data []byte) error {
 	if lc.Orientation != nil {
 		orientation, err := lc.Orientation.ParseConfig()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		transform = spatial.NewPose(lc.Translation, orientation)
 	} else {
@@ -512,7 +513,7 @@ func (sf *staticFrame) UnmarshalJSON(data []byte) error {
 	if lc.Geometry != nil {
 		geo, err := lc.Geometry.ParseConfig()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		geometry = geo
 	}
@@ -531,14 +532,14 @@ type translationalFrame struct {
 
 // NewTranslationalFrame creates a frame given a name and the axis in which to translate.
 func NewTranslationalFrame(name string, axis r3.Vector, limit Limit) (Frame, error) {
-	return NewTranslationalFrameWithGeometry(name, axis, limit, nil)
+	return errtrace.Wrap2(NewTranslationalFrameWithGeometry(name, axis, limit, nil))
 }
 
 // NewTranslationalFrameWithGeometry creates a frame given a given a name and the axis in which to translate.
 // It also has an associated geometry representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
 func NewTranslationalFrameWithGeometry(name string, axis r3.Vector, limit Limit, geometry spatial.Geometry) (Frame, error) {
 	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
-		return nil, errors.New("cannot use zero vector as translation axis")
+		return nil, errtrace.Wrap(errors.New("cannot use zero vector as translation axis"))
 	}
 	return &translationalFrame{
 		baseFrame: &baseFrame{name: name, limits: []Limit{limit}},
@@ -559,7 +560,7 @@ func (pf *translationalFrame) Hash() int {
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	if err := pf.validInputs(input); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), nil
 }
@@ -581,14 +582,14 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 	}
 	pose, err := pf.Transform(input)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), nil
 }
 
 func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 	if len(pf.limits) > 1 {
-		return nil, ErrMarshalingHighDOFFrame
+		return nil, errtrace.Wrap(ErrMarshalingHighDOFFrame)
 	}
 	temp := JointConfig{
 		ID:   pf.name,
@@ -601,17 +602,17 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 		var err error
 		temp.Geometry, err = spatial.NewGeometryConfig(pf.geometry)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
-	return json.Marshal(temp)
+	return errtrace.Wrap2(json.Marshal(temp))
 }
 
 func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
 	var cfg JointConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	pf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: cfg.Min, Max: cfg.Max}}}
@@ -619,7 +620,7 @@ func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
 	if cfg.Geometry != nil {
 		geometry, err := cfg.Geometry.ParseConfig()
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		pf.geometry = geometry
 	}
@@ -649,7 +650,7 @@ func (rf *rotationalFrame) Hash() int {
 // of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	if err := rf.validInputs(input); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// Create a copy of the r4aa for thread safety
 	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), nil
@@ -685,7 +686,7 @@ func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error)
 
 func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 	if len(rf.limits) > 1 {
-		return nil, ErrMarshalingHighDOFFrame
+		return nil, errtrace.Wrap(ErrMarshalingHighDOFFrame)
 	}
 	temp := JointConfig{
 		ID:   rf.name,
@@ -695,13 +696,13 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 		Min:  finiteOrZero(utils.RadToDeg(rf.limits[0].Min)),
 	}
 
-	return json.Marshal(temp)
+	return errtrace.Wrap2(json.Marshal(temp))
 }
 
 func (rf *rotationalFrame) UnmarshalJSON(data []byte) error {
 	var cfg JointConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	rf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)}}}
@@ -745,7 +746,7 @@ func (pf *poseFrame) Hash() int {
 // in a 7DoF pose. We note that theta should be in radians.
 func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 	if err := pf.baseFrame.validInputs(inputs); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return spatial.NewPose(
 		r3.Vector{X: inputs[0], Y: inputs[1], Z: inputs[2]},
@@ -761,18 +762,18 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	if err := pf.baseFrame.validInputs(from); err != nil {
-		return nil, NewIncorrectDoFError(len(from), len(pf.DoF()))
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(from), len(pf.DoF())))
 	}
 	if err := pf.baseFrame.validInputs(to); err != nil {
-		return nil, NewIncorrectDoFError(len(to), len(pf.DoF()))
+		return nil, errtrace.Wrap(NewIncorrectDoFError(len(to), len(pf.DoF())))
 	}
 	fromPose, err := pf.Transform(from)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	toPose, err := pf.Transform(to)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	interpolatedPose := spatial.Interpolate(fromPose, toPose, by)
 	return PoseToInputs(interpolatedPose), nil
@@ -782,7 +783,7 @@ func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 func (pf *poseFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	transformByPose, err := pf.Transform(inputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if len(pf.geometries) == 0 {
 		return NewGeometriesInFrame(pf.name, []spatial.Geometry{}), nil
@@ -801,12 +802,12 @@ func (pf *poseFrame) DoF() []Limit {
 
 // MarshalJSON serializes a Model.
 func (pf *poseFrame) MarshalJSON() ([]byte, error) {
-	return nil, errors.New("serializing a poseFrame is currently not supported")
+	return nil, errtrace.Wrap(errors.New("serializing a poseFrame is currently not supported"))
 }
 
 // UnmarshalJSON parses a poseFrame.
 func (pf *poseFrame) UnmarshalJSON(data []byte) error {
-	return errors.New("deserializing a poseFrame is currently not supported")
+	return errtrace.Wrap(errors.New("deserializing a poseFrame is currently not supported"))
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
@@ -894,7 +895,7 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		case f2.staticFrame == nil:
 			return f1.staticFrame == nil, nil
 		default:
-			return framesAlmostEqual(f1.staticFrame, f2.staticFrame, epsilon)
+			return errtrace.Wrap2(framesAlmostEqual(f1.staticFrame, f2.staticFrame, epsilon))
 		}
 	case *SimpleModel:
 		f2 := frame2.(*SimpleModel)
@@ -906,7 +907,7 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		for i, f := range frames1 {
 			frameEquality, err := framesAlmostEqual(f, frames2[i], epsilon)
 			if err != nil {
-				return false, err
+				return false, errtrace.Wrap(err)
 			}
 			if !frameEquality {
 				return false, nil
@@ -930,9 +931,9 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		}
 	case *namedFrame:
 		f2 := frame2.(*namedFrame)
-		return framesAlmostEqual(f1.Frame, f2.Frame, epsilon)
+		return errtrace.Wrap2(framesAlmostEqual(f1.Frame, f2.Frame, epsilon))
 	default:
-		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
+		return false, errtrace.Wrap(fmt.Errorf("equality conditions not defined for %t", frame1))
 	}
 	return true, nil
 }
@@ -954,12 +955,12 @@ func clone(f Frame) (Frame, error) {
 
 	data, err := f.MarshalJSON()
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	err = newFrame.UnmarshalJSON(data)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return newFrame, nil

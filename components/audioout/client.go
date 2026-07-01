@@ -11,6 +11,7 @@ import (
 	utils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -45,24 +46,24 @@ func NewClientFromConn(
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return errtrace.Wrap2(protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd))
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
-	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceClient(ctx, c.client, c.name))
 }
 
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
-		return rutils.Properties{}, err
+		return rutils.Properties{}, errtrace.Wrap(err)
 	}
 	resp, err := c.client.GetProperties(ctx, &commonpb.GetPropertiesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return rutils.Properties{}, fmt.Errorf("audioout client: could not get properties %w", err)
+		return rutils.Properties{}, errtrace.Wrap(fmt.Errorf("audioout client: could not get properties %w", err))
 	}
 
 	return rutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRateHz: resp.SampleRateHz, NumChannels: resp.NumChannels}, nil
@@ -71,7 +72,7 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 func (c *client) Play(ctx context.Context, data []byte, info *rutils.AudioInfo, extra map[string]interface{}) error {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	req := &pb.PlayRequest{
@@ -87,7 +88,7 @@ func (c *client) Play(ctx context.Context, data []byte, info *rutils.AudioInfo, 
 
 	_, err = c.client.Play(ctx, req)
 	if err != nil {
-		return fmt.Errorf("audioout client: could not play audio: %w", err)
+		return errtrace.Wrap(fmt.Errorf("audioout client: could not play audio: %w", err))
 	}
 	return nil
 }
@@ -95,12 +96,12 @@ func (c *client) Play(ctx context.Context, data []byte, info *rutils.AudioInfo, 
 func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks <-chan []byte, extra map[string]interface{}) error {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	stream, err := c.client.PlayStream(ctx)
 	if err != nil {
-		return fmt.Errorf("audioout client: PlayStream: %w", err)
+		return errtrace.Wrap(fmt.Errorf("audioout client: PlayStream: %w", err))
 	}
 
 	init := &pb.PlayStreamRequest{
@@ -115,22 +116,22 @@ func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks 
 		// On io.EOF the server closed the stream early; the reason is in CloseAndRecv.
 		if errors.Is(err, io.EOF) {
 			if _, recvErr := stream.CloseAndRecv(); recvErr != nil {
-				return fmt.Errorf("audioout client: send init: %w", recvErr)
+				return errtrace.Wrap(fmt.Errorf("audioout client: send init: %w", recvErr))
 			}
-			return fmt.Errorf("audioout client: send init: stream closed unexpectedly")
+			return errtrace.Wrap(fmt.Errorf("audioout client: send init: stream closed unexpectedly"))
 		}
-		return fmt.Errorf("audioout client: send init: %w", err)
+		return errtrace.Wrap(fmt.Errorf("audioout client: send init: %w", err))
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		case chunk, ok := <-chunks:
 			if !ok {
 				_, err := stream.CloseAndRecv()
 				if err != nil {
-					return fmt.Errorf("audioout client: close and recv: %w", err)
+					return errtrace.Wrap(fmt.Errorf("audioout client: close and recv: %w", err))
 				}
 				return nil
 			}
@@ -143,11 +144,11 @@ func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks 
 				// On io.EOF the server closed the stream early; the reason is in CloseAndRecv.
 				if errors.Is(err, io.EOF) {
 					if _, recvErr := stream.CloseAndRecv(); recvErr != nil {
-						return fmt.Errorf("audioout client: send chunk: %w", recvErr)
+						return errtrace.Wrap(fmt.Errorf("audioout client: send chunk: %w", recvErr))
 					}
-					return fmt.Errorf("audioout client: send chunk: stream closed unexpectedly")
+					return errtrace.Wrap(fmt.Errorf("audioout client: send chunk: stream closed unexpectedly"))
 				}
-				return fmt.Errorf("audioout client: send chunk: %w", err)
+				return errtrace.Wrap(fmt.Errorf("audioout client: send chunk: %w", err))
 			}
 		}
 	}

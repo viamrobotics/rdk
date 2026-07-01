@@ -8,6 +8,7 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -50,23 +51,23 @@ var dofbotJSON []byte
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur5eModel:
-		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(ur5eJSON, name))
 	case ur7eModel:
-		return referenceframe.UnmarshalModelJSON(ur7eJSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(ur7eJSON, name))
 	case ur20Model:
-		return referenceframe.UnmarshalModelJSON(ur20JSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(ur20JSON, name))
 	case xArm6Model:
-		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(xarm6JSON, name))
 	case xArm7Model:
-		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(xarm7JSON, name))
 	case lite6Model:
-		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(lite6JSON, name))
 	case dofbotModel:
-		return referenceframe.UnmarshalModelJSON(dofbotJSON, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(dofbotJSON, name))
 	case Model.Name:
-		return referenceframe.UnmarshalModelJSON(fakejson, name)
+		return errtrace.Wrap2(referenceframe.UnmarshalModelJSON(fakejson, name))
 	default:
-		return nil, fmt.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
+		return nil, errtrace.Wrap(fmt.Errorf("fake arm cannot be created, unsupported arm-model: %s", model))
 	}
 }
 
@@ -76,13 +77,13 @@ func buildModel(resName string, conf *Config) (referenceframe.Model, error) {
 
 	switch {
 	case armModel != "" && modelPath != "":
-		return nil, errors.New("can only populate either Model or ModelPath - not both")
+		return nil, errtrace.Wrap(errors.New("can only populate either Model or ModelPath - not both"))
 	case armModel != "":
-		return modelFromName(armModel, resName)
+		return errtrace.Wrap2(modelFromName(armModel, resName))
 	case modelPath != "":
-		return referenceframe.KinematicModelFromFile(modelPath, resName)
+		return errtrace.Wrap2(referenceframe.KinematicModelFromFile(modelPath, resName))
 	default:
-		return nil, errors.New("a model must be defined for a simulated arm")
+		return nil, errtrace.Wrap(errors.New("a model must be defined for a simulated arm"))
 	}
 }
 
@@ -121,12 +122,12 @@ func (sa *simulatedArm) Geometries(
 ) ([]spatialmath.Geometry, error) {
 	inputs, err := sa.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	gif, err := sa.model.Geometries(inputs)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return gif.Geometries(), nil

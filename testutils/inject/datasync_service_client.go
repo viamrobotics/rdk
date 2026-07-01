@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	datapb "go.viam.com/api/app/datasync/v1"
 	"google.golang.org/grpc"
 )
@@ -23,9 +24,9 @@ func (client *DataSyncServiceClient) DataCaptureUpload(ctx context.Context, in *
 	opts ...grpc.CallOption,
 ) (*datapb.DataCaptureUploadResponse, error) {
 	if client.DataCaptureUploadFunc == nil {
-		return client.DataSyncServiceClient.DataCaptureUpload(ctx, in, opts...)
+		return errtrace.Wrap2(client.DataSyncServiceClient.DataCaptureUpload(ctx, in, opts...))
 	}
-	return client.DataCaptureUploadFunc(ctx, in, opts...)
+	return errtrace.Wrap2(client.DataCaptureUploadFunc(ctx, in, opts...))
 }
 
 // FileUpload calls the injected FileUpload or the real version.
@@ -33,9 +34,9 @@ func (client *DataSyncServiceClient) FileUpload(ctx context.Context,
 	opts ...grpc.CallOption,
 ) (datapb.DataSyncService_FileUploadClient, error) {
 	if client.FileUploadFunc == nil {
-		return client.DataSyncServiceClient.FileUpload(ctx, opts...)
+		return errtrace.Wrap2(client.DataSyncServiceClient.FileUpload(ctx, opts...))
 	}
-	return client.FileUploadFunc(ctx, opts...)
+	return errtrace.Wrap2(client.FileUploadFunc(ctx, opts...))
 }
 
 // StreamingDataCaptureUpload calls the injected StreamingDataCaptureUpload or the real version.
@@ -43,9 +44,9 @@ func (client *DataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Cont
 	opts ...grpc.CallOption,
 ) (datapb.DataSyncService_StreamingDataCaptureUploadClient, error) {
 	if client.StreamingDataCaptureUploadFunc == nil {
-		return client.DataSyncServiceClient.StreamingDataCaptureUpload(ctx, opts...)
+		return errtrace.Wrap2(client.DataSyncServiceClient.StreamingDataCaptureUpload(ctx, opts...))
 	}
-	return client.StreamingDataCaptureUploadFunc(ctx, opts...)
+	return errtrace.Wrap2(client.StreamingDataCaptureUploadFunc(ctx, opts...))
 }
 
 // DataSyncServiceStreamingDataCaptureUploadClient represents a fake instance of
@@ -59,17 +60,17 @@ type DataSyncServiceStreamingDataCaptureUploadClient struct {
 // Send calls the injected Send or the real version.
 func (client *DataSyncServiceStreamingDataCaptureUploadClient) Send(req *datapb.StreamingDataCaptureUploadRequest) error {
 	if client.SendFunc == nil {
-		return client.DataSyncService_StreamingDataCaptureUploadClient.Send(req)
+		return errtrace.Wrap(client.DataSyncService_StreamingDataCaptureUploadClient.Send(req))
 	}
-	return client.SendFunc(req)
+	return errtrace.Wrap(client.SendFunc(req))
 }
 
 // CloseAndRecv calls the injected CloseAndRecv or the real version.
 func (client *DataSyncServiceStreamingDataCaptureUploadClient) CloseAndRecv() (*datapb.StreamingDataCaptureUploadResponse, error) {
 	if client.CloseAndRecvFunc == nil {
-		return client.DataSyncService_StreamingDataCaptureUploadClient.CloseAndRecv()
+		return errtrace.Wrap2(client.DataSyncService_StreamingDataCaptureUploadClient.CloseAndRecv())
 	}
-	return client.CloseAndRecvFunc()
+	return errtrace.Wrap2(client.CloseAndRecvFunc())
 }
 
 // DataSyncServiceFileUploadClient represents a fake instance of a FileUpload client.
@@ -82,15 +83,15 @@ type DataSyncServiceFileUploadClient struct {
 // Send calls the injected Send or the real version.
 func (client *DataSyncServiceFileUploadClient) Send(req *datapb.FileUploadRequest) error {
 	if client.SendFunc == nil {
-		return client.DataSyncService_FileUploadClient.Send(req)
+		return errtrace.Wrap(client.DataSyncService_FileUploadClient.Send(req))
 	}
-	return client.SendFunc(req)
+	return errtrace.Wrap(client.SendFunc(req))
 }
 
 // CloseAndRecv calls the injected CloseAndRecv or the real version.
 func (client *DataSyncServiceFileUploadClient) CloseAndRecv() (*datapb.FileUploadResponse, error) {
 	if client.CloseAndRecvFunc == nil {
-		return client.DataSyncService_FileUploadClient.CloseAndRecv()
+		return errtrace.Wrap2(client.DataSyncService_FileUploadClient.CloseAndRecv())
 	}
-	return client.CloseAndRecvFunc()
+	return errtrace.Wrap2(client.CloseAndRecvFunc())
 }

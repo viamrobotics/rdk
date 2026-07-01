@@ -27,6 +27,7 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/cli"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -68,23 +69,23 @@ func realMain() error {
 	flag.Parse()
 
 	if *runMotionPlanServer {
-		return mpserver.RunServer()
+		return errtrace.Wrap(mpserver.RunServer())
 	}
 
 	if len(flag.Args()) == 0 {
-		return fmt.Errorf("need a json file")
+		return errtrace.Wrap(fmt.Errorf("need a json file"))
 	}
 
 	if *cpu != "" {
 		logger.Infof("writing cpu data to [%s]", *cpu)
 		f, err := os.Create(*cpu)
 		if err != nil {
-			return fmt.Errorf("couldn't create %s %w", *cpu, err)
+			return errtrace.Wrap(fmt.Errorf("couldn't create %s %w", *cpu, err))
 		}
 
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
-			return fmt.Errorf("could not start CPU profile: %w", err)
+			return errtrace.Wrap(fmt.Errorf("could not start CPU profile: %w", err))
 		}
 		defer func() {
 			pprof.StopCPUProfile()
@@ -126,7 +127,7 @@ func realMain() error {
 	logger.Infof("reading plan from %s", flag.Arg(0))
 	req, origPlan, err := armplanning.ReadRequestAndResponseFromFile(flag.Arg(0))
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if *pseudolinearLine > 0 || *pseudolinearOrientation > 0 {
@@ -139,7 +140,7 @@ func realMain() error {
 
 	err = armplanning.PrepSmartSeed(req.FrameSystem, logger)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	logger.Infof("starting motion planning for %d goals", len(req.Goals))
@@ -151,7 +152,7 @@ func realMain() error {
 		TracesDisabled:    true,
 	})
 	if err := metricsExporter.Start(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	spansExporter := perf.NewOtelDevelopmentExporter()
@@ -179,18 +180,18 @@ func realMain() error {
 		if plan != nil {
 			mylog.Printf("error but partial result of length: %d", len(plan.Trajectory()))
 		}
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if len(plan.Path()) != len(plan.Trajectory()) {
-		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
+		return errtrace.Wrap(fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory())))
 	}
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
 		_, _, err := armplanning.PlanMotion(ctx, mpLogger, req)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		mylog.Printf("extra plan took %v", time.Since(ss))
 	}
@@ -203,7 +204,7 @@ func realMain() error {
 			req.PlannerOptions.RandomSeed = i
 			seedPlan, _, err := armplanning.PlanMotion(ctx, logger, req)
 			if err != nil {
-				return fmt.Errorf("planning for seed %d failed %w", i, err)
+				return errtrace.Wrap(fmt.Errorf("planning for seed %d failed %w", i, err))
 			}
 
 			seedTotalL2 := 0.0
@@ -245,7 +246,7 @@ func realMain() error {
 		t := plan.Trajectory()[idx]
 
 		if len(p) != len(t) {
-			return fmt.Errorf("p and t are different sizes %d vs %d", len(p), len(t))
+			return errtrace.Wrap(fmt.Errorf("p and t are different sizes %d vs %d", len(p), len(t)))
 		}
 
 		for _, c := range relevantParts {
@@ -309,14 +310,14 @@ func realMain() error {
 	if *waypointsFile != "" {
 		err := writeWaypointsToFile(ctx, plan, *waypointsFile)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
 	if *host != "" {
 		err := executeOnArm(ctx, *host, plan, *forceMotion, logger)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -326,7 +327,7 @@ func realMain() error {
 func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
 	renderFramePeriod := 5 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	startInputs := req.StartState.Configuration()
@@ -334,16 +335,16 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	// because obstacles can be in terms of reference frames contained within the frame
 	// system. Such as a camera attached to an arm.
 	if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, startInputs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// `DrawFrameSystem` draws everything else we're interested in.
 	if err := viz.DrawFrameSystem(req.FrameSystem, startInputs); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := drawGoalPoses(req); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if showPoses {
@@ -374,7 +375,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 		for idx := range plan.Path() {
 			gifs, err := referenceframe.FrameSystemGeometries(req.FrameSystem, plan.Trajectory()[idx])
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 			// Pick color for this path position (alternating)
 			shadowColor := shadowColors[idx%len(shadowColors)]
@@ -401,7 +402,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 					colors[i] = shadowColor
 				}
 				if err := viz.DrawGeometries(shadowGIF, colors); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		}
@@ -417,12 +418,12 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 					FS:                 req.FrameSystem,
 				}, 2)
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			for _, mp := range midPoints {
 				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 
 				time.Sleep(renderFramePeriod)
@@ -430,7 +431,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 		}
 
 		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		if idx == 0 {
@@ -448,7 +449,7 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 	for _, goalPlanState := range req.Goals {
 		poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		for _, poseValue := range poses {
@@ -466,7 +467,7 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 	// tail starting at the goal point.
 	arrowHeadAtPose := true
 	if err := viz.DrawPoses(goalPoses, []string{"blue"}, arrowHeadAtPose); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil
@@ -476,15 +477,15 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 	var ikErr *armplanning.IkConstraintError
 	errors.As(planErr, &ikErr)
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, req.StartState.Configuration()); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := viz.DrawFrameSystem(req.FrameSystem, req.StartState.Configuration()); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// ikIterOrder is a hack for helping index into individual failures. Such that an interactive
@@ -507,7 +508,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 		if render {
 			if planErr == nil {
 				if err := visualize(req, plan, logger, showPoses); err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			} else {
 				if ikErr != nil {
@@ -585,7 +586,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			for gi, goalPlanState := range req.Goals {
 				poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 				for pi, poseValue := range poses {
 					poseInWorldFrame := poseValue.Transform(
@@ -594,10 +595,10 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 							spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
 					sphere, err := spatialmath.NewSphere(poseInWorldFrame.Pose(), 10, fmt.Sprintf("goal-%d-%v", gi, pi))
 					if err != nil {
-						return err
+						return errtrace.Wrap(err)
 					}
 					if err := viz.DrawGeometry(sphere, "blue"); err != nil {
-						return err
+						return errtrace.Wrap(err)
 					}
 				}
 			}
@@ -625,7 +626,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					logger.Println("  Err:", errStr)
 					logger.Println("  Inputs:", configuration)
 					if err := viz.DrawFrameSystem(req.FrameSystem, configuration.ToFrameSystemInputs()); err != nil {
-						return err
+						return errtrace.Wrap(err)
 					}
 					break searchLoop
 				}
@@ -656,17 +657,17 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 	byComponent := getFullTrajectoryByComponent(plan)
 
 	if len(byComponent) > 1 {
-		return fmt.Errorf("executeOnArm only supports one component moving right now, not: %d", len(byComponent))
+		return errtrace.Wrap(fmt.Errorf("executeOnArm only supports one component moving right now, not: %d", len(byComponent)))
 	}
 
 	c, err := cli.ConfigFromCache(nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	dopts, err := c.DialOptions()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	theRobot, err := client.New(
@@ -676,7 +677,7 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 		client.WithDialOptions(dopts...),
 	)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer func() {
 		err := theRobot.Close(ctx)
@@ -688,17 +689,17 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 	for cName, allInputs := range byComponent {
 		r, err := robot.ResourceByName(theRobot, cName)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		ie, ok := r.(framesystem.InputEnabled)
 		if !ok {
-			return fmt.Errorf("%s is not InputEnabled, is %T", cName, r)
+			return errtrace.Wrap(fmt.Errorf("%s is not InputEnabled, is %T", cName, r))
 		}
 
 		cur, err := ie.CurrentInputs(ctx)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		for j, v := range cur {
@@ -709,7 +710,7 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 				if force {
 					logger.Warnf("ignoring %v", err)
 				} else {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		}
@@ -718,7 +719,7 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 
 		err = ie.GoToInputs(ctx, allInputs...)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -728,7 +729,7 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 func writeWaypointsToFile(ctx context.Context, plan motionplan.Plan, fileName string) error {
 	byComponent := getFullTrajectoryByComponent(plan)
 	if len(byComponent) != 1 {
-		return fmt.Errorf("to output waypointsFile need exactly one component moving, not %d", len(byComponent))
+		return errtrace.Wrap(fmt.Errorf("to output waypointsFile need exactly one component moving, not %d", len(byComponent)))
 	}
 
 	ff := &waypointsFileFormat{}
@@ -738,18 +739,18 @@ func writeWaypointsToFile(ctx context.Context, plan motionplan.Plan, fileName st
 
 	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(file.Close)
 
 	data, err := json.Marshal(ff)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	_, err = file.Write(data)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
@@ -220,7 +221,7 @@ func TestCreateNewMotor(t *testing.T) {
 					return encoder.Properties{TicksCountSupported: true}, nil
 				}
 				mockEncoder.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-					return nil, errors.ErrUnsupported
+					return nil, errtrace.Wrap(errors.ErrUnsupported)
 				}
 
 				deps[resource.NewName(board.API, "test_board")] = b
@@ -281,7 +282,7 @@ func TestCreateNewMotor(t *testing.T) {
 						}, nil
 					},
 					DoFunc: func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-						return nil, errors.ErrUnsupported
+						return nil, errtrace.Wrap(errors.ErrUnsupported)
 					},
 				}
 				deps[resource.NewName(board.API, "test_board")] = b

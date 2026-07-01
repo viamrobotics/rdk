@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -23,7 +24,7 @@ var (
 
 // NewAlgAndConstraintMismatchErr is returned when an incompatible planning_alg is specified and there are contraints.
 func NewAlgAndConstraintMismatchErr(planAlg string) error {
-	return fmt.Errorf("cannot specify a planning algorithm other than cbirrt with topo constraints. algorithm specified was %s", planAlg)
+	return errtrace.Wrap(fmt.Errorf("cannot specify a planning algorithm other than cbirrt with topo constraints. algorithm specified was %s", planAlg))
 }
 
 // IkConstraintError contains information on possible solutions that fail constraint checks. This

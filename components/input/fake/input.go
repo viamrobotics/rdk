@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -25,7 +26,7 @@ func init() {
 			Constructor: func(
 				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 			) (input.Controller, error) {
-				return NewInputController(ctx, conf, logger)
+				return errtrace.Wrap2(NewInputController(ctx, conf, logger))
 			},
 		},
 	)
@@ -63,7 +64,7 @@ func NewInputController(ctx context.Context, conf resource.Config, logger loggin
 	}
 
 	if err := c.reconfigure(ctx, nil, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// start callback thread
@@ -95,7 +96,7 @@ type InputController struct {
 func (c *InputController) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	c.mu.Lock()
@@ -195,7 +196,7 @@ func (c *InputController) startCallbackLoop() {
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
 func (c *InputController) TriggerEvent(ctx context.Context, event input.Event, extra map[string]interface{}) error {
-	return errors.New("unsupported")
+	return errtrace.Wrap(errors.New("unsupported"))
 }
 
 // Close attempts to cleanly close the input controller.
@@ -209,5 +210,5 @@ func (c *InputController) Close(ctx context.Context) error {
 	c.mu.Unlock()
 
 	c.activeBackgroundWorkers.Wait()
-	return err
+	return errtrace.Wrap(err)
 }

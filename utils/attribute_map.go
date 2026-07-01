@@ -3,6 +3,7 @@ package utils
 import (
 	"reflect"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -207,7 +208,7 @@ func (am AttributeMap) Walk(visitor Visitor) (interface{}, error) {
 	w := attrWalker{visitor: visitor}
 	m, err := w.walkMap(am)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return AttributeMap(m), nil
@@ -220,7 +221,7 @@ type attrWalker struct {
 func (w *attrWalker) walkMap(data interface{}) (map[string]interface{}, error) {
 	s := reflect.ValueOf(data)
 	if s.Kind() != reflect.Map {
-		return nil, errors.Errorf("data of type %T is not a map", data)
+		return nil, errtrace.Wrap(errors.Errorf("data of type %T is not a map", data))
 	}
 
 	iter := reflect.ValueOf(data).MapRange()
@@ -229,12 +230,12 @@ func (w *attrWalker) walkMap(data interface{}) (map[string]interface{}, error) {
 	for iter.Next() {
 		k := iter.Key()
 		if k.Kind() != reflect.String {
-			return nil, errors.Errorf("map keys of type %v are not strings", k.Kind())
+			return nil, errtrace.Wrap(errors.Errorf("map keys of type %v are not strings", k.Kind()))
 		}
 		v := iter.Value().Interface()
 		result[k.String()], err = w.walkInterface(v)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return result, nil
@@ -256,17 +257,17 @@ func (w *attrWalker) walkInterface(data interface{}) (interface{}, error) {
 	case reflect.Struct:
 		newData, err = w.walkStruct(data)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case reflect.Map:
 		newData, err = w.walkMap(data)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case reflect.Slice:
 		newData, err = w.walkSlice(data)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	case reflect.String:
 		fallthrough
@@ -281,7 +282,7 @@ func (w *attrWalker) walkInterface(data interface{}) (interface{}, error) {
 	default:
 		newData, err = w.visitor.Visit(data)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 	return newData, nil
@@ -290,7 +291,7 @@ func (w *attrWalker) walkInterface(data interface{}) (interface{}, error) {
 func (w *attrWalker) walkSlice(data interface{}) ([]interface{}, error) {
 	s := reflect.ValueOf(data)
 	if s.Kind() != reflect.Slice {
-		return nil, errors.Errorf("data of type %T is not a slice", data)
+		return nil, errtrace.Wrap(errors.Errorf("data of type %T is not a slice", data))
 	}
 
 	newList := make([]interface{}, 0, s.Len())
@@ -298,7 +299,7 @@ func (w *attrWalker) walkSlice(data interface{}) ([]interface{}, error) {
 		value := s.Index(i).Interface()
 		data, err := w.walkInterface(value)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		newList = append(newList, data)
 	}
@@ -311,7 +312,7 @@ func (w *attrWalker) walkStruct(data interface{}) (interface{}, error) {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
-		return nil, errors.Errorf("data of type %T is not a struct", data)
+		return nil, errtrace.Wrap(errors.Errorf("data of type %T is not a struct", data))
 	}
 	res := map[string]interface{}{}
 	value := reflect.ValueOf(data)
@@ -332,7 +333,7 @@ func (w *attrWalker) walkStruct(data interface{}) (interface{}, error) {
 
 		data, err := w.walkInterface(field)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		res[key] = data

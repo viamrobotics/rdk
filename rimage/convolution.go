@@ -7,6 +7,7 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -88,7 +89,7 @@ func ConvolveGray(img *image.Gray, kernel *Kernel, anchor image.Point, border Bo
 	kernelSize := kernel.Size()
 	padded, err := PaddingGray(img, kernelSize, anchor, border)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	originalSize := img.Bounds().Size()
 	resultImage := image.NewGray(img.Bounds())
@@ -115,7 +116,7 @@ func ConvolveGrayFloat64(m *mat.Dense, filter *Kernel) (*mat.Dense, error) {
 	kernelSize := filter.Size()
 	padded, err := PaddingFloat64(m, kernelSize, image.Point{1, 1}, 0)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	utils.ParallelForEachPixel(image.Point{w, h}, func(x, y int) {

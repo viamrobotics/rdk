@@ -8,6 +8,7 @@ import (
 	pb "go.viam.com/api/service/discovery/v1"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
@@ -35,19 +36,19 @@ func (server *serviceServer) DiscoverResources(ctx context.Context, req *pb.Disc
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	configs, err := svc.DiscoverResources(ctx, req.GetExtra().AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	protoConfigs := []*apppb.ComponentConfig{}
 	for _, cfg := range configs {
 		proto, err := config.ComponentConfigToProto(&cfg)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		protoConfigs = append(protoConfigs, proto)
 	}
@@ -64,16 +65,16 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // GetStatus returns the status of the discovery service.
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -32,9 +33,9 @@ func init() {
 		) (vision.Service, error) {
 			actualR, err := rdkutils.AssertType[robot.Robot](r)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
-			return registerFake(c.ResourceName(), actualR)
+			return errtrace.Wrap2(registerFake(c.ResourceName(), actualR))
 		},
 	})
 }
@@ -71,5 +72,5 @@ func registerFake(
 	name resource.Name,
 	r robot.Robot,
 ) (vision.Service, error) {
-	return vision.DeprecatedNewService(name, r, nil, fakeClassifier, fakeDetector, nil, fakeCameraName)
+	return errtrace.Wrap2(vision.DeprecatedNewService(name, r, nil, fakeClassifier, fakeDetector, nil, fakeCameraName))
 }

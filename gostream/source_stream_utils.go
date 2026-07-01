@@ -5,14 +5,15 @@ import (
 
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
 // StreamVideoSource streams the given video source to the stream forever until context signals cancellation.
 func StreamVideoSource(ctx context.Context, vs VideoSource, stream Stream, logger logging.Logger) error {
-	return streamMediaSource(ctx, vs, stream, func(ctx context.Context, frameErr error) {
+	return errtrace.Wrap(streamMediaSource(ctx, vs, stream, func(ctx context.Context, frameErr error) {
 		logger.Debugw("error getting frame", "error", frameErr)
-	}, stream.InputVideoFrames, logger)
+	}, stream.InputVideoFrames, logger))
 }
 
 // StreamVideoSourceWithErrorHandler streams the given video source to the stream forever
@@ -20,7 +21,7 @@ func StreamVideoSource(ctx context.Context, vs VideoSource, stream Stream, logge
 func StreamVideoSourceWithErrorHandler(
 	ctx context.Context, vs VideoSource, stream Stream, errHandler ErrorHandler, logger logging.Logger,
 ) error {
-	return streamMediaSource(ctx, vs, stream, errHandler, stream.InputVideoFrames, logger)
+	return errtrace.Wrap(streamMediaSource(ctx, vs, stream, errHandler, stream.InputVideoFrames, logger))
 }
 
 // streamMediaSource will stream a source of media forever to the stream until the given context tells it to cancel.
@@ -36,7 +37,7 @@ func streamMediaSource[T, U any](
 		readyCh, readyCtx := stream.StreamingReady()
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errtrace.Wrap(ctx.Err())
 		case <-readyCh:
 		}
 		var props U
@@ -51,11 +52,11 @@ func streamMediaSource[T, U any](
 		}
 		input, err := inputChan(props)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		mediaStream, err := ms.Stream(ctx, errHandler)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		defer func() {
 			utils.UncheckedError(mediaStream.Close(ctx))
@@ -63,7 +64,7 @@ func streamMediaSource[T, U any](
 		for {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return errtrace.Wrap(ctx.Err())
 			case <-readyCtx.Done():
 				return nil
 			default:
@@ -74,7 +75,7 @@ func streamMediaSource[T, U any](
 			}
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return errtrace.Wrap(ctx.Err())
 			case <-readyCtx.Done():
 				return nil
 			case input <- MediaReleasePair[T]{media, release}:
@@ -83,7 +84,7 @@ func streamMediaSource[T, U any](
 	}
 	for {
 		if err := streamLoop(); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 }

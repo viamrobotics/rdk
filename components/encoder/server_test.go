@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -35,7 +36,7 @@ func newServer(logger logging.Logger) (pb.EncoderServiceServer, *inject.Encoder,
 
 	injectSvc, err := resource.NewAPIResourceCollection(encoder.API, resourceMap)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, errtrace.Wrap(err)
 	}
 	return encoder.NewRPCServiceServer(injectSvc, logger).(pb.EncoderServiceServer), injectEncoder1, injectEncoder2, nil
 }
@@ -55,7 +56,7 @@ func TestServerGetPosition(t *testing.T) {
 		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
-		return 0, encoder.PositionTypeUnspecified, errPositionUnavailable
+		return 0, encoder.PositionTypeUnspecified, errtrace.Wrap(errPositionUnavailable)
 	}
 
 	// Position unavailable test
@@ -87,7 +88,7 @@ func TestServerResetPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errSetToZeroFailed
+		return errtrace.Wrap(errSetToZeroFailed)
 	}
 	req = pb.ResetPositionRequest{Name: failEncoderName}
 	resp, err = encoderServer.ResetPosition(context.Background(), &req)
@@ -114,7 +115,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
-		return encoder.Properties{}, errPropertiesNotFound
+		return encoder.Properties{}, errtrace.Wrap(errPropertiesNotFound)
 	}
 	req = pb.GetPropertiesRequest{Name: failEncoderName}
 	resp, err = encoderServer.GetProperties(context.Background(), &req)
@@ -178,7 +179,7 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
 	workingEncoder.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-		return nil, errGetStatusFailed
+		return nil, errtrace.Wrap(errGetStatusFailed)
 	}
 	_, err = encoderServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testEncoderName})
 	test.That(t, err, test.ShouldNotBeNil)

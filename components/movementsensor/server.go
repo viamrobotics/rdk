@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -30,15 +31,15 @@ func (s *serviceServer) GetReadings(
 ) (*commonpb.GetReadingsResponse, error) {
 	sensorDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	readings, err := sensorDevice.Readings(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	m, err := protoutils.ReadingGoToProto(readings)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &commonpb.GetReadingsResponse{Readings: m}, nil
 }
@@ -49,11 +50,11 @@ func (s *serviceServer) GetPosition(
 ) (*pb.GetPositionResponse, error) {
 	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	loc, altitide, err := msDevice.Position(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// defensively initialize a invalid, non-nil default
@@ -75,11 +76,11 @@ func (s *serviceServer) GetLinearVelocity(
 ) (*pb.GetLinearVelocityResponse, error) {
 	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	vel, err := msDevice.LinearVelocity(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetLinearVelocityResponse{
 		LinearVelocity: protoutils.ConvertVectorR3ToProto(vel),
@@ -92,11 +93,11 @@ func (s *serviceServer) GetAngularVelocity(
 ) (*pb.GetAngularVelocityResponse, error) {
 	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	av, err := msDevice.AngularVelocity(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetAngularVelocityResponse{
 		AngularVelocity: protoutils.ConvertVectorR3ToProto(r3.Vector(av)),
@@ -109,11 +110,11 @@ func (s *serviceServer) GetLinearAcceleration(
 ) (*pb.GetLinearAccelerationResponse, error) {
 	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	la, err := msDevice.LinearAcceleration(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetLinearAccelerationResponse{
 		LinearAcceleration: protoutils.ConvertVectorR3ToProto(la),
@@ -126,11 +127,11 @@ func (s *serviceServer) GetCompassHeading(
 ) (*pb.GetCompassHeadingResponse, error) {
 	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	ch, err := msDevice.CompassHeading(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetCompassHeadingResponse{
 		Value: ch,
@@ -143,11 +144,11 @@ func (s *serviceServer) GetOrientation(
 ) (*pb.GetOrientationResponse, error) {
 	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	ori, err := msDevice.Orientation(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetOrientationResponse{
 		Orientation: protoutils.ConvertOrientationToProto(ori),
@@ -160,13 +161,13 @@ func (s *serviceServer) GetProperties(
 ) (*pb.GetPropertiesResponse, error) {
 	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	prop, err := msDevice.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return PropertiesToProtoResponse(prop)
+	return errtrace.Wrap2(PropertiesToProtoResponse(prop))
 }
 
 func (s *serviceServer) GetAccuracy(
@@ -175,18 +176,18 @@ func (s *serviceServer) GetAccuracy(
 ) (*pb.GetAccuracyResponse, error) {
 	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	accuracy, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	uacc := UnimplementedOptionalAccuracies()
 	if accuracy != nil {
-		return accuracyToProtoResponse(accuracy)
+		return errtrace.Wrap2(accuracyToProtoResponse(accuracy))
 	}
-	return accuracyToProtoResponse(uacc)
+	return errtrace.Wrap2(accuracyToProtoResponse(uacc))
 }
 
 // DoCommand receives arbitrary commands.
@@ -195,16 +196,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	msDevice, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, msDevice, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, msDevice, req))
 }
 
 // GetStatus returns the status of the movement sensor.
 func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

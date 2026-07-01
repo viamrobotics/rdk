@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	fakearm "go.viam.com/rdk/components/arm/fake"
 	_ "go.viam.com/rdk/components/register"
@@ -275,7 +276,7 @@ func TestDoCommand(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := ms.DoCommand(ctx, command.AsMap())
 		if err != nil {
-			return map[string]interface{}{}, err
+			return map[string]interface{}{}, errtrace.Wrap(err)
 		}
 		respProto, err := protoutils.StructToStructPb(resp)
 		test.That(t, err, test.ShouldBeNil)
@@ -296,7 +297,7 @@ func TestDoCommand(t *testing.T) {
 		// simulate going over the wire
 		respMap, err := doOverWire(ms, cmd)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		resp, ok := respMap[DoPlan]
 		test.That(t, ok, test.ShouldBeTrue)
@@ -304,7 +305,7 @@ func TestDoCommand(t *testing.T) {
 		// the client will need to decode the response still
 		var trajectory motionplan.Trajectory
 		err = mapstructure.Decode(resp, &trajectory)
-		return trajectory, err
+		return trajectory, errtrace.Wrap(err)
 	}
 
 	t.Run("DoPlan", func(t *testing.T) {

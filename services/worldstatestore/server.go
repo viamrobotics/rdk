@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -34,15 +35,15 @@ func (server *serviceServer) ListUUIDs(ctx context.Context, req *pb.ListUUIDsReq
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	uuids, err := svc.ListUUIDs(ctx, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if uuids == nil {
-		return nil, ErrNilResponse
+		return nil, errtrace.Wrap(ErrNilResponse)
 	}
 
 	return &pb.ListUUIDsResponse{Uuids: uuids}, nil
@@ -57,12 +58,12 @@ func (server *serviceServer) GetTransform(ctx context.Context, req *pb.GetTransf
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	obj, err := svc.GetTransform(ctx, req.Uuid, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if obj == nil {
 		return &pb.GetTransformResponse{}, nil
@@ -80,9 +81,9 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return errtrace.Wrap2(protoutils.DoFromResourceServer(ctx, svc, req))
 }
 
 // StreamTransformChanges streams changes to world state transforms to the client.
@@ -95,18 +96,18 @@ func (server *serviceServer) StreamTransformChanges(
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	changesStream, err := svc.StreamTransformChanges(ctx, req.Extra.AsMap())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Send an empty response first so the client doesn't block while checking for errors.
 	err = stream.Send(&pb.StreamTransformChangesResponse{})
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	for {
@@ -115,7 +116,7 @@ func (server *serviceServer) StreamTransformChanges(
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		// Convert the internal TransformChange to protobuf response
@@ -133,7 +134,7 @@ func (server *serviceServer) StreamTransformChanges(
 		}
 
 		if err := stream.Send(resp); err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 }
@@ -142,7 +143,7 @@ func (server *serviceServer) StreamTransformChanges(
 func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
 	res, err := server.coll.Resource(req.GetName())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+	return errtrace.Wrap2(protoutils.GetStatusFromResourceServer(ctx, res, req))
 }

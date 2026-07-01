@@ -9,6 +9,7 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/rimage"
@@ -31,7 +32,7 @@ var StreamableImageMIMETypes = []string{
 func cropToEvenDimensions(img image.Image) (image.Image, error) {
 	if img, ok := img.(*rimage.LazyEncodedImage); ok {
 		if err := img.DecodeConfig(); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	}
 
@@ -60,7 +61,7 @@ func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 	shortName := stream.Name()
 	cam, err := camera.FromProvider(robot, shortName)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return cam, nil
 }
@@ -70,10 +71,10 @@ func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (camera.NamedImage, error) {
 	namedImages, _, err := cam.Images(ctx, nil, nil)
 	if err != nil {
-		return camera.NamedImage{}, err
+		return camera.NamedImage{}, errtrace.Wrap(err)
 	}
 	if len(namedImages) == 0 {
-		return camera.NamedImage{}, fmt.Errorf("no images received for camera %q", cam.Name())
+		return camera.NamedImage{}, errtrace.Wrap(fmt.Errorf("no images received for camera %q", cam.Name()))
 	}
 
 	for _, streamableMimeType := range StreamableImageMIMETypes {
@@ -96,7 +97,7 @@ func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (
 			}
 		}
 	}
-	return camera.NamedImage{}, fmt.Errorf("no images were found with a streamable mime type for camera %q", cam.Name())
+	return camera.NamedImage{}, errtrace.Wrap(fmt.Errorf("no images were found with a streamable mime type for camera %q", cam.Name()))
 }
 
 // getImageBySourceName retrieves a specific named image from the camera by source name.
@@ -104,16 +105,16 @@ func getImageBySourceName(ctx context.Context, cam camera.Camera, sourceName str
 	filterSourceNames := []string{sourceName}
 	namedImages, _, err := cam.Images(ctx, filterSourceNames, nil)
 	if err != nil {
-		return camera.NamedImage{}, err
+		return camera.NamedImage{}, errtrace.Wrap(err)
 	}
 
 	switch len(namedImages) {
 	case 0:
-		return camera.NamedImage{}, fmt.Errorf("no images found for requested source name: %s", sourceName)
+		return camera.NamedImage{}, errtrace.Wrap(fmt.Errorf("no images found for requested source name: %s", sourceName))
 	case 1:
 		namedImage := namedImages[0]
 		if namedImage.SourceName != sourceName {
-			return camera.NamedImage{}, fmt.Errorf("mismatched source name: requested %q, got %q", sourceName, namedImage.SourceName)
+			return camera.NamedImage{}, errtrace.Wrap(fmt.Errorf("mismatched source name: requested %q, got %q", sourceName, namedImage.SourceName))
 		}
 		return namedImage, nil
 	default:
@@ -128,7 +129,7 @@ func getImageBySourceName(ctx context.Context, cam camera.Camera, sourceName str
 			responseSourceNames = append(responseSourceNames, namedImage.SourceName)
 		}
 		return camera.NamedImage{},
-			fmt.Errorf("no matching source name found for multiple returned images: requested %q, got %q", sourceName, responseSourceNames)
+			errtrace.Wrap(fmt.Errorf("no matching source name found for multiple returned images: requested %q, got %q", sourceName, responseSourceNames))
 	}
 }
 
@@ -147,7 +148,7 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.Vid
 		if sourceName == nil {
 			namedImage, err := GetStreamableNamedImageFromCamera(ctx, cam)
 			if err != nil {
-				return nil, func() {}, err
+				return nil, func() {}, errtrace.Wrap(err)
 			}
 			respNamedImage = namedImage
 			sourceName = &namedImage.SourceName
@@ -156,20 +157,20 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.Vid
 			respNamedImage, err = getImageBySourceName(ctx, cam, *sourceName)
 			if err != nil {
 				sourceName = nil
-				return nil, func() {}, err
+				return nil, func() {}, errtrace.Wrap(err)
 			}
 		}
 
 		img, err := respNamedImage.Image(ctx)
 		if err != nil {
 			sourceName = nil
-			return nil, func() {}, err
+			return nil, func() {}, errtrace.Wrap(err)
 		}
 
 		img, err = cropToEvenDimensions(img)
 		if err != nil {
 			sourceName = nil
-			return nil, func() {}, err
+			return nil, func() {}, errtrace.Wrap(err)
 		}
 
 		return img, func() {}, nil

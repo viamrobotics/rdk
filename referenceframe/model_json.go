@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -45,15 +46,15 @@ func UnmarshalModelJSON(jsonData []byte, modelName string) (Model, error) {
 
 	// empty data probably means that the robot component has no model information
 	if len(jsonData) == 0 {
-		return nil, ErrNoModelInformation
+		return nil, errtrace.Wrap(ErrNoModelInformation)
 	}
 
 	err := json.Unmarshal(jsonData, m)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal json file")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to unmarshal json file"))
 	}
 
-	return m.ParseConfig(modelName)
+	return errtrace.Wrap2(m.ParseConfig(modelName))
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
@@ -72,24 +73,24 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 	case "SVA", "":
 		for _, link := range cfg.Links {
 			if link.ID == World {
-				return nil, NewReservedWordError("link", World)
+				return nil, errtrace.Wrap(NewReservedWordError("link", World))
 			}
 		}
 		for _, joint := range cfg.Joints {
 			if joint.ID == World {
-				return nil, NewReservedWordError("joint", World)
+				return nil, errtrace.Wrap(NewReservedWordError("joint", World))
 			}
 		}
 
 		for _, link := range cfg.Links {
 			lif, err := link.ParseConfig()
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			parentMap[link.ID] = link.Parent
 			transforms[link.ID], err = lif.ToStaticFrame(link.ID)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 
@@ -98,7 +99,7 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 			parentMap[joint.ID] = joint.Parent
 			transforms[joint.ID], err = joint.ToFrame()
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 
@@ -106,7 +107,7 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		for _, dh := range cfg.DHParams {
 			rFrame, lFrame, err := dh.ToDHFrames()
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
@@ -120,7 +121,7 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		}
 
 	default:
-		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType)
+		return nil, errtrace.Wrap(errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType))
 	}
 
 	// Build the internal frame system from the transforms and parent map.
@@ -129,11 +130,11 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 	requireSingleLeaf := len(cfg.OutputFrames) == 0
 	fs, leaves, err := buildModelFrameSystem(transforms, parentMap, requireSingleLeaf)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if len(cfg.OutputFrames) > 1 {
-		return nil, fmt.Errorf("multiple output frames are not yet supported, got %v", cfg.OutputFrames)
+		return nil, errtrace.Wrap(fmt.Errorf("multiple output frames are not yet supported, got %v", cfg.OutputFrames))
 	}
 
 	var primaryOutput string
@@ -148,7 +149,7 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 	if cfg.KinParamType == "SVA" || cfg.KinParamType == "" {
 		mimicMappings, mimicErr := buildMimicMappings(cfg.Joints, fs)
 		if mimicErr != nil {
-			return nil, mimicErr
+			return nil, errtrace.Wrap(mimicErr)
 		}
 		if len(mimicMappings) > 0 {
 			builtModel, err = NewModelWithMimics(modelName, fs, primaryOutput, mimicMappings)
@@ -159,7 +160,7 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		builtModel, err = NewModel(modelName, fs, primaryOutput)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	builtModel.modelConfig = cfg
 
@@ -176,7 +177,7 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 	for i := range joints {
 		if joints[i].Mimic != nil {
 			if joints[i].Min != 0 || joints[i].Max != 0 {
-				return nil, fmt.Errorf("%w: joint %q", ErrMimicWithLimits, joints[i].ID)
+				return nil, errtrace.Wrap(fmt.Errorf("%w: joint %q", ErrMimicWithLimits, joints[i].ID))
 			}
 			mimicConfigs[joints[i].ID] = joints[i].Mimic
 		}
@@ -200,7 +201,7 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 				break // sourceJoint is not a mimic, it's the ultimate source
 			}
 			if visited[sourceJoint] {
-				return nil, fmt.Errorf("%w: joint %q", ErrCircularMimicReference, jointID)
+				return nil, errtrace.Wrap(fmt.Errorf("%w: joint %q", ErrCircularMimicReference, jointID))
 			}
 			visited[sourceJoint] = true
 
@@ -222,10 +223,10 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 	for jointID, mc := range resolvedMimics {
 		sourceFrame := fs.Frame(mc.Joint)
 		if sourceFrame == nil {
-			return nil, fmt.Errorf("%w: joint %q references source %q", ErrMimicSourceNotFound, jointID, mc.Joint)
+			return nil, errtrace.Wrap(fmt.Errorf("%w: joint %q references source %q", ErrMimicSourceNotFound, jointID, mc.Joint))
 		}
 		if len(sourceFrame.DoF()) == 0 {
-			return nil, fmt.Errorf("%w: joint %q references source %q which has no DoF", ErrMimicSourceNotFound, jointID, mc.Joint)
+			return nil, errtrace.Wrap(fmt.Errorf("%w: joint %q references source %q which has no DoF", ErrMimicSourceNotFound, jointID, mc.Joint))
 		}
 
 		result[jointID] = &mimicMapping{
@@ -244,9 +245,9 @@ func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
 	jsonData, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read json file")
+		return nil, errtrace.Wrap(errors.Wrap(err, "failed to read json file"))
 	}
-	return UnmarshalModelJSON(jsonData, modelName)
+	return errtrace.Wrap2(UnmarshalModelJSON(jsonData, modelName))
 }
 
 // buildModelFrameSystem builds a FrameSystem from a map of frames and their parent relationships.
@@ -272,7 +273,7 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 		}
 	}
 	if requireSingleLeaf && len(leaves) != 1 {
-		return nil, nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, leaves)
+		return nil, nil, errtrace.Wrap(fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, leaves))
 	}
 
 	fs := NewEmptyFrameSystem("internal")
@@ -290,13 +291,13 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 		cur := queue[0]
 		queue = queue[1:]
 		if seen[cur] {
-			return nil, nil, ErrCircularReference
+			return nil, nil, errtrace.Wrap(ErrCircularReference)
 		}
 		seen[cur] = true
 
 		frame, ok := transforms[cur]
 		if !ok {
-			return nil, nil, NewFrameNotInListOfTransformsError(cur)
+			return nil, nil, errtrace.Wrap(NewFrameNotInListOfTransformsError(cur))
 		}
 
 		parentName := parents[cur]
@@ -307,12 +308,12 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 		} else {
 			parentFrame = fs.Frame(parentName)
 			if parentFrame == nil {
-				return nil, nil, NewParentFrameNotInMapOfParentsError(cur)
+				return nil, nil, errtrace.Wrap(NewParentFrameNotInMapOfParentsError(cur))
 			}
 		}
 
 		if err := fs.AddFrame(frame, parentFrame); err != nil {
-			return nil, nil, err
+			return nil, nil, errtrace.Wrap(err)
 		}
 
 		queue = append(queue, childrenOf[cur]...)
@@ -320,7 +321,7 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 
 	// Check all transforms were visited
 	if len(seen) != len(transforms) {
-		return nil, nil, ErrCircularReference
+		return nil, nil, errtrace.Wrap(ErrCircularReference)
 	}
 
 	return fs, leaves, nil

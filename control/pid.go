@@ -8,13 +8,14 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
 func (l *Loop) newPID(config BlockConfig, logger logging.Logger) (Block, error) {
 	p := &basicPID{cfg: config, logger: logger}
 	if err := p.reset(); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	l.pidBlocks = append(l.pidBlocks, p)
 	return p, nil
@@ -130,7 +131,7 @@ func (p *basicPID) reset() error {
 	if p.cfg.Attribute.Has("PIDSets") {
 		p.PIDSets, ok = p.cfg.Attribute["PIDSets"].([]*PIDConfig)
 		if !ok {
-			return errors.New("PIDSet did not initialize correctly")
+			return errtrace.Wrap(errors.New("PIDSet did not initialize correctly"))
 		}
 		if len(p.PIDSets) > 0 {
 			p.tuners = make([]*pidTuner, len(p.PIDSets))
@@ -140,11 +141,11 @@ func (p *basicPID) reset() error {
 			}
 		}
 	} else {
-		return errors.Errorf("pid block %s does not have a PID configured", p.cfg.Name)
+		return errtrace.Wrap(errors.Errorf("pid block %s does not have a PID configured", p.cfg.Name))
 	}
 
 	if len(p.cfg.DependsOn) != len(p.PIDSets) {
-		return errors.Errorf("pid block %s should have %d inputs got %d", p.cfg.Name, len(p.PIDSets), len(p.cfg.DependsOn))
+		return errtrace.Wrap(errors.Errorf("pid block %s should have %d inputs got %d", p.cfg.Name, len(p.PIDSets), len(p.cfg.DependsOn)))
 	}
 
 	// ensure a default of 255
@@ -204,11 +205,11 @@ func (p *basicPID) reset() error {
 
 			err := p.tuners[i].reset()
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			if p.tuners[i].stepPct > 1 || p.tuners[i].stepPct < 0 {
-				return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
+				return errtrace.Wrap(errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name))
 			}
 		}
 	}
@@ -223,14 +224,14 @@ func (p *basicPID) reset() error {
 func (p *basicPID) Reset(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.reset()
+	return errtrace.Wrap(p.reset())
 }
 
 func (p *basicPID) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.cfg = config
-	return p.reset()
+	return errtrace.Wrap(p.reset())
 }
 
 func (p *basicPID) Output(ctx context.Context) []*Signal {

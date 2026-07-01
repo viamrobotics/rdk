@@ -17,6 +17,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 )
 
@@ -108,7 +109,7 @@ func findReaderAndDriver(
 
 		reader, driver, err := getReaderAndDriver(searchPath, constraints, logger)
 		if err != nil {
-			return nil, nil, "", err
+			return nil, nil, "", errtrace.Wrap(err)
 		}
 		return reader, driver, path, nil
 	}
@@ -116,12 +117,12 @@ func findReaderAndDriver(
 	// Handle "any" path
 	reader, driver, err := getReaderAndDriver("", constraints, logger)
 	if err != nil {
-		return nil, nil, "", errors.Wrap(err, "found no webcams")
+		return nil, nil, "", errtrace.Wrap(errors.Wrap(err, "found no webcams"))
 	}
 	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
 	if len(labels) == 0 {
 		logger.Error("no labels parsed from driver")
-		return nil, nil, "", errors.New("no labels parsed from driver")
+		return nil, nil, "", errtrace.Wrap(errors.New("no labels parsed from driver"))
 	}
 	path = labels[0] // path is always the first element
 
@@ -143,11 +144,11 @@ func getReaderAndDriver(
 	}
 	d, selectedMedia, err := getUserVideoDriver(constraints, ptr, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	if err := openDriver(d); err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	success := false
@@ -161,7 +162,7 @@ func getReaderAndDriver(
 
 	reader, err := newReaderFromDriver(d, selectedMedia)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	success = true // signal success to the deferred func
@@ -177,18 +178,18 @@ func getUserVideoDriver(
 	if constraints.Video != nil {
 		constraints.Video(&videoConstraints)
 	}
-	return selectVideo(videoConstraints, label, logger)
+	return errtrace.Wrap3(selectVideo(videoConstraints, label, logger))
 }
 
 func openDriver(d driver.Driver) error {
 	if ok, err := driver.IsAvailable(d); !errors.Is(err, availability.ErrUnimplemented) && !ok {
-		return errors.Wrap(err, "video driver not available")
+		return errtrace.Wrap(errors.Wrap(err, "video driver not available"))
 	}
 	if driverStatus := d.Status(); driverStatus != driver.StateClosed {
-		return errors.New("video driver in use")
+		return errtrace.Wrap(errors.New("video driver in use"))
 	}
 	if err := d.Open(); err != nil {
-		return errors.Wrap(err, "cannot open video driver")
+		return errtrace.Wrap(errors.Wrap(err, "cannot open video driver"))
 	}
 	return nil
 }
@@ -199,10 +200,10 @@ func newReaderFromDriver(
 ) (video.Reader, error) {
 	recorder, ok := videoDriver.(driver.VideoRecorder)
 	if !ok {
-		return nil, errors.New("driver not a driver.VideoRecorder")
+		return nil, errtrace.Wrap(errors.New("driver not a driver.VideoRecorder"))
 	}
 	mediaProp.DiscardFramesOlderThan = time.Second
-	return recorder.VideoRecord(mediaProp)
+	return errtrace.Wrap2(recorder.VideoRecord(mediaProp))
 }
 
 func labelFilter(target string, useSep bool) driver.FilterFn {
@@ -229,7 +230,7 @@ func selectVideo(
 	if label != nil {
 		labelStr = *label
 	}
-	return selectBestDriver(getVideoFilterBase(), getVideoFilter(label), labelStr, constraints, logger)
+	return errtrace.Wrap3(selectBestDriver(getVideoFilterBase(), getVideoFilter(label), labelStr, constraints, logger))
 }
 
 func getVideoFilterBase() driver.FilterFn {
@@ -277,7 +278,7 @@ func selectBestDriver(
 		if label != "" {
 			msg += "; check if the device is available or already in use (busy)"
 		}
-		return nil, prop.Media{}, errors.New(msg)
+		return nil, prop.Media{}, errtrace.Wrap(errors.New(msg))
 	}
 
 	logger.Debugw("found drivers matching specific filter", "count", len(driverProperties))
@@ -313,13 +314,13 @@ func selectBestDriver(
 		for d := range driverProperties {
 			labels = append(labels, d.Info().Label)
 		}
-		return nil, prop.Media{}, errors.Errorf(
+		return nil, prop.Media{}, errtrace.Wrap(errors.Errorf(
 			"failed to find a queryable driver that matches the config constraints. "+
 				"You can try tweaking or relaxing the constraints, e.g. removing or changing the height/width, "+
 				"frame format, etc. "+
 				"Use the find-webcams discovery service to find valid constraints for your device. "+
 				"Devices tried: %s",
-			strings.Join(labels, ", "))
+			strings.Join(labels, ", ")))
 	}
 
 	logger.Debugw("winning driver", "label", bestDriver.Info().Label, "props", bestProp)

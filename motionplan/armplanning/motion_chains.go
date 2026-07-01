@@ -3,6 +3,7 @@ package armplanning
 import (
 	"errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -19,13 +20,13 @@ func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to referenceframe
 	for frame, pif := range to {
 		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		inner = append(inner, chain)
 	}
 
 	if len(inner) < 1 {
-		return nil, errors.New("must have at least one motion chain")
+		return nil, errtrace.Wrap(errors.New("must have at least one motion chain"))
 	}
 
 	return &motionChains{
@@ -98,24 +99,24 @@ func motionChainFromGoal(fs *referenceframe.FrameSystem, moveFrame, goalFrameNam
 	// get goal frame
 	goalFrame := fs.Frame(goalFrameName)
 	if goalFrame == nil {
-		return nil, referenceframe.NewFrameMissingError(goalFrameName)
+		return nil, errtrace.Wrap(referenceframe.NewFrameMissingError(goalFrameName))
 	}
 	goalFrameList, err := fs.TracebackFrame(goalFrame)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// get solve frame
 	solveFrame := fs.Frame(moveFrame)
 	if solveFrame == nil {
-		return nil, referenceframe.NewFrameMissingError(moveFrame)
+		return nil, errtrace.Wrap(referenceframe.NewFrameMissingError(moveFrame))
 	}
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if len(solveFrameList) == 0 {
-		return nil, errors.New("solveFrameList was empty")
+		return nil, errtrace.Wrap(errors.New("solveFrameList was empty"))
 	}
 
 	movingFS := func(frameList []referenceframe.Frame) (*referenceframe.FrameSystem, error) {
@@ -130,7 +131,7 @@ func motionChainFromGoal(fs *referenceframe.FrameSystem, moveFrame, goalFrameNam
 		if moveF == nil {
 			return referenceframe.NewEmptyFrameSystem(""), nil
 		}
-		return fs.FrameSystemSubset(moveF)
+		return errtrace.Wrap2(fs.FrameSystemSubset(moveF))
 	}
 
 	// find pivot frame between goal and solve frames
@@ -139,20 +140,20 @@ func motionChainFromGoal(fs *referenceframe.FrameSystem, moveFrame, goalFrameNam
 	worldRooted := false
 	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if pivotFrame.Name() == referenceframe.World {
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
 		moving, err = movingFS(solveFrameList)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		movingSubset2, err := movingFS(goalFrameList)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		if err = moving.MergeFrameSystem(movingSubset2, moving.World()); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 	} else {
 		dof := 0
@@ -183,20 +184,20 @@ func motionChainFromGoal(fs *referenceframe.FrameSystem, moveFrame, goalFrameNam
 			frames = solveFrameList
 			moving, err = movingFS(solveFrameList)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		} else {
 			// Get all child nodes of pivot node
 			moving, err = movingFS(solveMovingList)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			movingSubset2, err := movingFS(goalMovingList)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			if err = moving.MergeFrameSystem(movingSubset2, moving.World()); err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}
@@ -249,5 +250,5 @@ func findPivotFrame(frameList1, frameList2 []referenceframe.Frame) (referencefra
 			return frame, nil
 		}
 	}
-	return nil, errors.New("no path from solve frame to goal frame")
+	return nil, errtrace.Wrap(errors.New("no path from solve frame to goal frame"))
 }

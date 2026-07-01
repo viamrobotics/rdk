@@ -14,6 +14,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
@@ -81,35 +82,35 @@ func New(
 // Increment increments the peer connections subscribed to the stream.
 func (state *StreamState) Increment() error {
 	if err := state.closedCtx.Err(); err != nil {
-		return multierr.Combine(ErrClosed, err)
+		return errtrace.Wrap(multierr.Combine(ErrClosed, err))
 	}
-	return state.send(msgTypeIncrement)
+	return errtrace.Wrap(state.send(msgTypeIncrement))
 }
 
 // Decrement decrements the peer connections subscribed to the stream.
 func (state *StreamState) Decrement() error {
 	if err := state.closedCtx.Err(); err != nil {
-		return multierr.Combine(ErrClosed, err)
+		return errtrace.Wrap(multierr.Combine(ErrClosed, err))
 	}
-	return state.send(msgTypeDecrement)
+	return errtrace.Wrap(state.send(msgTypeDecrement))
 }
 
 // Resize notifies that the gostream source has been resized. This will stop and prevent
 // the use of the passthrough stream if it is supported.
 func (state *StreamState) Resize() error {
 	if err := state.closedCtx.Err(); err != nil {
-		return multierr.Combine(ErrClosed, err)
+		return errtrace.Wrap(multierr.Combine(ErrClosed, err))
 	}
-	return state.send(msgTypeResize)
+	return errtrace.Wrap(state.send(msgTypeResize))
 }
 
 // Reset notifies that the gostream source has been reset to the original resolution.
 // This will restart the passthrough stream if it is supported.
 func (state *StreamState) Reset() error {
 	if err := state.closedCtx.Err(); err != nil {
-		return multierr.Combine(ErrClosed, err)
+		return errtrace.Wrap(multierr.Combine(ErrClosed, err))
 	}
-	return state.send(msgTypeReset)
+	return errtrace.Wrap(state.send(msgTypeReset))
 }
 
 // Close closes the StreamState.
@@ -271,7 +272,7 @@ func (state *StreamState) send(msgType msgType) error {
 	case state.msgChan <- msg{msgType: msgType}:
 		return nil
 	case <-state.closedCtx.Done():
-		return state.closedCtx.Err()
+		return errtrace.Wrap(state.closedCtx.Err())
 	}
 }
 
@@ -334,13 +335,13 @@ func (state *StreamState) tick() {
 func (state *StreamState) streamH264Passthrough() error {
 	cam, err := camerautils.Camera(state.robot, state.Stream)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Get the camera and see if it implements the rtp passthrough API of SubscribeRTP + Unsubscribe
 	rtpPassthroughSource, ok := cam.(rtppassthrough.Source)
 	if !ok {
-		return errors.New("stream does not support RTP passthrough")
+		return errtrace.Wrap(errors.New("stream does not support RTP passthrough"))
 	}
 
 	var count atomic.Uint64
@@ -371,7 +372,7 @@ func (state *StreamState) streamH264Passthrough() error {
 
 	sub, err := rtpPassthroughSource.SubscribeRTP(state.closedCtx, rtpBufferSize, cb)
 	if err != nil {
-		return fmt.Errorf("SubscribeRTP failed: %w", err)
+		return errtrace.Wrap(fmt.Errorf("SubscribeRTP failed: %w", err))
 	}
 	state.logger.Warnw("Stream using experimental H264 passthrough", "name", state.Stream.Name())
 
@@ -395,16 +396,16 @@ func (state *StreamState) streamH264Passthrough() error {
 func (state *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 	cam, err := camerautils.Camera(state.robot, state.Stream)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	rtpPassthroughSource, ok := cam.(rtppassthrough.Source)
 	if !ok {
-		return fmt.Errorf("subscription resource does not implement rtpPassthroughSource. CamType: %T", rtpPassthroughSource)
+		return errtrace.Wrap(fmt.Errorf("subscription resource does not implement rtpPassthroughSource. CamType: %T", rtpPassthroughSource))
 	}
 
 	if err := rtpPassthroughSource.Unsubscribe(ctx, id); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	return nil

@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
@@ -102,7 +103,7 @@ type Properties struct {
 // frame into the camera's coordinate frame, then projected to a pixel using intrinsics.
 func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
 	if p.IntrinsicParams == nil {
-		return 0, 0, errors.New("camera properties has no intrinsic parameters")
+		return 0, 0, errtrace.Wrap(errors.New("camera properties has no intrinsic parameters"))
 	}
 
 	if p.ExtrinsicParams != nil {
@@ -138,13 +139,13 @@ type NamedImage struct {
 func NamedImageFromBytes(data []byte, sourceName, mimeType string, annotations data.Annotations,
 ) (NamedImage, error) {
 	if data == nil {
-		return NamedImage{}, fmt.Errorf("must provide image bytes to construct a named image from bytes")
+		return NamedImage{}, errtrace.Wrap(fmt.Errorf("must provide image bytes to construct a named image from bytes"))
 	}
 	if mimeType == "" {
 		reader := bytes.NewReader(data)
 		_, format, err := image.DecodeConfig(reader)
 		if err != nil {
-			return NamedImage{}, fmt.Errorf("mime type not provided and could not infer mime type from bytes: %w", err)
+			return NamedImage{}, errtrace.Wrap(fmt.Errorf("mime type not provided and could not infer mime type from bytes: %w", err))
 		}
 		mimeType = utils.FormatStringToMimeType(format)
 	}
@@ -155,7 +156,7 @@ func NamedImageFromBytes(data []byte, sourceName, mimeType string, annotations d
 func NamedImageFromImage(img image.Image, sourceName, mimeType string, annotations data.Annotations,
 ) (NamedImage, error) {
 	if img == nil {
-		return NamedImage{}, fmt.Errorf("must provide image to construct a named image from image")
+		return NamedImage{}, errtrace.Wrap(fmt.Errorf("must provide image to construct a named image from image"))
 	}
 	if mimeType == "" {
 		mimeType = utils.MimeTypeJPEG
@@ -169,22 +170,22 @@ func (ni *NamedImage) Image(ctx context.Context) (image.Image, error) {
 		return ni.img, nil
 	}
 	if ni.data == nil {
-		return nil, fmt.Errorf("no image or image bytes available")
+		return nil, errtrace.Wrap(fmt.Errorf("no image or image bytes available"))
 	}
 
 	reader := bytes.NewReader(ni.data)
 	_, header, err := image.DecodeConfig(reader)
 	if err != nil {
-		return nil, fmt.Errorf("could not decode image config: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("could not decode image config: %w", err))
 	}
 
 	if header != "" && !strings.Contains(ni.mimeType, header) {
-		return nil, fmt.Errorf("%w: expected %s, got %s", ErrMIMETypeBytesMismatch, ni.mimeType, header)
+		return nil, errtrace.Wrap(fmt.Errorf("%w: expected %s, got %s", ErrMIMETypeBytesMismatch, ni.mimeType, header))
 	}
 
 	img, err := rimage.DecodeImage(ctx, ni.data, ni.mimeType)
 	if err != nil {
-		return nil, fmt.Errorf("could not decode bytes into image.Image: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("could not decode bytes into image.Image: %w", err))
 	}
 	ni.img = img
 	return ni.img, nil
@@ -196,12 +197,12 @@ func (ni *NamedImage) Bytes(ctx context.Context) ([]byte, error) {
 		return ni.data, nil
 	}
 	if ni.img == nil {
-		return nil, fmt.Errorf("no image or image bytes available")
+		return nil, errtrace.Wrap(fmt.Errorf("no image or image bytes available"))
 	}
 
 	data, err := rimage.EncodeImage(ctx, ni.img, ni.mimeType)
 	if err != nil {
-		return nil, fmt.Errorf("could not encode image with encoding %s: %w", ni.mimeType, err)
+		return nil, errtrace.Wrap(fmt.Errorf("could not encode image with encoding %s: %w", ni.mimeType, err))
 	}
 	ni.data = data
 	return ni.data, nil
@@ -220,11 +221,11 @@ func (ni *NamedImage) Bounds() (image.Rectangle, error) {
 		return ni.img.Bounds(), nil
 	}
 	if ni.data == nil {
-		return image.Rectangle{}, fmt.Errorf("no image or image bytes available")
+		return image.Rectangle{}, errtrace.Wrap(fmt.Errorf("no image or image bytes available"))
 	}
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(ni.data))
 	if err != nil {
-		return image.Rectangle{}, fmt.Errorf("could not decode image config: %w", err)
+		return image.Rectangle{}, errtrace.Wrap(fmt.Errorf("could not decode image config: %w", err))
 	}
 	return image.Rect(0, 0, cfg.Width, cfg.Height), nil
 }
@@ -288,14 +289,14 @@ type Camera interface {
 func DecodeImageFromCamera(ctx context.Context, cam Camera, filterSourceNames []string, extra map[string]interface{}) (image.Image, error) {
 	namedImages, _, err := cam.Images(ctx, filterSourceNames, extra)
 	if err != nil {
-		return nil, fmt.Errorf("could not get images from camera: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("could not get images from camera: %w", err))
 	}
 	if len(namedImages) == 0 {
-		return nil, errors.New("no images returned from camera")
+		return nil, errtrace.Wrap(errors.New("no images returned from camera"))
 	}
 	img, err := namedImages[0].Image(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
+		return nil, errtrace.Wrap(fmt.Errorf("could not decode into image.Image: %w", err))
 	}
 	return img, nil
 }
@@ -309,7 +310,7 @@ type VideoSource interface {
 
 // ReadImage reads an image from the given source that is immediately available.
 func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
-	return gostream.ReadImage(ctx, src)
+	return errtrace.Wrap3(gostream.ReadImage(ctx, src))
 }
 
 // A PointCloudSource is a source that can generate pointclouds.
@@ -324,7 +325,7 @@ type ImagesSource interface {
 
 // NewPropertiesError returns an error specific to a failure in Properties.
 func NewPropertiesError(cameraIdentifier string) error {
-	return errors.Errorf("failed to get properties from %s", cameraIdentifier)
+	return errtrace.Wrap(errors.Errorf("failed to get properties from %s", cameraIdentifier))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named camera from a collection of
@@ -332,7 +333,7 @@ func NewPropertiesError(cameraIdentifier string) error {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Camera, error) {
-	return resource.FromDependencies[Camera](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Camera](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named Camera from the given Robot.
@@ -340,12 +341,12 @@ func FromDependencies(deps resource.Dependencies, name string) (Camera, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Camera, error) {
-	return robot.ResourceFromRobot[Camera](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Camera](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Camera from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Camera, error) {
-	return resource.FromProvider[Camera](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Camera](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all camera names from the given Robot.

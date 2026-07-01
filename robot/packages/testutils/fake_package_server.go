@@ -24,6 +24,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 )
@@ -62,18 +63,18 @@ type FakePackagesClientAndGCSServer struct {
 func NewFakePackageServer(ctx context.Context, logger logging.Logger) (*FakePackagesClientAndGCSServer, error) {
 	httplistener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	rpclistener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	testPackagePath := artifact.MustPath("robot/packages/example.tar.gz")
 	checksumForTestPackage, err := checksumFile(testPackagePath)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	mux := http.NewServeMux()
@@ -110,7 +111,7 @@ func NewFakePackageServer(ctx context.Context, logger logging.Logger) (*FakePack
 		rpc.WithUnauthenticated(),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{Enable: false}))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	err = server.rpcServer.RegisterServiceServer(
@@ -120,7 +121,7 @@ func NewFakePackageServer(ctx context.Context, logger logging.Logger) (*FakePack
 		pb.RegisterPackageServiceHandlerFromEndpoint,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	server.exitWg.Add(1)
@@ -145,7 +146,7 @@ func (c *FakePackagesClientAndGCSServer) Addr() net.Addr {
 func (c *FakePackagesClientAndGCSServer) Client(ctx context.Context) (pb.PackageServiceClient, rpc.ClientConn, error) {
 	conn, err := rpc.DialDirectGRPC(ctx, c.listener.Addr().String(), c.logger, rpc.WithInsecure())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 
 	return pb.NewPackageServiceClient(conn), conn, nil
@@ -273,12 +274,12 @@ func (c *FakePackagesClientAndGCSServer) Shutdown() error {
 
 	err := c.httpserver.Shutdown(ctx)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	err = c.rpcServer.Stop()
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	c.exitWg.Wait()
@@ -324,7 +325,7 @@ func (c *FakePackagesClientAndGCSServer) GetPackage(ctx context.Context, in *pb.
 
 	p, ok := c.packages[fmt.Sprintf("%s-%s", in.Id, in.Version)]
 	if !ok {
-		return nil, errPackageMissng
+		return nil, errtrace.Wrap(errPackageMissng)
 	}
 
 	if in.IncludeUrl != nil && *in.IncludeUrl {
@@ -409,13 +410,13 @@ func checksumFile(path string) (string, error) {
 	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
 	_, err = io.Copy(hasher, f)
 	if err != nil {
-		return "", err
+		return "", errtrace.Wrap(err)
 	}
 
 	return base64.StdEncoding.EncodeToString(hasher.Sum(nil)), nil

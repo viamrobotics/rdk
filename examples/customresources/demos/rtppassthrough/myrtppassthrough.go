@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/logging"
@@ -27,5 +28,5 @@ func newFakeCamera(
 	conf resource.Config,
 	logger logging.Logger,
 ) (camera.Camera, error) {
-	return fake.NewCamera(ctx, deps, conf, logger)
+	return errtrace.Wrap2(fake.NewCamera(ctx, deps, conf, logger))
 }

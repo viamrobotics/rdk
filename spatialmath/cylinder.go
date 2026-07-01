@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -32,7 +33,7 @@ type Cylinder struct {
 // radius or height is non-positive.
 func NewCylinder(offset Pose, radius, height float64, label string) (Geometry, error) {
 	if radius <= 0 || height <= 0 {
-		return nil, newBadGeometryDimensionsError(&Cylinder{})
+		return nil, errtrace.Wrap(newBadGeometryDimensionsError(&Cylinder{}))
 	}
 	c := &Cylinder{pose: offset, radius: radius, height: height, label: label}
 	c.mesh = c.buildMesh()
@@ -106,12 +107,12 @@ func (c *Cylinder) Transform(toPremultiply Pose) Geometry {
 func (c *Cylinder) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(c)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	config.Type = CylinderType
 	config.R = c.radius
 	config.L = c.height
-	return json.Marshal(config)
+	return errtrace.Wrap2(json.Marshal(config))
 }
 
 // ToMesh returns the Cylinder's tessellated triangle mesh, built up front by
@@ -182,21 +183,21 @@ func asMeshIfCylinder(g Geometry) Geometry {
 
 // CollidesWith delegates to the Cylinder's tessellated mesh.
 func (c *Cylinder) CollidesWith(g Geometry, buffer float64) (bool, float64, error) {
-	return c.ToMesh().CollidesWith(asMeshIfCylinder(g), buffer)
+	return errtrace.Wrap3(c.ToMesh().CollidesWith(asMeshIfCylinder(g), buffer))
 }
 
 // DistanceFrom delegates to the Cylinder's tessellated mesh. Note that the
 // returned distance is approximate due to ~1.9% chord error from the
 // 16-segment tessellation.
 func (c *Cylinder) DistanceFrom(g Geometry) (float64, error) {
-	return c.ToMesh().DistanceFrom(asMeshIfCylinder(g))
+	return errtrace.Wrap2(c.ToMesh().DistanceFrom(asMeshIfCylinder(g)))
 }
 
 // EncompassedBy delegates to the Cylinder's tessellated mesh. Mesh.EncompassedBy
 // checks every triangle vertex; since the Cylinder is convex and its mesh
 // vertices lie exactly on its surface, "all vertices inside g => Cylinder inside g".
 func (c *Cylinder) EncompassedBy(g Geometry) (bool, error) {
-	return c.ToMesh().EncompassedBy(asMeshIfCylinder(g))
+	return errtrace.Wrap2(c.ToMesh().EncompassedBy(asMeshIfCylinder(g)))
 }
 
 // ToPoints returns surface sample points by delegating to the tessellated mesh.

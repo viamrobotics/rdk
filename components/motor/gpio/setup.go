@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
@@ -55,7 +56,7 @@ func getPinConfigErrorMessage(errorEnum pinConfigError) error {
 	case noPins:
 		err = errors.New("motor pin config devoid of pin definitions (A, B, Direction, PWM are all missing)")
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 // PinConfig defines the mapping of where motor are wired.
@@ -100,7 +101,7 @@ func (conf *PinConfig) MotorType(path string) (MotorType, error) {
 	}
 
 	if err := getPinConfigErrorMessage(errEnum); err != nil {
-		return motorType, resource.NewConfigValidationError(path, err)
+		return motorType, errtrace.Wrap(resource.NewConfigValidationError(path, err))
 	}
 	return motorType, nil
 }
@@ -131,24 +132,24 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if conf.BoardName == "" {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "board"))
 	}
 	deps = append(deps, conf.BoardName)
 
 	// ensure motor config represents one of three supported motor configuration types
 	// (see MotorType above)
 	if _, err := conf.Pins.MotorType(path); err != nil {
-		return deps, nil, err
+		return deps, nil, errtrace.Wrap(err)
 	}
 
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if conf.Encoder != "" {
 		if conf.TicksPerRotation <= 0 {
-			return nil, nil, resource.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
+			return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero")))
 		}
 		deps = append(deps, conf.Encoder)
 	} else if conf.MaxRPM <= 0 {
-		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "max_rpm")
+		return nil, nil, errtrace.Wrap(resource.NewConfigValidationFieldRequiredError(path, "max_rpm"))
 	}
 	return deps, nil, nil
 }
@@ -163,14 +164,14 @@ func init() {
 func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (board.Board, *Config, error) {
 	motorConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	if motorConfig.BoardName == "" {
-		return nil, nil, errors.New("expected board name in config for motor")
+		return nil, nil, errtrace.Wrap(errors.New("expected board name in config for motor"))
 	}
 	b, err := board.FromProvider(deps, motorConfig.BoardName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errtrace.Wrap(err)
 	}
 	return b, motorConfig, nil
 }
@@ -180,27 +181,27 @@ func createNewMotor(
 ) (motor.Motor, error) {
 	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	m, err := NewMotor(actualBoard, *motorConfig, cfg.ResourceName(), logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	if motorConfig.Encoder != "" {
 		e, err := encoder.FromProvider(deps, motorConfig.Encoder)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		props, err := e.Properties(context.Background(), nil)
 		if err != nil {
-			return nil, errors.New("cannot get encoder properties")
+			return nil, errtrace.Wrap(errors.New("cannot get encoder properties"))
 		}
 		if !props.TicksCountSupported {
 			return nil,
-				encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
+				errtrace.Wrap(encoder.NewEncodedMotorPositionTypeUnsupportedError(props))
 		}
 
 		cmd := make(map[string]interface{})
@@ -221,19 +222,19 @@ func createNewMotor(
 		case motorConfig.ControlParameters == nil:
 			m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		default:
 			m, err = setupMotorWithControls(ctx, m, e, cfg, logger)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		}
 	}
 
 	err = m.Stop(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return m, nil

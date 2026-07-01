@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
@@ -64,7 +65,7 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	}
 	if cfg.Encoder != "" {
 		if cfg.TicksPerRotation <= 0 {
-			return nil, nil, resource.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
+			return nil, nil, errtrace.Wrap(resource.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor")))
 		}
 		deps = append(deps, cfg.Encoder)
 	}
@@ -105,7 +106,7 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, conf resource.Con
 		OpMgr:  operation.NewSingleOperationManager(),
 	}
 	if err := m.reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return m, nil
 }
@@ -116,7 +117,7 @@ func (m *Motor) reconfigure(ctx context.Context, deps resource.Dependencies, con
 	defer m.mu.Unlock()
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	var b board.Board
@@ -124,14 +125,14 @@ func (m *Motor) reconfigure(ctx context.Context, deps resource.Dependencies, con
 		m.Board = newConf.BoardName
 		b, err = board.FromProvider(deps, m.Board)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	} else {
 		m.Logger.CInfo(ctx, "board not provided, using a fake board")
 		m.Board = "fakeboard"
 		b, err = fakeboard.NewBoard(ctx, fakeBoardConf, m.Logger)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 
@@ -141,10 +142,10 @@ func (m *Motor) reconfigure(ctx context.Context, deps resource.Dependencies, con
 	}
 	m.PWM, err = b.GPIOPinByName(pwmPin)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	if err = m.PWM.SetPWMFreq(ctx, newConf.PWMFreq, nil); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	m.MaxRPM = newConf.MaxRPM
@@ -159,11 +160,11 @@ func (m *Motor) reconfigure(ctx context.Context, deps resource.Dependencies, con
 
 		e, err := encoder.FromProvider(deps, newConf.Encoder)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		fakeEncoder, ok := e.(fake.Encoder)
 		if !ok {
-			return resource.TypeError[fake.Encoder](e)
+			return errtrace.Wrap(resource.TypeError[fake.Encoder](e))
 		}
 		m.Encoder = fakeEncoder
 		m.PositionReporting = true
@@ -183,16 +184,16 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 	defer m.mu.Unlock()
 
 	if m.Encoder == nil {
-		return 0, errors.New("encoder is not defined")
+		return 0, errtrace.Wrap(errors.New("encoder is not defined"))
 	}
 
 	ticks, _, err := m.Encoder.Position(ctx, encoder.PositionTypeUnspecified, extra)
 	if err != nil {
-		return 0, err
+		return 0, errtrace.Wrap(err)
 	}
 
 	if m.TicksPerRotation == 0 {
-		return 0, errors.New("need nonzero TicksPerRotation for motor")
+		return 0, errtrace.Wrap(errors.New("need nonzero TicksPerRotation for motor"))
 	}
 
 	return ticks / float64(m.TicksPerRotation), nil
@@ -209,7 +210,7 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	ctx, finish := m.OpMgr.New(ctx)
 	defer finish()
-	return m.setPower(ctx, powerPct)
+	return errtrace.Wrap(m.setPower(ctx, powerPct))
 }
 
 func (m *Motor) setPower(ctx context.Context, powerPct float64) error {
@@ -221,13 +222,13 @@ func (m *Motor) setPower(ctx context.Context, powerPct float64) error {
 
 	if m.Encoder != nil {
 		if m.TicksPerRotation <= 0 {
-			return errors.New("need positive nonzero TicksPerRotation")
+			return errtrace.Wrap(errors.New("need positive nonzero TicksPerRotation"))
 		}
 
 		newSpeed := (m.MaxRPM * m.powerPct) * float64(m.TicksPerRotation)
 		err := m.Encoder.SetSpeed(ctx, newSpeed)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 	}
 	return nil
@@ -279,7 +280,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 func checkSpeed(rpm, max float64) (string, error) { //nolint: revive
 	switch speed := math.Abs(rpm); {
 	case speed == 0:
-		return "motor speed requested is 0 rev_per_min", motor.NewZeroRPMError()
+		return "motor speed requested is 0 rev_per_min", errtrace.Wrap(motor.NewZeroRPMError())
 	case speed > 0 && speed < 0.1:
 		return "motor speed is nearly 0 rev_per_min", nil
 	case max > 0 && speed > max-0.1:
@@ -300,11 +301,11 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		m.Logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := motor.CheckRevolutions(revolutions); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
@@ -313,24 +314,24 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	if m.Encoder != nil {
 		curPos, err := m.Position(ctx, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		finalPos = curPos + dir*math.Abs(revolutions)
 	}
 
 	err = m.setPower(ctx, powerPct)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if utils.SelectContextOrWait(ctx, waitDur) {
 		err = m.Stop(ctx, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
 		if m.Encoder != nil {
-			return m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation))
+			return errtrace.Wrap(m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation)))
 		}
 	}
 	return nil
@@ -342,7 +343,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	defer finish()
 
 	if m.Encoder == nil {
-		return errors.New("encoder is not defined")
+		return errtrace.Wrap(errors.New("encoder is not defined"))
 	}
 
 	warning, err := checkSpeed(rpm, m.MaxRPM)
@@ -350,16 +351,16 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		m.Logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	curPos, err := m.Position(ctx, nil)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if err := motor.CheckRevolutions(pos - curPos); err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	revolutions := pos - curPos
@@ -368,16 +369,16 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 	err = m.setPower(ctx, powerPct)
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	if utils.SelectContextOrWait(ctx, waitDur) {
 		err = m.Stop(ctx, nil)
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 
-		return m.Encoder.SetPosition(ctx, pos*float64(m.TicksPerRotation))
+		return errtrace.Wrap(m.Encoder.SetPosition(ctx, pos*float64(m.TicksPerRotation)))
 	}
 
 	return nil
@@ -390,11 +391,11 @@ func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interf
 		m.Logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	powerPct := rpm / m.MaxRPM
-	return m.SetPower(ctx, powerPct, nil)
+	return errtrace.Wrap(m.SetPower(ctx, powerPct, nil))
 }
 
 // Stop has the motor pretend to be off.
@@ -410,7 +411,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if m.Encoder != nil {
 		err := m.Encoder.SetSpeed(context.Background(), 0.0)
 		if err != nil {
-			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name())
+			return errtrace.Wrap(errors.Wrapf(err, "error in Stop from motor (%s)", m.Name()))
 		}
 	}
 	return nil
@@ -419,16 +420,16 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 // ResetZeroPosition resets the zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	if m.Encoder == nil {
-		return errors.New("encoder is not defined")
+		return errtrace.Wrap(errors.New("encoder is not defined"))
 	}
 
 	if m.TicksPerRotation == 0 {
-		return errors.New("need nonzero TicksPerRotation for motor")
+		return errtrace.Wrap(errors.New("need nonzero TicksPerRotation for motor"))
 	}
 
 	err := m.Encoder.SetPosition(ctx, -1*offset)
 	if err != nil {
-		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name())
+		return errtrace.Wrap(errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name()))
 	}
 
 	return nil

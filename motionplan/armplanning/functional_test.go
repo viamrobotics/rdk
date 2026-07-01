@@ -11,6 +11,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
@@ -74,7 +75,7 @@ func TestConstrainedMotion(t *testing.T) {
 func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Test ability to arrive at another position
@@ -85,7 +86,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	fs := frame.NewEmptyFrameSystem("")
 	err = fs.AddFrame(model, fs.World())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	cons := motionplan.NewEmptyConstraints()
@@ -96,7 +97,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	goal := &PlanState{poses: goalPoses}
 	motionChains, err := motionChainsFromPlanState(fs, goalPoses)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &planConfig{
@@ -139,13 +140,13 @@ func TestPlanningWithGripper(t *testing.T) {
 func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// add it to the frame system
 	fs := frame.NewEmptyFrameSystem("test")
 	if err := fs.AddFrame(xarm, fs.Frame(frame.World)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	goal := &PlanState{poses: frame.FrameSystemPoses{
@@ -158,7 +159,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	// create robot collision entities
 	movingGeometriesInFrame, err := xarm.Geometries(home7)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	movingRobotGeometries := movingGeometriesInFrame.Geometries()
 
@@ -166,7 +167,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
 	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewNeutralFrameSystemInputs(fs))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for name, geometries := range frameSystemGeometries {
 		if name != xarm.Name() {
@@ -185,7 +186,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		logger,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	constraintHandler := motionplan.NewEmptyConstraintChecker(logger.Sublogger("constraint"))
@@ -194,7 +195,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	start := map[string][]frame.Input{xarm.Name(): home7}
 	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &planConfig{
@@ -211,12 +212,12 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	fs := frame.NewEmptyFrameSystem("test")
 	if err = fs.AddFrame(ur5e, fs.Frame(frame.World)); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	goal := &PlanState{poses: frame.FrameSystemPoses{
@@ -229,7 +230,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	// create robot collision entities
 	movingGeometriesInFrame, err := ur5e.Geometries(home6)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	movingRobotGeometries := movingGeometriesInFrame.Geometries()
 
@@ -237,7 +238,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
 	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewNeutralFrameSystemInputs(fs))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	for name, geometries := range frameSystemGeometries {
 		if name != ur5e.Name() {
@@ -256,7 +257,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		logger,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	constraintHandler := motionplan.NewEmptyConstraintChecker(logger.Sublogger("constraint"))
 	constraintHandler.SetCollisionConstraints(fsCollisionConstraints)
@@ -264,7 +265,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	start := map[string][]frame.Input{ur5e.Name(): home6}
 	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &planConfig{
@@ -651,7 +652,7 @@ func TestPlanMapMotion(t *testing.T) {
 		// ephemerally create a framesystem containing just the frame for the solve
 		fs := frame.NewEmptyFrameSystem("")
 		if err := fs.AddFrame(f, fs.World()); err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		destination := frame.NewPoseInFrame(frame.World, dst)
 		seedMap := map[string][]frame.Input{f.Name(): seed}
@@ -663,9 +664,9 @@ func TestPlanMapMotion(t *testing.T) {
 			PlannerOptions:        NewBasicPlannerOptions(),
 		})
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return plan.Trajectory().GetFrameInputs(f.Name())
+		return errtrace.Wrap2(plan.Trajectory().GetFrameInputs(f.Name()))
 	}
 
 	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), obstacles)
@@ -706,7 +707,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 			Constraints:           constraints,
 			PlannerOptions:        NewBasicPlannerOptions(),
 		})
-		return err
+		return errtrace.Wrap(err)
 	}
 
 	// Verify that the goal position is reachable with no obstacles

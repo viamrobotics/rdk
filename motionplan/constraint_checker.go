@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -83,7 +84,7 @@ func NewConstraintChecker(
 
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var worldGeometries []spatialmath.Geometry
@@ -108,7 +109,7 @@ func NewConstraintChecker(
 		obstacleNames,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// add collision constraints
@@ -123,12 +124,12 @@ func NewConstraintChecker(
 		logger,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return handler, nil
@@ -162,7 +163,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 		}
 		x, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(f), g.Parent())
 		if err != nil {
-			return err
+			return errtrace.Wrap(err)
 		}
 		fromPoses[f] = x.(*referenceframe.PoseInFrame)
 	}
@@ -172,12 +173,12 @@ func (c *ConstraintChecker) addTopoConstraints(
 			fromPIF := fromPoses[frame]
 
 			if fromPIF.Parent() != toPIF.Parent() {
-				return fmt.Errorf("in topo constraint, from and to are in different frames %s != %s", fromPIF.Parent(), toPIF.Parent())
+				return errtrace.Wrap(fmt.Errorf("in topo constraint, from and to are in different frames %s != %s", fromPIF.Parent(), toPIF.Parent()))
 			}
 
 			currPosePIF, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), toPIF.Parent())
 			if err != nil {
-				return err
+				return errtrace.Wrap(err)
 			}
 
 			from := fromPIF.Pose()
@@ -187,21 +188,21 @@ func (c *ConstraintChecker) addTopoConstraints(
 			for _, lc := range constraints.LinearConstraint {
 				err := checkLinearConstraint(frame, lc, from, to, currPose)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 
 			for _, plc := range constraints.PseudolinearConstraint {
 				err := checkPseudoLinearConstraint(frame, plc, from, to, currPose)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 
 			for _, oc := range constraints.OrientationConstraint {
 				err := checkOrientationConstraint(frame, oc, from, to, currPose)
 				if err != nil {
-					return err
+					return errtrace.Wrap(err)
 				}
 			}
 		}
@@ -213,9 +214,9 @@ func (c *ConstraintChecker) addTopoConstraints(
 }
 
 func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error { //nolint: revive
-	return fmt.Errorf("%s %s violated dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
+	return errtrace.Wrap(fmt.Errorf("%s %s violated dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
 		prefix, orientationConstraintDescription, dist, max,
-		from, to, curr)
+		from, to, curr))
 }
 
 func checkLinearConstraint(frame string, linConstraint LinearConstraint, from, to, currPose spatialmath.Pose) error {
@@ -223,7 +224,7 @@ func checkLinearConstraint(frame string, linConstraint LinearConstraint, from, t
 	if linTol > 0 {
 		dist := spatialmath.DistToLineSegment(from.Point(), to.Point(), currPose.Point())
 		if dist > linTol {
-			return fmt.Errorf("%s %s violated dist: %0.2f", frame, linearConstraintDescription, dist)
+			return errtrace.Wrap(fmt.Errorf("%s %s violated dist: %0.2f", frame, linearConstraintDescription, dist))
 		}
 	}
 	orientTol := linConstraint.OrientationToleranceDegs
@@ -232,7 +233,7 @@ func checkLinearConstraint(frame string, linConstraint LinearConstraint, from, t
 			OrientDist(from.Orientation(), currPose.Orientation()),
 			OrientDist(to.Orientation(), currPose.Orientation()))
 		if dist > orientTol {
-			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
+			return errtrace.Wrap(orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol))
 		}
 	}
 
@@ -245,7 +246,7 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 		linTol *= from.Point().Distance(to.Point())
 		dist := spatialmath.DistToLineSegment(from.Point(), to.Point(), currPose.Point())
 		if dist > linTol {
-			return fmt.Errorf("%s %s violated dist: %0.2f", frame, linearConstraintDescription, dist)
+			return errtrace.Wrap(fmt.Errorf("%s %s violated dist: %0.2f", frame, linearConstraintDescription, dist))
 		}
 	}
 
@@ -256,7 +257,7 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 			OrientDist(from.Orientation(), currPose.Orientation()),
 			OrientDist(to.Orientation(), currPose.Orientation()))
 		if dist > orientTol {
-			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
+			return errtrace.Wrap(orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol))
 		}
 	}
 
@@ -266,7 +267,7 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 func checkOrientationConstraint(frame string, c OrientationConstraint, from, to, currPose spatialmath.Pose) error {
 	dist := c.Distance(from.Orientation(), to.Orientation(), currPose.Orientation())
 	if dist > c.OrientationToleranceDegs {
-		return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, c.OrientationToleranceDegs)
+		return errtrace.Wrap(orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, c.OrientationToleranceDegs))
 	}
 	return nil
 }
@@ -280,7 +281,7 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 	{
 		_, err := state.Geometries()
 		if err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 	}
 
@@ -300,14 +301,14 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 		d, err := pair.fn(state)
 		closest = min(closest, d)
 		if err != nil {
-			return -1, errors.Wrap(err, pair.name)
+			return -1, errtrace.Wrap(errors.Wrap(err, pair.name))
 		}
 	}
 
 	if c.topoConstraint != nil {
 		err := c.topoConstraint(state)
 		if err != nil {
-			return closest, err
+			return closest, errtrace.Wrap(err)
 		}
 	}
 	return closest, nil
@@ -319,7 +320,7 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps, err := segmentStepCount(ci, resolution)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Create interpolated configurations for all frames
@@ -335,7 +336,7 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 
 			interpConfig, err := frame.Interpolate(startConfig, endConfig, interp)
 			if err != nil {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 			frameConfigs.Put(frameName, interpConfig)
 		}
@@ -361,7 +362,7 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 
 	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var lastGood *referenceframe.LinearInputs
@@ -377,9 +378,9 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 		if err != nil {
 			if i == 0 {
 				// fail on start pos
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
-			return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
+			return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, errtrace.Wrap(err)
 		}
 		lastGood = interpC.Configuration
 
@@ -428,7 +429,7 @@ func CreateAllCollisionConstraints(
 			logger,
 		)
 		if err != nil {
-			return CollisionConstraints{}, err
+			return CollisionConstraints{}, errtrace.Wrap(err)
 		}
 		constraints.Obstacle = obstacleConstraintFS
 	}
@@ -446,7 +447,7 @@ func CreateAllCollisionConstraints(
 			logger,
 		)
 		if err != nil {
-			return CollisionConstraints{}, err
+			return CollisionConstraints{}, errtrace.Wrap(err)
 		}
 		constraints.RobotToRobot = robotConstraintFS
 	}
@@ -464,7 +465,7 @@ func CreateAllCollisionConstraints(
 			logger,
 		)
 		if err != nil {
-			return CollisionConstraints{}, err
+			return CollisionConstraints{}, errtrace.Wrap(err)
 		}
 		constraints.SelfCollision = selfCollisionConstraintFS
 	}
@@ -491,7 +492,7 @@ func NewCollisionConstraintFS(
 	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
 		collisionSpecifications, collisionBufferMM, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	allowed := makeAllowedCollisionsLookup(ignoreCollisions)
@@ -507,7 +508,7 @@ func NewCollisionConstraintFS(
 		// Use FrameSystemGeometries to get all geometries in the frame system
 		internalGeometries, err := state.Geometries()
 		if err != nil {
-			return 0, err
+			return 0, errtrace.Wrap(err)
 		}
 
 		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
@@ -529,14 +530,14 @@ func NewCollisionConstraintFS(
 		collisions, minDist, err := checkCollisionsHinted(
 			internalGeoms, staticToCheck, allowed, collisionBufferMM, false, pairHint, logger)
 		if err != nil {
-			return minDist, err
+			return minDist, errtrace.Wrap(err)
 		}
 		if len(collisions) != 0 {
-			return minDist, fmt.Errorf(
+			return minDist, errtrace.Wrap(fmt.Errorf(
 				"violation between %s and %s geometries",
 				collisions[0].name1,
 				collisions[0].name2,
-			)
+			))
 		}
 		return minDist, nil
 	}
@@ -554,7 +555,7 @@ func computeInitialCollisionsToIgnore(
 	initialCollisions, _, err := checkCollisionsHinted(
 		group1, group2, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	// Add collision specifications
@@ -631,23 +632,23 @@ func segmentStepCount(ci *SegmentFS, resolution float64) (int, error) {
 		}
 		endConfig := ci.EndConfiguration.Get(frameName)
 		if endConfig == nil {
-			return -1, fmt.Errorf("frame %s exists in start config but not in end config", frameName)
+			return -1, errtrace.Wrap(fmt.Errorf("frame %s exists in start config but not in end config", frameName))
 		}
 
 		// Get frame from FrameSystem
 		frame := ci.FS.Frame(frameName)
 		if frame == nil {
-			return -1, fmt.Errorf("frame %s exists in start config but not in framesystem", frameName)
+			return -1, errtrace.Wrap(fmt.Errorf("frame %s exists in start config but not in framesystem", frameName))
 		}
 
 		// Calculate positions for this frame's start and end configs
 		startPos, err := frame.Transform(startConfig)
 		if err != nil {
-			return -1, err
+			return -1, errtrace.Wrap(err)
 		}
 		endPos, err := frame.Transform(endConfig)
 		if err != nil {
-			return -1, err
+			return -1, errtrace.Wrap(err)
 		}
 
 		// Compute joint step size from the largest limit range, divided by 1000

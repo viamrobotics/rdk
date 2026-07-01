@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -51,16 +52,16 @@ func fakePointCloudMap(ctx context.Context, datasetDir string, slamSvc *SLAM) (f
 	slamSvc.logger.CDebug(ctx, "Reading "+path)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	chunk := make([]byte, chunkSizeBytes)
 	f := func() ([]byte, error) {
 		bytesRead, err := file.Read(chunk)
 		if err != nil {
 			defer utils.UncheckedErrorFunc(file.Close)
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return chunk[:bytesRead], err
+		return chunk[:bytesRead], errtrace.Wrap(err)
 	}
 	return f, nil
 }
@@ -70,16 +71,16 @@ func fakeInternalState(ctx context.Context, datasetDir string, slamSvc *SLAM) (f
 	slamSvc.logger.CDebug(ctx, "Reading "+path)
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	chunk := make([]byte, chunkSizeBytes)
 	f := func() ([]byte, error) {
 		bytesRead, err := file.Read(chunk)
 		if err != nil {
 			defer utils.UncheckedErrorFunc(file.Close)
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
-		return chunk[:bytesRead], err
+		return chunk[:bytesRead], errtrace.Wrap(err)
 	}
 	return f, nil
 }
@@ -89,12 +90,12 @@ func fakePosition(ctx context.Context, datasetDir string, slamSvc *SLAM) (spatia
 	slamSvc.logger.CDebug(ctx, "Reading "+path)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	position, err := positionFromJSON(data)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	p := r3.Vector{X: position.Pose.X, Y: position.Pose.Y, Z: position.Pose.Z}
 
@@ -109,7 +110,7 @@ func positionFromJSON(data []byte) (position, error) {
 	position := position{}
 
 	if err := json.Unmarshal(data, &position); err != nil {
-		return position, err
+		return position, errtrace.Wrap(err)
 	}
 	return position, nil
 }

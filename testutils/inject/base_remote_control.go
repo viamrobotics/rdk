@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/baseremotecontrol"
 )
@@ -29,7 +30,7 @@ func (ns *BaseRemoteControlService) DoCommand(ctx context.Context,
 	cmd map[string]interface{},
 ) (map[string]interface{}, error) {
 	if ns.DoCommandFunc == nil {
-		return ns.Service.DoCommand(ctx, cmd)
+		return errtrace.Wrap2(ns.Service.DoCommand(ctx, cmd))
 	}
-	return ns.DoCommandFunc(ctx, cmd)
+	return errtrace.Wrap2(ns.DoCommandFunc(ctx, cmd))
 }

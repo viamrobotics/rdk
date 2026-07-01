@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"braces.dev/errtrace"
 	"github.com/Microsoft/go-winio/pkg/etw"
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"go.uber.org/zap/zapcore"
@@ -49,13 +50,13 @@ func RegisterETWLogger(rootLogger Logger, etlDir string, p ETWProvider) (io.Clos
 	g, err := guid.FromString(p.ProviderGUID)
 	if err != nil {
 		rootLogger.Errorw("invalid pinned ETW provider GUID", "err", err)
-		return nopCloser{}, err
+		return nopCloser{}, errtrace.Wrap(err)
 	}
 
 	provider, err := etw.NewProviderWithID(p.ProviderName, g, nil)
 	if err != nil {
 		rootLogger.Errorw("unable to register ETW provider", "err", err)
-		return nopCloser{}, err
+		return nopCloser{}, errtrace.Wrap(err)
 	}
 
 	sess := &logmanSessionController{
@@ -72,7 +73,7 @@ func RegisterETWLogger(rootLogger Logger, etlDir string, p ETWProvider) (io.Clos
 	if err := sess.Start(startCtx); err != nil {
 		rootLogger.Warnw("ETW session start failed; provider registered but file capture could not start",
 			"err", err, "session", p.SessionName, "outputPath", etlPath)
-		return nopCloser{}, err
+		return nopCloser{}, errtrace.Wrap(err)
 	} else {
 		liveSession = sess
 	}
@@ -136,7 +137,7 @@ func (a *etwAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	if errors.Is(err, windows.ERROR_MORE_DATA) {
 		return nil
 	}
-	return err
+	return errtrace.Wrap(err)
 }
 
 func (a *etwAppender) Sync() error { return nil }
@@ -150,7 +151,7 @@ func (a *etwAppender) Close() error {
 	}
 	stopCtx, cancel := context.WithTimeout(context.Background(), etwLogmanTimeout)
 	defer cancel()
-	return a.session.Stop(stopCtx)
+	return errtrace.Wrap(a.session.Stop(stopCtx))
 }
 
 func zapToETWLevel(l zapcore.Level) etw.Level {

@@ -13,6 +13,7 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -103,7 +104,7 @@ func (i *Image) Set(p image.Point, c Color) {
 // WriteTo writes the image to the given file encoded based on the file
 // extension.
 func (i *Image) WriteTo(fn string) error {
-	return WriteImageToFile(fn, i)
+	return errtrace.Wrap(WriteImageToFile(fn, i))
 }
 
 // Circle inscribes a circle centered at the given point.

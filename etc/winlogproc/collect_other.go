@@ -3,6 +3,7 @@
 package winlogproc
 
 import (
+	"braces.dev/errtrace"
 	"errors"
 	"time"
 )
@@ -22,7 +23,7 @@ type CollectOpts struct {
 // still build, and the cross-platform Eventlog/Trace processors stay
 // usable for dumps transferred from a Windows host.
 func Collect(opts CollectOpts) (string, error) {
-	return "", errors.New("winlogproc.Collect is only supported on Windows")
+	return "", errtrace.Wrap(errors.New("winlogproc.Collect is only supported on Windows"))
 }
 
 // DefaultETLDir returns an empty string on non-Windows. See

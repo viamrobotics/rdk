@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 )
 
@@ -25,59 +26,59 @@ var ErrMarshalingHighDOFFrame = errors.New("cannot marshal frame with >1 DOF, us
 // NewParentFrameMissingError returns an error for when a part has named a parent whose part is missing from the collection of Parts
 // that are becoming a FrameSystem object.
 func NewParentFrameMissingError(partName, parentName string) error {
-	return errors.Errorf("part with name %s references non-existent parent %s", partName, parentName)
+	return errtrace.Wrap(errors.Errorf("part with name %s references non-existent parent %s", partName, parentName))
 }
 
 // NewParentFrameNilError returns an error indicating that the parent frame is nil.
 func NewParentFrameNilError(frameName string) error {
-	return errors.New("frame with name %q has a parent that is nil")
+	return errtrace.Wrap(errors.New("frame with name %q has a parent that is nil"))
 }
 
 // NewFrameMissingError returns an error indicating that the given frame is missing from the framesystem.
 func NewFrameMissingError(frameName string) error {
-	return errors.Errorf("frame with name %q not in frame system", frameName)
+	return errtrace.Wrap(errors.Errorf("frame with name %q not in frame system", frameName))
 }
 
 // NewFrameAlreadyExistsError returns an error indicating that a frame of the given name already exists.
 func NewFrameAlreadyExistsError(frameName string) error {
-	return errors.Errorf("frame with name %q already in frame system", frameName)
+	return errtrace.Wrap(errors.Errorf("frame with name %q already in frame system", frameName))
 }
 
 // NewIncorrectDoFError returns an error indicating that the length of the array does not match the DoF of the frame.
 func NewIncorrectDoFError(actual, expected int) error {
-	return errors.Errorf("array length does not match frame DoF, expected %d but got %d", expected, actual)
+	return errtrace.Wrap(errors.Errorf("array length does not match frame DoF, expected %d but got %d", expected, actual))
 }
 
 // NewUnsupportedJointTypeError returns an error indicating that a given joint type is not supported by current model parsing.
 func NewUnsupportedJointTypeError(jointType string) error {
-	return errors.Errorf("unsupported joint type detected: %q", jointType)
+	return errtrace.Wrap(errors.Errorf("unsupported joint type detected: %q", jointType))
 }
 
 // NewDuplicateGeometryNameError returns an error indicating that multiple geometry names have attempted
 // to be registered where this is not allowed.
 func NewDuplicateGeometryNameError(name string) error {
-	return errors.Errorf("cannot specify multiple geometries with the same name: %s", name)
+	return errtrace.Wrap(errors.Errorf("cannot specify multiple geometries with the same name: %s", name))
 }
 
 // NewFrameNotInListOfTransformsError returns an error indicating that a frame of the given name
 // is missing from the provided list of transforms.
 func NewFrameNotInListOfTransformsError(frameName string) error {
-	return errors.Errorf("frame named '%s' not in the list of transforms", frameName)
+	return errtrace.Wrap(errors.Errorf("frame named '%s' not in the list of transforms", frameName))
 }
 
 // NewParentFrameNotInMapOfParentsError returns an error indicating that a parent from of the given name
 // is missing from the provided map of parents.
 func NewParentFrameNotInMapOfParentsError(parentFrameName string) error {
-	return errors.Errorf("parent frame named '%s' not in the map of parents", parentFrameName)
+	return errtrace.Wrap(errors.Errorf("parent frame named '%s' not in the map of parents", parentFrameName))
 }
 
 // NewReservedWordError returns an error indicating that the provided name for the config  is reserved.
 func NewReservedWordError(configType, reservedWord string) error {
-	return errors.Errorf("reserved word: cannot name a %s '%s'", configType, reservedWord)
+	return errtrace.Wrap(errors.Errorf("reserved word: cannot name a %s '%s'", configType, reservedWord))
 }
 
 // NewDuplicateFrameNameError returns an error indicating that multiple frames
 // with the same name were provided.
 func NewDuplicateFrameNameError(frameName string) error {
-	return errors.Errorf("duplicate frame name %q in serial model", frameName)
+	return errtrace.Wrap(errors.Errorf("duplicate frame name %q in serial model", frameName))
 }

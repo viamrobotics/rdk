@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
@@ -396,7 +397,7 @@ type MockConfig struct {
 
 func (c *MockConfig) Validate(path string) ([]string, []string, error) {
 	if len(c.Motors) < 1 {
-		return nil, nil, errors.New("required attributes 'motors' not specified or empty")
+		return nil, nil, errtrace.Wrap(errors.New("required attributes 'motors' not specified or empty"))
 	}
 	return c.Motors, nil, nil
 }
@@ -916,7 +917,7 @@ func TestNewFrameSystemClient(t *testing.T) {
 			return expectedInputs[testName.ShortName()], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
+			return errtrace.Wrap2(referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), ""))
 		},
 	}
 

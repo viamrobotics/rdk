@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"braces.dev/errtrace"
 	"go.viam.com/test"
 	gutils "go.viam.com/utils"
 )
@@ -14,7 +15,7 @@ import (
 func TestRunInParallel(t *testing.T) {
 	wait200ms := func(ctx context.Context) error {
 		gutils.SelectContextOrWait(ctx, 200*time.Millisecond)
-		return ctx.Err()
+		return errtrace.Wrap(ctx.Err())
 	}
 
 	elapsed, err := RunInParallel(context.Background(), []SimpleFunc{wait200ms, wait200ms})
@@ -23,7 +24,7 @@ func TestRunInParallel(t *testing.T) {
 	test.That(t, elapsed, test.ShouldBeGreaterThan, 180*time.Millisecond)
 
 	errFunc := func(ctx context.Context) error {
-		return errors.New("bad")
+		return errtrace.Wrap(errors.New("bad"))
 	}
 
 	elapsed, err = RunInParallel(context.Background(), []SimpleFunc{wait200ms, wait200ms, errFunc})

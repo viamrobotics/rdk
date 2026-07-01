@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/component/base/v1"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -156,7 +157,7 @@ type Base interface {
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Base, error) {
-	return resource.FromDependencies[Base](deps, Named(name))
+	return errtrace.Wrap2(resource.FromDependencies[Base](deps, Named(name)))
 }
 
 // Deprecated: FromRobot is a helper for getting the named base from the given Robot.
@@ -164,12 +165,12 @@ func FromDependencies(deps resource.Dependencies, name string) (Base, error) {
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Base, error) {
-	return robot.ResourceFromRobot[Base](r, Named(name))
+	return errtrace.Wrap2(robot.ResourceFromRobot[Base](r, Named(name)))
 }
 
 // FromProvider is a helper for getting the named Base from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Base, error) {
-	return resource.FromProvider[Base](provider, Named(name))
+	return errtrace.Wrap2(resource.FromProvider[Base](provider, Named(name)))
 }
 
 // NamesFromRobot is a helper for getting all base names from the given Robot.

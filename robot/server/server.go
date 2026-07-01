@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"braces.dev/errtrace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -67,14 +68,14 @@ func (s *Server) Close() {
 // SendTraces sends OTLP spans to be recorded by viam server. It should only be
 // called from modules.
 func (s *Server) SendTraces(ctx context.Context, req *pb.SendTracesRequest) (*pb.SendTracesResponse, error) {
-	return nil, s.robot.WriteTraceMessages(ctx, req.ResourceSpans)
+	return nil, errtrace.Wrap(s.robot.WriteTraceMessages(ctx, req.ResourceSpans))
 }
 
 // Tunnel tunnels traffic to/from the client from/to a specified port on the server.
 func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	req, err := srv.Recv()
 	if err != nil {
-		return fmt.Errorf("failed to receive first message from stream: %w", err)
+		return errtrace.Wrap(fmt.Errorf("failed to receive first message from stream: %w", err))
 	}
 
 	dialTimeout := defaultTunnelConnectionTimeout
@@ -83,7 +84,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	var destAllowed bool
 	ttes, err := s.robot.ListTunnels(srv.Context())
 	if err != nil {
-		return err
+		return errtrace.Wrap(err)
 	}
 	for _, tte := range ttes {
 		if int(req.DestinationPort) == tte.Port {
@@ -96,7 +97,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		}
 	}
 	if !destAllowed {
-		return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
+		return errtrace.Wrap(fmt.Errorf("tunnel not available at port %d", req.DestinationPort))
 	}
 
 	dest := strconv.Itoa(int(req.DestinationPort))
@@ -104,7 +105,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	s.robot.Logger().CInfow(srv.Context(), "dialing to destination port", "port", dest, "timeout", dialTimeout)
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", dest), dialTimeout)
 	if err != nil {
-		return fmt.Errorf("failed to dial to destination port %v: %w", dest, err)
+		return errtrace.Wrap(fmt.Errorf("failed to dial to destination port %v: %w", dest, err))
 	}
 	s.robot.Logger().CInfow(srv.Context(), "successfully dialed to destination port, creating tunnel", "port", dest)
 
@@ -121,13 +122,13 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 			wg.Done()
 		}()
 		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
-		sendFunc := func(data []byte) error { return srv.Send(&pb.TunnelResponse{Data: data}) }
+		sendFunc := func(data []byte) error { return errtrace.Wrap(srv.Send(&pb.TunnelResponse{Data: data})) }
 		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, connClosed, s.robot.Logger().WithFields("loop", "reader/sender"))
 	})
 	recvFunc := func() ([]byte, error) {
 		req, err := srv.Recv()
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		return req.Data, nil
 	}
@@ -139,7 +140,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	err = conn.Close()
 	wg.Wait()
 	s.robot.Logger().CInfow(srv.Context(), "tunnel to client closed", "port", dest)
-	return errors.Join(err, readerSenderErr, recvWriterErr)
+	return errtrace.Wrap(errors.Join(err, readerSenderErr, recvWriterErr))
 }
 
 // ListTunnels lists all available tunnels on the server.
@@ -148,7 +149,7 @@ func (s *Server) ListTunnels(ctx context.Context, req *pb.ListTunnelsRequest) (*
 
 	ttes, err := s.robot.ListTunnels(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	for _, tte := range ttes {
@@ -175,7 +176,7 @@ func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest
 
 		s, err := convertInterfaceToStruct(o.Arguments)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 
 		pbOp := &pb.Operation{
@@ -198,7 +199,7 @@ func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	if i == nil {
 		return &structpb.Struct{}, nil
 	}
-	return vprotoutils.StructToStructPb(i)
+	return errtrace.Wrap2(vprotoutils.StructToStructPb(i))
 }
 
 // CancelOperation kills an operations.
@@ -219,7 +220,7 @@ func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperatio
 		}
 
 		if !utils.SelectContextOrWait(ctx, time.Millisecond*5) {
-			return nil, ctx.Err()
+			return nil, errtrace.Wrap(ctx.Err())
 		}
 	}
 }
@@ -273,7 +274,7 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 func (s *Server) GetModelsFromModules(ctx context.Context, req *pb.GetModelsFromModulesRequest) (*pb.GetModelsFromModulesResponse, error) {
 	models, err := s.robot.GetModelsFromModules(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	resp := pb.GetModelsFromModulesResponse{}
 	for _, mm := range models {
@@ -286,7 +287,7 @@ func (s *Server) GetModelsFromModules(ctx context.Context, req *pb.GetModelsFrom
 func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfigRequest) (*pb.FrameSystemConfigResponse, error) {
 	fsCfg, err := s.robot.FrameSystemConfig(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	configs := make([]*pb.FrameSystemConfig, len(fsCfg.Parts))
 	for i, part := range fsCfg.Parts {
@@ -296,7 +297,7 @@ func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfi
 				configs[i] = nil
 				continue
 			}
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		configs[i] = c
 	}
@@ -307,11 +308,11 @@ func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfi
 func (s *Server) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	pose, err := s.robot.GetPose(ctx, req.ComponentName, req.DestinationFrame, transforms, req.Extra.AsMap())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
 }
@@ -320,11 +321,11 @@ func (s *Server) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPo
 func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest) (*pb.TransformPoseResponse, error) {
 	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	transformedPose, err := s.robot.TransformPose(ctx, referenceframe.ProtobufToPoseInFrame(req.Source), req.Destination, transforms)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, nil
 }
@@ -340,19 +341,19 @@ func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) 
 	// transform PCD bytes to pointcloud
 	pc, err := pointcloud.ReadPCD(bytes.NewReader(req.PointCloudPcd), "")
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// transform
 	final, err := s.robot.TransformPointCloud(ctx, pc, req.Source, req.Destination)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	// transform pointcloud back to PCD bytes
 	bytes, err := pointcloud.ToBytes(final)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
-	return &pb.TransformPCDResponse{PointCloudPcd: bytes}, err
+	return &pb.TransformPCDResponse{PointCloudPcd: bytes}, errtrace.Wrap(err)
 }
 
 // StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement.
@@ -362,7 +363,7 @@ func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopA
 		extra[protoutils.ResourceNameFromProto(e.Name)] = e.Params.AsMap()
 	}
 	if err := s.robot.StopAll(ctx, extra); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.StopAllResponse{}, nil
 }
@@ -376,16 +377,16 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		authUID = authEntity.Entity
 	}
 	if _, ok := session.FromContext(ctx); ok {
-		return nil, errors.New("session already exists")
+		return nil, errtrace.Wrap(errors.New("session already exists"))
 	}
 	if req.Resume != "" {
 		resumeWith, err := uuid.Parse(req.Resume)
 		if err != nil {
-			return nil, err
+			return nil, errtrace.Wrap(err)
 		}
 		if sess, err := s.robot.SessionManager().FindByID(ctx, resumeWith, authUID); err != nil {
 			if !errors.Is(err, session.ErrNoSession) {
-				return nil, err
+				return nil, errtrace.Wrap(err)
 			}
 		} else {
 			return &pb.StartSessionResponse{
@@ -399,7 +400,7 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		authUID,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.StartSessionResponse{
 		Id:              sess.ID().String(),
@@ -415,10 +416,10 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 	}
 	sessID, err := uuid.Parse(req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if _, err := s.robot.SessionManager().FindByID(ctx, sessID, authUID); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.SendSessionHeartbeatResponse{}, nil
 }
@@ -426,16 +427,16 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 // Log receives logs to be logged by this robot.
 func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, error) {
 	if req.Logs == nil {
-		return nil, errors.New("LogRequest received with no associated logs")
+		return nil, errtrace.Wrap(errors.New("LogRequest received with no associated logs"))
 	}
 	if len(req.Logs) > 1 {
-		return nil, errors.New("LogRequest received with multiple logs; batching not yet supported")
+		return nil, errtrace.Wrap(errors.New("LogRequest received with multiple logs; batching not yet supported"))
 	}
 	log := req.Logs[0]
 
 	level, err := logging.LevelFromString(log.Level)
 	if err != nil {
-		return nil, fmt.Errorf("LogRequest received with invalid level %q", log.Level)
+		return nil, errtrace.Wrap(fmt.Errorf("LogRequest received with invalid level %q", log.Level))
 	}
 
 	// Create a custom log entry and write entry unconditionally to logger. We
@@ -459,7 +460,7 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	for _, fieldP := range log.Fields {
 		field, err := logging.FieldFromProto(fieldP)
 		if err != nil {
-			return nil, fmt.Errorf("error converting LogRequest log field from proto: %w", err)
+			return nil, errtrace.Wrap(fmt.Errorf("error converting LogRequest log field from proto: %w", err))
 		}
 		fields = append(fields, field)
 	}
@@ -488,7 +489,7 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataRequest) (*pb.GetCloudMetadataResponse, error) {
 	md, err := s.robot.CloudMetadata(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return protoutils.MetadataToProto(md), nil
 }
@@ -501,7 +502,7 @@ func (s *Server) RestartModule(ctx context.Context, req *pb.RestartModuleRequest
 	}
 	err := s.robot.RestartModule(ctx, goReq)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.RestartModuleResponse{}, nil
 }
@@ -510,7 +511,7 @@ func (s *Server) RestartModule(ctx context.Context, req *pb.RestartModuleRequest
 func (s *Server) Shutdown(ctx context.Context, _ *pb.ShutdownRequest) (*pb.ShutdownResponse, error) {
 	err := s.robot.Shutdown(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return &pb.ShutdownResponse{}, nil
 }
@@ -521,7 +522,7 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 
 	mStatus, err := s.robot.MachineStatus(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	result.Config = &pb.ConfigStatus{
 		Revision:    mStatus.Config.Revision,

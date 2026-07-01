@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"braces.dev/errtrace"
 	"github.com/golang/geo/r3"
 )
 
@@ -88,7 +89,7 @@ func benchmarkLegacyLeafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2
 			worldG2 := g2.Transform(pose2)
 			dist, err := worldG1.DistanceFrom(worldG2)
 			if err != nil {
-				return 0, err
+				return 0, errtrace.Wrap(err)
 			}
 			if dist < minDist {
 				minDist = dist

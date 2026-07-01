@@ -1,6 +1,7 @@
 package transform
 
 import "github.com/pkg/errors"
+import "braces.dev/errtrace"
 
 // DistortionType is the name of the distortion model.
 type DistortionType string
@@ -28,19 +29,19 @@ type Distorter interface {
 
 // InvalidDistortionError is used when the distortion_parameters are invalid.
 func InvalidDistortionError(msg string) error {
-	return errors.Wrapf(errors.New("invalid distortion_parameters"), "%s", msg)
+	return errtrace.Wrap(errors.Wrapf(errors.New("invalid distortion_parameters"), "%s", msg))
 }
 
 // NewDistorter returns a Distorter given a valid DistortionType and its parameters.
 func NewDistorter(distortionType DistortionType, parameters []float64) (Distorter, error) {
 	switch distortionType { //nolint:exhaustive
 	case BrownConradyDistortionType:
-		return NewBrownConrady(parameters)
+		return errtrace.Wrap2(NewBrownConrady(parameters))
 	case InverseBrownConradyDistortionType:
-		return NewInverseBrownConrady(parameters)
+		return errtrace.Wrap2(NewInverseBrownConrady(parameters))
 	case BrownConradyK6DistortionType:
-		return NewBrownConradyK6(parameters)
+		return errtrace.Wrap2(NewBrownConradyK6(parameters))
 	default:
-		return nil, errors.Errorf("do not know how to parse %q distortion model", distortionType)
+		return nil, errtrace.Wrap(errors.Errorf("do not know how to parse %q distortion model", distortionType))
 	}
 }

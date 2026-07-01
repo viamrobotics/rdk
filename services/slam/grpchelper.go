@@ -3,6 +3,7 @@ package slam
 import (
 	"context"
 
+	"braces.dev/errtrace"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/slam/v1"
 )
@@ -19,16 +20,16 @@ func PointCloudMapCallback(ctx context.Context, name string, slamClient pb.SLAMS
 	// This call only returns an error if the connection to the target gRPC server can't be established, is canceled, etc.
 	resp, err := slamClient.GetPointCloudMap(ctx, req)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting the pointcloud map from the SLAM client")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error getting the pointcloud map from the SLAM client"))
 	}
 
 	f := func() ([]byte, error) {
 		chunk, err := resp.Recv()
 		if err != nil {
-			return nil, errors.Wrap(err, "error receiving pointcloud chunk")
+			return nil, errtrace.Wrap(errors.Wrap(err, "error receiving pointcloud chunk"))
 		}
 
-		return chunk.GetPointCloudPcdChunk(), err
+		return chunk.GetPointCloudPcdChunk(), errtrace.Wrap(err)
 	}
 
 	return f, nil
@@ -44,18 +45,18 @@ func InternalStateCallback(ctx context.Context, name string, slamClient pb.SLAMS
 	// This call only returns an error if the connection to the target gRPC server can't be established, is canceled, etc.
 	resp, err := slamClient.GetInternalState(ctx, req)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting the internal state from the SLAM client")
+		return nil, errtrace.Wrap(errors.Wrap(err, "error getting the internal state from the SLAM client"))
 	}
 
 	f := func() ([]byte, error) {
 		chunk, err := resp.Recv()
 		if err != nil {
-			return nil, errors.Wrap(err, "error receiving internal state chunk")
+			return nil, errtrace.Wrap(errors.Wrap(err, "error receiving internal state chunk"))
 		}
 
 		return chunk.GetInternalStateChunk(), nil
 	}
-	return f, err
+	return f, errtrace.Wrap(err)
 }
 
 // mappingModeToProtobuf converts a MappingMode value to a protobuf MappingMode value.
@@ -84,7 +85,7 @@ func protobufToMappingMode(mappingMode pb.MappingMode) (MappingMode, error) {
 	case pb.MappingMode_MAPPING_MODE_UNSPECIFIED:
 		fallthrough
 	default:
-		return 0, errors.New("mapping mode unspecified")
+		return 0, errtrace.Wrap(errors.New("mapping mode unspecified"))
 	}
 }
 
@@ -110,6 +111,6 @@ func protobufToSensorType(sensorType pb.SensorType) (SensorType, error) {
 	case pb.SensorType_SENSOR_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
-		return 0, errors.New("sensor type unspecified")
+		return 0, errtrace.Wrap(errors.New("sensor type unspecified"))
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"braces.dev/errtrace"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -51,7 +52,7 @@ func (config *StoreConfig) Validate(path string) error {
 	switch config.Type {
 	case StoreTypeMemory, StoreTypeMongoDB, StoreTypeUnset:
 	default:
-		return errors.Errorf("unknown store type %q", config.Type)
+		return errtrace.Wrap(errors.Errorf("unknown store type %q", config.Type))
 	}
 	return nil
 }
@@ -62,9 +63,9 @@ func NewStoreFromConfig(ctx context.Context, conf StoreConfig) (NavStore, error)
 	case StoreTypeMemory, StoreTypeUnset:
 		return NewMemoryNavigationStore(), nil
 	case StoreTypeMongoDB:
-		return NewMongoDBNavigationStore(ctx, conf.Config)
+		return errtrace.Wrap2(NewMongoDBNavigationStore(ctx, conf.Config))
 	default:
-		return nil, errors.Errorf("unknown store type %q", conf.Type)
+		return nil, errtrace.Wrap(errors.Errorf("unknown store type %q", conf.Type))
 	}
 }
 
@@ -102,7 +103,7 @@ type MemoryNavigationStore struct {
 // Waypoints returns a copy of all of the waypoints in the MemoryNavigationStore.
 func (store *MemoryNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, error) {
 	if ctx.Err() != nil {
-		return nil, ctx.Err()
+		return nil, errtrace.Wrap(ctx.Err())
 	}
 	store.mu.RLock()
 	defer store.mu.RUnlock()
@@ -120,7 +121,7 @@ func (store *MemoryNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, 
 // AddWaypoint adds a waypoint to the MemoryNavigationStore.
 func (store *MemoryNavigationStore) AddWaypoint(ctx context.Context, point *geo.Point) (Waypoint, error) {
 	if ctx.Err() != nil {
-		return Waypoint{}, ctx.Err()
+		return Waypoint{}, errtrace.Wrap(ctx.Err())
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -136,7 +137,7 @@ func (store *MemoryNavigationStore) AddWaypoint(ctx context.Context, point *geo.
 // RemoveWaypoint removes a waypoint from the MemoryNavigationStore.
 func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return errtrace.Wrap(ctx.Err())
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -157,7 +158,7 @@ func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primi
 // NextWaypoint gets the next waypoint that has not been visited.
 func (store *MemoryNavigationStore) NextWaypoint(ctx context.Context) (Waypoint, error) {
 	if ctx.Err() != nil {
-		return Waypoint{}, ctx.Err()
+		return Waypoint{}, errtrace.Wrap(ctx.Err())
 	}
 	store.mu.RLock()
 	defer store.mu.RUnlock()
@@ -166,13 +167,13 @@ func (store *MemoryNavigationStore) NextWaypoint(ctx context.Context) (Waypoint,
 			return *wp, nil
 		}
 	}
-	return Waypoint{}, errNoMoreWaypoints
+	return Waypoint{}, errtrace.Wrap(errNoMoreWaypoints)
 }
 
 // WaypointVisited sets that a waypoint has been visited.
 func (store *MemoryNavigationStore) WaypointVisited(ctx context.Context, id primitive.ObjectID) error {
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return errtrace.Wrap(ctx.Err())
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -217,15 +218,15 @@ func NewMongoDBNavigationStore(ctx context.Context, config map[string]interface{
 
 	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	if err := mongoClient.Ping(ctx, readpref.Primary()); err != nil {
-		return nil, multierr.Combine(err, mongoClient.Disconnect(ctx))
+		return nil, errtrace.Wrap(multierr.Combine(err, mongoClient.Disconnect(ctx)))
 	}
 
 	waypoints := mongoClient.Database(MongoDBNavStoreDBName).Collection(MongoDBNavStoreWaypointsCollName)
 	if err := mongoutils.EnsureIndexes(ctx, waypoints, mongoDBNavStoreIndexes...); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	return &MongoDBNavigationStore{
@@ -242,7 +243,7 @@ type MongoDBNavigationStore struct {
 
 // Close closes the connection with the mongodb client.
 func (store *MongoDBNavigationStore) Close(ctx context.Context) error {
-	return store.mongoClient.Disconnect(ctx)
+	return errtrace.Wrap(store.mongoClient.Disconnect(ctx))
 }
 
 // Waypoints returns a copy of all the waypoints in the MongoDBNavigationStore.
@@ -254,12 +255,12 @@ func (store *MongoDBNavigationStore) Waypoints(ctx context.Context) ([]Waypoint,
 		options.Find().SetSort(bson.D{{"order", -1}, {"_id", 1}}),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 
 	var all []Waypoint
 	if err := cursor.All(ctx, &all); err != nil {
-		return nil, err
+		return nil, errtrace.Wrap(err)
 	}
 	return all, nil
 }
@@ -272,7 +273,7 @@ func (store *MongoDBNavigationStore) AddWaypoint(ctx context.Context, point *geo
 		Long: point.Lng(),
 	}
 	if _, err := store.waypointsColl.InsertOne(ctx, newPoint); err != nil {
-		return Waypoint{}, err
+		return Waypoint{}, errtrace.Wrap(err)
 	}
 	return newPoint, nil
 }
@@ -280,7 +281,7 @@ func (store *MongoDBNavigationStore) AddWaypoint(ctx context.Context, point *geo
 // RemoveWaypoint removes a waypoint from the MongoDBNavigationStore.
 func (store *MongoDBNavigationStore) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
 	_, err := store.waypointsColl.DeleteOne(ctx, bson.D{{"_id", id}})
-	return err
+	return errtrace.Wrap(err)
 }
 
 // NextWaypoint gets the next waypoint that has not been visited.
@@ -294,9 +295,9 @@ func (store *MongoDBNavigationStore) NextWaypoint(ctx context.Context) (Waypoint
 	var wp Waypoint
 	if err := result.Decode(&wp); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return Waypoint{}, errNoMoreWaypoints
+			return Waypoint{}, errtrace.Wrap(errNoMoreWaypoints)
 		}
-		return Waypoint{}, err
+		return Waypoint{}, errtrace.Wrap(err)
 	}
 
 	return wp, nil
@@ -305,5 +306,5 @@ func (store *MongoDBNavigationStore) NextWaypoint(ctx context.Context) (Waypoint
 // WaypointVisited sets that a waypoint has been visited.
 func (store *MongoDBNavigationStore) WaypointVisited(ctx context.Context, id primitive.ObjectID) error {
 	_, err := store.waypointsColl.UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"visited", true}}}})
-	return err
+	return errtrace.Wrap(err)
 }
