@@ -1286,26 +1286,134 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 // edge from the dependent's declared config deps — no re-arm bookkeeping required.
 func TestResourceGraphReconcilesDroppedDependencyEdge(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+
+	t.Run("reconnects a dependent after its dependency node is re-added", func(t *testing.T) {
+		g := NewGraph(logger)
+
+		nameA := NewName(apiA, "A") // dependency
+		nameB := NewName(apiA, "B") // dependent; declares A as an implicit dep
+
+		test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
+		// Declare the dependency the way modular resources do (via Validate ->
+		// ImplicitDependsOn), not the legacy explicit depends_on field.
+		bCfg := Config{API: apiA, Name: "B", ImplicitDependsOn: []string{nameA.String()}}
+		test.That(t, g.AddNode(nameB, NewUnconfiguredGraphNode(bCfg, bCfg.Dependencies())), test.ShouldBeNil)
+
+		test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+		test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+
+		// Remove the dependency's node -> edge is dropped.
+		g.remove(nameA)
+		test.That(t, g.GetAllParentsOf(nameB), test.ShouldBeEmpty)
+
+		// Re-add the dependency and resolve: the edge is reconciled back from B's declared deps.
+		test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
+		test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+		test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+	})
+
+	t.Run("reconnects every dependent of a re-added dependency", func(t *testing.T) {
+		g := NewGraph(logger)
+
+		nameA := NewName(apiA, "A")     // shared dependency
+		nameB := NewName(apiA, "B")     // dependent 1
+		nameC := NewName(apiA, "C")     // dependent 2
+		test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
+		bCfg := Config{API: apiA, Name: "B", ImplicitDependsOn: []string{nameA.String()}}
+		cCfg := Config{API: apiA, Name: "C", ImplicitDependsOn: []string{nameA.String()}}
+		test.That(t, g.AddNode(nameB, NewUnconfiguredGraphNode(bCfg, bCfg.Dependencies())), test.ShouldBeNil)
+		test.That(t, g.AddNode(nameC, NewUnconfiguredGraphNode(cCfg, cCfg.Dependencies())), test.ShouldBeNil)
+
+		test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+		test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+		test.That(t, g.GetAllParentsOf(nameC), test.ShouldResemble, []Name{nameA})
+
+		g.remove(nameA)
+		test.That(t, g.GetAllParentsOf(nameB), test.ShouldBeEmpty)
+		test.That(t, g.GetAllParentsOf(nameC), test.ShouldBeEmpty)
+
+		// Both dependents must be reconciled, not just one.
+		test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
+		test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+		test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+		test.That(t, g.GetAllParentsOf(nameC), test.ShouldResemble, []Name{nameA})
+	})
+
+	t.Run("does not force-reconcile optional dependencies", func(t *testing.T) {
+		g := NewGraph(logger)
+
+		nameReq := NewName(apiA, "req")
+		nameOpt := NewName(apiA, "opt")
+		nameC := NewName(apiA, "C")
+		cfg := Config{
+			API: apiA, Name: "C",
+			ImplicitDependsOn:         []string{nameReq.String()},
+			ImplicitOptionalDependsOn: []string{nameOpt.String()},
+		}
+		node := NewUnconfiguredGraphNode(cfg, cfg.Dependencies())
+		test.That(t, g.AddNode(nameC, node), test.ShouldBeNil)
+
+		// Only the required dep is a reconcile candidate; the optional dep is excluded
+		// (config.Dependencies() omits ImplicitOptionalDependsOn), so a dropped optional
+		// edge stays fail-open rather than being force-rebuilt.
+		test.That(t, g.declaredDepsMissingEdges(nameC, node), test.ShouldResemble, []string{nameReq.String()})
+	})
+}
+
+// TestReconcileRearmsNodeWithPendingUnresolvedDep guards removal of the
+// !hasUnresolvedDependencies gate: a node that still has one unresolved dependency must
+// still have a *different* declared dependency's dropped edge reconciled. With the gate in
+// place, such a node is skipped entirely and the dropped edge is never rebuilt.
+func TestReconcileRearmsNodeWithPendingUnresolvedDep(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	g := NewGraph(logger)
 
-	nameA := NewName(apiA, "A") // dependency
-	nameB := NewName(apiA, "B") // dependent; declares A as an implicit dep
+	nameB := NewName(apiA, "B") // present dependency, referenced by full name
+	nameC := NewName(apiA, "C") // dependent declaring both "absent" and B
 
+	test.That(t, g.AddNode(nameB, &GraphNode{}), test.ShouldBeNil)
+	// "absent" is a simple name with no matching node, so it never resolves and keeps C on
+	// the unresolved list (needsDependencyResolution stays true); B is referenced by full
+	// name so it resolves to the real nameB node.
+	cCfg := Config{API: apiA, Name: "C", ImplicitDependsOn: []string{"absent", nameB.String()}}
+	test.That(t, g.AddNode(nameC, NewUnconfiguredGraphNode(cCfg, cCfg.Dependencies())), test.ShouldBeNil)
+
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, g.GetAllParentsOf(nameC), test.ShouldResemble, []Name{nameB})
+
+	// Drop C's edge to B while C still has "absent" pending on its unresolved list.
+	g.remove(nameB)
+	test.That(t, g.GetAllParentsOf(nameC), test.ShouldBeEmpty)
+
+	// Re-add B ("absent" still unresolved) and resolve. Despite C having a pending unresolved
+	// dep, the reconcile must notice B's dropped edge and rebuild it.
+	test.That(t, g.AddNode(nameB, &GraphNode{}), test.ShouldBeNil)
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, g.GetAllParentsOf(nameC), test.ShouldResemble, []Name{nameB})
+}
+
+// TestReconcileIsIdempotentInSteadyState ensures the per-pass reconcile does not re-arm
+// healthy resolved nodes (which would cause reconfigure churn). Repeated ResolveDependencies
+// calls on a steady graph must leave nodes resolved with their edges unchanged.
+func TestReconcileIsIdempotentInSteadyState(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
+
+	nameA := NewName(apiA, "A")
+	nameB := NewName(apiA, "B")
 	test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
-	// Declare the dependency the way modular resources do (via Validate ->
-	// ImplicitDependsOn), not the legacy explicit depends_on field.
 	bCfg := Config{API: apiA, Name: "B", ImplicitDependsOn: []string{nameA.String()}}
-	test.That(t, g.AddNode(nameB, NewUnconfiguredGraphNode(bCfg, bCfg.Dependencies())), test.ShouldBeNil)
+	nodeB := NewUnconfiguredGraphNode(bCfg, bCfg.Dependencies())
+	test.That(t, g.AddNode(nameB, nodeB), test.ShouldBeNil)
 
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 	test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+	test.That(t, nodeB.hasUnresolvedDependencies(), test.ShouldBeFalse)
 
-	// Remove the dependency's node -> edge is dropped.
-	g.remove(nameA)
-	test.That(t, g.GetAllParentsOf(nameB), test.ShouldBeEmpty)
-
-	// Re-add the dependency and resolve: the edge is reconciled back from B's declared deps.
-	test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
-	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
-	test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+	// Subsequent passes must be no-ops: no re-arm, no edge churn.
+	for i := 0; i < 3; i++ {
+		test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+		test.That(t, nodeB.hasUnresolvedDependencies(), test.ShouldBeFalse)
+		test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+	}
 }
