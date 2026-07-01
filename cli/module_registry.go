@@ -1157,6 +1157,8 @@ type downloadModuleFlags struct {
 	OrgID       string
 	Version     string
 	Platform    string
+	List        bool
+	Count       int
 }
 
 func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadModuleFlags) (string, error) {
@@ -1174,6 +1176,38 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 	if err != nil {
 		return "", err
 	}
+
+	if flags.List {
+		versions := res.Module.Versions
+		total := len(versions)
+		if total == 0 {
+			printf(cmd.Root().Writer, "module %s has no uploaded versions", moduleID)
+			return "", nil
+		}
+		// versions stored oldest->newest; print newest first, capped at flags.Count (0 = all)
+		shown := 0
+		for i := total - 1; i >= 0; i-- {
+			if flags.Count > 0 && shown >= flags.Count {
+				break
+			}
+			ver := versions[i]
+			platforms := make([]string, 0, len(ver.Files))
+			for _, file := range ver.Files {
+				entry := file.Platform
+				if file.UploadedAt != nil {
+					entry = fmt.Sprintf("%s (%s)", entry, file.UploadedAt.AsTime().Format("2006-01-02"))
+				}
+				platforms = append(platforms, entry)
+			}
+			printf(cmd.Root().Writer, "%s\t%s", ver.Version, strings.Join(platforms, ", "))
+			shown++
+		}
+		if shown < total {
+			printf(cmd.Root().Writer, "… showing %d of %d versions (use --%s=0 for all)", shown, total, generalFlagCount)
+		}
+		return "", nil
+	}
+
 	requestedVersion := flags.Version
 	platform := flags.Platform
 

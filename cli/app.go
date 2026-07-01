@@ -85,6 +85,7 @@ const (
 	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
+	generalFlagList              = "list"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -4201,6 +4202,15 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:        moduleFlagPlatform,
 							Usage:       "platform like 'linux/amd64'",
 							DefaultText: "platform of the CLI binary",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagList,
+							Usage: "list available versions and their platforms instead of downloading",
+						},
+						&cli.IntFlag{
+							Name:        generalFlagCount,
+							Usage:       "with --list, show only the N newest versions",
+							DefaultText: "all versions",
 						},
 					},
 					Action: createActionCommandWithT[downloadModuleFlags](DownloadModuleAction),
