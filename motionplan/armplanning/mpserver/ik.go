@@ -70,7 +70,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 	}
 
 	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
-	ikMinimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))
+	ikMinimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))()
 	retChan := make(chan *ik.Solution, 10)
 
 	sss, err := armplanning.NewSolutionSolvingState(ctx, psc, logger)

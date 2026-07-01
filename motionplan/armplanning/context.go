@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // PlanContext wraps a bunch of variables related to performing a single `PlanMotion` API call.
@@ -79,20 +80,23 @@ func (pc *PlanContext) GetLinearInputsSchema() *referenceframe.LinearInputsSchem
 	return pc.lis
 }
 
-// LinearizeFSMetric wraps the input minimizing cost function such that the caller (IK callback) can
-// pass in an array of float64. Internally that array gets turned into a LinearInputs that maps the
-// actual inputs to the specific frames (typically arm joints).
-func (pc *PlanContext) LinearizeFSMetric(metric motionplan.StateFSMetric) ik.CostFunc {
-	return func(ctx context.Context, linearizedInputs []float64) float64 {
-		conf, err := pc.lis.FloatsToInputs(linearizedInputs)
-		if err != nil {
-			return math.Inf(1)
-		}
-
-		return metric(&motionplan.StateFS{
-			Configuration: conf,
+// LinearizeFSMetric returns a factory producing CostFuncs that wrap metric, each with its own
+// per-worker scratch StateFS/LinearInputs/DualQuaternion to avoid per-call heap allocations.
+func (pc *PlanContext) LinearizeFSMetric(metric motionplan.StateFSMetric) ik.CostFuncFactory {
+	return func() ik.CostFunc {
+		scratchInputs := &referenceframe.LinearInputs{}
+		scratchState := &motionplan.StateFS{
 			FS:            pc.fs,
-		})
+			Configuration: scratchInputs,
+			DQScratch:     &spatialmath.DualQuaternion{},
+		}
+		return func(ctx context.Context, linearizedInputs []float64) float64 {
+			if err := pc.lis.FloatsToInputsInto(linearizedInputs, scratchInputs); err != nil {
+				return math.Inf(1)
+			}
+			scratchState.ResetCaches()
+			return metric(scratchState)
+		}
 	}
 }
 
