@@ -824,9 +824,10 @@ func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
 	return ordered
 }
 
-// declaredDepsMissingEdges returns the names of a node's declared dependencies (DependsOn +
-// ImplicitDependsOn) that currently have no corresponding parent edge in the graph. It is the
-// reconcile check that makes graph edges a projection of declared deps. Caller must hold g.mu.
+// declaredDepsMissingEdges returns the names of a node's declared dependencies that currently
+// have no corresponding parent edge in the graph. It reconciles graph edges with declared
+// dependencies if a resource resolves a dependency but the dependency is torn down while the
+// resource is remains. Caller must hold g.mu.
 func (g *Graph) declaredDepsMissingEdges(nodeName Name, node *GraphNode) []string {
 	cfg := node.Config()
 	declared := cfg.Dependencies()
@@ -865,17 +866,8 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 	var allErrs error
 	for nodeName, node := range g.nodes.All() {
-		// Edges are a projection of a node's durable declared dependencies. If a node is
-		// missing an edge for a dependency it still declares (e.g. that dependency's node was
-		// removed and later re-added), re-arm it so the edge is rebuilt on this pass. This
-		// keeps the graph self-healing without relying on a write-once unresolved list.
-		//
-		// This runs for every node, not just resolved ones: in steady state all nodes are
-		// resolved so a `!hasUnresolvedDependencies()` gate would skip nothing, and gating it
-		// would leave a blind spot where a node mid-resolution (unresolved list non-empty) never
-		// notices a *different* declared dep whose edge was dropped. declaredDepsMissingEdges always
-		// contains the current unresolved deps (they have no edge yet), so replacing the list
-		// never drops a pending dep.
+		// Add any dependency declared in the resource config but not linked as a parent edge to the node
+		// to the node's unresolved dependencies.
 		if missing := g.declaredDepsMissingEdges(nodeName, node); len(missing) > 0 {
 			node.setUnresolvedDependencies(missing...)
 		}
