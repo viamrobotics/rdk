@@ -824,10 +824,10 @@ func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
 	return ordered
 }
 
-// missingDeclaredDeps returns the names of a node's declared dependencies (DependsOn +
+// declaredDepsMissingEdges returns the names of a node's declared dependencies (DependsOn +
 // ImplicitDependsOn) that currently have no corresponding parent edge in the graph. It is the
 // reconcile check that makes graph edges a projection of declared deps. Caller must hold g.mu.
-func (g *Graph) missingDeclaredDeps(nodeName Name, node *GraphNode) []string {
+func (g *Graph) declaredDepsMissingEdges(nodeName Name, node *GraphNode) []string {
 	cfg := node.Config()
 	declared := cfg.Dependencies()
 	if len(declared) == 0 {
@@ -873,10 +873,10 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 		// This runs for every node, not just resolved ones: in steady state all nodes are
 		// resolved so a `!hasUnresolvedDependencies()` gate would skip nothing, and gating it
 		// would leave a blind spot where a node mid-resolution (unresolved list non-empty) never
-		// notices a *different* declared dep whose edge was dropped. missingDeclaredDeps always
+		// notices a *different* declared dep whose edge was dropped. declaredDepsMissingEdges always
 		// contains the current unresolved deps (they have no edge yet), so replacing the list
 		// never drops a pending dep.
-		if missing := g.missingDeclaredDeps(nodeName, node); len(missing) > 0 {
+		if missing := g.declaredDepsMissingEdges(nodeName, node); len(missing) > 0 {
 			node.setUnresolvedDependencies(missing...)
 		}
 
