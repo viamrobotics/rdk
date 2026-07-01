@@ -16,6 +16,7 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	errw "github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/viamrobotics/webrtc/v3"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -669,11 +670,13 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				return nil
 			}
 			var outerError error
-			for attempt := 0; attempt < 3; attempt++ {
+			for attempt := 0; ctx.Err() == nil; attempt++ {
+				rc.logger.CErrorw(ctx, "attempting to reconnect to remote", "attempt", attempt)
 				err := check()
 				if err != nil {
 					outerError = err
 					if isDisconnectedError(err) {
+						outerError = errtrace.Wrap(errw.Wrap(err, "wrtc channel disconnected"))
 						break
 					}
 					// otherwise retry
