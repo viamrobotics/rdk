@@ -23,7 +23,7 @@ var (
 	ov45x  = &OrientationVector{2. * th, 0., -math.Sqrt(2) / 2., math.Sqrt(2) / 2.}
 	ovd45x = &OrientationVectorDegrees{2 * utils.RadToDeg(th), 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
 	// in rotation matrix representation.
-	rm45x = &RotationMatrix{[9]float64{1, 0, 0, 0, math.Cos(th), math.Sin(th), 0, -math.Sin(th), math.Cos(th)}}
+	rm45x = &RotationMatrix{[9]float64{1, 0, 0, 0, math.Cos(th), -math.Sin(th), 0, math.Sin(th), math.Cos(th)}}
 )
 
 func TestZeroOrientation(t *testing.T) {

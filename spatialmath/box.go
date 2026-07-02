@@ -336,9 +336,17 @@ func (b *box) toMesh() *Mesh {
 	return b.mesh
 }
 
-// rotationMatrix returns the cached matrix if it exists, and generates it if not.
+// rotationMatrix returns the cached matrix. Stored transposed: the SAT code
+// and projection routines in this file read rows as local axes in world.
 func (b *box) rotationMatrix() *RotationMatrix {
-	b.once.Do(func() { b.rotMatrix = b.center.Orientation().RotationMatrix() })
+	b.once.Do(func() {
+		m := b.center.Orientation().RotationMatrix().mat
+		b.rotMatrix = &RotationMatrix{mat: [9]float64{
+			m[0], m[3], m[6],
+			m[1], m[4], m[7],
+			m[2], m[5], m[8],
+		}}
+	})
 
 	return b.rotMatrix
 }
