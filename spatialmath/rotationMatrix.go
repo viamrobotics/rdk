@@ -50,16 +50,16 @@ func (rm *RotationMatrix) Quaternion() quat.Number {
 	switch {
 	case tr > 0:
 		s := 0.5 / math.Sqrt(tr+1.0)
-		q = quat.Number{0.25 / s, (m[5] - m[7]) * s, (m[6] - m[2]) * s, (m[1] - m[3]) * s}
+		q = quat.Number{0.25 / s, (m[7] - m[5]) * s, (m[2] - m[6]) * s, (m[3] - m[1]) * s}
 	case (m[0] > m[4]) && (m[0] > m[8]):
 		s := 2.0 * math.Sqrt(1.0+m[0]-m[4]-m[8])
-		q = quat.Number{(m[5] - m[7]) / s, 0.25 * s, (m[3] + m[1]) / s, (m[6] + m[2]) / s}
+		q = quat.Number{(m[7] - m[5]) / s, 0.25 * s, (m[3] + m[1]) / s, (m[6] + m[2]) / s}
 	case m[4] > m[8]:
 		s := 2.0 * math.Sqrt(1.0+m[4]-m[0]-m[8])
-		q = quat.Number{(m[6] - m[2]) / s, (m[3] + m[1]) / s, 0.25 * s, (m[7] + m[5]) / s}
+		q = quat.Number{(m[2] - m[6]) / s, (m[3] + m[1]) / s, 0.25 * s, (m[7] + m[5]) / s}
 	default:
 		s := 2.0 * math.Sqrt(1.0+m[8]-m[0]-m[4])
-		q = quat.Number{(m[1] - m[3]) / s, (m[6] + m[2]) / s, (m[7] + m[5]) / s, 0.25 * s}
+		q = quat.Number{(m[3] - m[1]) / s, (m[6] + m[2]) / s, (m[7] + m[5]) / s, 0.25 * s}
 	}
 	return Normalize(q)
 }

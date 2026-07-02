@@ -249,9 +249,17 @@ func (c *capsule) Hash() int {
 	return hash
 }
 
-// rotationMatrix returns the cached matrix if it exists, and generates it if not.
+// rotationMatrix returns the cached matrix. Stored transposed: the SAT code
+// in sat_generic.go reads rows as local axes in world.
 func (c *capsule) rotationMatrix() *RotationMatrix {
-	c.once.Do(func() { c.rotMatrix = c.pose.Orientation().RotationMatrix() })
+	c.once.Do(func() {
+		m := c.pose.Orientation().RotationMatrix().mat
+		c.rotMatrix = &RotationMatrix{mat: [9]float64{
+			m[0], m[3], m[6],
+			m[1], m[4], m[7],
+			m[2], m[5], m[8],
+		}}
+	})
 
 	return c.rotMatrix
 }
