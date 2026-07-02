@@ -1279,3 +1279,33 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 	}
 	return ""
 }
+
+// TestResolveDependenciesSkipsDependencyMarkedForRemoval verifies that ResolveDependencies does
+// not build an edge to a dependency whose node is already marked for removal. Doing so would
+// leave the dependent resolved with an edge that is stripped when the node is removed, and with
+// no way to notice. Instead the dependency stays unresolved and is re-resolved once a live node
+// with that name exists.
+func TestResolveDependenciesSkipsDependencyMarkedForRemoval(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
+
+	nameA := NewName(apiA, "A") // dependency, marked for removal
+	nameB := NewName(apiA, "B") // dependent declaring A
+
+	nodeA := &GraphNode{}
+	test.That(t, g.AddNode(nameA, nodeA), test.ShouldBeNil)
+	nodeA.MarkForRemoval()
+
+	bCfg := Config{API: apiA, Name: "B", ImplicitDependsOn: []string{nameA.String()}}
+	test.That(t, g.AddNode(nameB, NewUnconfiguredGraphNode(bCfg, bCfg.Dependencies())), test.ShouldBeNil)
+
+	// A is present but marked for removal, so B must not resolve it: no edge, stays pending.
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, g.GetAllParentsOf(nameB), test.ShouldBeEmpty)
+
+	// Replace A with a live node; B now resolves it on the next pass.
+	g.remove(nameA)
+	test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
+}
