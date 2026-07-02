@@ -355,3 +355,6 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )
+
+// TODO(APP-14871): remove once the goutils ReportConnectionMetadata proto change is tagged and released.
+replace go.viam.com/utils => ../goutils
