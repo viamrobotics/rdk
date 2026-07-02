@@ -882,6 +882,16 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 			resolvedName, resolved := tryResolve()
 			if resolved {
+				// Don't resolve a dependency whose node is already marked for removal. The node
+				// is still present (removal happens after this pass), but building an edge to it
+				// now would be stripped when it is removed, leaving this resource resolved with
+				// no edge and no way to notice. Instead, leave the dependency unresolved so it is
+				// re-resolved on a later pass once a live node with that name exists.
+				if depNode, ok := g.nodes.Get(resolvedName); ok && depNode.MarkedForRemoval() {
+					resolved = false
+				}
+			}
+			if resolved {
 				if err := g.addChild(nodeName, resolvedName); err != nil {
 					allErrs = multierr.Combine(allErrs, err)
 					logger.Errorw(
