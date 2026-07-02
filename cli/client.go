@@ -3606,7 +3606,7 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 			return err
 		}
 
-		robotClient, err := viamClient.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+		robotClient, err := viamClient.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, globalArgs.ReconnectLimit, logger)
 		if err != nil {
 			return err
 		}
@@ -3690,6 +3690,7 @@ func RobotsPartShellAction(ctx context.Context, cmd *cli.Command, args robotsPar
 		args.Machine,
 		args.Part,
 		globalArgs.Debug,
+		globalArgs.ReconnectLimit,
 		logger,
 	)
 }
@@ -3850,6 +3851,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 					flagArgs.Machine,
 					flagArgs.Part,
 					globalArgs.Debug,
+					globalArgs.ReconnectLimit,
 					flagArgs.Recursive,
 					flagArgs.Preserve,
 					paths,
@@ -3866,6 +3868,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 					flagArgs.Machine,
 					flagArgs.Part,
 					globalArgs.Debug,
+					globalArgs.ReconnectLimit,
 					flagArgs.Recursive,
 					flagArgs.Preserve,
 					paths,
@@ -3947,6 +3950,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		flagArgs.Machine,
 		flagArgs.Part,
 		debug,
+		gArgs.ReconnectLimit,
 		true,
 		false,
 		[]string{src},
@@ -4068,7 +4072,7 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 		return err
 	}
 
-	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, globalArgs.ReconnectLimit, logger)
 	if err != nil {
 		return err
 	}
@@ -5259,14 +5263,14 @@ func (c *viamClient) runRobotPartCommand(
 }
 
 func (c *viamClient) connectToShellService(ctx context.Context, orgStr, locStr, robotStr, partStr string,
-	debug bool,
+	debug bool, reconnectLimit int,
 	logger logging.Logger,
 ) (shell.Service, func(ctx context.Context) error, error) {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(ctx, orgStr, locStr, robotStr, partStr, debug)
 	if err != nil {
 		return nil, nil, err
 	}
-	return c.connectToShellServiceInner(ctx, dialCtx, fqdn, rpcOpts, debug, logger)
+	return c.connectToShellServiceInner(ctx, dialCtx, fqdn, rpcOpts, debug, reconnectLimit, logger)
 }
 
 // connectToShellServiceFqdn is a shell service dialer that doesn't check org or re-fetch the part.
@@ -5274,13 +5278,14 @@ func (c *viamClient) connectToShellServiceFqdn(
 	ctx context.Context,
 	partFqdn string,
 	debug bool,
+	reconnectLimit int,
 	logger logging.Logger,
 ) (shell.Service, func(ctx context.Context) error, error) {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDialInner(ctx, partFqdn, debug)
 	if err != nil {
 		return nil, nil, err
 	}
-	return c.connectToShellServiceInner(ctx, dialCtx, fqdn, rpcOpts, debug, logger)
+	return c.connectToShellServiceInner(ctx, dialCtx, fqdn, rpcOpts, debug, reconnectLimit, logger)
 }
 
 func (c *viamClient) connectToRobot(
@@ -5288,6 +5293,7 @@ func (c *viamClient) connectToRobot(
 	fqdn string,
 	rpcOpts []rpc.DialOption,
 	debug bool,
+	reconnectLimit int,
 	logger logging.Logger,
 ) (*client.RobotClient, error) {
 	if debug {
@@ -5296,7 +5302,8 @@ func (c *viamClient) connectToRobot(
 	if c.dialOverride != nil {
 		return c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
 	}
-	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
+	robotClient, err := client.New(dialCtx, fqdn, logger,
+		client.WithDialOptions(rpcOpts...), client.WithReconnectAttempts(reconnectLimit))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
 	}
@@ -5309,9 +5316,10 @@ func (c *viamClient) connectToShellServiceInner(
 	fqdn string,
 	rpcOpts []rpc.DialOption,
 	debug bool,
+	reconnectLimit int,
 	logger logging.Logger,
 ) (shell.Service, func(ctx context.Context) error, error) {
-	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, debug, logger)
+	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, debug, reconnectLimit, logger)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -5353,9 +5361,10 @@ func (c *viamClient) startRobotPartShell(
 	ctx context.Context,
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
+	reconnectLimit int,
 	logger logging.Logger,
 ) error {
-	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
+	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, reconnectLimit, logger)
 	if err != nil {
 		return err
 	}
@@ -5559,6 +5568,7 @@ func (c *viamClient) copyFilesToMachine(
 	ctx context.Context,
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
+	reconnectLimit int,
 	allowRecursion bool,
 	preserve bool,
 	paths []string,
@@ -5566,7 +5576,7 @@ func (c *viamClient) copyFilesToMachine(
 	logger logging.Logger,
 	noProgress bool,
 ) error {
-	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
+	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, reconnectLimit, logger)
 	if err != nil {
 		return err
 	}
@@ -5578,6 +5588,7 @@ func (c *viamClient) copyFilesToFqdn(
 	ctx context.Context,
 	fqdn string,
 	debug bool,
+	reconnectLimit int,
 	allowRecursion bool,
 	preserve bool,
 	paths []string,
@@ -5585,7 +5596,7 @@ func (c *viamClient) copyFilesToFqdn(
 	logger logging.Logger,
 	noProgress bool,
 ) error {
-	shellSvc, closeClient, err := c.connectToShellServiceFqdn(ctx, fqdn, debug, logger)
+	shellSvc, closeClient, err := c.connectToShellServiceFqdn(ctx, fqdn, debug, reconnectLimit, logger)
 	if err != nil {
 		return err
 	}
@@ -5774,13 +5785,14 @@ func (c *viamClient) copyFilesFromMachine(
 	ctx context.Context,
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
+	reconnectLimit int,
 	allowRecursion bool,
 	preserve bool,
 	paths []string,
 	destination string,
 	logger logging.Logger,
 ) error {
-	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
+	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, reconnectLimit, logger)
 	if err != nil {
 		return err
 	}

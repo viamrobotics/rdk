@@ -131,6 +131,7 @@ func (c *viamClient) tracesGetRemoteAction(
 		flagArgs.Machine,
 		flagArgs.Part,
 		debug,
+		gArgs.ReconnectLimit,
 		true,
 		false,
 		[]string{src},

@@ -27,6 +27,7 @@ const (
 	profileFlag         = "profile"
 	disableProfilesFlag = "disable-profiles"
 	profileFlagName     = "profile-name"
+	reconnectLimitFlag  = "reconnect-limit"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -334,6 +335,7 @@ type globalArgs struct {
 	Quiet           bool
 	Profile         string
 	DisableProfiles bool
+	ReconnectLimit  int
 }
 
 func (ga *globalArgs) createLogger() logging.Logger {
@@ -365,14 +367,12 @@ func getValFromContext(name string, cmd *cli.Command) any {
 	return cmd.Value(camelFormatName(name))
 }
 
-// (erodkin) We don't support pointers in structs here. The problem is that when getting a value
-// from a context for a supported flag, the context will default to populating with the zero value.
-// When getting a value from the context, though, we currently have no way of know if that's going
-// to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
-// be a pointer to that default value.
-func parseStructFromCtx[T any](cmd *cli.Command) T {
-	var t T
-	tValue := reflect.ValueOf(&t).Elem()
+// same as [parseStructFromCtx], but merges changes into the struct in the
+// provided pointer. This allows for setting default values by pre-populating
+// the struct before calling this function. Panics if the defaults is not a
+// pointer to a struct.
+func mergeStructFromCtx(cmd *cli.Command, defaults any) {
+	tValue := reflect.ValueOf(defaults).Elem()
 	tType := tValue.Type()
 	for i := 0; i < tType.NumField(); i++ {
 		field := tType.Field(i)
@@ -404,7 +404,16 @@ func parseStructFromCtx[T any](cmd *cli.Command) T {
 			}
 		}
 	}
+}
 
+// (erodkin) We don't support pointers in structs here. The problem is that when getting a value
+// from a context for a supported flag, the context will default to populating with the zero value.
+// When getting a value from the context, though, we currently have no way of know if that's going
+// to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
+// be a pointer to that default value.
+func parseStructFromCtx[T any](cmd *cli.Command) T {
+	var t T
+	mergeStructFromCtx(cmd, &t)
 	return t
 }
 
@@ -412,7 +421,10 @@ func getGlobalArgs(cmd *cli.Command) (*globalArgs, error) {
 	if cmd == nil {
 		return &globalArgs{}, nil
 	}
-	gArgs := parseStructFromCtx[globalArgs](cmd)
+	gArgs := &globalArgs{
+		ReconnectLimit: -1,
+	}
+	mergeStructFromCtx(cmd, gArgs)
 	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
 	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
 	// programmatically enforce compliance here.
@@ -420,7 +432,7 @@ func getGlobalArgs(cmd *cli.Command) (*globalArgs, error) {
 		return nil, errors.New("profile specified with disable-profiles flag set")
 	}
 
-	return &gArgs, nil
+	return gArgs, nil
 }
 
 func createActionCommandWithT[T any](f func(context.Context, *cli.Command, T) error) func(context.Context, *cli.Command) error {
@@ -508,6 +520,10 @@ var app = &cli.Command{
 			Name:    disableProfilesFlag,
 			Aliases: []string{"disable-profile"}, // for ease of use; not backwards compatibility related
 			Usage:   "disable usage of profiles, falling back to default behavior",
+		},
+		&cli.IntFlag{
+			Name:  reconnectLimitFlag,
+			Usage: "maximum number of reconnect attempts. unlimited by default",
 		},
 	},
 	Commands: []*cli.Command{

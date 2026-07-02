@@ -696,7 +696,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					outerError = errw.Wrap(err, "context cancelled during reconnect attempt")
 					break
 				}
-				rc.logger.CWarnw(ctx, "attempting to reconnect to remote", "attempt", attempt)
+				rc.logger.CWarnw(ctx, "attempting to reconnect to remote", "attempt", attempt, "limit", rc.maxReconnectAttempts)
 				err := check()
 				if err != nil {
 					outerError = err

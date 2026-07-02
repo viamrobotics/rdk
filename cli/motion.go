@@ -46,7 +46,7 @@ func motionPrintConfigAction(ctx context.Context, cmd *cli.Command, args motionP
 
 	logger := globalArgs.createLogger()
 
-	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, globalArgs.ReconnectLimit, logger)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func motionPrintStatusAction(ctx context.Context, cmd *cli.Command, args motionP
 
 	logger := globalArgs.createLogger()
 
-	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, globalArgs.ReconnectLimit, logger)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func motionGetPoseAction(ctx context.Context, cmd *cli.Command, args motionGetPo
 
 	logger := globalArgs.createLogger()
 
-	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, globalArgs.ReconnectLimit, logger)
 	if err != nil {
 		return err
 	}
@@ -193,7 +193,14 @@ func motionSetPoseAction(ctx context.Context, cmd *cli.Command, args motionSetPo
 
 	logger := globalArgs.createLogger()
 
-	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := client.connectToRobot(
+		dialCtx,
+		fqdn,
+		rpcOpts,
+		globalArgs.Debug,
+		globalArgs.ReconnectLimit,
+		logger,
+	)
 	if err != nil {
 		return err
 	}

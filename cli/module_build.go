@@ -1685,6 +1685,7 @@ func reloadModuleActionInner(
 				ctx,
 				part.Part.Fqdn,
 				globalArgs.Debug,
+				globalArgs.ReconnectLimit,
 				false, // allowRecursion
 				false, // preserve
 				[]string{buildPath},
