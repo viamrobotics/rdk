@@ -16,6 +16,7 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	errw "github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/viamrobotics/webrtc/v3"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -131,6 +132,10 @@ type RobotClient struct {
 	// webrtc. We don't want a network disconnect to result in reconnecting over tcp such that
 	// performance would be impacted.
 	serverIsWebrtcEnabled bool
+
+	// maxReconnectAttempts is how many times we will attempt to reconnect to a
+	// robot. <0 means retry forever.
+	maxReconnectAttempts int
 
 	pc         *webrtc.PeerConnection
 	sharedConn *grpc.SharedConn
@@ -299,20 +304,24 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
 	rc := &RobotClient{
-		Named:               resource.NewName(RemoteAPI, rOpts.remoteName).AsNamed(),
-		remoteName:          rOpts.remoteName,
-		address:             address,
-		backgroundCtx:       backgroundCtx,
-		backgroundCtxCancel: backgroundCtxCancel,
-		logger:              logger,
-		dialOptions:         rOpts.dialOptions,
-		notifyParent:        nil,
-		conn:                grpc.ReconfigurableClientConn{Logger: logger},
-		resourceClients:     make(map[resource.Name]resource.Resource),
-		remoteNameMap:       make(map[resource.Name]resource.Name),
-		sessionsDisabled:    rOpts.disableSessions,
-		heartbeatCtx:        heartbeatCtx,
-		heartbeatCtxCancel:  heartbeatCtxCancel,
+		Named:                resource.NewName(RemoteAPI, rOpts.remoteName).AsNamed(),
+		remoteName:           rOpts.remoteName,
+		address:              address,
+		backgroundCtx:        backgroundCtx,
+		backgroundCtxCancel:  backgroundCtxCancel,
+		logger:               logger,
+		dialOptions:          rOpts.dialOptions,
+		notifyParent:         nil,
+		conn:                 grpc.ReconfigurableClientConn{Logger: logger},
+		resourceClients:      make(map[resource.Name]resource.Resource),
+		remoteNameMap:        make(map[resource.Name]resource.Name),
+		sessionsDisabled:     rOpts.disableSessions,
+		heartbeatCtx:         heartbeatCtx,
+		heartbeatCtxCancel:   heartbeatCtxCancel,
+		maxReconnectAttempts: 3,
+	}
+	if attempts := rOpts.reconnectAttempts; attempts != nil {
+		rc.maxReconnectAttempts = *attempts
 	}
 
 	otelStatsHandler := otelgrpc.NewClientHandler(
@@ -682,13 +691,19 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				return nil
 			}
 			var outerError error
-			for attempt := 0; attempt < 3; attempt++ {
+			for attempt := 0; rc.maxReconnectAttempts < 0 || attempt < rc.maxReconnectAttempts; attempt++ {
+				if err := ctx.Err(); err != nil {
+					outerError = errw.Wrap(err, "context cancelled during reconnect attempt")
+					break
+				}
+				rc.logger.CWarnw(ctx, "attempting to reconnect to remote", "attempt", attempt)
 				err := check()
 				if err != nil {
 					outerError = err
 					// A disconnect is terminal for this cycle, and immediately retrying a
 					// rate-limited request would only add load, so stop early in both cases.
 					if isDisconnectedError(err) || isResourceExhaustedError(err) {
+						rc.logger.Errorw("encountered terminal error, aborting reconniction attempts", "err", err)
 						break
 					}
 					// otherwise retry

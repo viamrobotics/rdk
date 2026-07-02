@@ -24,6 +24,11 @@ type robotClientOpts struct {
 	// it will automatically refresh every 1s
 	reconnectEvery *time.Duration
 
+	// reconnectAttempts is how many times we will attempt to reestablish a
+	// broken connection to a robot. <0 means retry infinitely, 0 means no
+	// attempts. Defaults to 3.
+	reconnectAttempts *int
+
 	// dialOptions are options using for clients dialing gRPC servers.
 	dialOptions []rpc.DialOption
 
@@ -70,6 +75,15 @@ func newFuncRobotClientOption(f func(*robotClientOpts)) *funcRobotClientOption {
 	return &funcRobotClientOption{
 		f: f,
 	}
+}
+
+// WithReconnectAttempts sets how many times we will attempt to repair a broken
+// robot connection before returning an error. <0 means retry infinitely.
+// Defaults to 3.
+func WithReconnectAttempts(attempts int) RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.reconnectAttempts = &attempts
+	})
 }
 
 // WithModName attaches a unary interceptor that attaches the module name for each outgoing gRPC
