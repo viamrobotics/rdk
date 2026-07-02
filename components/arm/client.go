@@ -3,11 +3,14 @@ package arm
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
@@ -163,6 +166,121 @@ func (c *client) MoveThroughJointPositions(
 	}
 	_, err = c.client.MoveThroughJointPositions(ctx, req)
 	return err
+}
+
+func (c *client) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	batches <-chan []TrajectoryPoint,
+	responses chan<- Response,
+	extra map[string]interface{},
+) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
+	// Kinematics is used only to encode JointPositions on the wire. Tolerate failure here so we
+	// stay usable on arms whose kinematics haven't been registered yet (matching the unary path).
+	model, err := c.Kinematics(ctx)
+	if err != nil {
+		warnKinematicsUnsafe(ctx, c.logger, err)
+	}
+
+	// Derive a cancellable context and pass it to NewStream so cancel() tears down the gRPC stream
+	// and signals the send pump in one step. Used to wind the send pump down once the recv loop
+	// exits (so it doesn't block on a caller that never closes `points`).
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := c.client.MoveThroughJointPositionsStreamed(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
+		Name: c.name,
+		Message: &pb.MoveThroughJointPositionsStreamedRequest_Init_{
+			Init: &pb.MoveThroughJointPositionsStreamedRequest_Init{
+				Extra: ext,
+			},
+		},
+	}); err != nil {
+		return err
+	}
+
+	// Send pump: caller's batches -> wire. Each slice pulled from the channel becomes one wire
+	// TrajectoryBatch; the caller controls wire cadence by sizing the slices they put on the
+	// channel. CloseSend on caller EOF so the server-side recv loop terminates.
+	var sendErr error
+	var sendOnce sync.Once
+	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
+	sendDone := make(chan struct{})
+	goutils.PanicCapturingGo(func() {
+		defer close(sendDone)
+		for {
+			select {
+			case <-ctx.Done():
+				setSendErr(ctx.Err())
+				return
+			case batch, ok := <-batches:
+				if !ok {
+					if err := stream.CloseSend(); err != nil {
+						setSendErr(err)
+					}
+					return
+				}
+				pbPoints := make([]*pb.TrajectoryPoint, 0, len(batch))
+				for _, p := range batch {
+					pp, err := trajectoryPointToProto(model, p)
+					if err != nil {
+						setSendErr(err)
+						return
+					}
+					pbPoints = append(pbPoints, pp)
+				}
+				if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
+					Message: &pb.MoveThroughJointPositionsStreamedRequest_Batch{
+						Batch: &pb.MoveThroughJointPositionsStreamedRequest_TrajectoryBatch{
+							Points: pbPoints,
+						},
+					},
+				}); err != nil {
+					setSendErr(err)
+					return
+				}
+			}
+		}
+	})
+
+	// Recv loop: wire -> caller's responses. Runs on the calling goroutine. Per the Arm interface
+	// channel-ownership contract this method does NOT close `responses`; that is the caller's
+	// responsibility, performed after we return.
+	var recvErr error
+recvLoop:
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				recvErr = err
+			}
+			break
+		}
+		_ = resp // Response carries no fields yet; future per-batch status will be read from resp here.
+		select {
+		case responses <- Response{}:
+		case <-ctx.Done():
+			recvErr = ctx.Err()
+			break recvLoop
+		}
+	}
+	// Tear down the stream and signal the send pump (it may still be blocked on `points`).
+	cancel()
+	<-sendDone
+
+	if recvErr != nil {
+		return recvErr
+	}
+	return sendErr
 }
 
 func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {

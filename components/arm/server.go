@@ -3,10 +3,15 @@ package arm
 
 import (
 	"context"
+	"errors"
+	"io"
 	"strings"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -138,6 +143,140 @@ func (s *serviceServer) MoveThroughJointPositions(
 	}
 	err = arm.MoveThroughJointPositions(ctx, allInputs, moveOptionsFromProtobuf(req.Options), req.Extra.AsMap())
 	return &pb.MoveThroughJointPositionsResponse{}, err
+}
+
+// MoveThroughJointPositionsStreamed is the bidi handler for the streamed RPC. It reads the
+// mandatory Init message first, locates the arm, then spawns one goroutine that pumps further
+// stream messages into a points channel and one that drains the implementation's responses
+// channel onto the wire. The implementation runs on the calling goroutine; its returned error
+// becomes the terminal gRPC status.
+func (s *serviceServer) MoveThroughJointPositionsStreamed(
+	stream pb.ArmService_MoveThroughJointPositionsStreamedServer,
+) error {
+	// Derive a cancellable context from the stream's. We pass this ctx to the impl and watch it
+	// in the recv pump, so a Send failure (or the impl's own return) can cancel both the impl
+	// and the recv-side `batches <- out` send via a single call.
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	first, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	init := first.GetInit()
+	if init == nil {
+		return status.Error(codes.InvalidArgument, "first message must be Init")
+	}
+	name := first.GetName()
+	s.logger.Debugw("Move through joint positions streamed", "res", name)
+	a, err := s.coll.Resource(name)
+	if err != nil {
+		return err
+	}
+	operation.CancelOtherWithLabel(ctx, name)
+
+	// Kinematics is used only to interpret JointPositions on the wire. We tolerate failure here
+	// the same way the unary path does (degrees/revolute fallback), so the streamed RPC stays
+	// usable on arms whose kinematics haven't been registered yet.
+	//nolint:errcheck
+	model, _ := a.Kinematics(ctx)
+
+	batches := make(chan []TrajectoryPoint)
+	responses := make(chan Response)
+
+	// recvErrCh carries a terminal recv-side fault (a malformed point, a protocol violation, or a
+	// non-EOF wire error) back to the handler so it becomes the terminal gRPC status. It is
+	// buffered and first-writer-wins so the recv pump never blocks reporting it.
+	recvErrCh := make(chan error, 1)
+	setRecvErr := func(err error) {
+		select {
+		case recvErrCh <- err:
+		default:
+		}
+	}
+
+	// Recv pump: stream -> batches. One wire TrajectoryBatch becomes one slice on the channel,
+	// preserving the caller-chosen batching for the impl. Closes batches on EOF, wire error, ctx
+	// cancel, or invalid message so the impl sees end-of-stream. On a terminal recv-side fault it
+	// records the error via setRecvErr and cancels ctx so the impl stops promptly; the handler then
+	// prefers that error as the terminal status. We do NOT wait on this goroutine before returning:
+	// it may be blocked inside stream.Recv() with nothing we can do to unblock it short of returning
+	// from the handler, at which point gRPC cancels the stream's underlying context and
+	// stream.Recv() unblocks.
+	utils.PanicCapturingGo(func() {
+		defer close(batches)
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				// EOF is the client's clean end-of-stream; anything else is a broken stream that
+				// the client must hear about.
+				if !errors.Is(err, io.EOF) {
+					setRecvErr(err)
+					cancel()
+				}
+				return
+			}
+			batch := req.GetBatch()
+			if batch == nil {
+				// After Init, every message must be a TrajectoryBatch.
+				setRecvErr(status.Errorf(codes.InvalidArgument, "expected TrajectoryBatch, got %T", req.GetMessage()))
+				cancel()
+				return
+			}
+			pbPoints := batch.GetPoints()
+			out := make([]TrajectoryPoint, 0, len(pbPoints))
+			for _, p := range pbPoints {
+				tp, err := trajectoryPointFromProto(model, p)
+				if err != nil {
+					setRecvErr(status.Errorf(codes.InvalidArgument, "invalid trajectory point: %v", err))
+					cancel()
+					return
+				}
+				out = append(out, tp)
+			}
+			select {
+			case batches <- out:
+			case <-ctx.Done():
+				return
+			}
+		}
+	})
+
+	// Send pump: responses -> stream. Exits when responses is closed (after impl returns) or
+	// when a Send fails. On Send failure we cancel the derived context so the impl notices via
+	// ctx.Done() and returns promptly, then drain the channel so the impl's writes don't block
+	// during shutdown.
+	sendDone := make(chan struct{})
+	utils.PanicCapturingGo(func() {
+		defer close(sendDone)
+		for resp := range responses {
+			_ = resp // Response carries no fields yet; future per-batch status will be written onto the send here.
+			if err := stream.Send(&pb.MoveThroughJointPositionsStreamedResponse{}); err != nil {
+				cancel()
+				for range responses {
+				}
+				return
+			}
+		}
+	})
+
+	implErr := a.MoveThroughJointPositionsStreamed(ctx, batches, responses, init.GetExtra().AsMap())
+
+	// Cancel before closing responses: if the impl returned cleanly, the recv pump may be parked
+	// on `batches <- out`; cancel() unblocks the select so the goroutine can wind down.
+	cancel()
+	close(responses)
+	<-sendDone
+
+	// A terminal recv-side fault (bad point, protocol violation, broken stream) is the true cause
+	// of the stream ending; prefer it over whatever the impl returned as it unwound.
+	select {
+	case recvErr := <-recvErrCh:
+		return recvErr
+	default:
+	}
+
+	return implErr
 }
 
 // Stop stops the arm specified.
