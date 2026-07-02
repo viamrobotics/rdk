@@ -291,7 +291,7 @@ recvLoop:
 			}
 			break
 		}
-		_ = resp // TODO(post-PoC): wire fields here when Arm.Response grows beyond {}.
+		_ = resp // Response carries no fields yet; future per-batch status will be read from resp here.
 		respCount++
 		select {
 		case responses <- Response{}:

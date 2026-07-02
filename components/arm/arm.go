@@ -184,7 +184,8 @@ type TrajectoryPoint struct {
 	// for the first point of the stream and strictly increasing thereafter.
 	Time time.Duration
 
-	// Joint positions at this waypoint.
+	// Joint positions at this waypoint. Revolute joints are in radians, prismatic joints in
+	// millimeters, matching referenceframe.Input.
 	Positions []referenceframe.Input
 
 	// Optional target kinematic constraints at this waypoint.
@@ -194,17 +195,18 @@ type TrajectoryPoint struct {
 // KinematicConstraints carries the optional target joint velocities (and optional
 // joint accelerations) attached to a TrajectoryPoint.
 type KinematicConstraints struct {
-	// Target joint velocities at this waypoint.
+	// Target joint velocities at this waypoint. Revolute joints are in radians per second,
+	// prismatic joints in millimeters per second, matching the Positions unit convention.
 	Velocities []float64
 
-	// Optional target joint accelerations at this waypoint. nil if absent.
+	// Optional target joint accelerations at this waypoint; nil if absent. Revolute joints are in
+	// radians per second squared, prismatic joints in millimeters per second squared.
 	Accelerations []float64
 }
 
 // Response is the per-acknowledgment payload an implementation may emit on
-// `MoveThroughJointPositionsStreamed`'s response channel. The PoC carries no
-// fields; future expansion (per-batch status, executed-up-to-time, etc.) lives
-// here.
+// `MoveThroughJointPositionsStreamed`'s response channel. It carries no fields
+// today; future per-batch status (executed-up-to-time, etc.) will be added here.
 type Response struct{}
 
 // Deprecated: FromDependencies is a helper for getting the named arm from a collection of

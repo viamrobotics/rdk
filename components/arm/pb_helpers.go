@@ -96,7 +96,11 @@ func trajectoryPointToProto(model referenceframe.Model, p TrajectoryPoint) (*pb.
 		Positions: jp,
 	}
 	if p.Constraints != nil {
-		out.Constraints = kinematicConstraintsToProto(p.Constraints)
+		constraints, err := kinematicConstraintsToProto(model, p.Constraints)
+		if err != nil {
+			return nil, err
+		}
+		out.Constraints = constraints
 	}
 	return out, nil
 }
@@ -114,27 +118,54 @@ func trajectoryPointFromProto(model referenceframe.Model, p *pb.TrajectoryPoint)
 		Positions: inputs,
 	}
 	if c := p.GetConstraints(); c != nil {
-		out.Constraints = kinematicConstraintsFromProto(c)
+		constraints, err := kinematicConstraintsFromProto(model, c)
+		if err != nil {
+			return TrajectoryPoint{}, err
+		}
+		out.Constraints = constraints
 	}
 	return out, nil
 }
 
-func kinematicConstraintsToProto(c *KinematicConstraints) *pb.TrajectoryPoint_KinematicConstraints {
+// kinematicConstraintsToProto converts in-memory constraints to their proto form. `model` carries
+// the per-joint unit handling (revolute rad/s<->deg/s, prismatic mm/s passthrough); when nil the
+// conversion falls back to all-revolute, matching the position path.
+func kinematicConstraintsToProto(
+	model referenceframe.Model, c *KinematicConstraints,
+) (*pb.TrajectoryPoint_KinematicConstraints, error) {
+	velocities, err := referenceframe.JointVelocitiesFromInputs(model, c.Velocities)
+	if err != nil {
+		return nil, err
+	}
 	out := &pb.TrajectoryPoint_KinematicConstraints{
-		Velocities: &pb.JointVelocities{Values: c.Velocities},
+		Velocities: velocities,
 	}
 	if c.Accelerations != nil {
-		out.Accelerations = &pb.JointAccelerations{Values: c.Accelerations}
+		accelerations, err := referenceframe.JointAccelerationsFromInputs(model, c.Accelerations)
+		if err != nil {
+			return nil, err
+		}
+		out.Accelerations = accelerations
 	}
-	return out
+	return out, nil
 }
 
-func kinematicConstraintsFromProto(c *pb.TrajectoryPoint_KinematicConstraints) *KinematicConstraints {
+func kinematicConstraintsFromProto(
+	model referenceframe.Model, c *pb.TrajectoryPoint_KinematicConstraints,
+) (*KinematicConstraints, error) {
+	velocities, err := referenceframe.InputsFromJointVelocities(model, c.GetVelocities())
+	if err != nil {
+		return nil, err
+	}
 	out := &KinematicConstraints{
-		Velocities: c.GetVelocities().GetValues(),
+		Velocities: velocities,
 	}
 	if a := c.GetAccelerations(); a != nil {
-		out.Accelerations = a.GetValues()
+		accelerations, err := referenceframe.InputsFromJointAccelerations(model, a)
+		if err != nil {
+			return nil, err
+		}
+		out.Accelerations = accelerations
 	}
-	return out
+	return out, nil
 }

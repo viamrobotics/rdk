@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"go.viam.com/utils"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -356,16 +354,29 @@ func (sa *simulatedArm) MoveThroughJointPositions(
 	return nil
 }
 
-// MoveThroughJointPositionsStreamed is unimplemented on the simulated arm; the streamed RPC
-// is a PoC focused on real hardware. Returns a gRPC Unimplemented status so a remote caller sees
-// a coherent error.
+// MoveThroughJointPositionsStreamed executes a streamed trajectory by moving to each point in order
+// through the same fixed-speed mechanism as the unary path, acknowledging once per batch. Per-point
+// Time and Constraints are not simulated: the arm moves at its configured speed. This matches the
+// unary MoveThroughJointPositions, which likewise ignores requested speeds.
 func (sa *simulatedArm) MoveThroughJointPositionsStreamed(
-	_ context.Context,
-	_ <-chan []arm.TrajectoryPoint,
-	_ chan<- arm.Response,
+	ctx context.Context,
+	batches <-chan []arm.TrajectoryPoint,
+	responses chan<- arm.Response,
 	_ map[string]interface{},
 ) error {
-	return status.Error(codes.Unimplemented, "MoveThroughJointPositionsStreamed not implemented on simulated arm")
+	for batch := range batches {
+		for _, p := range batch {
+			if err := sa.MoveToJointPositions(ctx, p.Positions, nil); err != nil {
+				return err
+			}
+		}
+		select {
+		case responses <- arm.Response{}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
 }
 
 func (sa *simulatedArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {

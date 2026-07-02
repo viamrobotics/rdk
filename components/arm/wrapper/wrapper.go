@@ -6,8 +6,6 @@ import (
 	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -149,15 +147,17 @@ func (wrapper *Arm) MoveThroughJointPositions(
 	return nil
 }
 
-// MoveThroughJointPositionsStreamed is unimplemented on the wrapper arm; the streamed RPC is a
-// PoC focused on real hardware that natively supports streamed trajectories.
+// MoveThroughJointPositionsStreamed forwards the streamed trajectory to the wrapped arm. If the
+// wrapped arm does not support streaming, its error propagates through unchanged.
 func (wrapper *Arm) MoveThroughJointPositionsStreamed(
-	_ context.Context,
-	_ <-chan []arm.TrajectoryPoint,
-	_ chan<- arm.Response,
-	_ map[string]interface{},
+	ctx context.Context,
+	batches <-chan []arm.TrajectoryPoint,
+	responses chan<- arm.Response,
+	extra map[string]interface{},
 ) error {
-	return status.Error(codes.Unimplemented, "MoveThroughJointPositionsStreamed not implemented on wrapper arm")
+	wrapper.mu.RLock()
+	defer wrapper.mu.RUnlock()
+	return wrapper.actual.MoveThroughJointPositionsStreamed(ctx, batches, responses, extra)
 }
 
 // JointPositions returns the set joints.
