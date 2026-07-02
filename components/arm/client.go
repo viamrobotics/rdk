@@ -174,7 +174,6 @@ func (c *client) MoveThroughJointPositionsStreamed(
 	responses chan<- Response,
 	extra map[string]interface{},
 ) error {
-	c.logger.CInfow(ctx, "XXX ACM cli: wrapper entered", "name", c.name)
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -195,10 +194,8 @@ func (c *client) MoveThroughJointPositionsStreamed(
 
 	stream, err := c.client.MoveThroughJointPositionsStreamed(ctx)
 	if err != nil {
-		c.logger.CInfow(ctx, "XXX ACM cli: NewStream failed", "name", c.name, "err", err)
 		return err
 	}
-	c.logger.CInfow(ctx, "XXX ACM cli: stream opened", "name", c.name)
 
 	if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
 		Name: c.name,
@@ -208,10 +205,8 @@ func (c *client) MoveThroughJointPositionsStreamed(
 			},
 		},
 	}); err != nil {
-		c.logger.CInfow(ctx, "XXX ACM cli: Init Send failed", "name", c.name, "err", err)
 		return err
 	}
-	c.logger.CInfow(ctx, "XXX ACM cli: Init sent", "name", c.name)
 
 	// Send pump: caller's batches -> wire. Each slice pulled from the channel becomes one wire
 	// TrajectoryBatch; the caller controls wire cadence by sizing the slices they put on the
@@ -222,22 +217,14 @@ func (c *client) MoveThroughJointPositionsStreamed(
 	sendDone := make(chan struct{})
 	goutils.PanicCapturingGo(func() {
 		defer close(sendDone)
-		c.logger.CInfow(ctx, "XXX ACM cli: send pump entered", "name", c.name)
-		batchCount := 0
-		pointCount := 0
 		for {
 			select {
 			case <-ctx.Done():
-				c.logger.CInfow(ctx, "XXX ACM cli: send pump ctx done",
-					"name", c.name, "batches_sent", batchCount, "points_sent", pointCount, "err", ctx.Err())
 				setSendErr(ctx.Err())
 				return
 			case batch, ok := <-batches:
 				if !ok {
-					c.logger.CInfow(ctx, "XXX ACM cli: send pump batches closed -> CloseSend",
-						"name", c.name, "batches_sent", batchCount, "points_sent", pointCount)
 					if err := stream.CloseSend(); err != nil {
-						c.logger.CInfow(ctx, "XXX ACM cli: CloseSend failed", "name", c.name, "err", err)
 						setSendErr(err)
 					}
 					return
@@ -246,8 +233,6 @@ func (c *client) MoveThroughJointPositionsStreamed(
 				for _, p := range batch {
 					pp, err := trajectoryPointToProto(model, p)
 					if err != nil {
-						c.logger.CInfow(ctx, "XXX ACM cli: trajectoryPointToProto failed",
-							"name", c.name, "err", err)
 						setSendErr(err)
 						return
 					}
@@ -260,15 +245,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 						},
 					},
 				}); err != nil {
-					c.logger.CInfow(ctx, "XXX ACM cli: batch Send failed",
-						"name", c.name, "batch_idx", batchCount+1, "points_in_batch", len(pbPoints), "err", err)
 					setSendErr(err)
 					return
 				}
-				batchCount++
-				pointCount += len(pbPoints)
-				c.logger.CInfow(ctx, "XXX ACM cli: batch sent",
-					"name", c.name, "batch_idx", batchCount, "points_in_batch", len(pbPoints))
 			}
 		}
 	})
@@ -276,28 +255,20 @@ func (c *client) MoveThroughJointPositionsStreamed(
 	// Recv loop: wire -> caller's responses. Runs on the calling goroutine. Per the Arm interface
 	// channel-ownership contract this method does NOT close `responses`; that is the caller's
 	// responsibility, performed after we return.
-	c.logger.CInfow(ctx, "XXX ACM cli: recv loop entered", "name", c.name)
-	respCount := 0
 	var recvErr error
 recvLoop:
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
-			c.logger.CInfow(ctx, "XXX ACM cli: recv loop stream.Recv returned",
-				"name", c.name, "err", err, "is_eof", errors.Is(err, io.EOF),
-				"responses_received", respCount)
 			if !errors.Is(err, io.EOF) {
 				recvErr = err
 			}
 			break
 		}
 		_ = resp // Response carries no fields yet; future per-batch status will be read from resp here.
-		respCount++
 		select {
 		case responses <- Response{}:
 		case <-ctx.Done():
-			c.logger.CInfow(ctx, "XXX ACM cli: recv loop ctx done while pushing",
-				"name", c.name, "responses_received", respCount)
 			recvErr = ctx.Err()
 			break recvLoop
 		}
@@ -305,8 +276,6 @@ recvLoop:
 	// Tear down the stream and signal the send pump (it may still be blocked on `points`).
 	cancel()
 	<-sendDone
-	c.logger.CInfow(ctx, "XXX ACM cli: wrapper exiting",
-		"name", c.name, "responses_received", respCount, "recvErr", recvErr, "sendErr", sendErr)
 
 	if recvErr != nil {
 		return recvErr
