@@ -401,7 +401,7 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 func (server *Server) resizeVideoSource(ctx context.Context, name string, width, height int) error {
 	if width > 1000 && height > 600 {
 		// TODO - this should be smarter, ideally knowing what the original stream is
-		server.logger.Debugf("not resizing (%s) to %d, %d because it's probable a bad idea as it's too big",
+		server.logger.Debugf("not resizing (%s) to %d, %d because it's probably a bad idea as it's too big",
 			name, width, height)
 		return nil
 	}
