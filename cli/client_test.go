@@ -48,8 +48,8 @@ import (
 	shelltestutils "go.viam.com/rdk/services/shell/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/rdk/testutils/robottestutils/serverutils"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/web/server"
 )
 
 var (
@@ -1636,10 +1636,6 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
 	}()
 
-	machinePort, err := goutils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	machineAddr := net.JoinHostPort("localhost", strconv.Itoa(machinePort))
-
 	sourcePort, err := goutils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
@@ -1672,40 +1668,24 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	}()
 
-	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		// Create a temporary config file.
-		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-		test.That(t, err, test.ShouldBeNil)
-		// we only use the filename, not the file handle in this test. Close immediately, instead of relying on GC.
-		// On Windows we otherwise may get:
-		// "The process cannot access the file because it is being used by another process."
-		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-		cfg := &robotconfig.Config{
-			Network: robotconfig.NetworkConfig{
-				NetworkConfigData: robotconfig.NetworkConfigData{
-					TrafficTunnelEndpoints: []robotconfig.TrafficTunnelEndpoint{
-						{
-							Port: destPort, // allow tunneling to destination port
-						},
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
+	cfg := &robotconfig.Config{
+		Network: robotconfig.NetworkConfig{
+			NetworkConfigData: robotconfig.NetworkConfigData{
+				TrafficTunnelEndpoints: []robotconfig.TrafficTunnelEndpoint{
+					{
+						Port: destPort, // allow tunneling to destination port
 					},
-					BindAddress: machineAddr,
 				},
 			},
-		}
-		cfgBytes, err := json.Marshal(&cfg)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
-
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
-		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
-	}()
-
-	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
+		},
+	}
+	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
+	t.Cleanup(func() {
+		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		// stopServer will be called toward the end of the test so we can wait on the
+		// background tunnel workers correctly.
+	})
 
 	// Start CLI tunneler.
 	//nolint:dogsled
@@ -1745,8 +1725,9 @@ func TestTunnelE2ECLI(t *testing.T) {
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
 
 	// Cancel test's context once message has made it all the way across and has been echoed
-	// back. This should stop the `RunServer` goroutine and the tunnel itself.
+	// back. This stops the RunServer goroutine and the tunnel itself.
 	ctxCancel()
+	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
 }
