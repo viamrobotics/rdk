@@ -49,24 +49,3 @@ jobs:
           name: htmltest-report
           path: tmp/.htmltest/htmltest.log
           retention-days: 7 # Default is 90 days
-      - name: Login to Jira
-        if: failure()
-        uses: atlassian/gajira-login@v3
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-      - name: Create Jira ticket
-        if: failure()
-        id: create
-        uses: atlassian/gajira-create@v3
-        env:
-          GITHUB_RUN_ID: ${{ github.run_id }}
-        with:
-          project: DOCS
-          issuetype: Bug
-          summary: Broken link detected in RDK
-          description: "For more info see https://github.com/viamrobotics/rdk/actions/runs/${{ env.GITHUB_RUN_ID }}."
-      - name: Log created Jira issue
-        if: failure()
-        run: echo "Issue ${{ steps.create.outputs.issue }} was created"
