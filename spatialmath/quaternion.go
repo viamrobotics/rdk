@@ -190,8 +190,15 @@ func QuatToR3AA(q quat.Number) r3.Vector {
 	return r3.Vector{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
 }
 
-// QuatToRotationMatrix converts a quat to a Rotation Matrix
+// QuatToRotationMatrix converts a unit quaternion to a row-major rotation
+// matrix R (world = R @ local), stored as m[3*r + c] = R[r,c]:
+//
+//	| 1 - 2y² - 2z²    2xy - 2wz      2xz + 2wy   |
+//	|  2xy + 2wz      1 - 2x² - 2z²   2yz - 2wx   |
+//	|  2xz - 2wy       2yz + 2wx     1 - 2x² - 2y² |
+//
 // reference: https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/index.htm
+// Do not port from mgl64 without transposing — its Mat is column-major.
 func QuatToRotationMatrix(q quat.Number) *RotationMatrix {
 	w, x, y, z := q.Real, q.Imag, q.Jmag, q.Kmag
 	mat := [9]float64{
