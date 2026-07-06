@@ -1281,10 +1281,7 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 }
 
 // TestResolveDependenciesSkipsDependencyMarkedForRemoval verifies that ResolveDependencies does
-// not build an edge to a dependency whose node is already marked for removal. Doing so would
-// leave the dependent resolved with an edge that is stripped when the node is removed, and with
-// no way to notice. Instead the dependency stays unresolved and is re-resolved once a live node
-// with that name exists.
+// not build an edge to a dependency whose node is already marked for removal.
 func TestResolveDependenciesSkipsDependencyMarkedForRemoval(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	g := NewGraph(logger)

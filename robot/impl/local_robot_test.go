@@ -5713,13 +5713,13 @@ func TestReconfigureTracing(t *testing.T) {
 // TestDependentReconnectsAfterDependencyNodeReadded verifies that a dependent stays connected to
 // a dependency whose graph node is torn down and re-added.
 //
-// The reader is a modular resource that declares an implicit dependency on sensor "s". Adding a
-// duplicate "s" triggers a name collision that removes the "s" node along with its dependents.
-// Because the reader is added in the same reconfigure, its edge to "s" is not built yet when the
-// collision snapshots which dependents to remove, so the reader is not torn down. Without care it
-// would then resolve "s" moments before "s" is removed and be left resolved with no edge; because
-// resolution skips a dependency that is already marked for removal, the reader instead stays
-// pending and links to the healthy "s" once the collision clears.
+// The reader is a modular resource that declares a dependency on sensor "s". Adding a duplicate
+// "s" triggers a name collision that removes the "s" node along with its dependents. The reader
+// is added in the same reconfigure, but its edge to "s" is not built yet when the collision
+// snapshots which dependents to remove, so the reader is not torn down. It would then resolve
+// "s" moments before "s" is removed and would then stay resolved with no edge, however resolution
+// skips a dependency that is already marked for removal, so the reader instead stays pending and
+// links to the healthy "s" once the collision clears.
 func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
