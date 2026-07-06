@@ -363,6 +363,50 @@ func TestDownloadSequenceDataset_DownloadsBinaryBlobs(t *testing.T) {
 	test.That(t, mustReadFile(t, filepath.Join(dst, "binary_data", "bd-3.jpg")), test.ShouldResemble, []byte("jpeg-bytes-3"))
 }
 
+// TestDownloadSequenceDataset_DownloadsNestedBinaryBlobs guards the case where a
+// binary_data_id contains slashes (org/part/id): the destination path is nested
+// below binary_data/, so the per-blob parent directory must be created before the
+// write. Without that, os.WriteFile fails with "no such file or directory".
+func TestDownloadSequenceDataset_DownloadsNestedBinaryBlobs(t *testing.T) {
+	zipBody := []byte("PK\x03\x04 zip")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(zipBody)
+	}))
+	defer srv.Close()
+
+	datasetFake := &fakeDatasetServer{
+		startResponse: &datasetpb.StartSequenceDatasetExportResponse{JobId: "job-1"},
+		getResponses: []*datasetpb.GetSequenceDatasetExportResponse{{
+			Status:      datasetpb.SequenceDatasetExportStatus_SEQUENCE_DATASET_EXPORT_STATUS_COMPLETED,
+			DownloadUrl: srv.URL,
+		}},
+	}
+	datasetClient, shutdownDataset := startMockDatasetServer(t, datasetFake)
+	defer shutdownDataset()
+
+	nestedID := "org-x/part-y/BzkyJEtND5AuQR7YIb2LS3Z1"
+	dataFake := &fakeDataServer{
+		sequencesByDataset: map[string][]*datapb.Sequence{"ds-1": {{Id: "seq-a"}}},
+		binaryBySequence: map[string][]*datapb.BinaryData{
+			"seq-a": {mkBinaryData(nestedID, ".jpeg")},
+		},
+		binaryBytesByID: map[string][]byte{nestedID: []byte("nested-jpeg-bytes")},
+	}
+	dataClient, shutdownData := startMockDataServer(t, dataFake)
+	defer shutdownData()
+
+	dst := t.TempDir()
+	c := &viamClient{datasetClient: datasetClient, dataClient: dataClient, c: noopCLICtx(t)}
+	err := c.downloadSequenceDataset(context.Background(), "ds-1", dst,
+		10*time.Millisecond, time.Second, true, 4, 0)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The blob must land at binary_data/<nested id><ext>, matching the relative
+	// path the server records in binary_data.parquet.
+	test.That(t, mustReadFile(t, filepath.Join(dst, "binary_data", "org-x", "part-y", "BzkyJEtND5AuQR7YIb2LS3Z1.jpeg")),
+		test.ShouldResemble, []byte("nested-jpeg-bytes"))
+}
+
 func TestDownloadSequenceDataset_SkipsBinaryWhenDisabled(t *testing.T) {
 	zipBody := []byte("PK\x03\x04")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
