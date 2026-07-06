@@ -479,14 +479,19 @@ func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEnt
 	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
 		timeout = logWriteTimeoutBehindProxy
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 
-	client, err := w.getOrCreateClient(ctx)
+	// Lazily creating the client blocks until the gRPC connection is ready, which
+	// can take several seconds on a slow or busy machine. Give the dial its own
+	// timeout so it does not eat into the budget for the Log call below.
+	dialCtx, dialCancel := context.WithTimeout(ctx, timeout)
+	client, err := w.getOrCreateClient(dialCtx)
+	dialCancel()
 	if err != nil {
 		return err
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	_, err = client.Log(ctx, &apppb.LogRequest{Id: w.cfg.ID, Logs: logs})
 	if err != nil {
 		return err
