@@ -4,7 +4,7 @@
 // Besides the board itself, some other interfaces it defines are analog pins and digital interrupts.
 // For more information, see the [board component docs].
 //
-// [board component docs]: https://docs.viam.com/components/board/
+// [board component docs]: https://docs.viam.com/reference/components/board/
 package board
 
 import (
@@ -115,7 +115,7 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [StreamTicks method docs].
 //
-// [board component docs]: https://docs.viam.com/operate/reference/components/board/
+// [board component docs]: https://docs.viam.com/hardware/common-components/add-a-board/
 // [AnalogByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#analogbyname
 // [DigitalInterruptByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#digitalinterruptbyname
 // [GPIOPinByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#gpiopinbyname

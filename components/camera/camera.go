@@ -1,7 +1,7 @@
 // Package camera defines an image capturing device.
 // For more information, see the [camera component docs].
 //
-// [camera component docs]: https://docs.viam.com/components/camera/
+// [camera component docs]: https://docs.viam.com/reference/components/camera/
 package camera
 
 import (

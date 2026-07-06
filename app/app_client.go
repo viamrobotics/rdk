@@ -1,6 +1,6 @@
 // Package app contains the interfaces that manage a machine fleet with code instead of with the graphical interface of the Viam App.
 //
-// [fleet management docs]: https://docs.viam.com/appendix/apis/fleet/
+// [fleet management docs]: https://docs.viam.com/reference/apis/fleet/
 package app
 
 import (

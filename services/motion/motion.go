@@ -1,7 +1,7 @@
 // Package motion is the service that allows you to plan and execute movements.
 // For more information, see the [motion service docs].
 //
-// [motion service docs]: https://docs.viam.com/services/motion/
+// [motion service docs]: https://docs.viam.com/reference/services/motion/
 package motion
 
 import (
@@ -342,7 +342,7 @@ type PlanWithStatus struct {
 //
 // For more information, see the [PlanHistory method docs].
 //
-// [motion service docs]: https://docs.viam.com/operate/reference/services/motion/
+// [motion service docs]: https://docs.viam.com/reference/services/motion/
 // [Move method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#move
 // [MoveOnMap method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonmap
 // [MoveOnGlobe method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonglobe

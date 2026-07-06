@@ -4191,7 +4191,7 @@ func (conf *Config) checkUpdate(cmd *cli.Command) error {
 		// the local version is out of date, so we know to warn
 		if localVersion.LessThan(latestVersion) {
 			warningf(cmd.Root().ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+				"Run 'viam update' or see https://docs.viam.com/cli/overview/#install", localVersion.Original(), latestVersion.Original())
 		}
 		return nil
 	}
@@ -4216,7 +4216,8 @@ func (conf *Config) checkUpdate(cmd *cli.Command) error {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		warningf(cmd.Root().ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
-			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
+			"New CLI releases happen weekly; consider updating%s. "+
+			"Run 'viam update' or see https://docs.viam.com/cli/overview/#install", updateInstructions)
 	}
 	return nil
 }

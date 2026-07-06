@@ -400,7 +400,7 @@ func promptAppUser(app *appInputs) error {
 			huh.NewNote().
 				Title("Generate a new Viam app").
 				Description("This will generate a web app module that connects to your machine via the Viam SDK.\n"+
-					"For more details, view the documentation at \nhttps://docs.viam.com/build-apps/hosting/"),
+					"For more details, view the documentation at \nhttps://docs.viam.com/build-apps/hosting/overview/"),
 			huh.NewInput().
 				Title("Set an app name:").
 				Description("The app name can contain only alphanumeric characters, dashes, and underscores.").
@@ -445,7 +445,7 @@ func promptAddAppInputs(app *appInputs) error {
 			huh.NewNote().
 				Title("Add an app to this module").
 				Description("This will add a web application to your existing module.\n"+
-					"For more details, view the documentation at \nhttps://docs.viam.com/build-apps/hosting/"),
+					"For more details, view the documentation at \nhttps://docs.viam.com/build-apps/hosting/overview/"),
 			huh.NewInput().
 				Title("Set an app name:").
 				Description("The app name can contain only alphanumeric characters, dashes, and underscores.").
@@ -888,7 +888,8 @@ func promptModuleInputs(module *modulegen.ModuleInputs) error {
 	fields := []huh.Field{
 		huh.NewNote().
 			Title("Generate a new modular resource").
-			Description("For more details about modular resources, view the documentation at \nhttps://docs.viam.com/registry/"),
+			Description("For more details about modular resources, view the documentation at \n" +
+				"https://docs.viam.com/build-modules/use-registry-modules/"),
 		huh.NewInput().
 			Title("Set a module name:").
 			Description("This can be the name of the piece of hardware, the challenge you are trying to solve,\n" +

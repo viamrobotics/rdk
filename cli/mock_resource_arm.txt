@@ -1,7 +1,7 @@
 // Package arm defines the arm that a robot uses to manipulate objects.
 // For more information, see the [arm component docs].
 //
-// [arm component docs]: https://docs.viam.com/components/arm/
+// [arm component docs]: https://docs.viam.com/reference/components/arm/
 package arm
 
 import (
@@ -113,7 +113,7 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [JointPositions method docs].
 //
-// [arm component docs]: https://docs.viam.com/components/arm/
+// [arm component docs]: https://docs.viam.com/reference/components/arm/
 // [EndPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getendposition
 // [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetoposition
 // [MoveToJointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetojointpositions
