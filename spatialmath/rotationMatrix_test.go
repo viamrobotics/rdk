@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -8,6 +9,36 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/quat"
 )
+
+var rmQuatSamples = []struct {
+	name string
+	rm   []float64
+	q    quat.Number
+}{
+	{"identity", []float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, quat.Number{1, 0, 0, 0}},
+	{"x90", []float64{1, 0, 0, 0, 0, -1, 0, 1, 0}, quat.Number{math.Sqrt2 / 2, math.Sqrt2 / 2, 0, 0}},
+	{"y90", []float64{0, 0, 1, 0, 1, 0, -1, 0, 0}, quat.Number{math.Sqrt2 / 2, 0, math.Sqrt2 / 2, 0}},
+	{"z90", []float64{0, -1, 0, 1, 0, 0, 0, 0, 1}, quat.Number{math.Sqrt2 / 2, 0, 0, math.Sqrt2 / 2}},
+	{"z180", []float64{-1, 0, 0, 0, -1, 0, 0, 0, 1}, quat.Number{0, 0, 0, 1}},
+}
+
+var rmQuatSamplePoints = []r3.Vector{
+	{X: 1}, {Y: 1}, {Z: 1}, {X: 1, Y: 2, Z: 3}, {X: -5, Y: 7, Z: -2},
+}
+
+func TestRotationMatrixQuaternionOnPoints(t *testing.T) {
+	for _, c := range rmQuatSamples {
+		t.Run(c.name, func(t *testing.T) {
+			rm, err := NewRotationMatrix(c.rm)
+			test.That(t, err, test.ShouldBeNil)
+			for _, p := range rmQuatSamplePoints {
+				fromMul := rm.Mul(p)
+				fromQuat := TransformPoint(rm.Quaternion(), r3.Vector{}, p)
+				test.That(t, R3VectorAlmostEqual(fromMul, fromQuat, 1e-9), test.ShouldBeTrue)
+			}
+		})
+	}
+}
 
 func TestQuaternionConversion(t *testing.T) {
 	// Test that conversion to rotation matrix to quaternion is correct
