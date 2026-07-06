@@ -1060,8 +1060,6 @@ github.com/viamrobotics/webrtc/v3 v3.99.16 h1:N3OQoWnV9Zg68mTDOq8ymsx2AMpbEjuo1g
 github.com/viamrobotics/webrtc/v3 v3.99.16/go.mod h1:w1LmHsQFaq7vqLh06ybQ5kmYXo8myQq+3Pj073RL0f0=
 github.com/viamrobotics/zeroconf v1.0.13 h1:b3SzT1OrWjAWa/IReeehU++NWVp6r9K9/qBbjPZVFXw=
 github.com/viamrobotics/zeroconf v1.0.13/go.mod h1:iYvk00hmrzBI1Qw13y5palYDorz5ebndUJyTo7Oa3pc=
-github.com/vpandiarajan20/api v0.0.0-20260623201731-381922853dc1 h1:TLcYJD4CMva2QdhHW7z4NWnopGeYXDdw6h10aUKn+hg=
-github.com/vpandiarajan20/api v0.0.0-20260623201731-381922853dc1/go.mod h1:nVe4WXrtc8aupJ8OWXSYx6KhCiOkr3VCbkwxD4D41xQ=
 github.com/wcharczuk/go-chart/v2 v2.1.0/go.mod h1:yx7MvAVNcP/kN9lKXM/NTce4au4DFN99j6i1OwDclNA=
 github.com/wlynxg/anet v0.0.3/go.mod h1:eay5PRQr7fIVAMbTbchTnO9gG65Hg/uYGdc7mguHxoA=
 github.com/wlynxg/anet v0.0.5 h1:J3VJGi1gvo0JwZ/P1/Yc/8p63SoW98B5dHkYDmpgvvU=
@@ -1160,6 +1158,8 @@ go.uber.org/zap v1.13.0/go.mod h1:zwrFLgMcdUuIBviXEYEH1YKNaOBnKXsx2IPda5bBwHM=
 go.uber.org/zap v1.18.1/go.mod h1:xg/QME4nWcxGxrpdeYfq7UvYrLh66cuVKdrbD1XF/NI=
 go.uber.org/zap v1.27.0 h1:aJMhYGrd5QSmlpLMr2MftRKl7t8J8PTZPA732ud/XR8=
 go.uber.org/zap v1.27.0/go.mod h1:GB2qFLM7cTU87MWRP2mPIjqfIDnGu+VIO4V/SdhGo2E=
+go.viam.com/api v0.1.566 h1:o5nWDj6at04Y8nHGC7mZQDA6NIuGdPpwqhNLY+LQtfs=
+go.viam.com/api v0.1.566/go.mod h1:nVe4WXrtc8aupJ8OWXSYx6KhCiOkr3VCbkwxD4D41xQ=
 go.viam.com/test v1.2.4 h1:JYgZhsuGAQ8sL9jWkziAXN9VJJiKbjoi9BsO33TW3ug=
 go.viam.com/test v1.2.4/go.mod h1:zI2xzosHdqXAJ/kFqcN+OIF78kQuTV2nIhGZ8EzvaJI=
 go.viam.com/utils v0.6.6 h1:1R+SpKz1McCAIC0JshgkfHy+uDu4okNmDq/AYl9m8iE=

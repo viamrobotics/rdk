@@ -27,6 +27,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -57,6 +58,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -168,6 +170,32 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 		err = stderrors.Join(err, c.UploadTraces(ctx, spans))
 	}
 	return err
+}
+
+// dataFromPathUploader is the capability interface localRobot type-asserts the configured
+// data manager service for when UploadDataFromPath is called.
+type dataFromPathUploader interface {
+	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
+		robot.UploadDataFromPathResult, error)
+}
+
+// UploadDataFromPath uploads a file or directory to the cloud via the configured data manager service.
+func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{}) (
+	robot.UploadDataFromPathResult, error,
+) {
+	names := datamanager.NamesFromRobot(r)
+	if len(names) == 0 {
+		return robot.UploadDataFromPathResult{}, errors.New("no data manager service configured")
+	}
+	svc, err := datamanager.FromProvider(r, names[0])
+	if err != nil {
+		return robot.UploadDataFromPathResult{}, err
+	}
+	uploader, ok := svc.(dataFromPathUploader)
+	if !ok {
+		return robot.UploadDataFromPathResult{}, errors.New("data manager does not support UploadDataFromPath")
+	}
+	return uploader.UploadDataFromPath(ctx, path, md, extra)
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -967,11 +995,11 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		failedModules := r.manager.moduleManager.FailedModules()
+		unhealthyModules := r.manager.moduleManager.UnhealthyModules()
 		var modules string
-		if len(failedModules) > 0 {
-			sort.Strings(failedModules)
-			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)
+		if len(unhealthyModules) > 0 {
+			sort.Strings(unhealthyModules)
+			modules = fmt.Sprintf("May be in failing module: %v; ", unhealthyModules)
 		}
 		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered; "+
 			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
@@ -1719,6 +1747,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.reconfigureTracing(ctx, newConfig)
 	}
 
+	// Mark all new modules as pending now, before packagemanager starts doing anything.
+	for _, mod := range initialDiff.Added.Modules {
+		r.manager.moduleManager.SetModuleStatusPending(mod.Name)
+	}
+
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
@@ -1866,10 +1899,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			r.jobManager.UpdateJobs(diff)
 		}
 	}()
-
-	if r.manager.moduleManager != nil {
-		r.manager.moduleManager.ClearFailedModules()
-	}
 
 	if diff.ResourcesEqual {
 		return
@@ -2233,6 +2262,8 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	if r.initializing.Load() {
 		result.State = robot.StateInitializing
 	}
+
+	result.Modules = r.manager.moduleManager.Status()
 
 	if r.jobManager != nil {
 		if n := r.jobManager.NumJobHistories.Load(); n > 0 {

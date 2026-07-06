@@ -114,6 +114,7 @@ func TestConstraintPath(t *testing.T) {
 		fs,
 		[]spatial.Geometry{}, // moving geometries
 		[]spatial.Geometry{}, // static geometries
+		nil,                  // moving frame names
 		referenceframe.NewNeutralLinearInputs(fs),
 		nil, // obstaclesInWorldFrame
 		logger,
@@ -221,6 +222,7 @@ func TestLineFollow(t *testing.T) {
 		fs,
 		[]spatial.Geometry{}, // moving geometries
 		[]spatial.Geometry{}, // static geometries
+		nil,                  // moving frame names
 		startCfg,
 		nil, // obstaclesInWorldFrame
 		logger,
@@ -321,6 +323,7 @@ func TestCollisionConstraints(t *testing.T) {
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
+		map[string]bool{model.Name(): true},
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
@@ -581,6 +584,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
+		map[string]bool{model.Name(): true},
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
@@ -664,7 +668,9 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 
 	handler := &ConstraintChecker{}
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
-		fs, movingRobotGeometries, staticRobotGeometries, worldGeometries.Geometries(),
+		fs, movingRobotGeometries,
+		map[string]bool{model.Name(): true},
+		staticRobotGeometries, worldGeometries.Geometries(),
 		nil, defaultCollisionBufferMM, nil, logging.NewTestLogger(b))
 	test.That(b, err, test.ShouldBeNil)
 
