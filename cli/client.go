@@ -5296,7 +5296,15 @@ func (c *viamClient) connectToRobot(
 	if c.dialOverride != nil {
 		return c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
 	}
-	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
+	globalArgs, err := getGlobalArgs(c.c)
+	if err != nil {
+		return nil, err
+	}
+	clientOpts := []client.RobotClientOption{
+		client.WithDialOptions(rpcOpts...),
+		client.WithCheckConnectedEvery(globalArgs.CheckConnectedEvery),
+	}
+	robotClient, err := client.New(dialCtx, fqdn, logger, clientOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
 	}
