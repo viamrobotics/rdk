@@ -13,9 +13,9 @@ import (
 	goutils "go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	modulestatus "go.viam.com/rdk/module/status"
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/robot"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -534,9 +534,11 @@ func isModuleReloadComplete(
 	switch modStatus.State {
 	case modulestatus.ModuleStateReady, modulestatus.ModuleStateUnhealthy:
 		return true, modStatus
-	default:
+	case modulestatus.ModuleStateUnknown, modulestatus.ModuleStatePending,
+		modulestatus.ModuleStateStarting, modulestatus.ModuleStateClosing:
 		return false, modulestatus.Status{}
 	}
+	return false, modulestatus.Status{}
 }
 
 func moduleStatusStateLabel(status robot.MachineStatus, moduleName string) string {
@@ -545,6 +547,8 @@ func moduleStatusStateLabel(status robot.MachineStatus, moduleName string) strin
 		return "not found"
 	}
 	switch modStatus.State {
+	case modulestatus.ModuleStateUnknown:
+		return "unknown"
 	case modulestatus.ModuleStatePending:
 		return "pending"
 	case modulestatus.ModuleStateStarting:
@@ -555,14 +559,13 @@ func moduleStatusStateLabel(status robot.MachineStatus, moduleName string) strin
 		return "unhealthy"
 	case modulestatus.ModuleStateClosing:
 		return "closing"
-	default:
-		return "unknown"
 	}
+	return "unknown"
 }
 
 // waitForModuleReloadHook, when set, replaces waitForModuleReload. Used by tests.
 var waitForModuleReloadHook func(
-	vc *viamClient,
+	c *viamClient,
 	ctx context.Context,
 	cmd *cli.Command,
 	part *apppb.RobotPart,
@@ -573,7 +576,7 @@ var waitForModuleReloadHook func(
 
 // waitForModuleReload polls the machine until its config timestamp and module status reflect
 // the reload that was just pushed.
-func (vc *viamClient) waitForModuleReload(
+func (c *viamClient) waitForModuleReload(
 	ctx context.Context,
 	cmd *cli.Command,
 	part *apppb.RobotPart,
@@ -582,19 +585,19 @@ func (vc *viamClient) waitForModuleReload(
 	logger logging.Logger,
 ) (modulestatus.Status, error) {
 	if waitForModuleReloadHook != nil {
-		return waitForModuleReloadHook(vc, ctx, cmd, part, moduleName, reloadTime, logger)
+		return waitForModuleReloadHook(c, ctx, cmd, part, moduleName, reloadTime, logger)
 	}
 	args, err := getGlobalArgs(cmd)
 	if err != nil {
 		return modulestatus.Status{}, err
 	}
 
-	dialCtx, fqdn, rpcOpts, err := vc.prepareDialInner(ctx, part.Fqdn, args.Debug)
+	dialCtx, fqdn, rpcOpts, err := c.prepareDialInner(ctx, part.Fqdn, args.Debug)
 	if err != nil {
 		return modulestatus.Status{}, err
 	}
 
-	robotClient, err := vc.connectToRobot(dialCtx, fqdn, rpcOpts, args.Debug, logger)
+	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, args.Debug, logger)
 	if err != nil {
 		return modulestatus.Status{}, err
 	}
