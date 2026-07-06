@@ -47,7 +47,7 @@ func init() {
 // For more information, see the [Sync method docs].
 //
 // [data management service docs]: https://docs.viam.com/data-ai/capture-data/capture-sync/
-// [Sync method docs]: https://docs.viam.com/dev/reference/apis/services/data/#sync
+// [Sync method docs]: https://docs.viam.com/reference/apis/services/data/#sync
 type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.

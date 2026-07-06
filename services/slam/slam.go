@@ -175,10 +175,10 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 // For more information, see the [Properties method docs].
 //
 // [SLAM service docs]: https://docs.viam.com/operate/reference/services/slam/
-// [Position method docs]: https://docs.viam.com/dev/reference/apis/services/slam/#getposition
-// [PointCloudMap method docs]: https://docs.viam.com/dev/reference/apis/services/slam/#getpointcloudmap
-// [InternalState method docs]: https://docs.viam.com/dev/reference/apis/services/slam/#getinternalstate
-// [Properties method docs]: https://docs.viam.com/dev/reference/apis/services/slam/#getproperties
+// [Position method docs]: https://docs.viam.com/reference/apis/services/slam/#getposition
+// [PointCloudMap method docs]: https://docs.viam.com/reference/apis/services/slam/#getpointcloudmap
+// [InternalState method docs]: https://docs.viam.com/reference/apis/services/slam/#getinternalstate
+// [Properties method docs]: https://docs.viam.com/reference/apis/services/slam/#getproperties
 type Service interface {
 	resource.Resource
 	Position(ctx context.Context) (spatialmath.Pose, error)

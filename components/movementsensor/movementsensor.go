@@ -146,15 +146,15 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [Accuracy method docs].
 //
-// [movement sensor component docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/
-// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getposition
-// [LinearVelocity method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getlinearvelocity
-// [AngularVelocity method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getangularvelocity
-// [LinearAcceleration method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getlinearacceleration
-// [CompassHeading method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getcompassheading
-// [Orientation method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getorientation
-// [Properties method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getproperties
-// [Accuracy method docs]: https://docs.viam.com/dev/reference/apis/components/movement-sensor/#getaccuracy
+// [movement sensor component docs]: https://docs.viam.com/reference/apis/components/movement-sensor/
+// [Position method docs]: https://docs.viam.com/reference/apis/components/movement-sensor/#getposition
+// [LinearVelocity method docs]: https://docs.viam.com/reference/apis/components/movement-sensor/#getlinearvelocity
+// [AngularVelocity method docs]: https://docs.viam.com/reference/apis/components/movement-sensor/#getangularvelocity
+// [LinearAcceleration method docs]: https://docs.viam.com/reference/apis/components/movement-sensor/#getlinearacceleration
+// [CompassHeading method docs]: https://docs.viam.com/reference/apis/components/movement-sensor/#getcompassheading
+// [Orientation method docs]: https://docs.viam.com/reference/apis/components/movement-sensor/#getorientation
+// [Properties method docs]: https://docs.viam.com/reference/apis/components/movement-sensor/#getproperties
+// [Accuracy method docs]: https://docs.viam.com/reference/apis/components/movement-sensor/#getaccuracy
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource

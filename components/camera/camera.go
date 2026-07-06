@@ -257,10 +257,10 @@ func (ni *NamedImage) Bounds() (image.Rectangle, error) {
 //
 // For more information, see the [Close method docs].
 //
-// [camera component docs]: https://docs.viam.com/dev/reference/apis/components/camera/
-// [Images method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimages
-// [NextPointCloud method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getpointcloud
-// [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
+// [camera component docs]: https://docs.viam.com/reference/apis/components/camera/
+// [Images method docs]: https://docs.viam.com/reference/apis/components/camera/#getimages
+// [NextPointCloud method docs]: https://docs.viam.com/reference/apis/components/camera/#getpointcloud
+// [Close method docs]: https://docs.viam.com/reference/apis/components/camera/#close
 type Camera interface {
 	resource.Resource
 	resource.Shaped

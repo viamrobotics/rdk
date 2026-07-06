@@ -343,14 +343,14 @@ type PlanWithStatus struct {
 // For more information, see the [PlanHistory method docs].
 //
 // [motion service docs]: https://docs.viam.com/operate/reference/services/motion/
-// [Move method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#move
-// [MoveOnMap method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonmap
-// [MoveOnGlobe method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonglobe
-// [StopPlan method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#stopplan
-// [ListPlanStatuses method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#listplanstatuses
-// [PlanHistory method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getplan
+// [Move method docs]: https://docs.viam.com/reference/apis/services/motion/#move
+// [MoveOnMap method docs]: https://docs.viam.com/reference/apis/services/motion/#moveonmap
+// [MoveOnGlobe method docs]: https://docs.viam.com/reference/apis/services/motion/#moveonglobe
+// [StopPlan method docs]: https://docs.viam.com/reference/apis/services/motion/#stopplan
+// [ListPlanStatuses method docs]: https://docs.viam.com/reference/apis/services/motion/#listplanstatuses
+// [PlanHistory method docs]: https://docs.viam.com/reference/apis/services/motion/#getplan
 //
-// [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
+// [GetPose method docs]: https://docs.viam.com/reference/apis/services/motion/#getpose
 type Service interface {
 	resource.Resource
 

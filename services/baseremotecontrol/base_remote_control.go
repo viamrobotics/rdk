@@ -64,8 +64,8 @@ func init() {
 // For more information, see the [ControllerInputs method docs].
 //
 // [base remote control service docs]: https://docs.viam.com/operate/reference/services/base-rc/
-// [Close method docs]: https://docs.viam.com/dev/reference/apis/services/base-rc/#close
-// [ControllerInputs method docs]: https://docs.viam.com/dev/reference/apis/services/base-rc/#controllerinputs
+// [Close method docs]: https://docs.viam.com/reference/apis/services/base-rc/#close
+// [ControllerInputs method docs]: https://docs.viam.com/reference/apis/services/base-rc/#controllerinputs
 type Service interface {
 	resource.Resource
 	// Close out of all remote control related systems.
