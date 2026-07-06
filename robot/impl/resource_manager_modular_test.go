@@ -301,8 +301,7 @@ func TestModularResources(t *testing.T) {
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldNotBeNil)
 		// The dependency was removed, so it is now unresolved. (Resolution skips a dependency
-		// marked for removal, so the dependent is never built against the doomed node and never
-		// caches a transient "pending removal" error.)
+		// marked for removal, so the dependent is never built against the doomed node.)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unresolved dependencies")
 		_, err = r.ResourceByName(cfg3.ResourceName())
 		test.That(t, err, test.ShouldNotBeNil)
