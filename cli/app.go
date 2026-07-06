@@ -21,14 +21,13 @@ import (
 const (
 	flagAll = "all"
 
-	baseURLFlag         = "base-url"
-	configFlag          = "config"
-	debugFlag           = "debug"
-	profileFlag         = "profile"
-	disableProfilesFlag = "disable-profiles"
-	profileFlagName     = "profile-name"
-
-	checkConnectedEveryFlag = "check-connected-every"
+	baseURLFlag                 = "base-url"
+	configFlag                  = "config"
+	debugFlag                   = "debug"
+	profileFlag                 = "profile"
+	disableProfilesFlag         = "disable-profiles"
+	profileFlagName             = "profile-name"
+	checkConnectionIntervalFlag = "check-connection-interval"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -513,8 +512,8 @@ var app = &cli.Command{
 			Usage:   "disable usage of profiles, falling back to default behavior",
 		},
 		&cli.DurationFlag{
-			Name:  checkConnectedEveryFlag,
-			Usage: "how often the robot client should check its connection to the machine (0 disables the check)",
+			Name:  checkConnectionIntervalFlag,
+			Usage: "check robot connection on this interval and close the client if a faulty connection cannot be repaired",
 		},
 	},
 	Commands: []*cli.Command{
