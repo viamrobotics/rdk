@@ -232,6 +232,11 @@ func (c *viamClient) fetchAndWriteSequenceBlob(
 	if len(resp.GetData()) == 0 {
 		return fmt.Errorf("binary data %s not found", job.binaryDataID)
 	}
+	// binaryDataID can contain slashes (org/part/id), so dstPath may be nested
+	// below binaryDir; create the intermediate directories before writing.
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o700); err != nil {
+		return errors.Wrapf(err, "failed to create directory for %s", dstPath)
+	}
 	if err := os.WriteFile(dstPath, resp.GetData()[0].GetBinary(), 0o600); err != nil {
 		return errors.Wrapf(err, "failed to write %s", dstPath)
 	}
