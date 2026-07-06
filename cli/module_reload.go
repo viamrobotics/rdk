@@ -13,14 +13,19 @@ import (
 	goutils "go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	modulestatus "go.viam.com/rdk/module/status"
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
 	rutils "go.viam.com/rdk/utils"
 )
 
 const (
 	reloadVersionPrefix       = "reload"
 	reloadSourceVersionPrefix = "reload-source"
+
+	moduleReloadPollingInterval = 2 * time.Second
+	moduleReloadPollingTimeout  = 5 * time.Minute
 )
 
 // reloadUser returns the identity string to stamp on reload configs.
@@ -498,4 +503,138 @@ func createNewModuleMap(moduleID, entryPoint, reloadUser, reloadTime, annotation
 		newMod["reload_path"] = entryPoint
 	}
 	return newMod
+}
+
+func moduleStatusByName(modules []modulestatus.Status, name string) (modulestatus.Status, bool) {
+	for _, mod := range modules {
+		if mod.Name == name {
+			return mod, true
+		}
+	}
+	return modulestatus.Status{}, false
+}
+
+// isModuleReloadComplete reports whether the machine has ingested the reload config and the
+// target module has reached a terminal state for this reload.
+func isModuleReloadComplete(
+	status robot.MachineStatus, moduleName string, reloadTime time.Time,
+) (bool, modulestatus.Status) {
+	if status.Config.LastUpdated.IsZero() || status.Config.LastUpdated.Before(reloadTime) {
+		return false, modulestatus.Status{}
+	}
+
+	modStatus, ok := moduleStatusByName(status.Modules, moduleName)
+	if !ok {
+		return false, modulestatus.Status{}
+	}
+	if modStatus.LastUpdated.IsZero() || modStatus.LastUpdated.Before(reloadTime) {
+		return false, modulestatus.Status{}
+	}
+
+	switch modStatus.State {
+	case modulestatus.ModuleStateReady, modulestatus.ModuleStateUnhealthy:
+		return true, modStatus
+	default:
+		return false, modulestatus.Status{}
+	}
+}
+
+func moduleStatusStateLabel(status robot.MachineStatus, moduleName string) string {
+	modStatus, ok := moduleStatusByName(status.Modules, moduleName)
+	if !ok {
+		return "not found"
+	}
+	switch modStatus.State {
+	case modulestatus.ModuleStatePending:
+		return "pending"
+	case modulestatus.ModuleStateStarting:
+		return "starting"
+	case modulestatus.ModuleStateReady:
+		return "ready"
+	case modulestatus.ModuleStateUnhealthy:
+		return "unhealthy"
+	case modulestatus.ModuleStateClosing:
+		return "closing"
+	default:
+		return "unknown"
+	}
+}
+
+// waitForModuleReloadHook, when set, replaces waitForModuleReload. Used by tests.
+var waitForModuleReloadHook func(
+	vc *viamClient,
+	ctx context.Context,
+	cmd *cli.Command,
+	part *apppb.RobotPart,
+	moduleName string,
+	reloadTime time.Time,
+	logger logging.Logger,
+) (modulestatus.Status, error)
+
+// waitForModuleReload polls the machine until its config timestamp and module status reflect
+// the reload that was just pushed.
+func (vc *viamClient) waitForModuleReload(
+	ctx context.Context,
+	cmd *cli.Command,
+	part *apppb.RobotPart,
+	moduleName string,
+	reloadTime time.Time,
+	logger logging.Logger,
+) (modulestatus.Status, error) {
+	if waitForModuleReloadHook != nil {
+		return waitForModuleReloadHook(vc, ctx, cmd, part, moduleName, reloadTime, logger)
+	}
+	args, err := getGlobalArgs(cmd)
+	if err != nil {
+		return modulestatus.Status{}, err
+	}
+
+	dialCtx, fqdn, rpcOpts, err := vc.prepareDialInner(ctx, part.Fqdn, args.Debug)
+	if err != nil {
+		return modulestatus.Status{}, err
+	}
+
+	robotClient, err := vc.connectToRobot(dialCtx, fqdn, rpcOpts, args.Debug, logger)
+	if err != nil {
+		return modulestatus.Status{}, err
+	}
+	defer robotClient.Close(ctx) //nolint:errcheck
+
+	deadline := time.Now().Add(moduleReloadPollingTimeout)
+	ticker := time.NewTicker(moduleReloadPollingInterval)
+	defer ticker.Stop()
+
+	var lastStatus robot.MachineStatus
+	for {
+		if err := ctx.Err(); err != nil {
+			return modulestatus.Status{}, err
+		}
+		if time.Now().After(deadline) {
+			configApplied := !lastStatus.Config.LastUpdated.IsZero() && !lastStatus.Config.LastUpdated.Before(reloadTime)
+			return modulestatus.Status{}, errors.Errorf(
+				"timed out after %s waiting for machine to apply module reload (config applied: %t, module %q state: %s)",
+				moduleReloadPollingTimeout, configApplied, moduleName, moduleStatusStateLabel(lastStatus, moduleName),
+			)
+		}
+
+		lastStatus, err = robotClient.MachineStatus(ctx)
+		if err != nil {
+			return modulestatus.Status{}, err
+		}
+
+		if complete, modStatus := isModuleReloadComplete(lastStatus, moduleName, reloadTime); complete {
+			return modStatus, nil
+		}
+
+		debugf(cmd.Root().Writer, args.Debug,
+			"waiting for module reload: config_last_updated=%v module=%q state=%s",
+			lastStatus.Config.LastUpdated, moduleName, moduleStatusStateLabel(lastStatus, moduleName),
+		)
+
+		select {
+		case <-ctx.Done():
+			return modulestatus.Status{}, ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }

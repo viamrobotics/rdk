@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/urfave/cli/v3"
 	v1 "go.viam.com/api/app/build/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
@@ -17,6 +18,8 @@ import (
 
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -111,7 +114,24 @@ func mockFullAppServiceClientWithLastKnownUpdate(
 	return client
 }
 
+func stubModuleReloadWait(t *testing.T) {
+	t.Helper()
+	waitForModuleReloadHook = func(
+		_ *viamClient,
+		_ context.Context,
+		_ *cli.Command,
+		_ *apppb.RobotPart,
+		_ string,
+		_ time.Time,
+		_ logging.Logger,
+	) (modulestatus.Status, error) {
+		return modulestatus.Status{State: modulestatus.ModuleStateReady}, nil
+	}
+	t.Cleanup(func() { waitForModuleReloadHook = nil })
+}
+
 func TestFullReloadFlow(t *testing.T) {
+	stubModuleReloadWait(t)
 	logger := logging.NewTestLogger(t)
 
 	manifestPath := createTestManifest(t, "", nil)
@@ -290,6 +310,7 @@ func TestFullReloadFlow(t *testing.T) {
 }
 
 func TestReloadWithCloudConfig(t *testing.T) {
+	stubModuleReloadWait(t)
 	logger := logging.NewTestLogger(t)
 
 	manifestPath := createTestManifest(t, "", nil)
@@ -668,6 +689,7 @@ func TestReloadWithMissingBuildSection(t *testing.T) {
 }
 
 func TestUpdateRobotPartPassesLastKnownUpdate(t *testing.T) {
+	stubModuleReloadWait(t)
 	logger := logging.NewTestLogger(t)
 	manifestPath := createTestManifest(t, "", nil)
 	confStruct, err := structpb.NewStruct(map[string]any{
@@ -698,6 +720,7 @@ func TestUpdateRobotPartPassesLastKnownUpdate(t *testing.T) {
 }
 
 func TestUpdateRobotPartRetryOnConflict(t *testing.T) {
+	stubModuleReloadWait(t)
 	manifestPath := createTestManifest(t, "", nil)
 	confStruct, err := structpb.NewStruct(map[string]any{
 		"modules": []any{},
@@ -936,6 +959,7 @@ func TestRepeatedReloadNeedsRestart(t *testing.T) {
 }
 
 func TestReloadUserAndTimeInModuleConfig(t *testing.T) {
+	stubModuleReloadWait(t)
 	logger := logging.NewTestLogger(t)
 	manifestPath := createTestManifest(t, "", nil)
 	confStruct, err := structpb.NewStruct(map[string]any{
@@ -984,4 +1008,70 @@ func TestReloadUserAndTimeInModuleConfig(t *testing.T) {
 	mod := modules[0].(map[string]any)
 	test.That(t, mod["reload_user"], test.ShouldEqual, testEmail)
 	test.That(t, mod["reload_time"], test.ShouldNotBeEmpty)
+}
+
+func TestIsModuleReloadComplete(t *testing.T) {
+	reloadTime := time.Date(2024, 3, 18, 12, 0, 0, 0, time.UTC)
+	moduleName := "viam-labs_test-module"
+	configUpdated := reloadTime.Add(time.Second)
+	moduleUpdated := reloadTime.Add(2 * time.Second)
+
+	t.Run("incompleteWhenConfigNotUpdated", func(t *testing.T) {
+		complete, _ := isModuleReloadComplete(robot.MachineStatus{
+			Config: rdkConfig.Revision{LastUpdated: reloadTime.Add(-time.Second)},
+			Modules: []modulestatus.Status{{
+				Name: moduleName, State: modulestatus.ModuleStateReady, LastUpdated: moduleUpdated,
+			}},
+		}, moduleName, reloadTime)
+		test.That(t, complete, test.ShouldBeFalse)
+	})
+
+	t.Run("incompleteWhenModuleMissing", func(t *testing.T) {
+		complete, _ := isModuleReloadComplete(robot.MachineStatus{
+			Config: rdkConfig.Revision{LastUpdated: configUpdated},
+		}, moduleName, reloadTime)
+		test.That(t, complete, test.ShouldBeFalse)
+	})
+
+	t.Run("incompleteWhenModulePending", func(t *testing.T) {
+		complete, _ := isModuleReloadComplete(robot.MachineStatus{
+			Config: rdkConfig.Revision{LastUpdated: configUpdated},
+			Modules: []modulestatus.Status{{
+				Name: moduleName, State: modulestatus.ModuleStatePending, LastUpdated: moduleUpdated,
+			}},
+		}, moduleName, reloadTime)
+		test.That(t, complete, test.ShouldBeFalse)
+	})
+
+	t.Run("incompleteWhenModuleNotUpdatedSinceReload", func(t *testing.T) {
+		complete, _ := isModuleReloadComplete(robot.MachineStatus{
+			Config: rdkConfig.Revision{LastUpdated: configUpdated},
+			Modules: []modulestatus.Status{{
+				Name: moduleName, State: modulestatus.ModuleStateReady, LastUpdated: reloadTime.Add(-time.Second),
+			}},
+		}, moduleName, reloadTime)
+		test.That(t, complete, test.ShouldBeFalse)
+	})
+
+	t.Run("completeWhenReady", func(t *testing.T) {
+		complete, modStatus := isModuleReloadComplete(robot.MachineStatus{
+			Config: rdkConfig.Revision{LastUpdated: configUpdated},
+			Modules: []modulestatus.Status{{
+				Name: moduleName, State: modulestatus.ModuleStateReady, LastUpdated: moduleUpdated,
+			}},
+		}, moduleName, reloadTime)
+		test.That(t, complete, test.ShouldBeTrue)
+		test.That(t, modStatus.State, test.ShouldEqual, modulestatus.ModuleStateReady)
+	})
+
+	t.Run("completeWhenUnhealthy", func(t *testing.T) {
+		complete, modStatus := isModuleReloadComplete(robot.MachineStatus{
+			Config: rdkConfig.Revision{LastUpdated: configUpdated},
+			Modules: []modulestatus.Status{{
+				Name: moduleName, State: modulestatus.ModuleStateUnhealthy, LastUpdated: moduleUpdated,
+			}},
+		}, moduleName, reloadTime)
+		test.That(t, complete, test.ShouldBeTrue)
+		test.That(t, modStatus.State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+	})
 }
