@@ -112,7 +112,7 @@ func TestNetLoggerSync(t *testing.T) {
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
 	loggerWithoutNet := NewTestLogger(t)
-	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, loggerWithoutNet)
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, 0, loggerWithoutNet)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
@@ -142,7 +142,7 @@ func TestNetLoggerPreservesTypedFields(t *testing.T) {
 	defer server.stop()
 
 	loggerWithoutNet := NewTestLogger(t)
-	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, loggerWithoutNet)
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, 0, loggerWithoutNet)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
@@ -221,7 +221,7 @@ func TestNetLoggerSyncInvalidUTF8(t *testing.T) {
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
 	loggerWithoutNet, observedLogs := NewObservedTestLogger(t)
-	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, loggerWithoutNet)
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, 0, loggerWithoutNet)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
@@ -263,7 +263,7 @@ func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
 	loggerWithoutNet := NewTestLogger(t)
-	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, loggerWithoutNet)
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, 0, loggerWithoutNet)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")

@@ -48,15 +48,22 @@ func NewNetAppender(
 	sharedConn bool,
 	loggerWithoutNet Logger,
 ) (*NetAppender, error) {
-	return newNetAppender(config, conn, sharedConn, true, loggerWithoutNet)
+	timeout := logWriteTimeout
+	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
+		timeout = logWriteTimeoutBehindProxy
+	}
+	return newNetAppender(config, conn, sharedConn, true, timeout, loggerWithoutNet)
 }
 
 // inner function for NewNetAppender which can disable background worker in tests.
+// timeout controls both the gRPC dial timeout and the Log RPC timeout; pass 0 to disable
+// timeouts entirely (useful in tests).
 func newNetAppender(
 	config *CloudConfig,
 	conn rpc.ClientConn,
 	sharedConn,
 	startBackgroundWorker bool,
+	timeout time.Duration,
 	loggerWithoutNet Logger,
 ) (*NetAppender, error) {
 	hostname, err := os.Hostname()
@@ -67,6 +74,7 @@ func newNetAppender(
 	logWriter := &remoteLogWriterGRPC{
 		cfg:              config,
 		sharedConn:       sharedConn,
+		timeout:          timeout,
 		loggerWithoutNet: loggerWithoutNet,
 	}
 
@@ -460,6 +468,10 @@ type remoteLogWriterGRPC struct {
 	// When sharedConn = true, don't create or destroy connections; use what we're given.
 	sharedConn bool
 
+	// timeout is applied independently to the gRPC dial and to the Log RPC call.
+	// Zero means no timeout.
+	timeout time.Duration
+
 	// `loggerWithoutNet` is the logger to use for meta/internal logs from the `remoteLogWriterGRPC`.
 	loggerWithoutNet Logger
 }
@@ -473,31 +485,29 @@ func (w *remoteLogWriterGRPC) rpcClientState() connectivity.State {
 }
 
 func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
-	timeout := logWriteTimeout
-	// When environment indicates we are behind a proxy, bump timeout. Network
-	// operations tend to take longer when behind a proxy.
-	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
-		timeout = logWriteTimeoutBehindProxy
-	}
-
 	// Lazily creating the client blocks until the gRPC connection is ready, which
 	// can take several seconds on a slow or busy machine. Give the dial its own
 	// timeout so it does not eat into the budget for the Log call below.
-	dialCtx, dialCancel := context.WithTimeout(ctx, timeout)
+	dialCtx := ctx
+	var dialCancel context.CancelFunc
+	if w.timeout > 0 {
+		dialCtx, dialCancel = context.WithTimeout(ctx, w.timeout)
+	}
 	client, err := w.getOrCreateClient(dialCtx)
-	dialCancel()
+	if dialCancel != nil {
+		dialCancel()
+	}
 	if err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	if w.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, w.timeout)
+		defer cancel()
+	}
 	_, err = client.Log(ctx, &apppb.LogRequest{Id: w.cfg.ID, Logs: logs})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.RobotServiceClient, error) {
