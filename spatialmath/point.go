@@ -60,7 +60,7 @@ func (pt *point) almostEqual(g Geometry) bool {
 
 // Transform premultiplies the point pose with a transform, allowing the point to be moved in space.
 func (pt *point) Transform(toPremultiply Pose) Geometry {
-	return &point{Compose(toPremultiply, NewPoseFromPoint(pt.position)).Point(), pt.label}
+	return &point{TransformPointByPose(toPremultiply, pt.position), pt.label}
 }
 
 // ToProto converts the point to a Geometry proto message.
