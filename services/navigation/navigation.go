@@ -165,15 +165,15 @@ type Properties struct {
 // For more information, see the [Properties method docs].
 //
 // [navigation service docs]: https://docs.viam.com/operate/reference/services/navigation/
-// [Mode method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getmode
-// [SetMode method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#setmode
-// [Location method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getlocation
-// [Waypoints method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getwaypoints
-// [AddWaypoint method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#addwaypoint
-// [RemoveWaypoint method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#removewaypoint
-// [Paths method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getpaths
-// [Properties method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getproperties
-// [Obstacles method docs]: https://docs.viam.com/dev/reference/apis/services/navigation/#getobstacles
+// [Mode method docs]: https://docs.viam.com/reference/apis/services/navigation/#getmode
+// [SetMode method docs]: https://docs.viam.com/reference/apis/services/navigation/#setmode
+// [Location method docs]: https://docs.viam.com/reference/apis/services/navigation/#getlocation
+// [Waypoints method docs]: https://docs.viam.com/reference/apis/services/navigation/#getwaypoints
+// [AddWaypoint method docs]: https://docs.viam.com/reference/apis/services/navigation/#addwaypoint
+// [RemoveWaypoint method docs]: https://docs.viam.com/reference/apis/services/navigation/#removewaypoint
+// [Paths method docs]: https://docs.viam.com/reference/apis/services/navigation/#getpaths
+// [Properties method docs]: https://docs.viam.com/reference/apis/services/navigation/#getproperties
+// [Obstacles method docs]: https://docs.viam.com/reference/apis/services/navigation/#getobstacles
 type Service interface {
 	resource.Resource
 

@@ -116,11 +116,11 @@ func Named(name string) resource.Name {
 // For more information, see the [Properties method docs].
 //
 // [base component docs]: https://docs.viam.com/components/base/
-// [Properties method docs]: https://docs.viam.com/dev/reference/apis/components/base/#getproperties
-// [SetVelocity method docs]: https://docs.viam.com/dev/reference/apis/components/base/#setvelocity
-// [SetPower method docs]: https://docs.viam.com/dev/reference/apis/components/base/#setpower
-// [Spin method docs]: https://docs.viam.com/dev/reference/apis/components/base/#spin
-// [MoveStraight method docs]: https://docs.viam.com/dev/reference/apis/components/base/#movestraight
+// [Properties method docs]: https://docs.viam.com/reference/apis/components/base/#getproperties
+// [SetVelocity method docs]: https://docs.viam.com/reference/apis/components/base/#setvelocity
+// [SetPower method docs]: https://docs.viam.com/reference/apis/components/base/#setpower
+// [Spin method docs]: https://docs.viam.com/reference/apis/components/base/#spin
+// [MoveStraight method docs]: https://docs.viam.com/reference/apis/components/base/#movestraight
 type Base interface {
 	resource.Resource
 	resource.Actuator

@@ -3663,7 +3663,7 @@ Run this command from within the module directory.`,
 						&cli.StringFlag{
 							Name: generalFlagResourceSubtype,
 							Usage: "(module only) resource subtype to use in module, for example arm, camera, or motion. see " +
-								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
+								"https://docs.viam.com/reference/glossary/#term-subtype for more details",
 						},
 						// This is unnecessary and creates a gotcha for users. Kept here
 						// because it's technically breaking to remove it, but it's hidden

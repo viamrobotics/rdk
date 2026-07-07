@@ -121,15 +121,15 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // For more information, see the [IsPowered method docs].
 //
-// [motor component docs]: https://docs.viam.com/dev/reference/apis/components/motor/
-// [SetPower method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#setpower
-// [GoFor method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#gofor
-// [GoTo method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#goto
-// [SetRPM method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#setrpm
-// [ResetZeroPosition method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#resetzeroposition
-// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#getposition
-// [Properties method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#getproperties
-// [IsPowered method docs]: https://docs.viam.com/dev/reference/apis/components/motor/#ispowered
+// [motor component docs]: https://docs.viam.com/reference/apis/components/motor/
+// [SetPower method docs]: https://docs.viam.com/reference/apis/components/motor/#setpower
+// [GoFor method docs]: https://docs.viam.com/reference/apis/components/motor/#gofor
+// [GoTo method docs]: https://docs.viam.com/reference/apis/components/motor/#goto
+// [SetRPM method docs]: https://docs.viam.com/reference/apis/components/motor/#setrpm
+// [ResetZeroPosition method docs]: https://docs.viam.com/reference/apis/components/motor/#resetzeroposition
+// [Position method docs]: https://docs.viam.com/reference/apis/components/motor/#getposition
+// [Properties method docs]: https://docs.viam.com/reference/apis/components/motor/#getproperties
+// [IsPowered method docs]: https://docs.viam.com/reference/apis/components/motor/#ispowered
 type Motor interface {
 	resource.Resource
 	resource.Actuator
