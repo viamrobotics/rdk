@@ -427,7 +427,7 @@ func TestSetStreamOptions(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to get camera")
 	})
 
 	t.Run("SetStreamOptions without name", func(t *testing.T) {
@@ -457,6 +457,17 @@ func TestSetStreamOptions(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
+	})
+
+	// Test setting stream options with a resolution not reported by GetStreamOptions
+	t.Run("SetStreamOptions with unavailable resolution", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-0",
+			Resolution: &streampb.Resolution{Width: 300, Height: 200},
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "do not match a resolution returned by GetStreamOptions")
 	})
 
 	t.Run("AddStream creates video track", func(t *testing.T) {
@@ -509,9 +520,16 @@ func TestSetStreamOptions(t *testing.T) {
 	})
 
 	t.Run("SetStreamOptions with RTPPassthrough enabled", func(t *testing.T) {
+		// The RTP passthrough fake camera ignores the configured width and height, so ask
+		// GetStreamOptions which resolutions are actually available and pick a scaled one.
+		getStreamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+			Name: "fake-cam-0-1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(getStreamOptionsResp.Resolutions), test.ShouldBeGreaterThan, 1)
 		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
 			Name:       "fake-cam-0-1",
-			Resolution: &streampb.Resolution{Width: 320, Height: 240},
+			Resolution: getStreamOptionsResp.Resolutions[1],
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
