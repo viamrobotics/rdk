@@ -826,6 +826,14 @@ func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
 
 // ResolveDependencies attempts to link up unresolved dependencies after
 // new changes to the graph.
+//
+// Note: This only resolves dependencies a node still lists as unresolved. Once a
+// node resolves a dependency, the requirement lives on solely as a graph edge, so
+// if that edge is later removed (e.g. the dependency is removed) without the dependent
+// being removed or re-marking the dependency as unresolved, this pass will not rebuild
+// the edge even if the dependency is later re-added. Every resource-removal path at the
+// robot level either cascades removal to the dependent or marks it to re-resolve the
+// dependency, so this gap is theoretical.
 func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -889,10 +897,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 				// on a later pass once a live node with that name exists.
 				if depNode, ok := g.nodes.Get(resolvedName); ok && depNode.MarkedForRemoval() {
 					resolved = false
-				}
-			}
-			if resolved {
-				if err := g.addChild(nodeName, resolvedName); err != nil {
+				} else if err := g.addChild(nodeName, resolvedName); err != nil {
 					allErrs = multierr.Combine(allErrs, err)
 					logger.Errorw(
 						"error adding dependency for resource as a child to parent",
