@@ -831,9 +831,11 @@ func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
 // node resolves a dependency, the requirement lives on solely as a graph edge, so
 // if that edge is later removed (e.g. the dependency is removed) without the dependent
 // being removed or re-marking the dependency as unresolved, this pass will not rebuild
-// the edge even if the dependency is later re-added. Every resource-removal path at the
-// robot level either cascades removal to the dependent or marks it to re-resolve the
-// dependency, so this gap is theoretical.
+// the edge even if the dependency is later re-added. We guard on resolving a dependency
+// whose node is already marked for removal, so that a dependent node will stay pending
+// instead of building an edge that is about to be stripped, which prevents the one
+// known way of reaching this state. Other unknown paths may still reach this state, and
+// this pass would not recover a dependent stranded that way.
 func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()

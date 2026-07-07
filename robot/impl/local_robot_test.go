@@ -5754,4 +5754,12 @@ func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// ... and the reader is connected to it, rather than left available-but-disconnected.
 	test.That(t, lr.manager.resources.GetAllParentsOf(readerName), test.ShouldContain, sensor.Named("s"))
+	// ... and the edge is actually usable. The reader's Readings implementation just forwards
+	// the call to its sensor dependency "s" so this call travels test -> reader -> s (hop over
+	// the reader->s edge). If that edge existed in the graph but the underlying client was
+	// unusable, this would error even though the GetAllParentsOf check above passed.
+	reader, err := r.ResourceByName(readerName)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = reader.(sensor.Sensor).Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
 }
