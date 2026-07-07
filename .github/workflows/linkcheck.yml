@@ -7,6 +7,9 @@
 name: run-htmltest
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - updating-jira-action
   schedule:
     # 10am UTC on Mondays
     - cron: "0 10 * * 1"
