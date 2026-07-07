@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	"go.viam.com/utils"
-	"go.uber.org/multierr"
 )
 
 // sequenceBinaryDir is the directory under the user's destination where
