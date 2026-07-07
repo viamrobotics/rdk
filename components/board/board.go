@@ -115,12 +115,12 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [StreamTicks method docs].
 //
-// [board component docs]: https://docs.viam.com/hardware/common-components/add-a-board/
-// [AnalogByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#analogbyname
-// [DigitalInterruptByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#digitalinterruptbyname
-// [GPIOPinByName method docs]: https://docs.viam.com/dev/reference/apis/components/board/#gpiopinbyname
-// [SetPowerMode method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setpowermode
-// [StreamTicks method docs]: https://docs.viam.com/dev/reference/apis/components/board/#streamticks
+// [board component docs]: https://docs.viam.com/reference/apis/components/board/
+// [AnalogByName method docs]: https://docs.viam.com/reference/apis/components/board/#analogbyname
+// [DigitalInterruptByName method docs]: https://docs.viam.com/reference/apis/components/board/#digitalinterruptbyname
+// [GPIOPinByName method docs]: https://docs.viam.com/reference/apis/components/board/#gpiopinbyname
+// [SetPowerMode method docs]: https://docs.viam.com/reference/apis/components/board/#setpowermode
+// [StreamTicks method docs]: https://docs.viam.com/reference/apis/components/board/#streamticks
 type Board interface {
 	resource.Resource
 
@@ -171,8 +171,8 @@ type Board interface {
 //
 // For more information, see the [Write method docs].
 //
-// [Read method docs]: https://docs.viam.com/dev/reference/apis/components/board/#readanalogreader
-// [Write method docs]: https://docs.viam.com/dev/reference/apis/components/board/#writeanalog
+// [Read method docs]: https://docs.viam.com/reference/apis/components/board/#readanalogreader
+// [Write method docs]: https://docs.viam.com/reference/apis/components/board/#writeanalog
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error)

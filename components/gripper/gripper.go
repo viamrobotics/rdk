@@ -73,9 +73,9 @@ type HoldingStatus struct {
 //
 // For more information, see the [Grab method docs].
 //
-// [gripper component docs]: https://docs.viam.com/dev/reference/apis/components/gripper/
-// [Open method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#open
-// [Grab method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#grab
+// [gripper component docs]: https://docs.viam.com/reference/apis/components/gripper/
+// [Open method docs]: https://docs.viam.com/reference/apis/components/gripper/#open
+// [Grab method docs]: https://docs.viam.com/reference/apis/components/gripper/#grab
 type Gripper interface {
 	resource.Resource
 	resource.Shaped

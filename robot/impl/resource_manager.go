@@ -610,7 +610,7 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 // closeAndUnsetResource attempts to close and unset the resource from the graph node. Should only be called within
 // resourceGraphLock.
 func (manager *resourceManager) closeAndUnsetResource(ctx context.Context, gNode *resource.GraphNode) error {
-	res, err := gNode.Resource()
+	res, err := gNode.UnsafeResource()
 	if err != nil {
 		return err
 	}

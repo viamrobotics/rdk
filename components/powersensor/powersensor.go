@@ -82,10 +82,10 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [Power method docs].
 //
-// [power sensor component docs]: https://docs.viam.com/dev/reference/apis/components/power-sensor/
-// [Voltage method docs]: https://docs.viam.com/dev/reference/apis/components/power-sensor/#getvoltage
-// [Current method docs]: https://docs.viam.com/dev/reference/apis/components/power-sensor/#getcurrent
-// [Power method docs]: https://docs.viam.com/dev/reference/apis/components/power-sensor/#getpower
+// [power sensor component docs]: https://docs.viam.com/reference/apis/components/power-sensor/
+// [Voltage method docs]: https://docs.viam.com/reference/apis/components/power-sensor/#getvoltage
+// [Current method docs]: https://docs.viam.com/reference/apis/components/power-sensor/#getcurrent
+// [Power method docs]: https://docs.viam.com/reference/apis/components/power-sensor/#getpower
 type PowerSensor interface {
 	resource.Sensor
 	resource.Resource
