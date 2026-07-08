@@ -1052,8 +1052,8 @@ github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a h1:qk5MX36oytF
 github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a/go.mod h1:MwPm+Hpd8PZRx+jkOVLGxqHl/bN+Hcsw0dD7ntSpLy0=
 github.com/viam-labs/motion-tools v1.9.0 h1:oUcxVMdrwVS7PXkWVYsUJOXkh0aTydmFlK/rciFcGxw=
 github.com/viam-labs/motion-tools v1.9.0/go.mod h1:unpRaVV4ETuJVoHa/3pzknoTnxqjSpfUMewE1vU27BA=
-github.com/viam-modules/trajex v0.100.1-0.20260526204215-d073aafe9649 h1:sqZy2DI5Tbmt9K9pSFFW6aiLgga0Ck1A8+rPaeDKJ68=
-github.com/viam-modules/trajex v0.100.1-0.20260526204215-d073aafe9649/go.mod h1:jKDJiLb+CU+eNsw6SY4+MXX8B7R3FDFOrn4O6uLvIsQ=
+github.com/viam-modules/trajex/go v0.100.2-rc1 h1:O6q18o7NhWYa5mm8iHNpHotL1Vm+pF55nuXFU6izGD8=
+github.com/viam-modules/trajex/go v0.100.2-rc1/go.mod h1:6heejC0j41y9ZXYMmWppOYSVSn8h/56iDO+IawZBRFI=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=
