@@ -152,6 +152,15 @@ func (rm *RotationMatrix) RightMatMul(rmm RotationMatrix) *RotationMatrix {
 	return &RotationMatrix{mat: mat}
 }
 
+// Transpose returns a new RotationMatrix containing the transpose of rm.
+func (rm *RotationMatrix) Transpose() *RotationMatrix {
+	return &RotationMatrix{mat: [9]float64{
+		rm.mat[0], rm.mat[3], rm.mat[6],
+		rm.mat[1], rm.mat[4], rm.mat[7],
+		rm.mat[2], rm.mat[5], rm.mat[8],
+	}}
+}
+
 // Hash returns a hash value for this rotation matrix.
 func (rm *RotationMatrix) Hash() int {
 	hash := 0
