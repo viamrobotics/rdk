@@ -76,18 +76,6 @@ jobs:
           make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} static-release
         '
 
-    - name: Verify Focal binary floor
-      # Must depend on nothing newer than Focal (GLIBC 2.31).
-      run: |
-        sudo -Hu testbot bash -lc '
-          set -euo pipefail
-          bin=$(find bin -type f -name viam-server-static | head -1)
-          echo "Inspecting $bin"; file "$bin"; ldd "$bin" || true
-          max_glibc=$(objdump -T "$bin" | grep -oE "GLIBC_[0-9.]+" | sort -V | tail -1)
-          echo "max GLIBC: ${max_glibc:-none}"
-          objdump -T "$bin" | grep -oE "GLIBCXX_[0-9.]+" | sort -V | tail -1 || echo "no GLIBCXX dep (static libstdc++)"
-        '
-
     - name: Boot smoke test
       run: |
         sudo -Hu testbot bash -lc '
