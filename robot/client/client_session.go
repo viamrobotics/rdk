@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -123,7 +124,7 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 		// gRPC reports a cancelled request as a generic context.Canceled; if reqCtx was
 		// cancelled with a more specific cause, surface that instead.
 		if reqCtx.Err() != nil {
-			if cause := context.Cause(reqCtx); cause != nil && cause != reqCtx.Err() {
+			if cause := context.Cause(reqCtx); cause != nil && !errors.Is(cause, reqCtx.Err()) {
 				err = cause
 			}
 		}
