@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -265,22 +266,13 @@ func LinkInFramesFromTransformsProtobuf(protoSlice []*commonpb.Transform) ([]*Li
 type GeometriesInFrame struct {
 	frame      string
 	geometries []spatialmath.Geometry
-
-	// This is an internal data structure used for O(1) access to named sub-geometries.
-	// Do not access directly. This will not be accurate for unnamed geometries.
-	nameIndexMap map[string]int
 }
 
 // NewGeometriesInFrame generates a new GeometriesInFrame.
 func NewGeometriesInFrame(frame string, geometries []spatialmath.Geometry) *GeometriesInFrame {
-	nameIndexMap := make(map[string]int)
-	for i, geometry := range geometries {
-		nameIndexMap[geometry.Label()] = i
-	}
 	return &GeometriesInFrame{
-		frame:        frame,
-		geometries:   geometries,
-		nameIndexMap: nameIndexMap,
+		frame:      frame,
+		geometries: geometries,
 	}
 }
 
@@ -300,11 +292,10 @@ func (gF *GeometriesInFrame) Geometries() []spatialmath.Geometry {
 // GeometryByName returns the named geometry if it exists in the GeometriesInFrame, and nil otherwise.
 // If multiple geometries exist with identical names one will be chosen at random.
 func (gF *GeometriesInFrame) GeometryByName(name string) spatialmath.Geometry {
-	if gF.nameIndexMap == nil {
-		return nil
-	}
-	if i, ok := gF.nameIndexMap[name]; ok {
-		return gF.geometries[i]
+	for _, g := range gF.geometries {
+		if g.Label() == name {
+			return g
+		}
 	}
 	return nil
 }
@@ -334,4 +325,43 @@ func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*Geometries
 		return nil, err
 	}
 	return NewGeometriesInFrame(proto.GetReferenceFrame(), geometries), nil
+}
+
+type geometriesInFrameJSON struct {
+	Frame      string                        `json:"frame"`
+	Geometries []*spatialmath.GeometryConfig `json:"geometries"`
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (gF *GeometriesInFrame) MarshalJSON() ([]byte, error) {
+	configs := make([]*spatialmath.GeometryConfig, 0, len(gF.geometries))
+	for _, geometry := range gF.geometries {
+		config, err := spatialmath.NewGeometryConfig(geometry)
+		if err != nil {
+			return nil, err
+		}
+		configs = append(configs, config)
+	}
+	return json.Marshal(geometriesInFrameJSON{
+		Frame:      gF.frame,
+		Geometries: configs,
+	})
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (gF *GeometriesInFrame) UnmarshalJSON(data []byte) error {
+	var raw geometriesInFrameJSON
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	geometries := make([]spatialmath.Geometry, 0, len(raw.Geometries))
+	for _, config := range raw.Geometries {
+		geometry, err := config.ParseConfig()
+		if err != nil {
+			return err
+		}
+		geometries = append(geometries, geometry)
+	}
+	*gF = *NewGeometriesInFrame(raw.Frame, geometries)
+	return nil
 }

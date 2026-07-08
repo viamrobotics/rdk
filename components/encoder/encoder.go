@@ -1,7 +1,7 @@
 // Package encoder implements the encoder component.
 // For more information, see the [encoder component docs].
 //
-// [encoder component docs]: https://docs.viam.com/components/encoder/
+// [encoder component docs]: https://docs.viam.com/reference/components/encoder/
 package encoder
 
 import (
@@ -103,10 +103,10 @@ func (t PositionType) String() string {
 //
 // For more information, see the [Properties methods docs].
 //
-// [encoder component docs]: https://docs.viam.com/dev/reference/apis/components/encoder/
-// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#getposition
-// [ResetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#resetposition
-// [Properties methods docs]: https://docs.viam.com/dev/reference/apis/components/encoder/#getproperties
+// [encoder component docs]: https://docs.viam.com/reference/apis/components/encoder/
+// [Position method docs]: https://docs.viam.com/reference/apis/components/encoder/#getposition
+// [ResetPosition method docs]: https://docs.viam.com/reference/apis/components/encoder/#resetposition
+// [Properties methods docs]: https://docs.viam.com/reference/apis/components/encoder/#getproperties
 type Encoder interface {
 	resource.Resource
 

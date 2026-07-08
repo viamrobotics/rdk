@@ -171,3 +171,10 @@ func TestIsDefaultOrientation(t *testing.T) {
 	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeTrue)
 	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 1, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeFalse)
 }
+
+func TestQuatBetweenNoAllocs(t *testing.T) {
+	allocs := testing.AllocsPerRun(1000, func() {
+		_ = QuatBetween(ovd45x, aa45x)
+	})
+	test.That(t, allocs, test.ShouldEqual, 0)
+}

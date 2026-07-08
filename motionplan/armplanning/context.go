@@ -152,7 +152,7 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 		return nil, err
 	}
 
-	movingRobotGeometries, staticRobotGeometries := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
+	movingRobotGeometries, staticRobotGeometries, movingFrameNames := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
 
 	psc.Checker, err = motionplan.NewConstraintChecker(
 		pc.planOpts.CollisionBufferMM,
@@ -161,8 +161,9 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 		goal,
 		pc.fs,
 		movingRobotGeometries, staticRobotGeometries,
+		movingFrameNames,
 		start,
-		pc.request.WorldState,
+		pc.request.ObstaclesInWorldFrame,
 		pc.logger.Sublogger("constraint"),
 		pc.collisionCache,
 	)

@@ -175,14 +175,14 @@ func NewBuiltIn(
 		configuredDefaultExtras: make(map[string]any),
 	}
 
-	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
+	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return ms, nil
 }
 
 // Reconfigure updates the motion service when the config has changed.
-func (ms *builtIn) Reconfigure(
+func (ms *builtIn) BuiltInReconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -518,13 +518,18 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 
+	obstaclesInWorldFrame, err := req.WorldState.ObstaclesInWorldFrame(frameSys, fsInputs)
+	if err != nil {
+		return nil, err
+	}
+
 	planRequest := &armplanning.PlanRequest{
-		FrameSystem:    frameSys,
-		Goals:          worldWaypoints,
-		StartState:     startState,
-		WorldState:     req.WorldState,
-		Constraints:    req.Constraints,
-		PlannerOptions: planOpts,
+		FrameSystem:           frameSys,
+		Goals:                 worldWaypoints,
+		StartState:            startState,
+		ObstaclesInWorldFrame: obstaclesInWorldFrame,
+		Constraints:           req.Constraints,
+		PlannerOptions:        planOpts,
 	}
 
 	start := time.Now()

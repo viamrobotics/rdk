@@ -74,6 +74,8 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 		cancel()
 		return nil, nil, nil, err
 	}
+	// xpty.Start doesn't give the child a controlling terminal, so interactive shells lose job control on unix
+	setControllingTTY(cmd)
 	if err := f.Start(cmd); err != nil {
 		cancel()
 		utils.UncheckedError(f.Close())

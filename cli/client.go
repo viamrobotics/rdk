@@ -4191,7 +4191,7 @@ func (conf *Config) checkUpdate(cmd *cli.Command) error {
 		// the local version is out of date, so we know to warn
 		if localVersion.LessThan(latestVersion) {
 			warningf(cmd.Root().ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+				"Run 'viam update' or see https://docs.viam.com/cli/overview/#install", localVersion.Original(), latestVersion.Original())
 		}
 		return nil
 	}
@@ -4216,7 +4216,8 @@ func (conf *Config) checkUpdate(cmd *cli.Command) error {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		warningf(cmd.Root().ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
-			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
+			"New CLI releases happen weekly; consider updating%s. "+
+			"Run 'viam update' or see https://docs.viam.com/cli/overview/#install", updateInstructions)
 	}
 	return nil
 }
@@ -4296,35 +4297,45 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 			return err
 		}
 		pm.UpdateText("  → Updating via Homebrew — do not cancel. To recover if deleted: brew reinstall viam")
-		updated, brewErr := tryBrewUpgrade()
+		// force brew to grab the latest version before it updates - it doesn't do it by default
+		refreshViamTap()
+		upgraded, brewErr := tryBrewUpgrade()
 		if brewErr != nil {
 			if failErr := pm.Fail("brew-upgrade", brewErr); failErr != nil {
 				return failErr
 			}
 			return errors.Errorf("CLI update failed: %v", brewErr)
 		}
-		switch updated {
-		case brewUpdated:
-			if err := pm.CompleteWithMessage("brew-upgrade", "Updated via Homebrew"); err != nil {
-				return err
-			}
-			if err := pm.CompleteWithMessage("update", updatedMsg); err != nil {
-				return err
-			}
-			if args.NoProgress {
-				infof(cmd.Root().Writer, updatedMsg)
-			}
-			return nil
-		case brewNotAvailable:
-			const brewNotAvailableMsg = "Latest version not yet available on Homebrew, try again later"
-			if err := pm.FailWithMessage("update", brewNotAvailableMsg); err != nil {
-				return err
-			}
-			if args.NoProgress {
-				infof(cmd.Root().Writer, brewNotAvailableMsg)
-			}
-			return nil
+		// brew upgrade has run; pick the message from whether it upgraded and whether we could read the installed version.
+		installed, installedErr := installedBrewVersion()
+		if installedErr != nil {
+			debugf(cmd.Root().Writer, globalArgs.Debug, "CLI Update: failed to read installed brew version: %v", installedErr)
 		}
+		var brewMsg string
+		switch {
+		case installedErr != nil && upgraded:
+			// upgraded, but couldn't read the version to report it
+			brewMsg = "Updated via Homebrew"
+		case installedErr != nil && !upgraded:
+			// nothing to upgrade, and couldn't read the version
+			brewMsg = "Already up to date"
+		case installedErr == nil && upgraded:
+			// brew found a newer version in the tap and installed it
+			brewMsg = fmt.Sprintf("Updated to latest version on Homebrew: %s", installed.Original())
+		case installedErr == nil && !upgraded:
+			// already on brew's latest; the running binary may just be stale (not restarted)
+			brewMsg = fmt.Sprintf("Already up to date (version %s)", installed.Original())
+		}
+		if err := pm.Complete("brew-upgrade"); err != nil {
+			return err
+		}
+		if err := pm.CompleteWithMessage("update", brewMsg); err != nil {
+			return err
+		}
+		if args.NoProgress {
+			infof(cmd.Root().Writer, brewMsg)
+		}
+		return nil
 	}
 
 	// 4. get the local version binary path (use full path if no symlinks)
@@ -4389,12 +4400,37 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 	return nil
 }
 
-type brewUpdateResult int
+// brew doesn't automatically get the latest update from tap, so we manually refresh
+func refreshViamTap() {
+	repoOut, err := exec.Command("brew", "--repository", "viamrobotics/brews").Output()
+	if err != nil {
+		return
+	}
+	repoPath := strings.TrimSpace(string(repoOut))
+	if repoPath == "" {
+		return
+	}
+	// repoPath comes from `brew --repository`, not user input, so the subprocess args are safe.
+	utils.UncheckedError(exec.Command("git", "-C", repoPath, "pull", "--ff-only", "--quiet").Run()) //nolint:gosec
+}
 
-const (
-	brewUpdated brewUpdateResult = iota
-	brewNotAvailable
-)
+// installedBrewVersion returns the version of viam currently installed by Homebrew
+func installedBrewVersion() (*semver.Version, error) {
+	// output looks like: "viam 0.130.0"
+	out, err := exec.Command("brew", "list", "--versions", "viam").Output()
+	if err != nil {
+		return nil, errors.Errorf("failed to get installed brew version: %v", err)
+	}
+	fields := strings.Fields(string(out))
+	if len(fields) < 2 {
+		return nil, errors.Errorf("unexpected `brew list --versions viam` output: %q", strings.TrimSpace(string(out)))
+	}
+	version, err := semver.NewVersion(fields[1])
+	if err != nil {
+		return nil, errors.Errorf("failed to parse installed brew version %q: %v", fields[1], err)
+	}
+	return version, nil
+}
 
 // isRunningBrewBinary reports whether the currently executing binary is the one installed by Homebrew.
 // Returns (false, nil) when the currently executing binary is not the one installed by Homebrew.
@@ -4441,20 +4477,18 @@ func isRunningBrewBinary() (bool, error) {
 	return resolved == resolvedBrewBinary, nil
 }
 
-// tryBrewUpgrade attempts a Homebrew upgrade of viam. It should only be called
-// after confirming the running binary is brew-managed via isRunningBrewBinary.
-func tryBrewUpgrade() (brewUpdateResult, error) {
+// tryBrewUpgrade attempts a Homebrew upgrade of viam. It should only be called after
+// confirming the running binary is brew-managed via isRunningBrewBinary. upgraded reports
+// whether brew installed a newer version (false means viam was already at the tap's latest).
+func tryBrewUpgrade() (bool, error) {
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {
-		if trimmed := strings.TrimSpace(string(out)); trimmed != "" {
-			return brewUpdated, errors.Errorf("failed to upgrade CLI via brew:\n%s", trimmed)
-		}
-		return brewUpdated, errors.Wrap(err, "failed to upgrade CLI via brew")
+		return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
 	}
 	if strings.Contains(string(out), "already installed") {
-		return brewNotAvailable, nil
+		return false, nil
 	}
-	return brewUpdated, nil
+	return true, nil
 }
 
 func binaryURL() string {

@@ -267,7 +267,7 @@ func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}
 		return nil, err
 	}
 
-	return &Properties{resp.ClassificationsSupported, resp.DetectionsSupported, resp.ObjectPointCloudsSupported}, nil
+	return &Properties{resp.ClassificationsSupported, resp.DetectionsSupported, resp.ObjectPointCloudsSupported, resp.DefaultCamera}, nil
 }
 
 func (c *client) CaptureAllFromCamera(

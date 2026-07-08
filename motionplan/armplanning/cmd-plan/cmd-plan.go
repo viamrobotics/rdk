@@ -333,7 +333,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
 	// because obstacles can be in terms of reference frames contained within the frame
 	// system. Such as a camera attached to an arm.
-	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, startInputs); err != nil {
+	if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, startInputs); err != nil {
 		return err
 	}
 
@@ -479,7 +479,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 		return err
 	}
 
-	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, req.StartState.Configuration()); err != nil {
+	if err := viz.DrawWorldState(req.GetWorldState(), req.FrameSystem, req.StartState.Configuration()); err != nil {
 		return err
 	}
 

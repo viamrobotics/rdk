@@ -66,10 +66,10 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [GetNumberOfPositions method docs].
 //
-// [Switch component docs]: https://docs.viam.com/dev/reference/apis/components/switch/
-// [SetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#setposition
-// [GetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#getposition
-// [GetNumberOfPositions method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#getnumberofpositions
+// [Switch component docs]: https://docs.viam.com/reference/apis/components/switch/
+// [SetPosition method docs]: https://docs.viam.com/reference/apis/components/switch/#setposition
+// [GetPosition method docs]: https://docs.viam.com/reference/apis/components/switch/#getposition
+// [GetNumberOfPositions method docs]: https://docs.viam.com/reference/apis/components/switch/#getnumberofpositions
 type Switch interface {
 	resource.Resource
 

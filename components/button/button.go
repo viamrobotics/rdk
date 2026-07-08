@@ -50,8 +50,8 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [Push method docs].
 //
-// [Button component docs]: https://docs.viam.com/dev/reference/apis/components/button/
-// [Push method docs]: https://docs.viam.com/dev/reference/apis/components/button/#push
+// [Button component docs]: https://docs.viam.com/reference/apis/components/button/
+// [Push method docs]: https://docs.viam.com/reference/apis/components/button/#push
 type Button interface {
 	resource.Resource
 
