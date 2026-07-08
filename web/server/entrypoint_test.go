@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/rdk/testutils/robottestutils/serverutils"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web/server"
 )
@@ -424,10 +425,6 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
 	}()
 
-	machinePort, err := goutils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	machineAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
-
 	sourcePort, sourceListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	sourceListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(sourcePort))
@@ -437,7 +434,6 @@ func TestTunnelE2E(t *testing.T) {
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
 
 	wg.Add(1)
@@ -464,45 +460,29 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	}()
 
-	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		// Create a temporary config file.
-		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-		test.That(t, err, test.ShouldBeNil)
-
-		tempConfigFileName := tempConfigFile.Name()
-		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-		cfg := &config.Config{
-			Network: config.NetworkConfig{
-				NetworkConfigData: config.NetworkConfigData{
-					TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
-						{
-							Port: destPort, // allow tunneling to destination port
-						},
-						{
-							Port: timeoutDestPort, // allow tunneling to 65534
-							// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
-							ConnectionTimeout: -time.Nanosecond,
-						},
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
+	cfg := &config.Config{
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+					{
+						Port: destPort, // allow tunneling to destination port
 					},
-					BindAddress: machineAddr,
+					{
+						Port: timeoutDestPort, // allow tunneling to 65534
+						// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
+						ConnectionTimeout: -time.Nanosecond,
+					},
 				},
 			},
-		}
-		cfgBytes, err := json.Marshal(&cfg)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
-
-		args := []string{"viam-server", "-config", tempConfigFileName}
-		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
-	}()
-
-	// Open a robot client to `machineAddr`.
-	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
+		},
+	}
+	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
+	t.Cleanup(func() {
+		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		// stopServer will be called toward the end of the test so we can wait on the
+		// background tunnel workers correctly.
+	})
 
 	// Test error paths for `Tunnel` with random `net.Conn`s.
 	//
@@ -557,9 +537,9 @@ func TestTunnelE2E(t *testing.T) {
 	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
 
-	// Cancel `runServerCtx` once message has made it all the way across and has been
-	// echoed back. This should stop the `RunServer` goroutine.
-	runServerCtxCancel()
+	// Cancel the server context once the message has made it all the way across and
+	// has been echoed back. This stops the RunServer goroutine.
+	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
 }
@@ -646,14 +626,6 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
-	// Find a free port for the machine to bind to. Using :0 lets the OS pick an
-	// available ephemeral port, avoiding both hard-coded port conflicts and the
-	// Windows TIME_WAIT delay that prevents immediate port reuse after close.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	test.That(t, err, test.ShouldBeNil)
-	machineAddress := listener.Addr().String()
-	listener.Close()
-
 	// Set up fake cloud server.
 	fakeServer, cleanup := configtestutils.NewFakeCloudServer(t, ctx, logger)
 	defer cleanup()
@@ -662,6 +634,11 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 
 	// Build the base proto config pieces that remain constant across updates.
+	// Note: AppAddress and RefreshInterval are deliberately NOT set here.
+	// pb.CloudConfig (and thus CloudConfigToProto) does not carry them — they are
+	// local bootstrap-only fields. They are set directly on baseConfigNonProto
+	// below so the in-process server can reach the fake cloud and poll at the
+	// expected cadence.
 	cloudConfProto, err := config.CloudConfigToProto(&config.Cloud{
 		ID:                deviceID,
 		Secret:            configtestutils.FakeCredentialPayLoad,
@@ -688,18 +665,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
-		NetworkConfigData: config.NetworkConfigData{
-			BindAddress: machineAddress,
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	baseConfig := &pb.RobotConfig{
 		Cloud:      cloudConfProto,
 		Modules:    []*pb.ModuleConfig{moduleProto},
 		Components: []*pb.ComponentConfig{componentProto},
-		Network:    networkProto,
 	}
 
 	// storeCloudConfig clones cfg and stores the clone in the fake cloud server.
@@ -710,35 +679,44 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		fakeServer.StoreDeviceConfig(deviceID, proto.Clone(cfg).(*pb.RobotConfig), &pb.CertificateResponse{})
 	}
 
-	// Store initial config with debug=false.
+	// The initial config uses debug=false. The bind address (Network) is set on
+	// baseConfig and stored in the server-startup retry loop below.
 	debugFalse := false
 	baseConfig.Debug = &debugFalse
+
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	machineAddress := listener.Addr().String()
+	test.That(t, listener.Close(), test.ShouldBeNil)
+
+	networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
+		NetworkConfigData: config.NetworkConfigData{BindAddress: machineAddress},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	baseConfig.Network = networkProto
 	storeCloudConfig(baseConfig)
 
-	// Write a minimal config file with only the cloud section. RunServer will
-	// read this, connect to the fake cloud, and fetch the full config.
+	baseConfigNonProto, err := config.FromProto(baseConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// AppAddress and RefreshInterval are local bootstrap-only cloud fields that do
+	// not round-trip through pb.CloudConfig, so set them on the config the server
+	// actually boots from. Without AppAddress the server cannot reach the fake
+	// cloud to fetch its config.
+	baseConfigNonProto.Cloud.AppAddress = appAddress
 	// shorten the refresh interval to make the test run faster
 	refreshInterval := 1 * time.Second
-	cfgFile := filepath.Join(t.TempDir(), "cloud_config.json")
-	cfgJSON := fmt.Sprintf(
-		`{"cloud":{"id":%q,"app_address":%q,"secret":%q,"signaling_insecure":true,"refresh_interval":"%s"}}`,
-		deviceID, appAddress, configtestutils.FakeCredentialPayLoad, refreshInterval,
-	)
-	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
+	baseConfigNonProto.Cloud.RefreshInterval = refreshInterval
 
-	// Start RunServer in a goroutine. Use -no-tls since the fake cloud
-	// returns empty TLS certs.
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
-		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
-	}()
-
-	// Wait for the server to be reachable and the helper module to be ready.
-	// Cloud-configured servers require authentication via location secret.
-	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second,
+	rc, stopServer := serverutils.TryStartServerAndConnect(
+		t,
+		ctx,
+		baseConfigNonProto,
+		logger,
+		// Cloud-configured servers require location-secret auth. Use -no-tls as an extra
+		// viam-server flag since the fake cloud returns empty TLS certs.
+		[]string{"-no-tls"},
 		client.WithDialOptions(
 			rpc.WithEntityCredentials("woo", rpc.Credentials{
 				Type:    utils.CredentialsTypeRobotLocationSecret,
@@ -747,6 +725,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 			rpc.WithAllowInsecureWithCredentialsDowngrade(),
 		),
 	)
+	t.Cleanup(func() {
+		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		test.That(t, stopServer(), test.ShouldBeNil)
+	})
 
 	// helper function that waits longer than the specified refreshInterval
 	// to make sure we always wait long enough for a reconfigure to happen
@@ -822,5 +804,4 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	cancel()
-	wg.Wait()
 }
