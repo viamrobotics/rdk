@@ -44,6 +44,31 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
+  # Mirrors the dev-release comment flow in viamrobotics/agent: post (and keep
+  # updating in place) a sticky PR comment linking to the AppImages built above.
+  # Lives in this dispatcher (not appimage-build.yml) so PR_TOKEN and the PR
+  # context stay scoped to PR builds -- the reusable build workflows are also
+  # called by the release workflows, which have no PR to comment on.
+  appimage-comment:
+    needs: [appimage, appimage-ignore-tests]
+    if: |
+      always() && !cancelled() &&
+      (needs.appimage.result == 'success' || needs.appimage-ignore-tests.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post or update sticky PR comment
+        # marocchino/sticky-pull-request-comment@v3.0.4
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0
+        with:
+          GITHUB_TOKEN: ${{ secrets.PR_TOKEN }}
+          header: appimage-build-urls
+          number: ${{ github.event.pull_request.number }}
+          message: |
+            ### Built AppImages for pr-${{ github.event.pull_request.number }}
+
+            - arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64.AppImage
+            - x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64.AppImage
+
   # This lets people add a "static-build" tag to have static binaries built for the PR
   static:
     needs: [test]
@@ -66,6 +91,31 @@ jobs:
       release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  # Mirrors the dev-release comment flow in viamrobotics/agent: post (and keep
+  # updating in place) a sticky PR comment linking to the static binaries built
+  # above. See appimage-comment for why this lives in the dispatcher.
+  static-comment:
+    needs: [static, static-ignore-tests]
+    if: |
+      always() && !cancelled() &&
+      (needs.static.result == 'success' || needs.static-ignore-tests.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post or update sticky PR comment
+        # marocchino/sticky-pull-request-comment@v3.0.4
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0
+        with:
+          GITHUB_TOKEN: ${{ secrets.PR_TOKEN }}
+          header: static-build-urls
+          number: ${{ github.event.pull_request.number }}
+          message: |
+            ### Built Static Binaries for pr-${{ github.event.pull_request.number }}
+
+            - arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64
+            - x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64
+            - windows x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-windows-x86_64
+            - macOS arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-darwin-aarch64
 
   droid:
     needs: test
