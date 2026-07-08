@@ -1104,6 +1104,7 @@ type downloadModuleFlags struct {
 	Platform    string
 	List        bool
 	Count       int
+	Latest      bool
 }
 
 func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadModuleFlags) (string, error) {
@@ -1126,7 +1127,7 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 		versions := res.Module.Versions
 		total := len(versions)
 		if total == 0 {
-			printf(cmd.Root().Writer, "module %s has no uploaded versions", moduleID)
+			printf(cmd.Root().Writer, "module %s has 0 uploaded versions", moduleID)
 			return "", nil
 		}
 		// versions stored oldest->newest; print newest first, capped at flags.Count (0 = all)
@@ -1149,6 +1150,33 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 		}
 		if shown < total {
 			printf(cmd.Root().Writer, "… showing %d of %d versions (use --%s=0 for all)", shown, total, generalFlagCount)
+		}
+		return "", nil
+	}
+
+	if flags.Latest {
+		// versions arrive sorted ascending by semver (server-side), matching app's "latest" selection.
+		// walk in order and overwrite per platform so the last (highest) version wins.
+		latestByPlatform := make(map[string]string)
+		for _, ver := range res.Module.Versions {
+			if IsReloadVersion(ver.Version) {
+				continue
+			}
+			for _, file := range ver.Files {
+				latestByPlatform[file.Platform] = ver.Version
+			}
+		}
+		if len(latestByPlatform) == 0 {
+			printf(cmd.Root().Writer, "module %s has 0 uploaded versions", moduleID)
+			return "", nil
+		}
+		platforms := make([]string, 0, len(latestByPlatform))
+		for platform := range latestByPlatform {
+			platforms = append(platforms, platform)
+		}
+		slices.Sort(platforms)
+		for _, platform := range platforms {
+			printf(cmd.Root().Writer, "%s\t%s", platform, latestByPlatform[platform])
 		}
 		return "", nil
 	}

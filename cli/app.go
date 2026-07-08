@@ -85,6 +85,7 @@ const (
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
 	generalFlagList              = "list"
+	generalFlagLatest            = "latest"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -4120,12 +4121,16 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.BoolFlag{
 							Name:  generalFlagList,
-							Usage: "list available versions and their platforms instead of downloading",
+							Usage: "list available versions and their platforms",
 						},
 						&cli.IntFlag{
 							Name:        generalFlagCount,
 							Usage:       "with --list, show only the N newest versions",
 							DefaultText: "all versions",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagLatest,
+							Usage: "print the latest version for each platform instead of downloading",
 						},
 					},
 					Action: createActionCommandWithT[downloadModuleFlags](DownloadModuleAction),
