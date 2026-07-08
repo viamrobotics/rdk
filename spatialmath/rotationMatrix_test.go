@@ -183,6 +183,23 @@ func TestMatrixMul(t *testing.T) {
 	test.That(t, rMul, test.ShouldResemble, d)
 }
 
+func TestRotationMatrixTranspose(t *testing.T) {
+	rm, err := NewRotationMatrix([]float64{
+		1, 2, 3,
+		4, 5, 6,
+		7, 8, 9,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	want := [9]float64{
+		1, 4, 7,
+		2, 5, 8,
+		3, 6, 9,
+	}
+	test.That(t, rm.Transpose().mat, test.ShouldResemble, want)
+	test.That(t, rm.Transpose().Transpose().mat, test.ShouldResemble, rm.mat)
+}
+
 func multiplyAndconvertToFloats(in1, in2 []float64) ([9]float64, [9]float64, error) {
 	a := mat.NewDense(3, 3, in1)
 	b := mat.NewDense(3, 3, in2)
