@@ -99,8 +99,14 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 		return rc.sessionMetadataInner(ctx), nil
 	}
 
-	reqCtx, cancel := utils.MergeContext(ctx, rc.backgroundCtx)
-	defer cancel()
+	// Merge ctx with the client's background context so the request is cancelled if
+	// either the caller cancels or the client is closed. reqCtx inherits values from
+	// ctx, and forwards backgroundCtx's cancellation cause so it can be surfaced below.
+	reqCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	defer context.AfterFunc(rc.backgroundCtx, func() {
+		cancel(context.Cause(rc.backgroundCtx))
+	})()
 
 	var startReq pb.StartSessionRequest
 	if rc.currentSessionID != "" {
@@ -114,6 +120,13 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 		grpc_retry.WithCodes(codes.InvalidArgument),
 	)
 	if err != nil {
+		// gRPC reports a cancelled request as a generic context.Canceled; if reqCtx was
+		// cancelled with a more specific cause, surface that instead.
+		if reqCtx.Err() != nil {
+			if cause := context.Cause(reqCtx); cause != nil && cause != reqCtx.Err() {
+				err = cause
+			}
+		}
 		if s, ok := status.FromError(err); ok && s.Code() == codes.Unimplemented {
 			falseVal := false
 			rc.sessionsSupported = &falseVal

@@ -720,7 +720,10 @@ func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) er
 
 func (server *Server) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	server.startStream(func(opts *BackoffTuningOptions) error {
-		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
+		// Cancel the stream when either the server closes or the caller's ctx is done.
+		streamVideoCtx, cancel := context.WithCancel(server.closedCtx)
+		defer cancel()
+		defer context.AfterFunc(ctx, cancel)()
 		return streamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
 	})
 }
