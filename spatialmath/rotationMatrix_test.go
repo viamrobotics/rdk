@@ -22,17 +22,14 @@ var rmQuatSamples = []rmQuatSample{
 	{"y90", []float64{0, 0, 1, 0, 1, 0, -1, 0, 0}, quat.Number{math.Sqrt2 / 2, 0, math.Sqrt2 / 2, 0}},
 	{"z90", []float64{0, -1, 0, 1, 0, 0, 0, 0, 1}, quat.Number{math.Sqrt2 / 2, 0, 0, math.Sqrt2 / 2}},
 	{"z180", []float64{-1, 0, 0, 0, -1, 0, 0, 0, 1}, quat.Number{0, 0, 0, 1}},
+	asymmetricEulerSample(),
 }
 
 var rmQuatSamplePoints = []r3.Vector{
 	{X: 1}, {Y: 1}, {Z: 1}, {X: 1, Y: 2, Z: 3}, {X: -5, Y: 7, Z: -2},
 }
 
-func init() {
-	// Asymmetric ZYX Euler rotation: all six off-diagonal cells are nonzero,
-	// so sign errors in any of them cannot cancel on this sample.
-	// R composed by hand from axis matrices; q from the direct Euler --> quat path
-	// (independent of the conversions under test).
+func asymmetricEulerSample() rmQuatSample {
 	roll, pitch, yaw := math.Pi/6, math.Pi/4, math.Pi/3
 	cr, sr := math.Cos(roll), math.Sin(roll)
 	cp, sp := math.Cos(pitch), math.Sin(pitch)
@@ -43,7 +40,7 @@ func init() {
 		-sp, cp * sr, cp * cr,
 	}
 	q := (&EulerAngles{Roll: roll, Pitch: pitch, Yaw: yaw}).Quaternion()
-	rmQuatSamples = append(rmQuatSamples, rmQuatSample{"zyx_30_45_60", r, q})
+	return rmQuatSample{"zyx_30_45_60", r, q}
 }
 
 func TestRotationMatrixQuaternionOnPoints(t *testing.T) {
