@@ -1,13 +1,20 @@
 name: Focal Static Build
 
-# Builds, boots, and (except on schedule) publishes a viam-server-focal channel
+# Builds, boots, and (per release_type) publishes a viam-server-focal channel
 # on the rdk-focal image. Called by pullrequest-trusted.yml for labeled PRs
-# (release_type: pr -> focal-pr-<number>); scheduled runs validate only.
+# (release_type: pr -> focal-pr-<number>); schedule and default dispatch validate only.
 # No concurrency block: github.ref is the base ref for every PR here, so a
 # shared group would cancel unrelated builds. The parent handles PR concurrency.
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: "'focal' publishes the shared channel; 'validate' builds and boots only"
+        required: true
+        default: validate
+        type: choice
+        options: [validate, focal]
   schedule:
     - cron: '0 8 * * *' # daily, after docker.yml (6AM UTC) republishes the image
   workflow_call:
@@ -60,11 +67,17 @@ jobs:
     - name: Resolve channel and arch
       id: meta
       run: |
-        if [ "${{ inputs.release_type }}" = "pr" ]; then
-          echo "channel=focal-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-        else
-          echo "channel=focal" >> "$GITHUB_OUTPUT"
-        fi
+        case "${{ inputs.release_type }}" in
+          pr)
+            echo "channel=focal-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+          focal)
+            echo "channel=focal" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+          *)
+            echo "channel=focal" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT" ;;
+        esac
         echo "arch=$(uname -m)" >> "$GITHUB_OUTPUT"
 
     - name: Build viam-server-${{ steps.meta.outputs.channel }}
@@ -84,22 +97,21 @@ jobs:
           echo "{\"network\":{\"bind_address\":\"localhost:${port}\"}}" > /tmp/smoke.json
           "$bin" -config /tmp/smoke.json &
           srv=$!
-          curl --retry 8 --retry-delay 2 --retry-connrefused -sf "localhost:${port}" >/dev/null
+          curl --retry 8 --retry-delay 2 --retry-connrefused -s "localhost:${port}" >/dev/null
           echo "boot OK"
           kill $srv 2>/dev/null || true
           wait $srv 2>/dev/null || true
         '
 
-    # Scheduled runs validate only; dispatch/PR publish the channel.
     - name: Authorize GCP upload
-      if: github.event_name != 'schedule'
+      if: steps.meta.outputs.publish == 'true'
       # google-github-actions/auth@v2.1.13
       uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed
       with:
         credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
     - name: Publish ${{ steps.meta.outputs.channel }} channel
-      if: github.event_name != 'schedule'
+      if: steps.meta.outputs.publish == 'true'
       # google-github-actions/upload-cloud-storage@v2.2.4
       uses: google-github-actions/upload-cloud-storage@c0f6160ff80057923ff50e5e567695cea181ec23
       with:
@@ -110,7 +122,7 @@ jobs:
         parent: false
 
     - name: Summary
-      if: github.event_name != 'schedule'
+      if: steps.meta.outputs.publish == 'true'
       run: |
         url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}"
         echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
