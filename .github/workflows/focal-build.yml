@@ -83,12 +83,8 @@ jobs:
         echo "arch=$(uname -m)" >> "$GITHUB_OUTPUT"
 
     - name: Build viam-server-${{ steps.meta.outputs.channel }}
-      # Fake the frontend (no Node in this image) so the embed compiles.
       run: |
-        sudo -Hu testbot bash -lc '
-          mkdir -p web/runtime-shared/static && touch web/runtime-shared/static/control.js
-          make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} static-release
-        '
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} static-release'
 
     - name: Boot smoke test
       run: |

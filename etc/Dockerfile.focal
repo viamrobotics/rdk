@@ -95,7 +95,7 @@ USER testbot
 COPY --chown=1000:1000 ./ /tmp/rdk
 WORKDIR /tmp/rdk
 RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc \
-    bash -lc 'mkdir -p web/runtime-shared/static && touch web/runtime-shared/static/control.js && make server-static'
+    bash -lc 'make server-static'
 
 # Final image: base plus the warmed module cache.
 FROM base
