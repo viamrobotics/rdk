@@ -53,6 +53,8 @@ jobs:
       if: github.event_name != 'pull_request_target'
       # actions/checkout@v4.3.1
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      with:
+        fetch-depth: 0 # needed for dev-version.sh to work
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
