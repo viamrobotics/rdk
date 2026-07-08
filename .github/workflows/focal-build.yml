@@ -3,9 +3,8 @@ name: Focal Static Build
 # Builds, boots, and (except on schedule) publishes a viam-server-focal channel
 # on the rdk-focal image. Called by pullrequest-trusted.yml for labeled PRs
 # (release_type: pr -> focal-pr-<number>); scheduled runs validate only.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+# No concurrency block: github.ref is the base ref for every PR here, so a
+# shared group would cancel unrelated builds. The parent handles PR concurrency.
 
 on:
   workflow_dispatch:

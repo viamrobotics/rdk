@@ -17,6 +17,8 @@ jobs:
   docker-cache:
     name: Build Cache Docker Images
     strategy:
+      # Independent legs: a failing rdk-focal build must not cancel the others.
+      fail-fast: false
       matrix:
         include:
         # rdk-devenv

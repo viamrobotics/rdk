@@ -89,11 +89,9 @@ RUN groupadd -g 1000 testbot \
     && echo 'testbot ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/testbot \
     && chmod 0440 /etc/sudoers.d/testbot
 
-USER testbot
-WORKDIR /home/testbot
-
 # Warm the Go module cache by building the server against the current tree.
 FROM base AS cache-builder
+USER testbot
 COPY --chown=1000:1000 ./ /tmp/rdk
 WORKDIR /tmp/rdk
 RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc \
