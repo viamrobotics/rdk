@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -62,9 +64,11 @@ type moduleManager interface {
 	RemoveResource(ctx context.Context, name resource.Name) error
 	ResolveImplicitDependencies(ctx context.Context, conf *config.Diff)
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
-	FailedModules() []string
-	ClearFailedModules()
-	AddToFailedModules(moduleName string)
+	UnhealthyModules() []string
+	SetModuleStatusUnhealthy(moduleName string, err error)
+	SetModuleStatusPending(moduleName string)
+	PruneModuleStatuses(confs []config.Module)
+	Status() []modulestatus.Status
 }
 
 // resourceManager manages the actual parts that make up a robot.
@@ -808,11 +812,32 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
-						if _, _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+						implicitDeps, implicitOptionalDeps, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf)
+						if err != nil {
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
+							return
+						}
+
+						// If the freshly-validated implicit dependencies differ from the set the node
+						// was configured with, the node's dependency edges are stale. This happens when
+						// ResolveImplicitDependencies hit a transient Validate error (e.g. a
+						// DeadlineExceeded timeout) and dropped the dependencies, but Validate now
+						// succeeds. Re-apply the dependencies and defer the build by one pass so they
+						// get resolved into graph edges first; building now would construct the resource
+						// with an incomplete dependency set (e.g. a missing camera dependency).
+						if !equalUnordered(implicitDeps, conf.ImplicitDependsOn) ||
+							!equalUnordered(implicitOptionalDeps, conf.ImplicitOptionalDependsOn) {
+							manager.logger.CInfow(ctx,
+								"modular resource implicit dependencies changed since last validation; re-resolving before building",
+								"resource", conf.ResourceName(), "model", conf.Model,
+								"old", conf.ImplicitDependsOn, "new", implicitDeps)
+							conf.ImplicitDependsOn = implicitDeps
+							conf.ImplicitOptionalDependsOn = implicitOptionalDeps
+							gNode.SetNewConfig(conf, conf.Dependencies())
+							lr.sendTriggerConfig("modular dependency re-resolution")
 							return
 						}
 					}
@@ -1155,6 +1180,19 @@ func (manager *resourceManager) processResource(
 	return newRes, nil
 }
 
+// equalUnordered reports whether two string slices contain the same elements,
+// ignoring order. A nil and an empty slice are considered equal.
+func equalUnordered(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aSorted := slices.Clone(a)
+	bSorted := slices.Clone(b)
+	slices.Sort(aSorted)
+	slices.Sort(bSorted)
+	return slices.Equal(aSorted, bSorted)
+}
+
 // addToBeConstructedResource adds a new, unconfigured graph node for a resource to the
 // resource graph. If a resource with the given name already exists in the resource graph,
 // the pre-existing resource is marked for removal, no new graph node is created, and an
@@ -1245,8 +1283,9 @@ func (manager *resourceManager) updateResources(
 		// The config was already validated, but we must check again before attempting
 		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
+			fullErr := fmt.Errorf("module config validation error; skipping. module: %s err: %w", mod.Name, err)
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
-			manager.moduleManager.AddToFailedModules(mod.Name)
+			manager.moduleManager.SetModuleStatusUnhealthy(mod.Name, fullErr)
 			continue
 		}
 		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
@@ -1262,6 +1301,9 @@ func (manager *resourceManager) updateResources(
 	// modules should have their implicit dependencies re-evaluated.
 	if manager.moduleManager != nil {
 		manager.moduleManager.ResolveImplicitDependencies(ctx, conf)
+
+		// Drop status entries for modules no longer in the config
+		manager.moduleManager.PruneModuleStatuses(conf.Right.Modules)
 	}
 
 	revision := conf.NewRevision()

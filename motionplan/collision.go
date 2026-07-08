@@ -154,7 +154,19 @@ func checkCollisionsHinted(
 		return nil, math.Inf(-1), err
 	}
 
-	seen := map[[2]string]bool{}
+	// `seen` dedups pairs only when the same canonical (xName,yName) could be visited
+	// twice during the nested-loop iteration below. That requires a name to appear in
+	// both ggMap and otherMap — i.e. self-collision. For disjoint sets (the obstacle
+	// and robot-vs-robot constraints), every iteration yields a unique canonical pair,
+	// so allocating the map and writing to it on every pair is pure waste. Detect the
+	// disjoint case up front and leave seen nil; skipCollisionCheck handles nil safely.
+	var seen map[[2]string]bool
+	for k := range ggMap {
+		if _, ok := otherMap[k]; ok {
+			seen = make(map[[2]string]bool, len(ggMap)*len(otherMap)/2)
+			break
+		}
+	}
 
 	collisions := []Collision{}
 	minDistance := math.Inf(1)
@@ -259,7 +271,7 @@ func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[[2]string]bo
 
 func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialmath.Geometry, error) {
 	unnamedCnt := 0
-	geomMap := map[string]spatialmath.Geometry{}
+	geomMap := make(map[string]spatialmath.Geometry, len(geoms))
 
 	for _, geom := range geoms {
 		label := geom.Label()
@@ -282,7 +294,15 @@ func skipCollisionCheck(allowed, seen map[[2]string]bool, xName, yName string) b
 	}
 
 	key := canonicalPair(xName, yName)
-	if allowed[key] || seen[key] {
+	if allowed[key] {
+		return true
+	}
+	if seen == nil {
+		// Caller determined ggMap and otherMap are disjoint, so (xName,yName)
+		// produces a unique canonical pair on every iteration — dedup unnecessary.
+		return false
+	}
+	if seen[key] {
 		// Already checked this pair in the other order
 		return true
 	}

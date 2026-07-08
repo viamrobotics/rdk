@@ -35,7 +35,7 @@ func TestModularResources(t *testing.T) {
 		svcModel = resource.ModelNamespace("acme").WithFamily("signage").WithModel("handheld")
 	)
 
-	setupTest := func(t *testing.T) (*localRobot, *dummyModMan) {
+	setupTest := func(t *testing.T, opts ...Option) (*localRobot, *dummyModMan) {
 		t.Helper()
 
 		logger := logging.NewTestLogger(t)
@@ -49,7 +49,7 @@ func TestModularResources(t *testing.T) {
 			state:      make(map[resource.Name]bool),
 		}
 
-		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger, opts...)
 		actualR := r.(*localRobot)
 		actualR.manager.moduleManager = mod
 
@@ -300,7 +300,9 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "pending")
+		// The dependency was removed, so it is now unresolved. (Resolution skips a dependency
+		// marked for removal, so the dependent is never built against the doomed node.)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unresolved dependencies")
 		_, err = r.ResourceByName(cfg3.ResourceName())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, nodeNotFoundErr(cfg3.ResourceName()))
@@ -341,6 +343,43 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, res2, test.ShouldNotEqual, res1)
 	})
+
+	// When a modular resource's implicit dependencies are dropped during resolution (e.g. a
+	// transient Validate timeout), completeConfig's re-validation should re-resolve them
+	// before building rather than constructing the resource with an incomplete dependency set.
+	// Here ResolveImplicitDependencies is a no-op (the dropped deps) while ValidateConfig
+	// reports the dependency.
+	t.Run("recovers dropped modular dependencies", func(t *testing.T) {
+		// Disable the background worker so the re-resolution pass is driven synchronously.
+		r, mod := setupTest(t, WithDisableCompleteConfigWorker())
+		mod.validateRequiredDeps = []string{"builtin"}
+
+		motorCfg := resource.Config{
+			Name:                "builtin",
+			API:                 motor.API,
+			Model:               resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{},
+		}
+		compCfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+
+		// First pass re-validates, sees the dropped dependency, and defers the build.
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{motorCfg, compCfg},
+		})
+
+		// Retry pass resolves the recovered dependency into a graph edge and builds.
+		test.That(t, r.updateRemotesAndRetryResourceConfigure(), test.ShouldBeTrue)
+		_, err := r.ResourceByName(compCfg.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+
+		// The resource is built with "builtin" as a dependency rather than the empty set it
+		// would have received had the build used the dropped dependencies.
+		mod.mu.Lock()
+		deps := mod.addDeps[compCfg.ResourceName()]
+		mod.mu.Unlock()
+		test.That(t, deps, test.ShouldHaveLength, 1)
+		test.That(t, deps[0], test.ShouldContainSubstring, "builtin")
+	})
 }
 
 type dummyRes struct {
@@ -353,16 +392,25 @@ type dummyModMan struct {
 	*modmanager.Manager
 	mu         sync.Mutex
 	add        []resource.Config
+	addDeps    map[resource.Name][]string
 	remove     []resource.Name
 	compAPISvc resource.APIResourceCollection[resource.Resource]
 	svcAPISvc  resource.APIResourceCollection[resource.Resource]
 	state      map[resource.Name]bool
+
+	// validateRequiredDeps is returned by ValidateConfig as the modular resource's required
+	// implicit dependencies. Defaults to nil to preserve existing test behavior.
+	validateRequiredDeps []string
 }
 
 func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.add = append(m.add, conf)
+	if m.addDeps == nil {
+		m.addDeps = make(map[resource.Name][]string)
+	}
+	m.addDeps[conf.ResourceName()] = deps
 	m.state[conf.ResourceName()] = true
 	res := &dummyRes{
 		Named: conf.ResourceName().AsNamed(),
@@ -417,7 +465,7 @@ func (m *dummyModMan) Provides(cfg resource.Config) bool {
 func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, []string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return nil, nil, nil
+	return m.validateRequiredDeps, nil, nil
 }
 
 func (m *dummyModMan) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
@@ -440,11 +488,11 @@ func (m *dummyModMan) FirstRun(ctx context.Context, conf config.Module) error {
 	return nil
 }
 
-func (m *dummyModMan) FailedModules() []string {
+func (m *dummyModMan) UnhealthyModules() []string {
 	return nil
 }
 
-func (m *dummyModMan) ClearFailedModules() {
+func (m *dummyModMan) PruneModuleStatuses(confs []config.Module) {
 }
 
 func TestTwoModulesSameName(t *testing.T) {

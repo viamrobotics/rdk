@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.uber.org/zap/zapcore"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -639,6 +640,52 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.GetPlatform(), test.ShouldEqual, "rdk")
 		test.That(t, resp.GetVersion(), test.ShouldEqual, "dev-unknown")
 		test.That(t, resp.GetApiVersion(), test.ShouldEqual, "?")
+	})
+
+	t.Run("UploadDataFromPath", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		server := server.New(injectRobot)
+
+		ext, err := utilsproto.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+
+		// success: request fields (incl. extra) reach the robot, and counts/ids map back through.
+		injectRobot.UploadDataFromPathFunc = func(
+			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
+		) (robot.UploadDataFromPathResult, error) {
+			test.That(t, path, test.ShouldEqual, "/data/foo")
+			test.That(t, md.GetTags(), test.ShouldResemble, []string{"tag1"})
+			test.That(t, extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+			return robot.UploadDataFromPathResult{
+				FilesUploaded: 2,
+				FilesFailed:   0,
+				BytesUploaded: 512,
+				BytesTotal:    512,
+				IDs:           []string{"a", "b"},
+			}, nil
+		}
+
+		resp, err := server.UploadDataFromPath(context.Background(), &pb.UploadDataFromPathRequest{
+			Path:           "/data/foo",
+			UploadMetadata: &datasyncpb.UploadMetadata{Tags: []string{"tag1"}},
+			Extra:          ext,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetFilesUploaded(), test.ShouldEqual, uint64(2))
+		test.That(t, resp.GetFilesFailed(), test.ShouldEqual, uint64(0))
+		test.That(t, resp.GetBytesUploaded(), test.ShouldEqual, uint64(512))
+		test.That(t, resp.GetBytesTotal(), test.ShouldEqual, uint64(512))
+		test.That(t, resp.GetIds(), test.ShouldResemble, []string{"a", "b"})
+
+		// error is surfaced to the caller.
+		injectRobot.UploadDataFromPathFunc = func(
+			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
+		) (robot.UploadDataFromPathResult, error) {
+			return robot.UploadDataFromPathResult{}, errors.New("no data manager service configured")
+		}
+		_, err = server.UploadDataFromPath(context.Background(), &pb.UploadDataFromPathRequest{Path: "/data/foo"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no data manager")
 	})
 }
 

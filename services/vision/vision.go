@@ -253,4 +253,5 @@ type Properties struct {
 	ClassificationSupported bool
 	DetectionSupported      bool
 	ObjectPCDsSupported     bool
+	DefaultCamera           *string
 }

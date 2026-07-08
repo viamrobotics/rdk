@@ -4,6 +4,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -105,6 +107,22 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 
+	// Wait indefinitely on a socket during the "start" phase
+	if addr := os.Getenv("VIAM_TESTMODULE_BLOCK_START"); addr != "" {
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			return err
+		}
+		_, err = conn.Read(make([]byte, 1))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		err = conn.Close()
+		if err != nil {
+			return err
+		}
+	}
+
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
 	if err != nil {
@@ -121,6 +139,22 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 			return err
 		}
 		time.Sleep(sleepDuration)
+	}
+
+	// Wait indefinitely on a socket during the "close" phase
+	if addr := os.Getenv("VIAM_TESTMODULE_BLOCK_CLOSE"); addr != "" {
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			return err
+		}
+		_, err = conn.Read(make([]byte, 1))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		err = conn.Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

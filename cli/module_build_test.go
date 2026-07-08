@@ -16,6 +16,7 @@ import (
 	"time"
 
 	v1 "go.viam.com/api/app/build/v1"
+	packagespb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -217,6 +218,160 @@ func TestStartBuild(t *testing.T) {
 	test.That(t, path, test.ShouldBeEmpty)
 	test.That(t, out.messages, test.ShouldHaveLength, 0)
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
+}
+
+// fakeSourceUploadBuildStream is an in-memory test double for the
+// buildpb.BuildService_StartSourceUploadBuildClient streaming RPC. It records
+// every Send call so tests can assert on the request shape, and returns a
+// configurable CloseAndRecv response.
+type fakeSourceUploadBuildStream struct {
+	v1.BuildService_StartSourceUploadBuildClient // embedded for unused methods
+	sends                                        []*v1.StartSourceUploadBuildRequest
+	resp                                         *v1.StartSourceUploadBuildResponse
+}
+
+func (s *fakeSourceUploadBuildStream) Send(req *v1.StartSourceUploadBuildRequest) error {
+	s.sends = append(s.sends, req)
+	return nil
+}
+
+func (s *fakeSourceUploadBuildStream) CloseSend() error { return nil }
+
+func (s *fakeSourceUploadBuildStream) CloseAndRecv() (*v1.StartSourceUploadBuildResponse, error) {
+	return s.resp, nil
+}
+
+func TestModuleBuildStartFromSource(t *testing.T) {
+	// Lay out a source directory with a meta.json and a small "source" file so
+	// createGitArchive has something non-trivial to package up.
+	sourceDir := t.TempDir()
+	manifestPath := filepath.Join(sourceDir, "meta.json")
+	createTestManifest(t, manifestPath, map[string]any{
+		"build": map[string]any{
+			"setup":  "./setup.sh",
+			"build":  "make build",
+			"path":   "module",
+			"arch":   []any{"linux/amd64", "linux/arm64"},
+			"distro": "bookworm",
+		},
+	})
+	err := os.WriteFile(filepath.Join(sourceDir, "hello.go"), []byte("package main\n"), 0o600)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Stub ListOrganizations so getOrgByModuleIDPrefix resolves the "test"
+	// public namespace from the manifest's module_id ("test:test").
+	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc: func(
+			ctx context.Context, in *apppb.ListOrganizationsRequest, opts ...grpc.CallOption,
+		) (*apppb.ListOrganizationsResponse, error) {
+			return &apppb.ListOrganizationsResponse{Organizations: []*apppb.Organization{
+				{Id: "test-org-id", PublicNamespace: "test"},
+			}}, nil
+		},
+	}
+
+	stream := &fakeSourceUploadBuildStream{
+		resp: &v1.StartSourceUploadBuildResponse{BuildId: "build-xyz"},
+	}
+	bsc := &inject.BuildServiceClient{
+		StartSourceUploadBuildFunc: func(
+			ctx context.Context, opts ...grpc.CallOption,
+		) (v1.BuildService_StartSourceUploadBuildClient, error) {
+			return stream, nil
+		},
+	}
+
+	cCtx, ac, out, errOut := setup(asc, nil, bsc, map[string]any{
+		moduleFlagPath:            manifestPath,
+		generalFlagVersion:        "v1.2.3", // leading "v" should be stripped
+		moduleBuildFlagFromSource: true,
+		generalFlagPath:           sourceDir,
+		generalFlagNoProgress:     true,
+		moduleBuildFlagWorkdir:    ".",
+	}, "token")
+
+	buildID, err := ac.moduleBuildStartAction(
+		context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, buildID, test.ShouldEqual, "build-xyz")
+
+	// At minimum we expect: 1 BuildInfo header + 1 Package_Info header + at
+	// least 1 chunk send (hello.go + meta.json should fit in a single chunk).
+	test.That(t, len(stream.sends), test.ShouldBeGreaterThanOrEqualTo, 3)
+
+	// First send: BuildInfo with platforms / workdir / module_id / distro plus
+	// the top-level ModuleVersion (semver, no leading "v").
+	first := stream.sends[0]
+	test.That(t, first.GetBuildInfo(), test.ShouldNotBeNil)
+	test.That(t, first.GetBuildInfo().GetPlatforms(), test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
+	test.That(t, first.GetBuildInfo().GetModuleId(), test.ShouldEqual, "test:test")
+	test.That(t, first.GetBuildInfo().GetWorkdir(), test.ShouldEqual, ".")
+	test.That(t, first.GetBuildInfo().GetDistro(), test.ShouldEqual, "bookworm")
+	test.That(t, first.GetModuleVersion(), test.ShouldEqual, "1.2.3")
+
+	// Second send: Package_Info with org/name/version/type. The version on the
+	// package mirrors the top-level ModuleVersion.
+	second := stream.sends[1]
+	test.That(t, second.GetPackage(), test.ShouldNotBeNil)
+	info := second.GetPackage().GetInfo()
+	test.That(t, info, test.ShouldNotBeNil)
+	test.That(t, info.GetOrganizationId(), test.ShouldEqual, "test-org-id")
+	test.That(t, info.GetName(), test.ShouldEqual, "test")
+	test.That(t, info.GetVersion(), test.ShouldEqual, "1.2.3")
+	test.That(t, info.GetType(), test.ShouldEqual, packagespb.PackageType_PACKAGE_TYPE_MODULE)
+
+	// Remaining sends are chunked tarball contents.
+	for _, req := range stream.sends[2:] {
+		pkg := req.GetPackage()
+		test.That(t, pkg, test.ShouldNotBeNil)
+		test.That(t, pkg.GetContents(), test.ShouldNotBeNil)
+	}
+
+	// Stdout: just the buildID (machine-readable). Stderr: human-readable
+	// follow-up instructions matching `module build start`.
+	test.That(t, out.messages, test.ShouldResemble, []string{"build-xyz\n"})
+	test.That(t, errOut.messages, test.ShouldHaveLength, 2)
+	test.That(t, errOut.messages[0], test.ShouldEqual, "Build started, follow the logs with:\n")
+	test.That(t, errOut.messages[1], test.ShouldEqual, "\tviam module build logs --id build-xyz\n")
+}
+
+func TestTargetsWindowsPython(t *testing.T) {
+	withPyDir := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		test.That(t, os.MkdirAll(filepath.Join(dir, "src"), 0o700), test.ShouldBeNil)
+		test.That(t,
+			os.WriteFile(filepath.Join(dir, "src", "main.py"), []byte("pass\n"), 0o600),
+			test.ShouldBeNil,
+		)
+		return filepath.Join(dir, "meta.json")
+	}
+	withoutPyDir := func(t *testing.T) string {
+		t.Helper()
+		return filepath.Join(t.TempDir(), "meta.json")
+	}
+
+	cases := []struct {
+		name      string
+		manifest  func(*testing.T) string
+		platforms []string
+		want      bool
+	}{
+		{"windows target + python module → block", withPyDir, []string{"windows/amd64"}, true},
+		{"any-arch windows target + python module → block", withPyDir, []string{"windows"}, true},
+		{"windows in mixed targets + python → block", withPyDir, []string{"linux/amd64", "windows/arm64"}, true},
+		{"non-windows targets + python → allow", withPyDir, []string{"linux/amd64", "darwin/arm64"}, false},
+		{"windows target without python module → allow", withoutPyDir, []string{"windows/amd64"}, false},
+		{"non-windows + no python → allow", withoutPyDir, []string{"linux/amd64"}, false},
+		{"linux-prefixed (not 'windows/' prefix) → allow", withPyDir, []string{"linux/any"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := targetsWindowsPython(tc.manifest(t), tc.platforms)
+			test.That(t, got, test.ShouldEqual, tc.want)
+		})
+	}
 }
 
 func TestListBuild(t *testing.T) {
