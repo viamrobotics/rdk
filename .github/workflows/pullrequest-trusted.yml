@@ -67,6 +67,18 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
+  # This lets people add a "focal-build" tag to publish a focal-pr-<number> channel
+  focal:
+    needs: [test]
+    if: |
+      always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
+      contains(github.event.pull_request.labels.*.name, 'focal-build') && needs.test.result == 'success'
+    uses: viamrobotics/rdk/.github/workflows/focal-build.yml@main
+    with:
+      release_type: 'pr'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
   droid:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/droid.yml@main

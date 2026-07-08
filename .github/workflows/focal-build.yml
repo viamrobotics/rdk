@@ -1,6 +1,8 @@
 name: Focal Static Build
 
-# Non-gating: builds, boots, and uploads viam-server-focal on the rdk-focal image.
+# Builds, boots, and (except on schedule) publishes a viam-server-focal channel
+# on the rdk-focal image. Called by pullrequest-trusted.yml for labeled PRs
+# (release_type: pr -> focal-pr-<number>); scheduled runs validate only.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -9,8 +11,14 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 8 * * *' # daily, after docker.yml (6AM UTC) republishes the image
-  pull_request:
-    types: [opened, reopened, synchronize, labeled]
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
 
 permissions:
   contents: read
@@ -18,10 +26,6 @@ permissions:
 jobs:
   focal-static:
     name: Focal Static Build and Boot
-    # On PRs, only run when explicitly opted in via the `focal-build` label.
-    if: >-
-      github.event_name != 'pull_request' ||
-      contains(github.event.pull_request.labels.*.name, 'focal-build')
     strategy:
       fail-fast: false
       matrix:
@@ -40,18 +44,36 @@ jobs:
 
     steps:
     - name: Check out code
+      if: github.event_name != 'pull_request_target'
       # actions/checkout@v4.3.1
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      # actions/checkout@v4.3.1
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Fix permissions
       run: chown -R testbot:testbot .
 
-    - name: Build viam-server-static on Focal
+    - name: Resolve channel and arch
+      id: meta
+      run: |
+        if [ "${{ inputs.release_type }}" = "pr" ]; then
+          echo "channel=focal-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+        else
+          echo "channel=focal" >> "$GITHUB_OUTPUT"
+        fi
+        echo "arch=$(uname -m)" >> "$GITHUB_OUTPUT"
+
+    - name: Build viam-server-${{ steps.meta.outputs.channel }}
       # Fake the frontend (no Node in this image) so the embed compiles.
       run: |
         sudo -Hu testbot bash -lc '
           mkdir -p web/runtime-shared/static && touch web/runtime-shared/static/control.js
-          make server-static
+          make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} static-release
         '
 
     - name: Verify Focal binary floor
@@ -59,7 +81,7 @@ jobs:
       run: |
         sudo -Hu testbot bash -lc '
           set -euo pipefail
-          bin=$(ls bin/*/viam-server-static | head -1)
+          bin=$(find bin -type f -name viam-server-static | head -1)
           echo "Inspecting $bin"; file "$bin"; ldd "$bin" || true
           max_glibc=$(objdump -T "$bin" | grep -oE "GLIBC_[0-9.]+" | sort -V | tail -1)
           echo "max GLIBC: ${max_glibc:-none}"
@@ -70,7 +92,7 @@ jobs:
       run: |
         sudo -Hu testbot bash -lc '
           set -euo pipefail
-          bin=$(ls bin/*/viam-server-static | head -1)
+          bin=$(find etc/packaging/static/deploy -type f -name "viam-server-*" | head -1)
           port=$((30000 + RANDOM))
           echo "{\"network\":{\"bind_address\":\"localhost:${port}\"}}" > /tmp/smoke.json
           "$bin" -config /tmp/smoke.json &
@@ -81,38 +103,28 @@ jobs:
           wait $srv 2>/dev/null || true
         '
 
-    - name: Stage artifact
-      id: meta
-      run: |
-        arch=$(uname -m)
-        mkdir -p focal-deploy
-        bin=$(find bin -type f -name viam-server-static | head -1)
-        cp "$bin" "focal-deploy/viam-server-focal-${arch}"
-        echo "arch=${arch}" >> "$GITHUB_OUTPUT"
-        echo "date=$(date +%F)" >> "$GITHUB_OUTPUT"
-
-    # Upload only from this repo (fork PRs have no GCS credentials).
+    # Scheduled runs validate only; dispatch/PR publish the channel.
     - name: Authorize GCP upload
-      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      if: github.event_name != 'schedule'
       # google-github-actions/auth@v2.1.13
       uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed
       with:
         credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
-    - name: Upload viam-server-focal
-      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    - name: Publish ${{ steps.meta.outputs.channel }} channel
+      if: github.event_name != 'schedule'
       # google-github-actions/upload-cloud-storage@v2.2.4
       uses: google-github-actions/upload-cloud-storage@c0f6160ff80057923ff50e5e567695cea181ec23
       with:
         headers: "cache-control: no-cache"
-        path: focal-deploy/
-        destination: packages.viam.com/apps/viam-server/testing/focal/${{ steps.meta.outputs.date }}/${{ github.sha }}/
-        glob: 'viam-server-focal-*'
+        path: etc/packaging/static/deploy/
+        destination: packages.viam.com/apps/viam-server/
+        glob: 'viam-server-${{ steps.meta.outputs.channel }}-*'
         parent: false
 
     - name: Summary
-      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      if: github.event_name != 'schedule'
       run: |
-        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/focal/${{ steps.meta.outputs.date }}/${{ github.sha }}/viam-server-focal-${{ steps.meta.outputs.arch }}"
-        echo "### Focal viam-server (${{ steps.meta.outputs.arch }})" >> "$GITHUB_STEP_SUMMARY"
+        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}"
+        echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
         echo "$url" >> "$GITHUB_STEP_SUMMARY"
