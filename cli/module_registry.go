@@ -357,7 +357,7 @@ func UploadModuleAction(ctx context.Context, cmd *cli.Command, args uploadModule
 	if !forceUploadArg {
 		if err := validateModuleFile(ctx, client, cmd, moduleID, tarballPath, versionArg, platformArg, moduleUploadPath); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/dev/tools/cli#module ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/cli/reference/#module ",
 				err)
 		}
 	}

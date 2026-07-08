@@ -1,7 +1,7 @@
 // Package navigation is the service that allows you to navigate along waypoints.
 // For more information, see the [navigation service docs].
 //
-// [navigation service docs]: https://docs.viam.com/services/navigation/
+// [navigation service docs]: https://docs.viam.com/reference/services/navigation/
 package navigation
 
 import (
@@ -164,7 +164,7 @@ type Properties struct {
 //
 // For more information, see the [Properties method docs].
 //
-// [navigation service docs]: https://docs.viam.com/operate/reference/services/navigation/
+// [navigation service docs]: https://docs.viam.com/reference/apis/services/navigation/
 // [Mode method docs]: https://docs.viam.com/reference/apis/services/navigation/#getmode
 // [SetMode method docs]: https://docs.viam.com/reference/apis/services/navigation/#setmode
 // [Location method docs]: https://docs.viam.com/reference/apis/services/navigation/#getlocation

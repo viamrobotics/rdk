@@ -2,7 +2,7 @@
 // input tensors/arrays, pass them through an inference engine, and then return a map output tensors/arrays.
 // For more information, see the [ML model service docs].
 //
-// [ML model service docs]: https://docs.viam.com/services/ml/deploy/
+// [ML model service docs]: https://docs.viam.com/vision/deploy-and-maintain/deploy-from-registry/
 package mlmodel
 
 import (
@@ -61,7 +61,7 @@ func init() {
 //
 // For more information, see the [Metadata method docs].
 //
-// [ML model service docs]: https://docs.viam.com/data-ai/ai/deploy/
+// [ML model service docs]: https://docs.viam.com/reference/apis/services/ml/
 // [Infer method docs]: https://docs.viam.com/reference/apis/services/ml/#infer
 // [Metadata method docs]: https://docs.viam.com/reference/apis/services/ml/#metadata
 type Service interface {

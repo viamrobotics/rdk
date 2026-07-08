@@ -2,7 +2,7 @@
 // This is an Experimental package.
 // For more information, see the [SLAM service docs].
 //
-// [SLAM service docs]: https://docs.viam.com/services/slam/
+// [SLAM service docs]: https://docs.viam.com/reference/services/slam/
 package slam
 
 import (
@@ -174,7 +174,7 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 //
 // For more information, see the [Properties method docs].
 //
-// [SLAM service docs]: https://docs.viam.com/operate/reference/services/slam/
+// [SLAM service docs]: https://docs.viam.com/reference/apis/services/slam/
 // [Position method docs]: https://docs.viam.com/reference/apis/services/slam/#getposition
 // [PointCloudMap method docs]: https://docs.viam.com/reference/apis/services/slam/#getpointcloudmap
 // [InternalState method docs]: https://docs.viam.com/reference/apis/services/slam/#getinternalstate

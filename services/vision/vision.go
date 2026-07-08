@@ -2,7 +2,7 @@
 // (like detection, segmentation, tracking, etc) that usually only require a camera or image input.
 // For more information, see the [vision service docs].
 //
-// [vision service docs]: https://docs.viam.com/services/vision/
+// [vision service docs]: https://docs.viam.com/reference/services/vision/
 package vision
 
 import (

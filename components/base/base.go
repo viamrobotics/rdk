@@ -1,7 +1,7 @@
 // Package base defines the base that a robot uses to move around.
 // For more information, see the [base component docs].
 //
-// [base component docs]: https://docs.viam.com/components/base/
+// [base component docs]: https://docs.viam.com/reference/components/base/
 package base
 
 import (
@@ -115,7 +115,7 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [Properties method docs].
 //
-// [base component docs]: https://docs.viam.com/components/base/
+// [base component docs]: https://docs.viam.com/reference/apis/components/base/
 // [Properties method docs]: https://docs.viam.com/reference/apis/components/base/#getproperties
 // [SetVelocity method docs]: https://docs.viam.com/reference/apis/components/base/#setvelocity
 // [SetPower method docs]: https://docs.viam.com/reference/apis/components/base/#setpower
