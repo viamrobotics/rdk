@@ -46,11 +46,6 @@ type sourceBasedCamera struct {
 	logging.Logger
 }
 
-// Explicitly define Reconfigure to resolve ambiguity.
-func (vs *sourceBasedCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	return vs.AlwaysRebuild.Reconfigure(ctx, deps, conf)
-}
-
 // Explicitly define Name to resolve ambiguity.
 func (vs *sourceBasedCamera) Name() resource.Name {
 	return vs.Named.Name()

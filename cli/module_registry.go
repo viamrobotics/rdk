@@ -357,7 +357,7 @@ func UploadModuleAction(ctx context.Context, cmd *cli.Command, args uploadModule
 	if !forceUploadArg {
 		if err := validateModuleFile(ctx, client, cmd, moduleID, tarballPath, versionArg, platformArg, moduleUploadPath); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/dev/tools/cli#module ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/cli/reference/#module ",
 				err)
 		}
 	}
@@ -855,6 +855,13 @@ func loadManifest(manifestPath string) (ModuleManifest, error) {
 		}
 		return ModuleManifest{}, err
 	}
+	return parseManifest(manifestBytes)
+}
+
+// parseManifest unmarshals raw meta.json bytes into a ModuleManifest. It is
+// shared by loadManifest (local file) and the remote-manifest fetch used to
+// validate a cloud build against the repo it will actually build.
+func parseManifest(manifestBytes []byte) (ModuleManifest, error) {
 	var manifest ModuleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return ModuleManifest{}, err
@@ -1036,6 +1043,54 @@ func modelTripleToMarkdownFilename(modelTriple string) string {
 type sender[RequestT any] interface {
 	Send(*RequestT) error
 	CloseSend() error
+}
+
+// archiveBuildStream is a client-streaming RPC stream that sends N header
+// requests followed by chunked archive bytes and returns a single response on
+// close. Both StartReloadBuild and StartSourceUploadBuild satisfy this shape.
+type archiveBuildStream[ReqT any, RespT any] interface {
+	Send(*ReqT) error
+	CloseSend() error
+	CloseAndRecv() (*RespT, error)
+}
+
+// streamArchiveBuild opens archivePath, sends each header request in order,
+// streams the file contents through chunkReq, and returns the typed response.
+// Used by both reload (StartReloadBuild) and source-upload (StartSourceUploadBuild)
+// flows; their differences are confined to the header/chunk constructors the
+// callers pass in.
+func streamArchiveBuild[ReqT, RespT any, StreamT archiveBuildStream[ReqT, RespT]](
+	ctx context.Context,
+	stream StreamT,
+	archivePath string,
+	headers []*ReqT,
+	chunkReq func(*os.File) (*ReqT, int, error),
+) (*RespT, error) {
+	//nolint:gosec // archivePath is constructed by createGitArchive / createTarballForUpload
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return nil, err
+	}
+	defer vutils.UncheckedErrorFunc(file.Close)
+
+	for _, header := range headers {
+		if err := stream.Send(header); err != nil {
+			return nil, err
+		}
+	}
+
+	var errs error
+	// Suppress the "Uploading... X%" progress bar from sendUploadRequests; callers
+	// drive their own progress UI (e.g. ProgressManager) around this helper.
+	if err := sendUploadRequests(ctx, stream, file, io.Discard, chunkReq); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
+		errs = multierr.Combine(errs, closeErr)
+	}
+	return resp, errs
 }
 
 func sendUploadRequests[RequestT any, StreamT sender[RequestT]](

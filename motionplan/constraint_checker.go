@@ -69,8 +69,9 @@ func NewConstraintChecker(
 	startPoses, goalPoses referenceframe.FrameSystemPoses,
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
+	movingFrameNames map[string]bool,
 	seedMap *referenceframe.LinearInputs,
-	worldState *referenceframe.WorldState,
+	obstaclesInWorldFrame *referenceframe.GeometriesInFrame,
 	logger logging.Logger,
 	cache *CollisionCache,
 ) (*ConstraintChecker, error) {
@@ -86,11 +87,15 @@ func NewConstraintChecker(
 		return nil, err
 	}
 
-	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap.ToFrameSystemInputs())
-	if err != nil {
-		return nil, err
+	var worldGeometries []spatialmath.Geometry
+	if obstaclesInWorldFrame != nil {
+		worldGeometries = obstaclesInWorldFrame.Geometries()
 	}
-	worldGeometries := obstaclesInFrame.Geometries()
+
+	obstacleNames := make(map[string]bool)
+	for _, geometry := range worldGeometries {
+		obstacleNames[geometry.Label()] = true
+	}
 
 	frameNames := map[string]bool{}
 	for _, fName := range fs.FrameNames() {
@@ -101,7 +106,7 @@ func NewConstraintChecker(
 		constraints.CollisionSpecification,
 		frameSystemGeometries,
 		frameNames,
-		worldState.ObstacleNames(),
+		obstacleNames,
 	)
 	if err != nil {
 		return nil, err
@@ -111,6 +116,7 @@ func NewConstraintChecker(
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs,
 		movingRobotGeometries,
+		movingFrameNames,
 		staticRobotGeometries,
 		worldGeometries,
 		allowedCollisions,
@@ -273,13 +279,6 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 	_, span := trace.StartSpan(ctx, "CheckStateFSConstraints")
 	defer span.End()
 
-	{
-		_, err := state.Geometries()
-		if err != nil {
-			return 0, err
-		}
-	}
-
 	closest := math.Inf(1)
 
 	for _, pair := range []struct {
@@ -394,7 +393,9 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 // its dedicated pair-hint slot.
 func CreateAllCollisionConstraints(
 	fs *referenceframe.FrameSystem,
-	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
+	movingRobotGeometries []spatialmath.Geometry,
+	movingFrameNames map[string]bool,
+	staticRobotGeometries, worldGeometries []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	cache *CollisionCache,
@@ -415,6 +416,7 @@ func CreateAllCollisionConstraints(
 		obstacleConstraintFS, err := NewCollisionConstraintFS(
 			fs,
 			movingRobotGeometries,
+			movingFrameNames,
 			worldGeometries,
 			allowedCollisions,
 			collisionBufferMM,
@@ -433,6 +435,7 @@ func CreateAllCollisionConstraints(
 		robotConstraintFS, err := NewCollisionConstraintFS(
 			fs,
 			movingRobotGeometries,
+			movingFrameNames,
 			staticRobotGeometries,
 			allowedCollisions,
 			collisionBufferMM,
@@ -451,6 +454,7 @@ func CreateAllCollisionConstraints(
 		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
 			fs,
 			movingRobotGeometries,
+			movingFrameNames,
 			movingRobotGeometries,
 			allowedCollisions,
 			collisionBufferMM,
@@ -475,7 +479,9 @@ func CreateAllCollisionConstraints(
 // violated (geomA, geomB) pair and try that pair first on the next call.
 func NewCollisionConstraintFS(
 	fs *referenceframe.FrameSystem,
-	moving, static []spatialmath.Geometry,
+	moving []spatialmath.Geometry,
+	movingFrameNames map[string]bool,
+	static []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
 	isSelfCollision bool,
@@ -490,28 +496,25 @@ func NewCollisionConstraintFS(
 		return nil, err
 	}
 
-	// Build a label set for filtering frame system geometries to only those in `moving`
-	movingLabels := map[string]bool{}
-	for _, g := range moving {
-		movingLabels[g.Label()] = true
-	}
+	allowed := makeAllowedCollisionsLookup(ignoreCollisions)
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
-		// Use FrameSystemGeometries to get all geometries in the frame system
-		internalGeometries, err := state.Geometries()
-		if err != nil {
-			return 0, err
+		// state.movingGeometries is shared across the three collision constraints
+		// (obstacle / robot-vs-robot / self-collision); whichever runs first for
+		// this state populates it, the others hit the cache. Safe because all
+		// three closures captured the same movingFrameNames.
+		if state.movingGeometries == nil {
+			g, err := referenceframe.FrameSystemGeometriesForFrames(state.FS, state.Configuration, movingFrameNames)
+			if err != nil {
+				return 0, err
+			}
+			state.movingGeometries = g
 		}
 
-		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
 		var internalGeoms []spatialmath.Geometry
-		for _, geosInFrame := range internalGeometries {
-			if len(geosInFrame.Geometries()) > 0 {
-				if movingLabels[geosInFrame.Geometries()[0].Label()] {
-					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
-				}
-			}
+		for _, geosInFrame := range state.movingGeometries {
+			internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
 		}
 
 		// For self-collision, compare moving geometries against themselves
@@ -521,7 +524,7 @@ func NewCollisionConstraintFS(
 		}
 
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, pairHint, logger)
+			internalGeoms, staticToCheck, allowed, collisionBufferMM, false, pairHint, logger)
 		if err != nil {
 			return minDist, err
 		}
@@ -545,8 +548,8 @@ func computeInitialCollisionsToIgnore(
 	logger logging.Logger,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
-	initialCollisions, _, err := CheckCollisions(
-		group1, group2, collisionSpecifications, collisionBufferMM, true, logger)
+	initialCollisions, _, err := checkCollisionsHinted(
+		group1, group2, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
 	if err != nil {
 		return nil, err
 	}

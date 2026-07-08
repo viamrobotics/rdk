@@ -3,6 +3,7 @@ package modmanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
@@ -62,7 +64,7 @@ func NewManager(
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
-		failedModules:           make(map[string]bool),
+		moduleStatusMap:         make(map[string]modulestatus.Status),
 	}
 	return ret, nil
 }
@@ -150,8 +152,8 @@ type Manager struct {
 	// PeerConnections.
 	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
 
-	failedModulesMu sync.RWMutex
-	failedModules   map[string]bool
+	moduleStatusMu  sync.RWMutex
+	moduleStatusMap map[string]modulestatus.Status
 }
 
 // Close terminates module connections and processes.
@@ -256,8 +258,10 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 
 		// Validate module configs before attempting to add.
 		if err := conf.Validate(""); err != nil {
+			fullErr := fmt.Errorf("module config validation error; skipping; module: %s, error: %w", conf.Name, err)
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
-			mgr.AddToFailedModules(conf.Name)
+			mgr.SetModuleStatusUnhealthy(conf.Name, fullErr)
+
 			errs[i] = err
 			continue
 		}
@@ -272,12 +276,11 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
-				mgr.AddToFailedModules(conf.Name)
+				fullErr := fmt.Errorf("error adding module %s: %w", conf.Name, err)
+				mgr.SetModuleStatusUnhealthy(conf.Name, fullErr)
 				errs[i] = err
 				return
 			}
-			// module started successfully, remove it from failedModules
-			mgr.deleteFromFailedModules(conf.Name)
 		}(i, conf)
 	}
 	wg.Wait()
@@ -305,6 +308,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 	if exists {
 		return errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
 	}
+
+	// wait to track the module status until we know it doesn't already exist
+	mgr.SetModuleStatusPending(conf.Name)
 
 	var moduleDataDir string
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
@@ -340,6 +346,7 @@ func (mgr *Manager) parentAddr(mod *module) string {
 }
 
 func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHandler) error {
+	mgr.setModuleStatusStarting(mod.cfg.Name)
 	return mod.startProcess(
 		mgr.restartCtx,
 		mgr.parentAddr(mod),
@@ -393,6 +400,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
 	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
+	mgr.setModuleStatusReady(mod.cfg.Name)
+
 	success = true
 	return nil
 }
@@ -433,14 +442,10 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod.logger.CInfow(ctx, "Existing module process stopped. Starting new module process", "module", conf.Name)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
-		// could not start module during reconfiguration, add it to failedModules
-		mgr.AddToFailedModules(conf.Name)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, err)
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
-
-	// reconfiguration successful, remove from failed modules
-	mgr.deleteFromFailedModules(conf.Name)
 
 	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
@@ -488,6 +493,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 // closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
 // as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
+	mgr.setModuleStatusClosing(mod.cfg.Name)
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
@@ -512,6 +518,8 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 
 	if err := mod.stopProcess(); err != nil {
+		fullErr := fmt.Errorf("error while stopping module %s: %w", mod.cfg.Name, err)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
@@ -530,6 +538,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		}
 	}
 	mgr.modules.Delete(mod.cfg.Name)
+	mgr.removeModuleStatus(mod.cfg.Name)
 
 	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
 	return nil
@@ -572,31 +581,6 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	}
 
 	return apiInfo.RPCClient(ctx, &mod.sharedConn, "", conf.ResourceName(), mgr.logger)
-}
-
-// ReconfigureResource updates/reconfigures a modular component with a new configuration.
-func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error {
-	mod, ok := mgr.getModule(conf)
-	if !ok {
-		return errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
-	}
-
-	mod.logger.CInfow(ctx, "Reconfiguring resource for module", "resource", conf.Name, "module", mod.cfg.Name)
-
-	confProto, err := config.ComponentConfigToProto(&conf)
-	if err != nil {
-		return err
-	}
-	_, err = mod.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
-	if err != nil {
-		return err
-	}
-
-	mod.resourcesMu.Lock()
-	defer mod.resourcesMu.Unlock()
-	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
-
-	return nil
 }
 
 // Configs returns a slice of config.Module representing the currently managed
@@ -645,13 +629,18 @@ func (mgr *Manager) IsModularResource(name resource.Name) bool {
 	return ok
 }
 
+// ErrResourceNotFoundInResourceModuleMap is used to indicate the resource is not found in the modules map, possibly because it was
+// already removed.
+var ErrResourceNotFoundInResourceModuleMap = errors.New("resource not found in modules map")
+
 // RemoveResource requests the removal of a resource from a module.
 func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	mod, ok := mgr.rMap.Load(name)
 	if !ok {
-		return errors.Errorf("resource %+v not found in module", name)
+		mgr.logger.CWarnw(ctx, "resource not found in modules map", "name", name)
+		return ErrResourceNotFoundInResourceModuleMap
 	}
 
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
@@ -896,9 +885,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
-		// Add to failedModules when crash is detected
-		mgr.AddToFailedModules(mod.cfg.Name)
-
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
 		// 2. mgr.Reconfigure, which wants to stop the module and replace it with
@@ -945,18 +931,19 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			}
 
 			if !cleanupPerformed {
+				// only record the failure inside the lock, and after mgr.Remove or mgr.Reconfigure have potentially touched it
+				fullErr := fmt.Errorf("module has unexpectedly exited; module: %s, exit_code: %d", mod.cfg.Name, exitCode)
+				mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
+
 				mod.cleanupAfterCrash(mgr)
 				cleanupPerformed = true
 			}
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
-				// restart successful, remove module from failedModules
-				mgr.deleteFromFailedModules(mod.cfg.Name)
 				break
 			}
-			// could not restart crashed module, add it to failedModules
-			mgr.AddToFailedModules(mod.cfg.Name)
+			mgr.SetModuleStatusUnhealthy(mod.cfg.Name, err)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
@@ -1064,6 +1051,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 	mod.registerResourceModels(mgr)
+	mgr.setModuleStatusReady(mod.cfg.Name)
 	success = true
 	return nil
 }
@@ -1156,34 +1144,106 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
-// AddToFailedModules adds a failing module to the failedModules map.
-func (mgr *Manager) AddToFailedModules(moduleName string) {
-	mgr.failedModulesMu.Lock()
-	mgr.failedModules[moduleName] = true
-	mgr.failedModulesMu.Unlock()
+// These are the module status setters. Pending and Unhealthy are public
+// because sometimes the information required to set these states is only
+// available in other packages. All other setters are private
+
+// SetModuleStatusPending sets a module's status to Pending
+func (mgr *Manager) SetModuleStatusPending(name string) {
+	mgr.setModuleState(name, modulestatus.ModuleStatePending, nil)
 }
 
-func (mgr *Manager) deleteFromFailedModules(moduleName string) {
-	mgr.failedModulesMu.Lock()
-	delete(mgr.failedModules, moduleName)
-	mgr.failedModulesMu.Unlock()
+func (mgr *Manager) setModuleStatusStarting(name string) {
+	mgr.setModuleState(name, modulestatus.ModuleStateStarting, nil)
 }
 
-// FailedModules returns the names of all failing modules.
-func (mgr *Manager) FailedModules() []string {
-	mgr.failedModulesMu.RLock()
-	defer mgr.failedModulesMu.RUnlock()
+func (mgr *Manager) setModuleStatusReady(name string) {
+	mgr.setModuleState(name, modulestatus.ModuleStateReady, nil)
+}
+
+func (mgr *Manager) setModuleStatusClosing(name string) {
+	mgr.setModuleState(name, modulestatus.ModuleStateClosing, nil)
+}
+
+// SetModuleStatusUnhealthy sets a module's status to Unhealthy
+func (mgr *Manager) SetModuleStatusUnhealthy(name string, err error) {
+	mgr.setModuleState(name, modulestatus.ModuleStateUnhealthy, err)
+}
+
+// setModuleState is an internal setter that should never be called directly
+func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, err error) {
+	mgr.moduleStatusMu.Lock()
+	status, ok := mgr.moduleStatusMap[moduleName]
+	if !ok {
+		status = modulestatus.Status{Name: moduleName}
+	}
+	status.State = state
+	status.LastUpdated = time.Now()
+	if state == modulestatus.ModuleStateUnhealthy {
+		status.Error = err
+		status.ConsecutiveFailures++
+	} else if state == modulestatus.ModuleStateReady {
+		// Only clear the error on entering the ready state.
+		// This way, the last error will persist through intermediate states in a failure cycle
+		status.ConsecutiveFailures = 0
+		status.Error = nil
+	}
+
+	mgr.moduleStatusMap[moduleName] = status
+
+	mgr.moduleStatusMu.Unlock()
+}
+
+func (mgr *Manager) removeModuleStatus(moduleName string) {
+	mgr.moduleStatusMu.Lock()
+	delete(mgr.moduleStatusMap, moduleName)
+	mgr.moduleStatusMu.Unlock()
+}
+
+// PruneModuleStatuses stops tracking modules that are no longer in the desired
+// config and no longer backed by a live module
+func (mgr *Manager) PruneModuleStatuses(confs []config.Module) {
+	// make a map before iterating so lookups are cheaper
+	keep := make(map[string]struct{}, len(confs))
+	for _, conf := range confs {
+		keep[conf.Name] = struct{}{}
+	}
+	mgr.moduleStatusMu.Lock()
+	defer mgr.moduleStatusMu.Unlock()
+	for name := range mgr.moduleStatusMap {
+		// keep modules in the desired config
+		if _, inConfig := keep[name]; inConfig {
+			continue
+		}
+		// also keep modules that are still backed by a live module
+		if _, live := mgr.modules.Load(name); live {
+			continue
+		}
+		delete(mgr.moduleStatusMap, name)
+	}
+}
+
+// UnhealthyModules returns the names of all unhealthy modules.
+func (mgr *Manager) UnhealthyModules() []string {
+	mgr.moduleStatusMu.RLock()
+	defer mgr.moduleStatusMu.RUnlock()
 	var failedModuleNames []string
-	for moduleName := range mgr.failedModules {
-		failedModuleNames = append(failedModuleNames, moduleName)
+	for moduleName, module := range mgr.moduleStatusMap {
+		if module.State == modulestatus.ModuleStateUnhealthy {
+			failedModuleNames = append(failedModuleNames, moduleName)
+		}
 	}
 	return failedModuleNames
 }
 
-// ClearFailedModules clears the failedModules map at the start of reconfigure.
-// Modules will be added to failedModules as they fail during the reconfigure process.
-func (mgr *Manager) ClearFailedModules() {
-	mgr.failedModulesMu.Lock()
-	mgr.failedModules = make(map[string]bool)
-	mgr.failedModulesMu.Unlock()
+// Status retrieves the statuses of all modules tracked by the module manager
+func (mgr *Manager) Status() []modulestatus.Status {
+	mgr.moduleStatusMu.RLock()
+	defer mgr.moduleStatusMu.RUnlock()
+
+	var statuses []modulestatus.Status
+	for _, modstatus := range mgr.moduleStatusMap {
+		statuses = append(statuses, modstatus)
+	}
+	return statuses
 }

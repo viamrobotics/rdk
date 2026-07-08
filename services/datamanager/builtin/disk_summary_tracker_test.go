@@ -169,6 +169,40 @@ func captureFileName(t time.Time, ext string) string {
 	return strings.ReplaceAll(t.Format(time.RFC3339Nano), ":", "_") + ext
 }
 
+func TestDiskSummaryArbitraryFiles(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("arbitrary file populates time ranges from filesystem create time", func(t *testing.T) {
+		dir := t.TempDir()
+		before := time.Now()
+		err := os.WriteFile(filepath.Join(dir, "arbitrary.txt"), []byte("data"), 0o644)
+		test.That(t, err, test.ShouldBeNil)
+
+		summaries := DiskSummary(ctx, dir)
+		test.That(t, len(summaries), test.ShouldEqual, 1)
+		s := summaries[0]
+		test.That(t, s.FileCount, test.ShouldEqual, 1)
+		// Arbitrary files have no time in their name, so the range comes from the
+		// filesystem creation time, which is around now.
+		test.That(t, s.DataTimeRange, test.ShouldNotBeNil)
+		test.That(t, s.SyncableFileTimeRange, test.ShouldNotBeNil)
+		test.That(t, s.DataTimeRange.Start.Before(before.Add(-time.Hour)), test.ShouldBeFalse)
+	})
+
+	t.Run("in-progress files are excluded from syncable range but counted in data range", func(t *testing.T) {
+		dir := t.TempDir()
+		progTime := time.Now().Add(-10 * time.Minute)
+		err := os.WriteFile(filepath.Join(dir, captureFileName(progTime, data.InProgressCaptureFileExt)), []byte("data"), 0o644)
+		test.That(t, err, test.ShouldBeNil)
+
+		summaries := DiskSummary(ctx, dir)
+		test.That(t, len(summaries), test.ShouldEqual, 1)
+		s := summaries[0]
+		test.That(t, s.DataTimeRange, test.ShouldNotBeNil)
+		test.That(t, s.SyncableFileTimeRange, test.ShouldBeNil)
+	})
+}
+
 func TestCalculateAndSetSummaryStaleWarningOnlyCaptureFiles(t *testing.T) {
 	ctx := context.Background()
 	staleTime := time.Now().Add(-10 * time.Minute)

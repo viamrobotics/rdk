@@ -977,18 +977,18 @@ func TestResourceGraphClock(t *testing.T) {
 
 	// Test basic SwapResource behavior.
 	res1 := &someResource{Named: name1.AsNamed()}
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 1)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 1)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 0)
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 2)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 
 	// Test multiple independent nodes.
 	node2 = &GraphNode{}
 	test.That(t, g.AddNode(name2, node2), test.ShouldBeNil)
-	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 3)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3)
@@ -1001,7 +1001,7 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
 
 	// Swap resource to bring node1 back to usable state (increments clock).
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 5)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 5)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
@@ -1025,7 +1025,7 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
 
 	// Swap resource to transition back to usable (should increment clock).
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 7)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 7)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
@@ -1048,7 +1048,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 	test.That(t, node1.LastReconfigured(), test.ShouldBeNil)
 
 	res1 := &someResource{Named: name1.AsNamed()}
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	lr := node1.LastReconfigured()
 	test.That(t, lr, test.ShouldNotBeNil)
 	// Assert that after SwapResource, node's lastReconfigured time is between
@@ -1058,7 +1058,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 
 	// Mock a mutation with another SwapResource. Assert that lastReconfigured
 	// value changed.
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	newLR := node1.LastReconfigured()
 	test.That(t, newLR, test.ShouldNotBeNil)
 	// Assert that after another SwapResource, node's lastReconfigured time is
@@ -1278,4 +1278,31 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 		}
 	}
 	return ""
+}
+
+// TestResolveDependenciesSkipsDependencyMarkedForRemoval verifies that ResolveDependencies does
+// not build an edge to a dependency whose node is already marked for removal.
+func TestResolveDependenciesSkipsDependencyMarkedForRemoval(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
+
+	nameA := NewName(apiA, "A") // dependency, marked for removal
+	nameB := NewName(apiA, "B") // dependent declaring A
+
+	nodeA := &GraphNode{}
+	test.That(t, g.AddNode(nameA, nodeA), test.ShouldBeNil)
+	nodeA.MarkForRemoval()
+
+	bCfg := Config{API: apiA, Name: "B", ImplicitDependsOn: []string{nameA.String()}}
+	test.That(t, g.AddNode(nameB, NewUnconfiguredGraphNode(bCfg, bCfg.Dependencies())), test.ShouldBeNil)
+
+	// A is present but marked for removal, so B must not resolve it: no edge, stays pending.
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, g.GetAllParentsOf(nameB), test.ShouldBeEmpty)
+
+	// Replace A with a live node; B now resolves it on the next pass.
+	g.remove(nameA)
+	test.That(t, g.AddNode(nameA, &GraphNode{}), test.ShouldBeNil)
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
 }

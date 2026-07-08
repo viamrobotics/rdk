@@ -131,27 +131,15 @@ func collisionSpecifications(
 	return allowedCollisions, nil
 }
 
-// CheckCollisions checks whether any geometries in one set collide with any geometries in another,
+// checkCollisionsHinted checks whether any geometries in one set collide with any geometries in another,
 // ignoring allowed collisions. It will return a lower-bound estimate of the closest distance between non-colliding geometries.
 // If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
-func CheckCollisions(
-	gg, other []spatialmath.Geometry,
-	allowedCollisions []Collision,
-	collisionBufferMM float64,
-	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
-	logger logging.Logger,
-) ([]Collision, float64, error) {
-	return checkCollisionsHinted(gg, other, allowedCollisions, collisionBufferMM, collectAllCollisions, nil, logger)
-}
-
-// checkCollisionsHinted is the workhorse for CheckCollisions plus an optional
-// "last-violated pair" hint. When hint is non-nil and the previously-violated
-// pair still exists, that pair is checked first; on a new collision the hint
-// is atomically updated. Per-mesh witness caching for the inner-loop short-
-// circuit lives on spatialmath.Mesh itself; no plumbing needed here.
+// When hint is non-nil and the previously-violated pair still exists, that pair is checked first; on a new collision the hint
+// is atomically updated. Per-mesh witness caching for the inner-loop short-circuit lives on spatialmath.Mesh itself; no plumbing
+// needed here.
 func checkCollisionsHinted(
 	gg, other []spatialmath.Geometry,
-	allowedCollisions []Collision,
+	allowed map[[2]string]bool,
 	collisionBufferMM float64,
 	collectAllCollisions bool,
 	hint *atomic.Pointer[[2]string],
@@ -166,7 +154,19 @@ func checkCollisionsHinted(
 		return nil, math.Inf(-1), err
 	}
 
-	ignoreList := makeAllowedCollisionsLookup(allowedCollisions)
+	// `seen` dedups pairs only when the same canonical (xName,yName) could be visited
+	// twice during the nested-loop iteration below. That requires a name to appear in
+	// both ggMap and otherMap — i.e. self-collision. For disjoint sets (the obstacle
+	// and robot-vs-robot constraints), every iteration yields a unique canonical pair,
+	// so allocating the map and writing to it on every pair is pure waste. Detect the
+	// disjoint case up front and leave seen nil; skipCollisionCheck handles nil safely.
+	var seen map[[2]string]bool
+	for k := range ggMap {
+		if _, ok := otherMap[k]; ok {
+			seen = make(map[[2]string]bool, len(ggMap)*len(otherMap)/2)
+			break
+		}
+	}
 
 	collisions := []Collision{}
 	minDistance := math.Inf(1)
@@ -217,7 +217,7 @@ func checkCollisionsHinted(
 				if !ok {
 					return false, false, nil
 				}
-				if skipCollisionCheck(ignoreList, xName, yName) {
+				if skipCollisionCheck(allowed, seen, xName, yName) {
 					return false, true, nil
 				}
 				stop, err := checkOnePair(xName, yName, xGeom, yGeom)
@@ -237,7 +237,7 @@ func checkCollisionsHinted(
 
 	for xName, xGeometry := range ggMap {
 		for yName, yGeometry := range otherMap {
-			if skipCollisionCheck(ignoreList, xName, yName) {
+			if skipCollisionCheck(allowed, seen, xName, yName) {
 				continue
 			}
 			stop, err := checkOnePair(xName, yName, xGeometry, yGeometry)
@@ -253,25 +253,25 @@ func checkCollisionsHinted(
 	return collisions, minDistance, nil
 }
 
+func canonicalPair(a, b string) [2]string {
+	if a < b {
+		return [2]string{a, b}
+	}
+	return [2]string{b, a}
+}
+
 // Process a []Collision into a map for easy lookups.
-func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[string]map[string]bool {
-	ignoreList := map[string]map[string]bool{}
-	for _, collision := range allowedCollisions {
-		if _, ok := ignoreList[collision.name1]; !ok {
-			ignoreList[collision.name1] = map[string]bool{}
-		}
-		if _, ok := ignoreList[collision.name2]; !ok {
-			ignoreList[collision.name2] = map[string]bool{}
-		}
-		ignoreList[collision.name1][collision.name2] = true
-		ignoreList[collision.name2][collision.name1] = true
+func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[[2]string]bool {
+	ignoreList := make(map[[2]string]bool, len(allowedCollisions))
+	for _, c := range allowedCollisions {
+		ignoreList[canonicalPair(c.name1, c.name2)] = true
 	}
 	return ignoreList
 }
 
 func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialmath.Geometry, error) {
 	unnamedCnt := 0
-	geomMap := map[string]spatialmath.Geometry{}
+	geomMap := make(map[string]spatialmath.Geometry, len(geoms))
 
 	for _, geom := range geoms {
 		label := geom.Label()
@@ -287,26 +287,28 @@ func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialm
 	return geomMap, nil
 }
 
-func skipCollisionCheck(ignoreList map[string]map[string]bool, xName, yName string) bool {
+func skipCollisionCheck(allowed, seen map[[2]string]bool, xName, yName string) bool {
 	// Skip comparing a geometry to itself
 	if xName == yName {
 		return true
 	}
 
-	if _, ok := ignoreList[yName]; ok && ignoreList[yName][xName] {
+	key := canonicalPair(xName, yName)
+	if allowed[key] {
+		return true
+	}
+	if seen == nil {
+		// Caller determined ggMap and otherMap are disjoint, so (xName,yName)
+		// produces a unique canonical pair on every iteration — dedup unnecessary.
+		return false
+	}
+	if seen[key] {
 		// Already checked this pair in the other order
 		return true
 	}
 
 	// We're going to decide if x->y collides. We will not need to check if y->x collides. Mutate
 	// the ignoreList to (potentially) avoid that reverse computation.
-	for _, pair := range [][2]string{{xName, yName}, {yName, xName}} {
-		left, right := pair[0], pair[1]
-		if _, ok := ignoreList[left]; !ok {
-			ignoreList[left] = map[string]bool{}
-		}
-		ignoreList[left][right] = true
-	}
-
+	seen[key] = true
 	return false
 }

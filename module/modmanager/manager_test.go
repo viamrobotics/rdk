@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -352,19 +351,6 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, deps, test.ShouldBeNil)
 
-			t.Log("test ReconfigureResource")
-			// Reconfigure should replace the proxied object, resetting the counter
-			ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 73})
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ret["total"], test.ShouldEqual, 73)
-
-			err = mgr.ReconfigureResource(ctx, cfgCounter1, nil)
-			test.That(t, err, test.ShouldBeNil)
-
-			ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ret["total"], test.ShouldEqual, 0)
-
 			t.Log("test RemoveResource")
 			err = mgr.RemoveResource(ctx, rNameCounter1)
 			test.That(t, err, test.ShouldBeNil)
@@ -586,7 +572,10 @@ func TestModManagerValidation(t *testing.T) {
 		`rpc error: code = Unknown desc = error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 
 	// Test that ValidateConfig respects validateConfigTimeout by artificially
-	// lowering it to an impossibly small duration.
+	// lowering it to an impossibly small duration. Restore it afterward so the global
+	// does not leak into later tests in this package.
+	origValidateConfigTimeout := validateConfigTimeout
+	defer func() { validateConfigTimeout = origValidateConfigTimeout }()
 	validateConfigTimeout = 1 * time.Nanosecond
 	_, _, err = mgr.ValidateConfig(ctx, cfgMyBase1)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -1501,21 +1490,6 @@ func TestRTPPassthrough(t *testing.T) {
 	passSource, ok = passCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	// NOTE: This test relies on the model's Close() method hanlding terminating all subscriptions
-	greenLog(t, "ReconfigureResource eventually terminates all subscriptions when the new model doesn't impelement Reconfigure")
-	// create a sub
-	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
-
-	// reconfigure
-	err = mgr.ReconfigureResource(ctx, passConf, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
-	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
-
 	greenLog(t, "replacing a module binary eventually cancels subscriptions")
 	// add a subscription
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
@@ -1949,17 +1923,4 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	clean, err = rutils.CleanWindowsSocketPath("linux", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
-}
-
-func TestGetAutomaticPort(t *testing.T) {
-	for range 1000 {
-		addr, err := getAutomaticPort()
-		test.That(t, err, test.ShouldBeNil)
-
-		// use the provided port in a new listener; we do this to protect against
-		// any code changes that introduce a TIME_WAIT.
-		lis, err := net.Listen("tcp4", addr)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, lis.Close(), test.ShouldBeNil)
-	}
 }

@@ -10,21 +10,25 @@ import (
 	"time"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/utils"
 )
 
 // DirSummary represents a summary of the files in that directory including file counts,
-// total size of files in that directory and the time range of data capture files
-// (both .capture and .prog) in that directory.
+// total size of files in that directory and the time range of the data in that directory.
 // File and directory errors are accumulated on Err.
 type DirSummary struct {
-	Path          string
-	FileSize      int64
-	FileCount     int64
-	Err           error
+	Path      string
+	FileSize  int64
+	FileCount int64
+	Err       error
+	// DataTimeRange is the time range across all files in the directory. Capture files
+	// (.capture/.prog) use the timestamp encoded in their name; arbitrary files use their
+	// filesystem creation time.
 	DataTimeRange *DataTimeRange
-	// CompletedCaptureTimeRange is the time range of only completed (.capture) files,
-	// excluding in-progress (.prog) files.
-	CompletedCaptureTimeRange *DataTimeRange
+	// SyncableFileTimeRange is the time range of files that are complete and waiting to
+	// sync: completed capture (.capture) files and arbitrary files. In-progress (.prog)
+	// capture files are excluded since they are still being written.
+	SyncableFileTimeRange *DataTimeRange
 }
 
 // DataTimeRange represents a time range from Start to End.
@@ -50,13 +54,13 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 	// For each dirElement, sum up the size of the files in this directory
 	// call self func on all directories and add result to return
 	var (
-		fileSize                  int64
-		fileCount                 int64
-		summary                   []DirSummary
-		dirPaths                  []string
-		dataTimeRange             *DataTimeRange
-		completedCaptureTimeRange *DataTimeRange
-		rootErr                   error
+		fileSize              int64
+		fileCount             int64
+		summary               []DirSummary
+		dirPaths              []string
+		dataTimeRange         *DataTimeRange
+		syncableFileTimeRange *DataTimeRange
+		rootErr               error
 	)
 	for _, child := range children {
 		if ctx.Err() != nil {
@@ -64,38 +68,58 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 		}
 		path := filepath.Join(rootPath, child.Name())
 		if child.IsDir() {
-			// aggrigate all root's children
+			// aggregate all root's children
 			dirPaths = append(dirPaths, path)
-		} else {
-			dataTimeRange = parseTimeRange(child.Name(), dataTimeRange)
-			if strings.HasSuffix(child.Name(), data.CompletedCaptureFileExt) {
-				completedCaptureTimeRange = parseTimeRange(child.Name(), completedCaptureTimeRange)
-			}
-			fileCount++
-			info, err := child.Info()
-			if errors.Is(err, fs.ErrNotExist) {
-				continue
-			}
+			continue
+		}
+
+		name := child.Name()
+		fileCount++
+		info, err := child.Info()
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			rootErr = errors.Join(rootErr, err)
+			continue
+		}
+		// sum up the size of all files in the root
+		fileSize += info.Size()
+
+		isCompletedCapture := strings.HasSuffix(name, data.CompletedCaptureFileExt)
+		isInProgressCapture := strings.HasSuffix(name, data.InProgressCaptureFileExt)
+
+		// Capture files (.capture/.prog) encode the capture time in their name.
+		fileTime := parseTime(name)
+
+		// Arbitrary file uploads, fall back to filesystem creation time (same timestamp
+		// used for sync).
+		if fileTime == nil && !isCompletedCapture && !isInProgressCapture {
+			fileTimes, err := utils.GetFileTimes(path)
 			if err != nil {
-				// aggregate all errors encountered on files in this directory
-				// TODO: Test ErrPermission actually happens if you don't have permissions
 				rootErr = errors.Join(rootErr, err)
-				continue
+			} else {
+				fileTime = &fileTimes.CreateTime
 			}
-			// sum up the size of all files in the root
-			fileSize += info.Size()
+		}
+
+		dataTimeRange = extendTimeRange(dataTimeRange, fileTime)
+		// Completed capture files and arbitrary files are fully written and waiting to
+		// sync; in-progress (.prog) files are excluded since they're still being written.
+		if !isInProgressCapture {
+			syncableFileTimeRange = extendTimeRange(syncableFileTimeRange, fileTime)
 		}
 	}
 
 	// if there were files in this directory, record the size
 	if fileCount != 0 || dataTimeRange != nil {
 		summary = append(summary, DirSummary{
-			Path:                      rootPath,
-			FileSize:                  fileSize,
-			FileCount:                 fileCount,
-			Err:                       rootErr,
-			DataTimeRange:             dataTimeRange,
-			CompletedCaptureTimeRange: completedCaptureTimeRange,
+			Path:                  rootPath,
+			FileSize:              fileSize,
+			FileCount:             fileCount,
+			Err:                   rootErr,
+			DataTimeRange:         dataTimeRange,
+			SyncableFileTimeRange: syncableFileTimeRange,
 		})
 	}
 	// do the same for all children
@@ -109,10 +133,10 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 	return summary
 }
 
-func parseTimeRange(name string, dataTimeRange *DataTimeRange) *DataTimeRange {
-	tPtr := parseTime(name)
+// extendTimeRange grows dataTimeRange to include tPtr, returning the updated range.
+func extendTimeRange(dataTimeRange *DataTimeRange, tPtr *time.Time) *DataTimeRange {
 	if tPtr == nil {
-		// If we can't parse out the time from the file name, return the existing *DataTimeRange
+		// If we don't have a time for this file, return the existing *DataTimeRange
 		return dataTimeRange
 	}
 

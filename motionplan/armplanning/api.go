@@ -43,13 +43,23 @@ type PlanRequest struct {
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
 	StartState *PlanState `json:"start_state"`
 	// The data representation of the robot's environment.
-	WorldState *referenceframe.WorldState `json:"world_state"`
+	ObstaclesInWorldFrame *referenceframe.GeometriesInFrame `json:"obstacles_in_world_frame"`
 	// Additional parameters constraining the motion of the robot.
 	Constraints *motionplan.Constraints `json:"constraints"`
 	// Other more granular parameters for the plan used to move the robot.
 	PlannerOptions *PlannerOptions `json:"planner_options"`
 
 	myTestOptions testOptions
+}
+
+// GetWorldState is a backwards compatibility helper that turns the ObstaclesInWorldFrame back into
+// WorldState object. Presumably for interfacing/rendering with the viz-client.
+func (req *PlanRequest) GetWorldState() *referenceframe.WorldState {
+	var obstacles []*referenceframe.GeometriesInFrame
+	if req.ObstaclesInWorldFrame != nil {
+		obstacles = append(obstacles, req.ObstaclesInWorldFrame)
+	}
+	return mustNewWorldState(obstacles, nil)
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -89,36 +99,37 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 
+	if req.ObstaclesInWorldFrame != nil && req.ObstaclesInWorldFrame.Parent() != referenceframe.World {
+		return errors.Errorf("ObstaclesInWorldFrame must be parented by %q, got %q",
+			referenceframe.World, req.ObstaclesInWorldFrame.Parent())
+	}
+
 	if len(req.Goals) == 0 {
 		return errors.New("PlanRequest must have at least one goal")
 	}
 
 	if req.PlannerOptions.MeshesAsOctrees {
-		// convert any meshes in the worldstate to octrees
-		if req.WorldState == nil {
-			return errors.New("PlanRequest must have non-nil WorldState if 'meshes_as_octrees' option is enabled")
+		// convert any meshes in the obstacles to octrees
+		if req.ObstaclesInWorldFrame == nil {
+			return errors.New("PlanRequest must have non-nil ObstaclesInWorldFrame if 'meshes_as_octrees' option is enabled")
 		}
-		obstacles := make([]*referenceframe.GeometriesInFrame, 0, len(req.WorldState.ObstacleNames()))
-		for _, gf := range req.WorldState.Obstacles() {
-			geometries := gf.Geometries()
-			pcdGeometries := make([]spatialmath.Geometry, 0, len(geometries))
-			for _, geometry := range geometries {
-				if mesh, ok := geometry.(*spatialmath.Mesh); ok {
-					octree, err := pointcloud.NewFromMesh(mesh)
-					if err != nil {
-						return err
-					}
-					geometry = octree
+
+		pcdGeometries := make([]spatialmath.Geometry, 0, len(req.ObstaclesInWorldFrame.Geometries()))
+		for _, geometry := range req.ObstaclesInWorldFrame.Geometries() {
+			if mesh, ok := geometry.(*spatialmath.Mesh); ok {
+				octree, err := pointcloud.NewFromMesh(mesh)
+				if err != nil {
+					return err
 				}
-				pcdGeometries = append(pcdGeometries, geometry)
+
+				geometry = octree
 			}
-			obstacles = append(obstacles, referenceframe.NewGeometriesInFrame(gf.Parent(), pcdGeometries))
+
+			pcdGeometries = append(pcdGeometries, geometry)
 		}
-		newWS, err := referenceframe.NewWorldState(obstacles, req.WorldState.Transforms())
-		if err != nil {
-			return err
-		}
-		req.WorldState = newWS
+
+		req.ObstaclesInWorldFrame = referenceframe.NewGeometriesInFrame(
+			req.ObstaclesInWorldFrame.Parent(), pcdGeometries)
 	}
 
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
@@ -341,20 +352,11 @@ func resetMeshCaches(ctx context.Context, logger logging.Logger, request *PlanRe
 		}
 	}
 
-	if request.WorldState != nil {
-		// Right now, the world state is getting entirely thrown away anyways. It's always a part of
-		// the user request that is about to go out of scope. In the future, this may include
-		// geometries saved in the `WorldStateStore` service.
-		obstacles, err := request.WorldState.ObstaclesInWorldFrame(
-			request.FrameSystem,
-			request.StartState.structuredConfiguration,
-		)
-		if err != nil {
-			logger.CDebugf(ctx, "resetMeshCaches: skipping world obstacles: %v", err)
-			return
-		}
-
-		for _, geometry := range obstacles.Geometries() {
+	if request.ObstaclesInWorldFrame != nil {
+		// Right now, the ObstaclesInWorldFrame is getting entirely thrown away anyways. It's always
+		// a part of the user request that is about to go out of scope. In the future, this may
+		// include geometries saved in the `WorldStateStore` service.
+		for _, geometry := range request.ObstaclesInWorldFrame.Geometries() {
 			visit(geometry)
 		}
 	}
@@ -386,19 +388,12 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
 }
 
-// ReadRequestFromFile reads a PlanRequest from a json file.
+// ReadRequestFromFile reads a PlanRequest from a json file. This method is compatible with legacy
+// PlanRequests containing a `world_state` key as well as modern ones that simply take in
+// `obstacles_in_world_frame`. Files may contain a second JSON object (a response) after the
+// request; this function decodes only the first object.
 func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
-	f, err := os.Open(fileName) //nolint:gosec
-	if err != nil {
-		return nil, err
-	}
-	defer utils.UncheckedErrorFunc(f.Close)
-
-	decoder := json.NewDecoder(f)
-
-	req := &PlanRequest{}
-
-	err = decoder.Decode(req)
+	req, _, err := ReadRequestAndResponseFromFile(fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -439,9 +434,49 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 
 	decoder := json.NewDecoder(f)
 
-	req := &PlanRequest{}
-	if err = decoder.Decode(req); err != nil {
+	// We first decode the file into a raw json structure. This is because we have best effort
+	// support for reading different versions of request files. The current version of the
+	// `PlanRequest` object may not map perfectly to some historical serialization.
+	var raw json.RawMessage
+	if err = decoder.Decode(&raw); err != nil {
 		return nil, nil, err
+	}
+
+	var probe map[string]json.RawMessage
+	if err = json.Unmarshal(raw, &probe); err != nil {
+		return nil, nil, err
+	}
+
+	// We've removed world state from the plan request object. Instead forcing callers to merge
+	// world state transforms into the `FrameSystem` member itself. And world state obstacles are
+	// now passed in directly.
+	req := &PlanRequest{}
+	if _, hasWorldState := probe["world_state"]; hasWorldState {
+		// Legacy format, parse as a `PlanRequestWithWorldState` and have that "upgrade" to a modern
+		// `PlanRequest`.
+		legacy := &PlanRequestWithWorldState{}
+		if err = json.Unmarshal(raw, legacy); err != nil {
+			return nil, nil, err
+		}
+
+		// Dan: We explicitly ignore world state transforms when "upgrading" from this legacy
+		// request file. This was introduced because of a bug where world state transforms weren't
+		// being used at all. So this preserves that behavior. But maybe it's better to do merging
+		// as that was always the intent?
+		req, err = legacy.ToPlanRequestWorldStateTransformsIgnored()
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		if err = json.Unmarshal(raw, req); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	// RSDK-14172: Plan requests can have a nil PlannerOptions. PlanMotion (currently) substitutes
+	// in the `NewBasicPlannerOptions`.
+	if req.PlannerOptions == nil {
+		req.PlannerOptions = NewBasicPlannerOptions()
 	}
 
 	plan := &motionplan.SimplePlan{}
