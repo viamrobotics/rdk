@@ -195,7 +195,11 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 	case copier.preserve:
 		modTime = fileInfo.ModTime()
 		fileMode = fileInfo.Mode()
+	case fileInfo.Mode().Perm() != 0:
+		// source permissions, masked by umask at creation; setuid/setgid/sticky need preserve
+		fileMode = fileInfo.Mode().Perm()
 	case fileInfo.IsDir():
+		// mode unavailable (older sender)
 		fileMode = 0o750
 	default:
 		fileMode = 0o640

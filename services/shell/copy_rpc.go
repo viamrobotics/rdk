@@ -450,10 +450,11 @@ func (writer *shellFileCopyWriter) Copy(ctx context.Context, file File) error {
 			fileDataProto.Name = file.RelativeName
 			fileDataProto.IsDir = fileInfo.IsDir()
 			fileDataProto.Size = fileInfo.Size()
+			// mode is always sent so receivers can default to source permissions
+			mode := uint32(fileInfo.Mode())
+			fileDataProto.Mode = &mode
 			if writer.preserve {
 				// Note(erd): maybe support access time in the future if needed
-				mode := uint32(fileInfo.Mode())
-				fileDataProto.Mode = &mode
 				fileDataProto.ModTime = timestamppb.New(fileInfo.ModTime())
 			}
 		}

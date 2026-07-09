@@ -269,14 +269,67 @@ func TestLocalFileCopy(t *testing.T) {
 				test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 				afterInfo, err := os.Stat(nestedCopy)
 				test.That(t, err, test.ShouldBeNil)
+				// mode follows the source with or without preserve (umask applies without)
+				test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 				if preserve {
 					test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldEqual, modTime.String())
-					test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 				} else {
 					test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldNotEqual, modTime.String())
-					test.That(t, afterInfo.Mode(), test.ShouldNotEqual, newMode)
 				}
 			})
 		}
 	})
+
+	t.Run("defaults applied when source mode unavailable", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		factory, err := NewLocalFileCopyFactory(tempDir, false, false)
+		test.That(t, err, test.ShouldBeNil)
+		copier, err := factory.MakeFileCopier(ctx, CopyFilesSourceTypeSingleFile)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = copier.Copy(ctx, File{
+			RelativeName: "legacy",
+			Data:         &modelessFile{Reader: strings.NewReader("data"), info: fileInfoData{name: "legacy", size: 4}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, copier.Close(ctx), test.ShouldBeNil)
+
+		info, err := os.Stat(filepath.Join(tempDir, "legacy"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.Mode(), test.ShouldEqual, os.FileMode(0o640))
+	})
+
+	t.Run("mode 0o000 file gets default permissions", func(t *testing.T) {
+		srcDir := t.TempDir()
+		srcPath := filepath.Join(srcDir, "unreadable")
+		test.That(t, os.WriteFile(srcPath, []byte("data"), 0o644), test.ShouldBeNil)
+		// open before chmod so the read works without root
+		src, err := os.Open(srcPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.Chmod(srcPath, 0o000), test.ShouldBeNil)
+
+		tempDir := t.TempDir()
+		factory, err := NewLocalFileCopyFactory(tempDir, false, false)
+		test.That(t, err, test.ShouldBeNil)
+		copier, err := factory.MakeFileCopier(ctx, CopyFilesSourceTypeSingleFile)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, copier.Copy(ctx, File{RelativeName: "unreadable", Data: src}), test.ShouldBeNil)
+		test.That(t, copier.Close(ctx), test.ShouldBeNil)
+
+		info, err := os.Stat(filepath.Join(tempDir, "unreadable"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.Mode(), test.ShouldEqual, os.FileMode(0o640))
+	})
 }
+
+// modelessFile mimics a stream from an older sender that omits the file mode.
+type modelessFile struct {
+	*strings.Reader
+	info fileInfoData
+}
+
+func (f *modelessFile) Stat() (fs.FileInfo, error) { return f.info, nil }
+
+func (f *modelessFile) Close() error { return nil }

@@ -239,14 +239,13 @@ func TestShellRPCFileCopier(t *testing.T) {
 				test.That(t, memWriter.fileDatas[0].Name, test.ShouldEqual, shellFile.RelativeName)
 				test.That(t, memWriter.fileDatas[0].Eof, test.ShouldBeFalse)
 
+				test.That(t, memWriter.fileDatas[0].Mode, test.ShouldNotBeNil)
+				test.That(t, fs.FileMode(*memWriter.fileDatas[0].Mode), test.ShouldEqual, newMode)
 				if preserve {
 					test.That(t, memWriter.fileDatas[0].ModTime, test.ShouldNotBeNil)
-					test.That(t, memWriter.fileDatas[0].Mode, test.ShouldNotBeNil)
 					test.That(t, memWriter.fileDatas[0].ModTime.AsTime().String(), test.ShouldEqual, modTime.String())
-					test.That(t, fs.FileMode(*memWriter.fileDatas[0].Mode), test.ShouldEqual, newMode)
 				} else {
 					test.That(t, memWriter.fileDatas[0].ModTime, test.ShouldBeNil)
-					test.That(t, memWriter.fileDatas[0].Mode, test.ShouldBeNil)
 				}
 
 				test.That(t, len(memWriter.fileDatas), test.ShouldEqual, 6)
