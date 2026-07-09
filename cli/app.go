@@ -3218,14 +3218,9 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "tunnel connections to the specified port on a machine part",
 							Description: `Tunnel connections from a local port to a destination port on a machine part.
 
-By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel without
-any app.viam.com access, provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + ` and --` + loginFlagKey + `: the machine is
-dialed at the given FQDN and authenticated directly with the machine api-key. The machine is reached
-however the FQDN resolves (a directly reachable address, or the local network via mDNS), so this
-works fully offline. Pass the FQDN with no scheme or port.
-
-If only some of the three flags are provided, they are ignored and the tunnel falls back to resolving
-the machine through app.viam.com.`,
+By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel
+directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + `,
+and --` + loginFlagKey + `.`,
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
 							}, true, false),
