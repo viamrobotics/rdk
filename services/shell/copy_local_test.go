@@ -294,7 +294,7 @@ func TestLocalFileCopy(t *testing.T) {
 
 		err = copier.Copy(ctx, File{
 			RelativeName: "legacy",
-			Data:         &modelessFile{Reader: strings.NewReader("data"), info: fileInfoData{name: "legacy", size: 4}},
+			Data:         &stubFile{Reader: strings.NewReader("data"), info: fileInfoData{name: "legacy", size: 4}},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, copier.Close(ctx), test.ShouldBeNil)
@@ -329,14 +329,39 @@ func TestLocalFileCopy(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Mode(), test.ShouldEqual, os.FileMode(0o640))
 	})
+
+	t.Run("stale read-only temp from an interrupted transfer", func(t *testing.T) {
+		tempDir := t.TempDir()
+		stalePath := filepath.Join(tempDir, "readonly.download")
+		test.That(t, os.WriteFile(stalePath, []byte("partial"), 0o444), test.ShouldBeNil)
+
+		factory, err := NewLocalFileCopyFactory(tempDir, false, false)
+		test.That(t, err, test.ShouldBeNil)
+		copier, err := factory.MakeFileCopier(ctx, CopyFilesSourceTypeSingleFile)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = copier.Copy(ctx, File{
+			RelativeName: "readonly",
+			Data:         &stubFile{Reader: strings.NewReader("data"), info: fileInfoData{name: "readonly", size: 4, mode: 0o444}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, copier.Close(ctx), test.ShouldBeNil)
+
+		rd, err := os.ReadFile(filepath.Join(tempDir, "readonly"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rd, test.ShouldResemble, []byte("data"))
+		_, err = os.Stat(stalePath)
+		test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
+	})
 }
 
-// modelessFile mimics a stream from an older sender that omits the file mode.
-type modelessFile struct {
+// stubFile is an in-memory fs.File with arbitrary file info, e.g. for mimicking
+// an older sender that omits the file mode.
+type stubFile struct {
 	*strings.Reader
 	info fileInfoData
 }
 
-func (f *modelessFile) Stat() (fs.FileInfo, error) { return f.info, nil }
+func (f *stubFile) Stat() (fs.FileInfo, error) { return f.info, nil }
 
-func (f *modelessFile) Close() error { return nil }
+func (f *stubFile) Close() error { return nil }
