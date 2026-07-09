@@ -4017,9 +4017,7 @@ func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPa
 }
 
 // connectToMachineDirectly dials a machine at an explicit address without contacting app.viam.com,
-// authenticating with the machine api-key in args. There is no cloud round-trip to resolve the
-// machine or exchange the CLI token, so this must not perform any network access to app.viam.com
-// (not even the base-URL reachability check that newViamClient/newViamClientInner would run).
+// authenticating with the machine api-key in args.
 func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) (*client.RobotClient, error) {
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {

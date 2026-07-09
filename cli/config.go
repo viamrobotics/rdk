@@ -172,9 +172,8 @@ func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
 }
 
 // localAPIKeyDialOptions builds dial options that authenticate directly to a machine using the
-// given api-key rather than exchanging the CLI token through app.viam.com. mDNS discovery is left
-// enabled so the connection can fall back to the local network when the cloud/WebRTC path is
-// unreachable. The base URL is only parsed for transport (TLS) options and is never dialed, so its
+// given api-key. mDNS discovery is left enabled so the connection can go entirely over the local
+// network. The base URL is only parsed for transport (TLS) options and is never dialed, so its
 // reachability is not verified — this keeps the fully-offline path from touching app.viam.com.
 func localAPIKeyDialOptions(baseURL, keyID, key string, debug bool) ([]rpc.DialOption, error) {
 	if baseURL == "" {
