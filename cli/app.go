@@ -85,6 +85,7 @@ const (
 	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
+	generalFlagAddress           = "address"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -175,10 +176,8 @@ const (
 
 	tunnelFlagLocalPort       = "local-port"
 	tunnelFlagDestinationPort = "destination-port"
-	tunnelFlagAddress         = "address"
 
 	organizationFlagSupportEmail = "support-email"
-	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
 
 	xacroFlagInputFile         = "input-file"
@@ -1045,7 +1044,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "update",
 							Usage: "update the billing service update for an organization",
 							UsageText: createUsageText(
-								"organizations billing-service update", []string{generalFlagOrgID, organizationBillingAddress}, false, false,
+								"organizations billing-service update", []string{generalFlagOrgID, generalFlagAddress}, false, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1053,7 +1052,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to update the billing service for",
 								},
 								&cli.StringFlag{
-									Name:     organizationBillingAddress,
+									Name:     generalFlagAddress,
 									Required: true,
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
@@ -1064,7 +1063,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "enable",
 							Usage: "enable the billing service for an organization",
 							UsageText: createUsageText(
-								"organizations billing-service enable", []string{generalFlagOrgID, organizationBillingAddress}, false, false,
+								"organizations billing-service enable", []string{generalFlagOrgID, generalFlagAddress}, false, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1072,7 +1071,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to enable the billing service for",
 								},
 								&cli.StringFlag{
-									Name:     organizationBillingAddress,
+									Name:     generalFlagAddress,
 									Required: true,
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
@@ -3220,7 +3219,7 @@ Note: There is no progress meter while copying is in progress.
 							Description: `Tunnel connections from a local port to a destination port on a machine part.
 
 By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel without
-any app.viam.com access, provide all three of --` + tunnelFlagAddress + `, --` + loginFlagKeyID + ` and --` + loginFlagKey + `: the machine is
+any app.viam.com access, provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + ` and --` + loginFlagKey + `: the machine is
 dialed at the given FQDN and authenticated directly with the machine api-key. The machine is reached
 however the FQDN resolves (a directly reachable address, or the local network via mDNS), so this
 works fully offline. Pass the FQDN with no scheme or port.
@@ -3240,16 +3239,16 @@ the machine through app.viam.com.`,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:  tunnelFlagAddress,
+									Name:  generalFlagAddress,
 									Usage: "machine FQDN to dial directly, skipping app.viam.com resolution (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
 								},
 								&cli.StringFlag{
 									Name:  loginFlagKeyID,
-									Usage: "id of the machine api-key to authenticate directly to the machine (requires --" + tunnelFlagAddress + ")",
+									Usage: "id of the machine api-key to authenticate directly to the machine (requires --" + generalFlagAddress + ")",
 								},
 								&cli.StringFlag{
 									Name:  loginFlagKey,
-									Usage: "value of the machine api-key to authenticate directly to the machine (requires --" + tunnelFlagAddress + ")",
+									Usage: "value of the machine api-key to authenticate directly to the machine (requires --" + generalFlagAddress + ")",
 								},
 							}...),
 							Action: createActionCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
