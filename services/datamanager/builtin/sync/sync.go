@@ -670,7 +670,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 					if state == connectivity.TransientFailure || state == connectivity.Shutdown {
 						logf = s.logger.Infof
 					}
-					logf("data manager: cloud connection is in state %s, waiting for %s", state, connectivity.Ready)
+					logf("data manager: Not syncing to cloud. cloud connection is in state %s, waiting for %s", state, connectivity.Ready)
 				}
 
 				continue
