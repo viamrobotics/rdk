@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -281,6 +282,9 @@ func TestLocalFileCopy(t *testing.T) {
 	})
 
 	t.Run("defaults applied when source mode unavailable", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("expects unix file modes; Windows fabricates 0666/0444")
+		}
 		tempDir := t.TempDir()
 
 		factory, err := NewLocalFileCopyFactory(tempDir, false, false)
@@ -301,6 +305,9 @@ func TestLocalFileCopy(t *testing.T) {
 	})
 
 	t.Run("mode 0o000 file gets default permissions", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("chmod 0o000 becomes read-only 0444 on Windows; fallback branch unreachable")
+		}
 		srcDir := t.TempDir()
 		srcPath := filepath.Join(srcDir, "unreadable")
 		test.That(t, os.WriteFile(srcPath, []byte("data"), 0o644), test.ShouldBeNil)
