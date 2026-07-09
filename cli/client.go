@@ -3973,16 +3973,83 @@ type robotsPartTunnelArgs struct {
 	Part            string
 	LocalPort       int
 	DestinationPort int
+	KeyID           string
+	Key             string
+	Address         string
 }
 
 // RobotsPartTunnelAction is the corresponding Action for 'machines part tunnel'.
 func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) error {
+	// Tunneling directly to a machine needs all three of --address, --key-id and --key. With all
+	// three, try the direct dial and fall back to the cloud path if it fails; with only some, warn
+	// and fall back.
+	directFlags := 0
+	for _, v := range []string{args.Address, args.KeyID, args.Key} {
+		if v != "" {
+			directFlags++
+		}
+	}
+	switch directFlags {
+	case 3:
+		robotClient, err := connectToMachineDirectly(ctx, cmd, args)
+		if err == nil {
+			return tunnelTraffic(ctx, cmd, robotClient, args.LocalPort, args.DestinationPort)
+		}
+		warningf(cmd.Root().ErrWriter,
+			"could not tunnel directly to %q (%s); falling back to resolving the machine through app.viam.com",
+			args.Address, err,
+		)
+	case 0:
+	default:
+		warningf(cmd.Root().ErrWriter,
+			"--%s, --%s and --%s must all be provided to tunnel directly to a machine; "+
+				"falling back to resolving the machine through app.viam.com",
+			tunnelFlagAddress, loginFlagKeyID, loginFlagKey,
+		)
+	}
+
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
 	return client.robotPartTunnel(ctx, cmd, args)
+}
+
+// connectToMachineDirectly dials a machine at an explicit address without contacting app.viam.com,
+// authenticating with the machine api-key in args. There is no cloud round-trip to resolve the
+// machine or exchange the CLI token, so this must not perform any network access to app.viam.com
+// (not even the base-URL reachability check that newViamClient/newViamClientInner would run).
+func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) (*client.RobotClient, error) {
+	globalArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return nil, err
+	}
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	if globalArgs.Debug {
+		logger = logging.NewDebugLogger("cli")
+	}
+
+	// Read the cached config for its base URL (used only to derive transport options). A missing
+	// cache is fine — we fall back to the default base URL and never dial it.
+	conf, err := ConfigFromCache(cmd)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			debugf(cmd.Root().Writer, globalArgs.Debug, "Cached config parse error: %v", err)
+		}
+		conf = &Config{}
+	}
+
+	rpcOpts, err := localAPIKeyDialOptions(conf.BaseURL, args.KeyID, args.Key, globalArgs.Debug)
+	if err != nil {
+		return nil, err
+	}
+
+	robotClient, err := client.New(ctx, args.Address, logger, client.WithDialOptions(rpcOpts...))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not connect to machine part")
+	}
+	return robotClient, nil
 }
 
 func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.RobotClient, local, dest int) error {
