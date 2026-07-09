@@ -67,6 +67,7 @@ jobs:
       run: chown -R testbot:testbot .
 
     - name: Install upx
+      shell: bash
       env:
         UPX_VERSION: 5.2.0
       run: |
