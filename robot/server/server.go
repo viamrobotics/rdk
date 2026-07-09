@@ -603,12 +603,14 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 				s.robot.Logger().CWarnw(ctx, "unknown package type in status", "type", pkgStatus.Type)
 			}
 			result.Packages = append(result.Packages, &pb.PackageStatus{
-				Name:        pkgStatus.Name,
-				Type:        pkgType,
-				State:       packageStateToProto(pkgStatus.State),
-				Error:       pkgStatus.Error,
-				LastUpdated: timestamppb.New(pkgStatus.LastUpdated),
-				Version:     pkgStatus.Version,
+				Name:            pkgStatus.Name,
+				Type:            pkgType,
+				State:           packageStateToProto(pkgStatus.State),
+				Error:           pkgStatus.Error,
+				LastUpdated:     timestamppb.New(pkgStatus.LastUpdated),
+				Version:         pkgStatus.Version,
+				BytesDownloaded: pkgStatus.BytesDownloaded,
+				TotalBytes:      pkgStatus.TotalBytes,
 			})
 		}
 	}

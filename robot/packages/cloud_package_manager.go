@@ -51,9 +51,13 @@ type cloudManager struct {
 	packagesDir     string
 	cloudConfig     config.Cloud
 
-	managedPackages  map[PackageName]*config.PackageConfig
-	packageStatuses  map[PackageName]*PackageStatus
-	mu               sync.RWMutex
+	managedPackages map[PackageName]*config.PackageConfig
+	mu              sync.RWMutex
+
+	// statusMu guards packageStatuses separately from mu so that statuses (including
+	// download progress) remain readable while a long-running Sync holds mu.
+	statusMu        sync.Mutex
+	packageStatuses map[PackageName]*PackageStatus
 
 	logger logging.Logger
 }
@@ -120,8 +124,8 @@ func (m *cloudManager) Close(ctx context.Context) error {
 
 // PackageStatuses returns a snapshot of the current status for all managed packages.
 func (m *cloudManager) PackageStatuses() []PackageStatus {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
 	statuses := make([]PackageStatus, 0, len(m.packageStatuses))
 	for _, s := range m.packageStatuses {
 		statuses = append(statuses, *s)
@@ -132,8 +136,8 @@ func (m *cloudManager) PackageStatuses() []PackageStatus {
 // SetPackageState updates the in-memory state for the named package. Used by local_robot
 // to transition a module package through the first-run stage.
 func (m *cloudManager) SetPackageState(name PackageName, state PackageState, errMsg string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
 	if s, ok := m.packageStatuses[name]; ok {
 		s.State = state
 		s.Error = errMsg
@@ -141,15 +145,35 @@ func (m *cloudManager) SetPackageState(name PackageName, state PackageState, err
 	}
 }
 
-// setPackageStatusLocked sets the full status entry for a package. Must be called with m.mu held (write).
-func (m *cloudManager) setPackageStatusLocked(name PackageName, p config.PackageConfig, state PackageState, errMsg string) {
-	m.packageStatuses[name] = &PackageStatus{
+// setPackageStatus sets the full status entry for a package. Download progress is preserved
+// when updating an existing entry for the same package version.
+func (m *cloudManager) setPackageStatus(name PackageName, p config.PackageConfig, state PackageState, errMsg string) {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	status := &PackageStatus{
 		Name:        p.Name,
 		Type:        p.Type,
 		State:       state,
 		Error:       errMsg,
 		LastUpdated: time.Now(),
 		Version:     p.Version,
+	}
+	if prev, ok := m.packageStatuses[name]; ok && prev.Version == p.Version {
+		status.BytesDownloaded = prev.BytesDownloaded
+		status.TotalBytes = prev.TotalBytes
+	}
+	m.packageStatuses[name] = status
+}
+
+// setDownloadProgress records how many bytes of the package tarball have been downloaded
+// so far, along with the total tarball size in bytes (zero if unknown).
+func (m *cloudManager) setDownloadProgress(name PackageName, bytesDownloaded, totalBytes int64) {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	if s, ok := m.packageStatuses[name]; ok {
+		s.BytesDownloaded = bytesDownloaded
+		s.TotalBytes = totalBytes
+		s.LastUpdated = time.Now()
 	}
 }
 
@@ -178,11 +202,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 		if statusFile.Status == syncStatusFailed {
 			m.logger.Errorf("Package %s was fully downloaded but failed to unzip, please try a different version", p.Name)
-			m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateFailed, "failed to unzip, please try a different version")
+			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, "failed to unzip, please try a different version")
 			return multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name))
 		}
 		// Seed in-memory status from the on-disk status file.
-		m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateDownloaded, "")
+		m.setPackageStatus(PackageName(p.Name), p, PackageStateDownloaded, "")
 		newManagedPackages[PackageName(p.Name)] = &p
 	}
 
@@ -200,7 +224,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
-		m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateDownloading, "")
+		m.setPackageStatus(PackageName(p.Name), p, PackageStateDownloading, "")
 
 		// Lookup the packages http url
 		includeURL := true
@@ -240,7 +264,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-				return m.downloadFileWithChecksum(ctx, url, dstPath)
+				return m.downloadFileWithChecksum(ctx, url, dstPath, PackageName(p.Name))
 			},
 		)
 		if err != nil {
@@ -251,7 +275,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 				sanitizeURLForLogs(resp.Package.Url),
 				err,
 			)
-			m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateFailed, err.Error())
+			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, err.Error())
 			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading/unzipping package %s:%s from %s %w",
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err))
 			continue
@@ -265,7 +289,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// add to managed packages
-		m.setPackageStatusLocked(PackageName(p.Name), p, PackageStateDownloaded, "")
+		m.setPackageStatus(PackageName(p.Name), p, PackageStateDownloaded, "")
 		newManagedPackages[PackageName(p.Name)] = &p
 
 		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
@@ -277,11 +301,13 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// Prune packageStatuses to match the new managed set so stale entries from removed or
 	// previously-configured packages don't accumulate across reconfigures.
+	m.statusMu.Lock()
 	for name := range m.packageStatuses {
 		if _, ok := newManagedPackages[name]; !ok {
 			delete(m.packageStatuses, name)
 		}
 	}
+	m.statusMu.Unlock()
 
 	// swap for new managed packags.
 	m.managedPackages = newManagedPackages
@@ -451,11 +477,13 @@ func (wc *logProgressWriter) Update(curSize int64) string {
 	return msg
 }
 
-// downloader with header-based checksum logic and partials support.
+// downloader with header-based checksum logic and partials support. name is used to
+// report download progress on the package's status entry.
 func (m *cloudManager) downloadFileWithChecksum(
 	ctx context.Context,
 	rawURL string,
 	downloadPath string,
+	name PackageName,
 ) (string, string, error) {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
 
@@ -491,9 +519,17 @@ func (m *cloudManager) downloadFileWithChecksum(
 		return "", "", fmt.Errorf("failed to decode expected checksum: %q %w", checksum, err)
 	}
 
+	totalBytes := resp.ContentLength
+	if totalBytes < 0 {
+		totalBytes = 0
+	}
+
+	var startBytes int64
 	if stat, err := os.Stat(downloadPath); err == nil {
 		m.logger.Infow("download to existing", "dest", downloadPath, "size", stat.Size())
+		startBytes = stat.Size()
 	}
+	m.setDownloadProgress(name, startBytes, totalBytes)
 
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
@@ -509,7 +545,9 @@ func (m *cloudManager) downloadFileWithChecksum(
 	progressCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go utils.PanicCapturingGo(func() {
-		fileSizeProgress(progressCtx, m.logger, downloadPath, resp.ContentLength)
+		fileSizeProgress(progressCtx, m.logger, downloadPath, resp.ContentLength, func(curBytes int64) {
+			m.setDownloadProgress(name, curBytes, totalBytes)
+		})
 	})
 	if err := g.GetFile(downloadPath, parsedURL); err != nil {
 		return "", "", errw.Wrap(err, "downloading file")
@@ -521,10 +559,17 @@ func (m *cloudManager) downloadFileWithChecksum(
 		return "", "", err
 	}
 	defer utils.UncheckedErrorFunc(destFile.Close)
-	_, err = io.Copy(hash, destFile)
+	downloadedBytes, err := io.Copy(hash, destFile)
 	if err != nil {
 		return "", "", err
 	}
+
+	// The download is complete; record the final byte counts. If the server did not
+	// report a Content-Length, fall back to the actual downloaded size.
+	if totalBytes == 0 {
+		totalBytes = downloadedBytes
+	}
+	m.setDownloadProgress(name, downloadedBytes, totalBytes)
 
 	trimmedChecksumBytes := trimLeadingZeroes(expectedChecksumBytes)
 	trimmedOutHashBytes := trimLeadingZeroes(hash.Sum(nil))

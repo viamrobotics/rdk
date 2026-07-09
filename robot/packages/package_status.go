@@ -38,4 +38,10 @@ type PackageStatus struct {
 	LastUpdated time.Time
 	// Version is the version string from PackageConfig.
 	Version string
+	// BytesDownloaded is the number of bytes of the package tarball downloaded so far.
+	// Only meaningful for packages that go through a cloud download; equals TotalBytes
+	// once the download completes.
+	BytesDownloaded int64
+	// TotalBytes is the total size of the package tarball in bytes. Zero if unknown.
+	TotalBytes int64
 }
