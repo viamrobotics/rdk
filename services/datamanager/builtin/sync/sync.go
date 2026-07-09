@@ -678,7 +678,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			if !shouldSync {
 				if now := s.clock.Now(); now.Sub(lastNotSyncedLog) >= time.Minute {
 					lastNotSyncedLog = now
-					s.logger.Debug("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+					s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
 				}
 				continue
 			}
