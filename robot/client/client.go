@@ -152,7 +152,7 @@ func (rc *RobotClient) Reconfigure(ctx context.Context, deps resource.Dependenci
 
 // exemptFromConnectionCheck lists the gRPC methods handleUnaryDisconnect invokes without first
 // asserting rc.connected. They run before the robot connection is established: the signaling and
-// auth methods bring the connection up so should fail on no connection.
+// auth methods are the ones to bring the connection up so shouldn't fail on no connection.
 var exemptFromConnectionCheck = map[string]bool{
 	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
 	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
