@@ -21,12 +21,13 @@ import (
 const (
 	flagAll = "all"
 
-	baseURLFlag         = "base-url"
-	configFlag          = "config"
-	debugFlag           = "debug"
-	profileFlag         = "profile"
-	disableProfilesFlag = "disable-profiles"
-	profileFlagName     = "profile-name"
+	baseURLFlag                 = "base-url"
+	configFlag                  = "config"
+	debugFlag                   = "debug"
+	profileFlag                 = "profile"
+	disableProfilesFlag         = "disable-profiles"
+	profileFlagName             = "profile-name"
+	checkConnectionIntervalFlag = "check-connection-interval"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -328,12 +329,13 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL         string
-	Config          string
-	Debug           bool
-	Quiet           bool
-	Profile         string
-	DisableProfiles bool
+	BaseURL             string
+	Config              string
+	Debug               bool
+	Quiet               bool
+	Profile             string
+	DisableProfiles     bool
+	CheckConnectedEvery time.Duration
 }
 
 func (ga *globalArgs) createLogger() logging.Logger {
@@ -508,6 +510,10 @@ var app = &cli.Command{
 			Name:    disableProfilesFlag,
 			Aliases: []string{"disable-profile"}, // for ease of use; not backwards compatibility related
 			Usage:   "disable usage of profiles, falling back to default behavior",
+		},
+		&cli.DurationFlag{
+			Name:  checkConnectionIntervalFlag,
+			Usage: "check robot connection on this interval and close the client if a faulty connection cannot be repaired",
 		},
 	},
 	Commands: []*cli.Command{
