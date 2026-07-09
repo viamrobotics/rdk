@@ -150,6 +150,11 @@ func (rc *RobotClient) Reconfigure(ctx context.Context, deps resource.Dependenci
 	return errors.New("unsupported")
 }
 
+// exemptFromConnectionCheck lists the gRPC methods handleUnaryDisconnect invokes without first
+// asserting rc.connected. They run before the robot connection is established: the signaling and
+// auth methods bring the connection up (gating them on `connected` would deadlock), and
+// ReportConnectionMetadata reports the just-resolved dial's outcome to the signaling server, which
+// likewise does not require an established robot connection.
 var exemptFromConnectionCheck = map[string]bool{
 	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
 	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
