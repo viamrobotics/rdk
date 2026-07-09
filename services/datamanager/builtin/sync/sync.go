@@ -638,10 +638,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 	defer tkr.Stop()
 	var readyLogged bool
 
-	// lastNotSyncedLog throttles the noisy "not syncing" logs (offline cloud connection or
-	// not-ready selective sync sensor) so that, regardless of how often the sync ticker
-	// fires, at most one is emitted a minute. It is reset once syncing resumes so a
-	// subsequent not-synced reason logs immediately.
+	// lastNotSyncedLog throttles the noisy "not syncing" logs
 	var lastNotSyncedLog time.Time
 
 	for {
@@ -681,7 +678,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			if !shouldSync {
 				if now := s.clock.Now(); now.Sub(lastNotSyncedLog) >= time.Minute {
 					lastNotSyncedLog = now
-					s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+					s.logger.Debug("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
 				}
 				continue
 			}
