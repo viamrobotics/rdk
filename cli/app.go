@@ -3235,15 +3235,15 @@ and --` + loginFlagKey + `.`,
 								},
 								&cli.StringFlag{
 									Name:  generalFlagAddress,
-									Usage: "machine FQDN to dial directly, skipping app.viam.com resolution (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
+									Usage: "machine FQDN to dial directly,  (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
 								},
 								&cli.StringFlag{
 									Name:  loginFlagKeyID,
-									Usage: "id of the machine api-key to authenticate directly to the machine (requires --" + generalFlagAddress + ")",
+									Usage: "id of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
 								},
 								&cli.StringFlag{
 									Name:  loginFlagKey,
-									Usage: "value of the machine api-key to authenticate directly to the machine (requires --" + generalFlagAddress + ")",
+									Usage: "value of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
 								},
 							}...),
 							Action: createActionCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
