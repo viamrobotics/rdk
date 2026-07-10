@@ -604,7 +604,7 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 			}
 			result.Packages = append(result.Packages, &pb.PackageStatus{
 				Name:            pkgStatus.Name,
-				Type:            pkgType,
+				Type:            *pkgType,
 				State:           packageStateToProto(pkgStatus.State),
 				Error:           pkgStatus.Error,
 				LastUpdated:     timestamppb.New(pkgStatus.LastUpdated),
