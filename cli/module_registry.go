@@ -1184,7 +1184,6 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 	}
 
 	if flags.List {
-		// only official released versions, excluding synthetic reload pseudo-versions
 		versions := make([]*apppb.VersionHistory, 0, len(res.Module.Versions))
 		for _, ver := range res.Module.Versions {
 			if !IsReloadVersion(ver.Version) {
@@ -1217,8 +1216,6 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 	}
 
 	if flags.Latest {
-		// versions arrive sorted ascending by semver (server-side), matching app's "latest" selection.
-		// walk in order and overwrite per platform so the last (highest) version wins.
 		latestByPlatform := make(map[string]string)
 		for _, ver := range res.Module.Versions {
 			if IsReloadVersion(ver.Version) {
