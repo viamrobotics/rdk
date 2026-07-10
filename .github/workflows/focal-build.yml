@@ -39,9 +39,15 @@ jobs:
           - arch: ubuntu-large
             image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
             platform: linux/amd64
+            uname_m: x86_64
           - arch: ubuntu-large-arm
             image: ghcr.io/viamrobotics/rdk-focal:arm64-cache
             platform: linux/arm64
+            uname_m: aarch64
+          - arch: ubuntu-small-arm
+            image: ghcr.io/viamrobotics/rdk-focal:armhf-cache
+            platform: linux/arm/v7
+            uname_m: armv7l
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -90,11 +96,12 @@ jobs:
             echo "channel=focal" >> "$GITHUB_OUTPUT"
             echo "publish=false" >> "$GITHUB_OUTPUT" ;;
         esac
-        echo "arch=$(uname -m)" >> "$GITHUB_OUTPUT"
+        echo "arch=${{ matrix.uname_m }}" >> "$GITHUB_OUTPUT"
 
+    # UNAME_M override: uname -m can report aarch64 inside a 32-bit arm container.
     - name: Build viam-server-${{ steps.meta.outputs.channel }}
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} static-release'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} UNAME_M=${{ matrix.uname_m }} static-release'
 
     - name: Boot smoke test
       run: |
