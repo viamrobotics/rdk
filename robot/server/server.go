@@ -644,8 +644,8 @@ func packageStateToProto(s packages.PackageState) pb.PackageStatus_State {
 		return pb.PackageStatus_STATE_LOADING
 	case packages.PackageStateFirstRun:
 		return pb.PackageStatus_STATE_FIRST_RUN
-	case packages.PackageStateDownloaded:
-		return pb.PackageStatus_STATE_DOWNLOADED
+	case packages.PackageStateReady:
+		return pb.PackageStatus_STATE_READY
 	case packages.PackageStateFailed:
 		return pb.PackageStatus_STATE_FAILED
 	default:

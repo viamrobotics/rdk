@@ -18,8 +18,8 @@ const (
 	PackageStateLoading
 	// PackageStateFirstRun means first_run.sh is executing (module packages only).
 	PackageStateFirstRun
-	// PackageStateDownloaded means the package is fully installed and available for use.
-	PackageStateDownloaded
+	// PackageStateReady means the package is fully installed and available for use.
+	PackageStateReady
 	// PackageStateFailed means the package failed at some lifecycle stage.
 	PackageStateFailed
 )

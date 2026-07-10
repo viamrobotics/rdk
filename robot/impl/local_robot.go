@@ -1815,7 +1815,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			)
 			return
 		}
-		pkgMgr.SetPackageState(pkgName, packages.PackageStateDownloaded, "")
+		pkgMgr.SetPackageState(pkgName, packages.PackageStateReady, "")
 	}
 
 	if newConfig.Cloud != nil {

@@ -206,7 +206,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			return multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name))
 		}
 		// Seed in-memory status from the on-disk status file.
-		m.setPackageStatus(PackageName(p.Name), p, PackageStateDownloaded, "")
+		m.setPackageStatus(PackageName(p.Name), p, PackageStateReady, "")
 		newManagedPackages[PackageName(p.Name)] = &p
 	}
 
@@ -289,7 +289,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// add to managed packages
-		m.setPackageStatus(PackageName(p.Name), p, PackageStateDownloaded, "")
+		m.setPackageStatus(PackageName(p.Name), p, PackageStateReady, "")
 		newManagedPackages[PackageName(p.Name)] = &p
 
 		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))

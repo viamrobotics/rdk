@@ -190,7 +190,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// add to managed packages
-		m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateDownloaded, "")
+		m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateReady, "")
 		existing[mod.Name] = &managedModule{module: mod}
 
 		m.logger.Debugf("Local package sync complete [%d/%d] %s after %v", idx+1, len(changed), mod.Name, time.Since(pkgStart))
