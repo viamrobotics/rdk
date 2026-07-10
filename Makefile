@@ -42,7 +42,7 @@ bin/$(GOOS)-$(GOARCH)/viam-cli: $(GO_FILES) Makefile go.mod go.sum
 	# no_cgo necessary here because of motionplan -> nlopt dependency.
 	# can be removed if you can run CGO_ENABLED=0 go build ./cli/viam on your local machine.
 	# CGO_ENABLED=0 is necessary after bedf954b to prevent go from sneakily doing a cgo build
-	CGO_ENABLED=0 go build $(GCFLAGS) $(LDFLAGS) -tags osusergo,netgo,no_cgo -o $@ ./cli/viam
+	CGO_ENABLED=0 go build $(GCFLAGS) $(LDFLAGS) -tags no_cgo -o $@ ./cli/viam
 
 .PHONY: cli
 cli: bin/$(GOOS)-$(GOARCH)/viam-cli
@@ -93,18 +93,20 @@ test-go-no-race: tool-install
 $(BIN_OUTPUT_PATH)/viam-server: $(GO_FILES) Makefile go.mod go.sum
 	go build $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server
 
+# NOTE: the `server` make target is referenced in file_utils.go
 .PHONY: server
 server: $(BIN_OUTPUT_PATH)/viam-server
 
 $(BIN_OUTPUT_PATH)/viam-server-static: $(GO_FILES) Makefile go.mod go.sum
 	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server
 
+# NOTE: the `server-static` make target is referenced in file_utils.go
 .PHONY: server-static
 server-static: $(BIN_OUTPUT_PATH)/viam-server-static
 
 bin/static/viam-server-$(GOARCH): $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)
-	CGO_ENABLED=0 go build -tags no_cgo,osusergo,netgo $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
+	CGO_ENABLED=0 go build -tags no_cgo $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
 
 .PHONY: full-static
 full-static: bin/static/viam-server-$(GOARCH)
