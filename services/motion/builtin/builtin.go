@@ -817,14 +817,14 @@ func (ms *builtIn) writePlanRequest(
 	// Full plans (request + response) get tag=motion-plan so data manager can infer a
 	// stable type tag on arbitrary-file upload.
 	const motionPlanTypeTag = "motion-plan"
-	parts := []string{ms.conf.PlanFilePath}
+	tags := []string{}
 	if plan != nil {
-		parts = append(parts, "tag="+motionPlanTypeTag)
+		tags = append(tags, "tag="+motionPlanTypeTag)
 	}
 	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
-		parts = append(parts, "tag="+traceID)
+		tags = append(tags, "tag="+traceID)
 	}
-	fn = filepath.Join(append(parts, fn)...)
+	fn = filepath.Join(ms.conf.PlanFilePath, append(tags, fn)...)
 
 	dir := filepath.Dir(fn)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
