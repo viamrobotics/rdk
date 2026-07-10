@@ -648,6 +648,8 @@ func packageStateToProto(s packages.PackageState) pb.PackageStatus_State {
 		return pb.PackageStatus_STATE_READY
 	case packages.PackageStateFailed:
 		return pb.PackageStatus_STATE_FAILED
+	case packages.PackageStateUnknown:
+		return pb.PackageStatus_STATE_UNSPECIFIED
 	default:
 		return pb.PackageStatus_STATE_UNSPECIFIED
 	}
