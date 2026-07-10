@@ -1,0 +1,138 @@
+name: Focal Static Build
+
+# Builds, boots, and (per release_type) publishes a viam-server-focal channel
+# on the rdk-focal image. Called by pullrequest-trusted.yml for labeled PRs
+# (release_type: pr -> focal-pr-<number>); schedule and default dispatch validate only.
+# No concurrency block: github.ref is the base ref for every PR here, so a
+# shared group would cancel unrelated builds. The parent handles PR concurrency.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "'focal' publishes the shared channel; 'validate' builds and boots only"
+        required: true
+        default: validate
+        type: choice
+        options: [validate, focal]
+  schedule:
+    - cron: '0 8 * * *' # daily, after docker.yml (6AM UTC) republishes the image
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  focal-static:
+    name: Focal Static Build and Boot
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: ubuntu-large
+            image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
+            platform: linux/amd64
+          - arch: ubuntu-large-arm
+            image: ghcr.io/viamrobotics/rdk-focal:arm64-cache
+            platform: linux/arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 30
+
+    steps:
+    - name: Check out code
+      if: github.event_name != 'pull_request_target'
+      # actions/checkout@v7.0.0
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        fetch-depth: 0 # needed for dev-version.sh to work
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      # actions/checkout@v7.0.0
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Fix permissions
+      run: chown -R testbot:testbot .
+
+    - name: Install upx
+      # crazy-max/ghaction-upx@v4.0.0
+      uses: crazy-max/ghaction-upx@c83f378efc804f828e988debb88ed6116feb2368
+      with:
+        version: v5.2.0
+        install-only: true
+
+    - name: Link upx into /usr/local/bin
+      run: ln -sf "$(command -v upx)" /usr/local/bin/upx
+
+    - name: Resolve channel and arch
+      id: meta
+      run: |
+        case "${{ inputs.release_type }}" in
+          pr)
+            echo "channel=focal-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+          focal)
+            echo "channel=focal" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+          *)
+            echo "channel=focal" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT" ;;
+        esac
+        echo "arch=$(uname -m)" >> "$GITHUB_OUTPUT"
+
+    - name: Build viam-server-${{ steps.meta.outputs.channel }}
+      run: |
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} static-release'
+
+    - name: Boot smoke test
+      run: |
+        sudo -Hu testbot bash -lc '
+          set -euo pipefail
+          bin=$(find etc/packaging/static/deploy -type f -name "viam-server-*" | head -1)
+          port=$((30000 + RANDOM))
+          echo "{\"network\":{\"bind_address\":\"localhost:${port}\"}}" > /tmp/smoke.json
+          "$bin" -config /tmp/smoke.json &
+          srv=$!
+          curl --retry 8 --retry-delay 2 --retry-connrefused -s "localhost:${port}" >/dev/null
+          echo "boot OK"
+          kill $srv 2>/dev/null || true
+          wait $srv 2>/dev/null || true
+        '
+
+    - name: Authorize GCP upload
+      if: steps.meta.outputs.publish == 'true'
+      # google-github-actions/auth@v3.0.0
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+      with:
+        credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+    - name: Publish ${{ steps.meta.outputs.channel }} channel
+      if: steps.meta.outputs.publish == 'true'
+      # google-github-actions/upload-cloud-storage@v3.0.0
+      uses: google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a
+      with:
+        process_gcloudignore: false
+        headers: "cache-control: no-cache"
+        path: etc/packaging/static/deploy/
+        destination: packages.viam.com/apps/viam-server/
+        glob: 'viam-server-${{ steps.meta.outputs.channel }}-*'
+        parent: false
+
+    - name: Summary
+      if: steps.meta.outputs.publish == 'true'
+      run: |
+        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}"
+        echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
+        echo "$url" >> "$GITHUB_STEP_SUMMARY"

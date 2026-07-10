@@ -666,7 +666,7 @@ func TestWritePlanRequest(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	msBuiltin := msBuiltinI.(*builtIn)
 
-	// First case, do not include a TraceID.
+	// First case: full plan, no TraceID → under tag=motion-plan only.
 	err = msBuiltin.writePlanRequest(
 		&armplanning.PlanRequest{},
 		&motionplan.SimplePlan{},
@@ -680,22 +680,26 @@ func TestWritePlanRequest(t *testing.T) {
 		nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Assert we now have a file in our `PlanFilePath`.
 	planDirEntries, err = os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	test.That(t, planDirEntries[0].IsDir(), test.ShouldBeTrue)
+	test.That(t, planDirEntries[0].Name(), test.ShouldEqual, "tag=motion-plan")
+
+	typeTagDir := filepath.Join(planDir, planDirEntries[0].Name())
+	planDirEntries, err = os.ReadDir(typeTagDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
 	test.That(t, planDirEntries[0].IsDir(), test.ShouldBeFalse)
 	test.That(t, filepath.Ext(planDirEntries[0].Name()), test.ShouldEqual, ".json")
 
-	// For test simplicity, remove the file so we can run a second test. And let that second test
-	// assume things in an empty state.
-	filePath := filepath.Join(planDir, planDirEntries[0].Name())
-	test.That(t, os.Remove(filePath), test.ShouldBeNil)
+	// For test simplicity, remove so later cases assume an empty PlanFilePath.
+	test.That(t, os.RemoveAll(typeTagDir), test.ShouldBeNil)
 	planDirEntries, err = os.ReadDir(planDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, planDirEntries, test.ShouldHaveLength, 0)
 
-	// Second case, include a TraceID.
+	// Second case: full plan with TraceID → tag=motion-plan/tag=<traceID>/.
 	err = msBuiltin.writePlanRequest(
 		// The contents of the plan request file are not interesting to this test. So long as the
 		// plan request and plan are non-nil, we ought to get a file placed in the right location.
@@ -711,31 +715,33 @@ func TestWritePlanRequest(t *testing.T) {
 		nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Again, there should be one entry in the `PlanFilePath`.
 	planDirEntries, err = os.ReadDir(planDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	typeTagDirEntry := planDirEntries[0]
+	test.That(t, typeTagDirEntry.IsDir(), test.ShouldBeTrue)
+	test.That(t, typeTagDirEntry.Name(), test.ShouldEqual, "tag=motion-plan")
 
-	// This time though, that entry is a directory with the "trace ID" name.
+	typeTagDir = filepath.Join(planDir, typeTagDirEntry.Name())
+	planDirEntries, err = os.ReadDir(typeTagDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
 	traceIDDirEntry := planDirEntries[0]
 	test.That(t, traceIDDirEntry.IsDir(), test.ShouldBeTrue)
 	test.That(t, traceIDDirEntry.Name(), test.ShouldEqual, "tag=1234-abc-56-no-78")
 
-	// The directory constructed under the trace ID path also has one entry.
-	traceIDDir := filepath.Join(planDir, traceIDDirEntry.Name())
+	traceIDDir := filepath.Join(typeTagDir, traceIDDirEntry.Name())
 	planDirEntries, err = os.ReadDir(traceIDDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
-	// Which is our plan request file.
 	planFile := planDirEntries[0]
 	test.That(t, planFile.IsDir(), test.ShouldBeFalse)
 	test.That(t, filepath.Ext(planFile.Name()), test.ShouldEqual, ".json")
 	test.That(t, planFile.Name(), test.ShouldNotContainSubstring, "cbirrt")
 
-	// Clean up for third test
-	test.That(t, os.RemoveAll(traceIDDir), test.ShouldBeNil)
+	test.That(t, os.RemoveAll(typeTagDir), test.ShouldBeNil)
 
-	// Third case: include a custom plan tag in the filename
+	// Third case: full plan with custom plan tag in the filename (still under tag=motion-plan).
 	err = msBuiltin.writePlanRequest(
 		&armplanning.PlanRequest{},
 		&motionplan.SimplePlan{},
@@ -746,16 +752,48 @@ func TestWritePlanRequest(t *testing.T) {
 		nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Verify the file was created with the custom tag in the filename
 	planDirEntries, err = os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	test.That(t, planDirEntries[0].IsDir(), test.ShouldBeTrue)
+	test.That(t, planDirEntries[0].Name(), test.ShouldEqual, "tag=motion-plan")
+
+	typeTagDir = filepath.Join(planDir, planDirEntries[0].Name())
+	planDirEntries, err = os.ReadDir(typeTagDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
 	planFile = planDirEntries[0]
 	test.That(t, planFile.IsDir(), test.ShouldBeFalse)
 	test.That(t, filepath.Ext(planFile.Name()), test.ShouldEqual, ".json")
-	// Verify the filename contains the custom tag
 	test.That(t, planFile.Name(), test.ShouldContainSubstring, "custom-test-tag")
 	test.That(t, planFile.Name(), test.ShouldContainSubstring, "cbirrt")
+
+	test.That(t, os.RemoveAll(typeTagDir), test.ShouldBeNil)
+
+	// Fourth case: request-only error dump (plan == nil) must NOT get tag=motion-plan.
+	err = msBuiltin.writePlanRequest(
+		&armplanning.PlanRequest{},
+		nil,
+		&armplanning.PlanMeta{},
+		time.Now(),
+		"1234-abc-56-no-78",
+		"",
+		errors.New("planning failed"))
+	test.That(t, err, test.ShouldBeNil)
+
+	planDirEntries, err = os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	test.That(t, planDirEntries[0].IsDir(), test.ShouldBeTrue)
+	test.That(t, planDirEntries[0].Name(), test.ShouldEqual, "tag=1234-abc-56-no-78")
+
+	traceIDDir = filepath.Join(planDir, planDirEntries[0].Name())
+	planDirEntries, err = os.ReadDir(traceIDDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	planFile = planDirEntries[0]
+	test.That(t, planFile.IsDir(), test.ShouldBeFalse)
+	test.That(t, planFile.Name(), test.ShouldContainSubstring, "-err")
 }
 
 func TestErrorMessageContext(t *testing.T) {

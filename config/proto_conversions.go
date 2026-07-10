@@ -1020,6 +1020,8 @@ func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
 		return packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum(), nil
 	case PackageTypeSlamMap:
 		return packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP.Enum(), nil
+	case PackageTypeArchive:
+		return packagespb.PackageType_PACKAGE_TYPE_ARCHIVE.Enum(), nil
 	default:
 		return packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum(), errors.Errorf("unknown package type %q", t)
 	}
