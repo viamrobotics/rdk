@@ -824,7 +824,8 @@ func (ms *builtIn) writePlanRequest(
 	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
 		tags = append(tags, "tag="+traceID)
 	}
-	fn = filepath.Join(ms.conf.PlanFilePath, append(tags, fn)...)
+	parts := append([]string{ms.conf.PlanFilePath}, tags...)
+	fn = filepath.Join(append(parts, fn)...)
 
 	dir := filepath.Dir(fn)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
