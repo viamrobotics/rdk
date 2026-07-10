@@ -1180,12 +1180,12 @@ func TestShellFileCopy(t *testing.T) {
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 					afterInfo, err := os.Stat(nestedCopy)
 					test.That(t, err, test.ShouldBeNil)
+					// mode follows the source with or without preserve (umask applies without)
+					test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 					if preserve {
 						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldEqual, modTime.String())
-						test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 					} else {
 						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldNotEqual, modTime.String())
-						test.That(t, afterInfo.Mode(), test.ShouldNotEqual, newMode)
 					}
 				})
 			}
@@ -1309,12 +1309,12 @@ func TestShellFileCopy(t *testing.T) {
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 					afterInfo, err := os.Stat(nestedCopy)
 					test.That(t, err, test.ShouldBeNil)
+					// mode follows the source with or without preserve (umask applies without)
+					test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 					if preserve {
 						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldEqual, modTime.String())
-						test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 					} else {
 						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldNotEqual, modTime.String())
-						test.That(t, afterInfo.Mode(), test.ShouldNotEqual, newMode)
 					}
 				})
 			}

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -269,14 +270,98 @@ func TestLocalFileCopy(t *testing.T) {
 				test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 				afterInfo, err := os.Stat(nestedCopy)
 				test.That(t, err, test.ShouldBeNil)
+				// mode follows the source with or without preserve (umask applies without)
+				test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 				if preserve {
 					test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldEqual, modTime.String())
-					test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 				} else {
 					test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldNotEqual, modTime.String())
-					test.That(t, afterInfo.Mode(), test.ShouldNotEqual, newMode)
 				}
 			})
 		}
 	})
+
+	t.Run("defaults applied when source mode unavailable", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("expects unix file modes; Windows fabricates 0666/0444")
+		}
+		tempDir := t.TempDir()
+
+		factory, err := NewLocalFileCopyFactory(tempDir, false, false)
+		test.That(t, err, test.ShouldBeNil)
+		copier, err := factory.MakeFileCopier(ctx, CopyFilesSourceTypeSingleFile)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = copier.Copy(ctx, File{
+			RelativeName: "legacy",
+			Data:         &stubFile{Reader: strings.NewReader("data"), info: fileInfoData{name: "legacy", size: 4}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, copier.Close(ctx), test.ShouldBeNil)
+
+		info, err := os.Stat(filepath.Join(tempDir, "legacy"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.Mode(), test.ShouldEqual, os.FileMode(0o640))
+	})
+
+	t.Run("mode 0o000 file gets default permissions", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("chmod 0o000 becomes read-only 0444 on Windows; fallback branch unreachable")
+		}
+		srcDir := t.TempDir()
+		srcPath := filepath.Join(srcDir, "unreadable")
+		test.That(t, os.WriteFile(srcPath, []byte("data"), 0o644), test.ShouldBeNil)
+		// open before chmod so the read works without root
+		src, err := os.Open(srcPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.Chmod(srcPath, 0o000), test.ShouldBeNil)
+
+		tempDir := t.TempDir()
+		factory, err := NewLocalFileCopyFactory(tempDir, false, false)
+		test.That(t, err, test.ShouldBeNil)
+		copier, err := factory.MakeFileCopier(ctx, CopyFilesSourceTypeSingleFile)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, copier.Copy(ctx, File{RelativeName: "unreadable", Data: src}), test.ShouldBeNil)
+		test.That(t, copier.Close(ctx), test.ShouldBeNil)
+
+		info, err := os.Stat(filepath.Join(tempDir, "unreadable"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.Mode(), test.ShouldEqual, os.FileMode(0o640))
+	})
+
+	t.Run("stale read-only temp from an interrupted transfer", func(t *testing.T) {
+		tempDir := t.TempDir()
+		stalePath := filepath.Join(tempDir, "readonly.download")
+		test.That(t, os.WriteFile(stalePath, []byte("partial"), 0o444), test.ShouldBeNil)
+
+		factory, err := NewLocalFileCopyFactory(tempDir, false, false)
+		test.That(t, err, test.ShouldBeNil)
+		copier, err := factory.MakeFileCopier(ctx, CopyFilesSourceTypeSingleFile)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = copier.Copy(ctx, File{
+			RelativeName: "readonly",
+			Data:         &stubFile{Reader: strings.NewReader("data"), info: fileInfoData{name: "readonly", size: 4, mode: 0o444}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, copier.Close(ctx), test.ShouldBeNil)
+
+		rd, err := os.ReadFile(filepath.Join(tempDir, "readonly"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rd, test.ShouldResemble, []byte("data"))
+		_, err = os.Stat(stalePath)
+		test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
+	})
 }
+
+// stubFile is an in-memory fs.File with arbitrary file info, e.g. for mimicking
+// an older sender that omits the file mode.
+type stubFile struct {
+	*strings.Reader
+	info fileInfoData
+}
+
+func (f *stubFile) Stat() (fs.FileInfo, error) { return f.info, nil }
+
+func (f *stubFile) Close() error { return nil }
