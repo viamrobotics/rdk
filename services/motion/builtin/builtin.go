@@ -815,7 +815,7 @@ func (ms *builtIn) writePlanRequest(
 		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
 
 	// Full plans (request + response) get tag=motion-plan so data manager can infer a
-	// stable type tag on arbitrary-file upload. 
+	// stable type tag on arbitrary-file upload.
 	const motionPlanTypeTag = "motion-plan"
 	parts := []string{ms.conf.PlanFilePath}
 	if plan != nil {
