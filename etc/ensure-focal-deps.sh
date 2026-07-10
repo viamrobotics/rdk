@@ -11,9 +11,11 @@ CMAKE_VERSION=4.3.4
 # __*_finite glibc symbols that fail to resolve when statically linked.
 X264_COMMIT=b35605ace3ddf7c1a5d67a2eb553f034aef41d55
 
-case "$(dpkg --print-architecture)" in
+deb_arch="$(dpkg --print-architecture)"
+case "$deb_arch" in
     amd64) go_arch=amd64 ;;
     arm64) go_arch=arm64 ;;
+    armhf) go_arch=armv6l ;;
     *) echo "unsupported arch" >&2; exit 1 ;;
 esac
 
@@ -25,9 +27,21 @@ apt-get install -y --no-install-recommends \
     libjpeg-turbo8-dev
 rm -rf /var/lib/apt/lists/*
 
-# cmake >= 3.18 is required by nlopt >= 2.11; focal apt ships 3.16.
-curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-$(uname -m).tar.gz" \
-    | tar -xz --strip-components=1 -C /usr/local
+# cmake >= 3.18 is required by nlopt >= 2.11; focal apt ships 3.16. Kitware
+# ships prebuilt tarballs for amd64/arm64; on armhf use the pip wheel
+# (manylinux_2_31 matches focal) since Kitware has no 32-bit arm build.
+case "$deb_arch" in
+    armhf)
+        apt-get update
+        apt-get install -y --no-install-recommends python3-pip
+        rm -rf /var/lib/apt/lists/*
+        pip3 install "cmake==${CMAKE_VERSION}"
+        ;;
+    *)
+        curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-$(uname -m).tar.gz" \
+            | tar -xz --strip-components=1 -C /usr/local
+        ;;
+esac
 cmake --version
 
 # nlopt into /usr/local: headers + PIC static lib + pkg-config. NLOPT_CXX=OFF
