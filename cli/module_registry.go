@@ -1178,13 +1178,20 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 		return "", err
 	}
 
+	if (flags.List || flags.Latest) && len(res.Module.Versions) == 0 {
+		printf(cmd.Root().Writer, "module %s has 0 uploaded versions", moduleID)
+		return "", nil
+	}
+
 	if flags.List {
-		versions := res.Module.Versions
-		total := len(versions)
-		if total == 0 {
-			printf(cmd.Root().Writer, "module %s has 0 uploaded versions", moduleID)
-			return "", nil
+		// only official released versions, excluding synthetic reload pseudo-versions
+		versions := make([]*apppb.VersionHistory, 0, len(res.Module.Versions))
+		for _, ver := range res.Module.Versions {
+			if !IsReloadVersion(ver.Version) {
+				versions = append(versions, ver)
+			}
 		}
+		total := len(versions)
 		// versions stored oldest->newest; print newest first, capped at flags.Count (0 = all)
 		shown := 0
 		for i := total - 1; i >= 0; i-- {
@@ -1204,7 +1211,7 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 			shown++
 		}
 		if shown < total {
-			printf(cmd.Root().Writer, "… showing %d of %d versions (use --%s=0 for all)", shown, total, generalFlagCount)
+			printf(cmd.Root().Writer, "… showing %d of %d versions (omit --%s for all)", shown, total, generalFlagCount)
 		}
 		return "", nil
 	}
@@ -1220,10 +1227,6 @@ func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command,
 			for _, file := range ver.Files {
 				latestByPlatform[file.Platform] = ver.Version
 			}
-		}
-		if len(latestByPlatform) == 0 {
-			printf(cmd.Root().Writer, "module %s has 0 uploaded versions", moduleID)
-			return "", nil
 		}
 		platforms := make([]string, 0, len(latestByPlatform))
 		for platform := range latestByPlatform {
