@@ -36,8 +36,10 @@ type capsule struct {
 	center r3.Vector // Centerpoint of capsule as an r3.Vector, cached to prevent recalculation
 	capVec r3.Vector // Vector pointing from `center` towards `segB`, cached to prevent recalculation
 
-	// rotMatrix caches the transpose of the world-frame rotation matrix; SAT
-	// code in sat_generic.go reads its rows as the capsule's local axes in world.
+	// rotMatrix caches the world→local rotation matrix — the transpose of
+	// what c.pose.Orientation().RotationMatrix() returns (which is
+	// local→world). SAT code in sat_generic.go reads its rows as the
+	// capsule's local axes in world.
 	rotMatrix *RotationMatrix
 	once      sync.Once
 }
@@ -252,6 +254,7 @@ func (c *capsule) Hash() int {
 }
 
 func (c *capsule) rotationMatrix() *RotationMatrix {
+	// Orientation().RotationMatrix() returns local→world; we cache its transpose.
 	c.once.Do(func() {
 		c.rotMatrix = c.pose.Orientation().RotationMatrix().Transpose()
 	})

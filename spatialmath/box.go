@@ -74,9 +74,10 @@ type box struct {
 	boundingSphereR float64
 	label           string
 	mesh            *Mesh
-	// rotMatrix caches the transpose of the world-frame rotation matrix; SAT
-	// and projection routines in this file read its rows as the box's local
-	// axes in world.
+	// rotMatrix caches the world→local rotation matrix — the transpose of
+	// what b.center.Orientation().RotationMatrix() returns (which is
+	// local→world). SAT and projection routines in this file read its rows
+	// as the box's local axes in world.
 	rotMatrix *RotationMatrix
 	once      sync.Once
 }
@@ -340,6 +341,7 @@ func (b *box) toMesh() *Mesh {
 }
 
 func (b *box) rotationMatrix() *RotationMatrix {
+	// Orientation().RotationMatrix() returns local→world; we cache its transpose.
 	b.once.Do(func() {
 		b.rotMatrix = b.center.Orientation().RotationMatrix().Transpose()
 	})
