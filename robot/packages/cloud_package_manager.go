@@ -299,11 +299,17 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Infof("Package sync complete after %v", time.Since(start))
 	}
 
-	// Prune packageStatuses to match the new managed set so stale entries from removed or
-	// previously-configured packages don't accumulate across reconfigures.
+	// Prune packageStatuses to match the requested config so stale entries from removed
+	// packages don't accumulate across reconfigures. Prune against the requested packages
+	// rather than newManagedPackages: failed packages are absent from the managed set but
+	// must keep their Failed status visible.
+	requestedPackages := make(map[PackageName]bool, len(packages))
+	for _, p := range packages {
+		requestedPackages[PackageName(p.Name)] = true
+	}
 	m.statusMu.Lock()
 	for name := range m.packageStatuses {
-		if _, ok := newManagedPackages[name]; !ok {
+		if !requestedPackages[name] {
 			delete(m.packageStatuses, name)
 		}
 	}

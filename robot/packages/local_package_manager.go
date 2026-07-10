@@ -200,11 +200,13 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Infof("Local package sync complete after %v", time.Since(start))
 	}
 
-	// Prune packageStatuses to match the new managed set so stale entries from removed or
-	// previously-configured packages don't accumulate across reconfigures.
-	expectedPkgNames := make(map[PackageName]bool, len(existing))
-	for _, mm := range existing {
-		if pkg, err := mm.module.SyntheticPackage(); err == nil {
+	// Prune packageStatuses to match the requested config so stale entries from removed
+	// modules don't accumulate across reconfigures. Prune against the requested modules
+	// rather than the managed set: failed packages are absent from the managed set but
+	// must keep their Failed status visible.
+	expectedPkgNames := make(map[PackageName]bool, len(modules))
+	for _, mod := range modules {
+		if pkg, err := mod.SyntheticPackage(); err == nil {
 			expectedPkgNames[PackageName(pkg.Name)] = true
 		}
 	}
