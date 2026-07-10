@@ -74,8 +74,12 @@ type box struct {
 	boundingSphereR float64
 	label           string
 	mesh            *Mesh
-	rotMatrix       *RotationMatrix
-	once            sync.Once
+	// rotMatrix caches the world→local rotation matrix — the transpose of
+	// what b.center.Orientation().RotationMatrix() returns (which is
+	// local→world). SAT and projection routines in this file read its rows
+	// as the box's local axes in world.
+	rotMatrix *RotationMatrix
+	once      sync.Once
 }
 
 // NewBox instantiates a new box Geometry.
@@ -336,10 +340,11 @@ func (b *box) toMesh() *Mesh {
 	return b.mesh
 }
 
-// rotationMatrix returns the cached matrix if it exists, and generates it if not.
 func (b *box) rotationMatrix() *RotationMatrix {
-	b.once.Do(func() { b.rotMatrix = b.center.Orientation().RotationMatrix() })
-
+	// Orientation().RotationMatrix() returns local→world; we cache its transpose.
+	b.once.Do(func() {
+		b.rotMatrix = b.center.Orientation().RotationMatrix().Transpose()
+	})
 	return b.rotMatrix
 }
 
