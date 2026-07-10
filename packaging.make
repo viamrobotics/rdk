@@ -48,7 +48,7 @@ static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 
 static-release-win:
 	rm -f bin/static/viam-server-windows.exe
-	GOOS=windows GOARCH=amd64 go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-windows.exe ./web/cmd/server
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-windows.exe ./web/cmd/server
 	upx --best --lzma bin/static/viam-server-windows.exe
 	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe
 
@@ -61,7 +61,7 @@ static-release-win:
 	fi
 
 	# note: GOOS=windows would break this on a linux runner
-	go run -tags no_cgo ./web/cmd/server --dump-resources win-resources.json
+	CGO_ENABLED=0 go run -tags no_cgo ./web/cmd/server --dump-resources win-resources.json
 
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/

@@ -20,7 +20,9 @@ ifdef BUILD_DEBUG
 else
 	COMMON_LDFLAGS += -s -w
 endif
-LDFLAGS = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
+
+LDFLAGS = -ldflags "$(COMMON_LDFLAGS)"
+LDFLAGS_WRAPPER = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
 
 default: build lint server
 
@@ -89,20 +91,20 @@ test-go-no-race: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
 $(BIN_OUTPUT_PATH)/viam-server: $(GO_FILES) Makefile go.mod go.sum
-	go build $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
+	go build $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server
 
 .PHONY: server
 server: $(BIN_OUTPUT_PATH)/viam-server
 
 $(BIN_OUTPUT_PATH)/viam-server-static: $(GO_FILES) Makefile go.mod go.sum
-	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
+	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server
 
 .PHONY: server-static
 server-static: $(BIN_OUTPUT_PATH)/viam-server-static
 
 bin/static/viam-server-$(GOARCH): $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)
-	go build -tags no_cgo,osusergo,netgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o $@ ./web/cmd/server
+	CGO_ENABLED=0 go build -tags no_cgo,osusergo,netgo $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
 
 .PHONY: full-static
 full-static: bin/static/viam-server-$(GOARCH)
@@ -110,7 +112,7 @@ full-static: bin/static/viam-server-$(GOARCH)
 # should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
 bin/windows/viam-server-amd64.exe: $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)
-	GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o $@ ./web/cmd/server
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
 
 .PHONY: windows
 windows: bin/windows/viam-server-amd64.exe
