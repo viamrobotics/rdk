@@ -197,3 +197,34 @@ jobs:
         echo "boot OK: $(uname -sm)"
         kill $srv 2>/dev/null || true
         wait $srv 2>/dev/null || true
+
+  # Boots the aarch64 binary inside a JetPack-5 (L4T r35) container on a hosted
+  # arm64 runner — the Focal-based userspace RDK's Focal baseline exists to serve.
+  focal-jetpack-test:
+    name: Focal JetPack Boot
+    needs: focal-static
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+
+    steps:
+    - name: Download and boot in L4T container
+      run: |
+        set -euo pipefail
+        curl -fL -o viam-server \
+          "https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/focal/${{ github.sha }}/viam-server-focal-aarch64"
+        chmod 755 viam-server
+
+        port=$((30000 + RANDOM))
+        echo "{\"network\":{\"bind_address\":\"localhost:${port}\"}}" > test.json
+
+        docker run -d --name jetpack-boot --network host \
+          -v "$PWD/viam-server:/viam-server:ro" -v "$PWD/test.json:/test.json:ro" \
+          nvcr.io/nvidia/l4t-base:r35.4.1 /viam-server -config /test.json
+
+        if ! curl --retry 8 --retry-delay 5 --retry-connrefused -s "localhost:${port}" >/dev/null; then
+          echo "boot FAILED; container logs:"; docker logs jetpack-boot || true
+          docker rm -f jetpack-boot; exit 1
+        fi
+        echo "boot OK: JetPack 5 (L4T r35) aarch64"
+        docker rm -f jetpack-boot
