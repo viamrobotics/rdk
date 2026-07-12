@@ -118,12 +118,24 @@ jobs:
           wait $srv 2>/dev/null || true
         '
 
-    - name: Authorize GCP upload
-      if: steps.meta.outputs.publish == 'true'
+    - name: Authorize GCP
       # google-github-actions/auth@v3.0.0
       uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
       with:
         credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+    # Stage the binary for the hardware-boot job to download. Not a published channel.
+    - name: Upload binary for hardware boot test
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+      # google-github-actions/upload-cloud-storage@v3.0.0
+      uses: google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a
+      with:
+        process_gcloudignore: false
+        headers: "cache-control: no-cache"
+        path: etc/packaging/static/deploy/
+        destination: packages.viam.com/apps/viam-server/testing/focal/${{ github.sha }}/
+        glob: 'viam-server-*'
+        parent: false
 
     - name: Publish ${{ steps.meta.outputs.channel }} channel
       if: steps.meta.outputs.publish == 'true'
@@ -143,3 +155,76 @@ jobs:
         url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}"
         echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
         echo "$url" >> "$GITHUB_STEP_SUMMARY"
+
+  # Boots the built binary on bare hardware to catch linkage regressions the
+  # in-container boot can't. armv7l has no bare runner here.
+  focal-hardware-test:
+    name: Focal Hardware Boot
+    needs: focal-static
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [[ubuntu-latest], [ubuntu-small-arm], [pi4], [pi5]]
+    runs-on: ${{ matrix.arch }}
+    timeout-minutes: 15
+
+    steps:
+    - name: Clean workspace
+      run: |
+        shopt -s dotglob
+        sudo chown -R "$(whoami)" ./
+        rm -rf ./*
+
+    - name: Download and boot on bare hardware
+      run: |
+        set -euo pipefail
+        test_dir=$(mktemp -d -t test-viam-server-XXXXXX)
+        cd "$test_dir"
+
+        arch=$(uname -m)
+        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/focal/${{ github.sha }}/viam-server-focal-${arch}"
+        echo "Fetching $url"
+        curl -fL -o viam-server "$url"
+        chmod 755 viam-server
+
+        port=$((30000 + RANDOM))
+        echo "{\"network\":{\"bind_address\":\"localhost:${port}\"}}" > test.json
+
+        ./viam-server -config test.json &
+        srv=$!
+        curl --retry 8 --retry-delay 5 --retry-connrefused -s "localhost:${port}" >/dev/null
+        echo "boot OK: $(uname -sm)"
+        kill $srv 2>/dev/null || true
+        wait $srv 2>/dev/null || true
+
+  # Boots the aarch64 binary inside a JetPack-5 (L4T r35) container — the
+  # Focal-based userspace RDK's Focal baseline exists to serve.
+  focal-jetpack-test:
+    name: Focal JetPack Boot
+    needs: focal-static
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-large-arm
+    timeout-minutes: 15
+
+    steps:
+    - name: Download and boot in L4T container
+      run: |
+        set -euo pipefail
+        curl -fL -o viam-server \
+          "https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/focal/${{ github.sha }}/viam-server-focal-aarch64"
+        chmod 755 viam-server
+
+        port=$((30000 + RANDOM))
+        echo "{\"network\":{\"bind_address\":\"localhost:${port}\"}}" > test.json
+
+        docker run -d --name jetpack-boot --network host \
+          -v "$PWD/viam-server:/viam-server:ro" -v "$PWD/test.json:/test.json:ro" \
+          nvcr.io/nvidia/l4t-base:r35.4.1 /viam-server -config /test.json
+
+        if ! curl --retry 8 --retry-delay 5 --retry-connrefused -s "localhost:${port}" >/dev/null; then
+          echo "boot FAILED; container logs:"; docker logs jetpack-boot || true
+          docker rm -f jetpack-boot; exit 1
+        fi
+        echo "boot OK: JetPack 5 (L4T r35) aarch64"
+        docker rm -f jetpack-boot
