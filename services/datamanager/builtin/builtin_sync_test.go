@@ -495,12 +495,12 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			}
 
 			if tc.cloudConnectionErr == nil {
-				wait := time.After(waitTime)
 				var successfulReqs []*v1.DataCaptureUploadRequest
-				// Get the successful requests
+				// Reset the timeout per file so a scheduling stall extends the wait
+				// rather than failing the whole batch on one deadline.
 				for i := 0; i < numFiles; i++ {
 					select {
-					case <-wait:
+					case <-time.After(waitTime):
 						offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).(rgrpc.ConnectivityState).GetState() != connectivity.Ready
 						if offline && !tc.manualSync {
 							err = b2.Close(context.Background())
