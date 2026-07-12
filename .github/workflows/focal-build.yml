@@ -198,13 +198,13 @@ jobs:
         kill $srv 2>/dev/null || true
         wait $srv 2>/dev/null || true
 
-  # Boots the aarch64 binary inside a JetPack-5 (L4T r35) container on a hosted
-  # arm64 runner — the Focal-based userspace RDK's Focal baseline exists to serve.
+  # Boots the aarch64 binary inside a JetPack-5 (L4T r35) container — the
+  # Focal-based userspace RDK's Focal baseline exists to serve.
   focal-jetpack-test:
     name: Focal JetPack Boot
     needs: focal-static
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-large-arm
     timeout-minutes: 15
 
     steps:
