@@ -78,21 +78,11 @@ jobs:
     - name: Link upx into /usr/local/bin
       run: ln -sf "$(command -v upx)" /usr/local/bin/upx
 
-    - name: Resolve channel and arch
+    - name: Resolve channel
       id: meta
-      run: |
-        case "${{ inputs.release_type }}" in
-          pr)
-            echo "channel=focal-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
-          focal)
-            echo "channel=focal" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
-          *)
-            echo "channel=focal" >> "$GITHUB_OUTPUT"
-            echo "publish=false" >> "$GITHUB_OUTPUT" ;;
-        esac
-        echo "arch=${{ matrix.uname_m }}" >> "$GITHUB_OUTPUT"
+      uses: ./.github/actions/focal-channel
+      with:
+        release-type: ${{ inputs.release_type }}
 
     - name: Build viam-server-${{ steps.meta.outputs.channel }}
       run: |
@@ -113,30 +103,18 @@ jobs:
           wait $srv 2>/dev/null || true
         '
 
-    - name: Authorize GCP upload
-      if: steps.meta.outputs.publish == 'true'
-      # google-github-actions/auth@v3.0.0
-      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
-      with:
-        credentials_json: ${{ secrets.GCP_CREDENTIALS }}
-
     - name: Publish ${{ steps.meta.outputs.channel }} channel
       if: steps.meta.outputs.publish == 'true'
-      # google-github-actions/upload-cloud-storage@v3.0.0
-      uses: google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a
+      uses: ./.github/actions/focal-publish
       with:
-        process_gcloudignore: false
-        headers: "cache-control: no-cache"
-        path: etc/packaging/static/deploy/
-        destination: packages.viam.com/apps/viam-server/
-        glob: 'viam-server-${{ steps.meta.outputs.channel }}-*'
-        parent: false
+        channel: ${{ steps.meta.outputs.channel }}
+        gcp-credentials: ${{ secrets.GCP_CREDENTIALS }}
 
     - name: Summary
       if: steps.meta.outputs.publish == 'true'
       run: |
-        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}"
-        echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
+        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ matrix.uname_m }}"
+        echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ matrix.uname_m }}" >> "$GITHUB_STEP_SUMMARY"
         echo "$url" >> "$GITHUB_STEP_SUMMARY"
 
   # Bare arm64 host + docker run: JS actions can't exec in a 32-bit-arm container.
@@ -168,18 +146,9 @@ jobs:
 
     - name: Resolve channel
       id: meta
-      run: |
-        case "${{ inputs.release_type }}" in
-          pr)
-            echo "channel=focal-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
-          focal)
-            echo "channel=focal" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
-          *)
-            echo "channel=focal" >> "$GITHUB_OUTPUT"
-            echo "publish=false" >> "$GITHUB_OUTPUT" ;;
-        esac
+      uses: ./.github/actions/focal-channel
+      with:
+        release-type: ${{ inputs.release_type }}
 
     # Register binfmt so the arm64 host can run the linux/arm/v7 container.
     - name: Set up QEMU
@@ -195,21 +164,9 @@ jobs:
           ghcr.io/viamrobotics/rdk-focal:armhf-cache \
           bash /rdk/etc/focal-armhf-build.sh
 
-    - name: Authorize GCP upload
-      if: steps.meta.outputs.publish == 'true'
-      # google-github-actions/auth@v3.0.0
-      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
-      with:
-        credentials_json: ${{ secrets.GCP_CREDENTIALS }}
-
     - name: Publish ${{ steps.meta.outputs.channel }} channel
       if: steps.meta.outputs.publish == 'true'
-      # google-github-actions/upload-cloud-storage@v3.0.0
-      uses: google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a
+      uses: ./.github/actions/focal-publish
       with:
-        process_gcloudignore: false
-        headers: "cache-control: no-cache"
-        path: etc/packaging/static/deploy/
-        destination: packages.viam.com/apps/viam-server/
-        glob: 'viam-server-${{ steps.meta.outputs.channel }}-*'
-        parent: false
+        channel: ${{ steps.meta.outputs.channel }}
+        gcp-credentials: ${{ secrets.GCP_CREDENTIALS }}
