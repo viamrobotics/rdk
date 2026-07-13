@@ -35,7 +35,9 @@ case "$deb_arch" in
         apt-get update
         apt-get install -y --no-install-recommends python3-pip
         rm -rf /var/lib/apt/lists/*
-        pip3 install "cmake==${CMAKE_VERSION}"
+        # upgrade pip so it finds the manylinux_2_31_armv7l wheel (else source build)
+        python3 -m pip install --upgrade pip
+        python3 -m pip install "cmake==${CMAKE_VERSION}"
         ;;
     *)
         curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-$(uname -m).tar.gz" \
