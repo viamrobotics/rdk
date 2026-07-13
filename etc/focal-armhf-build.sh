@@ -13,7 +13,7 @@ cp /tmp/upx-5.2.0-arm_linux/upx /usr/local/bin/upx
 git config --system --add safe.directory '*'
 cd "$repo_root"
 
-sudo -Hu testbot bash -lc "make BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=armv7l static-release"
+sudo -Hu testbot bash -lc "make BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=armv7l VERSION_SUFFIX=+focal static-release"
 
 sudo -Hu testbot bash -lc '
   set -euo pipefail
