@@ -44,10 +44,6 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-focal:arm64-cache
             platform: linux/arm64
             uname_m: aarch64
-          - arch: ubuntu-small-arm
-            image: ghcr.io/viamrobotics/rdk-focal:armhf-cache
-            platform: linux/arm/v7
-            uname_m: armv7l
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -82,26 +78,15 @@ jobs:
     - name: Link upx into /usr/local/bin
       run: ln -sf "$(command -v upx)" /usr/local/bin/upx
 
-    - name: Resolve channel and arch
+    - name: Resolve channel
       id: meta
-      run: |
-        case "${{ inputs.release_type }}" in
-          pr)
-            echo "channel=focal-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
-          focal)
-            echo "channel=focal" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
-          *)
-            echo "channel=focal" >> "$GITHUB_OUTPUT"
-            echo "publish=false" >> "$GITHUB_OUTPUT" ;;
-        esac
-        echo "arch=${{ matrix.uname_m }}" >> "$GITHUB_OUTPUT"
+      uses: ./.github/actions/focal-channel
+      with:
+        release-type: ${{ inputs.release_type }}
 
-    # UNAME_M override: uname -m can report aarch64 inside a 32-bit arm container.
     - name: Build viam-server-${{ steps.meta.outputs.channel }}
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} UNAME_M=${{ matrix.uname_m }} static-release'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} UNAME_M=${{ matrix.uname_m }} VERSION_SUFFIX=+focal static-release'
 
     - name: Boot smoke test
       run: |
@@ -118,28 +103,70 @@ jobs:
           wait $srv 2>/dev/null || true
         '
 
-    - name: Authorize GCP upload
-      if: steps.meta.outputs.publish == 'true'
-      # google-github-actions/auth@v3.0.0
-      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
-      with:
-        credentials_json: ${{ secrets.GCP_CREDENTIALS }}
-
     - name: Publish ${{ steps.meta.outputs.channel }} channel
       if: steps.meta.outputs.publish == 'true'
-      # google-github-actions/upload-cloud-storage@v3.0.0
-      uses: google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a
+      uses: ./.github/actions/focal-publish
       with:
-        process_gcloudignore: false
-        headers: "cache-control: no-cache"
-        path: etc/packaging/static/deploy/
-        destination: packages.viam.com/apps/viam-server/
-        glob: 'viam-server-${{ steps.meta.outputs.channel }}-*'
-        parent: false
+        channel: ${{ steps.meta.outputs.channel }}
+        gcp-credentials: ${{ secrets.GCP_CREDENTIALS }}
 
     - name: Summary
       if: steps.meta.outputs.publish == 'true'
       run: |
-        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}"
-        echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ steps.meta.outputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
+        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ matrix.uname_m }}"
+        echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ matrix.uname_m }}" >> "$GITHUB_STEP_SUMMARY"
         echo "$url" >> "$GITHUB_STEP_SUMMARY"
+
+  # Bare arm64 host + docker run: JS actions can't exec in a 32-bit-arm container.
+  focal-static-armhf:
+    name: Focal Static Build and Boot (armhf)
+    runs-on: ubuntu-large-arm
+    timeout-minutes: 30
+
+    steps:
+    - name: Clean workspace
+      run: |
+        shopt -s dotglob
+        sudo chown -R "$(whoami)" ./ || true
+        rm -rf ./* || true
+
+    - name: Check out code
+      if: github.event_name != 'pull_request_target'
+      # actions/checkout@v7.0.0
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        fetch-depth: 0
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      # actions/checkout@v7.0.0
+      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Resolve channel
+      id: meta
+      uses: ./.github/actions/focal-channel
+      with:
+        release-type: ${{ inputs.release_type }}
+
+    # Register binfmt so the arm64 host can run the linux/arm/v7 container.
+    - name: Set up QEMU
+      # docker/setup-qemu-action@v4.2.0
+      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8
+
+    - name: Build and boot in armhf container
+      run: |
+        chmod -R a+rwX .
+        docker run --platform linux/arm/v7 \
+          -e BUILD_CHANNEL='${{ steps.meta.outputs.channel }}' \
+          -v "$(pwd)":/rdk \
+          ghcr.io/viamrobotics/rdk-focal:armhf-cache \
+          bash /rdk/etc/focal-armhf-build.sh
+
+    - name: Publish ${{ steps.meta.outputs.channel }} channel
+      if: steps.meta.outputs.publish == 'true'
+      uses: ./.github/actions/focal-publish
+      with:
+        channel: ${{ steps.meta.outputs.channel }}
+        gcp-credentials: ${{ secrets.GCP_CREDENTIALS }}

@@ -13,8 +13,10 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
+# VERSION_SUFFIX (e.g. +focal) tags a build variant; appended only when a version exists.
+FULL_VERSION = $(TAG_VERSION)$(if $(TAG_VERSION),$(VERSION_SUFFIX))
 DATE_COMPILED?=$(shell date +'%Y-%m-%d')
-COMMON_LDFLAGS = -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
+COMMON_LDFLAGS = -X 'go.viam.com/rdk/config.Version=${FULL_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
 ifdef BUILD_DEBUG
 	GCFLAGS = -gcflags "-N -l"
 else
