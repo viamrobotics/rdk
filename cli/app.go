@@ -21,12 +21,13 @@ import (
 const (
 	flagAll = "all"
 
-	baseURLFlag         = "base-url"
-	configFlag          = "config"
-	debugFlag           = "debug"
-	profileFlag         = "profile"
-	disableProfilesFlag = "disable-profiles"
-	profileFlagName     = "profile-name"
+	baseURLFlag                 = "base-url"
+	configFlag                  = "config"
+	debugFlag                   = "debug"
+	profileFlag                 = "profile"
+	disableProfilesFlag         = "disable-profiles"
+	profileFlagName             = "profile-name"
+	checkConnectionIntervalFlag = "check-connection-interval"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -85,6 +86,7 @@ const (
 	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
+	generalFlagAddress           = "address"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -177,7 +179,6 @@ const (
 	tunnelFlagDestinationPort = "destination-port"
 
 	organizationFlagSupportEmail = "support-email"
-	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
 
 	xacroFlagInputFile         = "input-file"
@@ -328,12 +329,13 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL         string
-	Config          string
-	Debug           bool
-	Quiet           bool
-	Profile         string
-	DisableProfiles bool
+	BaseURL             string
+	Config              string
+	Debug               bool
+	Quiet               bool
+	Profile             string
+	DisableProfiles     bool
+	CheckConnectedEvery time.Duration
 }
 
 func (ga *globalArgs) createLogger() logging.Logger {
@@ -508,6 +510,10 @@ var app = &cli.Command{
 			Name:    disableProfilesFlag,
 			Aliases: []string{"disable-profile"}, // for ease of use; not backwards compatibility related
 			Usage:   "disable usage of profiles, falling back to default behavior",
+		},
+		&cli.DurationFlag{
+			Name:  checkConnectionIntervalFlag,
+			Usage: "check robot connection on this interval and close the client if a faulty connection cannot be repaired",
 		},
 	},
 	Commands: []*cli.Command{
@@ -1044,7 +1050,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "update",
 							Usage: "update the billing service update for an organization",
 							UsageText: createUsageText(
-								"organizations billing-service update", []string{generalFlagOrgID, organizationBillingAddress}, false, false,
+								"organizations billing-service update", []string{generalFlagOrgID, generalFlagAddress}, false, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1052,7 +1058,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to update the billing service for",
 								},
 								&cli.StringFlag{
-									Name:     organizationBillingAddress,
+									Name:     generalFlagAddress,
 									Required: true,
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
@@ -1063,7 +1069,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "enable",
 							Usage: "enable the billing service for an organization",
 							UsageText: createUsageText(
-								"organizations billing-service enable", []string{generalFlagOrgID, organizationBillingAddress}, false, false,
+								"organizations billing-service enable", []string{generalFlagOrgID, generalFlagAddress}, false, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1071,7 +1077,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to enable the billing service for",
 								},
 								&cli.StringFlag{
-									Name:     organizationBillingAddress,
+									Name:     generalFlagAddress,
 									Required: true,
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
@@ -3216,6 +3222,11 @@ Note: There is no progress meter while copying is in progress.
 						{
 							Name:  "tunnel",
 							Usage: "tunnel connections to the specified port on a machine part",
+							Description: `Tunnel connections from a local port to a destination port on a machine part.
+
+By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel
+directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + `,
+and --` + loginFlagKey + `.`,
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
 							}, true, false),
@@ -3227,6 +3238,18 @@ Note: There is no progress meter while copying is in progress.
 								&cli.IntFlag{
 									Name:     tunnelFlagDestinationPort,
 									Required: true,
+								},
+								&cli.StringFlag{
+									Name:  generalFlagAddress,
+									Usage: "machine FQDN to dial directly,  (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
+								},
+								&cli.StringFlag{
+									Name:  loginFlagKeyID,
+									Usage: "id of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
+								},
+								&cli.StringFlag{
+									Name:  loginFlagKey,
+									Usage: "value of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
 								},
 							}...),
 							Action: createActionCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),

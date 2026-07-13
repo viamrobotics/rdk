@@ -9,6 +9,19 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+func TestQuatToRotationMatrixOnPoints(t *testing.T) {
+	for _, c := range rmQuatSamples {
+		t.Run(c.name, func(t *testing.T) {
+			rm := QuatToRotationMatrix(c.q)
+			for _, p := range rmQuatSamplePoints {
+				fromMul := rm.Mul(p)
+				fromQuat := TransformPoint(c.q, r3.Vector{}, p)
+				test.That(t, R3VectorAlmostEqual(fromMul, fromQuat, 1e-9), test.ShouldBeTrue)
+			}
+		})
+	}
+}
+
 func TestAngleAxisConversion1(t *testing.T) {
 	// Test that we can convert back and forth losslessly between angle axis and quaternions
 	startAA := R4AA{2.5980762, 0.577350, 0.577350, 0.577350}
