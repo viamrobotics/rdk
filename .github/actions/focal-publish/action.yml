@@ -4,6 +4,9 @@ inputs:
   channel:
     description: viam-server channel name
     required: true
+  arch:
+    description: uname -m of the built binary, for the summary URL
+    required: true
   gcp-credentials:
     description: GCP service-account credentials JSON
     required: true
@@ -26,3 +29,10 @@ runs:
         destination: packages.viam.com/apps/viam-server/
         glob: 'viam-server-${{ inputs.channel }}-*'
         parent: false
+
+    - name: Summary
+      shell: bash
+      run: |
+        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ inputs.channel }}-${{ inputs.arch }}"
+        echo "### viam-server-${{ inputs.channel }}-${{ inputs.arch }}" >> "$GITHUB_STEP_SUMMARY"
+        echo "$url" >> "$GITHUB_STEP_SUMMARY"
