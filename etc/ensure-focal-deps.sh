@@ -35,7 +35,9 @@ case "$deb_arch" in
         apt-get update
         apt-get install -y --no-install-recommends python3-pip
         rm -rf /var/lib/apt/lists/*
-        pip3 install "cmake==${CMAKE_VERSION}"
+        # upgrade pip so it finds the manylinux_2_31_armv7l wheel (else source build)
+        python3 -m pip install --upgrade pip
+        python3 -m pip install "cmake==${CMAKE_VERSION}"
         ;;
     *)
         curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-$(uname -m).tar.gz" \
@@ -58,11 +60,13 @@ cmake --install /tmp/nlopt-build
 rm -rf "/tmp/nlopt-${NLOPT_VERSION}" /tmp/nlopt-build
 
 # x264 into /usr/local: headers + shared + PIC static + pkg-config.
+# armhf targets armv6l (no NEON); drop asm so it doesn't emit NEON and crash there.
+case "$deb_arch" in armhf) x264_asm=--disable-asm ;; *) x264_asm= ;; esac
 curl -fsSL "https://code.videolan.org/videolan/x264/-/archive/${X264_COMMIT}/x264-${X264_COMMIT}.tar.gz" \
     | tar -C /tmp -xz
 (
     cd "/tmp/x264-${X264_COMMIT}"
-    ./configure --prefix=/usr/local --enable-shared --enable-static --enable-pic --disable-cli --disable-opencl
+    ./configure --prefix=/usr/local --enable-shared --enable-static --enable-pic --disable-cli --disable-opencl $x264_asm
     make -j "$(nproc)"
     make install
 )
