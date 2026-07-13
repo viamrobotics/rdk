@@ -108,14 +108,8 @@ jobs:
       uses: ./.github/actions/focal-publish
       with:
         channel: ${{ steps.meta.outputs.channel }}
+        arch: ${{ matrix.uname_m }}
         gcp-credentials: ${{ secrets.GCP_CREDENTIALS }}
-
-    - name: Summary
-      if: steps.meta.outputs.publish == 'true'
-      run: |
-        url="https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${{ steps.meta.outputs.channel }}-${{ matrix.uname_m }}"
-        echo "### viam-server-${{ steps.meta.outputs.channel }}-${{ matrix.uname_m }}" >> "$GITHUB_STEP_SUMMARY"
-        echo "$url" >> "$GITHUB_STEP_SUMMARY"
 
   # Bare arm64 host + docker run: JS actions can't exec in a 32-bit-arm container.
   focal-static-armhf:
@@ -169,4 +163,5 @@ jobs:
       uses: ./.github/actions/focal-publish
       with:
         channel: ${{ steps.meta.outputs.channel }}
+        arch: armv7l
         gcp-credentials: ${{ secrets.GCP_CREDENTIALS }}
