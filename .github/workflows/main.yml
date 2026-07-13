@@ -109,8 +109,9 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
-  # Publish to the focal channel on merge to main (same gate as the deploy jobs);
-  # validate-only on PRs and staged/no-prod dispatches.
+  # "focal" is not an official release channel — just a dummy channel name used
+  # as the binary filename to unblock testing. Published on merge to main (same
+  # gate as the deploy jobs); PRs and staged/no-prod dispatches validate only.
   focal-build:
     needs: [changes, test]
     if: ${{ github.event_name != 'push' || needs.changes.outputs.release == 'true' }}
