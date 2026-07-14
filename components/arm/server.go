@@ -253,9 +253,8 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 			_ = resp // Response carries no fields yet; future per-batch status will be written onto the send here.
 			if err := stream.Send(&pb.MoveThroughJointPositionsStreamedResponse{}); err != nil {
 				cancel()
-				// Keep draining responses until the handler closes it. This is not defensiveness
-				// against a bad impl, it is what the contract asks for: an impl may write responses and
-				// return without ever watching ctx ("write responses, return when done"). After a
+				// Keep draining responses until the handler closes it. This is defensiveness against a
+				// bad impl: an impl might write responses and return without ever watching ctx. After a
 				// failed Send, an impl like that would wedge on its next write if we stopped reading,
 				// and never return. Draining keeps it moving until it sees batches close and returns on
 				// its own.
