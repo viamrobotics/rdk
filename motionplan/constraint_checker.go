@@ -317,52 +317,30 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 		return nil, err
 	}
 
-	// Partition the frames once into moving (DoF > 0) and static (DoF == 0).
-	// Static frames' inputs never change with interp, so we skip the FS
-	// lookup + Interpolate call per step for them and copy their startConfig
-	// through unchanged. In frame systems with many static obstacle frames
-	// (arm setups often have >100), this eliminates the dominant cost of the
-	// interpolation loop.
-	type movingFrame struct {
-		name        string
-		frame       referenceframe.Frame
-		startConfig []referenceframe.Input
-		endConfig   []referenceframe.Input
-	}
-	var moving []movingFrame
-	type staticFrame struct {
-		name        string
-		startConfig []referenceframe.Input
-	}
-	var static []staticFrame
-	for frameName, startConfig := range ci.StartConfiguration.Items() {
-		if len(startConfig) == 0 {
-			static = append(static, staticFrame{name: frameName, startConfig: startConfig})
-			continue
-		}
-		moving = append(moving, movingFrame{
-			name:        frameName,
-			frame:       ci.FS.Frame(frameName),
-			startConfig: startConfig,
-			endConfig:   ci.EndConfiguration.Get(frameName),
-		})
-	}
-
 	// Create interpolated configurations for all frames
-	interpolatedConfigurations := make([]*referenceframe.LinearInputs, 0, maxSteps+1)
+	var interpolatedConfigurations []*referenceframe.LinearInputs
 	for i := 0; i <= maxSteps; i++ {
 		interp := float64(i) / float64(maxSteps)
 		frameConfigs := referenceframe.NewLinearInputs()
 
-		for _, mf := range moving {
-			interpConfig, err := mf.frame.Interpolate(mf.startConfig, mf.endConfig, interp)
+		// Interpolate each frame's configuration
+		for frameName, startConfig := range ci.StartConfiguration.Items() {
+			// Static (0-DoF) frames have no configuration to interpolate; their
+			// inputs are the same at every step. Skip the FS lookup + Interpolate
+			// call and copy the startConfig through. In frame systems with many
+			// static obstacle frames, this is the dominant cost of the loop.
+			if len(startConfig) == 0 {
+				frameConfigs.Put(frameName, startConfig)
+				continue
+			}
+			endConfig := ci.EndConfiguration.Get(frameName)
+			frame := ci.FS.Frame(frameName)
+
+			interpConfig, err := frame.Interpolate(startConfig, endConfig, interp)
 			if err != nil {
 				return nil, err
 			}
-			frameConfigs.Put(mf.name, interpConfig)
-		}
-		for _, sf := range static {
-			frameConfigs.Put(sf.name, sf.startConfig)
+			frameConfigs.Put(frameName, interpConfig)
 		}
 
 		interpolatedConfigurations = append(interpolatedConfigurations, frameConfigs)
