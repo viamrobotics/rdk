@@ -1157,83 +1157,29 @@ type downloadModuleFlags struct {
 	OrgID       string
 	Version     string
 	Platform    string
-	List        bool
-	Count       int
-	Latest      bool
 }
 
-func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadModuleFlags) (string, error) {
-	moduleID := flags.ID
+// resolveModule resolves a module ID (falling back to meta.json when id is empty) and fetches the module.
+func (c *viamClient) resolveModule(ctx context.Context, id string) (string, *apppb.GetModuleResponse, error) {
+	moduleID := id
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return "", errors.Wrap(err, "trying to get package ID from meta.json")
+			return "", nil, errors.Wrap(err, "trying to get module ID from meta.json")
 		}
 		moduleID = manifest.ModuleID
 	}
+	res, err := c.client.GetModule(ctx, &apppb.GetModuleRequest{ModuleId: moduleID})
+	if err != nil {
+		return "", nil, err
+	}
+	return moduleID, res, nil
+}
 
-	req := &apppb.GetModuleRequest{ModuleId: moduleID}
-	res, err := c.client.GetModule(ctx, req)
+func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadModuleFlags) (string, error) {
+	moduleID, res, err := c.resolveModule(ctx, flags.ID)
 	if err != nil {
 		return "", err
-	}
-
-	if (flags.List || flags.Latest) && len(res.Module.Versions) == 0 {
-		printf(cmd.Root().Writer, "module %s has 0 uploaded versions", moduleID)
-		return "", nil
-	}
-
-	if flags.List {
-		versions := make([]*apppb.VersionHistory, 0, len(res.Module.Versions))
-		for _, ver := range res.Module.Versions {
-			if !IsReloadVersion(ver.Version) {
-				versions = append(versions, ver)
-			}
-		}
-		total := len(versions)
-		// versions stored oldest->newest; print newest first, capped at flags.Count (0 = all)
-		shown := 0
-		for i := total - 1; i >= 0; i-- {
-			if flags.Count > 0 && shown >= flags.Count {
-				break
-			}
-			ver := versions[i]
-			platforms := make([]string, 0, len(ver.Files))
-			for _, file := range ver.Files {
-				entry := file.Platform
-				if file.UploadedAt != nil {
-					entry = fmt.Sprintf("%s (%s)", entry, file.UploadedAt.AsTime().Format("2006-01-02"))
-				}
-				platforms = append(platforms, entry)
-			}
-			printf(cmd.Root().Writer, "%s\t%s", ver.Version, strings.Join(platforms, ", "))
-			shown++
-		}
-		if shown < total {
-			printf(cmd.Root().Writer, "… showing %d of %d versions (omit --%s for all)", shown, total, generalFlagCount)
-		}
-		return "", nil
-	}
-
-	if flags.Latest {
-		latestByPlatform := make(map[string]string)
-		for _, ver := range res.Module.Versions {
-			if IsReloadVersion(ver.Version) {
-				continue
-			}
-			for _, file := range ver.Files {
-				latestByPlatform[file.Platform] = ver.Version
-			}
-		}
-		platforms := make([]string, 0, len(latestByPlatform))
-		for platform := range latestByPlatform {
-			platforms = append(platforms, platform)
-		}
-		slices.Sort(platforms)
-		for _, platform := range platforms {
-			printf(cmd.Root().Writer, "%s\t%s", platform, latestByPlatform[platform])
-		}
-		return "", nil
 	}
 
 	requestedVersion := flags.Version
@@ -1305,6 +1251,87 @@ func DownloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadM
 	}
 	_, err = client.downloadModuleAction(ctx, cmd, flags)
 	return err
+}
+
+type moduleVersionsFlags struct {
+	ID     string
+	Latest bool
+	Count  int
+}
+
+// ModuleVersionsAction lists a module's uploaded versions, or the latest per platform with --latest.
+func ModuleVersionsAction(ctx context.Context, cmd *cli.Command, flags moduleVersionsFlags) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return client.moduleVersionsAction(ctx, cmd, flags)
+}
+
+func (c *viamClient) moduleVersionsAction(ctx context.Context, cmd *cli.Command, flags moduleVersionsFlags) error {
+	moduleID, res, err := c.resolveModule(ctx, flags.ID)
+	if err != nil {
+		return err
+	}
+
+	// only official released versions, excluding reload pseudo-versions and prereleases
+	// exclude reload pseudo-versions; prereleases (e.g. -rc) are kept
+	versions := make([]*apppb.VersionHistory, 0, len(res.Module.Versions))
+	for _, ver := range res.Module.Versions {
+		if !IsReloadVersion(ver.Version) {
+			versions = append(versions, ver)
+		}
+	}
+	if len(versions) == 0 {
+		printf(cmd.Root().Writer, "module %s has 0 uploaded versions", moduleID)
+		return nil
+	}
+
+	if flags.Latest {
+		// versions arrive sorted ascending by semver (server-side), matching app's "latest" selection.
+		// walk in order and overwrite per platform so the last (highest) version wins.
+		latestByPlatform := make(map[string]string)
+		for _, ver := range versions {
+			for _, file := range ver.Files {
+				latestByPlatform[file.Platform] = ver.Version
+			}
+		}
+		platforms := make([]string, 0, len(latestByPlatform))
+		for platform := range latestByPlatform {
+			platforms = append(platforms, platform)
+		}
+		slices.Sort(platforms)
+		for _, platform := range platforms {
+			printf(cmd.Root().Writer, "%s\t%s", platform, latestByPlatform[platform])
+		}
+		return nil
+	}
+
+	// versions stored oldest->newest; print newest first, capped at flags.Count (0 = all)
+	total := len(versions)
+	shown := 0
+	for i := total - 1; i >= 0; i-- {
+		if flags.Count > 0 && shown >= flags.Count {
+			break
+		}
+		ver := versions[i]
+		platforms := make([]string, 0, len(ver.Files))
+		for _, file := range ver.Files {
+			entry := file.Platform
+			if file.UploadedAt != nil {
+				entry = fmt.Sprintf("%s (%s)", entry, file.UploadedAt.AsTime().Format("2006-01-02"))
+			}
+			platforms = append(platforms, entry)
+		}
+		// entries start with the platform, so sort for a stable order across rows
+		slices.Sort(platforms)
+		printf(cmd.Root().Writer, "%s\t%s", ver.Version, strings.Join(platforms, ", "))
+		shown++
+	}
+	if shown < total {
+		printf(cmd.Root().Writer, "showing %d of %d versions (omit --%s for all)", shown, total, generalFlagCount)
+	}
+	return nil
 }
 
 // getMarkdownContent reads and returns the content from a markdown file path.
