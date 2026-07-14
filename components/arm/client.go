@@ -186,9 +186,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
 
-	// Derive a cancellable context and pass it when we open the stream, so cancel() tears down the
-	// gRPC stream and signals the send goroutine in one step. We use it to wind the send goroutine
-	// down once the recv loop exits, so it doesn't block on a caller that never closes batches.
+	// We open the stream under a context we can cancel, so one cancel() both tears the gRPC stream
+	// down and tells the send goroutine to quit. We lean on that when the recv loop finishes:
+	// without it, the send goroutine could sit forever waiting on a caller who never closes batches.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -208,9 +208,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		return err
 	}
 
-	// Send the caller's batches onto the wire. Each slice pulled from the channel becomes one wire
-	// TrajectoryBatch, so the caller controls wire cadence by sizing the slices they put on the
-	// channel. We CloseSend on caller EOF so the server-side recv loop terminates.
+	// Feed the caller's batches onto the wire, one TrajectoryBatch per slice they hand us. That is
+	// how the caller sets the pace on the wire: they choose how much to put in each slice. When they
+	// close the channel we CloseSend, which lets the server's recv loop finish.
 	var sendErr error
 	var sendOnce sync.Once
 	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
@@ -252,9 +252,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		}
 	})
 
-	// Read responses off the wire and forward them to the caller's responses channel, on the calling
-	// goroutine. Per the Arm interface channel-ownership contract this method does not close
-	// responses; that is the caller's responsibility, performed after we return.
+	// Back on the calling goroutine, read responses off the wire and hand them to the caller's
+	// channel. We do not close that channel: to the caller we are just another Arm impl, and by the
+	// same ownership rule the impl follows, the caller closes responses once we have returned.
 	var recvErr error
 recvLoop:
 	for {
@@ -273,7 +273,7 @@ recvLoop:
 			break recvLoop
 		}
 	}
-	// Tear down the stream and signal the send goroutine, which may still be blocked on batches.
+	// Tear the stream down and wake the send goroutine, which may still be parked waiting on batches.
 	cancel()
 	<-sendDone
 

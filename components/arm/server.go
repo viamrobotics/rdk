@@ -145,17 +145,17 @@ func (s *serviceServer) MoveThroughJointPositions(
 	return &pb.MoveThroughJointPositionsResponse{}, err
 }
 
-// MoveThroughJointPositionsStreamed is the bidi handler for the streamed RPC. It reads the
-// mandatory Init message first, locates the arm, then spawns one goroutine to pump further stream
-// messages into the batches channel and another to drain the implementation's responses channel
-// back onto the wire. The implementation runs on the calling goroutine, and its returned error
-// becomes the terminal gRPC status.
+// MoveThroughJointPositionsStreamed is the bidi handler for the streamed RPC. It reads the Init
+// message that has to come first, finds the arm, and runs the implementation right here on the
+// handler goroutine. Two helper goroutines bracket that call: one feeds wire batches in, the other
+// carries the implementation's responses back out to the client. Whatever the implementation
+// returns becomes the terminal gRPC status.
 func (s *serviceServer) MoveThroughJointPositionsStreamed(
 	stream pb.ArmService_MoveThroughJointPositionsStreamedServer,
 ) error {
-	// Derive a cancellable context from the stream's. We pass this ctx to the impl and watch it in
-	// the recv goroutine, so a Send failure, or the impl's own return, can cancel both the impl and
-	// the recv-side `batches <- out` send with a single call.
+	// We run the impl under a context we can cancel ourselves, derived from the stream's. That gives
+	// us a single lever: cancelling it stops the impl and also unblocks the recv goroutine's
+	// `batches <- out` send, whether the trigger was a failed Send or the impl simply returning.
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
@@ -184,9 +184,10 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 	batches := make(chan []TrajectoryPoint)
 	responses := make(chan Response)
 
-	// recvErrCh carries a terminal recv-side fault (a malformed point, a protocol violation, or a
-	// non-EOF wire error) back to the handler so it becomes the terminal gRPC status. It is buffered
-	// and keeps only the first error written, so the recv goroutine never blocks reporting one.
+	// When the recv side hits something terminal, a bad point, a stray message, a stream that breaks,
+	// that is the error the client should see, not whatever the impl happened to return on its way
+	// out. recvErrCh carries it back. It is buffered and we keep only the first write, so the recv
+	// goroutine can report and move on without blocking here.
 	recvErrCh := make(chan error, 1)
 	setRecvErr := func(err error) {
 		select {
@@ -195,14 +196,14 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 		}
 	}
 
-	// Pump the stream into batches: one wire TrajectoryBatch becomes one slice on the channel,
-	// preserving the caller-chosen batching for the impl. We close batches on EOF, wire error, ctx
-	// cancel, or an invalid message, so the impl always sees end-of-stream. On a terminal recv-side
-	// fault we record the error and cancel ctx so the impl stops promptly, and the handler then
-	// prefers that error as the terminal status. We deliberately do not wait on this goroutine
-	// before returning: it may be parked inside stream.Recv() with no way for us to unblock it short
-	// of returning from the handler, at which point gRPC cancels the stream's context and Recv()
-	// returns.
+	// This goroutine reads the wire and hands the impl each batch as one slice, so the impl sees the
+	// same batching the caller chose. A clean end-of-stream (the client closing its send, or us
+	// cancelling) just closes batches so the impl knows nothing more is coming. Anything else, a
+	// malformed point, a stray non-batch message, a stream that breaks partway, is a fault the client
+	// needs to hear about: we stash it, cancel so the impl stops, and let the handler return it in
+	// place of whatever the impl says. Either way batches is closed on the way out. We never wait for
+	// this goroutine, though: it is usually parked in stream.Recv(), and the only thing that wakes it
+	// is the handler returning and gRPC tearing the stream down.
 	utils.PanicCapturingGo(func() {
 		defer close(batches)
 		for {
@@ -242,9 +243,9 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 		}
 	})
 
-	// Drain responses onto the stream. This goroutine exits when responses is closed (after the impl
-	// returns) or when a Send fails. On a Send failure we cancel the derived context so the impl
-	// notices via ctx.Done() and returns promptly.
+	// This goroutine carries the impl's responses out to the client. It stops when the impl is done
+	// (responses closed) or when a Send fails. On a failed Send we cancel, so the impl learns through
+	// ctx.Done() that there is no point continuing.
 	sendDone := make(chan struct{})
 	utils.PanicCapturingGo(func() {
 		defer close(sendDone)
@@ -252,13 +253,12 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 			_ = resp // Response carries no fields yet; future per-batch status will be written onto the send here.
 			if err := stream.Send(&pb.MoveThroughJointPositionsStreamedResponse{}); err != nil {
 				cancel()
-				// Keep draining responses until the handler closes it. This is required by the
-				// interface contract, not defensive against misbehavior: the contract explicitly lets
-				// an impl write to responses without selecting on ctx ("write responses, return when
-				// done"). Such an impl, after this Send failure, would block forever on its next write
-				// if we stopped reading here, and so would never return. Draining keeps that
-				// contract-conformant impl live until it observes end-of-stream (batches closing on
-				// ctx cancel) and returns.
+				// Keep draining responses until the handler closes it. This is not defensiveness
+				// against a bad impl, it is what the contract asks for: an impl may write responses and
+				// return without ever watching ctx ("write responses, return when done"). After a
+				// failed Send, an impl like that would wedge on its next write if we stopped reading,
+				// and never return. Draining keeps it moving until it sees batches close and returns on
+				// its own.
 				for range responses {
 				}
 				return
@@ -268,17 +268,17 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 
 	implErr := a.MoveThroughJointPositionsStreamed(ctx, batches, responses, init.GetExtra().AsMap())
 
-	// The impl has returned and may not have consumed all of batches: it can finish or fault before
-	// reaching end-of-stream, leaving the recv goroutine parked on `batches <- out` with no reader
-	// left. cancel() releases that send via ctx.Done() so the recv goroutine can wind down; closing
-	// responses then ends the send goroutine, which we wait on. The cancel-then-close order is not
-	// significant: the two calls target the recv goroutine and the send goroutine independently.
+	// By now the impl has returned. It may not have drained batches, since it can finish or fault
+	// mid-stream, which leaves the recv goroutine parked on `batches <- out` with nobody reading.
+	// Cancelling releases that send so the recv goroutine can exit; closing responses lets the send
+	// goroutine finish, and we wait for it. Order does not matter here: the two calls poke two
+	// different goroutines.
 	cancel()
 	close(responses)
 	<-sendDone
 
-	// A terminal recv-side fault (bad point, protocol violation, broken stream) is the true cause
-	// of the stream ending; prefer it over whatever the impl returned as it unwound.
+	// If the recv side recorded a terminal fault, that is the real reason the stream ended, so we
+	// return it ahead of whatever the impl came back with as it unwound.
 	select {
 	case recvErr := <-recvErrCh:
 		return recvErr

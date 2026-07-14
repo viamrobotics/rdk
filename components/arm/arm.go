@@ -149,21 +149,20 @@ type Arm interface {
 	// MoveThroughJointPositionsStreamed receives a stream of trajectory point batches and executes
 	// them in order.
 	//
-	// The framework feeds one slice per wire TrajectoryBatch from the gRPC request stream into
-	// `batches` and closes the channel when the client signals end-of-stream. The implementation
-	// writes one Response to `responses` per acknowledgment it wants to send the client; the
-	// framework forwards each to the gRPC response stream. The implementation returns when it has
-	// finished (nil) or detects a fault (an error, which is propagated to the client as the
-	// terminal gRPC status).
+	// The framework feeds one slice per wire TrajectoryBatch into `batches` and closes it when the
+	// client ends the stream. The implementation writes a Response to `responses` for each
+	// acknowledgment it wants to send back, and the framework forwards each onto the wire. Return
+	// nil once the trajectory is done, or an error on a fault, which the framework turns into the
+	// terminal gRPC status the client sees.
 	//
-	// Iteration is the obvious nested-loop shape:
+	// The obvious nested loop is the intended shape:
 	//   for batch := range batches { for _, p := range batch { ... } }
 	//
-	// Channel ownership note: the framework owns `batches` (writes and closes it) and owns the
-	// lifetime of `responses` (closes it after the implementation returns). The implementation
-	// only reads from `batches` and only writes to `responses`; it must not close either. This
-	// deviates from Go's usual sender-closes convention, but lets driver code be trivially
-	// correct: write responses, return when done.
+	// The framework, not the implementation, owns both channels: it writes and closes `batches`, and
+	// it closes `responses` after the implementation returns. So an implementation only reads
+	// `batches` and only writes `responses`, and must not close either. That runs against Go's usual
+	// sender-closes habit, but it is what keeps a driver trivially correct: write responses, return
+	// when done.
 	MoveThroughJointPositionsStreamed(
 		ctx context.Context,
 		batches <-chan []TrajectoryPoint,
