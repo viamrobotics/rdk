@@ -1,4 +1,4 @@
-//go:build windows || no_cgo
+//go:build windows || no_cgo || !viam_rdk_cgo_have_cxx20_rt
 
 package sim
 
