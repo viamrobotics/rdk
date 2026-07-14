@@ -72,11 +72,15 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 // angular acceleration. Reusing the position path means the per-joint revolute/prismatic handling
 // and the nil-frame (all-revolute) fallback stay in one place and cannot drift from the position
 // convention. This assumes joints are revolute or prismatic, which holds for arm kinematics models.
+//
+// These take and return plain []float64, not []Input: per-joint velocities and accelerations are
+// not frame inputs the way positions are, and spelling them []Input would falsely imply otherwise.
+// Input is only a float64 alias, so nothing is lost by using []float64 directly.
 
-// JointVelocitiesFromInputs converts per-joint velocities from the RDK-internal convention
+// JointVelocitiesFromFloats converts per-joint velocities from the RDK-internal convention
 // (revolute in radians/second, prismatic in mm/second) into the wire JointVelocities convention
 // (revolute in degrees/second, prismatic in mm/second).
-func JointVelocitiesFromInputs(f Frame, velocities []Input) (*pb.JointVelocities, error) {
+func JointVelocitiesFromFloats(f Frame, velocities []float64) (*pb.JointVelocities, error) {
 	jp, err := JointPositionsFromInputs(f, velocities)
 	if err != nil {
 		return nil, err
@@ -84,17 +88,17 @@ func JointVelocitiesFromInputs(f Frame, velocities []Input) (*pb.JointVelocities
 	return &pb.JointVelocities{Values: jp.Values}, nil
 }
 
-// InputsFromJointVelocities converts wire JointVelocities (revolute in degrees/second, prismatic
+// FloatsFromJointVelocities converts wire JointVelocities (revolute in degrees/second, prismatic
 // in mm/second) into the RDK-internal convention (revolute in radians/second, prismatic in
 // mm/second).
-func InputsFromJointVelocities(f Frame, jv *pb.JointVelocities) ([]Input, error) {
+func FloatsFromJointVelocities(f Frame, jv *pb.JointVelocities) ([]float64, error) {
 	return InputsFromJointPositions(f, &pb.JointPositions{Values: jv.GetValues()})
 }
 
-// JointAccelerationsFromInputs converts per-joint accelerations from the RDK-internal convention
+// JointAccelerationsFromFloats converts per-joint accelerations from the RDK-internal convention
 // (revolute in radians/second^2, prismatic in mm/second^2) into the wire JointAccelerations
 // convention (revolute in degrees/second^2, prismatic in mm/second^2).
-func JointAccelerationsFromInputs(f Frame, accelerations []Input) (*pb.JointAccelerations, error) {
+func JointAccelerationsFromFloats(f Frame, accelerations []float64) (*pb.JointAccelerations, error) {
 	jp, err := JointPositionsFromInputs(f, accelerations)
 	if err != nil {
 		return nil, err
@@ -102,10 +106,10 @@ func JointAccelerationsFromInputs(f Frame, accelerations []Input) (*pb.JointAcce
 	return &pb.JointAccelerations{Values: jp.Values}, nil
 }
 
-// InputsFromJointAccelerations converts wire JointAccelerations (revolute in degrees/second^2,
+// FloatsFromJointAccelerations converts wire JointAccelerations (revolute in degrees/second^2,
 // prismatic in mm/second^2) into the RDK-internal convention (revolute in radians/second^2,
 // prismatic in mm/second^2).
-func InputsFromJointAccelerations(f Frame, ja *pb.JointAccelerations) ([]Input, error) {
+func FloatsFromJointAccelerations(f Frame, ja *pb.JointAccelerations) ([]float64, error) {
 	return InputsFromJointPositions(f, &pb.JointPositions{Values: ja.GetValues()})
 }
 

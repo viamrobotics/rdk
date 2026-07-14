@@ -133,7 +133,7 @@ func trajectoryPointFromProto(model referenceframe.Model, p *pb.TrajectoryPoint)
 func kinematicConstraintsToProto(
 	model referenceframe.Model, c *KinematicConstraints,
 ) (*pb.TrajectoryPoint_KinematicConstraints, error) {
-	velocities, err := referenceframe.JointVelocitiesFromInputs(model, c.Velocities)
+	velocities, err := referenceframe.JointVelocitiesFromFloats(model, c.Velocities)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func kinematicConstraintsToProto(
 		Velocities: velocities,
 	}
 	if c.Accelerations != nil {
-		accelerations, err := referenceframe.JointAccelerationsFromInputs(model, c.Accelerations)
+		accelerations, err := referenceframe.JointAccelerationsFromFloats(model, c.Accelerations)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +153,7 @@ func kinematicConstraintsToProto(
 func kinematicConstraintsFromProto(
 	model referenceframe.Model, c *pb.TrajectoryPoint_KinematicConstraints,
 ) (*KinematicConstraints, error) {
-	velocities, err := referenceframe.InputsFromJointVelocities(model, c.GetVelocities())
+	velocities, err := referenceframe.FloatsFromJointVelocities(model, c.GetVelocities())
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func kinematicConstraintsFromProto(
 		Velocities: velocities,
 	}
 	if a := c.GetAccelerations(); a != nil {
-		accelerations, err := referenceframe.InputsFromJointAccelerations(model, a)
+		accelerations, err := referenceframe.FloatsFromJointAccelerations(model, a)
 		if err != nil {
 			return nil, err
 		}

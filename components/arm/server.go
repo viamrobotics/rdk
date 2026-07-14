@@ -244,8 +244,7 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 
 	// Send pump: responses -> stream. Exits when responses is closed (after impl returns) or
 	// when a Send fails. On Send failure we cancel the derived context so the impl notices via
-	// ctx.Done() and returns promptly, then drain the channel so the impl's writes don't block
-	// during shutdown.
+	// ctx.Done() and returns promptly.
 	sendDone := make(chan struct{})
 	utils.PanicCapturingGo(func() {
 		defer close(sendDone)
@@ -253,6 +252,13 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 			_ = resp // Response carries no fields yet; future per-batch status will be written onto the send here.
 			if err := stream.Send(&pb.MoveThroughJointPositionsStreamedResponse{}); err != nil {
 				cancel()
+				// Keep draining responses until the handler closes it. This is required by the
+				// interface contract, not defensive against misbehavior: the contract explicitly lets
+				// an impl write to responses without selecting on ctx ("write responses, return when
+				// done"). Such an impl, after this Send failure, would block forever on its next write
+				// if we stopped reading here, and so would never return. Draining keeps that
+				// contract-conformant impl live until it observes end-of-stream (batches closing on
+				// ctx cancel) and returns.
 				for range responses {
 				}
 				return
@@ -262,8 +268,11 @@ func (s *serviceServer) MoveThroughJointPositionsStreamed(
 
 	implErr := a.MoveThroughJointPositionsStreamed(ctx, batches, responses, init.GetExtra().AsMap())
 
-	// Cancel before closing responses: if the impl returned cleanly, the recv pump may be parked
-	// on `batches <- out`; cancel() unblocks the select so the goroutine can wind down.
+	// The impl has returned and may not have consumed all of batches: it can finish or fault before
+	// reaching end-of-stream, leaving the recv pump parked on `batches <- out` with no reader left.
+	// cancel() releases that send via ctx.Done() so the recv pump can wind down; closing responses
+	// then ends the send pump, which we wait on. The cancel-then-close order is not significant:
+	// the two calls target the recv pump and the send pump independently.
 	cancel()
 	close(responses)
 	<-sendDone
