@@ -186,9 +186,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
 
-	// Derive a cancellable context and pass it to NewStream so cancel() tears down the gRPC stream
-	// and signals the send pump in one step. Used to wind the send pump down once the recv loop
-	// exits (so it doesn't block on a caller that never closes `points`).
+	// Derive a cancellable context and pass it when we open the stream, so cancel() tears down the
+	// gRPC stream and signals the send goroutine in one step. We use it to wind the send goroutine
+	// down once the recv loop exits, so it doesn't block on a caller that never closes batches.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -208,9 +208,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		return err
 	}
 
-	// Send pump: caller's batches -> wire. Each slice pulled from the channel becomes one wire
-	// TrajectoryBatch; the caller controls wire cadence by sizing the slices they put on the
-	// channel. CloseSend on caller EOF so the server-side recv loop terminates.
+	// Send the caller's batches onto the wire. Each slice pulled from the channel becomes one wire
+	// TrajectoryBatch, so the caller controls wire cadence by sizing the slices they put on the
+	// channel. We CloseSend on caller EOF so the server-side recv loop terminates.
 	var sendErr error
 	var sendOnce sync.Once
 	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
@@ -252,9 +252,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		}
 	})
 
-	// Recv loop: wire -> caller's responses. Runs on the calling goroutine. Per the Arm interface
-	// channel-ownership contract this method does NOT close `responses`; that is the caller's
-	// responsibility, performed after we return.
+	// Read responses off the wire and forward them to the caller's responses channel, on the calling
+	// goroutine. Per the Arm interface channel-ownership contract this method does not close
+	// responses; that is the caller's responsibility, performed after we return.
 	var recvErr error
 recvLoop:
 	for {
@@ -273,7 +273,7 @@ recvLoop:
 			break recvLoop
 		}
 	}
-	// Tear down the stream and signal the send pump (it may still be blocked on `points`).
+	// Tear down the stream and signal the send goroutine, which may still be blocked on batches.
 	cancel()
 	<-sendDone
 

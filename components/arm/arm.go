@@ -161,7 +161,7 @@ type Arm interface {
 	//
 	// Channel ownership note: the framework owns `batches` (writes and closes it) and owns the
 	// lifetime of `responses` (closes it after the implementation returns). The implementation
-	// only reads from `batches` and only writes to `responses`; it must NOT close either. This
+	// only reads from `batches` and only writes to `responses`; it must not close either. This
 	// deviates from Go's usual sender-closes convention, but lets driver code be trivially
 	// correct: write responses, return when done.
 	MoveThroughJointPositionsStreamed(

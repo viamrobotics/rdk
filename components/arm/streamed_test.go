@@ -225,9 +225,9 @@ func TestClientStreamed(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	// Raw-protocol faults must surface as terminal InvalidArgument statuses (task: recv-side error
-	// surfacing). These use the generated client directly to send malformed message sequences the
-	// typed wrapper would never produce.
+	// Raw-protocol faults must surface to the client as terminal InvalidArgument statuses. These use
+	// the generated client directly to send malformed message sequences the typed wrapper would
+	// never produce.
 	t.Run("first message not Init", func(t *testing.T) {
 		injectArm := &inject.Arm{}
 		conn := setupStreamedServer(t, logger, injectArm)
