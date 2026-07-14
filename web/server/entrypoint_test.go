@@ -42,6 +42,12 @@ import (
 	"go.viam.com/rdk/web/server"
 )
 
+// cgoBuiltinsExcluded reports whether the built viam-server drops cgo-only
+// builtins. cgo is only enabled on amd64/arm64.
+func cgoBuiltinsExcluded() bool {
+	return runtime.GOOS == "windows" || (runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64")
+}
+
 func TestEntrypoint(t *testing.T) {
 	ctx := context.Background()
 	t.Run("number of resources", func(t *testing.T) {
@@ -89,9 +95,7 @@ func TestEntrypoint(t *testing.T) {
 		// numResources is the # of resources in /etc/configs/fake.json + the 1
 		// expected builtin resources.
 		numResources := 21
-		if runtime.GOOS == "windows" {
-			// windows build excludes builtin models that use cgo,
-			// including builtin motion, fake arm, and builtin navigation.
+		if cgoBuiltinsExcluded() {
 			numResources = 18
 		}
 
@@ -116,8 +120,7 @@ func TestEntrypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		numReg := 53
-		if runtime.GOOS == "windows" {
-			// windows build excludes builtin models that use cgo
+		if cgoBuiltinsExcluded() {
 			numReg = 45
 		}
 		test.That(t, registrations, test.ShouldHaveLength, numReg)
@@ -140,9 +143,8 @@ func TestEntrypoint(t *testing.T) {
 			"rdk:service:vision/rdk:builtin:mlmodel",
 		}
 
-		// windows build excludes builtin models that use cgo, so add more if not
-		// on windows
-		if runtime.GOOS != "windows" {
+		// cgo builds register additional builtin models that use cgo.
+		if !cgoBuiltinsExcluded() {
 			expectedReg = append(
 				expectedReg,
 				"rdk:component:camera/rdk:builtin:webcam",
