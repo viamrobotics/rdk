@@ -86,7 +86,7 @@ jobs:
 
     - name: Build viam-server-${{ steps.meta.outputs.channel }}
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} UNAME_M=${{ matrix.uname_m }} VERSION_SUFFIX=+focal static-release'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} UNAME_M=${{ matrix.uname_m }} VERSION_SUFFIX=+focal GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt static-release'
 
     - name: Boot smoke test
       run: |
