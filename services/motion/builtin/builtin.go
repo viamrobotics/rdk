@@ -175,14 +175,14 @@ func NewBuiltIn(
 		configuredDefaultExtras: make(map[string]any),
 	}
 
-	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
+	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return ms, nil
 }
 
 // Reconfigure updates the motion service when the config has changed.
-func (ms *builtIn) Reconfigure(
+func (ms *builtIn) BuiltInReconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -813,11 +813,19 @@ func (ms *builtIn) writePlanRequest(
 
 	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
 		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
-	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
-		fn = filepath.Join(ms.conf.PlanFilePath, fmt.Sprint("tag=", traceID), fn)
-	} else {
-		fn = filepath.Join(ms.conf.PlanFilePath, fn)
+
+	// Full plans (request + response) get tag=motion-plan so data manager can infer a
+	// stable type tag on arbitrary-file upload.
+	const motionPlanTypeTag = "motion-plan"
+	tags := []string{}
+	if plan != nil {
+		tags = append(tags, "tag="+motionPlanTypeTag)
 	}
+	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
+		tags = append(tags, "tag="+traceID)
+	}
+	parts := append([]string{ms.conf.PlanFilePath}, tags...)
+	fn = filepath.Join(append(parts, fn)...)
 
 	dir := filepath.Dir(fn)
 	if err := os.MkdirAll(dir, 0o700); err != nil {

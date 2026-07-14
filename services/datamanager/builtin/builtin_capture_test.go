@@ -181,7 +181,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			c2.MaximumCaptureFileSizeBytes = 1
 
 			// Update to new config and let it run for a bit.
-			err = b.Reconfigure(context.Background(), deps, updatedConfig)
+			err = b.(resource.BuiltInResource).BuiltInReconfigure(context.Background(), deps, updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
 
@@ -248,7 +248,7 @@ func TestReconfigureResource(t *testing.T) {
 	})
 	_, deps2 := setupConfig(t, r2, enabledTabularCollectorConfigPath)
 
-	err = b.Reconfigure(context.Background(), deps2, config)
+	err = b.(resource.BuiltInResource).BuiltInReconfigure(context.Background(), deps2, config)
 	test.That(t, err, test.ShouldBeNil)
 
 	// wait for all the files on disk to
