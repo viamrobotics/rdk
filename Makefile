@@ -92,15 +92,20 @@ test-go: tool-install
 test-go-no-race: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
+# CGO is only supported on amd64/arm64; elsewhere build pure-Go with the no_cgo tag.
+SERVER_TARGETS := $(BIN_OUTPUT_PATH)/viam-server $(BIN_OUTPUT_PATH)/viam-server-static
+$(SERVER_TARGETS): CGO_ENABLED := $(if $(filter amd64 arm64,$(GOARCH)),1,0)
+$(SERVER_TARGETS): CGO_TAGS := $(if $(filter amd64 arm64,$(GOARCH)),,-tags no_cgo)
+
 $(BIN_OUTPUT_PATH)/viam-server: $(GO_FILES) Makefile go.mod go.sum
-	go build $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server
+	CGO_ENABLED=$(CGO_ENABLED) go build $(CGO_TAGS) $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server
 
 # NOTE: the `server` make target is referenced in file_utils.go
 .PHONY: server
 server: $(BIN_OUTPUT_PATH)/viam-server
 
 $(BIN_OUTPUT_PATH)/viam-server-static: $(GO_FILES) Makefile go.mod go.sum
-	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server
+	CGO_ENABLED=$(CGO_ENABLED) VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(CGO_TAGS) $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server
 
 # NOTE: the `server-static` make target is referenced in file_utils.go
 .PHONY: server-static
