@@ -325,10 +325,7 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 
 		// Interpolate each frame's configuration
 		for frameName, startConfig := range ci.StartConfiguration.Items() {
-			// Static (0-DoF) frames have no configuration to interpolate; their
-			// inputs are the same at every step. Skip the FS lookup + Interpolate
-			// call and copy the startConfig through. In frame systems with many
-			// static obstacle frames, this is the dominant cost of the loop.
+			// 0-DoF frames have nothing to interpolate.
 			if len(startConfig) == 0 {
 				frameConfigs.Put(frameName, startConfig)
 				continue
