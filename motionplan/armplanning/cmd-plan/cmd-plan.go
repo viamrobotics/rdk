@@ -20,7 +20,8 @@ import (
 	"strings"
 	"time"
 
-	viz "github.com/viam-labs/motion-tools/client/client"
+	viz "github.com/viam-labs/motion-tools/client/api"
+	"github.com/viam-labs/motion-tools/draw"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.viam.com/utils"
@@ -325,7 +326,7 @@ func realMain() error {
 
 func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
 	renderFramePeriod := 5 * time.Millisecond
-	if err := viz.RemoveAllSpatialObjects(); err != nil {
+	if _, err := viz.RemoveAll(); err != nil {
 		return err
 	}
 
@@ -333,12 +334,19 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
 	// because obstacles can be in terms of reference frames contained within the frame
 	// system. Such as a camera attached to an arm.
-	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, startInputs); err != nil {
+	if _, err := viz.DrawWorldState(viz.DrawWorldStateOptions{
+		WorldState:  req.GetWorldState(),
+		FrameSystem: req.FrameSystem,
+		Inputs:      startInputs,
+	}); err != nil {
 		return err
 	}
 
 	// `DrawFrameSystem` draws everything else we're interested in.
-	if err := viz.DrawFrameSystem(req.FrameSystem, startInputs); err != nil {
+	if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
+		FrameSystem: req.FrameSystem,
+		Inputs:      startInputs,
+	}); err != nil {
 		return err
 	}
 
@@ -396,11 +404,14 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 				}
 				// Use the original parent frame from gif
 				shadowGIF := referenceframe.NewGeometriesInFrame(gif.Parent(), shadowGeometries)
-				colors := make([]string, len(shadowGeometries))
+				colors := make([]draw.Color, len(shadowGeometries))
 				for i := range colors {
-					colors[i] = shadowColor
+					colors[i] = draw.ColorFromName(shadowColor)
 				}
-				if err := viz.DrawGeometries(shadowGIF, colors); err != nil {
+				if _, err := viz.DrawGeometriesInFrame(viz.DrawGeometriesInFrameOptions{
+					Geometries: shadowGIF,
+					Colors:     colors,
+				}); err != nil {
 					return err
 				}
 			}
@@ -421,7 +432,10 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 			}
 
 			for _, mp := range midPoints {
-				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
+				if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
+					FrameSystem: req.FrameSystem,
+					Inputs:      mp.ToFrameSystemInputs(),
+				}); err != nil {
 					return err
 				}
 
@@ -429,7 +443,10 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 			}
 		}
 
-		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
+		if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
+			FrameSystem: req.FrameSystem,
+			Inputs:      plan.Trajectory()[idx],
+		}); err != nil {
 			return err
 		}
 
@@ -462,10 +479,10 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 		}
 	}
 
-	// A matter of preference. The arrow head will point at the goal point. As opposed to the
-	// tail starting at the goal point.
-	arrowHeadAtPose := true
-	if err := viz.DrawPoses(goalPoses, []string{"blue"}, arrowHeadAtPose); err != nil {
+	if _, err := viz.DrawPosesAsArrows(viz.DrawPosesAsArrowsOptions{
+		Poses:  goalPoses,
+		Colors: []draw.Color{draw.ColorFromName("blue")},
+	}); err != nil {
 		return err
 	}
 
@@ -475,15 +492,22 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger, showPoses bool) error {
 	var ikErr *armplanning.IkConstraintError
 	errors.As(planErr, &ikErr)
-	if err := viz.RemoveAllSpatialObjects(); err != nil {
+	if _, err := viz.RemoveAll(); err != nil {
 		return err
 	}
 
-	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, req.StartState.Configuration()); err != nil {
+	if _, err := viz.DrawWorldState(viz.DrawWorldStateOptions{
+		WorldState:  req.GetWorldState(),
+		FrameSystem: req.FrameSystem,
+		Inputs:      req.StartState.Configuration(),
+	}); err != nil {
 		return err
 	}
 
-	if err := viz.DrawFrameSystem(req.FrameSystem, req.StartState.Configuration()); err != nil {
+	if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
+		FrameSystem: req.FrameSystem,
+		Inputs:      req.StartState.Configuration(),
+	}); err != nil {
 		return err
 	}
 
@@ -596,7 +620,10 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					if err != nil {
 						return err
 					}
-					if err := viz.DrawGeometry(sphere, "blue"); err != nil {
+					if _, err := viz.DrawGeometry(viz.DrawGeometryOptions{
+						Geometry: sphere,
+						Color:    draw.ColorFromName("blue"),
+					}); err != nil {
 						return err
 					}
 				}
@@ -624,7 +651,10 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					logger.Println("Rendering failed solution")
 					logger.Println("  Err:", errStr)
 					logger.Println("  Inputs:", configuration)
-					if err := viz.DrawFrameSystem(req.FrameSystem, configuration.ToFrameSystemInputs()); err != nil {
+					if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
+						FrameSystem: req.FrameSystem,
+						Inputs:      configuration.ToFrameSystemInputs(),
+					}); err != nil {
 						return err
 					}
 					break searchLoop

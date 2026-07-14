@@ -3,11 +3,14 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"os"
 	"slices"
 	"testing"
 	"time"
 
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -15,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -129,11 +133,26 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 	return r, cfg
 }
 
-func failedModules(r robot.LocalRobot) []string {
-	modFailures := r.(*localRobot).manager.moduleManager.FailedModules()
+func unhealthyModules(r robot.LocalRobot) []string {
+	modFailures := r.(*localRobot).manager.moduleManager.UnhealthyModules()
 	// guarantee order for test assertions
 	slices.Sort(modFailures)
 	return modFailures
+}
+
+// getModuleStatus helper
+func getModuleStatus(t testing.TB, r robot.LocalRobot, modName string) modulestatus.Status {
+	t.Helper()
+	ms, err := r.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	for _, m := range ms.Modules {
+		if m.Name == modName {
+			return m
+		}
+	}
+	// if we can't find the module, just fail, this should never happen in test
+	test.That(t, fmt.Sprintf("module %s is not known to local robot", modName), test.ShouldBeNil)
+	return modulestatus.Status{}
 }
 
 func TestRenamedModuleDependentRecovery(t *testing.T) {
@@ -407,12 +426,16 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-	// Wait for crash and check if module is added to failedModules.
+	// Wait for crash and check if module is added to unhealthyModules.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module has unexpectedly exited.").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
-		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
+		test.That(tb, unhealthyModules(r), test.ShouldResemble, []string{"mod"})
+		// MachineStatus should report the crashed module as unhealthy while its
+		// sibling module remains ready.
+		test.That(tb, getModuleStatus(tb, r, "mod").State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+		test.That(tb, getModuleStatus(tb, r, "mod2").State, test.ShouldEqual, modulestatus.ModuleStateReady)
 	})
 
 	// Wait for restart attempt in logs.
@@ -423,10 +446,11 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	})
 
 	r.Reconfigure(ctx, &cfg)
-	// Verify module is still in failedModules after reconfigure
+	// Verify module is still in unhealthyModules after reconfigure
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
+		test.That(tb, getModuleStatus(tb, r, "mod").State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+		test.That(tb, unhealthyModules(r), test.ShouldResemble, []string{"mod"})
 	})
 
 	// Check that 'h' is still present but commands fail.
@@ -462,8 +486,11 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Test that restored module is removed from failedModules
-	test.That(t, failedModules(r), test.ShouldBeEmpty)
+	// Test that restored module is removed from unhealthyModules
+	test.That(t, unhealthyModules(r), test.ShouldBeEmpty)
+	// MachineStatus should report the recovered module as ready again.
+	test.That(t, getModuleStatus(t, r, "mod").State, test.ShouldEqual, modulestatus.ModuleStateReady)
+	test.That(t, getModuleStatus(t, r, "mod2").State, test.ShouldEqual, modulestatus.ModuleStateReady)
 
 	// 'h2' and 'h3' should also continue to exist and requests that go to 'h' should no longer fail.
 	h2, err = r.ResourceByName(generic.Named("h2"))
@@ -580,8 +607,8 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 }
 
 func TestFailedModuleTrackingIntegration(t *testing.T) {
-	// test that failing modules are properly tracked in failedModules by breaking
-	// and fixing modules and making sure failedModules is updated accordingly.
+	// test that failing modules are properly tracked in unhealthyModules by breaking
+	// and fixing modules and making sure unhealthyModules is updated accordingly.
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
@@ -594,8 +621,8 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	cfg.Modules = append(cfg.Modules, mod3)
 	r.Reconfigure(ctx, &cfg)
 
-	// Assert that "mod3" gets added to failedModules
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
+	// Assert that "mod3" gets added to unhealthyModules
+	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod3"})
 	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
@@ -614,8 +641,8 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	cfg.Modules = append(cfg.Modules, mod4)
 	r.Reconfigure(ctx, &cfg)
 
-	// Assert that "mod4" gets added to failedModules.
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
+	// Assert that "mod4" gets added to unhealthyModules.
+	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
 	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`May be in failing module: [mod3 mod4]; There may be no module in config that provides this model`).Len(),
@@ -625,8 +652,8 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	cfg.Modules[0].ExePath = "/nonexistent/path/to/invalid"
 	r.Reconfigure(ctx, &cfg)
 
-	// Assert that "mod" gets added to failedModules
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
+	// Assert that "mod" gets added to unhealthyModules
+	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
 	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`May be in failing module: [mod mod3 mod4]; There may be no module in config that provides this model`).Len(),
@@ -637,8 +664,8 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	cfg.Modules[1].Environment = panicEnv
 	r.Reconfigure(ctx, &cfg)
 
-	// Assert that "mod2" gets added to failedModules
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
+	// Assert that "mod2" gets added to unhealthyModules
+	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
 	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`May be in failing module: [mod mod2 mod3 mod4]; There may be no module in config that provides this model`).Len(),
@@ -649,17 +676,17 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	cfg.Modules[3].Environment = nil
 	r.Reconfigure(ctx, &cfg)
 
-	// Assert that "mod2" is removed from failedModules.
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3"})
+	// Assert that "mod2" is removed from unhealthyModules.
+	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod", "mod3"})
 	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`May be in failing module: [mod mod3]; There may be no module in config that provides this model`).Len(),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 
-	// TEST: user renames module and it is added to failedModules
+	// TEST: user renames module and it is added to unhealthyModules
 	cfg.Modules[0].Name = "mod5"
 	r.Reconfigure(ctx, &cfg)
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
+	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
 	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`May be in failing module: [mod3 mod5]; There may be no module in config that provides this model`).Len(),
@@ -670,7 +697,7 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	cfg.Modules[2].ExePath = rtestutils.BuildTempModule(t, "module/testmodule2")
 	r.Reconfigure(ctx, &cfg)
 
-	// Assert that "mod3" is removed from failedModules and empty failedModules log is called.
+	// Assert that "mod3" is removed from unhealthyModules and empty unhealthyModules log is called.
 	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`There may be no module in config that provides this model`).Len(),
@@ -715,8 +742,8 @@ func TestImplicitDependencyUpdatesAfterModuleStartupCrash(t *testing.T) {
 	}
 	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
 
-	// Assert that "mod" is in failedModules and that "mod-s" is not reachable while "s" is.
-	test.That(t, r.(*localRobot).manager.moduleManager.FailedModules(), test.ShouldResemble, []string{"mod"})
+	// Assert that "mod" is in unhealthyModules and that "mod-s" is not reachable while "s" is.
+	test.That(t, r.(*localRobot).manager.moduleManager.UnhealthyModules(), test.ShouldResemble, []string{"mod"})
 
 	_, err := sensor.FromProvider(r, "mod-s")
 	test.That(t, err, test.ShouldNotBeNil)
@@ -788,8 +815,8 @@ func TestImplicitDependencyUpdatesAfterModuleStartupCrashAndConfigMod(t *testing
 	}
 	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
 
-	// Assert that "mod" is in failedModules and that "mod-s" is not reachable while "s" is.
-	test.That(t, r.(*localRobot).manager.moduleManager.FailedModules(), test.ShouldResemble, []string{"mod"})
+	// Assert that "mod" is in unhealthyModules and that "mod-s" is not reachable while "s" is.
+	test.That(t, r.(*localRobot).manager.moduleManager.UnhealthyModules(), test.ShouldResemble, []string{"mod"})
 
 	_, err := sensor.FromProvider(r, "mod-s")
 	test.That(t, err, test.ShouldNotBeNil)
@@ -959,4 +986,206 @@ func TestModuleAndResourceRemoval(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, obs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 0)
+}
+
+func TestModuleStatus(t *testing.T) {
+	ctx := context.Background()
+
+	logger, _ := logging.NewObservedTestLogger(t)
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
+
+	// duration for "slow" operations in this test
+	slowTime := "500ms"
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+	}
+
+	// A module that fails the first run script should stay in the pending state.
+	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// type alias so the test can wrap the enum values and print the names of states when there is a mismatch
+	type p = pb.ModuleStatus_State
+
+	modStatus := getModuleStatus(t, r, "mod")
+	test.That(t, modStatus.State, test.ShouldEqual, p(modulestatus.ModuleStatePending))
+	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 0)
+
+	// Allowing the first run script to succeed should let the module reach the ready state.
+	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "")
+	reconfigureStart := time.Now()
+	r.Reconfigure(ctx, cfg)
+	reconfigureEnd := time.Now()
+	modStatus = getModuleStatus(t, r, "mod")
+
+	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 0)
+	// The status should have been last updated between reconfigure start and reconfigure end
+	test.That(t, modStatus.LastUpdated, test.ShouldHappenAfter, reconfigureStart)
+	test.That(t, modStatus.LastUpdated, test.ShouldHappenBefore, reconfigureEnd)
+
+	// set up a listener so we can communicate with the blocked module
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer ln.Close()
+
+	// Reconfigure testmodule so it will block during start until it hears back over localhost
+	cfg.Modules = []config.Module{
+		{
+			Name:        "blocked",
+			ExePath:     testPath,
+			Environment: map[string]string{"VIAM_TESTMODULE_BLOCK_START": ln.Addr().String()},
+		},
+	}
+
+	// Reconfigure in a goroutine so we can observe ModuleStateStarting while the module is starting
+	reconfigureDone := make(chan struct{})
+
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, cfg)
+	}()
+
+	// blocks until the module has reached the barrier, meaning it is starting
+	conn, err := ln.Accept()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, p(getModuleStatus(t, r, "blocked").State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
+
+	// releases the module so it can finish starting
+	conn.Close()
+
+	<-reconfigureDone
+
+	test.That(t, p(getModuleStatus(t, r, "blocked").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+
+	// remove the start block from testMod, and add fakemodule, a module that will never finish starting
+	// this time, set the startup timeout to be very short so that we can observe fakemodule failing
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", slowTime)
+	cfg.Modules = []config.Module{
+		{
+			Name:    "mod",
+			ExePath: testPath,
+		},
+		{
+			Name:    "fake",
+			ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
+		},
+	}
+
+	r.Reconfigure(ctx, cfg)
+
+	fakeModStatus := getModuleStatus(t, r, "fake")
+	test.That(t, p(fakeModStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
+	// a failure should only increment the counter once
+	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 1)
+	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual,
+		fmt.Sprintf("error adding module fake: error while starting module fake: module fake timed out after %s during startup", slowTime))
+
+	// But good modules should still be ready
+	test.That(t, p(getModuleStatus(t, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+
+	r.Reconfigure(ctx, cfg)
+	fakeModStatus = getModuleStatus(t, r, "fake")
+	// Fail again without ever starting to see the failure count increment by 1
+	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 2)
+	// There should still be an error set
+	test.That(t, fakeModStatus.Error, test.ShouldNotBeNil)
+
+	// add a local module with a bad path to test config validation failure
+	cfg.Modules = append(cfg.Modules, config.Module{
+		Name:    "doesnotexist",
+		ExePath: rutils.ResolveFile("doesnotexist"),
+		Type:    config.ModuleTypeLocal,
+	})
+
+	r.Reconfigure(ctx, cfg)
+	dneStatus := getModuleStatus(t, r, "doesnotexist")
+	test.That(t, dneStatus.Error.Error(), test.ShouldContainSubstring,
+		"module config validation error; skipping; module: doesnotexist, error: module  executable path error")
+	test.That(t, dneStatus.ConsecutiveFailures, test.ShouldEqual, 1)
+	test.That(t, p(dneStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
+
+	// A module that crashes and restarts should leave the unhealthy state with its
+	// failure counter and error cleared.
+	cfg.Modules = []config.Module{{
+		Name:        "mod",
+		ExePath:     testPath,
+		Environment: map[string]string{"VIAM_TESTMODULE_PANIC": "1"},
+	}}
+	r.Reconfigure(ctx, cfg)
+
+	// the crash and failed restart should hold mod unhealthy with a failure and error
+	s := getModuleStatus(t, r, "mod")
+	test.That(t, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
+	test.That(t, s.ConsecutiveFailures, test.ShouldBeGreaterThanOrEqualTo, 1)
+	test.That(t, s.Error, test.ShouldNotBeNil)
+
+	// set up a close socket
+	ln, err = net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer ln.Close()
+
+	// clear the bad env so the module can start successfully
+	cfg.Modules = []config.Module{{
+		Name:        "mod",
+		ExePath:     testPath,
+		Environment: map[string]string{"VIAM_TESTMODULE_BLOCK_CLOSE": ln.Addr().String()},
+	}, {
+		Name:    "fake",
+		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
+	}}
+	r.Reconfigure(ctx, cfg)
+
+	// after a successful restart the counter and error should be cleared
+	s = getModuleStatus(t, r, "mod")
+	test.That(t, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+	test.That(t, s.ConsecutiveFailures, test.ShouldEqual, 0)
+	test.That(t, s.Error, test.ShouldBeNil)
+
+	// reconfigure to a config without testmodule
+	cfg.Modules = []config.Module{{
+		Name:    "fake",
+		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
+	}}
+
+	reconfigureDone = make(chan struct{})
+
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, &config.Config{})
+	}()
+
+	// blocks until the module has reached the barrier, meaning it is closing
+	conn, err = ln.Accept()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, p(getModuleStatus(t, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateClosing))
+
+	// releases the module so it can finish starting
+	conn.Close()
+
+	<-reconfigureDone
+
+	// After reconfiguring to an empty config, testModule should be gone
+	// but fakeModule should still be tracked (and stuck in Starting)
+	ms, err := r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	for _, m := range ms.Modules {
+		switch m.Name {
+		case "mod":
+			test.That(t, "mod still present in status map after removing from config", test.ShouldBeNil)
+		case "fakeMod":
+			test.That(t, p(m.State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
+		}
+	}
+	// reset the module startup timeout so it doesn't interfere with other tests
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "")
 }

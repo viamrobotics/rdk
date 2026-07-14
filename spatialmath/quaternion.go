@@ -190,14 +190,20 @@ func QuatToR3AA(q quat.Number) r3.Vector {
 	return r3.Vector{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
 }
 
-// QuatToRotationMatrix converts a quat to a Rotation Matrix
-// reference: https://github.com/go-gl/mathgl/blob/592312d8590acb0686c14740dcf60e2f32d9c618/mgl64/quat.go#L168
+// QuatToRotationMatrix converts a unit quaternion to a row-major rotation
+// matrix R (world = R @ local), stored as m[3*r + c] = R[r,c]:
+//
+//	| 1 - 2y^2 - 2z^2    2xy - 2wz        2xz + 2wy    |
+//	|  2xy + 2wz        1 - 2x^2 - 2z^2   2yz - 2wx    |
+//	|  2xz - 2wy         2yz + 2wx       1 - 2x^2 - 2y^2 |
+//
+// reference: https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/index.htm
 func QuatToRotationMatrix(q quat.Number) *RotationMatrix {
 	w, x, y, z := q.Real, q.Imag, q.Jmag, q.Kmag
 	mat := [9]float64{
-		1 - 2*y*y - 2*z*z, 2*x*y + 2*w*z, 2*x*z - 2*w*y,
-		2*x*y - 2*w*z, 1 - 2*x*x - 2*z*z, 2*y*z + 2*w*x,
-		2*x*z + 2*w*y, 2*y*z - 2*w*x, 1 - 2*x*x - 2*y*y,
+		1 - 2*y*y - 2*z*z, 2*x*y - 2*w*z, 2*x*z + 2*w*y,
+		2*x*y + 2*w*z, 1 - 2*x*x - 2*z*z, 2*y*z - 2*w*x,
+		2*x*z - 2*w*y, 2*y*z + 2*w*x, 1 - 2*x*x - 2*y*y,
 	}
 	return &RotationMatrix{mat}
 }

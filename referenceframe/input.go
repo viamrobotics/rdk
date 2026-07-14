@@ -95,16 +95,7 @@ func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 
 // ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
 func (inputs FrameSystemInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
-	// Compute poses from configuration using the FrameSystem
-	computedPoses := make(FrameSystemPoses)
-	for _, frameName := range fs.FrameNames() {
-		pif, err := fs.Transform(inputs.ToLinearInputs(), NewZeroPoseInFrame(frameName), World)
-		if err != nil {
-			return nil, err
-		}
-		computedPoses[frameName] = pif.(*PoseInFrame)
-	}
-	return computedPoses, nil
+	return inputs.ToLinearInputs().ComputePoses(fs)
 }
 
 // ToLinearInputs turns this structured map into a flat map of `LinearInputs`. The flat map will

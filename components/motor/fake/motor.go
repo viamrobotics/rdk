@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
@@ -103,14 +104,14 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, conf resource.Con
 		Logger: logger,
 		OpMgr:  operation.NewSingleOperationManager(),
 	}
-	if err := m.Reconfigure(ctx, deps, conf); err != nil {
+	if err := m.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// Reconfigure atomically reconfigures this motor in place based on the new config.
-func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure atomically reconfigures this motor in place based on the new config.
+func (m *Motor) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	newConf, err := resource.NativeConfig[*Config](conf)
@@ -206,10 +207,15 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 
 // SetPower sets the given power percentage.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	ctx, finish := m.OpMgr.New(ctx)
+	defer finish()
+	return m.setPower(ctx, powerPct)
+}
+
+func (m *Motor) setPower(ctx context.Context, powerPct float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.OpMgr.CancelRunning(ctx)
 	m.Logger.CDebugf(ctx, "Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
@@ -286,6 +292,9 @@ func checkSpeed(rpm, max float64) (string, error) { //nolint: revive
 // GoFor sets the given direction and an arbitrary power percentage.
 // If rpm is 0, the motor should immediately move to the final position.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	ctx, finish := m.OpMgr.New(ctx)
+	defer finish()
+
 	warning, err := checkSpeed(rpm, m.MaxRPM)
 	if warning != "" {
 		m.Logger.CWarn(ctx, warning)
@@ -309,12 +318,12 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		finalPos = curPos + dir*math.Abs(revolutions)
 	}
 
-	err = m.SetPower(ctx, powerPct, nil)
+	err = m.setPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
 
-	if m.OpMgr.NewTimedWaitOp(ctx, waitDur) {
+	if utils.SelectContextOrWait(ctx, waitDur) {
 		err = m.Stop(ctx, nil)
 		if err != nil {
 			return err
@@ -329,6 +338,9 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
 func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]interface{}) error {
+	ctx, finish := m.OpMgr.New(ctx)
+	defer finish()
+
 	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
 	}
@@ -354,12 +366,12 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 	powerPct, waitDur, _ := goForMath(m.MaxRPM, math.Abs(rpm), revolutions)
 
-	err = m.SetPower(ctx, powerPct, nil)
+	err = m.setPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
 
-	if m.OpMgr.NewTimedWaitOp(ctx, waitDur) {
+	if utils.SelectContextOrWait(ctx, waitDur) {
 		err = m.Stop(ctx, nil)
 		if err != nil {
 			return err
@@ -387,13 +399,16 @@ func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interf
 
 // Stop has the motor pretend to be off.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	_, finish := m.OpMgr.New(ctx)
+	defer finish()
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.Logger.CDebug(ctx, "Motor Stopped")
 	m.setPowerPct(0.0)
 	if m.Encoder != nil {
-		err := m.Encoder.SetSpeed(ctx, 0.0)
+		err := m.Encoder.SetSpeed(context.Background(), 0.0)
 		if err != nil {
 			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name())
 		}

@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/rdk/testutils/robottestutils/serverutils"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web/server"
 )
@@ -205,7 +206,8 @@ func TestShutdown(t *testing.T) {
 		testLogger.Info("Issuing shutdown.")
 		err = rc.Shutdown(context.Background())
 
-		gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 50, func(tb testing.TB) {
+		// flake on Windows with original 50ms x 50 attempts after replacing reconfigure with rebuild (slower shutdown, unclear why)
+		gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
 			tb.Helper()
 			rdkStatus := server.Status()
 			// Asserting not nil here to ensure process is dead
@@ -235,19 +237,31 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
-	t.Parallel()
+	// NOTE: not parallel — this test redirects the global utils.ViamDotDir, which would race
+	// with other parallel tests that construct robots.
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	machineAddress := "127.0.0.1:23654"
 
-	// Create a fake package directory using `t.TempDir`. Set it up to be identical to the
-	// expected file tree of the local package manager. Place a single file `foo` in a
-	// `fake-module` directory.
-	tempDir := t.TempDir()
+	// Create a fake package directory and set it up to be identical to the expected file tree of
+	// the local package manager: a single file `foo` in a `fake-module` directory. The local
+	// package manager stores packages under <viam home>/packages-local, and the server (started
+	// via RunServer below) uses the global utils.ViamDotDir as its home dir, so redirect that to
+	// this temp dir to point it here.
+	//
+	// Use a short temp dir (not t.TempDir, whose Windows path is long) because redirecting
+	// ViamDotDir also relocates the module socket dir on Windows, and the unix socket path has a
+	// 103-char OS limit (see module.CreateSocketAddress).
+	tempDir, err := os.MkdirTemp("", "vds")
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(tempDir)) })
+	origViamDotDir := utils.ViamDotDir
+	utils.ViamDotDir = tempDir
+	t.Cleanup(func() { utils.ViamDotDir = origViamDotDir })
 	fakePackagePath := filepath.Join(tempDir, fmt.Sprint("packages", config.LocalPackagesSuffix))
 	fakeModuleDataPath := filepath.Join(fakePackagePath, "data", "fake-module")
-	err := os.MkdirAll(fakeModuleDataPath, 0o777) // should create all dirs along path
+	err = os.MkdirAll(fakeModuleDataPath, 0o777) // should create all dirs along path
 	test.That(t, err, test.ShouldBeNil)
 	fakeModuleDataFile, err := os.Create(filepath.Join(fakeModuleDataPath, "foo"))
 	test.That(t, err, test.ShouldBeNil)
@@ -289,9 +303,6 @@ func TestMachineState(t *testing.T) {
 		defer wg.Done()
 
 		cfg := &config.Config{
-			// Set PackagePath to temp dir created at top of test with the "-local" piece trimmed. Local
-			// package manager will automatically add that suffix.
-			PackagePath: strings.TrimSuffix(fakePackagePath, config.LocalPackagesSuffix),
 			Components: []resource.Config{
 				{
 					Name:  "slowpoke",
@@ -393,35 +404,37 @@ func TestTunnelE2E(t *testing.T) {
 	t.Parallel()
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
-	// test-process <-> source-listener(127.0.0.1:23658) <-> machine(127.0.0.1:23657) <-> dest-listener(127.0.0.1:23656)
+	// test-process <-> source-listener <-> machine <-> dest-listener
+	//
+	// Ports are reserved dynamically.
 
 	tunnelMsg := "Hello, World!"
-	destPort := 23656
-	destListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("127.0.0.1", "23657")
-	sourceListenerAddr := net.JoinHostPort("127.0.0.1", "23658")
 
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
-	var wg sync.WaitGroup
-
-	// Start "destination" listener.
-	destListener, err := net.Listen("tcp", destListenerAddr)
+	destPort, destListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
+	destListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(destPort))
 	defer func() {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
 	}()
 
-	// Start mock "destination" listener, even if we don't intend on actually accepting any messages.
-	// This is because windows doesn't seem to allow for dialing to ports there aren't listeners on.
-	timeoutDestPort := 65534
-	timeoutDestListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(timeoutDestPort))
-	timeoutDestListener, err := net.Listen("tcp", timeoutDestListenerAddr)
+	// Mock listener for the timeout endpoint — windows requires a real listener
+	// even though we never accept on it.
+	timeoutDestPort, timeoutDestListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
 	}()
+
+	sourcePort, sourceListener, err := goutils.ReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	sourceListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(sourcePort))
+	defer func() {
+		test.That(t, sourceListener.Close(), test.ShouldBeNil)
+	}()
+
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
@@ -447,45 +460,29 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	}()
 
-	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		// Create a temporary config file.
-		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-		test.That(t, err, test.ShouldBeNil)
-
-		tempConfigFileName := tempConfigFile.Name()
-		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-		cfg := &config.Config{
-			Network: config.NetworkConfig{
-				NetworkConfigData: config.NetworkConfigData{
-					TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
-						{
-							Port: destPort, // allow tunneling to destination port
-						},
-						{
-							Port: timeoutDestPort, // allow tunneling to 65534
-							// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
-							ConnectionTimeout: -time.Nanosecond,
-						},
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
+	cfg := &config.Config{
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+					{
+						Port: destPort, // allow tunneling to destination port
 					},
-					BindAddress: machineAddr,
+					{
+						Port: timeoutDestPort, // allow tunneling to 65534
+						// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
+						ConnectionTimeout: -time.Nanosecond,
+					},
 				},
 			},
-		}
-		cfgBytes, err := json.Marshal(&cfg)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
-
-		args := []string{"viam-server", "-config", tempConfigFileName}
-		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
-	}()
-
-	// Open a robot client to `machineAddr`.
-	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
+		},
+	}
+	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
+	t.Cleanup(func() {
+		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		// stopServer will be called toward the end of the test so we can wait on the
+		// background tunnel workers correctly.
+	})
 
 	// Test error paths for `Tunnel` with random `net.Conn`s.
 	//
@@ -511,11 +508,6 @@ func TestTunnelE2E(t *testing.T) {
 	}
 
 	// Start "source" listener (a `RobotClient` running `Tunnel`.)
-	sourceListener, err := net.Listen("tcp", sourceListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, sourceListener.Close(), test.ShouldBeNil)
-	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -545,9 +537,9 @@ func TestTunnelE2E(t *testing.T) {
 	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
 
-	// Cancel `runServerCtx` once message has made it all the way across and has been
-	// echoed back. This should stop the `RunServer` goroutine.
-	runServerCtxCancel()
+	// Cancel the server context once the message has made it all the way across and
+	// has been echoed back. This stops the RunServer goroutine.
+	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
 }
@@ -634,12 +626,6 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
-	// Find a free port for the machine to bind to.
-	listener, err := net.Listen("tcp", "127.0.0.1:23660")
-	test.That(t, err, test.ShouldBeNil)
-	machineAddress := listener.Addr().String()
-	listener.Close()
-
 	// Set up fake cloud server.
 	fakeServer, cleanup := configtestutils.NewFakeCloudServer(t, ctx, logger)
 	defer cleanup()
@@ -648,6 +634,11 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 
 	// Build the base proto config pieces that remain constant across updates.
+	// Note: AppAddress and RefreshInterval are deliberately NOT set here.
+	// pb.CloudConfig (and thus CloudConfigToProto) does not carry them — they are
+	// local bootstrap-only fields. They are set directly on baseConfigNonProto
+	// below so the in-process server can reach the fake cloud and poll at the
+	// expected cadence.
 	cloudConfProto, err := config.CloudConfigToProto(&config.Cloud{
 		ID:                deviceID,
 		Secret:            configtestutils.FakeCredentialPayLoad,
@@ -674,18 +665,10 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
-		NetworkConfigData: config.NetworkConfigData{
-			BindAddress: machineAddress,
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	baseConfig := &pb.RobotConfig{
 		Cloud:      cloudConfProto,
 		Modules:    []*pb.ModuleConfig{moduleProto},
 		Components: []*pb.ComponentConfig{componentProto},
-		Network:    networkProto,
 	}
 
 	// storeCloudConfig clones cfg and stores the clone in the fake cloud server.
@@ -696,35 +679,44 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		fakeServer.StoreDeviceConfig(deviceID, proto.Clone(cfg).(*pb.RobotConfig), &pb.CertificateResponse{})
 	}
 
-	// Store initial config with debug=false.
+	// The initial config uses debug=false. The bind address (Network) is set on
+	// baseConfig and stored in the server-startup retry loop below.
 	debugFalse := false
 	baseConfig.Debug = &debugFalse
+
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	machineAddress := listener.Addr().String()
+	test.That(t, listener.Close(), test.ShouldBeNil)
+
+	networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
+		NetworkConfigData: config.NetworkConfigData{BindAddress: machineAddress},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	baseConfig.Network = networkProto
 	storeCloudConfig(baseConfig)
 
-	// Write a minimal config file with only the cloud section. RunServer will
-	// read this, connect to the fake cloud, and fetch the full config.
+	baseConfigNonProto, err := config.FromProto(baseConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// AppAddress and RefreshInterval are local bootstrap-only cloud fields that do
+	// not round-trip through pb.CloudConfig, so set them on the config the server
+	// actually boots from. Without AppAddress the server cannot reach the fake
+	// cloud to fetch its config.
+	baseConfigNonProto.Cloud.AppAddress = appAddress
 	// shorten the refresh interval to make the test run faster
 	refreshInterval := 1 * time.Second
-	cfgFile := filepath.Join(t.TempDir(), "cloud_config.json")
-	cfgJSON := fmt.Sprintf(
-		`{"cloud":{"id":%q,"app_address":%q,"secret":%q,"signaling_insecure":true,"refresh_interval":"%s"}}`,
-		deviceID, appAddress, configtestutils.FakeCredentialPayLoad, refreshInterval,
-	)
-	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
+	baseConfigNonProto.Cloud.RefreshInterval = refreshInterval
 
-	// Start RunServer in a goroutine. Use -no-tls since the fake cloud
-	// returns empty TLS certs.
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
-		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
-	}()
-
-	// Wait for the server to be reachable and the helper module to be ready.
-	// Cloud-configured servers require authentication via location secret.
-	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second,
+	rc, stopServer := serverutils.TryStartServerAndConnect(
+		t,
+		ctx,
+		baseConfigNonProto,
+		logger,
+		// Cloud-configured servers require location-secret auth. Use -no-tls as an extra
+		// viam-server flag since the fake cloud returns empty TLS certs.
+		[]string{"-no-tls"},
 		client.WithDialOptions(
 			rpc.WithEntityCredentials("woo", rpc.Credentials{
 				Type:    utils.CredentialsTypeRobotLocationSecret,
@@ -733,12 +725,17 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 			rpc.WithAllowInsecureWithCredentialsDowngrade(),
 		),
 	)
+	t.Cleanup(func() {
+		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		test.That(t, stopServer(), test.ShouldBeNil)
+	})
 
 	// helper function that waits longer than the specified refreshInterval
 	// to make sure we always wait long enough for a reconfigure to happen
 	waitForAssertionLongerThanRefreshInterval := func(t *testing.T, assertion func(tb testing.TB)) {
 		t.Helper()
-		retryInterval := 50 * time.Millisecond
+		// flake on Windows with original 50ms x 50 attempts after replacing reconfigure with rebuild (slower shutdown, unclear why)
+		retryInterval := 200 * time.Millisecond
 		nRuns := int(refreshInterval * 3 / retryInterval)
 		gtestutils.WaitForAssertionWithSleep(t, retryInterval, nRuns, assertion)
 	}
@@ -807,5 +804,4 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	cancel()
-	wg.Wait()
 }

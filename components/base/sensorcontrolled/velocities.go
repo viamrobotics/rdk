@@ -15,7 +15,6 @@ import (
 func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
-	sb.opMgr.CancelRunning(ctx)
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 

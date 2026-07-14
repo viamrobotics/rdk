@@ -1,0 +1,104 @@
+name: Assign Netcode Reviewer for Flaky PRs
+
+# Requests a round-robin review from a member of the @viamrobotics/netcode
+# team on flaky-test PRs opened from `claude/**` branches (e.g. the
+# claude-jira workflow). The team itself has no GitHub code-review-assignment
+# setting, so this workflow lists the team members (via a CI GitHub App token
+# with org member read) and picks one deterministically by PR number.
+
+on:
+  pull_request:
+    types: [opened, reopened, edited]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  assign-netcode-reviewer:
+    # Only same-repo `claude/**` branches (never forks), so GITHUB_TOKEN has
+    # write access and these PRs are inherently trusted.
+    if: >-
+      github.repository_owner == 'viamrobotics' &&
+      startsWith(github.event.pull_request.head.ref, 'claude/')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write   # request reviewers on the PR
+    steps:
+      # Detect flaky-test PRs by title, matching check-approvals.yml. Title is
+      # read via env (never interpolated into the script) to avoid injection.
+      - name: Detect flaky-test PR
+        id: detect
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          title_lc="${PR_TITLE,,}"
+          # Match flake/flakes/flaky/flakiness — title wording varies. Keep this
+          # pattern in sync with check-approvals.yml.
+          if [[ "$title_lc" == *flak* ]]; then
+            echo "is_flaky=true" >> "$GITHUB_OUTPUT"
+            echo "Flaky-test PR detected; will assign a netcode reviewer."
+          else
+            echo "is_flaky=false" >> "$GITHUB_OUTPUT"
+            echo "Not a flaky-test PR; nothing to do."
+          fi
+
+      # Token scoped to the org so we can read netcode team membership, which
+      # the default GITHUB_TOKEN cannot do. Requires the app installation to
+      # grant "Members: read".
+      - name: Mint org-scoped app token
+        id: app-token
+        if: steps.detect.outputs.is_flaky == 'true'
+        # actions/create-github-app-token@v3.2.0
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          app-id: ${{ secrets.CI_GITHUB_APP_ID }}
+          private-key: ${{ secrets.CI_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Pick round-robin reviewer
+        id: pick
+        if: steps.detect.outputs.is_flaky == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Sort for a stable ordering so the selection is deterministic.
+          mapfile -t members < <(
+            gh api --paginate "orgs/${GITHUB_REPOSITORY_OWNER}/teams/netcode/members" --jq '.[].login' | sort
+          )
+          # Never request a review from the PR's own author.
+          filtered=()
+          for m in "${members[@]:-}"; do
+            [[ -n "$m" && "$m" != "$PR_AUTHOR" ]] && filtered+=("$m")
+          done
+          n=${#filtered[@]}
+          if (( n == 0 )); then
+            echo "No eligible netcode members found; skipping reviewer assignment."
+            echo "reviewer=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Derive the index from (PR number + head SHA) so the spread doesn't
+          # collide for PRs whose numbers are congruent mod n. Deterministic per
+          # PR: the head SHA is stable across opened/reopened/edited re-runs.
+          hash="$(printf '%s' "${PR_NUMBER}-${HEAD_SHA}" | sha256sum)"
+          idx=$(( 16#${hash:0:8} % n ))
+          reviewer="${filtered[$idx]}"
+          echo "reviewer=$reviewer" >> "$GITHUB_OUTPUT"
+          echo "Selected ${reviewer} (index ${idx} of ${n} eligible members)."
+
+      - name: Request review
+        if: steps.detect.outputs.is_flaky == 'true' && steps.pick.outputs.reviewer != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWER: ${{ steps.pick.outputs.reviewer }}
+        run: |
+          # Requesting an already-requested reviewer is a no-op, so re-runs are safe.
+          gh pr edit "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --add-reviewer "$REVIEWER"

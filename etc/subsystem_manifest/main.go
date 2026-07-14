@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	viamServer = "viam-server"
-	linuxAmd64 = "linux/amd64"
-	linuxArm64 = "linux/arm64"
+	viamServer   = "viam-server"
+	linuxAmd64   = "linux/amd64"
+	linuxArm64   = "linux/arm64"
+	linuxArm32v7 = "linux/arm32v7"
 )
 
 type dumpedResourceRegistration struct {
@@ -152,6 +153,8 @@ func osArchToViamPlatform(arch string) (string, error) {
 		return linuxAmd64, nil
 	case "aarch64":
 		return linuxArm64, nil
+	case "armv7l":
+		return linuxArm32v7, nil
 	default:
 		return "", errors.Errorf("unknown architecture %q", arch)
 	}

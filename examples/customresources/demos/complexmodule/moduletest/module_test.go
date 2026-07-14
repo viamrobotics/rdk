@@ -297,17 +297,42 @@ func TestComplexModule(t *testing.T) {
 	})
 }
 
+// isRetryableConnErr checks whether an error is a transient connection error
+// that should be retried. This covers DeadlineExceeded and Canceled errors,
+// including cases where gRPC status errors are wrapped by fmt.Errorf
+// (e.g., "error updating resources: context canceled"), which prevents
+// status.Code from detecting the gRPC status code.
+func isRetryableConnErr(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	code := status.Code(err)
+	if code == codes.DeadlineExceeded || code == codes.Canceled {
+		return true
+	}
+	// Check for wrapped gRPC status errors that status.Code can't detect.
+	wrappedErr := err
+	for wrappedErr != nil {
+		code = status.Code(wrappedErr)
+		if code == codes.DeadlineExceeded || code == codes.Canceled {
+			return true
+		}
+		wrappedErr = errors.Unwrap(wrappedErr)
+	}
+	return false
+}
+
 func connect(port int, logger logging.Logger) (robot.Robot, error) {
 	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancelConn()
 	for {
-		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Second*2)
 		rc, err := client.New(dialCtx, fmt.Sprintf("localhost:%d", port), logger,
 			client.WithDialOptions(rpc.WithForceDirectGRPC()),
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)
 		dialCancel()
-		if !errors.Is(err, context.DeadlineExceeded) && status.Code(err) != codes.DeadlineExceeded {
+		if !isRetryableConnErr(err) {
 			return rc, err
 		}
 		select {

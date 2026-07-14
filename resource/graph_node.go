@@ -89,6 +89,16 @@ type GraphNode struct {
 	// prefix is an optional string that will be prepended to the resource name for
 	// the purpose of simple name queries against remote resources.
 	prefix string
+
+	// lastWeakOptionalDepsClocks records the graph logical clock value
+	// of every weak and optional dependency that was resolved for this
+	// resource the last time it was successfully rebuilt.
+	// updateWeakAndOptionalDependents reads this on each pass and skips
+	// an unnecessary reconfigure when the current set of resolvable weak/optional
+	// dependencies match what this resource was last given. A nil map means
+	// "not yet recorded"; an empty non-nil map means "no weak/optional
+	// dependencies were resolvable at the time."
+	lastWeakOptionalDepsClocks map[Name]int64
 }
 
 var (
@@ -124,7 +134,7 @@ func NewConfiguredGraphNodeWithPrefix(config Config, res Resource, resModel Mode
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
-	node.SwapResource(res, resModel, nil)
+	node.SwapResource(res, resModel, nil, true)
 	node.setPrefix(prefix)
 	return node
 }
@@ -240,6 +250,15 @@ func (w *GraphNode) UnsetResource() {
 	w.current = nil
 }
 
+func (w *GraphNode) incrementLogicalClock() {
+	if w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
+		if w.logger != nil {
+			w.logger.Debugw("graph node logical clock updated", "updated_to", w.updatedAt)
+		}
+	}
+}
+
 // SwapResource emplaces the new resource. It may be the same as before
 // and expects the caller to close the old one. This is considered
 // to be a working resource and as such we unmark it for removal
@@ -250,7 +269,7 @@ func (w *GraphNode) UnsetResource() {
 // The `ftdc` input may be nil (e.g: testing). If present, this will also updates FTDC to
 // communicate that the `Stats` method may return different values. As we'll now be calling `Stats`
 // on a potentially different underlying `Model`.
-func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
+func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC, incrementClock bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
@@ -263,8 +282,8 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTD
 	w.unresolvedDependencies = nil
 	w.needsDependencyResolution = false
 
-	if w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
+	if incrementClock {
+		w.incrementLogicalClock()
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
@@ -284,9 +303,7 @@ func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.transitionTo(NodeStateRemoving)
-	if w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
-	}
+	w.incrementLogicalClock()
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
@@ -307,8 +324,8 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	wasUsable := w.lastErr == nil
 	w.lastErr = err
 	w.transitionTo(NodeStateUnhealthy)
-	if wasUsable && w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
+	if wasUsable {
+		w.incrementLogicalClock()
 	}
 	w.mu.Unlock()
 
@@ -468,6 +485,23 @@ func (w *GraphNode) GetPrefix() string {
 	return w.prefix
 }
 
+// LastWeakOptionalDepsClocks returns the snapshot of weak/optional dependency
+// graph-clock values recorded for this node, or nil if none has been recorded.
+// The returned map must not be mutated by callers.
+func (w *GraphNode) LastWeakOptionalDepsClocks() map[Name]int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.lastWeakOptionalDepsClocks
+}
+
+// SetLastWeakOptionalDepsClocks records the snapshot of weak/optional dependency
+// graph-clock values for this node. Passing nil clears the snapshot.
+func (w *GraphNode) SetLastWeakOptionalDepsClocks(clocks map[Name]int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.lastWeakOptionalDepsClocks = clocks
+}
+
 // Close closes the underlying resource of this node.
 func (w *GraphNode) Close(ctx context.Context) error {
 	w.mu.Lock()
@@ -509,6 +543,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	w.unresolvedDependencies = other.unresolvedDependencies
 	w.needsDependencyResolution = other.needsDependencyResolution
 	w.prefix = other.prefix
+	w.lastWeakOptionalDepsClocks = other.lastWeakOptionalDepsClocks
 
 	w.state = other.state
 	w.transitionedAt = other.transitionedAt
@@ -523,6 +558,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.lastErr = nil
 	other.unresolvedDependencies = nil
 	other.needsDependencyResolution = false
+	other.lastWeakOptionalDepsClocks = nil
 
 	other.state = NodeStateUnknown
 	other.transitionedAt = time.Time{}

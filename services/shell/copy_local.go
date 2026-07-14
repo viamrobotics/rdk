@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -194,6 +195,10 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 	case copier.preserve:
 		modTime = fileInfo.ModTime()
 		fileMode = fileInfo.Mode()
+	case fileInfo.Mode().Perm() != 0:
+		// even without preserve, pass through the file mode (if it exists)
+		// to match the behavior of scp
+		fileMode = fileInfo.Mode().Perm()
 	case fileInfo.IsDir():
 		fileMode = 0o750
 	default:
@@ -218,6 +223,11 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 		// Technically the temp file can be deleted upon any Copy error, but it will also be clobbered next time we retry.
 		fullPathTmp := fullPath + ".download"
 
+		// always delete a potential stale temp. if the temp is read-only, it can
+		// cause the following OpenFile call to fail on windows
+		if err := os.Remove(fullPathTmp); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
 		//nolint:gosec // this is from an authenticated/authorized connection
 		localFile, err := os.OpenFile(fullPathTmp, os.O_CREATE|os.O_WRONLY, fileMode)
 		if err != nil {
@@ -235,6 +245,13 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 		}
 		if closeErr != nil {
 			return closeErr
+		}
+		// if there is already a file at the destination path, we are going to overwrite it.
+		// make sure it's writable first so the overwrite doesn't fail on windows
+
+		// if this fails, we should still try and move the tmp file to the destination
+		if info, err := os.Stat(fullPath); err == nil && info.Mode().Perm()&0o200 == 0 {
+			utils.UncheckedError(os.Chmod(fullPath, info.Mode().Perm()|0o200))
 		}
 		if err := os.Rename(fullPathTmp, fullPath); err != nil {
 			return err
@@ -349,7 +366,7 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 	// Note: okay with recursion for now. may want to check depth later...
 
 	makeRelName := func(relDir string, file *os.File) string {
-		return filepath.Join(relDir, filepath.Base(file.Name()))
+		return path.Join(relDir, filepath.Base(file.Name()))
 	}
 	var copyFiles func(relDir string, files []*os.File) error
 	copyFiles = func(relDir string, files []*os.File) error {

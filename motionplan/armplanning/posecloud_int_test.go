@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"github.com/viam-labs/motion-tools/client/client"
+	"github.com/viam-labs/motion-tools/client/api"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -58,11 +58,14 @@ func TestPoseCloudPlanning(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	if renderPoses {
-		err = client.RemoveAllSpatialObjects()
+		_, err = api.RemoveAll()
 		test.That(t, err, test.ShouldBeNil)
-		err = client.DrawFrameSystem(fs, referenceframe.FrameSystemInputs{
-			"lite6":   []referenceframe.Input{0, 0.5, 1, 0, 0, 0},
-			"gripper": []referenceframe.Input{25, 25},
+		_, err = api.DrawFrameSystem(api.DrawFrameSystemOptions{
+			FrameSystem: fs,
+			Inputs: referenceframe.FrameSystemInputs{
+				"lite6":   []referenceframe.Input{0, 0.5, 1, 0, 0, 0},
+				"gripper": []referenceframe.Input{25, 25},
+			},
 		})
 		test.That(t, err, test.ShouldBeNil)
 	}
@@ -116,6 +119,9 @@ func TestPoseCloudPlanning(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	if renderPoses {
-		client.DrawFrameSystem(fs, plan.Trajectory()[len(plan.Trajectory())-1])
+		api.DrawFrameSystem(api.DrawFrameSystemOptions{
+			FrameSystem: fs,
+			Inputs:      plan.Trajectory()[len(plan.Trajectory())-1],
+		})
 	}
 }

@@ -50,6 +50,17 @@ jobs:
         GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe   make cli-ci & pids+=($!)
         for pid in "${pids[@]}"; do wait "$pid" || exit 1; done
 
+    # Share the windows binary with the cli-windows-installer job so it doesn't
+    # need to recompile from source.
+    - name: Upload Windows binary as artifact
+      uses: actions/upload-artifact@v4
+      continue-on-error: true
+      with:
+        name: viam-cli-windows-amd64
+        path: bin/windows-amd64/viam-cli
+        if-no-files-found: warn
+        retention-days: 1
+
     - name: tagged alias
       shell: bash
       env:

@@ -1,7 +1,7 @@
 // Package gripper defines a robotic gripper.
 // For more information, see the [gripper component docs].
 //
-// [gripper component docs]: https://docs.viam.com/components/gripper/
+// [gripper component docs]: https://docs.viam.com/reference/components/gripper/
 package gripper
 
 import (
@@ -73,9 +73,9 @@ type HoldingStatus struct {
 //
 // For more information, see the [Grab method docs].
 //
-// [gripper component docs]: https://docs.viam.com/dev/reference/apis/components/gripper/
-// [Open method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#open
-// [Grab method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#grab
+// [gripper component docs]: https://docs.viam.com/reference/apis/components/gripper/
+// [Open method docs]: https://docs.viam.com/reference/apis/components/gripper/#open
+// [Grab method docs]: https://docs.viam.com/reference/apis/components/gripper/#grab
 type Gripper interface {
 	resource.Resource
 	resource.Shaped

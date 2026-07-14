@@ -832,7 +832,7 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 		for row := range miniBaseCount + 1 {
 			for col := range miniBaseCount + 1 - row {
 				pt := rowVec.Mul(float64(row)).Add(colVec.Mul(float64(col))).Add(baseP0)
-				worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
+				worldPt := TransformPointByPose(m.pose, pt)
 				key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
 				pointMap[key] = worldPt
 			}
