@@ -321,6 +321,7 @@ func (nl *NetAppender) backgroundWorker() {
 
 	// used as a set. could be changed to store Timestamp or count if needed
 	errsSinceLastOnline := make(map[string]struct{})
+	offline := false
 	for {
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
 			return
@@ -337,6 +338,18 @@ func (nl *NetAppender) backgroundWorker() {
 				// fine for our purposes.
 				maybeOffline := connState == connectivity.TransientFailure || connState == connectivity.Connecting
 				if maybeOffline {
+					if !offline {
+						offline = true
+						offlineMsg := "Lost connection to app"
+						nl.loggerWithoutNet.Info(offlineMsg)
+
+						// also queue the message for upload once back online so offline periods are
+						// visible in app.
+						entry := newInternalLogEntry(zapcore.InfoLevel, offlineMsg)
+						if err := nl.Write(entry, nil); err != nil {
+							nl.loggerWithoutNet.Warnw("Unable to add to net log queue", "entry", entry, "err", err)
+						}
+					}
 					if _, ok := errsSinceLastOnline[errKey]; ok {
 						continue
 					}
@@ -353,6 +366,17 @@ func (nl *NetAppender) backgroundWorker() {
 				}
 			}
 		} else {
+			if offline && err == nil {
+				offline = false
+				onlineMsg := "Regained connection to app"
+				nl.loggerWithoutNet.Info(onlineMsg)
+
+				// also queue the message for upload so offline periods are visible in app.
+				entry := newInternalLogEntry(zapcore.InfoLevel, onlineMsg)
+				if err := nl.Write(entry, nil); err != nil {
+					nl.loggerWithoutNet.Warnw("Unable to add to net log queue", "entry", entry, "err", err)
+				}
+			}
 			interval = normalInterval
 			clear(errsSinceLastOnline)
 		}
