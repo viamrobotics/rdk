@@ -852,6 +852,67 @@ func TestStopAll(t *testing.T) {
 	test.That(t, stopAllErr, test.ShouldBeNil)
 }
 
+// TestStopAllDoesNotCancelOwnContext covers the RobotService.StopAll path: the
+// RPC creates an operation whose context is passed into StopAll. Canceling that
+// op would make modular actuator.Stop RPCs fail with context canceled.
+func TestStopAllDoesNotCancelOwnContext(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+
+	var (
+		stopCalled bool
+		stopCtxErr error
+	)
+	dummyArm := &inject.Arm{
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			stopCalled = true
+			stopCtxErr = ctx.Err()
+			return ctx.Err()
+		},
+	}
+	resource.RegisterComponent(
+		arm.API,
+		model,
+		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (arm.Arm, error) {
+			return dummyArm, nil
+		}})
+	defer resource.Deregister(arm.API, model)
+
+	armConfig := fmt.Sprintf(`{
+		"components": [
+			{
+				"model": "%[1]s",
+				"name": "arm1",
+				"type": "arm"
+			}
+		]
+	}`, model.String())
+	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	r := setupLocalRobot(t, context.Background(), cfg, logger)
+
+	// Simulate an in-flight move that StopAll should cancel.
+	otherOpCtx, cleanupOther := r.OperationManager().Create(context.Background(), "/viam.component.arm.v1.ArmService/Move", nil)
+	defer cleanupOther()
+
+	// Simulate RobotService.StopAll: the interceptor attaches an op and passes that ctx.
+	stopAllOpCtx, cleanupStopAll := r.OperationManager().Create(context.Background(), "/viam.robot.v1.RobotService/StopAll", nil)
+	defer cleanupStopAll()
+
+	err = r.StopAll(stopAllOpCtx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stopCalled, test.ShouldBeTrue)
+	test.That(t, stopCtxErr, test.ShouldBeNil)
+	test.That(t, stopAllOpCtx.Err(), test.ShouldBeNil)
+	test.That(t, otherOpCtx.Err(), test.ShouldEqual, context.Canceled)
+}
+
 func TestNewTeardown(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
