@@ -111,8 +111,6 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 
 // GetState returns the current state of the connection.
 func (ac *AppConn) GetState() connectivity.State {
-	ac.connMu.RLock()
-	defer ac.connMu.RUnlock()
 	if ac.conn == nil {
 		return connectivity.Connecting
 	}
