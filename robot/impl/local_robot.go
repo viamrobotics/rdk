@@ -307,10 +307,20 @@ func (r *localRobot) Kill() {
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
-	// Stop all operations
+	// Cancel other outstanding operations (e.g. in-flight moves), but not the StopAll
+	// operation itself. Canceling the current op would cancel ctx before actuator.Stop
+	// and cause modular resource Stop RPCs to fail with context canceled.
+	currentOp := operation.Get(ctx)
 	for _, op := range r.OperationManager().All() {
+		if currentOp != nil && op == currentOp {
+			continue
+		}
 		op.Cancel()
 	}
+
+	// Ensure actuator stops still run if the request context is canceled (client
+	// disconnect, or any residual cancellation). Matches motion's stop-on-error pattern.
+	stopCtx := context.WithoutCancel(ctx)
 
 	// Stop all stoppable resources
 	resourceErrs := make(map[string]error)
@@ -322,7 +332,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 		}
 
 		if actuator, ok := res.(resource.Actuator); ok {
-			if err := actuator.Stop(ctx, extra[name]); err != nil {
+			if err := actuator.Stop(stopCtx, extra[name]); err != nil {
 				resourceErrs[name.Name] = err
 			}
 		}
