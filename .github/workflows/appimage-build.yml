@@ -156,8 +156,10 @@ jobs:
         ./viam-server -config test.json &
         curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
         export RET1=$?
-        kill %%
-        wait $!
-        export RET2=$?
+        # In extract-and-run mode the AppImage runtime wraps viam-server, so
+        # the background job exits non-zero (143/SIGTERM) on teardown. Tolerate
+        # it so the smoke test's verdict rests on RET1 (server came up).
+        kill %% || true
+        wait $! || true
         cd - && rm -rf $TEST_DIR
-        [ $RET1 == 0 ] && [ $RET1 == 0 ]
+        [ $RET1 == 0 ]
