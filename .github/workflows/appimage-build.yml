@@ -136,8 +136,13 @@ jobs:
 
     - name: Test AppImage
       run: |
+        # Prefer real FUSE mount; fall back to extract-and-run if libfuse2
+        # can't be installed (e.g. ports.ubuntu.com outage).
         if echo "${{ matrix.arch[0] }}" | grep -q 'ubuntu'; then
-          sudo apt-get install -y libfuse2
+          if ! sudo apt-get install -y libfuse2; then
+            echo "::warning::libfuse2 install failed (ports.ubuntu.com outage?); running AppImage via APPIMAGE_EXTRACT_AND_RUN=1 — FUSE mount path NOT exercised this run"
+            export APPIMAGE_EXTRACT_AND_RUN=1
+          fi
         fi
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
