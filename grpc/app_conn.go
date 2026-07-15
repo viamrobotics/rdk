@@ -118,9 +118,9 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 
 // watchState starts a background worker that subscribes to connectivity state changes on
 // the underlying connection and logs when the connection to App is lost or regained. A
-// connection is considered lost when its state moves to TransientFailure (a
-// [re]connection attempt failed) and regained when it moves back to Ready. The worker
-// spends its life blocked in `WaitForStateChange` and does no polling.
+// connection is considered lost when its state moves to TransientFailure or Connecting
+// and regained when it moves back to Ready. The worker spends its life blocked in
+// `WaitForStateChange` and does no polling.
 func (ac *AppConn) watchState(host string, logger logging.Logger) {
 	ac.connMu.RLock()
 	conn := ac.conn
@@ -143,7 +143,7 @@ func (ac *AppConn) watchState(host string, logger logging.Logger) {
 			}
 			state = checker.GetState()
 			switch {
-			case !offline && state == connectivity.TransientFailure:
+			case !offline && (state == connectivity.TransientFailure || state == connectivity.Connecting):
 				offline = true
 				logger.Infow("Lost connection to app", "url", host)
 			case offline && state == connectivity.Ready:
