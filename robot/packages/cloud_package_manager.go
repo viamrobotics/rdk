@@ -166,13 +166,15 @@ func (m *cloudManager) setPackageStatus(name PackageName, p config.PackageConfig
 }
 
 // setDownloadProgress records how many bytes of the package tarball have been downloaded
-// so far, along with the total tarball size in bytes (zero if unknown).
+// so far, along with the total tarball size in bytes (zero if unknown). Negative values
+// (e.g. an unset Content-Length of -1) are recorded as zero rather than wrapping around
+// in the conversion to uint64.
 func (m *cloudManager) setDownloadProgress(name PackageName, bytesDownloaded, totalBytes int64) {
 	m.statusMu.Lock()
 	defer m.statusMu.Unlock()
 	if s, ok := m.packageStatuses[name]; ok {
-		s.BytesDownloaded = bytesDownloaded
-		s.TotalBytes = totalBytes
+		s.BytesDownloaded = uint64(max(bytesDownloaded, 0))
+		s.TotalBytes = uint64(max(totalBytes, 0))
 		s.LastUpdated = time.Now()
 	}
 }

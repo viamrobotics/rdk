@@ -41,7 +41,7 @@ type PackageStatus struct {
 	// BytesDownloaded is the number of bytes of the package tarball downloaded so far.
 	// Only meaningful for packages that go through a cloud download; equals TotalBytes
 	// once the download completes.
-	BytesDownloaded int64
+	BytesDownloaded uint64
 	// TotalBytes is the total size of the package tarball in bytes. Zero if unknown.
-	TotalBytes int64
+	TotalBytes uint64
 }
