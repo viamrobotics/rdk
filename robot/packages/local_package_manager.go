@@ -174,6 +174,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if err != nil {
 			m.logger.Warnf("Local tarball package error. Skipping module. Module: %v Err: %v",
 				mod.Name, err)
+			m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateFailed, fmt.Sprintf("local tarball package error: %v", err.Error()))
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
@@ -183,7 +184,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if err != nil {
 			m.logger.Warnf("Failed installing tarball package. Skipping module. Module: %s Path: %s Err: %s",
 				mod.Name, mod.ExePath, err)
-			m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateFailed, err.Error())
+			m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateFailed, fmt.Sprintf("failed installing tarball package: %v", err.Error()))
 			outErr = multierr.Append(outErr, fmt.Errorf("failed copying package %s from %s: %w",
 				mod.Name, mod.ExePath, err))
 			continue

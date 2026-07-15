@@ -200,6 +200,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		statusFile, err := readStatusFile(p, m.packagesDir)
 		if err != nil {
 			m.logger.Errorf("Failed reading status file for synced package %s: %v", p.Name, err)
+			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, fmt.Sprintf("failed to read status file: %v", err.Error()))
 			return multierr.Append(outErr, err)
 		}
 		if statusFile.Status == syncStatusFailed {
@@ -244,6 +245,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		})
 		if err != nil {
 			m.logger.Errorf("Failed fetching package details for package %s:%s. Err: %v", p.Package, p.Version, err)
+			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, fmt.Sprintf("failed to fetch package details: %v", err.Error()))
 			outErr = multierr.Append(outErr, fmt.Errorf("failed loading package url for %s:%s %w", p.Package, p.Version, err))
 			continue
 		}
@@ -277,7 +279,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 				sanitizeURLForLogs(resp.Package.Url),
 				err,
 			)
-			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, err.Error())
+			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, fmt.Sprintf("failed downloading/unzipping package: %v", err.Error()))
 			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading/unzipping package %s:%s from %s %w",
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err))
 			continue
@@ -286,6 +288,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if p.Type == config.PackageTypeMlModel {
 			if symlinkErr := m.mLModelSymlinkCreation(p); symlinkErr != nil {
 				m.logger.Errorf("Error creating ml model symlink. Err: %v", symlinkErr)
+				m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, fmt.Sprintf("failed to create ml model symlink: %v", err.Error()))
 				outErr = multierr.Append(outErr, symlinkErr)
 			}
 		}
