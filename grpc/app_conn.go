@@ -21,6 +21,8 @@ type AppConn struct {
 	*ReconfigurableClientConn
 
 	dialer *utils.StoppableWorkers
+
+	stateWatcher *utils.StoppableWorkers
 }
 
 // NewAppConn creates an `AppConn` instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error
@@ -29,7 +31,10 @@ type AppConn struct {
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
 func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.DialOption, logger logging.Logger) (rpc.ClientConn, error) {
-	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")}}
+	appConn := &AppConn{
+		ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")},
+		stateWatcher:             utils.NewStoppableWorkers(ctx),
+	}
 
 	grpcURL, err := url.Parse(appAddress)
 	if err != nil {
@@ -65,6 +70,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	// lock not necessary here because call is blocking
 	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
+		appConn.watchState(grpcURL.Host, logger)
 		return appConn, nil
 	}
 	logger.CInfow(
@@ -101,12 +107,51 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 			appConn.connMu.Lock()
 			appConn.conn = conn
 			appConn.connMu.Unlock()
+			appConn.watchState(grpcURL.Host, logger)
 
 			return
 		}
 	})
 
 	return appConn, nil
+}
+
+// watchState starts a background worker that subscribes to connectivity state changes on
+// the underlying connection and logs when the connection to App is lost or regained. A
+// connection is considered lost when its state moves to TransientFailure (a
+// [re]connection attempt failed) and regained when it moves back to Ready. The worker
+// spends its life blocked in `WaitForStateChange` and does no polling.
+func (ac *AppConn) watchState(host string, logger logging.Logger) {
+	ac.connMu.RLock()
+	conn := ac.conn
+	ac.connMu.RUnlock()
+
+	checker, ok := conn.(grpchelpers.ConnectivityState)
+	if !ok {
+		logger.Debugw("connection does not support state subscription; will not log lost/regained connections to app",
+			"url", host)
+		return
+	}
+
+	ac.stateWatcher.Add(func(ctx context.Context) {
+		var offline bool
+		state := checker.GetState()
+		for {
+			if !checker.WaitForStateChange(ctx, state) {
+				// ctx expired; AppConn is closing.
+				return
+			}
+			state = checker.GetState()
+			switch {
+			case !offline && state == connectivity.TransientFailure:
+				offline = true
+				logger.Infow("Lost connection to app", "url", host)
+			case offline && state == connectivity.Ready:
+				offline = false
+				logger.Infow("Regained connection to app", "url", host)
+			}
+		}
+	})
 }
 
 // GetState returns the current state of the connection.
@@ -126,6 +171,10 @@ func (ac *AppConn) GetState() connectivity.State {
 func (ac *AppConn) Close() error {
 	if ac.dialer != nil {
 		ac.dialer.Stop()
+	}
+
+	if ac.stateWatcher != nil {
+		ac.stateWatcher.Stop()
 	}
 
 	return ac.ReconfigurableClientConn.Close()
