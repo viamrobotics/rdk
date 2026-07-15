@@ -167,6 +167,24 @@ func (ac *AppConn) GetState() connectivity.State {
 	return checker.GetState()
 }
 
+// WaitForStateChange blocks until the connectivity state of the underlying connection
+// changes from sourceState or ctx expires, returning true in the former case and false in
+// the latter. If the underlying connection is nil does not support state subscription, it
+// blocks until ctx expires and returns false.
+func (ac *AppConn) WaitForStateChange(ctx context.Context, sourceState connectivity.State) bool {
+	if ac.conn == nil {
+		<-ctx.Done()
+		return false
+	}
+
+	checker, ok := ac.conn.(grpchelpers.ConnectivityState)
+	if !ok {
+		<-ctx.Done()
+		return false
+	}
+	return checker.WaitForStateChange(ctx, sourceState)
+}
+
 // Close attempts to close the underlying connection and stops background dialing attempts.
 func (ac *AppConn) Close() error {
 	if ac.dialer != nil {
