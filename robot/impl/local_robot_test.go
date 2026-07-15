@@ -1606,16 +1606,15 @@ func TestMachineStatusPackages(t *testing.T) {
 	}
 
 	for _, exp := range []struct {
-		name         string
-		version      string
-		pkgType      config.PackageType
-		localTarball bool
+		name    string
+		version string
+		pkgType config.PackageType
 	}{
-		{"some-name-1", "v1", config.PackageTypeMlModel, false},
-		{"some-name-2", "v2", config.PackageTypeSlamMap, false},
-		{"some-name-3", "v3", config.PackageTypeModule, false},
+		{"some-name-1", "v1", config.PackageTypeMlModel},
+		{"some-name-2", "v2", config.PackageTypeSlamMap},
+		{"some-name-3", "v3", config.PackageTypeModule},
 		// Local modules with no explicit version get a default synthetic version.
-		{"synthetic-tarball-module", "0.0.0", config.PackageTypeModule, true},
+		{"synthetic-tarball-module", "0.0.0", config.PackageTypeModule},
 	} {
 		pkgStatus, ok := pkgStatuses[exp.name]
 		test.That(t, ok, test.ShouldBeTrue)
@@ -1624,14 +1623,11 @@ func TestMachineStatusPackages(t *testing.T) {
 		test.That(t, pkgStatus.Version, test.ShouldEqual, exp.version)
 		test.That(t, pkgStatus.Error, test.ShouldBeEmpty)
 		test.That(t, pkgStatus.LastUpdated.IsZero(), test.ShouldBeFalse)
-		if exp.localTarball {
-			// Local tarball modules are copied, not downloaded; no byte counts are reported.
-			test.That(t, pkgStatus.TotalBytes, test.ShouldEqual, 0)
-			test.That(t, pkgStatus.BytesDownloaded, test.ShouldEqual, 0)
-		} else {
-			test.That(t, pkgStatus.TotalBytes, test.ShouldBeGreaterThan, 0)
-			test.That(t, pkgStatus.BytesDownloaded, test.ShouldEqual, pkgStatus.TotalBytes)
-		}
+		// Local tarball modules report the on-disk tarball size as already fully
+		// "downloaded"; cloud packages report their download progress. Both should
+		// show a complete download here.
+		test.That(t, pkgStatus.TotalBytes, test.ShouldBeGreaterThan, 0)
+		test.That(t, pkgStatus.BytesDownloaded, test.ShouldEqual, pkgStatus.TotalBytes)
 	}
 
 	// Reconfigure with an additional package whose download will fail its checksum;

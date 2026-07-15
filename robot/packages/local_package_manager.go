@@ -174,12 +174,22 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if err != nil {
 			m.logger.Warnf("Local tarball package error. Skipping module. Module: %v Err: %v",
 				mod.Name, err)
-			m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateFailed, fmt.Sprintf("local tarball package error: %v", err.Error()))
+			m.setPackageStatusLocked(pkg, PackageStateFailed, fmt.Sprintf("local tarball package error: %v", err.Error()))
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
 
-		m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateDownloading, "")
+		m.setPackageStatusLocked(pkg, PackageStateDownloading, "")
+		// Local tarballs are already on disk, so there is no download to track: report
+		// the tarball size as both the total and already-"downloaded" byte counts.
+		if exePath, err := rUtils.ExpandHomeDir(mod.ExePath); err == nil {
+			if stat, err := os.Stat(exePath); err == nil {
+				if s, ok := m.packageStatuses[PackageName(pkg.Name)]; ok {
+					s.BytesDownloaded = uint64(stat.Size())
+					s.TotalBytes = uint64(stat.Size())
+				}
+			}
+		}
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false,
 			func(ctx context.Context, path, dstPath string) (string, string, error) {
 				checksum, contentType, err := m.fileCopyHelper(ctx, path, dstPath)
@@ -189,25 +199,20 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 				// The tarball is fully copied; installPackage will now verify and
 				// extract it.
-				m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateLoading, "")
+				m.setPackageStatusLocked(pkg, PackageStateLoading, "")
 				return checksum, contentType, nil
 			})
 		if err != nil {
 			m.logger.Warnf("Failed installing tarball package. Skipping module. Module: %s Path: %s Err: %s",
 				mod.Name, mod.ExePath, err)
-			m.setPackageStatusLocked(
-				PackageName(pkg.Name),
-				pkg,
-				PackageStateFailed,
-				fmt.Sprintf("failed installing tarball package: %v", err.Error()),
-			)
+			m.setPackageStatusLocked(pkg, PackageStateFailed, fmt.Sprintf("failed installing tarball package: %v", err.Error()))
 			outErr = multierr.Append(outErr, fmt.Errorf("failed copying package %s from %s: %w",
 				mod.Name, mod.ExePath, err))
 			continue
 		}
 
 		// add to managed packages
-		m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateReady, "")
+		m.setPackageStatusLocked(pkg, PackageStateReady, "")
 		existing[mod.Name] = &managedModule{module: mod}
 
 		m.logger.Debugf("Local package sync complete [%d/%d] %s after %v", idx+1, len(changed), mod.Name, time.Since(pkgStart))
@@ -283,9 +288,12 @@ func (m *localManager) SetPackageState(name PackageName, state PackageState, err
 	}
 }
 
-// setPackageStatusLocked sets the full status entry for a package. Must be called with m.mu held (write).
-func (m *localManager) setPackageStatusLocked(name PackageName, p config.PackageConfig, state PackageState, errMsg string) {
-	m.packageStatuses[name] = &PackageStatus{
+// setPackageStatusLocked sets the full status entry for a package. Must be called with
+// m.mu held (write). Tarball byte counts are preserved when updating an existing entry
+// for the same package version.
+func (m *localManager) setPackageStatusLocked(p config.PackageConfig, state PackageState, errMsg string) {
+	name := PackageName(p.Name)
+	status := &PackageStatus{
 		Name:        p.Name,
 		Type:        p.Type,
 		State:       state,
@@ -293,6 +301,11 @@ func (m *localManager) setPackageStatusLocked(name PackageName, p config.Package
 		LastUpdated: time.Now(),
 		Version:     p.Version,
 	}
+	if prev, ok := m.packageStatuses[name]; ok && prev.Version == p.Version {
+		status.BytesDownloaded = prev.BytesDownloaded
+		status.TotalBytes = prev.TotalBytes
+	}
+	m.packageStatuses[name] = status
 }
 
 // newerOrMissing takes two file paths. It returns true if src path is newer than dest, or if dest is missing.
