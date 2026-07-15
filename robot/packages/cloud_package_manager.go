@@ -147,7 +147,7 @@ func (m *cloudManager) SetPackageState(name PackageName, state PackageState, err
 
 // setPackageStatus sets the full status entry for a package. Download progress is preserved
 // when updating an existing entry for the same package version.
-func (m *cloudManager) setPackageStatus(name PackageName, p config.PackageConfig, state PackageState, errMsg string) {
+func (m *cloudManager) setPackageStatus(p config.PackageConfig, state PackageState, errMsg string) {
 	m.statusMu.Lock()
 	defer m.statusMu.Unlock()
 	status := &PackageStatus{
@@ -158,6 +158,7 @@ func (m *cloudManager) setPackageStatus(name PackageName, p config.PackageConfig
 		LastUpdated: time.Now(),
 		Version:     p.Version,
 	}
+	name := PackageName(p.Name)
 	if prev, ok := m.packageStatuses[name]; ok && prev.Version == p.Version {
 		status.BytesDownloaded = prev.BytesDownloaded
 		status.TotalBytes = prev.TotalBytes
@@ -200,16 +201,16 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		statusFile, err := readStatusFile(p, m.packagesDir)
 		if err != nil {
 			m.logger.Errorf("Failed reading status file for synced package %s: %v", p.Name, err)
-			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, fmt.Sprintf("failed to read status file: %v", err.Error()))
+			m.setPackageStatus(p, PackageStateFailed, fmt.Sprintf("failed to read status file: %v", err.Error()))
 			return multierr.Append(outErr, err)
 		}
 		if statusFile.Status == syncStatusFailed {
 			m.logger.Errorf("Package %s was fully downloaded but failed to unzip, please try a different version", p.Name)
-			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, "failed to unzip, please try a different version")
+			m.setPackageStatus(p, PackageStateFailed, "failed to unzip, please try a different version")
 			return multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name))
 		}
 		// Seed in-memory status from the on-disk status file.
-		m.setPackageStatus(PackageName(p.Name), p, PackageStateReady, "")
+		m.setPackageStatus(p, PackageStateReady, "")
 		newManagedPackages[PackageName(p.Name)] = &p
 	}
 
@@ -227,7 +228,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
-		m.setPackageStatus(PackageName(p.Name), p, PackageStateDownloading, "")
+		m.setPackageStatus(p, PackageStateDownloading, "")
 
 		// Lookup the packages http url
 		includeURL := true
@@ -245,7 +246,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		})
 		if err != nil {
 			m.logger.Errorf("Failed fetching package details for package %s:%s. Err: %v", p.Package, p.Version, err)
-			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, fmt.Sprintf("failed to fetch package details: %v", err.Error()))
+			m.setPackageStatus(p, PackageStateFailed, fmt.Sprintf("failed to fetch package details: %v", err.Error()))
 			outErr = multierr.Append(outErr, fmt.Errorf("failed loading package url for %s:%s %w", p.Package, p.Version, err))
 			continue
 		}
@@ -268,7 +269,15 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-				return m.downloadFileWithChecksum(ctx, url, dstPath, PackageName(p.Name))
+				checksum, contentType, err := m.downloadFileWithChecksum(ctx, url, dstPath, PackageName(p.Name))
+				if err != nil {
+					return checksum, contentType, err
+				}
+
+				// The tarball is fully downloaded; installPackage will now verify and
+				// extract it.
+				m.setPackageStatus(p, PackageStateLoading, "")
+				return checksum, contentType, nil
 			},
 		)
 		if err != nil {
@@ -279,7 +288,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 				sanitizeURLForLogs(resp.Package.Url),
 				err,
 			)
-			m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, fmt.Sprintf("failed downloading/unzipping package: %v", err.Error()))
+			m.setPackageStatus(p, PackageStateFailed, fmt.Sprintf("failed downloading/unzipping package: %v", err.Error()))
 			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading/unzipping package %s:%s from %s %w",
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err))
 			continue
@@ -288,13 +297,13 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if p.Type == config.PackageTypeMlModel {
 			if symlinkErr := m.mLModelSymlinkCreation(p); symlinkErr != nil {
 				m.logger.Errorf("Error creating ml model symlink. Err: %v", symlinkErr)
-				m.setPackageStatus(PackageName(p.Name), p, PackageStateFailed, fmt.Sprintf("failed to create ml model symlink: %v", err.Error()))
+				m.setPackageStatus(p, PackageStateFailed, fmt.Sprintf("failed to create ml model symlink: %v", err.Error()))
 				outErr = multierr.Append(outErr, symlinkErr)
 			}
 		}
 
 		// add to managed packages
-		m.setPackageStatus(PackageName(p.Name), p, PackageStateReady, "")
+		m.setPackageStatus(p, PackageStateReady, "")
 		newManagedPackages[PackageName(p.Name)] = &p
 
 		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
@@ -556,7 +565,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 	progressCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go utils.PanicCapturingGo(func() {
-		fileSizeProgress(progressCtx, m.logger, downloadPath, resp.ContentLength, func(curBytes int64) {
+		fileSizeProgress(progressCtx, m.logger, downloadPath, totalBytes, func(curBytes int64) {
 			m.setDownloadProgress(name, curBytes, totalBytes)
 		})
 	})

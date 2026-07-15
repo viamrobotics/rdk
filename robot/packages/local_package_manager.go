@@ -180,7 +180,18 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateDownloading, "")
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false,
+			func(ctx context.Context, path, dstPath string) (string, string, error) {
+				checksum, contentType, err := m.fileCopyHelper(ctx, path, dstPath)
+				if err != nil {
+					return checksum, contentType, err
+				}
+
+				// The tarball is fully copied; installPackage will now verify and
+				// extract it.
+				m.setPackageStatusLocked(PackageName(pkg.Name), pkg, PackageStateLoading, "")
+				return checksum, contentType, nil
+			})
 		if err != nil {
 			m.logger.Warnf("Failed installing tarball package. Skipping module. Module: %s Path: %s Err: %s",
 				mod.Name, mod.ExePath, err)
