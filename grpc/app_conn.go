@@ -169,8 +169,8 @@ func (ac *AppConn) GetState() connectivity.State {
 
 // WaitForStateChange blocks until the connectivity state of the underlying connection
 // changes from sourceState or ctx expires, returning true in the former case and false in
-// the latter. If the underlying connection is nil does not support state subscription, it
-// blocks until ctx expires and returns false.
+// the latter. If the underlying connection is nil or does not support state subscription,
+// it blocks until ctx expires and returns false.
 func (ac *AppConn) WaitForStateChange(ctx context.Context, sourceState connectivity.State) bool {
 	if ac.conn == nil {
 		<-ctx.Done()
