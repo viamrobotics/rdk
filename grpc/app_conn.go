@@ -156,11 +156,11 @@ func (ac *AppConn) watchState(host string, logger logging.Logger) {
 
 // GetState returns the current state of the connection.
 func (ac *AppConn) GetState() connectivity.State {
-	if ac.conn == nil {
-		return connectivity.Connecting
-	}
+	ac.connMu.RLock()
+	conn := ac.conn
+	ac.connMu.RUnlock()
 
-	checker, ok := ac.conn.(grpchelpers.ConnectivityState)
+	checker, ok := conn.(grpchelpers.ConnectivityState)
 	if !ok {
 		return connectivity.Connecting
 	}
@@ -172,12 +172,11 @@ func (ac *AppConn) GetState() connectivity.State {
 // the latter. If the underlying connection is nil or does not support state subscription,
 // it blocks until ctx expires and returns false.
 func (ac *AppConn) WaitForStateChange(ctx context.Context, sourceState connectivity.State) bool {
-	if ac.conn == nil {
-		<-ctx.Done()
-		return false
-	}
+	ac.connMu.RLock()
+	conn := ac.conn
+	ac.connMu.RUnlock()
 
-	checker, ok := ac.conn.(grpchelpers.ConnectivityState)
+	checker, ok := conn.(grpchelpers.ConnectivityState)
 	if !ok {
 		<-ctx.Done()
 		return false
