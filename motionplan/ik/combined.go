@@ -60,7 +60,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	metas := []SeedSolveMetaData{}
 	var solveResultLock sync.Mutex
 
-	for idx, solver := range ik.solvers {
+	for _, solver := range ik.solvers {
 		thisSolver := solver
 		myseed := rseed
 		rseed++
@@ -70,13 +70,6 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			_ = idx
-			// if idx != 5 {
-			//  	select {
-			//  	case <-ctx.Done():
-			//  	case <-time.After(time.Second):
-			//  	}
-			// }
 			n, m, err := thisSolver.Solve(ctx, retChan, totalAttempts, seeds, limits, costFunc, myseed)
 
 			solveResultLock.Lock()
