@@ -368,8 +368,10 @@ func NewFromService(
 	return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
 }
 
-// NewFromService creates a referenceframe.FrameSystem from the given Service's FrameSystemConfig and returns it.
-// Supplemental transforms can be provided to augment the FrameSystemConfig.
+// NewFromServiceMustBeConnected creates a referenceframe.FrameSystem from the given Service's
+// FrameSystemConfig and returns it. This will return an error if there are frame system parts that
+// are not rooted in the world frame (e.g: orphaned parents or some parent cycle). Supplemental
+// transforms can be provided to augment the FrameSystemConfig.
 func NewFromServiceMustBeConnected(
 	ctx context.Context,
 	serviceI Service,
