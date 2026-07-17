@@ -235,12 +235,12 @@ jobs:
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
       run: |
-        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" static-release-macos
+        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt static-release-macos
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release-macos
+        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt static-release-macos
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -256,12 +256,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" static-release-macos
+        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt static-release-macos
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" static-release-macos
+        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt static-release-macos
 
     - name: Set Date and Channel
       id: build_date

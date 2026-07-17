@@ -325,6 +325,10 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 
 		// Interpolate each frame's configuration
 		for frameName, startConfig := range ci.StartConfiguration.Items() {
+			// 0-DoF frames have nothing to interpolate.
+			if len(startConfig) == 0 {
+				continue
+			}
 			endConfig := ci.EndConfiguration.Get(frameName)
 			frame := ci.FS.Frame(frameName)
 

@@ -5,7 +5,6 @@ package sim
 import (
 	"context"
 	"errors"
-	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,21 +19,29 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// operation has the following logical states/invariants:
-// 1. Default constructed -- no operation in flight
-// 2. Operation started -> targetInputs != nil, done == false, stopped == false
-// 3. Operation successful -> done == true
-// 4. Operation failed -> stopped == true
+// operation represents an in-flight TOTG-planned trajectory.
+//
+// Logical states / invariants:
+// 1. Default constructed -- no operation in flight (sampleTimes == nil)
+// 2. Operation started -> sampleTimes != nil, done == false, stopped == false
+// 3. Operation succeeded -> done == true
+// 4. Operation stopped -> stopped == true; sampleTimes cleared
 type operation struct {
-	// targetInputs is in radians.
-	targetInputs []float64
-	done         bool
-	stopped      bool
+	// sampleConfigs is row-major [n_samples, n_dof]; sampleTimes is [n_samples] in seconds
+	// from t=0. Both nil iff no operation is in flight.
+	sampleTimes   []float64
+	sampleConfigs []float64
+	nDof          int
+
+	// trajStart anchors sampleTimes[0]==0 to the simulation clock (sa.lastUpdated).
+	trajStart time.Time
+
+	done    bool
+	stopped bool
 }
 
 func (op operation) isMoving() bool {
-	// If we have `targetInputs` and we are not done and not stopped
-	return op.targetInputs != nil && !op.done && !op.stopped
+	return op.sampleTimes != nil && !op.done && !op.stopped
 }
 
 type simulatedArm struct {
@@ -43,9 +50,17 @@ type simulatedArm struct {
 	// logical properties
 	modelName string
 	model     referenceframe.Model
-	// Speed represents how quickly the joints of the arm will move. Speed is in radians per
-	// second. In this simplified simulation, speed is the same for each joint.
+
+	// speed is the per-joint velocity limit in radians per second, applied uniformly across
+	// all joints by the TOTG planner.
 	speed float64
+	// acceleration is the per-joint acceleration limit in radians per second squared,
+	// applied uniformly across all joints by the TOTG planner.
+	acceleration float64
+	// pathTolerance is the corner-blend tolerance in radians passed to the TOTG planner.
+	// Zero means the trajectory passes exactly through every interior waypoint
+	// (decelerating to zero at each corner); positive values allow blending.
+	pathTolerance float64
 
 	// lifetime management
 	resource.AlwaysRebuild
@@ -70,6 +85,8 @@ type simulatedArm struct {
 	timeSimulation *utils.StoppableWorkers
 
 	logger logging.Logger
+
+	gen trajectoryGenerator
 }
 
 // Config is used for converting config attributes.
@@ -80,6 +97,16 @@ type Config struct {
 	// Speed represents how quickly the joints of the arm will move. Speed is in radians per
 	// second. In this simplified simulation, speed is the same for each joint.
 	Speed float64 `json:"speed,omitempty"`
+
+	// Acceleration is the per-joint acceleration limit in radians per second squared, applied
+	// uniformly across all joints. Zero or negative selects the default of Speed*10, giving
+	// roughly 0.1 s to reach cruise velocity.
+	Acceleration float64 `json:"acceleration,omitempty"`
+
+	// PathTolerance is the corner-blend tolerance in radians passed to the TOTG planner.
+	// Zero (the default) means the trajectory passes exactly through every interior
+	// waypoint. Positive values allow smooth blending through corners.
+	PathTolerance float64 `json:"path-tolerance,omitempty"`
 
 	// SimulateTime controls whether the `simulatedArm` will spin up and manage a background
 	// goroutine for continually updating time to a real-world value.
@@ -123,16 +150,28 @@ func NewArm(ctx context.Context, deps resource.Dependencies, resConf resource.Co
 		speed = armConf.Speed
 	}
 
+	// Default acceleration reaches cruise in ~0.1 s.
+	acceleration := speed * 10.0
+	if armConf.Acceleration > 0.0 {
+		acceleration = armConf.Acceleration
+	}
+
 	model, err := buildModel(resConf.Name, armConf)
 	if err != nil {
 		return nil, err
 	}
 
-	return newArm(resConf.ResourceName().AsNamed(), armConf.Model, model, speed, armConf.SimulateTime, logger), nil
+	return newArm(
+		resConf.ResourceName().AsNamed(), armConf.Model, model,
+		speed, acceleration, armConf.PathTolerance, armConf.SimulateTime,
+		logger,
+	), nil
 }
 
 func newArm(
-	namedArm resource.Named, modelName string, model referenceframe.Model, speed float64, simulateTime bool,
+	namedArm resource.Named, modelName string, model referenceframe.Model,
+	speed, acceleration, pathTolerance float64,
+	simulateTime bool,
 	logger logging.Logger,
 ) *simulatedArm {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -140,9 +179,11 @@ func newArm(
 		Named:  namedArm,
 		logger: logger,
 
-		modelName: modelName,
-		model:     model,
-		speed:     speed,
+		modelName:     modelName,
+		model:         model,
+		speed:         speed,
+		acceleration:  acceleration,
+		pathTolerance: pathTolerance,
 
 		ctx:    ctx,
 		cancel: cancel,
@@ -158,6 +199,8 @@ func newArm(
 			ret.updateForTime(time.Now())
 		})
 	}
+
+	ret.gen = newTrajectoryGenerator(logger)
 
 	return ret
 }
@@ -176,84 +219,42 @@ func (sa *simulatedArm) updateForTime(now time.Time) {
 		return
 	}
 
-	// This will track if we need to set `done` to true. So long as even one joint is moving, this
-	// operation is not "done".
-	anyJointStillMoving := false
-
-	// Dan: There are three natural algorithms for simulating an arm in motion:
-	// - Each joint moves at its maximum speed. Joints will finish moving at different times.
-	// - Joints that have less travel will move slower such that all joints finish at the same time.
-	// - Joints move such that the end effector follows a straight-line path from start to finish.
-	//   - It's not obvious to me there is always a valid straight-line path. E.g: avoiding
-	//     self-collisions.
-	//
-	// The following code implements the second algorithm. I've found that to better map with our
-	// motion planning interpolation algorithms.
-	timeSinceLastUpdate := now.Sub(sa.lastUpdated)
 	sa.lastUpdated = now
 
-	// Find the maximum travel distance. Given all joints (right now) move at the same speed, we can
-	// map this to how long the whole movement will take.
-	var maxDist float64
-	for jointIdx, currJointInp := range sa.currInputs {
-		maxDist = math.Max(maxDist, math.Abs(sa.operation.targetInputs[jointIdx]-currJointInp))
-	}
-
-	const epsilon = 1e-9
-	if maxDist < epsilon {
-		sa.operation.done = true
+	op := &sa.operation
+	last := len(op.sampleTimes) - 1
+	if last < 0 {
+		// Shouldn't happen given the isMoving guard, but be defensive.
+		op.done = true
 		return
 	}
 
-	// Find the speed each joint needs to move to finish at the same time.
-	modifiedSpeeds := make([]float64, len(sa.currInputs))
-	for jointIdx, currJointInp := range sa.currInputs {
-		// The remaining distance between our target and where we are.
-		diffRads := math.Abs(sa.operation.targetInputs[jointIdx] - currJointInp)
+	t := now.Sub(op.trajStart).Seconds()
 
-		// The joint that moves the farthest is always traveling at `sa.speed`. Our joints speed, in
-		// terms of the max speed, is then simply the ratio of our travel distance over the largest
-		// distance to travel.
-		speedAdjustment := diffRads / maxDist
-
-		// I.e: if we only need to move 1/4 the distance as the `maxDist`, we will travel at 1/4 *
-		// `sa.speed`.
-		modifiedSpeeds[jointIdx] = speedAdjustment * sa.speed
+	// Declare done when within one sample period of the trajectory end. The trajex sampler
+	// in uniform_sampler.cpp spaces samples evenly from 0 to `duration`, and `duration` is
+	// unavoidably larger than the nominal motion time by the acceleration ramp. One sample
+	// period of slop matches the sampler's own quantization granularity.
+	if last == 0 || t >= op.sampleTimes[last-1] {
+		copy(sa.currInputs, op.sampleConfigs[last*op.nDof:(last+1)*op.nDof])
+		op.done = true
+		return
 	}
 
-	for jointIdx, currJointInp := range sa.currInputs {
-		// The remaining distance between our target and where we are. Note the result is signed
-		// based on the direction we are traveling.
-		diffRads := sa.operation.targetInputs[jointIdx] - currJointInp
-
-		// How far we can theoretically travel since the last update. We will "cap" this to
-		// `diffRads`.
-		toTravelRads := timeSinceLastUpdate.Seconds() * modifiedSpeeds[jointIdx]
-		if toTravelRads > math.Abs(diffRads)-epsilon {
-			// We can travel farther than we need to. For example, when there was only 1 second left
-			// of travel, but this `updateForTime` call is 10 seconds later. Simply set the current
-			// joint position to its target.
-			sa.currInputs[jointIdx] = sa.operation.targetInputs[jointIdx]
-		} else {
-			// We have not reached our destination. Advance the current joint position by
-			// `toTravelRads`.
-			if diffRads < 0 {
-				// `toTravelRads` is always positive, flip the sign if we need to travel in the
-				// opposite direction.
-				toTravelRads = -toTravelRads
-			}
-
-			sa.currInputs[jointIdx] = currJointInp + toTravelRads
-
-			// Theoretically, being all joints movement is scaled to finish at the same time, either
-			// all joints that needed to change enter this `else` block, or none of them do.
-			anyJointStillMoving = true
-		}
+	// Samples are uniformly spaced (sampleTimes[k] == k*dt).
+	dt := op.sampleTimes[last] / float64(last)
+	k := int(t / dt)
+	if k < 0 {
+		k = 0
 	}
-
-	if !anyJointStillMoving {
-		// All joints hit the "traveling further than we need to" path. The operation is done.
-		sa.operation.done = true
+	alpha := (t - op.sampleTimes[k]) / dt
+	if alpha < 0 {
+		alpha = 0
+	}
+	for j := 0; j < op.nDof; j++ {
+		a := op.sampleConfigs[k*op.nDof+j]
+		b := op.sampleConfigs[(k+1)*op.nDof+j]
+		sa.currInputs[j] = a + alpha*(b-a)
 	}
 }
 
@@ -289,54 +290,9 @@ func (sa *simulatedArm) JointPositions(
 }
 
 func (sa *simulatedArm) MoveToJointPositions(
-	ctx context.Context, target []referenceframe.Input, extra map[string]interface{},
+	ctx context.Context, target []referenceframe.Input, _ map[string]interface{},
 ) error {
-	if err := arm.CheckDesiredJointPositions(ctx, sa, target); err != nil {
-		return err
-	}
-
-	sa.mu.Lock()
-	sa.operation = operation{
-		targetInputs: target,
-		done:         false,
-		stopped:      false,
-	}
-	sa.mu.Unlock()
-
-	// An operation was "started". `MoveToJointPositions` blocks until the movement completes or is
-	// canceled.
-	for {
-		select {
-		case <-ctx.Done():
-			// Command cancelation.
-			return ctx.Err()
-
-		case <-sa.ctx.Done():
-			// `simulatedArm.Close` was called or robot shutdown.
-			return sa.ctx.Err()
-
-		default:
-			// Poll for completion:
-			sa.mu.Lock()
-			// Calls to `updateForTime` will nil out `targetInputs` when a movement is completed.
-			done, stopped := sa.operation.done, sa.operation.stopped
-			sa.mu.Unlock()
-
-			if done && stopped {
-				panic("cannot be both done and stopped")
-			}
-
-			if done {
-				return nil
-			}
-
-			if stopped {
-				return errors.New("stopped before reaching target")
-			}
-
-			time.Sleep(time.Millisecond)
-		}
-	}
+	return sa.MoveThroughJointPositions(ctx, [][]referenceframe.Input{target}, nil, nil)
 }
 
 func (sa *simulatedArm) MoveThroughJointPositions(
@@ -345,13 +301,71 @@ func (sa *simulatedArm) MoveThroughJointPositions(
 	_ *arm.MoveOptions,
 	_ map[string]interface{},
 ) error {
-	for _, goal := range positions {
-		if err := sa.MoveToJointPositions(ctx, goal, nil); err != nil {
+	if len(positions) == 0 {
+		return nil
+	}
+
+	for _, wp := range positions {
+		if err := arm.CheckDesiredJointPositions(ctx, sa, wp); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	sa.mu.Lock()
+	if sa.operation.isMoving() {
+		sa.mu.Unlock()
+		return errors.New("arm is already moving")
+	}
+
+	// Build the waypoint list with the current pose prepended. Dedup before
+	// planning so the "already at target" case short-circuits cleanly without
+	// involving the trajectory generator.
+	waypoints := make([][]float64, 0, len(positions)+1)
+	waypoints = append(waypoints, sa.currInputs)
+	waypoints = append(waypoints, positions...)
+	waypoints = dedupWaypoints(waypoints, defaultDedupToleranceRads)
+	if len(waypoints) < 2 {
+		sa.mu.Unlock()
+		return nil
+	}
+
+	traj, err := sa.gen.Plan(ctx, waypoints, sa.speed, sa.acceleration, sa.pathTolerance)
+	if err != nil {
+		sa.mu.Unlock()
+		return err
+	}
+
+	sa.operation = operation{
+		sampleTimes:   traj.sampleTimes,
+		sampleConfigs: traj.sampleConfigs,
+		nDof:          traj.nDof,
+		trajStart:     sa.lastUpdated,
+	}
+	sa.mu.Unlock()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-sa.ctx.Done():
+			return sa.ctx.Err()
+		default:
+			sa.mu.Lock()
+			done, stopped := sa.operation.done, sa.operation.stopped
+			sa.mu.Unlock()
+
+			if done && stopped {
+				panic("cannot be both done and stopped")
+			}
+			if done {
+				return nil
+			}
+			if stopped {
+				return errors.New("stopped before reaching target")
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}
 }
 
 // MoveThroughJointPositionsStreamed executes a streamed trajectory by moving to each point in order
@@ -401,6 +415,8 @@ func (sa *simulatedArm) Stop(ctx context.Context, extra map[string]any) error {
 	}
 
 	sa.operation.stopped = true
+	sa.operation.sampleTimes = nil
+	sa.operation.sampleConfigs = nil
 
 	return nil
 }

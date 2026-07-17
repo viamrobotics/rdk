@@ -93,9 +93,23 @@ test-go-no-race: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
 # CGO is only supported on amd64/arm64; elsewhere build pure-Go with the no_cgo tag.
+# GO_BUILD_TAGS_EXTRA (comma-separated) lets callers inject additional build tags that augment --
+# never replace -- the arch-derived tags below. The focal channel passes
+# viam_rdk_cgo_have_cxx20_rt to opt into the trajex-backed build; empty by default.
+GO_BUILD_TAGS_EXTRA ?=
+comma := ,
+empty :=
+space := $(empty) $(empty)
+# Arch tag (no_cgo off amd64/arm64) plus any injected extras, assembled into a single
+# comma-separated -tags flag (or nothing when there are no tags at all). Commas in
+# GO_BUILD_TAGS_EXTRA are normalized to spaces first, so the value works whether it is passed
+# comma- or space-separated.
+SERVER_TAG_WORDS := $(strip $(if $(filter amd64 arm64,$(GOARCH)),,no_cgo) $(subst $(comma),$(space),$(GO_BUILD_TAGS_EXTRA)))
+SERVER_GO_TAGS := $(if $(SERVER_TAG_WORDS),-tags $(subst $(space),$(comma),$(SERVER_TAG_WORDS)),)
+
 SERVER_TARGETS := $(BIN_OUTPUT_PATH)/viam-server $(BIN_OUTPUT_PATH)/viam-server-static
 $(SERVER_TARGETS): CGO_ENABLED := $(if $(filter amd64 arm64,$(GOARCH)),1,0)
-$(SERVER_TARGETS): CGO_TAGS := $(if $(filter amd64 arm64,$(GOARCH)),,-tags no_cgo)
+$(SERVER_TARGETS): CGO_TAGS := $(SERVER_GO_TAGS)
 
 $(BIN_OUTPUT_PATH)/viam-server: $(GO_FILES) Makefile go.mod go.sum
 	CGO_ENABLED=$(CGO_ENABLED) go build $(CGO_TAGS) $(GCFLAGS) $(LDFLAGS_WRAPPER) -o $@ ./web/cmd/server

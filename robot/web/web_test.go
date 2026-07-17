@@ -1566,6 +1566,7 @@ func testResourceLimitsAndFTDC(
 	method string,
 	setupBlock func(onEnter, wait func()) setupRobotOption,
 	createCall func(string, logging.Logger) clientCall,
+	reqCounterShouldBe int,
 ) {
 	logger, logs := logging.NewObservedTestLogger(t)
 
@@ -1618,66 +1619,68 @@ func testResourceLimitsAndFTDC(
 
 	// Check that the in-flight request counter has increased to 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, stats[statsKey], test.ShouldEqual, 1)
+	test.That(t, stats[statsKey], test.ShouldEqual, reqCounterShouldBe)
 
-	// Make a second request that should return an error due to the limit.
-	err = call(ctx)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
-	test.That(t, err.Error(), test.ShouldEndWith,
-		fmt.Sprintf(
-			"exceeded the shared concurrent-request limit of 1 on resource %v. This limit is shared "+
-				"across all clients/modules (your client has 1 in-flight requests). Check the viam-server "+
-				`logs for 'Request limit exceeded' to find the offending client. See %v for troubleshooting steps`,
-			keyPrefix,
-			ReqLimitExceededURL,
-		),
-	)
+	if reqCounterShouldBe >= 1 {
+		// Make a second request that should return an error due to the limit.
+		err = call(ctx)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
+		test.That(t, err.Error(), test.ShouldEndWith,
+			fmt.Sprintf(
+				"exceeded the shared concurrent-request limit of 1 on resource %v. This limit is shared "+
+					"across all clients/modules (your client has 1 in-flight requests). Check the viam-server "+
+					`logs for 'Request limit exceeded' to find the offending client. See %v for troubleshooting steps`,
+				keyPrefix,
+				ReqLimitExceededURL,
+			),
+		)
 
-	// Assert that an appropriate warning log was output by the server.
-	reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
-	test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
-	test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
-	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldContainSubstring, ReqLimitExceededURL)
+		// Assert that an appropriate warning log was output by the server.
+		reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
+		test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, reqCounterShouldBe)
+		test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldContainSubstring, ReqLimitExceededURL)
 
-	var fields map[string]any
-	err = json.Unmarshal(
-		[]byte(jsonSuffix(reqLimitExceededLogs[0].Message)),
-		&fields,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fields["method"], test.ShouldEqual, method)
-	test.That(t, fields["resource"], test.ShouldEqual, keyPrefix)
-	// The human-readable lead before the JSON should call out the resource, limit, method,
-	// and offending client.
-	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldContainSubstring,
-		fmt.Sprintf("Request limit exceeded for resource %q (limit 1, method %q) by ", keyPrefix, method))
-	{
-		offendingClientInformation := fields["offending_client_information"]
-		offendingClientInformationM, ok := offendingClientInformation.(map[string]any)
-		test.That(t, ok, test.ShouldBeTrue)
-		// Assert exact values on inflight_requests and rejected_requests and assert the rest
-		// of the fields simply exist.
-		inFlightRequests := offendingClientInformationM["inflight_requests"]
-		inFlightRequestsM, ok := inFlightRequests.(map[string]any)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, inFlightRequestsM[keyPrefix], test.ShouldEqual, 1)
-		rejectedRequests := offendingClientInformationM["rejected_requests"]
-		rejectedRequestsM, ok := rejectedRequests.(map[string]any)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, rejectedRequestsM[keyPrefix], test.ShouldEqual, 1)
-		test.That(t, offendingClientInformationM["client_metadata"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["connection_id"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["connect_time"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["time_since_connect"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["server_ip"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["client_ip"], test.ShouldNotBeNil)
+		var fields map[string]any
+		err = json.Unmarshal(
+			[]byte(jsonSuffix(reqLimitExceededLogs[0].Message)),
+			&fields,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fields["method"], test.ShouldEqual, method)
+		test.That(t, fields["resource"], test.ShouldEqual, keyPrefix)
+		// The human-readable lead before the JSON should call out the resource, limit, method,
+		// and offending client.
+		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldContainSubstring,
+			fmt.Sprintf("Request limit exceeded for resource %q (limit 1, method %q) by ", keyPrefix, method))
+		{
+			offendingClientInformation := fields["offending_client_information"]
+			offendingClientInformationM, ok := offendingClientInformation.(map[string]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			// Assert exact values on inflight_requests and rejected_requests and assert the rest
+			// of the fields simply exist.
+			inFlightRequests := offendingClientInformationM["inflight_requests"]
+			inFlightRequestsM, ok := inFlightRequests.(map[string]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, inFlightRequestsM[keyPrefix], test.ShouldEqual, reqCounterShouldBe)
+			rejectedRequests := offendingClientInformationM["rejected_requests"]
+			rejectedRequestsM, ok := rejectedRequests.(map[string]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, rejectedRequestsM[keyPrefix], test.ShouldEqual, reqCounterShouldBe)
+			test.That(t, offendingClientInformationM["client_metadata"], test.ShouldNotBeNil)
+			test.That(t, offendingClientInformationM["connection_id"], test.ShouldNotBeNil)
+			test.That(t, offendingClientInformationM["connect_time"], test.ShouldNotBeNil)
+			test.That(t, offendingClientInformationM["time_since_connect"], test.ShouldNotBeNil)
+			test.That(t, offendingClientInformationM["server_ip"], test.ShouldNotBeNil)
+			test.That(t, offendingClientInformationM["client_ip"], test.ShouldNotBeNil)
+		}
+		test.That(t, fields["all_other_client_information"], test.ShouldResemble, []any{})
 	}
-	test.That(t, fields["all_other_client_information"], test.ShouldResemble, []any{})
 
 	// In-flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, stats[statsKey], test.ShouldEqual, 1)
+	test.That(t, stats[statsKey], test.ShouldEqual, reqCounterShouldBe)
 
 	// Release the original call and wait for it to complete
 	close(blockCall)
@@ -1726,7 +1729,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 					_, err := armClient.EndPosition(ctx, nil)
 					return err
 				}
-			},
+			}, 1,
 		)
 	})
 	t.Run("robot service", func(t *testing.T) {
@@ -1754,8 +1757,38 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 					_, err := robotClient.MachineStatus(ctx)
 					return err
 				}
-			},
+			}, 1,
 		)
+	})
+	t.Run("robot service method excluded from RC isn't counted or blocking", func(t *testing.T) {
+		inFlightLimitCheckExcluded["/viam.robot.v1.RobotService/GetMachineStatus"] = struct{}{}
+		testResourceLimitsAndFTDC(
+			t,
+			"viam.robot.v1.RobotService",
+			"/viam.robot.v1.RobotService/GetMachineStatus",
+			func(onEnter, wait func()) setupRobotOption {
+				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
+					onEnter()
+					wait()
+					return robot.MachineStatus{}, nil
+				})
+			},
+			func(addr string, logger logging.Logger) clientCall {
+				// The robot client implicitly calls MachineStatus by default when run
+				// in a test. Disable that behavior since we're going to block the
+				// first call to that method.
+				robotClient, err := rclient.New(context.Background(), addr, logger, rclient.WithDoNotWaitForRunning())
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					robotClient.Close(context.Background())
+				})
+				return func(ctx context.Context) error {
+					_, err := robotClient.MachineStatus(ctx)
+					return err
+				}
+			}, 0,
+		)
+		delete(inFlightLimitCheckExcluded, "/viam.robot.v1.RobotService/GetMachineStatus")
 	})
 	t.Run("request counter map pruning", func(t *testing.T) {
 		// Primarily a regression test for RSDK-12896. Ensures that a client that has

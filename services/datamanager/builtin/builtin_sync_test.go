@@ -20,8 +20,10 @@ import (
 	"go.viam.com/test"
 	rgrpc "go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
@@ -385,7 +387,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 
 			// Get all captured data.
 			filePaths := getAllFilePaths(tmpDir)
-			numFiles, capturedData, err := getCapturedData(filePaths)
+			_, capturedData, err := getCapturedData(filePaths)
 			test.That(t, err, test.ShouldBeNil)
 			if tc.emptyFile {
 				test.That(t, len(capturedData), test.ShouldEqual, 0)
@@ -393,10 +395,18 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 			}
 
-			// Turn builtin back on with capture disabled.
-			var fail atomic.Bool
-			failChan := make(chan *v1.DataCaptureUploadRequest, numFiles)
-			successChan := make(chan *v1.DataCaptureUploadRequest, numFiles)
+			// Turn builtin back on with capture disabled. Collect uploads into an
+			// unbounded slice (not a numFiles-sized channel) so the test asserts on end
+			// state, and an unexpected extra upload fails a length check instead of
+			// blocking a send.
+			var uploadMu sync.Mutex
+			var uploadedReqs []*v1.DataCaptureUploadRequest
+
+			recordUpload := func(in *v1.DataCaptureUploadRequest) {
+				uploadMu.Lock()
+				defer uploadMu.Unlock()
+				uploadedReqs = append(uploadedReqs, in)
+			}
 
 			f := func(
 				ctx context.Context,
@@ -406,16 +416,16 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				if err := ctx.Err(); err != nil {
 					return nil, err
 				}
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				case successChan <- in:
-					return &v1.DataCaptureUploadResponse{}, nil
-				}
+				recordUpload(in)
+				return &v1.DataCaptureUploadResponse{}, nil
 			}
 
+			// Each capture file maps to exactly one upload request here (tabular batches
+			// the file; the binary collector emits one reading per file), and retries
+			// re-send identical bytes, so the request is a stable per-file key.
+			var failMu sync.Mutex
+			failedOnce := map[string]bool{}
 			if tc.failTransiently {
-				fail.Store(true)
 				f = func(
 					ctx context.Context,
 					in *v1.DataCaptureUploadRequest,
@@ -424,22 +434,19 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 					if err := ctx.Err(); err != nil {
 						return nil, err
 					}
-
-					if fail.Load() {
-						select {
-						case <-ctx.Done():
-							return nil, ctx.Err()
-						case failChan <- in:
-							return nil, errors.New("transient error")
-						}
+					// Fail each file's first attempt exactly once, then let the retry
+					// succeed: exercises retry-until-success for every file with no timing
+					// dependency.
+					key := requestKey(in)
+					failMu.Lock()
+					firstFailure := !failedOnce[key]
+					failedOnce[key] = true
+					failMu.Unlock()
+					if firstFailure {
+						return nil, errors.New("transient error")
 					}
-
-					select {
-					case <-ctx.Done():
-						return nil, ctx.Err()
-					case successChan <- in:
-						return &v1.DataCaptureUploadResponse{}, nil
-					}
+					recordUpload(in)
+					return &v1.DataCaptureUploadResponse{}, nil
 				}
 			}
 
@@ -456,85 +463,68 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			b2 := b2Svc.(*builtIn)
 
-			if tc.failTransiently {
-				timeout := time.After(waitTime * 10)
-				failCount := 3
-				for i := 0; i < failCount; i++ {
-					t.Logf("waiting for %d files to fail", numFiles)
-					for j := 0; j < numFiles; j++ {
-						select {
-						case <-timeout:
-							t.Fatalf("timed out waiting for sync request")
-							return
-						case <-failChan:
-							t.Logf("got file %d", j+1)
-						}
-					}
-				}
-			}
-			fail.Store(false)
+			// Manual Sync uploads whenever a cloud connection exists (it ignores
+			// connectivity state); scheduled sync also requires a Ready connection.
+			canGetCloudConn := tc.cloudConnectionErr == nil
+			connReady := tc.connStateConstructor != nil &&
+				tc.connStateConstructor(nil).(rgrpc.ConnectivityState).GetState() == connectivity.Ready
+			expectUpload := canGetCloudConn && (connReady || tc.manualSync)
 
 			// If testing manual sync, call sync. Call it multiple times to ensure concurrent calls are safe.
 			if tc.manualSync {
-				// wait until sync has gotten a cloud connection
-				if tc.cloudConnectionErr != nil {
+				if canGetCloudConn {
+					// Wait for the connection (hang-detector timeout), then sync.
 					select {
-					case <-time.After(waitTime):
 					case <-b2.sync.CloudConnReady():
-						t.Fatal("should not happen")
+					case <-time.After(time.Minute):
+						t.Fatal("timed out waiting for cloud connection to become ready")
 					}
+					test.That(t, b2.Sync(context.Background(), nil), test.ShouldBeNil)
+					test.That(t, b2.Sync(context.Background(), nil), test.ShouldBeNil)
 				} else {
-					select {
-					case <-time.After(waitTime * 10):
-						t.Fatal("timeout")
-					case <-b2.sync.CloudConnReady():
-					}
-					test.That(t, b2.Sync(context.Background(), nil), test.ShouldBeNil)
-					test.That(t, b2.Sync(context.Background(), nil), test.ShouldBeNil)
+					// Offline: no connection, so manual sync must fail fast.
+					test.That(t, b2.Sync(context.Background(), nil), test.ShouldNotBeNil)
 				}
 			}
 
-			if tc.cloudConnectionErr == nil {
-				wait := time.After(waitTime)
-				var successfulReqs []*v1.DataCaptureUploadRequest
-				// Get the successful requests
-				for i := 0; i < numFiles; i++ {
-					select {
-					case <-wait:
-						offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).(rgrpc.ConnectivityState).GetState() != connectivity.Ready
-						if offline && !tc.manualSync {
-							err = b2.Close(context.Background())
-							test.That(t, err, test.ShouldBeNil)
-							// the same captured data from the first instance of data manager should still be on disk
-							numFiles2, capturedData2, err := getCapturedData(filePaths)
-							test.That(t, err, test.ShouldBeNil)
-							test.That(t, numFiles, test.ShouldEqual, numFiles2)
-							compareSensorData(t, tc.dataType, capturedData2, capturedData)
-							// test done, we were offline & we didn't try to upload
-							return
-						}
-						t.Fatalf("timed out waiting for sync request")
-					case r := <-successChan:
-						successfulReqs = append(successfulReqs, r)
-					}
-				}
-
-				// Give it time to delete files after upload.
-				waitUntilNoFiles(tmpDir)
+			if expectUpload {
+				// Files are deleted only after a successful upload, so an empty capture
+				// dir means everything synced. Generous ceiling trips only on a real hang.
+				testutils.WaitForAssertionWithSleep(t, 20*time.Millisecond, 1000, func(tb testing.TB) {
+					tb.Helper()
+					test.That(tb, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
+				})
+				// Close joins all sync workers, making uploadedReqs/failedOnce safe to read.
 				err = b2.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				// Validate that all captured data was synced.
-				syncedData := getUploadedData(successfulReqs)
+				uploadMu.Lock()
+				syncedData := getUploadedData(uploadedReqs)
+				if tc.failTransiently {
+					// Every uploaded file must have failed at least once first.
+					failMu.Lock()
+					test.That(t, len(failedOnce), test.ShouldBeGreaterThan, 0)
+					for _, req := range uploadedReqs {
+						test.That(t, failedOnce[requestKey(req)], test.ShouldBeTrue)
+					}
+					failMu.Unlock()
+				}
+				uploadMu.Unlock()
 				compareSensorData(t, tc.dataType, syncedData, capturedData)
 
-				// After all uploads succeed, all files should be deleted.
 				test.That(t, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
 			} else {
+				// Bounded settle then assert nothing uploaded. A longer wait only
+				// strengthens the negative check, so this isn't a timing dependency.
+				time.Sleep(waitTime)
 				err = b2.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				// Validate that all captured data is still on disk
+				uploadMu.Lock()
+				test.That(t, len(uploadedReqs), test.ShouldEqual, 0)
+				uploadMu.Unlock()
+
+				// Captured data should remain on disk, intact.
 				_, capturedData2, err := getCapturedData(getAllFilePaths(tmpDir))
 				test.That(t, err, test.ShouldBeNil)
 				compareSensorData(t, tc.dataType, capturedData2, capturedData)
@@ -1141,6 +1131,17 @@ func getCapturedData(filePaths []string) (int, []*v1.SensorData, error) {
 		}
 	}
 	return numFiles, ret, nil
+}
+
+// requestKey returns a stable content key for an upload request; distinct capture
+// files differ by their sensor-data timestamps. Deterministic marshaling keeps the
+// bytes stable across retries regardless of proto map ordering.
+func requestKey(r *v1.DataCaptureUploadRequest) string {
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(r)
+	if err != nil {
+		return r.String()
+	}
+	return string(b)
 }
 
 func getUploadedData(urs []*v1.DataCaptureUploadRequest) []*v1.SensorData {
