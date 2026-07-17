@@ -190,8 +190,12 @@ type frameSystemService struct {
 	components map[string]resource.Resource
 	logger     logging.Logger
 
-	parts   []*referenceframe.FrameSystemPart
 	partsMu sync.RWMutex
+	parts   []*referenceframe.FrameSystemPart
+	// unlinkedParts represent frame system configuration errors (e.g: a frame's parent not
+	// existing). They are not currently returned over proto. This is consumed by the motion service
+	// to determine if a frame system configuration error is safe to ignore for specific actions.
+	unlinkedParts []*referenceframe.FrameSystemPart
 }
 
 // Reconfigure will rebuild the frame system from the newly updated robot.
@@ -226,6 +230,7 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	}
 
 	svc.parts = sortedParts
+	svc.unlinkedParts = unlinkedParts
 	svc.logger.Debugf("reconfigured robot frame system: %v", (&Config{Parts: sortedParts}).String())
 	return nil
 }
@@ -361,6 +366,41 @@ func NewFromService(
 		return nil, err
 	}
 	return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
+}
+
+// NewFromService creates a referenceframe.FrameSystem from the given Service's FrameSystemConfig and returns it.
+// Supplemental transforms can be provided to augment the FrameSystemConfig.
+func NewFromServiceMustBeConnected(
+	ctx context.Context,
+	serviceI Service,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+) (*referenceframe.FrameSystem, error) {
+	service, isLocalFSService := serviceI.(*frameSystemService)
+	if !isLocalFSService {
+		// Dan: This "must be connected" API is for RDK builtin motion service move requests. Which
+		// would be in the same process as this frame system service. I cannot imagine this code
+		// path being relevant, but being cautious and preserving what would be returned.
+		fsCfg, err := service.FrameSystemConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
+	}
+
+	service.partsMu.RLock()
+	defer service.partsMu.RUnlock()
+
+	if len(service.unlinkedParts) > 0 {
+		strs := make([]string, len(service.unlinkedParts))
+		for idx, part := range service.unlinkedParts {
+			strs[idx] = part.FrameConfig.Name()
+		}
+
+		return nil, fmt.Errorf("Some frames are not linked to the world frame. Unlinked parts: %v", strs)
+	}
+
+	return referenceframe.NewFrameSystem(service.Name().ShortName(), service.parts, supplementalTransforms)
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.
