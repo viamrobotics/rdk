@@ -34,7 +34,7 @@ require (
 	github.com/fullstorydev/grpcurl v1.8.6
 	github.com/go-co-op/gocron/v2 v2.18.0
 	github.com/go-git/go-billy/v5 v5.9.0
-	github.com/go-git/go-git/v5 v5.16.5
+	github.com/go-git/go-git/v5 v5.19.1
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
 	github.com/go-viper/mapstructure/v2 v2.4.0
