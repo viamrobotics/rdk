@@ -9,12 +9,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/test"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	shelltestutils "go.viam.com/rdk/services/shell/testutils"
@@ -378,4 +382,96 @@ func (mem *inMemoryFileCopier) Copy(ctx context.Context, file File) error {
 
 func (mem *inMemoryFileCopier) Close(ctx context.Context) error {
 	return nil
+}
+
+type copyToMachineRecv struct {
+	resp *pb.CopyFilesToMachineResponse
+	err  error
+}
+
+// fakeCopyFilesToMachineClient is a fake pb.ShellService_CopyFilesToMachineClient
+// whose responses are fed through recvCh.
+type fakeCopyFilesToMachineClient struct {
+	ctx       context.Context
+	sendErr   error
+	sendCount atomic.Int32
+	recvCh    chan copyToMachineRecv
+}
+
+func newFakeCopyFilesToMachineClient() *fakeCopyFilesToMachineClient {
+	return &fakeCopyFilesToMachineClient{
+		ctx:    context.Background(),
+		recvCh: make(chan copyToMachineRecv),
+	}
+}
+
+func (f *fakeCopyFilesToMachineClient) Send(*pb.CopyFilesToMachineRequest) error {
+	f.sendCount.Add(1)
+	return f.sendErr
+}
+
+func (f *fakeCopyFilesToMachineClient) Recv() (*pb.CopyFilesToMachineResponse, error) {
+	next := <-f.recvCh
+	return next.resp, next.err
+}
+
+func (f *fakeCopyFilesToMachineClient) Context() context.Context     { return f.ctx }
+func (f *fakeCopyFilesToMachineClient) CloseSend() error             { return nil }
+func (f *fakeCopyFilesToMachineClient) Header() (metadata.MD, error) { return nil, nil }
+func (f *fakeCopyFilesToMachineClient) Trailer() metadata.MD         { return nil }
+func (f *fakeCopyFilesToMachineClient) SendMsg(any) error            { return nil }
+func (f *fakeCopyFilesToMachineClient) RecvMsg(any) error            { return nil }
+
+func TestShellRPCCopyWriterTo(t *testing.T) {
+	t.Run("SendFile fails fast once the server terminates the stream", func(t *testing.T) {
+		fake := newFakeCopyFilesToMachineClient()
+		writer := newShellRPCCopyWriterTo(fake)
+
+		terminalErr := status.Error(codes.NotFound, `"/some/dir" does not exist or is not a directory`)
+		fake.recvCh <- copyToMachineRecv{err: terminalErr}
+		<-writer.done
+
+		err := writer.SendFile(&pb.FileData{Name: "foo", Data: []byte("data")})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.NotFound)
+		// no data should have been sent after the stream ended
+		test.That(t, fake.sendCount.Load(), test.ShouldEqual, 0)
+
+		err = writer.WaitLastACK()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.NotFound)
+	})
+
+	t.Run("SendFile surfaces the terminal error on send failure", func(t *testing.T) {
+		fake := newFakeCopyFilesToMachineClient()
+		writer := newShellRPCCopyWriterTo(fake)
+
+		// gRPC semantics: Send returns io.EOF and the real error comes from Recv
+		fake.sendErr = io.EOF
+		terminalErr := status.Error(codes.NotFound, `"/some/dir" does not exist or is not a directory`)
+		go func() {
+			fake.recvCh <- copyToMachineRecv{err: terminalErr}
+		}()
+
+		err := writer.SendFile(&pb.FileData{Name: "foo", Data: []byte("data")})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.NotFound)
+	})
+
+	t.Run("WaitLastACK returns nil per ACK and prefers a buffered ACK over EOF", func(t *testing.T) {
+		fake := newFakeCopyFilesToMachineClient()
+		writer := newShellRPCCopyWriterTo(fake)
+
+		err := writer.SendFile(&pb.FileData{Name: "foo", Data: []byte("data"), Eof: true})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fake.sendCount.Load(), test.ShouldEqual, 1)
+
+		fake.recvCh <- copyToMachineRecv{resp: &pb.CopyFilesToMachineResponse{AckLastFile: true}}
+		fake.recvCh <- copyToMachineRecv{err: io.EOF}
+		<-writer.done
+
+		test.That(t, writer.WaitLastACK(), test.ShouldBeNil)
+		test.That(t, writer.WaitLastACK(), test.ShouldBeError, io.EOF)
+		test.That(t, writer.Close(), test.ShouldBeNil)
+	})
 }

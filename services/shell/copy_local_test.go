@@ -118,6 +118,20 @@ func TestLocalFileCopy(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, readCopier.Close(ctx), test.ShouldBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "is an existing file")
+
+		t.Log("parent does not exist")
+		factory, err = NewLocalFileCopyFactory(filepath.Join(tempDir, "notthere", "alsonotthere"), false, false)
+		test.That(t, err, test.ShouldBeNil)
+
+		readCopier, err = NewLocalFileReadCopier([]string{tfs.SingleFileNested}, false, false, factory)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = readCopier.ReadAll(ctx)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, readCopier.Close(ctx), test.ShouldBeNil)
+		s, ok := status.FromError(err)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, s.Code(), test.ShouldEqual, codes.NotFound)
 	})
 
 	t.Run("single file relative", func(t *testing.T) {
@@ -237,7 +251,10 @@ func TestLocalFileCopy(t *testing.T) {
 		err = readCopier.ReadAll(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, readCopier.Close(ctx), test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "does not exist or is not a directory")
+		s, ok := status.FromError(err)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, s.Code(), test.ShouldEqual, codes.NotFound)
+		test.That(t, s.Message(), test.ShouldContainSubstring, "does not exist or is not a directory")
 	})
 
 	t.Run("preserve permissions on a nested file", func(t *testing.T) {

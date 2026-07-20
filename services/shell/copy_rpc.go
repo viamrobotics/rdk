@@ -348,25 +348,84 @@ type shellRPCCopyWriter interface {
 	Close() error
 }
 
-// A shellRPCCopyWriterTo is the To, Writer/Client side of a CopyTo.
+// A shellRPCCopyWriterTo is the To, Writer/Client side of a CopyTo. A background
+// receiver consumes the stream's responses so that a terminal error from the server
+// (e.g. the destination does not exist) is noticed while file data is still being
+// sent, rather than only after the whole file has been transferred.
 type shellRPCCopyWriterTo struct {
 	rpcClient pb.ShellService_CopyFilesToMachineClient
+	acks      chan struct{}
+	done      chan struct{}
+	recvErr   error
 }
 
-func (client shellRPCCopyWriterTo) SendFile(fileDataProto *pb.FileData) error {
-	return client.rpcClient.Send(&pb.CopyFilesToMachineRequest{
+func newShellRPCCopyWriterTo(rpcClient pb.ShellService_CopyFilesToMachineClient) *shellRPCCopyWriterTo {
+	client := &shellRPCCopyWriterTo{
+		rpcClient: rpcClient,
+		// files are sent one at a time, so at most one un-awaited ACK is in flight
+		acks: make(chan struct{}, 1),
+		done: make(chan struct{}),
+	}
+	utils.PanicCapturingGo(func() {
+		for {
+			if _, err := rpcClient.Recv(); err != nil {
+				client.recvErr = err
+				close(client.done)
+				return
+			}
+			select {
+			case client.acks <- struct{}{}:
+			case <-rpcClient.Context().Done():
+				client.recvErr = rpcClient.Context().Err()
+				close(client.done)
+				return
+			}
+		}
+	})
+	return client
+}
+
+func (client *shellRPCCopyWriterTo) SendFile(fileDataProto *pb.FileData) error {
+	select {
+	case <-client.done:
+		// the server already terminated the copy; fail fast instead of
+		// streaming the rest of the file data.
+		return client.recvErr
+	default:
+	}
+	if err := client.rpcClient.Send(&pb.CopyFilesToMachineRequest{
 		Request: &pb.CopyFilesToMachineRequest_FileData{
 			FileData: fileDataProto,
 		},
-	})
+	}); err != nil {
+		// a send error means the stream is dead (gRPC reports the reason via
+		// Recv); wait for the receiver to surface the actual error.
+		select {
+		case <-client.done:
+			return client.recvErr
+		case <-client.rpcClient.Context().Done():
+			return err
+		}
+	}
+	return nil
 }
 
-func (client shellRPCCopyWriterTo) WaitLastACK() error {
-	_, err := client.rpcClient.Recv()
-	return err
+func (client *shellRPCCopyWriterTo) WaitLastACK() error {
+	select {
+	case <-client.acks:
+		return nil
+	case <-client.done:
+		// an ACK received before the stream ended is already buffered; prefer it
+		select {
+		case <-client.acks:
+			return nil
+		default:
+		}
+		return client.recvErr
+	}
 }
 
-func (client shellRPCCopyWriterTo) Close() error {
+func (client *shellRPCCopyWriterTo) Close() error {
 	return client.rpcClient.CloseSend()
 }
 

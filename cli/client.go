@@ -3890,10 +3890,14 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	attemptCount, err := doCopy()
 	if err != nil {
 		defer pm.Fail("copy", err) //nolint:errcheck
-		if statusErr := status.Convert(err); statusErr != nil &&
-			statusErr.Code() == codes.InvalidArgument &&
-			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
-			return errDirectoryCopyRequestNoRecursion
+		if statusErr := status.Convert(err); statusErr != nil {
+			if statusErr.Code() == codes.InvalidArgument &&
+				statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+				return errDirectoryCopyRequestNoRecursion
+			}
+			if statusErr.Code() == codes.NotFound {
+				return fmt.Errorf("copy aborted: %s", statusErr.Message())
+			}
 		}
 		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
 	}
@@ -5696,6 +5700,10 @@ func (c *viamClient) retryableCopy(
 				return attempt, copyErr
 			} else if s.Code() == codes.InvalidArgument {
 				warningf(cmd.Root().ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			} else if s.Code() == codes.NotFound {
+				warningf(cmd.Root().ErrWriter, "Copy failed because the destination path does not exist: %s", s.Message())
 				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
 				return attempt, copyErr
 			}
