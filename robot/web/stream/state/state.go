@@ -301,7 +301,8 @@ func (state *StreamState) tick() {
 	// If we are currently using passthrough, and the stream state changes to resized
 	// we need to stop the passthrough stream and restart it through gostream.
 	case state.streamSource == streamSourcePassthrough && state.isResized:
-		state.logger.Info("stream resized, stopping passthrough stream")
+		state.logger.Warn("stream resized; falling back from rtp_passthrough to GoStream, which will increase CPU utilization. " +
+			"Reset the stream to its original resolution to restore rtp_passthrough")
 		state.stopInputStream()
 		state.Stream.Start()
 		state.streamSource = streamSourceGoStream
