@@ -1,6 +1,8 @@
 package robotimpl
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -8,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -1507,6 +1510,257 @@ func TestConfigPackages(t *testing.T) {
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path2, test.ShouldEqual, path.Join(packagesDir, "data", "ml_model", "package-2-v2"))
+}
+
+// createTarballModule builds the test module and packages it with a meta.json into a
+// local tarball module, returning the tarball's path. If firstRunScript is non-empty it
+// is included as a first_run script in the tarball.
+func createTarballModule(t *testing.T, firstRunScript string) string {
+	t.Helper()
+	exePath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	tarballPath := filepath.Join(t.TempDir(), "tarball-module.tar.gz")
+	tarball, err := os.Create(tarballPath)
+	test.That(t, err, test.ShouldBeNil)
+	gzWriter := gzip.NewWriter(tarball)
+	tarWriter := tar.NewWriter(gzWriter)
+
+	writeFile := func(name string, contents []byte, mode int64) {
+		err := tarWriter.WriteHeader(&tar.Header{Name: name, Size: int64(len(contents)), Mode: mode})
+		test.That(t, err, test.ShouldBeNil)
+		_, err = tarWriter.Write(contents)
+		test.That(t, err, test.ShouldBeNil)
+	}
+	exeBytes, err := os.ReadFile(exePath)
+	test.That(t, err, test.ShouldBeNil)
+	writeFile("testmodule", exeBytes, 0o755)
+	meta := `{"entrypoint": "testmodule"}`
+	if firstRunScript != "" {
+		meta = `{"entrypoint": "testmodule", "first_run": "first_run.sh"}`
+		writeFile("first_run.sh", []byte(firstRunScript), 0o755)
+	}
+	writeFile("meta.json", []byte(meta), 0o644)
+
+	test.That(t, tarWriter.Close(), test.ShouldBeNil)
+	test.That(t, gzWriter.Close(), test.ShouldBeNil)
+	test.That(t, tarball.Close(), test.ShouldBeNil)
+	return tarballPath
+}
+
+func TestMachineStatusPackages(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
+
+	viamHomeDir := t.TempDir()
+
+	robotConfig := &config.Config{
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+				Type:    "ml_model",
+			},
+			{
+				Name:    "some-name-2",
+				Package: "package-2",
+				Version: "v2",
+				Type:    "slam_map",
+			},
+			{
+				Name:    "some-name-3",
+				Package: "package-3",
+				Version: "v3",
+				Type:    "module",
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "tarball-module",
+				Type:    config.ModuleTypeLocal,
+				ExePath: createTarballModule(t, ""),
+			},
+		},
+		Cloud: &config.Cloud{
+			AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String()),
+		},
+	}
+	fakePackageServer.StorePackage(robotConfig.Packages...)
+
+	r := setupLocalRobot(t, ctx, robotConfig, logger, WithViamHomeDir(viamHomeDir))
+
+	// The three cloud packages downloaded successfully and the local tarball module was
+	// unpacked as a synthetic package; expect a Ready status with fully-populated fields
+	// for each.
+	mStatus, err := r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 4)
+
+	pkgStatuses := make(map[string]packages.PackageStatus, len(mStatus.Packages))
+	for _, pkgStatus := range mStatus.Packages {
+		pkgStatuses[pkgStatus.Name] = pkgStatus
+	}
+
+	for _, exp := range []struct {
+		name    string
+		version string
+		pkgType config.PackageType
+	}{
+		{"some-name-1", "v1", config.PackageTypeMlModel},
+		{"some-name-2", "v2", config.PackageTypeSlamMap},
+		{"some-name-3", "v3", config.PackageTypeModule},
+		// Local modules with no explicit version get a default synthetic version.
+		{"synthetic-tarball-module", "0.0.0", config.PackageTypeModule},
+	} {
+		pkgStatus, ok := pkgStatuses[exp.name]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, pkgStatus.State, test.ShouldEqual, packages.PackageStateReady)
+		test.That(t, pkgStatus.Type, test.ShouldEqual, exp.pkgType)
+		test.That(t, pkgStatus.Version, test.ShouldEqual, exp.version)
+		test.That(t, pkgStatus.Error, test.ShouldBeEmpty)
+		test.That(t, pkgStatus.LastUpdated.IsZero(), test.ShouldBeFalse)
+		// Local tarball modules report the on-disk tarball size as already fully
+		// "downloaded"; cloud packages report their download progress. Both should
+		// show a complete download here.
+		test.That(t, pkgStatus.TotalBytes, test.ShouldBeGreaterThan, 0)
+		test.That(t, pkgStatus.BytesDownloaded, test.ShouldEqual, pkgStatus.TotalBytes)
+	}
+
+	// Reconfigure with an additional package whose download will fail its checksum;
+	// its status should report the failure while the healthy packages stay Ready.
+	robotConfig2 := &config.Config{
+		Packages: append(robotConfig.Packages, config.PackageConfig{
+			Name:    "some-name-4",
+			Package: "package-4",
+			Version: "v4",
+			Type:    "ml_model",
+		}),
+		Modules: robotConfig.Modules,
+		Cloud:   robotConfig.Cloud,
+	}
+	fakePackageServer.StorePackage(robotConfig2.Packages...)
+	fakePackageServer.SetInvalidChecksum(true)
+
+	r.Reconfigure(ctx, robotConfig2)
+
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 5)
+
+	pkgStatuses = make(map[string]packages.PackageStatus, len(mStatus.Packages))
+	for _, pkgStatus := range mStatus.Packages {
+		pkgStatuses[pkgStatus.Name] = pkgStatus
+	}
+
+	for _, name := range []string{"some-name-1", "some-name-2", "some-name-3", "synthetic-tarball-module"} {
+		pkgStatus, ok := pkgStatuses[name]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, pkgStatus.State, test.ShouldEqual, packages.PackageStateReady)
+		test.That(t, pkgStatus.Error, test.ShouldBeEmpty)
+	}
+
+	failedStatus, ok := pkgStatuses["some-name-4"]
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, failedStatus.State, test.ShouldEqual, packages.PackageStateFailed)
+	test.That(t, failedStatus.Error, test.ShouldContainSubstring, "failed to decode expected checksum")
+	test.That(t, failedStatus.Version, test.ShouldEqual, "v4")
+
+	// The checksum failure is transient: once the server serves valid checksums again, the
+	// next sync retries the download. The package should become Ready with its error cleared.
+	fakePackageServer.SetInvalidChecksum(false)
+	r.Reconfigure(ctx, robotConfig2)
+
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 5)
+
+	pkgStatuses = make(map[string]packages.PackageStatus, len(mStatus.Packages))
+	for _, pkgStatus := range mStatus.Packages {
+		pkgStatuses[pkgStatus.Name] = pkgStatus
+	}
+
+	recoveredStatus, ok := pkgStatuses["some-name-4"]
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, recoveredStatus.State, test.ShouldEqual, packages.PackageStateReady)
+	test.That(t, recoveredStatus.Error, test.ShouldBeEmpty)
+	test.That(t, recoveredStatus.TotalBytes, test.ShouldBeGreaterThan, 0)
+	test.That(t, recoveredStatus.BytesDownloaded, test.ShouldEqual, recoveredStatus.TotalBytes)
+
+	// Reconfigure with no packages or modules; all statuses should be pruned.
+	robotConfig3 := &config.Config{
+		Cloud: robotConfig.Cloud,
+	}
+	r.Reconfigure(ctx, robotConfig3)
+
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.Packages, test.ShouldBeEmpty)
+}
+
+func TestMachineStatusPackageFirstRun(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// The first_run script connects to this listener and blocks until the test writes a
+	// line back, holding the module's package in the first-run state.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer listener.Close()
+	listenerPort := listener.Addr().(*net.TCPAddr).Port
+	firstRunScript := fmt.Sprintf(`#!/usr/bin/env bash
+exec 3<>/dev/tcp/127.0.0.1/%d
+read <&3
+exit 0
+`, listenerPort)
+
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, WithViamHomeDir(t.TempDir()))
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "tarball-module",
+				Type:    config.ModuleTypeLocal,
+				ExePath: createTarballModule(t, firstRunScript),
+			},
+		},
+	}
+
+	// Reconfigure in a goroutine so the package's first-run state is observable while the
+	// first_run script blocks.
+	reconfigureDone := make(chan struct{})
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, cfg)
+	}()
+
+	// Accepting a connection means the first_run script is executing.
+	conn, err := listener.Accept()
+	test.That(t, err, test.ShouldBeNil)
+
+	mStatus, err := r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 1)
+	test.That(t, mStatus.Packages[0].Name, test.ShouldEqual, "synthetic-tarball-module")
+	test.That(t, mStatus.Packages[0].State, test.ShouldEqual, packages.PackageStateFirstRun)
+	test.That(t, mStatus.Packages[0].Error, test.ShouldBeEmpty)
+
+	// Release the first_run script and let reconfiguration finish; the package should
+	// transition to the ready state.
+	_, err = conn.Write([]byte("done\n"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	<-reconfigureDone
+
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 1)
+	test.That(t, mStatus.Packages[0].Name, test.ShouldEqual, "synthetic-tarball-module")
+	test.That(t, mStatus.Packages[0].State, test.ShouldEqual, packages.PackageStateReady)
+	test.That(t, mStatus.Packages[0].Error, test.ShouldBeEmpty)
 }
 
 // removeDefaultServices removes default services and returns the removed

@@ -644,7 +644,11 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		httpClient:      *http.DefaultClient,
 		packagesDir:     packagesDir,
 		packagesDataDir: filepath.Join(packagesDir, "data"),
-		logger:          logger,
+		packageStatuses: map[PackageName]*PackageStatus{
+			"download1": {Name: "download1", State: PackageStateDownloading},
+			"download2": {Name: "download2", State: PackageStateDownloading},
+		},
+		logger: logger,
 	}
 
 	handler := &testHandler{
@@ -656,8 +660,13 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 
 	t.Run("complete", func(t *testing.T) {
 		dest := filepath.Join(packagesDir, "download1")
-		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download1", dest)
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download1", dest, "download1")
 		test.That(t, err, test.ShouldBeNil)
+
+		// download progress should be recorded on the package status
+		status := pm.packageStatuses["download1"]
+		test.That(t, status.TotalBytes, test.ShouldEqual, int64(len(handler.content)))
+		test.That(t, status.BytesDownloaded, test.ShouldEqual, status.TotalBytes)
 	})
 
 	t.Run("resumable", func(t *testing.T) {
@@ -667,12 +676,17 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		dest := filepath.Join(packagesDir, "download2")
 
 		// first attempt fails midway because of maxBytesForTesting
-		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest)
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest, "download2")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "short write")
 
 		// second attempt finishes
-		_, _, err = pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest)
+		_, _, err = pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest, "download2")
 		test.That(t, err, test.ShouldBeNil)
+
+		// download progress should be recorded on the package status
+		status := pm.packageStatuses["download2"]
+		test.That(t, status.TotalBytes, test.ShouldEqual, int64(len(handler.content)))
+		test.That(t, status.BytesDownloaded, test.ShouldEqual, status.TotalBytes)
 		// check the length
 		test.That(t, handler.lengths[len(handler.lengths)-1], test.ShouldEqual,
 			strconv.Itoa(len(handler.content)-int(maxBytesForTesting)))
