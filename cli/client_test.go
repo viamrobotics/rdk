@@ -2447,4 +2447,40 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, errMsg, test.ShouldContainSubstring, "destination path does not exist")
 		test.That(t, errMsg, test.ShouldContainSubstring, `"/some/dir" does not exist or is not a directory`)
 	})
+
+	t.Run("NoShellServiceError", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			return errNoShellService
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		// Verify the copy was aborted after the first attempt instead of retrying
+		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeTrue)
+		test.That(t, attempts, test.ShouldEqual, 1)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
+
+		// Verify shell service specific warning appears
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldContainSubstring, "does not have the shell service enabled")
+	})
 }

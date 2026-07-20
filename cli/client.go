@@ -3890,6 +3890,9 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	attemptCount, err := doCopy()
 	if err != nil {
 		defer pm.Fail("copy", err) //nolint:errcheck
+		if errors.Is(err, errNoShellService) {
+			return err
+		}
 		if statusErr := status.Convert(err); statusErr != nil {
 			if statusErr.Code() == codes.InvalidArgument &&
 				statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
@@ -5683,6 +5686,14 @@ func (c *viamClient) retryableCopy(
 
 		// Handle error
 		hadPreviousFailure = true
+
+		// A machine without a shell service will not gain one by retrying; abort early.
+		if errors.Is(copyErr, errNoShellService) {
+			warningf(cmd.Root().ErrWriter, "Copy failed because the machine does not have the shell service enabled. "+
+				"Add the shell service to the machine part's configuration to enable file copying.")
+			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+			return attempt, copyErr
+		}
 
 		// Print special warning for invalid argument and permission denied errors (in addition to regular error)
 		if s, ok := status.FromError(copyErr); ok {
