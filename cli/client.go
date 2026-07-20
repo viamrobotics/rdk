@@ -3899,7 +3899,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				return errDirectoryCopyRequestNoRecursion
 			}
 			if statusErr.Code() == codes.NotFound {
-				return fmt.Errorf("copy aborted: %s", statusErr.Message())
+				return errors.WithMessage(err, "copy aborted")
 			}
 		}
 		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
