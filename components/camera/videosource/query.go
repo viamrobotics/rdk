@@ -91,6 +91,22 @@ func findReaderAndDriver(
 
 	constraints := makeConstraints(conf, logger)
 
+	// Prefer the stable device_id when set. Unlike video_path it is matched verbatim
+	// against the driver label parts (no symlink/base resolution), so it survives
+	// reboots and device-node reshuffles. labelFilter compares against every label
+	// part, so the by-id/by-path half of a Linux "<id>;<node>" label matches here.
+	if conf.DeviceID != "" {
+		if path != "" {
+			logger.Debugw("both device_id and video_path set; selecting by device_id",
+				"device_id", conf.DeviceID, "video_path", path)
+		}
+		reader, driver, err := getReaderAndDriver(conf.DeviceID, constraints, logger)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		return reader, driver, conf.DeviceID, nil
+	}
+
 	// Handle specific path
 	if path != "" {
 		resolvedPath, err := filepath.EvalSymlinks(path)

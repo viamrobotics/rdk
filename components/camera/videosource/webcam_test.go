@@ -6,7 +6,28 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
+
+// TestWebcamConfigDeviceID ensures the discovery-surfaced device_id attribute
+// decodes into the native WebcamConfig instead of being silently dropped.
+func TestWebcamConfigDeviceID(t *testing.T) {
+	attrs := utils.AttributeMap{
+		"device_id":  "usb-046d_webcam-video-index0",
+		"video_path": "video4",
+		"format":     "MJPEG",
+		"width_px":   1920,
+		"height_px":  1080,
+	}
+
+	native, err := resource.TransformAttributeMap[*videosource.WebcamConfig](attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, native.DeviceID, test.ShouldEqual, "usb-046d_webcam-video-index0")
+	test.That(t, native.Path, test.ShouldEqual, "video4")
+	test.That(t, native.Format, test.ShouldEqual, "MJPEG")
+	test.That(t, native.Width, test.ShouldEqual, 1920)
+}
 
 func TestWebcamValidation(t *testing.T) {
 	webCfg := &videosource.WebcamConfig{

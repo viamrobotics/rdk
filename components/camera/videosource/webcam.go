@@ -54,9 +54,15 @@ type WebcamConfig struct {
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Format               string                             `json:"format,omitempty"`
 	Path                 string                             `json:"video_path,omitempty"`
-	Width                int                                `json:"width_px,omitempty"`
-	Height               int                                `json:"height_px,omitempty"`
-	FrameRate            float32                            `json:"frame_rate,omitempty"`
+	// DeviceID is the OS-provided stable identifier for the device (the by-id/by-path
+	// name on Linux, the single label on macOS/Windows). When set it takes precedence
+	// over Path for device selection: unlike video_path it is matched verbatim against
+	// the driver label, so it stays valid across reboots and device-node reshuffles.
+	// It is surfaced by the find-webcams discovery service.
+	DeviceID  string  `json:"device_id,omitempty"`
+	Width     int     `json:"width_px,omitempty"`
+	Height    int     `json:"height_px,omitempty"`
+	FrameRate float32 `json:"frame_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
