@@ -182,6 +182,41 @@ func TestClientStreamed(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "boom")
 	})
 
+	t.Run("out-of-bounds waypoint is rejected", func(t *testing.T) {
+		model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5e.json"), testArmName)
+		test.That(t, err, test.ShouldBeNil)
+
+		injectArm := &inject.Arm{}
+		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			return model, nil
+		}
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
+			return make([]referenceframe.Input, len(model.DoF())), nil
+		}
+		injectArm.MoveThroughJointPositionsStreamedFunc = func(
+			ctx context.Context,
+			batches <-chan []arm.TrajectoryPoint,
+			responses chan<- arm.Response,
+			extra map[string]interface{},
+		) error {
+			for range batches {
+			}
+			return nil
+		}
+		conn := setupStreamedServer(t, logger, injectArm)
+		client, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(testArmName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Current position is in bounds (all zero); the waypoint drives joint 0 far past its limit, so
+		// the client must reject it before executing, and must not hang tearing the stream down.
+		oob := make([]referenceframe.Input, len(model.DoF()))
+		oob[0] = 1000
+		wireBatches := [][]arm.TrajectoryPoint{{{Time: 0, Positions: oob}}}
+		_, err = driveStreamed(context.Background(), client, wireBatches, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "within range")
+	})
+
 	t.Run("client cancellation is honored", func(t *testing.T) {
 		started := make(chan struct{})
 		injectArm := &inject.Arm{}

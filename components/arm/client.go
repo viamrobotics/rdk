@@ -186,6 +186,19 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
 
+	// Mirror the unary MoveThroughJointPositions path: when kinematics is available, check each
+	// waypoint against the joint limits before it goes on the wire, advancing prevPosition so the
+	// check tracks the trajectory point to point.
+	var limits []referenceframe.Limit
+	var prevPosition []referenceframe.Input
+	if model != nil {
+		limits = model.DoF()
+		prevPosition, err = c.JointPositions(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("cannot get JointPositions: %w", err)
+		}
+	}
+
 	// We open the stream under a context we can cancel, so one cancel() both tears the gRPC stream
 	// down and tells the send goroutine to quit. We lean on that when the recv loop finishes:
 	// without it, the send goroutine could sit forever waiting on a caller who never closes batches.
@@ -214,6 +227,14 @@ func (c *client) MoveThroughJointPositionsStreamed(
 	var sendErr error
 	var sendOnce sync.Once
 	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
+	// abort records a deliberate client-side bail-out (a rejected waypoint, or a point we cannot
+	// encode) and tears the RPC down. Unlike setSendErr it cancels: the stream is otherwise healthy,
+	// so nothing else would wake the recv loop and the call would hang. abortErr is written only by
+	// the send goroutine and read after sendDone closes, so it needs no synchronization of its own,
+	// and it takes precedence when reporting so the caller sees the reason, not the cancellation it
+	// triggers.
+	var abortErr error
+	abort := func(e error) { abortErr = e; cancel() }
 	sendDone := make(chan struct{})
 	goutils.PanicCapturingGo(func() {
 		defer close(sendDone)
@@ -231,9 +252,20 @@ func (c *client) MoveThroughJointPositionsStreamed(
 				}
 				pbPoints := make([]*pb.TrajectoryPoint, 0, len(batch))
 				for _, p := range batch {
+					if len(limits) > 0 {
+						if err := checkDesiredJointPositions(limits, prevPosition, p.Positions); err != nil {
+							// Refuse the waypoint the way the unary path does. Unlike unary, batches are
+							// already in flight, so we must tear the stream down rather than just return.
+							abort(err)
+							return
+						}
+						prevPosition = p.Positions
+					}
 					pp, err := trajectoryPointToProto(model, p)
 					if err != nil {
-						setSendErr(err)
+						// Same category as a rejected waypoint: the stream is healthy and we are bailing,
+						// so tear it down instead of leaving the recv loop parked.
+						abort(err)
 						return
 					}
 					pbPoints = append(pbPoints, pp)
@@ -277,6 +309,11 @@ recvLoop:
 	cancel()
 	<-sendDone
 
+	// A deliberate client-side refusal wins: it is the actionable error, and the recvErr we would
+	// otherwise report is just the cancellation that refusal triggered.
+	if abortErr != nil {
+		return abortErr
+	}
 	if recvErr != nil {
 		return recvErr
 	}
