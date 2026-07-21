@@ -21,9 +21,7 @@ import (
 type AppConn struct {
 	*ReconfigurableClientConn
 
-	dialer *utils.StoppableWorkers
-
-	stateWatcher *utils.StoppableWorkers
+	activeBackgroundWorkers *utils.StoppableWorkers
 }
 
 // NewAppConn creates an `AppConn` instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error
@@ -34,7 +32,7 @@ type AppConn struct {
 func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.DialOption, logger logging.Logger) (rpc.ClientConn, error) {
 	appConn := &AppConn{
 		ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")},
-		stateWatcher:             utils.NewStoppableWorkers(ctx),
+		activeBackgroundWorkers:  utils.NewStoppableWorkers(ctx),
 	}
 
 	grpcURL, err := url.Parse(appAddress)
@@ -83,14 +81,13 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 		err,
 	)
 
-	appConn.dialer = utils.NewStoppableWorkers(ctx)
-	appConn.dialer.Add(func(ctx context.Context) {
+	appConn.activeBackgroundWorkers.Add(func(ctx context.Context) {
 		// Upon failing to dial app.viam.com, run DNS and packet loss checks asynchronously
 		// to reveal more network information.
 		networkcheck.TestDNS(ctx, logger, false /* non-verbose to only log failures */)
 		networkcheck.TestPacketLoss(ctx, logger, false /* non-verbose to only log failures */)
 	})
-	appConn.dialer.Add(func(ctx context.Context) {
+	appConn.activeBackgroundWorkers.Add(func(ctx context.Context) {
 		for {
 			if ctx.Err() != nil {
 				return
@@ -134,7 +131,7 @@ func (ac *AppConn) watchState(host string, logger logging.Logger) {
 		return
 	}
 
-	ac.stateWatcher.Add(func(ctx context.Context) {
+	ac.activeBackgroundWorkers.Add(func(ctx context.Context) {
 		var offline bool
 		state := checker.GetState()
 		for {
@@ -190,15 +187,9 @@ func (ac *AppConn) WaitForStateChange(ctx context.Context, sourceState connectiv
 	return checker.WaitForStateChange(ctx, sourceState)
 }
 
-// Close attempts to close the underlying connection and stops background dialing attempts.
+// Close attempts to close the underlying connection and stops background workers (dialing attempts and state watching).
 func (ac *AppConn) Close() error {
-	if ac.dialer != nil {
-		ac.dialer.Stop()
-	}
-
-	if ac.stateWatcher != nil {
-		ac.stateWatcher.Stop()
-	}
+	ac.activeBackgroundWorkers.Stop()
 
 	return ac.ReconfigurableClientConn.Close()
 }
