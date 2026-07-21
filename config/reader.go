@@ -119,13 +119,12 @@ func clearCache(id string) {
 }
 
 func readCertificateDataFromCloudGRPC(ctx context.Context,
-	cloudConfigFromDisk *Cloud,
+	machineID string,
 	conn rpc.ClientConn,
 ) (tlsConfig, error) {
 	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
+	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: machineID})
 	if err != nil {
-		// Check cache?
 		return tlsConfig{}, err
 	}
 	if res.TlsCertificate == "" {
@@ -134,7 +133,6 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	if res.TlsPrivateKey == "" {
 		return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
 	}
-
 	return tlsConfig{
 		certificate: res.TlsCertificate,
 		privateKey:  res.TlsPrivateKey,
@@ -143,15 +141,18 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 
 // shouldCheckForCert checks the Cloud config to see if the TLS cert should be refetched.
 func shouldCheckForCert(prevCloud, cloud *Cloud) bool {
-	// only checking the same fields as the ones that are explicitly overwritten in mergeCloudConfig
 	diffFQDN := prevCloud.FQDN != cloud.FQDN
 	diffLocalFQDN := prevCloud.LocalFQDN != cloud.LocalFQDN
 	diffSignalingAddr := prevCloud.SignalingAddress != cloud.SignalingAddress
 	diffSignalInsecure := prevCloud.SignalingInsecure != cloud.SignalingInsecure
 	diffManagedBy := prevCloud.ManagedBy != cloud.ManagedBy
 	diffLocSecret := prevCloud.LocationSecret != cloud.LocationSecret || !isLocationSecretsEqual(prevCloud, cloud)
+	// certs are scoped to a location, so a location (or owning org) change means a new cert.
+	diffLocID := prevCloud.LocationID != cloud.LocationID
+	diffOrgID := prevCloud.PrimaryOrgID != cloud.PrimaryOrgID
 
-	return diffFQDN || diffLocalFQDN || diffSignalingAddr || diffSignalInsecure || diffManagedBy || diffLocSecret
+	return diffFQDN || diffLocalFQDN || diffSignalingAddr ||
+		diffSignalInsecure || diffManagedBy || diffLocSecret || diffLocID || diffOrgID
 }
 
 func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
@@ -172,122 +173,197 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-// readFromCloud fetches a robot config from the cloud based
-// on the given config.
-func readFromCloud(
+// fetchAndProcessCloudConfig does the work common to every cloud read: it pulls the config for
+// machineID, processes it, and classifies a processing failure. Both the processed config and the
+// unprocessed one it came from are returned, since the latter is what gets written to the cache.
+func fetchAndProcessCloudConfig(
 	ctx context.Context,
-	originalCfg,
-	prevCfg *Config,
+	machineID string,
 	shouldReadFromCache bool,
-	checkForNewCert bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
-) (*Config, error) {
-	logger.Debug("reading configuration from the cloud")
-	cloudCfg := originalCfg.Cloud
-	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger, conn)
+) (unprocessedConfig, processedCfg *Config, cached bool, err error) {
+	unprocessedConfig, cached, err = getFromCloudOrCache(ctx, machineID, shouldReadFromCache, logger, conn)
 	if err != nil {
-		return nil, err
+		return nil, nil, cached, err
 	}
 
-	// process the config
-	cfg, err := processConfigFromCloud(unprocessedConfig, logger)
+	processedCfg, err = processConfigFromCloud(unprocessedConfig, logger)
 	if err != nil {
 		if cached {
 			// We could not process the cached config; clear it so we don't keep reusing a bad cache.
 			logger.Warn("Detected failure to process the cached config, clearing cache.")
-			clearCache(cloudCfg.ID)
-			return nil, err
+			clearCache(machineID)
+			return nil, nil, cached, err
 		}
 		// A freshly fetched cloud config we cannot process locally is malformed. The robot cannot
 		// apply it, and it will fail identically on every refresh, so surface it loudly.
-		return nil, malformedConfigError{err}
+		return nil, nil, cached, malformedConfigError{err}
 	}
-	if cfg.Cloud == nil {
-		return nil, errors.New("expected config to have cloud section")
-	}
-
-	tls := tlsConfig{
-		// both fields are empty if not cached, since its a separate request, which we
-		// check next
-		certificate: cfg.Cloud.TLSCertificate,
-		privateKey:  cfg.Cloud.TLSPrivateKey,
+	if processedCfg.Cloud == nil {
+		return nil, nil, cached, errors.New("expected config to have cloud section")
 	}
 
-	if !cached {
-		// Try to get TLS information from the cached config (if it exists) even if we
-		// got a new config from the cloud.
-		if err := tls.readFromCache(cloudCfg.ID, logger); err != nil {
-			return nil, err
-		}
+	return unprocessedConfig, processedCfg, cached, nil
+}
+
+// applyCloudConfig finishes a cloud read. It stamps the resolved TLS cert onto both the processed
+// config and the unprocessed one destined for the cache, restores the fields that govern how the
+// robot talks to the cloud, and stages the cache write.
+func applyCloudConfig(
+	processedCfg, unprocessedConfig *Config,
+	tls tlsConfig,
+	localCloudCfg *Cloud,
+	logger logging.Logger,
+) {
+	processedCfg.Cloud.TLSCertificate = tls.certificate
+	processedCfg.Cloud.TLSPrivateKey = tls.privateKey
+
+	// Set the cert data on unprocessedConfig too, so that it is saved to disk as part of the
+	// cached config.
+	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
+	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
+
+	// The cloud config is the base, so restore the fields that only ever come from the config on
+	// disk -- the cloud does not send them back and would otherwise zero them.
+	processedCfg.Cloud.restoreLocalOnlyFields(localCloudCfg)
+
+	if err := processedCfg.SetToCache(unprocessedConfig); err != nil {
+		logger.Errorw("failed to set toCache on config", "error", err)
+	}
+}
+
+// firstReadFromCloud fetches a robot config from the cloud on server startup, given the cloud
+// section of the config read from disk.
+//
+// Unlike readFromCloud, this may fall back to the config cached on disk -- on startup there is
+// nothing held in memory to fall back to, and a machine that boots offline still needs to come up.
+func firstReadFromCloud(
+	ctx context.Context,
+	originalCloudCfg *Cloud,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+) (*Config, error) {
+	logger.Debug("reading first configuration from the cloud")
+	machineID := originalCloudCfg.ID
+
+	unprocessedConfig, processedCfg, cached, err := fetchAndProcessCloudConfig(ctx, machineID, true, logger, conn)
+	if err != nil {
+		return nil, err
 	}
 
-	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) {
-		checkForNewCert = true
-	}
+	var tls tlsConfig
+	if processedCfg.Cloud.SignalingInsecure {
+		// No cert is expected, so carry whatever the config already has through untouched.
+		tls = tlsFromCloud(processedCfg.Cloud)
+	} else {
+		// On the first read the cert may come from the cloud or from the cache. Cloud is preferred,
+		// but falling back to the cache is not an error.
+		logger.Info("reading tlsCertificate from the cloud")
 
-	// It is expected to have empty certificate and private key if we are using insecure signaling
-	// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
-	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
-		logger.Debug("reading tlsCertificate from the cloud")
-
-		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID, logger)
-		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, conn)
+		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, true, machineID, logger)
+		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, machineID, conn)
+		cancel()
 		if err != nil {
-			cancel()
-			if !errors.As(err, &context.DeadlineExceeded) {
+			if cached {
+				// The config itself came from the cache, so its cert data is the cached cert data.
+				tls = tlsFromCloud(processedCfg.Cloud)
+			} else if err := tls.readFromCache(machineID, logger); err != nil {
+				// The config came from the cloud, so go read the cert out of the cache.
 				return nil, err
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
 			tls = certData
-			cancel()
 		}
 	}
 
-	fqdn := cfg.Cloud.FQDN
-	localFQDN := cfg.Cloud.LocalFQDN
-	signalingAddress := cfg.Cloud.SignalingAddress
-	signalingInsecure := cfg.Cloud.SignalingInsecure
-	managedBy := cfg.Cloud.ManagedBy
-	locationSecret := cfg.Cloud.LocationSecret
-	locationSecrets := cfg.Cloud.LocationSecrets
-	primaryOrgID := cfg.Cloud.PrimaryOrgID
-	locationID := cfg.Cloud.LocationID
-	machineID := cfg.Cloud.MachineID
-
-	// This resets the new config's Cloud section to the original we loaded from file,
-	// but allows several fields to be updated, and merges the TLS certs which come
-	// from a different endpoint.
-	mergeCloudConfig := func(to *Config) {
-		*to.Cloud = *cloudCfg
-		to.Cloud.FQDN = fqdn
-		to.Cloud.LocalFQDN = localFQDN
-		to.Cloud.SignalingAddress = signalingAddress
-		to.Cloud.SignalingInsecure = signalingInsecure
-		to.Cloud.ManagedBy = managedBy
-		to.Cloud.LocationSecret = locationSecret
-		to.Cloud.LocationSecrets = locationSecrets
-		to.Cloud.TLSCertificate = tls.certificate
-		to.Cloud.TLSPrivateKey = tls.privateKey
-		to.Cloud.PrimaryOrgID = primaryOrgID
-		to.Cloud.LocationID = locationID
-		to.Cloud.MachineID = machineID
-	}
-
-	mergeCloudConfig(cfg)
-	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
-	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
-
-	if err := cfg.SetToCache(unprocessedConfig); err != nil {
-		logger.Errorw("failed to set toCache on config", "error", err)
-	}
-	return cfg, nil
+	applyCloudConfig(processedCfg, unprocessedConfig, tls, originalCloudCfg, logger)
+	return processedCfg, nil
 }
 
+// readFromCloud fetches a robot config from the cloud for the given machine ID. This is the
+// steady-state path, driven by the config watcher.
+//
+// Unlike firstReadFromCloud, this never falls back to the on-disk cache. That cache is only
+// written once reconfiguration completes, so during a slow reconfigure it still holds the previous
+// cert; reading it back would let an old cert overwrite a newer one on every poll and leave the
+// machine reconfiguring forever. prevCloudCfg -- the cloud section of the previous successful read,
+// held in memory -- is the only fallback. See RSDK-11851.
+func readFromCloud(
+	ctx context.Context,
+	machineID string,
+	prevCloudCfg *Cloud,
+	checkForNewCert bool,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+) (*Config, error) {
+	if prevCloudCfg == nil {
+		return nil, errors.New("expected prevCloudCfg to not be nil")
+	}
+	logger.Debug("reading configuration from the cloud")
+
+	unprocessedConfig, processedCfg, _, err := fetchAndProcessCloudConfig(ctx, machineID, false, logger, conn)
+	if err != nil {
+		return nil, err
+	}
+
+	var tls tlsConfig
+	if processedCfg.Cloud.SignalingInsecure {
+		// No cert is expected, so carry whatever the config already has through untouched.
+		tls = tlsFromCloud(processedCfg.Cloud)
+	} else {
+		// The cert from the previous read, held in memory, is the only fallback. Never the cache.
+		tls = tlsFromCloud(prevCloudCfg)
+		hasPrevCert := tls.certificate != "" && tls.privateKey != ""
+
+		// Beyond the periodic refresh the caller asks for, refetch if the cloud section changed in a
+		// way that invalidates the cert (FQDN, location, ...), or if we have no cert to carry forward
+		// at all -- prevCloudCfg is not guaranteed to have one, e.g. when the watcher was seeded from
+		// a config that predates the first cert fetch.
+		checkForNewCert = checkForNewCert ||
+			shouldCheckForCert(prevCloudCfg, processedCfg.Cloud) ||
+			!hasPrevCert
+
+		if checkForNewCert {
+			logger.Info("reading tlsCertificate from the cloud")
+			ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, false, machineID, logger)
+			certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, machineID, conn)
+			cancel()
+			if err != nil {
+				// A transient failure on the cert endpoint should not cost us an otherwise good
+				// config, so carry the previous cert forward. If there is no previous cert there
+				// is nothing to fall back to and the server cannot come up securely.
+				if !hasPrevCert {
+					return nil, err
+				}
+				logger.Warnw("failed to refresh certificate data; using last fetched certificate for now", "error", err)
+			} else {
+				tls = certData
+			}
+		}
+	}
+
+	applyCloudConfig(processedCfg, unprocessedConfig, tls, prevCloudCfg, logger)
+	return processedCfg, nil
+}
+
+// tlsConfig is the TLS cert data required to secure the server that the viam-server spins up. It
+// is fetched from a different endpoint than the config itself, so every cloud read has to decide
+// where to source it from.
+//
+// Note (cheukt): The viam-server currently uses whether the signaling server is secure as the
+// marker for whether this server should try to grab a TLS cert, but those things are not and should
+// not be intrinsically linked. We use whether the signaling server is secure because local dev app
+// instances are insecure and do not have TLS certs available for robots by default.
 type tlsConfig struct {
 	certificate string
 	privateKey  string
+}
+
+// tlsFromCloud pulls the cert data already present on a cloud config.
+func tlsFromCloud(cloud *Cloud) tlsConfig {
+	return tlsConfig{certificate: cloud.TLSCertificate, privateKey: cloud.TLSPrivateKey}
 }
 
 func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
@@ -394,7 +470,7 @@ func fromReader(
 	}
 
 	if conn != nil && cfgFromDisk.Cloud != nil {
-		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger, conn)
+		cfg, err := firstReadFromCloud(ctx, cfgFromDisk.Cloud, logger, conn)
 
 		// Special case: DefaultBindAddress is set from Cloud, but user has specified a non-default BindAddress in local config.
 		// Keep the BindAddress from local config, and use Cloud options for everything else.
@@ -690,24 +766,23 @@ func isCloudConfigMalformed(err error) bool {
 }
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
-// local cache if the error indicates it should.
+// local cache if shouldReadFromCache is set.
 func getFromCloudOrCache(
 	ctx context.Context,
-	cloudCfg *Cloud,
+	machineID string,
 	shouldReadFromCache bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
 ) (*Config, bool, error) {
 	var cached bool
-
-	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID, logger)
+	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, machineID, logger)
 	defer cancel()
 
-	cfg, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
+	cfg, err := getFromCloudGRPC(ctxWithTimeout, machineID, logger, conn)
 	if err != nil {
 		malformed := IsMalformedConfigError(err)
 		if shouldReadFromCache {
-			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
+			cachedConfig, cacheErr := readFromCache(machineID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
 					// No cache to fall back to, return original error.
@@ -721,7 +796,7 @@ func getFromCloudOrCache(
 			}
 
 			lastUpdated := "unknown"
-			if fInfo, err := os.Stat(getCloudCacheFilePath(cloudCfg.ID)); err == nil {
+			if fInfo, err := os.Stat(getCloudCacheFilePath(machineID)); err == nil {
 				// Use logging.DefaultTimeFormatStr since this time will be logged.
 				lastUpdated = fInfo.ModTime().Format(logging.DefaultTimeFormatStr)
 			}
@@ -749,7 +824,7 @@ func getFromCloudOrCache(
 // decode is returned as a malformedConfigError.
 func getFromCloudGRPC(
 	ctx context.Context,
-	cloudCfg *Cloud,
+	machineID string,
 	logger logging.Logger,
 	conn rpc.ClientConn,
 ) (*Config, error) {
@@ -759,7 +834,7 @@ func getFromCloudGRPC(
 	}
 
 	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
+	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: machineID, AgentInfo: agentInfo})
 	if err != nil {
 		// A status code indicating the cloud could not produce a usable config is treated as malformed.
 		// Anything else (connectivity, timeout, auth, rate-limiting, etc) is transient.

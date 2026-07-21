@@ -684,6 +684,26 @@ func (config *Cloud) ValidateTLS(path string) error {
 	return nil
 }
 
+// restoreLocalOnlyFields overwrites the fields of config that are sourced from the config on disk
+// rather than from the cloud, using the values in local. A config read from the cloud is the base,
+// so anything the cloud does not send back would otherwise be silently zeroed here.
+//
+// These are exactly the fields that CloudConfigFromProto does not populate, minus the TLS cert data
+// which comes from its own endpoint and is stamped separately. They govern how the robot reaches
+// and authenticates to the cloud, so the cloud must not be able to change them. Keep this in sync
+// with the Cloud struct -- TestCloudFieldsAreAccountedFor fails if a new field is added and not
+// classified.
+//
+// local must already have been through Cloud.Validate, which fills in the RefreshInterval default.
+// Restoring a zero RefreshInterval would make the cloud watcher poll in a tight loop.
+func (config *Cloud) restoreLocalOnlyFields(local *Cloud) {
+	config.ID = local.ID
+	config.Secret = local.Secret
+	config.APIKey = local.APIKey
+	config.AppAddress = local.AppAddress
+	config.RefreshInterval = local.RefreshInterval
+}
+
 // LocationSecret describes a location secret that can be used to authenticate to the rdk.
 type LocationSecret struct {
 	ID string `json:"id"`

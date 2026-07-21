@@ -57,8 +57,12 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 	cancelCtx, cancel := context.WithCancel(ctx)
 
 	nextCheckForNewCert := time.Now().Add(checkForNewCertInterval)
-
-	var prevCfg *Config
+	machineID := config.Cloud.ID
+	// prevCloudConfig carries the cloud section (notably the TLS cert) from the previous
+	// successful read forward in memory. It deliberately does not round-trip through the
+	// on-disk cache, which is only written after reconfiguration completes and can therefore
+	// lag many polls behind. See RSDK-11851.
+	prevCloudConfig := config.Cloud
 	utils.ManagedGo(func() {
 		firstRead := true
 		for {
@@ -75,7 +79,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger, conn)
+			newConfig, err := readFromCloud(cancelCtx, machineID, prevCloudConfig, checkForNewCert, logger, conn)
 			if err != nil {
 				// A malformed config is a legitimate error. The robot keeps running its current config,
 				// but we surface it loudly. A transient failure to reach the cloud stays at debug since
@@ -87,8 +91,14 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 				logFunc("could not apply new cloud config; keeping the current config", "error", err)
 				continue
 			}
+			// Carry the new cloud section forward as the next iteration's fallback. We copy rather
+			// than alias newConfig.Cloud because the robot may mutate the config we hand it. If the
+			// copy fails we keep the older cloud section, which means an older TLS cert could be
+			// carried forward, so say so rather than swallowing it.
 			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
-				prevCfg = cp
+				prevCloudConfig = cp.Cloud
+			} else {
+				logger.Errorw("failed to copy new cloud config; keeping the previous one as the fallback", "error", err)
 			}
 			if checkForNewCert {
 				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
