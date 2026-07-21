@@ -72,6 +72,7 @@ type CaptureFile struct {
 	writer   *bufio.Writer
 	size     int64
 	metadata *v1.DataCaptureMetadata
+	closed   bool
 
 	initialReadOffset int64
 	readOffset        int64
@@ -204,10 +205,15 @@ func (f *CaptureFile) GetPath() string {
 	return f.path
 }
 
-// Close closes the file.
+// Close closes the file. It is idempotent: calls after the underlying file has
+// been closed return nil, so callers retrying after a failure (e.g. a failed
+// rename) don't hit "file already closed" errors forever (RSDK-14184).
 func (f *CaptureFile) Close() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	if f.closed {
+		return nil
+	}
 	if err := f.writer.Flush(); err != nil {
 		return err
 	}
@@ -218,6 +224,7 @@ func (f *CaptureFile) Close() error {
 	if err := f.file.Close(); err != nil {
 		return err
 	}
+	f.closed = true
 	return os.Rename(f.file.Name(), newName)
 }
 

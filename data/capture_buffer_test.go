@@ -782,12 +782,13 @@ func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	return dcFiles, progFiles
 }
 
-// TestFlushFailsAfterProgRenamedExternally reproduces the APP-16267 regression:
+// TestFlushRecoversAfterProgRenamedExternally reproduces the APP-16267 regression:
 // renameProgFilesToCapture() is called during Reconfigure while collectors are still
 // running. On Linux, renaming a file doesn't invalidate open fds, so writes continue
 // normally — but when the collector eventually calls Flush it tries to rename the .prog
-// path which no longer exists, producing ENOENT.
-func TestFlushFailsAfterProgRenamedExternally(t *testing.T) {
+// path which no longer exists, producing ENOENT. Per RSDK-14184, that failure must be
+// transient: subsequent writes and flushes should succeed with a fresh file.
+func TestFlushRecoversAfterProgRenamedExternally(t *testing.T) {
 	dir := t.TempDir()
 	md := &v1.DataCaptureMetadata{Type: CaptureTypeTabular.ToProto()}
 	buf := NewCaptureBuffer(dir, md, 1<<20)
@@ -810,6 +811,15 @@ func TestFlushFailsAfterProgRenamedExternally(t *testing.T) {
 	err = buf.Flush()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
+
+	// The failed close must not leave the buffer stuck: the next write should go
+	// to a fresh file, and the next flush should complete it successfully.
+	test.That(t, buf.WriteTabular(structSensorData), test.ShouldBeNil)
+	test.That(t, buf.Flush(), test.ShouldBeNil)
+
+	dcFiles, progFiles := getCaptureFiles(dir)
+	test.That(t, len(dcFiles), test.ShouldEqual, 2)
+	test.That(t, len(progFiles), test.ShouldEqual, 0)
 }
 
 func TestIsBinary(t *testing.T) {

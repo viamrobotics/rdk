@@ -316,3 +316,34 @@ func TestReadCorruptedFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(sd), test.ShouldEqual, numReadings)
 }
+
+// TestCloseIsIdempotent ensures repeated Close calls return nil rather than
+// "file already closed" errors, so callers retrying after a transient failure
+// can recover (RSDK-14184).
+func TestCloseIsIdempotent(t *testing.T) {
+	t.Run("close after successful close returns nil", func(t *testing.T) {
+		dir := t.TempDir()
+		f, err := NewCaptureFile(dir, &v1.DataCaptureMetadata{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f.Close(), test.ShouldBeNil)
+		test.That(t, f.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("close after failed rename returns nil", func(t *testing.T) {
+		dir := t.TempDir()
+		f, err := NewCaptureFile(dir, &v1.DataCaptureMetadata{})
+		test.That(t, err, test.ShouldBeNil)
+
+		// Rename the .prog file externally so Close's os.Rename fails with ENOENT.
+		src := f.GetPath()
+		dst := src[:len(src)-len(InProgressCaptureFileExt)] + CompletedCaptureFileExt
+		test.That(t, os.Rename(src, dst), test.ShouldBeNil)
+
+		err = f.Close()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
+
+		// The underlying file is already closed; repeated calls are no-ops.
+		test.That(t, f.Close(), test.ShouldBeNil)
+	})
+}

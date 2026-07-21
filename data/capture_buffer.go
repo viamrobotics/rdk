@@ -128,11 +128,12 @@ func (b *CaptureBuffer) Flush() error {
 	if b.nextFile == nil {
 		return nil
 	}
-	if err := b.nextFile.Close(); err != nil {
-		return err
-	}
+	// Clear nextFile even when Close fails so a transient close failure doesn't
+	// leave the buffer permanently stuck on a broken file (RSDK-14184). Any data
+	// left behind in a .prog file is picked up by sync on the next restart.
+	err := b.nextFile.Close()
 	b.nextFile = nil
-	return nil
+	return err
 }
 
 // Path returns the path to the directory containing the backing data capture files.
