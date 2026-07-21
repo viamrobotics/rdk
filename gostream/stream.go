@@ -23,6 +23,9 @@ import (
 
 const (
 	defaultTargetFrameRate = 20
+	// Anything above this is almost certainly garbage input.
+	// If a use case emerges, we can raise this value.
+	maxTargetFrameRate = 500
 )
 
 // A Stream is sink that accepts any image frames for the purpose
@@ -65,7 +68,16 @@ func NewStream(config StreamConfig, logger logging.Logger) (Stream, error) {
 	if config.VideoEncoderFactory == nil {
 		return nil, errors.New("video encoder factory must be set")
 	}
-	if config.TargetFrameRate == 0 {
+	// NewTicker panics on non-positive durations.
+	// Arbitrarily large values result in integer division to 0 - which cause panics as well
+	if config.TargetFrameRate <= 0 || config.TargetFrameRate > maxTargetFrameRate {
+		if config.TargetFrameRate != 0 {
+			logger.Warnw("TargetFrameRate out of valid range, using default",
+				"received", config.TargetFrameRate,
+				"min", 1,
+				"max", maxTargetFrameRate,
+				"default", defaultTargetFrameRate)
+		}
 		config.TargetFrameRate = defaultTargetFrameRate
 	}
 

@@ -9,6 +9,9 @@ import (
 
 	"go.viam.com/test"
 	"golang.org/x/time/rate"
+
+	"go.viam.com/rdk/gostream/codec"
+	"go.viam.com/rdk/logging"
 )
 
 func init() {
@@ -158,4 +161,45 @@ func BenchmarkStream_30FPS_3Streams(b *testing.B) {
 
 	cancel()
 	b.ReportMetric(SecondNs/avgNs, "fps")
+}
+
+type fakeEncoder struct{}
+
+func (f *fakeEncoder) Encode(_ context.Context, _ image.Image) ([]byte, error) { return nil, nil }
+func (f *fakeEncoder) Close() error                                            { return nil }
+
+type fakeEncoderFactory struct{}
+
+func (f *fakeEncoderFactory) New(_, _, _ int, _ logging.Logger) (codec.VideoEncoder, error) {
+	return &fakeEncoder{}, nil
+}
+func (f *fakeEncoderFactory) MIMEType() string { return "test/fake" }
+
+func TestNewStream_TargetFrameRateGuard(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	factory := &fakeEncoderFactory{}
+
+	tests := []struct {
+		name       string
+		input      int
+		wantResult int
+	}{
+		{"unset (zero)", 0, defaultTargetFrameRate},
+		{"negative", -5, defaultTargetFrameRate},
+		{"in range", 60, 60},
+		{"at max", maxTargetFrameRate, maxTargetFrameRate},
+		{"above max", maxTargetFrameRate + 1, defaultTargetFrameRate},
+		{"garbage huge", 144524206401388544, defaultTargetFrameRate},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, err := NewStream(StreamConfig{
+				VideoEncoderFactory: factory,
+				TargetFrameRate:     tc.input,
+			}, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, s.(*basicStream).config.TargetFrameRate, test.ShouldEqual, tc.wantResult)
+		})
+	}
 }
