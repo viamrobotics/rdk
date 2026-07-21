@@ -1,7 +1,7 @@
 // Package discovery implements the discovery service, which lets users surface resource configs for their machines to use.
 // For more information, see the [Discovery service docs].
 //
-// [Discovery service docs]: https://docs.viam.com/dev/reference/apis/services/discovery/
+// [Discovery service docs]: https://docs.viam.com/reference/apis/services/discovery/
 package discovery
 
 import (
@@ -81,8 +81,8 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 //
 // For more information, see the [discover resources method docs].
 //
-// [Discovery service docs]: https://docs.viam.com/dev/reference/apis/services/discovery/
-// [discover resources method docs]: https://docs.viam.com/dev/reference/apis/services/discovery/#discoverresources
+// [Discovery service docs]: https://docs.viam.com/reference/apis/services/discovery/
+// [discover resources method docs]: https://docs.viam.com/reference/apis/services/discovery/#discoverresources
 type Service interface {
 	resource.Resource
 	DiscoverResources(ctx context.Context, extra map[string]any) ([]resource.Config, error)

@@ -1,7 +1,7 @@
 // Package servo supports “RC” or “hobby” servo motors.
 // For more information, see the [servo component docs].
 //
-// [servo component docs]: https://docs.viam.com/components/servo/
+// [servo component docs]: https://docs.viam.com/reference/components/servo/
 package servo
 
 import (
@@ -67,9 +67,9 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // For more information, see the [Position method docs].
 //
-// [servo component docs]: https://docs.viam.com/dev/reference/apis/components/servo/
-// [Move method docs]: https://docs.viam.com/dev/reference/apis/components/servo/#move
-// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/servo/#getposition
+// [servo component docs]: https://docs.viam.com/reference/apis/components/servo/
+// [Move method docs]: https://docs.viam.com/reference/apis/components/servo/#move
+// [Position method docs]: https://docs.viam.com/reference/apis/components/servo/#getposition
 type Servo interface {
 	resource.Resource
 	resource.Actuator

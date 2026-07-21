@@ -3973,10 +3973,41 @@ type robotsPartTunnelArgs struct {
 	Part            string
 	LocalPort       int
 	DestinationPort int
+	KeyID           string
+	Key             string
+	Address         string
 }
 
 // RobotsPartTunnelAction is the corresponding Action for 'machines part tunnel'.
 func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) error {
+	// Tunneling directly to a machine needs all three of --address, --key-id and --key. With all
+	// three, try the direct dial and fall back to the cloud path if it fails; with only some, warn
+	// and fall back.
+	directFlags := 0
+	for _, v := range []string{args.Address, args.KeyID, args.Key} {
+		if v != "" {
+			directFlags++
+		}
+	}
+	switch directFlags {
+	case 3:
+		robotClient, err := connectToMachineDirectly(ctx, cmd, args)
+		if err == nil {
+			return tunnelTraffic(ctx, cmd, robotClient, args.LocalPort, args.DestinationPort)
+		}
+		warningf(cmd.Root().ErrWriter,
+			"could not tunnel directly to %q (%s); falling back to resolving the machine through app.viam.com",
+			args.Address, err,
+		)
+	case 0:
+	default:
+		warningf(cmd.Root().ErrWriter,
+			"--%s, --%s and --%s must all be provided to tunnel directly to a machine; "+
+				"falling back to resolving the machine through app.viam.com",
+			generalFlagAddress, loginFlagKeyID, loginFlagKey,
+		)
+	}
+
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
@@ -3985,26 +4016,41 @@ func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPa
 	return client.robotPartTunnel(ctx, cmd, args)
 }
 
-func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.RobotClient, local, dest int) error {
-	// don't block tunnel attempt if ListTunnels fails in any way - it may be unimplemented.
-	// TODO: early return if ListTunnels fails.
-	if tunnels, err := robotClient.ListTunnels(ctx); err == nil {
-		allowed := false
-		for _, t := range tunnels {
-			if t.Port == dest {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			return errors.Errorf(
-				"tunneling to destination port %v not allowed. "+
-					"Please ensure the traffic_tunnel_endpoints configuration is set correctly on the machine.",
-				dest,
-			)
-		}
+// connectToMachineDirectly dials a machine at an explicit address without contacting app.viam.com,
+// authenticating with the machine api-key in args.
+func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) (*client.RobotClient, error) {
+	globalArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return nil, err
+	}
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	if globalArgs.Debug {
+		logger = logging.NewDebugLogger("cli")
 	}
 
+	// Read the cached config for its base URL (used only to derive transport options). A missing
+	// cache is fine — we fall back to the default base URL and never dial it.
+	conf, err := ConfigFromCache(cmd)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			debugf(cmd.Root().Writer, globalArgs.Debug, "Cached config parse error: %v", err)
+		}
+		conf = &Config{}
+	}
+
+	rpcOpts, err := localAPIKeyDialOptions(conf.BaseURL, args.KeyID, args.Key, globalArgs.Debug)
+	if err != nil {
+		return nil, err
+	}
+
+	robotClient, err := client.New(ctx, args.Address, logger, client.WithDialOptions(rpcOpts...))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not connect to machine part")
+	}
+	return robotClient, nil
+}
+
+func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.RobotClient, local, dest int) error {
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
 		return fmt.Errorf("failed to create listener %w", err)
@@ -4072,7 +4118,124 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 	if err != nil {
 		return err
 	}
+
+	if err := c.ensureTunnelPortAllowed(ctx, cmd, robotClient, args); err != nil {
+		return err
+	}
+
 	return tunnelTraffic(ctx, cmd, robotClient, args.LocalPort, args.DestinationPort)
+}
+
+// tunnelLister lists the tunnel endpoints a machine part is currently configured to
+// allow. Satisfied by *client.RobotClient; declared as an interface so the auto-add
+// flow can be tested without a live machine.
+type tunnelLister interface {
+	ListTunnels(ctx context.Context) ([]rconfig.TrafficTunnelEndpoint, error)
+}
+
+// tunnelPortAllowed reports whether the given destination port is present in the
+// machine part's configured tunnel endpoints. The second return value is false if
+// the tunnel list could not be retrieved (e.g. ListTunnels is unimplemented), in
+// which case callers should proceed without gating on the result.
+func tunnelPortAllowed(ctx context.Context, lister tunnelLister, dest int) (allowed, known bool) {
+	tunnels, err := lister.ListTunnels(ctx)
+	if err != nil {
+		return false, false
+	}
+	for _, t := range tunnels {
+		if t.Port == dest {
+			return true, true
+		}
+	}
+	return false, true
+}
+
+// ensureTunnelPortAllowed checks whether the destination port is configured as a
+// tunnel endpoint on the machine part. If it is not, and the user has permission to
+// edit the machine's config, the port is added to traffic_tunnel_endpoints
+// automatically and we wait for the machine to pick up the new config before
+// returning.
+func (c *viamClient) ensureTunnelPortAllowed(
+	ctx context.Context, cmd *cli.Command, lister tunnelLister, args robotsPartTunnelArgs,
+) error {
+	dest := args.DestinationPort
+
+	allowed, known := tunnelPortAllowed(ctx, lister, dest)
+	// If we couldn't read the tunnel list (e.g. ListTunnels is unimplemented on an
+	// older machine, or a transient error), don't gate on it. The auto-add flow below
+	// relies on ListTunnels to poll for the config taking effect, so without it we
+	// can't confirm an edit worked - and editing the machine config off an unreliable
+	// signal risks breaking a tunnel attempt that would otherwise have succeeded. Fall
+	// back to the previous behavior of just attempting the tunnel.
+	if allowed || !known {
+		return nil
+	}
+
+	infof(cmd.Root().Writer,
+		"destination port %v is not configured for tunneling; attempting to add it to the machine config...", dest)
+
+	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return errors.Wrapf(err,
+			"tunneling to destination port %v not allowed, and failed to look up the machine part to add it", dest)
+	}
+
+	config := part.RobotConfig.AsMap()
+	network, _ := config["network"].(map[string]any)
+	if network == nil {
+		network = map[string]any{}
+	}
+	endpoints, _ := network["traffic_tunnel_endpoints"].([]any)
+	endpoints = append(endpoints, map[string]any{"port": dest})
+	network["traffic_tunnel_endpoints"] = endpoints
+	config["network"] = network
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	if _, err := c.client.UpdateRobotPart(ctx, &apppb.UpdateRobotPartRequest{
+		Id:          part.Id,
+		Name:        part.Name,
+		RobotConfig: pbConfig,
+	}); err != nil {
+		if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+			return errors.Errorf(
+				"tunneling to destination port %v not allowed. You do not have permission to edit this machine's config, "+
+					"so it could not be added automatically. Please ensure the traffic_tunnel_endpoints configuration is "+
+					"set correctly on the machine.",
+				dest,
+			)
+		}
+		return errors.Wrapf(err, "failed to add destination port %v to the machine's tunnel endpoints", dest)
+	}
+
+	infof(cmd.Root().Writer,
+		"added destination port %v to the machine config; waiting for the machine to apply the new config...", dest)
+
+	// wait for the machine to pick up the updated config and start allowing tunnels to
+	// the new port.
+	const (
+		tunnelConfigTimeout      = time.Minute
+		tunnelConfigPollInterval = 3 * time.Second
+	)
+	timeoutCtx, cancel := context.WithTimeout(ctx, tunnelConfigTimeout)
+	defer cancel()
+	for {
+		if allowed, _ := tunnelPortAllowed(timeoutCtx, lister, dest); allowed {
+			return nil
+		}
+		select {
+		case <-timeoutCtx.Done():
+			return errors.Errorf(
+				"destination port %v was added to the machine config, but the machine did not apply it within %s. "+
+					"Please try running the tunnel command again shortly.",
+				dest, tunnelConfigTimeout,
+			)
+		case <-time.After(tunnelConfigPollInterval):
+		}
+	}
 }
 
 // checkUpdateResponse holds the values used to hold release information.
@@ -4191,7 +4354,7 @@ func (conf *Config) checkUpdate(cmd *cli.Command) error {
 		// the local version is out of date, so we know to warn
 		if localVersion.LessThan(latestVersion) {
 			warningf(cmd.Root().ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+				"Run 'viam update' or see https://docs.viam.com/cli/overview/#install", localVersion.Original(), latestVersion.Original())
 		}
 		return nil
 	}
@@ -4216,7 +4379,8 @@ func (conf *Config) checkUpdate(cmd *cli.Command) error {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		warningf(cmd.Root().ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
-			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
+			"New CLI releases happen weekly; consider updating%s. "+
+			"Run 'viam update' or see https://docs.viam.com/cli/overview/#install", updateInstructions)
 	}
 	return nil
 }
@@ -5296,7 +5460,15 @@ func (c *viamClient) connectToRobot(
 	if c.dialOverride != nil {
 		return c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
 	}
-	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
+	globalArgs, err := getGlobalArgs(c.c)
+	if err != nil {
+		return nil, err
+	}
+	clientOpts := []client.RobotClientOption{
+		client.WithDialOptions(rpcOpts...),
+		client.WithCheckConnectedEvery(globalArgs.CheckConnectedEvery),
+	}
+	robotClient, err := client.New(dialCtx, fqdn, logger, clientOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
 	}

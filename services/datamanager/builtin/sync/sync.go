@@ -644,6 +644,9 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 	defer tkr.Stop()
 	var readyLogged bool
 
+	// lastNotSyncedLog throttles the noisy "not syncing" logs
+	var lastNotSyncedLog time.Time
+
 	for {
 		if err := ctx.Err(); err != nil {
 			return
@@ -667,18 +670,26 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			shouldSync := ReadyToSyncDirectories(ctx, config, s.logger)
 			state := s.cloudConn.conn.GetState()
 			if state != connectivity.Ready {
-				logf := s.logger.Debugf
-				if state == connectivity.TransientFailure || state == connectivity.Shutdown {
-					logf = s.logger.Infof
+				if now := s.clock.Now(); now.Sub(lastNotSyncedLog) >= time.Minute {
+					lastNotSyncedLog = now
+					logf := s.logger.Debugf
+					if state == connectivity.TransientFailure || state == connectivity.Shutdown {
+						logf = s.logger.Infof
+					}
+					logf("data manager: Not syncing to cloud. cloud connection is in state %s, waiting for %s", state, connectivity.Ready)
 				}
-				logf("data manager: cloud connection is in state %s, waiting for %s", state, connectivity.Ready)
 
 				continue
 			}
 			if !shouldSync {
-				s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+				if now := s.clock.Now(); now.Sub(lastNotSyncedLog) >= time.Minute {
+					lastNotSyncedLog = now
+					s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+				}
 				continue
 			}
+			// syncing; reset the throttle so a future not-synced reason logs immediately.
+			lastNotSyncedLog = time.Time{}
 
 			if err := s.walkDirsAndSendFilesToSync(ctx, config); err != nil && !errors.Is(err, context.Canceled) {
 				goutils.UncheckedError(err)

@@ -236,26 +236,58 @@ func TestWebRTCSpans(t *testing.T) {
 	})
 }
 
-// isDeadlineExceededErr checks whether an error is or wraps a DeadlineExceeded
-// error. This handles cases where gRPC DeadlineExceeded errors are wrapped by
-// fmt.Errorf (e.g., "error updating resources: rpc error: code = DeadlineExceeded ..."),
-// which prevents status.Code from detecting the gRPC status code.
-func isDeadlineExceededErr(err error) bool {
-	if errors.Is(err, context.DeadlineExceeded) {
+// isRetryableConnErr checks whether an error is a transient connection error
+// that should be retried. This covers DeadlineExceeded and Canceled errors,
+// including cases where gRPC status errors are wrapped by fmt.Errorf
+// (e.g., "error updating resources: context canceled"), which prevents
+// status.Code from detecting the gRPC status code.
+func isRetryableConnErr(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return true
 	}
-	if status.Code(err) == codes.DeadlineExceeded {
+	code := status.Code(err)
+	if code == codes.DeadlineExceeded || code == codes.Canceled {
 		return true
 	}
 	// Check for wrapped gRPC status errors that status.Code can't detect.
 	wrappedErr := err
 	for wrappedErr != nil {
-		if status.Code(wrappedErr) == codes.DeadlineExceeded {
+		code = status.Code(wrappedErr)
+		if code == codes.DeadlineExceeded || code == codes.Canceled {
 			return true
 		}
 		wrappedErr = errors.Unwrap(wrappedErr)
 	}
 	return false
+}
+
+func TestIsRetryableConnErr(t *testing.T) {
+	// nil error is not retryable.
+	test.That(t, isRetryableConnErr(nil), test.ShouldBeFalse)
+
+	// Plain context errors.
+	test.That(t, isRetryableConnErr(context.DeadlineExceeded), test.ShouldBeTrue)
+	test.That(t, isRetryableConnErr(context.Canceled), test.ShouldBeTrue)
+
+	// gRPC status errors.
+	test.That(t, isRetryableConnErr(status.Error(codes.DeadlineExceeded, "timeout")), test.ShouldBeTrue)
+	test.That(t, isRetryableConnErr(status.Error(codes.Canceled, "canceled")), test.ShouldBeTrue)
+
+	// Wrapped context errors (the exact pattern from the bug: "error updating resources: context canceled").
+	test.That(t, isRetryableConnErr(fmt.Errorf("error updating resources: %w", context.Canceled)), test.ShouldBeTrue)
+	test.That(t, isRetryableConnErr(fmt.Errorf("error updating resources: %w", context.DeadlineExceeded)), test.ShouldBeTrue)
+
+	// Wrapped gRPC status errors.
+	test.That(t, isRetryableConnErr(
+		fmt.Errorf("error updating resources: %w", status.Error(codes.DeadlineExceeded, "timeout")),
+	), test.ShouldBeTrue)
+	test.That(t, isRetryableConnErr(
+		fmt.Errorf("error updating resources: %w", status.Error(codes.Canceled, "canceled")),
+	), test.ShouldBeTrue)
+
+	// Non-retryable errors.
+	test.That(t, isRetryableConnErr(errors.New("some other error")), test.ShouldBeFalse)
+	test.That(t, isRetryableConnErr(status.Error(codes.NotFound, "not found")), test.ShouldBeFalse)
 }
 
 func connect(port int, logger logging.Logger, dialOpts ...rpc.DialOption) (robot.Robot, error) {
@@ -268,7 +300,7 @@ func connect(port int, logger logging.Logger, dialOpts ...rpc.DialOption) (robot
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)
 		dialCancel()
-		if !isDeadlineExceededErr(err) {
+		if !isRetryableConnErr(err) {
 			return rc, err
 		}
 		select {

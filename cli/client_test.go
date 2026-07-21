@@ -48,8 +48,8 @@ import (
 	shelltestutils "go.viam.com/rdk/services/shell/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/rdk/testutils/robottestutils/serverutils"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/web/server"
 )
 
 var (
@@ -1180,12 +1180,12 @@ func TestShellFileCopy(t *testing.T) {
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 					afterInfo, err := os.Stat(nestedCopy)
 					test.That(t, err, test.ShouldBeNil)
+					// mode follows the source with or without preserve (umask applies without)
+					test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 					if preserve {
 						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldEqual, modTime.String())
-						test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 					} else {
 						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldNotEqual, modTime.String())
-						test.That(t, afterInfo.Mode(), test.ShouldNotEqual, newMode)
 					}
 				})
 			}
@@ -1309,12 +1309,12 @@ func TestShellFileCopy(t *testing.T) {
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 					afterInfo, err := os.Stat(nestedCopy)
 					test.That(t, err, test.ShouldBeNil)
+					// mode follows the source with or without preserve (umask applies without)
+					test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 					if preserve {
 						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldEqual, modTime.String())
-						test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
 					} else {
 						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldNotEqual, modTime.String())
-						test.That(t, afterInfo.Mode(), test.ShouldNotEqual, newMode)
 					}
 				})
 			}
@@ -1636,10 +1636,6 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
 	}()
 
-	machinePort, err := goutils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	machineAddr := net.JoinHostPort("localhost", strconv.Itoa(machinePort))
-
 	sourcePort, err := goutils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
@@ -1672,49 +1668,28 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	}()
 
-	// Start a machine at `machineAddr` (`RunServer` in a goroutine.)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		// Create a temporary config file.
-		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-		test.That(t, err, test.ShouldBeNil)
-		// we only use the filename, not the file handle in this test. Close immediately, instead of relying on GC.
-		// On Windows we otherwise may get:
-		// "The process cannot access the file because it is being used by another process."
-		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
-
-		cfg := &robotconfig.Config{
-			Network: robotconfig.NetworkConfig{
-				NetworkConfigData: robotconfig.NetworkConfigData{
-					TrafficTunnelEndpoints: []robotconfig.TrafficTunnelEndpoint{
-						{
-							Port: destPort, // allow tunneling to destination port
-						},
+	// Use robottestutils helpers to avoid the TOCTOU port-bind race (RSDK-13776).
+	cfg := &robotconfig.Config{
+		Network: robotconfig.NetworkConfig{
+			NetworkConfigData: robotconfig.NetworkConfigData{
+				TrafficTunnelEndpoints: []robotconfig.TrafficTunnelEndpoint{
+					{
+						Port: destPort, // allow tunneling to destination port
 					},
-					BindAddress: machineAddr,
 				},
 			},
-		}
-		cfgBytes, err := json.Marshal(&cfg)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
-
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
-		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
-	}()
-
-	rc := robottestutils.NewRobotClient(t, logger, machineAddr, time.Second)
+		},
+	}
+	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
+	t.Cleanup(func() {
+		test.That(t, rc.Close(ctx), test.ShouldBeNil)
+		// stopServer will be called toward the end of the test so we can wait on the
+		// background tunnel workers correctly.
+	})
 
 	// Start CLI tunneler.
 	//nolint:dogsled
 	cCtx, _, _, _ := setup(nil, nil, nil, nil, "token")
-
-	// error early if tunnel not listed
-	err = tunnelTraffic(ctx, cCtx, rc, sourcePort, 1)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not allowed")
 
 	wg.Add(1)
 	go func() {
@@ -1745,10 +1720,171 @@ func TestTunnelE2ECLI(t *testing.T) {
 	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
 
 	// Cancel test's context once message has made it all the way across and has been echoed
-	// back. This should stop the `RunServer` goroutine and the tunnel itself.
+	// back. This stops the RunServer goroutine and the tunnel itself.
 	ctxCancel()
+	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
+}
+
+// fakeTunnelLister is a tunnelLister test double. Before `reloadAfter` ListTunnels
+// calls it reports no configured ports (simulating a machine that has not yet picked
+// up a config change); after that it reports `ports`. If `err` is set, every call
+// fails with it.
+type fakeTunnelLister struct {
+	calls       int
+	reloadAfter int
+	ports       []int
+	err         error
+}
+
+func (f *fakeTunnelLister) ListTunnels(ctx context.Context) ([]robotconfig.TrafficTunnelEndpoint, error) {
+	f.calls++
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.calls <= f.reloadAfter {
+		return nil, nil
+	}
+	var out []robotconfig.TrafficTunnelEndpoint
+	for _, p := range f.ports {
+		out = append(out, robotconfig.TrafficTunnelEndpoint{Port: p})
+	}
+	return out, nil
+}
+
+func TestEnsureTunnelPortAllowed(t *testing.T) {
+	const (
+		partID       = "part-id"
+		partName     = "part-name"
+		existingPort = 9999
+		destPort     = 2222
+	)
+
+	// robotConfig builds a part config with the given tunnel endpoint ports already set.
+	robotConfig := func(ports ...int) *structpb.Struct {
+		endpoints := make([]any, 0, len(ports))
+		for _, p := range ports {
+			endpoints = append(endpoints, map[string]any{"port": float64(p)})
+		}
+		s, err := structpb.NewStruct(map[string]any{
+			"network": map[string]any{
+				"traffic_tunnel_endpoints": endpoints,
+			},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		return s
+	}
+
+	// tunnelArgs targets destPort by part ID. An erroring ListOrganizations forces
+	// robotPart to fall back to a direct GetRobotPart lookup by ID.
+	tunnelArgs := robotsPartTunnelArgs{Part: partID, DestinationPort: destPort}
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		return nil, errors.New("not used in this test")
+	}
+	getRobotPartFunc := func(ctx context.Context, in *apppb.GetRobotPartRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartResponse, error) {
+		return &apppb.GetRobotPartResponse{
+			Part: &apppb.RobotPart{Id: partID, Name: partName, RobotConfig: robotConfig(existingPort)},
+		}, nil
+	}
+
+	t.Run("port already allowed is a no-op", func(t *testing.T) {
+		var updateCalled bool
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			UpdateRobotPartFunc: func(ctx context.Context, in *apppb.UpdateRobotPartRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.UpdateRobotPartResponse, error) {
+				updateCalled = true
+				return &apppb.UpdateRobotPartResponse{}, nil
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		lister := &fakeTunnelLister{ports: []int{destPort}}
+
+		err := ac.ensureTunnelPortAllowed(context.Background(), cCtx, lister, tunnelArgs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, updateCalled, test.ShouldBeFalse)
+	})
+
+	t.Run("ListTunnels error proceeds without editing config", func(t *testing.T) {
+		var updateCalled bool
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			UpdateRobotPartFunc: func(ctx context.Context, in *apppb.UpdateRobotPartRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.UpdateRobotPartResponse, error) {
+				updateCalled = true
+				return &apppb.UpdateRobotPartResponse{}, nil
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		lister := &fakeTunnelLister{err: errors.New("unimplemented")}
+
+		err := ac.ensureTunnelPortAllowed(context.Background(), cCtx, lister, tunnelArgs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, updateCalled, test.ShouldBeFalse)
+	})
+
+	t.Run("auto-adds missing port and waits for reload", func(t *testing.T) {
+		var capturedReq *apppb.UpdateRobotPartRequest
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			UpdateRobotPartFunc: func(ctx context.Context, in *apppb.UpdateRobotPartRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.UpdateRobotPartResponse, error) {
+				capturedReq = in
+				return &apppb.UpdateRobotPartResponse{}, nil
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		// Not allowed on the initial check; allowed once the machine "reloads".
+		lister := &fakeTunnelLister{reloadAfter: 1, ports: []int{existingPort, destPort}}
+
+		err := ac.ensureTunnelPortAllowed(context.Background(), cCtx, lister, tunnelArgs)
+		test.That(t, err, test.ShouldBeNil)
+
+		// The update should preserve the existing port and append the new one.
+		test.That(t, capturedReq, test.ShouldNotBeNil)
+		test.That(t, capturedReq.Id, test.ShouldEqual, partID)
+		test.That(t, capturedReq.Name, test.ShouldEqual, partName)
+		network, ok := capturedReq.RobotConfig.AsMap()["network"].(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		endpoints, ok := network["traffic_tunnel_endpoints"].([]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		var ports []int
+		for _, e := range endpoints {
+			ports = append(ports, int(e.(map[string]any)["port"].(float64)))
+		}
+		test.That(t, ports, test.ShouldContain, existingPort)
+		test.That(t, ports, test.ShouldContain, destPort)
+	})
+
+	t.Run("permission denied surfaces a friendly error", func(t *testing.T) {
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			UpdateRobotPartFunc: func(ctx context.Context, in *apppb.UpdateRobotPartRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.UpdateRobotPartResponse, error) {
+				return nil, status.Error(codes.PermissionDenied, "nope")
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		lister := &fakeTunnelLister{} // never reports the port
+
+		err := ac.ensureTunnelPortAllowed(context.Background(), cCtx, lister, tunnelArgs)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "permission")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not allowed")
+	})
 }
 
 func TestAPIToGRPCServiceName(t *testing.T) {

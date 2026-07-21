@@ -31,6 +31,9 @@ type Manager interface {
 
 	// PackagePath returns the package if it exists and is already downloaded. If it does not exist it returns a ErrPackageMissing error.
 	PackagePath(name PackageName) (string, error)
+
+	// PackageStatuses returns a snapshot of the current status for all managed packages.
+	PackageStatuses() []PackageStatus
 }
 
 // ManagerSyncer provides a managed interface for both reading package paths and syncing packages from the RDK config.
@@ -51,4 +54,8 @@ type ManagerSyncer interface {
 	// Cleanup removes any unused packages known to the Manager that are no longer used. It removes the packages from the file system.
 	// Returns any errors during the cleanup process.
 	Cleanup(ctx context.Context) error
+
+	// SetPackageState updates the in-memory state for a named package. Used by local_robot to
+	// transition a module package through the first-run lifecycle stage.
+	SetPackageState(name PackageName, state PackageState, errMsg string)
 }

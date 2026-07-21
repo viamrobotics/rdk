@@ -127,6 +127,12 @@ type RequestCounter struct {
 	beforeLogHook func(pc *webrtc.PeerConnection)
 }
 
+// apiMethod.full below are not rate-limited and do not contribute to the request counter
+var inFlightLimitCheckExcluded = map[string]struct{}{
+	"/viam.robot.v1.RobotService/Log":        {},
+	"/viam.robot.v1.RobotService/SendTraces": {},
+}
+
 // decrInFlight decrements the in-flight request counters for a given resource and pc.
 func (rc *RequestCounter) decrInFlight(resource string, pc *webrtc.PeerConnection) {
 	rc.ensureInFlightCounterForResource(resource).Add(-1)
@@ -406,21 +412,24 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
-	pc, pcSet := rpc.ContextPeerConnection(ctx)
-	if pcSet {
-		rc.setClientMetadataForPC(ctx, pc)
-	}
 
-	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
-		if ok := rc.incrInFlight(resource, pc); !ok {
-			numInFlightRequestsForClient := rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
-			return nil, &RequestLimitExceededError{
-				resource:                     resource,
-				limit:                        rc.inFlightLimit,
-				numInFlightRequestsForClient: numInFlightRequestsForClient,
-			}
+	if _, ok := inFlightLimitCheckExcluded[apiMethod.full]; !ok {
+		pc, pcSet := rpc.ContextPeerConnection(ctx)
+		if pcSet {
+			rc.setClientMetadataForPC(ctx, pc)
 		}
-		defer rc.decrInFlight(resource, pc)
+
+		if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
+			if ok := rc.incrInFlight(resource, pc); !ok {
+				numInFlightRequestsForClient := rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
+				return nil, &RequestLimitExceededError{
+					resource:                     resource,
+					limit:                        rc.inFlightLimit,
+					numInFlightRequestsForClient: numInFlightRequestsForClient,
+				}
+			}
+			defer rc.decrInFlight(resource, pc)
+		}
 	}
 
 	requestCounterKey := buildRCKey(req, apiMethod)

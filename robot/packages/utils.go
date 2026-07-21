@@ -504,7 +504,8 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 }
 
 // starts a goroutine that watches `dest` file size, logs progress until `dest` no longer exists or `done` is closed.
-func fileSizeProgress(ctx context.Context, logger logging.Logger, dest string, length int64) {
+// If onProgress is non-nil it is invoked with the current file size on every tick.
+func fileSizeProgress(ctx context.Context, logger logging.Logger, dest string, length int64, onProgress func(curSize int64)) {
 	if length <= 0 {
 		logger.Info("download has no Content-Length, not logging progress")
 	}
@@ -524,6 +525,9 @@ func fileSizeProgress(ctx context.Context, logger logging.Logger, dest string, l
 				return
 			}
 			writer.Update(stat.Size())
+			if onProgress != nil {
+				onProgress(stat.Size())
+			}
 		case <-ctx.Done():
 			return
 		}

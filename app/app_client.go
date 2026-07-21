@@ -1,6 +1,6 @@
 // Package app contains the interfaces that manage a machine fleet with code instead of with the graphical interface of the Viam App.
 //
-// [fleet management docs]: https://docs.viam.com/appendix/apis/fleet/
+// [fleet management docs]: https://docs.viam.com/reference/apis/fleet/
 package app
 
 import (
@@ -628,7 +628,7 @@ func newAppClient(conn rpc.ClientConn) *AppClient {
 //
 // For more information, see the [GetUserIDByEmail method docs].
 //
-// [GetUserIDByEmail method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getuseridbyemail
+// [GetUserIDByEmail method docs]: https://docs.viam.com/reference/apis/fleet/#getuseridbyemail
 func (c *AppClient) GetUserIDByEmail(ctx context.Context, email string) (string, error) {
 	resp, err := c.client.GetUserIDByEmail(ctx, &pb.GetUserIDByEmailRequest{
 		Email: email,
@@ -647,7 +647,7 @@ func (c *AppClient) GetUserIDByEmail(ctx context.Context, email string) (string,
 //
 // For more information, see the [CreateOrganization method docs].
 //
-// [CreateOrganization method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createorganization
+// [CreateOrganization method docs]: https://docs.viam.com/reference/apis/fleet/#createorganization
 func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*Organization, error) {
 	resp, err := c.client.CreateOrganization(ctx, &pb.CreateOrganizationRequest{
 		Name: name,
@@ -666,7 +666,7 @@ func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*Organ
 //
 // For more information, see the [ListOrganizations method docs].
 //
-// [ListOrganizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listorganizations
+// [ListOrganizations method docs]: https://docs.viam.com/reference/apis/fleet/#listorganizations
 func (c *AppClient) ListOrganizations(ctx context.Context) ([]*Organization, error) {
 	resp, err := c.client.ListOrganizations(ctx, &pb.ListOrganizationsRequest{})
 	if err != nil {
@@ -688,7 +688,7 @@ func (c *AppClient) ListOrganizations(ctx context.Context) ([]*Organization, err
 //
 // For more information, see the [GetOrganizationsWithAccessToLocation method docs].
 //
-// [GetOrganizationsWithAccessToLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getorganizationswithaccesstolocation
+// [GetOrganizationsWithAccessToLocation method docs]: https://docs.viam.com/reference/apis/fleet/#getorganizationswithaccesstolocation
 func (c *AppClient) GetOrganizationsWithAccessToLocation(ctx context.Context, locationID string) ([]*OrganizationIdentity, error) {
 	resp, err := c.client.GetOrganizationsWithAccessToLocation(ctx, &pb.GetOrganizationsWithAccessToLocationRequest{
 		LocationId: locationID,
@@ -712,7 +712,7 @@ func (c *AppClient) GetOrganizationsWithAccessToLocation(ctx context.Context, lo
 //
 // For more information, see the [ListOrganizationsByUser method docs].
 //
-// [ListOrganizationsByUser method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listorganizationsbyuser
+// [ListOrganizationsByUser method docs]: https://docs.viam.com/reference/apis/fleet/#listorganizationsbyuser
 func (c *AppClient) ListOrganizationsByUser(ctx context.Context, userID string) ([]*OrgDetails, error) {
 	resp, err := c.client.ListOrganizationsByUser(ctx, &pb.ListOrganizationsByUserRequest{
 		UserId: userID,
@@ -736,7 +736,7 @@ func (c *AppClient) ListOrganizationsByUser(ctx context.Context, userID string) 
 //
 // For more information, see the [GetOrganization method docs].
 //
-// [GetOrganization method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getorganization
+// [GetOrganization method docs]: https://docs.viam.com/reference/apis/fleet/#getorganization
 func (c *AppClient) GetOrganization(ctx context.Context, orgID string) (*Organization, error) {
 	resp, err := c.client.GetOrganization(ctx, &pb.GetOrganizationRequest{
 		OrganizationId: orgID,
@@ -755,7 +755,7 @@ func (c *AppClient) GetOrganization(ctx context.Context, orgID string) (*Organiz
 //
 // For more information, see the [GetOrganizationNamespaceAvailability method docs].
 //
-// [GetOrganizationNamespaceAvailability method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getorganizationnamespaceavailability
+// [GetOrganizationNamespaceAvailability method docs]: https://docs.viam.com/reference/apis/fleet/#getorganizationnamespaceavailability
 func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, namespace string) (bool, error) {
 	resp, err := c.client.GetOrganizationNamespaceAvailability(ctx, &pb.GetOrganizationNamespaceAvailabilityRequest{
 		PublicNamespace: namespace,
@@ -780,7 +780,7 @@ func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, na
 //
 // For more information, see the [UpdateOrganization method docs].
 //
-// [UpdateOrganization method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateorganization
+// [UpdateOrganization method docs]: https://docs.viam.com/reference/apis/fleet/#updateorganization
 func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, opts *UpdateOrganizationOptions) (*Organization, error) {
 	var name, namespace, region, cid *string
 	if opts != nil {
@@ -807,7 +807,7 @@ func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, opts *
 //
 // For more information, see the [DeleteOrganization method docs].
 //
-// [DeleteOrganization method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleteorganization
+// [DeleteOrganization method docs]: https://docs.viam.com/reference/apis/fleet/#deleteorganization
 func (c *AppClient) DeleteOrganization(ctx context.Context, orgID string) error {
 	_, err := c.client.DeleteOrganization(ctx, &pb.DeleteOrganizationRequest{
 		OrganizationId: orgID,
@@ -825,7 +825,7 @@ func (c *AppClient) DeleteOrganization(ctx context.Context, orgID string) error 
 //
 // For more information, see the [GetOrganizationMetadata method docs].
 //
-// [GetOrganizationMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getorganizationmetadata
+// [GetOrganizationMetadata method docs]: https://docs.viam.com/reference/apis/fleet/#getorganizationmetadata
 func (c *AppClient) GetOrganizationMetadata(ctx context.Context, organizationID string) (map[string]interface{}, error) {
 	resp, err := c.client.GetOrganizationMetadata(ctx, &pb.GetOrganizationMetadataRequest{
 		OrganizationId: organizationID,
@@ -850,7 +850,7 @@ func (c *AppClient) GetOrganizationMetadata(ctx context.Context, organizationID 
 //
 // For more information, see the [UpdateOrganizationMetadata method docs].
 //
-// [UpdateOrganizationMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateorganizationmetadata
+// [UpdateOrganizationMetadata method docs]: https://docs.viam.com/reference/apis/fleet/#updateorganizationmetadata
 func (c *AppClient) UpdateOrganizationMetadata(ctx context.Context, organizationID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
@@ -871,7 +871,7 @@ func (c *AppClient) UpdateOrganizationMetadata(ctx context.Context, organization
 //
 // For more information, see the [ListOrganizationMembers method docs].
 //
-// [ListOrganizationMembers method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listorganizationmembers
+// [ListOrganizationMembers method docs]: https://docs.viam.com/reference/apis/fleet/#listorganizationmembers
 func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgID string) ([]*OrganizationMember, []*OrganizationInvite, error) {
 	resp, err := c.client.ListOrganizationMembers(ctx, &pb.ListOrganizationMembersRequest{
 		OrganizationId: orgID,
@@ -910,7 +910,7 @@ func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgID string) (
 //
 // For more information, see the [CreateOrganizationInvite method docs].
 //
-// [CreateOrganizationInvite method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createorganizationinvite
+// [CreateOrganizationInvite method docs]: https://docs.viam.com/reference/apis/fleet/#createorganizationinvite
 func (c *AppClient) CreateOrganizationInvite(
 	ctx context.Context, orgID, email string, authorizations []*Authorization, opts *CreateOrganizationInviteOptions,
 ) (*OrganizationInvite, error) {
@@ -954,11 +954,9 @@ func (c *AppClient) CreateOrganizationInvite(
 //
 // For more information, see the [UpdateOrganizationInviteAuthorizations method docs].
 //
-// [UpdateOrganizationInviteAuthorizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateorganizationinviteauthorizations
+// [UpdateOrganizationInviteAuthorizations method docs]: https://docs.viam.com/reference/apis/fleet/#updateorganizationinviteauthorizations
 //
-// [UpdateOrganizationInviteAuthorizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateorganizationinviteauthorizations
-//
-//nolint:lll
+// [UpdateOrganizationInviteAuthorizations method docs]: https://docs.viam.com/reference/apis/fleet/#updateorganizationinviteauthorizations
 func (c *AppClient) UpdateOrganizationInviteAuthorizations(
 	ctx context.Context, orgID, email string, addAuthorizations, removeAuthorizations []*Authorization,
 ) (*OrganizationInvite, error) {
@@ -993,7 +991,7 @@ func (c *AppClient) UpdateOrganizationInviteAuthorizations(
 //
 // For more information, see the [DeleteOrganizationMember method docs].
 //
-// [DeleteOrganizationMember method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleteorganizationmember
+// [DeleteOrganizationMember method docs]: https://docs.viam.com/reference/apis/fleet/#deleteorganizationmember
 func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgID, userID string) error {
 	_, err := c.client.DeleteOrganizationMember(ctx, &pb.DeleteOrganizationMemberRequest{
 		OrganizationId: orgID,
@@ -1013,7 +1011,7 @@ func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgID, userID 
 //
 // For more information, see the [DeleteOrganizationInvite method docs].
 //
-// [DeleteOrganizationInvite method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleteorganizationinvite
+// [DeleteOrganizationInvite method docs]: https://docs.viam.com/reference/apis/fleet/#deleteorganizationinvite
 func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgID, email string) error {
 	_, err := c.client.DeleteOrganizationInvite(ctx, &pb.DeleteOrganizationInviteRequest{
 		OrganizationId: orgID,
@@ -1030,7 +1028,7 @@ func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgID, email s
 //
 // For more information, see the [ResendOrganizationInvite method docs].
 //
-// [ResendOrganizationInvite method docs]: https://docs.viam.com/dev/reference/apis/fleet/#resendorganizationinvite
+// [ResendOrganizationInvite method docs]: https://docs.viam.com/reference/apis/fleet/#resendorganizationinvite
 func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgID, email string) (*OrganizationInvite, error) {
 	resp, err := c.client.ResendOrganizationInvite(ctx, &pb.ResendOrganizationInviteRequest{
 		OrganizationId: orgID,
@@ -1059,7 +1057,7 @@ func (c *AppClient) EnableBillingService(ctx context.Context, orgID string, bill
 //
 // For more information, see the [DisableBillingService method docs].
 //
-// [DisableBillingService method docs]: https://docs.viam.com/dev/reference/apis/fleet/#disablebillingservice
+// [DisableBillingService method docs]: https://docs.viam.com/reference/apis/fleet/#disablebillingservice
 func (c *AppClient) DisableBillingService(ctx context.Context, orgID string) error {
 	_, err := c.client.DisableBillingService(ctx, &pb.DisableBillingServiceRequest{
 		OrgId: orgID,
@@ -1084,7 +1082,7 @@ func (c *AppClient) UpdateBillingService(ctx context.Context, orgID string, bill
 //
 // For more information, see the [OrganizationSetSupportEmail method docs].
 //
-// [OrganizationSetSupportEmail method docs]: https://docs.viam.com/dev/reference/apis/fleet/#organizationsetsupportemail
+// [OrganizationSetSupportEmail method docs]: https://docs.viam.com/reference/apis/fleet/#organizationsetsupportemail
 func (c *AppClient) OrganizationSetSupportEmail(ctx context.Context, orgID, email string) error {
 	_, err := c.client.OrganizationSetSupportEmail(ctx, &pb.OrganizationSetSupportEmailRequest{
 		OrgId: orgID,
@@ -1101,7 +1099,7 @@ func (c *AppClient) OrganizationSetSupportEmail(ctx context.Context, orgID, emai
 //
 // For more information, see the [OrganizationGetSupportEmail method docs].
 //
-// [OrganizationGetSupportEmail method docs]: https://docs.viam.com/dev/reference/apis/fleet/#organizationgetsupportemail
+// [OrganizationGetSupportEmail method docs]: https://docs.viam.com/reference/apis/fleet/#organizationgetsupportemail
 func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID string) (string, error) {
 	resp, err := c.client.OrganizationGetSupportEmail(ctx, &pb.OrganizationGetSupportEmailRequest{
 		OrgId: orgID,
@@ -1122,7 +1120,7 @@ func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID strin
 //
 // For more information, see the [GetBillingServiceConfig method docs].
 //
-// [GetBillingServiceConfig method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getbillingserviceconfig
+// [GetBillingServiceConfig method docs]: https://docs.viam.com/reference/apis/fleet/#getbillingserviceconfig
 func (c *AppClient) GetBillingServiceConfig(ctx context.Context, orgID string) (*pb.GetBillingServiceConfigResponse, error) {
 	resp, err := c.client.GetBillingServiceConfig(ctx, &pb.GetBillingServiceConfigRequest{
 		OrgId: orgID,
@@ -1146,7 +1144,7 @@ func (c *AppClient) GetBillingServiceConfig(ctx context.Context, orgID string) (
 //
 // For more information, see the [OrganizationSetLogo method docs].
 //
-// [OrganizationSetLogo method docs]: https://docs.viam.com/dev/reference/apis/fleet/#organizationsetlogo
+// [OrganizationSetLogo method docs]: https://docs.viam.com/reference/apis/fleet/#organizationsetlogo
 func (c *AppClient) OrganizationSetLogo(ctx context.Context, orgID string, logo []byte) error {
 	_, err := c.client.OrganizationSetLogo(ctx, &pb.OrganizationSetLogoRequest{
 		OrgId: orgID,
@@ -1166,7 +1164,7 @@ func (c *AppClient) OrganizationSetLogo(ctx context.Context, orgID string, logo 
 //
 // For more information, see the [OrganizationGetLogo method docs].
 //
-// [OrganizationGetLogo method docs]: https://docs.viam.com/dev/reference/apis/fleet/#organizationgetlogo
+// [OrganizationGetLogo method docs]: https://docs.viam.com/reference/apis/fleet/#organizationgetlogo
 func (c *AppClient) OrganizationGetLogo(ctx context.Context, orgID string) (string, error) {
 	resp, err := c.client.OrganizationGetLogo(ctx, &pb.OrganizationGetLogoRequest{
 		OrgId: orgID,
@@ -1188,7 +1186,7 @@ func (c *AppClient) OrganizationGetLogo(ctx context.Context, orgID string) (stri
 //
 // For more information, see the [ListOAuthApps method docs].
 //
-// [ListOAuthApps method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listoauthapps
+// [ListOAuthApps method docs]: https://docs.viam.com/reference/apis/fleet/#listoauthapps
 func (c *AppClient) ListOAuthApps(ctx context.Context, orgID string) ([]string, error) {
 	resp, err := c.client.ListOAuthApps(ctx, &pb.ListOAuthAppsRequest{
 		OrgId: orgID,
@@ -1214,7 +1212,7 @@ func (c *AppClient) ListOAuthApps(ctx context.Context, orgID string) ([]string, 
 //
 // For more information, see the [CreateLocation method docs].
 //
-// [CreateLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createlocation
+// [CreateLocation method docs]: https://docs.viam.com/reference/apis/fleet/#createlocation
 func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts *CreateLocationOptions) (*Location, error) {
 	var parentID *string
 	if opts != nil {
@@ -1239,7 +1237,7 @@ func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts
 //
 // For more information, see the [GetLocation method docs].
 //
-// [GetLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getlocation
+// [GetLocation method docs]: https://docs.viam.com/reference/apis/fleet/#getlocation
 func (c *AppClient) GetLocation(ctx context.Context, locationID string) (*Location, error) {
 	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{
 		LocationId: locationID,
@@ -1266,7 +1264,7 @@ func (c *AppClient) GetLocation(ctx context.Context, locationID string) (*Locati
 //
 // For more information, see the [UpdateLocation method docs].
 //
-// [UpdateLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatelocation
+// [UpdateLocation method docs]: https://docs.viam.com/reference/apis/fleet/#updatelocation
 func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, opts *UpdateLocationOptions) (*Location, error) {
 	var name, parentID, region *string
 	if opts != nil {
@@ -1292,7 +1290,7 @@ func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, opts 
 //
 // For more information, see the [DeleteLocation method docs].
 //
-// [DeleteLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deletelocation
+// [DeleteLocation method docs]: https://docs.viam.com/reference/apis/fleet/#deletelocation
 func (c *AppClient) DeleteLocation(ctx context.Context, locationID string) error {
 	_, err := c.client.DeleteLocation(ctx, &pb.DeleteLocationRequest{
 		LocationId: locationID,
@@ -1308,7 +1306,7 @@ func (c *AppClient) DeleteLocation(ctx context.Context, locationID string) error
 //
 // For more information, see the [ListLocations method docs].
 //
-// [ListLocations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listlocations
+// [ListLocations method docs]: https://docs.viam.com/reference/apis/fleet/#listlocations
 func (c *AppClient) ListLocations(ctx context.Context, orgID string) ([]*Location, error) {
 	resp, err := c.client.ListLocations(ctx, &pb.ListLocationsRequest{
 		OrganizationId: orgID,
@@ -1332,7 +1330,7 @@ func (c *AppClient) ListLocations(ctx context.Context, orgID string) ([]*Locatio
 //
 // For more information, see the [ShareLocation method docs].
 //
-// [ShareLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#sharelocation
+// [ShareLocation method docs]: https://docs.viam.com/reference/apis/fleet/#sharelocation
 func (c *AppClient) ShareLocation(ctx context.Context, locationID, orgID string) error {
 	_, err := c.client.ShareLocation(ctx, &pb.ShareLocationRequest{
 		LocationId:     locationID,
@@ -1349,7 +1347,7 @@ func (c *AppClient) ShareLocation(ctx context.Context, locationID, orgID string)
 //
 // For more information, see the [UnshareLocation method docs].
 //
-// [UnshareLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#unsharelocation
+// [UnshareLocation method docs]: https://docs.viam.com/reference/apis/fleet/#unsharelocation
 func (c *AppClient) UnshareLocation(ctx context.Context, locationID, orgID string) error {
 	_, err := c.client.UnshareLocation(ctx, &pb.UnshareLocationRequest{
 		LocationId:     locationID,
@@ -1366,7 +1364,7 @@ func (c *AppClient) UnshareLocation(ctx context.Context, locationID, orgID strin
 //
 // For more information, see the [LocationAuth method docs].
 //
-// [LocationAuth method docs]: https://docs.viam.com/dev/reference/apis/fleet/#locationauth
+// [LocationAuth method docs]: https://docs.viam.com/reference/apis/fleet/#locationauth
 func (c *AppClient) LocationAuth(ctx context.Context, locationID string) (*LocationAuth, error) {
 	resp, err := c.client.LocationAuth(ctx, &pb.LocationAuthRequest{
 		LocationId: locationID,
@@ -1385,7 +1383,7 @@ func (c *AppClient) LocationAuth(ctx context.Context, locationID string) (*Locat
 //
 // For more information, see the [CreateLocationSecret method docs].
 //
-// [CreateLocationSecret method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createlocationsecret
+// [CreateLocationSecret method docs]: https://docs.viam.com/reference/apis/fleet/#createlocationsecret
 func (c *AppClient) CreateLocationSecret(ctx context.Context, locationID string) (*LocationAuth, error) {
 	resp, err := c.client.CreateLocationSecret(ctx, &pb.CreateLocationSecretRequest{
 		LocationId: locationID,
@@ -1408,7 +1406,7 @@ func (c *AppClient) CreateLocationSecret(ctx context.Context, locationID string)
 //
 // For more information, see the [DeleteLocationSecret method docs].
 //
-// [DeleteLocationSecret method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deletelocationsecret
+// [DeleteLocationSecret method docs]: https://docs.viam.com/reference/apis/fleet/#deletelocationsecret
 func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationID, secretID string) error {
 	_, err := c.client.DeleteLocationSecret(ctx, &pb.DeleteLocationSecretRequest{
 		LocationId: locationID,
@@ -1425,7 +1423,7 @@ func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationID, secret
 //
 // For more information, see the [GetLocationMetadata method docs].
 //
-// [GetLocationMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getlocationmetadata
+// [GetLocationMetadata method docs]: https://docs.viam.com/reference/apis/fleet/#getlocationmetadata
 func (c *AppClient) GetLocationMetadata(ctx context.Context, locationID string) (map[string]interface{}, error) {
 	resp, err := c.client.GetLocationMetadata(ctx, &pb.GetLocationMetadataRequest{
 		LocationId: locationID,
@@ -1450,7 +1448,7 @@ func (c *AppClient) GetLocationMetadata(ctx context.Context, locationID string) 
 //
 // For more information, see the [UpdateLocationMetadata method docs].
 //
-// [UpdateLocationMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatelocationmetadata
+// [UpdateLocationMetadata method docs]: https://docs.viam.com/reference/apis/fleet/#updatelocationmetadata
 func (c *AppClient) UpdateLocationMetadata(ctx context.Context, locationID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
@@ -1471,7 +1469,7 @@ func (c *AppClient) UpdateLocationMetadata(ctx context.Context, locationID strin
 //
 // For more information, see the [GetRobot method docs].
 //
-// [GetRobot method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobot
+// [GetRobot method docs]: https://docs.viam.com/reference/apis/fleet/#getrobot
 func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 	resp, err := c.client.GetRobot(ctx, &pb.GetRobotRequest{
 		Id: id,
@@ -1492,7 +1490,7 @@ func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 //
 // For more information, see the [GetRobotMetadata method docs].
 //
-// [GetRobotMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotmetadata
+// [GetRobotMetadata method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotmetadata
 func (c *AppClient) GetRobotMetadata(ctx context.Context, robotID string) (map[string]interface{}, error) {
 	resp, err := c.client.GetRobotMetadata(ctx, &pb.GetRobotMetadataRequest{
 		Id: robotID,
@@ -1517,7 +1515,7 @@ func (c *AppClient) GetRobotMetadata(ctx context.Context, robotID string) (map[s
 //
 // For more information, see the [UpdateRobotMetadata method docs].
 //
-// [UpdateRobotMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobotmetadata
+// [UpdateRobotMetadata method docs]: https://docs.viam.com/reference/apis/fleet/#updaterobotmetadata
 func (c *AppClient) UpdateRobotMetadata(ctx context.Context, robotID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
@@ -1553,7 +1551,7 @@ func (c *AppClient) GetRoverRentalRobots(ctx context.Context, orgID string) ([]*
 //
 // For more information, see the [GetRobotParts method docs].
 //
-// [GetRobotParts method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotparts
+// [GetRobotParts method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotparts
 func (c *AppClient) GetRobotParts(ctx context.Context, robotID string) ([]*RobotPart, error) {
 	resp, err := c.client.GetRobotParts(ctx, &pb.GetRobotPartsRequest{
 		RobotId: robotID,
@@ -1579,7 +1577,7 @@ func (c *AppClient) GetRobotParts(ctx context.Context, robotID string) ([]*Robot
 //
 // For more information, see the [GetRobotPart method docs].
 //
-// [GetRobotPart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpart
+// [GetRobotPart method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotpart
 func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, string, error) {
 	resp, err := c.client.GetRobotPart(ctx, &pb.GetRobotPartRequest{
 		Id: id,
@@ -1616,7 +1614,7 @@ func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, st
 //
 // For more information, see the [GetRobotPartLogs method docs].
 //
-// [GetRobotPartLogs method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpartlogs
+// [GetRobotPartLogs method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotpartlogs
 func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRobotPartLogsOptions) ([]*LogEntry, string, error) {
 	var filter, token, source *string
 	var levels []string
@@ -1690,7 +1688,7 @@ func (s *RobotPartLogStream) Next() ([]*LogEntry, error) {
 //
 // For more information, see the [TailRobotPartLogs method docs].
 //
-// [TailRobotPartLogs method docs]: https://docs.viam.com/dev/reference/apis/fleet/#tailrobotpartlogs
+// [TailRobotPartLogs method docs]: https://docs.viam.com/reference/apis/fleet/#tailrobotpartlogs
 func (c *AppClient) TailRobotPartLogs(
 	ctx context.Context, id string, errorsOnly bool, opts *TailRobotPartLogsOptions,
 ) (*RobotPartLogStream, error) {
@@ -1719,7 +1717,7 @@ func (c *AppClient) TailRobotPartLogs(
 //
 // For more information, see the [GetRobotPartHistory method docs].
 //
-// [GetRobotPartHistory method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotparthistory
+// [GetRobotPartHistory method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotparthistory
 func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*RobotPartHistoryEntry, error) {
 	resp, err := c.client.GetRobotPartHistory(ctx, &pb.GetRobotPartHistoryRequest{
 		Id: id,
@@ -1760,7 +1758,7 @@ func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*Robo
 //
 // For more information, see the [UpdateRobotPart method docs].
 //
-// [UpdateRobotPart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobotpart
+// [UpdateRobotPart method docs]: https://docs.viam.com/reference/apis/fleet/#updaterobotpart
 func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotConfig interface{}) (*RobotPart, error) {
 	config, err := protoutils.StructToStructPb(robotConfig)
 	if err != nil {
@@ -1788,7 +1786,7 @@ func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotC
 //
 // For more information, see the [NewRobotPart method docs].
 //
-// [NewRobotPart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#newrobotpart
+// [NewRobotPart method docs]: https://docs.viam.com/reference/apis/fleet/#newrobotpart
 func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) (string, error) {
 	resp, err := c.client.NewRobotPart(ctx, &pb.NewRobotPartRequest{
 		RobotId:  robotID,
@@ -1808,7 +1806,7 @@ func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) 
 //
 // For more information, see the [DeleteRobotPart method docs].
 //
-// [DeleteRobotPart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleterobotpart
+// [DeleteRobotPart method docs]: https://docs.viam.com/reference/apis/fleet/#deleterobotpart
 func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 	_, err := c.client.DeleteRobotPart(ctx, &pb.DeleteRobotPartRequest{
 		PartId: partID,
@@ -1826,7 +1824,7 @@ func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 //
 // For more information, see the [GetRobotPartMetadata method docs].
 //
-// [GetRobotPartMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpartmetadata
+// [GetRobotPartMetadata method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotpartmetadata
 func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (map[string]interface{}, error) {
 	resp, err := c.client.GetRobotPartMetadata(ctx, &pb.GetRobotPartMetadataRequest{
 		Id: robotID,
@@ -1851,7 +1849,7 @@ func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (m
 //
 // For more information, see the [UpdateRobotPartMetadata method docs].
 //
-// [UpdateRobotPartMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobotpartmetadata
+// [UpdateRobotPartMetadata method docs]: https://docs.viam.com/reference/apis/fleet/#updaterobotpartmetadata
 func (c *AppClient) UpdateRobotPartMetadata(ctx context.Context, robotID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
@@ -1872,7 +1870,7 @@ func (c *AppClient) UpdateRobotPartMetadata(ctx context.Context, robotID string,
 //
 // For more information, see the [GetRobotAPIKeys method docs].
 //
-// [GetRobotAPIKeys method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotapikeys
+// [GetRobotAPIKeys method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotapikeys
 func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotID string) ([]*APIKeyWithAuthorizations, error) {
 	resp, err := c.client.GetRobotAPIKeys(ctx, &pb.GetRobotAPIKeysRequest{
 		RobotId: robotID,
@@ -1895,7 +1893,7 @@ func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotID string) ([]*API
 //
 // For more information, see the [MarkPartAsMain method docs].
 //
-// [MarkPartAsMain method docs]: https://docs.viam.com/dev/reference/apis/fleet/#markpartasmain
+// [MarkPartAsMain method docs]: https://docs.viam.com/reference/apis/fleet/#markpartasmain
 func (c *AppClient) MarkPartAsMain(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartAsMain(ctx, &pb.MarkPartAsMainRequest{
 		PartId: partID,
@@ -1913,7 +1911,7 @@ func (c *AppClient) MarkPartAsMain(ctx context.Context, partID string) error {
 //
 // For more information, see the [MarkPartForRestart method docs].
 //
-// [MarkPartForRestart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#markpartforrestart
+// [MarkPartForRestart method docs]: https://docs.viam.com/reference/apis/fleet/#markpartforrestart
 func (c *AppClient) MarkPartForRestart(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartForRestart(ctx, &pb.MarkPartForRestartRequest{
 		PartId: partID,
@@ -1932,7 +1930,7 @@ func (c *AppClient) MarkPartForRestart(ctx context.Context, partID string) error
 //
 // For more information, see the [CreateRobotPartSecret method docs].
 //
-// [CreateRobotPartSecret method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createrobotpartsecret
+// [CreateRobotPartSecret method docs]: https://docs.viam.com/reference/apis/fleet/#createrobotpartsecret
 func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partID string) (*RobotPart, error) {
 	resp, err := c.client.CreateRobotPartSecret(ctx, &pb.CreateRobotPartSecretRequest{
 		PartId: partID,
@@ -1954,7 +1952,7 @@ func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partID string) (*
 //
 // For more information, see the [DeleteRobotPartSecret method docs].
 //
-// [DeleteRobotPartSecret method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleterobotpartsecret
+// [DeleteRobotPartSecret method docs]: https://docs.viam.com/reference/apis/fleet/#deleterobotpartsecret
 func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partID, secretID string) error {
 	_, err := c.client.DeleteRobotPartSecret(ctx, &pb.DeleteRobotPartSecretRequest{
 		PartId:   partID,
@@ -1971,7 +1969,7 @@ func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partID, secretID 
 //
 // For more information, see the [ListRobots method docs].
 //
-// [ListRobots method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listrobots
+// [ListRobots method docs]: https://docs.viam.com/reference/apis/fleet/#listrobots
 func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot, error) {
 	resp, err := c.client.ListRobots(ctx, &pb.ListRobotsRequest{
 		LocationId: locationID,
@@ -1994,7 +1992,7 @@ func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot
 //
 // For more information, see the [NewRobot method docs].
 //
-// [NewRobot method docs]: https://docs.viam.com/dev/reference/apis/fleet/#newrobot
+// [NewRobot method docs]: https://docs.viam.com/reference/apis/fleet/#newrobot
 func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string, error) {
 	resp, err := c.client.NewRobot(ctx, &pb.NewRobotRequest{
 		Name:     name,
@@ -2014,7 +2012,7 @@ func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string
 //
 // For more information, see the [UpdateRobot method docs].
 //
-// [UpdateRobot method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobot
+// [UpdateRobot method docs]: https://docs.viam.com/reference/apis/fleet/#updaterobot
 func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) (*Robot, error) {
 	resp, err := c.client.UpdateRobot(ctx, &pb.UpdateRobotRequest{
 		Id:       id,
@@ -2035,7 +2033,7 @@ func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) 
 //
 // For more information, see the [DeleteRobot method docs].
 //
-// [DeleteRobot method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleterobot
+// [DeleteRobot method docs]: https://docs.viam.com/reference/apis/fleet/#deleterobot
 func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 	_, err := c.client.DeleteRobot(ctx, &pb.DeleteRobotRequest{
 		Id: id,
@@ -2056,7 +2054,7 @@ func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 //
 // For more information, see the [ListFragments method docs].
 //
-// [ListFragments method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listfragments
+// [ListFragments method docs]: https://docs.viam.com/reference/apis/fleet/#listfragments
 func (c *AppClient) ListFragments(
 	ctx context.Context, orgID string, showPublic bool, fragmentVisibility []FragmentVisibility,
 ) ([]*Fragment, error) {
@@ -2088,7 +2086,7 @@ func (c *AppClient) ListFragments(
 //
 // For more information, see the [GetFragment method docs].
 //
-// [GetFragment method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getfragment
+// [GetFragment method docs]: https://docs.viam.com/reference/apis/fleet/#getfragment
 func (c *AppClient) GetFragment(ctx context.Context, id, version string) (*Fragment, error) {
 	req := &pb.GetFragmentRequest{
 		Id: id,
@@ -2129,7 +2127,7 @@ func (c *AppClient) GetFragment(ctx context.Context, id, version string) (*Fragm
 //
 // For more information, see the [CreateFragment method docs].
 //
-// [CreateFragment method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createfragment
+// [CreateFragment method docs]: https://docs.viam.com/reference/apis/fleet/#createfragment
 func (c *AppClient) CreateFragment(
 	ctx context.Context, orgID, name string, config map[string]interface{}, opts *CreateFragmentOptions,
 ) (*Fragment, error) {
@@ -2177,7 +2175,7 @@ func (c *AppClient) CreateFragment(
 //
 // For more information, see the [UpdateFragment method docs].
 //
-// [UpdateFragment method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatefragment
+// [UpdateFragment method docs]: https://docs.viam.com/reference/apis/fleet/#updatefragment
 func (c *AppClient) UpdateFragment(
 	ctx context.Context, id, name string, config map[string]interface{}, opts *UpdateFragmentOptions,
 ) (*Fragment, error) {
@@ -2214,7 +2212,7 @@ func (c *AppClient) UpdateFragment(
 //
 // For more information, see the [DeleteFragment method docs].
 //
-// [DeleteFragment method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deletefragment
+// [DeleteFragment method docs]: https://docs.viam.com/reference/apis/fleet/#deletefragment
 func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 	_, err := c.client.DeleteFragment(ctx, &pb.DeleteFragmentRequest{
 		Id: id,
@@ -2231,7 +2229,7 @@ func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 //
 // For more information, see the [ListMachineFragments method docs].
 //
-// [ListMachineFragments method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listmachinefragments
+// [ListMachineFragments method docs]: https://docs.viam.com/reference/apis/fleet/#listmachinefragments
 func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, additionalIDs []string) ([]*Fragment, error) {
 	resp, err := c.client.ListMachineFragments(ctx, &pb.ListMachineFragmentsRequest{
 		MachineId:             machineID,
@@ -2259,7 +2257,7 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, 
 //
 // For more information, see the [GetFragmentHistory method docs].
 //
-// [GetFragmentHistory method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getfragmenthistory
+// [GetFragmentHistory method docs]: https://docs.viam.com/reference/apis/fleet/#getfragmenthistory
 func (c *AppClient) GetFragmentHistory(
 	ctx context.Context, id string, opts *GetFragmentHistoryOptions,
 ) ([]*FragmentHistoryEntry, string, error) {
@@ -2336,7 +2334,7 @@ func (c *AppClient) ChangeRole(
 //
 // For more information, see the [ListAuthorizations method docs].
 //
-// [ListAuthorizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listauthorizations
+// [ListAuthorizations method docs]: https://docs.viam.com/reference/apis/fleet/#listauthorizations
 func (c *AppClient) ListAuthorizations(ctx context.Context, orgID string, resourceIDs []string) ([]*Authorization, error) {
 	resp, err := c.client.ListAuthorizations(ctx, &pb.ListAuthorizationsRequest{
 		OrganizationId: orgID,
@@ -2369,7 +2367,7 @@ func (c *AppClient) ListAuthorizations(ctx context.Context, orgID string, resour
 //
 // For more information, see the [CheckPermissions method docs].
 //
-// [CheckPermissions method docs]: https://docs.viam.com/dev/reference/apis/fleet/#checkpermissions
+// [CheckPermissions method docs]: https://docs.viam.com/reference/apis/fleet/#checkpermissions
 func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*AuthorizedPermissions) ([]*AuthorizedPermissions, error) {
 	var pbPermissions []*pb.AuthorizedPermissions
 	for _, permission := range permissions {
@@ -2398,7 +2396,7 @@ func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*Authori
 //
 // For more information, see the [GetRegistryItem method docs].
 //
-// [GetRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getregistryitem
+// [GetRegistryItem method docs]: https://docs.viam.com/reference/apis/fleet/#getregistryitem
 func (c *AppClient) GetRegistryItem(ctx context.Context, itemID string) (*RegistryItem, error) {
 	resp, err := c.client.GetRegistryItem(ctx, &pb.GetRegistryItemRequest{
 		ItemId: itemID,
@@ -2425,7 +2423,7 @@ func (c *AppClient) GetRegistryItem(ctx context.Context, itemID string) (*Regist
 //
 // For more information, see the [CreateRegistryItem method docs].
 //
-// [CreateRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createregistryitem
+// [CreateRegistryItem method docs]: https://docs.viam.com/reference/apis/fleet/#createregistryitem
 func (c *AppClient) CreateRegistryItem(ctx context.Context, orgID, name string, packageType PackageType) error {
 	_, err := c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
 		OrganizationId: orgID,
@@ -2451,7 +2449,7 @@ func (c *AppClient) CreateRegistryItem(ctx context.Context, orgID, name string, 
 //
 // For more information, see the [UpdateRegistryItem method docs].
 //
-// [UpdateRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateregistryitem
+// [UpdateRegistryItem method docs]: https://docs.viam.com/reference/apis/fleet/#updateregistryitem
 func (c *AppClient) UpdateRegistryItem(
 	ctx context.Context, itemID string, packageType PackageType, description string, visibility Visibility, opts *UpdateRegistryItemOptions,
 ) error {
@@ -2493,7 +2491,7 @@ func (c *AppClient) UpdateRegistryItem(
 //
 // For more information, see the [ListRegistryItems method docs].
 //
-// [ListRegistryItems method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listregistryitems
+// [ListRegistryItems method docs]: https://docs.viam.com/reference/apis/fleet/#listregistryitems
 func (c *AppClient) ListRegistryItems(
 	ctx context.Context,
 	orgID *string,
@@ -2555,7 +2553,7 @@ func (c *AppClient) ListRegistryItems(
 //
 // For more information, see the [DeleteRegistryItem method docs].
 //
-// [DeleteRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleteregistryitem
+// [DeleteRegistryItem method docs]: https://docs.viam.com/reference/apis/fleet/#deleteregistryitem
 func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemID string) error {
 	_, err := c.client.DeleteRegistryItem(ctx, &pb.DeleteRegistryItemRequest{
 		ItemId: itemID,
@@ -2571,7 +2569,7 @@ func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemID string) error
 //
 // For more information, see the [TransferRegistryItem method docs].
 //
-// [TransferRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#transferregistryitem
+// [TransferRegistryItem method docs]: https://docs.viam.com/reference/apis/fleet/#transferregistryitem
 func (c *AppClient) TransferRegistryItem(ctx context.Context, itemID, newPublicNamespace string) error {
 	_, err := c.client.TransferRegistryItem(ctx, &pb.TransferRegistryItemRequest{
 		ItemId:             itemID,
@@ -2592,7 +2590,7 @@ func (c *AppClient) TransferRegistryItem(ctx context.Context, itemID, newPublicN
 //
 // For more information, see the [CreateModule method docs].
 //
-// [CreateModule method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createmodule
+// [CreateModule method docs]: https://docs.viam.com/reference/apis/fleet/#createmodule
 func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (string, string, error) {
 	resp, err := c.client.CreateModule(ctx, &pb.CreateModuleRequest{
 		OrganizationId: orgID,
@@ -2633,7 +2631,7 @@ func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (strin
 //
 // For more information, see the [UpdateModule method docs].
 //
-// [UpdateModule method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatemodule
+// [UpdateModule method docs]: https://docs.viam.com/reference/apis/fleet/#updatemodule
 func (c *AppClient) UpdateModule(
 	ctx context.Context,
 	moduleID string,
@@ -2686,7 +2684,7 @@ func (c *AppClient) UpdateModule(
 //
 // For more information, see the [UploadModuleFile method docs].
 //
-// [UploadModuleFile method docs]: https://docs.viam.com/dev/reference/apis/fleet/#uploadmodulefile
+// [UploadModuleFile method docs]: https://docs.viam.com/reference/apis/fleet/#uploadmodulefile
 func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInfo, file []byte) (string, error) {
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
@@ -2738,7 +2736,7 @@ func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInf
 //
 // For more information, see the [GetModule method docs].
 //
-// [GetModule method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getmodule
+// [GetModule method docs]: https://docs.viam.com/reference/apis/fleet/#getmodule
 func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, error) {
 	resp, err := c.client.GetModule(ctx, &pb.GetModuleRequest{
 		ModuleId: moduleID,
@@ -2758,7 +2756,7 @@ func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, er
 //
 // For more information, see the [ListModules method docs].
 //
-// [ListModules method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listmodules
+// [ListModules method docs]: https://docs.viam.com/reference/apis/fleet/#listmodules
 func (c *AppClient) ListModules(ctx context.Context, opts *ListModulesOptions) ([]*Module, error) {
 	var orgID *string
 	if opts != nil {
@@ -2806,7 +2804,7 @@ func (c *AppClient) CreateKey(
 //
 // For more information, see the [DeleteKey method docs].
 //
-// [DeleteKey method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deletekey
+// [DeleteKey method docs]: https://docs.viam.com/reference/apis/fleet/#deletekey
 func (c *AppClient) DeleteKey(ctx context.Context, id string) error {
 	_, err := c.client.DeleteKey(ctx, &pb.DeleteKeyRequest{
 		Id: id,
@@ -2820,7 +2818,7 @@ func (c *AppClient) DeleteKey(ctx context.Context, id string) error {
 //
 // For more information, see the [ListKeys method docs].
 //
-// [ListKeys method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listkeys
+// [ListKeys method docs]: https://docs.viam.com/reference/apis/fleet/#listkeys
 // ListKeys lists all the keys for the organization.
 func (c *AppClient) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAuthorizations, error) {
 	resp, err := c.client.ListKeys(ctx, &pb.ListKeysRequest{
@@ -2844,7 +2842,7 @@ func (c *AppClient) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAu
 //
 // For more information, see the [RenameKey method docs].
 //
-// [RenameKey method docs]: https://docs.viam.com/dev/reference/apis/fleet/#renamekey
+// [RenameKey method docs]: https://docs.viam.com/reference/apis/fleet/#renamekey
 func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, string, error) {
 	resp, err := c.client.RenameKey(ctx, &pb.RenameKeyRequest{
 		Id:   id,
@@ -2864,7 +2862,7 @@ func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, str
 //
 // For more information, see the [RotateKey method docs].
 //
-// [RotateKey method docs]: https://docs.viam.com/dev/reference/apis/fleet/#rotatekey
+// [RotateKey method docs]: https://docs.viam.com/reference/apis/fleet/#rotatekey
 func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, error) {
 	resp, err := c.client.RotateKey(ctx, &pb.RotateKeyRequest{
 		Id: id,
@@ -2883,9 +2881,7 @@ func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, e
 //
 // For more information, see the [CreateKeyFromExistingKeyAuthorizations method docs].
 //
-// [CreateKeyFromExistingKeyAuthorizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createkeyfromexistingkeyauthorizations
-//
-//nolint:lll
+// [CreateKeyFromExistingKeyAuthorizations method docs]: https://docs.viam.com/reference/apis/fleet/#createkeyfromexistingkeyauthorizations
 func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, id string) (string, string, error) {
 	resp, err := c.client.CreateKeyFromExistingKeyAuthorizations(ctx, &pb.CreateKeyFromExistingKeyAuthorizationsRequest{
 		Id: id,
@@ -2910,7 +2906,7 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 //
 // For more information, see the [ListMachineSummaries method docs].
 //
-// [ListMachineSummaries method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listmachinesummaries
+// [ListMachineSummaries method docs]: https://docs.viam.com/reference/apis/fleet/#listmachinesummaries
 func (c *AppClient) ListMachineSummaries(
 	ctx context.Context,
 	organizationID string,
@@ -2945,7 +2941,7 @@ func (c *AppClient) ListMachineSummaries(
 //
 // For more information, see the [GetAppBranding method docs].
 //
-// [GetAppBranding method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getappbranding
+// [GetAppBranding method docs]: https://docs.viam.com/reference/apis/fleet/#getappbranding
 func (c *AppClient) GetAppBranding(ctx context.Context, orgPublicNamespace, appName string) (*AppBranding, error) {
 	req := &pb.GetAppBrandingRequest{
 		PublicNamespace: orgPublicNamespace,
@@ -2968,7 +2964,7 @@ func (c *AppClient) GetAppBranding(ctx context.Context, orgPublicNamespace, appN
 //
 // For more information, see the [GetAppContent method docs].
 //
-// [GetAppContent method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getappcontent
+// [GetAppContent method docs]: https://docs.viam.com/reference/apis/fleet/#getappcontent
 func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appName string) (*AppContent, error) {
 	req := &pb.GetAppContentRequest{
 		PublicNamespace: orgPublicNamespace,
@@ -2991,7 +2987,7 @@ func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appNa
 //
 // For more information, see the [GetRobotPartByNameAndLocation method docs].
 //
-// [GetRobotPartByNameAndLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpartbynameandlocation
+// [GetRobotPartByNameAndLocation method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotpartbynameandlocation
 func (c *AppClient) GetRobotPartByNameAndLocation(ctx context.Context, name, locationID string) (*RobotPart, error) {
 	req := &pb.GetRobotPartByNameAndLocationRequest{
 		Name:       name,
