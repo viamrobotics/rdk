@@ -5695,7 +5695,7 @@ func (c *viamClient) retryableCopy(
 			return attempt, copyErr
 		}
 
-		// Print special warning for invalid argument and permission denied errors (in addition to regular error)
+		// Print special warning for invalid argument, permission denied, and not found errors (in addition to regular error)
 		if s, ok := status.FromError(copyErr); ok {
 			if s.Code() == codes.PermissionDenied {
 				if isFrom {
