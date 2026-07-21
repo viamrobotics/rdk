@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"time"
 
@@ -137,8 +138,14 @@ func (ac *AppConn) watchState(host string, logger logging.Logger) {
 		var offline bool
 		state := checker.GetState()
 		for {
-			if !checker.WaitForStateChange(ctx, state) {
-				// ctx expired; AppConn is closing.
+			stateChanged, err := checker.WaitForStateChange(ctx, state)
+			if err != nil {
+				logger.Debugw("failed to subscribe to state changes; will not log lost/regained connections to app",
+					"error", err.Error())
+				return
+			}
+			if !stateChanged {
+				// state did not change and ctx expired; AppConn is closing.
 				return
 			}
 			state = checker.GetState()
@@ -170,16 +177,15 @@ func (ac *AppConn) GetState() connectivity.State {
 // WaitForStateChange blocks until the connectivity state of the underlying connection
 // changes from sourceState or ctx expires, returning true in the former case and false in
 // the latter. If the underlying connection is nil or does not support state subscription,
-// it blocks until ctx expires and returns false.
-func (ac *AppConn) WaitForStateChange(ctx context.Context, sourceState connectivity.State) bool {
+// it returns false and an error.
+func (ac *AppConn) WaitForStateChange(ctx context.Context, sourceState connectivity.State) (bool, error) {
 	ac.connMu.RLock()
 	conn := ac.conn
 	ac.connMu.RUnlock()
 
 	checker, ok := conn.(grpchelpers.ConnectivityState)
 	if !ok {
-		<-ctx.Done()
-		return false
+		return false, errors.New("underlying connection does not allow waiting for state change")
 	}
 	return checker.WaitForStateChange(ctx, sourceState)
 }

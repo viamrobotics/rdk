@@ -61,9 +61,8 @@ func (*NoOpClientConn) GetState() connectivity.State {
 	return connectivity.Idle
 }
 
-func (*NoOpClientConn) WaitForStateChange(ctx context.Context, sourceState connectivity.State) bool {
-	<-ctx.Done()
-	return false
+func (*NoOpClientConn) WaitForStateChange(ctx context.Context, sourceState connectivity.State) (bool, error) {
+	return false, nil
 }
 
 func (*NoOpClientConn) Close() error {
