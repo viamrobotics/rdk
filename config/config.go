@@ -526,6 +526,9 @@ type Cloud struct {
 	FQDN              string
 	LocalFQDN         string
 	SignalingAddress  string
+	// SignalingInsecure also doubles as the marker for whether the viam-server should try to grab
+	// a TLS cert, since local dev app instances are insecure and have no robot certs by default.
+	// Note (cheukt): those things are not, and should not be, intrinsically linked.
 	SignalingInsecure bool
 	AppAddress        string
 	RefreshInterval   time.Duration
@@ -684,18 +687,15 @@ func (config *Cloud) ValidateTLS(path string) error {
 	return nil
 }
 
-// restoreLocalOnlyFields overwrites the fields of config that are sourced from the config on disk
-// rather than from the cloud, using the values in local. A config read from the cloud is the base,
-// so anything the cloud does not send back would otherwise be silently zeroed here.
+// restoreLocalOnlyFields overwrites the fields of config that come from the config on disk rather
+// than from the cloud. A cloud read uses the cloud's config as its base, so these would otherwise
+// be silently zeroed. They govern how the robot reaches and authenticates to the cloud, so the
+// cloud must not be able to change them.
 //
-// These are exactly the fields that CloudConfigFromProto does not populate, minus the TLS cert data
-// which comes from its own endpoint and is stamped separately. They govern how the robot reaches
-// and authenticates to the cloud, so the cloud must not be able to change them. Keep this in sync
-// with the Cloud struct -- TestCloudFieldsAreAccountedFor fails if a new field is added and not
-// classified.
+// local must already have been through Cloud.Validate, which fills in the RefreshInterval default;
+// a zero RefreshInterval would make the cloud watcher poll in a tight loop.
 //
-// local must already have been through Cloud.Validate, which fills in the RefreshInterval default.
-// Restoring a zero RefreshInterval would make the cloud watcher poll in a tight loop.
+// Keep in sync with the Cloud struct -- TestCloudFieldsAreAccountedFor fails on a new field.
 func (config *Cloud) restoreLocalOnlyFields(local *Cloud) {
 	config.ID = local.ID
 	config.Secret = local.Secret

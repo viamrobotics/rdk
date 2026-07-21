@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/bep/debounce"
@@ -58,10 +59,9 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 
 	nextCheckForNewCert := time.Now().Add(checkForNewCertInterval)
 	machineID := config.Cloud.ID
-	// prevCloudConfig carries the cloud section (notably the TLS cert) from the previous
-	// successful read forward in memory. It deliberately does not round-trip through the
-	// on-disk cache, which is only written after reconfiguration completes and can therefore
-	// lag many polls behind. See RSDK-11851.
+	// prevCloudConfig carries the cloud section (notably the TLS cert) from the previous successful
+	// read forward in memory. It deliberately does not round-trip through the on-disk cache, which
+	// is only written after reconfiguration completes and can lag many polls behind (RSDK-11851).
 	prevCloudConfig := config.Cloud
 	utils.ManagedGo(func() {
 		firstRead := true
@@ -91,15 +91,13 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 				logFunc("could not apply new cloud config; keeping the current config", "error", err)
 				continue
 			}
-			// Carry the new cloud section forward as the next iteration's fallback. We copy rather
-			// than alias newConfig.Cloud because the robot may mutate the config we hand it. If the
-			// copy fails we keep the older cloud section, which means an older TLS cert could be
-			// carried forward, so say so rather than swallowing it.
-			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
-				prevCloudConfig = cp.Cloud
-			} else {
-				logger.Errorw("failed to copy new cloud config; keeping the previous one as the fallback", "error", err)
-			}
+			// Carry the new cloud section forward as the next iteration's fallback. Copy rather
+			// than alias newConfig.Cloud, since the robot may mutate the config we hand it. The
+			// copy must not be allowed to fail: falling back to the older cloud section would hand
+			// the robot an older TLS cert on the next poll, which is the reconfigure loop above.
+			cloudCopy := *newConfig.Cloud
+			cloudCopy.LocationSecrets = slices.Clone(newConfig.Cloud.LocationSecrets)
+			prevCloudConfig = &cloudCopy
 			if checkForNewCert {
 				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
 			}

@@ -653,12 +653,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
 
-	// Watch for and deliver changes to the robot.
-	//
-	// `cfg`, `fullProcessedConfig`, and `minimalProcessedConfig` all share the same `Cloud`
-	// pointer, so any of them would give the watcher the same cloud section to start from. We pass
-	// the minimal one because `NewWatcher` calls `Ensure`, and doing that on the full config would
-	// re-validate every resource and re-log the same validation errors the robot already logged.
+	// Watch for and deliver changes to the robot. `cfg`, `fullProcessedConfig`, and
+	// `minimalProcessedConfig` share a `Cloud` pointer, so the watcher starts from the same cloud
+	// section either way. Pass the minimal one because `NewWatcher` calls `Ensure`, which on the
+	// full config would re-validate every resource and re-log errors the robot already logged.
 	watcher, err := config.NewWatcher(ctx, &minimalProcessedConfig, s.configLogger, s.conn)
 	if err != nil {
 		cancel()

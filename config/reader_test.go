@@ -491,13 +491,11 @@ func TestCacheInvalidation(t *testing.T) {
 }
 
 // TestCloudFieldsAreAccountedFor pins down where every field of Cloud comes from after a cloud
-// read. A cloud read uses the config from the cloud as its base, so a field the cloud does not
-// send must be restored from the local config or it is silently zeroed -- that is how APIKey was
-// once dropped, downgrading API-key machines to secret auth and breaking secret-less ones.
+// read. A field the cloud does not send must be restored from the local config or it is silently
+// zeroed -- that is how APIKey was once dropped, downgrading API-key machines to secret auth.
 //
-// If this fails, a field was added to Cloud. Classify it: does the cloud own it (add to
-// CloudConfigFromProto), does the local config own it (add to restoreLocalOnlyFields), or is it
-// cert data stamped by applyCloudConfig?
+// If this fails, a field was added to Cloud. Classify it: cloud-owned (CloudConfigFromProto),
+// local-owned (restoreLocalOnlyFields), or cert data stamped by applyCloudConfig.
 func TestCloudFieldsAreAccountedFor(t *testing.T) {
 	// Fields the cloud sends back; CloudConfigFromProto populates these.
 	fromCloud := []string{
@@ -588,24 +586,22 @@ func TestShouldCheckForCert(t *testing.T) {
 
 // TestReadFromCloudCertStaleCache is a regression test for RSDK-11851.
 //
-// The cert only comes down from the cloud once an hour, so on every other watcher poll it has
-// to be carried over from somewhere. It used to be carried over from the config cache on disk,
-// but that cache is only written at the *end* of reconfiguration (localRobot.reconfigure ->
-// StoreToCache). When a reconfigure runs longer than the refresh interval -- a stalled remote, a
-// slow module download -- the next poll reads a cache that still holds the *previous* cert, and
-// the two polls then take turns writing their cert back to disk. The cloud section changes on
-// every poll, so the machine reconfigures forever and never settles.
+// The cert only comes down from the cloud once an hour, so every other watcher poll carries it
+// over from somewhere. That used to be the on-disk cache, which is only written at the *end* of
+// reconfiguration (localRobot.reconfigure -> StoreToCache). When a reconfigure runs longer than
+// the refresh interval -- a stalled remote, a slow module download -- the next poll reads a cache
+// still holding the *previous* cert, and the polls take turns writing their cert back to disk. The
+// cloud section then changes every poll and the machine reconfigures forever.
 //
 // readFromCloud must therefore carry the cert forward from prevCloudCfg (in memory) and never
-// consult the on-disk cache, so that a lagging cache cannot drag the cert backwards.
+// consult the cache, so a lagging cache cannot drag the cert backwards.
 func TestReadFromCloudCertStaleCache(t *testing.T) {
 	const (
 		robotPartID = "certStaleCacheTest"
 		secret      = testutils.FakeCredentialPayLoad
 
-		// Three distinct cert sources, so that an assertion can tell which one was used:
-		// the lagging on-disk cache, the cert carried forward in memory, and what the cloud
-		// would hand back if we asked it right now.
+		// Three distinct cert sources, so assertions can tell which one was used: the lagging
+		// on-disk cache, the cert carried forward in memory, and what the cloud has now.
 		staleCert = "stale-cert-on-disk"
 		staleKey  = "stale-key-on-disk"
 		heldCert  = "held-cert-in-memory"
@@ -674,9 +670,8 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Before the fix this read the cert off disk and came back with staleCert. It must also
-		// not be cloudCert -- that would mean we hit the cert endpoint on a poll that did not
-		// ask for a refresh.
+		// Before the fix this read the cert off disk and came back with staleCert. It must not be
+		// cloudCert either -- that would mean hitting the cert endpoint on a non-refresh poll.
 		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, heldCert)
 		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, heldKey)
 	})
@@ -684,9 +679,8 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 	t.Run("repeated polls do not flip-flop the cert", func(t *testing.T) {
 		_, appConn, prevCloudCfg := setup(t)
 
-		// Drive the watcher's loop by hand, without ever letting the robot store to the cache --
-		// i.e. reconfiguration never finishes. The cert must be identical on every poll; any
-		// change here is a cloud-section diff that would trigger another reconfigure.
+		// Drive the watcher's loop by hand without ever storing to the cache -- i.e. reconfiguration
+		// never finishes. Any cert change here is a cloud-section diff that reconfigures again.
 		for range 5 {
 			gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
 			test.That(t, err, test.ShouldBeNil)
@@ -724,8 +718,8 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 	t.Run("cert is refetched when the cloud section invalidates it", func(t *testing.T) {
 		_, appConn, prevCloudCfg := setup(t)
 
-		// The cert is issued for the machine's FQDN, so an FQDN change must force a refetch even
-		// though checkForNewCert is false.
+		// The cert is issued for the machine's FQDN, so an FQDN change forces a refetch even with
+		// checkForNewCert false.
 		prevCloudCfg.FQDN = "some-old-fqdn"
 
 		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
@@ -734,8 +728,8 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cloudKey)
 	})
 
-	// breakCertEndpoint makes the cert endpoint fail while leaving the config endpoint working --
-	// an empty CertificateResponse is what the cloud sends when a cert is not ready yet.
+	// breakCertEndpoint fails the cert endpoint while leaving the config endpoint working. An empty
+	// CertificateResponse is what the cloud sends when a cert is not ready yet.
 	breakCertEndpoint := func(t *testing.T, fakeServer *testutils.FakeCloudServer) {
 		t.Helper()
 		cloudConfProto, err := CloudConfigToProto(cloudResponse)
@@ -761,8 +755,8 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		prevCloudCfg.TLSCertificate = ""
 		prevCloudCfg.TLSPrivateKey = ""
 
-		// Nothing to fall back to, and signaling is secure, so we cannot serve. Surface the error
-		// rather than handing back a config with no cert.
+		// Nothing to fall back to and signaling is secure, so error rather than handing back a
+		// config with no cert.
 		_, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn)
 		test.That(t, err, test.ShouldNotBeNil)
 	})

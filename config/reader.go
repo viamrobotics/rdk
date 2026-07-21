@@ -173,9 +173,8 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-// fetchAndProcessCloudConfig does the work common to every cloud read: it pulls the config for
-// machineID, processes it, and classifies a processing failure. Both the processed config and the
-// unprocessed one it came from are returned, since the latter is what gets written to the cache.
+// fetchAndProcessCloudConfig pulls the config for machineID and processes it. It returns the
+// unprocessed config too, since that is what gets written to the cache.
 func fetchAndProcessCloudConfig(
 	ctx context.Context,
 	machineID string,
@@ -207,9 +206,8 @@ func fetchAndProcessCloudConfig(
 	return unprocessedConfig, processedCfg, cached, nil
 }
 
-// applyCloudConfig finishes a cloud read. It stamps the resolved TLS cert onto both the processed
-// config and the unprocessed one destined for the cache, restores the fields that govern how the
-// robot talks to the cloud, and stages the cache write.
+// applyCloudConfig finishes a cloud read: it stamps the resolved TLS cert, restores the local-only
+// cloud fields, and stages the cache write.
 func applyCloudConfig(
 	processedCfg, unprocessedConfig *Config,
 	tls tlsConfig,
@@ -219,13 +217,10 @@ func applyCloudConfig(
 	processedCfg.Cloud.TLSCertificate = tls.certificate
 	processedCfg.Cloud.TLSPrivateKey = tls.privateKey
 
-	// Set the cert data on unprocessedConfig too, so that it is saved to disk as part of the
-	// cached config.
+	// Set the cert data on unprocessedConfig too, so it is saved as part of the cached config.
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
-	// The cloud config is the base, so restore the fields that only ever come from the config on
-	// disk -- the cloud does not send them back and would otherwise zero them.
 	processedCfg.Cloud.restoreLocalOnlyFields(localCloudCfg)
 
 	if err := processedCfg.SetToCache(unprocessedConfig); err != nil {
@@ -234,10 +229,9 @@ func applyCloudConfig(
 }
 
 // firstReadFromCloud fetches a robot config from the cloud on server startup, given the cloud
-// section of the config read from disk.
-//
-// Unlike readFromCloud, this may fall back to the config cached on disk -- on startup there is
-// nothing held in memory to fall back to, and a machine that boots offline still needs to come up.
+// section of the config read from disk. Unlike readFromCloud, it may fall back to the on-disk
+// cache -- on startup there is nothing in memory to fall back to, and a machine that boots offline
+// still needs to come up.
 func firstReadFromCloud(
 	ctx context.Context,
 	originalCloudCfg *Cloud,
@@ -257,8 +251,7 @@ func firstReadFromCloud(
 		// No cert is expected, so carry whatever the config already has through untouched.
 		tls = tlsFromCloud(processedCfg.Cloud)
 	} else {
-		// On the first read the cert may come from the cloud or from the cache. Cloud is preferred,
-		// but falling back to the cache is not an error.
+		// Prefer the cloud's cert, but falling back to the cache here is not an error.
 		logger.Info("reading tlsCertificate from the cloud")
 
 		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, true, machineID, logger)
@@ -285,11 +278,10 @@ func firstReadFromCloud(
 // readFromCloud fetches a robot config from the cloud for the given machine ID. This is the
 // steady-state path, driven by the config watcher.
 //
-// Unlike firstReadFromCloud, this never falls back to the on-disk cache. That cache is only
-// written once reconfiguration completes, so during a slow reconfigure it still holds the previous
-// cert; reading it back would let an old cert overwrite a newer one on every poll and leave the
-// machine reconfiguring forever. prevCloudCfg -- the cloud section of the previous successful read,
-// held in memory -- is the only fallback. See RSDK-11851.
+// It never falls back to the on-disk cache: that cache is only written once reconfiguration
+// completes, so during a slow reconfigure it still holds the previous cert, and reading it back
+// would leave the machine reconfiguring forever (RSDK-11851). prevCloudCfg -- the cloud section of
+// the previous successful read, held in memory -- is the only fallback.
 func readFromCloud(
 	ctx context.Context,
 	machineID string,
@@ -317,10 +309,9 @@ func readFromCloud(
 		tls = tlsFromCloud(prevCloudCfg)
 		hasPrevCert := tls.certificate != "" && tls.privateKey != ""
 
-		// Beyond the periodic refresh the caller asks for, refetch if the cloud section changed in a
-		// way that invalidates the cert (FQDN, location, ...), or if we have no cert to carry forward
-		// at all -- prevCloudCfg is not guaranteed to have one, e.g. when the watcher was seeded from
-		// a config that predates the first cert fetch.
+		// Beyond the periodic refresh the caller asks for, refetch if the cloud section changed in
+		// a way that invalidates the cert (FQDN, location, ...), or if there is no cert to carry
+		// forward -- e.g. the watcher was seeded from a config that predates the first cert fetch.
 		checkForNewCert = checkForNewCert ||
 			shouldCheckForCert(prevCloudCfg, processedCfg.Cloud) ||
 			!hasPrevCert
@@ -331,9 +322,9 @@ func readFromCloud(
 			certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, machineID, conn)
 			cancel()
 			if err != nil {
-				// A transient failure on the cert endpoint should not cost us an otherwise good
-				// config, so carry the previous cert forward. If there is no previous cert there
-				// is nothing to fall back to and the server cannot come up securely.
+				// A transient cert-endpoint failure should not cost us an otherwise good config,
+				// so carry the previous cert forward. With no previous cert there is nothing to
+				// fall back to and the server cannot come up securely.
 				if !hasPrevCert {
 					return nil, err
 				}
@@ -348,14 +339,9 @@ func readFromCloud(
 	return processedCfg, nil
 }
 
-// tlsConfig is the TLS cert data required to secure the server that the viam-server spins up. It
-// is fetched from a different endpoint than the config itself, so every cloud read has to decide
-// where to source it from.
-//
-// Note (cheukt): The viam-server currently uses whether the signaling server is secure as the
-// marker for whether this server should try to grab a TLS cert, but those things are not and should
-// not be intrinsically linked. We use whether the signaling server is secure because local dev app
-// instances are insecure and do not have TLS certs available for robots by default.
+// tlsConfig is the TLS cert data securing the server the viam-server spins up. It comes from a
+// different endpoint than the config itself, so every cloud read has to decide where to source it.
+// Whether a cert is needed at all is keyed off Cloud.SignalingInsecure; see the note there.
 type tlsConfig struct {
 	certificate string
 	privateKey  string
