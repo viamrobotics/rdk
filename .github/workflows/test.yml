@@ -512,10 +512,6 @@ jobs:
           [[ "${{ needs.motion_tests.result }}" =~ ^(success|skipped)$ ]] && \
           [ "${{ needs.lint.result }}" == "success" ]
 
-      - name: Mark appimage label
-        if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-        run: echo "APPIMAGE=true" >> pr.env
-
       - name: Mark static label
         if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
         run: echo "STATIC=true" >> pr.env

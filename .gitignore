@@ -78,7 +78,7 @@ lf_logs/
 google-credentials.json
 gha-creds-*.json
 
-# frontend built artifacts are not committed (they are generated during appimage github workflow step)
+# frontend built artifacts are not committed (they are generated during the build workflows)
 web/runtime-shared/static
 
 etc/android-ndk-*
