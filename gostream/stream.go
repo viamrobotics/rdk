@@ -189,6 +189,10 @@ func (bs *basicStream) VideoTrackLocal() (webrtc.TrackLocal, bool) {
 
 func (bs *basicStream) processInputFrames() {
 	frameLimiterDur := time.Second / time.Duration(bs.config.TargetFrameRate)
+	bs.logger.Infow("DEBUG processInputFrames entry",
+		"stream_name", bs.name,
+		"target_frame_rate", bs.config.TargetFrameRate,
+		"frame_limiter_dur", frameLimiterDur)
 	defer close(bs.outputVideoChan)
 	var dx, dy int
 	ticker := time.NewTicker(frameLimiterDur)
