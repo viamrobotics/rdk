@@ -335,6 +335,8 @@ func TestCloseIsIdempotent(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Rename the .prog file externally so Close's os.Rename fails with ENOENT.
+		// That the destination matches Close's own target name is incidental; all
+		// that matters is that the .prog source path no longer exists.
 		src := f.GetPath()
 		dst := src[:len(src)-len(InProgressCaptureFileExt)] + CompletedCaptureFileExt
 		test.That(t, os.Rename(src, dst), test.ShouldBeNil)

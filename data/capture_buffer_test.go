@@ -822,6 +822,44 @@ func TestFlushRecoversAfterProgRenamedExternally(t *testing.T) {
 	test.That(t, len(progFiles), test.ShouldEqual, 0)
 }
 
+// TestWriteTabularRecoversAfterRotationCloseFails covers the size-rotation path of
+// RSDK-14184: when WriteTabular rotates to a new file, a failed Close() leaves
+// nextFile in place and the close is retried on the next write. Because Close() is
+// idempotent, that retry succeeds and capture continues with a fresh file instead
+// of failing with "file already closed" forever.
+func TestWriteTabularRecoversAfterRotationCloseFails(t *testing.T) {
+	dir := t.TempDir()
+	md := &v1.DataCaptureMetadata{Type: CaptureTypeTabular.ToProto()}
+	// A 1-byte max file size forces a rotation on every write.
+	buf := NewCaptureBuffer(dir, md, 1)
+
+	test.That(t, buf.WriteTabular(structSensorData), test.ShouldBeNil)
+
+	// Simulate renameProgFilesToCapture() running mid-capture: rename every .prog → .capture.
+	entries, err := os.ReadDir(dir)
+	test.That(t, err, test.ShouldBeNil)
+	for _, e := range entries {
+		if filepath.Ext(e.Name()) == InProgressCaptureFileExt {
+			src := filepath.Join(dir, e.Name())
+			dst := src[:len(src)-len(InProgressCaptureFileExt)] + CompletedCaptureFileExt
+			test.That(t, os.Rename(src, dst), test.ShouldBeNil)
+		}
+	}
+
+	// This write triggers a rotation whose Close() fails renaming the (gone) .prog path.
+	err = buf.WriteTabular(structSensorData)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
+
+	// The retried Close() is a no-op, so the next write rotates to a fresh file.
+	test.That(t, buf.WriteTabular(structSensorData), test.ShouldBeNil)
+	test.That(t, buf.Flush(), test.ShouldBeNil)
+
+	dcFiles, progFiles := getCaptureFiles(dir)
+	test.That(t, len(dcFiles), test.ShouldEqual, 2)
+	test.That(t, len(progFiles), test.ShouldEqual, 0)
+}
+
 func TestIsBinary(t *testing.T) {
 	test.That(t, IsBinary(nil), test.ShouldBeFalse)
 	test.That(t, IsBinary(&v1.SensorData{Data: &v1.SensorData_Struct{}}), test.ShouldBeFalse)
