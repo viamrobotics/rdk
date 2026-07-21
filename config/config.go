@@ -528,7 +528,8 @@ type Cloud struct {
 	SignalingAddress  string
 	// SignalingInsecure also doubles as the marker for whether the viam-server should try to grab
 	// a TLS cert, since local dev app instances are insecure and have no robot certs by default.
-	// Note (cheukt): those things are not, and should not be, intrinsically linked.
+	// These two things are not intrinsically linked and ideally would be separate fields; until
+	// then, changing the meaning of either one changes the meaning of the other.
 	SignalingInsecure bool
 	AppAddress        string
 	RefreshInterval   time.Duration
@@ -702,6 +703,19 @@ func (config *Cloud) restoreLocalOnlyFields(local *Cloud) {
 	config.APIKey = local.APIKey
 	config.AppAddress = local.AppAddress
 	config.RefreshInterval = local.RefreshInterval
+}
+
+// copyCloud returns a deep copy of a cloud config, so the caller holds a snapshot that cannot be
+// changed out from under it by whoever else has a pointer to the original.
+//
+// Keep in sync with the Cloud struct -- any field that is not a value type needs cloning here.
+func copyCloud(cloud *Cloud) *Cloud {
+	if cloud == nil {
+		return nil
+	}
+	cloudCopy := *cloud
+	cloudCopy.LocationSecrets = slices.Clone(cloud.LocationSecrets)
+	return &cloudCopy
 }
 
 // LocationSecret describes a location secret that can be used to authenticate to the rdk.

@@ -776,6 +776,183 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 	})
 }
 
+// TestReadFromCloudInsecureSignalingKeepsCert covers the insecure-signaling branch of
+// readFromCloud, which does not fetch a cert.
+//
+// The cert still has to come from prevCloudCfg. Sourcing it from the freshly read cloud config
+// yields nothing -- CloudConfigFromProto does not carry cert data -- so a machine that has a cert
+// and flips to insecure signaling would have it blanked on every poll, dropping Network.TLSConfig
+// and stamping empty cert data into the cache.
+func TestReadFromCloudInsecureSignalingKeepsCert(t *testing.T) {
+	const (
+		robotPartID = "insecureSignalingTest"
+		secret      = testutils.FakeCredentialPayLoad
+
+		heldCert = "held-cert-in-memory"
+		heldKey  = "held-key-in-memory"
+	)
+	var (
+		logger = logging.NewTestLogger(t)
+		ctx    = context.Background()
+	)
+
+	clearCache(robotPartID)
+	defer clearCache(robotPartID)
+
+	fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+	defer cleanup()
+
+	cloudResponse := &Cloud{
+		ManagedBy:         "acme",
+		SignalingAddress:  "abc",
+		ID:                robotPartID,
+		Secret:            secret,
+		FQDN:              "fqdn",
+		LocalFQDN:         "localFqdn",
+		LocationSecrets:   []LocationSecret{},
+		SignalingInsecure: true,
+	}
+	cloudConfProto, err := CloudConfigToProto(cloudResponse)
+	test.That(t, err, test.ShouldBeNil)
+	fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: cloudConfProto}, &pb.CertificateResponse{})
+
+	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+	appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, appConn.Close(), test.ShouldBeNil) }()
+
+	prevCloudCfg := *cloudResponse
+	prevCloudCfg.AppAddress = appAddress
+	prevCloudCfg.TLSCertificate = heldCert
+	prevCloudCfg.TLSPrivateKey = heldKey
+
+	gotCfg, err := readFromCloud(ctx, robotPartID, &prevCloudCfg, false, logger, appConn)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotCfg.Cloud.SignalingInsecure, test.ShouldBeTrue)
+	test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, heldCert)
+	test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, heldKey)
+}
+
+// TestFirstReadFromCloudRequiresCert covers startup when the cloud has no cert to hand out --
+// typically a machine whose cert has not been issued yet, where the Certificate endpoint answers
+// with an empty response.
+//
+// Coming up anyway is worse than failing. weboptions.FromConfig gates its TLS *and* its
+// bind-address setup on a non-empty TLSCertificate, so a certless machine serves plaintext on the
+// default bind address. Worse, applyCloudConfig would cache the empty cert, and on the following
+// boot tlsConfig.readFromCache fails ValidateTLS and clears the entire cache -- so the machine also
+// loses the config it needs to boot offline.
+func TestFirstReadFromCloudRequiresCert(t *testing.T) {
+	const (
+		robotPartID = "certRequiredTest"
+		secret      = testutils.FakeCredentialPayLoad
+
+		cachedCert = "cached-cert"
+		cachedKey  = "cached-key"
+	)
+	var (
+		logger = logging.NewTestLogger(t)
+		ctx    = context.Background()
+	)
+
+	// setup stands up a cloud that serves a config but no certificate.
+	setup := func(t *testing.T, signalingInsecure bool) (rpc.ClientConn, *Cloud) {
+		t.Helper()
+
+		clearCache(robotPartID)
+		t.Cleanup(func() { clearCache(robotPartID) })
+
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+		t.Cleanup(cleanup)
+
+		cloudResponse := &Cloud{
+			ManagedBy:         "acme",
+			SignalingAddress:  "abc",
+			ID:                robotPartID,
+			Secret:            secret,
+			FQDN:              "fqdn",
+			LocalFQDN:         "localFqdn",
+			LocationSecrets:   []LocationSecret{},
+			SignalingInsecure: signalingInsecure,
+		}
+		cloudConfProto, err := CloudConfigToProto(cloudResponse)
+		test.That(t, err, test.ShouldBeNil)
+		// An empty CertificateResponse is what the cloud sends when no cert has been issued.
+		fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: cloudConfProto}, &pb.CertificateResponse{})
+
+		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { test.That(t, appConn.Close(), test.ShouldBeNil) })
+
+		localCloudCfg := *cloudResponse
+		localCloudCfg.AppAddress = appAddress
+		localCloudCfg.RefreshInterval = time.Second
+		return appConn, &localCloudCfg
+	}
+
+	t.Run("no cert from the cloud and no cache errors", func(t *testing.T) {
+		appConn, localCloudCfg := setup(t, false)
+
+		_, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no TLS certificate available")
+	})
+
+	// The backstop in applyCloudConfig, tested directly: the callers above error out before
+	// reaching it, so nothing else exercises it.
+	t.Run("applyCloudConfig refuses to stage a cache write with no cert", func(t *testing.T) {
+		localCloudCfg := &Cloud{ID: robotPartID, Secret: secret}
+
+		newResult := func(insecure bool) cloudReadResult {
+			return cloudReadResult{
+				processed:   &Config{Cloud: &Cloud{ID: robotPartID, SignalingInsecure: insecure}},
+				unprocessed: &Config{Cloud: &Cloud{ID: robotPartID, SignalingInsecure: insecure}},
+			}
+		}
+
+		// Secure signaling with no cert: must not be staged.
+		res := newResult(false)
+		applyCloudConfig(res, tlsConfig{}, localCloudCfg, logger)
+		test.That(t, res.processed.toCache, test.ShouldBeNil)
+
+		// Insecure signaling legitimately has no cert, so staging is expected.
+		res = newResult(true)
+		applyCloudConfig(res, tlsConfig{}, localCloudCfg, logger)
+		test.That(t, res.processed.toCache, test.ShouldNotBeNil)
+
+		// Secure signaling with a cert is the normal path.
+		res = newResult(false)
+		applyCloudConfig(res, tlsConfig{certificate: cachedCert, privateKey: cachedKey}, localCloudCfg, logger)
+		test.That(t, res.processed.toCache, test.ShouldNotBeNil)
+	})
+
+	t.Run("no cert from the cloud falls back to the cached cert", func(t *testing.T) {
+		appConn, localCloudCfg := setup(t, false)
+
+		cached := *localCloudCfg
+		cached.TLSCertificate = cachedCert
+		cached.TLSPrivateKey = cachedKey
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		test.That(t, cfgToCache.SetToCache(&Config{Cloud: &cached}), test.ShouldBeNil)
+		test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+
+		gotCfg, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, cachedCert)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cachedKey)
+	})
+
+	t.Run("insecure signaling does not need a cert", func(t *testing.T) {
+		appConn, localCloudCfg := setup(t, true)
+
+		gotCfg, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
+	})
+}
+
 func TestProcessConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	unprocessedConfig := Config{
