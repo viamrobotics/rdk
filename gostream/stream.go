@@ -69,7 +69,7 @@ func NewStream(config StreamConfig, logger logging.Logger) (Stream, error) {
 		return nil, errors.New("video encoder factory must be set")
 	}
 	// NewTicker panics on non-positive durations.
-	// Arbitrarily large values result in integer division to 0 - which cause panics as well
+	// Arbitrarily large values result in integer division to 0 - which cause panics as well.
 	if config.TargetFrameRate <= 0 || config.TargetFrameRate > maxTargetFrameRate {
 		if config.TargetFrameRate != 0 {
 			logger.Warnw("TargetFrameRate out of valid range, using default",

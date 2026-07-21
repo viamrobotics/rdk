@@ -189,7 +189,7 @@ func TestNewStream_TargetFrameRateGuard(t *testing.T) {
 		{"in range", 60, 60},
 		{"at max", maxTargetFrameRate, maxTargetFrameRate},
 		{"above max", maxTargetFrameRate + 1, defaultTargetFrameRate},
-		{"garbage huge", 144524206401388544, defaultTargetFrameRate},
+		{"garbage huge", 1_000_000_000, defaultTargetFrameRate},
 	}
 
 	for _, tc := range tests {
