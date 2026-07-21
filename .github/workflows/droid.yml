@@ -32,6 +32,8 @@ jobs:
       if: github.event_name == 'pull_request_target'
       with:
         ref: ${{ github.event.pull_request.head.sha }}
+        # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
+        allow-unsafe-pr-checkout: true
 
     - uses: actions/setup-go@v5
       with:

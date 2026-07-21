@@ -310,7 +310,26 @@ func (server *Server) GetStreamOptions(
 	if req.Name == "" {
 		return nil, errors.New("stream name is required")
 	}
-	cam, err := camera.FromProvider(server.robot, req.Name)
+	scaledResolutions, err := server.availableResolutions(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+	resolutions := make([]*streampb.Resolution, 0, len(scaledResolutions))
+	for _, res := range scaledResolutions {
+		resolutions = append(resolutions, &streampb.Resolution{
+			Height: res.Height,
+			Width:  res.Width,
+		})
+	}
+	return &streampb.GetStreamOptionsResponse{
+		Resolutions: resolutions,
+	}, nil
+}
+
+// availableResolutions returns the resolutions that GetStreamOptions would report for the
+// named camera: the original resolution plus scaled-down variants.
+func (server *Server) availableResolutions(ctx context.Context, name string) ([]Resolution, error) {
+	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get camera from robot: %w", err)
 	}
@@ -330,17 +349,7 @@ func (server *Server) GetStreamOptions(
 	} else {
 		width, height = camProps.IntrinsicParams.Width, camProps.IntrinsicParams.Height
 	}
-	scaledResolutions := GenerateResolutions(int32(width), int32(height), server.logger)
-	resolutions := make([]*streampb.Resolution, 0, len(scaledResolutions))
-	for _, res := range scaledResolutions {
-		resolutions = append(resolutions, &streampb.Resolution{
-			Height: res.Height,
-			Width:  res.Width,
-		})
-	}
-	return &streampb.GetStreamOptionsResponse{
-		Resolutions: resolutions,
-	}, nil
+	return GenerateResolutions(int32(width), int32(height), server.logger), nil
 }
 
 // SetStreamOptions implements part of the StreamServiceServer. It sets the resolution of the stream
@@ -349,7 +358,7 @@ func (server *Server) SetStreamOptions(
 	ctx context.Context,
 	req *streampb.SetStreamOptionsRequest,
 ) (*streampb.SetStreamOptionsResponse, error) {
-	cmd, err := validateSetStreamOptionsRequest(req)
+	cmd, err := server.validateSetStreamOptionsRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +382,7 @@ func (server *Server) SetStreamOptions(
 }
 
 // validateSetStreamOptionsRequest validates the request to set the stream options.
-func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int, error) {
+func (server *Server) validateSetStreamOptionsRequest(ctx context.Context, req *streampb.SetStreamOptionsRequest) (int, error) {
 	if req.Name == "" {
 		return optionsCommandUnknown, errors.New("stream name is required in request")
 	}
@@ -394,17 +403,25 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 				req.Name, req.Resolution.Width, req.Resolution.Height,
 			)
 	}
-	return optionsCommandResize, nil
+	// Only allow resizing to a resolution reported as usable by GetStreamOptions.
+	resolutions, err := server.availableResolutions(ctx, req.Name)
+	if err != nil {
+		return optionsCommandUnknown, err
+	}
+	for _, res := range resolutions {
+		if req.Resolution.Width == res.Width && req.Resolution.Height == res.Height {
+			return optionsCommandResize, nil
+		}
+	}
+	return optionsCommandUnknown,
+		fmt.Errorf(
+			"invalid resolution to resize stream %q: width (%d) and height (%d) do not match a resolution returned by GetStreamOptions",
+			req.Name, req.Resolution.Width, req.Resolution.Height,
+		)
 }
 
 // resizeVideoSource resizes the video source with the given name.
 func (server *Server) resizeVideoSource(ctx context.Context, name string, width, height int) error {
-	if width > 1000 && height > 600 {
-		// TODO - this should be smarter, ideally knowing what the original stream is
-		server.logger.Infof("not resizing (%s) to %d, %d because it's probable a bad idea as it's too big",
-			name, width, height)
-		return nil
-	}
 	existing, ok := server.videoSources[name]
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
@@ -720,7 +737,10 @@ func (server *Server) startStream(streamFunc func(opts *BackoffTuningOptions) er
 
 func (server *Server) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	server.startStream(func(opts *BackoffTuningOptions) error {
-		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
+		// Cancel the stream when either the server closes or the caller's ctx is done.
+		streamVideoCtx, cancel := context.WithCancel(server.closedCtx)
+		defer cancel()
+		defer context.AfterFunc(ctx, cancel)()
 		return streamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
 	})
 }
