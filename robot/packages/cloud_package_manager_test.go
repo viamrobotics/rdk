@@ -740,7 +740,7 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		t.Cleanup(func() { enoughFreeSpace = orig })
 
 		dest := filepath.Join(packagesDir, "download-lowspace")
-		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace", dest)
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace", dest, "download-lowspace")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
 		test.That(t, gotRequired, test.ShouldEqual,
@@ -768,7 +768,7 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		const partial = 7
 		test.That(t, os.WriteFile(dest, make([]byte, partial), 0o600), test.ShouldBeNil)
 
-		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-partial", dest)
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-partial", dest, "download-partial")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
 		test.That(t, gotRequired, test.ShouldEqual,
@@ -789,7 +789,7 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		t.Cleanup(func() { enoughFreeSpace = orig })
 
 		dest := filepath.Join(packagesDir, "download-lowspace-logonly")
-		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace-logonly", dest)
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace-logonly", dest, "download-lowspace-logonly")
 		test.That(t, err, test.ShouldBeNil)
 
 		_, statErr := os.Stat(dest)
