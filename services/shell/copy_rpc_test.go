@@ -429,7 +429,7 @@ func TestShellRPCCopyWriterTo(t *testing.T) {
 
 		terminalErr := status.Error(codes.NotFound, `"/some/dir" does not exist or is not a directory`)
 		fake.recvCh <- copyToMachineRecv{err: terminalErr}
-		<-writer.done
+		<-writer.ctx.Done()
 
 		err := writer.SendFile(&pb.FileData{Name: "foo", Data: []byte("data")})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -468,7 +468,7 @@ func TestShellRPCCopyWriterTo(t *testing.T) {
 
 		fake.recvCh <- copyToMachineRecv{resp: &pb.CopyFilesToMachineResponse{AckLastFile: true}}
 		fake.recvCh <- copyToMachineRecv{err: io.EOF}
-		<-writer.done
+		<-writer.ctx.Done()
 
 		test.That(t, writer.WaitLastACK(), test.ShouldBeNil)
 		test.That(t, writer.WaitLastACK(), test.ShouldBeError, io.EOF)
