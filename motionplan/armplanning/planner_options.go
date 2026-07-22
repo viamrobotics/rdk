@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -167,19 +168,22 @@ func (p *PlannerOptions) GetGoalMetric(goals referenceframe.FrameSystemPoses) mo
 	}
 
 	return func(state *motionplan.StateFS) float64 {
+		dq := state.DQScratch
+		if dq == nil {
+			dq = &spatial.DualQuaternion{}
+		}
 		score := 0.
 		for frame, goal := range goals {
-			dq, err := state.FS.TransformToDQ(state.Configuration, frame, goal.Parent())
-			if err != nil {
+			if err := state.FS.TransformIntoDQ(state.Configuration, frame, goal.Parent(), dq); err != nil {
 				panic(fmt.Errorf("frame: %v goal parent: %s", frame, goal.Parent()))
 			}
 
-			if goal.GoalCloud != nil && goal.GoalCloud.PoseInCloud(goal.Pose(), &dq) {
+			if goal.GoalCloud != nil && goal.GoalCloud.PoseInCloud(goal.Pose(), dq) {
 				// Zero incremental score.
 				continue
 			}
 
-			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), &dq, cartesianScale, orientScale)
+			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), dq, cartesianScale, orientScale)
 		}
 		return score
 	}

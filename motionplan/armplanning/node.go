@@ -535,7 +535,7 @@ func probeTightSeed(
 	ctx context.Context,
 	psc *PlanSegmentContext,
 	sss *SolutionSolvingState,
-	minFunc ik.CostFunc,
+	minFuncFactory ik.CostFuncFactory,
 	logger logging.Logger,
 ) ([]*node, bool) {
 	probe, err := ik.CreateNloptSolver(logger.Sublogger("ik-probe"), 1, true, true, 0)
@@ -551,7 +551,7 @@ func probeTightSeed(
 		ctx, probeChan, &sss.totalIkAttempts,
 		[][]float64{sss.LinearSeeds[tightIdx]},
 		[][]referenceframe.Limit{sss.SeedLimits[tightIdx]},
-		minFunc, psc.pc.randseed.Int(),
+		minFuncFactory(), psc.pc.randseed.Int(),
 	); err != nil {
 		return nil, false
 	}
@@ -642,7 +642,7 @@ func getSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.L
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
-		nSol, m, err := solver.Solve(ctxWithCancel, solutionGen, &solvingState.totalIkAttempts,
+		nSol, m, err := solver.SolveWithFactory(ctxWithCancel, solutionGen, &solvingState.totalIkAttempts,
 			solvingState.LinearSeeds, solvingState.SeedLimits, minFunc, psc.pc.randseed.Int())
 		if err == nil {
 			solvingState.logger.Debugf("Solver stopped, no errors. Solutions: %v IK Meta: %v", nSol, m)

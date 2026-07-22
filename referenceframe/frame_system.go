@@ -459,24 +459,28 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 func (sfs *FrameSystem) TransformToDQ(inputs *LinearInputs, frame, parent string) (
 	spatial.DualQuaternion, error,
 ) {
+	var out spatial.DualQuaternion
+	err := sfs.TransformIntoDQ(inputs, frame, parent, &out)
+	return out, err
+}
+
+// TransformIntoDQ is TransformToDQ that writes into a caller-provided buffer.
+func (sfs *FrameSystem) TransformIntoDQ(inputs *LinearInputs, frame, parent string, out *spatial.DualQuaternion) error {
 	if !sfs.frameExists(frame) {
-		return spatial.DualQuaternion{}, NewFrameMissingError(frame)
+		return NewFrameMissingError(frame)
 	}
-
 	if !sfs.frameExists(parent) {
-		return spatial.DualQuaternion{}, NewFrameMissingError(parent)
+		return NewFrameMissingError(parent)
 	}
-
 	tfParent, err := sfs.transformFromParent(inputs, sfs.lookupFrame(frame), sfs.lookupFrame(parent))
 	if err != nil {
-		return spatial.DualQuaternion{}, err
+		return err
 	}
-
-	ret := tfParent.Transformation(dualquat.Number{
+	out.Number = tfParent.Transformation(dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
 	})
-	return spatial.DualQuaternion{Number: ret}, nil
+	return nil
 }
 
 // Name returns the name of the simpleFrameSystem.

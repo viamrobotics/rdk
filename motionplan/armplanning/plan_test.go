@@ -333,7 +333,7 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 
 	minFunc := pc.LinearizeFSMetric(func(_ *motionplan.StateFS) float64 {
 		return 0.0
-	})
+	})()
 
 	for b.Loop() {
 		minFunc(ctx, inps)
