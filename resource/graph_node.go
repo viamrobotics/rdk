@@ -450,6 +450,14 @@ func (w *GraphNode) ReconfigureReason() string {
 	return w.reconfigureReason
 }
 
+// PendingRevision is the revision of the config change that will apply once the node is
+// successfully (re)configured; during a build it identifies the config that triggered it.
+func (w *GraphNode) PendingRevision() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.pendingRevision
+}
+
 // setUnresolvedDependencies sets names that are yet to be resolved as
 // dependencies for the node. Note that even an empty list will still
 // set needsDependencyResolution to true. If no resolution is needed,

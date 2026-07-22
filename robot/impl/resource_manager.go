@@ -845,10 +845,12 @@ func (manager *resourceManager) completeConfig(
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
 						activityType := fmt.Sprintf("resource %s", verb)
+						activityRevision := gNode.PendingRevision()
 						logging.Activity(activityType, "start",
 							"resource", resName.String(),
 							"model", conf.Model.String(),
 							"reason", gNode.ReconfigureReason(),
+							"revision", activityRevision,
 						)
 						newRes, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if err := manager.markChildrenForUpdate(resName); err != nil {
@@ -864,7 +866,7 @@ func (manager *resourceManager) completeConfig(
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
 							logging.Activity(activityType, "fail",
-								"resource", resName.String(), "model", conf.Model.String(), "error", err)
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision, "error", err)
 							return
 						}
 
@@ -876,12 +878,12 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 							logging.Activity(activityType, "fail",
-								"resource", resName.String(), "model", conf.Model.String(), "error", ctxWithTimeout.Err())
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision, "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
 							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
 							logging.Activity(activityType, "end",
-								"resource", resName.String(), "model", conf.Model.String())
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision)
 						}
 
 					default:
