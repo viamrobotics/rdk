@@ -472,7 +472,7 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
 		return m.collidesWithMesh(triMesh, collisionBufferMM)
 	default:
-		return true, math.Inf(1), newCollisionTypeUnsupportedError(m, g)
+		return true, math.Inf(1), errCollisionTypeUnsupported
 	}
 }
 
@@ -533,7 +533,7 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	case *Cylinder:
 		return other.DistanceFrom(m)
 	default:
-		return math.Inf(-1), newCollisionTypeUnsupportedError(m, g)
+		return math.Inf(-1), errCollisionTypeUnsupported
 	}
 }
 
