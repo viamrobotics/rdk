@@ -844,6 +844,12 @@ func (manager *resourceManager) completeConfig(
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
+						activityType := fmt.Sprintf("resource %s", verb)
+						logging.Activity(activityType, "start",
+							"resource", resName.String(),
+							"model", conf.Model.String(),
+							"reason", gNode.ReconfigureReason(),
+						)
 						newRes, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if err := manager.markChildrenForUpdate(resName); err != nil {
 							manager.logger.CErrorw(ctx,
@@ -857,6 +863,8 @@ func (manager *resourceManager) completeConfig(
 								fmt.Errorf("resource build error: %v", err.Error()),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
+							logging.Activity(activityType, "fail",
+								"resource", resName.String(), "model", conf.Model.String(), "error", err)
 							return
 						}
 
@@ -867,9 +875,13 @@ func (manager *resourceManager) completeConfig(
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+							logging.Activity(activityType, "fail",
+								"resource", resName.String(), "model", conf.Model.String(), "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
 							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
+							logging.Activity(activityType, "end",
+								"resource", resName.String(), "model", conf.Model.String())
 						}
 
 					default:
