@@ -31,8 +31,9 @@ const (
 	backoffCooldown           = 30 * time.Second
 	defaultDebugLogInterval   = time.Minute
 	defaultWarnRepeatInterval = 5 * time.Minute
-	// Hz. Positive rates below this are on-demand cameras; 0 stays "unknown, use default".
-	minStreamableFrameRate = 5
+	// Below this a camera is treated as on-demand rather than a video source.
+	// 0 means the module didn't report a rate — gostream will apply its default.
+	minStreamableFrameRateHz = 5
 )
 
 // streamErrorState tracks per-camera error logging timestamps for throttling.
@@ -511,7 +512,7 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 		if !shouldOfferStream(framerate) {
 			server.logger.Infof(
 				"camera %q reports frame_rate=%d Hz (below streaming threshold of %d Hz); skipping WebRTC stream",
-				name, framerate, minStreamableFrameRate,
+				name, framerate, minStreamableFrameRateHz,
 			)
 			continue
 		}
@@ -763,9 +764,9 @@ func (server *Server) getFramerateFromCamera(name string) (int, error) {
 }
 
 // shouldOfferStream reports whether the camera qualifies for a WebRTC video track.
-// framerate == 0 is the "unknown" sentinel and passes through unchanged.
+// framerate == 0 means the module didn't report a rate; gostream will apply its default.
 func shouldOfferStream(framerate int) bool {
-	return framerate == 0 || framerate >= minStreamableFrameRate
+	return framerate == 0 || framerate >= minStreamableFrameRateHz
 }
 
 // GenerateResolutions takes the original width and height of an image and returns
