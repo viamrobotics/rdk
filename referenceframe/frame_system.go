@@ -1130,7 +1130,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 
 	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
 	// in the "_origin" static frame
-	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)}, nil
+	return modelFrame, &tailGeometryStaticFrame{staticFrame: staticOriginFrame.(*staticFrame)}, nil
 }
 
 // TopologicallySortParts takes a potentially un-ordered slice of frame system parts and sorts them,

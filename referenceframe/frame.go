@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"sync"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -298,11 +299,17 @@ type staticFrame struct {
 	*baseFrame
 	transform spatial.Pose
 	geometry  spatial.Geometry
+
+	cacheOnce   sync.Once
+	cachedGeoms *GeometriesInFrame
 }
 
 // a tailGeometryStaticFrame is a static frame whose geometry is placed at the end of the frame's transform, rather than at the beginning.
 type tailGeometryStaticFrame struct {
 	*staticFrame
+
+	tailCacheOnce   sync.Once
+	tailCachedGeoms *GeometriesInFrame
 }
 
 func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
@@ -312,13 +319,14 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 	if len(input) != 0 {
 		return nil, NewIncorrectDoFError(len(input), 0)
 	}
-	newGeom := sf.geometry.Transform(sf.transform)
-	if newGeom.Label() == "" {
-		newGeom.SetLabel(sf.name)
-	}
-
-	// Create the new geometry at a pose of `transform` from the frame
-	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
+	sf.tailCacheOnce.Do(func() {
+		newGeom := sf.geometry.Transform(sf.transform)
+		if newGeom.Label() == "" {
+			newGeom.SetLabel(sf.name)
+		}
+		sf.tailCachedGeoms = NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom})
+	})
+	return sf.tailCachedGeoms, nil
 }
 
 func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
@@ -329,6 +337,8 @@ func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	sf.staticFrame = &inner
+	sf.tailCacheOnce = sync.Once{}
+	sf.tailCachedGeoms = nil
 	return nil
 }
 
@@ -410,12 +420,12 @@ func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
-	return &staticFrame{&baseFrame{name, []Limit{}}, pose, nil}, nil
+	return &staticFrame{baseFrame: &baseFrame{name, []Limit{}}, transform: pose}, nil
 }
 
 // NewZeroStaticFrame creates a frame with no translation or orientation changes.
 func NewZeroStaticFrame(name string) Frame {
-	return &staticFrame{&baseFrame{name, []Limit{}}, spatial.NewZeroPose(), nil}
+	return &staticFrame{baseFrame: &baseFrame{name, []Limit{}}, transform: spatial.NewZeroPose()}
 }
 
 // NewStaticFrameWithGeometry creates a frame given a pose relative to its parent.  The pose is fixed for all time.
@@ -424,7 +434,7 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
-	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
+	return &staticFrame{baseFrame: &baseFrame{name, []Limit{}}, transform: pose, geometry: geometry}, nil
 }
 
 func (sf *staticFrame) Hash() int {
@@ -464,11 +474,14 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if len(input) != 0 {
 		return nil, NewIncorrectDoFError(len(input), 0)
 	}
-	newGeom := sf.geometry.Transform(spatial.NewZeroPose())
-	if newGeom.Label() == "" {
-		newGeom.SetLabel(sf.name)
-	}
-	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
+	sf.cacheOnce.Do(func() {
+		newGeom := sf.geometry.Transform(spatial.NewZeroPose())
+		if newGeom.Label() == "" {
+			newGeom.SetLabel(sf.name)
+		}
+		sf.cachedGeoms = NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom})
+	})
+	return sf.cachedGeoms, nil
 }
 
 func (sf staticFrame) MarshalJSON() ([]byte, error) {
@@ -519,6 +532,8 @@ func (sf *staticFrame) UnmarshalJSON(data []byte) error {
 	sf.baseFrame = &baseFrame{name: lc.ID, limits: []Limit{}}
 	sf.transform = transform
 	sf.geometry = geometry
+	sf.cacheOnce = sync.Once{}
+	sf.cachedGeoms = nil
 	return nil
 }
 
