@@ -273,6 +273,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(rootLogger)
+	logging.Activity("start", "begin",
+		"pid", os.Getpid(),
+		"version", config.Version,
+		"git_rev", config.GitRevision,
+	)
 	startupInfoLogged = true
 
 	// The golog global logger is unused in rdk. But, goutils still makes infrequent use of
@@ -689,6 +694,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
+	logging.Activity("start", "complete",
+		"pid", os.Getpid(),
+		"version", config.Version,
+		"git_rev", config.GitRevision,
+	)
 	return web.RunWeb(ctx, theRobot, options, s.rootLogger)
 }
 
