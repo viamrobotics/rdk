@@ -127,7 +127,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Register the process-wide activity logger in the same registry as the root logger, before
 	// the AddAppenderToAll calls below, so it receives the same net and local (offline) appenders.
-	logging.SetGlobalActivityLogger(logging.NewActivityLogger(registry, "server"))
+	logging.InitActivityLogger(registry, "server")
 
 	configLogger := rootLogger.Sublogger("config")
 	networkingLogger := rootLogger.Sublogger("networking")

@@ -12,39 +12,16 @@ import (
 // with the backend. viam-agent emits activity to the same name against the same part.
 const activityLoggerName = "rdk.activity"
 
-// ActivityLogger is a deliberately narrow logging surface. It exposes only Event, so the
-// standard Debug/Info/Warn/Error methods cannot be called on it and activity logs can only be
-// emitted through the fixed Event signature. The emitting unit (e.g. "server", "agent") is
-// stamped at construction rather than passed per call.
-type ActivityLogger interface {
-	Event(eventType, event string, keysAndValues ...any)
-}
-
-// activityLogger backs ActivityLogger. impl is held as an unexported field rather than embedded,
-// so none of impl's Debug/Info/Warn/Error methods are promoted onto the exposed type.
+// activityLogger holds the state behind the package-level Activity function. impl is held as a
+// field rather than embedded so its Debug/Info/Warn/Error methods are not reachable; activity
+// logs can only be emitted through Activity.
 type activityLogger struct {
 	logger *impl
 	// unitField is the precomputed "unit" field stamped on every event.
 	unitField zapcore.Field
 }
 
-// Event emits an activity log. It always writes at INFO regardless of any configured level
-// and is never deduplicated, so every activity event reaches the sink. eventType is the
-// subsystem noun (e.g. "reconfigure", "network", "process"); event is the transition verb
-// (e.g. "start", "success", "failure", "connect").
-// Callers must not set "unit", "event_type", or "event" in keysAndValues.
-func (a *activityLogger) Event(eventType, event string, keysAndValues ...any) {
-	keysAndValues = append(keysAndValues, "event_type", eventType, "event", event)
-	entry := a.logger.formatw(INFO, emptyTraceKey, "Activity event:", keysAndValues...)
-	entry.Fields = append(entry.Fields, a.unitField)
-	a.logger.Write(entry)
-}
-
-// NewActivityLogger builds a fully-initialized activity logger named rdk.activity with
-// deduplication disabled. unit names the emitting process (e.g. "server", "agent") and is
-// stamped on every event. It registers into the given registry so that AddAppenderToAll gives
-// it the same net and local (offline) appenders as the rest of the logger tree.
-func NewActivityLogger(registry *Registry, unit string) ActivityLogger {
+func newActivityLogger(registry *Registry, unit string) *activityLogger {
 	logger := &impl{
 		name:                     activityLoggerName,
 		level:                    NewAtomicLevelAt(INFO),
@@ -59,19 +36,30 @@ func NewActivityLogger(registry *Registry, unit string) ActivityLogger {
 	return &activityLogger{logger: logger, unitField: zap.String("unit", unit)}
 }
 
-// globalActivityLogger is the process-wide activity logger that Activity writes to. It starts
-// with no sinks (Event calls are dropped) until SetGlobalActivityLogger installs one registered
-// against the server's logger registry at startup.
-var globalActivityLogger ActivityLogger = NewActivityLogger(newRegistry(), "unknown")
+// globalActivityLogger starts with no sinks (Activity calls are dropped) until
+// InitActivityLogger installs one registered against the server's logger registry.
+var globalActivityLogger = newActivityLogger(newRegistry(), "unknown")
 
-// SetGlobalActivityLogger installs the process-wide activity logger. It should be called once,
-// early in startup, before any Activity callers run.
-func SetGlobalActivityLogger(l ActivityLogger) {
-	globalActivityLogger = l
+// InitActivityLogger installs the process-wide activity logger. unit names the emitting process
+// (e.g. "server", "agent") and is stamped on every event. Registering into the given registry
+// gives the activity logger the same net and local (offline) appenders as the rest of the
+// logger tree via AddAppenderToAll. Call once, early in startup, before any Activity callers.
+func InitActivityLogger(registry *Registry, unit string) {
+	globalActivityLogger = newActivityLogger(registry, unit)
 }
 
-// Activity emits an activity log through the process-wide activity logger.
+// Activity emits an activity log. It always writes at INFO regardless of any configured level
+// and is never deduplicated, so every activity event reaches the sink. eventType is the
+// subsystem noun (e.g. "reconfigure", "network", "process"); event is the transition verb
+// (e.g. "start", "success", "failure", "connect").
+// Callers must not set "unit", "event_type", or "event" in keysAndValues.
+//
+// The log body lives here rather than in a helper so the call depth matches the standard
+// logger methods and getCaller attributes the entry to the Activity call site.
 func Activity(eventType, event string, keysAndValues ...any) {
-	globalActivityLogger.Event(eventType, event, keysAndValues...)
+	al := globalActivityLogger
+	keysAndValues = append(keysAndValues, "event_type", eventType, "event", event)
+	entry := al.logger.formatw(INFO, emptyTraceKey, "Activity event:", keysAndValues...)
+	entry.Fields = append(entry.Fields, al.unitField)
+	al.logger.Write(entry)
 }
-
