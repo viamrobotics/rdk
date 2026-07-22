@@ -31,6 +31,8 @@ const (
 	backoffCooldown           = 30 * time.Second
 	defaultDebugLogInterval   = time.Minute
 	defaultWarnRepeatInterval = 5 * time.Minute
+	// Hz. Positive rates below this are on-demand cameras; 0 stays "unknown, use default".
+	minStreamableFrameRate = 5
 )
 
 // streamErrorState tracks per-camera error logging timestamps for throttling.
@@ -502,14 +504,17 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			server.logger.Warn("video streaming not supported on Windows yet")
 			break
 		}
-		// Attempt to look up the framerate for the camera. If the framerate is not available, we'll
-		// end up with a framerate of 0. This is fine as gostream will default to 30fps in this case.
 		framerate, err := server.getFramerateFromCamera(name)
 		if err != nil {
 			server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
 		}
-		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
-		// "started".
+		if !shouldOfferStream(framerate) {
+			server.logger.Infof(
+				"camera %q reports frame_rate=%d Hz (below streaming threshold of %d Hz); skipping WebRTC stream",
+				name, framerate, minStreamableFrameRate,
+			)
+			continue
+		}
 		config := gostream.StreamConfig{
 			Name:                name,
 			VideoEncoderFactory: server.streamConfig.VideoEncoderFactory,
@@ -755,6 +760,12 @@ func (server *Server) getFramerateFromCamera(name string) (int, error) {
 		return 0, fmt.Errorf("failed to get camera properties: %w", err)
 	}
 	return int(props.FrameRate), nil
+}
+
+// shouldOfferStream reports whether the camera qualifies for a WebRTC video track.
+// framerate == 0 is the "unknown" sentinel and passes through unchanged.
+func shouldOfferStream(framerate int) bool {
+	return framerate == 0 || framerate >= minStreamableFrameRate
 }
 
 // GenerateResolutions takes the original width and height of an image and returns

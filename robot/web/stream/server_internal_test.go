@@ -85,6 +85,27 @@ func filterLogsByLevelAndMessage(logs []observer.LoggedEntry, level zapcore.Leve
 	return result
 }
 
+func TestShouldOfferStream(t *testing.T) {
+	cases := []struct {
+		name      string
+		framerate int
+		expected  bool
+	}{
+		{"zero passes through as unknown", 0, true},
+		{"negative refused as invalid", -1, false},
+		{"on-demand 1 Hz refused", 1, false},
+		{"on-demand 4 Hz refused", 4, false},
+		{"threshold 5 Hz allowed", 5, true},
+		{"video-rate 30 Hz allowed", 30, true},
+		{"video-rate 60 Hz allowed", 60, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, shouldOfferStream(tc.framerate), test.ShouldEqual, tc.expected)
+		})
+	}
+}
+
 func TestRemoveMissingStreams_LogThrottling(t *testing.T) {
 	logger, observedLogs := logging.NewObservedTestLogger(t)
 
