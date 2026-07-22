@@ -29,13 +29,11 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
-	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/utils"
 )
 
@@ -1934,24 +1932,15 @@ func restartModule(
 	if err != nil {
 		return err
 	}
-	apiRes, err := vc.client.GetRobotAPIKeys(ctx, &apppb.GetRobotAPIKeysRequest{RobotId: part.Robot})
-	if err != nil {
-		return err
-	}
-	if len(apiRes.ApiKeys) == 0 {
-		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
-	}
-	key := apiRes.ApiKeys[0]
 	args, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
-	debugf(cmd.Root().Writer, args.Debug, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
-	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
-		Type:    rpc.CredentialsTypeAPIKey,
-		Payload: key.ApiKey.Key,
-	})
-	robotClient, err := client.New(ctx, part.Fqdn, logger, client.WithDialOptions(creds))
+	dialCtx, fqdn, rpcOpts, err := vc.prepareDialInner(ctx, part.Fqdn, args.Debug)
+	if err != nil {
+		return err
+	}
+	robotClient, err := vc.connectToRobot(dialCtx, fqdn, rpcOpts, args.Debug, logger)
 	if err != nil {
 		return err
 	}
