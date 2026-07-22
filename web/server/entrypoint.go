@@ -305,6 +305,15 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		rootLogger.Error("Fatal error running server, exiting now:", err)
 	}
 
+	// Emitted before the deferred netAppender.Close so its best-effort flush can deliver
+	// this event to the cloud on the way out.
+	logging.Activity("stop", "complete",
+		"pid", os.Getpid(),
+		"version", config.Version,
+		"git_rev", config.GitRevision,
+		"error", err,
+	)
+
 	return err
 }
 
