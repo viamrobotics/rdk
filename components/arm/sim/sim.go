@@ -368,6 +368,31 @@ func (sa *simulatedArm) MoveThroughJointPositions(
 	}
 }
 
+// MoveThroughJointPositionsStreamed executes a streamed trajectory by moving to each point in order
+// through the same fixed-speed mechanism as the unary path, acknowledging once per batch. Per-point
+// Time and Constraints are not simulated: the arm moves at its configured speed. This matches the
+// unary MoveThroughJointPositions, which likewise ignores requested speeds.
+func (sa *simulatedArm) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	batches <-chan []arm.TrajectoryPoint,
+	responses chan<- arm.Response,
+	_ map[string]interface{},
+) error {
+	for batch := range batches {
+		for _, p := range batch {
+			if err := sa.MoveToJointPositions(ctx, p.Positions, nil); err != nil {
+				return err
+			}
+		}
+		select {
+		case responses <- arm.Response{}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
 func (sa *simulatedArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	return sa.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
