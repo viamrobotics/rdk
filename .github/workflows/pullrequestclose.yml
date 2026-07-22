@@ -11,7 +11,7 @@ on:
 
 jobs:
   clean_binaries:
-    name: Remove PR AppImages/Binaries
+    name: Remove PR Binaries
     runs-on: ubuntu-latest
 
     steps:
