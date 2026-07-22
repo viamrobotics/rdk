@@ -13,6 +13,7 @@ import (
 	"runtime/pprof"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -61,6 +62,12 @@ type robotServer struct {
 	registry                                   *logging.Registry
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
+	stopReason                                 atomic.Pointer[string]
+}
+
+// recordStopReason stores reason unless one was already recorded.
+func (s *robotServer) recordStopReason(reason string) {
+	s.stopReason.CompareAndSwap(nil, &reason)
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -305,12 +312,25 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		rootLogger.Error("Fatal error running server, exiting now:", err)
 	}
 
+	// Prefer a reason recorded at the cancellation site; otherwise infer what we can.
+	stopReason := "unknown"
+	switch {
+	case server.stopReason.Load() != nil:
+		stopReason = *server.stopReason.Load()
+	case err != nil:
+		stopReason = "error"
+	case ctx.Err() != nil:
+		// Parent context canceled externally (e.g. SIGTERM from viam-agent or the user).
+		stopReason = "signal"
+	}
+
 	// Emitted before the deferred netAppender.Close so its best-effort flush can deliver
 	// this event to the cloud on the way out.
 	logging.Activity("stop", "complete",
 		"pid", os.Getpid(),
 		"version", config.Version,
 		"git_rev", config.GitRevision,
+		"reason", stopReason,
 		"error", err,
 	)
 
@@ -617,7 +637,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
-					logStackTraceAndCancel(cancel, s.rootLogger)
+					s.logStackTraceAndCancel(cancel, "app_restart")
 				}
 			}
 		})
@@ -629,7 +649,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	shutdownCallbackOpt := robotimpl.WithShutdownCallback(func() {
-		logStackTraceAndCancel(cancel, s.rootLogger)
+		s.logStackTraceAndCancel(cancel, "shutdown_request")
 	})
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
 
@@ -758,14 +778,18 @@ func dumpResourceRegistrations(outputPath string) error {
 	return nil
 }
 
-func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
+// logStackTraceAndCancel records reason for the stop activity event, logs a backtrace, and
+// cancels the serve context. Every shutdown-triggering path should go through here so the
+// stop reason is always classified.
+func (s *robotServer) logStackTraceAndCancel(cancel context.CancelFunc, reason string) {
+	s.recordStopReason(reason)
 	// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
 	// viam-server stack traces by default on app.viam.com.
-	logger = logger.Sublogger("stack_traces")
+	logger := s.rootLogger.Sublogger("stack_traces")
 	bufSize := 1 << 20
 	traces := make([]byte, bufSize)
 	traceSize := runtime.Stack(traces, true)
-	message := "backtrace at robot shutdown"
+	message := fmt.Sprintf("backtrace at robot shutdown (reason: %s)", reason)
 	if traceSize == bufSize {
 		message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
 	}
