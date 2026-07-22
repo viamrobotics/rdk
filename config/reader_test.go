@@ -558,9 +558,7 @@ func TestCloudFieldsAreAccountedFor(t *testing.T) {
 	// that follow would silently skip it, so fail here instead.
 	populated := reflect.ValueOf(fullyPopulatedCloud()).Elem()
 	for i := range populated.NumField() {
-		t.Run("fullyPopulatedCloud sets "+populated.Type().Field(i).Name, func(t *testing.T) {
-			test.That(t, populated.Field(i).IsZero(), test.ShouldBeFalse)
-		})
+		test.That(t, populated.Field(i).IsZero(), test.ShouldBeFalse)
 	}
 
 	// restoreLocalOnlyFields must set exactly the local-owned fields to the local config's values
@@ -854,68 +852,35 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		test.That(t, gotCfg.Cloud.AppAddress, test.ShouldEqual, prevCloudCfg.AppAddress)
 		test.That(t, gotCfg.Cloud.RefreshInterval, test.ShouldEqual, 42*time.Second)
 	})
-}
 
-// TestReadFromCloudInsecureSignalingBlanksCert covers the insecure-signaling branch of
-// readFromCloud, which does not fetch a cert and must not carry one forward either.
-//
-// A machine that had a cert and then flips to insecure signaling is talking to an app instance
-// that has no cert for it. Carrying the old cert forward would leave weboptions.FromConfig setting
-// up TLS and binding :8080 against that instance, and would keep re-caching a cert nothing can
-// validate. Blanking is safe: ProcessConfig skips CreateTLSWithCert when TLSCertificate is empty.
-func TestReadFromCloudInsecureSignalingBlanksCert(t *testing.T) {
-	const (
-		robotPartID = "insecureSignalingTest"
-		secret      = testutils.FakeCredentialPayLoad
+	// The insecure-signaling branch of readFromCloud does not fetch a cert and must not carry one
+	// forward either. A machine that had a cert and then flips to insecure signaling is talking to
+	// an app instance that has no cert for it. Carrying the old cert forward would leave
+	// weboptions.FromConfig setting up TLS and binding :8080 against that instance, and would keep
+	// re-caching a cert nothing can validate. Blanking is safe: ProcessConfig skips
+	// CreateTLSWithCert when TLSCertificate is empty.
+	t.Run("insecure signaling blanks the carried-forward cert", func(t *testing.T) {
+		fakeServer, appConn, prevCloudCfg := setup(t)
 
-		heldCert = "held-cert-in-memory"
-		heldKey  = "held-key-in-memory"
-	)
-	var (
-		logger = logging.NewTestLogger(t)
-		ctx    = context.Background()
-	)
+		// The cloud flips to insecure signaling, so it no longer has a cert for this machine, while
+		// prevCloudCfg still carries the cert held from when signaling was secure.
+		insecureCloud := *cloudResponse
+		insecureCloud.SignalingInsecure = true
+		insecureProto, err := CloudConfigToProto(&insecureCloud)
+		test.That(t, err, test.ShouldBeNil)
+		fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: insecureProto}, &pb.CertificateResponse{})
 
-	clearCache(robotPartID)
-	defer clearCache(robotPartID)
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.SignalingInsecure, test.ShouldBeTrue)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
 
-	fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
-	defer cleanup()
-
-	cloudResponse := &Cloud{
-		ManagedBy:         "acme",
-		SignalingAddress:  "abc",
-		ID:                robotPartID,
-		Secret:            secret,
-		FQDN:              "fqdn",
-		LocalFQDN:         "localFqdn",
-		LocationSecrets:   []LocationSecret{},
-		SignalingInsecure: true,
-	}
-	cloudConfProto, err := CloudConfigToProto(cloudResponse)
-	test.That(t, err, test.ShouldBeNil)
-	fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: cloudConfProto}, &pb.CertificateResponse{})
-
-	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-	appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() { test.That(t, appConn.Close(), test.ShouldBeNil) }()
-
-	prevCloudCfg := *cloudResponse
-	prevCloudCfg.AppAddress = appAddress
-	prevCloudCfg.TLSCertificate = heldCert
-	prevCloudCfg.TLSPrivateKey = heldKey
-
-	gotCfg, err := readFromCloud(ctx, robotPartID, &prevCloudCfg, false, logger, appConn)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, gotCfg.Cloud.SignalingInsecure, test.ShouldBeTrue)
-	test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
-	test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
-
-	// The cache is staged from the same blanked cert, so the next boot does not resurrect it.
-	test.That(t, gotCfg.toCache, test.ShouldNotBeNil)
-	test.That(t, string(gotCfg.toCache), test.ShouldNotContainSubstring, heldCert)
-	test.That(t, string(gotCfg.toCache), test.ShouldNotContainSubstring, heldKey)
+		// The cache is staged from the same blanked cert, so the next boot does not resurrect it.
+		test.That(t, gotCfg.toCache, test.ShouldNotBeNil)
+		test.That(t, string(gotCfg.toCache), test.ShouldNotContainSubstring, heldCert)
+		test.That(t, string(gotCfg.toCache), test.ShouldNotContainSubstring, heldKey)
+	})
 }
 
 // TestFirstReadFromCloudRequiresCert covers startup when the cloud has no cert to hand out --
