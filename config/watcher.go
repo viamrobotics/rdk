@@ -71,7 +71,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 	//
 	// Seed it with a copy for the same reason the loop below copies: the caller's Cloud is shared
 	// with the config the robot is running on, and this must stay a private snapshot.
-	prevCloudConfig := copyCloud(config.Cloud)
+	prevCloudConfig := config.Cloud.Copy()
 	utils.ManagedGo(func() {
 		firstRead := true
 		consecutiveFailures := 0
@@ -111,7 +111,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 			// than alias newConfig.Cloud, since the robot may mutate the config we hand it. The
 			// copy must not be allowed to fail: falling back to the older cloud section would hand
 			// the robot an older TLS cert on the next poll, which is the reconfigure loop above.
-			prevCloudConfig = copyCloud(newConfig.Cloud)
+			prevCloudConfig = newConfig.Cloud.Copy()
 			if checkForNewCert {
 				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
 			}

@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -490,12 +491,38 @@ func TestCacheInvalidation(t *testing.T) {
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 }
 
+// fullyPopulatedCloud returns a Cloud with every field set to a distinct, non-zero value. The
+// zero-field check in TestCloudFieldsAreAccountedFor fails if a new field is left unset here, which
+// forces it to be populated so the behavioral assertions below actually exercise it.
+func fullyPopulatedCloud() *Cloud {
+	return &Cloud{
+		ID:                "id-1",
+		Secret:            "secret-1",
+		LocationSecret:    "locsecret-1",
+		LocationSecrets:   []LocationSecret{{ID: "ls-id-1", Secret: "ls-secret-1"}},
+		APIKey:            APIKey{ID: "key-id-1", Key: "key-secret-1"},
+		LocationID:        "loc-1",
+		PrimaryOrgID:      "org-1",
+		MachineID:         "machine-1",
+		ManagedBy:         "managed-1",
+		FQDN:              "fqdn-1",
+		LocalFQDN:         "localfqdn-1",
+		SignalingAddress:  "sig-1",
+		SignalingInsecure: true,
+		AppAddress:        "app-1",
+		RefreshInterval:   42 * time.Second,
+		TLSCertificate:    "cert-1",
+		TLSPrivateKey:     "privkey-1",
+	}
+}
+
 // TestCloudFieldsAreAccountedFor pins down where every field of Cloud comes from after a cloud
 // read. A field the cloud does not send must be restored from the local config or it is silently
 // zeroed -- that is how APIKey was once dropped, downgrading API-key machines to secret auth.
 //
-// If this fails, a field was added to Cloud. Classify it: cloud-owned (CloudConfigFromProto),
-// local-owned (restoreLocalOnlyFields), or cert data stamped by applyCloudConfig.
+// It guards the several "keep in sync with the Cloud struct" comments at once: restoreLocalOnlyFields,
+// Cloud.Copy, and cloudData/MarshalJSON. If it fails, a field was added to Cloud; classify it into
+// one of the buckets below and make sure Copy clones it and cloudData round-trips it.
 func TestCloudFieldsAreAccountedFor(t *testing.T) {
 	// Fields the cloud sends back; CloudConfigFromProto populates these.
 	fromCloud := []string{
@@ -507,7 +534,11 @@ func TestCloudFieldsAreAccountedFor(t *testing.T) {
 	// Fetched from the certificate endpoint and stamped by applyCloudConfig.
 	fromCertEndpoint := []string{"TLSCertificate", "TLSPrivateKey"}
 
+	fromLocalSet := map[string]bool{}
 	accountedFor := map[string]bool{}
+	for _, name := range fromLocal {
+		fromLocalSet[name] = true
+	}
 	for _, group := range [][]string{fromCloud, fromLocal, fromCertEndpoint} {
 		for _, name := range group {
 			accountedFor[name] = true
@@ -523,20 +554,69 @@ func TestCloudFieldsAreAccountedFor(t *testing.T) {
 	// Nothing listed above should have been removed from Cloud without updating this test.
 	test.That(t, accountedFor, test.ShouldBeEmpty)
 
-	// Every local-only field must actually survive a restore onto a zeroed cloud config.
+	// Guard the helper: if a new field was added to Cloud and not set above, the behavioral checks
+	// that follow would silently skip it, so fail here instead.
+	populated := reflect.ValueOf(fullyPopulatedCloud()).Elem()
+	for i := range populated.NumField() {
+		t.Run("fullyPopulatedCloud sets "+populated.Type().Field(i).Name, func(t *testing.T) {
+			test.That(t, populated.Field(i).IsZero(), test.ShouldBeFalse)
+		})
+	}
+
+	// restoreLocalOnlyFields must set exactly the local-owned fields to the local config's values
+	// and leave every cloud-owned and cert field untouched. Re-adding the old mergeCloudConfig
+	// clobber (which overwrote the whole cloud section) fails here.
+	cloudBase := fullyPopulatedCloud()
+	beforeRestore := *cloudBase
 	local := &Cloud{
-		ID:              "the-id",
-		Secret:          "the-secret",
-		APIKey:          APIKey{ID: "key-id", Key: "key-secret"},
-		AppAddress:      "http://app",
-		RefreshInterval: 42 * time.Second,
+		ID:              "local-id",
+		Secret:          "local-secret",
+		APIKey:          APIKey{ID: "local-key-id", Key: "local-key-secret"},
+		AppAddress:      "local-app",
+		RefreshInterval: 99 * time.Second,
 	}
-	restored := &Cloud{}
-	restored.restoreLocalOnlyFields(local)
-	for _, name := range fromLocal {
-		field := reflect.ValueOf(restored).Elem().FieldByName(name)
-		test.That(t, field.IsZero(), test.ShouldBeFalse)
+	cloudBase.restoreLocalOnlyFields(local)
+	restored := reflect.ValueOf(cloudBase).Elem()
+	localVal := reflect.ValueOf(local).Elem()
+	origVal := reflect.ValueOf(&beforeRestore).Elem()
+	for i := range restored.NumField() {
+		name := restored.Type().Field(i).Name
+		if fromLocalSet[name] {
+			test.That(t, restored.Field(i).Interface(), test.ShouldResemble, localVal.Field(i).Interface())
+		} else {
+			test.That(t, restored.Field(i).Interface(), test.ShouldResemble, origVal.Field(i).Interface())
+		}
 	}
+
+	// Cloud.Copy must be a deep copy: an equal value whose reference-typed fields do not alias the
+	// original's. A new slice/map field that Copy forgets to clone is caught by the aliasing check.
+	src := fullyPopulatedCloud()
+	dst := src.Copy()
+	test.That(t, dst, test.ShouldResemble, src)
+	srcElem := reflect.ValueOf(src).Elem()
+	dstElem := reflect.ValueOf(dst).Elem()
+	for i := range srcElem.NumField() {
+		f := srcElem.Field(i)
+		switch f.Kind() {
+		case reflect.Slice, reflect.Map:
+			if f.Len() > 0 {
+				test.That(t, dstElem.Field(i).Pointer(), test.ShouldNotEqual, f.Pointer())
+			}
+		}
+	}
+	// And prove the clone is independent: mutating the copy leaves the original alone.
+	dst.LocationSecrets[0].Secret = "mutated"
+	dst.LocationSecrets = append(dst.LocationSecrets, LocationSecret{ID: "extra"})
+	test.That(t, src.LocationSecrets, test.ShouldResemble, fullyPopulatedCloud().LocationSecrets)
+
+	// Every field must round-trip through cloudData/MarshalJSON/UnmarshalJSON, or the on-disk cache
+	// silently drops it. A new Cloud field not wired into cloudData is caught here.
+	full := fullyPopulatedCloud()
+	data, err := json.Marshal(full)
+	test.That(t, err, test.ShouldBeNil)
+	var roundTripped Cloud
+	test.That(t, json.Unmarshal(data, &roundTripped), test.ShouldBeNil)
+	test.That(t, &roundTripped, test.ShouldResemble, full)
 }
 
 func TestShouldCheckForCert(t *testing.T) {
@@ -776,14 +856,14 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 	})
 }
 
-// TestReadFromCloudInsecureSignalingKeepsCert covers the insecure-signaling branch of
-// readFromCloud, which does not fetch a cert.
+// TestReadFromCloudInsecureSignalingBlanksCert covers the insecure-signaling branch of
+// readFromCloud, which does not fetch a cert and must not carry one forward either.
 //
-// The cert still has to come from prevCloudCfg. Sourcing it from the freshly read cloud config
-// yields nothing -- CloudConfigFromProto does not carry cert data -- so a machine that has a cert
-// and flips to insecure signaling would have it blanked on every poll, dropping Network.TLSConfig
-// and stamping empty cert data into the cache.
-func TestReadFromCloudInsecureSignalingKeepsCert(t *testing.T) {
+// A machine that had a cert and then flips to insecure signaling is talking to an app instance
+// that has no cert for it. Carrying the old cert forward would leave weboptions.FromConfig setting
+// up TLS and binding :8080 against that instance, and would keep re-caching a cert nothing can
+// validate. Blanking is safe: ProcessConfig skips CreateTLSWithCert when TLSCertificate is empty.
+func TestReadFromCloudInsecureSignalingBlanksCert(t *testing.T) {
 	const (
 		robotPartID = "insecureSignalingTest"
 		secret      = testutils.FakeCredentialPayLoad
@@ -829,8 +909,13 @@ func TestReadFromCloudInsecureSignalingKeepsCert(t *testing.T) {
 	gotCfg, err := readFromCloud(ctx, robotPartID, &prevCloudCfg, false, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotCfg.Cloud.SignalingInsecure, test.ShouldBeTrue)
-	test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, heldCert)
-	test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, heldKey)
+	test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
+	test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
+
+	// The cache is staged from the same blanked cert, so the next boot does not resurrect it.
+	test.That(t, gotCfg.toCache, test.ShouldNotBeNil)
+	test.That(t, string(gotCfg.toCache), test.ShouldNotContainSubstring, heldCert)
+	test.That(t, string(gotCfg.toCache), test.ShouldNotContainSubstring, heldKey)
 }
 
 // TestFirstReadFromCloudRequiresCert covers startup when the cloud has no cert to hand out --
@@ -856,7 +941,7 @@ func TestFirstReadFromCloudRequiresCert(t *testing.T) {
 	)
 
 	// setup stands up a cloud that serves a config but no certificate.
-	setup := func(t *testing.T, signalingInsecure bool) (rpc.ClientConn, *Cloud) {
+	setup := func(t *testing.T, signalingInsecure bool) (*testutils.FakeCloudServer, rpc.ClientConn, *Cloud) {
 		t.Helper()
 
 		clearCache(robotPartID)
@@ -888,11 +973,22 @@ func TestFirstReadFromCloudRequiresCert(t *testing.T) {
 		localCloudCfg := *cloudResponse
 		localCloudCfg.AppAddress = appAddress
 		localCloudCfg.RefreshInterval = time.Second
-		return appConn, &localCloudCfg
+		return fakeServer, appConn, &localCloudCfg
+	}
+
+	// storeCachedCert writes a cached config carrying a cert, as an earlier boot would have.
+	storeCachedCert := func(t *testing.T, cloudCfg *Cloud) {
+		t.Helper()
+		cached := *cloudCfg
+		cached.TLSCertificate = cachedCert
+		cached.TLSPrivateKey = cachedKey
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		test.That(t, cfgToCache.SetToCache(&Config{Cloud: &cached}), test.ShouldBeNil)
+		test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
 	}
 
 	t.Run("no cert from the cloud and no cache errors", func(t *testing.T) {
-		appConn, localCloudCfg := setup(t, false)
+		_, appConn, localCloudCfg := setup(t, false)
 
 		_, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -928,14 +1024,8 @@ func TestFirstReadFromCloudRequiresCert(t *testing.T) {
 	})
 
 	t.Run("no cert from the cloud falls back to the cached cert", func(t *testing.T) {
-		appConn, localCloudCfg := setup(t, false)
-
-		cached := *localCloudCfg
-		cached.TLSCertificate = cachedCert
-		cached.TLSPrivateKey = cachedKey
-		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
-		test.That(t, cfgToCache.SetToCache(&Config{Cloud: &cached}), test.ShouldBeNil)
-		test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+		_, appConn, localCloudCfg := setup(t, false)
+		storeCachedCert(t, localCloudCfg)
 
 		gotCfg, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
@@ -944,10 +1034,24 @@ func TestFirstReadFromCloudRequiresCert(t *testing.T) {
 	})
 
 	t.Run("insecure signaling does not need a cert", func(t *testing.T) {
-		appConn, localCloudCfg := setup(t, true)
+		_, appConn, localCloudCfg := setup(t, true)
 
 		gotCfg, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
+	})
+
+	// The discriminating case for the insecure branch: the config itself comes from the cache, so
+	// it arrives carrying the cert an earlier secure boot cached. It must still be blanked.
+	t.Run("insecure signaling drops a cert carried in from the cache", func(t *testing.T) {
+		fakeServer, appConn, localCloudCfg := setup(t, true)
+		storeCachedCert(t, localCloudCfg)
+		fakeServer.FailOnConfigAndCerts(true)
+
+		gotCfg, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.SignalingInsecure, test.ShouldBeTrue)
 		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
 		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
 	})

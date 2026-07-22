@@ -173,7 +173,7 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-// cloudReadResult is what one read of the cloud config endpoint produces. The two configs are
+// cloudReadResult is what one read of the cloud config endpoint or on-dish cache produces. The two configs are
 // carried together in a struct rather than as a pair of *Config parameters so they cannot be
 // silently transposed at a call site.
 type cloudReadResult struct {
@@ -268,12 +268,12 @@ func firstReadFromCloud(
 		return nil, err
 	}
 
+	// Insecure signaling means no cert is expected, so leave it blank. A cached config may still
+	// carry one from back when signaling was secure, and carrying that forward would leave the
+	// machine serving TLS on :8080 (see weboptions.FromConfig) against an app instance that has no
+	// cert for it.
 	var tls tlsConfig
-	if res.processed.Cloud.SignalingInsecure {
-		// No cert is expected. A cached config may still carry one, so pass it through rather than
-		// blanking it; a cloud-sourced config never has one, and this is empty either way.
-		tls = tlsFromCloud(res.processed.Cloud)
-	} else {
+	if !res.processed.Cloud.SignalingInsecure {
 		// Prefer the cloud's cert, but falling back to the cache here is not an error: a machine
 		// that boots offline still has to come up with the cert it last had.
 		logger.Debug("reading tlsCertificate from the cloud")
@@ -293,19 +293,19 @@ func firstReadFromCloud(
 				return nil, err
 			}
 		}
-		if certErr != nil {
-			logger.Warnw("failed to fetch certificate data; using cached for now", "error", certErr)
-		}
 
 		// Signaling is secure, so this machine needs a cert. Neither the cloud nor the cache had
 		// one, and coming up anyway would serve plaintext and poison the cache with an empty cert.
 		// Fail loudly instead, matching readFromCloud.
 		if tls.certificate == "" || tls.privateKey == "" {
-			err := errors.New("no TLS certificate available from the cloud or the on-disk cache")
+			const msg = "no TLS certificate available from the cloud or the on-disk cache"
 			if certErr != nil {
-				err = errors.Wrap(certErr, err.Error())
+				return nil, errors.Wrap(certErr, msg)
 			}
-			return nil, err
+			return nil, errors.New(msg)
+		}
+		if certErr != nil {
+			logger.Warnw("failed to fetch certificate data; using cached certificate for now", "error", certErr)
 		}
 	}
 
@@ -338,11 +338,13 @@ func readFromCloud(
 		return nil, err
 	}
 
-	// The cert always comes from the previous read, held in memory. Never the cache, and never
+	// Insecure signaling means no cert is expected, so leave it blank; see firstReadFromCloud.
+	// Otherwise the cert comes from the previous read, held in memory. Never the cache, and never
 	// res.processed -- this path never reads the cache, so res.processed is always cloud-sourced,
 	// and the cloud config endpoint does not carry cert data (see CloudConfigFromProto).
-	tls := tlsFromCloud(prevCloudCfg)
+	var tls tlsConfig
 	if !res.processed.Cloud.SignalingInsecure {
+		tls = tlsFromCloud(prevCloudCfg)
 		hasPrevCert := tls.certificate != "" && tls.privateKey != ""
 
 		// Beyond the periodic refresh the caller asks for, refetch if the cloud section changed in

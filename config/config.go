@@ -693,9 +693,6 @@ func (config *Cloud) ValidateTLS(path string) error {
 // be silently zeroed. They govern how the robot reaches and authenticates to the cloud, so the
 // cloud must not be able to change them.
 //
-// local must already have been through Cloud.Validate, which fills in the RefreshInterval default;
-// a zero RefreshInterval would make the cloud watcher poll in a tight loop.
-//
 // Keep in sync with the Cloud struct -- TestCloudFieldsAreAccountedFor fails on a new field.
 func (config *Cloud) restoreLocalOnlyFields(local *Cloud) {
 	config.ID = local.ID
@@ -705,16 +702,17 @@ func (config *Cloud) restoreLocalOnlyFields(local *Cloud) {
 	config.RefreshInterval = local.RefreshInterval
 }
 
-// copyCloud returns a deep copy of a cloud config, so the caller holds a snapshot that cannot be
-// changed out from under it by whoever else has a pointer to the original.
+// Copy returns a deep copy of a cloud config, so the caller holds a snapshot that cannot be
+// changed out from under it by whoever else has a pointer to the original. A nil receiver copies
+// to nil.
 //
 // Keep in sync with the Cloud struct -- any field that is not a value type needs cloning here.
-func copyCloud(cloud *Cloud) *Cloud {
-	if cloud == nil {
+func (config *Cloud) Copy() *Cloud {
+	if config == nil {
 		return nil
 	}
-	cloudCopy := *cloud
-	cloudCopy.LocationSecrets = slices.Clone(cloud.LocationSecrets)
+	cloudCopy := *config
+	cloudCopy.LocationSecrets = slices.Clone(config.LocationSecrets)
 	return &cloudCopy
 }
 
