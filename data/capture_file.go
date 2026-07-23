@@ -69,14 +69,6 @@ const (
 // CaptureFile is the data structure containing data captured by collectors. It is backed by a file on disk containing
 // length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
 // messages contain the captured data.
-//
-// Lifecycle contract: a CaptureFile is open from construction until Close or
-// Delete. Close flushes buffered writes, releases the file descriptor, and
-// renames the file from .prog to .capture; Delete releases the descriptor and
-// removes the file from disk. Both are idempotent with respect to the
-// descriptor and may be called in either order. Once the file is closed,
-// read and write methods fail with ErrFileClosed, and GetPath reflects the
-// file's current on-disk name.
 type CaptureFile struct {
 	path     string
 	lock     sync.Mutex
@@ -231,9 +223,11 @@ func (f *CaptureFile) GetPath() string {
 	return f.path
 }
 
-// Close closes the file. It is idempotent: calls after the underlying file has
-// been closed return nil, so callers retrying after a failure (e.g. a failed
-// rename) don't hit "file already closed" errors forever (RSDK-14184).
+// Close flushes buffered writes, closes the underlying file, and renames it
+// from .prog to .capture to mark it complete. It is idempotent: calls after the
+// underlying file has been closed (by Close or Delete) return nil, so callers
+// retrying after a failure (e.g. a failed rename) don't hit "file already
+// closed" errors forever (RSDK-14184).
 func (f *CaptureFile) Close() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
