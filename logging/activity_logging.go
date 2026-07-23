@@ -4,14 +4,13 @@ import (
 	"time"
 )
 
-// activityLoggerName is the reserved logger name for activity logs. The cloud sink filters
-// activity out of general machine logs by matching on this name, so it must be kept in sync
-// with the backend. viam-agent emits activity to the same name against the same part.
+// activityLoggerName is the reserved logger name for activity logs.
+// server and agent share this logger.
 const activityLoggerName = "rdk.activity"
 
-// activityLogger holds the state behind the package-level Activity function. impl is held as a
+// activityLogger holds the state behind the package-level Activity functions. impl is held as a
 // field rather than embedded so its Debug/Info/Warn/Error methods are not reachable; activity
-// logs can only be emitted through Activity.
+// logs can only be emitted through Activity and ActivityError.
 type activityLogger struct {
 	logger *impl
 	// unit names the emitting process and is stamped on every event.
@@ -58,5 +57,18 @@ func Activity(eventType, event string, keysAndValues ...any) {
 	// Prepend so unit, event_type, and event lead the rendered fields.
 	keysAndValues = append([]any{"unit", al.unit, "event_type", eventType, "event", event}, keysAndValues...)
 	entry := al.logger.formatw(INFO, emptyTraceKey, "Event:", keysAndValues...)
+	al.logger.Write(entry)
+}
+
+// ActivityError emits an activity event at ERROR severity, for events that are bad outcomes
+// (e.g. "fail"). Emission is identical to Activity: unconditional and never deduplicated.
+//
+// The body is duplicated from Activity rather than shared so the call depth matches and
+// getCaller attributes the entry to the ActivityError call site.
+func ActivityError(eventType, event string, keysAndValues ...any) {
+	al := globalActivityLogger
+	// Prepend so unit, event_type, and event lead the rendered fields.
+	keysAndValues = append([]any{"unit", al.unit, "event_type", eventType, "event", event}, keysAndValues...)
+	entry := al.logger.formatw(ERROR, emptyTraceKey, "Event:", keysAndValues...)
 	al.logger.Write(entry)
 }

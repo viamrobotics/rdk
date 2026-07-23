@@ -183,6 +183,19 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 	return logger, observedLogs, registry
 }
 
+// NewObservedActivityLogger replaces the process-global activity logger with one backed by
+// an in-memory observer until the test ends, returning the observed activity events.
+// Because the activity logger is process-global, tests using this must not run in parallel
+// with other tests that emit or observe activity events.
+func NewObservedActivityLogger(tb testing.TB, unit string) *observer.ObservedLogs {
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	old := globalActivityLogger
+	tb.Cleanup(func() { globalActivityLogger = old })
+	InitActivityLogger(newRegistry(), unit)
+	globalActivityLogger.logger.AddAppender(observerCore)
+	return observedLogs
+}
+
 // NewTestLoggerSilentAfterComplete is like NewTestLogger but drops log writes after the
 // test has completed, preventing races or panics from late-emitting goroutines. It should
 // only be used by tests that _expect_ to have a log emitted after/during test completion.

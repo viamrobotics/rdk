@@ -42,6 +42,21 @@ func TestActivityEventFields(t *testing.T) {
 	test.That(t, fields["revision"], test.ShouldEqual, "rev123")
 }
 
+func TestActivityErrorLevel(t *testing.T) {
+	_, logs := swapInObservedActivityLogger(t, "testunit")
+
+	ActivityError("reconfigure", "fail", "errors", "boom")
+
+	all := logs.All()
+	test.That(t, len(all), test.ShouldEqual, 1)
+	test.That(t, all[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+	fields := all[0].ContextMap()
+	test.That(t, fields["event_type"], test.ShouldEqual, "reconfigure")
+	test.That(t, fields["event"], test.ShouldEqual, "fail")
+	test.That(t, fields["unit"], test.ShouldEqual, "testunit")
+	test.That(t, fields["errors"], test.ShouldEqual, "boom")
+}
+
 func TestActivityNeverDeduplicated(t *testing.T) {
 	registry, logs := swapInObservedActivityLogger(t, "testunit")
 	// Enable dedup at the registry level to prove activity events are exempt.

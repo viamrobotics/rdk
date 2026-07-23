@@ -874,12 +874,12 @@ func (manager *resourceManager) completeConfig(
 						}
 
 						if err != nil {
-							gNode.LogAndSetLastError(
-								fmt.Errorf("resource build error: %v", err.Error()),
-								"resource", conf.ResourceName(),
-								"model", conf.Model)
-							logging.Activity(activityType, "fail",
-								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision, "error", err)
+							gNode.SetLastError(fmt.Errorf("resource build error: %v", err.Error()))
+							logging.ActivityError(activityType, "fail",
+								"resource", resName.String(),
+								"model", conf.Model.String(),
+								"revision", activityRevision,
+								"error", err)
 							return
 						}
 
@@ -888,13 +888,11 @@ func (manager *resourceManager) completeConfig(
 						// validation around how this might affect the resource graph. So, we avoid
 						// updating the graph to be safe.
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-							manager.logger.CErrorw(
-								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
-							logging.Activity(activityType, "fail",
+							logging.ActivityError(activityType, "fail",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision, "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
-							logging.Activity(activityType, "end",
+							logging.Activity(activityType, "complete",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision)
 						}
 

@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -511,6 +513,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	// 'h' is setup to always fail on the first construction on the module.
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, "server")
 	r, cfg := setupModuleTest(t, ctx, true, logger)
 
 	// Assert that removing testmodule binary and killing testmodule
@@ -548,7 +551,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 3)
+	test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 3)
 
 	// Assert that restoring the testmodule binary restores the module but not 'h'.
 	err = os.Rename(testPath+".disabled", testPath)
@@ -588,7 +591,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+		test.That(tb, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 6)
 	})
 
 	h, err = r.ResourceByName(generic.Named("h"))
@@ -610,7 +613,8 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	// test that failing modules are properly tracked in unhealthyModules by breaking
 	// and fixing modules and making sure unhealthyModules is updated accordingly.
 	ctx := context.Background()
-	logger, logs := logging.NewObservedTestLogger(t)
+	logger, _ := logging.NewObservedTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, "server")
 	r, cfg := setupModuleTest(t, ctx, false, logger)
 
 	// TEST: user adds module with invalid exec path and it fails to validate
@@ -623,9 +627,9 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 
 	// Assert that "mod3" gets added to unhealthyModules
 	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod3"})
-	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+	test.That(t, countActivityErrors(activityLogs, `unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-		`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
+		`May be in failing module: [mod3]; There may be no module in config that provides this model`),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user adds module with valid exec path but exits immediately by injecting a panic
@@ -643,9 +647,9 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 
 	// Assert that "mod4" gets added to unhealthyModules.
 	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
-	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+	test.That(t, countActivityErrors(activityLogs, `unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-		`May be in failing module: [mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		`May be in failing module: [mod3 mod4]; There may be no module in config that provides this model`),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user reconfigures module with invalid exec path and it fails to validate
@@ -654,9 +658,9 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 
 	// Assert that "mod" gets added to unhealthyModules
 	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
-	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+	test.That(t, countActivityErrors(activityLogs, `unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-		`May be in failing module: [mod mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		`May be in failing module: [mod mod3 mod4]; There may be no module in config that provides this model`),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user reconfigures module with valid exec path but exits immediately by injecting a panic
@@ -666,9 +670,9 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 
 	// Assert that "mod2" gets added to unhealthyModules
 	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
-	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+	test.That(t, countActivityErrors(activityLogs, `unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-		`May be in failing module: [mod mod2 mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		`May be in failing module: [mod mod2 mod3 mod4]; There may be no module in config that provides this model`),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user fixes broken module's panic by removing VIAM_TESTMODULE_PANIC.
@@ -678,18 +682,18 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 
 	// Assert that "mod2" is removed from unhealthyModules.
 	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod", "mod3"})
-	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+	test.That(t, countActivityErrors(activityLogs, `unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-		`May be in failing module: [mod mod3]; There may be no module in config that provides this model`).Len(),
+		`May be in failing module: [mod mod3]; There may be no module in config that provides this model`),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user renames module and it is added to unhealthyModules
 	cfg.Modules[0].Name = "mod5"
 	r.Reconfigure(ctx, &cfg)
 	test.That(t, unhealthyModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
-	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+	test.That(t, countActivityErrors(activityLogs, `unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-		`May be in failing module: [mod3 mod5]; There may be no module in config that provides this model`).Len(),
+		`May be in failing module: [mod3 mod5]; There may be no module in config that provides this model`),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user fixes broken module's broken exec by providing valid exec paths.
@@ -698,10 +702,34 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod3" is removed from unhealthyModules and empty unhealthyModules log is called.
-	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+	test.That(t, countActivityErrors(activityLogs, `unknown resource type: `+
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-		`There may be no module in config that provides this model`).Len(),
+		`There may be no module in config that provides this model`),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
+}
+
+// countActivityEvents returns how many observed activity events match eventType and event.
+func countActivityEvents(activityLogs *observer.ObservedLogs, eventType, event string) int {
+	count := 0
+	for _, entry := range activityLogs.All() {
+		fields := entry.ContextMap()
+		if fields["event_type"] == eventType && fields["event"] == event {
+			count++
+		}
+	}
+	return count
+}
+
+// countActivityErrors returns how many observed ERROR-level activity events carry exactly
+// errText as their "error" field.
+func countActivityErrors(activityLogs *observer.ObservedLogs, errText string) int {
+	count := 0
+	for _, entry := range activityLogs.All() {
+		if entry.Level == zapcore.ErrorLevel && fmt.Sprint(entry.ContextMap()["error"]) == errText {
+			count++
+		}
+	}
+	return count
 }
 
 func TestImplicitDependencyUpdatesAfterModuleStartupCrash(t *testing.T) {

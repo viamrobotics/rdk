@@ -2874,6 +2874,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, "server")
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
@@ -3055,7 +3056,7 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
 		test.ShouldEqual, 3)
 
-	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+	test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 6)
 
 	// Assert that helper and other are only constructed after module
 	// crash/successful restart and not `Reconfigure`d.
@@ -3070,7 +3071,7 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 8)
+		test.That(tb, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 8)
 	})
 
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})

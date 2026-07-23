@@ -326,7 +326,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Emitted before the deferred netAppender.Close so its best-effort flush can deliver
 	// this event to the cloud on the way out.
-	logging.Activity("shutdown", "end",
+	logging.Activity("shutdown", "complete",
 		"pid", os.Getpid(),
 		"version", config.Version,
 		"git_rev", config.GitRevision,
@@ -730,7 +730,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
-	logging.Activity("startup", "end",
+	logging.Activity("startup", "complete",
 		"pid", os.Getpid(),
 		"version", config.Version,
 		"git_rev", config.GitRevision,
