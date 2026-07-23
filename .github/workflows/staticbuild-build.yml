@@ -51,7 +51,7 @@ jobs:
     container:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       # Lets us mint an OIDC token for the WIF login used by the Windows
       # code signing step. GCS uploads uses a stored SA key instead.
