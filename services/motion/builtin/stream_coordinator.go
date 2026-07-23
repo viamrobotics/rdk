@@ -1,4 +1,4 @@
-package streaming
+package builtin
 
 import (
 	"context"
@@ -20,7 +20,7 @@ type coordinator struct {
 	consumer *pvatConsumer
 }
 
-func newCoordinator(a arm.Arm, cfg *Config) *coordinator {
+func newCoordinator(a arm.Arm, cfg *streamConfig) *coordinator {
 	pvatsCh := make(chan pvatChItem, max(1, cfg.BufferAheadInArmMs/cfg.SendToArmIntervalMs))
 	return &coordinator{
 		producer: &pvatProducer{cfg: cfg, pvatsCh: pvatsCh},
@@ -29,7 +29,7 @@ func newCoordinator(a arm.Arm, cfg *Config) *coordinator {
 }
 
 // run starts the producer and consumer goroutines and returns a handle the caller should wait on.
-func (c *coordinator) run(ctx context.Context, targets <-chan Target, seed []referenceframe.Input) *runHandle {
+func (c *coordinator) run(ctx context.Context, targets <-chan streamTarget, seed []referenceframe.Input) *runHandle {
 	ctx, cancel := context.WithCancel(ctx)
 	r := &runHandle{
 		producer: producerRunHandle{done: make(chan struct{}), cancel: cancel},

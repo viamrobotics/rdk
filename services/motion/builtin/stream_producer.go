@@ -1,4 +1,4 @@
-package streaming
+package builtin
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 type pvatProducer struct {
-	cfg           *Config
+	cfg           *streamConfig
 	trajexSession *trajexSession
 	pvatsCh       chan<- pvatChItem
 
@@ -16,7 +16,7 @@ type pvatProducer struct {
 	numPVATsSampledThisTrajexSession int
 }
 
-func (p *pvatProducer) run(ctx context.Context, targets <-chan Target, seed []referenceframe.Input, r *producerRunHandle) {
+func (p *pvatProducer) run(ctx context.Context, targets <-chan streamTarget, seed []referenceframe.Input, r *producerRunHandle) {
 	defer func() {
 		close(p.pvatsCh)
 		if p.trajexSession != nil {

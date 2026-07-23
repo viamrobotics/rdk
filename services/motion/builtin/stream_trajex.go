@@ -1,4 +1,4 @@
-package streaming
+package builtin
 
 import (
 	"context"
@@ -20,12 +20,12 @@ const (
 
 type trajexSession struct {
 	sess               *totgstream.Session
-	cfg                *Config
+	cfg                *streamConfig
 	dof                int
 	lastJointPositions []referenceframe.Input
 }
 
-func newTrajexSession(cfg *Config, startJointPositions []referenceframe.Input) (*trajexSession, error) {
+func newTrajexSession(cfg *streamConfig, startJointPositions []referenceframe.Input) (*trajexSession, error) {
 	opts, err := trajex.NewTensorMap()
 	if err != nil {
 		return nil, err

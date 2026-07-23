@@ -1,4 +1,4 @@
-package streaming
+package builtin
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 type pvatConsumer struct {
 	arm     arm.Arm
-	cfg     *Config
+	cfg     *streamConfig
 	pvatsCh <-chan pvatChItem
 
 	stream *armStream // the current arm stream (one per trajex session)
