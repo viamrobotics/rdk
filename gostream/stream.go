@@ -261,7 +261,25 @@ func (bs *basicStream) processInputFrames() {
 					return
 				}
 
-				newDx, newDy := bounds.Dx(), bounds.Dy()
+				// H.264 macroblocks are 16x16. If the image dimensions aren't
+				// 16-aligned, x264 sees stride mismatch and produces stripes.
+				// Crop to nearest lower multiple of 16 before encoding.
+				rawDx, rawDy := bounds.Dx(), bounds.Dy()
+				newDx, newDy := rawDx&^0xF, rawDy&^0xF
+				if newDx != rawDx || newDy != rawDy {
+					type subImager interface {
+						SubImage(r image.Rectangle) image.Image
+					}
+					if si, ok := framePair.Media.(subImager); ok {
+						framePair.Media = si.SubImage(image.Rect(
+							bounds.Min.X, bounds.Min.Y,
+							bounds.Min.X+newDx, bounds.Min.Y+newDy))
+						bs.logger.Infof("DIAG: cropped %dx%d -> %dx%d for x264 16-alignment",
+							rawDx, rawDy, newDx, newDy)
+					} else {
+						bs.logger.Warnf("DIAG: image type %T does not support SubImage; encoder may produce stripes at %dx%d", framePair.Media, rawDx, rawDy)
+					}
+				}
 				if bs.videoEncoder == nil || dx != newDx || dy != newDy {
 					dx, dy = newDx, newDy
 					bs.logger.Infow("detected new image bounds", "width", dx, "height", dy)
