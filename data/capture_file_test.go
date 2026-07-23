@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -325,6 +326,65 @@ func TestNewCaptureFileSetsMetadata(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, f.ReadMetadata(), test.ShouldEqual, md)
 	test.That(t, f.Close(), test.ShouldBeNil)
+}
+
+// TestCaptureFileLifecycle covers the CaptureFile close contract: Close and
+// Delete are idempotent with respect to the file descriptor and valid in either
+// order, post-close I/O fails with ErrFileClosed, and GetPath tracks the
+// .prog → .capture rename.
+func TestCaptureFileLifecycle(t *testing.T) {
+	md := &v1.DataCaptureMetadata{Type: CaptureTypeTabular.ToProto()}
+	newFileWithReading := func(t *testing.T) *CaptureFile {
+		t.Helper()
+		f, err := NewCaptureFile(t.TempDir(), md)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f.WriteNext(&v1.SensorData{
+			Metadata: &v1.SensorMetadata{},
+			Data:     &v1.SensorData_Struct{Struct: &structpb.Struct{}},
+		}), test.ShouldBeNil)
+		return f
+	}
+
+	t.Run("Close renames the file and updates GetPath", func(t *testing.T) {
+		f := newFileWithReading(t)
+		test.That(t, filepath.Ext(f.GetPath()), test.ShouldEqual, InProgressCaptureFileExt)
+		test.That(t, f.Close(), test.ShouldBeNil)
+		test.That(t, filepath.Ext(f.GetPath()), test.ShouldEqual, CompletedCaptureFileExt)
+		_, err := os.Stat(f.GetPath())
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("Delete after Close removes the renamed file", func(t *testing.T) {
+		f := newFileWithReading(t)
+		test.That(t, f.Close(), test.ShouldBeNil)
+		test.That(t, f.Delete(), test.ShouldBeNil)
+		_, err := os.Stat(f.GetPath())
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	})
+
+	t.Run("Close after Delete is a no-op", func(t *testing.T) {
+		f := newFileWithReading(t)
+		test.That(t, f.Delete(), test.ShouldBeNil)
+		test.That(t, f.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("reads and writes after Close return ErrFileClosed", func(t *testing.T) {
+		f := newFileWithReading(t)
+		test.That(t, f.Close(), test.ShouldBeNil)
+
+		err := f.WriteNext(&v1.SensorData{Data: &v1.SensorData_Struct{Struct: &structpb.Struct{}}})
+		test.That(t, errors.Is(err, ErrFileClosed), test.ShouldBeTrue)
+		test.That(t, errors.Is(err, os.ErrClosed), test.ShouldBeTrue)
+
+		_, err = f.ReadNext()
+		test.That(t, errors.Is(err, ErrFileClosed), test.ShouldBeTrue)
+
+		_, _, _, err = f.BinaryPayloadReader()
+		test.That(t, errors.Is(err, ErrFileClosed), test.ShouldBeTrue)
+
+		// Flushing a closed file is trivially satisfied.
+		test.That(t, f.Flush(), test.ShouldBeNil)
+	})
 }
 
 // TestCloseIsIdempotent ensures repeated Close calls return nil rather than
