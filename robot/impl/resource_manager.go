@@ -859,6 +859,7 @@ func (manager *resourceManager) completeConfig(
 					case resName.API.IsComponent(), resName.API.IsService():
 						activityType := fmt.Sprintf("resource_%s", verb)
 						activityRevision := gNode.PendingRevision()
+						activityStarted := time.Now()
 						logging.Activity(activityType, "start",
 							"resource", resName.String(),
 							"model", conf.Model.String(),
@@ -879,6 +880,7 @@ func (manager *resourceManager) completeConfig(
 								"resource", resName.String(),
 								"model", conf.Model.String(),
 								"revision", activityRevision,
+								"duration", time.Since(activityStarted).String(),
 								"error", err)
 							return
 						}
@@ -889,11 +891,13 @@ func (manager *resourceManager) completeConfig(
 						// updating the graph to be safe.
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 							logging.ActivityError(activityType, "fail",
-								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision, "error", ctxWithTimeout.Err())
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
+								"duration", time.Since(activityStarted).String(), "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
 							logging.Activity(activityType, "complete",
-								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision)
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
+								"duration", time.Since(activityStarted).String())
 						}
 
 					default:

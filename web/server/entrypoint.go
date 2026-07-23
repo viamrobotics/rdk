@@ -63,6 +63,10 @@ type robotServer struct {
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
 	stopReason                                 atomic.Pointer[string]
+	// startupStarted and shutdownStarted feed the duration kv on the startup/shutdown
+	// complete activity events.
+	startupStarted  time.Time
+	shutdownStarted time.Time
 }
 
 // recordStopReason stores reason unless one was already recorded.
@@ -280,6 +284,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(rootLogger)
+	startupStarted := time.Now()
 	logging.Activity("startup", "start",
 		"pid", os.Getpid(),
 		"version", config.Version,
@@ -304,6 +309,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry:         registry,
 		conn:             appConn,
 		signalingConn:    signalingConn,
+		startupStarted:   startupStarted,
 	}
 
 	// Run the server with remote logging enabled.
@@ -324,6 +330,12 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		stopReason = "signal"
 	}
 
+	// Empty when the server never reached serving (no shutdown start was emitted).
+	var shutdownDuration string
+	if !server.shutdownStarted.IsZero() {
+		shutdownDuration = time.Since(server.shutdownStarted).String()
+	}
+
 	// Emitted before the deferred netAppender.Close so its best-effort flush can deliver
 	// this event to the cloud on the way out.
 	logging.Activity("shutdown", "complete",
@@ -331,6 +343,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		"version", config.Version,
 		"git_rev", config.GitRevision,
 		"reason", stopReason,
+		"duration", shutdownDuration,
 		"error", err,
 	)
 
@@ -434,9 +447,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 ) {
 	// Reconfigure robot to have passed-in config before listening for any config
 	// changes.
-	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-	s.configLogger.CInfow(ctx, "Robot constructed with full config", "time_to_construct", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -547,8 +558,9 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 		<-ctx.Done()
 		shutdownStarted := time.Now()
+		s.shutdownStarted = shutdownStarted
 		// Reason is omitted: some paths (e.g. error returns) have not classified one yet;
-		// the shutdown end event carries the authoritative reason.
+		// the shutdown complete event carries the authoritative reason.
 		logging.Activity("shutdown", "start",
 			"pid", os.Getpid(),
 			"version", config.Version,
@@ -683,13 +695,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// state of initializing until reconfigured with full config.
 	minimalProcessedConfig.Initial = true
 
-	startTime := time.Now()
 	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.rootLogger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
 	}
-	s.configLogger.CInfow(ctx, "Robot created with minimal config", "time_to_create", time.Since(startTime).String())
 
 	theRobotLock.Lock()
 	theRobot = myRobot
@@ -734,6 +744,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		"pid", os.Getpid(),
 		"version", config.Version,
 		"git_rev", config.GitRevision,
+		"duration", time.Since(s.startupStarted).String(),
 	)
 	return web.RunWeb(ctx, theRobot, options, s.rootLogger)
 }
