@@ -39,9 +39,10 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 	builder = &params
 	params.KeyFrameInterval = keyFrameInterval
 	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
-	// Diagnostic: 25Mbps gave 186KB/frame (proven working). Still 0.29bpp on
-	// 5MP frames = severe compression. Try 100Mbps → ~625KB budget/frame.
-	params.BitRate = 100_000_000
+	// Diagnostic: 100Mbps produced ~2MB keyframes that overwhelmed network
+	// (thousands of packets lost, 0 frames rendered). Drop back to 20Mbps —
+	// gives ~125KB budget/frame at 20fps assumption, fits in RTP bursts.
+	params.BitRate = 20_000_000
 	params.LogLevel = x264.LogWarning
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{
