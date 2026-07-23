@@ -37,14 +37,8 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 		return nil, err
 	}
 	builder = &params
-	// Diagnostic v3: every frame is a keyframe AND generous bitrate.
-	// v1 fixed browser-loses-reference but starved bitrate → VBV underflow.
-	// v2 fixed bitrate but delta frames still produced garbage (browser PLI'd).
-	// v3 combines both: no delta frames possible + enough bytes to fit keyframes.
-	// If this still renders garbage, the corruption isn't about deltas or bitrate
-	// — something deeper in x264's low-rate rate control is broken.
-	params.KeyFrameInterval = 1
-	params.BitRate = 10_000_000 // 10 Mbps
+	params.KeyFrameInterval = keyFrameInterval
+	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
 	params.LogLevel = x264.LogWarning
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{

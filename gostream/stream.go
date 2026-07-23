@@ -205,6 +205,15 @@ func (bs *basicStream) processInputFrames() {
 	var dx, dy int
 	ticker := time.NewTicker(frameLimiterDur)
 	defer ticker.Stop()
+
+	// Diagnostic: keep the encoder producing at the ticker rate even when the
+	// source (e.g. on-demand structured-light cameras) produces frames far slower.
+	// Without this, the WebRTC pipeline sees seconds-long gaps between packets
+	// and browsers can't render the stream reliably. Repeating the last frame
+	// keeps timestamps steady; the encoder produces near-empty delta frames.
+	var lastFramePair MediaReleasePair[image.Image]
+	var haveLastFrame bool
+
 	for {
 		select {
 		case <-bs.shutdownCtx.Done():
@@ -216,15 +225,27 @@ func (bs *basicStream) processInputFrames() {
 			return
 		case <-ticker.C:
 		}
-		var framePair MediaReleasePair[image.Image]
+		// Non-blocking: pick up a fresh frame if one is available; otherwise
+		// reuse the last one.
 		select {
-		case framePair = <-bs.inputImageChan:
+		case newPair := <-bs.inputImageChan:
+			if haveLastFrame && lastFramePair.Release != nil {
+				lastFramePair.Release()
+			}
+			lastFramePair = newPair
+			haveLastFrame = true
 		case <-bs.shutdownCtx.Done():
 			return
+		default:
 		}
-		if framePair.Media == nil {
+		if !haveLastFrame || lastFramePair.Media == nil {
 			continue
 		}
+		framePair := lastFramePair
+		// Don't release inside the func below — we want to keep the frame alive
+		// across ticks. Release only happens when a new frame replaces this one
+		// (above) or on shutdown.
+		framePair.Release = nil
 		var initErr bool
 		func() {
 			if framePair.Release != nil {
