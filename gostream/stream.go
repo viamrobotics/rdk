@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/draw"
 	"sync"
 	"time"
 
@@ -262,21 +261,7 @@ func (bs *basicStream) processInputFrames() {
 					return
 				}
 
-				// H.264 macroblocks are 16x16. If the image dimensions aren't
-				// 16-aligned, x264 sees stride mismatch and produces stripes.
-				// SubImage doesn't fix this — it changes bounds but NOT strides.
-				// We must fully copy pixels to a new buffer with proper strides.
-				rawDx, rawDy := bounds.Dx(), bounds.Dy()
-				newDx, newDy := rawDx&^0xF, rawDy&^0xF
-				if newDx != rawDx || newDy != rawDy {
-					dstRect := image.Rect(0, 0, newDx, newDy)
-					srcOffset := image.Pt(bounds.Min.X, bounds.Min.Y)
-					dst := image.NewRGBA(dstRect)
-					draw.Draw(dst, dstRect, framePair.Media, srcOffset, draw.Src)
-					framePair.Media = dst
-					bs.logger.Infof("DIAG: hard-copied crop %dx%d -> %dx%d (RGBA) for x264 16-alignment",
-						rawDx, rawDy, newDx, newDy)
-				}
+				newDx, newDy := bounds.Dx(), bounds.Dy()
 				if bs.videoEncoder == nil || dx != newDx || dy != newDy {
 					dx, dy = newDx, newDy
 					bs.logger.Infow("detected new image bounds", "width", dx, "height", dy)
@@ -288,16 +273,6 @@ func (bs *basicStream) processInputFrames() {
 					}
 				}
 
-				// Force keyframe on every encoded frame so slow-fps sources
-				// don't leave the browser stuck referencing a stale keyframe.
-				if kfc, ok := bs.videoEncoder.(interface{ ForceKeyFrame() error }); ok {
-					bs.logger.Info("DIAG: stream.go type assertion succeeded, calling ForceKeyFrame")
-					if err := kfc.ForceKeyFrame(); err != nil {
-						bs.logger.Debugw("force keyframe failed", "err", err)
-					}
-				} else {
-					bs.logger.Warnf("DIAG: stream.go type assertion FAILED - bs.videoEncoder type %T does not have ForceKeyFrame", bs.videoEncoder)
-				}
 				// thread-safe because the size is static
 				var err error
 				encodedFrame, err = bs.videoEncoder.Encode(bs.shutdownCtx, framePair.Media)
