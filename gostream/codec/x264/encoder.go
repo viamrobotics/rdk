@@ -15,16 +15,33 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// H.264 encodes in 16x16 macroblocks. Pion's x264 wrapper doesn't set
-// pic_in.img.i_stride[] on each frame, so unaligned widths cause x264 to
-// read rows at wrong offsets — visible as stripes.
-// Upstream issue: https://github.com/pion/mediadevices/issues/707
+// Macroblock alignment workaround.
+//
+// H.264 encodes in 16x16 macroblocks. Pion's x264 wrapper (bridge.h
+// enc_encode) swaps pic_in.img.plane[] to point at Go pixel data on every
+// frame but never updates pic_in.img.i_stride[]. When the input width or
+// height isn't a multiple of 16, x264's stride assumption diverges from
+// Go's image.YCbCr layout, so x264 reads rows at the wrong memory offset.
+// Symptom is horizontal stripes when width is off, unassemblable frames
+// when height is off.
+//
+// Workaround: crop input to the nearest 16-multiple before handing to
+// pion so the stride mismatch can't happen. Aligned inputs pass through
+// unchanged.
+//
+// Remove this entire mechanism (the macroblockAlign constant, the
+// needsCrop/dstBounds/scratchRGBA fields, the alignment logic in
+// NewEncoder, and the crop in Encode) once
+// https://github.com/pion/mediadevices/issues/707 ships upstream.
 const macroblockAlign = 16
 
 type encoder struct {
-	codec       codec.ReadCloser
-	img         image.Image
-	logger      logging.Logger
+	codec  codec.ReadCloser
+	img    image.Image
+	logger logging.Logger
+
+	// Fields below implement the macroblock alignment workaround; delete
+	// with the rest of the workaround.
 	needsCrop   bool
 	dstBounds   image.Rectangle
 	scratchRGBA *image.RGBA
@@ -39,6 +56,8 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 			"Please provide frames with even dimensions for width and height")
 	}
 
+	// Round dims DOWN to the nearest 16-multiple. If input is already
+	// aligned, alignedW == width and needsCrop stays false (no-op path).
 	alignedW := width &^ (macroblockAlign - 1)
 	alignedH := height &^ (macroblockAlign - 1)
 	enc := &encoder{
@@ -46,6 +65,8 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 		needsCrop: alignedW != width || alignedH != height,
 	}
 	if enc.needsCrop {
+		// Pre-allocate one scratch buffer for the whole encoder lifetime;
+		// reused per frame in Encode() to avoid churning allocations.
 		enc.dstBounds = image.Rect(0, 0, alignedW, alignedH)
 		enc.scratchRGBA = image.NewRGBA(enc.dstBounds)
 		logger.Infow("x264: input dims not macroblock-aligned; cropping per frame",
@@ -85,6 +106,8 @@ func (v *encoder) Read() (img image.Image, release func(), err error) {
 // Encode asks the codec to process the given image.
 func (v *encoder) Encode(_ context.Context, img image.Image) ([]byte, error) {
 	if v.needsCrop {
+		// Copy pixels into the aligned scratch buffer. draw.Draw handles
+		// stride correctly across YCbCr / RGBA / Gray inputs.
 		src := img.Bounds()
 		draw.Draw(v.scratchRGBA, v.dstBounds, img, src.Min, draw.Src)
 		img = v.scratchRGBA
