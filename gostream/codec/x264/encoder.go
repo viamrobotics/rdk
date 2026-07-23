@@ -37,11 +37,12 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 		return nil, err
 	}
 	builder = &params
-	// Diagnostic: force every frame to be a keyframe to test whether the current
-	// KeyFrameInterval (derived from TargetFrameRate as frame count) is what
-	// breaks Live for low-fps cameras.
-	params.KeyFrameInterval = 1
-	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
+	// Diagnostic v2: moderate KeyFrameInterval + fixed high bitrate.
+	// v1 (KeyFrameInterval=1) fixed the "browser loses reference" problem but
+	// caused x264 VBV underflow because calcBitrateFromResolution gave a tiny
+	// budget. If v2 renders cleanly, we know the fix needs both.
+	params.KeyFrameInterval = 3
+	params.BitRate = 10_000_000 // 10 Mbps, generous budget for 5MP keyframes
 	params.LogLevel = x264.LogWarning
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{
