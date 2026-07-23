@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"image/draw"
 
 	"github.com/pion/mediadevices/pkg/codec"
 	"github.com/pion/mediadevices/pkg/codec/x264"
@@ -14,10 +15,19 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+// H.264 encodes in 16x16 macroblocks. Pion's x264 wrapper doesn't set
+// pic_in.img.i_stride[] on each frame, so unaligned widths cause x264 to
+// read rows at wrong offsets — visible as stripes.
+// Upstream issue: https://github.com/pion/mediadevices/issues/707
+const macroblockAlign = 16
+
 type encoder struct {
-	codec  codec.ReadCloser
-	img    image.Image
-	logger logging.Logger
+	codec       codec.ReadCloser
+	img         image.Image
+	logger      logging.Logger
+	needsCrop   bool
+	dstBounds   image.Rectangle
+	scratchRGBA *image.RGBA
 }
 
 // NewEncoder returns an x264 encoder that can encode images of the given width and height. It will
@@ -29,7 +39,19 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 			"Please provide frames with even dimensions for width and height")
 	}
 
-	enc := &encoder{logger: logger}
+	alignedW := width &^ (macroblockAlign - 1)
+	alignedH := height &^ (macroblockAlign - 1)
+	enc := &encoder{
+		logger:    logger,
+		needsCrop: alignedW != width || alignedH != height,
+	}
+	if enc.needsCrop {
+		enc.dstBounds = image.Rect(0, 0, alignedW, alignedH)
+		enc.scratchRGBA = image.NewRGBA(enc.dstBounds)
+		logger.Infow("x264: input dims not macroblock-aligned; cropping per frame",
+			"from", []int{width, height},
+			"to", []int{alignedW, alignedH})
+	}
 
 	var builder codec.VideoEncoderBuilder
 	params, err := x264.NewParams()
@@ -38,13 +60,13 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 	}
 	builder = &params
 	params.KeyFrameInterval = keyFrameInterval
-	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
+	params.BitRate = calcBitrateFromResolution(alignedW, alignedH, float32(params.KeyFrameInterval))
 	params.LogLevel = x264.LogWarning
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{
 		Video: prop.Video{
-			Width:  width,
-			Height: height,
+			Width:  alignedW,
+			Height: alignedH,
 		},
 	})
 	if err != nil {
@@ -62,6 +84,11 @@ func (v *encoder) Read() (img image.Image, release func(), err error) {
 
 // Encode asks the codec to process the given image.
 func (v *encoder) Encode(_ context.Context, img image.Image) ([]byte, error) {
+	if v.needsCrop {
+		src := img.Bounds()
+		draw.Draw(v.scratchRGBA, v.dstBounds, img, src.Min, draw.Src)
+		img = v.scratchRGBA
+	}
 	v.img = img
 	data, release, err := v.codec.Read()
 	dataCopy := make([]byte, len(data))
