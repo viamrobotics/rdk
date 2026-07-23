@@ -74,3 +74,13 @@ func (v *encoder) Encode(_ context.Context, img image.Image) ([]byte, error) {
 func (v *encoder) Close() error {
 	return v.codec.Close()
 }
+
+// ForceKeyFrame requests the next encoded frame to be a keyframe (IDR).
+// Returns nil if the underlying codec does not support keyframe forcing.
+func (v *encoder) ForceKeyFrame() error {
+	ctrl := v.codec.Controller()
+	if kfc, ok := ctrl.(codec.KeyFrameController); ok {
+		return kfc.ForceKeyFrame()
+	}
+	return nil
+}

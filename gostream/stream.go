@@ -294,6 +294,13 @@ func (bs *basicStream) processInputFrames() {
 					}
 				}
 
+				// Force keyframe on every encoded frame so slow-fps sources
+				// don't leave the browser stuck referencing a stale keyframe.
+				if kfc, ok := bs.videoEncoder.(interface{ ForceKeyFrame() error }); ok {
+					if err := kfc.ForceKeyFrame(); err != nil {
+						bs.logger.Debugw("force keyframe failed", "err", err)
+					}
+				}
 				// thread-safe because the size is static
 				var err error
 				encodedFrame, err = bs.videoEncoder.Encode(bs.shutdownCtx, framePair.Media)
