@@ -196,6 +196,9 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		return err
 	}
 	<-ctx.Done()
+	// Debug: viam-server reports shutdown via activity events; this line remains for
+	// SDK custom servers (module-template remote mode) that bypass the entrypoint.
+	logger.Debug("viam-server shutting down")
 	return ctx.Err()
 }
 
