@@ -82,8 +82,14 @@ func (v *encoder) Close() error {
 // Returns nil if the underlying codec does not support keyframe forcing.
 func (v *encoder) ForceKeyFrame() error {
 	ctrl := v.codec.Controller()
+	if ctrl == nil {
+		v.logger.Warn("DIAG: ForceKeyFrame - v.codec.Controller() returned nil")
+		return nil
+	}
 	if kfc, ok := ctrl.(codec.KeyFrameController); ok {
+		v.logger.Info("DIAG: ForceKeyFrame - calling pion ForceKeyFrame")
 		return kfc.ForceKeyFrame()
 	}
+	v.logger.Warnf("DIAG: ForceKeyFrame - ctrl type %T does not implement KeyFrameController", ctrl)
 	return nil
 }

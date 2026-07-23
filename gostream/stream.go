@@ -276,9 +276,12 @@ func (bs *basicStream) processInputFrames() {
 				// Force keyframe on every encoded frame so slow-fps sources
 				// don't leave the browser stuck referencing a stale keyframe.
 				if kfc, ok := bs.videoEncoder.(interface{ ForceKeyFrame() error }); ok {
+					bs.logger.Info("DIAG: stream.go type assertion succeeded, calling ForceKeyFrame")
 					if err := kfc.ForceKeyFrame(); err != nil {
 						bs.logger.Debugw("force keyframe failed", "err", err)
 					}
+				} else {
+					bs.logger.Warnf("DIAG: stream.go type assertion FAILED - bs.videoEncoder type %T does not have ForceKeyFrame", bs.videoEncoder)
 				}
 				// thread-safe because the size is static
 				var err error
