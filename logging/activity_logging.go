@@ -2,9 +2,6 @@ package logging
 
 import (
 	"time"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // activityLoggerName is the reserved logger name for activity logs. The cloud sink filters
@@ -17,8 +14,8 @@ const activityLoggerName = "rdk.activity"
 // logs can only be emitted through Activity.
 type activityLogger struct {
 	logger *impl
-	// unitField is the precomputed "unit" field stamped on every event.
-	unitField zapcore.Field
+	// unit names the emitting process and is stamped on every event.
+	unit string
 }
 
 func newActivityLogger(registry *Registry, unit string) *activityLogger {
@@ -33,7 +30,7 @@ func newActivityLogger(registry *Registry, unit string) *activityLogger {
 	}
 	logger.NeverDeduplicate()
 	registry.registerLogger(activityLoggerName, logger)
-	return &activityLogger{logger: logger, unitField: zap.String("unit", unit)}
+	return &activityLogger{logger: logger, unit: unit}
 }
 
 // globalActivityLogger starts with no sinks (Activity calls are dropped) until
@@ -58,8 +55,8 @@ func InitActivityLogger(registry *Registry, unit string) {
 // logger methods and getCaller attributes the entry to the Activity call site.
 func Activity(eventType, event string, keysAndValues ...any) {
 	al := globalActivityLogger
-	keysAndValues = append(keysAndValues, "event_type", eventType, "event", event)
-	entry := al.logger.formatw(INFO, emptyTraceKey, "Activity event:", keysAndValues...)
-	entry.Fields = append(entry.Fields, al.unitField)
+	// Prepend so unit, event_type, and event lead the rendered fields.
+	keysAndValues = append([]any{"unit", al.unit, "event_type", eventType, "event", event}, keysAndValues...)
+	entry := al.logger.formatw(INFO, emptyTraceKey, "Event:", keysAndValues...)
 	al.logger.Write(entry)
 }
