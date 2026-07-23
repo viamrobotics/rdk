@@ -128,6 +128,7 @@ func NewCaptureFile(dir string, md *v1.DataCaptureMetadata) (*CaptureFile, error
 		path:              f.Name(),
 		writer:            bufio.NewWriter(f),
 		file:              f,
+		metadata:          md,
 		size:              int64(n),
 		initialReadOffset: int64(n),
 		readOffset:        int64(n),

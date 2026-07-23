@@ -317,6 +317,16 @@ func TestReadCorruptedFile(t *testing.T) {
 	test.That(t, len(sd), test.ShouldEqual, numReadings)
 }
 
+// TestNewCaptureFileSetsMetadata ensures writer-created capture files expose the
+// metadata they were created with, matching reader-created files (ReadCaptureFile).
+func TestNewCaptureFileSetsMetadata(t *testing.T) {
+	md := &v1.DataCaptureMetadata{ComponentName: "sensor1", Type: CaptureTypeTabular.ToProto()}
+	f, err := NewCaptureFile(t.TempDir(), md)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.ReadMetadata(), test.ShouldEqual, md)
+	test.That(t, f.Close(), test.ShouldBeNil)
+}
+
 // TestCloseIsIdempotent ensures repeated Close calls return nil rather than
 // "file already closed" errors, so callers retrying after a transient failure
 // can recover (RSDK-14184).
