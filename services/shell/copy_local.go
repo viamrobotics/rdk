@@ -53,8 +53,12 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 		// for multiple files (a b c machine:~/some/dir), ~/some/dir needs to already exist
 		// as a directory
 		dstInfo, err := os.Stat(f.destination)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
 		if err != nil || dstInfo == nil || !dstInfo.IsDir() {
-			return nil, fmt.Errorf("%q does not exist or is not a directory", f.destination)
+			// we use an error code here so the CLI can detect this case and abort early
+			return nil, status.Newf(codes.NotFound, "%q does not exist or is not a directory", f.destination).Err()
 		}
 		if err := os.MkdirAll(filepath.Dir(f.destination), 0o750); err != nil {
 			return nil, fmt.Errorf("MkdirAll all failed (%s): %w", f.destination, err)
@@ -95,6 +99,10 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 			parentInfo, err := os.Stat(parent)
 			if err != nil {
 				// the parent does not exist, then error
+				if errors.Is(err, fs.ErrNotExist) {
+					// we use an error code here so the CLI can detect this case and abort early
+					return nil, status.Newf(codes.NotFound, "destination %q: %s", f.destination, err).Err()
+				}
 				return nil, err
 			}
 			if parentInfo == nil {
