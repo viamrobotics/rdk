@@ -39,12 +39,9 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 	builder = &params
 	params.KeyFrameInterval = keyFrameInterval
 	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
-	// Diagnostic: force high bitrate so keyframes have enough byte budget.
-	// Formula budgets ~94KB per 5MP frame at defaults, which produces heavy
-	// visual artifacts. 25Mbps gives ~156KB per frame = clearer keyframes.
-	if params.BitRate < 25_000_000 {
-		params.BitRate = 25_000_000
-	}
+	// Diagnostic: 25Mbps gave 186KB/frame (proven working). Still 0.29bpp on
+	// 5MP frames = severe compression. Try 100Mbps → ~625KB budget/frame.
+	params.BitRate = 100_000_000
 	params.LogLevel = x264.LogWarning
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{
