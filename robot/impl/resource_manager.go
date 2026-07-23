@@ -857,7 +857,7 @@ func (manager *resourceManager) completeConfig(
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
-						activityType := fmt.Sprintf("resource %s", verb)
+						activityType := fmt.Sprintf("resource_%s", verb)
 						activityRevision := gNode.PendingRevision()
 						logging.Activity(activityType, "start",
 							"resource", resName.String(),

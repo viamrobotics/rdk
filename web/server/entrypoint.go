@@ -280,7 +280,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(rootLogger)
-	logging.Activity("start", "begin",
+	logging.Activity("startup", "start",
 		"pid", os.Getpid(),
 		"version", config.Version,
 		"git_rev", config.GitRevision,
@@ -326,7 +326,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Emitted before the deferred netAppender.Close so its best-effort flush can deliver
 	// this event to the cloud on the way out.
-	logging.Activity("stop", "complete",
+	logging.Activity("shutdown", "end",
 		"pid", os.Getpid(),
 		"version", config.Version,
 		"git_rev", config.GitRevision,
@@ -547,6 +547,13 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 		<-ctx.Done()
 		shutdownStarted := time.Now()
+		// Reason is omitted: some paths (e.g. error returns) have not classified one yet;
+		// the shutdown end event carries the authoritative reason.
+		logging.Activity("shutdown", "start",
+			"pid", os.Getpid(),
+			"version", config.Version,
+			"git_rev", config.GitRevision,
+		)
 
 		slowTicker := time.NewTicker(10 * time.Second)
 		defer slowTicker.Stop()
@@ -723,7 +730,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
-	logging.Activity("start", "complete",
+	logging.Activity("startup", "end",
 		"pid", os.Getpid(),
 		"version", config.Version,
 		"git_rev", config.GitRevision,
