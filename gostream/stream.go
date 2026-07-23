@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/draw"
 	"sync"
 	"time"
 
@@ -263,22 +264,18 @@ func (bs *basicStream) processInputFrames() {
 
 				// H.264 macroblocks are 16x16. If the image dimensions aren't
 				// 16-aligned, x264 sees stride mismatch and produces stripes.
-				// Crop to nearest lower multiple of 16 before encoding.
+				// SubImage doesn't fix this — it changes bounds but NOT strides.
+				// We must fully copy pixels to a new buffer with proper strides.
 				rawDx, rawDy := bounds.Dx(), bounds.Dy()
 				newDx, newDy := rawDx&^0xF, rawDy&^0xF
 				if newDx != rawDx || newDy != rawDy {
-					type subImager interface {
-						SubImage(r image.Rectangle) image.Image
-					}
-					if si, ok := framePair.Media.(subImager); ok {
-						framePair.Media = si.SubImage(image.Rect(
-							bounds.Min.X, bounds.Min.Y,
-							bounds.Min.X+newDx, bounds.Min.Y+newDy))
-						bs.logger.Infof("DIAG: cropped %dx%d -> %dx%d for x264 16-alignment",
-							rawDx, rawDy, newDx, newDy)
-					} else {
-						bs.logger.Warnf("DIAG: image type %T does not support SubImage; encoder may produce stripes at %dx%d", framePair.Media, rawDx, rawDy)
-					}
+					dstRect := image.Rect(0, 0, newDx, newDy)
+					srcOffset := image.Pt(bounds.Min.X, bounds.Min.Y)
+					dst := image.NewRGBA(dstRect)
+					draw.Draw(dst, dstRect, framePair.Media, srcOffset, draw.Src)
+					framePair.Media = dst
+					bs.logger.Infof("DIAG: hard-copied crop %dx%d -> %dx%d (RGBA) for x264 16-alignment",
+						rawDx, rawDy, newDx, newDy)
 				}
 				if bs.videoEncoder == nil || dx != newDx || dy != newDy {
 					dx, dy = newDx, newDy
