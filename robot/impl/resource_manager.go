@@ -894,7 +894,6 @@ func (manager *resourceManager) completeConfig(
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision, "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
-							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
 							logging.Activity(activityType, "end",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision)
 						}
@@ -1111,7 +1110,6 @@ func (manager *resourceManager) processRemote(
 		}
 		return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 	}
-	manager.logger.CInfow(ctx, "Connected now to remote", "remote", config.Name)
 	logging.Activity("remote", "connect", "remote", config.Name)
 	return robotClient, nil
 }

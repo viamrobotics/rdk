@@ -1943,10 +1943,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			}
 		}
 	}
-	r.logger.CInfof(ctx, "%ving robot", logVerb)
 	logging.Activity("reconfigure", "start",
 		"revision", diff.NewRevision(),
-		"initial", newConfig.Initial,
+		"reconfigure_type", logNoun,
 	)
 
 	if r.revealSensitiveConfigDiffs {
@@ -2004,14 +2003,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CErrorw(ctx, fmt.Sprintf("The following errors were gathered during %v", logNoun), "errors", allErrs)
 		logging.Activity("reconfigure", "fail",
 			"revision", diff.NewRevision(),
-			"initial", newConfig.Initial,
+			"reconfigure_type", logNoun,
 			"errors", allErrs,
 		)
 	} else {
-		r.logger.CInfof(ctx, "Robot %ved", strings.ToLower(logVerb))
 		logging.Activity("reconfigure", "end",
 			"revision", diff.NewRevision(),
-			"initial", newConfig.Initial,
+			"reconfigure_type", logNoun,
 		)
 	}
 }

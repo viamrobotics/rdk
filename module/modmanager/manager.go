@@ -399,7 +399,6 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
-	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
 	logging.Activity("module", "start", "module", mod.cfg.Name)
 	mgr.setModuleStatusReady(mod.cfg.Name)
 
