@@ -37,7 +37,10 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 		return nil, err
 	}
 	builder = &params
-	params.KeyFrameInterval = keyFrameInterval
+	// Diagnostic: force every frame to be a keyframe to test whether the current
+	// KeyFrameInterval (derived from TargetFrameRate as frame count) is what
+	// breaks Live for low-fps cameras.
+	params.KeyFrameInterval = 1
 	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
 	params.LogLevel = x264.LogWarning
 
