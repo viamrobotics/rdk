@@ -91,7 +91,7 @@ func (b *CaptureBuffer) WriteTabular(item *v1.SensorData) error {
 		}
 		b.nextFile = nextFile
 	} else if b.nextFile.Size() > b.maxCaptureFileSize {
-		if err := b.nextFile.Close(); err != nil {
+		if err := b.flushInternal(); err != nil {
 			return err
 		}
 		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
@@ -121,18 +121,24 @@ func IsBinary(item *v1.SensorData) bool {
 	}
 }
 
+// flushInternal closes out nextFile; the caller must hold b.lock.
+func (b *CaptureBuffer) flushInternal() error {
+	if b.nextFile == nil {
+		return nil
+	}
+	// Clear nextFile even when Close fails so a transient close failure doesn't
+	// leave the buffer permanently stuck on a broken file (RSDK-14184). Any data
+	// left behind in a .prog file is picked up by sync on the next restart.
+	err := b.nextFile.Close()
+	b.nextFile = nil
+	return err
+}
+
 // Flush flushes all buffered data to disk and marks any in progress file as complete.
 func (b *CaptureBuffer) Flush() error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	if b.nextFile == nil {
-		return nil
-	}
-	if err := b.nextFile.Close(); err != nil {
-		return err
-	}
-	b.nextFile = nil
-	return nil
+	return b.flushInternal()
 }
 
 // Path returns the path to the directory containing the backing data capture files.
