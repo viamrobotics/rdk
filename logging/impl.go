@@ -168,8 +168,6 @@ func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
 	entry := al.formatw(INFO, emptyTraceKey, "", keysAndValues...)
 	al.Write(entry)
 }
-
-
 func (imp *impl) Desugar() *zap.Logger {
 	return imp.AsZap().Desugar()
 }
