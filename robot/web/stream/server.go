@@ -49,6 +49,11 @@ const (
 type peerState struct {
 	streamState *state.StreamState
 	senders     []*webrtc.RTPSender
+	// refCount tracks how many callers on this peer connection have subscribed
+	// to this stream. Multiple UI components sharing a peer connection can each
+	// subscribe to the same camera; we share the underlying track and only tear
+	// down when the last subscriber removes.
+	refCount int
 }
 
 // Server implements the gRPC video streaming service.
@@ -188,13 +193,16 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	var nameToPeerState map[string]*peerState
-	// return error if the caller's peer connection is already being sent stream data
 	if pcStreams, pcHasStreams := server.activePeerStreams[pc]; pcHasStreams {
 		nameToPeerState = pcStreams
-		if _, isStreaming := pcStreams[req.Name]; isStreaming {
-			err := errors.New("stream already active")
-			server.logger.Error(err.Error())
-			return nil, err
+		// If this peer connection already subscribes to this stream, treat it
+		// as an additional consumer (e.g. two UI components on the same page
+		// both showing the same camera). Both StreamClient listeners on the
+		// shared peer connection already receive the same 'track' events, so
+		// we share the existing track and just refcount for cleanup.
+		if existing, isStreaming := pcStreams[req.Name]; isStreaming {
+			existing.refCount++
+			return &streampb.AddStreamResponse{}, nil
 		}
 	} else {
 		// if there is no active video data being sent, set up a callback to remove the peer
@@ -215,7 +223,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	ps, ok := nameToPeerState[req.Name]
 	// if the active peer stream doesn't have a peerState, add one containing the stream in question
 	if !ok {
-		ps = &peerState{streamState: streamStateToAdd}
+		ps = &peerState{streamState: streamStateToAdd, refCount: 1}
 		nameToPeerState[req.Name] = ps
 	}
 
@@ -278,12 +286,20 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
-	if _, ok := server.activePeerStreams[pc][req.Name]; !ok {
+	existing, ok := server.activePeerStreams[pc][req.Name]
+	if !ok {
+		return &streampb.RemoveStreamResponse{}, nil
+	}
+
+	// If additional consumers on this peer connection are still subscribed,
+	// keep the track alive and just decrement the local refcount.
+	existing.refCount--
+	if existing.refCount > 0 {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
 	var errs error
-	for _, sender := range server.activePeerStreams[pc][req.Name].senders {
+	for _, sender := range existing.senders {
 		errs = multierr.Combine(errs, pc.RemoveTrack(sender))
 	}
 	if errs != nil {
