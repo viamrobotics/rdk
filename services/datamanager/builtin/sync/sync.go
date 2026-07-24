@@ -448,8 +448,13 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		//nolint:errcheck
-		s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
+		if _, err = s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger); err != nil {
+			if errors.Is(err, context.Canceled) {
+				s.logger.Infow("context cancelled while syncing arbitrary file", "filename", filePath)
+			} else {
+				s.logger.Errorw("failed to sync arbitrary file", "filename", filePath, "err", err)
+			}
+		}
 	}
 }
 
@@ -609,7 +614,16 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 		}
 		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
 		// before deciding this file is ready for upload and is not still being written to.
-		s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger) //nolint:errcheck
+		// TODO(APP-17394): syncArbitraryFile's returned ID/error are not consumed by any caller
+		// (leftover from the #6102 refactor). Decide whether to propagate the error to our caller
+		// (errChan is buffered and closed on exit, so sending here is safe) or drop the returns.
+		if _, err = s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); err != nil {
+			if errors.Is(err, context.Canceled) {
+				s.logger.Infow("context cancelled while syncing arbitrary file", "filename", filename)
+			} else {
+				s.logger.Errorw("failed to sync arbitrary file", "filename", filename, "err", err)
+			}
+		}
 	}()
 
 	return <-errChan

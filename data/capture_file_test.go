@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -315,4 +316,106 @@ func TestReadCorruptedFile(t *testing.T) {
 	sd, err := SensorDataFromCaptureFilePath(f.GetPath())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(sd), test.ShouldEqual, numReadings)
+}
+
+// TestNewCaptureFileSetsMetadata ensures writer-created capture files expose the
+// metadata they were created with, matching reader-created files (ReadCaptureFile).
+func TestNewCaptureFileSetsMetadata(t *testing.T) {
+	md := &v1.DataCaptureMetadata{ComponentName: "sensor1", Type: CaptureTypeTabular.ToProto()}
+	f, err := NewCaptureFile(t.TempDir(), md)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.ReadMetadata(), test.ShouldEqual, md)
+	test.That(t, f.Close(), test.ShouldBeNil)
+}
+
+// TestCaptureFileLifecycle covers the CaptureFile close contract: Close and
+// Delete are idempotent with respect to the file descriptor and valid in either
+// order, post-close I/O fails with ErrFileClosed, and GetPath tracks the
+// .prog → .capture rename.
+func TestCaptureFileLifecycle(t *testing.T) {
+	md := &v1.DataCaptureMetadata{Type: CaptureTypeTabular.ToProto()}
+	newFileWithReading := func(t *testing.T) *CaptureFile {
+		t.Helper()
+		f, err := NewCaptureFile(t.TempDir(), md)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f.WriteNext(&v1.SensorData{
+			Metadata: &v1.SensorMetadata{},
+			Data:     &v1.SensorData_Struct{Struct: &structpb.Struct{}},
+		}), test.ShouldBeNil)
+		return f
+	}
+
+	t.Run("Close renames the file and updates GetPath", func(t *testing.T) {
+		f := newFileWithReading(t)
+		test.That(t, filepath.Ext(f.GetPath()), test.ShouldEqual, InProgressCaptureFileExt)
+		test.That(t, f.Close(), test.ShouldBeNil)
+		test.That(t, filepath.Ext(f.GetPath()), test.ShouldEqual, CompletedCaptureFileExt)
+		_, err := os.Stat(f.GetPath())
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("Delete after Close removes the renamed file", func(t *testing.T) {
+		f := newFileWithReading(t)
+		test.That(t, f.Close(), test.ShouldBeNil)
+		test.That(t, f.Delete(), test.ShouldBeNil)
+		_, err := os.Stat(f.GetPath())
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	})
+
+	t.Run("Close after Delete is a no-op", func(t *testing.T) {
+		f := newFileWithReading(t)
+		test.That(t, f.Delete(), test.ShouldBeNil)
+		test.That(t, f.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("reads and writes after Close return ErrFileClosed", func(t *testing.T) {
+		f := newFileWithReading(t)
+		test.That(t, f.Close(), test.ShouldBeNil)
+
+		err := f.WriteNext(&v1.SensorData{Data: &v1.SensorData_Struct{Struct: &structpb.Struct{}}})
+		test.That(t, errors.Is(err, ErrFileClosed), test.ShouldBeTrue)
+		test.That(t, errors.Is(err, os.ErrClosed), test.ShouldBeTrue)
+
+		_, err = f.ReadNext()
+		test.That(t, errors.Is(err, ErrFileClosed), test.ShouldBeTrue)
+
+		_, _, _, err = f.BinaryPayloadReader()
+		test.That(t, errors.Is(err, ErrFileClosed), test.ShouldBeTrue)
+
+		// Flushing a closed file is trivially satisfied.
+		test.That(t, f.Flush(), test.ShouldBeNil)
+	})
+}
+
+// TestCloseIsIdempotent ensures repeated Close calls return nil rather than
+// "file already closed" errors, so callers retrying after a transient failure
+// can recover (RSDK-14184).
+func TestCloseIsIdempotent(t *testing.T) {
+	t.Run("close after successful close returns nil", func(t *testing.T) {
+		dir := t.TempDir()
+		f, err := NewCaptureFile(dir, &v1.DataCaptureMetadata{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f.Close(), test.ShouldBeNil)
+		test.That(t, f.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("close after failed rename returns nil", func(t *testing.T) {
+		dir := t.TempDir()
+		f, err := NewCaptureFile(dir, &v1.DataCaptureMetadata{})
+		test.That(t, err, test.ShouldBeNil)
+
+		// Rename the .prog file externally so Close's os.Rename fails with ENOENT.
+		// That the destination matches Close's own target name is incidental; all
+		// that matters is that the .prog source path no longer exists.
+		src := f.GetPath()
+		dst := src[:len(src)-len(InProgressCaptureFileExt)] + CompletedCaptureFileExt
+		test.That(t, os.Rename(src, dst), test.ShouldBeNil)
+
+		err = f.Close()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
+
+		// The underlying file is already closed; repeated calls are no-ops.
+		test.That(t, f.Close(), test.ShouldBeNil)
+	})
 }
