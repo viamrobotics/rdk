@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -112,9 +113,7 @@ func (imp *impl) NewLogEntry() *LogEntry {
 func (imp *impl) AddAppender(appender Appender) {
 	imp.appendersMu.Lock()
 	defer imp.appendersMu.Unlock()
-	newAppenders := make([]Appender, 0, len(imp.appenders)+1)
-	newAppenders = append(newAppenders, imp.appenders...)
-	imp.appenders = append(newAppenders, appender)
+	imp.appenders = slices.Concat(imp.appenders, []Appender{appender})
 }
 
 func (imp *impl) getAppenders() []Appender {
