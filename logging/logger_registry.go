@@ -35,7 +35,8 @@ func (lr *Registry) registerLogger(name string, logger Logger) {
 	lr.loggers[name] = logger
 }
 
-func (lr *Registry) loggerNamed(name string) (logger Logger, ok bool) {
+// LoggerNamed returns the registered logger with the given name, if any.
+func (lr *Registry) LoggerNamed(name string) (logger Logger, ok bool) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	logger, ok = lr.loggers[name]

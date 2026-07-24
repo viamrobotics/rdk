@@ -9,7 +9,7 @@ import (
 
 func verifySetLevels(registry *Registry, expectedMatches map[string]string) bool {
 	for name, level := range expectedMatches {
-		logger, ok := registry.loggerNamed(name)
+		logger, ok := registry.LoggerNamed(name)
 		if !ok || !strings.EqualFold(level, logger.GetLevel().String()) {
 			return false
 		}

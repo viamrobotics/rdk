@@ -4,9 +4,9 @@ import (
 	"time"
 )
 
-// activityLoggerName is the reserved logger name for activity logs.
+// ActivityLoggerName is the reserved logger name for activity logs.
 // server and agent share this logger.
-const activityLoggerName = "rdk.activity"
+const ActivityLoggerName = "rdk.activity"
 
 // activityLogger holds the state behind the package-level Activity functions. impl is held as a
 // field rather than embedded so its Debug/Info/Warn/Error methods are not reachable; activity
@@ -19,7 +19,7 @@ type activityLogger struct {
 
 func newActivityLogger(registry *Registry, unit string) *activityLogger {
 	logger := &impl{
-		name:                     activityLoggerName,
+		name:                     ActivityLoggerName,
 		level:                    NewAtomicLevelAt(INFO),
 		registry:                 registry,
 		testHelper:               func() {},
@@ -28,20 +28,26 @@ func newActivityLogger(registry *Registry, unit string) *activityLogger {
 		recentMessageWindowStart: time.Now(),
 	}
 	logger.NeverDeduplicate()
-	registry.registerLogger(activityLoggerName, logger)
+	registry.registerLogger(ActivityLoggerName, logger)
 	return &activityLogger{logger: logger, unit: unit}
 }
 
 // globalActivityLogger starts with no sinks (Activity calls are dropped) until
 // InitActivityLogger installs one registered against the server's logger registry.
-var globalActivityLogger = newActivityLogger(newRegistry(), "unknown")
+// Atomic because tests start multiple in-process servers whose InitActivityLogger
+// calls race with each other and with Activity emission.
+var globalActivityLogger atomic.Pointer[activityLogger]
+
+func init() {
+	globalActivityLogger.Store(newActivityLogger(newRegistry(), "unknown"))
+}
 
 // InitActivityLogger installs the process-wide activity logger. unit names the emitting process
 // (e.g. "server", "agent") and is stamped on every event. Registering into the given registry
 // gives the activity logger the same net and local (offline) appenders as the rest of the
 // logger tree via AddAppenderToAll. Call once, early in startup, before any Activity callers.
 func InitActivityLogger(registry *Registry, unit string) {
-	globalActivityLogger = newActivityLogger(registry, unit)
+	globalActivityLogger.Store(newActivityLogger(registry, unit))
 }
 
 // Activity emits an activity log. It always writes at INFO regardless of any configured level
@@ -53,7 +59,7 @@ func InitActivityLogger(registry *Registry, unit string) {
 // The log body lives here rather than in a helper so the call depth matches the standard
 // logger methods and getCaller attributes the entry to the Activity call site.
 func Activity(activity, event string, keysAndValues ...any) {
-	al := globalActivityLogger
+	al := globalActivityLogger.Load()
 	// Prepend so unit, activity, and event lead the rendered fields.
 	keysAndValues = append([]any{"unit", al.unit, "activity", activity, "event", event}, keysAndValues...)
 	entry := al.logger.formatw(INFO, emptyTraceKey, "", keysAndValues...)
