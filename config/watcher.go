@@ -49,6 +49,12 @@ type cloudWatcher struct {
 
 const checkForNewCertInterval = time.Hour
 
+// failuresBeforeWarning is how many consecutive failed cloud reads the watcher tolerates quietly
+// before it starts warning, and how often it warns after that. At the default 10s refresh interval
+// that is roughly once a minute. A single failed read is a blip; a run of them means the machine
+// has silently stopped receiving config changes and someone should hear about it.
+const failuresBeforeWarning = 6
+
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
 func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger, conn rpc.ClientConn) *cloudWatcher {
@@ -57,13 +63,21 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 	cancelCtx, cancel := context.WithCancel(ctx)
 
 	nextCheckForNewCert := time.Now().Add(checkForNewCertInterval)
-
-	var prevCfg *Config
+	machineID := config.Cloud.ID
+	refreshInterval := config.Cloud.RefreshInterval
+	// prevCloudConfig carries the cloud section (notably the TLS cert) from the previous successful
+	// read forward in memory. It deliberately does not round-trip through the on-disk cache, which
+	// is only written after reconfiguration completes and can lag many polls behind (RSDK-11851).
+	//
+	// Seed it with a copy for the same reason the loop below copies: the caller's Cloud is shared
+	// with the config the robot is running on, and this must stay a private snapshot.
+	prevCloudConfig := config.Cloud.Copy()
 	utils.ManagedGo(func() {
 		firstRead := true
+		consecutiveFailures := 0
 		for {
 			// have first read with the watcher happen much faster in case the request timed out on the initial read on server startup
-			interval := config.Cloud.RefreshInterval
+			interval := refreshInterval
 			if firstRead {
 				interval /= 5
 				firstRead = false
@@ -75,21 +89,29 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger, conn)
+			newConfig, err := readFromCloud(cancelCtx, machineID, prevCloudConfig, checkForNewCert, logger, conn)
 			if err != nil {
+				consecutiveFailures++
 				// A malformed config is a legitimate error. The robot keeps running its current config,
-				// but we surface it loudly. A transient failure to reach the cloud stays at debug since
-				// the watcher retries.
+				// but we surface it loudly. A one-off failure to reach the cloud stays at debug since
+				// the watcher retries -- but a run of them is no longer transient, so escalate.
 				logFunc := logger.Debugw
-				if IsMalformedConfigError(err) {
+				switch {
+				case IsMalformedConfigError(err):
 					logFunc = logger.Errorw
+				case consecutiveFailures%failuresBeforeWarning == 0:
+					logFunc = logger.Warnw
 				}
-				logFunc("could not apply new cloud config; keeping the current config", "error", err)
+				logFunc("could not apply new cloud config; keeping the current config",
+					"error", err, "consecutive_failures", consecutiveFailures)
 				continue
 			}
-			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
-				prevCfg = cp
-			}
+			consecutiveFailures = 0
+			// Carry the new cloud section forward as the next iteration's fallback. Copy rather
+			// than alias newConfig.Cloud, since the robot may mutate the config we hand it. The
+			// copy must not be allowed to fail: falling back to the older cloud section would hand
+			// the robot an older TLS cert on the next poll, which is the reconfigure loop above.
+			prevCloudConfig = newConfig.Cloud.Copy()
 			if checkForNewCert {
 				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
 			}

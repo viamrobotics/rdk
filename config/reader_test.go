@@ -2,9 +2,11 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -231,7 +233,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		defer cleanup()
 
 		logger, logs := logging.NewObservedTestLogger(t)
-		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cached, test.ShouldBeTrue)
 		test.That(t, cfg, test.ShouldNotBeNil)
@@ -251,7 +253,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		defer cleanup()
 
 		logger, logs := logging.NewObservedTestLogger(t)
-		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cached, test.ShouldBeTrue)
 		test.That(t, cfg, test.ShouldNotBeNil)
@@ -269,7 +271,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		defer cleanup()
 
 		logger := logging.NewTestLogger(t)
-		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		_, _, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
@@ -284,7 +286,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		defer cleanup()
 
 		logger := logging.NewTestLogger(t)
-		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		_, _, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, IsMalformedConfigError(err), test.ShouldBeFalse)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cached config does not exist")
@@ -356,7 +358,7 @@ func TestGetFromCloudGRPCProtoDecodeFailureIsMalformed(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 
-	cfg, err := getFromCloudGRPC(ctx, cloudCfg, logger, appConn)
+	cfg, err := getFromCloudGRPC(ctx, cloudCfg.ID, logger, appConn)
 	test.That(t, cfg, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
@@ -442,8 +444,9 @@ func TestStoreToCache(t *testing.T) {
 	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
-	// read config from cloud, confirm consistency
-	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
+	// read config from cloud, confirm consistency. The app address is unreachable, so this
+	// exercises the cache fallback in firstReadFromCloud.
+	cloudCfg, err := firstReadFromCloud(ctx, cfg.Cloud, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg.toCache = nil
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
@@ -453,7 +456,7 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
-	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
+	cloudCfg2, err := firstReadFromCloud(ctx, cfg.Cloud, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg2.toCache = nil
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfgToCache)
@@ -466,7 +469,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
 
 	// read updated cloud config, confirm that it now matches our updated cfg
-	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
+	cloudCfg3, err := firstReadFromCloud(ctx, cfg.Cloud, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg3.toCache = nil
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
@@ -486,6 +489,132 @@ func TestCacheInvalidation(t *testing.T) {
 	// read from cache again and file should not exist
 	_, err = readFromCache(id)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
+// fullyPopulatedCloud returns a Cloud with every field set to a distinct, non-zero value. The
+// zero-field check in TestCloudFieldsAreAccountedFor fails if a new field is left unset here, which
+// forces it to be populated so the behavioral assertions below actually exercise it.
+func fullyPopulatedCloud() *Cloud {
+	return &Cloud{
+		ID:                "id-1",
+		Secret:            "secret-1",
+		LocationSecret:    "locsecret-1",
+		LocationSecrets:   []LocationSecret{{ID: "ls-id-1", Secret: "ls-secret-1"}},
+		APIKey:            APIKey{ID: "key-id-1", Key: "key-secret-1"},
+		LocationID:        "loc-1",
+		PrimaryOrgID:      "org-1",
+		MachineID:         "machine-1",
+		ManagedBy:         "managed-1",
+		FQDN:              "fqdn-1",
+		LocalFQDN:         "localfqdn-1",
+		SignalingAddress:  "sig-1",
+		SignalingInsecure: true,
+		AppAddress:        "app-1",
+		RefreshInterval:   42 * time.Second,
+		TLSCertificate:    "cert-1",
+		TLSPrivateKey:     "privkey-1",
+	}
+}
+
+// TestCloudFieldsAreAccountedFor pins down where every field of Cloud comes from after a cloud
+// read. A field the cloud does not send must be restored from the local config or it is silently
+// zeroed -- that is how APIKey was once dropped, downgrading API-key machines to secret auth.
+//
+// It guards the several "keep in sync with the Cloud struct" comments at once: restoreLocalOnlyFields,
+// Cloud.Copy, and cloudData/MarshalJSON. If it fails, a field was added to Cloud; classify it into
+// one of the buckets below and make sure Copy clones it and cloudData round-trips it.
+func TestCloudFieldsAreAccountedFor(t *testing.T) {
+	// Fields the cloud sends back; CloudConfigFromProto populates these.
+	fromCloud := []string{
+		"LocationSecret", "LocationSecrets", "LocationID", "PrimaryOrgID", "MachineID",
+		"ManagedBy", "FQDN", "LocalFQDN", "SignalingAddress", "SignalingInsecure",
+	}
+	// Fields only the on-disk config has; restoreLocalOnlyFields must put these back.
+	fromLocal := []string{"ID", "Secret", "APIKey", "AppAddress", "RefreshInterval"}
+	// Fetched from the certificate endpoint and stamped by applyCloudConfig.
+	fromCertEndpoint := []string{"TLSCertificate", "TLSPrivateKey"}
+
+	fromLocalSet := map[string]bool{}
+	accountedFor := map[string]bool{}
+	for _, name := range fromLocal {
+		fromLocalSet[name] = true
+	}
+	for _, group := range [][]string{fromCloud, fromLocal, fromCertEndpoint} {
+		for _, name := range group {
+			accountedFor[name] = true
+		}
+	}
+
+	cloudType := reflect.TypeOf(Cloud{})
+	for i := range cloudType.NumField() {
+		name := cloudType.Field(i).Name
+		test.That(t, accountedFor[name], test.ShouldBeTrue)
+		delete(accountedFor, name)
+	}
+	// Nothing listed above should have been removed from Cloud without updating this test.
+	test.That(t, accountedFor, test.ShouldBeEmpty)
+
+	// Guard the helper: if a new field was added to Cloud and not set above, the behavioral checks
+	// that follow would silently skip it, so fail here instead.
+	populated := reflect.ValueOf(fullyPopulatedCloud()).Elem()
+	for i := range populated.NumField() {
+		test.That(t, populated.Field(i).IsZero(), test.ShouldBeFalse)
+	}
+
+	// restoreLocalOnlyFields must set exactly the local-owned fields to the local config's values
+	// and leave every cloud-owned and cert field untouched. Re-adding the old mergeCloudConfig
+	// clobber (which overwrote the whole cloud section) fails here.
+	cloudBase := fullyPopulatedCloud()
+	beforeRestore := *cloudBase
+	local := &Cloud{
+		ID:              "local-id",
+		Secret:          "local-secret",
+		APIKey:          APIKey{ID: "local-key-id", Key: "local-key-secret"},
+		AppAddress:      "local-app",
+		RefreshInterval: 99 * time.Second,
+	}
+	cloudBase.restoreLocalOnlyFields(local)
+	restored := reflect.ValueOf(cloudBase).Elem()
+	localVal := reflect.ValueOf(local).Elem()
+	origVal := reflect.ValueOf(&beforeRestore).Elem()
+	for i := range restored.NumField() {
+		name := restored.Type().Field(i).Name
+		if fromLocalSet[name] {
+			test.That(t, restored.Field(i).Interface(), test.ShouldResemble, localVal.Field(i).Interface())
+		} else {
+			test.That(t, restored.Field(i).Interface(), test.ShouldResemble, origVal.Field(i).Interface())
+		}
+	}
+
+	// Cloud.Copy must be a deep copy: an equal value whose reference-typed fields do not alias the
+	// original's. A new slice/map field that Copy forgets to clone is caught by the aliasing check.
+	src := fullyPopulatedCloud()
+	dst := src.Copy()
+	test.That(t, dst, test.ShouldResemble, src)
+	srcElem := reflect.ValueOf(src).Elem()
+	dstElem := reflect.ValueOf(dst).Elem()
+	for i := range srcElem.NumField() {
+		f := srcElem.Field(i)
+		switch f.Kind() {
+		case reflect.Slice, reflect.Map:
+			if f.Len() > 0 {
+				test.That(t, dstElem.Field(i).Pointer(), test.ShouldNotEqual, f.Pointer())
+			}
+		}
+	}
+	// And prove the clone is independent: mutating the copy leaves the original alone.
+	dst.LocationSecrets[0].Secret = "mutated"
+	dst.LocationSecrets = append(dst.LocationSecrets, LocationSecret{ID: "extra"})
+	test.That(t, src.LocationSecrets, test.ShouldResemble, fullyPopulatedCloud().LocationSecrets)
+
+	// Every field must round-trip through cloudData/MarshalJSON/UnmarshalJSON, or the on-disk cache
+	// silently drops it. A new Cloud field not wired into cloudData is caught here.
+	full := fullyPopulatedCloud()
+	data, err := json.Marshal(full)
+	test.That(t, err, test.ShouldBeNil)
+	var roundTripped Cloud
+	test.That(t, json.Unmarshal(data, &roundTripped), test.ShouldBeNil)
+	test.That(t, &roundTripped, test.ShouldResemble, full)
 }
 
 func TestShouldCheckForCert(t *testing.T) {
@@ -522,6 +651,375 @@ func TestShouldCheckForCert(t *testing.T) {
 		{ID: "id2", Secret: "secret3"},
 	}
 	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeTrue)
+
+	// certs are scoped to a location, so a location change must force a refetch.
+	cloud2 = cloud1
+	cloud2.LocationID = "another-location"
+	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeTrue)
+
+	cloud2 = cloud1
+	cloud2.PrimaryOrgID = "another-org"
+	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeTrue)
+}
+
+// TestReadFromCloudCertStaleCache is a regression test for RSDK-11851.
+//
+// The cert only comes down from the cloud once an hour, so every other watcher poll carries it
+// over from somewhere. That used to be the on-disk cache, which is only written at the *end* of
+// reconfiguration (localRobot.reconfigure -> StoreToCache). When a reconfigure runs longer than
+// the refresh interval -- a stalled remote, a slow module download -- the next poll reads a cache
+// still holding the *previous* cert, and the polls take turns writing their cert back to disk. The
+// cloud section then changes every poll and the machine reconfigures forever.
+//
+// readFromCloud must therefore carry the cert forward from prevCloudCfg (in memory) and never
+// consult the cache, so a lagging cache cannot drag the cert backwards.
+func TestReadFromCloudCertStaleCache(t *testing.T) {
+	const (
+		robotPartID = "certStaleCacheTest"
+		secret      = testutils.FakeCredentialPayLoad
+
+		// Three distinct cert sources, so assertions can tell which one was used: the lagging
+		// on-disk cache, the cert carried forward in memory, and what the cloud has now.
+		staleCert = "stale-cert-on-disk"
+		staleKey  = "stale-key-on-disk"
+		heldCert  = "held-cert-in-memory"
+		heldKey   = "held-key-in-memory"
+		cloudCert = "cert-from-cloud"
+		cloudKey  = "key-from-cloud"
+	)
+	var (
+		logger = logging.NewTestLogger(t)
+		ctx    = context.Background()
+	)
+
+	cloudResponse := &Cloud{
+		ManagedBy:        "acme",
+		SignalingAddress: "abc",
+		ID:               robotPartID,
+		Secret:           secret,
+		FQDN:             "fqdn",
+		LocalFQDN:        "localFqdn",
+		LocationSecrets:  []LocationSecret{},
+		LocationID:       "the-location",
+		PrimaryOrgID:     "the-primary-org",
+		MachineID:        "the-machine",
+	}
+
+	setup := func(t *testing.T) (*testutils.FakeCloudServer, rpc.ClientConn, *Cloud) {
+		t.Helper()
+
+		clearCache(robotPartID)
+		t.Cleanup(func() { clearCache(robotPartID) })
+
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+		t.Cleanup(cleanup)
+
+		cloudConfProto, err := CloudConfigToProto(cloudResponse)
+		test.That(t, err, test.ShouldBeNil)
+		fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: cloudConfProto},
+			&pb.CertificateResponse{TlsCertificate: cloudCert, TlsPrivateKey: cloudKey})
+
+		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { test.That(t, appConn.Close(), test.ShouldBeNil) })
+
+		// Simulate a reconfigure that is still in flight: the cert the previous poll fetched is
+		// held in memory, but the cache on disk has not caught up and still holds the old one.
+		staleOnDisk := *cloudResponse
+		staleOnDisk.TLSCertificate = staleCert
+		staleOnDisk.TLSPrivateKey = staleKey
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		test.That(t, cfgToCache.SetToCache(&Config{Cloud: &staleOnDisk}), test.ShouldBeNil)
+		test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+
+		prevCloudCfg := *cloudResponse
+		prevCloudCfg.AppAddress = appAddress
+		prevCloudCfg.TLSCertificate = heldCert
+		prevCloudCfg.TLSPrivateKey = heldKey
+
+		return fakeServer, appConn, &prevCloudCfg
+	}
+
+	t.Run("stale cache does not clobber the in-memory cert", func(t *testing.T) {
+		_, appConn, prevCloudCfg := setup(t)
+
+		// checkForNewCert is false: this is one of the ~360 polls per hour that does not refetch.
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Before the fix this read the cert off disk and came back with staleCert. It must not be
+		// cloudCert either -- that would mean hitting the cert endpoint on a non-refresh poll.
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, heldCert)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, heldKey)
+	})
+
+	t.Run("repeated polls do not flip-flop the cert", func(t *testing.T) {
+		_, appConn, prevCloudCfg := setup(t)
+
+		// Drive the watcher's loop by hand without ever storing to the cache -- i.e. reconfiguration
+		// never finishes. Any cert change here is a cloud-section diff that reconfigures again.
+		for range 5 {
+			gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, heldCert)
+			test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, heldKey)
+
+			cp, err := gotCfg.CopyOnlyPublicFields()
+			test.That(t, err, test.ShouldBeNil)
+			prevCloudCfg = cp.Cloud
+		}
+	})
+
+	t.Run("rotated cert is picked up when checkForNewCert is set", func(t *testing.T) {
+		_, appConn, prevCloudCfg := setup(t)
+
+		// This is the once-an-hour poll: it must take what the cloud has now, not what it held.
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, cloudCert)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cloudKey)
+	})
+
+	t.Run("cert is fetched when the previous cloud config has none", func(t *testing.T) {
+		_, appConn, prevCloudCfg := setup(t)
+		prevCloudCfg.TLSCertificate = ""
+		prevCloudCfg.TLSPrivateKey = ""
+
+		// checkForNewCert is false, but we have nothing to carry forward, so we must fetch.
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, cloudCert)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cloudKey)
+	})
+
+	t.Run("cert is refetched when the cloud section invalidates it", func(t *testing.T) {
+		_, appConn, prevCloudCfg := setup(t)
+
+		// The cert is issued for the machine's FQDN, so an FQDN change forces a refetch even with
+		// checkForNewCert false.
+		prevCloudCfg.FQDN = "some-old-fqdn"
+
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, cloudCert)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cloudKey)
+	})
+
+	// breakCertEndpoint fails the cert endpoint while leaving the config endpoint working. An empty
+	// CertificateResponse is what the cloud sends when a cert is not ready yet.
+	breakCertEndpoint := func(t *testing.T, fakeServer *testutils.FakeCloudServer) {
+		t.Helper()
+		cloudConfProto, err := CloudConfigToProto(cloudResponse)
+		test.That(t, err, test.ShouldBeNil)
+		fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: cloudConfProto},
+			&pb.CertificateResponse{})
+	}
+
+	t.Run("a failed cert refresh keeps the previous cert and the new config", func(t *testing.T) {
+		fakeServer, appConn, prevCloudCfg := setup(t)
+		breakCertEndpoint(t, fakeServer)
+
+		// A transient cert-endpoint failure must not cost us the config we just read.
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, heldCert)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, heldKey)
+	})
+
+	t.Run("a failed cert refresh with no previous cert errors", func(t *testing.T) {
+		fakeServer, appConn, prevCloudCfg := setup(t)
+		breakCertEndpoint(t, fakeServer)
+		prevCloudCfg.TLSCertificate = ""
+		prevCloudCfg.TLSPrivateKey = ""
+
+		// Nothing to fall back to and signaling is secure, so error rather than handing back a
+		// config with no cert.
+		_, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("cloud fields that govern the app connection are preserved", func(t *testing.T) {
+		_, appConn, prevCloudCfg := setup(t)
+		prevCloudCfg.RefreshInterval = 42 * time.Second
+
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+
+		// The cloud does not send these back, so they must survive from the previous config.
+		test.That(t, gotCfg.Cloud.ID, test.ShouldEqual, prevCloudCfg.ID)
+		test.That(t, gotCfg.Cloud.Secret, test.ShouldEqual, prevCloudCfg.Secret)
+		test.That(t, gotCfg.Cloud.AppAddress, test.ShouldEqual, prevCloudCfg.AppAddress)
+		test.That(t, gotCfg.Cloud.RefreshInterval, test.ShouldEqual, 42*time.Second)
+	})
+
+	// The insecure-signaling branch of readFromCloud does not fetch a cert and must not carry one
+	// forward either. A machine that had a cert and then flips to insecure signaling is talking to
+	// an app instance that has no cert for it. Carrying the old cert forward would leave
+	// weboptions.FromConfig setting up TLS and binding :8080 against that instance, and would keep
+	// re-caching a cert nothing can validate. Blanking is safe: ProcessConfig skips
+	// CreateTLSWithCert when TLSCertificate is empty.
+	t.Run("insecure signaling blanks the carried-forward cert", func(t *testing.T) {
+		fakeServer, appConn, prevCloudCfg := setup(t)
+
+		// The cloud flips to insecure signaling, so it no longer has a cert for this machine, while
+		// prevCloudCfg still carries the cert held from when signaling was secure.
+		insecureCloud := *cloudResponse
+		insecureCloud.SignalingInsecure = true
+		insecureProto, err := CloudConfigToProto(&insecureCloud)
+		test.That(t, err, test.ShouldBeNil)
+		fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: insecureProto}, &pb.CertificateResponse{})
+
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.SignalingInsecure, test.ShouldBeTrue)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
+
+		// The cache is staged from the same blanked cert, so the next boot does not resurrect it.
+		test.That(t, gotCfg.toCache, test.ShouldNotBeNil)
+		test.That(t, string(gotCfg.toCache), test.ShouldNotContainSubstring, heldCert)
+		test.That(t, string(gotCfg.toCache), test.ShouldNotContainSubstring, heldKey)
+	})
+}
+
+// TestFirstReadFromCloudRequiresCert covers startup when the cloud has no cert to hand out --
+// typically a machine whose cert has not been issued yet, where the Certificate endpoint answers
+// with an empty response.
+//
+// Coming up anyway is worse than failing. weboptions.FromConfig gates its TLS *and* its
+// bind-address setup on a non-empty TLSCertificate, so a certless machine serves plaintext on the
+// default bind address. Worse, applyCloudConfig would cache the empty cert, and on the following
+// boot tlsConfig.readFromCache fails ValidateTLS and clears the entire cache -- so the machine also
+// loses the config it needs to boot offline.
+func TestFirstReadFromCloudRequiresCert(t *testing.T) {
+	const (
+		robotPartID = "certRequiredTest"
+		secret      = testutils.FakeCredentialPayLoad
+
+		cachedCert = "cached-cert"
+		cachedKey  = "cached-key"
+	)
+	var (
+		logger = logging.NewTestLogger(t)
+		ctx    = context.Background()
+	)
+
+	// setup stands up a cloud that serves a config but no certificate.
+	setup := func(t *testing.T, signalingInsecure bool) (*testutils.FakeCloudServer, rpc.ClientConn, *Cloud) {
+		t.Helper()
+
+		clearCache(robotPartID)
+		t.Cleanup(func() { clearCache(robotPartID) })
+
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+		t.Cleanup(cleanup)
+
+		cloudResponse := &Cloud{
+			ManagedBy:         "acme",
+			SignalingAddress:  "abc",
+			ID:                robotPartID,
+			Secret:            secret,
+			FQDN:              "fqdn",
+			LocalFQDN:         "localFqdn",
+			LocationSecrets:   []LocationSecret{},
+			SignalingInsecure: signalingInsecure,
+		}
+		cloudConfProto, err := CloudConfigToProto(cloudResponse)
+		test.That(t, err, test.ShouldBeNil)
+		// An empty CertificateResponse is what the cloud sends when no cert has been issued.
+		fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: cloudConfProto}, &pb.CertificateResponse{})
+
+		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { test.That(t, appConn.Close(), test.ShouldBeNil) })
+
+		localCloudCfg := *cloudResponse
+		localCloudCfg.AppAddress = appAddress
+		localCloudCfg.RefreshInterval = time.Second
+		return fakeServer, appConn, &localCloudCfg
+	}
+
+	// storeCachedCert writes a cached config carrying a cert, as an earlier boot would have.
+	storeCachedCert := func(t *testing.T, cloudCfg *Cloud) {
+		t.Helper()
+		cached := *cloudCfg
+		cached.TLSCertificate = cachedCert
+		cached.TLSPrivateKey = cachedKey
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		test.That(t, cfgToCache.SetToCache(&Config{Cloud: &cached}), test.ShouldBeNil)
+		test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+	}
+
+	t.Run("no cert from the cloud and no cache errors", func(t *testing.T) {
+		_, appConn, localCloudCfg := setup(t, false)
+
+		_, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no TLS certificate available")
+	})
+
+	// The backstop in applyCloudConfig, tested directly: the callers above error out before
+	// reaching it, so nothing else exercises it.
+	t.Run("applyCloudConfig refuses to stage a cache write with no cert", func(t *testing.T) {
+		localCloudCfg := &Cloud{ID: robotPartID, Secret: secret}
+
+		newResult := func(insecure bool) cloudReadResult {
+			return cloudReadResult{
+				processed:   &Config{Cloud: &Cloud{ID: robotPartID, SignalingInsecure: insecure}},
+				unprocessed: &Config{Cloud: &Cloud{ID: robotPartID, SignalingInsecure: insecure}},
+			}
+		}
+
+		// Secure signaling with no cert: must not be staged.
+		res := newResult(false)
+		applyCloudConfig(res, tlsConfig{}, localCloudCfg, logger)
+		test.That(t, res.processed.toCache, test.ShouldBeNil)
+
+		// Insecure signaling legitimately has no cert, so staging is expected.
+		res = newResult(true)
+		applyCloudConfig(res, tlsConfig{}, localCloudCfg, logger)
+		test.That(t, res.processed.toCache, test.ShouldNotBeNil)
+
+		// Secure signaling with a cert is the normal path.
+		res = newResult(false)
+		applyCloudConfig(res, tlsConfig{certificate: cachedCert, privateKey: cachedKey}, localCloudCfg, logger)
+		test.That(t, res.processed.toCache, test.ShouldNotBeNil)
+	})
+
+	t.Run("no cert from the cloud falls back to the cached cert", func(t *testing.T) {
+		_, appConn, localCloudCfg := setup(t, false)
+		storeCachedCert(t, localCloudCfg)
+
+		gotCfg, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, cachedCert)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cachedKey)
+	})
+
+	t.Run("insecure signaling does not need a cert", func(t *testing.T) {
+		_, appConn, localCloudCfg := setup(t, true)
+
+		gotCfg, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
+	})
+
+	// The discriminating case for the insecure branch: the config itself comes from the cache, so
+	// it arrives carrying the cert an earlier secure boot cached. It must still be blanked.
+	t.Run("insecure signaling drops a cert carried in from the cache", func(t *testing.T) {
+		fakeServer, appConn, localCloudCfg := setup(t, true)
+		storeCachedCert(t, localCloudCfg)
+		fakeServer.FailOnConfigAndCerts(true)
+
+		gotCfg, err := firstReadFromCloud(ctx, localCloudCfg, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gotCfg.Cloud.SignalingInsecure, test.ShouldBeTrue)
+		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)
+		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldBeEmpty)
+	})
 }
 
 func TestProcessConfig(t *testing.T) {

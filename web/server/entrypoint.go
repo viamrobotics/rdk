@@ -653,8 +653,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
 
-	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, s.configLogger, s.conn)
+	// Watch for and deliver changes to the robot. The watcher only needs the cloud section or the
+	// config file path, so give it a config of its own: `NewWatcher` calls `Ensure`, which mutates
+	// what it is given, and the robot is already running on every other config here.
+	watcherConfig := &config.Config{ConfigFilePath: cfg.ConfigFilePath, Cloud: cfg.Cloud.Copy()}
+	watcher, err := config.NewWatcher(ctx, watcherConfig, s.configLogger, s.conn)
 	if err != nil {
 		cancel()
 		return err
