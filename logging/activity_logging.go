@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"sync/atomic"
 	"time"
 )
 
@@ -72,7 +73,7 @@ func Activity(activity, event string, keysAndValues ...any) {
 // The body is duplicated from Activity rather than shared so the call depth matches and
 // getCaller attributes the entry to the ActivityError call site.
 func ActivityError(activity, event string, keysAndValues ...any) {
-	al := globalActivityLogger
+	al := globalActivityLogger.Load()
 	// Prepend so unit, activity, and event lead the rendered fields.
 	keysAndValues = append([]any{"unit", al.unit, "activity", activity, "event", event}, keysAndValues...)
 	entry := al.logger.formatw(ERROR, emptyTraceKey, "", keysAndValues...)

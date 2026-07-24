@@ -15,11 +15,11 @@ import (
 func swapInObservedActivityLogger(t *testing.T, unit string) (*Registry, *observer.ObservedLogs) {
 	t.Helper()
 	observerCore, logs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	old := globalActivityLogger
-	t.Cleanup(func() { globalActivityLogger = old })
+	old := globalActivityLogger.Load()
+	t.Cleanup(func() { globalActivityLogger.Store(old) })
 	registry := newRegistry()
 	InitActivityLogger(registry, unit)
-	globalActivityLogger.logger.AddAppender(observerCore)
+	globalActivityLogger.Load().logger.AddAppender(observerCore)
 	return registry, logs
 }
 
@@ -83,8 +83,8 @@ func TestActivityCallerAttribution(t *testing.T) {
 
 func TestActivityDroppedWithoutSinks(t *testing.T) {
 	// The package-default global has no appenders; Activity must be a safe no-op.
-	old := globalActivityLogger
-	t.Cleanup(func() { globalActivityLogger = old })
+	old := globalActivityLogger.Load()
+	t.Cleanup(func() { globalActivityLogger.Store(old) })
 	InitActivityLogger(newRegistry(), "unknown")
 	Activity("reconfigure", "start")
 }

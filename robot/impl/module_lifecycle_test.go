@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -726,6 +727,18 @@ func countActivityErrors(activityLogs *observer.ObservedLogs, errText string) in
 	count := 0
 	for _, entry := range activityLogs.All() {
 		if entry.Level == zapcore.ErrorLevel && fmt.Sprint(entry.ContextMap()["error"]) == errText {
+			count++
+		}
+	}
+	return count
+}
+
+// countActivityErrorSnippets returns how many observed ERROR-level activity events carry
+// an "error" field containing substr.
+func countActivityErrorSnippets(activityLogs *observer.ObservedLogs, substr string) int {
+	count := 0
+	for _, entry := range activityLogs.All() {
+		if entry.Level == zapcore.ErrorLevel && strings.Contains(fmt.Sprint(entry.ContextMap()["error"]), substr) {
 			count++
 		}
 	}

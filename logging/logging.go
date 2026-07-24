@@ -189,10 +189,10 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 // with other tests that emit or observe activity events.
 func NewObservedActivityLogger(tb testing.TB, unit string) *observer.ObservedLogs {
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	old := globalActivityLogger
-	tb.Cleanup(func() { globalActivityLogger = old })
+	old := globalActivityLogger.Load()
+	tb.Cleanup(func() { globalActivityLogger.Store(old) })
 	InitActivityLogger(newRegistry(), unit)
-	globalActivityLogger.logger.AddAppender(observerCore)
+	globalActivityLogger.Load().logger.AddAppender(observerCore)
 	return observedLogs
 }
 
