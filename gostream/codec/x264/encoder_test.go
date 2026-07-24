@@ -105,6 +105,49 @@ func BenchmarkEncodeYCbCr(b *testing.B) {
 	}
 }
 
+func TestNewEncoderCropsUnalignedDims(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	// Ensenso native: 2472 is 8 pixels past the nearest 16-multiple.
+	enc, err := NewEncoder(2472, 2064, DefaultKeyFrameInterval, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, enc.Close(), test.ShouldBeNil)
+	}()
+
+	e := enc.(*encoder)
+	test.That(t, e.needsCrop, test.ShouldBeTrue)
+	test.That(t, e.dstBounds.Dx(), test.ShouldEqual, 2464)
+	test.That(t, e.dstBounds.Dy(), test.ShouldEqual, 2064)
+	test.That(t, e.scratchRGBA, test.ShouldNotBeNil)
+}
+
+func TestNewEncoderAlignedDimsNoOp(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	// 1280x720 — both dims already 16-aligned (720p, common on webcams).
+	enc, err := NewEncoder(1280, 720, DefaultKeyFrameInterval, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, enc.Close(), test.ShouldBeNil)
+	}()
+
+	e := enc.(*encoder)
+	test.That(t, e.needsCrop, test.ShouldBeFalse)
+	test.That(t, e.scratchRGBA, test.ShouldBeNil)
+}
+
+func TestEncodeUnalignedInputDoesNotPanic(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	enc, err := NewEncoder(2472, 2064, DefaultKeyFrameInterval, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, enc.Close(), test.ShouldBeNil)
+	}()
+
+	img := image.NewYCbCr(image.Rect(0, 0, 2472, 2064), image.YCbCrSubsampleRatio420)
+	_, err = enc.Encode(context.Background(), img)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestCalcBitrateFromResolution(t *testing.T) {
 	bitrateTests := []struct {
 		width, height int
