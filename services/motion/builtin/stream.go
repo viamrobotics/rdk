@@ -68,7 +68,7 @@ func (ms *builtIn) streamStart(
 			// A prior session already finished; replace it.
 			ms.stream = nil
 		default:
-			return fmt.Errorf("a streaming session is already running; call %s first", DoStreamStop)
+			return fmt.Errorf("a stream is already running; call %s first", DoStreamStop)
 		}
 	}
 
@@ -90,44 +90,44 @@ func (ms *builtIn) streamStart(
 		}
 	}
 
-	sessCtx, cancel := context.WithCancel(context.Background())
-	sp := &stream{
-		logger:    ms.logger.Sublogger("arm_streaming"),
-		armName:   armName,
-		dof:       len(seed),
+	streamCtx, cancel := context.WithCancel(context.Background())
+	s := &stream{
+		logger:           ms.logger.Sublogger("arm_streaming"),
+		armName:          armName,
+		dof:              len(seed),
 		jointPositionsCh: make(chan jointPositionsChItem),
-		cancel:    cancel,
-		done:      make(chan struct{}),
+		cancel:           cancel,
+		done:             make(chan struct{}),
 	}
 
 	go func() {
-		err := sp.run(sessCtx, a, seed, cfg)
-		sp.resultErr = err
+		err := s.run(streamCtx, a, seed, cfg)
+		s.resultErr = err
 		if err != nil {
-			sp.logger.CWarnf(sessCtx, "arm streaming session ended with error: %v", err)
+			s.logger.CWarnf(streamCtx, "arm streaming session ended with error: %v", err)
 		}
-		close(sp.done)
+		close(s.done)
 	}()
 
-	ms.stream = sp
+	ms.stream = s
 	return nil
 }
 
-func (ms *builtIn) streamPush(ctx context.Context, targets []jointPositionsChItem) (int, error) {
+func (ms *builtIn) streamPush(ctx context.Context, jointPositions []jointPositionsChItem) (int, error) {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 
-	sp := ms.stream
-	if sp == nil {
+	s := ms.stream
+	if s == nil {
 		return 0, fmt.Errorf("no streaming session is running; call %s first", DoStreamStart)
 	}
 
 	sent := 0
-	for _, t := range targets {
-		if len(t.Positions) != sp.dof {
-			return sent, fmt.Errorf("target has %d joint positions, but the arm has %d joints", len(t.Positions), sp.dof)
+	for _, jp := range jointPositions {
+		if len(jp.Positions) != s.dof {
+			return sent, fmt.Errorf("target has %d joint positions, but the arm has %d joints", len(jp.Positions), s.dof)
 		}
-		if err := sp.send(ctx, t); err != nil {
+		if err := s.send(ctx, jp); err != nil {
 			return sent, err
 		}
 		sent++
@@ -140,9 +140,9 @@ func (ms *builtIn) streamPush(ctx context.Context, targets []jointPositionsChIte
 // when true the session context is cancelled to stop immediately.
 func (ms *builtIn) streamStop(ctx context.Context, abort bool) map[string]any {
 	ms.streamMu.RLock()
-	sp := ms.stream
+	s := ms.stream
 	ms.streamMu.RUnlock()
-	if sp == nil {
+	if s == nil {
 		return map[string]any{"running": false}
 	}
 
@@ -150,54 +150,54 @@ func (ms *builtIn) streamStop(ctx context.Context, abort bool) map[string]any {
 	// cancel). Graceful stop relies on the write lock below to serialize with
 	// pushes, which take the read lock while sending.
 	if abort {
-		sp.cancel()
+		s.cancel()
 	}
 
 	ms.streamMu.Lock()
-	if ms.stream == sp {
-		if !abort && !sp.targetsClosed {
-			close(sp.jointPositionsCh)
-			sp.targetsClosed = true
+	if ms.stream == s {
+		if !abort && !s.targetsClosed {
+			close(s.jointPositionsCh)
+			s.targetsClosed = true
 		}
 		ms.stream = nil
 	}
 	ms.streamMu.Unlock()
 
 	select {
-	case <-sp.done:
+	case <-s.done:
 	case <-ctx.Done():
 		// Caller gave up waiting; make sure the session still tears down.
-		sp.cancel()
-		<-sp.done
+		s.cancel()
+		<-s.done
 	}
 
 	status := map[string]any{"running": false}
-	if sp.resultErr != nil {
-		status["error"] = sp.resultErr.Error()
+	if s.resultErr != nil {
+		status["error"] = s.resultErr.Error()
 	}
 	return status
 }
 
 func (ms *builtIn) streamStatus() map[string]any {
 	ms.streamMu.RLock()
-	sp := ms.stream
+	s := ms.stream
 	ms.streamMu.RUnlock()
-	if sp == nil {
+	if s == nil {
 		return map[string]any{"running": false}
 	}
 
 	finished := false
 	select {
-	case <-sp.done:
+	case <-s.done:
 		finished = true
 	default:
 	}
 	status := map[string]any{
 		"running": !finished,
-		"arm":     sp.armName,
+		"arm":     s.armName,
 	}
-	if finished && sp.resultErr != nil {
-		status["error"] = sp.resultErr.Error()
+	if finished && s.resultErr != nil {
+		status["error"] = s.resultErr.Error()
 	}
 	return status
 }
@@ -206,14 +206,14 @@ func (ms *builtIn) streamStatus() map[string]any {
 // Close/Reconfigure to avoid leaking the executor goroutine.
 func (ms *builtIn) abortStream() {
 	ms.streamMu.Lock()
-	sp := ms.stream
+	s := ms.stream
 	ms.stream = nil
 	ms.streamMu.Unlock()
-	if sp == nil {
+	if s == nil {
 		return
 	}
-	sp.cancel()
-	<-sp.done
+	s.cancel()
+	<-s.done
 }
 
 // handleStreamCommand handles arm-streaming DoCommand requests. It returns
@@ -329,13 +329,13 @@ func parseStreamTargets(req interface{}) ([]jointPositionsChItem, error) {
 // send delivers one target onto the session channel. Callers must hold
 // builtIn.streamMu for reading so that a graceful stop (which closes jointPositionsCh
 // while holding the write lock) can never race with an in-flight send.
-func (sp *stream) send(ctx context.Context, t jointPositionsChItem) error {
+func (s *stream) send(ctx context.Context, t jointPositionsChItem) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-sp.done:
-		return fmt.Errorf("streaming session ended: %w", sp.resultErr)
-	case sp.jointPositionsCh <- t:
+	case <-s.done:
+		return fmt.Errorf("streaming session ended: %w", s.resultErr)
+	case s.jointPositionsCh <- t:
 		return nil
 	}
 }
@@ -350,8 +350,8 @@ func (sp *stream) send(ctx context.Context, t jointPositionsChItem) error {
 //   - the first non-context error from either the producer or consumer otherwise.
 //
 // cfg is expected to already be defaulted and validated (see streamStart).
-func (sp *stream) run(ctx context.Context, a arm.Arm, seed []referenceframe.Input, cfg streamConfig) error {
-	return newCoordinator(a, &cfg).run(ctx, sp.jointPositionsCh, seed).wait()
+func (s *stream) run(ctx context.Context, a arm.Arm, seed []referenceframe.Input, cfg streamConfig) error {
+	return newCoordinator(a, &cfg).run(ctx, s.jointPositionsCh, seed).wait()
 }
 
 func toInputs(v interface{}) ([]referenceframe.Input, error) {
