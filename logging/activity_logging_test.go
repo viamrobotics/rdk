@@ -33,7 +33,7 @@ func TestActivityEventFields(t *testing.T) {
 	entry := all[0]
 	test.That(t, entry.LoggerName, test.ShouldEqual, "rdk.activity")
 	test.That(t, entry.Level, test.ShouldEqual, zapcore.InfoLevel)
-	test.That(t, entry.Message, test.ShouldEqual, "Event:")
+	test.That(t, entry.Message, test.ShouldEqual, "")
 
 	fields := entry.ContextMap()
 	test.That(t, fields["event_type"], test.ShouldEqual, "reconfigure")
