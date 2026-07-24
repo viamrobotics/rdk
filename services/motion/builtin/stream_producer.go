@@ -74,11 +74,11 @@ func (p *pvatProducer) run(ctx context.Context, targets <-chan jointPositionsChI
 				return
 			}
 
-			// On a Flush target or a trajex session that can't be extended to the target,
+			// On a stop-acceptable target or a trajex session that can't be extended to the target,
 			// drain the current trajex session and start a fresh one.
 			jointPositions := target.Positions
 			extendErr := p.trajexSession.addJointPositions(ctx, jointPositions)
-			if target.Flush || extendErr != nil {
+			if target.StopAcceptable || extendErr != nil {
 				seed = p.trajexSession.lastJointPositions
 				if err := p.enqueueRemainingPVATs(ctx, nextPVAT); err != nil {
 					fail(err)

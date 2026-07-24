@@ -15,10 +15,10 @@ type jointPositionsChItem struct {
 	// Positions are the target joint positions for this waypoint.
 	Positions []referenceframe.Input
 
-	// Flush ends the current trajex session and arm stream at this point and
+	// StopAcceptable ends the current trajex session and arm stream at this point and
 	// starts a fresh one. Use it at segment boundaries where the arm may briefly
 	// stop (e.g. between sanding strokes).
-	Flush bool
+	StopAcceptable bool
 }
 
 // stream manages a single arm-streaming session: a goroutine runs the
@@ -68,7 +68,7 @@ func (ms *builtIn) streamStart(
 			// A prior session already finished; replace it.
 			ms.stream = nil
 		default:
-			return fmt.Errorf("a stream is already running; call %s first", DoStreamStop)
+			return fmt.Errorf("a stream is already running; call %s or %s first", DoStreamFlush, DoStreamAbort)
 		}
 	}
 
@@ -113,7 +113,7 @@ func (ms *builtIn) streamStart(
 	return nil
 }
 
-func (ms *builtIn) streamPush(ctx context.Context, jointPositions []jointPositionsChItem) (int, error) {
+func (ms *builtIn) streamPush(ctx context.Context, jpChItem []jointPositionsChItem) (int, error) {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 
@@ -123,11 +123,11 @@ func (ms *builtIn) streamPush(ctx context.Context, jointPositions []jointPositio
 	}
 
 	sent := 0
-	for _, jp := range jointPositions {
-		if len(jp.Positions) != s.dof {
-			return sent, fmt.Errorf("target has %d joint positions, but the arm has %d joints", len(jp.Positions), s.dof)
+	for _, jpItem := range jpChItem {
+		if len(jpItem.Positions) != s.dof {
+			return sent, fmt.Errorf("target has %d joint positions, but the arm has %d joints", len(jpItem.Positions), s.dof)
 		}
-		if err := s.send(ctx, jp); err != nil {
+		if err := s.send(ctx, jpItem); err != nil {
 			return sent, err
 		}
 		sent++
@@ -135,10 +135,22 @@ func (ms *builtIn) streamPush(ctx context.Context, jointPositions []jointPositio
 	return sent, nil
 }
 
-// streamStop ends the active session. When abort is false the targets
+// streamFlush ends the active session gracefully: the joint-positions channel is
+// closed so the executor drains the remaining trajectory to the arm before stopping.
+func (ms *builtIn) streamFlush(ctx context.Context) map[string]any {
+	return ms.streamEnd(ctx, false)
+}
+
+// streamAbort ends the active session immediately: the session context is
+// cancelled, so any buffered trajectory that hasn't reached the arm is dropped.
+func (ms *builtIn) streamAbort(ctx context.Context) map[string]any {
+	return ms.streamEnd(ctx, true)
+}
+
+// streamEnd ends the active session. When abort is false the targets
 // channel is closed so the executor drains the remaining trajectory to the arm;
 // when true the session context is cancelled to stop immediately.
-func (ms *builtIn) streamStop(ctx context.Context, abort bool) map[string]any {
+func (ms *builtIn) streamEnd(ctx context.Context, abort bool) map[string]any {
 	ms.streamMu.RLock()
 	s := ms.stream
 	ms.streamMu.RUnlock()
@@ -202,20 +214,6 @@ func (ms *builtIn) streamStatus() map[string]any {
 	return status
 }
 
-// abortStream stops any running session immediately. Used on
-// Close/Reconfigure to avoid leaking the executor goroutine.
-func (ms *builtIn) abortStream() {
-	ms.streamMu.Lock()
-	s := ms.stream
-	ms.stream = nil
-	ms.streamMu.Unlock()
-	if s == nil {
-		return
-	}
-	s.cancel()
-	<-s.done
-}
-
 // handleStreamCommand handles arm-streaming DoCommand requests. It returns
 // (response, handled, error); when handled is false the caller should continue
 // processing other DoCommand keys.
@@ -246,9 +244,12 @@ func (ms *builtIn) handleStreamCommand(
 		return map[string]interface{}{DoStreamPush: sent}, true, nil
 	}
 
-	if _, ok := cmd[DoStreamStop]; ok {
-		abort, _ := cmd["abort"].(bool)
-		return map[string]interface{}{DoStreamStop: ms.streamStop(ctx, abort)}, true, nil
+	if _, ok := cmd[DoStreamFlush]; ok {
+		return map[string]interface{}{DoStreamFlush: ms.streamFlush(ctx)}, true, nil
+	}
+
+	if _, ok := cmd[DoStreamAbort]; ok {
+		return map[string]interface{}{DoStreamAbort: ms.streamAbort(ctx)}, true, nil
 	}
 
 	if _, ok := cmd[DoStreamStatus]; ok {

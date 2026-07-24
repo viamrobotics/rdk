@@ -97,12 +97,12 @@ func TestDoCommandArmStreaming(t *testing.T) {
 	test.That(t, status["arm"], test.ShouldEqual, "arm")
 
 	// stop gracefully
-	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStop: true})
+	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamFlush: true})
 	test.That(t, err, test.ShouldBeNil)
-	stopStatus, ok := resp[DoStreamStop].(map[string]any)
+	flushStatus, ok := resp[DoStreamFlush].(map[string]any)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, stopStatus["running"], test.ShouldEqual, false)
-	_, hasErr := stopStatus["error"]
+	test.That(t, flushStatus["running"], test.ShouldEqual, false)
+	_, hasErr := flushStatus["error"]
 	test.That(t, hasErr, test.ShouldBeFalse)
 
 	points, streams := counts()
@@ -167,7 +167,7 @@ func TestDoCommandArmStreamingBatch(t *testing.T) {
 
 	// give the pipeline a moment, then stop gracefully
 	time.Sleep(50 * time.Millisecond)
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStop: true})
+	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamFlush: true})
 	test.That(t, err, test.ShouldBeNil)
 
 	points, _ := counts()

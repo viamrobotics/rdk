@@ -65,7 +65,8 @@ const (
 
 	DoStreamStart  = "stream_start"
 	DoStreamPush   = "stream_push"
-	DoStreamStop   = "stream_stop"
+	DoStreamFlush  = "stream_flush"
+	DoStreamAbort  = "stream_abort"
 	DoStreamStatus = "stream_status"
 )
 
@@ -206,7 +207,7 @@ func (ms *builtIn) BuiltInReconfigure(
 
 	// Stop any arm-streaming session before acquiring the write lock (a concurrent
 	// push holds ms.streamMu.RLock while sending).
-	ms.abortStream()
+	ms.streamAbort(ctx)
 
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -258,7 +259,7 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	}
 	ms.teleopMu.Unlock()
 
-	ms.abortStream()
+	ms.streamAbort(ctx)
 
 	return nil
 }
