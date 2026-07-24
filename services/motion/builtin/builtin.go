@@ -62,6 +62,12 @@ const (
 	DoTeleopMove   = "teleop_move"
 	DoTeleopStop   = "teleop_stop"
 	DoTeleopStatus = "teleop_status"
+
+	DoStreamStart  = "stream_start"
+	DoStreamPush   = "stream_push"
+	DoStreamFlush  = "stream_flush"
+	DoStreamAbort  = "stream_abort"
+	DoStreamStatus = "stream_status"
 )
 
 const (
@@ -163,6 +169,10 @@ type builtIn struct {
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
+
+	// Arm-streaming session. Protected by streamMu (separate from mu to simplify lock ordering).
+	streamMu sync.RWMutex
+	stream   *stream
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -194,6 +204,10 @@ func (ms *builtIn) BuiltInReconfigure(
 		ms.teleopPipeline = nil
 	}
 	ms.teleopMu.Unlock()
+
+	// Stop any arm-streaming session before acquiring the write lock (a concurrent
+	// push holds ms.streamMu.RLock while sending).
+	ms.streamAbort(ctx)
 
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -244,6 +258,8 @@ func (ms *builtIn) Close(ctx context.Context) error {
 		ms.teleopPipeline = nil
 	}
 	ms.teleopMu.Unlock()
+
+	ms.streamAbort(ctx)
 
 	return nil
 }
@@ -317,6 +333,11 @@ func (ms *builtIn) PlanHistory(
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
+		return resp, err
+	}
+
+	// Handle arm-streaming commands (they manage their own locking).
+	if resp, handled, err := ms.handleStreamCommand(ctx, cmd); handled {
 		return resp, err
 	}
 
