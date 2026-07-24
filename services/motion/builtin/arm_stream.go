@@ -7,7 +7,6 @@ import (
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/utils"
 )
 
 type armStream struct {
@@ -58,20 +57,14 @@ func (s *armStream) add(p pvat) error {
 	s.lastPVATPointTime = p.time
 	s.cumTime += dt
 
-	velsDeg := make([]float64, len(p.velocities))
-	for j, v := range p.velocities {
-		velsDeg[j] = utils.RadToDeg(v)
-	}
-	accsDeg := make([]float64, len(p.accelerations))
-	for j, a := range p.accelerations {
-		accsDeg[j] = utils.RadToDeg(a)
-	}
+	// Positions, Velocities, and Accelerations are all in radians (rad/s, rad/s^2) for revolute
+	// joints, matching trajex's native output units and the arm.TrajectoryPoint contract.
 	s.points = append(s.points, arm.TrajectoryPoint{
 		Time:      s.cumTime,
 		Positions: append([]referenceframe.Input(nil), p.positions...),
 		Constraints: &arm.KinematicConstraints{
-			Velocities:    velsDeg,
-			Accelerations: accsDeg,
+			Velocities:    append([]float64(nil), p.velocities...),
+			Accelerations: append([]float64(nil), p.accelerations...),
 		},
 	})
 	return nil
