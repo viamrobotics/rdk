@@ -101,6 +101,9 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
+	// diskMonitor watches the volume holding downloaded packages. It is created once at startup
+	// (the packages dir is fixed for the robot's lifetime) and stopped by Close.
+	diskMonitor *diskSpaceMonitor
 
 	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
 	reconfigurationLock sync.Mutex
@@ -270,6 +273,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		}
 	}
 	r.activeBackgroundWorkers.Wait()
+	r.diskMonitor.stop() // nil-safe
 	r.sessionManager.Close()
 
 	var err error
@@ -582,6 +586,9 @@ func newWithResources(
 	if err != nil {
 		return nil, err
 	}
+
+	// Periodically warn if the volume holding downloaded packages is low on free space.
+	r.diskMonitor = newDiskSpaceMonitor(packagesDir, r.logger)
 
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
