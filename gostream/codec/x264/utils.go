@@ -14,9 +14,9 @@ const (
 	// handle frame bursts. This is the minimum bitrate that we can use without causing the encoder
 	// to spew out warnings about the buffer size being too small.
 	minBitrate = 300_000 // 300kbps
-	// This encoder is used exclusively for WebRTC delivery, which typically routes
-	// through TURN relays or over Wi-Fi where sustained bitrates above ~3Mbps cause
-	// packet loss that fragments H.264 keyframes and cascades into unrecoverable
+	// RSDK-14312: This encoder is used exclusively for WebRTC delivery, which typically
+	// routes through TURN relays or over Wi-Fi where sustained bitrates above ~3Mbps
+	// cause packet loss that fragments H.264 keyframes and cascades into unrecoverable
 	// decode failures.
 	maxBitrate = 3_000_000 // 3Mbps
 )
