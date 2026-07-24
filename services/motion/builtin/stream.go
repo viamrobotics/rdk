@@ -2,11 +2,8 @@ package builtin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync/atomic"
-
-	"github.com/go-viper/mapstructure/v2"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -14,15 +11,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const (
-	defaultBufferAheadInArmMs   = 100
-	defaultSendToArmIntervalMs  = 10
-	defaultVelLimitDegPerSec    = 10.0
-	defaultAccelLimitDegPerSec2 = 10.0
-)
-
-// streamTarget is one live joint-space waypoint fed to the streaming executor.
-type streamTarget struct {
+// streamItem is one live joint-space waypoint fed to the streaming executor.
+type streamItem struct {
 	// Positions are the target joint positions for this waypoint.
 	Positions []referenceframe.Input
 
@@ -30,61 +20,6 @@ type streamTarget struct {
 	// starts a fresh one. Use it at segment boundaries where the arm may briefly
 	// stop (e.g. between sanding strokes).
 	Flush bool
-}
-
-// streamConfig tunes the streaming executor.
-type streamConfig struct {
-	// BufferAheadInArmMs is the lookahead window (ms) of points sampled out of
-	// trajex that we aim to keep buffered inside the arm resource.
-	BufferAheadInArmMs int `json:"buffer_ahead_in_arm_ms"`
-
-	// SendToArmIntervalMs is the interval (ms) at which points are sampled out of
-	// trajex and sent to the arm to top the arm's buffer back up to
-	// BufferAheadInArmMs.
-	// TODO: Replace this with querying the arm's properties API.
-	SendToArmIntervalMs int `json:"send_to_arm_interval_ms"`
-
-	// VelLimitDegPerSec / AccelLimitDegPerSec2 are the per-joint limits the trajex
-	// session is built with.
-	// TODO: Replace these with querying the arm's properties API.
-	VelLimitDegPerSec    float64 `json:"vel_limit_deg_per_sec"`
-	AccelLimitDegPerSec2 float64 `json:"accel_limit_deg_per_sec2"`
-}
-
-// Validate returns an error if any streamConfig field is invalid.
-func (c *streamConfig) Validate() error {
-	if c.BufferAheadInArmMs < 0 {
-		return errors.New("streaming: buffer_ahead_in_arm_ms must be non-negative")
-	}
-	if c.SendToArmIntervalMs < 0 {
-		return errors.New("streaming: send_to_arm_interval_ms must be non-negative")
-	}
-	if c.SendToArmIntervalMs == 0 {
-		return errors.New("streaming: send_to_arm_interval_ms must be positive")
-	}
-	if c.VelLimitDegPerSec < 0 {
-		return errors.New("streaming: vel_limit_deg_per_sec must be non-negative")
-	}
-	if c.AccelLimitDegPerSec2 < 0 {
-		return errors.New("streaming: accel_limit_deg_per_sec2 must be non-negative")
-	}
-	return nil
-}
-
-// ApplyDefaults fills any zero-valued streamConfig field with its default.
-func (c *streamConfig) ApplyDefaults() {
-	if c.BufferAheadInArmMs == 0 {
-		c.BufferAheadInArmMs = defaultBufferAheadInArmMs
-	}
-	if c.SendToArmIntervalMs == 0 {
-		c.SendToArmIntervalMs = defaultSendToArmIntervalMs
-	}
-	if c.VelLimitDegPerSec == 0 {
-		c.VelLimitDegPerSec = defaultVelLimitDegPerSec
-	}
-	if c.AccelLimitDegPerSec2 == 0 {
-		c.AccelLimitDegPerSec2 = defaultAccelLimitDegPerSec2
-	}
 }
 
 // stream manages a single arm-streaming session: a goroutine runs the
@@ -98,7 +33,7 @@ type stream struct {
 	armName string
 	dof     int
 
-	targetsCh chan streamTarget
+	targetsCh chan streamItem
 
 	cancel context.CancelFunc
 	done   chan struct{} // closed when StreamJointTargets returns
@@ -163,7 +98,7 @@ func (ms *builtIn) streamStart(
 		logger:    ms.logger.Sublogger("arm_streaming"),
 		armName:   armName,
 		dof:       len(seed),
-		targetsCh: make(chan streamTarget),
+		targetsCh: make(chan streamItem),
 		cancel:    cancel,
 		done:      make(chan struct{}),
 	}
@@ -181,7 +116,7 @@ func (ms *builtIn) streamStart(
 	return nil
 }
 
-func (ms *builtIn) streamPush(ctx context.Context, targets []streamTarget) (int, error) {
+func (ms *builtIn) streamPush(ctx context.Context, targets []streamItem) (int, error) {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 
@@ -271,9 +206,9 @@ func (ms *builtIn) streamStatus() map[string]any {
 	return status
 }
 
-// abortStreamSession stops any running session immediately. Used on
+// abortStream stops any running session immediately. Used on
 // Close/Reconfigure to avoid leaking the executor goroutine.
-func (ms *builtIn) abortStreamSession() {
+func (ms *builtIn) abortStream() {
 	ms.streamMu.Lock()
 	sp := ms.stream
 	ms.stream = nil
@@ -365,7 +300,7 @@ func parseStreamStart(req interface{}) (string, streamConfig, []referenceframe.I
 
 // parseStreamTargets accepts either a single joint-position vector ([j0, j1, ...])
 // or a list of vectors ([[...], [...]]).
-func parseStreamTargets(req interface{}) ([]streamTarget, error) {
+func parseStreamTargets(req interface{}) ([]streamItem, error) {
 	arr, ok := req.([]interface{})
 	if !ok || len(arr) == 0 {
 		return nil, fmt.Errorf("%s expects a non-empty list of joint positions", DoStreamPush)
@@ -388,29 +323,17 @@ func parseStreamTargets(req interface{}) ([]streamTarget, error) {
 		vectors = append(vectors, vec)
 	}
 
-	targets := make([]streamTarget, len(vectors))
+	targets := make([]streamItem, len(vectors))
 	for i, vec := range vectors {
-		targets[i] = streamTarget{Positions: vec}
+		targets[i] = streamItem{Positions: vec}
 	}
 	return targets, nil
-}
-
-func decodeStreamConfig(raw interface{}, cfg *streamConfig) error {
-	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		TagName:          "json",
-		WeaklyTypedInput: true,
-		Result:           cfg,
-	})
-	if err != nil {
-		return err
-	}
-	return dec.Decode(raw)
 }
 
 // send delivers one target onto the session channel. Callers must hold
 // builtIn.streamMu for reading so that a graceful stop (which closes targetsCh
 // while holding the write lock) can never race with an in-flight send.
-func (sp *stream) send(ctx context.Context, t streamTarget) error {
+func (sp *stream) send(ctx context.Context, t streamItem) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

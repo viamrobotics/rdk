@@ -206,7 +206,7 @@ func (ms *builtIn) BuiltInReconfigure(
 
 	// Stop any arm-streaming session before acquiring the write lock (a concurrent
 	// push holds ms.streamMu.RLock while sending).
-	ms.abortStreamSession()
+	ms.abortStream()
 
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -258,7 +258,7 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	}
 	ms.teleopMu.Unlock()
 
-	ms.abortStreamSession()
+	ms.abortStream()
 
 	return nil
 }

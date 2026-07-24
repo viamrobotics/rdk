@@ -29,7 +29,7 @@ func newCoordinator(a arm.Arm, cfg *streamConfig) *coordinator {
 }
 
 // run starts the producer and consumer goroutines and returns a handle the caller should wait on.
-func (c *coordinator) run(ctx context.Context, targets <-chan streamTarget, seed []referenceframe.Input) *runHandle {
+func (c *coordinator) run(ctx context.Context, targets <-chan streamItem, seed []referenceframe.Input) *runHandle {
 	ctx, cancel := context.WithCancel(ctx)
 	r := &runHandle{
 		producer: producerRunHandle{done: make(chan struct{}), cancel: cancel},
