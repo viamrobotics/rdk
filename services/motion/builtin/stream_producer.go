@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.viam.com/rdk/referenceframe"
 )
@@ -11,6 +12,7 @@ type pvatProducer struct {
 	cfg           *streamConfig
 	trajexSession *trajexSession
 	pvatsCh       chan<- pvatChItem
+	trace         *pipelineTrace
 
 	numTrajexSessions                int
 	numPVATsSampledThisTrajexSession int
@@ -21,6 +23,7 @@ func (p *pvatProducer) run(ctx context.Context, targets <-chan jointPositionsChI
 		close(p.pvatsCh)
 		if p.trajexSession != nil {
 			p.trajexSession.close()
+			p.trace.recordEvent(pipeEventSessionClose, "")
 		}
 		close(r.done)
 	}()
@@ -42,6 +45,7 @@ func (p *pvatProducer) run(ctx context.Context, targets <-chan jointPositionsChI
 		return
 	}
 	p.numTrajexSessions++
+	p.trace.recordEvent(pipeEventSessionOpen, "")
 
 	var nextPVAT *pvat
 	for {
@@ -73,11 +77,14 @@ func (p *pvatProducer) run(ctx context.Context, targets <-chan jointPositionsChI
 				}
 				return
 			}
+			p.trace.record(pipeChanPlanQ, pipeOpDequeue, len(targets), cap(targets))
 
 			// On a stop-acceptable target or a trajex session that can't be extended to the target,
 			// drain the current trajex session and start a fresh one.
 			jointPositions := target.Positions
+			extendStart := time.Now()
 			extendErr := p.trajexSession.addJointPositions(ctx, jointPositions)
+			p.trace.recordTiming(pipeTimingExtend, time.Since(extendStart))
 			if target.StopAcceptable || extendErr != nil {
 				seed = p.trajexSession.lastJointPositions
 				if err := p.enqueueRemainingPVATs(ctx, nextPVAT); err != nil {
@@ -90,12 +97,14 @@ func (p *pvatProducer) run(ctx context.Context, targets <-chan jointPositionsChI
 				}
 
 				p.trajexSession.close()
+				p.trace.recordEvent(pipeEventSessionClose, "")
 				if p.trajexSession, err = newTrajexSession(p.cfg, seed); err != nil {
 					fail(fmt.Errorf("newTrajexSession (seed=%v): %w", seed, err))
 					return
 				}
 				p.numTrajexSessions++
 				p.numPVATsSampledThisTrajexSession = 0
+				p.trace.recordEvent(pipeEventSessionOpen, "")
 				if err = p.trajexSession.addJointPositions(ctx, jointPositions); err != nil {
 					fail(err)
 					return
@@ -107,6 +116,7 @@ func (p *pvatProducer) run(ctx context.Context, targets <-chan jointPositionsChI
 		// There's space in sendCh and we have a pvat to enqueue.
 		case sendCh <- toEnqueue:
 			nextPVAT = nil
+			p.trace.record(pipeChanStreamQ, pipeOpEnqueue, len(p.pvatsCh), cap(p.pvatsCh))
 		}
 
 		if nextPVAT == nil {
@@ -143,6 +153,7 @@ func (p *pvatProducer) enqueuePVAT(ctx context.Context, pv pvat) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case p.pvatsCh <- pvatChItem{p: pv}:
+		p.trace.record(pipeChanStreamQ, pipeOpEnqueue, len(p.pvatsCh), cap(p.pvatsCh))
 		return nil
 	}
 }
@@ -152,6 +163,7 @@ func (p *pvatProducer) enqueueCloseStream(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case p.pvatsCh <- pvatChItem{closeStream: true}:
+		p.trace.record(pipeChanStreamQ, pipeOpEnqueue, len(p.pvatsCh), cap(p.pvatsCh))
 		return nil
 	}
 }

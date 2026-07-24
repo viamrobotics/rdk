@@ -44,6 +44,10 @@ type stream struct {
 	// resultErr is set exactly once, before done is closed, so it is safe to read
 	// in any branch guarded by a receive on done.
 	resultErr error
+
+	// trace records producer/consumer buffer occupancy, call timings, and PVAT velocities for
+	// this session, for diagnosing pacing/buffering issues. Exposed via stream_status.
+	trace *pipelineTrace
 }
 
 // streamStart resolves the named arm, reads a seed configuration if one
@@ -98,6 +102,7 @@ func (ms *builtIn) streamStart(
 		jointPositionsCh: make(chan jointPositionsChItem),
 		cancel:           cancel,
 		done:             make(chan struct{}),
+		trace:            newPipelineTrace(),
 	}
 
 	go func() {
@@ -183,7 +188,7 @@ func (ms *builtIn) streamEnd(ctx context.Context, abort bool) map[string]any {
 		<-s.done
 	}
 
-	status := map[string]any{"running": false}
+	status := map[string]any{"running": false, "trace": s.trace.snapshot()}
 	if s.resultErr != nil {
 		status["error"] = s.resultErr.Error()
 	}
@@ -207,6 +212,7 @@ func (ms *builtIn) streamStatus() map[string]any {
 	status := map[string]any{
 		"running": !finished,
 		"arm":     s.armName,
+		"trace":   s.trace.snapshot(),
 	}
 	if finished && s.resultErr != nil {
 		status["error"] = s.resultErr.Error()
@@ -352,7 +358,7 @@ func (s *stream) send(ctx context.Context, t jointPositionsChItem) error {
 //
 // cfg is expected to already be defaulted and validated (see streamStart).
 func (s *stream) run(ctx context.Context, a arm.Arm, seed []referenceframe.Input, cfg streamConfig) error {
-	return newCoordinator(a, &cfg).run(ctx, s.jointPositionsCh, seed).wait()
+	return newCoordinator(a, &cfg, s.trace).run(ctx, s.jointPositionsCh, seed).wait()
 }
 
 func toInputs(v interface{}) ([]referenceframe.Input, error) {

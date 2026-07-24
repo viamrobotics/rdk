@@ -20,11 +20,11 @@ type coordinator struct {
 	consumer *pvatConsumer
 }
 
-func newCoordinator(a arm.Arm, cfg *streamConfig) *coordinator {
+func newCoordinator(a arm.Arm, cfg *streamConfig, trace *pipelineTrace) *coordinator {
 	pvatsCh := make(chan pvatChItem, max(1, cfg.BufferAheadInArmMs/cfg.SendToArmIntervalMs))
 	return &coordinator{
-		producer: &pvatProducer{cfg: cfg, pvatsCh: pvatsCh},
-		consumer: &pvatConsumer{arm: a, cfg: cfg, pvatsCh: pvatsCh},
+		producer: &pvatProducer{cfg: cfg, pvatsCh: pvatsCh, trace: trace},
+		consumer: &pvatConsumer{arm: a, cfg: cfg, pvatsCh: pvatsCh, trace: trace},
 	}
 }
 
