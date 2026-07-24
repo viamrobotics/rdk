@@ -136,10 +136,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// observable side-effects.
 	rootLogger.SetLevel(logging.INFO)
 
-	// Name the activity unit before the AddAppenderToAll calls below so the eagerly-created
-	// activity logger receives the same net and local (offline) appenders.
-	registry.SetActivityUnit("server")
-
 	configLogger := rootLogger.Sublogger("config")
 	networkingLogger := rootLogger.Sublogger("networking")
 

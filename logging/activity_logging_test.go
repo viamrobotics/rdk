@@ -12,8 +12,6 @@ import (
 
 func TestActivityEventFields(t *testing.T) {
 	logger, _ := NewObservedTestLogger(t)
-	//nolint:forcetypeassert
-	logger.(*impl).registry.SetActivityUnit("testunit")
 	activityLogs := NewObservedActivityLogger(t, logger)
 
 	logger.Activity("reconfigure", "start", "revision", "rev123")
@@ -21,7 +19,7 @@ func TestActivityEventFields(t *testing.T) {
 	all := activityLogs.All()
 	test.That(t, len(all), test.ShouldEqual, 1)
 	entry := all[0]
-	test.That(t, entry.LoggerName, test.ShouldEqual, "rdk.activity.testunit")
+	test.That(t, entry.LoggerName, test.ShouldEqual, t.Name()+".activity")
 	test.That(t, entry.Level, test.ShouldEqual, zapcore.InfoLevel)
 	test.That(t, entry.Message, test.ShouldEqual, "")
 
@@ -31,15 +29,22 @@ func TestActivityEventFields(t *testing.T) {
 	test.That(t, fields["revision"], test.ShouldEqual, "rev123")
 }
 
-func TestActivityDefaultUnit(t *testing.T) {
-	logger, _ := NewObservedTestLogger(t)
-	activityLogs := NewObservedActivityLogger(t, logger)
+func TestActivityLoggerNameDerivation(t *testing.T) {
+	// The activity logger is named for the root segment of the emitting logger's name,
+	// so every logger in a tree shares one activity logger.
+	logger, _ := NewLoggerWithRegistry("rdk")
+	sub := logger.Sublogger("foo").Sublogger("bar")
+	activityLogs := NewObservedActivityLogger(t, sub)
 
-	logger.Activity("reconfigure", "start")
+	sub.Activity("reconfigure", "start")
 
 	all := activityLogs.All()
 	test.That(t, len(all), test.ShouldEqual, 1)
-	test.That(t, all[0].LoggerName, test.ShouldEqual, "rdk.activity.unknown")
+	test.That(t, all[0].LoggerName, test.ShouldEqual, "rdk.activity")
+
+	// The root logger resolves to the same activity logger.
+	logger.Activity("reconfigure", "complete")
+	test.That(t, len(activityLogs.All()), test.ShouldEqual, 2)
 }
 
 func TestActivityErrorLevel(t *testing.T) {
@@ -94,12 +99,10 @@ func TestActivityCallerAttribution(t *testing.T) {
 	test.That(t, strings.Contains(caller.File, "activity_logging_test.go"), test.ShouldBeTrue)
 }
 
-func TestSetActivityUnitEagerCreation(t *testing.T) {
-	// SetActivityUnit must create the activity logger immediately so a subsequent
-	// AddAppenderToAll gives it the same sinks as the rest of the logger tree.
-	logger, registry := NewLoggerWithRegistry("test")
-	registry.SetActivityUnit("server")
-
+func TestActivityLoggerInheritsAppenders(t *testing.T) {
+	// A lazily created activity logger inherits the emitting logger's appenders, like a
+	// Sublogger, so events reach the tree's sinks without any setup call.
+	logger, registry := NewLoggerWithRegistry("rdk")
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	registry.AddAppenderToAll(observerCore)
 
@@ -107,7 +110,20 @@ func TestSetActivityUnitEagerCreation(t *testing.T) {
 
 	all := observedLogs.All()
 	test.That(t, len(all), test.ShouldEqual, 1)
-	test.That(t, all[0].LoggerName, test.ShouldEqual, "rdk.activity.server")
+	test.That(t, all[0].LoggerName, test.ShouldEqual, "rdk.activity")
+}
+
+func TestActivityLoggerReceivesLaterAppenders(t *testing.T) {
+	// Once created, the activity logger is registered, so appenders added to the whole
+	// tree afterward reach it exactly once.
+	logger, registry := NewLoggerWithRegistry("rdk")
+	logger.Activity("reconfigure", "start")
+
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	registry.AddAppenderToAll(observerCore)
+
+	logger.Activity("reconfigure", "complete")
+	test.That(t, len(observedLogs.All()), test.ShouldEqual, 1)
 }
 
 func TestActivityNoSinks(t *testing.T) {

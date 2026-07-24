@@ -183,16 +183,16 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 	return logger, observedLogs, registry
 }
 
-// NewObservedActivityLogger attaches an in-memory observer to the activity logger of the
-// given logger's registry, returning the observed activity events. logger must be a
-// registry-backed logger created by this package.
+// NewObservedActivityLogger attaches an in-memory observer to the activity logger that
+// the given logger's Activity events emit through, returning the observed activity
+// events. logger must be a registry-backed logger created by this package.
 func NewObservedActivityLogger(tb testing.TB, logger Logger) *observer.ObservedLogs {
 	imp, ok := logger.(*impl)
 	if !ok {
 		tb.Fatalf("logger of type %T is not registry-backed", logger)
 	}
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	imp.registry.activityLogger().AddAppender(observerCore)
+	imp.activityLogger().AddAppender(observerCore)
 	return observedLogs
 }
 

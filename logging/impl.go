@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -122,14 +123,46 @@ func (imp *impl) getAppenders() []Appender {
 	return imp.appenders
 }
 
-// Activity emits an activity event through this logger's registry's activity logger
-// (rdk.activity.<unit>). It always emits regardless of any configured level and is never
+// activityLogger resolves this logger's activity logger — named <root>.activity, where
+// root is the first dot-separated segment of this logger's name — creating and
+// registering it if needed. Like a Sublogger, a newly created activity logger inherits
+// this logger's appenders; registration means later AddAppenderToAll calls reach it too.
+func (imp *impl) activityLogger() *impl {
+	root, _, _ := strings.Cut(imp.name, ".")
+	name := activityLoggerSuffix
+	if root != "" {
+		name = root + "." + activityLoggerSuffix
+	}
+
+	if logger, ok := imp.registry.loggerNamed(name); ok {
+		//nolint:forcetypeassert
+		return logger.(*impl)
+	}
+	logger := &impl{
+		name:                     name,
+		level:                    NewAtomicLevelAt(INFO),
+		appenders:                imp.getAppenders(),
+		registry:                 imp.registry,
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+	logger.NeverDeduplicate()
+	// Only this function registers loggers under the activity name, so the registered
+	// logger is always an *impl.
+	//nolint:forcetypeassert
+	return imp.registry.getOrRegister(name, logger).(*impl)
+}
+
+// Activity emits an activity event through this logger's activity logger
+// (<root>.activity). It always emits regardless of any configured level and is never
 // deduplicated. Callers must not set "activity" or "event" in keysAndValues.
 //
 // The log body lives here rather than in a shared helper so the call depth matches the
 // standard logger methods and getCaller attributes the entry to the Activity call site.
 func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
-	al := imp.registry.activityLogger()
+	al := imp.activityLogger()
 	// Prepend so activity and event lead the rendered fields.
 	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
 	entry := al.formatw(INFO, emptyTraceKey, "", keysAndValues...)
@@ -140,7 +173,7 @@ func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
 // outcomes (e.g. "fail"). Emission is identical to Activity: unconditional and never
 // deduplicated. The body is duplicated from Activity so caller attribution holds.
 func (imp *impl) ActivityError(activity, event string, keysAndValues ...any) {
-	al := imp.registry.activityLogger()
+	al := imp.activityLogger()
 	// Prepend so activity and event lead the rendered fields.
 	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
 	entry := al.formatw(ERROR, emptyTraceKey, "", keysAndValues...)
