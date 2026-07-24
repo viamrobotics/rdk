@@ -3,11 +3,14 @@ package arm
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
@@ -163,6 +166,158 @@ func (c *client) MoveThroughJointPositions(
 	}
 	_, err = c.client.MoveThroughJointPositions(ctx, req)
 	return err
+}
+
+func (c *client) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	batches <-chan []TrajectoryPoint,
+	responses chan<- Response,
+	extra map[string]interface{},
+) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
+	// Kinematics is used only to encode JointPositions on the wire. Tolerate failure here so we
+	// stay usable on arms whose kinematics haven't been registered yet (matching the unary path).
+	model, err := c.Kinematics(ctx)
+	if err != nil {
+		warnKinematicsUnsafe(ctx, c.logger, err)
+	}
+
+	// Mirror the unary MoveThroughJointPositions path: when kinematics is available, check each
+	// waypoint against the joint limits before it goes on the wire, advancing prevPosition so the
+	// check tracks the trajectory point to point.
+	var limits []referenceframe.Limit
+	var prevPosition []referenceframe.Input
+	if model != nil {
+		limits = model.DoF()
+		prevPosition, err = c.JointPositions(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("cannot get JointPositions: %w", err)
+		}
+	}
+
+	// We open the stream under a context we can cancel, so one cancel() both tears the gRPC stream
+	// down and tells the send goroutine to quit. We lean on that when the recv loop finishes:
+	// without it, the send goroutine could sit forever waiting on a caller who never closes batches.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := c.client.MoveThroughJointPositionsStreamed(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
+		Name: c.name,
+		Message: &pb.MoveThroughJointPositionsStreamedRequest_Init_{
+			Init: &pb.MoveThroughJointPositionsStreamedRequest_Init{
+				Extra: ext,
+			},
+		},
+	}); err != nil {
+		return err
+	}
+
+	// Feed the caller's batches onto the wire, one TrajectoryBatch per slice they hand us. That is
+	// how the caller sets the pace on the wire: they choose how much to put in each slice. When they
+	// close the channel we CloseSend, which lets the server's recv loop finish.
+	var sendErr error
+	var sendOnce sync.Once
+	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
+	// abort records a deliberate client-side bail-out (a rejected waypoint, or a point we cannot
+	// encode) and tears the RPC down. Unlike setSendErr it cancels: the stream is otherwise healthy,
+	// so nothing else would wake the recv loop and the call would hang. abortErr is written only by
+	// the send goroutine and read after sendDone closes, so it needs no synchronization of its own,
+	// and it takes precedence when reporting so the caller sees the reason, not the cancellation it
+	// triggers.
+	var abortErr error
+	abort := func(e error) { abortErr = e; cancel() }
+	sendDone := make(chan struct{})
+	goutils.PanicCapturingGo(func() {
+		defer close(sendDone)
+		for {
+			select {
+			case <-ctx.Done():
+				setSendErr(ctx.Err())
+				return
+			case batch, ok := <-batches:
+				if !ok {
+					if err := stream.CloseSend(); err != nil {
+						setSendErr(err)
+					}
+					return
+				}
+				pbPoints := make([]*pb.TrajectoryPoint, 0, len(batch))
+				for _, p := range batch {
+					if len(limits) > 0 {
+						if err := checkDesiredJointPositions(limits, prevPosition, p.Positions); err != nil {
+							// Refuse the waypoint the way the unary path does. Unlike unary, batches are
+							// already in flight, so we must tear the stream down rather than just return.
+							abort(err)
+							return
+						}
+						prevPosition = p.Positions
+					}
+					pp, err := trajectoryPointToProto(model, p)
+					if err != nil {
+						// Same category as a rejected waypoint: the stream is healthy and we are bailing,
+						// so tear it down instead of leaving the recv loop parked.
+						abort(err)
+						return
+					}
+					pbPoints = append(pbPoints, pp)
+				}
+				if err := stream.Send(&pb.MoveThroughJointPositionsStreamedRequest{
+					Message: &pb.MoveThroughJointPositionsStreamedRequest_Batch{
+						Batch: &pb.MoveThroughJointPositionsStreamedRequest_TrajectoryBatch{
+							Points: pbPoints,
+						},
+					},
+				}); err != nil {
+					setSendErr(err)
+					return
+				}
+			}
+		}
+	})
+
+	// Back on the calling goroutine, read responses off the wire and hand them to the caller's
+	// channel. We do not close that channel: to the caller we are just another Arm impl, and by the
+	// same ownership rule the impl follows, the caller closes responses once we have returned.
+	var recvErr error
+recvLoop:
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				recvErr = err
+			}
+			break
+		}
+		_ = resp // Response carries no fields yet; future per-batch status will be read from resp here.
+		select {
+		case responses <- Response{}:
+		case <-ctx.Done():
+			recvErr = ctx.Err()
+			break recvLoop
+		}
+	}
+	// Tear the stream down and wake the send goroutine, which may still be parked waiting on batches.
+	cancel()
+	<-sendDone
+
+	// A deliberate client-side refusal wins: it is the actionable error, and the recvErr we would
+	// otherwise report is just the cancellation that refusal triggered.
+	if abortErr != nil {
+		return abortErr
+	}
+	if recvErr != nil {
+		return recvErr
+	}
+	return sendErr
 }
 
 func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {

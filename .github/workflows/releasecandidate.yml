@@ -19,21 +19,6 @@ jobs:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
-  appimage-build:
-    uses: viamrobotics/rdk/.github/workflows/appimage-build.yml@main
-    with:
-      release_type: 'rc'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  appimage-deploy:
-    needs: [test, appimage-build]
-    uses: viamrobotics/rdk/.github/workflows/appimage-deploy.yml@main
-    with:
-      date: ${{ needs.appimage-build.outputs.date }}
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
   staticbuild-build:
     uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@main
     with:
@@ -63,7 +48,6 @@ jobs:
     name: Post Workflow Status To Slack
     needs:
       - test
-      - appimage-deploy
       - staticbuild-deploy
     runs-on: ubuntu-latest
     permissions:
@@ -100,7 +84,7 @@ jobs:
           fi
 
   run-sdk-integration-networking-tests:
-    needs: [staticbuild-deploy, appimage-deploy, extract-rc-version]
+    needs: [staticbuild-deploy, extract-rc-version]
     if: ${{ success() }}
     uses: viamrobotics/rdk/.github/workflows/trigger-networking-tests.yml@main
     with:
