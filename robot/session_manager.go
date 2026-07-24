@@ -134,6 +134,7 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 			var deletedIDs []string
 			for id := range toDelete {
 				deletedIDs = append(deletedIDs, id.String())
+				m.logger.Activity("sdk_session", "disconnect", "session_id", id.String(), "reason", "expired")
 			}
 			m.logger.CDebugw(ctx, "sessions expired", "session_ids", deletedIDs)
 		}
@@ -159,6 +160,7 @@ func (m *SessionManager) Start(ctx context.Context, ownerID string) (*session.Se
 		return nil, errors.New("too many concurrent sessions")
 	}
 	m.sessions[sess.ID()] = sess
+	m.logger.Activity("sdk_session", "connect", "session_id", sess.ID().String())
 	return sess, nil
 }
 

@@ -1920,30 +1920,37 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	logVerb := "Construct"
-	logNoun := "construction"
-	if !r.initializing.Load() {
-		logVerb = "Reconfigur"
-		logNoun = "reconfiguration"
-		if newConfig.MaintenanceConfig != nil {
-			if reconfigureAllowedErr != nil {
-				r.logger.CInfow(
-					ctx,
-					"Reconfigure allowed despite error while checking",
-					"error",
-					reconfigureAllowedErr.Error(),
-				)
-			} else {
-				r.logger.CInfow(
-					ctx,
-					"Reconfigure allowed by maintenance sensor",
-					"sensor",
-					newConfig.MaintenanceConfig.SensorName,
-				)
-			}
+	// Derive the labels from the config being applied, not r.initializing: that flag is
+	// stored at pass exit for MachineStatus, so at entry it describes the previous pass
+	// and would label the two startup passes swapped.
+	logVerb := "Reconfigur"
+	logNoun := "reconfiguration"
+	if newConfig.Initial {
+		logVerb = "Construct"
+		logNoun = "construction"
+	}
+	if !r.initializing.Load() && newConfig.MaintenanceConfig != nil {
+		if reconfigureAllowedErr != nil {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed despite error while checking",
+				"error",
+				reconfigureAllowedErr.Error(),
+			)
+		} else {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed by maintenance sensor",
+				"sensor",
+				newConfig.MaintenanceConfig.SensorName,
+			)
 		}
 	}
-	r.logger.CInfof(ctx, "%ving robot", logVerb)
+	reconfigureStarted := time.Now()
+	r.logger.Activity("reconfigure", "start",
+		"revision", diff.NewRevision(),
+		"reconfigure_type", logNoun,
+	)
 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.CDebugf(ctx, "%ving with %+v", logVerb, diff)
@@ -1998,8 +2005,18 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, fmt.Sprintf("The following errors were gathered during %v", logNoun), "errors", allErrs)
+		r.logger.Activity("reconfigure", "fail",
+			"revision", diff.NewRevision(),
+			"reconfigure_type", logNoun,
+			"duration", time.Since(reconfigureStarted).String(),
+			"errors", allErrs,
+		)
 	} else {
-		r.logger.CInfof(ctx, "Robot %ved", strings.ToLower(logVerb))
+		r.logger.Activity("reconfigure", "complete",
+			"revision", diff.NewRevision(),
+			"reconfigure_type", logNoun,
+			"duration", time.Since(reconfigureStarted).String(),
+		)
 	}
 }
 

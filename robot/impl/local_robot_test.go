@@ -2871,9 +2871,79 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	})
 }
 
+func TestReconfigureActivityEvents(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
+	ctx := context.Background()
+
+	cfg := &config.Config{
+		Initial: true,
+		Components: []resource.Config{
+			{
+				Name:  "b1",
+				API:   base.API,
+				Model: fakeModel,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
+
+	// reconfigureEvents returns (event, reconfigure_type) pairs in emission order.
+	reconfigureEvents := func() [][2]string {
+		var events [][2]string
+		for _, entry := range activityLogs.All() {
+			fields := entry.ContextMap()
+			if fields["activity"] != "reconfigure" {
+				continue
+			}
+			events = append(events, [2]string{fmt.Sprint(fields["event"]), fmt.Sprint(fields["reconfigure_type"])})
+		}
+		return events
+	}
+
+	// The Initial config pass is a construction, even though r.initializing is not yet
+	// set at pass entry (the flag lags by one pass; labels derive from newConfig.Initial).
+	test.That(t, reconfigureEvents(), test.ShouldResemble, [][2]string{
+		{"start", "construction"},
+		{"complete", "construction"},
+	})
+
+	cfg2 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "b1",
+				API:   base.API,
+				Model: fakeModel,
+			},
+			{
+				Name:  "b2",
+				API:   base.API,
+				Model: fakeModel,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	test.That(t, reconfigureEvents(), test.ShouldResemble, [][2]string{
+		{"start", "construction"},
+		{"complete", "construction"},
+		{"start", "reconfiguration"},
+		{"complete", "reconfiguration"},
+	})
+
+	// Terminal events carry a duration.
+	for _, entry := range activityLogs.All() {
+		fields := entry.ContextMap()
+		if fields["activity"] == "reconfigure" && fields["event"] == "complete" {
+			test.That(t, fields["duration"], test.ShouldNotBeEmpty)
+		}
+	}
+}
+
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
@@ -3055,7 +3125,7 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
 		test.ShouldEqual, 3)
 
-	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+	test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 6)
 
 	// Assert that helper and other are only constructed after module
 	// crash/successful restart and not `Reconfigure`d.
@@ -3070,7 +3140,7 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 8)
+		test.That(tb, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 8)
 	})
 
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})

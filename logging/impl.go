@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -30,8 +32,11 @@ type (
 		level            AtomicLevel
 		neverDeduplicate bool
 
-		appenders []Appender
-		registry  *Registry
+		// appendersMu guards appenders. AddAppender copies-on-write, so slices returned
+		// by getAppenders are immutable and safe to iterate without holding the lock.
+		appendersMu sync.RWMutex
+		appenders   []Appender
+		registry    *Registry
 		// Logging to a `testing.T` always includes a filename/line number. We use this helper to
 		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
 		// documentation for more details.
@@ -107,7 +112,61 @@ func (imp *impl) NewLogEntry() *LogEntry {
 }
 
 func (imp *impl) AddAppender(appender Appender) {
-	imp.appenders = append(imp.appenders, appender)
+	imp.appendersMu.Lock()
+	defer imp.appendersMu.Unlock()
+	imp.appenders = slices.Concat(imp.appenders, []Appender{appender})
+}
+
+func (imp *impl) getAppenders() []Appender {
+	imp.appendersMu.RLock()
+	defer imp.appendersMu.RUnlock()
+	return imp.appenders
+}
+
+// activityLogger resolves this logger's activity logger — named <root>.activity, where
+// root is the first dot-separated segment of this logger's name — creating and
+// registering it if needed. Like a Sublogger, a newly created activity logger inherits
+// this logger's appenders; registration means later AddAppenderToAll calls reach it too.
+func (imp *impl) activityLogger() *impl {
+	root, _, _ := strings.Cut(imp.name, ".")
+	name := activityLoggerSuffix
+	if root != "" {
+		name = root + "." + activityLoggerSuffix
+	}
+
+	if logger, ok := imp.registry.loggerNamed(name); ok {
+		//nolint:forcetypeassert
+		return logger.(*impl)
+	}
+	logger := &impl{
+		name:                     name,
+		level:                    NewAtomicLevelAt(INFO),
+		appenders:                imp.getAppenders(),
+		registry:                 imp.registry,
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+	logger.NeverDeduplicate()
+	// Only this function registers loggers under the activity name, so the registered
+	// logger is always an *impl.
+	//nolint:forcetypeassert
+	return imp.registry.getOrRegister(name, logger).(*impl)
+}
+
+// Activity emits an activity event through this logger's activity logger
+// (<root>.activity). It always emits regardless of any configured level and is never
+// deduplicated. Callers must not set "activity" or "event" in keysAndValues.
+//
+// The log body lives here rather than in a shared helper so the call depth matches the
+// standard logger methods and getCaller attributes the entry to the Activity call site.
+func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
+	al := imp.activityLogger()
+	// Prepend so activity and event lead the rendered fields.
+	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
+	entry := al.formatw(INFO, emptyTraceKey, "", keysAndValues...)
+	al.Write(entry)
 }
 
 func (imp *impl) Desugar() *zap.Logger {
@@ -138,7 +197,8 @@ func (imp *impl) Sublogger(subname string) Logger {
 		newName,
 		NewAtomicLevelAt(imp.level.Get()),
 		false, // allow log deduplication by default
-		imp.appenders,
+		sync.RWMutex{},
+		imp.getAppenders(),
 		imp.registry,
 		imp.testHelper,
 		sync.Mutex{},
@@ -165,7 +225,7 @@ func (imp *impl) Named(name string) *zap.SugaredLogger {
 
 func (imp *impl) Sync() error {
 	var errs []error
-	for _, appender := range imp.appenders {
+	for _, appender := range imp.getAppenders() {
 		if err := appender.Sync(); err != nil {
 			errs = append(errs, err)
 		}
@@ -218,7 +278,7 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 	// When we find a `testAppender`, copy the underlying `testing.TB` object and construct a
 	// `zaptest.NewLogger` from it.
 	var testingObj testing.TB
-	for _, appender := range imp.appenders {
+	for _, appender := range imp.getAppenders() {
 		if core, ok := appender.(zapcore.Core); ok {
 			copiedCores = append(copiedCores, core)
 		}
@@ -281,7 +341,7 @@ func (imp *impl) Write(entry *LogEntry) {
 						count, noisyMessageWindowDuration, collapsedEntry.Message)
 
 					imp.testHelper()
-					for _, appender := range imp.appenders {
+					for _, appender := range imp.getAppenders() {
 						err := appender.Write(collapsedEntry.Entry, collapsedEntry.Fields)
 						if err != nil {
 							fmt.Fprint(os.Stderr, err)
@@ -311,7 +371,7 @@ func (imp *impl) Write(entry *LogEntry) {
 					noisyMessageCountThreshold, noisyMessageWindowDuration, entry.Message)
 
 				imp.testHelper()
-				for _, appender := range imp.appenders {
+				for _, appender := range imp.getAppenders() {
 					err := appender.Write(suppressedEntry.Entry, suppressedEntry.Fields)
 					if err != nil {
 						fmt.Fprint(os.Stderr, err)
@@ -326,7 +386,7 @@ func (imp *impl) Write(entry *LogEntry) {
 	}
 
 	imp.testHelper()
-	for _, appender := range imp.appenders {
+	for _, appender := range imp.getAppenders() {
 		err := appender.Write(entry.Entry, entry.Fields)
 		if err != nil {
 			fmt.Fprint(os.Stderr, err)
@@ -619,7 +679,7 @@ func (imp *impl) Fatal(args ...interface{}) {
 	imp.Write(imp.format(ERROR, emptyTraceKey, args...))
 	// Close all net appenders before exiting the process to force one last sync to the
 	// cloud.
-	for _, appender := range imp.appenders {
+	for _, appender := range imp.getAppenders() {
 		if netAppender, ok := appender.(*NetAppender); ok {
 			netAppender.Close()
 		}
@@ -632,7 +692,7 @@ func (imp *impl) Fatalf(template string, args ...interface{}) {
 	imp.Write(imp.formatf(ERROR, emptyTraceKey, template, args...))
 	// Close all net appenders before exiting the process to force one last sync to the
 	// cloud.
-	for _, appender := range imp.appenders {
+	for _, appender := range imp.getAppenders() {
 		if netAppender, ok := appender.(*NetAppender); ok {
 			netAppender.Close()
 		}
@@ -645,7 +705,7 @@ func (imp *impl) Fatalw(msg string, keysAndValues ...interface{}) {
 	imp.Write(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
 	// Close all net appenders before exiting the process to force one last sync to the
 	// cloud.
-	for _, appender := range imp.appenders {
+	for _, appender := range imp.getAppenders() {
 		if netAppender, ok := appender.(*NetAppender); ok {
 			netAppender.Close()
 		}

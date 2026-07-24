@@ -67,6 +67,10 @@ type GraphNode struct {
 	lastErr                   error
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
+	// reconfigureReason says why the node most recently entered NodeStateConfiguring
+	// ("config_change", "dependency_update", "module_rebuild"); reported on rebuild
+	// activity events.
+	reconfigureReason string
 
 	logger logging.Logger
 
@@ -362,7 +366,7 @@ func (w *GraphNode) hasUnresolvedDependencies() bool {
 	return w.needsDependencyResolution
 }
 
-func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string) {
+func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string, reason string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if !mustReconfigure && w.state == NodeStateRemoving {
@@ -376,6 +380,7 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 		w.needsDependencyResolution = true
 	}
 	w.config = newConfig
+	w.reconfigureReason = reason
 	w.transitionTo(NodeStateConfiguring)
 	w.unresolvedDependencies = dependencies
 }
@@ -418,7 +423,7 @@ func (w *GraphNode) IsReachable() bool {
 // and requires a reconfiguration. If the node was previously marked for removal,
 // this unmarks it.
 func (w *GraphNode) SetNewConfig(newConfig Config, dependencies []string) {
-	w.setNeedsReconfigure(newConfig, true, dependencies)
+	w.setNeedsReconfigure(newConfig, true, dependencies, "config_change")
 }
 
 // SetNeedsUpdate is used to inform the node that it should
@@ -426,7 +431,7 @@ func (w *GraphNode) SetNewConfig(newConfig Config, dependencies []string) {
 // dependency updates. If the node was previously marked for removal,
 // this makes no changes.
 func (w *GraphNode) SetNeedsUpdate() {
-	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies())
+	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies(), "dependency_update")
 }
 
 // SetNeedsRebuild is used to inform the node that it should
@@ -435,7 +440,22 @@ func (w *GraphNode) SetNeedsUpdate() {
 func (w *GraphNode) SetNeedsRebuild() {
 	// doing two mutex ops here but we assume there's only one caller.
 	w.UnsetResource()
-	w.setNeedsReconfigure(w.Config(), true, w.UnresolvedDependencies())
+	w.setNeedsReconfigure(w.Config(), true, w.UnresolvedDependencies(), "module_rebuild")
+}
+
+// ReconfigureReason says why the node most recently entered NodeStateConfiguring.
+func (w *GraphNode) ReconfigureReason() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.reconfigureReason
+}
+
+// PendingRevision is the revision of the config change that will apply once the node is
+// successfully (re)configured; during a build it identifies the config that triggered it.
+func (w *GraphNode) PendingRevision() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.pendingRevision
 }
 
 // setUnresolvedDependencies sets names that are yet to be resolved as
