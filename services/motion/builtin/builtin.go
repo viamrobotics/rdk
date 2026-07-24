@@ -170,8 +170,8 @@ type builtIn struct {
 	teleopPipeline *teleopPipeline
 
 	// Arm-streaming session. Protected by streamMu (separate from mu to simplify lock ordering).
-	streamMu      sync.RWMutex
-	streamSession *streamPipeline
+	streamMu sync.RWMutex
+	stream   *stream
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -204,7 +204,8 @@ func (ms *builtIn) BuiltInReconfigure(
 	}
 	ms.teleopMu.Unlock()
 
-	// Stop any arm-streaming session (its goroutine may hold ms.mu.RLock via push).
+	// Stop any arm-streaming session before acquiring the write lock (a concurrent
+	// push holds ms.streamMu.RLock while sending).
 	ms.abortStreamSession()
 
 	ms.mu.Lock()
@@ -334,7 +335,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		return resp, err
 	}
 
-	// Handle arm-streaming commands (they also manage their own locking).
+	// Handle arm-streaming commands (they manage their own locking).
 	if resp, handled, err := ms.handleStreamCommand(ctx, cmd); handled {
 		return resp, err
 	}

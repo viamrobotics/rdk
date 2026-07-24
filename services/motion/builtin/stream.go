@@ -87,13 +87,13 @@ func (c *streamConfig) ApplyDefaults() {
 	}
 }
 
-// streamPipeline manages a single arm-streaming session: a goroutine runs the
+// stream manages a single arm-streaming session: a goroutine runs the
 // executor (run) while DoCommand calls push joint-space targets onto targetsCh
 // across many requests.
 //
 // The session outlives individual DoCommand requests, so its goroutine runs on
 // a background context (cancelled via cancel) rather than a request context.
-type streamPipeline struct {
+type stream struct {
 	logger  logging.Logger
 	armName string
 	dof     int
@@ -114,21 +114,6 @@ type streamPipeline struct {
 	pushCount atomic.Int64
 }
 
-// send delivers one target onto the session channel. Callers must hold
-// builtIn.streamMu for reading so that a graceful stop (which closes targetsCh
-// while holding the write lock) can never race with an in-flight send.
-func (sp *streamPipeline) send(ctx context.Context, t streamTarget) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-sp.done:
-		return fmt.Errorf("streaming session ended: %w", sp.resultErr)
-	case sp.targetsCh <- t:
-		sp.pushCount.Add(1)
-		return nil
-	}
-}
-
 // streamStart resolves the named arm, reads a seed configuration if one
 // was not supplied, and launches the streaming executor on a background goroutine.
 func (ms *builtIn) streamStart(
@@ -145,11 +130,11 @@ func (ms *builtIn) streamStart(
 	ms.streamMu.Lock()
 	defer ms.streamMu.Unlock()
 
-	if ms.streamSession != nil {
+	if ms.stream != nil {
 		select {
-		case <-ms.streamSession.done:
+		case <-ms.stream.done:
 			// A prior session already finished; replace it.
-			ms.streamSession = nil
+			ms.stream = nil
 		default:
 			return fmt.Errorf("a streaming session is already running; call %s first", DoStreamStop)
 		}
@@ -174,7 +159,7 @@ func (ms *builtIn) streamStart(
 	}
 
 	sessCtx, cancel := context.WithCancel(context.Background())
-	sp := &streamPipeline{
+	sp := &stream{
 		logger:    ms.logger.Sublogger("arm_streaming"),
 		armName:   armName,
 		dof:       len(seed),
@@ -192,29 +177,15 @@ func (ms *builtIn) streamStart(
 		close(sp.done)
 	}()
 
-	ms.streamSession = sp
+	ms.stream = sp
 	return nil
-}
-
-// run executes the streaming session: it smooths the joint-space targets pushed
-// onto targetsCh through a trajex session and flow-controls a bidirectional
-// stream to the arm, seeding the first trajex session at seed.
-//
-// Return contract:
-//   - nil once targetsCh is closed and every sampled PVAT has been drained to
-//     the arm and acknowledged;
-//   - the first non-context error from either the producer or consumer otherwise.
-//
-// cfg is expected to already be defaulted and validated (see streamStart).
-func (sp *streamPipeline) run(ctx context.Context, a arm.Arm, seed []referenceframe.Input, cfg streamConfig) error {
-	return newCoordinator(a, &cfg).run(ctx, sp.targetsCh, seed).wait()
 }
 
 func (ms *builtIn) streamPush(ctx context.Context, targets []streamTarget) (int, error) {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 
-	sp := ms.streamSession
+	sp := ms.stream
 	if sp == nil {
 		return 0, fmt.Errorf("no streaming session is running; call %s first", DoStreamStart)
 	}
@@ -237,7 +208,7 @@ func (ms *builtIn) streamPush(ctx context.Context, targets []streamTarget) (int,
 // when true the session context is cancelled to stop immediately.
 func (ms *builtIn) streamStop(ctx context.Context, abort bool) map[string]any {
 	ms.streamMu.RLock()
-	sp := ms.streamSession
+	sp := ms.stream
 	ms.streamMu.RUnlock()
 	if sp == nil {
 		return map[string]any{"running": false}
@@ -251,12 +222,12 @@ func (ms *builtIn) streamStop(ctx context.Context, abort bool) map[string]any {
 	}
 
 	ms.streamMu.Lock()
-	if ms.streamSession == sp {
+	if ms.stream == sp {
 		if !abort && !sp.targetsClosed {
 			close(sp.targetsCh)
 			sp.targetsClosed = true
 		}
-		ms.streamSession = nil
+		ms.stream = nil
 	}
 	ms.streamMu.Unlock()
 
@@ -277,7 +248,7 @@ func (ms *builtIn) streamStop(ctx context.Context, abort bool) map[string]any {
 
 func (ms *builtIn) streamStatus() map[string]any {
 	ms.streamMu.RLock()
-	sp := ms.streamSession
+	sp := ms.stream
 	ms.streamMu.RUnlock()
 	if sp == nil {
 		return map[string]any{"running": false}
@@ -304,8 +275,8 @@ func (ms *builtIn) streamStatus() map[string]any {
 // Close/Reconfigure to avoid leaking the executor goroutine.
 func (ms *builtIn) abortStreamSession() {
 	ms.streamMu.Lock()
-	sp := ms.streamSession
-	ms.streamSession = nil
+	sp := ms.stream
+	ms.stream = nil
 	ms.streamMu.Unlock()
 	if sp == nil {
 		return
@@ -434,6 +405,35 @@ func decodeStreamConfig(raw interface{}, cfg *streamConfig) error {
 		return err
 	}
 	return dec.Decode(raw)
+}
+
+// send delivers one target onto the session channel. Callers must hold
+// builtIn.streamMu for reading so that a graceful stop (which closes targetsCh
+// while holding the write lock) can never race with an in-flight send.
+func (sp *stream) send(ctx context.Context, t streamTarget) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-sp.done:
+		return fmt.Errorf("streaming session ended: %w", sp.resultErr)
+	case sp.targetsCh <- t:
+		sp.pushCount.Add(1)
+		return nil
+	}
+}
+
+// run executes the streaming session: it smooths the joint-space targets pushed
+// onto targetsCh through a trajex session and flow-controls a bidirectional
+// stream to the arm, seeding the first trajex session at seed.
+//
+// Return contract:
+//   - nil once targetsCh is closed and every sampled PVAT has been drained to
+//     the arm and acknowledged;
+//   - the first non-context error from either the producer or consumer otherwise.
+//
+// cfg is expected to already be defaulted and validated (see streamStart).
+func (sp *stream) run(ctx context.Context, a arm.Arm, seed []referenceframe.Input, cfg streamConfig) error {
+	return newCoordinator(a, &cfg).run(ctx, sp.targetsCh, seed).wait()
 }
 
 func toInputs(v interface{}) ([]referenceframe.Input, error) {
