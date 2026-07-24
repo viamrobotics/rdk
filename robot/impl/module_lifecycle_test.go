@@ -708,12 +708,12 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 }
 
-// countActivityEvents returns how many observed activity events match eventType and event.
-func countActivityEvents(activityLogs *observer.ObservedLogs, eventType, event string) int {
+// countActivityEvents returns how many observed activity events match activity and event.
+func countActivityEvents(activityLogs *observer.ObservedLogs, activity, event string) int {
 	count := 0
 	for _, entry := range activityLogs.All() {
 		fields := entry.ContextMap()
-		if fields["event_type"] == eventType && fields["event"] == event {
+		if fields["activity"] == activity && fields["event"] == event {
 			count++
 		}
 	}

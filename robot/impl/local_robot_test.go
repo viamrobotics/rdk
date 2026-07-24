@@ -2893,7 +2893,7 @@ func TestReconfigureActivityEvents(t *testing.T) {
 		var events [][2]string
 		for _, entry := range activityLogs.All() {
 			fields := entry.ContextMap()
-			if fields["event_type"] != "reconfigure" {
+			if fields["activity"] != "reconfigure" {
 				continue
 			}
 			events = append(events, [2]string{fmt.Sprint(fields["event"]), fmt.Sprint(fields["reconfigure_type"])})
@@ -2934,7 +2934,7 @@ func TestReconfigureActivityEvents(t *testing.T) {
 	// Terminal events carry a duration.
 	for _, entry := range activityLogs.All() {
 		fields := entry.ContextMap()
-		if fields["event_type"] == "reconfigure" && fields["event"] == "complete" {
+		if fields["activity"] == "reconfigure" && fields["event"] == "complete" {
 			test.That(t, fields["duration"], test.ShouldNotBeEmpty)
 		}
 	}

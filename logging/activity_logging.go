@@ -45,17 +45,17 @@ func InitActivityLogger(registry *Registry, unit string) {
 }
 
 // Activity emits an activity log. It always writes at INFO regardless of any configured level
-// and is never deduplicated, so every activity event reaches the sink. eventType is the
-// subsystem noun (e.g. "reconfigure", "network", "process"); event is the transition verb
-// (e.g. "start", "success", "failure", "connect").
-// Callers must not set "unit", "event_type", or "event" in keysAndValues.
+// and is never deduplicated, so every activity event reaches the sink. activity names what
+// the event is about (e.g. "reconfigure", "module", "remote"); event is the transition verb
+// (e.g. "start", "complete", "fail", "connect").
+// Callers must not set "unit", "activity", or "event" in keysAndValues.
 //
 // The log body lives here rather than in a helper so the call depth matches the standard
 // logger methods and getCaller attributes the entry to the Activity call site.
-func Activity(eventType, event string, keysAndValues ...any) {
+func Activity(activity, event string, keysAndValues ...any) {
 	al := globalActivityLogger
-	// Prepend so unit, event_type, and event lead the rendered fields.
-	keysAndValues = append([]any{"unit", al.unit, "event_type", eventType, "event", event}, keysAndValues...)
+	// Prepend so unit, activity, and event lead the rendered fields.
+	keysAndValues = append([]any{"unit", al.unit, "activity", activity, "event", event}, keysAndValues...)
 	entry := al.logger.formatw(INFO, emptyTraceKey, "", keysAndValues...)
 	al.logger.Write(entry)
 }
@@ -65,10 +65,10 @@ func Activity(eventType, event string, keysAndValues ...any) {
 //
 // The body is duplicated from Activity rather than shared so the call depth matches and
 // getCaller attributes the entry to the ActivityError call site.
-func ActivityError(eventType, event string, keysAndValues ...any) {
+func ActivityError(activity, event string, keysAndValues ...any) {
 	al := globalActivityLogger
-	// Prepend so unit, event_type, and event lead the rendered fields.
-	keysAndValues = append([]any{"unit", al.unit, "event_type", eventType, "event", event}, keysAndValues...)
+	// Prepend so unit, activity, and event lead the rendered fields.
+	keysAndValues = append([]any{"unit", al.unit, "activity", activity, "event", event}, keysAndValues...)
 	entry := al.logger.formatw(ERROR, emptyTraceKey, "", keysAndValues...)
 	al.logger.Write(entry)
 }
