@@ -47,21 +47,6 @@ func TestActivityLoggerNameDerivation(t *testing.T) {
 	test.That(t, len(activityLogs.All()), test.ShouldEqual, 2)
 }
 
-func TestActivityErrorLevel(t *testing.T) {
-	logger, _ := NewObservedTestLogger(t)
-	activityLogs := NewObservedActivityLogger(t, logger)
-
-	logger.ActivityError("reconfigure", "fail", "errors", "boom")
-
-	all := activityLogs.All()
-	test.That(t, len(all), test.ShouldEqual, 1)
-	test.That(t, all[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
-	fields := all[0].ContextMap()
-	test.That(t, fields["activity"], test.ShouldEqual, "reconfigure")
-	test.That(t, fields["event"], test.ShouldEqual, "fail")
-	test.That(t, fields["errors"], test.ShouldEqual, "boom")
-}
-
 func TestActivityNeverDeduplicated(t *testing.T) {
 	logger, _ := NewObservedTestLogger(t)
 	// Enable dedup at the registry level to prove activity events are exempt.

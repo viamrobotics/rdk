@@ -875,8 +875,11 @@ func (manager *resourceManager) completeConfig(
 						}
 
 						if err != nil {
-							gNode.SetLastError(fmt.Errorf("resource build error: %v", err.Error()))
-							manager.logger.ActivityError(activityType, "fail",
+							gNode.LogAndSetLastError(
+								fmt.Errorf("resource build error: %v", err.Error()),
+								"resource", conf.ResourceName(),
+								"model", conf.Model)
+							manager.logger.Activity(activityType, "fail",
 								"resource", resName.String(),
 								"model", conf.Model.String(),
 								"revision", activityRevision,
@@ -890,7 +893,9 @@ func (manager *resourceManager) completeConfig(
 						// validation around how this might affect the resource graph. So, we avoid
 						// updating the graph to be safe.
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-							manager.logger.ActivityError(activityType, "fail",
+							manager.logger.CErrorw(
+								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+							manager.logger.Activity(activityType, "fail",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
 								"duration", time.Since(activityStarted).String(), "error", ctxWithTimeout.Err())
 						} else {

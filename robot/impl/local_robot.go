@@ -2004,7 +2004,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	if allErrs != nil {
-		r.logger.ActivityError("reconfigure", "fail",
+		r.logger.CErrorw(ctx, fmt.Sprintf("The following errors were gathered during %v", logNoun), "errors", allErrs)
+		r.logger.Activity("reconfigure", "fail",
 			"revision", diff.NewRevision(),
 			"reconfigure_type", logNoun,
 			"duration", time.Since(reconfigureStarted).String(),

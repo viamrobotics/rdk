@@ -169,16 +169,6 @@ func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
 	al.Write(entry)
 }
 
-// ActivityError emits an activity event at ERROR severity, for events that are bad
-// outcomes (e.g. "fail"). Emission is identical to Activity: unconditional and never
-// deduplicated. The body is duplicated from Activity so caller attribution holds.
-func (imp *impl) ActivityError(activity, event string, keysAndValues ...any) {
-	al := imp.activityLogger()
-	// Prepend so activity and event lead the rendered fields.
-	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
-	entry := al.formatw(ERROR, emptyTraceKey, "", keysAndValues...)
-	al.Write(entry)
-}
 
 func (imp *impl) Desugar() *zap.Logger {
 	return imp.AsZap().Desugar()

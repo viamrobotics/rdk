@@ -23,15 +23,12 @@ type Logger interface {
 	Write(*LogEntry)
 	WithFields(args ...interface{}) Logger
 
-	// Activity emits an activity event through the registry's activity logger
-	// (rdk.activity.<unit>). It always emits regardless of any configured level and is
+	// Activity emits an activity event through this logger's activity logger
+	// (<root>.activity). It always emits regardless of any configured level and is
 	// never deduplicated. activity names what the event is about (e.g. "reconfigure",
 	// "module", "remote"); event is the transition verb (e.g. "start", "complete",
 	// "fail", "connect"). Callers must not set "activity" or "event" in keysAndValues.
 	Activity(activity, event string, keysAndValues ...any)
-	// ActivityError is Activity at ERROR severity, for events that are bad outcomes
-	// (e.g. "fail").
-	ActivityError(activity, event string, keysAndValues ...any)
 
 	CDebug(ctx context.Context, args ...interface{})
 	CDebugf(ctx context.Context, template string, args ...interface{})
@@ -191,11 +188,6 @@ func (logger zLogger) CErrorw(ctx context.Context, msg string, keysAndValues ...
 // an ordinary structured log so the event is at least visible in this logger's sinks.
 func (logger zLogger) Activity(activity, event string, keysAndValues ...any) {
 	logger.Infow("", append([]any{"activity", activity, "event", event}, keysAndValues...)...)
-}
-
-// ActivityError is Activity at ERROR severity; see Activity for zap-compat behavior.
-func (logger zLogger) ActivityError(activity, event string, keysAndValues ...any) {
-	logger.Errorw("", append([]any{"activity", activity, "event", event}, keysAndValues...)...)
 }
 
 func (logger zLogger) Write(entry *LogEntry) {

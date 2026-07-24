@@ -317,13 +317,13 @@ func (w *GraphNode) MarkedForRemoval() bool {
 	return w.state == NodeStateRemoving
 }
 
-// SetLastError marks the node unhealthy with err without logging it; use when the error
-// is reported through another channel (e.g. an activity event). This will cause the
-// resource to become unavailable to external users of the graph. The resource manager may
-// still access the underlying resource via UnsafeResource.
-func (w *GraphNode) SetLastError(err error) {
+// LogAndSetLastError logs and sets the latest error on this node. This will cause the resource to
+// become unavailable to external users of the graph. The resource manager may still access the
+// underlying resource via UnsafeResource.
+//
+// The additional `args` should come in key/value pairs for structured logging.
+func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	// Only increment the clock if this is a transition from usable to unusable.
 	wasUsable := w.lastErr == nil
 	w.lastErr = err
@@ -331,13 +331,8 @@ func (w *GraphNode) SetLastError(err error) {
 	if wasUsable {
 		w.incrementLogicalClock()
 	}
-}
+	w.mu.Unlock()
 
-// LogAndSetLastError logs and sets the latest error on this node, as SetLastError does.
-//
-// The additional `args` should come in key/value pairs for structured logging.
-func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
-	w.SetLastError(err)
 	if w.logger != nil {
 		w.logger.Errorw(err.Error(), args...)
 	}

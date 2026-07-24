@@ -1528,7 +1528,6 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	// not on repeated errors while already unusable.
 
 	logger, logs := logging.NewObservedTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	ctx := context.Background()
 
 	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
@@ -1609,13 +1608,12 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	test.That(t, clockAfterFirstError,
 		test.ShouldEqual, initialClockValue+1)
 
-	// Verify the first error emitted a build-failure activity event.
-	firstErrorLogs := countActivityErrorSnippets(activityLogs, "unknown resource type")
+	// Verify the first error logged a build failure.
+	firstErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
 	test.That(t, firstErrorLogs, test.ShouldEqual, 1)
 
 	// Clear logs again to isolate just the retry attempts.
 	logs.TakeAll()
-	activityLogs.TakeAll()
 
 	// Call updateRemotesAndRetryResourceConfigure multiple times.
 	// Each call will attempt to retry configuring m_unrelated, which will fail again with the
@@ -1630,7 +1628,7 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	}
 
 	// Verify that m_unrelated failed to build 5 times (one for each retry call).
-	buildErrorLogs := countActivityErrorSnippets(activityLogs, "unknown resource type")
+	buildErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
 	test.That(t, buildErrorLogs, test.ShouldEqual, 5)
 
 	// Verify that no "could not get optional motor" logs were emitted, confirming the
@@ -1651,7 +1649,6 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	// dependencies are not rebuilt multiple times.
 
 	logger, logs := logging.NewObservedTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	ctx := context.Background()
 
 	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
@@ -1730,8 +1727,8 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 		test.ShouldEqual, initialClockValue+1)
 	clockAfterFirstError := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 
-	// Verify the first error emitted a build-failure activity event.
-	firstErrorLogs := countActivityErrorSnippets(activityLogs, "unknown resource type")
+	// Verify the first error logged a build failure.
+	firstErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
 	test.That(t, firstErrorLogs, test.ShouldEqual, 1)
 
 	// Verify the foo component was NOT rebuilt. The failing m_unrelated is unrelated to
@@ -1743,7 +1740,6 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 
 	// Clear logs again to isolate just the retry attempts.
 	logs.TakeAll()
-	activityLogs.TakeAll()
 
 	// Call updateRemotesAndRetryResourceConfigure multiple times.
 	// Each call will attempt to retry configuring m_unrelated, which will fail again with the
@@ -1764,7 +1760,7 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 		test.ShouldEqual, 0)
 
 	// Verify that m_unrelated failed to build 5 times (one for each retry call).
-	buildErrorLogs := countActivityErrorSnippets(activityLogs, "unknown resource type")
+	buildErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
 	test.That(t, buildErrorLogs, test.ShouldEqual, 5)
 
 	// Verify that no "could not get optional motor" logs were emitted during the retry
