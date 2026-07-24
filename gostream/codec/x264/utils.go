@@ -14,9 +14,11 @@ const (
 	// handle frame bursts. This is the minimum bitrate that we can use without causing the encoder
 	// to spew out warnings about the buffer size being too small.
 	minBitrate = 300_000 // 300kbps
-	// Setting a reasonable max bitrate to prevent the encoder from using too much bandwidth.
-	// 4K resolution at 20fps is around 24.8Mbps.
-	maxBitrate = 25_000_000 // 25Mbps
+	// RSDK-14312: This encoder is used exclusively for WebRTC delivery, which typically
+	// routes through TURN relays or over Wi-Fi where sustained bitrates above ~3Mbps
+	// cause packet loss that fragments H.264 keyframes and cascades into unrecoverable
+	// decode failures.
+	maxBitrate = 3_000_000 // 3Mbps
 )
 
 // DefaultStreamConfig configures x264 as the encoder for a stream.

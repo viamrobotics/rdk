@@ -49,6 +49,11 @@ const (
 type peerState struct {
 	streamState *state.StreamState
 	senders     []*webrtc.RTPSender
+	// refCount tracks how many callers on this peer connection have subscribed
+	// to this stream. Multiple UI components sharing a peer connection can each
+	// subscribe to the same camera; we share the underlying track and only tear
+	// down when the last subscriber removes.
+	refCount int
 }
 
 // Server implements the gRPC video streaming service.
@@ -188,13 +193,24 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	var nameToPeerState map[string]*peerState
-	// return error if the caller's peer connection is already being sent stream data
 	if pcStreams, pcHasStreams := server.activePeerStreams[pc]; pcHasStreams {
 		nameToPeerState = pcStreams
-		if _, isStreaming := pcStreams[req.Name]; isStreaming {
-			err := errors.New("stream already active")
-			server.logger.Error(err.Error())
-			return nil, err
+		// If this peer connection already subscribes to this stream, treat it
+		// as an additional consumer (e.g. two UI components on the same page
+		// both showing the same camera). Add a separate sender for this
+		// consumer so the browser fires a track event for its handler; refcount
+		// for teardown ordering.
+		if existing, isStreaming := pcStreams[req.Name]; isStreaming {
+			if trackLocal, haveTrackLocal := streamStateToAdd.Stream.VideoTrackLocal(); haveTrackLocal {
+				sender, err := pc.AddTrack(trackLocal)
+				if err != nil {
+					server.logger.Errorw("failed to add track for additional consumer", "err", err)
+					return nil, err
+				}
+				existing.senders = append(existing.senders, sender)
+			}
+			existing.refCount++
+			return &streampb.AddStreamResponse{}, nil
 		}
 	} else {
 		// if there is no active video data being sent, set up a callback to remove the peer
@@ -215,7 +231,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	ps, ok := nameToPeerState[req.Name]
 	// if the active peer stream doesn't have a peerState, add one containing the stream in question
 	if !ok {
-		ps = &peerState{streamState: streamStateToAdd}
+		ps = &peerState{streamState: streamStateToAdd, refCount: 1}
 		nameToPeerState[req.Name] = ps
 	}
 
@@ -278,12 +294,29 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
-	if _, ok := server.activePeerStreams[pc][req.Name]; !ok {
+	existing, ok := server.activePeerStreams[pc][req.Name]
+	if !ok {
+		return &streampb.RemoveStreamResponse{}, nil
+	}
+
+	// If additional consumers on this peer connection are still subscribed,
+	// remove only this consumer's sender (LIFO — last added, first removed)
+	// and leave the track for remaining consumers.
+	existing.refCount--
+	if existing.refCount > 0 {
+		if n := len(existing.senders); n > 0 {
+			lastSender := existing.senders[n-1]
+			if err := pc.RemoveTrack(lastSender); err != nil {
+				server.logger.Error(err.Error())
+				return nil, err
+			}
+			existing.senders = existing.senders[:n-1]
+		}
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
 	var errs error
-	for _, sender := range server.activePeerStreams[pc][req.Name].senders {
+	for _, sender := range existing.senders {
 		errs = multierr.Combine(errs, pc.RemoveTrack(sender))
 	}
 	if errs != nil {
