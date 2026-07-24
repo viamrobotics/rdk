@@ -91,7 +91,7 @@ func (b *CaptureBuffer) WriteTabular(item *v1.SensorData) error {
 		}
 		b.nextFile = nextFile
 	} else if b.nextFile.Size() > b.maxCaptureFileSize {
-		if err := b.nextFile.Close(); err != nil {
+		if err := b.flushInternal(); err != nil {
 			return err
 		}
 		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
@@ -121,10 +121,8 @@ func IsBinary(item *v1.SensorData) bool {
 	}
 }
 
-// Flush flushes all buffered data to disk and marks any in progress file as complete.
-func (b *CaptureBuffer) Flush() error {
-	b.lock.Lock()
-	defer b.lock.Unlock()
+// flushInternal closes out nextFile; the caller must hold b.lock.
+func (b *CaptureBuffer) flushInternal() error {
 	if b.nextFile == nil {
 		return nil
 	}
@@ -134,6 +132,13 @@ func (b *CaptureBuffer) Flush() error {
 	err := b.nextFile.Close()
 	b.nextFile = nil
 	return err
+}
+
+// Flush flushes all buffered data to disk and marks any in progress file as complete.
+func (b *CaptureBuffer) Flush() error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	return b.flushInternal()
 }
 
 // Path returns the path to the directory containing the backing data capture files.
