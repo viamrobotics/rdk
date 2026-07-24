@@ -16,7 +16,7 @@ type pvatProducer struct {
 	numPVATsSampledThisTrajexSession int
 }
 
-func (p *pvatProducer) run(ctx context.Context, targets <-chan streamItem, seed []referenceframe.Input, r *producerRunHandle) {
+func (p *pvatProducer) run(ctx context.Context, targets <-chan jointPositionsChItem, seed []referenceframe.Input, r *producerRunHandle) {
 	defer func() {
 		close(p.pvatsCh)
 		if p.trajexSession != nil {

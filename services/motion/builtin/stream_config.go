@@ -68,7 +68,7 @@ func (c *streamConfig) ApplyDefaults() {
 	}
 }
 
-func decodeStreamConfig(raw interface{}, cfg *streamConfig) error {
+func parseStreamConfig(raw interface{}, cfg *streamConfig) error {
 	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		TagName:          "json",
 		WeaklyTypedInput: true,

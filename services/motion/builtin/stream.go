@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -11,8 +10,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// streamItem is one live joint-space waypoint fed to the streaming executor.
-type streamItem struct {
+// jointPositionsChItem is one live joint-space waypoint fed to the streaming executor.
+type jointPositionsChItem struct {
 	// Positions are the target joint positions for this waypoint.
 	Positions []referenceframe.Input
 
@@ -23,7 +22,7 @@ type streamItem struct {
 }
 
 // stream manages a single arm-streaming session: a goroutine runs the
-// executor (run) while DoCommand calls push joint-space targets onto targetsCh
+// executor (run) while DoCommand calls push joint-space targets onto jointPositionsCh
 // across many requests.
 //
 // The session outlives individual DoCommand requests, so its goroutine runs on
@@ -33,20 +32,18 @@ type stream struct {
 	armName string
 	dof     int
 
-	targetsCh chan streamItem
+	jointPositionsCh chan jointPositionsChItem
 
 	cancel context.CancelFunc
 	done   chan struct{} // closed when StreamJointTargets returns
 
-	// targetsClosed guards against double-closing targetsCh. Only written while
+	// targetsClosed guards against double-closing jointPositionsCh. Only written while
 	// holding builtIn.streamMu for writing.
 	targetsClosed bool
 
 	// resultErr is set exactly once, before done is closed, so it is safe to read
 	// in any branch guarded by a receive on done.
 	resultErr error
-
-	pushCount atomic.Int64
 }
 
 // streamStart resolves the named arm, reads a seed configuration if one
@@ -98,7 +95,7 @@ func (ms *builtIn) streamStart(
 		logger:    ms.logger.Sublogger("arm_streaming"),
 		armName:   armName,
 		dof:       len(seed),
-		targetsCh: make(chan streamItem),
+		jointPositionsCh: make(chan jointPositionsChItem),
 		cancel:    cancel,
 		done:      make(chan struct{}),
 	}
@@ -116,7 +113,7 @@ func (ms *builtIn) streamStart(
 	return nil
 }
 
-func (ms *builtIn) streamPush(ctx context.Context, targets []streamItem) (int, error) {
+func (ms *builtIn) streamPush(ctx context.Context, targets []jointPositionsChItem) (int, error) {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 
@@ -159,7 +156,7 @@ func (ms *builtIn) streamStop(ctx context.Context, abort bool) map[string]any {
 	ms.streamMu.Lock()
 	if ms.stream == sp {
 		if !abort && !sp.targetsClosed {
-			close(sp.targetsCh)
+			close(sp.jointPositionsCh)
 			sp.targetsClosed = true
 		}
 		ms.stream = nil
@@ -196,9 +193,8 @@ func (ms *builtIn) streamStatus() map[string]any {
 	default:
 	}
 	status := map[string]any{
-		"running":    !finished,
-		"arm":        sp.armName,
-		"push_count": sp.pushCount.Load(),
+		"running": !finished,
+		"arm":     sp.armName,
 	}
 	if finished && sp.resultErr != nil {
 		status["error"] = sp.resultErr.Error()
@@ -283,7 +279,7 @@ func parseStreamStart(req interface{}) (string, streamConfig, []referenceframe.I
 	}
 
 	if rawCfg, ok := m["config"]; ok {
-		if err := decodeStreamConfig(rawCfg, &cfg); err != nil {
+		if err := parseStreamConfig(rawCfg, &cfg); err != nil {
 			return "", cfg, nil, fmt.Errorf("invalid streaming config: %w", err)
 		}
 	}
@@ -300,7 +296,7 @@ func parseStreamStart(req interface{}) (string, streamConfig, []referenceframe.I
 
 // parseStreamTargets accepts either a single joint-position vector ([j0, j1, ...])
 // or a list of vectors ([[...], [...]]).
-func parseStreamTargets(req interface{}) ([]streamItem, error) {
+func parseStreamTargets(req interface{}) ([]jointPositionsChItem, error) {
 	arr, ok := req.([]interface{})
 	if !ok || len(arr) == 0 {
 		return nil, fmt.Errorf("%s expects a non-empty list of joint positions", DoStreamPush)
@@ -323,40 +319,39 @@ func parseStreamTargets(req interface{}) ([]streamItem, error) {
 		vectors = append(vectors, vec)
 	}
 
-	targets := make([]streamItem, len(vectors))
+	targets := make([]jointPositionsChItem, len(vectors))
 	for i, vec := range vectors {
-		targets[i] = streamItem{Positions: vec}
+		targets[i] = jointPositionsChItem{Positions: vec}
 	}
 	return targets, nil
 }
 
 // send delivers one target onto the session channel. Callers must hold
-// builtIn.streamMu for reading so that a graceful stop (which closes targetsCh
+// builtIn.streamMu for reading so that a graceful stop (which closes jointPositionsCh
 // while holding the write lock) can never race with an in-flight send.
-func (sp *stream) send(ctx context.Context, t streamItem) error {
+func (sp *stream) send(ctx context.Context, t jointPositionsChItem) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-sp.done:
 		return fmt.Errorf("streaming session ended: %w", sp.resultErr)
-	case sp.targetsCh <- t:
-		sp.pushCount.Add(1)
+	case sp.jointPositionsCh <- t:
 		return nil
 	}
 }
 
 // run executes the streaming session: it smooths the joint-space targets pushed
-// onto targetsCh through a trajex session and flow-controls a bidirectional
+// onto jointPositionsCh through a trajex session and flow-controls a bidirectional
 // stream to the arm, seeding the first trajex session at seed.
 //
 // Return contract:
-//   - nil once targetsCh is closed and every sampled PVAT has been drained to
+//   - nil once jointPositionsCh is closed and every sampled PVAT has been drained to
 //     the arm and acknowledged;
 //   - the first non-context error from either the producer or consumer otherwise.
 //
 // cfg is expected to already be defaulted and validated (see streamStart).
 func (sp *stream) run(ctx context.Context, a arm.Arm, seed []referenceframe.Input, cfg streamConfig) error {
-	return newCoordinator(a, &cfg).run(ctx, sp.targetsCh, seed).wait()
+	return newCoordinator(a, &cfg).run(ctx, sp.jointPositionsCh, seed).wait()
 }
 
 func toInputs(v interface{}) ([]referenceframe.Input, error) {
