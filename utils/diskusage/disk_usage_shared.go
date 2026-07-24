@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"go.viam.com/rdk/utils"
 )
 
 // MinFreeBytes is the floor of free space viam-server tries to keep on volumes it writes to
@@ -91,20 +93,6 @@ func nearestExistingDir(path string) string {
 	return path
 }
 
-// FormatBytes renders a byte count in human-friendly units (KB/MB/GB/TB).
-func FormatBytes(b uint64) string {
-	return formatBytesU64(b)
-}
-
-// FormatBytesI64 renders a signed byte count in human-friendly units
-// (KB/MB/GB/TB), preserving the sign for negative values.
-func FormatBytesI64(b int64) string {
-	if b < 0 {
-		return "-" + formatBytesU64(uint64(-b))
-	}
-	return formatBytesU64(uint64(b))
-}
-
 // DiskUsage contains usage data and provides user-friendly access methods.
 type DiskUsage struct {
 	// AvailableBytes is the total available bytes on file system to an unprivileged user.
@@ -115,7 +103,7 @@ type DiskUsage struct {
 
 func (du DiskUsage) String() string {
 	return fmt.Sprintf("diskusage.DiskUsage{Available: %s, Size: %s, AvailablePercent: %.2f",
-		formatBytesU64(du.AvailableBytes), formatBytesU64(du.SizeBytes), du.AvailablePercent()*100) + "%}"
+		utils.FormatBytes(du.AvailableBytes), utils.FormatBytes(du.SizeBytes), du.AvailablePercent()*100) + "%}"
 }
 
 // AvailablePercent returns the percentage (0.0-1.0) of the disk available
@@ -125,28 +113,11 @@ func (du DiskUsage) AvailablePercent() float64 {
 	return float64(du.AvailableBytes) / float64(du.SizeBytes)
 }
 
-// Decimal (1000-based) units, so the KB/MB/GB/TB labels below are accurate
-// (1 KB == 1000 bytes, not 1024).
+// Decimal (1000-based) units, used for the free-space floor (MinFreeBytes) and thresholds.
+// The human-friendly formatting that renders these labels lives in utils.FormatBytes.
 const (
 	kb = 1000
 	mb = 1000 * kb
 	gb = 1000 * mb
 	tb = 1000 * gb
 )
-
-func formatBytesU64(b uint64) string {
-	// The comparisons use >= so an exact power (e.g. 1 MB) renders in its own unit
-	// instead of falling through to "1000.00 KB".
-	switch {
-	case b >= tb:
-		return fmt.Sprintf("%.2f TB", float64(b)/tb)
-	case b >= gb:
-		return fmt.Sprintf("%.2f GB", float64(b)/gb)
-	case b >= mb:
-		return fmt.Sprintf("%.2f MB", float64(b)/mb)
-	case b >= kb:
-		return fmt.Sprintf("%.2f KB", float64(b)/kb)
-	default:
-		return fmt.Sprintf("%d Bytes", b)
-	}
-}

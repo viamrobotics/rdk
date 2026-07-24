@@ -69,8 +69,8 @@ func checkDiskSpace(logger logging.Logger, path, desc string, required uint64, e
 		logger.Warnw("not enough free disk space",
 			append([]any{
 				"desc", desc, "path", path,
-				"available", diskusage.FormatBytes(available),
-				"required", diskusage.FormatBytes(required),
+				"available", rutils.FormatBytes(available),
+				"required", rutils.FormatBytes(required),
 				"blocking", false,
 			}, extraFields...)...)
 		return true, nil
@@ -79,7 +79,7 @@ func checkDiskSpace(logger logging.Logger, path, desc string, required uint64, e
 	// caller (cloud_package_manager.go and local_package_manager.go both log the install error),
 	// so warning too would double-log the same reason every sync cycle.
 	return true, fmt.Errorf("%w for %s: %s available, %s required",
-		errInsufficientDiskSpace, desc, diskusage.FormatBytes(available), diskusage.FormatBytes(required))
+		errInsufficientDiskSpace, desc, rutils.FormatBytes(available), rutils.FormatBytes(required))
 }
 
 // create a partials folder for this URL and return a destination path for the file.

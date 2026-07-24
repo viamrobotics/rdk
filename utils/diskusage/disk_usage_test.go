@@ -67,24 +67,6 @@ func TestLowOnSpaceThresholds(t *testing.T) {
 	test.That(t, DiskUsage{AvailableBytes: 0, SizeBytes: 0}.IsLow(), test.ShouldBeFalse)
 }
 
-func TestFormatBytes(t *testing.T) {
-	type testCase struct {
-		in  uint64
-		exp string
-	}
-	for _, tc := range []testCase{
-		{0, "0 Bytes"},
-		{512, "512 Bytes"},
-		{kb, "1.00 KB"}, // exact power: must not render as "1000.00 Bytes"
-		{mb, "1.00 MB"}, // exact power: must not render as "1000.00 KB"
-		{gb, "1.00 GB"}, // exact power: must not render as "1000.00 MB"
-		{tb, "1.00 TB"}, // exact power: must not render as "1000.00 GB"
-		{mb + mb/2, "1.50 MB"},
-	} {
-		test.That(t, FormatBytes(tc.in), test.ShouldEqual, tc.exp)
-	}
-}
-
 func TestDiskUsage(t *testing.T) {
 	t.Run("String()", func(t *testing.T) {
 		type testCase struct {

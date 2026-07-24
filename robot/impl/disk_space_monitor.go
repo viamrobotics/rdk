@@ -8,6 +8,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/diskusage"
 )
 
@@ -89,15 +90,15 @@ func (m *diskSpaceMonitor) check(ctx context.Context) {
 	if res.low {
 		m.logger.Warnw("low free disk space",
 			"path", m.path,
-			"available", diskusage.FormatBytes(res.usage.AvailableBytes),
+			"available", rutils.FormatBytes(res.usage.AvailableBytes),
 			"used_percent", usedPercent,
 			"threshold", fmt.Sprintf("%.0f%% used or <%s free",
-				diskusage.MaxUsedFraction*100, diskusage.FormatBytes(diskusage.MinFreeBytes)))
+				diskusage.MaxUsedFraction*100, rutils.FormatBytes(diskusage.MinFreeBytes)))
 	} else {
 		// Debug so a healthy machine doesn't log every interval; the low-space case above is the signal.
 		m.logger.Debugw("free disk space",
 			"path", m.path,
-			"available", diskusage.FormatBytes(res.usage.AvailableBytes),
+			"available", rutils.FormatBytes(res.usage.AvailableBytes),
 			"used_percent", usedPercent)
 	}
 }

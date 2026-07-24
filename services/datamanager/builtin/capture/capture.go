@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/utils/diskusage"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
@@ -420,7 +420,7 @@ func collectorConfigDescription(
 ) string {
 	return fmt.Sprintf("[CaptureFrequencyHz: %f, Tags: %v, MaximumCaptureFileSize: %s, "+
 		"CaptureBufferQueueSize: %d, CaptureBufferSize: %d, TargetDir: %s]",
-		collectorConfig.CaptureFrequencyHz, collectorConfig.Tags, diskusage.FormatBytesI64(maximumCaptureFileSizeBytes),
+		collectorConfig.CaptureFrequencyHz, collectorConfig.Tags, rutils.FormatBytesI64(maximumCaptureFileSizeBytes),
 		queueSize, bufferSize, targetDir,
 	)
 }
