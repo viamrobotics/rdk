@@ -514,18 +514,18 @@ func (conf *Remote) validate(path string) error {
 // A Cloud describes how to configure a robot controlled by the
 // cloud.
 type Cloud struct {
-	ID                string
-	Secret            string
-	LocationSecret    string // Deprecated: Use LocationSecrets
-	LocationSecrets   []LocationSecret
-	APIKey            APIKey
-	LocationID        string
-	PrimaryOrgID      string
-	MachineID         string
-	ManagedBy         string
-	FQDN              string
-	LocalFQDN         string
-	SignalingAddress  string
+	ID               string
+	Secret           string
+	LocationSecret   string // Deprecated: Use LocationSecrets
+	LocationSecrets  []LocationSecret
+	APIKey           APIKey
+	LocationID       string
+	PrimaryOrgID     string
+	MachineID        string
+	ManagedBy        string
+	FQDN             string
+	LocalFQDN        string
+	SignalingAddress string
 	// SignalingInsecure also doubles as the marker for whether the viam-server should try to grab
 	// a TLS cert, since local dev app instances are insecure and have no robot certs by default.
 	// These two things are not intrinsically linked and ideally would be separate fields; until
