@@ -2871,6 +2871,75 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	})
 }
 
+func TestReconfigureActivityEvents(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	ctx := context.Background()
+
+	cfg := &config.Config{
+		Initial: true,
+		Components: []resource.Config{
+			{
+				Name:  "b1",
+				API:   base.API,
+				Model: fakeModel,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
+
+	// reconfigureEvents returns (event, reconfigure_type) pairs in emission order.
+	reconfigureEvents := func() [][2]string {
+		var events [][2]string
+		for _, entry := range activityLogs.All() {
+			fields := entry.ContextMap()
+			if fields["event_type"] != "reconfigure" {
+				continue
+			}
+			events = append(events, [2]string{fmt.Sprint(fields["event"]), fmt.Sprint(fields["reconfigure_type"])})
+		}
+		return events
+	}
+
+	// The Initial config pass is a construction, even though r.initializing is not yet
+	// set at pass entry (the flag lags by one pass; labels derive from newConfig.Initial).
+	test.That(t, reconfigureEvents(), test.ShouldResemble, [][2]string{
+		{"start", "construction"},
+		{"complete", "construction"},
+	})
+
+	cfg2 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "b1",
+				API:   base.API,
+				Model: fakeModel,
+			},
+			{
+				Name:  "b2",
+				API:   base.API,
+				Model: fakeModel,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	test.That(t, reconfigureEvents(), test.ShouldResemble, [][2]string{
+		{"start", "construction"},
+		{"complete", "construction"},
+		{"start", "reconfiguration"},
+		{"complete", "reconfiguration"},
+	})
+
+	// Terminal events carry a duration.
+	for _, entry := range activityLogs.All() {
+		fields := entry.ContextMap()
+		if fields["event_type"] == "reconfigure" && fields["event"] == "complete" {
+			test.That(t, fields["duration"], test.ShouldNotBeEmpty)
+		}
+	}
+}
+
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)

@@ -422,6 +422,41 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
 }
 
+func TestRemoteConnectivityActivityEvents(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	ctx := context.Background()
+
+	manager := managerForDummyRobot(t, setupInjectRobot(logger))
+	remote := newDummyRobot(t, setupInjectRobot(logger))
+	manager.addRemote(ctx, remote, nil, config.Remote{Name: "remote1"})
+	remoteName := fromRemoteNameToRemoteNodeName("remote1")
+
+	// A healthy pass with no transition emits nothing; this function runs on a ticker.
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "connect"), test.ShouldEqual, 0)
+	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 0)
+
+	// Reachable -> broken emits exactly one disconnect...
+	remote.SetOffline(true)
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 1)
+
+	// ...and repeat passes while broken emit nothing new.
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 1)
+
+	// Broken -> reachable emits exactly one connect...
+	remote.SetOffline(false)
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "connect"), test.ShouldEqual, 1)
+
+	// ...and repeat passes while healthy emit nothing new.
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "connect"), test.ShouldEqual, 1)
+	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 1)
+}
+
 func TestManagerWithSameNameInRemoteWithPrefix(t *testing.T) {
 	// The test tests that the resource manager handles prefixes correctly.
 	//
