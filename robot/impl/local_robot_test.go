@@ -2873,7 +2873,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 
 func TestReconfigureActivityEvents(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	ctx := context.Background()
 
 	cfg := &config.Config{
@@ -2943,7 +2943,7 @@ func TestReconfigureActivityEvents(t *testing.T) {
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 

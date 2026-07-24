@@ -514,7 +514,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	// 'h' is setup to always fail on the first construction on the module.
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	r, cfg := setupModuleTest(t, ctx, true, logger)
 
 	// Assert that removing testmodule binary and killing testmodule
@@ -615,7 +615,7 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	// and fixing modules and making sure unhealthyModules is updated accordingly.
 	ctx := context.Background()
 	logger, _ := logging.NewObservedTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
 
 	// TEST: user adds module with invalid exec path and it fails to validate

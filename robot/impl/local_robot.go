@@ -1947,7 +1947,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}
 	reconfigureStarted := time.Now()
-	logging.Activity("reconfigure", "start",
+	r.logger.Activity("reconfigure", "start",
 		"revision", diff.NewRevision(),
 		"reconfigure_type", logNoun,
 	)
@@ -2004,14 +2004,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	if allErrs != nil {
-		logging.ActivityError("reconfigure", "fail",
+		r.logger.ActivityError("reconfigure", "fail",
 			"revision", diff.NewRevision(),
 			"reconfigure_type", logNoun,
 			"duration", time.Since(reconfigureStarted).String(),
 			"errors", allErrs,
 		)
 	} else {
-		logging.Activity("reconfigure", "complete",
+		r.logger.Activity("reconfigure", "complete",
 			"revision", diff.NewRevision(),
 			"reconfigure_type", logNoun,
 			"duration", time.Since(reconfigureStarted).String(),

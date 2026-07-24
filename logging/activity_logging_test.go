@@ -10,81 +10,108 @@ import (
 	"go.viam.com/test"
 )
 
-// swapInObservedActivityLogger installs a fresh global activity logger backed by an
-// observer core and restores the previous global on cleanup.
-func swapInObservedActivityLogger(t *testing.T, unit string) (*Registry, *observer.ObservedLogs) {
-	t.Helper()
-	observerCore, logs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	old := globalActivityLogger.Load()
-	t.Cleanup(func() { globalActivityLogger.Store(old) })
-	registry := newRegistry()
-	InitActivityLogger(registry, unit)
-	globalActivityLogger.Load().logger.AddAppender(observerCore)
-	return registry, logs
-}
-
 func TestActivityEventFields(t *testing.T) {
-	_, logs := swapInObservedActivityLogger(t, "testunit")
+	logger, _ := NewObservedTestLogger(t)
+	//nolint:forcetypeassert
+	logger.(*impl).registry.SetActivityUnit("testunit")
+	activityLogs := NewObservedActivityLogger(t, logger)
 
-	Activity("reconfigure", "start", "revision", "rev123")
+	logger.Activity("reconfigure", "start", "revision", "rev123")
 
-	all := logs.All()
+	all := activityLogs.All()
 	test.That(t, len(all), test.ShouldEqual, 1)
 	entry := all[0]
-	test.That(t, entry.LoggerName, test.ShouldEqual, "rdk.activity")
+	test.That(t, entry.LoggerName, test.ShouldEqual, "rdk.activity.testunit")
 	test.That(t, entry.Level, test.ShouldEqual, zapcore.InfoLevel)
 	test.That(t, entry.Message, test.ShouldEqual, "")
 
 	fields := entry.ContextMap()
 	test.That(t, fields["activity"], test.ShouldEqual, "reconfigure")
 	test.That(t, fields["event"], test.ShouldEqual, "start")
-	test.That(t, fields["unit"], test.ShouldEqual, "testunit")
 	test.That(t, fields["revision"], test.ShouldEqual, "rev123")
 }
 
+func TestActivityDefaultUnit(t *testing.T) {
+	logger, _ := NewObservedTestLogger(t)
+	activityLogs := NewObservedActivityLogger(t, logger)
+
+	logger.Activity("reconfigure", "start")
+
+	all := activityLogs.All()
+	test.That(t, len(all), test.ShouldEqual, 1)
+	test.That(t, all[0].LoggerName, test.ShouldEqual, "rdk.activity.unknown")
+}
+
 func TestActivityErrorLevel(t *testing.T) {
-	_, logs := swapInObservedActivityLogger(t, "testunit")
+	logger, _ := NewObservedTestLogger(t)
+	activityLogs := NewObservedActivityLogger(t, logger)
 
-	ActivityError("reconfigure", "fail", "errors", "boom")
+	logger.ActivityError("reconfigure", "fail", "errors", "boom")
 
-	all := logs.All()
+	all := activityLogs.All()
 	test.That(t, len(all), test.ShouldEqual, 1)
 	test.That(t, all[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 	fields := all[0].ContextMap()
 	test.That(t, fields["activity"], test.ShouldEqual, "reconfigure")
 	test.That(t, fields["event"], test.ShouldEqual, "fail")
-	test.That(t, fields["unit"], test.ShouldEqual, "testunit")
 	test.That(t, fields["errors"], test.ShouldEqual, "boom")
 }
 
 func TestActivityNeverDeduplicated(t *testing.T) {
-	registry, logs := swapInObservedActivityLogger(t, "testunit")
+	logger, _ := NewObservedTestLogger(t)
 	// Enable dedup at the registry level to prove activity events are exempt.
-	registry.DeduplicateLogs.Store(true)
+	//nolint:forcetypeassert
+	logger.(*impl).registry.DeduplicateLogs.Store(true)
+	activityLogs := NewObservedActivityLogger(t, logger)
 
 	n := noisyMessageCountThreshold + 3
 	for range n {
-		Activity("reconfigure", "start")
+		logger.Activity("reconfigure", "start")
 	}
-	test.That(t, len(logs.All()), test.ShouldEqual, n)
+	test.That(t, len(activityLogs.All()), test.ShouldEqual, n)
+}
+
+func TestActivityIgnoresLoggerLevel(t *testing.T) {
+	logger, _ := NewObservedTestLogger(t)
+	logger.SetLevel(ERROR)
+	activityLogs := NewObservedActivityLogger(t, logger)
+
+	logger.Activity("reconfigure", "start")
+
+	test.That(t, len(activityLogs.All()), test.ShouldEqual, 1)
 }
 
 func TestActivityCallerAttribution(t *testing.T) {
-	_, logs := swapInObservedActivityLogger(t, "testunit")
+	logger, _ := NewObservedTestLogger(t)
+	activityLogs := NewObservedActivityLogger(t, logger)
 
-	Activity("reconfigure", "start")
+	logger.Activity("reconfigure", "start")
 
-	all := logs.All()
+	all := activityLogs.All()
 	test.That(t, len(all), test.ShouldEqual, 1)
 	caller := all[0].Caller
 	test.That(t, caller.Defined, test.ShouldBeTrue)
 	test.That(t, strings.Contains(caller.File, "activity_logging_test.go"), test.ShouldBeTrue)
 }
 
-func TestActivityDroppedWithoutSinks(t *testing.T) {
-	// The package-default global has no appenders; Activity must be a safe no-op.
-	old := globalActivityLogger.Load()
-	t.Cleanup(func() { globalActivityLogger.Store(old) })
-	InitActivityLogger(newRegistry(), "unknown")
-	Activity("reconfigure", "start")
+func TestSetActivityUnitEagerCreation(t *testing.T) {
+	// SetActivityUnit must create the activity logger immediately so a subsequent
+	// AddAppenderToAll gives it the same sinks as the rest of the logger tree.
+	logger, registry := NewLoggerWithRegistry("test")
+	registry.SetActivityUnit("server")
+
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	registry.AddAppenderToAll(observerCore)
+
+	logger.Activity("reconfigure", "start")
+
+	all := observedLogs.All()
+	test.That(t, len(all), test.ShouldEqual, 1)
+	test.That(t, all[0].LoggerName, test.ShouldEqual, "rdk.activity.server")
+}
+
+func TestActivityNoSinks(t *testing.T) {
+	// An activity logger with no appenders must drop events without error.
+	logger := NewLogger("test")
+	logger.Activity("reconfigure", "start")
 }

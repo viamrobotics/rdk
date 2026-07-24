@@ -399,7 +399,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
-	logging.Activity("module", "start", "module", mod.cfg.Name)
+	mod.logger.Activity("module", "start", "module", mod.cfg.Name)
 	mgr.setModuleStatusReady(mod.cfg.Name)
 
 	success = true
@@ -543,7 +543,7 @@ func (mgr *Manager) closeModule(mod *module, reason string) error {
 	mgr.removeModuleStatus(mod.cfg.Name)
 
 	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
-	logging.Activity("module", "stop", "module", mod.cfg.Name, "reason", reason)
+	mod.logger.Activity("module", "stop", "module", mod.cfg.Name, "reason", reason)
 	return nil
 }
 
@@ -887,7 +887,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		mod.logger.Errorw(
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
-		logging.Activity("module", "stop", "module", mod.cfg.Name, "reason", "crash", "exit_code", exitCode)
+		mod.logger.Activity("module", "stop", "module", mod.cfg.Name, "reason", "crash", "exit_code", exitCode)
 
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely

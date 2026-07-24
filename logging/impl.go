@@ -122,6 +122,31 @@ func (imp *impl) getAppenders() []Appender {
 	return imp.appenders
 }
 
+// Activity emits an activity event through this logger's registry's activity logger
+// (rdk.activity.<unit>). It always emits regardless of any configured level and is never
+// deduplicated. Callers must not set "activity" or "event" in keysAndValues.
+//
+// The log body lives here rather than in a shared helper so the call depth matches the
+// standard logger methods and getCaller attributes the entry to the Activity call site.
+func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
+	al := imp.registry.activityLogger()
+	// Prepend so activity and event lead the rendered fields.
+	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
+	entry := al.formatw(INFO, emptyTraceKey, "", keysAndValues...)
+	al.Write(entry)
+}
+
+// ActivityError emits an activity event at ERROR severity, for events that are bad
+// outcomes (e.g. "fail"). Emission is identical to Activity: unconditional and never
+// deduplicated. The body is duplicated from Activity so caller attribution holds.
+func (imp *impl) ActivityError(activity, event string, keysAndValues ...any) {
+	al := imp.registry.activityLogger()
+	// Prepend so activity and event lead the rendered fields.
+	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
+	entry := al.formatw(ERROR, emptyTraceKey, "", keysAndValues...)
+	al.Write(entry)
+}
+
 func (imp *impl) Desugar() *zap.Logger {
 	return imp.AsZap().Desugar()
 }

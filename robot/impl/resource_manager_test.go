@@ -424,7 +424,7 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 
 func TestRemoteConnectivityActivityEvents(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	ctx := context.Background()
 
 	manager := managerForDummyRobot(t, setupInjectRobot(logger))

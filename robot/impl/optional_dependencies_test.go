@@ -1528,7 +1528,7 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	// not on repeated errors while already unusable.
 
 	logger, logs := logging.NewObservedTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	ctx := context.Background()
 
 	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
@@ -1651,7 +1651,7 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	// dependencies are not rebuilt multiple times.
 
 	logger, logs := logging.NewObservedTestLogger(t)
-	activityLogs := logging.NewObservedActivityLogger(t, "server")
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	ctx := context.Background()
 
 	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())

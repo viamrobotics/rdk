@@ -244,7 +244,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			)
 		}
 		if prevReachable {
-			logging.Activity("remote", "disconnect", "remote", remoteName.Name)
+			manager.logger.Activity("remote", "disconnect", "remote", remoteName.Name)
 		}
 		return false
 	}
@@ -257,7 +257,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		)
 	}
 	if !prevReachable {
-		logging.Activity("remote", "connect", "remote", remoteName.Name)
+		manager.logger.Activity("remote", "connect", "remote", remoteName.Name)
 	}
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
@@ -860,7 +860,7 @@ func (manager *resourceManager) completeConfig(
 						activityType := fmt.Sprintf("resource_%s", verb)
 						activityRevision := gNode.PendingRevision()
 						activityStarted := time.Now()
-						logging.Activity(activityType, "start",
+						manager.logger.Activity(activityType, "start",
 							"resource", resName.String(),
 							"model", conf.Model.String(),
 							"reason", gNode.ReconfigureReason(),
@@ -876,7 +876,7 @@ func (manager *resourceManager) completeConfig(
 
 						if err != nil {
 							gNode.SetLastError(fmt.Errorf("resource build error: %v", err.Error()))
-							logging.ActivityError(activityType, "fail",
+							manager.logger.ActivityError(activityType, "fail",
 								"resource", resName.String(),
 								"model", conf.Model.String(),
 								"revision", activityRevision,
@@ -890,12 +890,12 @@ func (manager *resourceManager) completeConfig(
 						// validation around how this might affect the resource graph. So, we avoid
 						// updating the graph to be safe.
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-							logging.ActivityError(activityType, "fail",
+							manager.logger.ActivityError(activityType, "fail",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
 								"duration", time.Since(activityStarted).String(), "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
-							logging.Activity(activityType, "complete",
+							manager.logger.Activity(activityType, "complete",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
 								"duration", time.Since(activityStarted).String())
 						}
@@ -1112,7 +1112,7 @@ func (manager *resourceManager) processRemote(
 		}
 		return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 	}
-	logging.Activity("remote", "connect", "remote", config.Name)
+	manager.logger.Activity("remote", "connect", "remote", config.Name)
 	return robotClient, nil
 }
 

@@ -183,16 +183,16 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 	return logger, observedLogs, registry
 }
 
-// NewObservedActivityLogger replaces the process-global activity logger with one backed by
-// an in-memory observer until the test ends, returning the observed activity events.
-// Because the activity logger is process-global, tests using this must not run in parallel
-// with other tests that emit or observe activity events.
-func NewObservedActivityLogger(tb testing.TB, unit string) *observer.ObservedLogs {
+// NewObservedActivityLogger attaches an in-memory observer to the activity logger of the
+// given logger's registry, returning the observed activity events. logger must be a
+// registry-backed logger created by this package.
+func NewObservedActivityLogger(tb testing.TB, logger Logger) *observer.ObservedLogs {
+	imp, ok := logger.(*impl)
+	if !ok {
+		tb.Fatalf("logger of type %T is not registry-backed", logger)
+	}
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	old := globalActivityLogger.Load()
-	tb.Cleanup(func() { globalActivityLogger.Store(old) })
-	InitActivityLogger(newRegistry(), unit)
-	globalActivityLogger.Load().logger.AddAppender(observerCore)
+	imp.registry.activityLogger().AddAppender(observerCore)
 	return observedLogs
 }
 
