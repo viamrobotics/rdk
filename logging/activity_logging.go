@@ -69,6 +69,6 @@ func ActivityError(eventType, event string, keysAndValues ...any) {
 	al := globalActivityLogger
 	// Prepend so unit, event_type, and event lead the rendered fields.
 	keysAndValues = append([]any{"unit", al.unit, "event_type", eventType, "event", event}, keysAndValues...)
-	entry := al.logger.formatw(ERROR, emptyTraceKey, "Event:", keysAndValues...)
+	entry := al.logger.formatw(ERROR, emptyTraceKey, "", keysAndValues...)
 	al.logger.Write(entry)
 }
