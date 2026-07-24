@@ -197,10 +197,18 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		nameToPeerState = pcStreams
 		// If this peer connection already subscribes to this stream, treat it
 		// as an additional consumer (e.g. two UI components on the same page
-		// both showing the same camera). Both StreamClient listeners on the
-		// shared peer connection already receive the same 'track' events, so
-		// we share the existing track and just refcount for cleanup.
+		// both showing the same camera). Add a separate sender for this
+		// consumer so the browser fires a track event for its handler; refcount
+		// for teardown ordering.
 		if existing, isStreaming := pcStreams[req.Name]; isStreaming {
+			if trackLocal, haveTrackLocal := streamStateToAdd.Stream.VideoTrackLocal(); haveTrackLocal {
+				sender, err := pc.AddTrack(trackLocal)
+				if err != nil {
+					server.logger.Errorw("failed to add track for additional consumer", "err", err)
+					return nil, err
+				}
+				existing.senders = append(existing.senders, sender)
+			}
 			existing.refCount++
 			return &streampb.AddStreamResponse{}, nil
 		}
@@ -292,9 +300,18 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	}
 
 	// If additional consumers on this peer connection are still subscribed,
-	// keep the track alive and just decrement the local refcount.
+	// remove only this consumer's sender (LIFO — last added, first removed)
+	// and leave the track for remaining consumers.
 	existing.refCount--
 	if existing.refCount > 0 {
+		if n := len(existing.senders); n > 0 {
+			lastSender := existing.senders[n-1]
+			if err := pc.RemoveTrack(lastSender); err != nil {
+				server.logger.Error(err.Error())
+				return nil, err
+			}
+			existing.senders = existing.senders[:n-1]
+		}
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
