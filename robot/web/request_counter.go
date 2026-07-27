@@ -547,6 +547,7 @@ func (rc *RequestCounter) setClientMetadataForPC(ctx context.Context, pc *webrtc
 	}
 
 	rc.pcToClientMetadata.Store(pc, clientMetadata)
+	rc.logger.Activity("connection", "connect", "client", clientMetadata)
 }
 
 // incrInFlight attempts to increment the in-flight request counters for a given
