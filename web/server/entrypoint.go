@@ -13,6 +13,7 @@ import (
 	"runtime/pprof"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -61,6 +62,16 @@ type robotServer struct {
 	registry                                   *logging.Registry
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
+	stopReason                                 atomic.Pointer[string]
+	// startupStarted and shutdownStarted feed the duration kv on the startup/shutdown
+	// complete activity events.
+	startupStarted  time.Time
+	shutdownStarted time.Time
+}
+
+// recordStopReason stores reason unless one was already recorded.
+func (s *robotServer) recordStopReason(reason string) {
+	s.stopReason.CompareAndSwap(nil, &reason)
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -269,6 +280,12 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(rootLogger)
+	startupStarted := time.Now()
+	rootLogger.Activity("startup", "start",
+		"pid", os.Getpid(),
+		"version", config.Version,
+		"git_rev", config.GitRevision,
+	)
 	startupInfoLogged = true
 
 	// The golog global logger is unused in rdk. But, goutils still makes infrequent use of
@@ -288,6 +305,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry:         registry,
 		conn:             appConn,
 		signalingConn:    signalingConn,
+		startupStarted:   startupStarted,
 	}
 
 	// Run the server with remote logging enabled.
@@ -295,6 +313,35 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if err != nil {
 		rootLogger.Error("Fatal error running server, exiting now:", err)
 	}
+
+	// Prefer a reason recorded at the cancellation site; otherwise infer what we can.
+	stopReason := "unknown"
+	switch {
+	case server.stopReason.Load() != nil:
+		stopReason = *server.stopReason.Load()
+	case err != nil:
+		stopReason = "error"
+	case ctx.Err() != nil:
+		// Parent context canceled externally (e.g. SIGTERM from viam-agent or the user).
+		stopReason = "signal"
+	}
+
+	// Empty when the server never reached serving (no shutdown start was emitted).
+	var shutdownDuration string
+	if !server.shutdownStarted.IsZero() {
+		shutdownDuration = time.Since(server.shutdownStarted).String()
+	}
+
+	// Emitted before the deferred netAppender.Close so its best-effort flush can deliver
+	// this event to the cloud on the way out.
+	rootLogger.Activity("shutdown", "complete",
+		"pid", os.Getpid(),
+		"version", config.Version,
+		"git_rev", config.GitRevision,
+		"reason", stopReason,
+		"duration", shutdownDuration,
+		"error", err,
+	)
 
 	return err
 }
@@ -396,9 +443,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 ) {
 	// Reconfigure robot to have passed-in config before listening for any config
 	// changes.
-	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-	s.configLogger.CInfow(ctx, "Robot constructed with full config", "time_to_construct", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -509,6 +554,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 		<-ctx.Done()
 		shutdownStarted := time.Now()
+		s.shutdownStarted = shutdownStarted
+		// Reason is omitted: some paths (e.g. error returns) have not classified one yet;
+		// the shutdown complete event carries the authoritative reason.
+		s.rootLogger.Activity("shutdown", "start",
+			"pid", os.Getpid(),
+			"version", config.Version,
+			"git_rev", config.GitRevision,
+		)
 
 		slowTicker := time.NewTicker(10 * time.Second)
 		defer slowTicker.Stop()
@@ -599,7 +652,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
-					logStackTraceAndCancel(cancel, s.rootLogger)
+					s.logStackTraceAndCancel(cancel, "app_restart")
 				}
 			}
 		})
@@ -611,7 +664,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	shutdownCallbackOpt := robotimpl.WithShutdownCallback(func() {
-		logStackTraceAndCancel(cancel, s.rootLogger)
+		s.logStackTraceAndCancel(cancel, "shutdown_request")
 	})
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
 
@@ -638,13 +691,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// state of initializing until reconfigured with full config.
 	minimalProcessedConfig.Initial = true
 
-	startTime := time.Now()
 	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.rootLogger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
 	}
-	s.configLogger.CInfow(ctx, "Robot created with minimal config", "time_to_create", time.Since(startTime).String())
 
 	theRobotLock.Lock()
 	theRobot = myRobot
@@ -685,6 +736,12 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
+	s.rootLogger.Activity("startup", "complete",
+		"pid", os.Getpid(),
+		"version", config.Version,
+		"git_rev", config.GitRevision,
+		"duration", time.Since(s.startupStarted).String(),
+	)
 	return web.RunWeb(ctx, theRobot, options, s.rootLogger)
 }
 
@@ -735,14 +792,18 @@ func dumpResourceRegistrations(outputPath string) error {
 	return nil
 }
 
-func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
+// logStackTraceAndCancel records reason for the stop activity event, logs a backtrace, and
+// cancels the serve context. Every shutdown-triggering path should go through here so the
+// stop reason is always classified.
+func (s *robotServer) logStackTraceAndCancel(cancel context.CancelFunc, reason string) {
+	s.recordStopReason(reason)
 	// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
 	// viam-server stack traces by default on app.viam.com.
-	logger = logger.Sublogger("stack_traces")
+	logger := s.rootLogger.Sublogger("stack_traces")
 	bufSize := 1 << 20
 	traces := make([]byte, bufSize)
 	traceSize := runtime.Stack(traces, true)
-	message := "backtrace at robot shutdown"
+	message := fmt.Sprintf("backtrace at robot shutdown (reason: %s)", reason)
 	if traceSize == bufSize {
 		message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
 	}

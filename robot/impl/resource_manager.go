@@ -226,6 +226,13 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
 
+	// Track the remote's previous reachability so connect/disconnect activity events are
+	// emitted only on transitions (since this function is called in a loop)
+	prevReachable := true
+	if rNode, ok := manager.resources.Node(remoteName); ok {
+		prevReachable = rNode.IsReachable()
+	}
+
 	// The connection to the remote is broken. In this case, we mark each resource node
 	// on this remote as disconnected but do not report any other changes.
 	if newResources == nil {
@@ -236,6 +243,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				"error", err,
 			)
 		}
+		if prevReachable {
+			manager.logger.Activity("remote", "disconnect", "remote", remoteName.Name)
+		}
 		return false
 	}
 
@@ -245,6 +255,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			"unable to mark remote resources as reachable",
 			"error", err,
 		)
+	}
+	if !prevReachable {
+		manager.logger.Activity("remote", "connect", "remote", remoteName.Name)
 	}
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
@@ -844,6 +857,15 @@ func (manager *resourceManager) completeConfig(
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
+						activityType := fmt.Sprintf("resource_%s", verb)
+						activityRevision := gNode.PendingRevision()
+						activityStarted := time.Now()
+						manager.logger.Activity(activityType, "start",
+							"resource", resName.String(),
+							"model", conf.Model.String(),
+							"reason", gNode.ReconfigureReason(),
+							"revision", activityRevision,
+						)
 						newRes, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if err := manager.markChildrenForUpdate(resName); err != nil {
 							manager.logger.CErrorw(ctx,
@@ -857,6 +879,12 @@ func (manager *resourceManager) completeConfig(
 								fmt.Errorf("resource build error: %v", err.Error()),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
+							manager.logger.Activity(activityType, "fail",
+								"resource", resName.String(),
+								"model", conf.Model.String(),
+								"revision", activityRevision,
+								"duration", time.Since(activityStarted).String(),
+								"error", err)
 							return
 						}
 
@@ -867,9 +895,14 @@ func (manager *resourceManager) completeConfig(
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+							manager.logger.Activity(activityType, "fail",
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
+								"duration", time.Since(activityStarted).String(), "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
-							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
+							manager.logger.Activity(activityType, "complete",
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
+								"duration", time.Since(activityStarted).String())
 						}
 
 					default:
@@ -1084,7 +1117,7 @@ func (manager *resourceManager) processRemote(
 		}
 		return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 	}
-	manager.logger.CInfow(ctx, "Connected now to remote", "remote", config.Name)
+	manager.logger.Activity("remote", "connect", "remote", config.Name)
 	return robotClient, nil
 }
 
