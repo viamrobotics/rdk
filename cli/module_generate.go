@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -1450,15 +1451,44 @@ func findPythonCommand() string {
 	return ""
 }
 
+// createPythonVenv creates a Python virtual environment at venvName. Creating a venv
+// bootstraps pip via ensurepip in a subprocess, which can fail intermittently under CI
+// load, so we retry a few times and remove any partially-created environment between
+// attempts. The returned error includes the subprocess's stderr, since a bare
+// "exit status 1" is not actionable on its own.
+func createPythonVenv(pythonCmd, venvName string) error {
+	const maxAttempts = 3
+	var err error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if err = cmd.Run(); err == nil {
+			return nil
+		}
+		err = errorWithStderr(err, stderr.String())
+		// Remove any partial environment so the next attempt starts clean.
+		utils.UncheckedError(os.RemoveAll(venvName))
+	}
+	return err
+}
+
+// errorWithStderr augments err with the trimmed stderr of a failed command so callers
+// surface why a subprocess failed instead of only its exit status.
+func errorWithStderr(err error, stderr string) error {
+	if trimmed := strings.TrimSpace(stderr); trimmed != "" {
+		return errors.Errorf("%s: %s", err, trimmed)
+	}
+	return err
+}
+
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := findPythonCommand()
 	if pythonCmd == "" {
 		return errors.New("cannot generate python stubs -- python runtime not found")
 	}
-	cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
-	_, err := cmd.Output()
-	if err != nil {
+	if err := createPythonVenv(pythonCmd, venvName); err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
 	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(venvName) })
@@ -1473,7 +1503,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
 	//nolint:gosec
-	cmd = exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
+	cmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
@@ -1819,8 +1849,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if pythonCmd == "" {
 		return errors.New("python runtime not found")
 	}
-	cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
-	if _, err := cmd.Output(); err != nil {
+	if err := createPythonVenv(pythonCmd, venvName); err != nil {
 		return errors.Wrap(err, "unable to create python virtual environment")
 	}
 	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(venvName) })
