@@ -127,7 +127,7 @@ require (
 	gorgonia.org/tensor v0.9.24
 	gotest.tools/gotestsum v1.12.2
 	periph.io/x/conn/v3 v3.7.0
-	periph.io/x/host/v3 v3.8.1-0.20230331112814-9f0d9f7d76db
+	periph.io/x/host/v3 v3.8.1
 )
 
 require (
