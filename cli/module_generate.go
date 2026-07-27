@@ -1460,7 +1460,7 @@ func createPythonVenv(pythonCmd, venvName string) error {
 	const maxAttempts = 3
 	var err error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
+		cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 		if err = cmd.Run(); err == nil {

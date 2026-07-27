@@ -578,6 +578,13 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test generate stubs", func(t *testing.T) {
+		pythonCmd := findPythonCommand()
+		if pythonCmd == "" {
+			t.Skip("python not available")
+		}
+		if err := createPythonVenv(pythonCmd, filepath.Join(t.TempDir(), ".venv")); err != nil {
+			t.Skip("python venv creation not available")
+		}
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
@@ -631,6 +638,13 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test generate python stubs", func(t *testing.T) {
+		pythonCmd := findPythonCommand()
+		if pythonCmd == "" {
+			t.Skip("python not available")
+		}
+		if err := createPythonVenv(pythonCmd, filepath.Join(t.TempDir(), ".venv")); err != nil {
+			t.Skip("python venv creation not available")
+		}
 		testModule.Language = "python"
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
