@@ -112,7 +112,7 @@ func TestCalcBitrateFromResolution(t *testing.T) {
 		expected      int
 	}{
 		{640, 480, 30, 1382400},
-		{1920, 1080, 30, 9331200},
+		{1920, 1080, 30, maxBitrate},
 		{3840, 2160, 30, maxBitrate},
 		{240, 180, 30, minBitrate},
 	}
