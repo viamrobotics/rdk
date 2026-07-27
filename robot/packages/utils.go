@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	errw "github.com/pkg/errors"
@@ -39,6 +40,15 @@ var enoughFreeSpace = diskusage.EnoughFreeSpace
 // low. Callers use errors.Is to tell a disk-space refusal from other failures (e.g. a corrupt
 // archive) and surface an accurate message.
 var errInsufficientDiskSpace = errors.New("not enough free disk space")
+
+// isTransientDiskSpaceError reports whether err is a low-space failure that should be retried
+// rather than marked syncStatusFailed. Two paths reach here: blocking mode refuses the op up front
+// with errInsufficientDiskSpace, and log-only mode proceeds past the warning but then the write
+// genuinely exhausts the disk (a raw syscall.ENOSPC wrapped by os/io). Both are the same transient
+// condition, so treat them alike so the next sync retries once space frees.
+func isTransientDiskSpaceError(err error) bool {
+	return errors.Is(err, errInsufficientDiskSpace) || errors.Is(err, syscall.ENOSPC)
+}
 
 // diskSpaceBlockingEnabled reports whether low-space conditions should refuse the operation
 // (download, local copy, or unpack). Default (unset) is false: low-space is logged but the
@@ -180,11 +190,11 @@ func installPackage(
 	// unzip archive.
 	err = unpackFile(ctx, logger, dstPath, tmpDataPath)
 	if err != nil {
-		// A low-space refusal is transient, not a bad archive: don't write syncStatusFailed
+		// A low-space failure is transient, not a bad archive: don't write syncStatusFailed
 		// (packageIsSynced treats "failed" as synced to avoid retrying forever, which would block
 		// re-download until the version changes). Without it the next sync retries once there's
 		// space. Surface as-is, not as "try a different version".
-		if errors.Is(err, errInsufficientDiskSpace) {
+		if isTransientDiskSpaceError(err) {
 			utils.UncheckedError(cleanup(packagesDir, p))
 			return err
 		}
@@ -239,12 +249,12 @@ func cleanup(packagesDir string, p config.PackageConfig) error {
 	)
 }
 
-// unpackFile extracts a tgz to a directory.
 // unpackDiskCheckInterval batches the free-space re-check during unpack so we don't statfs per
 // file: a run of small files is checked once per interval of accumulated data, while any file
 // larger than the interval is checked on its own (its size is folded into the required floor).
 const unpackDiskCheckInterval = 8 * 1024 * 1024
 
+// unpackFile extracts a tgz to a directory.
 func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir string) error {
 	if err := os.MkdirAll(toDir, 0o700); err != nil {
 		return err
