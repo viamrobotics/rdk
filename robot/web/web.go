@@ -635,6 +635,11 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 
 	unaryInterceptors = append(unaryInterceptors, grpc.ResourceNameTaggingUnaryServerInterceptor)
 
+	if authorizer := newRolesAuthorizer(options.Auth.Roles, svc.logger); authorizer != nil {
+		unaryInterceptors = append(unaryInterceptors, authorizer.UnaryInterceptor)
+		streamInterceptors = append(streamInterceptors, authorizer.StreamInterceptor)
+	}
+
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 		unaryInterceptors = append(unaryInterceptors, func(

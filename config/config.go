@@ -871,6 +871,32 @@ type AuthConfig struct {
 	Handlers           []AuthHandlerConfig `json:"handlers,omitempty"`
 	TLSAuthEntities    []string            `json:"tls_auth_entities,omitempty"`
 	ExternalAuthConfig *ExternalAuthConfig `json:"external_auth_config,omitempty"`
+	Roles              []Role              `json:"roles,omitempty"`
+}
+
+// DefaultRoleUser is the special Role user that applies to any authenticated user
+// without a Role of its own.
+const DefaultRoleUser = "default"
+
+// A Role describes the permissions an authenticated user has on this machine. If no
+// roles are configured, all users are unrestricted. If any are, users without a role
+// receive only the permissions of the DefaultRoleUser role, if configured, plus a
+// small set of default endpoints needed to maintain an SDK connection.
+type Role struct {
+	// User is the ID of the user this role applies to: an API key ID or a FusionAuth
+	// ID. Or, it is the special string "default".
+	User        string       `json:"user"`
+	Permissions []Permission `json:"permissions,omitempty"`
+}
+
+// A Permission grants a user the ability to invoke a set of methods on resources
+// with a given name.
+type Permission struct {
+	// Resource is the name of the resource this permission applies to, e.g. "cam1".
+	Resource string `json:"resource"`
+	// Methods is a list of fully qualified gRPC methods the user may invoke on
+	// resources of this name, e.g. "/viam.component.camera.v1.CameraService/GetImages".
+	Methods []string `json:"methods,omitempty"`
 }
 
 // ExternalAuthConfig contains information needed to verify externally authenticated tokens.
