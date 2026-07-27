@@ -1458,7 +1458,7 @@ func createPythonVenv(pythonCmd, venvName string) error {
 	const venvAttempts = 3
 	var err error
 	for attempt := 0; attempt < venvAttempts; attempt++ {
-		cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
+		cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
 		if _, err = cmd.Output(); err == nil {
 			return nil
 		}

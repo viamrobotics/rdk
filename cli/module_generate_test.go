@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -577,6 +578,7 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test generate stubs", func(t *testing.T) {
+		skipIfPythonVenvUnavailable(t)
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
@@ -630,6 +632,7 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test generate python stubs", func(t *testing.T) {
+		skipIfPythonVenvUnavailable(t)
 		testModule.Language = "python"
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
@@ -796,6 +799,21 @@ func TestGenerateModuleAction(t *testing.T) {
 			}
 		}
 	})
+}
+
+// skipIfPythonVenvUnavailable skips the test if the environment cannot create
+// a Python virtual environment (e.g., python3-venv not installed in the CI container).
+func skipIfPythonVenvUnavailable(t *testing.T) {
+	t.Helper()
+	pythonCmd := findPythonCommand()
+	if pythonCmd == "" {
+		t.Skip("python not available")
+	}
+	dir := t.TempDir()
+	cmd := exec.Command(pythonCmd, "-m", "venv", filepath.Join(dir, ".venv"))
+	if err := cmd.Run(); err != nil {
+		t.Skipf("python venv creation not available: %v", err)
+	}
 }
 
 func TestCreatePythonVenv(t *testing.T) {
