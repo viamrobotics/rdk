@@ -798,6 +798,25 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 }
 
+func TestCreatePythonVenv(t *testing.T) {
+	t.Parallel()
+	// "python -m venv" bootstraps pip via ensurepip, which fails intermittently in CI.
+	// createPythonVenv should surface the underlying stderr instead of a bare
+	// "exit status 1" so such failures are diagnosable. Use a fake interpreter that
+	// always fails with a known message to keep the test deterministic and offline.
+	if runtime.GOOS == "windows" {
+		t.Skip("fake interpreter script is unix-only")
+	}
+	testDir := t.TempDir()
+	fakePython := filepath.Join(testDir, "fakepython.sh")
+	script := "#!/bin/sh\necho 'ensurepip bootstrap failed' 1>&2\nexit 1\n"
+	test.That(t, os.WriteFile(fakePython, []byte(script), 0o755), test.ShouldBeNil)
+
+	err := createPythonVenv(fakePython, filepath.Join(testDir, ".venv"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "ensurepip bootstrap failed")
+}
+
 func TestAddApp(t *testing.T) {
 	// NOTE: do not mark this top-level test t.Parallel(). Some subtests call
 	// testChdir, which mutates the process-wide CWD, and would race with the
