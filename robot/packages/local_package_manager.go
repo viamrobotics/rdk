@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"testing"
 	"time"
 
 	"go.uber.org/multierr"
@@ -53,14 +54,14 @@ type managedModuleMap map[string]*managedModule
 func NewLocalManager(packagesParentDir string, logger logging.Logger) (ManagerSyncer, error) {
 	packagesDir := LocalPackagesDir(packagesParentDir)
 	packagesDataDir := filepath.Join(packagesDir, "data")
-	// Create packages-local eagerly so CLI reload-local can shell-copy a tarball into it before
-	// the module is configured and installPackage/Sync runs. installPackage still MkdirAlls
-	// nested type dirs (e.g. data/module) on demand.
-	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
-		return nil, err
+	// Eagerly create packages-local in production so CLI reload-local can shell-copy a tarball
+	// into it before the module is configured and installPackage/Sync runs. Skip during tests
+	// to avoid littering every test's isolated viam home; installPackage still MkdirAlls nested
+	// type dirs (e.g. data/module) on demand when Sync runs.
+	if !testing.Testing() {
+		if err := ensureLocalPackageDirs(packagesDir, packagesDataDir); err != nil {
+			return nil, err
+		}
 	}
 	return &localManager{
 		Named:           InternalServiceName.AsNamed(),
@@ -70,6 +71,13 @@ func NewLocalManager(packagesParentDir string, logger logging.Logger) (ManagerSy
 		packagesDataDir: packagesDataDir,
 		logger:          logger,
 	}, nil
+}
+
+func ensureLocalPackageDirs(packagesDir, packagesDataDir string) error {
+	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+		return err
+	}
+	return os.MkdirAll(packagesDataDir, 0o700)
 }
 
 // LocalPackagesDir transforms a packagesDir string to the suffixed version for localManager.
