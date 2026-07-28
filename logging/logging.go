@@ -183,6 +183,19 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 	return logger, observedLogs, registry
 }
 
+// NewObservedActivityLogger attaches an in-memory observer to the activity logger that
+// the given logger's Activity events emit through, returning the observed activity
+// events. logger must be a registry-backed logger created by this package.
+func NewObservedActivityLogger(tb testing.TB, logger Logger) *observer.ObservedLogs {
+	imp, ok := logger.(*impl)
+	if !ok {
+		tb.Fatalf("logger of type %T is not registry-backed", logger)
+	}
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	imp.activityLogger().AddAppender(observerCore)
+	return observedLogs
+}
+
 // NewTestLoggerSilentAfterComplete is like NewTestLogger but drops log writes after the
 // test has completed, preventing races or panics from late-emitting goroutines. It should
 // only be used by tests that _expect_ to have a log emitted after/during test completion.

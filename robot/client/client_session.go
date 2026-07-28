@@ -99,16 +99,13 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 		return rc.sessionMetadataInner(ctx), nil
 	}
 
-	reqCtx, cancel := utils.MergeContext(ctx, rc.backgroundCtx)
-	defer cancel()
-
 	var startReq pb.StartSessionRequest
 	if rc.currentSessionID != "" {
 		startReq.Resume = rc.currentSessionID
 	}
 
 	startResp, err := rc.client.StartSession(
-		reqCtx,
+		ctx,
 		&startReq,
 		grpc_retry.WithMax(5),
 		grpc_retry.WithCodes(codes.InvalidArgument),

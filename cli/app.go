@@ -87,6 +87,7 @@ const (
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
 	generalFlagAddress           = "address"
+	generalFlagLatest            = "latest"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -4233,6 +4234,28 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 					},
 					Action: createActionCommandWithT[downloadModuleFlags](DownloadModuleAction),
+				},
+				{
+					Name:      "versions",
+					Usage:     "list a module's released versions and their platforms",
+					UsageText: createUsageText("module versions", []string{}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        generalFlagID,
+							Usage:       "module ID as org-id:name or namespace:name",
+							DefaultText: "will try to read from meta.json",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagLatest,
+							Usage: "print the latest version for each platform instead of the full list",
+						},
+						&cli.IntFlag{
+							Name:        generalFlagCount,
+							Usage:       "show only the N newest versions",
+							DefaultText: "all versions",
+						},
+					},
+					Action: createActionCommandWithT[moduleVersionsFlags](ModuleVersionsAction),
 				},
 			},
 		},

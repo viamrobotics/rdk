@@ -405,7 +405,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
-	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
+	frameSys, err := framesystem.NewFromServiceMustBeConnected(ctx, ms.fsService, transforms)
 	if err != nil {
 		return nil, err
 	}

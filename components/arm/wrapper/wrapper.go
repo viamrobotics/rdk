@@ -147,6 +147,19 @@ func (wrapper *Arm) MoveThroughJointPositions(
 	return nil
 }
 
+// MoveThroughJointPositionsStreamed forwards the streamed trajectory to the wrapped arm. If the
+// wrapped arm does not support streaming, its error propagates through unchanged.
+func (wrapper *Arm) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	batches <-chan []arm.TrajectoryPoint,
+	responses chan<- arm.Response,
+	extra map[string]interface{},
+) error {
+	wrapper.mu.RLock()
+	defer wrapper.mu.RUnlock()
+	return wrapper.actual.MoveThroughJointPositionsStreamed(ctx, batches, responses, extra)
+}
+
 // JointPositions returns the set joints.
 func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	wrapper.mu.RLock()

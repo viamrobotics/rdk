@@ -15,6 +15,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.uber.org/zap/zapcore"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
+	packagespb "go.viam.com/api/app/packages/v1"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -33,6 +34,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
@@ -379,6 +381,189 @@ func TestServer(t *testing.T) {
 				const badMachineStateMsg = "machine in an unknown state"
 				badMachineStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badMachineStateMsg).Len()
 				test.That(t, badMachineStateCount, test.ShouldEqual, tc.expBadMachineStateCount)
+			})
+		}
+	})
+
+	t.Run("GetMachineStatus with packages", func(t *testing.T) {
+		lastUpdated := time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC)
+
+		testCases := []struct {
+			name               string
+			injectPackages     []packages.PackageStatus
+			expPackages        []*pb.PackageStatus
+			expBadTypeLogCount int
+		}{
+			{
+				"no packages",
+				nil,
+				nil,
+				0,
+			},
+			{
+				"package statuses in every state",
+				[]packages.PackageStatus{
+					{
+						Name:            "downloading-module",
+						Type:            config.PackageTypeModule,
+						State:           packages.PackageStateDownloading,
+						LastUpdated:     lastUpdated,
+						Version:         "1.2.3",
+						BytesDownloaded: 512,
+						TotalBytes:      2048,
+					},
+					{
+						Name:            "loading-ml-model",
+						Type:            config.PackageTypeMlModel,
+						State:           packages.PackageStateLoading,
+						LastUpdated:     lastUpdated,
+						Version:         "0.0.9",
+						BytesDownloaded: 4096,
+						TotalBytes:      4096,
+					},
+					{
+						Name:        "first-run-module",
+						Type:        config.PackageTypeModule,
+						State:       packages.PackageStateFirstRun,
+						LastUpdated: lastUpdated,
+						Version:     "2.0.0",
+					},
+					{
+						Name:            "ready-slam-map",
+						Type:            config.PackageTypeSlamMap,
+						State:           packages.PackageStateReady,
+						LastUpdated:     lastUpdated,
+						Version:         "3.4.5",
+						BytesDownloaded: 1024,
+						TotalBytes:      1024,
+					},
+					{
+						Name:        "failed-module",
+						Type:        config.PackageTypeModule,
+						State:       packages.PackageStateFailed,
+						Error:       "download failed",
+						LastUpdated: lastUpdated,
+						Version:     "0.1.0",
+					},
+					{
+						Name:        "unknown-state-module",
+						Type:        config.PackageTypeModule,
+						State:       packages.PackageStateUnknown,
+						LastUpdated: lastUpdated,
+						Version:     "0.1.0",
+					},
+				},
+				[]*pb.PackageStatus{
+					{
+						Name:            "downloading-module",
+						Type:            packagespb.PackageType_PACKAGE_TYPE_MODULE,
+						State:           pb.PackageStatus_STATE_DOWNLOADING,
+						LastUpdated:     timestamppb.New(lastUpdated),
+						Version:         "1.2.3",
+						BytesDownloaded: 512,
+						TotalBytes:      2048,
+					},
+					{
+						Name:            "loading-ml-model",
+						Type:            packagespb.PackageType_PACKAGE_TYPE_ML_MODEL,
+						State:           pb.PackageStatus_STATE_LOADING,
+						LastUpdated:     timestamppb.New(lastUpdated),
+						Version:         "0.0.9",
+						BytesDownloaded: 4096,
+						TotalBytes:      4096,
+					},
+					{
+						Name:        "first-run-module",
+						Type:        packagespb.PackageType_PACKAGE_TYPE_MODULE,
+						State:       pb.PackageStatus_STATE_FIRST_RUN,
+						LastUpdated: timestamppb.New(lastUpdated),
+						Version:     "2.0.0",
+					},
+					{
+						Name:            "ready-slam-map",
+						Type:            packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP,
+						State:           pb.PackageStatus_STATE_READY,
+						LastUpdated:     timestamppb.New(lastUpdated),
+						Version:         "3.4.5",
+						BytesDownloaded: 1024,
+						TotalBytes:      1024,
+					},
+					{
+						Name:        "failed-module",
+						Type:        packagespb.PackageType_PACKAGE_TYPE_MODULE,
+						State:       pb.PackageStatus_STATE_FAILED,
+						Error:       "download failed",
+						LastUpdated: timestamppb.New(lastUpdated),
+						Version:     "0.1.0",
+					},
+					{
+						Name:        "unknown-state-module",
+						Type:        packagespb.PackageType_PACKAGE_TYPE_MODULE,
+						State:       pb.PackageStatus_STATE_UNSPECIFIED,
+						LastUpdated: timestamppb.New(lastUpdated),
+						Version:     "0.1.0",
+					},
+				},
+				0,
+			},
+			{
+				"package with invalid type",
+				[]packages.PackageStatus{
+					{
+						Name:        "bad-type-package",
+						Type:        config.PackageType("not-a-real-type"),
+						State:       packages.PackageStateReady,
+						LastUpdated: lastUpdated,
+						Version:     "1.0.0",
+					},
+				},
+				[]*pb.PackageStatus{
+					{
+						Name:        "bad-type-package",
+						Type:        packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED,
+						State:       pb.PackageStatus_STATE_READY,
+						LastUpdated: timestamppb.New(lastUpdated),
+						Version:     "1.0.0",
+					},
+				},
+				1,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				logger, logs := logging.NewObservedTestLogger(t)
+				injectRobot := &inject.Robot{}
+				server := server.New(injectRobot)
+				injectRobot.LoggerFunc = func() logging.Logger {
+					return logger
+				}
+				injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+					return robot.MachineStatus{
+						Config:   config.Revision{Revision: "rev1"},
+						State:    robot.StateRunning,
+						Packages: tc.injectPackages,
+					}, nil
+				}
+
+				resp, err := server.GetMachineStatus(context.Background(), &pb.GetMachineStatusRequest{})
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, len(resp.GetPackages()), test.ShouldEqual, len(tc.expPackages))
+				for i, pkg := range resp.GetPackages() {
+					exp := tc.expPackages[i]
+					test.That(t, pkg.GetName(), test.ShouldEqual, exp.Name)
+					test.That(t, pkg.GetType(), test.ShouldEqual, exp.Type)
+					test.That(t, pkg.GetState(), test.ShouldEqual, exp.State)
+					test.That(t, pkg.GetError(), test.ShouldEqual, exp.Error)
+					test.That(t, pkg.GetLastUpdated().AsTime(), test.ShouldEqual, exp.LastUpdated.AsTime())
+					test.That(t, pkg.GetVersion(), test.ShouldEqual, exp.Version)
+					test.That(t, pkg.GetBytesDownloaded(), test.ShouldEqual, exp.BytesDownloaded)
+					test.That(t, pkg.GetTotalBytes(), test.ShouldEqual, exp.TotalBytes)
+				}
+
+				const badTypeMsg = "unknown package type in status"
+				badTypeLogCount := logs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet(badTypeMsg).Len()
+				test.That(t, badTypeLogCount, test.ShouldEqual, tc.expBadTypeLogCount)
 			})
 		}
 	})

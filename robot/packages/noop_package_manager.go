@@ -48,3 +48,11 @@ func (m *noopManager) Cleanup(ctx context.Context) error {
 func (m *noopManager) SyncOne(ctx context.Context, mod config.Module) error {
 	return nil
 }
+
+// PackageStatuses returns nil for the noop manager.
+func (m *noopManager) PackageStatuses() []PackageStatus {
+	return nil
+}
+
+// SetPackageState is a no-op for this package manager variant.
+func (m *noopManager) SetPackageState(_ PackageName, _ PackageState, _ string) {}

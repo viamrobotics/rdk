@@ -33,6 +33,10 @@ type deferredPackageManager struct {
 	cloudManagerLock    sync.Mutex
 	bgWorkers           sync.WaitGroup
 
+	// syncMu serializes Sync operations without blocking readers of lastSyncedManager,
+	// so that package statuses (including download progress) remain readable mid-Sync.
+	syncMu sync.Mutex
+
 	lastSyncedManager     ManagerSyncer
 	lastSyncedManagerLock sync.Mutex
 
@@ -77,13 +81,17 @@ func NewDeferredPackageManager(
 // Sync is the core state-setting operation of the package manager so if we sync with one manager,
 // all subsequent operations should use the same manager until the next sync.
 func (m *deferredPackageManager) Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error {
-	m.lastSyncedManagerLock.Lock()
-	defer m.lastSyncedManagerLock.Unlock()
+	m.syncMu.Lock()
+	defer m.syncMu.Unlock()
 	mgr, err := m.getManagerForSync(ctx, packages)
 	if err != nil {
 		return err
 	}
+	m.lastSyncedManagerLock.Lock()
 	m.lastSyncedManager = mgr
+	m.lastSyncedManagerLock.Unlock()
+	// Sync outside lastSyncedManagerLock so that PackageStatuses and other reads can
+	// observe download progress while the sync is in flight.
 	return mgr.Sync(ctx, packages, modules)
 }
 
@@ -169,4 +177,18 @@ func (m *deferredPackageManager) createCloudManager(ctx context.Context) (Manage
 // SyncOne is a no-op for this package manager variant.
 func (m *deferredPackageManager) SyncOne(ctx context.Context, mod config.Module) error {
 	return nil
+}
+
+// PackageStatuses delegates to the last synced manager.
+func (m *deferredPackageManager) PackageStatuses() []PackageStatus {
+	m.lastSyncedManagerLock.Lock()
+	defer m.lastSyncedManagerLock.Unlock()
+	return m.lastSyncedManager.PackageStatuses()
+}
+
+// SetPackageState delegates to the last synced manager.
+func (m *deferredPackageManager) SetPackageState(name PackageName, state PackageState, errMsg string) {
+	m.lastSyncedManagerLock.Lock()
+	defer m.lastSyncedManagerLock.Unlock()
+	m.lastSyncedManager.SetPackageState(name, state, errMsg)
 }

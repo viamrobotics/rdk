@@ -68,6 +68,11 @@ var (
 	// eventually be implemented server side or faked client side.
 	errUnimplemented = errors.New("unimplemented")
 
+	// errRobotClientClosed is set as the cancellation cause of backgroundCtx when the
+	// client is closed, so in-flight requests can surface it instead of a bare
+	// context.Canceled.
+	errRobotClientClosed = errors.New("robot client is closed")
+
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
 
@@ -111,7 +116,7 @@ type RobotClient struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
-	backgroundCtxCancel     func()
+	backgroundCtxCancel     context.CancelCauseFunc
 	logger                  logging.Logger
 
 	// sessions
@@ -295,7 +300,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTests */)
 	}
 
-	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
+	backgroundCtx, backgroundCtxCancel := context.WithCancelCause(context.Background())
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
 	rc := &RobotClient{
@@ -744,7 +749,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 //
 //	err := machine.Close(ctx.Background())
 func (rc *RobotClient) Close(ctx context.Context) error {
-	rc.backgroundCtxCancel()
+	rc.backgroundCtxCancel(errRobotClientClosed)
 	rc.activeBackgroundWorkers.Wait()
 	if rc.changeChan != nil {
 		close(rc.changeChan)

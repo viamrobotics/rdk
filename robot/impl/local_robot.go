@@ -307,10 +307,20 @@ func (r *localRobot) Kill() {
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
-	// Stop all operations
+	// Cancel other outstanding operations (e.g. in-flight moves), but not the StopAll
+	// operation itself. Canceling the current op would cancel ctx before actuator.Stop
+	// and cause modular resource Stop RPCs to fail with context canceled.
+	currentOp := operation.Get(ctx)
 	for _, op := range r.OperationManager().All() {
+		if currentOp != nil && op == currentOp {
+			continue
+		}
 		op.Cancel()
 	}
+
+	// Ensure actuator stops still run if the request context is canceled (client
+	// disconnect, or any residual cancellation). Matches motion's stop-on-error pattern.
+	stopCtx := context.WithoutCancel(ctx)
 
 	// Stop all stoppable resources
 	resourceErrs := make(map[string]error)
@@ -322,7 +332,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 		}
 
 		if actuator, ok := res.(resource.Actuator); ok {
-			if err := actuator.Stop(ctx, extra[name]); err != nil {
+			if err := actuator.Stop(stopCtx, extra[name]); err != nil {
 				resourceErrs[name.Name] = err
 			}
 		}
@@ -1789,7 +1799,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
 	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
+		// Determine which package manager owns this module's package and transition it to first-run state.
+		pkgMgr, pkgName := r.packageManagerForModule(mod)
+		pkgMgr.SetPackageState(pkgName, packages.PackageStateFirstRun, "")
+
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
+			pkgMgr.SetPackageState(pkgName, packages.PackageStateFailed, err.Error())
 			r.logger.CErrorw(
 				ctx,
 				"reconfiguration aborted because of error executing first run. falling back to last config "+
@@ -1800,6 +1815,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			)
 			return
 		}
+		pkgMgr.SetPackageState(pkgName, packages.PackageStateReady, "")
 	}
 
 	if newConfig.Cloud != nil {
@@ -1904,30 +1920,37 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	logVerb := "Construct"
-	logNoun := "construction"
-	if !r.initializing.Load() {
-		logVerb = "Reconfigur"
-		logNoun = "reconfiguration"
-		if newConfig.MaintenanceConfig != nil {
-			if reconfigureAllowedErr != nil {
-				r.logger.CInfow(
-					ctx,
-					"Reconfigure allowed despite error while checking",
-					"error",
-					reconfigureAllowedErr.Error(),
-				)
-			} else {
-				r.logger.CInfow(
-					ctx,
-					"Reconfigure allowed by maintenance sensor",
-					"sensor",
-					newConfig.MaintenanceConfig.SensorName,
-				)
-			}
+	// Derive the labels from the config being applied, not r.initializing: that flag is
+	// stored at pass exit for MachineStatus, so at entry it describes the previous pass
+	// and would label the two startup passes swapped.
+	logVerb := "Reconfigur"
+	logNoun := "reconfiguration"
+	if newConfig.Initial {
+		logVerb = "Construct"
+		logNoun = "construction"
+	}
+	if !r.initializing.Load() && newConfig.MaintenanceConfig != nil {
+		if reconfigureAllowedErr != nil {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed despite error while checking",
+				"error",
+				reconfigureAllowedErr.Error(),
+			)
+		} else {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed by maintenance sensor",
+				"sensor",
+				newConfig.MaintenanceConfig.SensorName,
+			)
 		}
 	}
-	r.logger.CInfof(ctx, "%ving robot", logVerb)
+	reconfigureStarted := time.Now()
+	r.logger.Activity("reconfigure", "start",
+		"revision", diff.NewRevision(),
+		"reconfigure_type", logNoun,
+	)
 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.CDebugf(ctx, "%ving with %+v", logVerb, diff)
@@ -1982,8 +2005,18 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, fmt.Sprintf("The following errors were gathered during %v", logNoun), "errors", allErrs)
+		r.logger.Activity("reconfigure", "fail",
+			"revision", diff.NewRevision(),
+			"reconfigure_type", logNoun,
+			"duration", time.Since(reconfigureStarted).String(),
+			"errors", allErrs,
+		)
 	} else {
-		r.logger.CInfof(ctx, "Robot %ved", strings.ToLower(logVerb))
+		r.logger.Activity("reconfigure", "complete",
+			"revision", diff.NewRevision(),
+			"reconfigure_type", logNoun,
+			"duration", time.Since(reconfigureStarted).String(),
+		)
 	}
 }
 
@@ -2227,6 +2260,19 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// packageManagerForModule returns the package manager responsible for a module's package
+// and the package name to use when updating state. Local tarball modules are managed by
+// localPackages; registry modules are managed by packageManager.
+func (r *localRobot) packageManagerForModule(mod config.Module) (packages.ManagerSyncer, packages.PackageName) {
+	if mod.NeedsSyntheticPackage() {
+		pkg, err := mod.SyntheticPackage()
+		if err == nil {
+			return r.localPackages, packages.PackageName(pkg.Name)
+		}
+	}
+	return r.packageManager, packages.PackageName(mod.Name)
+}
+
 // MachineStatus returns the current status of the robot.
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
@@ -2278,6 +2324,9 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 			}
 		}
 	}
+
+	result.Packages = append(result.Packages, r.packageManager.PackageStatuses()...)
+	result.Packages = append(result.Packages, r.localPackages.PackageStatuses()...)
 
 	return result, nil
 }

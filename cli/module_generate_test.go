@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -577,6 +578,13 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test generate stubs", func(t *testing.T) {
+		pythonCmd := findPythonCommand()
+		if pythonCmd == "" {
+			t.Skip("python not available")
+		}
+		if err := createPythonVenv(pythonCmd, filepath.Join(t.TempDir(), ".venv")); err != nil {
+			t.Skip("python venv creation not available")
+		}
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
@@ -630,6 +638,13 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test generate python stubs", func(t *testing.T) {
+		pythonCmd := findPythonCommand()
+		if pythonCmd == "" {
+			t.Skip("python not available")
+		}
+		if err := createPythonVenv(pythonCmd, filepath.Join(t.TempDir(), ".venv")); err != nil {
+			t.Skip("python venv creation not available")
+		}
 		testModule.Language = "python"
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
 		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
@@ -795,6 +810,35 @@ func TestGenerateModuleAction(t *testing.T) {
 					"the Resources or ExcludedResources list in inputs.go file", res)
 			}
 		}
+	})
+}
+
+func TestCreatePythonVenv(t *testing.T) {
+	t.Run("errorWithStderr appends stderr when present", func(t *testing.T) {
+		t.Parallel()
+		err := errorWithStderr(errors.New("exit status 1"), "  boom: No module named ensurepip  ")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "exit status 1")
+		// stderr is surfaced (and trimmed) so the failure is actionable.
+		test.That(t, err.Error(), test.ShouldContainSubstring, "boom: No module named ensurepip")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "  boom")
+	})
+
+	t.Run("errorWithStderr returns the original error when stderr is empty", func(t *testing.T) {
+		t.Parallel()
+		base := errors.New("exit status 1")
+		test.That(t, errorWithStderr(base, "  \n\t "), test.ShouldEqual, base)
+	})
+
+	t.Run("createPythonVenv errors for a missing interpreter", func(t *testing.T) {
+		t.Parallel()
+		// A non-existent interpreter fails deterministically; the retries are exhausted
+		// and a non-nil error is returned.
+		venvDir := filepath.Join(t.TempDir(), ".venv")
+		err := createPythonVenv("viam-nonexistent-python-interpreter", venvDir)
+		test.That(t, err, test.ShouldNotBeNil)
+		_, statErr := os.Stat(venvDir)
+		test.That(t, os.IsNotExist(statErr), test.ShouldBeTrue)
 	})
 }
 
