@@ -874,29 +874,46 @@ type AuthConfig struct {
 	Roles              []Role              `json:"roles,omitempty"`
 }
 
-// DefaultRoleUser is the special Role user that applies to any authenticated user
-// without a Role of its own.
-const DefaultRoleUser = "default"
+// The set of valid User types.
+const (
+	// UserTypeAPIKeyID identifies a user by the ID of the API key they authenticate with.
+	UserTypeAPIKeyID = "api-key-id"
+	// UserTypeEmail identifies a user by the e-mail they authenticate with.
+	UserTypeEmail = "email"
+	// UserTypeDefault matches any authenticated user not listed in another Role.
+	UserTypeDefault = "default"
+)
 
-// A Role describes the permissions an authenticated user has on this machine. If no
-// roles are configured, all users are unrestricted. If any are, users without a role
-// receive only the permissions of the DefaultRoleUser role, if configured, plus a
-// small set of default endpoints needed to maintain an SDK connection.
+// A Role describes the permissions a set of authenticated users have on this
+// machine. If no roles are configured, all users are unrestricted. If any are,
+// users are allowed only the methods their Role (or the default user's Role, if
+// they have none) explicitly grants.
 type Role struct {
-	// User is the ID of the user this role applies to: an API key ID or a FusionAuth
-	// ID. Or, it is the special string "default".
-	User        string       `json:"user"`
+	// Users are the Users this Role applies to. A User can only be listed in a
+	// single Role for a set of Roles.
+	Users       []User       `json:"users"`
 	Permissions []Permission `json:"permissions,omitempty"`
 }
 
-// A Permission grants a user the ability to invoke a set of methods on resources
-// with a given name.
+// A User describes a single user that a Role applies to.
+type User struct {
+	// Type is the type of user. Can be "api-key-id", "email", or "default".
+	Type string `json:"type"`
+	// ID is the API Key ID if Type is "api-key-id", the e-mail address if Type is
+	// "email", and empty if Type is "default".
+	ID string `json:"id,omitempty"`
+}
+
+// A Permission grants a set of users the ability to invoke a set of methods on a
+// set of resources.
 type Permission struct {
-	// Resource is the name of the resource this permission applies to, e.g. "cam1".
-	Resource string `json:"resource"`
-	// Methods is a list of fully qualified gRPC methods the user may invoke on
-	// resources of this name, e.g. "/viam.component.camera.v1.CameraService/GetImages".
-	Methods []string `json:"methods,omitempty"`
+	// Resources are the names of the resources this permission applies to, e.g.
+	// ["cam1", "cam2", "cam3"].
+	Resources []string `json:"resources"`
+	// AllowedMethods is a list of fully qualified gRPC methods the user may invoke
+	// on the listed resources, e.g.
+	// ["/viam.component.camera.v1.CameraService/GetImages"].
+	AllowedMethods []string `json:"allowed_methods,omitempty"`
 }
 
 // ExternalAuthConfig contains information needed to verify externally authenticated tokens.
