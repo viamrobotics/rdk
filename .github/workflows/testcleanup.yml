@@ -11,7 +11,7 @@ on:
 
 jobs:
   clean_binaries:
-    name: Clean Test AppImages/Binaries
+    name: Clean Test Binaries
     runs-on: ubuntu-latest
 
     steps:
@@ -23,6 +23,6 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
-    - name: Remove Failed Test AppImages/Binaries
+    - name: Remove Failed Test Binaries
       run: |
         gsutil -m rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*" || true

@@ -53,8 +53,12 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 		// for multiple files (a b c machine:~/some/dir), ~/some/dir needs to already exist
 		// as a directory
 		dstInfo, err := os.Stat(f.destination)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
 		if err != nil || dstInfo == nil || !dstInfo.IsDir() {
-			return nil, fmt.Errorf("%q does not exist or is not a directory", f.destination)
+			// we use an error code here so the CLI can detect this case and abort early
+			return nil, status.Newf(codes.NotFound, "%q does not exist or is not a directory", f.destination).Err()
 		}
 		if err := os.MkdirAll(filepath.Dir(f.destination), 0o750); err != nil {
 			return nil, fmt.Errorf("MkdirAll all failed (%s): %w", f.destination, err)
@@ -95,6 +99,10 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 			parentInfo, err := os.Stat(parent)
 			if err != nil {
 				// the parent does not exist, then error
+				if errors.Is(err, fs.ErrNotExist) {
+					// we use an error code here so the CLI can detect this case and abort early
+					return nil, status.Newf(codes.NotFound, "destination %q: %s", f.destination, err).Err()
+				}
 				return nil, err
 			}
 			if parentInfo == nil {
@@ -195,6 +203,10 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 	case copier.preserve:
 		modTime = fileInfo.ModTime()
 		fileMode = fileInfo.Mode()
+	case fileInfo.Mode().Perm() != 0:
+		// even without preserve, pass through the file mode (if it exists)
+		// to match the behavior of scp
+		fileMode = fileInfo.Mode().Perm()
 	case fileInfo.IsDir():
 		fileMode = 0o750
 	default:
@@ -219,6 +231,11 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 		// Technically the temp file can be deleted upon any Copy error, but it will also be clobbered next time we retry.
 		fullPathTmp := fullPath + ".download"
 
+		// always delete a potential stale temp. if the temp is read-only, it can
+		// cause the following OpenFile call to fail on windows
+		if err := os.Remove(fullPathTmp); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
 		//nolint:gosec // this is from an authenticated/authorized connection
 		localFile, err := os.OpenFile(fullPathTmp, os.O_CREATE|os.O_WRONLY, fileMode)
 		if err != nil {
@@ -236,6 +253,13 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 		}
 		if closeErr != nil {
 			return closeErr
+		}
+		// if there is already a file at the destination path, we are going to overwrite it.
+		// make sure it's writable first so the overwrite doesn't fail on windows
+
+		// if this fails, we should still try and move the tmp file to the destination
+		if info, err := os.Stat(fullPath); err == nil && info.Mode().Perm()&0o200 == 0 {
+			utils.UncheckedError(os.Chmod(fullPath, info.Mode().Perm()|0o200))
 		}
 		if err := os.Rename(fullPathTmp, fullPath); err != nil {
 			return err

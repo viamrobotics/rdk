@@ -68,11 +68,12 @@ func BuildViamServer(tb testing.TB) string {
 		serverPath += ".exe"
 		//nolint:gosec
 		builder = exec.Command(
-			"go", "build", "-tags", "no_cgo,osusergo,netgo",
-			"-ldflags=-extldflags=-static -s -w",
+			"go", "build", "-tags", "no_cgo",
+			"-ldflags=-s -w",
 			"-o", serverPath,
 			"./web/cmd/server",
 		)
+		builder.Env = append(os.Environ(), "CGO_ENABLED=0")
 	}
 	// set Dir to root of repo
 	builder.Dir = utils.ResolveFile(".")

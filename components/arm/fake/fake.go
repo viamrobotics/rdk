@@ -220,6 +220,30 @@ func (a *Arm) MoveThroughJointPositions(
 	return nil
 }
 
+// MoveThroughJointPositionsStreamed executes a streamed trajectory by teleporting to each point in
+// order. The fake arm has no time model, so per-point Time and Constraints are ignored; it snaps to
+// each waypoint and acknowledges once per batch.
+func (a *Arm) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	batches <-chan []arm.TrajectoryPoint,
+	responses chan<- arm.Response,
+	_ map[string]interface{},
+) error {
+	for batch := range batches {
+		for _, p := range batch {
+			if err := a.MoveToJointPositions(ctx, p.Positions, nil); err != nil {
+				return err
+			}
+		}
+		select {
+		case responses <- arm.Response{}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
 // JointPositions returns joints.
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	a.mu.RLock()

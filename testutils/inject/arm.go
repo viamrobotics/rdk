@@ -23,6 +23,12 @@ type Arm struct {
 		options *arm.MoveOptions,
 		extra map[string]interface{},
 	) error
+	MoveThroughJointPositionsStreamedFunc func(
+		ctx context.Context,
+		batches <-chan []arm.TrajectoryPoint,
+		responses chan<- arm.Response,
+		extra map[string]interface{},
+	) error
 	JointPositionsFunc func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
 	StopFunc           func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc       func(context.Context) (bool, error)
@@ -79,6 +85,20 @@ func (a *Arm) MoveThroughJointPositions(
 		return a.Arm.MoveThroughJointPositions(ctx, positions, options, extra)
 	}
 	return a.MoveThroughJointPositionsFunc(ctx, positions, options, extra)
+}
+
+// MoveThroughJointPositionsStreamed calls the injected
+// MoveThroughJointPositionsStreamed or the real version.
+func (a *Arm) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	batches <-chan []arm.TrajectoryPoint,
+	responses chan<- arm.Response,
+	extra map[string]interface{},
+) error {
+	if a.MoveThroughJointPositionsStreamedFunc == nil {
+		return a.Arm.MoveThroughJointPositionsStreamed(ctx, batches, responses, extra)
+	}
+	return a.MoveThroughJointPositionsStreamedFunc(ctx, batches, responses, extra)
 }
 
 // JointPositions calls the injected JointPositions or the real version.

@@ -27,6 +27,13 @@ func TestPlaceholderReplacement(t *testing.T) {
 						"mid_string_replace": "Hello ${packages.coolpkg} Friends!",
 						"module_replace":     "${packages.module.coolmod}",
 						"multi_replace":      "${packages.coolpkg} ${packages.module.coolmod}",
+						"archive_replace":    "${packages.archive.cool-archive}",
+						"assets": utils.AttributeMap{
+							"images": []interface{}{
+								"${packages.archive.cool-archive}",
+							},
+							"fonts": []interface{}{},
+						},
 					},
 				},
 			},
@@ -56,12 +63,19 @@ func TestPlaceholderReplacement(t *testing.T) {
 					Type:    "module",
 					Version: "0.5.0",
 				},
+				{
+					Name:    "cool-archive",
+					Package: "orgid/archive",
+					Type:    "archive",
+					Version: "0.6.0",
+				},
 			},
 		}
 		err := cfg.ReplacePlaceholders()
 		test.That(t, err, test.ShouldBeNil)
 		dirForMlModel := cfg.Packages[0].LocalDataDirectory(viamPackagesDir)
 		dirForModule := cfg.Packages[1].LocalDataDirectory(viamPackagesDir)
+		dirForArchive := cfg.Packages[2].LocalDataDirectory(viamPackagesDir)
 		// components
 		attrMap := cfg.Components[0].Attributes
 		test.That(t, attrMap["should_equal_1"], test.ShouldResemble, attrMap["should_equal_2"])
@@ -69,6 +83,12 @@ func TestPlaceholderReplacement(t *testing.T) {
 		test.That(t, attrMap["mid_string_replace"], test.ShouldResemble, fmt.Sprintf("Hello %s Friends!", dirForMlModel))
 		test.That(t, attrMap["module_replace"], test.ShouldResemble, dirForModule)
 		test.That(t, attrMap["multi_replace"], test.ShouldResemble, fmt.Sprintf("%s %s", dirForMlModel, dirForModule))
+		test.That(t, attrMap["archive_replace"], test.ShouldResemble, dirForArchive)
+		assets, ok := attrMap["assets"].(map[string]interface{})
+		test.That(t, ok, test.ShouldBeTrue)
+		images, ok := assets["images"].([]interface{})
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, images[0], test.ShouldResemble, dirForArchive)
 		// services
 		attrMap = cfg.Services[0].Attributes
 		test.That(t, attrMap["apply_to_services_too"], test.ShouldResemble, dirForMlModel)

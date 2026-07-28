@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	errw "github.com/pkg/errors"
@@ -22,12 +23,74 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 const partialsDirName = "part"
 
 // cleanup partial downloads that were started this long ago
 const maxPartialAge = 72 * time.Hour
+
+// enoughFreeSpace reports whether the volume holding path has at least minBytes
+// available. It is a package var so tests can inject a low-space result without
+// having to actually fill a disk.
+var enoughFreeSpace = diskusage.EnoughFreeSpace
+
+// errInsufficientDiskSpace is returned by checkDiskSpace when blocking is on and the volume is
+// low. Callers use errors.Is to tell a disk-space refusal from other failures (e.g. a corrupt
+// archive) and surface an accurate message.
+var errInsufficientDiskSpace = errors.New("not enough free disk space")
+
+// isTransientDiskSpaceError reports whether err is a low-space failure that should be retried
+// rather than marked syncStatusFailed. Two paths reach here: blocking mode refuses the op up front
+// with errInsufficientDiskSpace, and log-only mode proceeds past the warning but then the write
+// genuinely exhausts the disk (a raw syscall.ENOSPC wrapped by os/io). Both are the same transient
+// condition, so treat them alike so the next sync retries once space frees.
+func isTransientDiskSpaceError(err error) bool {
+	return errors.Is(err, errInsufficientDiskSpace) || errors.Is(err, syscall.ENOSPC)
+}
+
+// diskSpaceBlockingEnabled reports whether low-space conditions should refuse the operation
+// (download, local copy, or unpack). Default (unset) is false: low-space is logged but the
+// operation proceeds (log-only). See rutils.ViamEnableDiskSpaceBlockEnvVar.
+func diskSpaceBlockingEnabled() bool {
+	return rutils.GetenvBool(rutils.ViamEnableDiskSpaceBlockEnvVar, false)
+}
+
+// checkDiskSpace checks whether the volume holding path has required bytes free. It returns
+// low=true whenever space is low. When blocking is enabled via ViamEnableDiskSpaceBlockEnvVar it
+// returns an error refusing the op (the caller logs it, so checkDiskSpace stays quiet to avoid
+// double-logging the same reason every cycle); otherwise it logs a warning and returns nil so the
+// op proceeds (log-only). A failed check is logged and treated as "proceed" so a broken statfs
+// never blocks installs. desc names the op in logs/errors; extraFields extend the warning.
+func checkDiskSpace(logger logging.Logger, path, desc string, required uint64, extraFields ...any) (low bool, err error) {
+	enough, available, err := enoughFreeSpace(path, required)
+	if err != nil {
+		logger.Warnw("could not check free disk space; proceeding",
+			append([]any{"desc", desc, "path", path, "error", err}, extraFields...)...)
+		return false, nil
+	}
+	if enough {
+		return false, nil
+	}
+	if !diskSpaceBlockingEnabled() {
+		// Log-only: the op proceeds and returns no error, so this warning is the only signal
+		// that space is low.
+		logger.Warnw("not enough free disk space",
+			append([]any{
+				"desc", desc, "path", path,
+				"available", rutils.FormatBytes(available),
+				"required", rutils.FormatBytes(required),
+				"blocking", false,
+			}, extraFields...)...)
+		return true, nil
+	}
+	// Blocking: don't warn here — the returned error carries the same detail and is logged by the
+	// caller (cloud_package_manager.go and local_package_manager.go both log the install error),
+	// so warning too would double-log the same reason every sync cycle.
+	return true, fmt.Errorf("%w for %s: %s available, %s required",
+		errInsufficientDiskSpace, desc, rutils.FormatBytes(available), rutils.FormatBytes(required))
+}
 
 // create a partials folder for this URL and return a destination path for the file.
 func partialDownloadPath(parentDir, rawURL string) (string, error) {
@@ -59,6 +122,10 @@ func installPackage(
 	supportsPartial bool,
 	installFn installCallback,
 ) error {
+	// Disk guarding happens where bytes are written: installFn pre-filters when it knows the
+	// artifact size (skip an obviously-too-big download or local copy), and unpackFile checks the
+	// floor incrementally as it extracts (the unpacked size isn't known up front).
+
 	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(packagesDir), 0o700); err != nil {
 		return err
@@ -121,8 +188,16 @@ func installPackage(
 	}()
 
 	// unzip archive.
-	err = unpackFile(ctx, dstPath, tmpDataPath)
+	err = unpackFile(ctx, logger, dstPath, tmpDataPath)
 	if err != nil {
+		// A low-space failure is transient, not a bad archive: don't write syncStatusFailed
+		// (packageIsSynced treats "failed" as synced to avoid retrying forever, which would block
+		// re-download until the version changes). Without it the next sync retries once there's
+		// space. Surface as-is, not as "try a different version".
+		if isTransientDiskSpaceError(err) {
+			utils.UncheckedError(cleanup(packagesDir, p))
+			return err
+		}
 		statusFile := packageSyncFile{
 			PackageID:       p.Package,
 			Version:         p.Version,
@@ -174,8 +249,13 @@ func cleanup(packagesDir string, p config.PackageConfig) error {
 	)
 }
 
+// unpackDiskCheckInterval batches the free-space re-check during unpack so we don't statfs per
+// file: a run of small files is checked once per interval of accumulated data, while any file
+// larger than the interval is checked on its own (its size is folded into the required floor).
+const unpackDiskCheckInterval = 8 * 1024 * 1024
+
 // unpackFile extracts a tgz to a directory.
-func unpackFile(ctx context.Context, fromFile, toDir string) error {
+func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir string) error {
 	if err := os.MkdirAll(toDir, 0o700); err != nil {
 		return err
 	}
@@ -199,6 +279,15 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	}
 	links := []link{}
 	symlinks := []link{}
+
+	// Seeded at the interval so the first regular file is checked before we write it. The unpacked
+	// size is unknown up front (gzip compression hides it), so this incremental floor check — not
+	// an up-front reservation — is what keeps unpack from filling the disk.
+	bytesSinceDiskCheck := uint64(unpackDiskCheckInterval)
+	// In log-only mode we'd re-warn every interval; free space only drops during unpack and we
+	// proceed regardless, so latch after the first warning and stop checking. Blocking mode returns
+	// on the first low result below, so the latch is moot there.
+	loggedLowSpace := false
 
 	tarReader := tar.NewReader(archive)
 	for {
@@ -235,6 +324,23 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			}
 
 		case tar.TypeReg:
+			// Re-check headroom before writing this file. Require room for the file itself plus the
+			// reserved floor, so even a single large member can't push the volume below MinFreeBytes.
+			// Runs of small files are batched (one statfs per ~interval of data) to avoid a syscall
+			// per tiny file; a file larger than the interval trips the check on its own. The caller's
+			// defer cleans up a partial unpack, so aborting leaves no debris.
+			bytesSinceDiskCheck += uint64(header.Size)
+			if !loggedLowSpace && bytesSinceDiskCheck >= unpackDiskCheckInterval {
+				bytesSinceDiskCheck = 0
+				required := diskusage.MinFreeBytes + uint64(header.Size)
+				low, err := checkDiskSpace(logger, toDir, "unpacking package", required)
+				if err != nil {
+					return err
+				}
+				// log-only mode: warned once; don't re-check for the rest of this unpack.
+				loggedLowSpace = low
+			}
+
 			// This is required because it is possible create tarballs without a directory entry
 			// but whose files names start with a new directory prefix
 			// Ex: tar -czf package.tar.gz ./bin/module.exe
@@ -504,7 +610,8 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 }
 
 // starts a goroutine that watches `dest` file size, logs progress until `dest` no longer exists or `done` is closed.
-func fileSizeProgress(ctx context.Context, logger logging.Logger, dest string, length int64) {
+// If onProgress is non-nil it is invoked with the current file size on every tick.
+func fileSizeProgress(ctx context.Context, logger logging.Logger, dest string, length int64, onProgress func(curSize int64)) {
 	if length <= 0 {
 		logger.Info("download has no Content-Length, not logging progress")
 	}
@@ -524,6 +631,9 @@ func fileSizeProgress(ctx context.Context, logger logging.Logger, dest string, l
 				return
 			}
 			writer.Update(stat.Size())
+			if onProgress != nil {
+				onProgress(stat.Size())
+			}
 		case <-ctx.Done():
 			return
 		}

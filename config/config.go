@@ -1078,10 +1078,12 @@ const (
 	PackageTypeModule PackageType = "module"
 	// PackageTypeSlamMap represents a slam internal state.
 	PackageTypeSlamMap PackageType = "slam_map"
+	// PackageTypeArchive represents a generic archive.
+	PackageTypeArchive PackageType = "archive"
 )
 
 // SupportedPackageTypes is a list of all of the valid package types.
-var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap}
+var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap, PackageTypeArchive}
 
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {

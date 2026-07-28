@@ -1,7 +1,10 @@
 package packages
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,10 +15,41 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	rUtils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 // testTarPath points to a tarball that tests can use.
 const testTarPath = "test_package.tar.gz"
+
+// writeSingleFileTarGz writes a .tar.gz holding one regular file of the given size into a temp
+// dir and returns its path. The contents are zeros (gzip compresses them away), so a large
+// logical size stays cheap on disk.
+func writeSingleFileTarGz(t *testing.T, name string, size int64) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "package.tar.gz")
+	f, err := os.Create(path)
+	test.That(t, err, test.ShouldBeNil)
+	gzw := gzip.NewWriter(f)
+	tw := tar.NewWriter(gzw)
+	test.That(t, tw.WriteHeader(&tar.Header{Name: name, Size: size, Mode: 0o600}), test.ShouldBeNil)
+	_, err = io.Copy(tw, io.LimitReader(zeroReader{}, size))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, tw.Close(), test.ShouldBeNil)
+	test.That(t, gzw.Close(), test.ShouldBeNil)
+	test.That(t, f.Close(), test.ShouldBeNil)
+	return path
+}
+
+// zeroReader is an infinite source of zero bytes, bounded by an io.LimitReader.
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = 0
+	}
+	return len(p), nil
+}
 
 func TestLocalManagerUtils(t *testing.T) {
 	tmp := t.TempDir()
@@ -40,6 +74,94 @@ func TestLocalManagerUtils(t *testing.T) {
 		stat, err := os.Stat(dest)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, stat.Size(), test.ShouldEqual, 5)
+	})
+
+	t.Run("fileCopyHelper disk guard", func(t *testing.T) {
+		// fileCopyHelper pre-filters local copies by sizing the check off the source file (its
+		// size plus the MinFreeBytes floor) and refuses when blocking is on.
+		src := filepath.Join(tmp, "guard-source")
+		size := int64(diskusage.MinFreeBytes) + 4242
+		test.That(t, os.WriteFile(src, make([]byte, size), 0o600), test.ShouldBeNil)
+
+		orig := enoughFreeSpace
+		t.Cleanup(func() { enoughFreeSpace = orig })
+
+		var gotRequired uint64
+		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+			gotRequired = minBytes
+			return false, 5, nil
+		}
+
+		t.Run("refuses when low and blocking enabled", func(t *testing.T) {
+			t.Setenv(rUtils.ViamEnableDiskSpaceBlockEnvVar, "true")
+			dest := filepath.Join(t.TempDir(), "guard-dest")
+			_, _, err := local.fileCopyHelper(context.Background(), src, dest)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
+			test.That(t, gotRequired, test.ShouldEqual, uint64(size)+diskusage.MinFreeBytes)
+			_, statErr := os.Stat(dest)
+			test.That(t, os.IsNotExist(statErr), test.ShouldBeTrue)
+		})
+
+		t.Run("proceeds when low but blocking disabled (log-only default)", func(t *testing.T) {
+			dest := filepath.Join(t.TempDir(), "guard-dest")
+			_, _, err := local.fileCopyHelper(context.Background(), src, dest)
+			test.That(t, err, test.ShouldBeNil)
+			stat, err := os.Stat(dest)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, stat.Size(), test.ShouldEqual, size)
+		})
+	})
+
+	t.Run("unpackFile disk guard", func(t *testing.T) {
+		// unpackFile checks free space incrementally as it extracts and aborts when low and
+		// blocking is on. The seeded counter fires the check before the first file, so even this
+		// tiny tarball exercises it.
+		orig := enoughFreeSpace
+		t.Cleanup(func() { enoughFreeSpace = orig })
+		enoughFreeSpace = func(_ string, _ uint64) (bool, uint64, error) {
+			return false, 5, nil // always low
+		}
+
+		t.Run("refuses when low and blocking enabled", func(t *testing.T) {
+			t.Setenv(rUtils.ViamEnableDiskSpaceBlockEnvVar, "true")
+			dest := t.TempDir()
+			err := unpackFile(context.Background(), logging.NewTestLogger(t), testTarPath, dest)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
+			// installPackage relies on errors.Is to avoid mislabeling this as a corrupt-archive
+			// "try a different version" failure, so the sentinel must propagate.
+			test.That(t, errors.Is(err, errInsufficientDiskSpace), test.ShouldBeTrue)
+		})
+
+		t.Run("proceeds when low but blocking disabled (log-only default)", func(t *testing.T) {
+			dest := t.TempDir()
+			err := unpackFile(context.Background(), logging.NewTestLogger(t), testTarPath, dest)
+			test.That(t, err, test.ShouldBeNil)
+			_, statErr := os.Stat(filepath.Join(dest, "run.sh"))
+			test.That(t, statErr, test.ShouldBeNil)
+		})
+
+		t.Run("required space includes the upcoming file size", func(t *testing.T) {
+			// Regression guard for the per-file requirement: the check must ask for the member's
+			// size plus the reserved floor, not the floor alone, so a single large file can't push
+			// the volume below MinFreeBytes. Use a member larger than unpackDiskCheckInterval so it
+			// trips the check on its own.
+			fileSize := int64(unpackDiskCheckInterval) + 4242
+			tarPath := writeSingleFileTarGz(t, "big-member", fileSize)
+
+			var gotRequired uint64
+			enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+				gotRequired = minBytes
+				return false, 5, nil
+			}
+			t.Setenv(rUtils.ViamEnableDiskSpaceBlockEnvVar, "true")
+
+			err := unpackFile(context.Background(), logging.NewTestLogger(t), tarPath, t.TempDir())
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, errors.Is(err, errInsufficientDiskSpace), test.ShouldBeTrue)
+			test.That(t, gotRequired, test.ShouldEqual, uint64(fileSize)+diskusage.MinFreeBytes)
+		})
 	})
 
 	t.Run("getAddedAndChanged", func(t *testing.T) {

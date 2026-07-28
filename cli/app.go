@@ -21,12 +21,13 @@ import (
 const (
 	flagAll = "all"
 
-	baseURLFlag         = "base-url"
-	configFlag          = "config"
-	debugFlag           = "debug"
-	profileFlag         = "profile"
-	disableProfilesFlag = "disable-profiles"
-	profileFlagName     = "profile-name"
+	baseURLFlag                 = "base-url"
+	configFlag                  = "config"
+	debugFlag                   = "debug"
+	profileFlag                 = "profile"
+	disableProfilesFlag         = "disable-profiles"
+	profileFlagName             = "profile-name"
+	checkConnectionIntervalFlag = "check-connection-interval"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -85,6 +86,8 @@ const (
 	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
+	generalFlagAddress           = "address"
+	generalFlagLatest            = "latest"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -177,7 +180,6 @@ const (
 	tunnelFlagDestinationPort = "destination-port"
 
 	organizationFlagSupportEmail = "support-email"
-	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
 
 	xacroFlagInputFile         = "input-file"
@@ -328,12 +330,13 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL         string
-	Config          string
-	Debug           bool
-	Quiet           bool
-	Profile         string
-	DisableProfiles bool
+	BaseURL             string
+	Config              string
+	Debug               bool
+	Quiet               bool
+	Profile             string
+	DisableProfiles     bool
+	CheckConnectedEvery time.Duration
 }
 
 func (ga *globalArgs) createLogger() logging.Logger {
@@ -508,6 +511,10 @@ var app = &cli.Command{
 			Name:    disableProfilesFlag,
 			Aliases: []string{"disable-profile"}, // for ease of use; not backwards compatibility related
 			Usage:   "disable usage of profiles, falling back to default behavior",
+		},
+		&cli.DurationFlag{
+			Name:  checkConnectionIntervalFlag,
+			Usage: "check robot connection on this interval and close the client if a faulty connection cannot be repaired",
 		},
 	},
 	Commands: []*cli.Command{
@@ -1044,7 +1051,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "update",
 							Usage: "update the billing service update for an organization",
 							UsageText: createUsageText(
-								"organizations billing-service update", []string{generalFlagOrgID, organizationBillingAddress}, false, false,
+								"organizations billing-service update", []string{generalFlagOrgID, generalFlagAddress}, false, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1052,7 +1059,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to update the billing service for",
 								},
 								&cli.StringFlag{
-									Name:     organizationBillingAddress,
+									Name:     generalFlagAddress,
 									Required: true,
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
@@ -1063,7 +1070,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "enable",
 							Usage: "enable the billing service for an organization",
 							UsageText: createUsageText(
-								"organizations billing-service enable", []string{generalFlagOrgID, organizationBillingAddress}, false, false,
+								"organizations billing-service enable", []string{generalFlagOrgID, generalFlagAddress}, false, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1071,7 +1078,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to enable the billing service for",
 								},
 								&cli.StringFlag{
-									Name:     organizationBillingAddress,
+									Name:     generalFlagAddress,
 									Required: true,
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
@@ -1892,9 +1899,11 @@ Note: There is no progress meter while copying is in progress.
 						[]string{generalFlagDestination, datasetFlagDatasetID}, true, false),
 					Description: "For binary datasets, downloads images and a dataset.jsonl manifest into the destination. " +
 						"For sequence datasets, kicks off an async Parquet export on the server, polls until ready, " +
-						"and writes <dataset-id>.zip into the destination. The --only-jsonl, --parallel, --timeout, " +
-						"and --force-linux-path flags apply only to the binary flow; --poll-interval and --max-wait " +
-						"apply only to the sequence flow.",
+						"writes <dataset-id>.zip into the destination, and (unless --only-parquet is set) downloads " +
+						"each referenced binary blob to <destination>/binary_data/<binary_data_id><file_ext>. " +
+						"The --only-jsonl and --force-linux-path flags apply only to the binary flow; --poll-interval, " +
+						"--max-wait, and --only-parquet apply only to the sequence flow; --parallel and --timeout " +
+						"apply to both.",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      generalFlagDestination,
@@ -1934,6 +1943,10 @@ Note: There is no progress meter while copying is in progress.
 							Name:  datasetFlagMaxWait,
 							Usage: "for sequence datasets: max time to wait for the export to complete (default 30m)",
 							Value: 30 * time.Minute,
+						},
+						&cli.BoolFlag{
+							Name:  datasetFlagOnlyParquet,
+							Usage: "for sequence datasets: skip downloading the referenced binary blobs (only the parquet zip is written)",
 						},
 					},
 					Action: createActionCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
@@ -3210,6 +3223,11 @@ Note: There is no progress meter while copying is in progress.
 						{
 							Name:  "tunnel",
 							Usage: "tunnel connections to the specified port on a machine part",
+							Description: `Tunnel connections from a local port to a destination port on a machine part.
+
+By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel
+directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + `,
+and --` + loginFlagKey + `.`,
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
 							}, true, false),
@@ -3221,6 +3239,18 @@ Note: There is no progress meter while copying is in progress.
 								&cli.IntFlag{
 									Name:     tunnelFlagDestinationPort,
 									Required: true,
+								},
+								&cli.StringFlag{
+									Name:  generalFlagAddress,
+									Usage: "machine FQDN to dial directly,  (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
+								},
+								&cli.StringFlag{
+									Name:  loginFlagKeyID,
+									Usage: "id of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
+								},
+								&cli.StringFlag{
+									Name:  loginFlagKey,
+									Usage: "value of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
 								},
 							}...),
 							Action: createActionCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
@@ -3657,7 +3687,7 @@ Run this command from within the module directory.`,
 						&cli.StringFlag{
 							Name: generalFlagResourceSubtype,
 							Usage: "(module only) resource subtype to use in module, for example arm, camera, or motion. see " +
-								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
+								"https://docs.viam.com/reference/glossary/#term-subtype for more details",
 						},
 						// This is unnecessary and creates a gotcha for users. Kept here
 						// because it's technically breaking to remove it, but it's hidden
@@ -4204,6 +4234,28 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 					},
 					Action: createActionCommandWithT[downloadModuleFlags](DownloadModuleAction),
+				},
+				{
+					Name:      "versions",
+					Usage:     "list a module's released versions and their platforms",
+					UsageText: createUsageText("module versions", []string{}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        generalFlagID,
+							Usage:       "module ID as org-id:name or namespace:name",
+							DefaultText: "will try to read from meta.json",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagLatest,
+							Usage: "print the latest version for each platform instead of the full list",
+						},
+						&cli.IntFlag{
+							Name:        generalFlagCount,
+							Usage:       "show only the N newest versions",
+							DefaultText: "all versions",
+						},
+					},
+					Action: createActionCommandWithT[moduleVersionsFlags](ModuleVersionsAction),
 				},
 			},
 		},

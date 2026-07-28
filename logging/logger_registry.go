@@ -7,6 +7,12 @@ import (
 	"sync/atomic"
 )
 
+// activityLoggerSuffix is the reserved final name segment for activity loggers. Each
+// process's activity logger is named <root logger name>.activity (e.g. "rdk.activity"
+// for viam-server, "viam-agent.activity" for viam-agent); the cloud identifies activity
+// by this suffix, so it must be kept in sync with the backend.
+const activityLoggerSuffix = "activity"
+
 // Registry is a registry of loggers. It is stored on a logger, and holds a map
 // of known subloggers (`loggers`) and a slice of configuration objects
 // (`logConfig`).
@@ -35,6 +41,7 @@ func (lr *Registry) registerLogger(name string, logger Logger) {
 	lr.loggers[name] = logger
 }
 
+// loggerNamed returns the registered logger with the given name, if any.
 func (lr *Registry) loggerNamed(name string) (logger Logger, ok bool) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()

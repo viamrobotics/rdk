@@ -303,7 +303,7 @@ const (
 	TabularDataSourceTypeStandard
 	// TabularDataSourceTypeHotStorage indicates reading from hot storage. This is a premium feature
 	// requiring opting in specific data sources.
-	// See docs at https://docs.viam.com/data-ai/capture-data/advanced/advanced-data-capture-sync/#capture-to-the-hot-data-store
+	// See docs at https://docs.viam.com/data/hot-data-store/
 	TabularDataSourceTypeHotStorage
 	// TabularDataSourceTypePipelineSink indicates reading the output of a data pipeline.
 	// When using this, a pipeline ID needs to be specified.

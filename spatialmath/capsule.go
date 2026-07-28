@@ -36,6 +36,10 @@ type capsule struct {
 	center r3.Vector // Centerpoint of capsule as an r3.Vector, cached to prevent recalculation
 	capVec r3.Vector // Vector pointing from `center` towards `segB`, cached to prevent recalculation
 
+	// rotMatrix caches the world→local rotation matrix — the transpose of
+	// what c.pose.Orientation().RotationMatrix() returns (which is
+	// local→world). SAT code in sat_generic.go reads its rows as the
+	// capsule's local axes in world.
 	rotMatrix *RotationMatrix
 	once      sync.Once
 }
@@ -56,8 +60,8 @@ func NewCapsule(offset Pose, radius, length float64, label string) (Geometry, er
 
 // Will precalculate the linear endpoints for a capsule.
 func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) Geometry {
-	segA := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, -length/2 + radius})).Point()
-	segB := Compose(offset, NewPoseFromPoint(r3.Vector{0, 0, length/2 - radius})).Point()
+	segA := TransformPointByPose(offset, r3.Vector{0, 0, -length/2 + radius})
+	segB := TransformPointByPose(offset, r3.Vector{0, 0, length/2 - radius})
 	center := offset.Point()
 
 	return &capsule{
@@ -118,14 +122,14 @@ func (c *capsule) almostEqual(g Geometry) bool {
 // Transform premultiplies the capsule pose with a transform, allowing the capsule to be moved in space.
 func (c *capsule) Transform(toPremultiply Pose) Geometry {
 	newPose := Compose(toPremultiply, c.pose)
-	segB := Compose(toPremultiply, NewPoseFromPoint(c.segB)).Point()
+	segB := TransformPointByPose(toPremultiply, c.segB)
 	center := newPose.Point()
 	return &capsule{
 		pose:   newPose,
 		radius: c.radius,
 		length: c.length,
 		label:  c.label,
-		segA:   Compose(toPremultiply, NewPoseFromPoint(c.segA)).Point(),
+		segA:   TransformPointByPose(toPremultiply, c.segA),
 		segB:   segB,
 		center: center,
 		capVec: segB.Sub(center),
@@ -249,10 +253,11 @@ func (c *capsule) Hash() int {
 	return hash
 }
 
-// rotationMatrix returns the cached matrix if it exists, and generates it if not.
 func (c *capsule) rotationMatrix() *RotationMatrix {
-	c.once.Do(func() { c.rotMatrix = c.pose.Orientation().RotationMatrix() })
-
+	// Orientation().RotationMatrix() returns local→world; we cache its transpose.
+	c.once.Do(func() {
+		c.rotMatrix = c.pose.Orientation().RotationMatrix().Transpose()
+	})
 	return c.rotMatrix
 }
 

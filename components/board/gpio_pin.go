@@ -81,12 +81,12 @@ import (
 //
 // For more information, see the [SetPWMFreq method docs].
 //
-// [Set method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setgpio
-// [Get method docs]: https://docs.viam.com/dev/reference/apis/components/board/#getgpio
-// [PWM method docs]: https://docs.viam.com/dev/reference/apis/components/board/#getpwm
-// [SetPWM method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setpwm
-// [PWMFreq method docs]: https://docs.viam.com/dev/reference/apis/components/board/#pwmfrequency
-// [SetPWMFreq method docs]: https://docs.viam.com/dev/reference/apis/components/board/#setpwmfrequency
+// [Set method docs]: https://docs.viam.com/reference/apis/components/board/#setgpio
+// [Get method docs]: https://docs.viam.com/reference/apis/components/board/#getgpio
+// [PWM method docs]: https://docs.viam.com/reference/apis/components/board/#getpwm
+// [SetPWM method docs]: https://docs.viam.com/reference/apis/components/board/#setpwm
+// [PWMFreq method docs]: https://docs.viam.com/reference/apis/components/board/#pwmfrequency
+// [SetPWMFreq method docs]: https://docs.viam.com/reference/apis/components/board/#setpwmfrequency
 type GPIOPin interface {
 	// Set sets the pin to either low or high.
 	Set(ctx context.Context, high bool, extra map[string]interface{}) error
