@@ -36,7 +36,7 @@ func TestRunFlushWaitsOutRunway(t *testing.T) {
 	close(jpCh)
 
 	start := time.Now()
-	err := Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+	err := Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 	elapsed := time.Since(start)
 
 	test.That(t, err, test.ShouldBeNil)
@@ -56,7 +56,7 @@ func TestRunFlushWaitCancellable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+		errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 	}()
 
 	// Let the drain finish and the wait begin, then cancel.

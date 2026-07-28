@@ -116,6 +116,45 @@ func TestDoCommandArmStreaming(t *testing.T) {
 	test.That(t, streams >= 1, test.ShouldBeTrue)
 }
 
+// TestDoCommandArmStreamingStatusTraceOptOut checks that stream_status includes the trace
+// snapshot by default (bare true, or the key present with no value), but omits it when the
+// caller explicitly opts out via {"trace": false} -- the cheap-poll path a client should use
+// while it only cares about "running"/"error", saving it from re-fetching and re-serializing
+// the whole accumulated trace on every poll.
+func TestDoCommandArmStreamingStatusTraceOptOut(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	ctx := context.Background()
+
+	_, err := ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// default (bare true): trace included
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	test.That(t, err, test.ShouldBeNil)
+	_, hasTrace := resp["trace"]
+	test.That(t, hasTrace, test.ShouldBeTrue)
+
+	// explicit opt-in: trace included
+	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"trace": true}})
+	test.That(t, err, test.ShouldBeNil)
+	_, hasTrace = resp["trace"]
+	test.That(t, hasTrace, test.ShouldBeTrue)
+
+	// explicit opt-out: trace omitted, but running/arm are still reported
+	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"trace": false}})
+	test.That(t, err, test.ShouldBeNil)
+	_, hasTrace = resp["trace"]
+	test.That(t, hasTrace, test.ShouldBeFalse)
+	test.That(t, resp["running"], test.ShouldEqual, true)
+	test.That(t, resp["arm"], test.ShouldEqual, "arm")
+
+	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestDoCommandArmStreamingErrors(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	ctx := context.Background()

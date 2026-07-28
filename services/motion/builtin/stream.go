@@ -21,6 +21,7 @@ const (
 	streamKeyRunning = "running"
 	streamKeyError   = "error"
 	streamKeyOk      = "ok"
+	streamKeyTrace   = "trace"
 )
 
 // stream manages a single arm-streaming session across start/push/abort/status
@@ -54,6 +55,10 @@ type stream struct {
 	// resultErr is the error (if any) that caused the session to end.
 	// It should only be read after done is observed closed.
 	resultErr error
+
+	// trace records pipeline buffer occupancy, call timings, and PVAT velocities for
+	// this session, for diagnosing pacing/buffering issues. Exposed via stream_status.
+	trace *streaming.PipelineTrace
 }
 
 func (s *stream) finished() bool {
@@ -132,10 +137,11 @@ func (ms *builtIn) streamStart(
 		jpCh:    make(chan streaming.JointPositionsChItem),
 		cancel:  cancel,
 		done:    make(chan struct{}),
+		trace:   streaming.NewPipelineTrace(),
 	}
 
 	go func() {
-		err := streaming.Run(streamCtx, a, &opts, s.jpCh, seed)
+		err := streaming.Run(streamCtx, a, &opts, s.jpCh, seed, s.trace)
 		s.resultErr = err
 		if err != nil {
 			s.logger.CWarnf(streamCtx, "arm streaming session ended with error: %v", err)
@@ -187,6 +193,8 @@ func (ms *builtIn) streamFlush(ctx context.Context) (map[string]any, error) {
 		return map[string]any{streamKeyRunning: true}, nil
 	}
 
+	// The flush response never includes the trace -- it's a completion acknowledgment, not a
+	// place callers fetch the trace from; fetch it via stream_status instead.
 	status := map[string]any{streamKeyRunning: false}
 	if s.resultErr != nil {
 		status[streamKeyError] = s.resultErr.Error()
@@ -221,7 +229,11 @@ func (ms *builtIn) streamAbort(ctx context.Context) map[string]any {
 	return status
 }
 
-func (ms *builtIn) streamStatus() map[string]any {
+// streamStatus reports the active session's state. includeTrace controls whether the (potentially
+// large, and only ever growing) trace snapshot is attached -- a caller polling repeatedly just to
+// watch "running"/"error" doesn't need to re-fetch and re-serialize the whole accumulated trace on
+// every call; pass false and fetch it once, at the end, instead.
+func (ms *builtIn) streamStatus(includeTrace bool) map[string]any {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 	if ms.stream == nil {
@@ -232,6 +244,9 @@ func (ms *builtIn) streamStatus() map[string]any {
 	status := map[string]any{
 		streamKeyRunning: !finished,
 		streamKeyArm:     ms.stream.armName,
+	}
+	if includeTrace {
+		status[streamKeyTrace] = ms.stream.trace.Snapshot()
 	}
 	if finished && ms.stream.resultErr != nil {
 		status[streamKeyError] = ms.stream.resultErr.Error()
@@ -277,11 +292,26 @@ func (ms *builtIn) handleStreamCommand(
 		return ms.streamAbort(ctx), true, nil
 	}
 
-	if _, ok := cmd[DoStreamStatus]; ok {
-		return ms.streamStatus(), true, nil
+	if req, ok := cmd[DoStreamStatus]; ok {
+		return ms.streamStatus(parseIncludeTrace(req)), true, nil
 	}
 
 	return nil, false, nil
+}
+
+// parseIncludeTrace reports whether a stream_status request opted out of the trace snapshot via
+// {"trace": false}. Defaults to true (the original, unconditional behavior) for any other input,
+// including the common `DoStreamStatus: true` case.
+func parseIncludeTrace(req interface{}) bool {
+	m, ok := req.(map[string]interface{})
+	if !ok {
+		return true
+	}
+	include, ok := m[streamKeyTrace].(bool)
+	if !ok {
+		return true
+	}
+	return include
 }
 
 func parseStreamStart(req interface{}) (string, streaming.StreamOptions, error) {
