@@ -62,6 +62,12 @@ const (
 	DoTeleopMove   = "teleop_move"
 	DoTeleopStop   = "teleop_stop"
 	DoTeleopStatus = "teleop_status"
+
+	DoStreamStart  = "stream_start"
+	DoStreamPush   = "stream_push"
+	DoStreamFlush  = "stream_flush"
+	DoStreamAbort  = "stream_abort"
+	DoStreamStatus = "stream_status"
 )
 
 const (
@@ -163,6 +169,10 @@ type builtIn struct {
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
+
+	// Arm-streaming session. Protected by streamMu (separate from mu to simplify lock ordering).
+	streamMu sync.RWMutex
+	stream   *stream
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -194,6 +204,9 @@ func (ms *builtIn) BuiltInReconfigure(
 		ms.teleopPipeline = nil
 	}
 	ms.teleopMu.Unlock()
+
+	// Stop any arm-streaming session before acquiring the write lock.
+	ms.streamAbort(ctx)
 
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -244,6 +257,8 @@ func (ms *builtIn) Close(ctx context.Context) error {
 		ms.teleopPipeline = nil
 	}
 	ms.teleopMu.Unlock()
+
+	ms.streamAbort(ctx)
 
 	return nil
 }
@@ -305,18 +320,82 @@ func (ms *builtIn) PlanHistory(
 	return nil, fmt.Errorf("PlanHistory not supported by builtin")
 }
 
-// DoCommand supports two commands which are specified through the command map
+// DoCommand supports the following commands, specified through the command map
+//
 //   - DoPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
 //     required key: DoPlan
 //     input value: a motionpb.MoveRequest which will be used to create a Trajectory
 //     output value: a motionplan.Trajectory specified as a map (the mapstructure.Decode function is useful for decoding this)
+//
 //   - DoExecute takes a Trajectory and executes it
 //     required key: DoExecute
 //     input value: a motionplan.Trajectory
 //     output value: a bool
+//
+// Streaming commands:
+//
+// An arm-streaming session is started with DoStreamStart, fed joint-position targets with
+// DoStreamPush, and ended with either DoStreamFlush (drain what's queued, then stop) or
+// DoStreamAbort (stop immediately). DoStreamStatus can be used to poll the session state at
+// any point.
+//
+//	DoStreamStart: starts a session on a named arm. Fails if a session is already running.
+//	  request:  {"stream_start": {
+//	               "arm": "myArm",
+//	               "options": {                        // optional; shown values are defaults
+//	                 "target_runway_in_arm_ms": 100,
+//	                 "send_to_arm_interval_ms": 10,
+//	                 "vel_limit_deg_per_sec": 10,
+//	                 "accel_limit_deg_per_sec2": 10
+//	               }
+//	             }}
+//	  response: {"stream_start": true}
+//
+//	DoStreamPush: appends joint-position targets to the running session.
+//	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
+//	  response: {"stream_push": true}
+//
+//	DoStreamFlush: stops accepting new targets and drains what's already queued to the arm; the
+//	session ends once that finishes. Blocks until the drain finishes or ctx expires, whichever
+//	comes first.
+//	  request:  {"stream_flush": true}
+//	  response: {"stream_flush": {
+//	               "running": false,                   // true if ctx expired before the drain
+//	                                                     // finished; the session keeps draining
+//	                                                     // on its own -- repeat DoStreamFlush or
+//	                                                     // poll DoStreamStatus
+//	               "error": "..."                      // present only if the session ended
+//	                                                     // with an error
+//	             }}
+//
+//	DoStreamAbort: cancels the session immediately, dropping any buffered trajectory that hasn't
+//	reached the arm. Blocks until the session finishes or ctx expires, whichever comes first.
+//	  request:  {"stream_abort": true}
+//	  response: {"stream_abort": {
+//	               "running": false,                   // true if ctx expired before teardown
+//	                                                     // finished; the session is still
+//	                                                     // tearing down on its own -- repeat
+//	                                                     // DoStreamAbort or poll DoStreamStatus
+//	               "error": "..."                      // present only if the session ended
+//	                                                     // with an error
+//	             }}
+//
+//	DoStreamStatus: reports the current session's state.
+//	  request:  {"stream_status": true}
+//	  response: {"stream_status": {
+//	               "running": true,
+//	               "arm": "myArm",                      // present once a session has started
+//	               "error": "..."                       // present only once the session has
+//	                                                     // finished with an error
+//	             }}
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
+		return resp, err
+	}
+
+	// Handle arm-streaming commands (they manage their own locking).
+	if resp, handled, err := ms.handleStreamCommand(ctx, cmd); handled {
 		return resp, err
 	}
 
