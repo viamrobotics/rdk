@@ -51,6 +51,3 @@ So for example, to implement a `MovementSensor` against an SDK checkout at `/via
 cd build
 ./cl_gen -p /viam-cpp-sdk/build/ /viam-cpp-sdk/src/viam/sdk/components/movement_sensor.hpp
 ```
-
-The generator parses the resource header, under the compile flags the build directory records for
-the `.cpp` beside it.
