@@ -645,7 +645,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				mustRestart, newRestartInterval, err := restartCheck.needsRestart(ctx)
 				if err != nil {
-					s.networkingLogger.Infow("failed to check restart", "error", err)
+					s.networkingLogger.Debugw("failed to check restart", "error", err)
 					continue
 				}
 
