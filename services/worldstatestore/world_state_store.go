@@ -139,6 +139,13 @@ func (s *TransformChangeStream) Next() (TransformChange, error) {
 	return s.next()
 }
 
+// NewTransformChangeStream builds a TransformChangeStream from a next function. It is exported so
+// implementations can compose custom sources (for example an initial snapshot followed by a live
+// channel from a TransformChangeBroadcaster).
+func NewTransformChangeStream(next func() (TransformChange, error)) *TransformChangeStream {
+	return &TransformChangeStream{next: next}
+}
+
 // NewTransformChangeStreamFromChannel wraps a channel of TransformChange as a TransformChangeStream.
 // The provided context is used to cancel iteration; when ctx is done, Next returns ctx.Err().
 func NewTransformChangeStreamFromChannel(ctx context.Context, ch <-chan TransformChange) *TransformChangeStream {

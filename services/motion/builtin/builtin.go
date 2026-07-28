@@ -18,9 +18,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
@@ -34,6 +36,8 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/worldstatestore"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -98,6 +102,12 @@ type Config struct {
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
+	// WorldStateStoreServiceNames names the world state store service(s) whose transforms are
+	// automatically loaded as the world state for Move requests that do not supply their own
+	// WorldState. When multiple are given, their transforms are layered (unioned by uuid). An
+	// explicit WorldState on a Move request overrides these entirely.
+	WorldStateStoreServiceNames []string `json:"world_state_store_service_names"`
+
 	// TeleopInterpolateOverride controls the arm's built-in interpolation for teleop moves.
 	// When false (the default) each batch of joint targets is sent with interpolate=false and
 	// waitAtEnd=false, giving the lowest latency and the most responsive motion. When true,
@@ -145,7 +155,11 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
 	}
 
-	return []string{framesystem.InternalServiceName.String()}, nil, nil
+	deps := []string{framesystem.InternalServiceName.String()}
+	for _, name := range c.WorldStateStoreServiceNames {
+		deps = append(deps, worldstatestore.Named(name).String())
+	}
+	return deps, nil, nil
 }
 
 type builtIn struct {
@@ -156,6 +170,7 @@ type builtIn struct {
 	movementSensors         map[string]movementsensor.MovementSensor
 	slamServices            map[string]slam.Service
 	visionServices          map[string]vision.Service
+	worldStateStores        []worldstatestore.Service
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
@@ -214,6 +229,7 @@ func (ms *builtIn) BuiltInReconfigure(
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
+	worldStateStores := make(map[string]worldstatestore.Service)
 	componentMap := make(map[string]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
@@ -225,6 +241,8 @@ func (ms *builtIn) BuiltInReconfigure(
 			slamServices[name.Name] = dep
 		case vision.Service:
 			visionServices[name.Name] = dep
+		case worldstatestore.Service:
+			worldStateStores[name.Name] = dep
 		default:
 			componentMap[name.Name] = dep
 		}
@@ -233,6 +251,17 @@ func (ms *builtIn) BuiltInReconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = componentMap
+
+	// Resolve the configured world state stores in config order so their transforms layer predictably.
+	orderedStores := make([]worldstatestore.Service, 0, len(config.WorldStateStoreServiceNames))
+	for _, name := range config.WorldStateStoreServiceNames {
+		store, ok := worldStateStores[name]
+		if !ok {
+			return errors.Errorf("configured world_state_store_service_name %q not found in dependencies", name)
+		}
+		orderedStores = append(orderedStores, store)
+	}
+	ms.worldStateStores = orderedStores
 
 	return nil
 }
@@ -454,7 +483,105 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 	return frameSys, nil
 }
 
+// normalizeTransformGeometry returns a transform whose geometry has a non-nil center pose, cloning when
+// needed so the store's own proto is never mutated. World state store transforms may encode an obstacle's
+// position in pose_in_observer_frame and leave the geometry center unset; the geometry converter requires
+// a center, so we fill in identity (position is still applied from the transform pose by the caller).
+func normalizeTransformGeometry(tf *commonpb.Transform) *commonpb.Transform {
+	geo := tf.GetPhysicalObject()
+	if geo == nil || geo.GetCenter() != nil {
+		return tf
+	}
+	out := proto.Clone(tf).(*commonpb.Transform)
+	out.PhysicalObject.Center = &commonpb.Pose{OZ: 1}
+	return out
+}
+
+// worldStateFromStores builds a WorldState from the world state store service(s) configured on this
+// motion service. Each stored transform with a geometry becomes an obstacle placed at its pose within
+// its parent frame; geometry-less transforms become supplemental frames. Transforms are unioned across
+// stores (first store wins on a uuid collision). Returns (nil, nil) when nothing is configured or found.
+// Per-store and per-transform failures are logged and skipped rather than failing the whole read.
+func (ms *builtIn) worldStateFromStores(ctx context.Context) (*referenceframe.WorldState, error) {
+	if len(ms.worldStateStores) == 0 {
+		return nil, nil
+	}
+
+	var obstacles []*referenceframe.GeometriesInFrame
+	var transforms []*referenceframe.LinkInFrame
+	seen := make(map[string]bool)
+
+	for _, store := range ms.worldStateStores {
+		uuids, err := store.ListUUIDs(ctx, nil)
+		if err != nil {
+			ms.logger.CWarnf(ctx, "motion: failed to list transforms from world state store %q, skipping: %v", store.Name().Name, err)
+			continue
+		}
+		for _, u := range uuids {
+			key := string(u)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+
+			tf, err := store.GetTransform(ctx, u, nil)
+			if err != nil {
+				ms.logger.CWarnf(ctx, "motion: failed to get transform %q from world state store %q, skipping: %v", key, store.Name().Name, err)
+				continue
+			}
+			if tf == nil {
+				continue
+			}
+
+			link, err := referenceframe.LinkInFrameFromTransformProtobuf(normalizeTransformGeometry(tf))
+			if err != nil {
+				ms.logger.CWarnf(ctx, "motion: skipping malformed transform %q from world state store %q: %v", key, store.Name().Name, err)
+				continue
+			}
+
+			geom := link.Geometry()
+			if geom == nil {
+				// No geometry: contribute an extra frame only.
+				transforms = append(transforms, link)
+				continue
+			}
+
+			// Place the geometry at the transform's pose within its parent frame and give it a unique
+			// label; ObstaclesInWorldFrame then moves it into the world frame via the frame system.
+			placed := geom.Transform(link.Pose())
+			label := key
+			if label == "" {
+				label = link.Name()
+			}
+			placed.SetLabel(label)
+			obstacles = append(obstacles, referenceframe.NewGeometriesInFrame(link.Parent(), []spatialmath.Geometry{placed}))
+		}
+	}
+
+	if len(obstacles) == 0 && len(transforms) == 0 {
+		return nil, nil
+	}
+	return referenceframe.NewWorldState(obstacles, transforms)
+}
+
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
+	// When the caller does not supply a world state, fall back to the world state store service(s)
+	// configured on this motion service. An explicit request WorldState overrides configured stores.
+	//
+	// TODO: needs motion-planning-team review before broadening. Follow-ups to consider:
+	//   - a merge mode that unions the request WorldState with configured stores (instead of override);
+	//   - a bulk ListTransforms RPC on the store to replace ListUUIDs + N*GetTransform (go.viam.com/api);
+	//   - applying the same fallback to other world-state-consuming paths (e.g. MoveOnMap);
+	//   - subscribing to the store(s) and caching rather than reading fresh on every Move.
+	if req.WorldState == nil {
+		ws, err := ms.worldStateFromStores(ctx)
+		if err != nil {
+			logger.CWarnf(ctx, "motion: failed to build world state from configured stores, planning without it: %v", err)
+			ws = nil
+		}
+		req.WorldState = ws
+	}
+
 	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
