@@ -105,34 +105,40 @@ func BenchmarkEncodeYCbCr(b *testing.B) {
 	}
 }
 
-func TestNewEncoderCropsUnalignedDims(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	// Ensenso native: 2472 is 8 pixels past the nearest 16-multiple.
-	enc, err := NewEncoder(2472, 2064, DefaultKeyFrameInterval, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, enc.Close(), test.ShouldBeNil)
-	}()
+func TestNewEncoderCropDecision(t *testing.T) {
+	tests := []struct {
+		name         string
+		width        int
+		height       int
+		wantCrop     bool
+		wantAlignedW int
+	}{
+		{"aligned width and height (no-op)", 1280, 720, false, 1280},
+		{"aligned width, unaligned height (no-op)", 1280, 730, false, 1280},
+		{"unaligned width, aligned height (crop)", 2472, 2064, true, 2464},
+		{"unaligned width and height (crop, height preserved)", 1000, 730, true, 992},
+	}
 
-	e := enc.(*encoder)
-	test.That(t, e.needsCrop, test.ShouldBeTrue)
-	test.That(t, e.dstBounds.Dx(), test.ShouldEqual, 2464)
-	test.That(t, e.dstBounds.Dy(), test.ShouldEqual, 2064)
-	test.That(t, e.scratchRGBA, test.ShouldNotBeNil)
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
+			enc, err := NewEncoder(tt.width, tt.height, DefaultKeyFrameInterval, logger)
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				test.That(t, enc.Close(), test.ShouldBeNil)
+			}()
 
-func TestNewEncoderAlignedDimsNoOp(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	// 1280x720 — both dims already 16-aligned (720p, common on webcams).
-	enc, err := NewEncoder(1280, 720, DefaultKeyFrameInterval, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, enc.Close(), test.ShouldBeNil)
-	}()
-
-	e := enc.(*encoder)
-	test.That(t, e.needsCrop, test.ShouldBeFalse)
-	test.That(t, e.scratchRGBA, test.ShouldBeNil)
+			e := enc.(*encoder)
+			test.That(t, e.needsCrop, test.ShouldEqual, tt.wantCrop)
+			if tt.wantCrop {
+				test.That(t, e.dstBounds.Dx(), test.ShouldEqual, tt.wantAlignedW)
+				test.That(t, e.dstBounds.Dy(), test.ShouldEqual, tt.height)
+				test.That(t, e.scratchRGBA, test.ShouldNotBeNil)
+			} else {
+				test.That(t, e.scratchRGBA, test.ShouldBeNil)
+			}
+		})
+	}
 }
 
 func TestEncodeUnalignedInputDoesNotPanic(t *testing.T) {
