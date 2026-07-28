@@ -31,7 +31,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	start := time.Now()
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0})
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, nil)
 	}()
 
 	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.05, -0.05}}
@@ -81,7 +81,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 		}()
 
 		// The send on jpCh returning proves Run is in its loop; then cancel.
@@ -107,7 +107,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 		}()
 
 		// Let the flush finish and the wait begin, then cancel.
@@ -142,7 +142,7 @@ func TestRunEndsOnArmError(t *testing.T) {
 	jpCh := make(chan JointPositionsChItem)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 	}()
 
 	// One target is enough trajectory for several sends; the first is accepted, the
