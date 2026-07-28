@@ -6,6 +6,7 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -17,11 +18,15 @@ import (
 )
 
 const (
-	testUser        = "c6f77790-5405-488a-9c9c-9612402fb9b0"
-	getReadings     = "/viam.component.sensor.v1.SensorService/GetReadings"
-	addStream       = "/proto.stream.v1.StreamService/AddStream"
-	machineStatus   = "/viam.robot.v1.RobotService/GetMachineStatus"
-	robotGetVersion = "/viam.robot.v1.RobotService/GetVersion"
+	testKeyID     = "c6f77790-5405-488a-9c9c-9612402fb9b0"
+	testEmail     = "benji@viam.com"
+	getImages     = "/viam.component.camera.v1.CameraService/GetImages"
+	getReadings   = "/viam.component.sensor.v1.SensorService/GetReadings"
+	listStreams   = "/proto.stream.v1.StreamService/ListStreams"
+	addStream     = "/proto.stream.v1.StreamService/AddStream"
+	resourceNames = "/viam.robot.v1.RobotService/ResourceNames"
+	machineStatus = "/viam.robot.v1.RobotService/GetMachineStatus"
+	authenticate  = "/proto.rpc.v1.AuthService/Authenticate"
 )
 
 func ctxWithUser(user string) context.Context {
@@ -34,6 +39,14 @@ func assertDenied(t *testing.T, err error) {
 	test.That(t, status.Code(err), test.ShouldEqual, codes.PermissionDenied)
 }
 
+func apiKeyUser(id string) config.User {
+	return config.User{Type: config.UserTypeAPIKeyID, ID: id}
+}
+
+func emailUser(id string) config.User {
+	return config.User{Type: config.UserTypeEmail, ID: id}
+}
+
 func TestRolesAuthorizerNoRoles(t *testing.T) {
 	test.That(t, newRolesAuthorizer(nil, logging.NewTestLogger(t)), test.ShouldBeNil)
 }
@@ -41,87 +54,134 @@ func TestRolesAuthorizerNoRoles(t *testing.T) {
 func TestRolesAuthorizer(t *testing.T) {
 	ra := newRolesAuthorizer([]config.Role{
 		{
-			User: testUser,
+			Users: []config.User{apiKeyUser(testKeyID), emailUser(testEmail)},
 			Permissions: []config.Permission{
-				{Resource: "cam1", Methods: []string{getImagesMethod}},
-				{Resource: "sensor1", Methods: []string{getReadings}},
+				{Resources: []string{"robot"}, AllowedMethods: []string{resourceNames}},
+				{Resources: []string{"streams"}, AllowedMethods: []string{listStreams}},
+				{Resources: []string{"cam1", "cam2"}, AllowedMethods: []string{getImages, addStream}},
+				{Resources: []string{"sensor1"}, AllowedMethods: []string{getReadings}},
 			},
 		},
 	}, logging.NewTestLogger(t))
 	test.That(t, ra, test.ShouldNotBeNil)
 
-	ctx := ctxWithUser(testUser)
+	for _, ctx := range []context.Context{ctxWithUser(testKeyID), ctxWithUser(testEmail)} {
+		// resource-scoped grants apply to every listed resource and no others
+		err := ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
+		test.That(t, err, test.ShouldBeNil)
+		err = ra.authorize(ctx, addStream, &streampb.AddStreamRequest{Name: "cam2"})
+		test.That(t, err, test.ShouldBeNil)
+		assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam3"}))
+		assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "cam1"}))
 
-	// granted resource methods
-	err := ra.authorize(ctx, getImagesMethod, &camerapb.GetImagesRequest{Name: "cam1"})
-	test.That(t, err, test.ShouldBeNil)
-	err = ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"})
-	test.That(t, err, test.ShouldBeNil)
+		// machine-scoped methods work when granted under any resource name
+		err = ra.authorize(ctx, resourceNames, &robotpb.ResourceNamesRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		err = ra.authorize(ctx, listStreams, &streampb.ListStreamsRequest{})
+		test.That(t, err, test.ShouldBeNil)
 
-	// same method, ungranted resource
-	assertDenied(t, ra.authorize(ctx, getImagesMethod, &camerapb.GetImagesRequest{Name: "cam2"}))
-	assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "cam1"}))
+		// no default endpoints: ungranted robot methods are denied
+		assertDenied(t, ra.authorize(ctx, machineStatus, &robotpb.GetMachineStatusRequest{}))
 
-	// default endpoints always allowed; other robot endpoints are not
-	err = ra.authorize(ctx, machineStatus, nil)
-	test.That(t, err, test.ShouldBeNil)
-	assertDenied(t, ra.authorize(ctx, robotGetVersion, nil))
+		// auth handshake plumbing is always exempt
+		err = ra.authorize(ctx, authenticate, nil)
+		test.That(t, err, test.ShouldBeNil)
+	}
 
-	// GetImages implies name-scoped stream endpoints and ListStreams
-	err = ra.authorize(ctx, addStream, &streampb.AddStreamRequest{Name: "cam1"})
-	test.That(t, err, test.ShouldBeNil)
-	assertDenied(t, ra.authorize(ctx, addStream, &streampb.AddStreamRequest{Name: "cam2"}))
-	err = ra.authorize(ctx, listStreamsMethod, &streampb.ListStreamsRequest{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// user without a role and no default role: default endpoints only
-	otherCtx := ctxWithUser("some-other-user")
-	err = ra.authorize(otherCtx, machineStatus, nil)
-	test.That(t, err, test.ShouldBeNil)
+	// unknown user with no default role: fully restricted
+	otherCtx := ctxWithUser("someone-else")
+	assertDenied(t, ra.authorize(otherCtx, resourceNames, &robotpb.ResourceNamesRequest{}))
 	assertDenied(t, ra.authorize(otherCtx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
 
-	// no auth entity in context means the method was exempt from auth
-	err = ra.authorize(context.Background(), robotGetVersion, nil)
+	// unauthenticated: fully restricted, but plumbing still exempt
+	assertDenied(t, ra.authorize(context.Background(), resourceNames, &robotpb.ResourceNamesRequest{}))
+	err := ra.authorize(context.Background(), authenticate, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestRolesAuthorizerDefaultUser(t *testing.T) {
 	ra := newRolesAuthorizer([]config.Role{
-		{User: testUser, Permissions: []config.Permission{{Resource: "cam1", Methods: []string{getImagesMethod}}}},
-		{User: config.DefaultRoleUser, Permissions: []config.Permission{{Resource: "sensor1", Methods: []string{getReadings}}}},
+		{
+			Users:       []config.User{apiKeyUser(testKeyID)},
+			Permissions: []config.Permission{{Resources: []string{"cam1"}, AllowedMethods: []string{getImages}}},
+		},
+		{
+			Users: []config.User{{Type: config.UserTypeDefault}},
+			Permissions: []config.Permission{
+				{Resources: []string{"robot"}, AllowedMethods: []string{resourceNames}},
+				{Resources: []string{"sensor1"}, AllowedMethods: []string{getReadings}},
+			},
+		},
 	}, logging.NewTestLogger(t))
 
-	// unknown users inherit the default role
-	otherCtx := ctxWithUser("some-other-user")
+	// unknown authenticated users inherit the default role
+	otherCtx := ctxWithUser("someone-else")
 	err := ra.authorize(otherCtx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"})
 	test.That(t, err, test.ShouldBeNil)
-	assertDenied(t, ra.authorize(otherCtx, getImagesMethod, &camerapb.GetImagesRequest{Name: "cam1"}))
+	err = ra.authorize(otherCtx, resourceNames, &robotpb.ResourceNamesRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	assertDenied(t, ra.authorize(otherCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 
 	// a user with their own role does not inherit the default role
-	ctx := ctxWithUser(testUser)
+	ctx := ctxWithUser(testKeyID)
 	assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
+
+	// unauthenticated users do not get the default role
+	assertDenied(t, ra.authorize(context.Background(), resourceNames, &robotpb.ResourceNamesRequest{}))
 }
 
 func TestRolesAuthorizerDuplicateUser(t *testing.T) {
+	camPerm := []config.Permission{{Resources: []string{"cam1"}, AllowedMethods: []string{getImages}}}
+	sensorPerm := []config.Permission{{Resources: []string{"sensor1"}, AllowedMethods: []string{getReadings}}}
+
 	ra := newRolesAuthorizer([]config.Role{
-		{User: testUser, Permissions: []config.Permission{{Resource: "cam1", Methods: []string{getImagesMethod}}}},
-		{User: config.DefaultRoleUser, Permissions: []config.Permission{{Resource: "sensor1", Methods: []string{getReadings}}}},
-		{User: testUser, Permissions: []config.Permission{{Resource: "sensor1", Methods: []string{getReadings}}}},
+		{Users: []config.User{apiKeyUser(testKeyID)}, Permissions: camPerm},
+		{Users: []config.User{{Type: config.UserTypeDefault}}, Permissions: sensorPerm},
+		{Users: []config.User{apiKeyUser(testKeyID)}, Permissions: sensorPerm},
 	}, logging.NewTestLogger(t))
 
-	// colliding user is fully restricted: no granted methods, no default role
-	// fallback, but default endpoints still work
-	ctx := ctxWithUser(testUser)
-	assertDenied(t, ra.authorize(ctx, getImagesMethod, &camerapb.GetImagesRequest{Name: "cam1"}))
+	// colliding user is fully restricted: no granted methods and no default fallback
+	ctx := ctxWithUser(testKeyID)
+	assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 	assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
-	err := ra.authorize(ctx, machineStatus, nil)
-	test.That(t, err, test.ShouldBeNil)
 
-	// a duplicate role after the collision does not resurrect permissions
+	// a duplicate after the collision does not resurrect permissions
 	ra = newRolesAuthorizer([]config.Role{
-		{User: testUser},
-		{User: testUser},
-		{User: testUser, Permissions: []config.Permission{{Resource: "cam1", Methods: []string{getImagesMethod}}}},
+		{Users: []config.User{apiKeyUser(testKeyID)}},
+		{Users: []config.User{apiKeyUser(testKeyID)}},
+		{Users: []config.User{apiKeyUser(testKeyID)}, Permissions: camPerm},
 	}, logging.NewTestLogger(t))
-	assertDenied(t, ra.authorize(ctx, getImagesMethod, &camerapb.GetImagesRequest{Name: "cam1"}))
+	assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+
+	// duplicate default users fully restrict unknown users
+	ra = newRolesAuthorizer([]config.Role{
+		{Users: []config.User{{Type: config.UserTypeDefault}}, Permissions: sensorPerm},
+		{Users: []config.User{{Type: config.UserTypeDefault}}, Permissions: camPerm},
+	}, logging.NewTestLogger(t))
+	otherCtx := ctxWithUser("someone-else")
+	assertDenied(t, ra.authorize(otherCtx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
+	assertDenied(t, ra.authorize(otherCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+
+	// duplicate emails collide the same way api key IDs do
+	ra = newRolesAuthorizer([]config.Role{
+		{Users: []config.User{emailUser(testEmail)}, Permissions: camPerm},
+		{Users: []config.User{emailUser(testEmail)}, Permissions: sensorPerm},
+	}, logging.NewTestLogger(t))
+	emailCtx := ctxWithUser(testEmail)
+	assertDenied(t, ra.authorize(emailCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+}
+
+func TestRolesAuthorizerSameNameDifferentAPI(t *testing.T) {
+	// a permission naming "cam1" is harmless for a same-named resource of another
+	// API: the method's service prefix disambiguates
+	ra := newRolesAuthorizer([]config.Role{
+		{
+			Users:       []config.User{apiKeyUser(testKeyID)},
+			Permissions: []config.Permission{{Resources: []string{"cam1"}, AllowedMethods: []string{getImages}}},
+		},
+	}, logging.NewTestLogger(t))
+	ctx := ctxWithUser(testKeyID)
+	err := ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
+	test.That(t, err, test.ShouldBeNil)
+	assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "cam1"}))
 }
