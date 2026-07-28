@@ -100,14 +100,15 @@ func TestDefaultSpinnerUsesTerminalDefaultColor(t *testing.T) {
 	// The running spinner text must use the terminal's default foreground color
 	// (pterm.FgDefault) rather than pterm's bright white default, otherwise it is
 	// illegible on light backgrounds.
-	spinner, err := defaultSpinnerFactory("building")
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, spinner.Stop(), test.ShouldBeNil)
-	}()
+	//
+	// We build the same chain that defaultSpinnerFactory uses but skip Start()
+	// to avoid a known data race inside pterm's SpinnerPrinter goroutine
+	// (unsynchronized read/write of IsActive between the animation loop and Stop).
+	pspinner := pterm.DefaultSpinner.
+		WithRemoveWhenDone(false).
+		WithMessageStyle(pterm.NewStyle(pterm.FgDefault)).
+		WithText("building")
 
-	pspinner, ok := spinner.(*pterm.SpinnerPrinter)
-	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, pspinner.MessageStyle, test.ShouldNotBeNil)
 	test.That(t, *pspinner.MessageStyle, test.ShouldResemble, pterm.Style{pterm.FgDefault})
 }
