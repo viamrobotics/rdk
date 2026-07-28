@@ -52,9 +52,15 @@ type managedModuleMap map[string]*managedModule
 func NewLocalManager(packagesParentDir string, logger logging.Logger) (ManagerSyncer, error) {
 	packagesDir := LocalPackagesDir(packagesParentDir)
 	packagesDataDir := filepath.Join(packagesDir, "data")
-	// Don't eagerly create the package directories: a robot with no local tarball modules never
-	// uses them, and creating them here would litter the package dir (~/.viam/packages-local) for
-	// every robot/test that doesn't sync local packages. installPackage creates them on demand.
+	// Create packages-local eagerly so CLI reload-local can shell-copy a tarball into it before
+	// the module is configured and installPackage/Sync runs. installPackage still MkdirAlls
+	// nested type dirs (e.g. data/module) on demand.
+	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
+		return nil, err
+	}
 	return &localManager{
 		Named:           InternalServiceName.AsNamed(),
 		managedModules:  make(managedModuleMap),
