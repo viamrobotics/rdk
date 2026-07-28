@@ -1821,6 +1821,7 @@ func reloadingDestination(cmd *cli.Command, manifest *ModuleManifest) string {
 // It also logs warnings for likely problems, such as a missing meta.json or a first_run script
 // declared in the manifest but absent from the archive.
 func validateReloadableArchive(cmd *cli.Command, archivePath, firstRun string) error {
+	//nolint:gosec // archivePath is a user-provided path from meta.json build.path or --file
 	reader, err := os.Open(archivePath)
 	if err != nil {
 		return errors.Wrap(err, "error opening module archive")
