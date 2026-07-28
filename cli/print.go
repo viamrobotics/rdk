@@ -80,9 +80,10 @@ func errorf(w io.Writer, format string, a ...interface{}) {
 	fmt.Fprintf(w, "%s", string(upperR)+toPrint[i:]) //nolint:errcheck
 }
 
-// viamLogo prints an ASCII Viam logo.
+// viamLogo prints an ASCII Viam logo. The logo uses the terminal's default
+// foreground color so it remains legible on both light and dark backgrounds.
 func viamLogo(w io.Writer) {
-	if _, err := color.New(color.Bold, color.FgWhite).Fprint(w, asciiViam); err != nil {
+	if _, err := color.New(color.Bold).Fprint(w, asciiViam); err != nil {
 		log.Fatal(err)
 	}
 }
