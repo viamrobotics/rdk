@@ -2,7 +2,7 @@
 // (like detection, segmentation, tracking, etc) that usually only require a camera or image input.
 // For more information, see the [vision service docs].
 //
-// [vision service docs]: https://docs.viam.com/services/vision/
+// [vision service docs]: https://docs.viam.com/reference/services/vision/
 package vision
 
 import (
@@ -170,13 +170,13 @@ func init() {
 //
 // For more information, see the [CaptureAllFromCamera method docs].
 //
-// [vision service docs]: https://docs.viam.com/dev/reference/apis/services/vision/
-// [DetectionsFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getdetectionsfromcamera
-// [Detections method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getdetections
-// [ClassificationsFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getclassificationsfromcamera
-// [Classifications method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getclassifications
-// [GetObjectPointClouds method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getobjectpointclouds
-// [CaptureAllFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#captureallfromcamera
+// [vision service docs]: https://docs.viam.com/reference/apis/services/vision/
+// [DetectionsFromCamera method docs]: https://docs.viam.com/reference/apis/services/vision/#getdetectionsfromcamera
+// [Detections method docs]: https://docs.viam.com/reference/apis/services/vision/#getdetections
+// [ClassificationsFromCamera method docs]: https://docs.viam.com/reference/apis/services/vision/#getclassificationsfromcamera
+// [Classifications method docs]: https://docs.viam.com/reference/apis/services/vision/#getclassifications
+// [GetObjectPointClouds method docs]: https://docs.viam.com/reference/apis/services/vision/#getobjectpointclouds
+// [CaptureAllFromCamera method docs]: https://docs.viam.com/reference/apis/services/vision/#captureallfromcamera
 type Service interface {
 	resource.Resource
 	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.
@@ -253,4 +253,5 @@ type Properties struct {
 	ClassificationSupported bool
 	DetectionSupported      bool
 	ObjectPCDsSupported     bool
+	DefaultCamera           *string
 }

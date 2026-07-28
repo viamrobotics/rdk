@@ -826,6 +826,16 @@ func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
 
 // ResolveDependencies attempts to link up unresolved dependencies after
 // new changes to the graph.
+//
+// Note: This only resolves dependencies a node still lists as unresolved. Once a
+// node resolves a dependency, the requirement lives on solely as a graph edge, so
+// if that edge is later removed (e.g. the dependency is removed) without the dependent
+// being removed or re-marking the dependency as unresolved, this pass will not rebuild
+// the edge even if the dependency is later re-added. We guard on resolving a dependency
+// whose node is already marked for removal, so that a dependent node will stay pending
+// instead of building an edge that is about to be stripped, which prevents the one
+// known way of reaching this state. Other unknown paths may still reach this state, and
+// this pass would not recover a dependent stranded that way.
 func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -882,7 +892,14 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 			resolvedName, resolved := tryResolve()
 			if resolved {
-				if err := g.addChild(nodeName, resolvedName); err != nil {
+				// Don't resolve a dependency whose node is already marked for removal. The node
+				// is still present (removal happens later), but building an edge to it now would
+				// be stripped when it is removed, leaving this resource resolved with no edge and
+				// no way to notice. Instead, leave the dependency unresolved so it is re-resolved
+				// on a later pass once a live node with that name exists.
+				if depNode, ok := g.nodes.Get(resolvedName); ok && depNode.MarkedForRemoval() {
+					resolved = false
+				} else if err := g.addChild(nodeName, resolvedName); err != nil {
 					allErrs = multierr.Combine(allErrs, err)
 					logger.Errorw(
 						"error adding dependency for resource as a child to parent",

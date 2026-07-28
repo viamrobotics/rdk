@@ -120,8 +120,8 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	return deps, nil, nil
 }
 
-// Reconfigure automatically reconfigures this movement sensor based on the updated config.
-func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure automatically reconfigures this movement sensor based on the updated config.
+func (o *odometry) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	if len(o.motors) > 0 {
 		if err := o.motors[0].left.Stop(ctx, nil); err != nil {
 			return err
@@ -247,7 +247,7 @@ func newWheeledOdometry(
 		logger:       logger,
 	}
 
-	if err := o.Reconfigure(ctx, deps, conf); err != nil {
+	if err := o.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 

@@ -64,7 +64,7 @@ do_linux(){
 		# Debian/Ubuntu
 		INSTALL_CMD="apt-get install --assume-yes build-essential procps curl file git debianutils"
 		if [ $(source /etc/os-release && echo $VERSION_CODENAME) = focal ]; then
-			echo -e ${COLOR_RED}WARNING:${COLOR_NULL} Ubuntu focal has known issues. Your build may fail.
+			echo -e ${COLOR_RED}NOTE:${COLOR_NULL} Focal is RDK\'s minimum baseline, but native brew-based dev on Focal is not fully validated yet. Your build may fail.
 			read -p "Continue? (y/n) " yesno
 			if [ $yesno != y ]; then
 				echo Okay, quitting

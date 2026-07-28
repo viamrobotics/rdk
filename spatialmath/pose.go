@@ -90,6 +90,16 @@ func Compose(a, b Pose) Pose {
 	return &DualQuaternion{DualQuaternionFromPose(a).Transformation(DualQuaternionFromPose(b).Number)}
 }
 
+// TransformPointByPose returns pt transformed by pose. Equivalent to
+// Compose(pose, NewPoseFromPoint(pt)).Point() but avoids two intermediate
+// *DualQuaternion heap allocations on the *DualQuaternion fast path.
+func TransformPointByPose(pose Pose, pt r3.Vector) r3.Vector {
+	if dq, ok := pose.(*DualQuaternion); ok {
+		return TransformPoint(dq.Real, dq.Point(), pt)
+	}
+	return TransformPoint(pose.Orientation().Quaternion(), pose.Point(), pt)
+}
+
 // PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
 // Example: if PoseBetween(a, b) = c, then Compose(a, c) = b.
 func PoseBetween(a, b Pose) Pose {
@@ -143,7 +153,7 @@ func PoseInverse(p Pose) Pose {
 // by == 0 will return p1, by == 1 will return p2, and by == 0.5 will return the pose halfway between them.
 func Interpolate(p1, p2 Pose, by float64) Pose {
 	p2Orient := p2.Orientation().Quaternion()
-	if OrientationBetween(p1.Orientation(), p2.Orientation()).Quaternion().Real < 0 {
+	if QuatBetween(p1.Orientation(), p2.Orientation()).Real < 0 {
 		p2Orient = quat.Scale(-1, p2Orient)
 	}
 	intQ := newDualQuaternion()

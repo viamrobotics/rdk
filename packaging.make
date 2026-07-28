@@ -1,34 +1,8 @@
 BUILD_CHANNEL?=local
 # note: UNAME_M is overrideable because it is wrong in 32-bit arm container executing natively on 64-bit arm
 UNAME_M ?= $(shell uname -m)
-ifneq ($(shell which dpkg 2>/dev/null), "")
-DPKG_ARCH ?= $(shell dpkg --print-architecture)
-APPIMAGE_ARCH ?= $(shell dpkg --print-architecture)
-endif
 
 PRERELEASE_PATH := $(if $(findstring -dev,$(BUILD_CHANNEL)),"prerelease/","")
-
-appimage: server-static
-	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} appimage-builder --recipe viam-server-`uname -m`.yml
-	if [ "${RELEASE_TYPE}" = "stable" ]; then \
-		cd etc/packaging/appimages; \
-		BUILD_CHANNEL=stable appimage-builder --recipe viam-server-`uname -m`.yml; \
-	fi
-	mkdir -p etc/packaging/appimages/deploy/
-	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
-	chmod 755 etc/packaging/appimages/deploy/*.AppImage
-
-# AppImage packaging targets run in canon docker
-appimage-multiarch: appimage-amd64 appimage-arm64
-
-appimage-amd64:
-	canon --arch amd64 make appimage
-
-appimage-arm64:
-	canon --arch arm64 make appimage
-
-appimage-deploy:
-	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
 
 static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 	rm -rf etc/packaging/static/deploy/
@@ -48,7 +22,7 @@ static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 
 static-release-win:
 	rm -f bin/static/viam-server-windows.exe
-	GOOS=windows GOARCH=amd64 go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-windows.exe ./web/cmd/server
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags no_cgo $(LDFLAGS) -o bin/static/viam-server-windows.exe ./web/cmd/server
 	upx --best --lzma bin/static/viam-server-windows.exe
 	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe
 
@@ -61,7 +35,7 @@ static-release-win:
 	fi
 
 	# note: GOOS=windows would break this on a linux runner
-	go run -tags no_cgo ./web/cmd/server --dump-resources win-resources.json
+	CGO_ENABLED=0 go run -tags no_cgo ./web/cmd/server --dump-resources win-resources.json
 
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/

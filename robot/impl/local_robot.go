@@ -27,6 +27,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -46,7 +47,6 @@ import (
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -58,6 +58,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -171,6 +172,32 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 	return err
 }
 
+// dataFromPathUploader is the capability interface localRobot type-asserts the configured
+// data manager service for when UploadDataFromPath is called.
+type dataFromPathUploader interface {
+	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
+		robot.UploadDataFromPathResult, error)
+}
+
+// UploadDataFromPath uploads a file or directory to the cloud via the configured data manager service.
+func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{}) (
+	robot.UploadDataFromPathResult, error,
+) {
+	names := datamanager.NamesFromRobot(r)
+	if len(names) == 0 {
+		return robot.UploadDataFromPathResult{}, errors.New("no data manager service configured")
+	}
+	svc, err := datamanager.FromProvider(r, names[0])
+	if err != nil {
+		return robot.UploadDataFromPathResult{}, err
+	}
+	uploader, ok := svc.(dataFromPathUploader)
+	if !ok {
+		return robot.UploadDataFromPathResult{}, errors.New("data manager does not support UploadDataFromPath")
+	}
+	return uploader.UploadDataFromPath(ctx, path, md, extra)
+}
+
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
 // through the resourceGetterForAPI for _all_ incoming gRPC requests related to a
 // resource. A nil resource and an error is returned in the case of no resource found, or
@@ -280,10 +307,20 @@ func (r *localRobot) Kill() {
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
-	// Stop all operations
+	// Cancel other outstanding operations (e.g. in-flight moves), but not the StopAll
+	// operation itself. Canceling the current op would cancel ctx before actuator.Stop
+	// and cause modular resource Stop RPCs to fail with context canceled.
+	currentOp := operation.Get(ctx)
 	for _, op := range r.OperationManager().All() {
+		if currentOp != nil && op == currentOp {
+			continue
+		}
 		op.Cancel()
 	}
+
+	// Ensure actuator stops still run if the request context is canceled (client
+	// disconnect, or any residual cancellation). Matches motion's stop-on-error pattern.
+	stopCtx := context.WithoutCancel(ctx)
 
 	// Stop all stoppable resources
 	resourceErrs := make(map[string]error)
@@ -295,7 +332,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 		}
 
 		if actuator, ok := res.(resource.Actuator); ok {
-			if err := actuator.Stop(ctx, extra[name]); err != nil {
+			if err := actuator.Stop(stopCtx, extra[name]); err != nil {
 				resourceErrs[name.Name] = err
 			}
 		}
@@ -968,11 +1005,11 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		failedModules := r.manager.moduleManager.FailedModules()
+		unhealthyModules := r.manager.moduleManager.UnhealthyModules()
 		var modules string
-		if len(failedModules) > 0 {
-			sort.Strings(failedModules)
-			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)
+		if len(unhealthyModules) > 0 {
+			sort.Strings(unhealthyModules)
+			modules = fmt.Sprintf("May be in failing module: %v; ", unhealthyModules)
 		}
 		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered; "+
 			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
@@ -1086,33 +1123,37 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			// the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
 			case web.InternalServiceName:
-				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
+				if internalRes, ok := res.(resource.BuiltInResource); ok {
+					if err := internalRes.BuiltInReconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+					}
 				}
 			case framesystem.InternalServiceName:
-				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
-				if err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
-					break
-				}
-				err = res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
-				if err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
+				if internalRes, ok := res.(resource.BuiltInResource); ok {
+					fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
+					if err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+						break
+					}
+					err = internalRes.BuiltInReconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+					if err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+					}
 				}
 			case packages.InternalServiceName, packages.DeferredServiceName, icloud.InternalServiceName:
 			default:
@@ -1158,7 +1199,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			return
 		}
 
-		// Return early if resource has neither weak nor optional dependencies.
+		// Return early if resource has neither weak nor optional dependencies (root of tree)
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 &&
 			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
@@ -1185,15 +1226,27 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 
 		r.Logger().CInfow(ctx, "handling weak/optional update for resource", "resource", resName)
 
-		// Use the module manager to reconfigure the resource if it's a modular resource. This
-		// would be a modular resource that has optional dependencies.
 		isModular := r.manager.moduleManager.Provides(conf)
-		if isModular {
-			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
-			// For modular resources `res` is a client object. We call reconfigure to clear caches.
-			goutils.UncheckedError(res.Reconfigure(ctx, deps, conf))
+		if internalResource, ok := res.(resource.BuiltInResource); !isModular && ok {
+			err = internalResource.BuiltInReconfigure(ctx, deps, conf)
 		} else {
-			err = res.Reconfigure(ctx, deps, conf)
+			// copied from resource_manager's processResource
+			if err := r.manager.closeAndUnsetResource(ctx, resNode); err != nil {
+				r.manager.logger.CError(ctx, err)
+			}
+			var newRes resource.Resource
+			newRes, err = r.newResource(ctx, resNode, conf)
+			if err != nil {
+				r.manager.logger.CDebugw(ctx,
+					"failed to build resource of new model",
+					"name", resName,
+					"old_model", resNode.ResourceModel(),
+					"new_model", conf.Model,
+				)
+			} else if newRes != nil {
+				// will NPE if newRes is nil
+				resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc, false)
+			}
 		}
 		if err != nil {
 			if resource.IsMustRebuildError(err) {
@@ -1704,6 +1757,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.reconfigureTracing(ctx, newConfig)
 	}
 
+	// Mark all new modules as pending now, before packagemanager starts doing anything.
+	for _, mod := range initialDiff.Added.Modules {
+		r.manager.moduleManager.SetModuleStatusPending(mod.Name)
+	}
+
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
@@ -1741,7 +1799,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
 	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
+		// Determine which package manager owns this module's package and transition it to first-run state.
+		pkgMgr, pkgName := r.packageManagerForModule(mod)
+		pkgMgr.SetPackageState(pkgName, packages.PackageStateFirstRun, "")
+
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
+			pkgMgr.SetPackageState(pkgName, packages.PackageStateFailed, err.Error())
 			r.logger.CErrorw(
 				ctx,
 				"reconfiguration aborted because of error executing first run. falling back to last config "+
@@ -1752,6 +1815,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			)
 			return
 		}
+		pkgMgr.SetPackageState(pkgName, packages.PackageStateReady, "")
 	}
 
 	if newConfig.Cloud != nil {
@@ -1852,38 +1916,41 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}()
 
-	if r.manager.moduleManager != nil {
-		r.manager.moduleManager.ClearFailedModules()
-	}
-
 	if diff.ResourcesEqual {
 		return
 	}
 
-	logVerb := "Construct"
-	logNoun := "construction"
-	if !r.initializing.Load() {
-		logVerb = "Reconfigur"
-		logNoun = "reconfiguration"
-		if newConfig.MaintenanceConfig != nil {
-			if reconfigureAllowedErr != nil {
-				r.logger.CInfow(
-					ctx,
-					"Reconfigure allowed despite error while checking",
-					"error",
-					reconfigureAllowedErr.Error(),
-				)
-			} else {
-				r.logger.CInfow(
-					ctx,
-					"Reconfigure allowed by maintenance sensor",
-					"sensor",
-					newConfig.MaintenanceConfig.SensorName,
-				)
-			}
+	// Derive the labels from the config being applied, not r.initializing: that flag is
+	// stored at pass exit for MachineStatus, so at entry it describes the previous pass
+	// and would label the two startup passes swapped.
+	logVerb := "Reconfigur"
+	logNoun := "reconfiguration"
+	if newConfig.Initial {
+		logVerb = "Construct"
+		logNoun = "construction"
+	}
+	if !r.initializing.Load() && newConfig.MaintenanceConfig != nil {
+		if reconfigureAllowedErr != nil {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed despite error while checking",
+				"error",
+				reconfigureAllowedErr.Error(),
+			)
+		} else {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed by maintenance sensor",
+				"sensor",
+				newConfig.MaintenanceConfig.SensorName,
+			)
 		}
 	}
-	r.logger.CInfof(ctx, "%ving robot", logVerb)
+	reconfigureStarted := time.Now()
+	r.logger.Activity("reconfigure", "start",
+		"revision", diff.NewRevision(),
+		"reconfigure_type", logNoun,
+	)
 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.CDebugf(ctx, "%ving with %+v", logVerb, diff)
@@ -1938,8 +2005,18 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, fmt.Sprintf("The following errors were gathered during %v", logNoun), "errors", allErrs)
+		r.logger.Activity("reconfigure", "fail",
+			"revision", diff.NewRevision(),
+			"reconfigure_type", logNoun,
+			"duration", time.Since(reconfigureStarted).String(),
+			"errors", allErrs,
+		)
 	} else {
-		r.logger.CInfof(ctx, "Robot %ved", strings.ToLower(logVerb))
+		r.logger.Activity("reconfigure", "complete",
+			"revision", diff.NewRevision(),
+			"reconfigure_type", logNoun,
+			"duration", time.Since(reconfigureStarted).String(),
+		)
 	}
 }
 
@@ -2183,6 +2260,19 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// packageManagerForModule returns the package manager responsible for a module's package
+// and the package name to use when updating state. Local tarball modules are managed by
+// localPackages; registry modules are managed by packageManager.
+func (r *localRobot) packageManagerForModule(mod config.Module) (packages.ManagerSyncer, packages.PackageName) {
+	if mod.NeedsSyntheticPackage() {
+		pkg, err := mod.SyntheticPackage()
+		if err == nil {
+			return r.localPackages, packages.PackageName(pkg.Name)
+		}
+	}
+	return r.packageManager, packages.PackageName(mod.Name)
+}
+
 // MachineStatus returns the current status of the robot.
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
@@ -2219,6 +2309,8 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 		result.State = robot.StateInitializing
 	}
 
+	result.Modules = r.manager.moduleManager.Status()
+
 	if r.jobManager != nil {
 		if n := r.jobManager.NumJobHistories.Load(); n > 0 {
 			if result.JobStatuses == nil {
@@ -2232,6 +2324,9 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 			}
 		}
 	}
+
+	result.Packages = append(result.Packages, r.packageManager.PackageStatuses()...)
+	result.Packages = append(result.Packages, r.localPackages.PackageStatuses()...)
 
 	return result, nil
 }

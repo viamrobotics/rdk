@@ -407,7 +407,7 @@ func TestWheeledBaseReconfigure(t *testing.T) {
 	deps, _, err = newTestConf.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps = fakeMotorDependencies(t, deps)
-	test.That(t, wb.Reconfigure(ctx, motorDeps, newTestConf), test.ShouldBeNil)
+	test.That(t, wb.reconfigure(ctx, motorDeps, newTestConf), test.ShouldBeNil)
 
 	// Add a new motor to Left only to confirm that Reconfigure is impossible because cfg validation fails
 	newerTestCfg := newTestCfg()
@@ -435,7 +435,7 @@ func TestWheeledBaseReconfigure(t *testing.T) {
 	deps, _, err = newestTestCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps = fakeMotorDependencies(t, deps)
-	test.That(t, wb.Reconfigure(ctx, motorDeps, newestTestCfg), test.ShouldBeNil)
+	test.That(t, wb.reconfigure(ctx, motorDeps, newestTestCfg), test.ShouldBeNil)
 }
 
 func TestValidate(t *testing.T) {

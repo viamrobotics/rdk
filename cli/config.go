@@ -171,6 +171,26 @@ func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
 	return append(opts, conf.Auth.dialOpts()), nil
 }
 
+// localAPIKeyDialOptions builds dial options that authenticate directly to a machine using the
+// given api-key. mDNS discovery is left enabled so the connection can go entirely over the local
+// network. The base URL is only parsed for transport (TLS) options and is never dialed, so its
+// reachability is not verified — this keeps the fully-offline path from touching app.viam.com.
+func localAPIKeyDialOptions(baseURL, keyID, key string, debug bool) ([]rpc.DialOption, error) {
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+	_, opts, err := rutils.ParseBaseURL(baseURL, false)
+	if err != nil {
+		return nil, err
+	}
+	k := &apiKey{KeyID: keyID, KeyCrypto: key}
+	opts = append(opts, k.dialOpts())
+	if debug {
+		opts = append(opts, rpc.WithDialDebug())
+	}
+	return opts, nil
+}
+
 // ConnectToMachine connects to a Viam machine using the cached CLI token.
 func ConnectToMachine(ctx context.Context, hostname string, logger logging.Logger) (robot.Robot, error) {
 	if hostname == "" {

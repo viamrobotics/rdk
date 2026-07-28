@@ -20,6 +20,13 @@
 #include <string_view>
 #include <unordered_map>
 
+// NOTE: the llvm::formatv templates below use asymmetric brace escaping. `{{`
+// collapses to a single `{`, but `}}` is NOT an escape -- it is copied
+// verbatim. So a literal `{}` must be written `{{}` (double the open, single
+// the close); writing `{{}}` emits `{}}` with a stray closing brace. The same
+// rule applies to CMake `${...}` refs in the CMakeLists template: write
+// `${{VAR}` (not `${{VAR}}`) to emit `${VAR}`.
+
 namespace viam::gen {
 
 Generator Generator::create(Generator::ModuleInfo moduleInfo,
@@ -132,7 +139,7 @@ namespace {1} {
 // Return the names of any resources that must exist before this resource can be built.
 // Throw an exception if cfg contains invalid configuration.
 std::vector<std::string> {0}::validate(const viam::sdk::ResourceConfig& cfg) {{
-    return {{}};
+    return {{};
 }
 
 )--",
@@ -385,10 +392,10 @@ install(
     DESTINATION .
 )
 
-file(READ "${{CMAKE_CURRENT_SOURCE_DIR}}/meta.json" _META_JSON)
-string(JSON _FIRST_RUN ERROR_VARIABLE _FR_ERR GET "${{_META_JSON}}" "first_run")
-if(NOT _FR_ERR AND _FIRST_RUN AND EXISTS "${{CMAKE_CURRENT_SOURCE_DIR}}/${{_FIRST_RUN}}")
-    install(FILES "${{_FIRST_RUN}}" DESTINATION .)
+file(READ "${{CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
+string(JSON _FIRST_RUN ERROR_VARIABLE _FR_ERR GET "${{_META_JSON}" "first_run")
+if(NOT _FR_ERR AND _FIRST_RUN AND EXISTS "${{CMAKE_CURRENT_SOURCE_DIR}/${{_FIRST_RUN}")
+    install(FILES "${{_FIRST_RUN}" DESTINATION .)
 endif()
 
 install(TARGETS {0})

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -58,14 +60,15 @@ type moduleManager interface {
 	Kill()
 	Provides(conf resource.Config) bool
 	Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error)
-	ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error
 	Remove(modName string) ([]resource.Name, error)
 	RemoveResource(ctx context.Context, name resource.Name) error
 	ResolveImplicitDependencies(ctx context.Context, conf *config.Diff)
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
-	FailedModules() []string
-	ClearFailedModules()
-	AddToFailedModules(moduleName string)
+	UnhealthyModules() []string
+	SetModuleStatusUnhealthy(moduleName string, err error)
+	SetModuleStatusPending(moduleName string)
+	PruneModuleStatuses(confs []config.Module)
+	Status() []modulestatus.Status
 }
 
 // resourceManager manages the actual parts that make up a robot.
@@ -168,7 +171,7 @@ func (manager *resourceManager) addRemote(
 			return
 		}
 	} else {
-		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc)
+		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc, true)
 	}
 	manager.updateRemoteResourceNames(ctx, rName, rr, c.Prefix, true)
 }
@@ -223,6 +226,13 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
 
+	// Track the remote's previous reachability so connect/disconnect activity events are
+	// emitted only on transitions (since this function is called in a loop)
+	prevReachable := true
+	if rNode, ok := manager.resources.Node(remoteName); ok {
+		prevReachable = rNode.IsReachable()
+	}
+
 	// The connection to the remote is broken. In this case, we mark each resource node
 	// on this remote as disconnected but do not report any other changes.
 	if newResources == nil {
@@ -233,6 +243,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				"error", err,
 			)
 		}
+		if prevReachable {
+			manager.logger.Activity("remote", "disconnect", "remote", remoteName.Name)
+		}
 		return false
 	}
 
@@ -242,6 +255,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			"unable to mark remote resources as reachable",
 			"error", err,
 		)
+	}
+	if !prevReachable {
+		manager.logger.Activity("remote", "connect", "remote", remoteName.Name)
 	}
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
@@ -337,7 +353,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		//
 		// The clock advance is what lets a local resource with a weak/optional dependency on this
 		// remote resource be detected as stale by updateWeakAndOptionalDependents.
-		gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
+		gNode.SwapResource(res, unknownModel, manager.opts.ftdc, true)
 
 		err = manager.resources.AddChild(resName, remoteName)
 		if err != nil {
@@ -607,7 +623,7 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 // closeAndUnsetResource attempts to close and unset the resource from the graph node. Should only be called within
 // resourceGraphLock.
 func (manager *resourceManager) closeAndUnsetResource(ctx context.Context, gNode *resource.GraphNode) error {
-	res, err := gNode.Resource()
+	res, err := gNode.UnsafeResource()
 	if err != nil {
 		return err
 	}
@@ -715,7 +731,7 @@ func (manager *resourceManager) completeConfig(
 	// order.
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
-	for _, resourceNames := range levels {
+	for i, resourceNames := range levels {
 		// At the start of every reconfiguration level, run updateWeakAndOptionalDependents.
 		// value.
 		//
@@ -732,6 +748,11 @@ func (manager *resourceManager) completeConfig(
 			default:
 			}
 			gNode, ok := manager.resources.Node(resName)
+			if manager.logger != nil && manager.logger.GetLevel() < 0 {
+				manager.logger.Debugw("CompleteConfig", "level", i, "resName", resName,
+					"lastWeakAndOptionalDependentsRound", lr.lastWeakAndOptionalDependentsRound.Load(),
+					"CurrLogicalClockValue", manager.resources.CurrLogicalClockValue(), "NeedsReconfigure", gNode.NeedsReconfigure())
+			}
 			if !ok || !gNode.NeedsReconfigure() {
 				continue
 			}
@@ -790,7 +811,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger, resName.String(),
 						)
 					} else {
-						verb = "reconfigur"
+						verb = "rebuild"
 					}
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %ving resource", verb), "resource", resName, "model", conf.Model)
 
@@ -804,26 +825,53 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
-						if _, _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+						implicitDeps, implicitOptionalDeps, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf)
+						if err != nil {
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
 							return
 						}
+
+						// If the freshly-validated implicit dependencies differ from the set the node
+						// was configured with, the node's dependency edges are stale. This happens when
+						// ResolveImplicitDependencies hit a transient Validate error (e.g. a
+						// DeadlineExceeded timeout) and dropped the dependencies, but Validate now
+						// succeeds. Re-apply the dependencies and defer the build by one pass so they
+						// get resolved into graph edges first; building now would construct the resource
+						// with an incomplete dependency set (e.g. a missing camera dependency).
+						if !equalUnordered(implicitDeps, conf.ImplicitDependsOn) ||
+							!equalUnordered(implicitOptionalDeps, conf.ImplicitOptionalDependsOn) {
+							manager.logger.CInfow(ctx,
+								"modular resource implicit dependencies changed since last validation; re-resolving before building",
+								"resource", conf.ResourceName(), "model", conf.Model,
+								"old", conf.ImplicitDependsOn, "new", implicitDeps)
+							conf.ImplicitDependsOn = implicitDeps
+							conf.ImplicitOptionalDependsOn = implicitOptionalDeps
+							gNode.SetNewConfig(conf, conf.Dependencies())
+							lr.sendTriggerConfig("modular dependency re-resolution")
+							return
+						}
 					}
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
-
-						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
-						if newlyBuilt || err != nil {
-							if err := manager.markChildrenForUpdate(resName); err != nil {
-								manager.logger.CErrorw(ctx,
-									"failed to mark children of resource for update",
-									"resource", resName,
-									"reason", err)
-							}
+						activityType := fmt.Sprintf("resource_%s", verb)
+						activityRevision := gNode.PendingRevision()
+						activityStarted := time.Now()
+						manager.logger.Activity(activityType, "start",
+							"resource", resName.String(),
+							"model", conf.Model.String(),
+							"reason", gNode.ReconfigureReason(),
+							"revision", activityRevision,
+						)
+						newRes, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
+						if err := manager.markChildrenForUpdate(resName); err != nil {
+							manager.logger.CErrorw(ctx,
+								"failed to mark children of resource for update",
+								"resource", resName,
+								"reason", err)
 						}
 
 						if err != nil {
@@ -831,6 +879,12 @@ func (manager *resourceManager) completeConfig(
 								fmt.Errorf("resource build error: %v", err.Error()),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
+							manager.logger.Activity(activityType, "fail",
+								"resource", resName.String(),
+								"model", conf.Model.String(),
+								"revision", activityRevision,
+								"duration", time.Since(activityStarted).String(),
+								"error", err)
 							return
 						}
 
@@ -841,9 +895,14 @@ func (manager *resourceManager) completeConfig(
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+							manager.logger.Activity(activityType, "fail",
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
+								"duration", time.Since(activityStarted).String(), "error", ctxWithTimeout.Err())
 						} else {
-							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
-							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
+							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
+							manager.logger.Activity(activityType, "complete",
+								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
+								"duration", time.Since(activityStarted).String())
 						}
 
 					default:
@@ -1058,7 +1117,7 @@ func (manager *resourceManager) processRemote(
 		}
 		return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 	}
-	manager.logger.CInfow(ctx, "Connected now to remote", "remote", config.Name)
+	manager.logger.Activity("remote", "connect", "remote", config.Name)
 	return robotClient, nil
 }
 
@@ -1105,22 +1164,17 @@ func (manager *resourceManager) processResource(
 	conf resource.Config,
 	gNode *resource.GraphNode,
 	lr *localRobot,
-) (resource.Resource, bool, error) {
+) (resource.Resource, error) {
 	if gNode.IsUninitialized() {
 		newRes, err := lr.newResource(ctx, gNode, conf)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
-		return newRes, true, nil
-	}
-
-	currentRes, err := gNode.UnsafeResource()
-	if err != nil {
-		return nil, false, err
+		return newRes, nil
 	}
 
 	resName := conf.ResourceName()
-	deps, weakOptionalSnapshot, err := lr.getDependenciesWithWeakOptionalSnapshot(resName, gNode)
+	_, err := lr.getDependencies(resName, gNode)
 	if err != nil {
 		manager.logger.CDebugw(ctx,
 			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
@@ -1128,32 +1182,11 @@ func (manager *resourceManager) processResource(
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
 		)
-		return nil, false, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
+		return nil, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
 	}
 
-	isModular := manager.moduleManager.Provides(conf)
-	if gNode.ResourceModel() == conf.Model {
-		if isModular {
-			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
-				return nil, false, err
-			}
-			// For modular resources, `currentRes` is a client object. Call reconfigure to clear caches.
-			goutils.UncheckedError(currentRes.Reconfigure(ctx, deps, conf))
-			gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
-			return currentRes, false, nil
-		}
-
-		err = currentRes.Reconfigure(ctx, deps, conf)
-		if err == nil {
-			gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
-			return currentRes, false, nil
-		}
-
-		if !resource.IsMustRebuildError(err) {
-			return nil, false, err
-		}
-	} else {
-		manager.logger.CInfow(ctx, "Resource models differ so resource must be rebuilt",
+	if gNode.ResourceModel() != conf.Model {
+		manager.logger.CInfow(ctx, "resource models differ from old",
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 
@@ -1175,9 +1208,22 @@ func (manager *resourceManager) processResource(
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
 		)
-		return nil, false, err
+		return nil, err
 	}
-	return newRes, true, nil
+	return newRes, nil
+}
+
+// equalUnordered reports whether two string slices contain the same elements,
+// ignoring order. A nil and an empty slice are considered equal.
+func equalUnordered(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	aSorted := slices.Clone(a)
+	bSorted := slices.Clone(b)
+	slices.Sort(aSorted)
+	slices.Sort(bSorted)
+	return slices.Equal(aSorted, bSorted)
 }
 
 // addToBeConstructedResource adds a new, unconfigured graph node for a resource to the
@@ -1270,8 +1316,9 @@ func (manager *resourceManager) updateResources(
 		// The config was already validated, but we must check again before attempting
 		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
+			fullErr := fmt.Errorf("module config validation error; skipping. module: %s err: %w", mod.Name, err)
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
-			manager.moduleManager.AddToFailedModules(mod.Name)
+			manager.moduleManager.SetModuleStatusUnhealthy(mod.Name, fullErr)
 			continue
 		}
 		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
@@ -1287,6 +1334,9 @@ func (manager *resourceManager) updateResources(
 	// modules should have their implicit dependencies re-evaluated.
 	if manager.moduleManager != nil {
 		manager.moduleManager.ResolveImplicitDependencies(ctx, conf)
+
+		// Drop status entries for modules no longer in the config
+		manager.moduleManager.PruneModuleStatuses(conf.Right.Modules)
 	}
 
 	revision := conf.NewRevision()

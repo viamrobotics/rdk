@@ -38,12 +38,18 @@ func OrientationAlmostEqualEps(o1, o2 Orientation, epsilon float64) bool {
 		return false
 	}
 
-	return QuatToR3AA(OrientationBetween(o1, o2).Quaternion()).Norm2() < epsilon
+	return QuatToR3AA(QuatBetween(o1, o2)).Norm2() < epsilon
+}
+
+// QuatBetween returns the rotation quaternion from o1 to o2 as a raw quat.Number.
+// Unlike OrientationBetween, this does not allocate a heap-bound Orientation wrapper.
+func QuatBetween(o1, o2 Orientation) quat.Number {
+	return quat.Mul(o2.Quaternion(), quat.Conj(o1.Quaternion()))
 }
 
 // OrientationBetween returns the orientation representing the difference between the two given orientations.
 func OrientationBetween(o1, o2 Orientation) Orientation {
-	q := Quaternion(quat.Mul(o2.Quaternion(), quat.Conj(o1.Quaternion())))
+	q := Quaternion(QuatBetween(o1, o2))
 	return &q
 }
 

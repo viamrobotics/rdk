@@ -1,0 +1,14 @@
+# Minimal Focal toolchain image for building RDK's semi-static viam-server.
+FROM ubuntu:focal
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH=/usr/local/go/bin:$PATH
+
+COPY etc/ensure-focal-deps.sh /tmp/ensure-focal-deps.sh
+RUN /tmp/ensure-focal-deps.sh && rm /tmp/ensure-focal-deps.sh
+
+# Unprivileged build user (uid/gid 1000) with passwordless sudo.
+RUN groupadd -g 1000 testbot \
+    && useradd -u 1000 -g 1000 -m -s /bin/bash testbot \
+    && echo 'testbot ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/testbot \
+    && chmod 0440 /etc/sudoers.d/testbot

@@ -17,6 +17,8 @@ jobs:
   docker-cache:
     name: Build Cache Docker Images
     strategy:
+      # Independent legs: a failing rdk-focal build must not cancel the others.
+      fail-fast: false
       matrix:
         include:
         # rdk-devenv
@@ -51,6 +53,22 @@ jobs:
           image: antique2
           file: etc/Dockerfile.antique-cache
           tag: armhf
+        # rdk-focal (self-contained Focal image; MAIN_TAG/BASE_TAG build-args are ignored)
+        - arch: ubuntu-latest
+          tag: amd64
+          platform: linux/amd64
+          image: rdk-focal
+          file: etc/Dockerfile.focal
+        - arch: ubuntu-small-arm
+          tag: arm64
+          platform: linux/arm64
+          image: rdk-focal
+          file: etc/Dockerfile.focal
+        - arch: ubuntu-small-arm
+          tag: armhf
+          platform: linux/arm/v7
+          image: rdk-focal
+          file: etc/Dockerfile.focal
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 30
     steps:

@@ -91,7 +91,7 @@ func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Confi
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
-	if err := a.Reconfigure(ctx, deps, conf); err != nil {
+	if err := a.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return a, nil
@@ -134,8 +134,8 @@ type Arm struct {
 	armModel string
 }
 
-// Reconfigure atomically reconfigures this arm in place based on the new config.
-func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure atomically reconfigures this arm in place based on the new config.
+func (a *Arm) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -215,6 +215,30 @@ func (a *Arm) MoveThroughJointPositions(
 	for _, goal := range positions {
 		if err := a.MoveToJointPositions(ctx, goal, nil); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// MoveThroughJointPositionsStreamed executes a streamed trajectory by teleporting to each point in
+// order. The fake arm has no time model, so per-point Time and Constraints are ignored; it snaps to
+// each waypoint and acknowledges once per batch.
+func (a *Arm) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	batches <-chan []arm.TrajectoryPoint,
+	responses chan<- arm.Response,
+	_ map[string]interface{},
+) error {
+	for batch := range batches {
+		for _, p := range batch {
+			if err := a.MoveToJointPositions(ctx, p.Positions, nil); err != nil {
+				return err
+			}
+		}
+		select {
+		case responses <- arm.Response{}:
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 	return nil

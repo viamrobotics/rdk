@@ -25,13 +25,16 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/tunnel"
 )
@@ -68,6 +71,23 @@ func (s *Server) Close() {
 // called from modules.
 func (s *Server) SendTraces(ctx context.Context, req *pb.SendTracesRequest) (*pb.SendTracesResponse, error) {
 	return nil, s.robot.WriteTraceMessages(ctx, req.ResourceSpans)
+}
+
+// UploadDataFromPath uploads a file or directory from the robot to the cloud via the data manager.
+func (s *Server) UploadDataFromPath(ctx context.Context, req *pb.UploadDataFromPathRequest) (
+	*pb.UploadDataFromPathResponse, error,
+) {
+	res, err := s.robot.UploadDataFromPath(ctx, req.GetPath(), req.GetUploadMetadata(), req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.UploadDataFromPathResponse{
+		FilesUploaded: res.FilesUploaded,
+		FilesFailed:   res.FilesFailed,
+		BytesUploaded: res.BytesUploaded,
+		BytesTotal:    res.BytesTotal,
+		Ids:           res.IDs,
+	}, nil
 }
 
 // Tunnel tunnels traffic to/from the client from/to a specified port on the server.
@@ -557,6 +577,13 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 
 		result.Resources = append(result.Resources, pbResStatus)
 	}
+	result.Modules = make([]*pb.ModuleStatus, 0, len(mStatus.Modules))
+	for _, modStatus := range mStatus.Modules {
+		if modStatus.State == modulestatus.ModuleStateUnknown {
+			s.robot.Logger().CWarnw(ctx, "module in an unknown state", "module", modStatus.Name)
+		}
+		result.Modules = append(result.Modules, modStatus.ToProto())
+	}
 
 	switch mStatus.State {
 	case robot.StateUnknown:
@@ -566,6 +593,26 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		result.State = pb.GetMachineStatusResponse_STATE_INITIALIZING
 	case robot.StateRunning:
 		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
+	}
+
+	if len(mStatus.Packages) > 0 {
+		result.Packages = make([]*pb.PackageStatus, 0, len(mStatus.Packages))
+		for _, pkgStatus := range mStatus.Packages {
+			pkgType, err := config.PackageTypeToProto(pkgStatus.Type)
+			if err != nil {
+				s.robot.Logger().CWarnw(ctx, "unknown package type in status", "type", pkgStatus.Type)
+			}
+			result.Packages = append(result.Packages, &pb.PackageStatus{
+				Name:            pkgStatus.Name,
+				Type:            *pkgType,
+				State:           packageStateToProto(pkgStatus.State),
+				Error:           pkgStatus.Error,
+				LastUpdated:     timestamppb.New(pkgStatus.LastUpdated),
+				Version:         pkgStatus.Version,
+				BytesDownloaded: pkgStatus.BytesDownloaded,
+				TotalBytes:      pkgStatus.TotalBytes,
+			})
+		}
 	}
 
 	if mStatus.JobStatuses != nil {
@@ -587,6 +634,25 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	}
 
 	return &result, nil
+}
+
+func packageStateToProto(s packages.PackageState) pb.PackageStatus_State {
+	switch s {
+	case packages.PackageStateDownloading:
+		return pb.PackageStatus_STATE_DOWNLOADING
+	case packages.PackageStateLoading:
+		return pb.PackageStatus_STATE_LOADING
+	case packages.PackageStateFirstRun:
+		return pb.PackageStatus_STATE_FIRST_RUN
+	case packages.PackageStateReady:
+		return pb.PackageStatus_STATE_READY
+	case packages.PackageStateFailed:
+		return pb.PackageStatus_STATE_FAILED
+	case packages.PackageStateUnknown:
+		return pb.PackageStatus_STATE_UNSPECIFIED
+	default:
+		return pb.PackageStatus_STATE_UNSPECIFIED
+	}
 }
 
 // GetVersion returns version information about the robot.

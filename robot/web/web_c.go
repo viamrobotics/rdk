@@ -17,7 +17,7 @@ import (
 )
 
 // Reconfigure updates the stream server audio and video streams with the new resources.
-func (svc *webService) Reconfigure(ctx context.Context, _ resource.Dependencies, _ resource.Config) error {
+func (svc *webService) BuiltInReconfigure(ctx context.Context, _ resource.Dependencies, _ resource.Config) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if !svc.isRunning {

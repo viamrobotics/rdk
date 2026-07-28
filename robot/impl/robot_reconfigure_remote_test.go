@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"errors"
-	"net"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -71,10 +70,13 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err := remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// set up but do not start remote2's web service
+	// set up but do not start remote2's web service. Hold remote2's port so it
+	// survives remote2's Close below and remote3 can reuse the exact same socket,
+	// with no window for another process to claim the port in between.
 	remote2 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote2"))
-	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
-	_ = addr2
+	options, lis2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	hold2 := rdktestutils.HoldPort(t, lis2)
+	options.Network.Listener = hold2
 
 	localConfig := &config.Config{
 		Components: []resource.Config{
@@ -142,6 +144,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			mainPartAndFooAndBarResources,
 		)
 	})
+	// remote2's Close stops its server but, via holdPort, keeps the port bound.
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
 	// wait for local_robot to detect that the remote is now offline
@@ -154,13 +157,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 		)
 	})
 
+	// Re-arm the held listener and bring remote3 up on the very same socket remote2
+	// used. The port was never released, so there was no chance for it to be claimed.
+	hold2.Rearm(t)
 	remote3 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote3"))
-
-	// Note: There's a slight chance this test can fail if someone else
-	// claims the port we just released by closing the server.
-	listener2, err = net.Listen("tcp", listener2.Addr().String())
-	test.That(t, err, test.ShouldBeNil)
-	options.Network.Listener = listener2
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -261,7 +261,11 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	ctx := context.Background()
 	foo := setupLocalRobot(t, ctx, fooCfg, logger.Sublogger("foo"))
 
-	options, listener1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	// Hold foo's port so it survives foo's Close below and foo2 can reuse the exact
+	// same socket, with no window for another process to claim the port in between.
+	options, lis, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	hold := rdktestutils.HoldPort(t, lis)
+	options.Network.Listener = hold
 	err := foo.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -291,6 +295,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	}
 
 	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
+	// foo's Close stops its server but, via holdPort, keeps the port bound.
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 
 	// wait for local_robot to detect that the remote is now offline
@@ -300,13 +305,9 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		)
 	})
 
+	// Re-arm the held listener and bring foo2 up on the very same socket foo used.
+	hold.Rearm(t)
 	foo2 := setupLocalRobot(t, ctx, fooCfg, logger.Sublogger("foo2"))
-
-	// Note: There's a slight chance this test can fail if someone else
-	// claims the port we just released by closing the server.
-	listener1, err = net.Listen("tcp", listener1.Addr().String())
-	test.That(t, err, test.ShouldBeNil)
-	options.Network.Listener = listener1
 	err = foo2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 

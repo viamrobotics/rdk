@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
@@ -20,12 +21,13 @@ import (
 const (
 	flagAll = "all"
 
-	baseURLFlag         = "base-url"
-	configFlag          = "config"
-	debugFlag           = "debug"
-	profileFlag         = "profile"
-	disableProfilesFlag = "disable-profiles"
-	profileFlagName     = "profile-name"
+	baseURLFlag                 = "base-url"
+	configFlag                  = "config"
+	debugFlag                   = "debug"
+	profileFlag                 = "profile"
+	disableProfilesFlag         = "disable-profiles"
+	profileFlagName             = "profile-name"
+	checkConnectionIntervalFlag = "check-connection-interval"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -84,6 +86,7 @@ const (
 	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
+	generalFlagAddress           = "address"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -105,6 +108,7 @@ const (
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
+	moduleBuildFlagFromSource  = "from-source"
 	moduleBuildFlagToken       = "token"
 	moduleBuildFlagWorkdir     = "workdir"
 	moduleBuildFlagPlatforms   = "platforms"
@@ -175,7 +179,6 @@ const (
 	tunnelFlagDestinationPort = "destination-port"
 
 	organizationFlagSupportEmail = "support-email"
-	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
 
 	xacroFlagInputFile         = "input-file"
@@ -326,12 +329,13 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL         string
-	Config          string
-	Debug           bool
-	Quiet           bool
-	Profile         string
-	DisableProfiles bool
+	BaseURL             string
+	Config              string
+	Debug               bool
+	Quiet               bool
+	Profile             string
+	DisableProfiles     bool
+	CheckConnectedEvery time.Duration
 }
 
 func (ga *globalArgs) createLogger() logging.Logger {
@@ -506,6 +510,10 @@ var app = &cli.Command{
 			Name:    disableProfilesFlag,
 			Aliases: []string{"disable-profile"}, // for ease of use; not backwards compatibility related
 			Usage:   "disable usage of profiles, falling back to default behavior",
+		},
+		&cli.DurationFlag{
+			Name:  checkConnectionIntervalFlag,
+			Usage: "check robot connection on this interval and close the client if a faulty connection cannot be repaired",
 		},
 	},
 	Commands: []*cli.Command{
@@ -1042,7 +1050,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "update",
 							Usage: "update the billing service update for an organization",
 							UsageText: createUsageText(
-								"organizations billing-service update", []string{generalFlagOrgID, organizationBillingAddress}, false, false,
+								"organizations billing-service update", []string{generalFlagOrgID, generalFlagAddress}, false, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1050,7 +1058,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to update the billing service for",
 								},
 								&cli.StringFlag{
-									Name:     organizationBillingAddress,
+									Name:     generalFlagAddress,
 									Required: true,
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
@@ -1061,7 +1069,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "enable",
 							Usage: "enable the billing service for an organization",
 							UsageText: createUsageText(
-								"organizations billing-service enable", []string{generalFlagOrgID, organizationBillingAddress}, false, false,
+								"organizations billing-service enable", []string{generalFlagOrgID, generalFlagAddress}, false, false,
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -1069,7 +1077,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to enable the billing service for",
 								},
 								&cli.StringFlag{
-									Name:     organizationBillingAddress,
+									Name:     generalFlagAddress,
 									Required: true,
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
@@ -1885,9 +1893,16 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:  "export",
-					Usage: "download data from a dataset",
+					Usage: "download data from a dataset (binary datasets: image + JSONL files; sequence datasets: Parquet zip)",
 					UsageText: createUsageText("dataset export",
 						[]string{generalFlagDestination, datasetFlagDatasetID}, true, false),
+					Description: "For binary datasets, downloads images and a dataset.jsonl manifest into the destination. " +
+						"For sequence datasets, kicks off an async Parquet export on the server, polls until ready, " +
+						"writes <dataset-id>.zip into the destination, and (unless --only-parquet is set) downloads " +
+						"each referenced binary blob to <destination>/binary_data/<binary_data_id><file_ext>. " +
+						"The --only-jsonl and --force-linux-path flags apply only to the binary flow; --poll-interval, " +
+						"--max-wait, and --only-parquet apply only to the sequence flow; --parallel and --timeout " +
+						"apply to both.",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      generalFlagDestination,
@@ -1917,6 +1932,20 @@ Note: There is no progress meter while copying is in progress.
 						&cli.BoolFlag{
 							Name:  datasetFlagForceLinuxPath,
 							Usage: "force the use of Linux-style paths for the dataset.jsonl file",
+						},
+						&cli.DurationFlag{
+							Name:  datasetFlagPollInterval,
+							Usage: "for sequence datasets: how often to poll the export job (default 5s)",
+							Value: 5 * time.Second,
+						},
+						&cli.DurationFlag{
+							Name:  datasetFlagMaxWait,
+							Usage: "for sequence datasets: max time to wait for the export to complete (default 30m)",
+							Value: 30 * time.Minute,
+						},
+						&cli.BoolFlag{
+							Name:  datasetFlagOnlyParquet,
+							Usage: "for sequence datasets: skip downloading the referenced binary blobs (only the parquet zip is written)",
 						},
 					},
 					Action: createActionCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
@@ -3193,6 +3222,11 @@ Note: There is no progress meter while copying is in progress.
 						{
 							Name:  "tunnel",
 							Usage: "tunnel connections to the specified port on a machine part",
+							Description: `Tunnel connections from a local port to a destination port on a machine part.
+
+By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel
+directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + `,
+and --` + loginFlagKey + `.`,
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
 							}, true, false),
@@ -3204,6 +3238,18 @@ Note: There is no progress meter while copying is in progress.
 								&cli.IntFlag{
 									Name:     tunnelFlagDestinationPort,
 									Required: true,
+								},
+								&cli.StringFlag{
+									Name:  generalFlagAddress,
+									Usage: "machine FQDN to dial directly,  (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
+								},
+								&cli.StringFlag{
+									Name:  loginFlagKeyID,
+									Usage: "id of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
+								},
+								&cli.StringFlag{
+									Name:  loginFlagKey,
+									Usage: "value of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
 								},
 							}...),
 							Action: createActionCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
@@ -3640,7 +3686,7 @@ Run this command from within the module directory.`,
 						&cli.StringFlag{
 							Name: generalFlagResourceSubtype,
 							Usage: "(module only) resource subtype to use in module, for example arm, camera, or motion. see " +
-								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
+								"https://docs.viam.com/reference/glossary/#term-subtype for more details",
 						},
 						// This is unnecessary and creates a gotcha for users. Kept here
 						// because it's technically breaking to remove it, but it's hidden
@@ -3815,8 +3861,22 @@ Example:
 							Action: createActionCommandWithT[moduleBuildLocalArgs](ModuleBuildLocalAction),
 						},
 						{
-							Name:      "start",
-							Usage:     "start a remote build",
+							Name:  "start",
+							Usage: "start a remote build",
+							Description: `Start a cloud build of your module and publish a new registry version.
+
+By default the build is run from a git ref of the repository in your meta.json's
+"url" field (use --ref/--token to control the checkout).
+
+Pass --from-source to instead package your local source directory and upload it to
+the cloud builder, without requiring a git push. The --ref and --token flags are
+ignored in this mode; use --path to point at the source directory to upload.
+
+Example:
+viam module build start --version 0.5.0
+viam module build start --version 0.5.0 --from-source --platforms linux/amd64,linux/arm64 --wait
+
+When using --from-source, .gitignore is honored when packaging the source directory.`,
 							UsageText: createUsageText("module build start", []string{generalFlagVersion}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
@@ -3829,6 +3889,17 @@ Example:
 									Name:     generalFlagVersion,
 									Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
 									Required: true,
+								},
+								&cli.BoolFlag{
+									Name: moduleBuildFlagFromSource,
+									Usage: "package your local source directory and upload it to the cloud builder " +
+										"instead of building from a git ref",
+								},
+								&cli.StringFlag{
+									Name:      generalFlagPath,
+									Usage:     "(--from-source only) path to the local source directory to upload",
+									Value:     ".",
+									TakesFile: true,
 								},
 								&cli.StringFlag{
 									Name:  moduleBuildFlagRef,
@@ -3853,6 +3924,15 @@ Example:
 									Name:  moduleBuildFlagBuilder,
 									Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
 									Value: "default",
+								},
+								&cli.BoolFlag{
+									Name: moduleBuildFlagWait,
+									Usage: "(--from-source only) wait for the build to finish; surface failed-platform logs " +
+										"and a non-zero exit code on failure",
+								},
+								&cli.BoolFlag{
+									Name:  generalFlagNoProgress,
+									Usage: "(--from-source only) hide the progress spinner",
 								},
 							},
 							Action: createActionCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),

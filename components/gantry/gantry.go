@@ -1,7 +1,7 @@
 // Package gantry defines a robotic gantry with one or multiple axes.
 // For more information, see the [gantry component docs].
 //
-// [gantry component docs]: https://docs.viam.com/components/gantry/
+// [gantry component docs]: https://docs.viam.com/reference/components/gantry/
 package gantry
 
 import (
@@ -95,11 +95,11 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [Home method docs].
 //
-// [gantry component docs]: https://docs.viam.com/dev/reference/apis/components/gantry/
-// [Position method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#getposition
-// [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#movetoposition
-// [Lengths method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#getlengths
-// [Home method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#home
+// [gantry component docs]: https://docs.viam.com/reference/apis/components/gantry/
+// [Position method docs]: https://docs.viam.com/reference/apis/components/gantry/#getposition
+// [MoveToPosition method docs]: https://docs.viam.com/reference/apis/components/gantry/#movetoposition
+// [Lengths method docs]: https://docs.viam.com/reference/apis/components/gantry/#getlengths
+// [Home method docs]: https://docs.viam.com/reference/apis/components/gantry/#home
 type Gantry interface {
 	resource.Resource
 	resource.Shaped

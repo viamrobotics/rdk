@@ -39,7 +39,9 @@ type RequestLimitExceededError struct {
 
 func (e RequestLimitExceededError) Error() string {
 	return fmt.Sprintf(
-		"exceeded request limit %v on resource %v (your client is responsible for %v). See %v for troubleshooting steps",
+		"exceeded the shared concurrent-request limit of %v on resource %v. This limit is shared "+
+			"across all clients/modules (your client has %v in-flight requests). Check the viam-server "+
+			`logs for 'Request limit exceeded' to find the offending client. See %v for troubleshooting steps`,
 		e.limit, e.resource, e.numInFlightRequestsForClient, ReqLimitExceededURL)
 }
 
@@ -123,6 +125,12 @@ type RequestCounter struct {
 	// associated with the offending client is passed so tests can observe or wait on its
 	// state.
 	beforeLogHook func(pc *webrtc.PeerConnection)
+}
+
+// apiMethod.full below are not rate-limited and do not contribute to the request counter
+var inFlightLimitCheckExcluded = map[string]struct{}{
+	"/viam.robot.v1.RobotService/Log":        {},
+	"/viam.robot.v1.RobotService/SendTraces": {},
 }
 
 // decrInFlight decrements the in-flight request counters for a given resource and pc.
@@ -369,9 +377,19 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 		return true
 	})
 
+	offendingClientDesc := "already_disconnected"
+	if offendingClientInformation != nil {
+		offendingClientDesc = fmt.Sprintf("%s [%s]",
+			offendingClientInformation.ClientMetadata, offendingClientInformation.ConnectionID)
+	}
+
 	msg := fmt.Sprintf(
-		"Request limit exceeded for resource. See %s for troubleshooting steps. "+
+		"Request limit exceeded for resource %q (limit %d, method %q) by %s. See %s for troubleshooting steps. "+
 			`{"method":%q,"resource":%q,"offending_client_information":%v,"all_other_client_information":%v}`,
+		resource,
+		rc.inFlightLimit,
+		apiMethodString,
+		offendingClientDesc,
 		ReqLimitExceededURL,
 		apiMethodString,
 		resource,
@@ -394,21 +412,24 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
-	pc, pcSet := rpc.ContextPeerConnection(ctx)
-	if pcSet {
-		rc.setClientMetadataForPC(ctx, pc)
-	}
 
-	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
-		if ok := rc.incrInFlight(resource, pc); !ok {
-			numInFlightRequestsForClient := rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
-			return nil, &RequestLimitExceededError{
-				resource:                     resource,
-				limit:                        rc.inFlightLimit,
-				numInFlightRequestsForClient: numInFlightRequestsForClient,
-			}
+	if _, ok := inFlightLimitCheckExcluded[apiMethod.full]; !ok {
+		pc, pcSet := rpc.ContextPeerConnection(ctx)
+		if pcSet {
+			rc.setClientMetadataForPC(ctx, pc)
 		}
-		defer rc.decrInFlight(resource, pc)
+
+		if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
+			if ok := rc.incrInFlight(resource, pc); !ok {
+				numInFlightRequestsForClient := rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
+				return nil, &RequestLimitExceededError{
+					resource:                     resource,
+					limit:                        rc.inFlightLimit,
+					numInFlightRequestsForClient: numInFlightRequestsForClient,
+				}
+			}
+			defer rc.decrInFlight(resource, pc)
+		}
 	}
 
 	requestCounterKey := buildRCKey(req, apiMethod)

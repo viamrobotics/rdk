@@ -283,9 +283,15 @@ func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 // ComputePoses computes the poses for each frame in a framesystem in frame of World, using the
 // provided configuration.
 func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
-	// This method is not expected to be called in hot paths. Reuse the
-	// `FrameSystemPoses.ComputePoses` method.
-	return li.ToFrameSystemInputs().ComputePoses(fs)
+	computedPoses := make(FrameSystemPoses)
+	for _, frameName := range fs.FrameNames() {
+		pif, err := fs.Transform(li, NewZeroPoseInFrame(frameName), World)
+		if err != nil {
+			return nil, err
+		}
+		computedPoses[frameName] = pif.(*PoseInFrame)
+	}
+	return computedPoses, nil
 }
 
 // ToFrameSystemInputs creates a `FrameSystemInputs` with the same keys and values. This is a

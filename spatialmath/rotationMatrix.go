@@ -50,16 +50,16 @@ func (rm *RotationMatrix) Quaternion() quat.Number {
 	switch {
 	case tr > 0:
 		s := 0.5 / math.Sqrt(tr+1.0)
-		q = quat.Number{0.25 / s, (m[5] - m[7]) * s, (m[6] - m[2]) * s, (m[1] - m[3]) * s}
+		q = quat.Number{0.25 / s, (m[7] - m[5]) * s, (m[2] - m[6]) * s, (m[3] - m[1]) * s}
 	case (m[0] > m[4]) && (m[0] > m[8]):
 		s := 2.0 * math.Sqrt(1.0+m[0]-m[4]-m[8])
-		q = quat.Number{(m[5] - m[7]) / s, 0.25 * s, (m[3] + m[1]) / s, (m[6] + m[2]) / s}
+		q = quat.Number{(m[7] - m[5]) / s, 0.25 * s, (m[3] + m[1]) / s, (m[6] + m[2]) / s}
 	case m[4] > m[8]:
 		s := 2.0 * math.Sqrt(1.0+m[4]-m[0]-m[8])
-		q = quat.Number{(m[6] - m[2]) / s, (m[3] + m[1]) / s, 0.25 * s, (m[7] + m[5]) / s}
+		q = quat.Number{(m[2] - m[6]) / s, (m[3] + m[1]) / s, 0.25 * s, (m[7] + m[5]) / s}
 	default:
 		s := 2.0 * math.Sqrt(1.0+m[8]-m[0]-m[4])
-		q = quat.Number{(m[1] - m[3]) / s, (m[6] + m[2]) / s, (m[7] + m[5]) / s, 0.25 * s}
+		q = quat.Number{(m[3] - m[1]) / s, (m[6] + m[2]) / s, (m[7] + m[5]) / s, 0.25 * s}
 	}
 	return Normalize(q)
 }
@@ -150,6 +150,15 @@ func (rm *RotationMatrix) RightMatMul(rmm RotationMatrix) *RotationMatrix {
 		rmm.mat[6]*rm.mat[2] + rmm.mat[7]*rm.mat[5] + rmm.mat[8]*rm.mat[8],
 	}
 	return &RotationMatrix{mat: mat}
+}
+
+// Transpose returns a new RotationMatrix containing the transpose of rm.
+func (rm *RotationMatrix) Transpose() *RotationMatrix {
+	return &RotationMatrix{mat: [9]float64{
+		rm.mat[0], rm.mat[3], rm.mat[6],
+		rm.mat[1], rm.mat[4], rm.mat[7],
+		rm.mat[2], rm.mat[5], rm.mat[8],
+	}}
 }
 
 // Hash returns a hash value for this rotation matrix.

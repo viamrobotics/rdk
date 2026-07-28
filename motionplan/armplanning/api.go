@@ -55,9 +55,11 @@ type PlanRequest struct {
 // GetWorldState is a backwards compatibility helper that turns the ObstaclesInWorldFrame back into
 // WorldState object. Presumably for interfacing/rendering with the viz-client.
 func (req *PlanRequest) GetWorldState() *referenceframe.WorldState {
-	return mustNewWorldState([]*referenceframe.GeometriesInFrame{
-		req.ObstaclesInWorldFrame,
-	}, nil)
+	var obstacles []*referenceframe.GeometriesInFrame
+	if req.ObstaclesInWorldFrame != nil {
+		obstacles = append(obstacles, req.ObstaclesInWorldFrame)
+	}
+	return mustNewWorldState(obstacles, nil)
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -391,36 +393,8 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 // `obstacles_in_world_frame`. Files may contain a second JSON object (a response) after the
 // request; this function decodes only the first object.
 func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
-	f, err := os.Open(fileName) //nolint:gosec
+	req, _, err := ReadRequestAndResponseFromFile(fileName)
 	if err != nil {
-		return nil, err
-	}
-	defer utils.UncheckedErrorFunc(f.Close)
-
-	decoder := json.NewDecoder(f)
-
-	var raw json.RawMessage
-	if err = decoder.Decode(&raw); err != nil {
-		return nil, err
-	}
-
-	var probe map[string]json.RawMessage
-	if err = json.Unmarshal(raw, &probe); err != nil {
-		return nil, err
-	}
-
-	if _, hasWorldState := probe["world_state"]; hasWorldState {
-		// Legacy format, parse as a `PlanRequestWithWorldState` and have that "upgrade" to a modern
-		// `PlanRequest`.
-		legacy := &PlanRequestWithWorldState{}
-		if err = json.Unmarshal(raw, legacy); err != nil {
-			return nil, err
-		}
-		return legacy.ToPlanRequestWorldStateTransformsIgnored()
-	}
-
-	req := &PlanRequest{}
-	if err = json.Unmarshal(raw, req); err != nil {
 		return nil, err
 	}
 
@@ -460,9 +434,49 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 
 	decoder := json.NewDecoder(f)
 
-	req := &PlanRequest{}
-	if err = decoder.Decode(req); err != nil {
+	// We first decode the file into a raw json structure. This is because we have best effort
+	// support for reading different versions of request files. The current version of the
+	// `PlanRequest` object may not map perfectly to some historical serialization.
+	var raw json.RawMessage
+	if err = decoder.Decode(&raw); err != nil {
 		return nil, nil, err
+	}
+
+	var probe map[string]json.RawMessage
+	if err = json.Unmarshal(raw, &probe); err != nil {
+		return nil, nil, err
+	}
+
+	// We've removed world state from the plan request object. Instead forcing callers to merge
+	// world state transforms into the `FrameSystem` member itself. And world state obstacles are
+	// now passed in directly.
+	req := &PlanRequest{}
+	if _, hasWorldState := probe["world_state"]; hasWorldState {
+		// Legacy format, parse as a `PlanRequestWithWorldState` and have that "upgrade" to a modern
+		// `PlanRequest`.
+		legacy := &PlanRequestWithWorldState{}
+		if err = json.Unmarshal(raw, legacy); err != nil {
+			return nil, nil, err
+		}
+
+		// Dan: We explicitly ignore world state transforms when "upgrading" from this legacy
+		// request file. This was introduced because of a bug where world state transforms weren't
+		// being used at all. So this preserves that behavior. But maybe it's better to do merging
+		// as that was always the intent?
+		req, err = legacy.ToPlanRequestWorldStateTransformsIgnored()
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		if err = json.Unmarshal(raw, req); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	// RSDK-14172: Plan requests can have a nil PlannerOptions. PlanMotion (currently) substitutes
+	// in the `NewBasicPlannerOptions`.
+	if req.PlannerOptions == nil {
+		req.PlannerOptions = NewBasicPlannerOptions()
 	}
 
 	plan := &motionplan.SimplePlan{}

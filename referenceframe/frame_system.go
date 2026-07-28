@@ -273,7 +273,7 @@ func (sfs *FrameSystem) RemoveFrame(frame Frame) {
 		}
 	}
 	sfs.removeFrameRecursive(frame)
-	sfs.cachedBFSNames = bfsFrameNames(sfs)
+	sfs.cachedBFSNames = nil
 }
 
 func (sfs *FrameSystem) removeFrameRecursive(frame Frame) {
@@ -375,6 +375,9 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 // FrameNames returns the list of frame names registered in the frame system,
 // in BFS order from world, excluding flattened-model internals.
 func (sfs *FrameSystem) FrameNames() []string {
+	if sfs.cachedBFSNames == nil {
+		sfs.cachedBFSNames = bfsFrameNames(sfs)
+	}
 	return sfs.cachedBFSNames
 }
 
@@ -398,7 +401,7 @@ func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 	// add to frame system
 	sfs.frames[frame.Name()] = frame
 	sfs.parents[frame.Name()] = parent.Name()
-	sfs.cachedBFSNames = bfsFrameNames(sfs)
+	sfs.cachedBFSNames = nil
 
 	if sm := asFlattenableModel(frame); sm != nil {
 		if err := flattenModelIntoFS(sfs, sm, frame.Name(), parent); err != nil {
@@ -965,13 +968,27 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs())
 }
 
-// FrameSystemGeometriesLinearInputs takes in a framesystem and returns a LinearInputs where all
-// elements are GeometriesInFrames with a World reference frame. This is preferred for hot
-// paths. But requires the caller to manage a `LinearInputs`.
+// FrameSystemGeometriesLinearInputs takes in a framesystem and returns a map where all
+// elements are GeometriesInFrames with a World reference frame, computed for every frame
+// in `fs`. This is preferred for hot paths over `FrameSystemGeometries`. But requires the
+// caller to manage a `LinearInputs`.
 func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs) (map[string]*GeometriesInFrame, error) {
+	return FrameSystemGeometriesForFrames(fs, linearInputs, nil)
+}
+
+// FrameSystemGeometriesForFrames computes geometries-in-world for the frames named in `wanted`.
+// When `wanted` is nil, every frame in `fs` is included — that is the form preferred for hot
+// paths that need the full set.
+func FrameSystemGeometriesForFrames(
+	fs *FrameSystem, linearInputs *LinearInputs, wanted map[string]bool,
+) (map[string]*GeometriesInFrame, error) {
 	var errAll error
-	allGeometries := make(map[string]*GeometriesInFrame, 0)
-	for _, name := range fs.FrameNames() {
+	allFrameNames := fs.FrameNames()
+	allGeometries := make(map[string]*GeometriesInFrame, len(allFrameNames))
+	for _, name := range allFrameNames {
+		if wanted != nil && !wanted[name] {
+			continue
+		}
 		frame := fs.Frame(name)
 		inputs, err := linearInputs.GetFrameInputs(frame)
 		if err != nil {
@@ -1192,9 +1209,8 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 	internalNames := bfsFrameNames(internalFS)
 
 	// Install the bundle and tag every namespaced name as an internal
-	// upfront. AddFrame's auto-recomputed bfsFrameNames cache must know to
-	// filter these out, and resolveFrameInputs may be hit while we're still
-	// adding frames.
+	// upfront, since resolveFrameInputs may be hit while we're still adding
+	// frames.
 	bundle := &flattenedComponent{
 		model:         model,
 		internalNames: make([]string, 0, len(internalNames)),

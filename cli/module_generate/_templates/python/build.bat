@@ -8,5 +8,5 @@ set PYTHON=%VENV_NAME%\Scripts\python.exe
 %PYTHON% -m pip install pyinstaller -Uqq
 if errorlevel 1 exit /b 1
 
-%PYTHON% -m PyInstaller --onefile --hidden-import="googleapiclient" src/main.py
+%PYTHON% -m PyInstaller --onefile --collect-all viam --hidden-import="googleapiclient" src/main.py
 tar -czvf dist/archive.tar.gz meta.json ./dist/main.exe

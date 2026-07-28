@@ -74,14 +74,14 @@ func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resour
 		Named:  conf.ResourceName().AsNamed(),
 	}
 
-	if err := m.Reconfigure(ctx, deps, conf); err != nil {
+	if err := m.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return &m, nil
 }
 
-func (m *merged) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (m *merged) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err

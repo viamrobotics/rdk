@@ -68,6 +68,22 @@ type DataServiceClient struct {
 		opts ...grpc.CallOption) (*datapb.AddBinaryDataToDatasetByIDsResponse, error)
 	RemoveBinaryDataFromDatasetByIDsFunc func(ctx context.Context, in *datapb.RemoveBinaryDataFromDatasetByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.RemoveBinaryDataFromDatasetByIDsResponse, error)
+	CreateSequenceFunc func(ctx context.Context, in *datapb.CreateSequenceRequest,
+		opts ...grpc.CallOption) (*datapb.CreateSequenceResponse, error)
+	GetSequenceFunc func(ctx context.Context, in *datapb.GetSequenceRequest,
+		opts ...grpc.CallOption) (*datapb.GetSequenceResponse, error)
+	UpdateSequenceFunc func(ctx context.Context, in *datapb.UpdateSequenceRequest,
+		opts ...grpc.CallOption) (*datapb.UpdateSequenceResponse, error)
+	DeleteSequenceFunc func(ctx context.Context, in *datapb.DeleteSequenceRequest,
+		opts ...grpc.CallOption) (*datapb.DeleteSequenceResponse, error)
+	ListSequencesFunc func(ctx context.Context, in *datapb.ListSequencesRequest,
+		opts ...grpc.CallOption) (*datapb.ListSequencesResponse, error)
+	AddSequencesToDatasetFunc func(ctx context.Context, in *datapb.AddSequencesToDatasetRequest,
+		opts ...grpc.CallOption) (*datapb.AddSequencesToDatasetResponse, error)
+	RemoveSequencesFromDatasetFunc func(ctx context.Context, in *datapb.RemoveSequencesFromDatasetRequest,
+		opts ...grpc.CallOption) (*datapb.RemoveSequencesFromDatasetResponse, error)
+	SequencesByDatasetIDFunc func(ctx context.Context, in *datapb.SequencesByDatasetIDRequest,
+		opts ...grpc.CallOption) (*datapb.SequencesByDatasetIDResponse, error)
 }
 
 // TabularDataByFilter calls the injected TabularDataByFilter or the real version.
@@ -330,4 +346,84 @@ func (client *DataServiceClient) RemoveBinaryDataFromDatasetByIDs(ctx context.Co
 		return client.DataServiceClient.RemoveBinaryDataFromDatasetByIDs(ctx, in, opts...)
 	}
 	return client.RemoveBinaryDataFromDatasetByIDsFunc(ctx, in, opts...)
+}
+
+// CreateSequence calls the injected CreateSequence or the real version.
+func (client *DataServiceClient) CreateSequence(ctx context.Context, in *datapb.CreateSequenceRequest,
+	opts ...grpc.CallOption,
+) (*datapb.CreateSequenceResponse, error) {
+	if client.CreateSequenceFunc == nil {
+		return client.DataServiceClient.CreateSequence(ctx, in, opts...)
+	}
+	return client.CreateSequenceFunc(ctx, in, opts...)
+}
+
+// GetSequence calls the injected GetSequence or the real version.
+func (client *DataServiceClient) GetSequence(ctx context.Context, in *datapb.GetSequenceRequest,
+	opts ...grpc.CallOption,
+) (*datapb.GetSequenceResponse, error) {
+	if client.GetSequenceFunc == nil {
+		return client.DataServiceClient.GetSequence(ctx, in, opts...)
+	}
+	return client.GetSequenceFunc(ctx, in, opts...)
+}
+
+// UpdateSequence calls the injected UpdateSequence or the real version.
+func (client *DataServiceClient) UpdateSequence(ctx context.Context, in *datapb.UpdateSequenceRequest,
+	opts ...grpc.CallOption,
+) (*datapb.UpdateSequenceResponse, error) {
+	if client.UpdateSequenceFunc == nil {
+		return client.DataServiceClient.UpdateSequence(ctx, in, opts...)
+	}
+	return client.UpdateSequenceFunc(ctx, in, opts...)
+}
+
+// DeleteSequence calls the injected DeleteSequence or the real version.
+func (client *DataServiceClient) DeleteSequence(ctx context.Context, in *datapb.DeleteSequenceRequest,
+	opts ...grpc.CallOption,
+) (*datapb.DeleteSequenceResponse, error) {
+	if client.DeleteSequenceFunc == nil {
+		return client.DataServiceClient.DeleteSequence(ctx, in, opts...)
+	}
+	return client.DeleteSequenceFunc(ctx, in, opts...)
+}
+
+// ListSequences calls the injected ListSequences or the real version.
+func (client *DataServiceClient) ListSequences(ctx context.Context, in *datapb.ListSequencesRequest,
+	opts ...grpc.CallOption,
+) (*datapb.ListSequencesResponse, error) {
+	if client.ListSequencesFunc == nil {
+		return client.DataServiceClient.ListSequences(ctx, in, opts...)
+	}
+	return client.ListSequencesFunc(ctx, in, opts...)
+}
+
+// AddSequencesToDataset calls the injected AddSequencesToDataset or the real version.
+func (client *DataServiceClient) AddSequencesToDataset(ctx context.Context, in *datapb.AddSequencesToDatasetRequest,
+	opts ...grpc.CallOption,
+) (*datapb.AddSequencesToDatasetResponse, error) {
+	if client.AddSequencesToDatasetFunc == nil {
+		return client.DataServiceClient.AddSequencesToDataset(ctx, in, opts...)
+	}
+	return client.AddSequencesToDatasetFunc(ctx, in, opts...)
+}
+
+// RemoveSequencesFromDataset calls the injected RemoveSequencesFromDataset or the real version.
+func (client *DataServiceClient) RemoveSequencesFromDataset(ctx context.Context, in *datapb.RemoveSequencesFromDatasetRequest,
+	opts ...grpc.CallOption,
+) (*datapb.RemoveSequencesFromDatasetResponse, error) {
+	if client.RemoveSequencesFromDatasetFunc == nil {
+		return client.DataServiceClient.RemoveSequencesFromDataset(ctx, in, opts...)
+	}
+	return client.RemoveSequencesFromDatasetFunc(ctx, in, opts...)
+}
+
+// SequencesByDatasetID calls the injected SequencesByDatasetID or the real version.
+func (client *DataServiceClient) SequencesByDatasetID(ctx context.Context, in *datapb.SequencesByDatasetIDRequest,
+	opts ...grpc.CallOption,
+) (*datapb.SequencesByDatasetIDResponse, error) {
+	if client.SequencesByDatasetIDFunc == nil {
+		return client.DataServiceClient.SequencesByDatasetID(ctx, in, opts...)
+	}
+	return client.SequencesByDatasetIDFunc(ctx, in, opts...)
 }

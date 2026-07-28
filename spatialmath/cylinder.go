@@ -207,7 +207,7 @@ func (c *Cylinder) ToPoints(resolution float64) []r3.Vector {
 // containsPoint reports whether the given world-frame point lies within the
 // Cylinder's solid volume (inclusive of surface).
 func (c *Cylinder) containsPoint(p r3.Vector) bool {
-	local := Compose(PoseInverse(c.pose), NewPoseFromPoint(p)).Point()
+	local := TransformPointByPose(PoseInverse(c.pose), p)
 	return math.Abs(local.Z) <= c.height/2 &&
 		local.X*local.X+local.Y*local.Y <= c.radius*c.radius
 }
@@ -221,7 +221,7 @@ func (c *Cylinder) containsSphere(center r3.Vector, radius float64) bool {
 	if halfH < 0 || rShrink < 0 {
 		return false
 	}
-	local := Compose(PoseInverse(c.pose), NewPoseFromPoint(center)).Point()
+	local := TransformPointByPose(PoseInverse(c.pose), center)
 	return math.Abs(local.Z) <= halfH &&
 		local.X*local.X+local.Y*local.Y <= rShrink*rShrink
 }

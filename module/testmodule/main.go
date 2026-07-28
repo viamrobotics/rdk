@@ -4,6 +4,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -105,6 +107,22 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 
+	// Wait indefinitely on a socket during the "start" phase
+	if addr := os.Getenv("VIAM_TESTMODULE_BLOCK_START"); addr != "" {
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			return err
+		}
+		_, err = conn.Read(make([]byte, 1))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		err = conn.Close()
+		if err != nil {
+			return err
+		}
+	}
+
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
 	if err != nil {
@@ -121,6 +139,22 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 			return err
 		}
 		time.Sleep(sleepDuration)
+	}
+
+	// Wait indefinitely on a socket during the "close" phase
+	if addr := os.Getenv("VIAM_TESTMODULE_BLOCK_CLOSE"); addr != "" {
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			return err
+		}
+		_, err = conn.Read(make([]byte, 1))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		err = conn.Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -259,12 +293,6 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	}
 }
 
-// Reconfigure increments numReconfigurations.
-func (h *helper) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	h.numReconfigurations++
-	return nil
-}
-
 func newOther(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
@@ -312,12 +340,6 @@ func (o *other) DoCommand(ctx context.Context, req map[string]interface{}) (map[
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
-}
-
-// Reconfigure increments numReconfigurations.
-func (o *other) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	o.numReconfigurations++
-	return nil
 }
 
 func newTestMotor(
@@ -411,12 +433,6 @@ type slow struct {
 	configDuration time.Duration
 }
 
-// Reconfigure does nothing but is slow.
-func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	time.Sleep(s.configDuration)
-	return nil
-}
-
 // Close does nothing but is slow.
 func (s *slow) Close(ctx context.Context) error {
 	time.Sleep(s.configDuration)
@@ -453,27 +469,6 @@ type fsDependent struct {
 	resource.TriviallyCloseable
 	resource.TriviallyReconfigurable
 	fs framesystem.Service
-}
-
-// Reconfigure ensures that the framesystem is available in the dependencies passed to
-// reconfigure (not just the constructor).
-func (fd *fsDependent) Reconfigure(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-) error {
-	fs, err := framesystem.FromProvider(deps)
-	if err != nil {
-		return err
-	}
-	fsCfg, err := fs.FrameSystemConfig(ctx)
-	if err != nil {
-		return err
-	}
-	if fsCfg == nil {
-		return errors.New("received an empty framesystem config in Reconfigure")
-	}
-	return nil
 }
 
 // DoCommand always returns a stringified version of the frame system config as "fsCfg".

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -50,22 +51,33 @@ const (
 	jobStatusInProgress jobStatus = "Building"
 	jobStatusFailed     jobStatus = "Failed"
 	jobStatusDone       jobStatus = "Done"
+
+	builderDefault = "default"
 )
 
 var moduleBuildPollingInterval = 2 * time.Second
+
+// githubGet issues an authenticated GET to GitHub's REST API. accept overrides the Accept
+// header when non-empty. The caller owns resp.Body.
+func githubGet(ctx context.Context, apiURL, token, accept string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if accept != "" {
+		req.Header.Set("Accept", accept)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	return http.DefaultClient.Do(req)
+}
 
 // githubRefExists calls GitHub's REST commits API to check whether a ref
 // (branch, tag, or commit SHA) exists in a repo
 var githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/%s", owner, repo, ref)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return false, err
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := githubGet(ctx, apiURL, token, "")
 	if err != nil {
 		return false, err
 	}
@@ -98,6 +110,70 @@ func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
 	return parts[0], strings.TrimSuffix(parts[1], ".git"), true, nil
 }
 
+// githubFetchManifest fetches and parses a module manifest from a repo at a given ref.
+var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
+		owner, repo, manifestPath, url.QueryEscape(ref))
+	// the raw media type returns the file body directly rather than base64-wrapped JSON
+	resp, err := githubGet(ctx, apiURL, token, "application/vnd.github.raw+json")
+	if err != nil {
+		return ModuleManifest{}, err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	if resp.StatusCode != http.StatusOK {
+		return ModuleManifest{}, fmt.Errorf("unexpected status %d from github api", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ModuleManifest{}, err
+	}
+	return parseManifest(body)
+}
+
+// validateWindowsCloudBuild guards Windows cloud builds that can't produce a usable module:
+// Windows Python is never supported, and Windows Go needs models populated. For Go, if other
+// platforms are also targeted it warns instead of failing so those still build.
+func (c *viamClient) validateWindowsCloudBuild(
+	ctx context.Context, cmd *cli.Command, manifest *ModuleManifest, repoURL, ref, workdir, token string, platforms []string,
+) error {
+	if !slices.ContainsFunc(platforms, func(p string) bool { return strings.HasPrefix(p, "windows/") }) {
+		return nil
+	}
+	// generated Python modules use a "dist/" entrypoint, Go "bin/", so Go never matches here.
+	if strings.HasPrefix(manifest.Entrypoint, "dist/") {
+		return errors.New("cloud build is not supported for Windows Python modules.\n" +
+			"Build locally with 'viam module build local' and upload with 'viam module upload'")
+	}
+	owner, repo, ok, err := parseGitHubRepo(repoURL)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	gArgs := parseStructFromCtx[globalArgs](cmd)
+	repoPath := strings.TrimPrefix(path.Join(workdir, defaultManifestFilename), "/")
+	remote, err := githubFetchManifest(ctx, owner, repo, ref, repoPath, token)
+	if err != nil {
+		debugf(cmd.Root().ErrWriter, gArgs.Debug,
+			"could not fetch %s from %s@%s to validate models: %v — proceeding anyway", defaultManifestFilename, repoURL, ref, err)
+		return nil
+	}
+	// circle-build only auto-detects models when the field is absent, so a present-but-unpopulated
+	// model ships as-is; require at least one entry with a non-empty model.
+	if !slices.ContainsFunc(remote.Models, func(m ModuleComponent) bool { return m.Model != "" }) {
+		msg := "models must be populated for a Windows Go cloud build.\n" +
+			"Run 'viam module update-models', commit the updated meta.json to your repo, then re-run the build"
+		// with other targets present, warn instead of failing so those still build
+		if len(platforms) > 1 {
+			printf(cmd.Root().ErrWriter, "Warning: %s", msg)
+			return nil
+		}
+		return errors.New(msg)
+	}
+	return nil
+}
+
 // validateRefExists checks that ref exists on the remote at repoURL before a
 // cloud build is started, and only stops the build if the ref can be proven to not exist, or
 // else it will go through to with the build attempt (like with non-github links)
@@ -126,13 +202,17 @@ func (c *viamClient) validateRefExists(ctx context.Context, cmd *cli.Command, re
 }
 
 type moduleBuildStartArgs struct {
-	Module    string
-	Version   string
-	Ref       string
-	Token     string
-	Workdir   string
-	Platforms []string
-	Builder   string
+	Module     string
+	Version    string
+	Ref        string
+	Token      string
+	Workdir    string
+	Platforms  []string
+	Builder    string
+	FromSource bool
+	Path       string
+	Wait       bool
+	NoProgress bool
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -168,6 +248,9 @@ func (c *viamClient) moduleBuildStartForRepo(
 	gitRef := args.Ref
 	token := args.Token
 	workdir := args.Workdir
+	if err := c.validateWindowsCloudBuild(ctx, cmd, manifest, repo, gitRef, workdir, token, platforms); err != nil {
+		return "", err
+	}
 	req := buildpb.StartBuildRequest{
 		Repo:          repo,
 		Ref:           &gitRef,
@@ -178,7 +261,7 @@ func (c *viamClient) moduleBuildStartForRepo(
 		Workdir:       &workdir,
 		Distro:        &manifest.Build.Distro,
 	}
-	if args.Builder != "" && args.Builder != "default" {
+	if args.Builder != "" && args.Builder != builderDefault {
 		req.Builder = &args.Builder
 	}
 	res, err := c.buildClient.StartBuild(ctx, &req)
@@ -197,19 +280,13 @@ func (c *viamClient) moduleBuildStartForRepo(
 }
 
 func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Command, args moduleBuildStartArgs) (string, error) {
+	if args.FromSource {
+		return c.moduleBuildStartFromSource(ctx, cmd, args)
+	}
+
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return "", err
-	}
-
-	// Check if this is a Windows Python module by looking for src/main.py
-	if runtime.GOOS == osWindows && manifest.Build != nil {
-		manifestDir := filepath.Dir(args.Module)
-		mainPyPath := filepath.Join(manifestDir, "src", "main.py")
-		if _, err := os.Stat(mainPyPath); err == nil {
-			return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
-				"Build locally with 'viam module build local' and upload with 'viam module upload'")
-		}
 	}
 
 	if manifest.URL == "" {
@@ -921,17 +998,6 @@ func (c *viamClient) triggerCloudReloadBuild(
 	archivePath, partID string,
 	reloadUnixTS int64,
 ) (string, error) {
-	stream, err := c.buildClient.StartReloadBuild(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	//nolint:gosec
-	file, err := os.Open(archivePath)
-	if err != nil {
-		return "", err
-	}
-
 	part, err := c.getRobotPart(ctx, partID)
 	if err != nil {
 		return "", err
@@ -939,21 +1005,23 @@ func (c *viamClient) triggerCloudReloadBuild(
 	if part.Part == nil {
 		return "", fmt.Errorf("part with id=%s not found", partID)
 	}
-
 	if part.Part.UserSuppliedInfo == nil {
 		return "", errors.New("unable to determine platform for part")
 	}
 
-	// use the primary org id for the machine as the reload
-	// module org
+	// use the primary org id for the machine as the reload module org
 	orgID, err := c.getOrgIDForPart(ctx, part.Part)
 	if err != nil {
 		return "", err
 	}
 
-	// App expects `BuildInfo` as the first request
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+
 	platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
-	req := &buildpb.StartReloadBuildRequest{
+	buildInfoReq := &buildpb.StartReloadBuildRequest{
 		CloudBuild: &buildpb.StartReloadBuildRequest_BuildInfo{
 			BuildInfo: &buildpb.ReloadBuildInfo{
 				Platform: platform,
@@ -963,54 +1031,43 @@ func (c *viamClient) triggerCloudReloadBuild(
 			},
 		},
 	}
-	if args.Builder != "" && args.Builder != "default" {
-		req.Builder = &args.Builder
-	}
-	if err := stream.Send(req); err != nil {
-		return "", err
+	if args.Builder != "" && args.Builder != builderDefault {
+		buildInfoReq.Builder = &args.Builder
 	}
 
-	moduleID, err := parseModuleID(manifest.ModuleID)
+	pkgInfoReq := &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: &v1.CreatePackageRequest{
+				Package: &v1.CreatePackageRequest_Info{
+					Info: &v1.PackageInfo{
+						OrganizationId: orgID,
+						Name:           moduleID.name,
+						Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS),
+						Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
+					},
+				},
+			},
+		},
+	}
+
+	stream, err := c.buildClient.StartReloadBuild(ctx)
 	if err != nil {
 		return "", err
 	}
-
-	pkgInfo := v1.PackageInfo{
-		OrganizationId: orgID,
-		Name:           moduleID.name,
-		Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS),
-		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
-	}
-	reqInner := &v1.CreatePackageRequest{
-		Package: &v1.CreatePackageRequest_Info{
-			Info: &pkgInfo,
-		},
-	}
-	req = &buildpb.StartReloadBuildRequest{
-		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
-			Package: reqInner,
-		},
-	}
-
-	if err := stream.Send(req); err != nil {
+	resp, err := streamArchiveBuild(
+		ctx,
+		stream,
+		archivePath,
+		[]*buildpb.StartReloadBuildRequest{buildInfoReq, pkgInfoReq},
+		getNextReloadBuildUploadRequest,
+	)
+	if err != nil {
 		return "", err
-	}
-
-	var errs error
-	// Suppress the "Uploading... X%" progress bar output since we have our own spinner
-	if err := sendUploadRequests(
-		ctx, stream, file, io.Discard, getNextReloadBuildUploadRequest); err != nil && !errors.Is(err, io.EOF) {
-		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
-	}
-
-	resp, closeErr := stream.CloseAndRecv()
-	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
-		errs = multierr.Combine(errs, closeErr)
 	}
 	if msg := resp.GetBuilderFallbackMessage(); msg != "" {
 		printf(cmd.Root().ErrWriter, "Warning: %s", msg)
 	}
-	return resp.GetBuildId(), errs
+	return resp.GetBuildId(), nil
 }
 
 func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRequest, int, error) {
@@ -1021,6 +1078,249 @@ func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRe
 
 	return &buildpb.StartReloadBuildRequest{
 		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: packagesRequest,
+		},
+	}, byteLen, nil
+}
+
+// moduleBuildStartFromSource packages the local source directory and starts a
+// cloud build that publishes a new registry version of the module. This backs
+// `viam module build start --from-source`.
+func (c *viamClient) moduleBuildStartFromSource(
+	ctx context.Context, cmd *cli.Command, args moduleBuildStartArgs,
+) (string, error) {
+	manifest, err := loadManifest(args.Module)
+	if err != nil {
+		return "", err
+	}
+	if manifest.Build == nil || manifest.Build.Build == "" {
+		return "", errors.New(
+			"your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
+	}
+
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+	org, err := getOrgByModuleIDPrefix(ctx, c, moduleID.prefix)
+	if err != nil {
+		return "", err
+	}
+
+	var platforms []string
+	switch {
+	case len(args.Platforms) > 0:
+		platforms = args.Platforms
+	case len(manifest.Build.Arch) > 0:
+		platforms = manifest.Build.Arch
+	default:
+		platforms = defaultBuildInfo.Arch
+	}
+
+	// Cloud build cannot currently build Python modules for Windows targets.
+	// Check the resolved target platforms — a Windows developer
+	// is free to cloud-build a Python module for linux/darwin, and a macOS/Linux
+	// developer requesting a windows/* target should be caught here regardless.
+	if targetsWindowsPython(args.Module, platforms) {
+		return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
+			"Build locally with 'viam module build local' and upload with 'viam module upload'")
+	}
+
+	// Clean the version argument to match github tag conventions, mirroring `module build start`.
+	version := strings.TrimPrefix(args.Version, "v")
+
+	sourcePath := args.Path
+	if sourcePath == "" {
+		sourcePath = "."
+	}
+
+	pm := newModuleBuildCloudProgressManager(args)
+	defer pm.Stop()
+
+	if err := pm.Start("prepare"); err != nil {
+		return "", err
+	}
+	if err := pm.Start("archive"); err != nil {
+		return "", err
+	}
+	archivePath, err := c.createGitArchive(sourcePath)
+	if err != nil {
+		_ = pm.FailWithMessage("archive", "Archive creation failed") //nolint:errcheck
+		_ = pm.FailWithMessage("prepare", "Preparing for build...")  //nolint:errcheck
+		return "", err
+	}
+	defer func() {
+		if removeErr := os.Remove(archivePath); removeErr != nil && !os.IsNotExist(removeErr) {
+			warningf(cmd.Root().ErrWriter, "failed to delete archive at %s", archivePath)
+		}
+	}()
+	if err := pm.Complete("archive"); err != nil {
+		return "", err
+	}
+
+	if err := pm.Start("upload-source"); err != nil {
+		return "", err
+	}
+	buildID, err := c.uploadModuleSourceBuild(
+		ctx, cmd, args, manifest, archivePath, org.GetId(), moduleID, version, platforms,
+	)
+	if err != nil {
+		_ = pm.FailWithMessage("upload-source", "Upload failed")    //nolint:errcheck
+		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
+		return "", err
+	}
+	if err := pm.Complete("upload-source"); err != nil {
+		return buildID, err
+	}
+	if err := pm.Complete("prepare"); err != nil {
+		return buildID, err
+	}
+
+	// Match `module build start`: buildID alone on stdout (for scripts/build-action),
+	// follow-up instructions on stderr.
+	printf(cmd.Root().ErrWriter, "Build started, follow the logs with:")
+	printf(cmd.Root().ErrWriter, "	viam module build logs --id %s", buildID)
+	printf(cmd.Root().Writer, buildID)
+
+	if !args.Wait {
+		return buildID, nil
+	}
+
+	if err := pm.Start("build"); err != nil {
+		return buildID, err
+	}
+	if err := pm.Start("build-start"); err != nil {
+		return buildID, err
+	}
+	statuses, err := c.waitForBuildToFinish(ctx, buildID, "", pm)
+	if err != nil {
+		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
+		return buildID, err
+	}
+	if buildErr := buildError(statuses); buildErr != nil {
+		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
+		// Surface logs for any failed platform so the user can debug without a separate command.
+		var logErrs error
+		for platform, status := range statuses {
+			if status != jobStatusFailed {
+				continue
+			}
+			errorf(cmd.Root().ErrWriter, "Build %q failed on %s. Logs:", buildID, platform)
+			if logErr := c.printModuleBuildLogs(ctx, buildID, platform); logErr != nil {
+				logErrs = multierr.Append(logErrs, logErr)
+			}
+		}
+		return buildID, multierr.Combine(buildErr, logErrs)
+	}
+	if err := pm.Complete("build"); err != nil {
+		return buildID, err
+	}
+	infof(cmd.Root().ErrWriter, "Module version %s published successfully", version)
+	return buildID, nil
+}
+
+// targetsWindowsPython returns true when the module appears to be a Python
+// module (src/main.py exists next to meta.json) AND any of the requested target
+// platforms is windows. The src/main.py marker matches the layout produced by
+// `viam module generate` for Python modules.
+func targetsWindowsPython(manifestPath string, platforms []string) bool {
+	hasWindowsTarget := false
+	for _, p := range platforms {
+		if p == osWindows || strings.HasPrefix(p, osWindows+"/") {
+			hasWindowsTarget = true
+			break
+		}
+	}
+	if !hasWindowsTarget {
+		return false
+	}
+	mainPyPath := filepath.Join(filepath.Dir(manifestPath), "src", "main.py")
+	_, err := os.Stat(mainPyPath)
+	return err == nil
+}
+
+func newModuleBuildCloudProgressManager(args moduleBuildStartArgs) *ProgressManager {
+	steps := []*Step{
+		{ID: "prepare", Message: "Preparing for build...", CompletedMsg: "Prepared for build", IndentLevel: 0},
+		{ID: "archive", Message: "Creating source code archive...", CompletedMsg: "Source code archive created", IndentLevel: 1},
+		{ID: "upload-source", Message: "Uploading source code...", CompletedMsg: "Source code uploaded", IndentLevel: 1},
+	}
+	if args.Wait {
+		steps = append(steps,
+			&Step{ID: "build", Message: "Building...", CompletedMsg: "Built", IndentLevel: 0},
+			&Step{ID: "build-start", Message: "Starting build...", IndentLevel: 1},
+		)
+	}
+	return NewProgressManager(steps, WithProgressOutput(!args.NoProgress))
+}
+
+func (c *viamClient) uploadModuleSourceBuild(
+	ctx context.Context,
+	cmd *cli.Command,
+	args moduleBuildStartArgs,
+	manifest ModuleManifest,
+	archivePath, orgID string,
+	moduleID moduleID,
+	version string,
+	platforms []string,
+) (string, error) {
+	buildInfoReq := &buildpb.StartSourceUploadBuildRequest{
+		CloudBuild: &buildpb.StartSourceUploadBuildRequest_BuildInfo{
+			BuildInfo: &buildpb.SourceUploadBuildInfo{
+				Platforms: platforms,
+				Workdir:   &args.Workdir,
+				ModuleId:  manifest.ModuleID,
+				Distro:    &manifest.Build.Distro,
+			},
+		},
+		ModuleVersion: version,
+	}
+	if args.Builder != "" && args.Builder != builderDefault {
+		buildInfoReq.Builder = &args.Builder
+	}
+
+	pkgInfoReq := &buildpb.StartSourceUploadBuildRequest{
+		CloudBuild: &buildpb.StartSourceUploadBuildRequest_Package{
+			Package: &v1.CreatePackageRequest{
+				Package: &v1.CreatePackageRequest_Info{
+					Info: &v1.PackageInfo{
+						OrganizationId: orgID,
+						Name:           moduleID.name,
+						Version:        version,
+						Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
+					},
+				},
+			},
+		},
+	}
+
+	stream, err := c.buildClient.StartSourceUploadBuild(ctx)
+	if err != nil {
+		return "", err
+	}
+	resp, err := streamArchiveBuild(
+		ctx,
+		stream,
+		archivePath,
+		[]*buildpb.StartSourceUploadBuildRequest{buildInfoReq, pkgInfoReq},
+		getNextSourceUploadBuildRequest,
+	)
+	if err != nil {
+		return "", err
+	}
+	if msg := resp.GetBuilderFallbackMessage(); msg != "" {
+		printf(cmd.Root().ErrWriter, "Warning: %s", msg)
+	}
+	return resp.GetBuildId(), nil
+}
+
+func getNextSourceUploadBuildRequest(file *os.File) (*buildpb.StartSourceUploadBuildRequest, int, error) {
+	packagesRequest, byteLen, err := getNextPackageUploadRequest(file)
+	if err != nil {
+		return nil, 0, err
+	}
+	return &buildpb.StartSourceUploadBuildRequest{
+		CloudBuild: &buildpb.StartSourceUploadBuildRequest_Package{
 			Package: packagesRequest,
 		},
 	}, byteLen, nil

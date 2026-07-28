@@ -528,7 +528,10 @@ func TestLoggingDeduplication(t *testing.T) {
 		assertLogMatches(t, notStdout,
 			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
 	}
-	loggerWith.Info(identicalMsg) // not output due to being noisy
+	loggerWith.Info(identicalMsg) // not output due to being noisy; emits suppression notice
+	assertLogMatches(t, notStdout,
+		//nolint:lll
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 3 times; suppressing for rest of window (500ms): identical message	{"key":"value"}`)
 	time.Sleep(noisyMessageWindowDuration)
 	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
 	assertLogMatches(t, notStdout,
@@ -542,7 +545,10 @@ func TestLoggingDeduplication(t *testing.T) {
 		assertLogMatches(t, notStdout,
 			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
 	}
-	loggerWith.Info(identicalMsg) // not output due to being noisy
+	loggerWith.Info(identicalMsg) // not output due to being noisy; emits suppression notice
+	assertLogMatches(t, notStdout,
+		//nolint:lll
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 3 times; suppressing for rest of window (500ms): identical message	{"key":"value"}`)
 	time.Sleep(noisyMessageWindowDuration)
 	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
 	assertLogMatches(t, notStdout,
@@ -581,7 +587,10 @@ func TestLoggingDeduplication(t *testing.T) {
 		assertLogMatches(t, notStdout,
 			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"key":"value"}`)
 	}
-	loggerWith.Error(identicalMsg) // not output due to being noisy
+	loggerWith.Error(identicalMsg) // not output due to being noisy; emits suppression notice
+	assertLogMatches(t, notStdout,
+		//nolint:lll
+		`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	Message logged 3 times; suppressing for rest of window (500ms): identical message	{"key":"value"}`)
 	time.Sleep(noisyMessageWindowDuration)
 	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
 	assertLogMatches(t, notStdout,
@@ -597,7 +606,10 @@ func TestLoggingDeduplication(t *testing.T) {
 				`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"%s":"bar","key":"value"}`,
 				ignoredLogFieldKey))
 	}
-	loggerWith.Info(identicalMsg) // not output due to being noisy
+	loggerWith.Info(identicalMsg) // not output due to being noisy; emits suppression notice
+	assertLogMatches(t, notStdout,
+		//nolint:lll
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 3 times; suppressing for rest of window (500ms): identical message	{"key":"value"}`)
 	time.Sleep(noisyMessageWindowDuration)
 	loggerWith.Info("foo") // log arbitrary message to force output of aggregated message
 	assertLogMatches(t, notStdout,
@@ -644,11 +656,15 @@ func TestDebugLevelNeverDeduplicates(t *testing.T) {
 	for range 4 {
 		logger.Info("identical message")
 	}
-	// Only the first three (up to noisyMessageCountThreshold) should appear.
+	// Only the first three (up to noisyMessageCountThreshold) should appear, followed by
+	// a single notice that suppression has started.
 	for range noisyMessageCountThreshold {
 		assertLogMatches(t, notStdout,
 			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message`)
 	}
+	assertLogMatches(t, notStdout,
+		//nolint:lll
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 3 times; suppressing for rest of window (500ms): identical message`)
 	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
 }
 
@@ -694,11 +710,15 @@ func TestGlobalDebugLevelNeverDeduplicates(t *testing.T) {
 	for range 4 {
 		logger.Info("identical message")
 	}
-	// Only the first three (up to noisyMessageCountThreshold) should appear.
+	// Only the first three (up to noisyMessageCountThreshold) should appear, followed by
+	// a single notice that suppression has started.
 	for range noisyMessageCountThreshold {
 		assertLogMatches(t, notStdout,
 			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message`)
 	}
+	assertLogMatches(t, notStdout,
+		//nolint:lll
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	Message logged 3 times; suppressing for rest of window (500ms): identical message`)
 	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
 }
 

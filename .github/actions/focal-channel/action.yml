@@ -1,0 +1,31 @@
+name: Resolve Focal channel
+description: Resolve the publish channel and whether to publish from release_type.
+inputs:
+  release-type:
+    description: focal-build release_type input
+    required: false
+    default: ''
+outputs:
+  channel:
+    description: viam-server channel name
+    value: ${{ steps.meta.outputs.channel }}
+  publish:
+    description: whether to publish this build
+    value: ${{ steps.meta.outputs.publish }}
+runs:
+  using: composite
+  steps:
+    - id: meta
+      shell: bash
+      run: |
+        case "${{ inputs.release-type }}" in
+          pr)
+            echo "channel=focal-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+          focal)
+            echo "channel=focal" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+          *)
+            echo "channel=focal" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT" ;;
+        esac

@@ -1,6 +1,8 @@
 package robotimpl
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -8,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,6 +22,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -851,6 +855,67 @@ func TestStopAll(t *testing.T) {
 	test.That(t, stopAllErr, test.ShouldBeNil)
 }
 
+// TestStopAllDoesNotCancelOwnContext covers the RobotService.StopAll path: the
+// RPC creates an operation whose context is passed into StopAll. Canceling that
+// op would make modular actuator.Stop RPCs fail with context canceled.
+func TestStopAllDoesNotCancelOwnContext(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+
+	var (
+		stopCalled bool
+		stopCtxErr error
+	)
+	dummyArm := &inject.Arm{
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			stopCalled = true
+			stopCtxErr = ctx.Err()
+			return ctx.Err()
+		},
+	}
+	resource.RegisterComponent(
+		arm.API,
+		model,
+		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (arm.Arm, error) {
+			return dummyArm, nil
+		}})
+	defer resource.Deregister(arm.API, model)
+
+	armConfig := fmt.Sprintf(`{
+		"components": [
+			{
+				"model": "%[1]s",
+				"name": "arm1",
+				"type": "arm"
+			}
+		]
+	}`, model.String())
+	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	r := setupLocalRobot(t, context.Background(), cfg, logger)
+
+	// Simulate an in-flight move that StopAll should cancel.
+	otherOpCtx, cleanupOther := r.OperationManager().Create(context.Background(), "/viam.component.arm.v1.ArmService/Move", nil)
+	defer cleanupOther()
+
+	// Simulate RobotService.StopAll: the interceptor attaches an op and passes that ctx.
+	stopAllOpCtx, cleanupStopAll := r.OperationManager().Create(context.Background(), "/viam.robot.v1.RobotService/StopAll", nil)
+	defer cleanupStopAll()
+
+	err = r.StopAll(stopAllOpCtx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stopCalled, test.ShouldBeTrue)
+	test.That(t, stopCtxErr, test.ShouldBeNil)
+	test.That(t, stopAllOpCtx.Err(), test.ShouldBeNil)
+	test.That(t, otherOpCtx.Err(), test.ShouldEqual, context.Canceled)
+}
+
 func TestNewTeardown(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -1445,6 +1510,257 @@ func TestConfigPackages(t *testing.T) {
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path2, test.ShouldEqual, path.Join(packagesDir, "data", "ml_model", "package-2-v2"))
+}
+
+// createTarballModule builds the test module and packages it with a meta.json into a
+// local tarball module, returning the tarball's path. If firstRunScript is non-empty it
+// is included as a first_run script in the tarball.
+func createTarballModule(t *testing.T, firstRunScript string) string {
+	t.Helper()
+	exePath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	tarballPath := filepath.Join(t.TempDir(), "tarball-module.tar.gz")
+	tarball, err := os.Create(tarballPath)
+	test.That(t, err, test.ShouldBeNil)
+	gzWriter := gzip.NewWriter(tarball)
+	tarWriter := tar.NewWriter(gzWriter)
+
+	writeFile := func(name string, contents []byte, mode int64) {
+		err := tarWriter.WriteHeader(&tar.Header{Name: name, Size: int64(len(contents)), Mode: mode})
+		test.That(t, err, test.ShouldBeNil)
+		_, err = tarWriter.Write(contents)
+		test.That(t, err, test.ShouldBeNil)
+	}
+	exeBytes, err := os.ReadFile(exePath)
+	test.That(t, err, test.ShouldBeNil)
+	writeFile("testmodule", exeBytes, 0o755)
+	meta := `{"entrypoint": "testmodule"}`
+	if firstRunScript != "" {
+		meta = `{"entrypoint": "testmodule", "first_run": "first_run.sh"}`
+		writeFile("first_run.sh", []byte(firstRunScript), 0o755)
+	}
+	writeFile("meta.json", []byte(meta), 0o644)
+
+	test.That(t, tarWriter.Close(), test.ShouldBeNil)
+	test.That(t, gzWriter.Close(), test.ShouldBeNil)
+	test.That(t, tarball.Close(), test.ShouldBeNil)
+	return tarballPath
+}
+
+func TestMachineStatusPackages(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
+
+	viamHomeDir := t.TempDir()
+
+	robotConfig := &config.Config{
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+				Type:    "ml_model",
+			},
+			{
+				Name:    "some-name-2",
+				Package: "package-2",
+				Version: "v2",
+				Type:    "slam_map",
+			},
+			{
+				Name:    "some-name-3",
+				Package: "package-3",
+				Version: "v3",
+				Type:    "module",
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "tarball-module",
+				Type:    config.ModuleTypeLocal,
+				ExePath: createTarballModule(t, ""),
+			},
+		},
+		Cloud: &config.Cloud{
+			AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String()),
+		},
+	}
+	fakePackageServer.StorePackage(robotConfig.Packages...)
+
+	r := setupLocalRobot(t, ctx, robotConfig, logger, WithViamHomeDir(viamHomeDir))
+
+	// The three cloud packages downloaded successfully and the local tarball module was
+	// unpacked as a synthetic package; expect a Ready status with fully-populated fields
+	// for each.
+	mStatus, err := r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 4)
+
+	pkgStatuses := make(map[string]packages.PackageStatus, len(mStatus.Packages))
+	for _, pkgStatus := range mStatus.Packages {
+		pkgStatuses[pkgStatus.Name] = pkgStatus
+	}
+
+	for _, exp := range []struct {
+		name    string
+		version string
+		pkgType config.PackageType
+	}{
+		{"some-name-1", "v1", config.PackageTypeMlModel},
+		{"some-name-2", "v2", config.PackageTypeSlamMap},
+		{"some-name-3", "v3", config.PackageTypeModule},
+		// Local modules with no explicit version get a default synthetic version.
+		{"synthetic-tarball-module", "0.0.0", config.PackageTypeModule},
+	} {
+		pkgStatus, ok := pkgStatuses[exp.name]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, pkgStatus.State, test.ShouldEqual, packages.PackageStateReady)
+		test.That(t, pkgStatus.Type, test.ShouldEqual, exp.pkgType)
+		test.That(t, pkgStatus.Version, test.ShouldEqual, exp.version)
+		test.That(t, pkgStatus.Error, test.ShouldBeEmpty)
+		test.That(t, pkgStatus.LastUpdated.IsZero(), test.ShouldBeFalse)
+		// Local tarball modules report the on-disk tarball size as already fully
+		// "downloaded"; cloud packages report their download progress. Both should
+		// show a complete download here.
+		test.That(t, pkgStatus.TotalBytes, test.ShouldBeGreaterThan, 0)
+		test.That(t, pkgStatus.BytesDownloaded, test.ShouldEqual, pkgStatus.TotalBytes)
+	}
+
+	// Reconfigure with an additional package whose download will fail its checksum;
+	// its status should report the failure while the healthy packages stay Ready.
+	robotConfig2 := &config.Config{
+		Packages: append(robotConfig.Packages, config.PackageConfig{
+			Name:    "some-name-4",
+			Package: "package-4",
+			Version: "v4",
+			Type:    "ml_model",
+		}),
+		Modules: robotConfig.Modules,
+		Cloud:   robotConfig.Cloud,
+	}
+	fakePackageServer.StorePackage(robotConfig2.Packages...)
+	fakePackageServer.SetInvalidChecksum(true)
+
+	r.Reconfigure(ctx, robotConfig2)
+
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 5)
+
+	pkgStatuses = make(map[string]packages.PackageStatus, len(mStatus.Packages))
+	for _, pkgStatus := range mStatus.Packages {
+		pkgStatuses[pkgStatus.Name] = pkgStatus
+	}
+
+	for _, name := range []string{"some-name-1", "some-name-2", "some-name-3", "synthetic-tarball-module"} {
+		pkgStatus, ok := pkgStatuses[name]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, pkgStatus.State, test.ShouldEqual, packages.PackageStateReady)
+		test.That(t, pkgStatus.Error, test.ShouldBeEmpty)
+	}
+
+	failedStatus, ok := pkgStatuses["some-name-4"]
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, failedStatus.State, test.ShouldEqual, packages.PackageStateFailed)
+	test.That(t, failedStatus.Error, test.ShouldContainSubstring, "failed to decode expected checksum")
+	test.That(t, failedStatus.Version, test.ShouldEqual, "v4")
+
+	// The checksum failure is transient: once the server serves valid checksums again, the
+	// next sync retries the download. The package should become Ready with its error cleared.
+	fakePackageServer.SetInvalidChecksum(false)
+	r.Reconfigure(ctx, robotConfig2)
+
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 5)
+
+	pkgStatuses = make(map[string]packages.PackageStatus, len(mStatus.Packages))
+	for _, pkgStatus := range mStatus.Packages {
+		pkgStatuses[pkgStatus.Name] = pkgStatus
+	}
+
+	recoveredStatus, ok := pkgStatuses["some-name-4"]
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, recoveredStatus.State, test.ShouldEqual, packages.PackageStateReady)
+	test.That(t, recoveredStatus.Error, test.ShouldBeEmpty)
+	test.That(t, recoveredStatus.TotalBytes, test.ShouldBeGreaterThan, 0)
+	test.That(t, recoveredStatus.BytesDownloaded, test.ShouldEqual, recoveredStatus.TotalBytes)
+
+	// Reconfigure with no packages or modules; all statuses should be pruned.
+	robotConfig3 := &config.Config{
+		Cloud: robotConfig.Cloud,
+	}
+	r.Reconfigure(ctx, robotConfig3)
+
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.Packages, test.ShouldBeEmpty)
+}
+
+func TestMachineStatusPackageFirstRun(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// The first_run script connects to this listener and blocks until the test writes a
+	// line back, holding the module's package in the first-run state.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer listener.Close()
+	listenerPort := listener.Addr().(*net.TCPAddr).Port
+	firstRunScript := fmt.Sprintf(`#!/usr/bin/env bash
+exec 3<>/dev/tcp/127.0.0.1/%d
+read <&3
+exit 0
+`, listenerPort)
+
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, WithViamHomeDir(t.TempDir()))
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "tarball-module",
+				Type:    config.ModuleTypeLocal,
+				ExePath: createTarballModule(t, firstRunScript),
+			},
+		},
+	}
+
+	// Reconfigure in a goroutine so the package's first-run state is observable while the
+	// first_run script blocks.
+	reconfigureDone := make(chan struct{})
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, cfg)
+	}()
+
+	// Accepting a connection means the first_run script is executing.
+	conn, err := listener.Accept()
+	test.That(t, err, test.ShouldBeNil)
+
+	mStatus, err := r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 1)
+	test.That(t, mStatus.Packages[0].Name, test.ShouldEqual, "synthetic-tarball-module")
+	test.That(t, mStatus.Packages[0].State, test.ShouldEqual, packages.PackageStateFirstRun)
+	test.That(t, mStatus.Packages[0].Error, test.ShouldBeEmpty)
+
+	// Release the first_run script and let reconfiguration finish; the package should
+	// transition to the ready state.
+	_, err = conn.Write([]byte("done\n"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	<-reconfigureDone
+
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mStatus.Packages), test.ShouldEqual, 1)
+	test.That(t, mStatus.Packages[0].Name, test.ShouldEqual, "synthetic-tarball-module")
+	test.That(t, mStatus.Packages[0].State, test.ShouldEqual, packages.PackageStateReady)
+	test.That(t, mStatus.Packages[0].Error, test.ShouldBeEmpty)
 }
 
 // removeDefaultServices removes default services and returns the removed
@@ -2555,9 +2871,79 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	})
 }
 
+func TestReconfigureActivityEvents(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
+	ctx := context.Background()
+
+	cfg := &config.Config{
+		Initial: true,
+		Components: []resource.Config{
+			{
+				Name:  "b1",
+				API:   base.API,
+				Model: fakeModel,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
+
+	// reconfigureEvents returns (event, reconfigure_type) pairs in emission order.
+	reconfigureEvents := func() [][2]string {
+		var events [][2]string
+		for _, entry := range activityLogs.All() {
+			fields := entry.ContextMap()
+			if fields["activity"] != "reconfigure" {
+				continue
+			}
+			events = append(events, [2]string{fmt.Sprint(fields["event"]), fmt.Sprint(fields["reconfigure_type"])})
+		}
+		return events
+	}
+
+	// The Initial config pass is a construction, even though r.initializing is not yet
+	// set at pass entry (the flag lags by one pass; labels derive from newConfig.Initial).
+	test.That(t, reconfigureEvents(), test.ShouldResemble, [][2]string{
+		{"start", "construction"},
+		{"complete", "construction"},
+	})
+
+	cfg2 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "b1",
+				API:   base.API,
+				Model: fakeModel,
+			},
+			{
+				Name:  "b2",
+				API:   base.API,
+				Model: fakeModel,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	test.That(t, reconfigureEvents(), test.ShouldResemble, [][2]string{
+		{"start", "construction"},
+		{"complete", "construction"},
+		{"start", "reconfiguration"},
+		{"complete", "reconfiguration"},
+	})
+
+	// Terminal events carry a duration.
+	for _, entry := range activityLogs.All() {
+		fields := entry.ContextMap()
+		if fields["activity"] == "reconfigure" && fields["event"] == "complete" {
+			test.That(t, fields["duration"], test.ShouldNotBeEmpty)
+		}
+	}
+}
+
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
@@ -2595,13 +2981,17 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err := h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
+		test.ShouldEqual, 1)
 	o, err := r.ResourceByName(genericservice.Named("o"))
 	test.That(t, err, test.ShouldBeNil)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	cfg2 := &config.Config{
 		Modules: []config.Module{
@@ -2633,11 +3023,15 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
+		test.ShouldEqual, 2)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
+		test.ShouldEqual, 2)
 
 	cfg3 := &config.Config{
 		Modules: []config.Module{
@@ -2675,11 +3069,15 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
+		test.ShouldEqual, 2)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
+		test.ShouldEqual, 2)
 
 	cfg4 := &config.Config{
 		Modules: []config.Module{
@@ -2717,13 +3115,17 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
+		test.ShouldEqual, 3)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
+		test.ShouldEqual, 3)
 
-	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+	test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 6)
 
 	// Assert that helper and other are only constructed after module
 	// crash/successful restart and not `Reconfigure`d.
@@ -2738,17 +3140,21 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 8)
+		test.That(tb, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 8)
 	})
 
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
+		test.ShouldEqual, 4)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
+		test.ShouldEqual, 4)
 }
 
 func TestImplicitDepsAcrossModules(t *testing.T) {
@@ -3252,6 +3658,36 @@ func TestCloudMetadata(t *testing.T) {
 	})
 }
 
+func TestUploadDataFromPath(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	t.Run("no data manager configured", func(t *testing.T) {
+		r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+		_, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no data manager")
+	})
+
+	t.Run("data manager configured but not connected to cloud", func(t *testing.T) {
+		cfg := &config.Config{
+			Services: []resource.Config{
+				{
+					Name:                "dm",
+					API:                 datamanager.API,
+					Model:               resource.DefaultServiceModel,
+					ConvertedAttributes: &builtin.Config{},
+					DependsOn:           []string{internalcloud.InternalServiceName.String()},
+				},
+			},
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+		_, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected to the cloud")
+	})
+}
+
 func TestReconfigureOnModuleRename(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -3515,7 +3951,7 @@ func newMock(
 	logger logging.Logger,
 ) (resource.Resource, error) {
 	m := &mockResource{name: conf.Name}
-	if err := m.Reconfigure(ctx, deps, conf); err != nil {
+	if err := m.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return m, nil
@@ -3525,7 +3961,7 @@ func (m *mockResource) Name() resource.Name {
 	return mockNamed(m.name)
 }
 
-func (m *mockResource) Reconfigure(
+func (m *mockResource) reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -4259,9 +4695,12 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	// Start a robot and stand up its "web".
+	// Start a robot and stand up its "web". Hold the port so every restart below can
+	// reuse the exact same socket, with no window for another process to claim it.
 	robot := setupLocalRobot(t, ctx, &config.Config{}, logger.Sublogger("robot"))
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	options, lis, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	hold := rtestutils.HoldPort(t, lis)
+	options.Network.Listener = hold
 	err := robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.StopWeb()
@@ -4278,10 +4717,10 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	// and error.
 	assertDialFails(t, robotClient)
 
-	// Massage the options to restart the "web" on the same port as before. Note: this can result in
-	// a test bug/failure as another test may have picked up the same port in the meantime.
-	options.Network.BindAddress = addr
-	options.Network.Listener = nil
+	// Re-arm the held listener and restart the "web" on the very same socket as
+	// before. The port was never released, so there was no chance for it to be
+	// claimed in the meantime.
+	hold.Rearm(t)
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -4294,7 +4733,8 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	robot.StopWeb()
 	assertDialFails(t, robotClient)
 
-	// Restart the "web" but only accept direct gRPC connections.
+	// Restart the "web" on the same held socket but only accept direct gRPC connections.
+	hold.Rearm(t)
 	options.DisallowWebRTC = true
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -5653,4 +6093,58 @@ func TestReconfigureTracing(t *testing.T) {
 	t.Run("with cloud config", func(t *testing.T) {
 		testReconfigureTracing(t, "fake-cloud-id")
 	})
+}
+
+// TestDependentReconnectsAfterDependencyNodeReadded verifies that a dependent stays connected to
+// a dependency whose graph node is torn down and re-added.
+//
+// The reader is a modular resource that declares a dependency on sensor "s". Adding a duplicate
+// "s" triggers a name collision that removes the "s" node along with its dependents. The reader
+// is added in the same reconfigure, but its edge to "s" is not built yet when the collision
+// snapshots which dependents to remove, so the reader is not torn down. It would then resolve
+// "s" moments before "s" is removed and would then stay resolved with no edge, however resolution
+// skips a dependency that is already marked for removal, so the reader instead stays pending and
+// links to the healthy "s" once the collision clears.
+func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	modCfg := config.Module{Name: "mod", ExePath: testPath}
+	sCfg := resource.Config{Name: "s", Model: fakeModel, API: sensor.API}
+	// reader's Validate returns ["s"] as an implicit required dependency.
+	readerCfg := resource.Config{
+		Name: "reader", Model: sensorModel, API: sensor.API,
+		Attributes: rutils.AttributeMap{"sensor": "s"},
+	}
+	readerName := sensor.Named("reader")
+
+	r := setupLocalRobot(t, ctx,
+		&config.Config{Modules: []config.Module{modCfg}},
+		logger, WithDisableCompleteConfigWorker())
+	lr := r.(*localRobot)
+
+	// Add the reader together with a duplicate "s": the reader would resolve an edge to "s" in
+	// the same reconfigure that the collision marks "s" for removal.
+	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{sCfg, sCfg, readerCfg}})
+	// The collision clears, leaving a single healthy "s".
+	r.Reconfigure(ctx, &config.Config{Modules: []config.Module{modCfg}, Components: []resource.Config{sCfg, readerCfg}})
+
+	// The dependency "s" is available ...
+	_, err := r.ResourceByName(sensor.Named("s"))
+	test.That(t, err, test.ShouldBeNil)
+	// ... and the reader is connected to it, rather than left available-but-disconnected.
+	test.That(t, lr.manager.resources.GetAllParentsOf(readerName), test.ShouldContain, sensor.Named("s"))
+	// ... and the edge is actually usable. The reader's Readings implementation just forwards
+	// the call to its sensor dependency "s" so this call travels test -> reader -> s (hop over
+	// the reader->s edge). If that edge existed in the graph but the underlying client was
+	// unusable, this would error even though the GetAllParentsOf check above passed.
+	reader, err := r.ResourceByName(readerName)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = reader.(sensor.Sensor).Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
 }

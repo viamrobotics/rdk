@@ -422,6 +422,41 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
 }
 
+func TestRemoteConnectivityActivityEvents(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
+	ctx := context.Background()
+
+	manager := managerForDummyRobot(t, setupInjectRobot(logger))
+	remote := newDummyRobot(t, setupInjectRobot(logger))
+	manager.addRemote(ctx, remote, nil, config.Remote{Name: "remote1"})
+	remoteName := fromRemoteNameToRemoteNodeName("remote1")
+
+	// A healthy pass with no transition emits nothing; this function runs on a ticker.
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "connect"), test.ShouldEqual, 0)
+	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 0)
+
+	// Reachable -> broken emits exactly one disconnect...
+	remote.SetOffline(true)
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 1)
+
+	// ...and repeat passes while broken emit nothing new.
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 1)
+
+	// Broken -> reachable emits exactly one connect...
+	remote.SetOffline(false)
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "connect"), test.ShouldEqual, 1)
+
+	// ...and repeat passes while healthy emit nothing new.
+	manager.updateRemoteResourceNames(ctx, remoteName, remote, "", false)
+	test.That(t, countActivityEvents(activityLogs, "remote", "connect"), test.ShouldEqual, 1)
+	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 1)
+}
+
 func TestManagerWithSameNameInRemoteWithPrefix(t *testing.T) {
 	// The test tests that the resource manager handles prefixes correctly.
 	//
@@ -1550,19 +1585,16 @@ func TestReconfigure(t *testing.T) {
 
 	local, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
-	newService, newlyBuilt, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
+	newService, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newlyBuilt, test.ShouldBeTrue)
 	svcNode := resource.NewConfiguredGraphNode(svc1, newService, svc1.Model)
 	manager.resources.AddNode(svc1.ResourceName(), svcNode)
-	newService, newlyBuilt, err = manager.processResource(ctx, svc1, svcNode, local)
+	newService, err = manager.processResource(ctx, svc1, svcNode, local)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newlyBuilt, test.ShouldBeFalse)
 
 	mockRe, ok := newService.(*mock)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, mockRe, test.ShouldNotBeNil)
-	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 1)
 
 	defer func() {
 		test.That(t, local.Close(ctx), test.ShouldBeNil)
@@ -1774,7 +1806,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		local, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
-		_, _, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
+		_, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
 	})
 
@@ -1809,7 +1841,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		local, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
-		_, _, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
+		_, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
 	})
 }
@@ -1817,12 +1849,6 @@ func TestResourceCreationPanic(t *testing.T) {
 type mock struct {
 	resource.Named
 	resource.TriviallyCloseable
-	reconfigCount int
-}
-
-func (m *mock) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	m.reconfigCount++
-	return nil
 }
 
 // A dummyRobot implements wraps an robot.Robot. It's only use for testing purposes.
@@ -1859,15 +1885,6 @@ func (rr *dummyRobot) SetOffline(offline bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	rr.offline = offline
-}
-
-func (rr *dummyRobot) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	if rr.offline {
-		return errors.New("offline")
-	}
-	return errors.New("unsupported")
 }
 
 func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {

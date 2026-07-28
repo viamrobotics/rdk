@@ -23,7 +23,7 @@ var (
 	ov45x  = &OrientationVector{2. * th, 0., -math.Sqrt(2) / 2., math.Sqrt(2) / 2.}
 	ovd45x = &OrientationVectorDegrees{2 * utils.RadToDeg(th), 0., -math.Sqrt(2) / 2, math.Sqrt(2) / 2}
 	// in rotation matrix representation.
-	rm45x = &RotationMatrix{[9]float64{1, 0, 0, 0, math.Cos(th), math.Sin(th), 0, -math.Sin(th), math.Cos(th)}}
+	rm45x = &RotationMatrix{[9]float64{1, 0, 0, 0, math.Cos(th), -math.Sin(th), 0, math.Sin(th), math.Cos(th)}}
 )
 
 func TestZeroOrientation(t *testing.T) {
@@ -170,4 +170,11 @@ func TestIsDefaultOrientation(t *testing.T) {
 	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{1, 1, 1, 1}), test.ShouldBeFalse)
 	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeTrue)
 	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 1, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeFalse)
+}
+
+func TestQuatBetweenNoAllocs(t *testing.T) {
+	allocs := testing.AllocsPerRun(1000, func() {
+		_ = QuatBetween(ovd45x, aa45x)
+	})
+	test.That(t, allocs, test.ShouldEqual, 0)
 }

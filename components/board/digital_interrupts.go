@@ -31,7 +31,7 @@ type Tick struct {
 //
 // For more information, see the [Value method docs].
 //
-// [Value method docs]: https://docs.viam.com/dev/reference/apis/components/board/#getdigitalinterruptvalue
+// [Value method docs]: https://docs.viam.com/reference/apis/components/board/#getdigitalinterruptvalue
 type DigitalInterrupt interface {
 	// Name returns the name of the interrupt.
 	Name() string

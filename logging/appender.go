@@ -52,6 +52,11 @@ func NewStdoutAppender() ConsoleAppender {
 	return ConsoleAppender{os.Stdout}
 }
 
+// NewStderrAppender creates a new appender that prints to stderr.
+func NewStderrAppender() ConsoleAppender {
+	return ConsoleAppender{os.Stderr}
+}
+
 // NewWriterAppender creates a new appender that prints to the input writer.
 func NewWriterAppender(writer io.Writer) ConsoleAppender {
 	return ConsoleAppender{writer}

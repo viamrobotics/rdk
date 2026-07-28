@@ -67,6 +67,10 @@ type GraphNode struct {
 	lastErr                   error
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
+	// reconfigureReason says why the node most recently entered NodeStateConfiguring
+	// ("config_change", "dependency_update", "module_rebuild"); reported on rebuild
+	// activity events.
+	reconfigureReason string
 
 	logger logging.Logger
 
@@ -134,7 +138,7 @@ func NewConfiguredGraphNodeWithPrefix(config Config, res Resource, resModel Mode
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
-	node.SwapResource(res, resModel, nil)
+	node.SwapResource(res, resModel, nil, true)
 	node.setPrefix(prefix)
 	return node
 }
@@ -250,6 +254,15 @@ func (w *GraphNode) UnsetResource() {
 	w.current = nil
 }
 
+func (w *GraphNode) incrementLogicalClock() {
+	if w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
+		if w.logger != nil {
+			w.logger.Debugw("graph node logical clock updated", "updated_to", w.updatedAt)
+		}
+	}
+}
+
 // SwapResource emplaces the new resource. It may be the same as before
 // and expects the caller to close the old one. This is considered
 // to be a working resource and as such we unmark it for removal
@@ -260,7 +273,7 @@ func (w *GraphNode) UnsetResource() {
 // The `ftdc` input may be nil (e.g: testing). If present, this will also updates FTDC to
 // communicate that the `Stats` method may return different values. As we'll now be calling `Stats`
 // on a potentially different underlying `Model`.
-func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
+func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC, incrementClock bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
@@ -273,8 +286,8 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTD
 	w.unresolvedDependencies = nil
 	w.needsDependencyResolution = false
 
-	if w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
+	if incrementClock {
+		w.incrementLogicalClock()
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
@@ -294,9 +307,7 @@ func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.transitionTo(NodeStateRemoving)
-	if w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
-	}
+	w.incrementLogicalClock()
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
@@ -317,8 +328,8 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	wasUsable := w.lastErr == nil
 	w.lastErr = err
 	w.transitionTo(NodeStateUnhealthy)
-	if wasUsable && w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
+	if wasUsable {
+		w.incrementLogicalClock()
 	}
 	w.mu.Unlock()
 
@@ -355,7 +366,7 @@ func (w *GraphNode) hasUnresolvedDependencies() bool {
 	return w.needsDependencyResolution
 }
 
-func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string) {
+func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string, reason string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if !mustReconfigure && w.state == NodeStateRemoving {
@@ -369,6 +380,7 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 		w.needsDependencyResolution = true
 	}
 	w.config = newConfig
+	w.reconfigureReason = reason
 	w.transitionTo(NodeStateConfiguring)
 	w.unresolvedDependencies = dependencies
 }
@@ -411,7 +423,7 @@ func (w *GraphNode) IsReachable() bool {
 // and requires a reconfiguration. If the node was previously marked for removal,
 // this unmarks it.
 func (w *GraphNode) SetNewConfig(newConfig Config, dependencies []string) {
-	w.setNeedsReconfigure(newConfig, true, dependencies)
+	w.setNeedsReconfigure(newConfig, true, dependencies, "config_change")
 }
 
 // SetNeedsUpdate is used to inform the node that it should
@@ -419,7 +431,7 @@ func (w *GraphNode) SetNewConfig(newConfig Config, dependencies []string) {
 // dependency updates. If the node was previously marked for removal,
 // this makes no changes.
 func (w *GraphNode) SetNeedsUpdate() {
-	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies())
+	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies(), "dependency_update")
 }
 
 // SetNeedsRebuild is used to inform the node that it should
@@ -428,7 +440,22 @@ func (w *GraphNode) SetNeedsUpdate() {
 func (w *GraphNode) SetNeedsRebuild() {
 	// doing two mutex ops here but we assume there's only one caller.
 	w.UnsetResource()
-	w.setNeedsReconfigure(w.Config(), true, w.UnresolvedDependencies())
+	w.setNeedsReconfigure(w.Config(), true, w.UnresolvedDependencies(), "module_rebuild")
+}
+
+// ReconfigureReason says why the node most recently entered NodeStateConfiguring.
+func (w *GraphNode) ReconfigureReason() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.reconfigureReason
+}
+
+// PendingRevision is the revision of the config change that will apply once the node is
+// successfully (re)configured; during a build it identifies the config that triggered it.
+func (w *GraphNode) PendingRevision() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.pendingRevision
 }
 
 // setUnresolvedDependencies sets names that are yet to be resolved as

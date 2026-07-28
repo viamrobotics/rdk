@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -195,7 +196,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		return err
 	}
 	<-ctx.Done()
-	logger.Info("viam-server shutting down")
+	logger.Debug("viam-server shutting down")
 	return ctx.Err()
 }
 
@@ -302,15 +303,17 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	// request manages to cause an internal panic.
 	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
 		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
-			err := status.Errorf(codes.Internal, "%v", p)
-			svc.logger.Errorw("panicked while calling unary server method for module request", "error", errors.WithStack(err))
-			return err
+			svc.logger.Errorw("panicked while calling unary server method for module request",
+				"panic", fmt.Sprintf("%v", p),
+				"stack", debug.Stack())
+			return status.Errorf(codes.Internal, "%v", p)
 		}))))
 	streamInterceptors = append(streamInterceptors, grpc_recovery.StreamServerInterceptor(grpc_recovery.WithRecoveryHandler(
 		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
-			err := status.Errorf(codes.Internal, "%s", p)
-			svc.logger.Errorw("panicked while calling stream server method for module request", "error", errors.WithStack(err))
-			return err
+			svc.logger.Errorw("panicked while calling stream server method for module request",
+				"panic", fmt.Sprintf("%v", p),
+				"stack", debug.Stack())
+			return status.Errorf(codes.Internal, "%v", p)
 		}))))
 
 	opManager := svc.r.OperationManager()

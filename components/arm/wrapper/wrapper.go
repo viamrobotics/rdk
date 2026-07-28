@@ -64,14 +64,14 @@ func NewWrapperArm(
 		logger: logger,
 		opMgr:  operation.NewSingleOperationManager(),
 	}
-	if err := a.Reconfigure(ctx, deps, conf); err != nil {
+	if err := a.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-// Reconfigure atomically reconfigures this arm in place based on the new config.
-func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure atomically reconfigures this arm in place based on the new config.
+func (wrapper *Arm) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -145,6 +145,19 @@ func (wrapper *Arm) MoveThroughJointPositions(
 		}
 	}
 	return nil
+}
+
+// MoveThroughJointPositionsStreamed forwards the streamed trajectory to the wrapped arm. If the
+// wrapped arm does not support streaming, its error propagates through unchanged.
+func (wrapper *Arm) MoveThroughJointPositionsStreamed(
+	ctx context.Context,
+	batches <-chan []arm.TrajectoryPoint,
+	responses chan<- arm.Response,
+	extra map[string]interface{},
+) error {
+	wrapper.mu.RLock()
+	defer wrapper.mu.RUnlock()
+	return wrapper.actual.MoveThroughJointPositionsStreamed(ctx, batches, responses, extra)
 }
 
 // JointPositions returns the set joints.

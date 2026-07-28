@@ -201,7 +201,7 @@ func (c *client) CopyFilesToMachine(
 	// File->ShellRPCFileCopier->CopyFilesToMachineClient
 	// ShellRPCFileCopier does the heavy lifting for us by handling fragmentation
 	// and ordering.
-	return newShellRPCFileCopier(shellRPCCopyWriterTo{client}, preserve), nil
+	return newShellRPCFileCopier(newShellRPCCopyWriterTo(client), preserve), nil
 }
 
 // CopyFilesFromMachine is the client side RPC implementation of copying files from a machine.
