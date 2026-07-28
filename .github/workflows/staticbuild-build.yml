@@ -22,33 +22,35 @@ on:
 
 jobs:
   static:
-    name: Antique Build Linux and Windows
+    name: Static Build Linux and Windows
     strategy:
       fail-fast: false
       matrix:
+        # All legs build on rdk-focal; to swap back to antique2, revert the
+        # images (antique-validate keeps that path green).
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
             platform: linux/amd64
             target: static-release
             sign_cmd_arg: ''
+            build_tags_arg: 'GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt'
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/antique2:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-focal:arm64-cache
             platform: linux/arm64
             target: static-release
             sign_cmd_arg: ''
+            build_tags_arg: 'GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt'
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
             platform: linux/amd64
             target: static-release-win
             sign_cmd_arg: 'SIGN_CMD=/tmp/sign-binary.sh'
+            build_tags_arg: ''
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
-      volumes:
-      # otherwise we get a 'read-only filesystem' error when symlinking over this
-      - /tmp/node20:/__e/node20
     timeout-minutes: 15
     permissions:
       # Lets us mint an OIDC token for the WIF login used by the Windows
@@ -61,6 +63,168 @@ jobs:
     outputs:
       date: ${{ steps.build_date.outputs.date }}
       channel: ${{ steps.build_date.outputs.channel }}
+
+    steps:
+    - name: Check out code
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # needed for dev-version.sh to work
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
+        allow-unsafe-pr-checkout: true
+
+    - name: Clean and Fix Permissions
+      run: |
+        chown -R testbot:testbot .
+        sudo -Hu testbot bash -lc 'make clean-all'
+
+    - name: Install upx
+      # rdk-focal ships no upx
+      # crazy-max/ghaction-upx@v4.0.0
+      uses: crazy-max/ghaction-upx@c83f378efc804f828e988debb88ed6116feb2368
+      with:
+        version: v5.2.0
+        install-only: true
+
+    - name: Link upx into /usr/local/bin
+      # sudo -Hu testbot's secure_path misses the runner tool dir
+      run: ln -sf "$(command -v upx)" /usr/local/bin/upx
+
+    - name: Authorize signing (windows)
+      if: matrix.target == 'static-release-win'
+      id: signing-auth
+      uses: google-github-actions/auth@v2
+      with:
+        token_format: 'access_token'
+        project_id: 'engineering-tools-310515'
+        workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
+        service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
+
+    - name: Set up Authenticode signing (windows)
+      if: matrix.target == 'static-release-win'
+      env:
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+      run: |
+        apt-get update
+        apt-get install -y openjdk-17-jre-headless jq
+        curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
+        # Fetch cert via Secret Manager REST; avoids another action dependency
+        curl -fsSL -H "Authorization: Bearer $GCP_ACCESS_TOKEN" \
+          "https://secretmanager.googleapis.com/v1/projects/385154741571/secrets/ev-code-signing-public-key/versions/latest:access" \
+          | jq -r '.payload.data' | base64 -d > /tmp/cert.pem
+        printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
+        cat > /tmp/sign-binary.sh <<'EOF'
+        #!/bin/bash
+        set -euo pipefail
+        java -jar /tmp/jsign.jar \
+          --storetype GOOGLECLOUD \
+          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key \
+          --storepass "$(cat /tmp/gcp-access-token)" \
+          --alias ev-code-signing-key/cryptoKeyVersions/2 \
+          --certfile /tmp/cert.pem \
+          --name "Viam Server" \
+          --tsaurl http://timestamp.digicert.com \
+          "$1"
+        EOF
+        chmod 755 /tmp/sign-binary.sh
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Build (Test)
+      if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
+      run: |
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
+
+    - name: Build (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      run: |
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
+
+    - name: Upload Files (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Build (Latest)
+      if: inputs.release_type == 'latest'
+      run: |
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
+
+    - name: Build (Tagged)
+      if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
+      run: |
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
+
+    - name: Set Date and Channel
+      id: build_date
+      run: |
+        echo "date=`date +%F`" >> $GITHUB_OUTPUT
+        # extract channel from built filename for use by smoke tests
+        f=$(ls etc/packaging/static/deploy/viam-server-* | grep -v windows | head -1)
+        echo "channel=$(basename "$f" | sed 's/^viam-server-//;s/-[^-]*$//')" >> $GITHUB_OUTPUT
+
+    - name: Upload Files (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Upload Manifest (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/manifest/'
+        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+  # Keeps the antique2 linux build green so the release can swap back to it.
+  # Build-only: no upload, and continue-on-error so it never blocks a release.
+  antique-validate:
+    name: Antique Build (validate)
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: ubuntu-large
+            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            platform: linux/amd64
+          - arch: ubuntu-large-arm
+            image: ghcr.io/viamrobotics/antique2:arm64-cache
+            platform: linux/arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+      volumes:
+      # otherwise we get a 'read-only filesystem' error when symlinking over this
+      - /tmp/node20:/__e/node20
+    timeout-minutes: 15
+    permissions:
+      contents: read
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
 
@@ -92,109 +256,9 @@ jobs:
         chown -R testbot:testbot .
         sudo -Hu testbot bash -lc 'make clean-all'
 
-    - name: Authorize signing (windows)
-      if: matrix.target == 'static-release-win'
-      id: signing-auth
-      uses: google-github-actions/auth@v2
-      with:
-        token_format: 'access_token'
-        project_id: 'engineering-tools-310515'
-        workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
-        service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
-
-    - name: Set up Authenticode signing (windows)
-      if: matrix.target == 'static-release-win'
-      env:
-        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+    - name: Build
       run: |
-        apt-get install -y openjdk-17-jre-headless jq
-        curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
-        # Fetch cert directly via Secret Manager REST: the get-secretmanager-secrets
-        # action needs Node 18+, but antique2 ships Node 16.
-        curl -fsSL -H "Authorization: Bearer $GCP_ACCESS_TOKEN" \
-          "https://secretmanager.googleapis.com/v1/projects/385154741571/secrets/ev-code-signing-public-key/versions/latest:access" \
-          | jq -r '.payload.data' | base64 -d > /tmp/cert.pem
-        printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
-        cat > /tmp/sign-binary.sh <<'EOF'
-        #!/bin/bash
-        set -euo pipefail
-        java -jar /tmp/jsign.jar \
-          --storetype GOOGLECLOUD \
-          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key \
-          --storepass "$(cat /tmp/gcp-access-token)" \
-          --alias ev-code-signing-key/cryptoKeyVersions/2 \
-          --certfile /tmp/cert.pem \
-          --name "Viam Server" \
-          --tsaurl http://timestamp.digicert.com \
-          "$1"
-        EOF
-        chmod 755 /tmp/sign-binary.sh
-
-    - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
-
-    - name: Build (Test)
-      if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
-      run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
-
-    - name: Build (PR)
-      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-      run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
-
-    - name: Upload Files (PR)
-      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-      uses: google-github-actions/upload-cloud-storage@v2
-      with:
-        headers: "cache-control: no-cache"
-        path: 'etc/packaging/static/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/'
-        glob: 'viam-server-*'
-        parent: false
-        gzip: false
-
-    - name: Build (Latest)
-      if: inputs.release_type == 'latest'
-      run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
-
-    - name: Build (Tagged)
-      if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
-      run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
-
-    - name: Set Date and Channel
-      id: build_date
-      run: |
-        echo "date=`date +%F`" >> $GITHUB_OUTPUT
-        # extract channel from built filename for use by smoke tests
-        f=$(ls etc/packaging/static/deploy/viam-server-* | grep -v windows | head -1)
-        echo "channel=$(basename "$f" | sed 's/^viam-server-//;s/-[^-]*$//')" >> $GITHUB_OUTPUT
-
-    - name: Upload Files (Testing)
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: google-github-actions/upload-cloud-storage@v2
-      with:
-        headers: "cache-control: no-cache"
-        path: 'etc/packaging/static/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
-        glob: 'viam-server-*'
-        parent: false
-        gzip: false
-
-    - name: Upload Manifest (Testing)
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: google-github-actions/upload-cloud-storage@v2
-      with:
-        headers: "cache-control: no-cache"
-        path: 'etc/packaging/static/manifest/'
-        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
-        glob: 'viam-server-*'
-        parent: false
-        gzip: false
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="antique-validate" static-release'
 
   mac:
     name: Build MacOS

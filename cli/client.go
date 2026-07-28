@@ -1786,7 +1786,7 @@ func machinesPartAddTriggerAction(ctx context.Context, cmd *cli.Command, args ma
 		return err
 	}
 
-	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+	if err := client.updateRobotPartFromMap(ctx, part, config, nil); err != nil {
 		return err
 	}
 
@@ -2927,7 +2927,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 	jobs = append(jobs, jobConfig)
 	config["jobs"] = jobs
 
-	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+	if err := client.updateRobotPartFromMap(ctx, part, config, nil); err != nil {
 		return err
 	}
 
@@ -2995,7 +2995,7 @@ func machinesPartUpdateJobAction(ctx context.Context, cmd *cli.Command, args mac
 
 	config["jobs"] = jobs
 
-	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+	if err := client.updateRobotPartFromMap(ctx, part, config, nil); err != nil {
 		return err
 	}
 
@@ -3052,7 +3052,7 @@ func machinesPartDeleteJobAction(ctx context.Context, cmd *cli.Command, args mac
 
 	config["jobs"] = newJobs
 
-	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+	if err := client.updateRobotPartFromMap(ctx, part, config, nil); err != nil {
 		return err
 	}
 
@@ -3890,10 +3890,17 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	attemptCount, err := doCopy()
 	if err != nil {
 		defer pm.Fail("copy", err) //nolint:errcheck
-		if statusErr := status.Convert(err); statusErr != nil &&
-			statusErr.Code() == codes.InvalidArgument &&
-			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
-			return errDirectoryCopyRequestNoRecursion
+		if errors.Is(err, errNoShellService) {
+			return err
+		}
+		if statusErr := status.Convert(err); statusErr != nil {
+			if statusErr.Code() == codes.InvalidArgument &&
+				statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+				return errDirectoryCopyRequestNoRecursion
+			}
+			if statusErr.Code() == codes.NotFound {
+				return errors.WithMessage(err, "copy aborted")
+			}
 		}
 		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
 	}
@@ -5173,21 +5180,34 @@ func (c *viamClient) getRobotPart(ctx context.Context, partID string) (*apppb.Ge
 	return c.client.GetRobotPart(ctx, &apppb.GetRobotPartRequest{Id: partID})
 }
 
+// updateRobotPart sends a robot config to the app backend as a raw JSON string.
+// Passing the config as JSON (rather than a structpb.Struct) preserves field order,
+// which matters because the config is stored and displayed as-is.
 func (c *viamClient) updateRobotPart(
-	ctx context.Context, part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp,
+	ctx context.Context, part *apppb.RobotPart, confJSON string, lastKnownUpdate *timestamppb.Timestamp,
 ) error {
-	confStruct, err := structpb.NewStruct(confMap)
-	if err != nil {
-		return errors.Wrap(err, "in NewStruct")
-	}
 	req := apppb.UpdateRobotPartRequest{
 		Id:              part.Id,
 		Name:            part.Name,
-		RobotConfig:     confStruct,
+		RobotConfigJson: &confJSON,
 		LastKnownUpdate: lastKnownUpdate,
 	}
-	_, err = c.client.UpdateRobotPart(ctx, &req)
+	_, err := c.client.UpdateRobotPart(ctx, &req)
 	return err
+}
+
+// updateRobotPartFromMap is a compatibility shim for callers that still build the config
+// as a map[string]any. It marshals the map to JSON and delegates to updateRobotPart.
+// Note: field order is not preserved through the map; prefer updateRobotPart for flows
+// where order matters (e.g. module reload).
+func (c *viamClient) updateRobotPartFromMap(
+	ctx context.Context, part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp,
+) error {
+	confJSON, err := json.Marshal(confMap)
+	if err != nil {
+		return errors.Wrap(err, "marshaling robot config")
+	}
+	return c.updateRobotPart(ctx, part, string(confJSON), lastKnownUpdate)
 }
 
 func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr, partStr string, errorsOnly bool,
@@ -5680,7 +5700,15 @@ func (c *viamClient) retryableCopy(
 		// Handle error
 		hadPreviousFailure = true
 
-		// Print special warning for invalid argument and permission denied errors (in addition to regular error)
+		// A machine without a shell service will not gain one by retrying; abort early.
+		if errors.Is(copyErr, errNoShellService) {
+			warningf(cmd.Root().ErrWriter, "Copy failed because the machine does not have the shell service enabled. "+
+				"Add the shell service to the machine part's configuration to enable file copying.")
+			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+			return attempt, copyErr
+		}
+
+		// Print special warning for invalid argument, permission denied, and not found errors (in addition to regular error)
 		if s, ok := status.FromError(copyErr); ok {
 			if s.Code() == codes.PermissionDenied {
 				if isFrom {
@@ -5696,6 +5724,10 @@ func (c *viamClient) retryableCopy(
 				return attempt, copyErr
 			} else if s.Code() == codes.InvalidArgument {
 				warningf(cmd.Root().ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			} else if s.Code() == codes.NotFound {
+				warningf(cmd.Root().ErrWriter, "Copy failed because the destination path does not exist: %s", s.Message())
 				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
 				return attempt, copyErr
 			}
