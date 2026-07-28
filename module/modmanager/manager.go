@@ -166,7 +166,7 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	}
 	var err error
 	mgr.modules.Range(func(_ string, mod *module) bool {
-		err = multierr.Combine(err, mgr.closeModule(mod, false))
+		err = multierr.Combine(err, mgr.closeModule(mod, "shutdown"))
 		return true
 	})
 	return err
@@ -399,7 +399,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
-	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
+	mod.logger.Activity("module", "start", "module", mod.cfg.Name)
 	mgr.setModuleStatusReady(mod.cfg.Name)
 
 	success = true
@@ -431,7 +431,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	mod.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process to reconfigure", "module", conf.Name)
 
-	if err := mgr.closeModule(mod, true); err != nil {
+	if err := mgr.closeModule(mod, "reconfigure"); err != nil {
 		// If removal fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
@@ -474,7 +474,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 
 	// If module handles no resources, remove it now.
 	if len(handledResources) == 0 {
-		return nil, mgr.closeModule(mod, false)
+		return nil, mgr.closeModule(mod, "config_removal")
 	}
 
 	// Otherwise return the list of resources that need to be closed before the
@@ -491,8 +491,10 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 }
 
 // closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
-// as they are running outside code and may have unexpected behavior.
-func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
+// as they are running outside code and may have unexpected behavior. reason says why the module is
+// stopping ("shutdown", "config_removal", "reconfigure") and is reported on the stop activity event.
+func (mgr *Manager) closeModule(mod *module, reason string) error {
+	reconfigure := reason == "reconfigure"
 	mgr.setModuleStatusClosing(mod.cfg.Name)
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
@@ -541,6 +543,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	mgr.removeModuleStatus(mod.cfg.Name)
 
 	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
+	mod.logger.Activity("module", "stop", "module", mod.cfg.Name, "reason", reason)
 	return nil
 }
 
@@ -654,7 +657,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		return multierr.Combine(err, mgr.closeModule(mod, false))
+		return multierr.Combine(err, mgr.closeModule(mod, "config_removal"))
 	}
 	return nil
 }
@@ -884,6 +887,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		mod.logger.Errorw(
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
+		mod.logger.Activity("module", "stop", "module", mod.cfg.Name, "reason", "crash", "exit_code", exitCode)
 
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely

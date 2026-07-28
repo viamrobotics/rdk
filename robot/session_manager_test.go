@@ -87,3 +87,31 @@ func TestSessionManagerExpiredSessions(t *testing.T) {
 			test.ShouldEqual, 1)
 	})
 }
+
+func TestSessionManagerExpiredActivity(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
+	r := &inject.Robot{}
+
+	r.LoggerFunc = func() logging.Logger {
+		return logger
+	}
+
+	// Use a negative duration to cause immediate heartbeat timeout and
+	// session expiration.
+	sm := robot.NewSessionManager(r, time.Duration(-1))
+	defer sm.Close()
+
+	sess, err := sm.Start(ctx, "foo")
+	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, activityLogs.Len(), test.ShouldEqual, 1)
+	})
+	entry := activityLogs.All()[0].ContextMap()
+	test.That(t, entry["activity"], test.ShouldEqual, "liveness")
+	test.That(t, entry["event"], test.ShouldEqual, "expired")
+	test.That(t, entry["session_id"], test.ShouldEqual, sess.ID().String())
+}
