@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 const (
@@ -530,6 +531,32 @@ func (m *cloudManager) downloadFileWithChecksum(
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("invalid status code %d", resp.StatusCode)
+	}
+
+	// Cheap pre-filter: refuse before downloading something that obviously won't fit (artifact +
+	// reserved floor). Guard on > 0 both because a missing size can't be checked against and
+	// because uint64(-1) would wrap; our GCS-backed downloads always report a size, so this
+	// effectively always runs. If a size is ever absent, the unpackFile guard and ENOSPC backstop.
+	if resp.ContentLength > 0 {
+		// A resumable download appends a ranged GET to any partial already on disk, so only the
+		// remaining bytes get written. Requiring the full Content-Length would falsely refuse a
+		// download that's mostly complete (and double-count the partial, which already occupies space).
+		// Safe whether or not the server honors ranges: go-getter writes in place (no O_TRUNC), so the
+		// file only grows from the existing partial to Content-Length either way. The resume contract
+		// is exercised by the "resumable" test in cloud_package_manager_test.go.
+		remaining := uint64(resp.ContentLength)
+		if stat, statErr := os.Stat(downloadPath); statErr == nil {
+			if existing := uint64(stat.Size()); existing < remaining {
+				remaining -= existing
+			} else {
+				remaining = 0 // already have the whole file (or a stale larger one); only the floor matters
+			}
+		}
+		required := remaining + diskusage.MinFreeBytes
+		if _, err := checkDiskSpace(m.logger, downloadPath, "package download", required,
+			"content_size", rutils.FormatBytes(uint64(resp.ContentLength))); err != nil {
+			return "", "", err
+		}
 	}
 
 	contentType := resp.Header.Get("Content-Type")
