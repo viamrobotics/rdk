@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	jwt "github.com/golang-jwt/jwt/v4"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -14,38 +15,26 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// defaultEndpoints are invocable by any authenticated user, even fully restricted
-// ones. They are the endpoints required to establish and maintain a standard SDK
-// connection with the machine and no more.
-var defaultEndpoints = map[string]bool{
-	"/viam.robot.v1.RobotService/GetSessions":          true,
-	"/viam.robot.v1.RobotService/ResourceNames":        true,
-	"/viam.robot.v1.RobotService/ResourceRPCSubtypes":  true,
-	"/viam.robot.v1.RobotService/StartSession":         true,
-	"/viam.robot.v1.RobotService/SendSessionHeartbeat": true,
-	"/viam.robot.v1.RobotService/GetMachineStatus":     true,
+// exemptMethodPrefixes are gRPC service namespaces that are connection plumbing
+// (authentication handshakes, WebRTC signaling, and reflection) rather than
+// viam-server endpoints. Enforcing roles on them would prevent clients from ever
+// authenticating.
+var exemptMethodPrefixes = []string{
+	"/proto.rpc.v1.",
+	"/proto.rpc.webrtc.v1.",
+	"/grpc.reflection.",
 }
 
-const (
-	getImagesMethod   = "/viam.component.camera.v1.CameraService/GetImages"
-	listStreamsMethod = "/proto.stream.v1.StreamService/ListStreams"
-)
+// permSet maps an allowed method to the set of resource names it may be invoked on.
+type permSet map[string]map[string]bool
 
-// nameScopedStreamMethods are granted for a camera's name when a user may invoke
-// GetImages on that name; without them a user cannot view live feeds.
-var nameScopedStreamMethods = []string{
-	"/proto.stream.v1.StreamService/AddStream",
-	"/proto.stream.v1.StreamService/RemoveStream",
-	"/proto.stream.v1.StreamService/GetStreamOptions",
-	"/proto.stream.v1.StreamService/SetStreamOptions",
-}
-
-// rolesAuthorizer decides whether authenticated users may invoke endpoints based on
-// the roles section of the machine config. A nil *rolesAuthorizer allows everything.
+// rolesAuthorizer decides whether users may invoke endpoints based on the roles
+// section of the machine config. A nil *rolesAuthorizer allows everything.
 type rolesAuthorizer struct {
-	// perms maps user -> method -> resource names allowed for that method.
-	perms  map[string]map[string]map[string]bool
-	logger logging.Logger
+	apiKeyPerms  map[string]permSet // keyed by API key ID
+	emailPerms   map[string]permSet // keyed by e-mail address
+	defaultPerms permSet            // permissions of the "default" user; nil if none
+	logger       logging.Logger
 }
 
 // newRolesAuthorizer returns an authorizer for the given roles, or nil if roles is
@@ -54,67 +43,121 @@ func newRolesAuthorizer(roles []config.Role, logger logging.Logger) *rolesAuthor
 	if len(roles) == 0 {
 		return nil
 	}
-	ra := &rolesAuthorizer{perms: map[string]map[string]map[string]bool{}, logger: logger}
+	ra := &rolesAuthorizer{
+		apiKeyPerms: map[string]permSet{},
+		emailPerms:  map[string]permSet{},
+		logger:      logger,
+	}
 
-	restricted := map[string]bool{}
+	restricted := map[config.User]bool{}
 	for _, role := range roles {
-		if _, seen := ra.perms[role.User]; seen || restricted[role.User] {
-			ra.logger.Errorw(
-				"multiple role definitions for user; fully restricting user until collision is fixed",
-				"user", role.User)
-			// An explicit empty grant map fully restricts: the user matches a role, so
-			// they do not fall back to the default user's permissions.
-			ra.perms[role.User] = map[string]map[string]bool{}
-			restricted[role.User] = true
-			continue
-		}
-		userPerms := map[string]map[string]bool{}
+		perms := permSet{}
 		for _, perm := range role.Permissions {
-			for _, method := range perm.Methods {
-				if userPerms[method] == nil {
-					userPerms[method] = map[string]bool{}
+			for _, method := range perm.AllowedMethods {
+				if perms[method] == nil {
+					perms[method] = map[string]bool{}
 				}
-				userPerms[method][perm.Resource] = true
+				for _, res := range perm.Resources {
+					perms[method][res] = true
+				}
 			}
 		}
-		// Live feeds require the stream service, so GetImages on a camera implies the
-		// stream endpoints for that camera's name (and ListStreams for any name).
-		for camName := range userPerms[getImagesMethod] {
-			for _, method := range nameScopedStreamMethods {
-				if userPerms[method] == nil {
-					userPerms[method] = map[string]bool{}
+
+		for _, user := range role.Users {
+			var permsByID map[string]permSet
+			switch user.Type {
+			case config.UserTypeAPIKeyID:
+				permsByID = ra.apiKeyPerms
+			case config.UserTypeEmail:
+				permsByID = ra.emailPerms
+			case config.UserTypeDefault:
+				if ra.defaultPerms != nil || restricted[user] {
+					ra.logger.Error(
+						"multiple role definitions for default user; fully restricting until collision is fixed")
+					ra.defaultPerms = permSet{}
+					restricted[user] = true
+					continue
 				}
-				userPerms[method][camName] = true
+				ra.defaultPerms = perms
+				continue
+			default:
+				ra.logger.Errorw("unknown user type in roles; ignoring user",
+					"type", user.Type, "id", user.ID)
+				continue
 			}
-			if userPerms[listStreamsMethod] == nil {
-				userPerms[listStreamsMethod] = map[string]bool{"": true}
+			if _, seen := permsByID[user.ID]; seen || restricted[user] {
+				ra.logger.Errorw(
+					"multiple role definitions for user; fully restricting user until collision is fixed",
+					"type", user.Type, "id", user.ID)
+				// An empty permSet fully restricts: the user matches a role, so they do
+				// not fall back to the default user's permissions.
+				permsByID[user.ID] = permSet{}
+				restricted[user] = true
+				continue
 			}
+			permsByID[user.ID] = perms
 		}
-		ra.perms[role.User] = userPerms
 	}
 	return ra
 }
 
-// authorize returns nil if the authenticated user in ctx may invoke fullMethod. req
-// may be nil for streaming RPCs whose first message has not yet been received.
-func (ra *rolesAuthorizer) authorize(ctx context.Context, fullMethod string, req interface{}) error {
-	if defaultEndpoints[fullMethod] {
-		return nil
-	}
-
-	// Methods reachable without authentication (e.g. rpc auth/signaling handshakes)
-	// carry no auth entity; anything else was already gated by the auth interceptor.
+// permsForUser returns the permissions of the user in ctx, or nil if the user is
+// unauthenticated or unknown with no default user configured.
+func (ra *rolesAuthorizer) permsForUser(ctx context.Context) permSet {
 	entity, ok := rpc.ContextAuthEntity(ctx)
 	if !ok {
+		// Unauthenticated (insecure connection): fully restrict.
 		return nil
 	}
-
-	userPerms, ok := ra.perms[entity.Entity]
-	if !ok {
-		userPerms = ra.perms[config.DefaultRoleUser]
+	if perms, ok := ra.apiKeyPerms[entity.Entity]; ok {
+		return perms
 	}
+	if perms, ok := ra.emailPerms[entity.Entity]; ok {
+		return perms
+	}
+	if email := emailFromContext(ctx); email != "" {
+		if perms, ok := ra.emailPerms[email]; ok {
+			return perms
+		}
+	}
+	return ra.defaultPerms
+}
+
+// emailFromContext extracts the e-mail from the auth metadata claim of the request's
+// bearer token. The token's signature was already verified by the auth interceptor,
+// so parsing it unverified here is safe.
+func emailFromContext(ctx context.Context) string {
+	token, err := rpc.TokenFromContext(ctx)
+	if err != nil {
+		return ""
+	}
+	var claims rpc.JWTClaims
+	if _, _, err := jwt.NewParser().ParseUnverified(token, &claims); err != nil {
+		return ""
+	}
+	return claims.Metadata()["email"]
+}
+
+// authorize returns nil if the user in ctx may invoke fullMethod. req may be nil for
+// streaming RPCs whose first message has not yet been received; a nil req performs
+// only the method-level (any-resource) check.
+func (ra *rolesAuthorizer) authorize(ctx context.Context, fullMethod string, req interface{}) error {
+	for _, prefix := range exemptMethodPrefixes {
+		if strings.HasPrefix(fullMethod, prefix) {
+			return nil
+		}
+	}
+
+	perms := ra.permsForUser(ctx)
+	resources := perms[fullMethod]
 	resourceName := resourceNameFromRequest(fullMethod, req)
-	if userPerms != nil && userPerms[fullMethod][resourceName] {
+	if resourceName == "" {
+		// Methods not associated with a single resource (e.g. RobotService methods,
+		// ListStreams) are allowed when granted under any resource name.
+		if len(resources) != 0 {
+			return nil
+		}
+	} else if resources[resourceName] {
 		return nil
 	}
 	return status.Errorf(codes.PermissionDenied,
@@ -145,37 +188,19 @@ func (ra *rolesAuthorizer) UnaryInterceptor(
 	return handler(ctx, req)
 }
 
-// StreamInterceptor enforces configured roles on streaming RPCs. Resource-level
-// authorization happens on receipt of the stream's first message, since that is
-// where the resource name lives.
+// StreamInterceptor enforces configured roles on streaming RPCs. The method-level
+// check happens up front; resource-level authorization happens on receipt of the
+// stream's first message, since that is where the resource name lives.
 func (ra *rolesAuthorizer) StreamInterceptor(
 	srv interface{},
 	ss googlegrpc.ServerStream,
 	info *googlegrpc.StreamServerInfo,
 	handler googlegrpc.StreamHandler,
 ) error {
-	// Machine-scoped check (empty resource name) up front; it covers non-message-bound
-	// grants and rejects users with no grant on this method for any resource early.
-	if err := ra.authorize(ss.Context(), info.FullMethod, nil); err == nil {
-		return handler(srv, ss)
-	} else if !ra.methodGranted(ss.Context(), info.FullMethod) {
+	if err := ra.authorize(ss.Context(), info.FullMethod, nil); err != nil {
 		return err
 	}
 	return handler(srv, &authzServerStream{ServerStream: ss, ra: ra, fullMethod: info.FullMethod})
-}
-
-// methodGranted reports whether the user has the method granted for at least one
-// resource name, meaning first-message inspection could still authorize the stream.
-func (ra *rolesAuthorizer) methodGranted(ctx context.Context, fullMethod string) bool {
-	entity, ok := rpc.ContextAuthEntity(ctx)
-	if !ok {
-		return false
-	}
-	userPerms, ok := ra.perms[entity.Entity]
-	if !ok {
-		userPerms = ra.perms[config.DefaultRoleUser]
-	}
-	return len(userPerms[fullMethod]) != 0
 }
 
 type authzServerStream struct {
