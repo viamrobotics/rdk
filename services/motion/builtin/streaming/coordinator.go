@@ -17,6 +17,7 @@ const (
 	defaultSendToArmIntervalMs  = 10
 	defaultVelLimitDegPerSec    = 10.0
 	defaultAccelLimitDegPerSec2 = 10.0
+	defaultMaxRunwayInSessionMs = 1000
 )
 
 // JointPositionsChItem is one joint-space waypoint.
@@ -41,6 +42,12 @@ type StreamOptions struct {
 	// TODO: Replace these with querying the arm's properties API.
 	VelLimitDegPerSec    float64 `json:"vel_limit_deg_per_sec"`
 	AccelLimitDegPerSec2 float64 `json:"accel_limit_deg_per_sec2"`
+
+	// MaxRunwayInSessionMs bounds (approximately) how much sampled-but-unexecuted
+	// trajectory the session buffers ahead of the arm. Once the buffer is full,
+	// target pushes block until the arm consumes trajectory -- this is the
+	// session's backpressure signal to producers.
+	MaxRunwayInSessionMs int `json:"max_runway_in_session_ms"`
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
@@ -56,6 +63,9 @@ func (o *StreamOptions) Validate() error {
 	}
 	if o.AccelLimitDegPerSec2 < 0 {
 		return errors.New("streaming: accel_limit_deg_per_sec2 must be non-negative")
+	}
+	if o.MaxRunwayInSessionMs < 0 {
+		return errors.New("streaming: max_runway_in_session_ms must be non-negative")
 	}
 	return nil
 }
@@ -73,6 +83,9 @@ func (o *StreamOptions) ApplyDefaults() {
 	}
 	if o.AccelLimitDegPerSec2 == 0 {
 		o.AccelLimitDegPerSec2 = defaultAccelLimitDegPerSec2
+	}
+	if o.MaxRunwayInSessionMs == 0 {
+		o.MaxRunwayInSessionMs = defaultMaxRunwayInSessionMs
 	}
 }
 
@@ -127,7 +140,8 @@ func newCoordinator(a arm.Arm, opts *StreamOptions) (*coordinator, error) {
 		return nil, err
 	}
 
-	pvatCh := make(chan pvat, max(1, opts.TargetRunwayInArmMs/opts.SendToArmIntervalMs))
+	// Bound the pvatCh to provide backpressure.
+	pvatCh := make(chan pvat, max(1, opts.MaxRunwayInSessionMs/opts.SendToArmIntervalMs))
 	return &coordinator{
 		trajexSession: &trajexSession{
 			opts:   opts,
