@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -728,9 +729,11 @@ func TestLogEntryFieldsToString(t *testing.T) {
 }
 
 func TestGetRobotPartLogs(t *testing.T) {
+	const testTotalLogs = 10000
+
 	// Create fake logs of "0"->"9999".
-	logs := make([]*commonpb.LogEntry, 0, maxNumLogs)
-	for i := 0; i < maxNumLogs; i++ {
+	logs := make([]*commonpb.LogEntry, 0, testTotalLogs)
+	for i := 0; i < testTotalLogs; i++ {
 		logs = append(logs, &commonpb.LogEntry{Message: fmt.Sprintf("%d", i)})
 	}
 
@@ -745,9 +748,16 @@ func TestGetRobotPartLogs(t *testing.T) {
 			pt, err = strconv.Atoi(*receivedPt)
 			test.That(t, err, test.ShouldBeNil)
 		}
-		resp := &apppb.GetRobotPartLogsResponse{
-			Logs:          logs[(pt-1)*100 : pt*100],
-			NextPageToken: fmt.Sprintf("%d", pt+1),
+		batchStart := (pt - 1) * 100
+		if batchStart >= testTotalLogs {
+			return &apppb.GetRobotPartLogsResponse{}, nil
+		}
+		batchEnd := min(pt*100, testTotalLogs)
+
+		resp := &apppb.GetRobotPartLogsResponse{Logs: logs[batchStart:batchEnd]}
+		// An empty next page token marks the last page, as app does when logs are exhausted.
+		if batchEnd < testTotalLogs {
+			resp.NextPageToken = fmt.Sprintf("%d", pt+1)
 		}
 		return resp, nil
 	}
@@ -801,7 +811,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 		GetOrganizationsWithAccessToLocationFunc: getOrganizationsWithAccessToLocationFunc,
 	}
 
-	t.Run("no count", func(t *testing.T) {
+	t.Run("no count fetches every log", func(t *testing.T) {
 		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "")
 
 		test.That(t, ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
@@ -810,12 +820,12 @@ func TestGetRobotPartLogs(t *testing.T) {
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
 		// There should be a message for "organization -> location -> robot"
-		// followed by maxNumLogs messages.
-		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
+		// followed by every log, since omitting count no longer caps the fetch.
+		test.That(t, len(out.messages), test.ShouldEqual, testTotalLogs+1)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
-		// Logs should be printed in order oldest->newest ("99"->"0").
-		expectedLogNum := defaultNumLogs - 1
-		for i := 1; i <= defaultNumLogs; i++ {
+		// Logs should be printed in order oldest->newest ("9999"->"0").
+		expectedLogNum := testTotalLogs - 1
+		for i := 1; i <= testTotalLogs; i++ {
 			test.That(t, out.messages[i], test.ShouldContainSubstring,
 				fmt.Sprintf("%d", expectedLogNum))
 			expectedLogNum--
@@ -842,8 +852,8 @@ func TestGetRobotPartLogs(t *testing.T) {
 			expectedLogNum--
 		}
 	})
-	t.Run("max count", func(t *testing.T) {
-		flags := map[string]any{generalFlagCount: maxNumLogs}
+	t.Run("large count", func(t *testing.T) {
+		flags := map[string]any{generalFlagCount: testTotalLogs}
 		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
@@ -852,48 +862,121 @@ func TestGetRobotPartLogs(t *testing.T) {
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
 		// There should be a message for "organization -> location -> robot"
-		// followed by maxNumLogs messages.
-		test.That(t, len(out.messages), test.ShouldEqual, maxNumLogs+1)
+		// followed by testTotalLogs messages.
+		test.That(t, len(out.messages), test.ShouldEqual, testTotalLogs+1)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
 
 		// Logs should be printed in order oldest->newest ("9999"->"0").
-		expectedLogNum := maxNumLogs - 1
-		for i := 1; i <= maxNumLogs; i++ {
+		expectedLogNum := testTotalLogs - 1
+		for i := 1; i <= testTotalLogs; i++ {
 			test.That(t, out.messages[i], test.ShouldContainSubstring,
 				fmt.Sprintf("%d", expectedLogNum))
 			expectedLogNum--
 		}
 	})
-	t.Run("negative count", func(t *testing.T) {
+	t.Run("negative count errors before fetching", func(t *testing.T) {
 		flags := map[string]any{"count": -1}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+
+		err := ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"count" cannot be negative`)
+
+		// Validation runs before the header lookup, so nothing is emitted on either stream.
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	})
+	t.Run("count stopping mid-batch does not over-fetch", func(t *testing.T) {
+		// 250 lands mid-batch on the third page, exercising the truncation path.
+		flags := map[string]any{generalFlagCount: 250}
 		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
-		// Warning should read: `Warning:\nProvided negative "count" value. Defaulting to 100`.
-		test.That(t, len(errOut.messages), test.ShouldEqual, 2)
-		test.That(t, errOut.messages[0], test.ShouldEqual, "Warning: ")
-		test.That(t, errOut.messages[1], test.ShouldContainSubstring, `Provided negative "count" value. Defaulting to 100`)
-
-		// There should be a message for "organization -> location -> robot"
-		// followed by maxNumLogs messages.
-		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 251)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
-		// Logs should be printed in order oldest->oldest ("99"->"0").
-		expectedLogNum := defaultNumLogs - 1
-		for i := 1; i <= defaultNumLogs; i++ {
-			test.That(t, out.messages[i], test.ShouldContainSubstring,
-				fmt.Sprintf("%d", expectedLogNum))
-			expectedLogNum--
-		}
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "249")
+		test.That(t, out.messages[250], test.ShouldContainSubstring, "0")
 	})
-	t.Run("count too high", func(t *testing.T) {
-		flags := map[string]any{"count": 1000000}
-		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+}
 
-		err := ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx))
+// TestStreamLogsForPart covers the `machines logs` fetch loop, which pages independently of the
+// `machines part logs` path exercised by TestGetRobotPartLogs.
+func TestStreamLogsForPart(t *testing.T) {
+	const testTotalLogs = 450
+
+	logs := make([]*commonpb.LogEntry, 0, testTotalLogs)
+	for i := 0; i < testTotalLogs; i++ {
+		logs = append(logs, &commonpb.LogEntry{Message: fmt.Sprintf("%d", i)})
+	}
+
+	var requests int
+	getRobotPartLogsFunc := func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartLogsResponse, error) {
+		requests++
+		pt := 1
+		if receivedPt := in.PageToken; receivedPt != nil && *receivedPt != "" {
+			var err error
+			pt, err = strconv.Atoi(*receivedPt)
+			test.That(t, err, test.ShouldBeNil)
+		}
+		batchStart := (pt - 1) * 100
+		if batchStart >= testTotalLogs {
+			return &apppb.GetRobotPartLogsResponse{}, nil
+		}
+		batchEnd := min(pt*100, testTotalLogs)
+
+		resp := &apppb.GetRobotPartLogsResponse{Logs: logs[batchStart:batchEnd]}
+		if batchEnd < testTotalLogs {
+			resp.NextPageToken = fmt.Sprintf("%d", pt+1)
+		}
+		return resp, nil
+	}
+
+	asc := &inject.AppServiceClient{GetRobotPartLogsFunc: getRobotPartLogsFunc}
+	part := &apppb.RobotPart{Id: "part-id", Name: "main"}
+
+	countLines := func(s string) int {
+		return len(strings.Split(strings.TrimSuffix(s, "\n"), "\n"))
+	}
+
+	t.Run("no count drains every page", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "")
+		requests = 0
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		// All logs, including the final short page, which the old page-token handling dropped.
+		test.That(t, countLines(buf.String()), test.ShouldEqual, testTotalLogs)
+		test.That(t, buf.String(), test.ShouldContainSubstring, "449")
+		test.That(t, requests, test.ShouldEqual, 5)
+	})
+	t.Run("count caps the fetch and stops paging early", func(t *testing.T) {
+		flags := map[string]any{generalFlagCount: 150}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests = 0
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, countLines(buf.String()), test.ShouldEqual, 150)
+		// Two pages are enough for 150 logs; a third request would be wasted work.
+		test.That(t, requests, test.ShouldEqual, 2)
+	})
+	t.Run("negative count errors before fetching", func(t *testing.T) {
+		flags := map[string]any{generalFlagCount: -1}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests = 0
+
+		err := ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(`provided too high of a "count" value. Maximum is 10000`))
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"count" cannot be negative`)
+		test.That(t, requests, test.ShouldEqual, 0)
 	})
 }
 
