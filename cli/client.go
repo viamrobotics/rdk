@@ -4131,6 +4131,13 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 		return err
 	}
 
+	// Reconnect using global context, because the client may have reconnected
+	// using a shorter context when updating the network config
+	err = robotClient.Connect(ctx)
+	if err != nil {
+		return err
+	}
+
 	return tunnelTraffic(ctx, cmd, robotClient, args.LocalPort, args.DestinationPort)
 }
 
@@ -4139,6 +4146,7 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 // flow can be tested without a live machine.
 type tunnelLister interface {
 	ListTunnels(ctx context.Context) ([]rconfig.TrafficTunnelEndpoint, error)
+	Connect(ctx context.Context) error
 }
 
 // tunnelPortAllowed reports whether the given destination port is present in the
@@ -4148,7 +4156,22 @@ type tunnelLister interface {
 func tunnelPortAllowed(ctx context.Context, lister tunnelLister, dest int) (allowed, known bool) {
 	tunnels, err := lister.ListTunnels(ctx)
 	if err != nil {
-		return false, false
+		if strings.Contains(err.Error(), client.ErrNotConnectedPrefix) {
+			// If the error is specifically a not connected error,
+			// that likely means the machine is updating after
+			// the network config change. So, try to reconnect
+			// and list tunnels ONCE more from this attempt.
+			err = lister.Connect(ctx)
+			if err != nil {
+				return false, false
+			}
+			tunnels, err = lister.ListTunnels(ctx)
+			if err != nil {
+				return false, false
+			}
+		} else {
+			return false, false
+		}
 	}
 	for _, t := range tunnels {
 		if t.Port == dest {

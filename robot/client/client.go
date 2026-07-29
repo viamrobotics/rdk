@@ -202,8 +202,13 @@ func isDisconnectedError(err error) bool {
 		strings.Contains(err.Error(), io.ErrClosedPipe.Error())
 }
 
+// ErrNotConnectedPrefix is the string prefix for the error arising from not being
+// connected to the robot. The full error will include this prefix,
+// along with the remote address appended.
+const ErrNotConnectedPrefix = "not connected to remote robot at"
+
 func (rc *RobotClient) notConnectedToRemoteError() error {
-	return fmt.Errorf("not connected to remote robot at %s", rc.address)
+	return fmt.Errorf("%s %s", ErrNotConnectedPrefix, rc.address)
 }
 
 func isResourceExhaustedError(err error) bool {
