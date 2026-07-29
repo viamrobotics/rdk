@@ -448,8 +448,13 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		//nolint:errcheck
-		s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
+		if err = s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger); err != nil {
+			if errors.Is(err, context.Canceled) {
+				s.logger.Infow("context cancelled while syncing arbitrary file", "filename", filePath)
+			} else {
+				s.logger.Errorw("failed to sync arbitrary file", "filename", filePath, "err", err)
+			}
+		}
 	}
 }
 
@@ -481,7 +486,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	// setup a retry struct that will try to upload the capture file
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		msg := "error uploading data capture file %s, size: %s, md: %s"
-		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
+		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), utils.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
 		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger, uploadingBytesCounter)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
@@ -531,17 +536,15 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 func (s *Sync) syncArbitraryFile(
 	ctx context.Context, f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int,
 	logger logging.Logger,
-) (string, error) {
-	var uploadedID string
+) error {
 	retry := newExponentialRetry(ctx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, id, err := uploadArbitraryFile(
+		bytesUploaded, _, err := uploadArbitraryFile(
 			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
 		)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
-		uploadedID = id
 		logger.Debugf("uploadArbitraryFile uploaded: %d bytes", bytesUploaded)
 		return bytesUploaded, nil
 	})
@@ -549,13 +552,13 @@ func (s *Sync) syncArbitraryFile(
 	bytesUploaded, err := retry.run()
 	if err != nil {
 		if closeErr := f.Close(); closeErr != nil {
-			logger.Error(errors.Wrap(closeErr, "error closing data capture file").Error())
+			logger.Error(errors.Wrap(closeErr, "error closing arbitrary file").Error())
 		}
 
 		// if we stopped due to a cancelled context,
 		// return without deleting the file or moving it to the failed directory
 		if errors.Is(err, context.Canceled) {
-			return "", err
+			return err
 		}
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
@@ -563,7 +566,7 @@ func (s *Sync) syncArbitraryFile(
 			logger.Error(err.Error())
 		}
 		s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
-		return "", err
+		return err
 	}
 
 	if err := f.Close(); err != nil {
@@ -575,7 +578,7 @@ func (s *Sync) syncArbitraryFile(
 	}
 	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
-	return uploadedID, nil
+	return nil
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
@@ -609,7 +612,13 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 		}
 		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
 		// before deciding this file is ready for upload and is not still being written to.
-		s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger) //nolint:errcheck
+		if err = s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); err != nil {
+			if errors.Is(err, context.Canceled) {
+				s.logger.Infow("context cancelled while syncing arbitrary file", "filename", filename)
+			} else {
+				s.logger.Errorw("failed to sync arbitrary file", "filename", filename, "err", err)
+			}
+		}
 	}()
 
 	return <-errChan
@@ -644,6 +653,9 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 	defer tkr.Stop()
 	var readyLogged bool
 
+	// lastNotSyncedLog throttles the noisy "not syncing" logs
+	var lastNotSyncedLog time.Time
+
 	for {
 		if err := ctx.Err(); err != nil {
 			return
@@ -667,18 +679,26 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			shouldSync := ReadyToSyncDirectories(ctx, config, s.logger)
 			state := s.cloudConn.conn.GetState()
 			if state != connectivity.Ready {
-				logf := s.logger.Debugf
-				if state == connectivity.TransientFailure || state == connectivity.Shutdown {
-					logf = s.logger.Infof
+				if now := s.clock.Now(); now.Sub(lastNotSyncedLog) >= time.Minute {
+					lastNotSyncedLog = now
+					logf := s.logger.Debugf
+					if state == connectivity.TransientFailure || state == connectivity.Shutdown {
+						logf = s.logger.Infof
+					}
+					logf("data manager: Not syncing to cloud. cloud connection is in state %s, waiting for %s", state, connectivity.Ready)
 				}
-				logf("data manager: cloud connection is in state %s, waiting for %s", state, connectivity.Ready)
 
 				continue
 			}
 			if !shouldSync {
-				s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+				if now := s.clock.Now(); now.Sub(lastNotSyncedLog) >= time.Minute {
+					lastNotSyncedLog = now
+					s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+				}
 				continue
 			}
+			// syncing; reset the throttle so a future not-synced reason logs immediately.
+			lastNotSyncedLog = time.Time{}
 
 			if err := s.walkDirsAndSendFilesToSync(ctx, config); err != nil && !errors.Is(err, context.Canceled) {
 				goutils.UncheckedError(err)

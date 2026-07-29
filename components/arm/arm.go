@@ -7,6 +7,7 @@ package arm
 import (
 	"context"
 	"fmt"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -145,12 +146,67 @@ type Arm interface {
 	// This will block until done or a new operation cancels this one.
 	MoveThroughJointPositions(ctx context.Context, positions [][]referenceframe.Input, options *MoveOptions, extra map[string]any) error
 
+	// MoveThroughJointPositionsStreamed receives a stream of trajectory point batches and executes
+	// them in order.
+	//
+	// The framework feeds one slice per wire TrajectoryBatch into `batches` and closes it when the
+	// client ends the stream. The implementation writes a Response to `responses` for each
+	// acknowledgment it wants to send back, and the framework forwards each onto the wire. Return
+	// nil once the trajectory is done, or an error on a fault, which the framework turns into the
+	// terminal gRPC status the client sees.
+	//
+	// The obvious nested loop is the intended shape:
+	//   for batch := range batches { for _, p := range batch { ... } }
+	//
+	// The framework, not the implementation, owns both channels: it writes and closes `batches`, and
+	// it closes `responses` after the implementation returns. So an implementation only reads
+	// `batches` and only writes `responses`, and must not close either. That runs against Go's usual
+	// sender-closes habit, but it is what keeps a driver trivially correct: write responses, return
+	// when done.
+	MoveThroughJointPositionsStreamed(
+		ctx context.Context,
+		batches <-chan []TrajectoryPoint,
+		responses chan<- Response,
+		extra map[string]interface{},
+	) error
+
 	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
 
 	// Get3DModels returns the 3D models of the arm.
 	Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error)
 }
+
+// TrajectoryPoint is one waypoint in a streamed joint-space trajectory.
+type TrajectoryPoint struct {
+	// Time from the start of the motion at which this waypoint should be reached. Must be zero
+	// for the first point of the stream and strictly increasing thereafter.
+	Time time.Duration
+
+	// Joint positions at this waypoint. Revolute joints are in radians, prismatic joints in
+	// millimeters, matching referenceframe.Input.
+	Positions []referenceframe.Input
+
+	// Optional target kinematic constraints at this waypoint.
+	Constraints *KinematicConstraints
+}
+
+// KinematicConstraints carries the optional target joint velocities (and optional
+// joint accelerations) attached to a TrajectoryPoint.
+type KinematicConstraints struct {
+	// Target joint velocities at this waypoint. Revolute joints are in radians per second,
+	// prismatic joints in millimeters per second, matching the Positions unit convention.
+	Velocities []float64
+
+	// Optional target joint accelerations at this waypoint; nil if absent. Revolute joints are in
+	// radians per second squared, prismatic joints in millimeters per second squared.
+	Accelerations []float64
+}
+
+// Response is the per-acknowledgment payload an implementation may emit on
+// `MoveThroughJointPositionsStreamed`'s response channel. It carries no fields
+// today; future per-batch status (executed-up-to-time, etc.) will be added here.
+type Response struct{}
 
 // Deprecated: FromDependencies is a helper for getting the named arm from a collection of
 // dependencies. Use FromProvider instead.

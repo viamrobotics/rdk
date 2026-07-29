@@ -68,6 +68,11 @@ var (
 	// eventually be implemented server side or faked client side.
 	errUnimplemented = errors.New("unimplemented")
 
+	// errRobotClientClosed is set as the cancellation cause of backgroundCtx when the
+	// client is closed, so in-flight requests can surface it instead of a bare
+	// context.Canceled.
+	errRobotClientClosed = errors.New("robot client is closed")
+
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
 
@@ -111,7 +116,7 @@ type RobotClient struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
-	backgroundCtxCancel     func()
+	backgroundCtxCancel     context.CancelCauseFunc
 	logger                  logging.Logger
 
 	// sessions
@@ -152,12 +157,16 @@ func (rc *RobotClient) Reconfigure(ctx context.Context, deps resource.Dependenci
 	return errors.New("unsupported")
 }
 
+// exemptFromConnectionCheck lists the gRPC methods handleUnaryDisconnect invokes without first
+// asserting rc.connected. They run before the robot connection is established: the signaling and
+// auth methods are the ones to bring the connection up so shouldn't fail on no connection.
 var exemptFromConnectionCheck = map[string]bool{
-	"/proto.rpc.webrtc.v1.SignalingService/Call":                 true,
-	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":           true,
-	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig": true,
-	"/proto.rpc.v1.AuthService/Authenticate":                     true,
-	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":           true,
+	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
+	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
+	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig":     true,
+	"/proto.rpc.webrtc.v1.SignalingService/ReportConnectionMetadata": true,
+	"/proto.rpc.v1.AuthService/Authenticate":                         true,
+	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":               true,
 }
 
 func skipConnectionCheck(method string) bool {
@@ -295,7 +304,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTests */)
 	}
 
-	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
+	backgroundCtx, backgroundCtxCancel := context.WithCancelCause(context.Background())
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
 	rc := &RobotClient{
@@ -744,7 +753,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 //
 //	err := machine.Close(ctx.Background())
 func (rc *RobotClient) Close(ctx context.Context) error {
-	rc.backgroundCtxCancel()
+	rc.backgroundCtxCancel(errRobotClientClosed)
 	rc.activeBackgroundWorkers.Wait()
 	if rc.changeChan != nil {
 		close(rc.changeChan)

@@ -7,7 +7,7 @@ name: Cut Release Candidate
 #   3. publishes the vX.Y.Z-rc0 pre-release with generated notes.
 # Publishing the rc0 tag is what triggers the "Build and Publish RC"
 # workflow (.github/workflows/releasecandidate.yml), which builds the
-# appimages / static binaries.
+# static binaries.
 
 on:
   workflow_dispatch:
