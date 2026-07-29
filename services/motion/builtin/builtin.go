@@ -326,14 +326,12 @@ func (ms *builtIn) PlanHistory(
 //	                 "target_runway_in_arm_ms": 100,
 //	                 "send_to_arm_interval_ms": 10,
 //	                 "vel_limit_deg_per_sec": 10,
-//	                 "accel_limit_deg_per_sec2": 10,
-//	                 "max_runway_in_session_ms": 1000
+//	                 "accel_limit_deg_per_sec2": 10
 //	               }
 //	             }}
 //	  response: {"stream_start": true}
 //
-//	DoStreamPush: appends joint-position targets to the running session. Blocks while the
-//	session already holds roughly max_runway_in_session_ms of sampled-but-unexecuted trajectory.
+//	DoStreamPush: appends joint-position targets to the running session.
 //	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
 //	  response: {"stream_push": true}
 //

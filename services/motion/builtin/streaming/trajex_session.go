@@ -70,12 +70,6 @@ func (s *trajexSession) run(
 			toSend, sendCh = *nextPVAT, s.pvatCh
 		}
 
-		// Accept new joint positions only while the sampled pvat backlog has room.
-		recvCh := jpCh
-		if nextPVAT != nil && len(s.pvatCh) == cap(s.pvatCh) {
-			recvCh = nil
-		}
-
 		select {
 		// Cancel was called.
 		case <-ctx.Done():
@@ -83,7 +77,7 @@ func (s *trajexSession) run(
 			return
 
 		// A new target is available.
-		case target, ok := <-recvCh:
+		case target, ok := <-jpCh:
 			if !ok {
 				// Targets channel closed.
 				if err := s.sendRemainingPVATs(ctx, nextPVAT); err != nil {
