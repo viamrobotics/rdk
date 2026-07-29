@@ -18,6 +18,9 @@ struct GeneratorCompDB : clang::tooling::CompilationDatabase {
     std::vector<clang::tooling::CompileCommand> getCompileCommands(
         llvm::StringRef file) const override;
 
+    // Retarget the command recorded for `from` at `to`; false if `from` has no command.
+    bool retarget(llvm::StringRef from, llvm::StringRef to);
+
     std::vector<std::string> getAllFiles() const override;
 
     std::vector<clang::tooling::CompileCommand> getAllCompileCommands() const override {
