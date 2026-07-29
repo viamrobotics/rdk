@@ -6,15 +6,11 @@ import (
 	pb "go.viam.com/api/service/worldstatestore/v1"
 )
 
-// TransformChangeBroadcaster fans out TransformChanges to multiple concurrent subscribers, each with
-// its own buffered channel. It exists because a single shared channel cannot serve more than one
-// StreamTransformChanges consumer (each change would be received by only one of them).
+// TransformChangeBroadcaster fans out TransformChanges to multiple subscribers, each on its own channel
+// (a single shared channel would deliver each change to only one consumer).
 //
-// Delivery policy differs by change type: structural changes (ADDED/REMOVED) must not be silently
-// dropped, since a lost one leaves a subscriber permanently out of sync — if a subscriber's buffer is
-// full, that subscriber is disconnected (its channel closed) so it re-subscribes and re-syncs from a
-// fresh snapshot. UPDATED changes may be dropped for a full subscriber because a later change
-// supersedes them.
+// Structural changes (ADDED/REMOVED) are never silently dropped: a full-buffer subscriber is
+// disconnected to re-sync from a snapshot. A full buffer may drop an UPDATED; a later change supersedes it.
 type TransformChangeBroadcaster struct {
 	mu     sync.Mutex
 	subs   map[int]*broadcastSub
@@ -36,10 +32,8 @@ func NewTransformChangeBroadcaster() *TransformChangeBroadcaster {
 	return &TransformChangeBroadcaster{subs: make(map[int]*broadcastSub)}
 }
 
-// Subscribe registers a new subscriber and returns its channel plus an unsubscribe function. The
-// channel is closed (yielding io.EOF from a wrapping stream) when the subscriber is unsubscribed, is
-// disconnected due to overflow on a structural change, or the broadcaster is closed. bufferSize is
-// clamped to a minimum of 1. Unsubscribe is idempotent.
+// Subscribe registers a subscriber, returning its channel and an idempotent unsubscribe. The channel
+// closes on unsubscribe, structural overflow, or broadcaster close.
 func (b *TransformChangeBroadcaster) Subscribe(bufferSize int) (<-chan TransformChange, func()) {
 	if bufferSize < 1 {
 		bufferSize = 1

@@ -14,9 +14,8 @@ const (
 	lidarObstacleZMM   = 200.0
 )
 
-// LidarWorld simulates a lidar detecting obstacles in the surrounding area: it reports a ring of
-// upright obstacles around the robot and slowly rotates them each scan to mimic a moving field of
-// returns. No real lidar is involved — the returns are synthesized.
+// LidarWorld simulates a lidar reporting a ring of obstacles around the robot, slowly rotated each scan.
+// No real lidar is involved — the returns are synthesized.
 type LidarWorld struct {
 	worldStateStore *WorldStateStore
 }
@@ -25,14 +24,13 @@ func lidarObstacleName(i int) string {
 	return fmt.Sprintf("lidar-return-%d", i)
 }
 
-// obstaclePose places obstacle i evenly around a ring, rotated by an angular offset that advances with
-// elapsed time.
+// obstaclePose places obstacle i around a ring, rotated by an offset that advances with time.
 func obstaclePose(i int, elapsedSeconds float64) *commonpb.Pose {
 	angle := (2*math.Pi/float64(lidarObstacleCount))*float64(i) + elapsedSeconds*0.2
 	return poseAt(lidarRadiusMM*math.Cos(angle), lidarRadiusMM*math.Sin(angle), lidarObstacleZMM)
 }
 
-// StartWorld seeds the initial ring of returns and starts the scan loop.
+// StartWorld starts the lidar simulation.
 func (w *LidarWorld) StartWorld() {
 	f := w.worldStateStore
 
@@ -50,7 +48,7 @@ func (w *LidarWorld) StartWorld() {
 	}()
 }
 
-// onScan advances the ring one step per scan, emitting each return's new pose as an UPDATED change.
+// onScan advances the ring each scan, emitting each return's new pose (UPDATED changes).
 func (w *LidarWorld) onScan(elapsed time.Duration) {
 	f := w.worldStateStore
 	for i := 0; i < lidarObstacleCount; i++ {

@@ -62,8 +62,7 @@ type Config struct {
 	ParentFrame string `json:"parent_frame,omitempty"`
 }
 
-// resolveWorldName returns the simulation to run, preferring InputSensorType over WorldName and
-// falling back to the default. Unknown values fall back to the default.
+// resolveWorldName picks the simulation, preferring InputSensorType, then WorldName, then the default.
 func (conf *Config) resolveWorldName() string {
 	for _, candidate := range []string{conf.InputSensorType, conf.WorldName} {
 		if slices.Contains(worldNames, candidate) {
@@ -128,9 +127,8 @@ func (f *WorldStateStore) StreamTransformChanges(
 	ctx context.Context,
 	extra map[string]any,
 ) (*worldstatestore.TransformChangeStream, error) {
-	// Snapshot the current transforms and subscribe atomically: holding the read lock blocks any
-	// concurrent mutation (whose emit runs only after it re-acquires the lock), so the new subscriber
-	// receives the full current world as ADDED followed by every subsequent change, with none missed.
+	// Snapshot and subscribe under the read lock: concurrent mutations emit only after they re-acquire
+	// the lock, so the subscriber gets the full current world as ADDED and then every change, none missed.
 	f.mu.RLock()
 	snapshot := make([]worldstatestore.TransformChange, 0, len(f.transforms))
 	for _, tf := range f.transforms {

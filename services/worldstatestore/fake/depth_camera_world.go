@@ -8,10 +8,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// DepthCameraWorld simulates a depth camera running object detection (à la GetObjectPointClouds): it
-// "detects" a red, a green, and a blue block sitting side-by-side on a table and reports them into the
-// world state store, refreshing each block's pose on every capture cycle. No real camera or vision
-// service is involved — the detections are synthesized.
+// DepthCameraWorld simulates a depth camera detecting three colored blocks on a table and reporting them
+// into the store, refreshed each capture cycle. No real camera or vision service is involved.
 type DepthCameraWorld struct {
 	worldStateStore *WorldStateStore
 }
@@ -22,8 +20,7 @@ type detectedBlock struct {
 	metadata          *structpb.Struct
 }
 
-// blocks returns the three colored blocks arranged side-by-side (X) a fixed distance in front (Y) of
-// the camera, resting on a table surface (Z at half the block height).
+// blocks are three colored boxes side-by-side on a table in front of the camera.
 func (w *DepthCameraWorld) blocks() []detectedBlock {
 	return []detectedBlock{
 		{"red-block", -150, 400, 25, colorMetadata(255, 0, 0, 1)},
@@ -32,7 +29,7 @@ func (w *DepthCameraWorld) blocks() []detectedBlock {
 	}
 }
 
-// StartWorld seeds the initial detections and starts the capture loop.
+// StartWorld starts the depth camera simulation.
 func (w *DepthCameraWorld) StartWorld() {
 	f := w.worldStateStore
 
@@ -49,8 +46,7 @@ func (w *DepthCameraWorld) StartWorld() {
 	}()
 }
 
-// onCapture simulates a fresh detection each capture cycle: the same blocks are re-detected with a small
-// amount of positional noise, emitted as UPDATED changes.
+// onCapture re-detects the same blocks each cycle with a little positional noise (UPDATED changes).
 func (w *DepthCameraWorld) onCapture(elapsed time.Duration) {
 	f := w.worldStateStore
 	for i, b := range w.blocks() {

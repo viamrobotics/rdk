@@ -7,17 +7,14 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// identityPose returns a zero-translation, identity-orientation pose.
 func identityPose() *commonpb.Pose {
 	return &commonpb.Pose{OZ: 1}
 }
 
-// poseAt returns a translation-only pose (identity orientation) at the given millimeter coordinates.
 func poseAt(x, y, z float64) *commonpb.Pose {
 	return &commonpb.Pose{X: x, Y: y, Z: z, OZ: 1}
 }
 
-// boxGeometry returns a box geometry of the given millimeter dimensions centered at its frame origin.
 func boxGeometry(x, y, z float64) *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: identityPose(),
@@ -27,7 +24,6 @@ func boxGeometry(x, y, z float64) *commonpb.Geometry {
 	}
 }
 
-// capsuleGeometry returns a capsule geometry centered at its frame origin.
 func capsuleGeometry(radiusMM, lengthMM float64) *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: identityPose(),
@@ -37,7 +33,7 @@ func capsuleGeometry(radiusMM, lengthMM float64) *commonpb.Geometry {
 	}
 }
 
-// colorMetadata builds the rendering-hint metadata (color + opacity) used by the client visualizer.
+// colorMetadata builds the color+opacity rendering hints the client visualizer reads.
 func colorMetadata(r, g, b, opacity float64) *structpb.Struct {
 	s, err := structpb.NewStruct(map[string]any{
 		"color":   map[string]any{"r": r, "g": g, "b": b},
@@ -49,9 +45,8 @@ func colorMetadata(r, g, b, opacity float64) *structpb.Struct {
 	return s
 }
 
-// newObstacle builds a fully-formed world state store transform for a detected obstacle: a geometry at
-// `pose` within the store's configured parent frame, keyed and named by `name`. The geometry carries an
-// explicit identity center so downstream consumers (e.g. the motion service) can use it directly.
+// newObstacle builds a world state store transform for a detected obstacle. The geometry gets an
+// explicit identity center so consumers like the motion service can use it directly.
 func (f *WorldStateStore) newObstacle(
 	name string,
 	pose *commonpb.Pose,
@@ -71,9 +66,8 @@ func (f *WorldStateStore) newObstacle(
 	}
 }
 
-// runCaptureLoop invokes onTick at the store's capture rate (fps), re-reading fps between ticks so a
-// DoCommand fps change is honored, until the store's stream context is canceled. onTick receives the
-// elapsed time since the store started.
+// runCaptureLoop calls onTick at the store's fps, re-reading fps between ticks so a DoCommand fps change
+// takes effect, until the stream context is canceled.
 func (f *WorldStateStore) runCaptureLoop(onTick func(elapsed time.Duration)) {
 	f.mu.RLock()
 	curFPS := f.fps

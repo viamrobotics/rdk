@@ -139,9 +139,8 @@ func (s *TransformChangeStream) Next() (TransformChange, error) {
 	return s.next()
 }
 
-// NewTransformChangeStream builds a TransformChangeStream from a next function. It is exported so
-// implementations can compose custom sources (for example an initial snapshot followed by a live
-// channel from a TransformChangeBroadcaster).
+// NewTransformChangeStream builds a stream from a next function, exported so implementations can compose
+// custom sources (e.g. an initial snapshot followed by a broadcaster channel).
 func NewTransformChangeStream(next func() (TransformChange, error)) *TransformChangeStream {
 	return &TransformChangeStream{next: next}
 }

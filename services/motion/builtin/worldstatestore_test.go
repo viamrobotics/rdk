@@ -231,10 +231,8 @@ func TestStoreWorldStatePartsSkipsCollidingTransform(t *testing.T) {
 	test.That(t, tf[0].Name(), test.ShouldEqual, "marker")
 }
 
-// TestMoveWithWorldStateStore drives the full planning path with a store configured. A Move that
-// supplies no WorldState of its own picks up the store's obstacles (merge path), and — most importantly
-// — store entries that reference frames the robot doesn't know are skipped with a warning rather than
-// erroring the whole Move (the frame-validation fix, exercised end-to-end through plan()).
+// TestMoveWithWorldStateStore drives plan() with a store configured: a Move with no WorldState picks up
+// the store's obstacles, and store entries referencing unknown frames are skipped rather than fatal.
 func TestMoveWithWorldStateStore(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
