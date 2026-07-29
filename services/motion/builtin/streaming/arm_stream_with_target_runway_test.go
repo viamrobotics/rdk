@@ -107,22 +107,26 @@ func TestArmStreamSendHoldsUntilRunwayFilled(t *testing.T) {
 	test.That(t, rec.count(), test.ShouldEqual, 1)
 }
 
-// TestArmStreamSendDropsUnderfilledTrajectory checks that a trajectory that never
-// accumulates a full targetRunway is silently dropped rather than sent underfilled --
-// even across the maybeSendBatch calls a ticker and a subsequent flush would make.
-func TestArmStreamSendDropsUnderfilledTrajectory(t *testing.T) {
+// TestArmStreamFlushSendsUnderfilledTrajectory checks that a trajectory that never
+// accumulates a full targetRunway is held back by ticker ticks (maybeSendBatch)
+// but still reaches the arm on flush: with the trajectory complete there is no
+// starvation risk, so flush bypasses the runway gate rather than dropping the
+// pending batch.
+func TestArmStreamFlushSendsUnderfilledTrajectory(t *testing.T) {
 	inj, rec := newFakeStreamingArm()
 	ctx := context.Background()
 	s := &armStreamWithTargetRunway{arm: inj, targetRunway: 100 * time.Millisecond}
 	s.startStream(ctx)
 
 	s.addToBatch(testPVAT(10 * time.Millisecond))
-	test.That(t, s.maybeSendBatch(ctx), test.ShouldBeNil) // a ticker tick
-	test.That(t, s.maybeSendBatch(ctx), test.ShouldBeNil) // flush's drain
-	test.That(t, s.close(), test.ShouldBeNil)
-
+	test.That(t, s.maybeSendBatch(ctx), test.ShouldBeNil) // a ticker tick: held back
 	test.That(t, rec.count(), test.ShouldEqual, 0)
 	test.That(t, s.firstBatchSent(), test.ShouldBeFalse)
+
+	// flush waits for the RPC goroutine to finish, so the recorder is settled.
+	test.That(t, s.flush(ctx), test.ShouldBeNil)
+	test.That(t, rec.count(), test.ShouldEqual, 1)
+	test.That(t, s.firstBatchSent(), test.ShouldBeTrue)
 }
 
 // TestArmStreamPendingBatchDuration checks that pendingBatchDuration reflects only the trajectory

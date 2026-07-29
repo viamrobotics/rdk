@@ -127,6 +127,10 @@ func (s *armStreamWithTargetRunway) maybeSendBatch(ctx context.Context) error {
 	if !s.firstBatchSent() && s.pendingBatchDuration() < s.targetRunway {
 		return nil
 	}
+	return s.sendBatch(ctx)
+}
+
+func (s *armStreamWithTargetRunway) sendBatch(ctx context.Context) error {
 	if len(s.currentBatch) == 0 {
 		return nil
 	}
@@ -152,7 +156,8 @@ func (s *armStreamWithTargetRunway) flush(ctx context.Context) error {
 	if !s.started {
 		return nil
 	}
-	if err := s.maybeSendBatch(ctx); err != nil {
+	// The trajectory is complete, so send whatever is pending.
+	if err := s.sendBatch(ctx); err != nil {
 		return err
 	}
 	return s.close()
