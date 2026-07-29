@@ -448,7 +448,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		if _, err = s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger); err != nil {
+		if err = s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger); err != nil {
 			if errors.Is(err, context.Canceled) {
 				s.logger.Infow("context cancelled while syncing arbitrary file", "filename", filePath)
 			} else {
@@ -536,17 +536,15 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 func (s *Sync) syncArbitraryFile(
 	ctx context.Context, f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int,
 	logger logging.Logger,
-) (string, error) {
-	var uploadedID string
+) error {
 	retry := newExponentialRetry(ctx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, id, err := uploadArbitraryFile(
+		bytesUploaded, _, err := uploadArbitraryFile(
 			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
 		)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
-		uploadedID = id
 		logger.Debugf("uploadArbitraryFile uploaded: %d bytes", bytesUploaded)
 		return bytesUploaded, nil
 	})
@@ -554,13 +552,13 @@ func (s *Sync) syncArbitraryFile(
 	bytesUploaded, err := retry.run()
 	if err != nil {
 		if closeErr := f.Close(); closeErr != nil {
-			logger.Error(errors.Wrap(closeErr, "error closing data capture file").Error())
+			logger.Error(errors.Wrap(closeErr, "error closing arbitrary file").Error())
 		}
 
 		// if we stopped due to a cancelled context,
 		// return without deleting the file or moving it to the failed directory
 		if errors.Is(err, context.Canceled) {
-			return "", err
+			return err
 		}
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
@@ -568,7 +566,7 @@ func (s *Sync) syncArbitraryFile(
 			logger.Error(err.Error())
 		}
 		s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
-		return "", err
+		return err
 	}
 
 	if err := f.Close(); err != nil {
@@ -580,7 +578,7 @@ func (s *Sync) syncArbitraryFile(
 	}
 	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
-	return uploadedID, nil
+	return nil
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
@@ -614,10 +612,7 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 		}
 		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
 		// before deciding this file is ready for upload and is not still being written to.
-		// TODO(APP-17394): syncArbitraryFile's returned ID/error are not consumed by any caller
-		// (leftover from the #6102 refactor). Decide whether to propagate the error to our caller
-		// (errChan is buffered and closed on exit, so sending here is safe) or drop the returns.
-		if _, err = s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); err != nil {
+		if err = s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); err != nil {
 			if errors.Is(err, context.Canceled) {
 				s.logger.Infow("context cancelled while syncing arbitrary file", "filename", filename)
 			} else {
