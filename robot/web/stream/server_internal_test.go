@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
@@ -55,8 +56,16 @@ const (
 	testWarnInterval  = 50 * time.Millisecond
 )
 
+// advanceClock advances the server's mock clock by the given duration.
+func advanceClock(t *testing.T, server *Server, d time.Duration) {
+	t.Helper()
+	mockClock, ok := server.clock.(*clock.Mock)
+	test.That(t, ok, test.ShouldBeTrue)
+	mockClock.Add(d)
+}
+
 // newTestServer builds a test Server with minimal fields without starting the background monitor goroutine.
-// It uses short throttle intervals for fast tests.
+// It uses a mock clock so that error log throttling can be exercised deterministically.
 func newTestServer(r *inject.Robot, logger logging.Logger) *Server {
 	closedCtx, closedFn := context.WithCancel(context.Background())
 	return &Server{
@@ -69,6 +78,7 @@ func newTestServer(r *inject.Robot, logger logging.Logger) *Server {
 		streamErrors:       map[string]*streamErrorState{},
 		debugLogInterval:   testDebugInterval,
 		warnRepeatInterval: testWarnInterval,
+		clock:              clock.NewMock(),
 		isAlive:            true,
 	}
 }
@@ -125,7 +135,7 @@ func TestRemoveMissingStreams_LogThrottling(t *testing.T) {
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 0)
 
 	// --- After debug interval: should log at DEBUG ---
-	time.Sleep(testDebugInterval)
+	advanceClock(t, server, testDebugInterval)
 	server.removeMissingStreams()
 
 	allLogs = observedLogs.TakeAll()
@@ -133,7 +143,7 @@ func TestRemoveMissingStreams_LogThrottling(t *testing.T) {
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 1)
 
 	// --- After warn interval: should re-WARN even though error is the same ---
-	time.Sleep(testWarnInterval)
+	advanceClock(t, server, testWarnInterval)
 	server.removeMissingStreams()
 
 	allLogs = observedLogs.TakeAll()
