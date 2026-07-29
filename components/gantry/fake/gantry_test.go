@@ -55,6 +55,12 @@ func TestLengthMmOverride(t *testing.T) {
 	model, err := g.Kinematics(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model.DoF()[0].Max, test.ShouldEqual, 1000)
+
+	cfg := model.ModelConfig()
+	test.That(t, cfg, test.ShouldNotBeNil)
+	test.That(t, cfg.OriginalFile, test.ShouldNotBeNil)
+	test.That(t, cfg.OriginalFile.Extension, test.ShouldEqual, "json")
+	test.That(t, string(cfg.OriginalFile.Bytes), test.ShouldContainSubstring, `"max":1000`)
 }
 
 func TestModelPathConflictsWithLength(t *testing.T) {

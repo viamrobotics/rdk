@@ -39,17 +39,10 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 		err = errAttrCfgPopulation
 	case conf.ModelFilePath != "":
 		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
-	case conf.LengthMm != 0:
-		err = conf.validateLengthMm()
+	case conf.LengthMm < 0:
+		err = errors.Errorf("length_mm must be positive, got %v", conf.LengthMm)
 	}
 	return nil, nil, err
-}
-
-func (conf *Config) validateLengthMm() error {
-	if conf.LengthMm <= 0 {
-		return errors.Errorf("length_mm must be positive, got %v", conf.LengthMm)
-	}
-	return nil
 }
 
 func init() {
@@ -202,5 +195,10 @@ func modelFromLength(name string, lengthMm float64) (referenceframe.Model, error
 		return nil, errors.Errorf("embedded gantry model must have exactly one joint, got %d", len(mcfg.Joints))
 	}
 	mcfg.Joints[0].Max = lengthMm
+	patched, err := json.Marshal(mcfg)
+	if err != nil {
+		return nil, err
+	}
+	mcfg.OriginalFile = &referenceframe.ModelFile{Bytes: patched, Extension: "json"}
 	return mcfg.ParseConfig(name)
 }
