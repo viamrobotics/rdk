@@ -2003,19 +2003,22 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 	}
 
+	reconfigureDuration := time.Since(reconfigureStarted)
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, fmt.Sprintf("The following errors were gathered during %v", logNoun), "errors", allErrs)
 		r.logger.Activity("reconfigure", "fail",
 			"revision", diff.NewRevision(),
 			"reconfigure_type", logNoun,
-			"duration", time.Since(reconfigureStarted).String(),
+			"duration", reconfigureDuration.String(),
+			"duration_us", reconfigureDuration.Microseconds(),
 			"errors", allErrs,
 		)
 	} else {
 		r.logger.Activity("reconfigure", "complete",
 			"revision", diff.NewRevision(),
 			"reconfigure_type", logNoun,
-			"duration", time.Since(reconfigureStarted).String(),
+			"duration", reconfigureDuration.String(),
+			"duration_us", reconfigureDuration.Microseconds(),
 		)
 	}
 }
