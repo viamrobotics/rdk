@@ -70,6 +70,7 @@ import (
 const (
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
 	osWindows     = "windows"
+	osLinux       = "linux"
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
 	// defaultLogStartTime is set to the last 24 hours.
@@ -4112,6 +4113,7 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 // flow can be tested without a live machine.
 type tunnelLister interface {
 	ListTunnels(ctx context.Context) ([]rconfig.TrafficTunnelEndpoint, error)
+	Connect(ctx context.Context) error
 }
 
 // tunnelPortAllowed reports whether the given destination port is present in the
@@ -4204,8 +4206,14 @@ func (c *viamClient) ensureTunnelPortAllowed(
 	timeoutCtx, cancel := context.WithTimeout(ctx, tunnelConfigTimeout)
 	defer cancel()
 	for {
-		if allowed, _ := tunnelPortAllowed(timeoutCtx, lister, dest); allowed {
+		allowed, known := tunnelPortAllowed(timeoutCtx, lister, dest)
+		if allowed {
 			return nil
+		}
+		if !known {
+			// If we couldn't read the tunnel list, viam-server may have restarted due
+			// the network config change and we may need to reconnect before retrying.
+			lister.Connect(ctx) //nolint: errcheck
 		}
 		select {
 		case <-timeoutCtx.Done():
@@ -4376,6 +4384,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		{ID: "check", Message: "Checking for updates", IndentLevel: 0},
 		{ID: "update", Message: "Updating...", IndentLevel: 0},
 		{ID: "brew-upgrade", Message: "Updating via Homebrew", IndentLevel: 1},
+		{ID: "apt-upgrade", Message: "Updating via apt", IndentLevel: 1},
 		{ID: "download", Message: "Downloading latest CLI", IndentLevel: 1},
 		{ID: "install", Message: "Installing update", IndentLevel: 1},
 	}, WithProgressOutput(!args.NoProgress))
@@ -4482,7 +4491,47 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		return nil
 	}
 
-	// 4. get the local version binary path (use full path if no symlinks)
+	// 4. if the binary is dpkg-managed, upgrade through apt instead of self-replacing.
+	isApt, aptCheckErr := isRunningAptBinary()
+	if aptCheckErr != nil {
+		if failErr := pm.Fail("update", aptCheckErr); failErr != nil {
+			return failErr
+		}
+		return errors.Errorf("CLI update failed: %v", aptCheckErr)
+	}
+	if isApt {
+		if err := pm.Start("apt-upgrade"); err != nil {
+			return err
+		}
+		pm.UpdateText("  → Updating via apt — you may be prompted for your sudo password")
+		if aptErr := tryAptUpgrade(); aptErr != nil {
+			if failErr := pm.Fail("apt-upgrade", aptErr); failErr != nil {
+				return failErr
+			}
+			return errors.Errorf("CLI update via apt failed: %v\n"+
+				"To update manually: sudo apt update && sudo apt install --only-upgrade viam-cli", aptErr)
+		}
+		installed, installedErr := installedDebVersion()
+		if installedErr != nil {
+			debugf(cmd.Root().Writer, globalArgs.Debug, "CLI Update: failed to read installed deb version: %v", installedErr)
+		}
+		aptMsg := "Updated via apt"
+		if installedErr == nil {
+			aptMsg = fmt.Sprintf("Updated via apt (version %s)", installed.Original())
+		}
+		if err := pm.Complete("apt-upgrade"); err != nil {
+			return err
+		}
+		if err := pm.CompleteWithMessage("update", aptMsg); err != nil {
+			return err
+		}
+		if args.NoProgress {
+			infof(cmd.Root().Writer, aptMsg)
+		}
+		return nil
+	}
+
+	// 5. get the local version binary path (use full path if no symlinks)
 	execPath, err := os.Executable()
 	if err != nil {
 		return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
@@ -4493,7 +4542,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 	}
 	directoryPath := filepath.Dir(localBinaryPath)
 
-	// 5. get the latest binary (from storage.googleapis.com) and write it into a temp file
+	// 6. get the latest binary (from storage.googleapis.com) and write it into a temp file
 	if err := pm.Start("download"); err != nil {
 		return err
 	}
@@ -4510,7 +4559,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		return err
 	}
 
-	// 6. replace the old binary with the new one
+	// 7. replace the old binary with the new one
 	if err := pm.Start("install"); err != nil {
 		return err
 	}
@@ -4524,7 +4573,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		return err
 	}
 
-	// 7. on Windows, ensure the CLI directory is in the user's PATH
+	// 8. on Windows, ensure the CLI directory is in the user's PATH
 	if runtime.GOOS == osWindows {
 		if err := addToWindowsUserPATH(cmd, directoryPath); err != nil {
 			warningf(cmd.Root().ErrWriter, "Failed to add CLI to user PATH. "+
@@ -4633,6 +4682,77 @@ func tryBrewUpgrade() (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+// tryAptUpgrade upgrades viam-cli through apt, with sudo when not root.
+// Call only after isRunningAptBinary confirms the binary is dpkg-managed.
+func tryAptUpgrade() error {
+	var prefix []string
+	if os.Geteuid() != 0 {
+		if _, err := exec.LookPath("sudo"); err != nil {
+			return errors.New("not running as root and sudo is not available")
+		}
+		prefix = []string{"sudo"}
+	}
+	for _, args := range [][]string{
+		{"apt-get", "update"},
+		{"apt-get", "install", "--only-upgrade", "-y", "viam-cli"},
+	} {
+		full := append(append([]string{}, prefix...), args...)
+		// fixed args, not user input
+		aptCmd := exec.Command(full[0], full[1:]...) //nolint:gosec
+		// keep stdin attached so sudo can prompt for a password
+		aptCmd.Stdin = os.Stdin
+		if out, err := aptCmd.CombinedOutput(); err != nil {
+			return errors.Errorf("failed to run %q: %v\n%s", strings.Join(full, " "), err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
+// installedDebVersion returns the version of the viam-cli deb currently installed.
+func installedDebVersion() (*semver.Version, error) {
+	out, err := exec.Command("dpkg-query", "-W", "-f=${Version}", "viam-cli").Output()
+	if err != nil {
+		return nil, errors.Errorf("failed to get installed deb version: %v", err)
+	}
+	version, err := semver.NewVersion(strings.TrimSpace(string(out)))
+	if err != nil {
+		return nil, errors.Errorf("failed to parse installed deb version %q: %v", strings.TrimSpace(string(out)), err)
+	}
+	return version, nil
+}
+
+// dpkgQueryOwnerFunc runs `dpkg -S <path>`; overridable in tests.
+var dpkgQueryOwnerFunc = func(path string) (string, error) {
+	out, err := exec.Command("dpkg", "-S", path).Output()
+	return string(out), err
+}
+
+// isRunningAptBinary reports whether the running binary is owned by the viam-cli
+// deb. Returns (false, nil) when dpkg is absent or does not own the path.
+func isRunningAptBinary() (bool, error) {
+	if runtime.GOOS != osLinux {
+		return false, nil
+	}
+	execPath, err := os.Executable()
+	if err != nil {
+		return false, errors.Errorf("failed to get executable path: %v", err)
+	}
+	resolved, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		resolved = execPath
+	}
+	out, err := dpkgQueryOwnerFunc(resolved)
+	if err != nil {
+		// dpkg absent or path unowned: not an apt install
+		var exitErr *exec.ExitError
+		if errors.Is(err, exec.ErrNotFound) || errors.As(err, &exitErr) {
+			return false, nil
+		}
+		return false, errors.Errorf("failed to query dpkg for %q: %v", resolved, err)
+	}
+	return strings.HasPrefix(strings.TrimSpace(out), "viam-cli:"), nil
 }
 
 func binaryURL() string {

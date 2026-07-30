@@ -96,6 +96,21 @@ func TestSyntheticModule(t *testing.T) {
 		test.That(t, dir, test.ShouldEqual, filepath.Join(tmp, "data/module/synthetic--"))
 	})
 
+	// ExeDir must always return an absolute directory. A relative or bare ExePath
+	// (e.g. from a misconfigured local module) previously resolved to ".", which
+	// downstream produced a nonsensical first-run marker path like "..first_run_succeeded".
+	t.Run("exeDirIsAbsolute", func(t *testing.T) {
+		wd, err := os.Getwd()
+		test.That(t, err, test.ShouldBeNil)
+
+		bareExe := Module{Type: ModuleTypeLocal, ExePath: "whatever.sh"}
+		dir, err := bareExe.ExeDir(tmp)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dir, test.ShouldNotEqual, ".")
+		test.That(t, filepath.IsAbs(dir), test.ShouldBeTrue)
+		test.That(t, dir, test.ShouldEqual, wd)
+	})
+
 	t.Run("EvaluateExePath", func(t *testing.T) {
 		meta := JSONManifest{
 			Entrypoint: "entry",
