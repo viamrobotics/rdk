@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
@@ -71,7 +70,6 @@ type Server struct {
 	streamErrors       map[string]*streamErrorState // map of camera name to error state
 	debugLogInterval   time.Duration                // interval at which to log repeated debug messages
 	warnRepeatInterval time.Duration                // interval at which to log repeated warning messages
-	clock              clock.Clock                  // clock used for error log throttling; overridable in tests
 }
 
 // Resolution holds the width and height of a video stream.
@@ -101,7 +99,6 @@ func NewServer(
 		streamErrors:       map[string]*streamErrorState{},
 		debugLogInterval:   defaultDebugLogInterval,
 		warnRepeatInterval: defaultWarnRepeatInterval,
-		clock:              clock.New(),
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -593,7 +590,7 @@ func (server *Server) removeMissingStreams() {
 			// imply the camera is missing. E.g: *resource.notAvailableError. To double-check we
 			// have the right set of exceptions here, we log the error and ignore.
 			if err != nil {
-				now := server.clock.Now()
+				now := time.Now()
 				logFields := []interface{}{
 					"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err),
 				}
