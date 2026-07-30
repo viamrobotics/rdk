@@ -15,6 +15,8 @@ description: |
 contents:
   - src: bin/linux-${DEB_ARCH}/viam-cli
     dst: /usr/bin/viam
+    file_info:
+      mode: 0755
   - src: /usr/bin/viam
     dst: /usr/bin/viam-cli
     type: symlink
