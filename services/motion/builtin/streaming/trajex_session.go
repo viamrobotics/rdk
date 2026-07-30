@@ -1,4 +1,5 @@
-// Package streaming implements the ability to stream joint positions to an arm resource.
+//go:build !windows && !no_cgo && viam_rdk_cgo_have_cxx20_rt
+
 package streaming
 
 import (
