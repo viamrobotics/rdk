@@ -47,11 +47,11 @@ func emailUser(id string) config.User {
 	return config.User{Type: config.UserTypeEmail, ID: id}
 }
 
-func TestRolesAuthorizerNoRoles(t *testing.T) {
-	test.That(t, newRolesAuthorizer(nil, logging.NewTestLogger(t)), test.ShouldBeNil)
+func TestUserPermsAuthorizerNoUserPerms(t *testing.T) {
+	test.That(t, newUserPermsAuthorizer(nil, logging.NewTestLogger(t)), test.ShouldBeNil)
 }
 
-func TestRolesAuthorizer(t *testing.T) {
+func TestUserPermsAuthorizer(t *testing.T) {
 	// The same person's API key ID and e-mail are two entries sharing permissions.
 	sharedPerms := []config.Permission{
 		{Resources: []string{"robot"}, AllowedMethods: []string{resourceNames}},
@@ -59,7 +59,7 @@ func TestRolesAuthorizer(t *testing.T) {
 		{Resources: []string{"cam1", "cam2"}, AllowedMethods: []string{getImages, addStream}},
 		{Resources: []string{"sensor1"}, AllowedMethods: []string{getReadings}},
 	}
-	ra := newRolesAuthorizer([]config.UserPermission{
+	ra := newUserPermsAuthorizer([]config.UserPermission{
 		{User: apiKeyUser(testKeyID), Permissions: sharedPerms},
 		{User: emailUser(testEmail), Permissions: sharedPerms},
 	}, logging.NewTestLogger(t))
@@ -88,7 +88,7 @@ func TestRolesAuthorizer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	// unknown user with no default role: fully restricted
+	// unknown user with no default entry: fully restricted
 	otherCtx := ctxWithUser("someone-else")
 	assertDenied(t, ra.authorize(otherCtx, resourceNames, &robotpb.ResourceNamesRequest{}))
 	assertDenied(t, ra.authorize(otherCtx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
@@ -99,8 +99,8 @@ func TestRolesAuthorizer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestRolesAuthorizerDefaultUser(t *testing.T) {
-	ra := newRolesAuthorizer([]config.UserPermission{
+func TestUserPermsAuthorizerDefaultUser(t *testing.T) {
+	ra := newUserPermsAuthorizer([]config.UserPermission{
 		{
 			User:        apiKeyUser(testKeyID),
 			Permissions: []config.Permission{{Resources: []string{"cam1"}, AllowedMethods: []string{getImages}}},
@@ -114,7 +114,7 @@ func TestRolesAuthorizerDefaultUser(t *testing.T) {
 		},
 	}, logging.NewTestLogger(t))
 
-	// unknown authenticated users inherit the default role
+	// unknown authenticated users inherit the default user's permissions
 	otherCtx := ctxWithUser("someone-else")
 	err := ra.authorize(otherCtx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"})
 	test.That(t, err, test.ShouldBeNil)
@@ -122,19 +122,19 @@ func TestRolesAuthorizerDefaultUser(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	assertDenied(t, ra.authorize(otherCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 
-	// a user with their own role does not inherit the default role
+	// a user with their own entry does not inherit the default user's permissions
 	ctx := ctxWithUser(testKeyID)
 	assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
 
-	// unauthenticated users do not get the default role
+	// unauthenticated users do not get the default user's permissions
 	assertDenied(t, ra.authorize(context.Background(), resourceNames, &robotpb.ResourceNamesRequest{}))
 }
 
-func TestRolesAuthorizerDuplicateUser(t *testing.T) {
+func TestUserPermsAuthorizerDuplicateUser(t *testing.T) {
 	camPerm := []config.Permission{{Resources: []string{"cam1"}, AllowedMethods: []string{getImages}}}
 	sensorPerm := []config.Permission{{Resources: []string{"sensor1"}, AllowedMethods: []string{getReadings}}}
 
-	ra := newRolesAuthorizer([]config.UserPermission{
+	ra := newUserPermsAuthorizer([]config.UserPermission{
 		{User: apiKeyUser(testKeyID), Permissions: camPerm},
 		{User: config.User{Type: config.UserTypeDefault}, Permissions: sensorPerm},
 		{User: apiKeyUser(testKeyID), Permissions: sensorPerm},
@@ -146,7 +146,7 @@ func TestRolesAuthorizerDuplicateUser(t *testing.T) {
 	assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
 
 	// a duplicate after the collision does not resurrect permissions
-	ra = newRolesAuthorizer([]config.UserPermission{
+	ra = newUserPermsAuthorizer([]config.UserPermission{
 		{User: apiKeyUser(testKeyID)},
 		{User: apiKeyUser(testKeyID)},
 		{User: apiKeyUser(testKeyID), Permissions: camPerm},
@@ -154,7 +154,7 @@ func TestRolesAuthorizerDuplicateUser(t *testing.T) {
 	assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 
 	// duplicate default users fully restrict unknown users
-	ra = newRolesAuthorizer([]config.UserPermission{
+	ra = newUserPermsAuthorizer([]config.UserPermission{
 		{User: config.User{Type: config.UserTypeDefault}, Permissions: sensorPerm},
 		{User: config.User{Type: config.UserTypeDefault}, Permissions: camPerm},
 	}, logging.NewTestLogger(t))
@@ -163,7 +163,7 @@ func TestRolesAuthorizerDuplicateUser(t *testing.T) {
 	assertDenied(t, ra.authorize(otherCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 
 	// duplicate emails collide the same way api key IDs do
-	ra = newRolesAuthorizer([]config.UserPermission{
+	ra = newUserPermsAuthorizer([]config.UserPermission{
 		{User: emailUser(testEmail), Permissions: camPerm},
 		{User: emailUser(testEmail), Permissions: sensorPerm},
 	}, logging.NewTestLogger(t))
@@ -171,10 +171,10 @@ func TestRolesAuthorizerDuplicateUser(t *testing.T) {
 	assertDenied(t, ra.authorize(emailCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 }
 
-func TestRolesAuthorizerSameNameDifferentAPI(t *testing.T) {
+func TestUserPermsAuthorizerSameNameDifferentAPI(t *testing.T) {
 	// a permission naming "cam1" is harmless for a same-named resource of another
 	// API: the method's service prefix disambiguates
-	ra := newRolesAuthorizer([]config.UserPermission{
+	ra := newUserPermsAuthorizer([]config.UserPermission{
 		{
 			User:        apiKeyUser(testKeyID),
 			Permissions: []config.Permission{{Resources: []string{"cam1"}, AllowedMethods: []string{getImages}}},
