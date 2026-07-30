@@ -349,45 +349,45 @@ func (ms *builtIn) PlanHistory(
 //	                 "accel_limit_deg_per_sec2": 10
 //	               }
 //	             }}
-//	  response: {"stream_start": true}
+//	  response: {} (empty on success)
 //
 //	DoStreamPush: appends joint-position targets to the running session.
 //	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
-//	  response: {"stream_push": true}
+//	  response: {} (empty on success)
 //
 //	DoStreamFlush: stops accepting new targets and drains what's already queued to the arm; the
 //	session ends once that finishes. Blocks until the drain finishes or ctx expires, whichever
 //	comes first.
 //	  request:  {"stream_flush": true}
-//	  response: {"stream_flush": {
+//	  response: {
 //	               "running": false,                   // true if ctx expired before the drain
 //	                                                     // finished; the session keeps draining
 //	                                                     // on its own -- repeat DoStreamFlush or
 //	                                                     // poll DoStreamStatus
 //	               "error": "..."                      // present only if the session ended
 //	                                                     // with an error
-//	             }}
+//	             }
 //
 //	DoStreamAbort: cancels the session immediately, dropping any buffered trajectory that hasn't
 //	reached the arm. Blocks until the session finishes or ctx expires, whichever comes first.
 //	  request:  {"stream_abort": true}
-//	  response: {"stream_abort": {
+//	  response: {
 //	               "running": false,                   // true if ctx expired before teardown
 //	                                                     // finished; the session is still
 //	                                                     // tearing down on its own -- repeat
 //	                                                     // DoStreamAbort or poll DoStreamStatus
 //	               "error": "..."                      // present only if the session ended
 //	                                                     // with an error
-//	             }}
+//	             }
 //
 //	DoStreamStatus: reports the current session's state.
 //	  request:  {"stream_status": true}
-//	  response: {"stream_status": {
+//	  response: {
 //	               "running": true,
 //	               "arm": "myArm",                      // present once a session has started
 //	               "error": "..."                       // present only once the session has
 //	                                                     // finished with an error
-//	             }}
+//	             }
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {

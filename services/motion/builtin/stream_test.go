@@ -73,7 +73,7 @@ func TestDoCommandArmStreaming(t *testing.T) {
 		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp[DoStreamStart], test.ShouldEqual, true)
+	test.That(t, resp, test.ShouldBeEmpty)
 
 	// starting again while running should error
 	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStart: map[string]interface{}{"arm": "arm"}})
@@ -85,34 +85,28 @@ func TestDoCommandArmStreaming(t *testing.T) {
 			DoStreamPush: []interface{}{[]interface{}{float64(i) * 0.02, 0.0, 0.0, 0.0, 0.0, 0.0}},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp[DoStreamPush], test.ShouldEqual, true)
+		test.That(t, resp, test.ShouldBeEmpty)
 	}
 
 	// status: running
 	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
 	test.That(t, err, test.ShouldBeNil)
-	status, ok := resp[DoStreamStatus].(map[string]any)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, status["running"], test.ShouldEqual, true)
-	test.That(t, status["arm"], test.ShouldEqual, "arm")
+	test.That(t, resp["running"], test.ShouldEqual, true)
+	test.That(t, resp["arm"], test.ShouldEqual, "arm")
 
 	// flush blocks (ctx has no deadline) until the drain completes
 	flushCtx, flushCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer flushCancel()
 	resp, err = ms.DoCommand(flushCtx, map[string]interface{}{DoStreamFlush: true})
 	test.That(t, err, test.ShouldBeNil)
-	status, ok = resp[DoStreamFlush].(map[string]any)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, status["running"], test.ShouldEqual, false)
-	_, hasErr := status["error"]
+	test.That(t, resp["running"], test.ShouldEqual, false)
+	_, hasErr := resp["error"]
 	test.That(t, hasErr, test.ShouldBeFalse)
 
 	// status agrees the session has ended
 	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
 	test.That(t, err, test.ShouldBeNil)
-	status, ok = resp[DoStreamStatus].(map[string]any)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, status["running"], test.ShouldEqual, false)
+	test.That(t, resp["running"], test.ShouldEqual, false)
 
 	// The flush drained the full trajectory to the arm.
 	points, streams := counts()
@@ -149,8 +143,7 @@ func TestDoCommandArmStreamingErrors(t *testing.T) {
 	// status with no session is not running
 	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
 	test.That(t, err, test.ShouldBeNil)
-	status, _ := resp[DoStreamStatus].(map[string]any)
-	test.That(t, status["running"], test.ShouldEqual, false)
+	test.That(t, resp["running"], test.ShouldEqual, false)
 }
 
 // TestDoCommandArmStreamingAbortTeardown checks that when an abort's request context expires
@@ -213,8 +206,7 @@ func TestDoCommandArmStreamingAbortTeardown(t *testing.T) {
 
 	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
 	test.That(t, err, test.ShouldBeNil)
-	status, _ = resp[DoStreamStatus].(map[string]any)
-	test.That(t, status["running"], test.ShouldEqual, true)
+	test.That(t, resp["running"], test.ShouldEqual, true)
 
 	// A new start must not race a second stream onto the arm while the aborted
 	// session is still tearing down.
@@ -231,8 +223,7 @@ func TestDoCommandArmStreamingAbortTeardown(t *testing.T) {
 	for {
 		resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
 		test.That(t, err, test.ShouldBeNil)
-		status, _ = resp[DoStreamStatus].(map[string]any)
-		if status["running"] == false {
+		if resp["running"] == false {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -264,7 +255,7 @@ func TestDoCommandArmStreamingBatch(t *testing.T) {
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp[DoStreamPush], test.ShouldEqual, true)
+	test.That(t, resp, test.ShouldBeEmpty)
 
 	// keep pushing
 	_, err = ms.DoCommand(ctx, map[string]interface{}{
