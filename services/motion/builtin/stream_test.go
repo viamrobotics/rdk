@@ -73,7 +73,7 @@ func TestDoCommandArmStreaming(t *testing.T) {
 		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldBeEmpty)
+	test.That(t, resp["ok"], test.ShouldEqual, 1)
 
 	// starting again while running should error
 	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStart: map[string]interface{}{"arm": "arm"}})
@@ -85,7 +85,7 @@ func TestDoCommandArmStreaming(t *testing.T) {
 			DoStreamPush: []interface{}{[]interface{}{float64(i) * 0.02, 0.0, 0.0, 0.0, 0.0, 0.0}},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldBeEmpty)
+		test.That(t, resp["ok"], test.ShouldEqual, 1)
 	}
 
 	// status: running
@@ -255,7 +255,7 @@ func TestDoCommandArmStreamingBatch(t *testing.T) {
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldBeEmpty)
+	test.That(t, resp["ok"], test.ShouldEqual, 1)
 
 	// keep pushing
 	_, err = ms.DoCommand(ctx, map[string]interface{}{

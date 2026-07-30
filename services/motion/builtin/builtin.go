@@ -329,11 +329,11 @@ func (ms *builtIn) PlanHistory(
 //	                 "accel_limit_deg_per_sec2": 10
 //	               }
 //	             }}
-//	  response: {} (empty on success)
+//	  response: {"ok": 1}
 //
 //	DoStreamPush: appends joint-position targets to the running session.
 //	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
-//	  response: {} (empty on success)
+//	  response: {"ok": 1}
 //
 //	DoStreamFlush: stops accepting new targets and drains what's already queued to the arm; the
 //	session ends once that finishes. Blocks until the drain finishes or ctx expires, whichever

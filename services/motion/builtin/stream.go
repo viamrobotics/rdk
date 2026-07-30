@@ -20,6 +20,7 @@ const (
 	streamKeyOptions = "options"
 	streamKeyRunning = "running"
 	streamKeyError   = "error"
+	streamKeyOk      = "ok"
 )
 
 // stream manages a single arm-streaming session across start/push/abort/status
@@ -233,7 +234,7 @@ func (ms *builtIn) handleStreamCommand(
 		if err := ms.streamStart(ctx, armName, opts); err != nil {
 			return nil, true, err
 		}
-		return map[string]interface{}{}, true, nil
+		return map[string]interface{}{streamKeyOk: 1}, true, nil
 	}
 
 	if req, ok := cmd[DoStreamPush]; ok {
@@ -244,7 +245,7 @@ func (ms *builtIn) handleStreamCommand(
 		if err := ms.streamPush(ctx, targets); err != nil {
 			return nil, true, err
 		}
-		return map[string]interface{}{}, true, nil
+		return map[string]interface{}{streamKeyOk: 1}, true, nil
 	}
 
 	if _, ok := cmd[DoStreamFlush]; ok {
