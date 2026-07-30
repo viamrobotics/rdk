@@ -1754,6 +1754,11 @@ func (f *fakeTunnelLister) ListTunnels(ctx context.Context) ([]robotconfig.Traff
 	return out, nil
 }
 
+func (f *fakeTunnelLister) Connect(ctx context.Context) error {
+	// This is a no-op
+	return nil
+}
+
 func TestEnsureTunnelPortAllowed(t *testing.T) {
 	const (
 		partID       = "part-id"

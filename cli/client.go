@@ -4139,6 +4139,7 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 // flow can be tested without a live machine.
 type tunnelLister interface {
 	ListTunnels(ctx context.Context) ([]rconfig.TrafficTunnelEndpoint, error)
+	Connect(ctx context.Context) error
 }
 
 // tunnelPortAllowed reports whether the given destination port is present in the
@@ -4231,8 +4232,14 @@ func (c *viamClient) ensureTunnelPortAllowed(
 	timeoutCtx, cancel := context.WithTimeout(ctx, tunnelConfigTimeout)
 	defer cancel()
 	for {
-		if allowed, _ := tunnelPortAllowed(timeoutCtx, lister, dest); allowed {
+		allowed, known := tunnelPortAllowed(timeoutCtx, lister, dest)
+		if allowed {
 			return nil
+		}
+		if !known {
+			// If we couldn't read the tunnel list, viam-server may have restarted due
+			// the network config change and we may need to reconnect before retrying.
+			lister.Connect(ctx) //nolint: errcheck
 		}
 		select {
 		case <-timeoutCtx.Done():
