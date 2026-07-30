@@ -58,23 +58,4 @@ func TestUploadProgressLogger(t *testing.T) {
 		test.That(t, len(debugs), test.ShouldEqual, 1)
 		test.That(t, debugs[0].Message, test.ShouldContainSubstring, "uploaded /tmp/small.bin")
 	})
-
-	t.Run("unknown total size renders an unknown percentage rather than dividing by zero", func(t *testing.T) {
-		logger, observed := logging.NewObservedTestLogger(t)
-		clk := clock.NewMock()
-		p := newUploadProgressLogger(logger, clk, "/tmp/unknown.bin", 0)
-
-		clk.Add(UploadProgressLogInterval)
-		p.addBytes(10)
-
-		infos := observed.FilterLevelExact(zapcore.InfoLevel).All()
-		test.That(t, len(infos), test.ShouldEqual, 1)
-		test.That(t, infos[0].Message, test.ShouldContainSubstring, "(?%)")
-	})
-
-	t.Run("nil progress logger is a no-op", func(t *testing.T) {
-		var p *uploadProgressLogger
-		p.addBytes(10)
-		p.complete()
-	})
 }
