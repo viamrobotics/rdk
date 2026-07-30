@@ -1681,13 +1681,13 @@ func TestTunnelE2ECLI(t *testing.T) {
 			},
 		},
 	}
-	// Connect over direct gRPC, matching every other robot-connecting test in this file
-	// (see the dialOverride helper). Tunneling is transport-agnostic, and skipping the
-	// WebRTC signaling/ICE handshake avoids its long worst-case retry tail on slow CI
-	// runners, which could otherwise keep this connection attempt running long enough to
-	// push the cli package past the default 10m go-test timeout (RSDK-14333).
+	// Connect over direct gRPC with no TLS. Skipping the WebRTC signaling/ICE
+	// handshake avoids its long worst-case retry tail on slow CI runners
+	// (RSDK-14333). WithInsecure is required because the test server has no TLS
+	// certs; without it the TLS downgrade probe races the server startup and the
+	// client falls back to a TLS dial that hangs against the plaintext listener.
 	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil,
-		client.WithDialOptions(rpc.WithForceDirectGRPC()),
+		client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithInsecure()),
 	)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
