@@ -107,7 +107,7 @@ jobs:
         rm meta.json meta2.json
 
   viam-cli-deb:
-    runs-on: ubuntu-large
+    runs-on: ubuntu-latest
     permissions:
       contents: "read"
       id-token: "write" # WIF auth for the stable upload
@@ -178,7 +178,7 @@ jobs:
   viam-cli-apt-e2e:
     if: inputs.release_type == 'stable'
     needs: viam-cli-deb
-    runs-on: ubuntu-large
+    runs-on: ubuntu-latest
     permissions:
       contents: "read"
     steps:
