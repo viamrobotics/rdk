@@ -31,7 +31,12 @@ if [ -n "${EXPECTED_VERSION:-}" ]; then
 fi
 
 # `viam update` must go through apt and leave dpkg-owned files untouched
+# (dpkg -V exits 0 even when it reports differences, so assert on its output)
 viam update
-dpkg -V viam-cli
+if [ -n "$(dpkg -V viam-cli)" ]; then
+	echo "viam update modified dpkg-owned files:" >&2
+	dpkg -V viam-cli >&2
+	exit 1
+fi
 
 echo "apt e2e OK: $(viam version)"
