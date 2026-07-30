@@ -17,7 +17,7 @@ import (
 
 // exemptMethodPrefixes are gRPC service namespaces that are connection plumbing
 // (authentication handshakes, WebRTC signaling, and reflection) rather than
-// viam-server endpoints. Enforcing roles on them would prevent clients from ever
+// viam-server endpoints. Enforcing user_permissions on them would prevent clients from ever
 // authenticating.
 var exemptMethodPrefixes = []string{
 	"/proto.rpc.v1.",
@@ -28,23 +28,23 @@ var exemptMethodPrefixes = []string{
 // permSet maps an allowed method to the set of resource names it may be invoked on.
 type permSet map[string]map[string]bool
 
-// rolesAuthorizer decides whether users may invoke endpoints based on the
-// user_permissions section of the machine config. A nil *rolesAuthorizer allows
+// userPermsAuthorizer decides whether users may invoke endpoints based on the
+// user_permissions section of the machine config. A nil *userPermsAuthorizer allows
 // everything.
-type rolesAuthorizer struct {
+type userPermsAuthorizer struct {
 	apiKeyPerms  map[string]permSet // keyed by API key ID
 	emailPerms   map[string]permSet // keyed by e-mail address
 	defaultPerms permSet            // permissions of the "default" user; nil if none
 	logger       logging.Logger
 }
 
-// newRolesAuthorizer returns an authorizer for the given user permissions, or nil
+// newUserPermsAuthorizer returns an authorizer for the given user permissions, or nil
 // if userPerms is empty (all users unrestricted).
-func newRolesAuthorizer(userPerms []config.UserPermission, logger logging.Logger) *rolesAuthorizer {
+func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Logger) *userPermsAuthorizer {
 	if len(userPerms) == 0 {
 		return nil
 	}
-	ra := &rolesAuthorizer{
+	ra := &userPermsAuthorizer{
 		apiKeyPerms: map[string]permSet{},
 		emailPerms:  map[string]permSet{},
 		logger:      logger,
@@ -103,7 +103,7 @@ func newRolesAuthorizer(userPerms []config.UserPermission, logger logging.Logger
 
 // permsForUser returns the permissions of the user in ctx, or nil if the user is
 // unauthenticated or unknown with no default user configured.
-func (ra *rolesAuthorizer) permsForUser(ctx context.Context) permSet {
+func (ra *userPermsAuthorizer) permsForUser(ctx context.Context) permSet {
 	entity, ok := rpc.ContextAuthEntity(ctx)
 	if !ok {
 		// Unauthenticated (insecure connection): fully restrict.
@@ -141,7 +141,7 @@ func emailFromContext(ctx context.Context) string {
 // authorize returns nil if the user in ctx may invoke fullMethod. req may be nil for
 // streaming RPCs whose first message has not yet been received; a nil req performs
 // only the method-level (any-resource) check.
-func (ra *rolesAuthorizer) authorize(ctx context.Context, fullMethod string, req interface{}) error {
+func (ra *userPermsAuthorizer) authorize(ctx context.Context, fullMethod string, req interface{}) error {
 	for _, prefix := range exemptMethodPrefixes {
 		if strings.HasPrefix(fullMethod, prefix) {
 			return nil
@@ -175,8 +175,8 @@ func resourceNameFromRequest(fullMethod string, req interface{}) string {
 	return resource.GetResourceNameFromRequest(parts[0], parts[1], req)
 }
 
-// UnaryInterceptor enforces configured roles on unary RPCs.
-func (ra *rolesAuthorizer) UnaryInterceptor(
+// UnaryInterceptor enforces configured user_permissions on unary RPCs.
+func (ra *userPermsAuthorizer) UnaryInterceptor(
 	ctx context.Context,
 	req interface{},
 	info *googlegrpc.UnaryServerInfo,
@@ -188,10 +188,10 @@ func (ra *rolesAuthorizer) UnaryInterceptor(
 	return handler(ctx, req)
 }
 
-// StreamInterceptor enforces configured roles on streaming RPCs. The method-level
+// StreamInterceptor enforces configured user_permissions on streaming RPCs. The method-level
 // check happens up front; resource-level authorization happens on receipt of the
 // stream's first message, since that is where the resource name lives.
-func (ra *rolesAuthorizer) StreamInterceptor(
+func (ra *userPermsAuthorizer) StreamInterceptor(
 	srv interface{},
 	ss googlegrpc.ServerStream,
 	info *googlegrpc.StreamServerInfo,
@@ -205,7 +205,7 @@ func (ra *rolesAuthorizer) StreamInterceptor(
 
 type authzServerStream struct {
 	googlegrpc.ServerStream
-	ra         *rolesAuthorizer
+	ra         *userPermsAuthorizer
 	fullMethod string
 	checked    bool
 }
