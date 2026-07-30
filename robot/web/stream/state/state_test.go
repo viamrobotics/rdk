@@ -548,7 +548,10 @@ func TestStreamState(t *testing.T) {
 					"timed out waiting for gostream start to be called on stream which terminated unexpectedly",
 					test.ShouldBeFalse)
 			}
-			if subscribeRTPCount.Load() == 2 {
+			// Wait for Start() (the terminal event) rather than the SubscribeRTP counter. The
+			// counter is bumped via a defer inside SubscribeRTP, so it reaches 2 before tick()
+			// falls back and calls Start(). Waiting on startCount avoids racing that window.
+			if startCount.Load() == 1 {
 				break
 			}
 			time.Sleep(time.Millisecond * 50)
