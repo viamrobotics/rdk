@@ -11,6 +11,12 @@ homepage: https://www.viam.com
 license: AGPL-3.0-only
 description: |
   Viam CLI for managing machines, modules, and data on the Viam platform.
+  Installs the command as 'viam' (with a 'viam-cli' symlink).
 contents:
   - src: bin/linux-${DEB_ARCH}/viam-cli
     dst: /usr/bin/viam
+  - src: /usr/bin/viam
+    dst: /usr/bin/viam-cli
+    type: symlink
+scripts:
+  postinstall: etc/packaging/nfpm/postinstall.sh
