@@ -2936,6 +2936,7 @@ func TestReconfigureActivityEvents(t *testing.T) {
 		fields := entry.ContextMap()
 		if fields["activity"] == "reconfigure" && fields["event"] == "complete" {
 			test.That(t, fields["duration"], test.ShouldNotBeEmpty)
+			test.That(t, fields["duration_us"], test.ShouldBeGreaterThan, 0)
 		}
 	}
 }
