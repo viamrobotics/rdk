@@ -1,0 +1,16 @@
+# viam-cli deb template; `make deb-cli` substitutes DEB_ARCH and DEB_VERSION
+name: viam-cli
+arch: ${DEB_ARCH} # amd64 | arm64
+platform: linux
+version: ${DEB_VERSION} # e.g. 0.108.0, no leading v
+section: utils
+priority: optional
+maintainer: Viam Inc. <support@viam.com>
+vendor: Viam Inc.
+homepage: https://www.viam.com
+license: AGPL-3.0-only
+description: |
+  Viam CLI for managing machines, modules, and data on the Viam platform.
+contents:
+  - src: bin/linux-${DEB_ARCH}/viam-cli
+    dst: /usr/bin/viam

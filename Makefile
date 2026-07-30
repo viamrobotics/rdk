@@ -56,6 +56,28 @@ cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 		cp $< bin/deploy-ci/viam-cli-$(CI_RELEASE)-$(GOOS)-$(GOARCH)$(EXE_SUFFIX); \
 	fi
 
+NFPM_VERSION = v2.47.0
+GAR_PROJECT ?= static-file-server-310021
+GAR_REPO ?= viam
+GAR_LOCATION ?= us
+
+# GOOS=linux GOARCH=amd64|arm64 make deb-cli; set TAG_VERSION on a dirty tree (nfpm rejects empty)
+.PHONY: deb-cli
+deb-cli: bin/linux-$(GOARCH)/viam-cli
+	mkdir -p bin/deb
+	sed -e 's/$${DEB_ARCH}/$(GOARCH)/g' -e 's/$${DEB_VERSION}/$(TAG_VERSION)/g' \
+		etc/packaging/nfpm/viam-cli.yaml > bin/deb/.nfpm-$(GOARCH).yaml
+	GOOS= GOARCH= go run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VERSION) package \
+		--config bin/deb/.nfpm-$(GOARCH).yaml --packager deb --target bin/deb/
+
+# needs gcloud auth with artifactregistry.writer; re-runs skip versions already in the repo
+.PHONY: deb-cli-upload
+deb-cli-upload:
+	for deb in bin/deb/*.deb; do \
+		out=$$(gcloud artifacts apt upload $(GAR_REPO) --project=$(GAR_PROJECT) --location=$(GAR_LOCATION) --source=$$deb 2>&1) \
+			|| { echo "$$out" | grep -qi "already exists" && echo "skipping $$deb: already in repo" || { echo "$$out"; exit 1; }; }; \
+	done
+
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/AlekSi/gocov-xml \
