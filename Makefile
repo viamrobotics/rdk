@@ -67,7 +67,8 @@ deb-cli: bin/linux-$(GOARCH)/viam-cli
 	mkdir -p bin/deb
 	sed -e 's/$${DEB_ARCH}/$(GOARCH)/g' -e 's/$${DEB_VERSION}/$(TAG_VERSION)/g' \
 		etc/packaging/nfpm/viam-cli.yaml > bin/deb/.nfpm-$(GOARCH).yaml
-	GOOS= GOARCH= go run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VERSION) package \
+	# GOTOOLCHAIN=auto: nfpm needs a newer Go than go.mod; CI's setup-go pins GOTOOLCHAIN=local
+	GOOS= GOARCH= GOTOOLCHAIN=auto go run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VERSION) package \
 		--config bin/deb/.nfpm-$(GOARCH).yaml --packager deb --target bin/deb/
 
 # needs gcloud auth with artifactregistry.writer; re-runs skip versions already in the repo
