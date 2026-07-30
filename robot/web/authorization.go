@@ -28,8 +28,9 @@ var exemptMethodPrefixes = []string{
 // permSet maps an allowed method to the set of resource names it may be invoked on.
 type permSet map[string]map[string]bool
 
-// rolesAuthorizer decides whether users may invoke endpoints based on the roles
-// section of the machine config. A nil *rolesAuthorizer allows everything.
+// rolesAuthorizer decides whether users may invoke endpoints based on the
+// user_permissions section of the machine config. A nil *rolesAuthorizer allows
+// everything.
 type rolesAuthorizer struct {
 	apiKeyPerms  map[string]permSet // keyed by API key ID
 	emailPerms   map[string]permSet // keyed by e-mail address
@@ -37,10 +38,10 @@ type rolesAuthorizer struct {
 	logger       logging.Logger
 }
 
-// newRolesAuthorizer returns an authorizer for the given roles, or nil if roles is
-// empty (all users unrestricted).
-func newRolesAuthorizer(roles []config.Role, logger logging.Logger) *rolesAuthorizer {
-	if len(roles) == 0 {
+// newRolesAuthorizer returns an authorizer for the given user permissions, or nil
+// if userPerms is empty (all users unrestricted).
+func newRolesAuthorizer(userPerms []config.UserPermission, logger logging.Logger) *rolesAuthorizer {
+	if len(userPerms) == 0 {
 		return nil
 	}
 	ra := &rolesAuthorizer{
@@ -50,9 +51,9 @@ func newRolesAuthorizer(roles []config.Role, logger logging.Logger) *rolesAuthor
 	}
 
 	restricted := map[config.User]bool{}
-	for _, role := range roles {
+	for _, userPerm := range userPerms {
 		perms := permSet{}
-		for _, perm := range role.Permissions {
+		for _, perm := range userPerm.Permissions {
 			for _, method := range perm.AllowedMethods {
 				if perms[method] == nil {
 					perms[method] = map[string]bool{}
@@ -63,40 +64,39 @@ func newRolesAuthorizer(roles []config.Role, logger logging.Logger) *rolesAuthor
 			}
 		}
 
-		for _, user := range role.Users {
-			var permsByID map[string]permSet
-			switch user.Type {
-			case config.UserTypeAPIKeyID:
-				permsByID = ra.apiKeyPerms
-			case config.UserTypeEmail:
-				permsByID = ra.emailPerms
-			case config.UserTypeDefault:
-				if ra.defaultPerms != nil || restricted[user] {
-					ra.logger.Error(
-						"multiple role definitions for default user; fully restricting until collision is fixed")
-					ra.defaultPerms = permSet{}
-					restricted[user] = true
-					continue
-				}
-				ra.defaultPerms = perms
-				continue
-			default:
-				ra.logger.Errorw("unknown user type in roles; ignoring user",
-					"type", user.Type, "id", user.ID)
-				continue
-			}
-			if _, seen := permsByID[user.ID]; seen || restricted[user] {
-				ra.logger.Errorw(
-					"multiple role definitions for user; fully restricting user until collision is fixed",
-					"type", user.Type, "id", user.ID)
-				// An empty permSet fully restricts: the user matches a role, so they do
-				// not fall back to the default user's permissions.
-				permsByID[user.ID] = permSet{}
+		user := userPerm.User
+		var permsByID map[string]permSet
+		switch user.Type {
+		case config.UserTypeAPIKeyID:
+			permsByID = ra.apiKeyPerms
+		case config.UserTypeEmail:
+			permsByID = ra.emailPerms
+		case config.UserTypeDefault:
+			if ra.defaultPerms != nil || restricted[user] {
+				ra.logger.Error(
+					"multiple user_permissions entries for default user; fully restricting until collision is fixed")
+				ra.defaultPerms = permSet{}
 				restricted[user] = true
 				continue
 			}
-			permsByID[user.ID] = perms
+			ra.defaultPerms = perms
+			continue
+		default:
+			ra.logger.Errorw("unknown user type in user_permissions; ignoring user",
+				"type", user.Type, "id", user.ID)
+			continue
 		}
+		if _, seen := permsByID[user.ID]; seen || restricted[user] {
+			ra.logger.Errorw(
+				"multiple user_permissions entries for user; fully restricting user until collision is fixed",
+				"type", user.Type, "id", user.ID)
+			// An empty permSet fully restricts: the user matches an entry, so they do
+			// not fall back to the default user's permissions.
+			permsByID[user.ID] = permSet{}
+			restricted[user] = true
+			continue
+		}
+		permsByID[user.ID] = perms
 	}
 	return ra
 }
