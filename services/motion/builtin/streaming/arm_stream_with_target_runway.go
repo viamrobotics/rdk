@@ -41,18 +41,9 @@ func (s *armStreamWithTargetRunway) run(ctx context.Context, r *armStreamRunHand
 	defer ticker.Stop()
 
 	for {
-		// Accept pvat points only while the arm is under the target runway: what's already
-		// reached the arm (currentEstimatedRunwayInArm) plus what's queued locally but not yet
-		// sent (pendingBatchDuration).
+		// Accept pvat points only while the arm is under the target runway.
 		var recvCh <-chan pvat
-		switch {
-		case !s.started:
-			recvCh = s.pvatCh
-		case !s.firstBatchSent():
-			if s.pendingBatchDuration() < s.targetRunway {
-				recvCh = s.pvatCh
-			}
-		case s.currentEstimatedRunwayInArm()+s.pendingBatchDuration() < s.targetRunway:
+		if s.currentEstimatedRunwayInArm()+s.pendingBatchDuration() < s.targetRunway {
 			recvCh = s.pvatCh
 		}
 
