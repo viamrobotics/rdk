@@ -233,7 +233,7 @@ func (ms *builtIn) handleStreamCommand(
 		if err := ms.streamStart(ctx, armName, opts); err != nil {
 			return nil, true, err
 		}
-		return map[string]interface{}{DoStreamStart: true}, true, nil
+		return map[string]interface{}{}, true, nil
 	}
 
 	if req, ok := cmd[DoStreamPush]; ok {
@@ -244,7 +244,7 @@ func (ms *builtIn) handleStreamCommand(
 		if err := ms.streamPush(ctx, targets); err != nil {
 			return nil, true, err
 		}
-		return map[string]interface{}{DoStreamPush: true}, true, nil
+		return map[string]interface{}{}, true, nil
 	}
 
 	if _, ok := cmd[DoStreamFlush]; ok {
@@ -252,15 +252,15 @@ func (ms *builtIn) handleStreamCommand(
 		if err != nil {
 			return nil, true, err
 		}
-		return map[string]interface{}{DoStreamFlush: status}, true, nil
+		return status, true, nil
 	}
 
 	if _, ok := cmd[DoStreamAbort]; ok {
-		return map[string]interface{}{DoStreamAbort: ms.streamAbort(ctx)}, true, nil
+		return ms.streamAbort(ctx), true, nil
 	}
 
 	if _, ok := cmd[DoStreamStatus]; ok {
-		return map[string]interface{}{DoStreamStatus: ms.streamStatus()}, true, nil
+		return ms.streamStatus(), true, nil
 	}
 
 	return nil, false, nil
