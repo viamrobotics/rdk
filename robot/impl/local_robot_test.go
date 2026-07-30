@@ -2383,17 +2383,25 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for restart attempt in logs.
+		// Wait for the new restart attempt in logs. This is the second such log:
+		// the first came from the successful testmodule restart above, so we must
+		// wait for the count to reach 2 to know the disguised-simplemodule restart
+		// has actually happened.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
-				test.ShouldBeGreaterThanOrEqualTo, 1)
+				test.ShouldBeGreaterThanOrEqualTo, 2)
 		})
-		time.Sleep(2 * time.Second)
 
-		_, err = r.ResourceByName(generic.Named("h"))
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, `resource rdk:component:generic/h not available`)
+		// simplemodule cannot manage helper 'h', so the reconfigure triggered by
+		// the restart should orphan it and make it unavailable. Poll until this
+		// happens rather than relying on a fixed sleep.
+		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+			tb.Helper()
+			_, err := r.ResourceByName(generic.Named("h"))
+			test.That(tb, err, test.ShouldNotBeNil)
+			test.That(tb, err.Error(), test.ShouldContainSubstring, `resource rdk:component:generic/h not available`)
+		})
 
 		// Also assert that testmodule's resources were deregistered.
 		_, ok := resource.LookupRegistration(generic.API, helperModel)
