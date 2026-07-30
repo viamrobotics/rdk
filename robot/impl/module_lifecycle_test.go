@@ -471,10 +471,14 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Assert that restoring the testmodule binary makes 'h' start working again
-	// after the auto-restart code succeeds.
+	// after the auto-restart code succeeds. The background restart loop only
+	// retries every oueRestartInterval and a single restart (process start plus
+	// the WebRTC ready handshake) can itself take several seconds, so wait
+	// generously for the module to recover before asserting its resources are
+	// re-added.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 60, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
@@ -553,9 +557,12 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 3)
 
 	// Assert that restoring the testmodule binary restores the module but not 'h'.
+	// The background restart loop only retries every oueRestartInterval and a
+	// single restart (process start plus the WebRTC ready handshake) can itself
+	// take several seconds, so wait generously for the module to recover.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 60, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
