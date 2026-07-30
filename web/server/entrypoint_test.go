@@ -732,13 +732,22 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		test.That(t, stopServer(), test.ShouldBeNil)
 	})
 
-	// helper function that waits longer than the specified refreshInterval
-	// to make sure we always wait long enough for a reconfigure to happen
+	// helper function that polls an assertion for well longer than the cloud
+	// RefreshInterval so we always wait long enough for a reconfigure to happen.
+	//
+	// After a config change is stored in the fake cloud the server must (1) re-fetch
+	// the config on its next poll (up to one refreshInterval away) and then (2) tear
+	// down and rebuild the module process. Replacing the module reconfigure with a
+	// full rebuild made shutdown slower, and on loaded Windows CI that rebuild can
+	// take several seconds. While the module is restarting the "helper" resource is
+	// briefly absent and DoCommand fails with "resource ... not found" (RSDK-14351).
+	// The previous 3*refreshInterval (~3s) budget was occasionally too short, so give
+	// ample headroom. The poll returns as soon as the assertion passes, so this does
+	// not slow down the common case.
 	waitForAssertionLongerThanRefreshInterval := func(t *testing.T, assertion func(tb testing.TB)) {
 		t.Helper()
-		// flake on Windows with original 50ms x 50 attempts after replacing reconfigure with rebuild (slower shutdown, unclear why)
 		retryInterval := 200 * time.Millisecond
-		nRuns := int(refreshInterval * 3 / retryInterval)
+		nRuns := int(refreshInterval * 15 / retryInterval)
 		gtestutils.WaitForAssertionWithSleep(t, retryInterval, nRuns, assertion)
 	}
 
