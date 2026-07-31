@@ -1077,6 +1077,15 @@ type RestartStatusResponse struct {
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
+	// This endpoint exposes internal details (e.g. the module server's TCP address) and is
+	// only meant to be consumed by viam-agent on the same machine. The web server may listen
+	// on all interfaces, so reject any request that does not originate from localhost to keep
+	// the endpoint effectively bound to loopback only.
+	if !remoteAddrIsLocalhost(r.RemoteAddr) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	modAddrs := svc.ModuleAddresses()
 	response := RestartStatusResponse{
 		RestartAllowed:            svc.r.RestartAllowed(),
@@ -1088,4 +1097,16 @@ func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Reques
 	// Only log errors from encoding here. A failure to encode should never
 	// happen.
 	utils.UncheckedError(json.NewEncoder(w).Encode(response))
+}
+
+// remoteAddrIsLocalhost reports whether an [http.Request.RemoteAddr] refers to a
+// loopback (localhost) address.
+func remoteAddrIsLocalhost(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// RemoteAddr may not contain a port.
+		host = remoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

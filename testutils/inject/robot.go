@@ -58,6 +58,7 @@ type Robot struct {
 	ModuleAddressesFunc     func() (config.ParentSockAddrs, error)
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
+	RestartAllowedFunc      func() bool
 	ShutdownFunc            func(ctx context.Context) error
 	ListTunnelsFunc         func(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
 	UploadDataFromPathFunc  func(
@@ -357,6 +358,16 @@ func (r *Robot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) 
 		return r.LocalRobot.MachineStatus(ctx)
 	}
 	return r.MachineStatusFunc(ctx)
+}
+
+// RestartAllowed calls the injected RestartAllowed or the real one.
+func (r *Robot) RestartAllowed() bool {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.RestartAllowedFunc == nil {
+		return r.LocalRobot.RestartAllowed()
+	}
+	return r.RestartAllowedFunc()
 }
 
 // Shutdown calls the injected Shutdown or the real one.
