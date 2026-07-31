@@ -814,12 +814,14 @@ func (ms *builtIn) writePlanRequest(
 	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
 		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
 
-	// Full plans (request + response) get tag=motion-plan so data manager can infer a
-	// stable type tag on arbitrary-file upload.
+	// Type tags so data manager can infer a stable filter on arbitrary-file upload.
 	const motionPlanTypeTag = "motion-plan"
+	const motionPlanErrTypeTag = "motion-plan-err"
 	tags := []string{}
 	if plan != nil {
 		tags = append(tags, "tag="+motionPlanTypeTag)
+	} else {
+		tags = append(tags, "tag="+motionPlanErrTypeTag)
 	}
 	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
 		tags = append(tags, "tag="+traceID)

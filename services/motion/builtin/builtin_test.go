@@ -770,7 +770,7 @@ func TestWritePlanRequest(t *testing.T) {
 
 	test.That(t, os.RemoveAll(typeTagDir), test.ShouldBeNil)
 
-	// Fourth case: request-only error dump (plan == nil) must NOT get tag=motion-plan.
+	// Fourth case: request-only error dump (plan == nil) → tag=motion-plan-err/tag=<traceID>/.
 	err = msBuiltin.writePlanRequest(
 		&armplanning.PlanRequest{},
 		nil,
@@ -785,10 +785,45 @@ func TestWritePlanRequest(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
 	test.That(t, planDirEntries[0].IsDir(), test.ShouldBeTrue)
-	test.That(t, planDirEntries[0].Name(), test.ShouldEqual, "tag=1234-abc-56-no-78")
+	test.That(t, planDirEntries[0].Name(), test.ShouldEqual, "tag=motion-plan-err")
 
-	traceIDDir = filepath.Join(planDir, planDirEntries[0].Name())
+	typeTagDir = filepath.Join(planDir, planDirEntries[0].Name())
+	planDirEntries, err = os.ReadDir(typeTagDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	traceIDDirEntry = planDirEntries[0]
+	test.That(t, traceIDDirEntry.IsDir(), test.ShouldBeTrue)
+	test.That(t, traceIDDirEntry.Name(), test.ShouldEqual, "tag=1234-abc-56-no-78")
+
+	traceIDDir = filepath.Join(typeTagDir, traceIDDirEntry.Name())
 	planDirEntries, err = os.ReadDir(traceIDDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	planFile = planDirEntries[0]
+	test.That(t, planFile.IsDir(), test.ShouldBeFalse)
+	test.That(t, planFile.Name(), test.ShouldContainSubstring, "-err")
+
+	test.That(t, os.RemoveAll(typeTagDir), test.ShouldBeNil)
+
+	// Fifth case: error dump with no TraceID → under tag=motion-plan-err only.
+	err = msBuiltin.writePlanRequest(
+		&armplanning.PlanRequest{},
+		nil,
+		&armplanning.PlanMeta{},
+		time.Now(),
+		"",
+		"",
+		errors.New("planning failed"))
+	test.That(t, err, test.ShouldBeNil)
+
+	planDirEntries, err = os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	test.That(t, planDirEntries[0].IsDir(), test.ShouldBeTrue)
+	test.That(t, planDirEntries[0].Name(), test.ShouldEqual, "tag=motion-plan-err")
+
+	typeTagDir = filepath.Join(planDir, planDirEntries[0].Name())
+	planDirEntries, err = os.ReadDir(typeTagDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
 	planFile = planDirEntries[0]
