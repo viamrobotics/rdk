@@ -1079,6 +1079,13 @@ type RestartStatusResponse struct {
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
+	// Only serve callers on this machine: the endpoint exposes internal details meant
+	// for the local viam-agent only, and the server may listen on non-loopback interfaces.
+	if !remoteAddrIsLocal(r.RemoteAddr) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	modAddrs := svc.ModuleAddresses()
 	response := RestartStatusResponse{
 		RestartAllowed:            svc.r.RestartAllowed(),
@@ -1090,4 +1097,31 @@ func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Reques
 	// Only log errors from encoding here. A failure to encode should never
 	// happen.
 	utils.UncheckedError(json.NewEncoder(w).Encode(response))
+}
+
+// remoteAddrIsLocal reports whether remoteAddr is on this machine: a loopback address, or
+// one of the host's own interface addresses (covers servers bound to a specific non-loopback IP).
+func remoteAddrIsLocal(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// remoteAddr may not contain a port.
+		host = remoteAddr
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && ipNet.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
 }
