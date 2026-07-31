@@ -18,14 +18,13 @@ var UploadProgressLogInterval = 30 * time.Second
 // upload stream is in flight. Each instance tracks a single upload attempt and is
 // used by a single goroutine; it is not safe for concurrent use.
 type uploadProgressLogger struct {
-	logger         logging.Logger
-	clock          clock.Clock
-	path           string
-	totalBytes     uint64
-	sentBytes      uint64
-	startTime      time.Time
-	lastLog        time.Time
-	loggedProgress bool
+	logger     logging.Logger
+	clock      clock.Clock
+	path       string
+	totalBytes uint64
+	sentBytes  uint64
+	startTime  time.Time
+	lastLog    time.Time
 }
 
 func newUploadProgressLogger(logger logging.Logger, clk clock.Clock, path string, totalBytes int64) *uploadProgressLogger {
@@ -50,7 +49,6 @@ func (p *uploadProgressLogger) addBytes(n int) {
 		return
 	}
 	p.lastLog = now
-	p.loggedProgress = true
 	p.logger.Infof("uploading %s: %s / %s (%s), rate: %s/s",
 		p.path,
 		utils.FormatBytes(p.sentBytes),
@@ -60,22 +58,15 @@ func (p *uploadProgressLogger) addBytes(n int) {
 	)
 }
 
-// complete logs a summary of the finished upload. The summary logs at Info only if a
-// progress line was already emitted; otherwise it logs at Debug so small, fast
-// uploads stay quiet at the default level.
+// complete logs a summary of the finished upload at Info level.
 func (p *uploadProgressLogger) complete() {
 	now := p.clock.Now()
-	msg := fmt.Sprintf("uploaded %s: %s in %s (avg rate: %s/s)",
+	p.logger.Infof("uploaded %s: %s in %s (avg rate: %s/s)",
 		p.path,
 		utils.FormatBytes(p.sentBytes),
 		now.Sub(p.startTime).Round(time.Millisecond),
 		utils.FormatBytes(p.rate(now)),
 	)
-	if p.loggedProgress {
-		p.logger.Info(msg)
-	} else {
-		p.logger.Debug(msg)
-	}
 }
 
 // percent renders sentBytes/totalBytes as a percentage string.
