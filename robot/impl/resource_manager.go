@@ -879,11 +879,13 @@ func (manager *resourceManager) completeConfig(
 								fmt.Errorf("resource build error: %v", err.Error()),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
+							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "fail",
 								"resource", resName.String(),
 								"model", conf.Model.String(),
 								"revision", activityRevision,
-								"duration", time.Since(activityStarted).String(),
+								"duration", buildDuration.String(),
+								"duration_us", buildDuration.Microseconds(),
 								"error", err)
 							return
 						}
@@ -895,14 +897,17 @@ func (manager *resourceManager) completeConfig(
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "fail",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
-								"duration", time.Since(activityStarted).String(), "error", ctxWithTimeout.Err())
+								"duration", buildDuration.String(), "duration_us", buildDuration.Microseconds(),
+								"error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
+							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "complete",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
-								"duration", time.Since(activityStarted).String())
+								"duration", buildDuration.String(), "duration_us", buildDuration.Microseconds())
 						}
 
 					default:

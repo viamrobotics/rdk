@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -1753,6 +1754,11 @@ func (f *fakeTunnelLister) ListTunnels(ctx context.Context) ([]robotconfig.Traff
 	return out, nil
 }
 
+func (f *fakeTunnelLister) Connect(ctx context.Context) error {
+	// This is a no-op
+	return nil
+}
+
 func TestEnsureTunnelPortAllowed(t *testing.T) {
 	const (
 		partID       = "part-id"
@@ -2095,6 +2101,56 @@ func TestCLIUpdateAction(t *testing.T) {
 	_, err = os.ReadFile(newBinaryPath)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
+func TestIsRunningAptBinary(t *testing.T) {
+	originalDpkgQueryOwner := dpkgQueryOwnerFunc
+	defer func() {
+		dpkgQueryOwnerFunc = originalDpkgQueryOwner
+	}()
+
+	if runtime.GOOS != "linux" {
+		// dpkg query must never run off linux
+		dpkgQueryOwnerFunc = func(string) (string, error) {
+			panic("dpkg query must not run off linux")
+		}
+		isApt, err := isRunningAptBinary()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isApt, test.ShouldBeFalse)
+		return
+	}
+
+	// real ExitError, like dpkg returns for an unowned path
+	exitErr := exec.Command("sh", "-c", "exit 1").Run()
+	var asExitErr *exec.ExitError
+	test.That(t, errors.As(exitErr, &asExitErr), test.ShouldBeTrue)
+
+	for _, tc := range []struct {
+		name      string
+		out       string
+		err       error
+		wantIsApt bool
+		wantErr   bool
+	}{
+		{name: "owned by viam-cli", out: "viam-cli: /usr/bin/viam\n", wantIsApt: true},
+		{name: "owned by another package", out: "coreutils: /usr/bin/viam\n"},
+		{name: "dpkg not installed", err: exec.ErrNotFound},
+		{name: "path not owned by any package", err: exitErr},
+		{name: "unexpected dpkg failure", err: errors.New("boom"), wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dpkgQueryOwnerFunc = func(string) (string, error) {
+				return tc.out, tc.err
+			}
+			isApt, err := isRunningAptBinary()
+			if tc.wantErr {
+				test.That(t, err, test.ShouldNotBeNil)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+			test.That(t, isApt, test.ShouldEqual, tc.wantIsApt)
+		})
+	}
 }
 
 func TestRetryableCopy(t *testing.T) {
