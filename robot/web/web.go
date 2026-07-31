@@ -812,18 +812,20 @@ func (svc *webService) initMux(options weboptions.Options) *goji.Mux {
 		}
 	})
 
+	// The /debug endpoints can leak internal details about the robot, so they are only
+	// registered when the web profile option is enabled (via the `enable_web_profile`
+	// config field or the `--webprofile` command line flag).
 	if options.Pprof {
 		mux.HandleFunc(pat.New("/debug/pprof/"), pprof.Index)
 		mux.HandleFunc(pat.New("/debug/pprof/cmdline"), pprof.Cmdline)
 		mux.HandleFunc(pat.New("/debug/pprof/profile"), pprof.Profile)
 		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
 		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
-	}
 
-	// serve resource graph visualization
-	// TODO: hide behind option
-	// TODO: accept params to display different formats
-	mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
+		// serve resource graph visualization
+		// TODO: accept params to display different formats
+		mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
+	}
 
 	// serve restart status
 	mux.HandleFunc(pat.New("/restart_status"), svc.handleRestartStatus)
