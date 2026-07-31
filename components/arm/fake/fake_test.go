@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
+	"go.viam.com/rdk/components/arm/kinematics"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -19,7 +20,7 @@ func TestJointPositions(t *testing.T) {
 	cfg := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ArmModel: ur5eModel,
+			ArmModel: kinematics.UR5e,
 		},
 	}
 
@@ -50,7 +51,7 @@ func TestGet3DModels(t *testing.T) {
 	confNo3DModels := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ArmModel: xArm7Model,
+			ArmModel: kinematics.XArm7,
 		},
 	}
 	a, err := NewArm(ctx, nil, confNo3DModels, logging.NewTestLogger(t))
@@ -63,7 +64,7 @@ func TestGet3DModels(t *testing.T) {
 	confWith3DModels := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ArmModel: ur5eModel,
+			ArmModel: kinematics.UR5e,
 		},
 	}
 	err = fakeArm.reconfigure(ctx, nil, confWith3DModels)

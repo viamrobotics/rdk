@@ -23,7 +23,7 @@ func TestPoseCloudPlanning(t *testing.T) {
 
 	fs := referenceframe.NewEmptyFrameSystem("huh")
 	lite6, err := referenceframe.ParseModelJSONFile(
-		utils.ResolveFile("components/arm/sim/kinematics/lite6.json"), "lite6")
+		utils.ResolveFile("components/arm/kinematics/lite6.json"), "lite6")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(lite6, fs.World())

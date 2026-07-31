@@ -43,7 +43,7 @@ func TestSmartSeedCache1(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	armName := "ur5e"
-	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
 	fs := referenceframe.NewEmptyFrameSystem("pirouette")
@@ -114,7 +114,7 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	armName := "arm"
-	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
 	gripperFrame, err := referenceframe.NewStaticFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 100}))
@@ -159,7 +159,7 @@ func TestSmartSeedCacheOffsetMount(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	armName := "ur5e"
-	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Mount the arm 2000mm from world origin via a static offset frame.
@@ -223,7 +223,7 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	armName := "ur5e"
-	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
 	idealJointValues := pirIdealJointValues
@@ -272,7 +272,7 @@ func BenchmarkSmartSeedCacheSearch(t *testing.B) {
 	logger := logging.NewTestLogger(t)
 
 	armName := "ur5e"
-	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
 	fs := referenceframe.NewEmptyFrameSystem("pirouette")

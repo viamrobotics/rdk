@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/kinematics"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -15,7 +16,7 @@ import (
 func TestMoveThroughJointPositionsStreamed(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	cfg := resource.Config{Name: "testArm", ConvertedAttributes: &Config{ArmModel: ur5eModel}}
+	cfg := resource.Config{Name: "testArm", ConvertedAttributes: &Config{ArmModel: kinematics.UR5e}}
 	a, err := NewArm(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -101,7 +101,7 @@ func TestCheckCollisionsHinted(t *testing.T) {
 
 	// case 2: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
 	// no external geometries considered, self collision only
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := m.Geometries(make([]referenceframe.Input, len(m.DoF())))
 	test.That(t, gf, test.ShouldNotBeNil)
@@ -113,7 +113,7 @@ func TestCheckCollisionsHinted(t *testing.T) {
 }
 
 func TestUniqueCollisions(t *testing.T) {
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// zero position of xarm6 arm - get initial collisions to use as allowed collisions

@@ -163,7 +163,7 @@ func BenchmarkGoalMetric(b *testing.B) {
 		GoalMetricType: motionplan.SquaredNorm,
 	}
 
-	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 
 	// Create a temporary frame system for the transformation
@@ -198,7 +198,7 @@ func BenchmarkGoalMetric(b *testing.B) {
 // metric. This can help isolate if scoring is slow because armplan scores are slow, or if its
 // because framesystem transformations are slow.
 func BenchmarkFSTransform(b *testing.B) {
-	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 
 	// Create a temporary frame system for the transformation
@@ -267,7 +267,7 @@ func BenchmarkScaledSquaredNormMetric(b *testing.B) {
 // Inline `composedTransformation`
 // - BenchmarkArmTransform-16            	 1830990	       653.5 ns/op	      64 B/op	       1 allocs/op
 func BenchmarkArmTransform(b *testing.B) {
-	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 	armModel := armModelI.(*referenceframe.SimpleModel)
 
@@ -298,7 +298,7 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 	ctx := b.Context()
 	logger := logging.NewTestLogger(b)
 
-	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 
 	// Create a temporary frame system for the transformation
