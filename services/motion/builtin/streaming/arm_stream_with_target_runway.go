@@ -34,7 +34,7 @@ type armStreamWithTargetRunway struct {
 // run receives PVATs off pvatCh and paces sending batches of PVATs to the arm to try to
 // maintain the target runway duration buffered in the arm resource. It returns once pvatCh
 // closes and any final batch has been flushed, or on the first error or cancellation.
-func (s *armStreamWithTargetRunway) run(ctx context.Context, r *armStreamRunHandle) {
+func (s *armStreamWithTargetRunway) run(ctx context.Context, r *runHandle) {
 	defer close(r.done)
 
 	ticker := time.NewTicker(s.sendToArmInterval)
@@ -53,7 +53,7 @@ func (s *armStreamWithTargetRunway) run(ctx context.Context, r *armStreamRunHand
 			if s.started {
 				s.close() //nolint:errcheck
 			}
-			r.err = ctx.Err()
+			r.done <- ctx.Err()
 			return
 
 		// A new message on the pvat channel is available.
@@ -61,7 +61,7 @@ func (s *armStreamWithTargetRunway) run(ctx context.Context, r *armStreamRunHand
 			if !ok {
 				// pvat channel closed
 				if err := s.flush(ctx); err != nil {
-					r.err = err
+					r.done <- err
 					r.cancel()
 				}
 				return
@@ -77,7 +77,7 @@ func (s *armStreamWithTargetRunway) run(ctx context.Context, r *armStreamRunHand
 				continue
 			}
 			if err := s.maybeSendBatch(ctx); err != nil {
-				r.err = err
+				r.done <- err
 				r.cancel()
 				return
 			}

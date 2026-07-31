@@ -29,90 +29,58 @@ func Run(
 	flushCh <-chan struct{},
 	seed []referenceframe.Input,
 ) error {
-	c, err := newCoordinator(a, opts)
-	if err != nil {
-		return err
-	}
-	return c.run(ctx, jpCh, flushCh, seed).wait()
-}
-
-type coordinator struct {
-	trajexSession *trajexSession
-	armStream     *armStreamWithTargetRunway
-}
-
-func newCoordinator(a arm.Arm, opts *StreamOptions) (*coordinator, error) {
 	opts.ApplyDefaults()
 	if err := opts.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	pvatCh := make(chan pvat, max(1, opts.TargetRunwayInArmMs/opts.SendToArmIntervalMs))
-	return &coordinator{
-		trajexSession: &trajexSession{
-			opts:   opts,
-			pvatCh: pvatCh,
-		},
-		armStream: &armStreamWithTargetRunway{
-			arm:               a,
-			pvatCh:            pvatCh,
-			targetRunway:      time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond,
-			sendToArmInterval: time.Duration(opts.SendToArmIntervalMs) * time.Millisecond,
-		},
-	}, nil
-}
-
-// run starts the trajex session and arm stream goroutines and returns a handle the caller should wait on.
-func (c *coordinator) run(
-	ctx context.Context,
-	jpCh <-chan JointPositionsChItem,
-	flushCh <-chan struct{},
-	seed []referenceframe.Input,
-) *runHandle {
-	ctx, cancel := context.WithCancel(ctx)
-	r := &runHandle{
-		trajexSession: trajexSessionRunHandle{done: make(chan struct{}), cancel: cancel},
-		armStream:     armStreamRunHandle{done: make(chan struct{}), cancel: cancel},
+	trajexSession := &trajexSession{
+		opts:   opts,
+		pvatCh: pvatCh,
 	}
-	go c.trajexSession.run(ctx, jpCh, flushCh, seed, &r.trajexSession)
-	go c.armStream.run(ctx, &r.armStream)
-	return r
-}
+	armStream := &armStreamWithTargetRunway{
+		arm:               a,
+		pvatCh:            pvatCh,
+		targetRunway:      time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond,
+		sendToArmInterval: time.Duration(opts.SendToArmIntervalMs) * time.Millisecond,
+	}
 
-type trajexSessionRunHandle struct {
-	done chan struct{} // closed when the trajex session returns
-	err  error
-	// cancel stops the arm stream when the trajex session fails
-	cancel context.CancelFunc
-}
+	ctx, cancel := context.WithCancel(ctx)
+	// We create a channel buffer of size one for both run handles such that the runner code can
+	// safely choose any order of pushing an error and calling done.
+	trajexRunHandle := runHandle{
+		done:   make(chan error, 1),
+		cancel: cancel,
+	}
 
-type armStreamRunHandle struct {
-	done chan struct{} // closed when the arm stream returns
-	err  error
-	// cancel stops the trajex session when the arm stream fails
-	cancel context.CancelFunc
+	armRunHandle := runHandle{
+		done:   make(chan error, 1),
+		cancel: cancel,
+	}
+	go trajexSession.run(ctx, jpCh, flushCh, seed, &trajexRunHandle)
+	go armStream.run(ctx, &armRunHandle)
+
+	// Wait for both goroutines to finish.
+	// Whichever side fails first cancels the shared context.
+	trajexErr := <-trajexRunHandle.done
+	armErr := <-armRunHandle.done
+
+	// Ensure cancel is called to release resources.
+	cancel()
+
+	// Report the root cause. Trajex errors take priority over arm errors.
+	if trajexErr != nil {
+		return trajexErr
+	}
+
+	return armErr
 }
 
 type runHandle struct {
-	trajexSession trajexSessionRunHandle
-	armStream     armStreamRunHandle
-}
+	done chan error // closed when the caller returns. An error is pushed iff there was an error.
 
-func (r *runHandle) wait() error {
-	// Wait for both goroutines to finish.
-	// Whichever side fails first cancels the shared context.
-	<-r.trajexSession.done
-	<-r.armStream.done
-
-	// Call cancel, since a context created with context.WithCancel is required to
-	// be canceled. It doesn't matter which handle's cancel is called.
-	r.armStream.cancel()
-
-	// Report the root cause.
-	err := r.trajexSession.err
-	if err == nil {
-		err = r.armStream.err
-	}
-
-	return err
+	// cancel is called when the owner errors. This will signal contexts used by codependent
+	// processes.
+	cancel context.CancelFunc
 }

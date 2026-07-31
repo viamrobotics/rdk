@@ -35,7 +35,7 @@ func (s *trajexSession) run(
 	jpCh <-chan JointPositionsChItem,
 	flushCh <-chan struct{},
 	seed []referenceframe.Input,
-	r *trajexSessionRunHandle,
+	r *runHandle,
 ) {
 	defer func() {
 		close(s.pvatCh)
@@ -49,7 +49,7 @@ func (s *trajexSession) run(
 		if s.sess != nil {
 			err = fmt.Errorf("(seed=%v): %w", s.lastJointPositions, err)
 		}
-		r.err = err
+		r.done <- err
 		r.cancel()
 	}
 
@@ -74,7 +74,7 @@ func (s *trajexSession) run(
 		select {
 		// Cancel was called.
 		case <-ctx.Done():
-			r.err = ctx.Err()
+			r.done <- ctx.Err()
 			return
 
 		// A new target is available.
