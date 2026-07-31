@@ -35,7 +35,7 @@ func TestUploadProgressLogger(t *testing.T) {
 		p.addBytes(25)
 		test.That(t, observed.FilterLevelExact(zapcore.InfoLevel).Len(), test.ShouldEqual, 1)
 
-		// Completion logs at Info because a progress line was emitted.
+		// Completion logs at Info summary.
 		clk.Add(time.Second)
 		p.addBytes(25)
 		p.complete()
@@ -46,7 +46,7 @@ func TestUploadProgressLogger(t *testing.T) {
 		test.That(t, infos[1].Message, test.ShouldContainSubstring, "(avg rate: 3 Bytes/s)")
 	})
 
-	t.Run("uploads that finish within one interval stay quiet at Info", func(t *testing.T) {
+	t.Run("uploads that finish within one interval log only an Info summary", func(t *testing.T) {
 		logger, observed := logging.NewObservedTestLogger(t)
 		clk := clock.NewMock()
 		p := newUploadProgressLogger(logger, clk, "/tmp/small.bin", 100)
@@ -54,10 +54,8 @@ func TestUploadProgressLogger(t *testing.T) {
 		p.addBytes(100)
 		p.complete()
 
-		test.That(t, observed.FilterLevelExact(zapcore.InfoLevel).Len(), test.ShouldEqual, 0)
-		// The completion summary still exists at Debug for debugging.
-		debugs := observed.FilterLevelExact(zapcore.DebugLevel).All()
-		test.That(t, len(debugs), test.ShouldEqual, 1)
-		test.That(t, debugs[0].Message, test.ShouldContainSubstring, "uploaded /tmp/small.bin")
+		infos := observed.FilterLevelExact(zapcore.InfoLevel).All()
+		test.That(t, len(infos), test.ShouldEqual, 1)
+		test.That(t, infos[0].Message, test.ShouldContainSubstring, "uploaded /tmp/small.bin")
 	})
 }
