@@ -1454,19 +1454,23 @@ func TestShellGetFTDC(t *testing.T) {
 	})
 
 	// The CLI cannot know where the machine keeps VIAM_HOME, so by default it asks the
-	// machine to resolve it. Restoring the real default and pointing this process's
-	// VIAM_HOME at the test filesystem stands in for a machine whose VIAM_HOME is not
-	// under any user's home directory (an agent install).
+	// machine to resolve it. Leaving ftdcPath at its real default and pointing this
+	// process's VIAM_HOME at a directory outside any user's home stands in for an agent
+	// install, where the two diverge.
 	t.Run("ftdc data lives outside the home directory", func(t *testing.T) {
-		partFtdcPath := filepath.Join(tfs.Root, ftdcRelativePath, partID)
+		// Use a short temp dir (not t.TempDir, whose Windows path is long) because
+		// redirecting ViamDotDir also relocates the module socket dir on Windows, and the
+		// unix socket path has a 103-char OS limit (see module.CreateSocketAddress).
+		viamHome, err := os.MkdirTemp("", "vds")
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(viamHome)) })
+
+		partFtdcPath := filepath.Join(viamHome, ftdcRelativePath, partID)
 		test.That(t, os.MkdirAll(partFtdcPath, 0o750), test.ShouldBeNil)
-		t.Cleanup(func() {
-			test.That(t, os.RemoveAll(filepath.Join(tfs.Root, ftdcRelativePath)), test.ShouldBeNil)
-		})
 		test.That(t, os.WriteFile(filepath.Join(partFtdcPath, "foo"), nil, 0o640), test.ShouldBeNil)
 
 		origViamDotDir := utils.ViamDotDir
-		utils.ViamDotDir = tfs.Root
+		utils.ViamDotDir = viamHome
 		t.Cleanup(func() { utils.ViamDotDir = origViamDotDir })
 
 		targetPath := t.TempDir()
