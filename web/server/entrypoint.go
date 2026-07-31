@@ -20,6 +20,7 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	agentpb "go.viam.com/api/app/agent/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
@@ -103,6 +104,32 @@ func logVersion(logger logging.Logger) {
 func logStartupInfo(logger logging.Logger) {
 	logVersion(logger)
 	logViamEnvVariables(logger)
+}
+
+// warnOnDeprecatedVersion periodically warns when the running viam-server build has been
+// deprecated.
+func warnOnDeprecatedVersion(ctx context.Context, appConn rpc.ClientConn, logger logging.Logger) {
+	if config.Version == "" {
+		return
+	}
+	client := agentpb.NewAgentDeviceServiceClient(appConn)
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		checkCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		resp, err := client.GetSubsystemVersionStatus(checkCtx,
+			&agentpb.GetSubsystemVersionStatusRequest{Subsystem: "viam-server", Version: config.Version})
+		cancel()
+		if err == nil && resp.GetDeprecated() {
+			logger.Warnf("viam-server %s is deprecated and can no longer be installed; "+
+				"update this machine's version settings", config.Version)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -277,6 +304,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 			registry.AddAppenderToAll(netAppender)
 		}
+
+		go warnOnDeprecatedVersion(ctx, appConn, rootLogger)
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(rootLogger)
