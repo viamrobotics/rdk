@@ -90,10 +90,34 @@ const (
 	yellow = "\033[1;33m%s\033[0m"
 )
 
+// ftdc data is stored at VIAM_HOME/diagnostics.data/[part-id]
+const ftdcRelativePath = "diagnostics.data"
+
+// legacyViamHomeDir is where the CLI assumed viam-server kept its data before it
+// learned to let the machine resolve its own VIAM_HOME.
+const legacyViamHomeDir = "~/.viam"
+
 var (
 	errNoShellService = errors.New("shell service is not enabled on this machine part")
-	ftdcPath          = path.Join("~", ".viam", "diagnostics.data")
+	ftdcPath          = path.Join(shell.ViamHomePrefix, ftdcRelativePath)
 )
+
+// legacyViamHomePath rewrites a shell.ViamHomePrefix path to the directory the CLI used
+// to hardcode, reporting whether src was rooted at the prefix at all.
+//
+// A viam-server predating the prefix does not know how to expand it. A machine that old
+// either has VIAM_HOME unset — in which case ~/.viam is the right answer — or was
+// already failing this command before the prefix existed.
+func legacyViamHomePath(src string) (string, bool) {
+	rest, found := strings.CutPrefix(src, shell.ViamHomePrefix)
+	if !found {
+		return "", false
+	}
+	// Intentional use of path instead of filepath: Windows understands both / and
+	// \ as path separators, and we don't want a cli running on Windows to send
+	// a path using \ to a *NIX machine.
+	return path.Join(legacyViamHomeDir, rest), true
+}
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
@@ -3742,6 +3766,7 @@ type machinesPartGetFTDCArgs struct {
 	Location     string
 	Machine      string
 	Part         string
+	ViamHomeDir  string
 }
 
 // MachinesPartGetFTDCAction is the corresponding Action for 'machines part get-ftdc'.
@@ -3941,6 +3966,10 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	// \ as path separators, and we don't want a cli running on Windows to send
 	// a path using \ to a *NIX machine.
 	src := path.Join(ftdcPath, part.Id)
+	// if target part has a non-default VIAM_HOME, the caller can specify it.
+	if flagArgs.ViamHomeDir != "" {
+		src = path.Join(flagArgs.ViamHomeDir, ftdcRelativePath, part.Id)
+	}
 	gArgs, err := getGlobalArgs(cmd)
 	quiet := err == nil && gArgs != nil && gArgs.Quiet
 	var startTime time.Time
@@ -6112,14 +6141,46 @@ func (c *viamClient) copyFilesFromMachine(
 		utils.UncheckedError(closeClient(ctx))
 	}()
 
-	// prepare a factory that understands how to work with our local filesystem.
+	// prepare a factory that understands how to work with our local filesystem. It is
+	// stateless across attempts, and a failed copy errors on the machine before any
+	// metadata comes back, so no copier is ever made for one.
 	factory, err := shell.NewLocalFileCopyFactory(destination, preserve, false)
 	if err != nil {
 		return err
 	}
 
+	// A machine whose viam-server predates shell.ViamHomePrefix cannot expand it, so try
+	// the path the CLI used to hardcode too. Retried on this connection rather than by
+	// the caller, since dialing the machine again would cost far more than the copy.
+	attempts := [][]string{paths}
+	if len(paths) == 1 {
+		if legacy, ok := legacyViamHomePath(paths[0]); ok {
+			attempts = append(attempts, []string{legacy})
+		}
+	}
+
 	// let the shell service figure out how to grab the files for and pass them to our copier.
-	return shellSvc.CopyFilesFromMachine(ctx, paths, allowRecursion, preserve, factory, nil)
+	// The first attempt's error is the one worth reporting, since that is the path we
+	// expect to work.
+	var firstErr error
+	for i, attempt := range attempts {
+		err := shellSvc.CopyFilesFromMachine(ctx, attempt, allowRecursion, preserve, factory, nil)
+		if err == nil {
+			if i > 0 {
+				// Never hand back files from a path the caller did not ask for without
+				// saying so: on a machine mid-migration to viam-agent this directory can
+				// still hold stale data from before the move.
+				warningf(c.c.Root().Writer,
+					"%s could not be resolved by this machine, copied from %s instead",
+					shell.ViamHomePrefix, strings.Join(attempt, " "))
+			}
+			return nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {

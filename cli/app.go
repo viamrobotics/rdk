@@ -3217,7 +3217,10 @@ Note: There is no progress meter while copying is in progress.
 								[]string{generalFlagPart},
 								true, false,
 								"[target]"),
-							Flags:  commonPartFlags,
+							Flags: lo.Flatten([][]cli.Flag{
+								commonPartFlags,
+								commonPathFlags,
+							}),
 							Action: createActionCommandWithT(MachinesPartGetFTDCAction),
 						},
 						{

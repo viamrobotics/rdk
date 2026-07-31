@@ -1452,6 +1452,47 @@ func TestShellGetFTDC(t *testing.T) {
 			testDownload(t, t.TempDir())
 		})
 	})
+
+	// The CLI cannot know where the machine keeps VIAM_HOME, so by default it asks the
+	// machine to resolve it. Restoring the real default and pointing this process's
+	// VIAM_HOME at the test filesystem stands in for a machine whose VIAM_HOME is not
+	// under any user's home directory (an agent install).
+	t.Run("ftdc data lives outside the home directory", func(t *testing.T) {
+		partFtdcPath := filepath.Join(tfs.Root, ftdcRelativePath, partID)
+		test.That(t, os.MkdirAll(partFtdcPath, 0o750), test.ShouldBeNil)
+		t.Cleanup(func() {
+			test.That(t, os.RemoveAll(filepath.Join(tfs.Root, ftdcRelativePath)), test.ShouldBeNil)
+		})
+		test.That(t, os.WriteFile(filepath.Join(partFtdcPath, "foo"), nil, 0o640), test.ShouldBeNil)
+
+		origViamDotDir := utils.ViamDotDir
+		utils.ViamDotDir = tfs.Root
+		t.Cleanup(func() { utils.ViamDotDir = origViamDotDir })
+
+		targetPath := t.TempDir()
+		cCtx, viamClient, _, _ := setupWithRunningPart(
+			t, asc, nil, nil, partFlags, "token", partFqdn, targetPath)
+		test.That(t,
+			viamClient.machinesPartGetFTDCAction(context.Background(), cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
+			test.ShouldBeNil)
+
+		entries, err := os.ReadDir(filepath.Join(targetPath, partID))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, entries, test.ShouldHaveLength, 1)
+		test.That(t, entries[0].Name(), test.ShouldEqual, "foo")
+	})
+}
+
+func TestLegacyViamHomePath(t *testing.T) {
+	// paths rooted at the prefix get a legacy candidate for machines whose
+	// viam-server is too old to expand it
+	legacy, ok := legacyViamHomePath("$VIAM_HOME/diagnostics.data/abc123")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, legacy, test.ShouldEqual, "~/.viam/diagnostics.data/abc123")
+
+	// an explicit --viam-home-dir, or a path a test has redirected, has no legacy form
+	_, ok = legacyViamHomePath("/opt/viam/trace/abc123")
+	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestCreateOAuthAppAction(t *testing.T) {
