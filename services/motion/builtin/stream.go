@@ -31,13 +31,18 @@ type stream struct {
 
 	// jpCh is the channel on which joint positions received via the streamPush
 	// DoCommand are passed to the background goroutine running the session.
+	// Closing it signals the session to finish sending the queued targets to the
+	// arm, then teardown cleanly.
 	jpCh chan streaming.JointPositionsChItem
 
-	// flushCh is closed (at most once, via flushOnce) to signal the background
-	// goroutine running the session to finish sending the queued targets to the
-	// arm, then teardown cleanly.
-	flushCh   chan struct{}
-	flushOnce sync.Once
+	// Currently, the stream object is used by unary Do commands simulating a stream
+	// interface. The unary interface can be abused in more ways, such as conccurent
+	// streamPush calls, or streamPush after a streamFlush.
+	// We use a mutex to serialize streamPush and streamFlush to simulate a streaming
+	// interface.
+	opMu sync.Mutex
+	// closed reports that flush has closed jpCh. Guarded by opMu.
+	closed bool
 
 	// cancel is called to signal the background goroutine running the session
 	// to abort immediately, without sending the queued targets to the arm.
@@ -60,21 +65,32 @@ func (s *stream) finished() bool {
 	}
 }
 
-// send delivers one target onto the session channel.
-func (s *stream) send(ctx context.Context, t streaming.JointPositionsChItem) error {
-	// jpCh is never closed (sessions end via flushCh or cancellation), so this
-	// returns once the executor accepts the target, the session ends, or ctx is done.
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.done:
-		if s.resultErr != nil {
-			return fmt.Errorf("streaming session ended: %w", s.resultErr)
-		}
-		return errors.New("streaming session ended")
-	case s.jpCh <- t:
-		return nil
+// send delivers one push's targets onto the session channel, in order. It holds opMu for the
+// whole batch, so a push is atomic with respect to other pushes and to flush.
+func (s *stream) send(ctx context.Context, targets []streaming.JointPositionsChItem) error {
+	if !s.opMu.TryLock() {
+		return errors.New("overlapping stream operations: pushes and flush must be issued sequentially")
 	}
+	defer s.opMu.Unlock()
+	if s.closed {
+		return errors.New("streaming session is flushing; no further targets are accepted")
+	}
+
+	for _, t := range targets {
+		// Each send returns once the executor accepts the target, the session ends, or ctx
+		// is done.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.done:
+			if s.resultErr != nil {
+				return fmt.Errorf("streaming session ended: %w", s.resultErr)
+			}
+			return errors.New("streaming session ended")
+		case s.jpCh <- t:
+		}
+	}
+	return nil
 }
 
 func (ms *builtIn) streamStart(
@@ -114,13 +130,12 @@ func (ms *builtIn) streamStart(
 		logger:  ms.logger.Sublogger("arm_streaming"),
 		armName: armName,
 		jpCh:    make(chan streaming.JointPositionsChItem),
-		flushCh: make(chan struct{}),
 		cancel:  cancel,
 		done:    make(chan struct{}),
 	}
 
 	go func() {
-		err := streaming.Run(streamCtx, a, &opts, s.jpCh, s.flushCh, seed)
+		err := streaming.Run(streamCtx, a, &opts, s.jpCh, seed)
 		s.resultErr = err
 		if err != nil {
 			s.logger.CWarnf(streamCtx, "arm streaming session ended with error: %v", err)
@@ -141,12 +156,7 @@ func (ms *builtIn) streamPush(ctx context.Context, jpChItem []streaming.JointPos
 		return fmt.Errorf("no streaming session is running; call %s first", DoStreamStart)
 	}
 
-	for _, jpItem := range jpChItem {
-		if err := s.send(ctx, jpItem); err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.send(ctx, jpChItem)
 }
 
 func (ms *builtIn) streamFlush(ctx context.Context) (map[string]any, error) {
@@ -158,9 +168,16 @@ func (ms *builtIn) streamFlush(ctx context.Context) (map[string]any, error) {
 		return nil, fmt.Errorf("no streaming session is running; call %s first", DoStreamStart)
 	}
 
-	// Signal the background goroutine to stop accepting targets and drain the
-	// remaining trajectory to the arm.
-	s.flushOnce.Do(func() { close(s.flushCh) })
+	// Close jpCh to signal the background goroutine to stop accepting targets and drain the
+	// remaining trajectory to the arm. Taking opMu first waits out an in-flight push and bars
+	// new ones, so no send can race the close; the closed flag makes the close idempotent and
+	// turns late pushes into a clear error.
+	s.opMu.Lock()
+	if !s.closed {
+		s.closed = true
+		close(s.jpCh)
+	}
+	s.opMu.Unlock()
 
 	// Wait for the session to finish.
 	select {

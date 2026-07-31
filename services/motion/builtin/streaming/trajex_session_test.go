@@ -5,6 +5,7 @@ package streaming
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 
@@ -29,6 +30,10 @@ func testStreamOptions() *StreamOptions {
 	return opts
 }
 
+// drainHorizon is far longer than any trajectory these tests plan, so sampling with it drains
+// the session's entire remaining trajectory.
+const drainHorizon = time.Hour
+
 // TestTrajexSessionSamplesTowardTarget checks that a trajexSession started at a seed and extended
 // toward a new target produces a non-empty stream of PVATs, at the configured dof, with
 // non-decreasing trajectory time, that settles at the target.
@@ -43,7 +48,7 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 
 	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
 
-	pvats, err := s.sampleRemainingPVATsFromSession(ctx)
+	pvats, err := s.sample(ctx, drainHorizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(pvats), test.ShouldBeGreaterThan, 0)
 
@@ -75,15 +80,16 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	test.That(t, s.addJointPositionsToSession(ctx, nearlyIdentical), test.ShouldBeNil)
 	test.That(t, s.lastJointPositions, test.ShouldResemble, seed)
 
-	pvats, err := s.sampleRemainingPVATsFromSession(ctx)
+	pvats, err := s.sample(ctx, drainHorizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(pvats), test.ShouldEqual, 0)
 }
 
-// TestTrajexSessionSampleNextPVATFromSession checks that sampleNextPVATFromSession samples one
-// PVAT at a time, matching the first entries sampleRemainingPVATsFromSession would otherwise
-// drain in bulk.
-func TestTrajexSessionSampleNextPVATFromSession(t *testing.T) {
+// TestTrajexSessionSampleHorizon checks that sample advances the watermark by only
+// (approximately) the requested horizon per call rather than draining the trajectory, and that
+// consecutive calls continue from where the previous one left off. This is the property Run's
+// deficit-driven sampling relies on to commit no more trajectory than the arm's runway needs.
+func TestTrajexSessionSampleHorizon(t *testing.T) {
 	ctx := context.Background()
 	seed := []referenceframe.Input{0, 0}
 	target := []referenceframe.Input{0.5, 0.5}
@@ -94,9 +100,18 @@ func TestTrajexSessionSampleNextPVATFromSession(t *testing.T) {
 
 	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
 
-	pv, err := s.sampleNextPVATFromSession(ctx)
+	horizon := 20 * time.Millisecond
+	first, err := s.sample(ctx, horizon)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pv, test.ShouldNotBeNil)
-	test.That(t, len(pv.positions), test.ShouldEqual, len(seed))
-	test.That(t, pv.time, test.ShouldBeGreaterThanOrEqualTo, 0)
+	test.That(t, len(first), test.ShouldBeGreaterThan, 0)
+	test.That(t, len(first[0].positions), test.ShouldEqual, len(seed))
+	// The last sample reaches the horizon but not far past it (within one sample period).
+	test.That(t, first[len(first)-1].time, test.ShouldBeGreaterThanOrEqualTo, horizon)
+	test.That(t, first[len(first)-1].time, test.ShouldBeLessThan, horizon+20*time.Millisecond)
+
+	// A second call continues from the watermark rather than restarting.
+	second, err := s.sample(ctx, horizon)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(second), test.ShouldBeGreaterThan, 0)
+	test.That(t, second[0].time, test.ShouldBeGreaterThan, first[len(first)-1].time)
 }
