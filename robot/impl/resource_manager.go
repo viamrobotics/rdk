@@ -336,6 +336,18 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
 			}
 
+			// The check above catches same-API collisions. Also flag cross-API name
+			// collisions: this remote resource is hidden from the machine's resource list
+			// but still added to the resource graph.
+			for _, other := range manager.resources.FindBySimpleName(prefixedSimpleName) {
+				if other.API != resName.API {
+					manager.logger.Errorw("Remote resource name collision with a different-type resource; the remote "+
+						"resource will be hidden until the collision is fixed",
+						"name", prefixedSimpleName, "remote_api", resName.API, "conflicts_with", other.String(), "remote", remoteName.Name)
+					break
+				}
+			}
+
 			// Configure a new graph node with the gRPC client to this remote resource.
 			gNode = resource.NewConfiguredGraphNodeWithPrefix(resource.Config{}, res, unknownModel, prefix)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
@@ -1241,25 +1253,33 @@ func (manager *resourceManager) addToBeConstructedResource(
 	deps []string,
 	revision string,
 ) error {
-	if _, hasNode := manager.resources.Node(name); hasNode {
-		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* remove dependents */)
-		manager.logger.Errorw("Cannot add duplicate local resource. Rename the resource. Neither resource will be reachable through "+
-			"this machine until collision is fixed", "colliding name", name)
-		return fmt.Errorf("cannot add duplicate local resource %s", name)
+	// Machine-wide name uniqueness. Components and services may not share a simple name with any
+	// other local resource, even under a different API; other resource types conflict only on an
+	// exact name. On a collision neither the new nor the pre-existing resource(s) are reachable
+	// until the config is fixed.
+	var collidingNames []resource.Name
+	if (name.API.IsComponent() || name.API.IsService()) && name.Name != resource.DefaultServiceName {
+		for _, existing := range manager.resources.FindBySimpleName(name.Name) {
+			if existing.Remote != "" {
+				continue
+			}
+			// A node already marked for removal is on its way out and is not a real collision.
+			if node, ok := manager.resources.Node(existing); ok && node.MarkedForRemoval() {
+				continue
+			}
+			collidingNames = append(collidingNames, existing)
+		}
+	} else if _, hasNode := manager.resources.Node(name); hasNode {
+		// Non-component/service resources (remotes, builtin) conflict only on an exact name.
+		collidingNames = append(collidingNames, name)
 	}
-
-	// Check for a full resource name collision and log an error if there is one.
-	_, err := manager.resources.FindBySimpleNameAndAPI(name.Name, name.API)
-	switch {
-	case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
-		// A collision could be indicated by a non-nil graph node (a single pre-existing
-		// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
-		// pre-existing remote resources with the same name).
-		manager.logger.Errorw("Found resource name collision, please check your configuration", "name", name.Name, "api", name.API)
-	case resource.IsNodeNotFoundError(err):
-		// No resources with the given simple name + API exists yet. All good.
-	default:
-		manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
+	if len(collidingNames) > 0 {
+		manager.markResourcesRemoved(collidingNames, nil, true /* remove dependents */)
+		manager.logger.Errorw("Cannot add resource with a duplicate name; resource names must be unique across the "+
+			"machine regardless of type. Neither the new resource nor the existing resource(s) with this name will be "+
+			"reachable until the collision is fixed",
+			"name", name.Name, "api", name.API, "colliding", resource.NamesToStrings(collidingNames))
+		return fmt.Errorf("cannot add duplicate resource %q: name %q is already in use", name, name.Name)
 	}
 
 	gNode := resource.NewUnconfiguredGraphNode(conf, deps)

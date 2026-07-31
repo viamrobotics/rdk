@@ -416,27 +416,61 @@ func seq2First[K, V any](seq iter.Seq2[K, V]) (K, V, bool) {
 func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	type candidate struct {
+		name Name
+		node *GraphNode
+	}
 	var result []Name
+	emit := func(c candidate) {
+		if filter(c.name, c.node) {
+			result = append(result, c.name)
+		}
+	}
+
+	// Group candidates by bare name to enforce name uniqueness across APIs.
+	byName := make(map[string][]candidate)
 	for k, v := range g.nodes.simpleNameCache {
 		if v.local == nil && len(v.remote) != 1 {
 			continue
 		}
-		name := Name{
-			API:  k.api,
-			Name: k.name,
-		}
+		c := candidate{name: Name{API: k.api, Name: k.name}}
 		if v.local != nil {
-			if !filter(name, v.local) {
-				continue
-			}
+			c.node = v.local
 		} else {
 			remName, remNode, _ := seq2First(maps.All(v.remote))
-			name.Remote = remName
-			if !filter(name, remNode) {
+			c.name.Remote = remName
+			c.node = remNode
+		}
+
+		// Only components and services participate in machine-wide name uniqueness. The
+		// reserved default-service name and rdk-internal resources are exempt and emitted per-API.
+		if k.name == DefaultServiceName ||
+			k.api.Type.Namespace == APINamespaceRDKInternal ||
+			!(k.api.IsComponent() || k.api.IsService()) {
+			emit(c)
+			continue
+		}
+		byName[k.name] = append(byName[k.name], c)
+	}
+
+	for _, cands := range byName {
+		chosen := cands[0]
+		if len(cands) > 1 {
+			// A local resource wins over remotes claiming the same name. If there is not
+			// exactly one local claimant (e.g. remote resources collide), the name is hidden.
+			var localCands []candidate
+			for _, c := range cands {
+				if c.name.Remote == "" {
+					localCands = append(localCands, c)
+				}
+			}
+			if len(localCands) != 1 {
 				continue
 			}
+			chosen = localCands[0]
 		}
-		result = append(result, name)
+		emit(chosen)
 	}
 	return result
 }

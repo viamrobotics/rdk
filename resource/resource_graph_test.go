@@ -1254,6 +1254,62 @@ func TestFindBySimpleNameAndAPI(t *testing.T) {
 	test.That(t, err, test.ShouldResemble, fooPrefixedNotFoundError)
 }
 
+func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
+	// Verifies machine-wide name uniqueness in SimpleNamesWhere: a bare name claimed by more
+	// than one resource across different APIs is hidden (a local resource wins over remotes),
+	// while the reserved "builtin" default-service name and rdk-internal resources are exempt
+	// and remain per-API.
+	logger := logging.NewTestLogger(t)
+
+	compA := APINamespace("namespace").WithComponentType("aapi")
+	svcB := APINamespace("namespace").WithServiceType("bapi")
+	internalA := APINamespaceRDKInternal.WithServiceType("iapi")
+	internalB := APINamespaceRDKInternal.WithServiceType("japi")
+
+	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
+	all := func(Name, *GraphNode) bool { return true }
+
+	g := NewGraph(logger)
+
+	// Single local resource: advertised.
+	g.AddNode(Name{API: compA, Name: "solo"}, newNode())
+	// A local component and a local service sharing a name: both hidden.
+	g.AddNode(Name{API: compA, Name: "dupLocal"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "dupLocal"}, newNode())
+	// Local + remote sharing a name across APIs: local wins, remote hidden.
+	g.AddNode(Name{API: compA, Name: "localWins"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "localWins", Remote: "r1"}, newNode())
+	// Two remotes sharing a name across APIs, no local: both hidden.
+	g.AddNode(Name{API: compA, Name: "dupRemote", Remote: "r1"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "dupRemote", Remote: "r2"}, newNode())
+	// Two "builtin" default services across APIs: both advertised (exempt).
+	g.AddNode(Name{API: compA, Name: DefaultServiceName}, newNode())
+	g.AddNode(Name{API: svcB, Name: DefaultServiceName}, newNode())
+	// Two rdk-internal resources sharing a name across APIs: both advertised (exempt).
+	g.AddNode(Name{API: internalA, Name: "shared"}, newNode())
+	g.AddNode(Name{API: internalB, Name: "shared"}, newNode())
+
+	got := g.SimpleNamesWhere(all)
+
+	expected := []Name{
+		{API: compA, Name: "solo"},
+		{API: compA, Name: "localWins"},
+		{API: compA, Name: DefaultServiceName},
+		{API: svcB, Name: DefaultServiceName},
+		{API: internalA, Name: "shared"},
+		{API: internalB, Name: "shared"},
+	}
+	test.That(t, len(got), test.ShouldEqual, len(expected))
+	for _, e := range expected {
+		test.That(t, got, test.ShouldContain, e)
+	}
+	// The hidden names must not appear under any API.
+	for _, n := range got {
+		test.That(t, n.Name, test.ShouldNotEqual, "dupLocal")
+		test.That(t, n.Name, test.ShouldNotEqual, "dupRemote")
+	}
+}
+
 func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) string {
 	if len(expected) != 1 {
 		panic("takes exactly one argument")
