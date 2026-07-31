@@ -44,9 +44,6 @@ func newUploadProgressLogger(logger logging.Logger, clk clock.Clock, path string
 // Info level if at least UploadProgressLogInterval has passed since the last progress
 // log (or since the upload started).
 func (p *uploadProgressLogger) addBytes(n int) {
-	if p == nil {
-		return
-	}
 	p.sentBytes += uint64(n)
 	now := p.clock.Now()
 	if now.Sub(p.lastLog) < UploadProgressLogInterval {
@@ -67,9 +64,6 @@ func (p *uploadProgressLogger) addBytes(n int) {
 // progress line was already emitted; otherwise it logs at Debug so small, fast
 // uploads stay quiet at the default level.
 func (p *uploadProgressLogger) complete() {
-	if p == nil {
-		return
-	}
 	now := p.clock.Now()
 	msg := fmt.Sprintf("uploaded %s: %s in %s (avg rate: %s/s)",
 		p.path,
