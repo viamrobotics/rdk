@@ -1243,18 +1243,30 @@ func (manager *resourceManager) addToBeConstructedResource(
 		return fmt.Errorf("cannot add duplicate local resource %s", name)
 	}
 
-	// Check for a full resource name collision and log an error if there is one.
-	_, err := manager.resources.FindBySimpleNameAndAPI(name.Name, name.API)
-	switch {
-	case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
-		// A collision could be indicated by a non-nil graph node (a single pre-existing
-		// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
-		// pre-existing remote resources with the same name).
-		manager.logger.Errorw("Found resource name collision, please check your configuration", "name", name.Name, "api", name.API)
-	case resource.IsNodeNotFoundError(err):
-		// No resources with the given simple name + API exists yet. All good.
-	default:
-		manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
+	// Detection-only rollout for machine-wide name uniqueness: a component or service whose
+	// simple name is already used by another local resource of a different API will be refused
+	// in a future viam-server release. For now we only log so operators can fix configs before
+	// enforcement lands; the resource is still built. The reserved default-service name is
+	// exempt (every service API registers its own "builtin"), and nodes already marked for
+	// removal (e.g. a resource being reconfigured to a new API under the same name) are not
+	// collisions.
+	if (name.API.IsComponent() || name.API.IsService()) && name.Name != resource.DefaultServiceName {
+		var collidingLocalNames []resource.Name
+		for _, existing := range manager.resources.FindBySimpleName(name.Name) {
+			if existing.Remote != "" {
+				continue
+			}
+			if node, ok := manager.resources.Node(existing); ok && node.MarkedForRemoval() {
+				continue
+			}
+			collidingLocalNames = append(collidingLocalNames, existing)
+		}
+		if len(collidingLocalNames) > 0 {
+			manager.logger.Errorw("Resource name collision: this name is already used by another resource of a "+
+				"different type. Resource names must be unique across the machine regardless of type; a future "+
+				"viam-server release will refuse to build colliding resources. Please rename one of them",
+				"name", name.Name, "api", name.API, "colliding", resource.NamesToStrings(collidingLocalNames))
+		}
 	}
 
 	gNode := resource.NewUnconfiguredGraphNode(conf, deps)
