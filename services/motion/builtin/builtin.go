@@ -88,7 +88,6 @@ type inputEnabledActuator interface {
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
 type Config struct {
 	LogFilePath string `json:"log_file_path"`
-	NumThreads  int    `json:"num_threads"`
 
 	PlanFilePath                string `json:"plan_file_path"`
 	PlanDirectoryIncludeTraceID bool   `json:"plan_directory_include_trace_id"`
@@ -128,10 +127,6 @@ func (c *Config) shouldWritePlan(start time.Time, err error) bool {
 
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, []string, error) {
-	if c.NumThreads < 0 {
-		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
-	}
-
 	if c.LogPlannerErrors && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors)
 	}
@@ -150,15 +145,14 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 
 type builtIn struct {
 	resource.Named
-	conf                    *Config
-	mu                      sync.RWMutex
-	fsService               framesystem.Service
-	movementSensors         map[string]movementsensor.MovementSensor
-	slamServices            map[string]slam.Service
-	visionServices          map[string]vision.Service
-	components              map[string]resource.Resource
-	logger                  logging.Logger
-	configuredDefaultExtras map[string]any
+	conf            *Config
+	mu              sync.RWMutex
+	fsService       framesystem.Service
+	movementSensors map[string]movementsensor.MovementSensor
+	slamServices    map[string]slam.Service
+	visionServices  map[string]vision.Service
+	components      map[string]resource.Resource
+	logger          logging.Logger
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
@@ -170,9 +164,8 @@ func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
 	ms := &builtIn{
-		Named:                   conf.ResourceName().AsNamed(),
-		logger:                  logger,
-		configuredDefaultExtras: make(map[string]any),
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
 	}
 
 	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
@@ -207,10 +200,6 @@ func (ms *builtIn) BuiltInReconfigure(
 		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)
 		ms.logger.AddAppender(fileAppender)
 	}
-	if config.NumThreads > 0 {
-		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
-	}
-
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
@@ -253,7 +242,6 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	ms.applyDefaultExtras(req.Extra)
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
 		return false, err
@@ -706,19 +694,6 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
-}
-
-// applyDefaultExtras iterates through the list of default extras configured on the builtIn motion service and adds them to the
-// given map of extras if the key does not already exist.
-func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
-	if extras == nil {
-		extras = make(map[string]any)
-	}
-	for key, val := range ms.configuredDefaultExtras {
-		if _, ok := extras[key]; !ok {
-			extras[key] = val
-		}
-	}
 }
 
 func waypointsFromRequest(
