@@ -2107,7 +2107,7 @@ func TestHandleRestartStatus(t *testing.T) {
 		res := rec.Result()
 		defer func() { test.That(t, res.Body.Close(), test.ShouldBeNil) }()
 		test.That(t, res.StatusCode, test.ShouldEqual, http.StatusForbidden)
-		// Internal restart state must not be consulted for rejected requests.
+		// Rejected requests must not read restart state.
 		test.That(t, restartAllowedCalls, test.ShouldEqual, 0)
 	})
 }
