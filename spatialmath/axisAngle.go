@@ -111,7 +111,7 @@ func (r4 *R4AA) fixOrientation() {
 
 // R3ToR4 converts an R3 angle axis to R4.
 func R3ToR4(aa r3.Vector) *R4AA {
-	if aa == (r3.Vector{1, 0, 0}) { // zero
+	if aa == (r3.Vector{}) { // zero
 		return NewR4AA()
 	}
 	theta := aa.Norm()
