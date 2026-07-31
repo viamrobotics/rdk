@@ -239,6 +239,49 @@ func TestDoCommandArmStreamingAbortTeardown(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+// TestDoCommandArmStreamingProtocolEnforcement checks that the single-controller push protocol
+// is enforced explicitly: a push overlapping another in-flight push or flush is rejected with a
+// protocol error rather than interleaved, and a push after flush is rejected rather than parked.
+func TestDoCommandArmStreamingProtocolEnforcement(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	ctx := context.Background()
+
+	_, err := ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamPush: []interface{}{[]interface{}{0.02, 0.0, 0.0, 0.0, 0.0, 0.0}},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// A push while another operation holds the protocol lock is rejected, not queued.
+	ms.streamMu.RLock()
+	s := ms.stream
+	ms.streamMu.RUnlock()
+	s.opMu.Lock()
+	_, err = ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamPush: []interface{}{[]interface{}{0.04, 0.0, 0.0, 0.0, 0.0, 0.0}},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "overlapping stream operations")
+	s.opMu.Unlock()
+
+	// Flush, then push: rejected with a clear error rather than blocking until session end.
+	flushCtx, flushCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer flushCancel()
+	_, err = ms.DoCommand(flushCtx, map[string]interface{}{DoStreamFlush: true})
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamPush: []interface{}{[]interface{}{0.06, 0.0, 0.0, 0.0, 0.0, 0.0}},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "flushing")
+}
+
 func TestDoCommandArmStreamingBatch(t *testing.T) {
 	ms, counts := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()

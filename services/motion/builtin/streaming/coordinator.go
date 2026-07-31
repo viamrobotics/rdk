@@ -4,83 +4,107 @@ package streaming
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"go.uber.org/multierr"
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 )
 
-type pvat struct {
-	positions     []float64
-	velocities    []float64
-	accelerations []float64
-	time          time.Duration
-}
-
-// Run executes a streaming session through one trajex session and one arm stream RPC. It returns
-// nil once jpCh or flushCh is closed and every sampled PVAT has been drained to the arm and
-// acknowledged, or the first non-context error from the trajex session or arm stream otherwise.
-// flushCh may be nil, in which case the session ends only via jpCh closing or ctx cancellation.
+// Run executes a streaming session through one trajex session and one arm stream RPC.
+// If jpCh is closed, it samples everything out of the trajex session and sends it to the
+// arm. It waits for the arm to have finished executing before returning.
 func Run(
 	ctx context.Context,
 	a arm.Arm,
 	opts *StreamOptions,
 	jpCh <-chan JointPositionsChItem,
-	flushCh <-chan struct{},
 	seed []referenceframe.Input,
-) error {
+) (err error) {
 	opts.ApplyDefaults()
 	if err := opts.Validate(); err != nil {
 		return err
 	}
 
-	pvatCh := make(chan pvat, max(1, opts.TargetRunwayInArmMs/opts.SendToArmIntervalMs))
-	trajexSession := &trajexSession{
-		opts:   opts,
-		pvatCh: pvatCh,
+	// Start the trajex session.
+	ts := &trajexSession{opts: opts}
+	if err := ts.startSession(seed); err != nil {
+		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}
-	armStream := &armStreamWithTargetRunway{
-		arm:               a,
-		pvatCh:            pvatCh,
-		targetRunway:      time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond,
-		sendToArmInterval: time.Duration(opts.SendToArmIntervalMs) * time.Millisecond,
-	}
+	defer ts.close()
 
+	// Start the arm RPC stream.
+	as := &armStream{arm: a}
+	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
-	// We create a channel buffer of size one for both run handles such that the runner code can
-	// safely choose any order of pushing an error and calling done.
-	trajexRunHandle := runHandle{
-		done:   make(chan error, 1),
-		cancel: cancel,
+	as.startStream(ctx)
+	defer func() {
+		if err != nil {
+			// On error, cancel first so that the RPC gets interrupted.
+			cancel()
+			err = multierr.Combine(err, as.close())
+			return
+		}
+		// On success, close first so that the RPC can finish gracefully.
+		err = as.close()
+		cancel()
+	}()
+
+	targetRunway := time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond
+
+	sendToArmTicker := time.NewTicker(time.Duration(opts.SendToArmIntervalMs) * time.Millisecond)
+	defer sendToArmTicker.Stop()
+
+	for {
+		select {
+		// Cancel was called.
+		case <-ctx.Done():
+			return ctx.Err()
+
+		// A new set of joint positions is available.
+		case jp, ok := <-jpCh:
+			if !ok {
+				// jpCh closed: no more targets can arrive, so nothing can pivot the remaining
+				// trajectory. Send all of it to the arm now, in targetRunway-sized batches.
+				for {
+					pvats, err := ts.sample(ctx, targetRunway)
+					if err != nil {
+						return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+					}
+					if len(pvats) == 0 {
+						return nil
+					}
+					if err := as.send(ctx, pvats); err != nil {
+						return err
+					}
+				}
+			}
+
+			// Add the new joint positions to the trajex session.
+			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
+				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+			}
+
+		// Time to check whether the arm's runway needs topping up.
+		case <-sendToArmTicker.C:
+			// Sample out of trajex only the deficit needed to top up the arm's runway.
+			deficit := targetRunway - as.currentEstimatedRunwayInArm()
+			if deficit <= 0 {
+				continue
+			}
+			pvats, err := ts.sample(ctx, deficit)
+			if err != nil {
+				return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+			}
+			if len(pvats) == 0 {
+				// No trajectory yet, or what we have received so far has been sampled through.
+				continue
+			}
+			if err := as.send(ctx, pvats); err != nil {
+				return err
+			}
+		}
 	}
-
-	armRunHandle := runHandle{
-		done:   make(chan error, 1),
-		cancel: cancel,
-	}
-	go trajexSession.run(ctx, jpCh, flushCh, seed, &trajexRunHandle)
-	go armStream.run(ctx, &armRunHandle)
-
-	// Wait for both goroutines to finish.
-	// Whichever side fails first cancels the shared context.
-	trajexErr := <-trajexRunHandle.done
-	armErr := <-armRunHandle.done
-
-	// Ensure cancel is called to release resources.
-	cancel()
-
-	// Report the root cause. Trajex errors take priority over arm errors.
-	if trajexErr != nil {
-		return trajexErr
-	}
-
-	return armErr
-}
-
-type runHandle struct {
-	done chan error // closed when the caller returns. An error is pushed iff there was an error.
-
-	// cancel is called when the owner errors. This will signal contexts used by codependent
-	// processes.
-	cancel context.CancelFunc
 }

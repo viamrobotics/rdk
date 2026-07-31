@@ -21,126 +21,12 @@ const (
 )
 
 type trajexSession struct {
-	opts   *StreamOptions
-	pvatCh chan<- pvat
+	opts *StreamOptions
 
 	// State for the underlying trajex library session, set up by startSession.
 	sess               *totgstream.Session
 	dof                int
 	lastJointPositions []referenceframe.Input
-}
-
-func (s *trajexSession) run(
-	ctx context.Context,
-	jpCh <-chan JointPositionsChItem,
-	flushCh <-chan struct{},
-	seed []referenceframe.Input,
-	r *runHandle,
-) {
-	defer func() {
-		close(s.pvatCh)
-		if s.sess != nil {
-			s.close()
-		}
-		close(r.done)
-	}()
-
-	fail := func(err error) {
-		if s.sess != nil {
-			err = fmt.Errorf("(seed=%v): %w", s.lastJointPositions, err)
-		}
-		r.done <- err
-		r.cancel()
-	}
-
-	if err := s.startSession(seed); err != nil {
-		fail(fmt.Errorf("startSession (seed=%v): %w", seed, err))
-		return
-	}
-
-	var nextPVAT *pvat
-	for {
-		// nextPVAT is nil if the trajex session was sampled through because no new targets came in
-		// time.
-		// Since `select` evaluates send operands up front for every case:
-		// (1) To avoid a nil deref panic from `pvatCh <- *nextPVAT`, leave toSend as zero.
-		// (2) To avoid pushing a zero value into the real channel, leave sendCh as nil.
-		var toSend pvat
-		var sendCh chan<- pvat
-		if nextPVAT != nil {
-			toSend, sendCh = *nextPVAT, s.pvatCh
-		}
-
-		select {
-		// Cancel was called.
-		case <-ctx.Done():
-			r.done <- ctx.Err()
-			return
-
-		// A new target is available.
-		case target, ok := <-jpCh:
-			if !ok {
-				// Targets channel closed.
-				if err := s.sendRemainingPVATs(ctx, nextPVAT); err != nil {
-					fail(err)
-				}
-				return
-			}
-
-			if err := s.addJointPositionsToSession(ctx, target.Positions); err != nil {
-				fail(fmt.Errorf("addJointPositionsToSession: %w", err))
-				return
-			}
-
-		// A flush was requested: stop accepting targets and drain the remaining trajectory.
-		case <-flushCh:
-			if err := s.sendRemainingPVATs(ctx, nextPVAT); err != nil {
-				fail(err)
-			}
-			return
-
-		// There's space in sendCh and we have a pvat to send.
-		case sendCh <- toSend:
-			nextPVAT = nil
-		}
-
-		// Keep exactly one sampled PVAT queued up to offer via sendCh next iteration. Only refill
-		// it once the previous one has actually been sent.
-		if nextPVAT == nil {
-			var err error
-			if nextPVAT, err = s.sampleNextPVATFromSession(ctx); err != nil {
-				fail(fmt.Errorf("sampleNextPVATFromSession: %w", err))
-				return
-			}
-		}
-	}
-}
-
-func (s *trajexSession) sendRemainingPVATs(ctx context.Context, nextPVAT *pvat) error {
-	if nextPVAT != nil {
-		if err := s.sendPVAT(ctx, *nextPVAT); err != nil {
-			return err
-		}
-	}
-	remaining, err := s.sampleRemainingPVATsFromSession(ctx)
-	if err != nil {
-		return fmt.Errorf("sampleRemainingPVATsFromSession: %w", err)
-	}
-	for _, pv := range remaining {
-		if err := s.sendPVAT(ctx, pv); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *trajexSession) sendPVAT(ctx context.Context, pv pvat) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case s.pvatCh <- pv:
-		return nil
-	}
 }
 
 func (s *trajexSession) startSession(startJointPositions []referenceframe.Input) error {
@@ -211,45 +97,19 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 	return nil
 }
 
-func (s *trajexSession) sampleNextPVATFromSession(ctx context.Context) (*pvat, error) {
+func (s *trajexSession) sample(ctx context.Context, horizon time.Duration) ([]pvat, error) {
 	out, err := trajex.NewTensorMap()
 	if err != nil {
 		return nil, err
 	}
 	defer out.Close()
-	if err := s.sess.SampleNext(ctx, 1, out); err != nil {
+	if err := s.sess.SampleAtLeast(ctx, horizon, out); err != nil {
 		return nil, err
 	}
-	pvats, err := pvatsFromOutput(out)
-	if err != nil || len(pvats) == 0 {
-		return nil, err
-	}
-	return &pvats[0], nil
+	return pvatsFromOutput(out)
 }
 
-func (s *trajexSession) sampleRemainingPVATsFromSession(ctx context.Context) ([]pvat, error) {
-	const drainBatch = 64
-	out, err := trajex.NewTensorMap()
-	if err != nil {
-		return nil, err
-	}
-	defer out.Close()
-
-	var all []pvat
-	for {
-		if err := s.sess.SampleNext(ctx, drainBatch, out); err != nil {
-			return nil, err
-		}
-		batch, err := pvatsFromOutput(out)
-		if err != nil {
-			return nil, err
-		}
-		if len(batch) == 0 {
-			return all, nil
-		}
-		all = append(all, batch...)
-	}
-}
+func (s *trajexSession) close() { s.sess.Close() }
 
 func pvatsFromOutput(out *trajex.TensorMap) ([]pvat, error) {
 	view := func(key string) ([]uint64, []float64, error) {
@@ -298,8 +158,6 @@ func pvatsFromOutput(out *trajex.TensorMap) ([]pvat, error) {
 	}
 	return pvats, nil
 }
-
-func (s *trajexSession) close() { s.sess.Close() }
 
 func inputsWithin(a, b []referenceframe.Input, eps float64) bool {
 	if len(a) != len(b) {
