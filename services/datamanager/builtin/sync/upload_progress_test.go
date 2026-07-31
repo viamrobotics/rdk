@@ -29,6 +29,7 @@ func TestUploadProgressLogger(t *testing.T) {
 		test.That(t, infos[0].Message, test.ShouldContainSubstring, "uploading /tmp/big.bin")
 		test.That(t, infos[0].Message, test.ShouldContainSubstring, "50 Bytes / 100 Bytes")
 		test.That(t, infos[0].Message, test.ShouldContainSubstring, "(50%)")
+		test.That(t, infos[0].Message, test.ShouldContainSubstring, "rate: 1 Bytes/s")
 
 		// Within the same interval, further chunks do not log again.
 		p.addBytes(25)
@@ -42,6 +43,7 @@ func TestUploadProgressLogger(t *testing.T) {
 		test.That(t, len(infos), test.ShouldEqual, 2)
 		test.That(t, infos[1].Message, test.ShouldContainSubstring, "uploaded /tmp/big.bin")
 		test.That(t, infos[1].Message, test.ShouldContainSubstring, "100 Bytes")
+		test.That(t, infos[1].Message, test.ShouldContainSubstring, "(avg rate: 3 Bytes/s)")
 	})
 
 	t.Run("uploads that finish within one interval stay quiet at Info", func(t *testing.T) {
