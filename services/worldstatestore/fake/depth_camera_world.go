@@ -4,9 +4,13 @@ import (
 	"math"
 	"time"
 
+	"github.com/viam-labs/motion-tools/draw"
 	commonpb "go.viam.com/api/common/v1"
-	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// blockSizeMM is the side length of each detected block. Sized so an arm reaching toward a block visibly
+// collides with it, making the store-driven obstacle avoidance obvious in the visualizer.
+const blockSizeMM = 150
 
 // DepthCameraWorld simulates a depth camera detecting three colored blocks on a table and reporting them
 // into the store, refreshed each capture cycle. No real camera or vision service is involved.
@@ -15,35 +19,41 @@ type DepthCameraWorld struct {
 }
 
 type detectedBlock struct {
-	name              string
-	baseX, baseY, ldZ float64
-	metadata          *structpb.Struct
+	name                string
+	baseX, baseY, baseZ float64
+	color               draw.Color
 }
 
-// blocks are three colored boxes side-by-side on a table in front of the camera.
+// blocks are three colored boxes side-by-side in front of the camera, resting on the floor (center at
+// half the block height) with a gap between them.
 func (w *DepthCameraWorld) blocks() []detectedBlock {
 	return []detectedBlock{
-		{"red-block", -150, 400, 25, colorMetadata(255, 0, 0, 1)},
-		{"green-block", 0, 400, 25, colorMetadata(0, 255, 0, 1)},
-		{"blue-block", 150, 400, 25, colorMetadata(0, 0, 255, 1)},
+		{"red-block", -250, 400, blockSizeMM / 2, draw.ColorFromRGB(255, 0, 0)},
+		{"green-block", 0, 400, blockSizeMM / 2, draw.ColorFromRGB(0, 255, 0)},
+		{"blue-block", 250, 400, blockSizeMM / 2, draw.ColorFromRGB(0, 0, 255)},
 	}
 }
 
-// StartWorld starts the depth camera simulation.
+// StartWorld seeds the blocks and starts the capture loop.
 func (w *DepthCameraWorld) StartWorld() {
 	f := w.worldStateStore
 
 	f.mu.Lock()
 	for _, b := range w.blocks() {
-		f.transforms[b.name] = f.newObstacle(b.name, poseAt(b.baseX, b.baseY, b.ldZ), boxGeometry(50, 50, 50), b.metadata)
+		geom, err := boxGeometry(b.name, blockSizeMM, blockSizeMM, blockSizeMM)
+		if err != nil {
+			f.logger.Errorf("world state store: %v", err)
+			continue
+		}
+		if tf := f.newObstacle(b.name, poseAt(b.baseX, b.baseY, b.baseZ), geom, b.color); tf != nil {
+			f.transforms[b.name] = tf
+		}
 	}
 	f.mu.Unlock()
 
-	f.activeBackgroundWorkers.Add(1)
-	go func() {
-		defer f.activeBackgroundWorkers.Done()
+	f.activeBackgroundWorkers.Go(func() {
 		f.runCaptureLoop(w.onCapture)
-	}()
+	})
 }
 
 // onCapture re-detects the same blocks each cycle with a little positional noise (UPDATED changes).

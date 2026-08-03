@@ -72,12 +72,13 @@ func TestLidarWorld(t *testing.T) {
 	sim := newSim(t, "lidar")
 	defer sim.Close(context.Background())
 
+	// A real lidar reports one point cloud per scan, so the world holds a single transform.
 	uuids := uuidStrings(t, sim)
-	test.That(t, len(uuids), test.ShouldEqual, lidarObstacleCount)
+	test.That(t, len(uuids), test.ShouldEqual, 1)
 
-	tf, err := sim.GetTransform(context.Background(), []byte(lidarObstacleName(0)), nil)
+	tf, err := sim.GetTransform(context.Background(), []byte(lidarScanUUID), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, tf.GetPhysicalObject().GetCapsule(), test.ShouldNotBeNil)
+	test.That(t, tf.GetPhysicalObject().GetPointcloud(), test.ShouldNotBeNil)
 	test.That(t, tf.GetPhysicalObject().GetCenter(), test.ShouldNotBeNil)
 }
 
@@ -117,7 +118,7 @@ func TestMultipleSubscribersEachGetSnapshot(t *testing.T) {
 		stream, err := sim.StreamTransformChanges(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		added := 0
-		for added < lidarObstacleCount {
+		for added < 1 {
 			change, err := stream.Next()
 			if errors.Is(err, io.EOF) {
 				break
@@ -130,6 +131,6 @@ func TestMultipleSubscribersEachGetSnapshot(t *testing.T) {
 		return added
 	}
 
-	test.That(t, countSnapshot(), test.ShouldEqual, lidarObstacleCount)
-	test.That(t, countSnapshot(), test.ShouldEqual, lidarObstacleCount)
+	test.That(t, countSnapshot(), test.ShouldEqual, 1)
+	test.That(t, countSnapshot(), test.ShouldEqual, 1)
 }

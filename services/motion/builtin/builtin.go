@@ -257,6 +257,9 @@ func (ms *builtIn) BuiltInReconfigure(
 			return errors.Errorf("configured world_state_store_service_name %q not found in dependencies", name)
 		}
 		ms.worldStateStore = store
+		ms.logger.CInfof(ctx, "motion: world state store %q wired into this motion service; its obstacles feed every Move", name)
+	} else {
+		ms.logger.CInfof(ctx, "motion: no world_state_store_service_name configured; Moves use only request-supplied world state")
 	}
 
 	return nil
@@ -594,6 +597,26 @@ func (ms *builtIn) storeWorldStateParts(
 	return obstacles, transforms
 }
 
+func countGeometries(obstacles []*referenceframe.GeometriesInFrame) int {
+	n := 0
+	for _, gif := range obstacles {
+		n += len(gif.Geometries())
+	}
+	return n
+}
+
+// summarizeStoreObstacles renders "label@parent(x,y,z)" for each store obstacle, for debug logging.
+func summarizeStoreObstacles(obstacles []*referenceframe.GeometriesInFrame) string {
+	var parts []string
+	for _, gif := range obstacles {
+		for _, g := range gif.Geometries() {
+			c := g.Pose().Point()
+			parts = append(parts, fmt.Sprintf("%s@%s(%.0f,%.0f,%.0f)", g.Label(), gif.Parent(), c.X, c.Y, c.Z))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
 // mergeWorldState combines the request WorldState with the store's obstacles and transforms, built once.
 // Collisions are disambiguated (both kept) and issues logged — never dropped or fatal.
 //
@@ -725,6 +748,10 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	// Merge any request-supplied world state with the configured store's so a Move avoids both sets of
 	// obstacles; conflicts are logged, not fatal.
 	storeObstacles, storeTransforms := ms.storeWorldStateParts(ctx)
+	if ms.worldStateStore != nil {
+		logger.CDebugf(ctx, "motion: world state store %q contributed %d obstacle(s) and %d transform(s) to this Move: [%s]",
+			ms.worldStateStore.Name().Name, countGeometries(storeObstacles), len(storeTransforms), summarizeStoreObstacles(storeObstacles))
+	}
 	req.WorldState = ms.mergeWorldState(ctx, req.WorldState, storeObstacles, storeTransforms)
 
 	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())

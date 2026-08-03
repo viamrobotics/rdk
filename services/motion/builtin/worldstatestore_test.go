@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -195,7 +196,38 @@ func TestStoreWorldStatePartsWithRealFake(t *testing.T) {
 	test.That(t, centers, test.ShouldContainKey, "red-block")
 	test.That(t, centers, test.ShouldContainKey, "green-block")
 	test.That(t, centers, test.ShouldContainKey, "blue-block")
-	test.That(t, centers["red-block"][2], test.ShouldEqual, 25) // stable table height
+	test.That(t, centers["red-block"][2], test.ShouldEqual, 75) // rests on the floor at half the block height
+}
+
+// TestStoreWorldStatePartsLidarPointClouds verifies the lidar sim's point-cloud returns survive the
+// producer->consumer round-trip as collision-capable obstacle geometries (octrees), not just transforms.
+func TestStoreWorldStatePartsLidarPointClouds(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	reg, ok := resource.LookupRegistration(worldstatestore.API, resource.DefaultModelFamily.WithModel("fake"))
+	test.That(t, ok, test.ShouldBeTrue)
+
+	conf := resource.Config{
+		Name:                "ld",
+		API:                 worldstatestore.API,
+		Model:               resource.DefaultModelFamily.WithModel("fake"),
+		ConvertedAttributes: &fakewss.Config{InputSensorType: "lidar"},
+	}
+	res, err := reg.Constructor(context.Background(), nil, conf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	store := res.(worldstatestore.Service)
+	defer store.Close(context.Background())
+
+	ms := newTestBuiltIn(t, store)
+	obs, tf := ms.storeWorldStateParts(context.Background())
+	// Every return carries geometry, so all become obstacles (none degrade to geometry-less transforms).
+	test.That(t, len(tf), test.ShouldEqual, 0)
+	test.That(t, len(obs), test.ShouldBeGreaterThan, 0)
+	for _, gif := range obs {
+		for _, g := range gif.Geometries() {
+			_, isOctree := g.(*pointcloud.BasicOctree)
+			test.That(t, isOctree, test.ShouldBeTrue)
+		}
+	}
 }
 
 // TestStoreWorldStatePartsSkipsUnknownObstacleParent verifies an obstacle whose parent frame is not in
