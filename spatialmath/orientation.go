@@ -39,8 +39,8 @@ func OrientationAlmostEqualEps(o1, o2 Orientation, epsilon float64) bool {
 		return false
 	}
 
-	// Norm, not Norm2: the R3 axis-angle vector's length is the rotation angle, and epsilon is an angle.
-	// Comparing the squared length against it made the effective tolerance sqrt(epsilon) instead.
+	// Norm, not Norm2: the R3 axis-angle vector's length is the rotation angle, and epsilon is an
+	// angle. Squaring one side of this comparison makes the effective tolerance sqrt(epsilon).
 	return QuatToR3AA(QuatBetween(o1, o2)).Norm() < epsilon
 }
 
