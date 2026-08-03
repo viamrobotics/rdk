@@ -245,9 +245,9 @@ func TestCollisionEarlyExit(t *testing.T) {
 	test.That(t, len(collisions), test.ShouldBeGreaterThan, 1)
 }
 
-// Two distinct unlabelled geometries, one in each set, used to be handed the same synthetic name.
-// skipCollisionCheck reads matching names as "this geometry vs itself" and skips the pair, so an
-// overlapping obstacle was reported as no collision at all.
+// skipCollisionCheck reads matching names as "this geometry vs itself" and skips the pair, so two
+// distinct unlabelled geometries must never share a synthetic name; if they do, an overlapping
+// obstacle is silently reported as no collision at all.
 func TestUnnamedGeometriesInOpposingSets(t *testing.T) {
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)

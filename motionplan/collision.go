@@ -275,12 +275,11 @@ func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[[2]string]bo
 // collisionNamer hands out the name a geometry is known by for the duration of one collision check.
 // Labelled geometries keep their label; unlabelled ones get a synthetic name.
 //
-// The synthetic name is memoized per geometry rather than drawn from a per-slice counter. Everything
-// downstream — the allowed-collision lookup, the `seen` dedup, the self-comparison skip and the
-// reported Collision pair — treats the name as the geometry's identity. A per-slice counter restarts
-// at zero for each set, so the first unlabelled geometry of one set and the first of the other both
-// became "unnamedCollisionGeometry_0"; skipCollisionCheck then read that as a geometry being compared
-// against itself and skipped the pair, silently missing a real collision.
+// Everything downstream — the allowed-collision lookup, the `seen` dedup, the self-comparison skip in
+// skipCollisionCheck and the reported Collision pair — treats the name as the geometry's identity. A
+// synthetic name therefore has to be unique per geometry and stable across both sets of a check,
+// which is why it is memoized per geometry rather than drawn from a per-slice counter: a counter
+// restarts at zero for each set and would hand one name to a geometry in each.
 type collisionNamer struct {
 	synthesized map[spatialmath.Geometry]string
 }
