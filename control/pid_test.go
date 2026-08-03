@@ -213,3 +213,35 @@ func TestPIDMultiTuner(t *testing.T) {
 		pid.tuners[signalIndex].tuning = false
 	}
 }
+
+// A MIMO PID where only some sets need auto-tuning leaves the remaining tuners nil. getTuning()
+// reports true as soon as any one set is tuning, so Next() walks every index and used to
+// dereference the nil tuners belonging to the fully-configured sets.
+func TestPIDMixedAutoTuningDoesNotPanic(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	cfg := BlockConfig{
+		Name: "PID1",
+		Attribute: utils.AttributeMap{
+			// first set is fully configured (tuner stays nil), second needs tuning
+			"PIDSets": []*PIDConfig{{P: .12, I: .22, D: .11}, {P: 0, I: 0, D: 0}},
+		},
+		Type:      "PID",
+		DependsOn: []string{"A", "B"},
+	}
+	pid, err := loop.newPID(cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	b, ok := pid.(*basicPID)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, b.tuners[0], test.ShouldBeNil)
+	test.That(t, b.tuners[1], test.ShouldNotBeNil)
+	test.That(t, b.GetTuning(), test.ShouldBeTrue)
+
+	s := makeSignals("A", "endpoint", 2)
+	s.SetSignalValueAt(0, 10.0)
+	s.SetSignalValueAt(1, 10.0)
+	test.That(t, func() {
+		pid.Next(ctx, []*Signal{s}, time.Millisecond*10)
+	}, test.ShouldNotPanic)
+}

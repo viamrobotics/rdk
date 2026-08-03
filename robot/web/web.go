@@ -812,18 +812,20 @@ func (svc *webService) initMux(options weboptions.Options) *goji.Mux {
 		}
 	})
 
+	// The /debug endpoints can leak internal details about the robot, so they are only
+	// registered when the web profile option is enabled (via the `enable_web_profile`
+	// config field or the `--webprofile` command line flag).
 	if options.Pprof {
 		mux.HandleFunc(pat.New("/debug/pprof/"), pprof.Index)
 		mux.HandleFunc(pat.New("/debug/pprof/cmdline"), pprof.Cmdline)
 		mux.HandleFunc(pat.New("/debug/pprof/profile"), pprof.Profile)
 		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
 		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
-	}
 
-	// serve resource graph visualization
-	// TODO: hide behind option
-	// TODO: accept params to display different formats
-	mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
+		// serve resource graph visualization
+		// TODO: accept params to display different formats
+		mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
+	}
 
 	// serve restart status
 	mux.HandleFunc(pat.New("/restart_status"), svc.handleRestartStatus)
@@ -1077,6 +1079,13 @@ type RestartStatusResponse struct {
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
+	// Only serve callers on this machine: the endpoint exposes internal details meant
+	// for the local viam-agent only, and the server may listen on non-loopback interfaces.
+	if !remoteAddrIsLocal(r.RemoteAddr) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	modAddrs := svc.ModuleAddresses()
 	response := RestartStatusResponse{
 		RestartAllowed:            svc.r.RestartAllowed(),
@@ -1088,4 +1097,31 @@ func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Reques
 	// Only log errors from encoding here. A failure to encode should never
 	// happen.
 	utils.UncheckedError(json.NewEncoder(w).Encode(response))
+}
+
+// remoteAddrIsLocal reports whether remoteAddr is on this machine: a loopback address, or
+// one of the host's own interface addresses (covers servers bound to a specific non-loopback IP).
+func remoteAddrIsLocal(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// remoteAddr may not contain a port.
+		host = remoteAddr
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && ipNet.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
 }

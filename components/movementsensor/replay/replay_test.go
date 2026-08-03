@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -117,8 +116,7 @@ var (
 func TestNewReplayMovementSensor(t *testing.T) {
 	ctx := context.Background()
 
-	initializePropertiesTimeout = 2 * time.Second
-	tabularDataByFilterTimeout = 1 * time.Second
+	useShortInitTimeouts(t)
 
 	cases := []struct {
 		description          string
@@ -280,8 +278,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 func TestReplayMovementSensorFunctions(t *testing.T) {
 	ctx := context.Background()
 
-	initializePropertiesTimeout = 2 * time.Second
-	tabularDataByFilterTimeout = 1 * time.Second
+	useShortInitTimeouts(t)
 
 	cases := []struct {
 		description        string

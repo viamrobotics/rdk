@@ -14,7 +14,9 @@ import (
 
 // Options are used for configuring the web server.
 type Options struct {
-	// Pprof turns on the pprof profiler accessible at /debug
+	// Pprof exposes the debug HTTP endpoints (the pprof profiler and the resource
+	// graph visualization) under /debug. These are disabled by default since they
+	// can leak internal details about the robot.
 	Pprof bool
 
 	// StaticHost is a url to use for static assets, like app.viam.com

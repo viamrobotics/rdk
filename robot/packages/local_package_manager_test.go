@@ -22,6 +22,31 @@ import (
 // testTarPath points to a tarball that tests can use.
 const testTarPath = "test_package.tar.gz"
 
+func TestNewLocalManagerSkipsPackageDirsInTests(t *testing.T) {
+	tmp := t.TempDir()
+	packagesParent := filepath.Join(tmp, "pkg")
+	mgr, err := NewLocalManager(packagesParent, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	local := mgr.(*localManager)
+	test.That(t, local.packagesDir, test.ShouldEqual, LocalPackagesDir(packagesParent))
+	test.That(t, local.packagesDataDir, test.ShouldEqual, filepath.Join(local.packagesDir, "data"))
+	_, err = os.Stat(local.packagesDir)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
+func TestEnsureLocalPackageDirs(t *testing.T) {
+	tmp := t.TempDir()
+	packagesDir := filepath.Join(tmp, "packages-local")
+	packagesDataDir := filepath.Join(packagesDir, "data")
+	test.That(t, ensureLocalPackageDirs(packagesDir, packagesDataDir), test.ShouldBeNil)
+	for _, dir := range []string{packagesDir, packagesDataDir} {
+		info, err := os.Stat(dir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.IsDir(), test.ShouldBeTrue)
+	}
+}
+
 // writeSingleFileTarGz writes a .tar.gz holding one regular file of the given size into a temp
 // dir and returns its path. The contents are zeros (gzip compresses them away), so a large
 // logical size stays cheap on disk.
