@@ -71,9 +71,19 @@ func (p *pointcloudPlane) Equation() [4]float64 {
 	return p.equation
 }
 
-// Distance calculates the distance from the plane to the input point.
+// Distance calculates the signed distance from the plane to the input point.
 func (p *pointcloudPlane) Distance(pt r3.Vector) float64 {
-	return (p.equation[0]*pt.X + p.equation[1]*pt.Y + p.equation[2]*pt.Z + p.equation[3]) / pt.Norm()
+	// ax+by+cz+d is normalized by the length of the plane's normal (a,b,c), not by the length of the
+	// query point. Dividing by the query point scaled the result by its distance from the origin,
+	// so the same offset from the plane measured differently depending on where in space it was.
+	normalNorm := p.Normal().Norm()
+	if normalNorm == 0 {
+		// A degenerate plane (all-zero equation, e.g. NewEmptyPlane) contains no points. Reporting
+		// an infinite distance keeps threshold and residual callers from treating everything as
+		// lying on it.
+		return math.Inf(1)
+	}
+	return (p.equation[0]*pt.X + p.equation[1]*pt.Y + p.equation[2]*pt.Z + p.equation[3]) / normalNorm
 }
 
 // Intersect calculates the intersection point of the plane with line defined by p0,p1. return nil if parallel.
