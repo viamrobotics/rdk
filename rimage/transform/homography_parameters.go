@@ -285,12 +285,3 @@ func EstimateLeastSquaresHomography(pts1, pts2 *mat.Dense) (*Homography, error) 
 
 	return &Homography{&m3}, nil
 }
-
-// ApplyHomography applies a homography on a slice of r2.Vec.
-func ApplyHomography(h *Homography, pts []r2.Point) []r2.Point {
-	outPoints := make([]r2.Point, len(pts))
-	for i, pt := range pts {
-		outPoints[i] = h.Apply(pt)
-	}
-	return outPoints
-}

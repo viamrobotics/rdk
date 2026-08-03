@@ -136,11 +136,6 @@ func (q *DualQuaternion) Invert() Pose {
 	return &DualQuaternion{dualquat.ConjQuat(q.Number)}
 }
 
-// SetZ sets the z translation.
-func (q *DualQuaternion) SetZ(z float64) {
-	q.Dual.Kmag = z
-}
-
 // Transformation multiplies the dual quat contained in this dualQuaternion by another dual quat.
 func (q *DualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	var newReal quat.Number
