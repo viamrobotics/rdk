@@ -187,9 +187,9 @@ func (params *PinholeCameraIntrinsics) PixelToPoint(x, y, z float64) (float64, f
 // The intrinsics parameters should be the ones of the sensor we want to project to.
 func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, float64) {
 	// TODO(louise): add unit test
-	// z must be strictly positive: the camera looks down +Z, so z <= 0 is at or behind the pinhole and has no
-	// image-plane projection. Dividing by a negative z flips both signs and yields an in-bounds pixel for a point
-	// that is behind the camera, so the sign test cannot be relaxed to z != 0.
+	// The camera looks down +Z, so z <= 0 is at or behind the pinhole and has no image-plane
+	// projection. The test has to be z > 0 rather than z != 0: a negative z flips both signs and
+	// lands a point that is behind the camera on a perfectly in-bounds pixel.
 	if z > 0. {
 		xPx := math.Round((x/z)*params.Fx + params.Ppx)
 		yPx := math.Round((y/z)*params.Fy + params.Ppy)
@@ -308,8 +308,8 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 		z := rimage.Depth(pt.Z)
 		// if point has color and is inside the image bounds, add it to the images
 		if x >= 0 && x < width && y >= 0 && y < height && d != nil && d.HasColor() {
-			// Several cloud points can land on one pixel; keep the nearest so foreground is not
-			// overwritten by background depending on iteration order. Zero means "no point yet".
+			// Several cloud points can land on one pixel; keep the nearest so the result does not
+			// depend on iteration order. Zero means "no point yet".
 			if existing := depth.GetDepth(x, y); existing != 0 && existing <= z {
 				return true
 			}
