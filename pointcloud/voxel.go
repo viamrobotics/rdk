@@ -101,14 +101,19 @@ func (p *voxelPlane) Equation() [4]float64 {
 	return equation
 }
 
-// DistToPlane computes the distance between a point a plane with given normal vector and offset.
-func (p *voxelPlane) Distance(pt r3.Vector) float64 {
-	num := math.Abs(pt.Dot(p.normal) + p.offset)
-	d := 0.
-	if denom := p.normal.Norm(); denom > 0.0001 {
-		d = num / denom
+// Distance computes the distance between a point and a plane with given normal vector and offset.
+//
+// TODO(RSDK): this returns the absolute distance while pointcloudPlane.Distance returns a signed one,
+// so the two implementations of Plane disagree. SplitPointCloudByPlane branches on the sign and would
+// put every point on one side when handed a voxel plane.
+func (p *voxelPlane) Distance(pt r3.Vector) (float64, error) {
+	denom := p.normal.Norm()
+	// A voxel starts life with a zero normal and only gets a real one once enough points land in it,
+	// so an undersized or degenerate voxel reaches here routinely.
+	if denom <= 0.0001 {
+		return 0, ErrDegeneratePlane
 	}
-	return d
+	return math.Abs(pt.Dot(p.normal)+p.offset) / denom, nil
 }
 
 // Voxel is the structure to store data relevant to Voxel operations in point clouds.
@@ -322,8 +327,12 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 				vox.Center = GetVoxelCenter(vox.Positions())
 				vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
 				vox.Offset = GetOffset(vox.Center, vox.Normal)
-				vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
-				variable = GetWeight(vox.Positions(), vg.lam, vox.Residual)
+				// On a degenerate plane `variable` keeps the sentinel this loop already uses for
+				// voxels with no usable plane, rather than a weight derived from nothing.
+				if residual, err := GetResidual(vox.Positions(), vox.GetPlane()); err == nil {
+					vox.Residual = residual
+					variable = GetWeight(vox.Positions(), vg.lam, vox.Residual)
+				}
 			}
 			hist.Fill(variable, 1)
 		}
@@ -338,8 +347,10 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 				vox.Center = GetVoxelCenter(vox.Positions())
 				vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
 				vox.Offset = GetOffset(vox.Center, vox.Normal)
-				vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
-				variable = vox.Residual
+				if residual, err := GetResidual(vox.Positions(), vox.GetPlane()); err == nil {
+					vox.Residual = residual
+					variable = vox.Residual
+				}
 			}
 			hist.Fill(variable, 1)
 		}
@@ -507,7 +518,14 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 		if len(vox.Points) > 5 {
 			vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
 			vox.Offset = GetOffset(vox.Center, vox.Normal)
-			vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
+			residual, err := GetResidual(vox.Positions(), vox.GetPlane())
+			if err != nil {
+				// PCA can fail to find a normal even above the point threshold, e.g. for collinear
+				// points. An infinite residual is the honest answer and drives GetWeight's
+				// exp(-residual^2) term to zero, so the voxel carries no weight.
+				residual = math.Inf(1)
+			}
+			vox.Residual = residual
 			vox.Weight = GetWeight(vox.Positions(), lam, vox.Residual)
 		}
 	}

@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"errors"
 	"math/rand"
 	"testing"
 
@@ -101,8 +102,20 @@ func TestGetVoxelCenterWeightResidual(t *testing.T) {
 		points:    nil,
 		voxelKeys: nil,
 	}
-	res := GetResidual(points, plane)
-	test.ShouldAlmostEqual(res, 0.0)
+	res, err := GetResidual(points, plane)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldAlmostEqual, 0.0, 1e-9)
+}
+
+// A voxel plane with no estimated normal reports its degeneracy rather than a zero distance, which
+// would otherwise read as "every point lies exactly on the plane".
+func TestVoxelPlaneDegenerate(t *testing.T) {
+	plane := &voxelPlane{normal: r3.Vector{}, center: r3.Vector{}, offset: 0}
+	_, err := plane.Distance(r3.Vector{1, 2, 3})
+	test.That(t, errors.Is(err, ErrDegeneratePlane), test.ShouldBeTrue)
+
+	_, err = GetResidual([]r3.Vector{{X: 1}, {X: 2}}, plane)
+	test.That(t, errors.Is(err, ErrDegeneratePlane), test.ShouldBeTrue)
 }
 
 func TestGetVoxelCoordinates(t *testing.T) {

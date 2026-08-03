@@ -407,7 +407,11 @@ func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud,
 	aboveCloud, belowCloud := pc.NewBasicEmpty(), pc.NewBasicEmpty()
 	var err error
 	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
-		dist := plane.Distance(pt)
+		var dist float64
+		dist, err = plane.Distance(pt)
+		if err != nil {
+			return false
+		}
 		if plane.Equation()[2] > 0.0 {
 			dist = -dist
 		}
@@ -429,7 +433,11 @@ func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane, threshold f
 	thresholdCloud := pc.NewBasicEmpty()
 	var err error
 	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
-		dist := plane.Distance(pt)
+		var dist float64
+		dist, err = plane.Distance(pt)
+		if err != nil {
+			return false
+		}
 		if math.Abs(dist) <= threshold {
 			err = thresholdCloud.Set(pt, d)
 		}

@@ -149,12 +149,20 @@ func (vg *VoxelGrid) LabelNonPlanarVoxels(unlabeledVoxels []VoxelCoords, dTh flo
 		nbVoxels := vg.GetAdjacentVoxels(vox)
 		plane := vox.GetPlane()
 		for i, pt := range vox.Positions() {
+			// A voxel with no estimated normal has no plane to measure against, so none of its points
+			// can be assigned to a neighbouring label.
+			d, err := plane.Distance(pt)
+			if err != nil {
+				continue
+			}
 			dMin := 100000.0
 			outLabel := 0
 			for _, nb := range nbVoxels {
 				voxNb := vg.Voxels[nb]
 				if voxNb.Label > 0 {
-					d := plane.Distance(pt)
+					// TODO(RSDK): d is the distance to this voxel's own plane and does not vary with nb,
+					// so after the first labelled neighbour this comparison can never succeed and
+					// outLabel is always the first one found. It likely wants voxNb.GetPlane().
 					if d < dMin {
 						dMin = d
 						outLabel = voxNb.Label

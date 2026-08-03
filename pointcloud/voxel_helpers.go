@@ -62,15 +62,20 @@ func GetOffset(center, normal r3.Vector) float64 {
 	return -normal.Dot(center)
 }
 
-// GetResidual computes the mean fitting error of points to a given plane.
-func GetResidual(points []r3.Vector, plane Plane) float64 {
+// GetResidual computes the mean fitting error of points to a given plane. It returns
+// ErrDegeneratePlane if the plane has no normal direction, since there is no fitting error to report
+// against a plane that does not exist.
+func GetResidual(points []r3.Vector, plane Plane) (float64, error) {
 	dist := 0.
 	for _, pt := range points {
-		d := plane.Distance(pt)
+		d, err := plane.Distance(pt)
+		if err != nil {
+			return 0, err
+		}
 		dist += d * d
 	}
 	dist /= float64(len(points))
-	return math.Sqrt(dist)
+	return math.Sqrt(dist), nil
 }
 
 // GetVoxelCoordinates computes voxel coordinates in VoxelGrid Axes.

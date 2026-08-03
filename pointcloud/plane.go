@@ -1,19 +1,27 @@
 package pointcloud
 
 import (
+	"errors"
 	"math"
 
 	"github.com/golang/geo/r3"
 )
 
+// ErrDegeneratePlane is returned by Plane.Distance when the plane's normal has no direction, so no
+// point has a defined distance from it. A Plane can legitimately be in this state: NewEmptyPlane
+// builds one, and a voxel plane starts out with a zero normal until one is estimated.
+var ErrDegeneratePlane = errors.New("plane has a zero-length normal, distance is undefined")
+
 // Plane defines a planar object in a 3D space.
 type Plane interface {
-	Equation() [4]float64                  // Returns an array of the plane equation [0]x + [1]y + [2]z + [3] = 0.
-	Normal() r3.Vector                     // The normal vector of the plane, could point "up" or "down".
-	Center() r3.Vector                     // The center point of the plane (the planes are not infinite).
-	Offset() float64                       //  the [3] term in the equation of the plane.
-	PointCloud() (PointCloud, error)       // Returns the underlying pointcloud that makes up the plane.
-	Distance(p r3.Vector) float64          // The distance of a point p from the nearest point on the plane.
+	Equation() [4]float64            // Returns an array of the plane equation [0]x + [1]y + [2]z + [3] = 0.
+	Normal() r3.Vector               // The normal vector of the plane, could point "up" or "down".
+	Center() r3.Vector               // The center point of the plane (the planes are not infinite).
+	Offset() float64                 //  the [3] term in the equation of the plane.
+	PointCloud() (PointCloud, error) // Returns the underlying pointcloud that makes up the plane.
+	// Distance returns the signed distance of a point p from the nearest point on the plane, or
+	// ErrDegeneratePlane if the plane's normal has no direction.
+	Distance(p r3.Vector) (float64, error)
 	Intersect(p0, p1 r3.Vector) *r3.Vector // The intersection point of the plane with line defined by p0,p1. return nil if parallel.
 }
 
@@ -71,9 +79,13 @@ func (p *pointcloudPlane) Equation() [4]float64 {
 	return p.equation
 }
 
-// Distance calculates the distance from the plane to the input point.
-func (p *pointcloudPlane) Distance(pt r3.Vector) float64 {
-	return (p.equation[0]*pt.X + p.equation[1]*pt.Y + p.equation[2]*pt.Z + p.equation[3]) / pt.Norm()
+// Distance calculates the signed distance from the plane to the input point.
+func (p *pointcloudPlane) Distance(pt r3.Vector) (float64, error) {
+	normalNorm := p.Normal().Norm()
+	if normalNorm == 0 {
+		return 0, ErrDegeneratePlane
+	}
+	return (p.equation[0]*pt.X + p.equation[1]*pt.Y + p.equation[2]*pt.Z + p.equation[3]) / normalNorm, nil
 }
 
 // Intersect calculates the intersection point of the plane with line defined by p0,p1. return nil if parallel.

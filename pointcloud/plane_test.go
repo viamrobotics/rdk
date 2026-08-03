@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"errors"
 	"math"
 	"testing"
 
@@ -18,8 +19,10 @@ func TestEmptyPlane(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloud, test.ShouldNotBeNil)
 	test.That(t, cloud.Size(), test.ShouldEqual, 0)
+	// An empty plane has no normal direction, so no point has a distance from it.
 	pt := r3.Vector{1, 2, 3}
-	test.That(t, plane.Distance(pt), test.ShouldEqual, 0)
+	_, err = plane.Distance(pt)
+	test.That(t, errors.Is(err, ErrDegeneratePlane), test.ShouldBeTrue)
 }
 
 func TestNewPlane(t *testing.T) {
@@ -45,7 +48,43 @@ func TestNewPlane(t *testing.T) {
 	test.That(t, cloud, test.ShouldNotBeNil)
 	test.That(t, cloud.Size(), test.ShouldEqual, 4)
 	pt := r3.Vector{-1, -1, 1}
-	test.That(t, math.Abs(plane.Distance(pt)), test.ShouldAlmostEqual, math.Sqrt(3))
+	dist, err := plane.Distance(pt)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, math.Abs(dist), test.ShouldAlmostEqual, math.Sqrt(3))
+}
+
+// Distance must divide by |normal|, not by |pt|. Note that TestNewPlane cannot detect the
+// difference: its probe point satisfies |pt| == |normal|, where the two divisors coincide.
+func TestPlaneDistanceNormalizesByNormal(t *testing.T) {
+	// z = 0, normal already unit length, so the distance is just the z coordinate.
+	plane := NewPlaneWithCenter(NewBasicPointCloud(0), [4]float64{0, 0, 1, 0}, r3.Vector{})
+	for _, tc := range []struct {
+		pt       r3.Vector
+		expected float64
+	}{
+		{r3.Vector{0, 0, 5}, 5},
+		// Invariant: the distance depends only on the offset from the plane, never on how far
+		// along the plane the point sits.
+		{r3.Vector{100, 0, 5}, 5},
+		{r3.Vector{1000, 1000, 5}, 5},
+		{r3.Vector{0, 0, -7}, -7}, // signed
+		{r3.Vector{1000, 1000, 500}, 500},
+		{r3.Vector{0, 0, 0}, 0}, // origin: numerator and |pt| are both zero
+	} {
+		dist, err := plane.Distance(tc.pt)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dist, test.ShouldAlmostEqual, tc.expected, 1e-9)
+	}
+
+	// Un-normalized plane equation: 2x+2y-2z = 0 is the same plane as x+y-z = 0.
+	unnormalized := NewPlaneWithCenter(NewBasicPointCloud(0), [4]float64{2, 2, -2, 0}, r3.Vector{})
+	normalized := NewPlaneWithCenter(NewBasicPointCloud(0), [4]float64{1, 1, -1, 0}, r3.Vector{})
+	probe := r3.Vector{3, -4, 11}
+	dUn, err := unnormalized.Distance(probe)
+	test.That(t, err, test.ShouldBeNil)
+	dN, err := normalized.Distance(probe)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dUn, test.ShouldAlmostEqual, dN, 1e-9)
 }
 
 func TestIntersect(t *testing.T) {
