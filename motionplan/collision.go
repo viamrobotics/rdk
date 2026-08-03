@@ -145,11 +145,14 @@ func checkCollisionsHinted(
 	hint *atomic.Pointer[[2]string],
 	logger logging.Logger,
 ) ([]Collision, float64, error) {
-	ggMap, err := createUniqueCollisionMap(gg)
+	// Both maps must be built from one namer: the name is what every check below treats as
+	// geometry identity, so two distinct unnamed geometries must never end up sharing one.
+	namer := &collisionNamer{}
+	ggMap, err := createCollisionMap(gg, namer)
 	if err != nil {
 		return nil, math.Inf(-1), err
 	}
-	otherMap, err := createUniqueCollisionMap(other)
+	otherMap, err := createCollisionMap(other, namer)
 	if err != nil {
 		return nil, math.Inf(-1), err
 	}
@@ -269,22 +272,51 @@ func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[[2]string]bo
 	return ignoreList
 }
 
-func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialmath.Geometry, error) {
-	unnamedCnt := 0
-	geomMap := make(map[string]spatialmath.Geometry, len(geoms))
+// collisionNamer hands out the name a geometry is known by for the duration of one collision check.
+// Labelled geometries keep their label; unlabelled ones get a synthetic name.
+//
+// The synthetic name is memoized per geometry rather than drawn from a per-slice counter. Everything
+// downstream — the allowed-collision lookup, the `seen` dedup, the self-comparison skip and the
+// reported Collision pair — treats the name as the geometry's identity. A per-slice counter restarts
+// at zero for each set, so the first unlabelled geometry of one set and the first of the other both
+// became "unnamedCollisionGeometry_0"; skipCollisionCheck then read that as a geometry being compared
+// against itself and skipped the pair, silently missing a real collision.
+type collisionNamer struct {
+	synthesized map[spatialmath.Geometry]string
+}
 
+// name is safe to call across both sets of a check: the same geometry always resolves to the same
+// name, so a geometry present in both sets is still recognised as itself.
+func (n *collisionNamer) name(geom spatialmath.Geometry) string {
+	if label := geom.Label(); label != "" {
+		return label
+	}
+	if n.synthesized == nil {
+		n.synthesized = make(map[spatialmath.Geometry]string)
+	} else if existing, ok := n.synthesized[geom]; ok {
+		return existing
+	}
+	// Every Geometry implementation has pointer receivers, so the interface value is comparable
+	// and compares by identity.
+	synthetic := unnamedCollisionGeometryPrefix + strconv.Itoa(len(n.synthesized))
+	n.synthesized[geom] = synthetic
+	return synthetic
+}
+
+func createCollisionMap(geoms []spatialmath.Geometry, namer *collisionNamer) (map[string]spatialmath.Geometry, error) {
+	geomMap := make(map[string]spatialmath.Geometry, len(geoms))
 	for _, geom := range geoms {
-		label := geom.Label()
-		if label == "" {
-			label = unnamedCollisionGeometryPrefix + strconv.Itoa(unnamedCnt)
-			unnamedCnt++
-		}
+		label := namer.name(geom)
 		if _, present := geomMap[label]; present {
 			return nil, referenceframe.NewDuplicateGeometryNameError(label)
 		}
 		geomMap[label] = geom
 	}
 	return geomMap, nil
+}
+
+func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialmath.Geometry, error) {
+	return createCollisionMap(geoms, &collisionNamer{})
 }
 
 func skipCollisionCheck(allowed, seen map[[2]string]bool, xName, yName string) bool {

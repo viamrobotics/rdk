@@ -244,3 +244,34 @@ func TestCollisionEarlyExit(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldBeGreaterThan, 1)
 }
+
+// Two distinct unlabelled geometries, one in each set, used to be handed the same synthetic name.
+// skipCollisionCheck reads matching names as "this geometry vs itself" and skips the pair, so an
+// overlapping obstacle was reported as no collision at all.
+func TestUnnamedGeometriesInOpposingSets(t *testing.T) {
+	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Fully overlapping, both unlabelled, in opposing sets.
+	moving := bc.Transform(spatial.NewZeroPose())
+	moving.SetLabel("")
+	obstacle := bc.Transform(spatial.NewZeroPose())
+	obstacle.SetLabel("")
+
+	collisions, _, err := checkCollisionsHinted(
+		[]spatial.Geometry{moving}, []spatial.Geometry{obstacle},
+		nil, defaultCollisionBufferMM, true, nil, logging.NewTestLogger(t),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(collisions), test.ShouldEqual, 1)
+	// The two must not have been given the same name.
+	test.That(t, collisions[0].name1, test.ShouldNotEqual, collisions[0].name2)
+
+	// A geometry genuinely present in both sets is still skipped as a self-comparison.
+	selfCollisions, _, err := checkCollisionsHinted(
+		[]spatial.Geometry{moving}, []spatial.Geometry{moving},
+		nil, defaultCollisionBufferMM, true, nil, logging.NewTestLogger(t),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, selfCollisions, test.ShouldBeEmpty)
+}
