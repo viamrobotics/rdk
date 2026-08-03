@@ -178,3 +178,30 @@ func TestQuatBetweenNoAllocs(t *testing.T) {
 	})
 	test.That(t, allocs, test.ShouldEqual, 0)
 }
+
+// The epsilon is an angle in radians. It was previously compared against the squared length of the
+// R3 axis-angle vector, which made the effective tolerance sqrt(epsilon) — 100x looser than the
+// documented 1e-4 rad, so orientations up to ~0.573 degrees apart compared equal.
+func TestOrientationAlmostEqualEpsIsAnAngle(t *testing.T) {
+	zero := NewZeroOrientation()
+
+	for _, tc := range []struct {
+		deg   float64
+		equal bool
+	}{
+		{0.001, true},
+		{0.005, true},  // just inside 1e-4 rad
+		{0.0057, true}, // 1e-4 rad is 0.00573 deg
+		{0.01, false},  // outside, and well inside the old 0.573 deg threshold
+		{0.1, false},
+		{0.573, false}, // exactly the old (incorrect) boundary
+	} {
+		rotated := &R4AA{Theta: utils.DegToRad(tc.deg), RX: 0, RY: 0, RZ: 1}
+		test.That(t, OrientationAlmostEqual(zero, rotated), test.ShouldEqual, tc.equal)
+	}
+
+	// The explicit-epsilon form takes the tolerance directly in radians.
+	oneDeg := &R4AA{Theta: utils.DegToRad(1), RX: 0, RY: 0, RZ: 1}
+	test.That(t, OrientationAlmostEqualEps(zero, oneDeg, utils.DegToRad(1.1)), test.ShouldBeTrue)
+	test.That(t, OrientationAlmostEqualEps(zero, oneDeg, utils.DegToRad(0.9)), test.ShouldBeFalse)
+}

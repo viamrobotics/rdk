@@ -31,6 +31,7 @@ func OrientationAlmostEqual(o1, o2 Orientation) bool {
 }
 
 // OrientationAlmostEqualEps will return a bool describing whether 2 poses have approximately the same orientation.
+// epsilon is the maximum angle between the two orientations, in radians.
 func OrientationAlmostEqualEps(o1, o2 Orientation, epsilon float64) bool {
 	if o1 == nil {
 		return o2 == nil
@@ -38,7 +39,9 @@ func OrientationAlmostEqualEps(o1, o2 Orientation, epsilon float64) bool {
 		return false
 	}
 
-	return QuatToR3AA(QuatBetween(o1, o2)).Norm2() < epsilon
+	// Norm, not Norm2: the R3 axis-angle vector's length is the rotation angle, and epsilon is an angle.
+	// Comparing the squared length against it made the effective tolerance sqrt(epsilon) instead.
+	return QuatToR3AA(QuatBetween(o1, o2)).Norm() < epsilon
 }
 
 // QuatBetween returns the rotation quaternion from o1 to o2 as a raw quat.Number.
