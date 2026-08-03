@@ -214,9 +214,8 @@ func TestPIDMultiTuner(t *testing.T) {
 	}
 }
 
-// A MIMO PID where only some sets need auto-tuning leaves the remaining tuners nil. getTuning()
-// reports true as soon as any one set is tuning, so Next() walks every index and used to
-// dereference the nil tuners belonging to the fully-configured sets.
+// A MIMO PID where only some sets need auto-tuning leaves the remaining tuners nil, and getTuning()
+// reports true as soon as any one set is tuning, so Next() walks every index including those.
 func TestPIDMixedAutoTuningDoesNotPanic(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
