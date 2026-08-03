@@ -15,7 +15,7 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "xArm6")
 	simpleM, ok := m.(*SimpleModel)
@@ -35,13 +35,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.validInputs(randpos), test.ShouldBeNil)
 
-	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
+	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestIncorrectInputs(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	dof := len(m.DoF())
 
@@ -133,7 +133,7 @@ func TestNewModel(t *testing.T) {
 
 func TestHash(t *testing.T) {
 	t.Run("model from config", func(t *testing.T) {
-		m1, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
+		m1, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "foo")
 		test.That(t, err, test.ShouldBeNil)
 
 		h1 := m1.Hash()
@@ -346,7 +346,7 @@ func TestOriginalFilePreservedThroughJSON(t *testing.T) {
 	// which is the mechanism used by FrameSystemPart.ToProtobuf/ProtobufToFrameSystemPart.
 
 	t.Run("SVA model preserves original file through JSON round-trip", func(t *testing.T) {
-		original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+		original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 		test.That(t, err, test.ShouldBeNil)
 
 		cfg := original.ModelConfig()

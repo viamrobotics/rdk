@@ -87,6 +87,7 @@ const (
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
 	generalFlagAddress           = "address"
+	generalFlagLatest            = "latest"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -2725,7 +2726,7 @@ Note: There is no progress meter while copying is in progress.
 						&cli.StringFlag{
 							Name:        generalFlagStart,
 							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-							DefaultText: "12 hours ago",
+							DefaultText: "24 hours ago",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
@@ -2733,8 +2734,8 @@ Note: There is no progress meter while copying is in progress.
 						},
 						&cli.IntFlag{
 							Name:        generalFlagCount,
-							Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
-							DefaultText: fmt.Sprintf("%v", defaultNumLogs),
+							Usage:       "maximum number of logs to fetch",
+							DefaultText: "all logs in the time range",
 						},
 					},
 					Action: createActionCommandWithT[robotsLogsArgs](RobotsLogsAction),
@@ -2907,7 +2908,7 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:        generalFlagStart,
 									Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-									DefaultText: "12 hours ago",
+									DefaultText: "24 hours ago",
 								},
 								&cli.StringFlag{
 									Name:  generalFlagEnd,
@@ -2915,8 +2916,8 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.IntFlag{
 									Name:        generalFlagCount,
-									Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
-									DefaultText: fmt.Sprintf("%v", defaultNumLogs),
+									Usage:       "maximum number of logs to fetch",
+									DefaultText: "all logs in the time range",
 								},
 							},
 							Action: createActionCommandWithT[robotsPartLogsArgs](RobotsPartLogsAction),
@@ -3216,7 +3217,10 @@ Note: There is no progress meter while copying is in progress.
 								[]string{generalFlagPart},
 								true, false,
 								"[target]"),
-							Flags:  commonPartFlags,
+							Flags: lo.Flatten([][]cli.Flag{
+								commonPartFlags,
+								commonPathFlags,
+							}),
 							Action: createActionCommandWithT(MachinesPartGetFTDCAction),
 						},
 						{
@@ -4233,6 +4237,28 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 					},
 					Action: createActionCommandWithT[downloadModuleFlags](DownloadModuleAction),
+				},
+				{
+					Name:      "versions",
+					Usage:     "list a module's released versions and their platforms",
+					UsageText: createUsageText("module versions", []string{}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        generalFlagID,
+							Usage:       "module ID as org-id:name or namespace:name",
+							DefaultText: "will try to read from meta.json",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagLatest,
+							Usage: "print the latest version for each platform instead of the full list",
+						},
+						&cli.IntFlag{
+							Name:        generalFlagCount,
+							Usage:       "show only the N newest versions",
+							DefaultText: "all versions",
+						},
+					},
+					Action: createActionCommandWithT[moduleVersionsFlags](ModuleVersionsAction),
 				},
 			},
 		},

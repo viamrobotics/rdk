@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	shelltestutils "go.viam.com/rdk/services/shell/testutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestFixPeerPath(t *testing.T) {
@@ -62,6 +63,31 @@ func TestFixPeerPath(t *testing.T) {
 	fixed, err = fixPeerPath("", true, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fixed, test.ShouldEqual, realTempDir)
+
+	// $VIAM_HOME resolves against this process's VIAM_HOME, which is what makes it
+	// safe for a peer to send: only this side knows where viam-server keeps its data.
+	origViamDotDir := rutils.ViamDotDir
+	rutils.ViamDotDir = filepath.Join(realTempDir, "viamhome")
+	t.Cleanup(func() { rutils.ViamDotDir = origViamDotDir })
+
+	for _, relativeToHome := range []bool{true, false} {
+		fixed, err = fixPeerPath("$VIAM_HOME/one/two/three", false, relativeToHome)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fixed, test.ShouldEqual, filepath.Join(rutils.ViamDotDir, "one/two/three"))
+	}
+
+	fixed, err = fixPeerPath("$VIAM_HOME", false, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fixed, test.ShouldEqual, rutils.ViamDotDir)
+
+	// only a whole leading path element counts as the prefix
+	fixed, err = fixPeerPath("$VIAM_HOMEDIR/one", false, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fixed, test.ShouldEqual, filepath.Join(homeDir, "$VIAM_HOMEDIR/one"))
+
+	fixed, err = fixPeerPath("one/$VIAM_HOME/two", false, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fixed, test.ShouldEqual, filepath.Join(homeDir, "one/$VIAM_HOME/two"))
 }
 
 // TestLocalFileCopy contains tests are very similar to cli.TestShellFileCopy but

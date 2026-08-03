@@ -326,10 +326,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		stopReason = "signal"
 	}
 
-	// Empty when the server never reached serving (no shutdown start was emitted).
-	var shutdownDuration string
+	// Zero when the server never reached serving (no shutdown start was emitted).
+	var shutdownDuration time.Duration
 	if !server.shutdownStarted.IsZero() {
-		shutdownDuration = time.Since(server.shutdownStarted).String()
+		shutdownDuration = time.Since(server.shutdownStarted)
 	}
 
 	// Emitted before the deferred netAppender.Close so its best-effort flush can deliver
@@ -339,7 +339,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		"version", config.Version,
 		"git_rev", config.GitRevision,
 		"reason", stopReason,
-		"duration", shutdownDuration,
+		"duration", shutdownDuration.String(),
+		"duration_us", shutdownDuration.Microseconds(),
 		"error", err,
 	)
 
@@ -645,7 +646,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				mustRestart, newRestartInterval, err := restartCheck.needsRestart(ctx)
 				if err != nil {
-					s.networkingLogger.Infow("failed to check restart", "error", err)
+					s.networkingLogger.Debugw("failed to check restart", "error", err)
 					continue
 				}
 
@@ -739,11 +740,13 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
+	startupDuration := time.Since(s.startupStarted)
 	s.rootLogger.Activity("startup", "complete",
 		"pid", os.Getpid(),
 		"version", config.Version,
 		"git_rev", config.GitRevision,
-		"duration", time.Since(s.startupStarted).String(),
+		"duration", startupDuration.String(),
+		"duration_us", startupDuration.Microseconds(),
 	)
 	return web.RunWeb(ctx, theRobot, options, s.rootLogger)
 }

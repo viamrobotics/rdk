@@ -68,8 +68,10 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 
 		// For each PID Set and its respective Tuner Object, Step through an iteration of tuning until done.
 		for i := 0; i < len(p.PIDSets); i++ {
-			// if we do not need to tune this signal, skip to the next signal
-			if !p.tuners[i].tuning {
+			// if we do not need to tune this signal, skip to the next signal.
+			// tuners[i] is nil for any PID set that was fully configured (see NeedsAutoTuning), and getTuning()
+			// is true as soon as *any* set is tuning, so the nil check has to come first.
+			if p.tuners[i] == nil || !p.tuners[i].tuning {
 				continue
 			}
 			out, done := p.tuners[i].pidTunerStep(math.Abs(x[0].GetSignalValueAt(i)), p.logger)

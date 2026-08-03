@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"sync"
@@ -2037,5 +2039,95 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		// Release the blocking call and wait for it to complete.
 		close(blockCall)
 		blockingCallWg.Wait()
+	})
+}
+
+func TestRemoteAddrIsLocal(t *testing.T) {
+	// Non-loopback cases use RFC 5737 documentation addresses, which are never assigned
+	// to a real interface, so they stay non-local regardless of the host's networking.
+	for _, tc := range []struct {
+		remoteAddr string
+		expected   bool
+	}{
+		{"127.0.0.1:12345", true},
+		{"127.0.0.1", true},
+		{"[::1]:12345", true},
+		{"::1", true},
+		{"203.0.113.5:12345", false},
+		{"198.51.100.7", false},
+		{"8.8.8.8:53", false},
+		{"", false},
+		{"not-an-ip:80", false},
+		{"garbage", false},
+	} {
+		t.Run(tc.remoteAddr, func(t *testing.T) {
+			test.That(t, remoteAddrIsLocal(tc.remoteAddr), test.ShouldEqual, tc.expected)
+		})
+	}
+
+	// A non-loopback address belonging to this host must be treated as local, so the
+	// endpoint keeps working when the server is bound to a specific non-loopback IP.
+	t.Run("host interface address", func(t *testing.T) {
+		addrs, err := net.InterfaceAddrs()
+		test.That(t, err, test.ShouldBeNil)
+		var localIP net.IP
+		for _, addr := range addrs {
+			if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+				localIP = ipNet.IP
+				break
+			}
+		}
+		if localIP == nil {
+			t.Skip("no non-loopback interface address available")
+		}
+		test.That(t, remoteAddrIsLocal(net.JoinHostPort(localIP.String(), "12345")), test.ShouldBeTrue)
+	})
+}
+
+func TestHandleRestartStatus(t *testing.T) {
+	injectRobot := &inject.Robot{}
+	var restartAllowedCalls int
+	injectRobot.RestartAllowedFunc = func() bool {
+		restartAllowedCalls++
+		return true
+	}
+	svc := &webService{
+		r:        injectRobot,
+		modAddrs: config.ParentSockAddrs{TCPAddr: "127.0.0.1:54321"},
+	}
+
+	t.Run("allows localhost requests", func(t *testing.T) {
+		restartAllowedCalls = 0
+		req := httptest.NewRequest(http.MethodGet, "/restart_status", nil)
+		req.RemoteAddr = "127.0.0.1:56789"
+		rec := httptest.NewRecorder()
+
+		svc.handleRestartStatus(rec, req)
+
+		res := rec.Result()
+		defer func() { test.That(t, res.Body.Close(), test.ShouldBeNil) }()
+		test.That(t, res.StatusCode, test.ShouldEqual, http.StatusOK)
+
+		var response RestartStatusResponse
+		test.That(t, json.NewDecoder(res.Body).Decode(&response), test.ShouldBeNil)
+		test.That(t, response.RestartAllowed, test.ShouldBeTrue)
+		test.That(t, response.DoesNotHandleNeedsRestart, test.ShouldBeTrue)
+		test.That(t, response.ModuleServerTCPAddr, test.ShouldEqual, "127.0.0.1:54321")
+		test.That(t, restartAllowedCalls, test.ShouldEqual, 1)
+	})
+
+	t.Run("rejects non-local requests", func(t *testing.T) {
+		restartAllowedCalls = 0
+		req := httptest.NewRequest(http.MethodGet, "/restart_status", nil)
+		req.RemoteAddr = "203.0.113.5:45678"
+		rec := httptest.NewRecorder()
+
+		svc.handleRestartStatus(rec, req)
+
+		res := rec.Result()
+		defer func() { test.That(t, res.Body.Close(), test.ShouldBeNil) }()
+		test.That(t, res.StatusCode, test.ShouldEqual, http.StatusForbidden)
+		// Rejected requests must not read restart state.
+		test.That(t, restartAllowedCalls, test.ShouldEqual, 0)
 	})
 }

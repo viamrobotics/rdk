@@ -17,6 +17,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	rutils "go.viam.com/rdk/utils"
 )
 
 // copy_local supports local filesystem copy operations and is agnostic to which
@@ -442,10 +444,23 @@ func (reader *localFileReadCopier) Close(ctx context.Context) error {
 
 var errUnexpectedEmptyPath = errors.New("unexpected empty path")
 
-// fixPeerPath works with the usage of ~ or empty paths and turns
+// ViamHomePrefix leads a path that expands to the VIAM_HOME directory of whichever
+// machine ends up interpreting it, the same way ~ expands to that machine's home
+// directory.
+//
+// A peer cannot compute the other side's VIAM_HOME for it: viam-agent may point
+// viam-server at a directory that has nothing to do with any user's home (/opt/viam),
+// and the answer depends on the remote OS and the environment viam-server was started
+// with. Callers wanting a file that viam-server wrote under its own home directory —
+// FTDC and traces, for example — should send this prefix and let the remote expand it.
+const ViamHomePrefix = "$VIAM_HOME"
+
+// fixPeerPath works with the usage of ~, $VIAM_HOME or empty paths and turns
 // them into the proper HOME pathings.
 // Security Note: this is the only time we end up interpreting a user's path
-// string before it's passed to a file related syscall.
+// string before it's passed to a file related syscall. Both ~ and $VIAM_HOME are
+// fixed tokens that expand to values this process already controls; no general
+// environment variable expansion happens here.
 func fixPeerPath(path string, allowEmpty, relativeToHome bool) (string, error) {
 	if !filepath.IsAbs(path) {
 		homeDir, err := os.UserHomeDir()
@@ -454,6 +469,8 @@ func fixPeerPath(path string, allowEmpty, relativeToHome bool) (string, error) {
 		}
 
 		switch {
+		case path == ViamHomePrefix || strings.HasPrefix(path, ViamHomePrefix+"/"):
+			path = filepath.Join(rutils.ViamDotDir, strings.TrimPrefix(path, ViamHomePrefix))
 		case strings.HasPrefix(path, "~/"):
 			path = strings.Replace(path, "~", homeDir, 1)
 		case path == "":

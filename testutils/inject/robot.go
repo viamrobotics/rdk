@@ -53,14 +53,16 @@ type Robot struct {
 		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
-	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	CurrentInputsFunc       func(ctx context.Context) (referenceframe.FrameSystemInputs, error)
-	ModuleAddressesFunc     func() (config.ParentSockAddrs, error)
-	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
-	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
-	ShutdownFunc            func(ctx context.Context) error
-	ListTunnelsFunc         func(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
-	UploadDataFromPathFunc  func(
+	TransformPointCloudFunc  func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
+	CurrentInputsFunc        func(ctx context.Context) (referenceframe.FrameSystemInputs, error)
+	ModuleAddressesFunc      func() (config.ParentSockAddrs, error)
+	CloudMetadataFunc        func(ctx context.Context) (cloud.Metadata, error)
+	MachineStatusFunc        func(ctx context.Context) (robot.MachineStatus, error)
+	RestartAllowedFunc       func() bool
+	ExportResourcesAsDotFunc func(index int) (resource.GetSnapshotInfo, error)
+	ShutdownFunc             func(ctx context.Context) error
+	ListTunnelsFunc          func(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
+	UploadDataFromPathFunc   func(
 		ctx context.Context,
 		path string,
 		uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{},
@@ -357,6 +359,26 @@ func (r *Robot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) 
 		return r.LocalRobot.MachineStatus(ctx)
 	}
 	return r.MachineStatusFunc(ctx)
+}
+
+// RestartAllowed calls the injected RestartAllowed or the real one.
+func (r *Robot) RestartAllowed() bool {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.RestartAllowedFunc == nil {
+		return r.LocalRobot.RestartAllowed()
+	}
+	return r.RestartAllowedFunc()
+}
+
+// ExportResourcesAsDot calls the injected ExportResourcesAsDot or the real one.
+func (r *Robot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ExportResourcesAsDotFunc == nil {
+		return r.LocalRobot.ExportResourcesAsDot(index)
+	}
+	return r.ExportResourcesAsDotFunc(index)
 }
 
 // Shutdown calls the injected Shutdown or the real one.
