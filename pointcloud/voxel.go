@@ -101,11 +101,15 @@ func (p *voxelPlane) Equation() [4]float64 {
 	return equation
 }
 
+// minPlaneNormalNorm is the shortest normal a voxel plane can have and still define an orientation.
+// A voxel starts out with a zero normal and only gets a real one once enough points land in it.
+const minPlaneNormalNorm = 0.0001
+
 // DistToPlane computes the distance between a point a plane with given normal vector and offset.
 func (p *voxelPlane) Distance(pt r3.Vector) float64 {
 	num := math.Abs(pt.Dot(p.normal) + p.offset)
 	d := 0.
-	if denom := p.normal.Norm(); denom > 0.0001 {
+	if denom := p.normal.Norm(); denom > minPlaneNormalNorm {
 		d = num / denom
 	}
 	return d
