@@ -187,12 +187,15 @@ func (params *PinholeCameraIntrinsics) PixelToPoint(x, y, z float64) (float64, f
 // The intrinsics parameters should be the ones of the sensor we want to project to.
 func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, float64) {
 	// TODO(louise): add unit test
-	if z != 0. {
+	// z must be strictly positive: the camera looks down +Z, so z <= 0 is at or behind the pinhole and has no
+	// image-plane projection. Dividing by a negative z flips both signs and yields an in-bounds pixel for a point
+	// that is behind the camera, so the sign test cannot be relaxed to z != 0.
+	if z > 0. {
 		xPx := math.Round((x/z)*params.Fx + params.Ppx)
 		yPx := math.Round((y/z)*params.Fy + params.Ppy)
 		return xPx, yPx
 	}
-	// if depth is zero at this pixel, return negative coordinates so that the cropping to RGB bounds will filter it out
+	// if depth is non-positive at this pixel, return negative coordinates so that the cropping to RGB bounds will filter it out
 	return -1.0, -1.0
 }
 
@@ -297,12 +300,22 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 	cloud.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
 		j, i := pci.PointToPixel(pt.X, pt.Y, pt.Z)
 		x, y := int(math.Round(j)), int(math.Round(i))
-		z := int(pt.Z)
+		// PointToPixel already rejects z <= 0, so pt.Z is positive whenever the pixel is in bounds.
+		// Depth is a uint16, so anything past its range has to be dropped rather than silently wrapped.
+		if pt.Z > float64(math.MaxUint16) {
+			return true
+		}
+		z := rimage.Depth(pt.Z)
 		// if point has color and is inside the image bounds, add it to the images
 		if x >= 0 && x < width && y >= 0 && y < height && d != nil && d.HasColor() {
+			// Several cloud points can land on one pixel; keep the nearest so foreground is not
+			// overwritten by background depending on iteration order. Zero means "no point yet".
+			if existing := depth.GetDepth(x, y); existing != 0 && existing <= z {
+				return true
+			}
 			r, g, b := d.RGB255()
 			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
-			depth.Set(x, y, rimage.Depth(z))
+			depth.Set(x, y, z)
 		}
 		return true
 	})
