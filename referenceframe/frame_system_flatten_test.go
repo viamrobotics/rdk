@@ -13,7 +13,7 @@ import (
 
 func TestFlattenSerialModel(t *testing.T) {
 	// Load the fake arm model (1-DoF serial chain: base_link → shoulder_pan_joint)
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Build a frame system part
@@ -55,7 +55,7 @@ func TestFlattenSerialModel(t *testing.T) {
 
 func TestFlattenTransformEquivalence(t *testing.T) {
 	// Load a model
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test at several input configurations
@@ -126,7 +126,7 @@ func TestFlattenBranchingMimicModel(t *testing.T) {
 
 func TestFlattenIntermediateParenting(t *testing.T) {
 	// Load the fake arm model
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Build a frame system with the arm and an extra frame parented to an intermediate link
@@ -166,7 +166,7 @@ func TestFlattenIntermediateParenting(t *testing.T) {
 
 func TestFlattenComponentLevelTransform(t *testing.T) {
 	// Verify that Transform works with component-level LinearInputs (resolveFrameInputs path)
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	lif := NewLinkInFrame(World, spatial.NewZeroPose(), "arm1", nil)
@@ -206,7 +206,7 @@ func TestFlattenComponentLevelTransform(t *testing.T) {
 // metadata and externals-attached-to-internals.
 func flattenFSFixture(t *testing.T) *FrameSystem {
 	t.Helper()
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	armLif := NewLinkInFrame(World, spatial.NewZeroPose(), "arm1", nil)
@@ -282,7 +282,7 @@ func TestReplaceFlattenedFrameSameShape(t *testing.T) {
 	fs := flattenFSFixture(t)
 
 	// Reload the same model so the replacement has identical internal names.
-	newModel, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	newModel, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	newArm := NewNamedFrame(newModel, "arm1")
 
@@ -356,7 +356,7 @@ func TestReplaceFlattenedFrameOrphansExternals(t *testing.T) {
 // internal frames become accessible under the "<componentName>:<internalName>"
 // convention without going through the NewFrameSystem path.
 func TestAddFrameAutoFlattensSimpleModel(t *testing.T) {
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "arm1")
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "arm1")
 	test.That(t, err, test.ShouldBeNil)
 
 	fs := NewEmptyFrameSystem("test")
@@ -381,7 +381,7 @@ func TestAddFrameAutoFlattensSimpleModel(t *testing.T) {
 // flattened SimpleModel includes its regenerated internals plus externals
 // attached to those internals, and excludes unrelated siblings.
 func TestSubsetIncludesFlattenedInternals(t *testing.T) {
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "arm1")
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "arm1")
 	test.That(t, err, test.ShouldBeNil)
 
 	fs := NewEmptyFrameSystem("test")
@@ -411,7 +411,7 @@ func TestSubsetIncludesFlattenedInternals(t *testing.T) {
 // flattened SimpleModel tears down the old namespaced internals and rebuilds
 // the replacement model's internals under the same component name.
 func TestReplaceFrameRebuildsFlattenedInternals(t *testing.T) {
-	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "device")
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/fake.json"), "device")
 	test.That(t, err, test.ShouldBeNil)
 	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "device")
 	test.That(t, err, test.ShouldBeNil)

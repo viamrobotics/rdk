@@ -19,7 +19,7 @@ import (
 
 func TestNloptFixedJoint(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := []float64{1, 1, -1, 1, 1, 0}
@@ -47,7 +47,7 @@ func TestNloptFixedJoint(t *testing.T) {
 
 func TestCreateNloptSolver(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// matches xarm home end effector position
@@ -97,7 +97,7 @@ func TestCreateNloptSolver(t *testing.T) {
 func BenchmarkNloptSolve(b *testing.B) {
 	logger := logging.NewTestLogger(b)
 	logger.SetLevel(logging.INFO)
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 
 	seed := []float64{1, 1, -1, 1, 1, 0}

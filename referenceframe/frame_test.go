@@ -394,7 +394,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	test.That(t, eq, test.ShouldBeTrue)
 
 	// SimpleModel
-	simpleModel, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	simpleModel, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	jsonData, err = frameToJSON(simpleModel)

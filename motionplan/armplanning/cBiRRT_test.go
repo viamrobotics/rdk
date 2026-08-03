@@ -21,7 +21,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	inputSteps := []*node{}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t).Sublogger("mp")
-	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/kinematics/xarm7.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})

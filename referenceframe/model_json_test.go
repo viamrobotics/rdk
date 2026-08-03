@@ -68,7 +68,7 @@ func TestGripperModelJSON(t *testing.T) {
 }
 
 func TestLimitsParsing(t *testing.T) {
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	smodel, ok := model.(*SimpleModel)
@@ -99,11 +99,11 @@ func TestLimitsParsing(t *testing.T) {
 // So we'll just check that we read in the right number of joints.
 func TestParseJSONFile(t *testing.T) {
 	goodFiles := []string{
-		"components/arm/fake/kinematics/xarm6.json",
-		"components/arm/fake/kinematics/xarm7.json",
+		"components/arm/kinematics/xarm6.json",
+		"components/arm/kinematics/xarm7.json",
 		"referenceframe/testfiles/ur5eDH.json",
-		"components/arm/fake/kinematics/ur5e.json",
-		"components/arm/fake/kinematics/dofbot.json",
+		"components/arm/kinematics/ur5e.json",
+		"components/arm/kinematics/dofbot.json",
 	}
 
 	badFiles := []string{
