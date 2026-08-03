@@ -15,7 +15,10 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -47,6 +51,12 @@ var (
 	// At time of writing only a single test depends on it.
 	// We should endevor to not add more tests that depend on it unless absolutiely necessary.
 	clk = clock.New()
+
+	// processStartTime is recorded at package init, which is guaranteed to happen before
+	// any collector can be created and therefore before this process can open any .prog
+	// file. renameOrphanedProgFilesToCapture uses it to distinguish orphaned .prog files
+	// from live ones.
+	processStartTime = time.Now()
 )
 
 const capturePollFrequency = 100 * time.Millisecond
@@ -90,6 +100,10 @@ type builtIn struct {
 	capture            *capture.Capture
 	sync               *datasync.Sync
 	diskSummaryTracker *diskSummaryTracker
+	// renamedOrphanProgFiles ensures the orphaned .prog file cleanup runs at most
+	// once per instance, on the first Reconfigure, before any collectors
+	// exist.
+	renamedOrphanProgFiles bool
 
 	captureControlPoller *goutils.StoppableWorkers
 }
@@ -232,6 +246,13 @@ func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependen
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	// Rename orphaned .prog files left behind by a previous viam-server
+	// process (crash, power loss, kill) to .capture so sync uploads them.
+	if !b.renamedOrphanProgFiles {
+		renameOrphanedProgFilesToCapture(captureConfig.CaptureDir, b.logger)
+		b.renamedOrphanProgFiles = true
+	}
+
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we begin calling Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and causing bugs due to duplicate work.
@@ -248,6 +269,61 @@ func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependen
 	}
 
 	return nil
+}
+
+// renameOrphanedProgFilesToCapture walks captureDir and renames orphaned .prog files
+// to .capture, so that sync picks them up for upload. Corrupt or truncated orphans
+// are renamed as-is: sync's existing handling uploads the readable prefix of
+// truncated files and quarantines unparseable ones under failed/.
+func renameOrphanedProgFilesToCapture(captureDir string, logger logging.Logger) {
+	start := time.Now()
+	var renamed, skippedGuard int
+	//nolint:errcheck // the callback never returns an error; failures are logged and skipped
+	filepath.WalkDir(captureDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			// A missing captureDir (MkdirAll above may have failed) lands here too.
+			logger.Warnw("error walking capture directory while renaming orphaned .prog files; skipping",
+				"path", path, "error", err)
+			if d != nil && d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
+			// Files under failed/ are quarantined and deliberately not synced; renaming
+			// there would be pointless. datasetUpload/ files upload via a separate path.
+			if d.Name() == datasync.FailedDir || d.Name() == datasync.DatasetDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// Only plain .prog capture files; .progseq sequence files have different upload
+		// semantics and are intentionally not handled here.
+		if filepath.Ext(path) != data.InProgressCaptureFileExt {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			logger.Warnw("failed to stat .prog file; skipping", "path", path, "error", err)
+			return nil
+		}
+		if !info.ModTime().Before(processStartTime) {
+			// This file may be held open by a live collector.
+			logger.Warnw("skipping .prog file modified after process start; it may be in use by a live collector",
+				"path", path, "modTime", info.ModTime(), "processStartTime", processStartTime)
+			skippedGuard++
+			return nil
+		}
+		newPath := strings.TrimSuffix(path, data.InProgressCaptureFileExt) + data.CompletedCaptureFileExt
+		if err := os.Rename(path, newPath); err != nil {
+			logger.Warnw("failed to rename orphaned .prog file; skipping", "path", path, "error", err)
+			return nil
+		}
+		renamed++
+		return nil
+	})
+	logger.Infow("finished renaming orphaned .prog files to .capture",
+		"renamed", renamed, "skippedByModTimeGuard", skippedGuard, "elapsed", time.Since(start).String())
 }
 
 func (b *builtIn) startCaptureControlPoller(
