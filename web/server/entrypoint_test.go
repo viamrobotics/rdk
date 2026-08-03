@@ -609,4 +609,3 @@ func TestDebugLogAppliesAtStartup(t *testing.T) {
 	cancel()
 	wg.Wait()
 }
-
