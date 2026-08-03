@@ -2,7 +2,9 @@ package builtin
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -346,5 +348,103 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int, logger logging.
 				}
 			})
 		}
+	}
+}
+
+func TestOrphanedProgFilesRenamedOnStartupOnly(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	captureDir := t.TempDir()
+	orphanTime := processStartTime.Add(-time.Hour)
+
+	// Simulate a crashed previous viam-server process: create a real capture file,
+	// complete it (Close renames it to .capture), rename it back to .prog, and
+	// backdate its mtime to before this process started.
+	f, err := data.NewCaptureFile(captureDir, &v1.DataCaptureMetadata{Type: v1.DataType_DATA_TYPE_TABULAR_SENSOR})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.Close(), test.ShouldBeNil)
+	orphanCapturePath := f.GetPath()
+	orphanProgPath := strings.TrimSuffix(orphanCapturePath, data.CompletedCaptureFileExt) + data.InProgressCaptureFileExt
+	test.That(t, os.Rename(orphanCapturePath, orphanProgPath), test.ShouldBeNil)
+	test.That(t, os.Chtimes(orphanProgPath, orphanTime, orphanTime), test.ShouldBeNil)
+
+	// Boot the data manager with capture enabled and scheduled sync disabled. The
+	// default (large) max capture file size keeps the live collector's file in the
+	// .prog state for the duration of the test.
+	r := setupRobot(nil, map[resource.Name]resource.Resource{
+		arm.Named("arm1"): &inject.Arm{
+			EndPositionFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+				return spatialmath.NewZeroPose(), nil
+			},
+		},
+	})
+	config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
+	c := config.ConvertedAttributes.(*Config)
+	c.CaptureDir = captureDir
+	c.ScheduledSyncDisabled = true
+
+	b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, b.Close(context.Background()), test.ShouldBeNil) }()
+
+	// The orphan was renamed to .capture during startup, and is still parseable.
+	test.That(t, fileExists(orphanProgPath), test.ShouldBeFalse)
+	test.That(t, fileExists(orphanCapturePath), test.ShouldBeTrue)
+	_, err = data.SensorDataFromCaptureFilePath(orphanCapturePath)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Wait for the live collector to open its own .prog file.
+	liveProgPath := waitForProgFileToExist(t, captureDir)
+
+	// Seed another backdated orphan before reconfiguring. Even though its mtime
+	// makes it eligible for renaming, the cleanup must not run again, proving the
+	// once-per-instance gating independently of the mtime guard.
+	lateOrphan := createTestFileModifiedAt(t, filepath.Join(captureDir, "late.prog"), orphanTime)
+
+	// Reconfigure with an unchanged config: collectors are left running with their
+	// .prog files open.
+	err = b.(resource.BuiltInResource).BuiltInReconfigure(context.Background(), deps, config)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The live collector's .prog file was not renamed out from under it, and the
+	// late orphan was not touched either.
+	test.That(t, fileExists(liveProgPath), test.ShouldBeTrue)
+	test.That(t, fileExists(lateOrphan), test.ShouldBeTrue)
+	test.That(t, fileExists(progToCapturePath(lateOrphan)), test.ShouldBeFalse)
+
+	// Capture is still healthy after the reconfigure: the live collector keeps
+	// writing to its file.
+	initialSize := fileSize(t, liveProgPath)
+	waitForFileToGrow(t, liveProgPath, initialSize)
+}
+
+// waitForProgFileToExist polls dir until a .prog file appears and returns its path.
+func waitForProgFileToExist(t *testing.T, dir string) string {
+	t.Helper()
+	start := time.Now()
+	for {
+		for _, p := range getAllFilePaths(dir) {
+			if filepath.Ext(p) == data.InProgressCaptureFileExt {
+				return p
+			}
+		}
+		if time.Since(start) > 10*time.Second {
+			t.Fatalf("timed out waiting for a .prog file to appear in %s", dir)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// waitForFileToGrow polls path until its size exceeds initialSize.
+func waitForFileToGrow(t *testing.T, path string, initialSize int64) {
+	t.Helper()
+	start := time.Now()
+	for {
+		if fileSize(t, path) > initialSize {
+			return
+		}
+		if time.Since(start) > 10*time.Second {
+			t.Fatalf("timed out waiting for %s to grow beyond %d bytes", path, initialSize)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -977,4 +978,81 @@ func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n 
 			})
 		}
 	}
+}
+
+func TestRenameOrphanedProgFilesToCapture(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	dir := t.TempDir()
+	orphanTime := processStartTime.Add(-time.Hour)
+
+	// Orphaned .prog files: one at the top level, one nested the way collectors
+	// nest them (captureDir/api/name/method/file).
+	topOrphan := createTestFileModifiedAt(t, filepath.Join(dir, "top.prog"), orphanTime)
+	nestedOrphan := createTestFileModifiedAt(t,
+		filepath.Join(dir, "rdk_component_arm", "arm1", "EndPosition", "nested.prog"), orphanTime)
+
+	// A .prog file modified after process start: it may be held open by a live
+	// collector, so the mtime guard must leave it alone.
+	liveProg := createTestFileModifiedAt(t, filepath.Join(dir, "live.prog"), processStartTime.Add(time.Hour))
+
+	// Files the pass must never touch regardless of mtime: completed capture files,
+	// in-progress sequence files, arbitrary files, and anything under the failed/
+	// quarantine or datasetUpload/ subtrees.
+	completed := createTestFileModifiedAt(t, filepath.Join(dir, "done.capture"), orphanTime)
+	progseq := createTestFileModifiedAt(t, filepath.Join(dir, "seq"+data.InProgressSequenceFileExt), orphanTime)
+	arbitrary := createTestFileModifiedAt(t, filepath.Join(dir, "notes.txt"), orphanTime)
+	quarantined := createTestFileModifiedAt(t, filepath.Join(dir, datasync.FailedDir, "old.prog"), orphanTime)
+	dataset := createTestFileModifiedAt(t, filepath.Join(dir, datasync.DatasetDir, "old.prog"), orphanTime)
+
+	renameOrphanedProgFilesToCapture(dir, logger)
+
+	// The orphans were renamed .prog -> .capture.
+	test.That(t, fileExists(topOrphan), test.ShouldBeFalse)
+	test.That(t, fileExists(progToCapturePath(topOrphan)), test.ShouldBeTrue)
+	test.That(t, fileExists(nestedOrphan), test.ShouldBeFalse)
+	test.That(t, fileExists(progToCapturePath(nestedOrphan)), test.ShouldBeTrue)
+
+	// The mtime guard skipped the recently modified .prog file.
+	test.That(t, fileExists(liveProg), test.ShouldBeTrue)
+	test.That(t, fileExists(progToCapturePath(liveProg)), test.ShouldBeFalse)
+
+	// Everything else is untouched.
+	test.That(t, fileExists(completed), test.ShouldBeTrue)
+	test.That(t, fileExists(progseq), test.ShouldBeTrue)
+	test.That(t, fileExists(arbitrary), test.ShouldBeTrue)
+	test.That(t, fileExists(quarantined), test.ShouldBeTrue)
+	test.That(t, fileExists(progToCapturePath(quarantined)), test.ShouldBeFalse)
+	test.That(t, fileExists(dataset), test.ShouldBeTrue)
+	test.That(t, fileExists(progToCapturePath(dataset)), test.ShouldBeFalse)
+
+	t.Run("a nonexistent capture dir is a warn-and-continue no-op", func(t *testing.T) {
+		renameOrphanedProgFilesToCapture(filepath.Join(t.TempDir(), "does-not-exist"), logger)
+	})
+}
+
+// createTestFileModifiedAt creates a file (and any missing parent directories) with
+// the given mtime and returns its path.
+func createTestFileModifiedAt(t *testing.T, path string, mtime time.Time) string {
+	t.Helper()
+	test.That(t, os.MkdirAll(filepath.Dir(path), 0o700), test.ShouldBeNil)
+	test.That(t, os.WriteFile(path, []byte("test-content"), 0o600), test.ShouldBeNil)
+	test.That(t, os.Chtimes(path, mtime, mtime), test.ShouldBeNil)
+	return path
+}
+
+// progToCapturePath returns the path a .prog file would have after being renamed to .capture.
+func progToCapturePath(progPath string) string {
+	return strings.TrimSuffix(progPath, data.InProgressCaptureFileExt) + data.CompletedCaptureFileExt
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func fileSize(t *testing.T, path string) int64 {
+	t.Helper()
+	info, err := os.Stat(path)
+	test.That(t, err, test.ShouldBeNil)
+	return info.Size()
 }
