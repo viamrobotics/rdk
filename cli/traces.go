@@ -26,7 +26,7 @@ import (
 const tracesRelativePath = "trace"
 
 var (
-	tracesRootDir     = path.Join("~", ".viam")
+	tracesRootDir     = shell.ViamHomePrefix
 	defaultTracesPath = path.Join(tracesRootDir, tracesRelativePath)
 )
 
