@@ -175,7 +175,7 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 
 // cloudReadResult is what one read of the cloud config endpoint or on-dish cache produces. The two configs are
 // carried together in a struct rather than as a pair of *Config parameters so they cannot be
-// silently transposed at a call site.
+// silently exchanged at a call site.
 type cloudReadResult struct {
 	// processed is the config the robot runs on.
 	processed *Config
