@@ -23,9 +23,8 @@ func TestEmptyPlane(t *testing.T) {
 	test.That(t, math.IsInf(plane.Distance(pt), 1), test.ShouldBeTrue)
 }
 
-// Distance normalizes by the length of the plane's normal, not by the length of the query point.
-// The two coincide only when |pt| happens to equal |normal| -- which is exactly the case
-// TestNewPlane picks, so that test passes under either formula.
+// Distance must divide by |normal|, not by |pt|. Note that TestNewPlane cannot detect the
+// difference: its probe point satisfies |pt| == |normal|, where the two divisors coincide.
 func TestPlaneDistanceNormalizesByNormal(t *testing.T) {
 	// z = 0, normal already unit length, so the distance is just the z coordinate.
 	plane := NewPlaneWithCenter(NewBasicPointCloud(0), [4]float64{0, 0, 1, 0}, r3.Vector{})
@@ -34,11 +33,13 @@ func TestPlaneDistanceNormalizesByNormal(t *testing.T) {
 		expected float64
 	}{
 		{r3.Vector{0, 0, 5}, 5},
-		{r3.Vector{100, 0, 5}, 5},     // distance must not shrink as the point leaves the origin
-		{r3.Vector{1000, 1000, 5}, 5}, //
-		{r3.Vector{0, 0, -7}, -7},     // signed
+		// Invariant: the distance depends only on the offset from the plane, never on how far
+		// along the plane the point sits.
+		{r3.Vector{100, 0, 5}, 5},
+		{r3.Vector{1000, 1000, 5}, 5},
+		{r3.Vector{0, 0, -7}, -7}, // signed
 		{r3.Vector{1000, 1000, 500}, 500},
-		{r3.Vector{0, 0, 0}, 0}, // on the plane at the origin: was 0/0 = NaN
+		{r3.Vector{0, 0, 0}, 0}, // origin: numerator and |pt| are both zero
 	} {
 		test.That(t, plane.Distance(tc.pt), test.ShouldAlmostEqual, tc.expected, 1e-9)
 	}
