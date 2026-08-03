@@ -65,6 +65,10 @@ import (
 
 const localConfigPartID = "local-config"
 
+// configTickerInterval is the wait between automatic reconfiguration attempts,
+// measured from the end of the previous attempt.
+const configTickerInterval = 5 * time.Second
+
 var _ = robot.LocalRobot(&localRobot{})
 
 func init() {
@@ -457,6 +461,9 @@ func (r *localRobot) completeConfigWorker() {
 		if anyChanges {
 			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
 		}
+		// Reset so the next tick arrives a full interval after this attempt ended,
+		// discarding any tick that fired while it was running.
+		r.configTicker.Reset(configTickerInterval)
 	}
 }
 
@@ -652,7 +659,7 @@ func newWithResources(
 
 	if !rOpts.disableCompleteConfigWorker {
 		r.activeBackgroundWorkers.Add(1)
-		r.configTicker = time.NewTicker(5 * time.Second)
+		r.configTicker = time.NewTicker(configTickerInterval)
 		// This goroutine will try to complete the config and update weak and optional
 		// dependencies if any resources are not configured. It will also update the resource
 		// graph when remotes changes or if manually triggered.
