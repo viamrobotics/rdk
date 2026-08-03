@@ -265,15 +265,15 @@ func TestPIDTunerComputeGains(t *testing.T) {
 		expectedKU := (4 * 25.0) / (math.Pi * 5.0)
 		test.That(t, p.kP, test.ShouldAlmostEqual, 0.4545*expectedKU, 1e-9)
 
-		// Two identical pairs must give the same amplitude, and so the same gains. Dividing by
-		// nPeaks+1 instead of nPeaks made this depend on the number of peaks observed.
+		// Two identical pairs must give the same amplitude, and so the same gains: the result must
+		// not depend on how many peaks were observed.
 		p2 := newTuner([]float64{10, 10}, []float64{0, 0}, time.Second)
 		test.That(t, p2.computeGains(), test.ShouldBeNil)
 		test.That(t, p2.kP, test.ShouldAlmostEqual, p.kP, 1e-9)
 	})
 
 	t.Run("degenerate relay results are rejected", func(t *testing.T) {
-		// No peaks bracketed: previously divided by zero and wrote +Inf gains.
+		// No peaks bracketed: the amplitude would be zero and kU infinite.
 		p := newTuner(nil, nil, time.Second)
 		err := p.computeGains()
 		test.That(t, err, test.ShouldNotBeNil)

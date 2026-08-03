@@ -361,8 +361,8 @@ func (p *pidTuner) relayUltimateGainAndPeriod(stepPwr float64) (kU, pU float64, 
 	for i := range nPeaks {
 		a += math.Abs(p.pPeakH[i] - p.pPeakL[i])
 	}
-	// Mean peak-to-peak swing, halved to get the oscillation amplitude. Dividing by nPeaks+1
-	// understated it, which inflated kU by (nPeaks+1)/nPeaks -- a factor of 2 for a single peak pair.
+	// Mean peak-to-peak swing, halved to give the oscillation amplitude. The divisor is nPeaks, not
+	// nPeaks+1; kU is inversely proportional to this, so an off-by-one scales every gain.
 	a /= 2.0 * float64(nPeaks)
 	if a == 0 {
 		return 0, 0, errors.Errorf("PID auto-tuning measured a zero-amplitude oscillation using method %s", p.tuneMethod)
@@ -435,8 +435,7 @@ func (p *pidTuner) pidTunerStep(pv float64, logger logging.Logger) (float64, boo
 		if len(p.stepRsp) > 20 && r < p.ssRValue {
 			p.tS = time.Now()
 			p.lastR = time.Now()
-			// Average the most recent samples, which are the ones at steady state. The loop index was
-			// previously absent from the subscript, so this summed a single sample five times.
+			// Average the most recent samples, which are the ones at steady state.
 			// len(stepRsp) > 20 is guaranteed by the enclosing condition.
 			const ssWindow = 5
 			p.avgSpeedSS = 0.0
