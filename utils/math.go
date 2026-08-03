@@ -35,9 +35,8 @@ func RadToDeg(radians float64) float64 {
 // angles, in the range [0, 180]. The arguments are commutative and
 // need not be normalized to [0, 360).
 func AngleDiffDeg(a1, a2 float64) float64 {
-	// The separation has to be wrapped into [0, 360) before folding it about 180. Folding the raw
-	// separation returned a negative "difference" for any pair more than 360 apart, e.g. -10 for
-	// (0, 370) and -350 for (720, 10).
+	// Folding about 180 is only valid once the separation is inside one revolution; folding a raw
+	// separation greater than 360 yields a negative result.
 	diff := math.Mod(math.Abs(a1-a2), 360)
 	if diff > 180 {
 		diff = 360 - diff

@@ -83,8 +83,7 @@ func TestAngleDiffDeg(t *testing.T) {
 		{0, 360, 0},
 		{350, 20, 30},
 		{20, 350, 30},
-		// Inputs outside [0, 360) must still fold into [0, 180]. These returned negative
-		// values before the separation was wrapped.
+		// Inputs outside [0, 360) must still fold into [0, 180].
 		{0, 370, 10},
 		{370, 0, 10},
 		{720, 10, 10},
@@ -94,7 +93,7 @@ func TestAngleDiffDeg(t *testing.T) {
 		{0, -370, 10},
 		{-180, 180, 0},
 		{1080, 0, 0},
-		// Sanity: the result is never negative and never exceeds 180.
+		// |-1000 - 1000| mod 360 is 200, which folds to 160.
 		{-1000, 1000, 160},
 	} {
 		t.Run(fmt.Sprintf("|%f-%f|=%f", tc.a1, tc.a2, tc.expected), func(t *testing.T) {
