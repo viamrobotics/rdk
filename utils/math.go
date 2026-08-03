@@ -32,9 +32,17 @@ func RadToDeg(radians float64) float64 {
 }
 
 // AngleDiffDeg returns the closest difference from the two given
-// angles. The arguments are commutative.
+// angles, in the range [0, 180]. The arguments are commutative and
+// need not be normalized to [0, 360).
 func AngleDiffDeg(a1, a2 float64) float64 {
-	return float64(180) - math.Abs(math.Abs(a1-a2)-float64(180))
+	// The separation has to be wrapped into [0, 360) before folding it about 180. Folding the raw
+	// separation returned a negative "difference" for any pair more than 360 apart, e.g. -10 for
+	// (0, 370) and -350 for (720, 10).
+	diff := math.Mod(math.Abs(a1-a2), 360)
+	if diff > 180 {
+		diff = 360 - diff
+	}
+	return diff
 }
 
 // AntiCWDeg flips the given degrees as if you were to start at 0 and
