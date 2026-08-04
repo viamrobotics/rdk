@@ -314,7 +314,7 @@ func renameOrphanedProgFilesToCapture(captureDir string, logger logging.Logger) 
 			skippedGuard++
 			return nil
 		}
-		newPath := strings.TrimSuffix(path, data.InProgressCaptureFileExt) + data.CompletedCaptureFileExt
+		newPath := path[:len(path)-len(data.InProgressCaptureFileExt)] + data.CompletedCaptureFileExt
 		if err := os.Rename(path, newPath); err != nil {
 			logger.Warnw("failed to rename orphaned .prog file; skipping", "path", path, "error", err)
 			return nil
