@@ -329,8 +329,11 @@ func renameOrphanedProgFilesToCapture(captureDir string, logger logging.Logger) 
 		return nil
 	})
 
-	logger.Infow("finished renaming orphaned .prog files to .capture",
-		"renamed", renamed, "skippedByModTimeGuard", skippedGuard, "elapsed", time.Since(start).String())
+	// Log whenever something was renamed or the mtime guard fired.
+	if renamed > 0 || skippedGuard > 0 {
+		logger.Infow("finished renaming orphaned .prog files to .capture",
+			"renamed", renamed, "skippedByModTimeGuard", skippedGuard, "elapsed", time.Since(start).String())
+	}
 }
 
 func (b *builtIn) startCaptureControlPoller(
