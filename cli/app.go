@@ -4111,9 +4111,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "hide progress of the file transfer",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagHomeDir,
-							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
-							Value: "~",
+							Name:        moduleFlagHomeDir,
+							Usage:       "remote machine home directory under which <home>/.viam is used as the module destination",
+							DefaultText: "the machine is asked for its VIAM_HOME",
 						},
 						&cli.StringFlag{
 							Name:      moduleBuildFlagCloudConfig,
