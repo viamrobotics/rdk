@@ -83,7 +83,6 @@ func TestReflectionStreamNotLeaked(t *testing.T) {
 	go func() { utils.UncheckedError(server.Serve(lis)) }()
 	defer server.Stop()
 
-	
 	rawConn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() { utils.UncheckedError(rawConn.Close()) }()
