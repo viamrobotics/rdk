@@ -514,18 +514,22 @@ func (conf *Remote) validate(path string) error {
 // A Cloud describes how to configure a robot controlled by the
 // cloud.
 type Cloud struct {
-	ID                string
-	Secret            string
-	LocationSecret    string // Deprecated: Use LocationSecrets
-	LocationSecrets   []LocationSecret
-	APIKey            APIKey
-	LocationID        string
-	PrimaryOrgID      string
-	MachineID         string
-	ManagedBy         string
-	FQDN              string
-	LocalFQDN         string
-	SignalingAddress  string
+	ID               string
+	Secret           string
+	LocationSecret   string // Deprecated: Use LocationSecrets
+	LocationSecrets  []LocationSecret
+	APIKey           APIKey
+	LocationID       string
+	PrimaryOrgID     string
+	MachineID        string
+	ManagedBy        string
+	FQDN             string
+	LocalFQDN        string
+	SignalingAddress string
+	// SignalingInsecure also doubles as the marker for whether the viam-server should try to grab
+	// a TLS cert, since local dev app instances are insecure and have no robot certs by default.
+	// These two things are not intrinsically linked and ideally would be separate fields; until
+	// then, changing the meaning of either one changes the meaning of the other.
 	SignalingInsecure bool
 	AppAddress        string
 	RefreshInterval   time.Duration
@@ -682,6 +686,34 @@ func (config *Cloud) ValidateTLS(path string) error {
 		return resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
 	}
 	return nil
+}
+
+// restoreLocalOnlyFields overwrites the fields of config that come from the config on disk rather
+// than from the cloud. A cloud read uses the cloud's config as its base, so these would otherwise
+// be silently zeroed. They govern how the robot reaches and authenticates to the cloud, so the
+// cloud must not be able to change them.
+//
+// Keep in sync with the Cloud struct -- TestCloudFieldsAreAccountedFor fails on a new field.
+func (config *Cloud) restoreLocalOnlyFields(local *Cloud) {
+	config.ID = local.ID
+	config.Secret = local.Secret
+	config.APIKey = local.APIKey
+	config.AppAddress = local.AppAddress
+	config.RefreshInterval = local.RefreshInterval
+}
+
+// Copy returns a deep copy of a cloud config, so the caller holds a snapshot that cannot be
+// changed out from under it by whoever else has a pointer to the original. A nil receiver copies
+// to nil.
+//
+// Keep in sync with the Cloud struct -- any field that is not a value type needs cloning here.
+func (config *Cloud) Copy() *Cloud {
+	if config == nil {
+		return nil
+	}
+	cloudCopy := *config
+	cloudCopy.LocationSecrets = slices.Clone(config.LocationSecrets)
+	return &cloudCopy
 }
 
 // LocationSecret describes a location secret that can be used to authenticate to the rdk.
