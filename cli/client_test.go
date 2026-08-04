@@ -1236,29 +1236,30 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 		test.That(t, out.messages[0], test.ShouldContainSubstring, "no history found")
 	})
 
-	t.Run("time range and page limit are forwarded", func(t *testing.T) {
+	t.Run("time range is forwarded and the page size is fixed", func(t *testing.T) {
 		cCtx, ac, _, errOut := setup(asc, nil, nil, nil, "token")
 		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{
-			Part:      partID,
-			Start:     "2026-01-14T00:00:00Z",
-			End:       "2026-01-15T23:59:59Z",
-			PageLimit: 25,
+			Part:  partID,
+			Start: "2026-01-14T00:00:00Z",
+			End:   "2026-01-15T23:59:59Z",
+			Count: 25,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 		test.That(t, lastReq.Start.AsTime().Format(time.RFC3339), test.ShouldEqual, "2026-01-14T00:00:00Z")
 		test.That(t, lastReq.End.AsTime().Format(time.RFC3339), test.ShouldEqual, "2026-01-15T23:59:59Z")
+		// --count caps the listing; the wire page size stays fixed so no single response can
+		// outgrow the gRPC max message size.
 		test.That(t, lastReq.PageLimit, test.ShouldNotBeNil)
-		test.That(t, *lastReq.PageLimit, test.ShouldEqual, int64(25))
+		test.That(t, *lastReq.PageLimit, test.ShouldEqual, int64(historyFetchPageSize))
 	})
 
-	t.Run("unset range and a zero page limit are omitted from the request", func(t *testing.T) {
+	t.Run("an unset range is omitted from the request", func(t *testing.T) {
 		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
 		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, lastReq.Start, test.ShouldBeNil)
 		test.That(t, lastReq.End, test.ShouldBeNil)
-		test.That(t, lastReq.PageLimit, test.ShouldBeNil)
 	})
 
 	t.Run("unparseable timestamp errors", func(t *testing.T) {
@@ -1269,44 +1270,101 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "could not parse time string")
 	})
 
-	t.Run("negative page limit errors before fetching", func(t *testing.T) {
+	t.Run("negative count errors before fetching", func(t *testing.T) {
 		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
 		lastReq = nil
 		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
-			machinesPartHistoryArgs{Part: partID, PageLimit: -1})
+			machinesPartHistoryArgs{Part: partID, Count: -1})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, `"page-limit" cannot be negative`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"count" cannot be negative`)
 		test.That(t, lastReq, test.ShouldBeNil)
 	})
 
-	t.Run("next page token hints that entries were withheld", func(t *testing.T) {
-		pagedAsc := &inject.AppServiceClient{
+	// A two-page history: alice on the first page, bob behind the token.
+	var tokensSeen []string
+	pagedAsc := &inject.AppServiceClient{
+		ListOrganizationsFunc: listOrganizationsFunc,
+		GetRobotPartFunc:      getRobotPartFunc,
+		GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartHistoryResponse, error) {
+			tokensSeen = append(tokensSeen, in.GetPageToken())
+			if in.GetPageToken() == "" {
+				return &apppb.GetRobotPartHistoryResponse{
+					History: []*apppb.RobotPartHistoryEntry{
+						{Part: partID, When: timestamppb.New(ts1), EditedBy: &apppb.AuthenticatorInfo{Value: "alice@viam.com"}},
+					},
+					NextPageToken: "page-2",
+				}, nil
+			}
+			return &apppb.GetRobotPartHistoryResponse{
+				History: []*apppb.RobotPartHistoryEntry{
+					{Part: partID, When: timestamppb.New(ts2), EditedBy: &apppb.AuthenticatorInfo{Value: "bob@viam.com"}},
+				},
+			}, nil
+		},
+	}
+
+	t.Run("pages are followed until the token is empty", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(pagedAsc, nil, nil, nil, "token")
+		tokensSeen = nil
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, tokensSeen, test.ShouldResemble, []string{"", "page-2"})
+		test.That(t, len(out.messages), test.ShouldEqual, 2)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "alice@viam.com")
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "bob@viam.com")
+	})
+
+	t.Run("a filtered listing keeps paging and numbers matches contiguously", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(pagedAsc, nil, nil, nil, "token")
+		tokensSeen = nil
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, FilterByEmail: "bob@viam.com"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, tokensSeen, test.ShouldResemble, []string{"", "page-2"})
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "[1]")
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "bob@viam.com")
+	})
+
+	t.Run("an empty page ends the walk even with a token", func(t *testing.T) {
+		spinAsc := &inject.AppServiceClient{
 			ListOrganizationsFunc: listOrganizationsFunc,
 			GetRobotPartFunc:      getRobotPartFunc,
 			GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
 				opts ...grpc.CallOption,
 			) (*apppb.GetRobotPartHistoryResponse, error) {
-				return &apppb.GetRobotPartHistoryResponse{
-					History: []*apppb.RobotPartHistoryEntry{
-						{Part: partID, When: timestamppb.New(ts1), EditedBy: &apppb.AuthenticatorInfo{Value: "alice@viam.com"}},
-					},
-					NextPageToken: "next",
-				}, nil
+				return &apppb.GetRobotPartHistoryResponse{NextPageToken: "never-ends"}, nil
 			},
 		}
-		cCtx, ac, out, errOut := setup(pagedAsc, nil, nil, nil, "token")
-		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
-			machinesPartHistoryArgs{Part: partID, PageLimit: 1})
+		cCtx, ac, out, errOut := setup(spinAsc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "no history found")
+	})
+
+	t.Run("count stops the listing and says so", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(pagedAsc, nil, nil, nil, "token")
+		tokensSeen = nil
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, Count: 1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, tokensSeen, test.ShouldResemble, []string{""})
 		test.That(t, len(out.messages), test.ShouldEqual, 2)
-		test.That(t, out.messages[1], test.ShouldContainSubstring, "more entries exist")
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "alice@viam.com")
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "stopped at --count=1")
 	})
 }
 
-// TestMachinesPartHistoryPageLimitDefault pins the flag default: without one, the command asks for
-// every revision at once and overruns the gRPC max message size on frequently-edited parts.
-func TestMachinesPartHistoryPageLimitDefault(t *testing.T) {
+// TestMachinesPartHistoryCountDefault pins the flag default: without one, printing every revision
+// of a frequently-edited part takes minutes and buries anything useful.
+func TestMachinesPartHistoryCountDefault(t *testing.T) {
 	app := NewApp(&testWriter{}, &testWriter{})
 
 	findCommand := func(cmds []*cli.Command, name string) *cli.Command {
@@ -1325,14 +1383,14 @@ func TestMachinesPartHistoryPageLimitDefault(t *testing.T) {
 	history := findCommand(part.Commands, "history")
 	test.That(t, history, test.ShouldNotBeNil)
 
-	var pageLimit *cli.IntFlag
+	var count *cli.IntFlag
 	for _, flag := range history.Flags {
-		if intFlag, ok := flag.(*cli.IntFlag); ok && intFlag.Name == generalFlagPageLimit {
-			pageLimit = intFlag
+		if intFlag, ok := flag.(*cli.IntFlag); ok && intFlag.Name == generalFlagCount {
+			count = intFlag
 		}
 	}
-	test.That(t, pageLimit, test.ShouldNotBeNil)
-	test.That(t, pageLimit.Value, test.ShouldEqual, defaultHistoryPageLimit)
+	test.That(t, count, test.ShouldNotBeNil)
+	test.That(t, count.Value, test.ShouldEqual, defaultHistoryCount)
 }
 
 func TestShellFileCopy(t *testing.T) {
