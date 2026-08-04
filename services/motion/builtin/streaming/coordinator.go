@@ -15,7 +15,8 @@ import (
 
 // Run executes a streaming session through one trajex session and one arm stream RPC.
 // If jpCh is closed, it samples everything out of the trajex session and sends it to the
-// arm. It waits for the arm to have finished executing before returning.
+// arm, then waits for the arm to have finished executing before returning, including for the
+// runway estimate to reach zero.
 //
 // --- An important note on backpressure --
 //
@@ -87,7 +88,7 @@ func Run(
 						return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 					}
 					if len(pvats) == 0 {
-						return nil
+						return waitOutRunway(ctx, as)
 					}
 					if err := as.send(ctx, pvats); err != nil {
 						return err
@@ -118,6 +119,22 @@ func Run(
 			if err := as.send(ctx, pvats); err != nil {
 				return err
 			}
+		}
+	}
+}
+
+func waitOutRunway(ctx context.Context, as *armStream) error {
+	for {
+		remaining := as.currentEstimatedRunwayInArm()
+		if remaining <= 0 {
+			return nil
+		}
+		timer := time.NewTimer(remaining)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
 		}
 	}
 }
