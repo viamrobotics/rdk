@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	_ "embed"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -11,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
+	"go.viam.com/rdk/components/arm/kinematics"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -30,41 +30,6 @@ type Config struct {
 	ModelFilePath string `json:"model-path,omitempty"`
 }
 
-// Known values that can be provided for the ArmModel field.
-var (
-	ur5eModel   = "ur5e"
-	ur7eModel   = "ur7e"
-	ur20Model   = "ur20"
-	xArm6Model  = "xarm6"
-	xArm7Model  = "xarm7"
-	lite6Model  = "lite6"
-	dofbotModel = "dofbot"
-)
-
-//go:embed kinematics/fake.json
-var fakejson []byte
-
-//go:embed kinematics/ur5e.json
-var ur5eJSON []byte
-
-//go:embed kinematics/ur7e.json
-var ur7eJSON []byte
-
-//go:embed kinematics/ur20.json
-var ur20JSON []byte
-
-//go:embed kinematics/xarm6.json
-var xarm6JSON []byte
-
-//go:embed kinematics/xarm7.json
-var xarm7JSON []byte
-
-//go:embed kinematics/lite6.json
-var lite6JSON []byte
-
-//go:embed kinematics/dofbot.json
-var dofbotJSON []byte
-
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var err error
@@ -72,7 +37,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	case conf.ArmModel != "" && conf.ModelFilePath != "":
 		err = errAttrCfgPopulation
 	case conf.ArmModel != "" && conf.ModelFilePath == "":
-		_, err = modelFromName(conf.ArmModel, "")
+		_, err = kinematics.ModelFromName(conf.ArmModel, "")
 	case conf.ArmModel == "" && conf.ModelFilePath != "":
 		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
 	}
@@ -109,12 +74,12 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	case armModel != "" && modelPath != "":
 		err = errAttrCfgPopulation
 	case armModel != "":
-		model, err = modelFromName(armModel, cfg.Name)
+		model, err = kinematics.ModelFromName(armModel, cfg.Name)
 	case modelPath != "":
 		model, err = referenceframe.KinematicModelFromFile(modelPath, cfg.Name)
 	default:
 		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
-		model, err = modelFromName(Model.Name, cfg.Name)
+		model, err = kinematics.ModelFromName(kinematics.Fake, cfg.Name)
 	}
 
 	return model, err
@@ -333,27 +298,4 @@ func (a *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	return models, nil
-}
-
-func modelFromName(model, name string) (referenceframe.Model, error) {
-	switch model {
-	case ur5eModel:
-		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
-	case ur7eModel:
-		return referenceframe.UnmarshalModelJSON(ur7eJSON, name)
-	case ur20Model:
-		return referenceframe.UnmarshalModelJSON(ur20JSON, name)
-	case xArm6Model:
-		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
-	case xArm7Model:
-		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
-	case lite6Model:
-		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
-	case dofbotModel:
-		return referenceframe.UnmarshalModelJSON(dofbotJSON, name)
-	case Model.Name:
-		return referenceframe.UnmarshalModelJSON(fakejson, name)
-	default:
-		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
-	}
 }

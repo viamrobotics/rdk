@@ -2186,7 +2186,7 @@ func TestCurrentInputs(t *testing.T) {
 			return expectedInputs[testName.ShortName()], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
+			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
 		},
 	}
 	injectArm2 := &inject.Arm{
@@ -2194,7 +2194,7 @@ func TestCurrentInputs(t *testing.T) {
 			return expectedInputs[testName2.ShortName()], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 		},
 	}
 	resourceNames := []resource.Name{testName, testName2}

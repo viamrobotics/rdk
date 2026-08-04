@@ -55,7 +55,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 				Name:  "remoteArm",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -84,7 +84,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"fooremoteArm"},
@@ -93,7 +93,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 				Name:  "arm2",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"barremoteArm"},
@@ -181,7 +181,7 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -252,7 +252,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 				Name:  "pieceArm",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -275,7 +275,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
@@ -329,7 +329,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 				Name:  "pieceArm",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -348,7 +348,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
@@ -397,7 +397,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 				Name:  "pieceArm",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -423,7 +423,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
@@ -454,7 +454,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"pieceArm"},

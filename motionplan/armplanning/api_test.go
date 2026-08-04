@@ -16,7 +16,7 @@ import (
 
 func TestWriteAndReadRequestAndResponse(t *testing.T) {
 	// Build a minimal frame system with a 6-DOF arm.
-	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "xarm6")
 	test.That(t, err, test.ShouldBeNil)
 
 	fs := referenceframe.NewEmptyFrameSystem("")
