@@ -463,6 +463,7 @@ func (r *localRobot) completeConfigWorker() {
 		}
 		// Reset so the next tick arrives a full interval after this attempt ended,
 		// discarding any tick that fired while it was running.
+		// this relies on go 1.23.0 that makes Tickers unbuffered by default
 		r.configTicker.Reset(configTickerInterval)
 	}
 }
