@@ -351,7 +351,7 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int, logger logging.
 	}
 }
 
-func TestOrphanedProgFilesRenamedOnStartupOnly(t *testing.T) {
+func TestOrphanedProgFilesRenamedOnStartupOnlyIntegration(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	captureDir := t.TempDir()
 	orphanTime := processStartTime.Add(-time.Hour)
