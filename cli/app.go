@@ -81,6 +81,7 @@ const (
 	generalFlagTags              = "tags"
 	generalFlagStart             = "start"
 	generalFlagEnd               = "end"
+	generalFlagPageLimit         = "page-limit"
 	generalFlagNoProgress        = "no-progress"
 	generalFlagAPI               = "api"
 	generalFlagArgs              = "args"
@@ -192,6 +193,11 @@ const (
 	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
 	xacroFlagInstallPackages   = "install-packages"
 	xacroFlagROSDistro         = "ros-distro"
+
+	// Every part-history entry embeds a full machine config, so an unbounded history exceeds the
+	// gRPC max message size on parts that are edited often. Cap the fetch by default: at ~73KB an
+	// entry, 100 leaves roughly 4x headroom under the 32MB limit.
+	defaultHistoryPageLimit = 100
 )
 
 var commonPartFlags = []cli.Flag{
@@ -2889,10 +2895,25 @@ Note: There is no progress meter while copying is in progress.
 							Name:      "history",
 							Usage:     "display configuration history for a machine part",
 							UsageText: createUsageText("machines part history", []string{generalFlagPart}, true, false),
-							Flags: append(commonPartFlags, &cli.StringFlag{
-								Name:  "filter-by-email",
-								Usage: "show only history entries saved by this email address",
-							}),
+							Flags: append(commonPartFlags,
+								&cli.StringFlag{
+									Name:  "filter-by-email",
+									Usage: "show only history entries saved by this email address",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagStart,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagEnd,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter (e.g., 2025-01-15T15:00:00Z)",
+								},
+								&cli.IntFlag{
+									Name:  generalFlagPageLimit,
+									Value: defaultHistoryPageLimit,
+									Usage: "maximum number of history entries to fetch, or 0 for every entry in the range",
+								},
+							),
 							Action: createActionCommandWithT[machinesPartHistoryArgs](machinesPartHistoryAction),
 						},
 						{

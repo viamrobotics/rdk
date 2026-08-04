@@ -3170,6 +3170,9 @@ type machinesPartHistoryArgs struct {
 	Machine       string
 	Part          string
 	FilterByEmail string
+	Start         string
+	End           string
+	PageLimit     int
 }
 
 // machinesPartHistoryAction is the corresponding action for 'machines part history'.
@@ -3182,12 +3185,31 @@ func machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machi
 }
 
 func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
+	if args.PageLimit < 0 {
+		return errors.Errorf("%q cannot be negative", generalFlagPageLimit)
+	}
+
 	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine part")
 	}
 
-	resp, err := c.client.GetRobotPartHistory(ctx, &apppb.GetRobotPartHistoryRequest{Id: part.Id})
+	startTime, err := parseTimeString(args.Start)
+	if err != nil {
+		return err
+	}
+	endTime, err := parseTimeString(args.End)
+	if err != nil {
+		return err
+	}
+
+	req := &apppb.GetRobotPartHistoryRequest{Id: part.Id, Start: startTime, End: endTime}
+	if args.PageLimit > 0 {
+		pageLimit := int64(args.PageLimit)
+		req.PageLimit = &pageLimit
+	}
+
+	resp, err := c.client.GetRobotPartHistory(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -3211,6 +3233,12 @@ func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Com
 			editedBy = entry.EditedBy.Value
 		}
 		printf(cmd.Root().Writer, "[%d] %s — edited by %s", i+1, when, editedBy)
+	}
+
+	if resp.NextPageToken != "" {
+		printf(cmd.Root().Writer,
+			"more entries exist beyond this page; narrow the range with --%s/--%s or raise --%s",
+			generalFlagStart, generalFlagEnd, generalFlagPageLimit)
 	}
 
 	return nil
