@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
@@ -412,7 +413,10 @@ func TestOrphanedProgFilesRenamedOnStartupOnlyIntegration(t *testing.T) {
 	// Capture is still healthy after the reconfigure: the live collector keeps
 	// writing to its file.
 	initialSize := fileSize(t, liveProgPath)
-	waitForFileToGrow(t, liveProgPath, initialSize)
+	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 1000, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, fileSize(tb, liveProgPath), test.ShouldBeGreaterThan, initialSize)
+	})
 }
 
 // waitForProgFileToExist polls dir until a .prog file appears and returns its path.
@@ -428,23 +432,6 @@ func waitForProgFileToExist(t *testing.T, dir string) string {
 
 		if time.Since(start) > 10*time.Second {
 			t.Fatalf("timed out waiting for a .prog file to appear in %s", dir)
-		}
-
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-// waitForFileToGrow polls path until its size exceeds initialSize.
-func waitForFileToGrow(t *testing.T, path string, initialSize int64) {
-	t.Helper()
-	start := time.Now()
-	for {
-		if fileSize(t, path) > initialSize {
-			return
-		}
-
-		if time.Since(start) > 10*time.Second {
-			t.Fatalf("timed out waiting for %s to grow beyond %d bytes", path, initialSize)
 		}
 
 		time.Sleep(10 * time.Millisecond)

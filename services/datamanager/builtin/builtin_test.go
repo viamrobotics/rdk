@@ -1070,9 +1070,9 @@ func testThatProgFileUntouched(t *testing.T, progPath string) {
 	testThatFileDoesNotExist(t, progToCapturePath(progPath))
 }
 
-func fileSize(t *testing.T, path string) int64 {
-	t.Helper()
+func fileSize(tb testing.TB, path string) int64 {
+	tb.Helper()
 	info, err := os.Stat(path)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(tb, err, test.ShouldBeNil)
 	return info.Size()
 }
