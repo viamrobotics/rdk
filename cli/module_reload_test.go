@@ -984,14 +984,16 @@ func TestRepeatedReloadNeedsRestart(t *testing.T) {
 	// First reload: module is new, so needsRestart should be false.
 	part, err := vc.getRobotPart(context.Background(), "part-123")
 	test.That(t, err, test.ShouldBeNil)
-	_, needsRestart, err := configureModule(context.Background(), cmd, vc, manifest, part.Part, true, false, testUser, "", testReloadUnixTS, "")
+	_, needsRestart, err := configureModule(context.Background(),
+		cmd, vc, manifest, part.Part, true, false, testUser, "", testReloadUnixTS, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, needsRestart, test.ShouldBeFalse)
 
 	// Second reload: module is already configured with correct path and enabled.
 	part, err = vc.getRobotPart(context.Background(), "part-123")
 	test.That(t, err, test.ShouldBeNil)
-	_, needsRestart, err = configureModule(context.Background(), cmd, vc, manifest, part.Part, true, false, testUser, "", testReloadUnixTS, "")
+	_, needsRestart, err = configureModule(context.Background(),
+		cmd, vc, manifest, part.Part, true, false, testUser, "", testReloadUnixTS, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, needsRestart, test.ShouldBeTrue)
 }
