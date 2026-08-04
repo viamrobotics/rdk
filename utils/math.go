@@ -108,13 +108,6 @@ func MinUint8(a, b uint8) uint8 {
 	return b
 }
 
-const cubeRootExp = 1.0 / 3.0
-
-// CubeRoot returns the cube root of the given value.
-func CubeRoot(x float64) float64 {
-	return math.Pow(x, cubeRootExp)
-}
-
 // Square returns the square of the given value.
 // Math.pow( x, 2 ) is slow, this is faster.
 func Square(n float64) float64 {
