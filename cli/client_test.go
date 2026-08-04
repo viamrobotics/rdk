@@ -994,10 +994,12 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 		return &apppb.GetRobotPartResponse{Part: &apppb.RobotPart{Id: partID, Name: partName}}, nil
 	}
 
+	var lastReq *apppb.GetRobotPartHistoryRequest
 	getRobotPartHistoryFunc := func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.GetRobotPartHistoryResponse, error) {
 		test.That(t, in.Id, test.ShouldEqual, partID)
+		lastReq = in
 		return &apppb.GetRobotPartHistoryResponse{
 			History: []*apppb.RobotPartHistoryEntry{
 				{
@@ -1066,6 +1068,104 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, 1)
 		test.That(t, out.messages[0], test.ShouldContainSubstring, "no history found")
 	})
+
+	t.Run("time range and page limit are forwarded", func(t *testing.T) {
+		cCtx, ac, _, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{
+			Part:      partID,
+			Start:     "2026-01-14T00:00:00Z",
+			End:       "2026-01-15T23:59:59Z",
+			PageLimit: 25,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, lastReq.Start.AsTime().Format(time.RFC3339), test.ShouldEqual, "2026-01-14T00:00:00Z")
+		test.That(t, lastReq.End.AsTime().Format(time.RFC3339), test.ShouldEqual, "2026-01-15T23:59:59Z")
+		test.That(t, lastReq.PageLimit, test.ShouldNotBeNil)
+		test.That(t, *lastReq.PageLimit, test.ShouldEqual, int64(25))
+	})
+
+	t.Run("unset range and a zero page limit are omitted from the request", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, lastReq.Start, test.ShouldBeNil)
+		test.That(t, lastReq.End, test.ShouldBeNil)
+		test.That(t, lastReq.PageLimit, test.ShouldBeNil)
+	})
+
+	t.Run("unparseable timestamp errors", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, Start: "yesterday"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "could not parse time string")
+	})
+
+	t.Run("negative page limit errors before fetching", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		lastReq = nil
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, PageLimit: -1})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"page-limit" cannot be negative`)
+		test.That(t, lastReq, test.ShouldBeNil)
+	})
+
+	t.Run("next page token hints that entries were withheld", func(t *testing.T) {
+		pagedAsc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartHistoryResponse, error) {
+				return &apppb.GetRobotPartHistoryResponse{
+					History: []*apppb.RobotPartHistoryEntry{
+						{Part: partID, When: timestamppb.New(ts1), EditedBy: &apppb.AuthenticatorInfo{Value: "alice@viam.com"}},
+					},
+					NextPageToken: "next",
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(pagedAsc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, PageLimit: 1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 2)
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "more entries exist")
+	})
+}
+
+// TestMachinesPartHistoryPageLimitDefault pins the flag default: without one, the command asks for
+// every revision at once and overruns the gRPC max message size on frequently-edited parts.
+func TestMachinesPartHistoryPageLimitDefault(t *testing.T) {
+	app := NewApp(&testWriter{}, &testWriter{})
+
+	findCommand := func(cmds []*cli.Command, name string) *cli.Command {
+		for _, cmd := range cmds {
+			if cmd.Name == name {
+				return cmd
+			}
+		}
+		return nil
+	}
+
+	machines := findCommand(app.Commands, "machines")
+	test.That(t, machines, test.ShouldNotBeNil)
+	part := findCommand(machines.Commands, "part")
+	test.That(t, part, test.ShouldNotBeNil)
+	history := findCommand(part.Commands, "history")
+	test.That(t, history, test.ShouldNotBeNil)
+
+	var pageLimit *cli.IntFlag
+	for _, flag := range history.Flags {
+		if intFlag, ok := flag.(*cli.IntFlag); ok && intFlag.Name == generalFlagPageLimit {
+			pageLimit = intFlag
+		}
+	}
+	test.That(t, pageLimit, test.ShouldNotBeNil)
+	test.That(t, pageLimit.Value, test.ShouldEqual, defaultHistoryPageLimit)
 }
 
 func TestShellFileCopy(t *testing.T) {
