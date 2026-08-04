@@ -34,6 +34,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/utils"
@@ -1561,6 +1562,7 @@ func reloadModuleActionInner(
 			// Dynamic build steps (e.g., "Spin up environment", "Install dependencies") are added at runtime with IndentLevel: 1
 			{ID: "reload", Message: "Reloading to part...", CompletedMsg: "Reloaded to part", IndentLevel: 0},
 			{ID: "configure", Message: "Configuring module...", CompletedMsg: "Module configured", IndentLevel: 1},
+			{ID: "wait", Message: "Waiting for machine to apply reload...", CompletedMsg: "Machine applied reload", IndentLevel: 1},
 			{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
 		}
 	} else {
@@ -1578,6 +1580,7 @@ func reloadModuleActionInner(
 			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 1},
 			{ID: "configure", Message: "Configuring module...", CompletedMsg: "Module configured", IndentLevel: 1},
 			{ID: "restart", Message: "Restarting module...", CompletedMsg: "Module restarted successfully", IndentLevel: 1},
+			{ID: "wait", Message: "Waiting for machine to apply reload...", CompletedMsg: "Machine applied reload", IndentLevel: 1},
 			{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
 		}
 	}
@@ -1753,6 +1756,31 @@ func reloadModuleActionInner(
 			return err
 		}
 		if err := pm.Complete("restart"); err != nil {
+			return err
+		}
+	}
+
+	if manifest != nil {
+		if err := pm.Start("wait"); err != nil {
+			return err
+		}
+		moduleName := localizeModuleID(manifest.ModuleID)
+		modStatus, err := vc.waitForModuleReload(ctx, cmd, part.Part, moduleName, reloadTime, logger)
+		if err != nil {
+			_ = pm.Fail("wait", err)                                 //nolint:errcheck
+			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			return err
+		}
+		waitMessage := "Machine applied reload"
+		if modStatus.State == modulestatus.ModuleStateUnhealthy {
+			waitMessage = "Machine applied reload (module unhealthy)"
+			if modStatus.Error != nil {
+				warningf(cmd.Root().ErrWriter, "module %q reloaded but is unhealthy: %v", moduleName, modStatus.Error)
+			} else {
+				warningf(cmd.Root().ErrWriter, "module %q reloaded but is unhealthy", moduleName)
+			}
+		}
+		if err := pm.CompleteWithMessage("wait", waitMessage); err != nil {
 			return err
 		}
 	}
