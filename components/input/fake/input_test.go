@@ -139,8 +139,7 @@ func TestRegisterControlCallback(t *testing.T) {
 	err := i.RegisterControlCallback(context.Background(), input.AbsoluteHat0X, []input.EventType{input.ButtonPress}, ctrlFunc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	<-calledEnough
-	// Subtract a small margin from the lower bound to account for OS timer jitter.
-	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 5*delay-50*time.Millisecond)
+	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 5*delay)
 	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 7*delay)
 	test.That(t, callCount, test.ShouldEqual, 5)
 	test.That(t, v, test.ShouldAlmostEqual, value)
