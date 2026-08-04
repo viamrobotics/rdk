@@ -427,9 +427,11 @@ func waitForProgFileToExist(t *testing.T, dir string) string {
 				return p
 			}
 		}
+
 		if time.Since(start) > 10*time.Second {
 			t.Fatalf("timed out waiting for a .prog file to appear in %s", dir)
 		}
+
 		time.Sleep(10 * time.Millisecond)
 	}
 }
@@ -442,9 +444,11 @@ func waitForFileToGrow(t *testing.T, path string, initialSize int64) {
 		if fileSize(t, path) > initialSize {
 			return
 		}
+
 		if time.Since(start) > 10*time.Second {
 			t.Fatalf("timed out waiting for %s to grow beyond %d bytes", path, initialSize)
 		}
+
 		time.Sleep(10 * time.Millisecond)
 	}
 }

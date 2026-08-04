@@ -18,7 +18,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -278,6 +277,7 @@ func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependen
 func renameOrphanedProgFilesToCapture(captureDir string, logger logging.Logger) {
 	start := time.Now()
 	var renamed, skippedGuard int
+
 	//nolint:errcheck // the callback never returns an error; failures are logged and skipped
 	filepath.WalkDir(captureDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -289,6 +289,7 @@ func renameOrphanedProgFilesToCapture(captureDir string, logger logging.Logger) 
 			}
 			return nil
 		}
+
 		if d.IsDir() {
 			// Files under failed/ are quarantined and deliberately not synced; renaming
 			// there would be pointless. datasetUpload/ files upload via a separate path.
@@ -297,16 +298,19 @@ func renameOrphanedProgFilesToCapture(captureDir string, logger logging.Logger) 
 			}
 			return nil
 		}
+
 		// Only plain .prog capture files; .progseq sequence files have different upload
 		// semantics and are intentionally not handled here.
 		if filepath.Ext(path) != data.InProgressCaptureFileExt {
 			return nil
 		}
+
 		info, err := d.Info()
 		if err != nil {
 			logger.Warnw("failed to stat .prog file; skipping", "path", path, "error", err)
 			return nil
 		}
+
 		if !info.ModTime().Before(processStartTime) {
 			// This file may be held open by a live collector.
 			logger.Warnw("skipping .prog file modified after process start; it may be in use by a live collector",
@@ -314,14 +318,17 @@ func renameOrphanedProgFilesToCapture(captureDir string, logger logging.Logger) 
 			skippedGuard++
 			return nil
 		}
+
 		newPath := path[:len(path)-len(data.InProgressCaptureFileExt)] + data.CompletedCaptureFileExt
 		if err := os.Rename(path, newPath); err != nil {
 			logger.Warnw("failed to rename orphaned .prog file; skipping", "path", path, "error", err)
 			return nil
 		}
+
 		renamed++
 		return nil
 	})
+
 	logger.Infow("finished renaming orphaned .prog files to .capture",
 		"renamed", renamed, "skippedByModTimeGuard", skippedGuard, "elapsed", time.Since(start).String())
 }
