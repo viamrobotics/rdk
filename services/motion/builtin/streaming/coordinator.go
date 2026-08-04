@@ -16,6 +16,19 @@ import (
 // Run executes a streaming session through one trajex session and one arm stream RPC.
 // If jpCh is closed, it samples everything out of the trajex session and sends it to the
 // arm. It waits for the arm to have finished executing before returning.
+//
+// --- An important note on backpressure --
+//
+// The arm provides backpressure to sampling out of trajex in that `Run` maintains an
+// estimate of how much runway the arm has buffered on its side, and only samples out of
+// trajex enough to keep that runway topped up to the user-configured TargetRunwayInArmMs.
+//
+// Trajex, however, does not provide any backpressure to the client: If the client sends
+// joint positions faster than the arm executes them as per the trajectory output by trajex,
+// trajectory simply accumulates inside the trajex session.
+// Note that if, on the other hand, the client sends joint positions *slower* than the arm
+// executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
+// to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
 func Run(
 	ctx context.Context,
 	a arm.Arm,
