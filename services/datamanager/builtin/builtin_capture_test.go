@@ -419,21 +419,21 @@ func TestOrphanedProgFilesRenamedOnStartupOnlyIntegration(t *testing.T) {
 	})
 }
 
-// waitForProgFileToExist polls dir until a .prog file appears and returns its path.
+// waitForProgFileToExist waits until a .prog file appears in dir and returns its path.
 func waitForProgFileToExist(t *testing.T, dir string) string {
 	t.Helper()
-	start := time.Now()
-	for {
+	var progPath string
+	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 1000, func(tb testing.TB) {
+		tb.Helper()
+		var found bool
 		for _, p := range getAllFilePaths(dir) {
 			if filepath.Ext(p) == data.InProgressCaptureFileExt {
-				return p
+				progPath = p
+				found = true
+				break
 			}
 		}
-
-		if time.Since(start) > 10*time.Second {
-			t.Fatalf("timed out waiting for a .prog file to appear in %s", dir)
-		}
-
-		time.Sleep(10 * time.Millisecond)
-	}
+		test.That(tb, found, test.ShouldBeTrue)
+	})
+	return progPath
 }
