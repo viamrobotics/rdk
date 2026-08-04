@@ -3106,8 +3106,13 @@ type machinesPartHistoryArgs struct {
 	FilterByEmail string
 	Start         string
 	End           string
-	PageLimit     int
+	Count         int
 }
+
+// Every history entry embeds a full machine config (~73KB on a real part), so asking app for the
+// whole range at once exceeds the 32MB gRPC max message size. Request fixed-size pages and follow
+// the token instead; at that entry size 100 leaves roughly 4x headroom per response.
+const historyFetchPageSize = 100
 
 // machinesPartHistoryAction is the corresponding action for 'machines part history'.
 func machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
@@ -3119,8 +3124,8 @@ func machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machi
 }
 
 func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
-	if args.PageLimit < 0 {
-		return errors.Errorf("%q cannot be negative", generalFlagPageLimit)
+	if args.Count < 0 {
+		return errors.Errorf("%q cannot be negative", generalFlagCount)
 	}
 
 	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
@@ -3137,42 +3142,59 @@ func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Com
 		return err
 	}
 
-	req := &apppb.GetRobotPartHistoryRequest{Id: part.Id, Start: startTime, End: endTime}
-	if args.PageLimit > 0 {
-		pageLimit := int64(args.PageLimit)
-		req.PageLimit = &pageLimit
+	pageLimit := int64(historyFetchPageSize)
+	var pageToken string
+	listed := 0
+	for {
+		resp, err := c.client.GetRobotPartHistory(ctx, &apppb.GetRobotPartHistoryRequest{
+			Id:        part.Id,
+			Start:     startTime,
+			End:       endTime,
+			PageLimit: &pageLimit,
+			PageToken: &pageToken,
+		})
+		if err != nil {
+			return err
+		}
+
+		// Treat an empty page as the end of the range even if a token came back with it, so a
+		// server that keeps handing out tokens can't spin this loop forever.
+		if len(resp.History) == 0 {
+			break
+		}
+
+		for _, entry := range resp.History {
+			if args.FilterByEmail != "" && (entry.EditedBy == nil || entry.EditedBy.Value != args.FilterByEmail) {
+				continue
+			}
+			when := "<unknown time>"
+			if entry.When != nil {
+				when = entry.When.AsTime().Format(time.UnixDate)
+			}
+			editedBy := "<unknown>"
+			if entry.EditedBy != nil && entry.EditedBy.Value != "" {
+				editedBy = entry.EditedBy.Value
+			}
+			listed++
+			printf(cmd.Root().Writer, "[%d] %s — edited by %s", listed, when, editedBy)
+
+			// --count bounds what the user sees, not what we fetch, so a filtered listing keeps
+			// paging until it has that many matches instead of stopping after the first page.
+			if args.Count > 0 && listed == args.Count {
+				printf(cmd.Root().Writer,
+					"stopped at --%s=%d; raise it or narrow the range with --%s/--%s to see more",
+					generalFlagCount, args.Count, generalFlagStart, generalFlagEnd)
+				return nil
+			}
+		}
+
+		if pageToken = resp.NextPageToken; pageToken == "" {
+			break
+		}
 	}
 
-	resp, err := c.client.GetRobotPartHistory(ctx, req)
-	if err != nil {
-		return err
-	}
-
-	history := resp.History
-	if len(history) == 0 {
+	if listed == 0 {
 		printf(cmd.Root().Writer, "no history found for part %s", part.Name)
-		return nil
-	}
-
-	for i, entry := range history {
-		if args.FilterByEmail != "" && (entry.EditedBy == nil || entry.EditedBy.Value != args.FilterByEmail) {
-			continue
-		}
-		when := "<unknown time>"
-		if entry.When != nil {
-			when = entry.When.AsTime().Format(time.UnixDate)
-		}
-		editedBy := "<unknown>"
-		if entry.EditedBy != nil && entry.EditedBy.Value != "" {
-			editedBy = entry.EditedBy.Value
-		}
-		printf(cmd.Root().Writer, "[%d] %s — edited by %s", i+1, when, editedBy)
-	}
-
-	if resp.NextPageToken != "" {
-		printf(cmd.Root().Writer,
-			"more entries exist beyond this page; narrow the range with --%s/--%s or raise --%s",
-			generalFlagStart, generalFlagEnd, generalFlagPageLimit)
 	}
 
 	return nil
