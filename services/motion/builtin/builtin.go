@@ -356,8 +356,8 @@ func (ms *builtIn) PlanHistory(
 //	  response: {"ok": 1}
 //
 //	DoStreamFlush: stops accepting new targets and drains what's already queued to the arm; the
-//	session ends once that finishes. Blocks until the drain finishes or ctx expires, whichever
-//	comes first.
+//	session ends once that finishes. Blocks until the arm has (by the runway estimate) finished
+//	executing the drained trajectory, or ctx expires, whichever comes first.
 //	  request:  {"stream_flush": true}
 //	  response: {
 //	               "running": false,                   // true if ctx expired before the drain
