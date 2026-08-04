@@ -1007,23 +1007,18 @@ func TestRenameOrphanedProgFilesToCapture(t *testing.T) {
 	renameOrphanedProgFilesToCapture(dir, logger)
 
 	// The orphans were renamed .prog -> .capture.
-	test.That(t, fileExists(topOrphan), test.ShouldBeFalse)
-	test.That(t, fileExists(progToCapturePath(topOrphan)), test.ShouldBeTrue)
-	test.That(t, fileExists(nestedOrphan), test.ShouldBeFalse)
-	test.That(t, fileExists(progToCapturePath(nestedOrphan)), test.ShouldBeTrue)
+	testThatProgFileRenamed(t, topOrphan)
+	testThatProgFileRenamed(t, nestedOrphan)
 
 	// The mtime guard skipped the recently modified .prog file.
-	test.That(t, fileExists(liveProg), test.ShouldBeTrue)
-	test.That(t, fileExists(progToCapturePath(liveProg)), test.ShouldBeFalse)
+	testThatProgFileUntouched(t, liveProg)
 
 	// Everything else is untouched.
-	test.That(t, fileExists(completed), test.ShouldBeTrue)
-	test.That(t, fileExists(progseq), test.ShouldBeTrue)
-	test.That(t, fileExists(arbitrary), test.ShouldBeTrue)
-	test.That(t, fileExists(quarantined), test.ShouldBeTrue)
-	test.That(t, fileExists(progToCapturePath(quarantined)), test.ShouldBeFalse)
-	test.That(t, fileExists(dataset), test.ShouldBeTrue)
-	test.That(t, fileExists(progToCapturePath(dataset)), test.ShouldBeFalse)
+	testThatFileExists(t, completed)
+	testThatFileExists(t, progseq)
+	testThatFileExists(t, arbitrary)
+	testThatProgFileUntouched(t, quarantined)
+	testThatProgFileUntouched(t, dataset)
 
 	t.Run("a nonexistent capture dir is a warn-and-continue no-op", func(t *testing.T) {
 		renameOrphanedProgFilesToCapture(filepath.Join(t.TempDir(), "does-not-exist"), logger)
@@ -1045,9 +1040,34 @@ func progToCapturePath(progPath string) string {
 	return strings.TrimSuffix(progPath, data.InProgressCaptureFileExt) + data.CompletedCaptureFileExt
 }
 
-func fileExists(path string) bool {
+// testThatFileExists asserts that a file exists at path.
+func testThatFileExists(t *testing.T, path string) {
+	t.Helper()
 	_, err := os.Stat(path)
-	return err == nil
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// testThatFileDoesNotExist asserts that no file exists at path.
+func testThatFileDoesNotExist(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
+// testThatProgFileRenamed asserts that the .prog file at progPath was renamed to
+// its .capture equivalent.
+func testThatProgFileRenamed(t *testing.T, progPath string) {
+	t.Helper()
+	testThatFileDoesNotExist(t, progPath)
+	testThatFileExists(t, progToCapturePath(progPath))
+}
+
+// testThatProgFileUntouched asserts that the .prog file at progPath was not renamed:
+// it still exists and no .capture equivalent was created.
+func testThatProgFileUntouched(t *testing.T, progPath string) {
+	t.Helper()
+	testThatFileExists(t, progPath)
+	testThatFileDoesNotExist(t, progToCapturePath(progPath))
 }
 
 func fileSize(t *testing.T, path string) int64 {

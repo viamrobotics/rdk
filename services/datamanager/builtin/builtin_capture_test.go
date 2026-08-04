@@ -387,8 +387,7 @@ func TestOrphanedProgFilesRenamedOnStartupOnly(t *testing.T) {
 	defer func() { test.That(t, b.Close(context.Background()), test.ShouldBeNil) }()
 
 	// The orphan was renamed to .capture during startup, and is still parseable.
-	test.That(t, fileExists(orphanProgPath), test.ShouldBeFalse)
-	test.That(t, fileExists(orphanCapturePath), test.ShouldBeTrue)
+	testThatProgFileRenamed(t, orphanProgPath)
 	_, err = data.SensorDataFromCaptureFilePath(orphanCapturePath)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -407,9 +406,8 @@ func TestOrphanedProgFilesRenamedOnStartupOnly(t *testing.T) {
 
 	// The live collector's .prog file was not renamed out from under it, and the
 	// late orphan was not touched either.
-	test.That(t, fileExists(liveProgPath), test.ShouldBeTrue)
-	test.That(t, fileExists(lateOrphan), test.ShouldBeTrue)
-	test.That(t, fileExists(progToCapturePath(lateOrphan)), test.ShouldBeFalse)
+	testThatProgFileUntouched(t, liveProgPath)
+	testThatProgFileUntouched(t, lateOrphan)
 
 	// Capture is still healthy after the reconfigure: the live collector keeps
 	// writing to its file.
