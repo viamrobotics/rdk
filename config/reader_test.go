@@ -574,6 +574,8 @@ func TestCloudFieldsAreAccountedFor(t *testing.T) {
 		RefreshInterval: 99 * time.Second,
 	}
 	cloudBase.restoreLocalOnlyFields(local)
+	// Reflect over every field so a newly-added Cloud field is checked automatically; hand-written
+	// comparisons would silently skip it, which is the drift this test exists to catch.
 	restored := reflect.ValueOf(cloudBase).Elem()
 	localVal := reflect.ValueOf(local).Elem()
 	origVal := reflect.ValueOf(&beforeRestore).Elem()
