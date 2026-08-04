@@ -357,6 +357,16 @@ type shellRPCCopyWriterTo struct {
 	rpcClient pb.ShellService_CopyFilesToMachineClient
 	ctx       context.Context
 	acks      chan struct{}
+
+	// recvDone is closed once the background receiver has exited. recvErr, guarded by
+	// recvMu, holds the terminal error that receiver observed (the authoritative gRPC
+	// status from the server). We capture it explicitly rather than relying solely on
+	// context.Cause: the underlying webrtc stream cancels its own context with a bare
+	// context.Canceled cause, which can race ahead of our cancel(err) and mask the real
+	// status (surfacing "context canceled" instead of e.g. NotFound). See terminalErr.
+	recvDone chan struct{}
+	recvMu   sync.Mutex
+	recvErr  error
 }
 
 func newShellRPCCopyWriterTo(rpcClient pb.ShellService_CopyFilesToMachineClient) *shellRPCCopyWriterTo {
@@ -365,11 +375,16 @@ func newShellRPCCopyWriterTo(rpcClient pb.ShellService_CopyFilesToMachineClient)
 		rpcClient: rpcClient,
 		ctx:       ctx,
 		// files are sent one at a time, so at most one un-awaited ACK is in flight
-		acks: make(chan struct{}, 1),
+		acks:     make(chan struct{}, 1),
+		recvDone: make(chan struct{}),
 	}
 	utils.PanicCapturingGo(func() {
+		defer close(client.recvDone)
 		for {
 			if _, err := rpcClient.Recv(); err != nil {
+				client.recvMu.Lock()
+				client.recvErr = err
+				client.recvMu.Unlock()
 				cancel(err)
 				return
 			}
@@ -383,11 +398,27 @@ func newShellRPCCopyWriterTo(rpcClient pb.ShellService_CopyFilesToMachineClient)
 	return client
 }
 
+// terminalErr returns the error that ended the copy. It waits for the background receiver
+// to observe the terminal gRPC status (the authoritative source) and prefers it, only
+// falling back to context.Cause when the stream context was canceled without a status
+// (e.g. the peer connection dropped). This avoids surfacing a bare "context canceled" when
+// the server actually reported a specific error such as NotFound. terminalErr is only
+// called once the stream is known to be ending, so the wait on recvDone is bounded.
+func (client *shellRPCCopyWriterTo) terminalErr() error {
+	<-client.recvDone
+	client.recvMu.Lock()
+	defer client.recvMu.Unlock()
+	if client.recvErr != nil {
+		return client.recvErr
+	}
+	return context.Cause(client.ctx)
+}
+
 func (client *shellRPCCopyWriterTo) SendFile(fileDataProto *pb.FileData) error {
-	if err := client.ctx.Err(); err != nil {
+	if client.ctx.Err() != nil {
 		// the server already terminated the copy; fail fast instead of
 		// streaming the rest of the file data.
-		return context.Cause(client.ctx)
+		return client.terminalErr()
 	}
 	if err := client.rpcClient.Send(&pb.CopyFilesToMachineRequest{
 		Request: &pb.CopyFilesToMachineRequest_FileData{
@@ -395,9 +426,8 @@ func (client *shellRPCCopyWriterTo) SendFile(fileDataProto *pb.FileData) error {
 		},
 	}); err != nil {
 		// a send error means the stream is dead (gRPC reports the reason via
-		// Recv); wait for the receiver to surface the actual error.
-		<-client.ctx.Done()
-		return context.Cause(client.ctx)
+		// Recv); surface the actual error the receiver observed.
+		return client.terminalErr()
 	}
 	return nil
 }
@@ -413,7 +443,7 @@ func (client *shellRPCCopyWriterTo) WaitLastACK() error {
 			return nil
 		default:
 		}
-		return context.Cause(client.ctx)
+		return client.terminalErr()
 	}
 }
 

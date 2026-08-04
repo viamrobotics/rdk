@@ -68,8 +68,10 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 
 		// For each PID Set and its respective Tuner Object, Step through an iteration of tuning until done.
 		for i := 0; i < len(p.PIDSets); i++ {
-			// if we do not need to tune this signal, skip to the next signal
-			if !p.tuners[i].tuning {
+			// if we do not need to tune this signal, skip to the next signal.
+			// tuners[i] is nil for any PID set that was fully configured (see NeedsAutoTuning), and getTuning()
+			// is true as soon as *any* set is tuning, so the nil check has to come first.
+			if p.tuners[i] == nil || !p.tuners[i].tuning {
 				continue
 			}
 			out, done := p.tuners[i].pidTunerStep(math.Abs(x[0].GetSignalValueAt(i)), p.logger)
@@ -292,17 +294,23 @@ type pidTuner struct {
 }
 
 // reference for computation: https://en.wikipedia.org/wiki/Ziegler%E2%80%93Nichols_method#cite_note-1
-func (p *pidTuner) computeGains() {
+func (p *pidTuner) computeGains() error {
 	stepPwr := p.limUp * p.stepPct
-	i := 0
-	a := 0.0
-	for ; i < int(math.Min(float64(len(p.pPeakH)), float64(len(p.pPeakL)))); i++ {
-		a += math.Abs(p.pPeakH[i] - p.pPeakL[i])
+
+	// The Cohen-Coons methods derive their gains from the step response (ccT2, ccT3, avgSpeedSS) and
+	// never touch kU or pU. They are also computed at the end of the step phase, before tC is known,
+	// so validating the relay quantities for them would reject every Cohen-Coons run.
+	if p.tuneMethod == tuneMethodCohenCoonsPI || p.tuneMethod == tuneMethodCohenCoonsPID {
+		return p.computeCohenCoonsGains(stepPwr)
 	}
-	a /= (2.0 * float64(i+1))
-	d := 0.5 * stepPwr
-	kU := (4 * d) / (math.Pi * a)
-	pU := (p.tC * 2.0).Seconds()
+
+	kU, pU, err := p.relayUltimateGainAndPeriod(stepPwr)
+	if err != nil {
+		return err
+	}
+
+	// Cohen-Coons returned above.
+	//nolint: exhaustive
 	switch p.tuneMethod {
 	case tuneMethodZiegerNicholsPI:
 		p.kP = 0.4545 * kU
@@ -332,28 +340,67 @@ func (p *pidTuner) computeGains() {
 		p.kP = 0.4545 * kU
 		p.kI = 0.2066 * (kU / pU)
 		p.kD = 0.0721 * kU * pU
-	case tuneMethodCohenCoonsPI:
-		t1 := (p.ccT2.Seconds() - math.Log(2.0)*p.ccT3.Seconds()) / (1.0 - math.Log(2.0))
-		tau := p.ccT3.Seconds() - t1
-		tauD := t1
-		K := (p.avgSpeedSS / stepPwr)
-		r := tauD / tau
-		p.kP = (1.0 / (K * r)) * (0.9 + r/12)
-		p.kI = p.kP / (tauD) * (30 + 3*r) / (9 + 20*r)
-	case tuneMethodCohenCoonsPID:
-		t1 := (p.ccT2.Seconds() - math.Log(2.0)*p.ccT3.Seconds()) / (1.0 - math.Log(2.0))
-		tau := p.ccT3.Seconds() - t1
-		tauD := t1
-		K := (p.avgSpeedSS / stepPwr)
-		r := tauD / tau
-		p.kP = (1.0 / (K * r)) * (4.0/3.0 + r/4)
-		p.kI = p.kP / (tauD) * (32 + 6*r) / (13 + 8*r)
-		p.kD = p.kP / (4 * tauD / (11 + 2*r))
 	default: // ziegler nichols PI is the default
 		p.kP = 0.4545 * kU
 		p.kI = 0.5454 * (kU / pU)
 		p.kD = 0.0
 	}
+	return nil
+}
+
+// relayUltimateGainAndPeriod derives the ultimate gain and oscillation period from the peaks
+// bracketed during the relay phase.
+func (p *pidTuner) relayUltimateGainAndPeriod(stepPwr float64) (kU, pU float64, err error) {
+	nPeaks := min(len(p.pPeakH), len(p.pPeakL))
+	if nPeaks == 0 {
+		// The relay phase can end on its 4 second timeout without ever bracketing a peak. Bailing here
+		// keeps the divisions below from writing +Inf gains into the config.
+		return 0, 0, errors.Errorf("PID auto-tuning found no oscillation peaks using method %s", p.tuneMethod)
+	}
+	a := 0.0
+	for i := range nPeaks {
+		a += math.Abs(p.pPeakH[i] - p.pPeakL[i])
+	}
+	// Mean peak-to-peak swing, halved to give the oscillation amplitude. The divisor is nPeaks, not
+	// nPeaks+1; kU is inversely proportional to this, so an off-by-one scales every gain.
+	a /= 2.0 * float64(nPeaks)
+	if a == 0 {
+		return 0, 0, errors.Errorf("PID auto-tuning measured a zero-amplitude oscillation using method %s", p.tuneMethod)
+	}
+	// tC comes from pidTunerFindTCat, which returns 0 when no sample crossed the threshold.
+	pU = (p.tC * 2.0).Seconds()
+	if pU == 0 {
+		return 0, 0, errors.Errorf("PID auto-tuning measured a zero oscillation period using method %s", p.tuneMethod)
+	}
+	d := 0.5 * stepPwr
+	return (4 * d) / (math.Pi * a), pU, nil
+}
+
+// computeCohenCoonsGains derives gains from the open-loop step response rather than from a relay
+// oscillation. Reference: https://en.wikipedia.org/wiki/PID_controller#Cohen-Coon_parameters
+func (p *pidTuner) computeCohenCoonsGains(stepPwr float64) error {
+	if stepPwr == 0 {
+		return errors.New("PID auto-tuning cannot use Cohen-Coons with a zero step power")
+	}
+	t1 := (p.ccT2.Seconds() - math.Log(2.0)*p.ccT3.Seconds()) / (1.0 - math.Log(2.0))
+	tau := p.ccT3.Seconds() - t1
+	tauD := t1
+	K := p.avgSpeedSS / stepPwr
+	if tau == 0 || tauD == 0 || K == 0 {
+		return errors.Errorf(
+			"PID auto-tuning could not characterize the step response using method %s (tau %v, deadtime %v, gain %v)",
+			p.tuneMethod, tau, tauD, K)
+	}
+	r := tauD / tau
+	if p.tuneMethod == tuneMethodCohenCoonsPID {
+		p.kP = (1.0 / (K * r)) * (4.0/3.0 + r/4)
+		p.kI = p.kP / tauD * (32 + 6*r) / (13 + 8*r)
+		p.kD = p.kP / (4 * tauD / (11 + 2*r))
+		return nil
+	}
+	p.kP = (1.0 / (K * r)) * (0.9 + r/12)
+	p.kI = p.kP / tauD * (30 + 3*r) / (9 + 20*r)
+	return nil
 }
 
 func pidTunerFindTCat(speeds []float64, times []time.Time, speed float64) time.Duration {
@@ -388,16 +435,21 @@ func (p *pidTuner) pidTunerStep(pv float64, logger logging.Logger) (float64, boo
 		if len(p.stepRsp) > 20 && r < p.ssRValue {
 			p.tS = time.Now()
 			p.lastR = time.Now()
+			// Average the most recent samples, which are the ones at steady state.
+			// len(stepRsp) > 20 is guaranteed by the enclosing condition.
+			const ssWindow = 5
 			p.avgSpeedSS = 0.0
-			for i := 0; i < 5; i++ {
-				p.avgSpeedSS += p.stepRsp[len(p.stepRsp)-6]
+			for i := range ssWindow {
+				p.avgSpeedSS += p.stepRsp[len(p.stepRsp)-ssWindow+i]
 			}
-			p.avgSpeedSS /= 5
+			p.avgSpeedSS /= ssWindow
 			if p.tuneMethod == tuneMethodCohenCoonsPI || p.tuneMethod == tuneMethodCohenCoonsPID {
 				p.out = 0.0
 				p.ccT2 = pidTunerFindTCat(p.stepRsp, p.stepRespT, 0.5*p.avgSpeedSS)
 				p.ccT3 = pidTunerFindTCat(p.stepRsp, p.stepRespT, 0.632*p.avgSpeedSS)
-				p.computeGains()
+				if err := p.computeGains(); err != nil {
+					logger.Error(err)
+				}
 				p.currentPhase = end
 			} else {
 				p.out = stepPwr + 0.5*stepPwr
@@ -432,7 +484,9 @@ func (p *pidTuner) pidTunerStep(pv float64, logger logging.Logger) (float64, boo
 		p.pPv = pv
 		if time.Since(p.tS) > 4*time.Second {
 			p.out = 0
-			p.computeGains()
+			if err := p.computeGains(); err != nil {
+				logger.Error(err)
+			}
 			p.currentPhase = end
 		}
 		return p.out, false

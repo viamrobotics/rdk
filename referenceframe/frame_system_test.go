@@ -119,7 +119,7 @@ func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
 	// the reconstructed model must:
 	// 1. Have the same DoF as the original
 	// 2. Be re-serializable via KinematicModelToProtobuf with correct format (not UNSPECIFIED)
-	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(model.DoF()), test.ShouldBeGreaterThan, 0)
 

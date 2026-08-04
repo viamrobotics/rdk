@@ -100,53 +100,53 @@ func TestCorrectStartPose(t *testing.T) {
 	origin := geo.NewPoint(0, 0)
 	t.Run("Test angle from +Y to +X, +Y quadrant", func(t *testing.T) {
 		t.Parallel()
-		// -45
-		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1}
-		movementSensor := createInjectedOrientationMovementSensor(askewOrient)
-		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
-		corrected, err := localizer.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -45.)
-	})
-	t.Run("Test angle from +Y to -X, +Y quadrant", func(t *testing.T) {
-		t.Parallel()
 		// 45
-		askewOrient := &spatialmath.OrientationVectorDegrees{OX: -1, OY: 1, OZ: 1}
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1}
 		movementSensor := createInjectedOrientationMovementSensor(askewOrient)
 		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
 		corrected, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 45.)
 	})
-	t.Run("Test angle from +Y to +X, -Y quadrant", func(t *testing.T) {
-		t.Parallel()
-		// -135
-		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: -1, OZ: 1}
-		movementSensor := createInjectedOrientationMovementSensor(askewOrient)
-		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
-		corrected, err := localizer.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -135.)
-	})
-	t.Run("Test angle from +Y to -X, -Y quadrant", func(t *testing.T) {
+	t.Run("Test angle from +Y to -X, +Y quadrant", func(t *testing.T) {
 		t.Parallel()
 		// 135
-		askewOrient := &spatialmath.OrientationVectorDegrees{OX: -1, OY: -1, OZ: 1}
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: -1, OY: 1, OZ: 1}
 		movementSensor := createInjectedOrientationMovementSensor(askewOrient)
 		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
 		corrected, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 135.)
 	})
+	t.Run("Test angle from +Y to +X, -Y quadrant", func(t *testing.T) {
+		t.Parallel()
+		// -45
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: -1, OZ: 1}
+		movementSensor := createInjectedOrientationMovementSensor(askewOrient)
+		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
+		corrected, err := localizer.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -45.)
+	})
+	t.Run("Test angle from +Y to -X, -Y quadrant", func(t *testing.T) {
+		t.Parallel()
+		// -135
+		askewOrient := &spatialmath.OrientationVectorDegrees{OX: -1, OY: -1, OZ: 1}
+		movementSensor := createInjectedOrientationMovementSensor(askewOrient)
+		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
+		corrected, err := localizer.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -135.)
+	})
 	t.Run("Test non-multiple-of-45 angle from +Y to +X, +Y quadrant", func(t *testing.T) {
 		t.Parallel()
-		// -30
+		// 60
 		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: math.Sqrt(3), OZ: 1}
 		movementSensor := createInjectedOrientationMovementSensor(askewOrient)
 		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
 		corrected, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, -30.)
+		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 60.)
 	})
 	t.Run("Test orientation already at OZ=1", func(t *testing.T) {
 		t.Parallel()

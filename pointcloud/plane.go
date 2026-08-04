@@ -71,9 +71,15 @@ func (p *pointcloudPlane) Equation() [4]float64 {
 	return p.equation
 }
 
-// Distance calculates the distance from the plane to the input point.
+// Distance calculates the signed distance from the plane to the input point.
 func (p *pointcloudPlane) Distance(pt r3.Vector) float64 {
-	return (p.equation[0]*pt.X + p.equation[1]*pt.Y + p.equation[2]*pt.Z + p.equation[3]) / pt.Norm()
+	normalNorm := p.Normal().Norm()
+	if normalNorm == 0 {
+		// An all-zero equation (NewEmptyPlane) describes no plane. +Inf rather than 0 so that
+		// threshold and residual callers treat it as containing nothing rather than everything.
+		return math.Inf(1)
+	}
+	return (p.equation[0]*pt.X + p.equation[1]*pt.Y + p.equation[2]*pt.Z + p.equation[3]) / normalNorm
 }
 
 // Intersect calculates the intersection point of the plane with line defined by p0,p1. return nil if parallel.
