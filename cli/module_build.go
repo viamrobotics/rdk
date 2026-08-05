@@ -1632,6 +1632,10 @@ func reloadModuleActionInner(
 		buildPath = manifest.Build.Path
 	}
 
+	// destination for the module archive on the machine; empty for cloud builds
+	// and local reloads, which don't shell-copy an archive over.
+	var dest string
+
 	// For cloud builds, the machine downloads the package directly from the cloud.
 	// Skip the shell copy and go straight to configure.
 	if cloudBuild {
@@ -1675,7 +1679,8 @@ func reloadModuleActionInner(
 		if err != nil {
 			return err
 		}
-		dest := reloadingDestination(cmd, manifest)
+		dest = reloadingDestination(manifest,
+			vc.machineViamHome(ctx, cmd, part.Part.Fqdn, globalArgs.Debug, logger))
 
 		if err := pm.Start("upload"); err != nil {
 			return err
@@ -1720,7 +1725,7 @@ func reloadModuleActionInner(
 	}
 	var newPart *apppb.RobotPart
 	newPart, needsRestart, err = configureModule(
-		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix())
+		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest)
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {
@@ -1783,15 +1788,12 @@ func reloadModuleActionInner(
 	return nil
 }
 
-type reloadingDestinationArgs struct {
-	Home string
-}
-
-// this chooses a destination path for the module archive.
-func reloadingDestination(cmd *cli.Command, manifest *ModuleManifest) string {
-	args := parseStructFromCtx[reloadingDestinationArgs](cmd)
-	return filepath.Join(args.Home,
-		".viam", config.PackagesDirName+config.LocalPackagesSuffix,
+// this chooses a destination path for the module archive under the machine's
+// VIAM_HOME (see machineViamHome). Uses path (not filepath) so a Windows CLI
+// never sends backslashes to the machine.
+func reloadingDestination(manifest *ModuleManifest, viamHome string) string {
+	return path.Join(viamHome,
+		config.PackagesDirName+config.LocalPackagesSuffix,
 		utils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
 }
 

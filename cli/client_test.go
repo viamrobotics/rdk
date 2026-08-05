@@ -1582,6 +1582,35 @@ func TestLegacyViamHomePath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
+func TestMachineViamHome(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	partFqdn := uuid.NewString()
+	asc := &inject.AppServiceClient{}
+
+	t.Run("machine reports its VIAM_HOME", func(t *testing.T) {
+		// the "machine" is in-process, so its shell service reports this process's ViamDotDir
+		cCtx, vc, _, _ := setupWithRunningPart(t, asc, nil, nil, nil, "token", partFqdn)
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, partFqdn, false, logger),
+			test.ShouldEqual, utils.ViamDotDir)
+	})
+
+	t.Run("--home override skips asking the machine", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(asc, nil, nil, map[string]any{moduleFlagHomeDir: "/home/pi"}, "token")
+		// no dialOverride is set, so reaching for the machine would fail loudly
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, partFqdn, false, logger),
+			test.ShouldEqual, "/home/pi/.viam")
+	})
+
+	t.Run("unreachable machine falls back to the legacy home", func(t *testing.T) {
+		cCtx, vc, _, _ := setupWithRunningPart(t, asc, nil, nil, nil, "token", partFqdn)
+		vc.dialOverride = func(context.Context, string, []rpc.DialOption, logging.Logger) (*client.RobotClient, error) {
+			return nil, errors.New("machine offline")
+		}
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, partFqdn, false, logger),
+			test.ShouldEqual, legacyViamHomeDir)
+	})
+}
+
 func TestCreateOAuthAppAction(t *testing.T) {
 	createOAuthAppFunc := func(ctx context.Context, in *apppb.CreateOAuthAppRequest,
 		opts ...grpc.CallOption,
