@@ -2,7 +2,9 @@ package builtin
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
@@ -347,4 +350,90 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int, logger logging.
 			})
 		}
 	}
+}
+
+func TestOrphanedProgFilesRenamedOnStartupOnlyIntegration(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	captureDir := t.TempDir()
+	orphanTime := processStartTime.Add(-time.Hour)
+
+	// Simulate a crashed previous viam-server process: create a real capture file,
+	// complete it (Close renames it to .capture), rename it back to .prog, and
+	// backdate its mtime to before this process started.
+	f, err := data.NewCaptureFile(captureDir, &v1.DataCaptureMetadata{Type: v1.DataType_DATA_TYPE_TABULAR_SENSOR})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.Close(), test.ShouldBeNil)
+	orphanCapturePath := f.GetPath()
+	orphanProgPath := strings.TrimSuffix(orphanCapturePath, data.CompletedCaptureFileExt) + data.InProgressCaptureFileExt
+	test.That(t, os.Rename(orphanCapturePath, orphanProgPath), test.ShouldBeNil)
+	test.That(t, os.Chtimes(orphanProgPath, orphanTime, orphanTime), test.ShouldBeNil)
+
+	// Boot the data manager with capture enabled and scheduled sync disabled. The
+	// default (large) max capture file size keeps the live collector's file in the
+	// .prog state for the duration of the test.
+	r := setupRobot(nil, map[resource.Name]resource.Resource{
+		arm.Named("arm1"): &inject.Arm{
+			EndPositionFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+				return spatialmath.NewZeroPose(), nil
+			},
+		},
+	})
+	config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
+	c := config.ConvertedAttributes.(*Config)
+	c.CaptureDir = captureDir
+	c.ScheduledSyncDisabled = true
+
+	b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, b.Close(context.Background()), test.ShouldBeNil) }()
+
+	// The orphan was renamed to .capture during startup, and is still parseable.
+	testThatProgFileRenamed(t, orphanProgPath)
+	_, err = data.SensorDataFromCaptureFilePath(orphanCapturePath)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Wait for the live collector to open its own .prog file.
+	liveProgPath := waitForProgFileToExist(t, captureDir)
+
+	// Seed another backdated orphan before reconfiguring. Even though its mtime
+	// makes it eligible for renaming, the cleanup must not run again, proving the
+	// once-per-instance gating independently of the mtime guard.
+	lateOrphan := createTestFileModifiedAt(t, filepath.Join(captureDir, "late.prog"), orphanTime)
+
+	// Reconfigure with an unchanged config: collectors are left running with their
+	// .prog files open.
+	err = b.(resource.BuiltInResource).BuiltInReconfigure(context.Background(), deps, config)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The live collector's .prog file was not renamed out from under it, and the
+	// late orphan was not touched either.
+	testThatProgFileUntouched(t, liveProgPath)
+	testThatProgFileUntouched(t, lateOrphan)
+
+	// Capture is still healthy after the reconfigure: the live collector keeps
+	// writing to its file.
+	initialSize := fileSize(t, liveProgPath)
+	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 1000, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, fileSize(tb, liveProgPath), test.ShouldBeGreaterThan, initialSize)
+	})
+}
+
+// waitForProgFileToExist waits until a .prog file appears in dir and returns its path.
+func waitForProgFileToExist(t *testing.T, dir string) string {
+	t.Helper()
+	var progPath string
+	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 1000, func(tb testing.TB) {
+		tb.Helper()
+		var found bool
+		for _, p := range getAllFilePaths(dir) {
+			if filepath.Ext(p) == data.InProgressCaptureFileExt {
+				progPath = p
+				found = true
+				break
+			}
+		}
+		test.That(tb, found, test.ShouldBeTrue)
+	})
+	return progPath
 }
