@@ -65,16 +65,8 @@ const (
 )
 
 const (
-	builtinOpLabel                     = "motion-service"
-	maxTravelDistanceMM                = 5e6 // this is equivalent to 5km
-	lookAheadDistanceMM        float64 = 5e6
-	defaultSmoothIter                  = 30
-	defaultAngularDegsPerSec           = 60.
-	defaultLinearMPerSec               = 0.3
-	defaultSlamPlanDeviationM          = 1.
-	defaultGlobePlanDeviationM         = 2.6
-	defaultCollisionBuffer             = 150. // mm
-	defaultExecuteEpsilon              = 0.01 // rad or mm
+	builtinOpLabel        = "motion-service"
+	defaultExecuteEpsilon = 0.01 // rad or mm
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
