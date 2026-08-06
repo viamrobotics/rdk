@@ -1,0 +1,177 @@
+//go:build !windows && !no_cgo && viam_rdk_cgo_have_cxx20_rt
+
+package streaming
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"go.uber.org/multierr"
+
+	arm "go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/referenceframe"
+)
+
+// Run executes a streaming session through one trajex session and one arm stream RPC.
+// If jpCh is closed, it samples everything out of the trajex session and sends it to the
+// arm, then waits for the arm to have finished executing before returning, including for the
+// runway estimate to reach zero.
+//
+// --- An important note on backpressure --
+//
+// The arm provides backpressure to sampling out of trajex in that `Run` maintains an
+// estimate of how much runway the arm has buffered on its side, and only samples out of
+// trajex enough to keep that runway topped up to the user-configured TargetRunwayInArmMs.
+//
+// Trajex, however, does not provide any backpressure to the client: If the client sends
+// joint positions faster than the arm executes them as per the trajectory output by trajex,
+// trajectory simply accumulates inside the trajex session.
+// Note that if, on the other hand, the client sends joint positions *slower* than the arm
+// executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
+// to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
+//
+// trace, if non-nil, accumulates pipeline diagnostics over the session's lifetime; snapshot
+// it via PipelineTrace.Snapshot.
+func Run(
+	ctx context.Context,
+	a arm.Arm,
+	opts *StreamOptions,
+	jpCh <-chan JointPositionsChItem,
+	seed []referenceframe.Input,
+	trace *PipelineTrace,
+) (err error) {
+	opts.ApplyDefaults()
+	if err := opts.Validate(); err != nil {
+		return err
+	}
+
+	// Start the trajex session.
+	ts := &trajexSession{opts: opts}
+	if err := ts.startSession(seed); err != nil {
+		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
+	}
+	trace.recordEvent(pipeEventSessionOpen, "")
+	defer func() {
+		ts.close()
+		trace.recordEvent(pipeEventSessionClose, "")
+	}()
+
+	// Start the arm RPC stream.
+	as := &armStream{arm: a}
+	// Derive a cancelable ctx so error returns can end the arm RPC.
+	ctx, cancel := context.WithCancel(ctx)
+	as.startStream(ctx)
+	trace.recordEvent(pipeEventStreamOpen, "")
+	defer func() {
+		if err != nil {
+			// On error, cancel first so that the RPC gets interrupted.
+			cancel()
+			err = multierr.Combine(err, as.close())
+		} else {
+			// On success, close first so that the RPC can finish gracefully.
+			err = as.close()
+			cancel()
+		}
+		trace.recordEvent(pipeEventStreamClose, "")
+	}()
+
+	targetRunway := time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond
+
+	// sendPVATs forwards one sampled batch to the arm, recording per-point velocities, the
+	// send latency, and the cumulative count delivered to the RPC.
+	totalPVATsSent := 0
+	sendPVATs := func(pvats []pvat) error {
+		for _, p := range pvats {
+			trace.recordVelocity(p.positions, p.velocities)
+		}
+		sendStart := time.Now()
+		if err := as.send(ctx, pvats); err != nil {
+			trace.recordEvent(pipeEventStreamDied, "")
+			return err
+		}
+		trace.recordTiming(pipeTimingSendPoint, time.Since(sendStart))
+		totalPVATsSent += len(pvats)
+		trace.record(pipeChanArmSent, pipeOpEnqueue, totalPVATsSent, 0)
+		return nil
+	}
+
+	sendToArmTicker := time.NewTicker(time.Duration(opts.SendToArmIntervalMs) * time.Millisecond)
+	defer sendToArmTicker.Stop()
+
+	for {
+		select {
+		// Cancel was called.
+		case <-ctx.Done():
+			return ctx.Err()
+
+		// A new set of joint positions is available.
+		case jp, ok := <-jpCh:
+			if !ok {
+				// jpCh closed: no more targets can arrive, so nothing can pivot the remaining
+				// trajectory. Send all of it to the arm now, in targetRunway-sized batches.
+				for {
+					pvats, err := ts.sample(ctx, targetRunway)
+					if err != nil {
+						return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+					}
+					if len(pvats) == 0 {
+						return waitOutRunway(ctx, as)
+					}
+					if err := sendPVATs(pvats); err != nil {
+						return err
+					}
+				}
+			}
+			trace.record(pipeChanPlanQ, pipeOpDequeue, len(jpCh), cap(jpCh))
+
+			// Add the new joint positions to the trajex session.
+			extendStart := time.Now()
+			err := ts.addJointPositionsToSession(ctx, jp.Positions)
+			trace.recordTiming(pipeTimingExtend, time.Since(extendStart))
+			if err != nil {
+				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+			}
+
+		// Time to check whether the arm's runway needs topping up.
+		case <-sendToArmTicker.C:
+			estimatedRunway := as.currentEstimatedRunwayInArm()
+			// armQ occupancy is the estimated arm-side buffer in ms (len) against the
+			// target runway (cap).
+			trace.record(pipeChanArmPending, pipeOpDequeue,
+				int(estimatedRunway.Milliseconds()), int(targetRunway.Milliseconds()))
+			// Sample out of trajex only the deficit needed to top up the arm's runway.
+			deficit := targetRunway - estimatedRunway
+			if deficit <= 0 {
+				continue
+			}
+			pvats, err := ts.sample(ctx, deficit)
+			if err != nil {
+				return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+			}
+			if len(pvats) == 0 {
+				// No trajectory yet, or what we have received so far has been sampled through.
+				continue
+			}
+			if err := sendPVATs(pvats); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func waitOutRunway(ctx context.Context, as *armStream) error {
+	for {
+		remaining := as.currentEstimatedRunwayInArm()
+		if remaining <= 0 {
+			return nil
+		}
+		timer := time.NewTimer(remaining)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
