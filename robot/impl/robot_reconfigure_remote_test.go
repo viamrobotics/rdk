@@ -866,6 +866,67 @@ func TestFullResourceNameCollision(t *testing.T) {
 	}
 }
 
+func TestCrossAPINameCollision(t *testing.T) {
+	// Detection-only rollout: two local resources sharing a simple name under different APIs
+	// log an error-level collision, but both are still built and reachable (enforcement lands
+	// in a later release).
+	ctx := context.Background()
+
+	armModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(arm.API, armModel, resource.Registration[arm.Arm, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (arm.Arm, error) {
+			return &inject.Arm{}, nil
+		},
+	})
+	defer resource.Deregister(arm.API, armModel)
+
+	sensorModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(sensor.API, sensorModel, resource.Registration[sensor.Sensor, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (sensor.Sensor, error) {
+			return &inject.Sensor{}, nil
+		},
+	})
+	defer resource.Deregister(sensor.API, sensorModel)
+
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	// Start with an arm and a sensor that share the name "dup" across different APIs.
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "dup", Model: armModel, API: arm.API},
+			{Name: "dup", Model: sensorModel, API: sensor.API},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// A collision was logged, but both resources are still built and reachable.
+	test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldBeGreaterThan, 0)
+	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(),
+		[]resource.Name{arm.Named("dup"), sensor.Named("dup")})
+	_, err := r.ResourceByName(arm.Named("dup"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(sensor.Named("dup"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Renaming clears the collision: no new collision is logged.
+	before := logs.FilterMessageSnippet("collision").Len()
+	cfg = &config.Config{
+		Components: []resource.Config{
+			{Name: "armDup", Model: armModel, API: arm.API},
+			{Name: "sensorDup", Model: sensorModel, API: sensor.API},
+		},
+	}
+	r.Reconfigure(ctx, cfg)
+
+	test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldEqual, before)
+	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(),
+		[]resource.Name{arm.Named("armDup"), sensor.Named("sensorDup")})
+	_, err = r.ResourceByName(arm.Named("armDup"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(sensor.Named("sensorDup"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestRemoteCaptureMethodsName(t *testing.T) {
 	// Primarily a regression test for RSDK-13349.
 	//
