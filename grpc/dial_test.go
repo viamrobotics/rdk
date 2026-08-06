@@ -18,6 +18,11 @@ func TestInferSignalingServerAddress(t *testing.T) {
 		{"abc.xyz.viam.cloud", "app.viam.com:443", true, true},
 		{"xyz.robot.viaminternal", "app.viaminternal:8089", true, true},
 		{"xyz.viamstg.cloud", "app.viam.dev:443", true, true},
+		// signaling server inference is case-insensitive since DNS names are.
+		{"XYZ.VIAM.CLOUD", "app.viam.com:443", true, true},
+		{"Xyz.Viam.Cloud", "app.viam.com:443", true, true},
+		{"xyz.Robot.Viaminternal", "app.viaminternal:8089", true, true},
+		{"XYZ.VIAMSTG.CLOUD", "app.viam.dev:443", true, true},
 	}
 
 	for _, input := range tests {
