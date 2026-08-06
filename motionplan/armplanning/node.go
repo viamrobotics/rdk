@@ -56,8 +56,9 @@ type PathFeedback struct {
 	// IsObstacleCollision is true if the path collided with an obstacle.
 	IsObstacleCollision bool
 
-	// LastGoodInputs is the configuration of the last interepolated position before hitting a
-	// problem.
+	// LastGoodInputs is the configuration of the last interpolated position before hitting a
+	// problem. When the start configuration itself violates a constraint, this is set to the
+	// start configuration (i.e. we assume the start is valid).
 	LastGoodInputs *referenceframe.LinearInputs
 }
 
