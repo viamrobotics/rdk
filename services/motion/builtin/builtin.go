@@ -18,9 +18,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
@@ -34,6 +36,8 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/worldstatestore"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -89,6 +93,10 @@ type Config struct {
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
+	// WorldStateStoreServiceName names a world state store service whose transforms are merged into the
+	// world state for Move requests (alongside, not overridden by, any WorldState the request supplies).
+	WorldStateStoreServiceName string `json:"world_state_store_service_name"`
+
 	// TeleopInterpolateOverride controls the arm's built-in interpolation for teleop moves.
 	// When false (the default) each batch of joint targets is sent with interpolate=false and
 	// waitAtEnd=false, giving the lowest latency and the most responsive motion. When true,
@@ -132,19 +140,25 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
 	}
 
-	return []string{framesystem.InternalServiceName.String()}, nil, nil
+	deps := []string{framesystem.InternalServiceName.String()}
+	if c.WorldStateStoreServiceName != "" {
+		deps = append(deps, worldstatestore.Named(c.WorldStateStoreServiceName).String())
+	}
+	return deps, nil, nil
 }
 
 type builtIn struct {
 	resource.Named
-	conf            *Config
-	mu              sync.RWMutex
-	fsService       framesystem.Service
-	movementSensors map[string]movementsensor.MovementSensor
-	slamServices    map[string]slam.Service
-	visionServices  map[string]vision.Service
-	components      map[string]resource.Resource
-	logger          logging.Logger
+	conf                    *Config
+	mu                      sync.RWMutex
+	fsService               framesystem.Service
+	movementSensors         map[string]movementsensor.MovementSensor
+	slamServices            map[string]slam.Service
+	visionServices          map[string]vision.Service
+	worldStateStore         worldstatestore.Service
+	components              map[string]resource.Resource
+	logger                  logging.Logger
+	configuredDefaultExtras map[string]any
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
@@ -195,6 +209,7 @@ func (ms *builtIn) BuiltInReconfigure(
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
+	worldStateStores := make(map[string]worldstatestore.Service)
 	componentMap := make(map[string]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
@@ -206,6 +221,8 @@ func (ms *builtIn) BuiltInReconfigure(
 			slamServices[name.Name] = dep
 		case vision.Service:
 			visionServices[name.Name] = dep
+		case worldstatestore.Service:
+			worldStateStores[name.Name] = dep
 		default:
 			componentMap[name.Name] = dep
 		}
@@ -214,6 +231,18 @@ func (ms *builtIn) BuiltInReconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = componentMap
+
+	ms.worldStateStore = nil
+	if name := config.WorldStateStoreServiceName; name != "" {
+		store, ok := worldStateStores[name]
+		if !ok {
+			return errors.Errorf("configured world_state_store_service_name %q not found in dependencies", name)
+		}
+		ms.worldStateStore = store
+		ms.logger.CInfof(ctx, "motion: world state store %q wired into this motion service; its obstacles feed every Move", name)
+	} else {
+		ms.logger.CInfof(ctx, "motion: no world_state_store_service_name configured; Moves use only request-supplied world state")
+	}
 
 	return nil
 }
@@ -434,7 +463,278 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 	return frameSys, nil
 }
 
+// normalizeTransformGeometry fills in an identity geometry center when the store leaves it unset, which
+// the geometry converter requires. It clones so the store's proto is never mutated.
+func normalizeTransformGeometry(tf *commonpb.Transform) *commonpb.Transform {
+	geo := tf.GetPhysicalObject()
+	if geo == nil || geo.GetCenter() != nil {
+		return tf
+	}
+	out := proto.Clone(tf).(*commonpb.Transform)
+	out.PhysicalObject.Center = &commonpb.Pose{OZ: 1}
+	return out
+}
+
+// existingFrameNames returns the frame names in the robot's frame system (plus World), used to validate
+// that store-provided obstacles and transforms reference frames that actually exist.
+func (ms *builtIn) existingFrameNames(ctx context.Context) map[string]bool {
+	names := map[string]bool{referenceframe.World: true}
+	if ms.fsService == nil {
+		return names
+	}
+	cfg, err := ms.fsService.FrameSystemConfig(ctx)
+	if err != nil {
+		ms.logger.CWarnf(ctx, "motion: could not read frame system to validate world state store frames: %v", err)
+		return names
+	}
+	for _, part := range cfg.Parts {
+		if part == nil || part.FrameConfig == nil {
+			continue
+		}
+		names[part.FrameConfig.Name()] = true
+	}
+	return names
+}
+
+// storeWorldStateParts returns the configured store's obstacles and transforms. Entries referencing a
+// frame the frame system doesn't know are logged and skipped rather than failing the Move.
+func (ms *builtIn) storeWorldStateParts(
+	ctx context.Context,
+) ([]*referenceframe.GeometriesInFrame, []*referenceframe.LinkInFrame) {
+	store := ms.worldStateStore
+	if store == nil {
+		return nil, nil
+	}
+
+	uuids, err := store.ListUUIDs(ctx, nil)
+	if err != nil {
+		ms.logger.CWarnf(ctx, "motion: failed to list transforms from world state store %q, ignoring it: %v", store.Name().Name, err)
+		return nil, nil
+	}
+
+	// Frames an obstacle may be parented to: robot frames plus the store transforms accepted below.
+	knownFrames := ms.existingFrameNames(ctx)
+
+	type obstacleCandidate struct {
+		parent   string
+		geometry spatialmath.Geometry
+		uuid     string
+	}
+	var candidates []obstacleCandidate
+	var transforms []*referenceframe.LinkInFrame
+
+	for _, u := range uuids {
+		key := string(u)
+		tf, err := store.GetTransform(ctx, u, nil)
+		if err != nil {
+			ms.logger.CWarnf(ctx, "motion: failed to get transform %q from world state store %q, skipping: %v", key, store.Name().Name, err)
+			continue
+		}
+		if tf == nil {
+			continue
+		}
+
+		link, err := referenceframe.LinkInFrameFromTransformProtobuf(normalizeTransformGeometry(tf))
+		if err != nil {
+			ms.logger.CWarnf(ctx, "motion: skipping malformed transform %q from world state store %q: %v", key, store.Name().Name, err)
+			continue
+		}
+
+		if geom := link.Geometry(); geom != nil {
+			// Bake the transform's pose into the geometry; ObstaclesInWorldFrame later moves it to world.
+			placed := geom.Transform(link.Pose())
+			label := key
+			if label == "" {
+				label = link.Name()
+			}
+			placed.SetLabel(label)
+			candidates = append(candidates, obstacleCandidate{parent: link.Parent(), geometry: placed, uuid: label})
+			continue
+		}
+
+		// Geometry-less transform: it becomes a supplemental frame, so its name must not collide with an
+		// existing frame, or NewFrameSystem would fail the Move.
+		if knownFrames[link.Name()] {
+			ms.logger.CWarnf(ctx,
+				"motion: world state store %q transform %q collides with an existing frame; skipping it", store.Name().Name, link.Name())
+			continue
+		}
+		knownFrames[link.Name()] = true
+		transforms = append(transforms, link)
+	}
+
+	// Validate obstacle parents now that knownFrames includes the accepted store transforms.
+	var obstacles []*referenceframe.GeometriesInFrame
+	for _, c := range candidates {
+		if !knownFrames[c.parent] {
+			ms.logger.CWarnf(ctx,
+				"motion: world state store %q obstacle %q references frame %q which is not in the robot frame system; skipping it",
+				store.Name().Name, c.uuid, c.parent)
+			continue
+		}
+		obstacles = append(obstacles, referenceframe.NewGeometriesInFrame(c.parent, []spatialmath.Geometry{c.geometry}))
+	}
+
+	return obstacles, transforms
+}
+
+func countGeometries(obstacles []*referenceframe.GeometriesInFrame) int {
+	n := 0
+	for _, gif := range obstacles {
+		n += len(gif.Geometries())
+	}
+	return n
+}
+
+// summarizeStoreObstacles renders "label@parent(x,y,z)" for each store obstacle, for debug logging.
+func summarizeStoreObstacles(obstacles []*referenceframe.GeometriesInFrame) string {
+	var parts []string
+	for _, gif := range obstacles {
+		for _, g := range gif.Geometries() {
+			c := g.Pose().Point()
+			parts = append(parts, fmt.Sprintf("%s@%s(%.0f,%.0f,%.0f)", g.Label(), gif.Parent(), c.X, c.Y, c.Z))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+// mergeWorldState combines the request WorldState with the store's obstacles and transforms, built once.
+// Collisions are disambiguated (both kept) and issues logged — never dropped or fatal.
+//
+// TODO (motion-planning-team review): a bulk ListTransforms RPC to replace ListUUIDs + N*GetTransform;
+// applying this to other paths (e.g. MoveOnMap); caching the store instead of reading it every Move.
+func (ms *builtIn) mergeWorldState(
+	ctx context.Context,
+	request *referenceframe.WorldState,
+	storeObstacles []*referenceframe.GeometriesInFrame,
+	storeTransforms []*referenceframe.LinkInFrame,
+) *referenceframe.WorldState {
+	if len(storeObstacles) == 0 && len(storeTransforms) == 0 {
+		return request // nothing from the store; leave the request world state untouched
+	}
+
+	// Per-namespace deduplicator: warns on each duplicate or cross-source collision and returns a unique
+	// name so both entries are kept.
+	newUniqueNamer := func(kind string) func(name, source string) string {
+		seen := make(map[string]string) // name -> source that first claimed it
+		return func(name, source string) string {
+			if name == "" {
+				return name // empty obstacle labels are auto-named by NewWorldState
+			}
+			prev, exists := seen[name]
+			if !exists {
+				seen[name] = source
+				return name
+			}
+			if prev == source {
+				// Only reachable for transforms: NewWorldState already guarantees unique obstacle labels
+				// within a single WorldState, so same-source obstacle duplicates can't reach here.
+				ms.logger.CWarnf(ctx, "motion: duplicate %s %q within the %s world state; keeping both (renaming the duplicate)", kind, name, source)
+			} else {
+				ms.logger.CWarnf(ctx,
+					"motion: %s %q is in both the request and the store world state; keeping both (store copy renamed)",
+					kind, name)
+			}
+			for n := 2; ; n++ {
+				candidate := fmt.Sprintf("%s#%d", name, n)
+				if _, taken := seen[candidate]; !taken {
+					seen[candidate] = source
+					return candidate
+				}
+			}
+		}
+	}
+
+	obstacleName := newUniqueNamer("obstacle")
+	obstacles := make([]*referenceframe.GeometriesInFrame, 0)
+	transformName := newUniqueNamer("transform")
+	transforms := make([]*referenceframe.LinkInFrame, 0)
+	if request != nil {
+		obstacles = ms.appendObstacles(ctx, obstacles, request.Obstacles(), "request", obstacleName)
+		transforms = ms.appendTransforms(ctx, transforms, request.Transforms(), "request", transformName)
+	}
+	obstacles = ms.appendObstacles(ctx, obstacles, storeObstacles, "world state store", obstacleName)
+	transforms = ms.appendTransforms(ctx, transforms, storeTransforms, "world state store", transformName)
+
+	merged, err := referenceframe.NewWorldState(obstacles, transforms)
+	if err != nil {
+		// Names were de-duplicated above, so this is not expected; keep the request world state.
+		ms.logger.CWarnf(ctx, "motion: failed to merge world states (%v); using the request world state only", err)
+		return request
+	}
+	return merged
+}
+
+// appendObstacles copies obstacles into dst, de-duplicating labels and defaulting a missing parent to
+// World. Geometries are deep-copied so the caller's WorldState is never mutated.
+func (ms *builtIn) appendObstacles(
+	ctx context.Context,
+	dst, src []*referenceframe.GeometriesInFrame,
+	source string,
+	uniqueName func(name, source string) string,
+) []*referenceframe.GeometriesInFrame {
+	for _, gif := range src {
+		if gif == nil {
+			continue
+		}
+		parent := gif.Parent()
+		if parent == "" {
+			ms.logger.CWarnf(ctx, "motion: obstacle group in %s world state has no parent frame; assuming %q", source, referenceframe.World)
+			parent = referenceframe.World
+		}
+		geoms := make([]spatialmath.Geometry, 0, len(gif.Geometries()))
+		for _, g := range gif.Geometries() {
+			if g == nil {
+				ms.logger.CWarnf(ctx, "motion: dropping a nil obstacle geometry in %s world state", source)
+				continue
+			}
+			origLabel := g.Label()
+			clone := g.Transform(spatialmath.NewZeroPose()) // deep-copy so we never mutate the caller's world state
+			clone.SetLabel(uniqueName(origLabel, source))
+			geoms = append(geoms, clone)
+		}
+		if len(geoms) > 0 {
+			dst = append(dst, referenceframe.NewGeometriesInFrame(parent, geoms))
+		}
+	}
+	return dst
+}
+
+// appendTransforms copies transforms into dst, de-duplicating names. Renamed transforms are rebuilt so
+// the caller's WorldState is never mutated.
+func (ms *builtIn) appendTransforms(
+	ctx context.Context,
+	dst, src []*referenceframe.LinkInFrame,
+	source string,
+	uniqueName func(name, source string) string,
+) []*referenceframe.LinkInFrame {
+	for _, link := range src {
+		if link == nil {
+			continue
+		}
+		if link.Parent() == "" {
+			ms.logger.CWarnf(ctx, "motion: transform %q in %s world state has no parent frame; it may not attach", link.Name(), source)
+		}
+		newName := uniqueName(link.Name(), source)
+		if newName == link.Name() {
+			dst = append(dst, link)
+			continue
+		}
+		dst = append(dst, referenceframe.NewLinkInFrame(link.Parent(), link.Pose(), newName, link.Geometry()))
+	}
+	return dst
+}
+
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
+	// Merge any request-supplied world state with the configured store's so a Move avoids both sets of
+	// obstacles; conflicts are logged, not fatal.
+	storeObstacles, storeTransforms := ms.storeWorldStateParts(ctx)
+	if ms.worldStateStore != nil {
+		logger.CDebugf(ctx, "motion: world state store %q contributed %d obstacle(s) and %d transform(s) to this Move: [%s]",
+			ms.worldStateStore.Name().Name, countGeometries(storeObstacles), len(storeTransforms), summarizeStoreObstacles(storeObstacles))
+	}
+	req.WorldState = ms.mergeWorldState(ctx, req.WorldState, storeObstacles, storeTransforms)
+
 	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
