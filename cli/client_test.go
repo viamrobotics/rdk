@@ -1809,7 +1809,14 @@ func TestTunnelE2ECLI(t *testing.T) {
 			},
 		},
 	}
-	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
+	// Connect over direct gRPC with no TLS. Skipping the WebRTC signaling/ICE
+	// handshake avoids its long worst-case retry tail on slow CI runners
+	// (RSDK-14333). WithInsecure is required because the test server has no TLS
+	// certs; without it the TLS downgrade probe races the server startup and the
+	// client falls back to a TLS dial that hangs against the plaintext listener.
+	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil,
+		client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithInsecure()),
+	)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 		// stopServer will be called toward the end of the test so we can wait on the
