@@ -1079,8 +1079,14 @@ func TestGrandRemoteRebooting(t *testing.T) {
 		},
 	}
 
-	// Create a robot with a single fake camera.
-	options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	// Create a robot with a single fake camera. remote-2 is shut down and brought back up on
+	// the same address later in this test. Hold its port so that it stays bound while remote-2
+	// is down: the port is an OS assigned ephemeral one, so otherwise anything else on the
+	// machine (another test binary reserving a random listener, an outgoing connection) can
+	// claim it in the meantime and binding it again fails with "address already in use".
+	options2, lis2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	hold2 := testutils.HoldPort(t, lis2)
+	options2.Network.Listener = hold2
 	remote2Ctx, remoteRobot2, remoteWebSvc2 := setupRealRobotWithOptions(t, remoteCfg2, logger.Sublogger("remote-2"), options2)
 
 	remoteCfg1 := &config.Config{
@@ -1197,14 +1203,12 @@ Loop:
 	// remote-1 which can be detectd
 	// by the fact that sub.Terminated.Done() is always the path this test goes down
 
-	logger.Infow("old robot address", "address", addr2)
-	tcpAddr, ok := options2.Network.Listener.Addr().(*net.TCPAddr)
-	test.That(t, ok, test.ShouldBeTrue)
-	newListener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: tcpAddr.Port})
-	test.That(t, err, test.ShouldBeNil)
-	options2.Network.Listener = newListener
+	// Re-arm the held listener so the second instance of remote-2 serves on the very same
+	// socket the first instance used. The port was never released, so there was no window for
+	// something else to claim it.
+	hold2.Rearm(t)
 
-	logger.Infof("setting up new robot at address %s", newListener.Addr().String())
+	logger.Infof("setting up new robot at address %s", addr2)
 
 	remote2CtxSecond, remoteRobot2Second, remoteWebSvc2Second := setupRealRobotWithOptions(
 		t,
