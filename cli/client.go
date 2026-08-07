@@ -75,6 +75,9 @@ const (
 	logoMaxSize = 1024 * 200 // 200 KB
 	// defaultLogStartTime is set to the last 24 hours.
 	defaultLogStartTime = -24 * time.Hour
+	// logOrderAscending and logOrderDescending are the accepted values of the `--order` flag.
+	logOrderAscending  = "asc"
+	logOrderDescending = "desc"
 	// yellow is the format string used to output warnings in yellow color.
 	yellow = "\033[1;33m%s\033[0m"
 )
@@ -1068,6 +1071,8 @@ type robotsLogsArgs struct {
 	Levels       []string
 	Start        string
 	End          string
+	Range        string
+	Order        string
 	Count        int
 }
 
@@ -1086,16 +1091,10 @@ func (c *viamClient) robotsLogsAction(ctx context.Context, cmd *cli.Command, arg
 		return errors.Errorf("%q cannot be negative", generalFlagCount)
 	}
 
-	// Check if both start time and count are provided
-	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
-	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
-	if args.Start != "" && args.Count > 0 && args.End == "" {
-		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
-			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
-			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
-			"rather than the 10 logs closest to the start time. " +
-			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
-		)
+	// `--range` is validated by app, but `--order` is an enum on the wire, so an unrecognized
+	// value has to be caught here. Do it up front so we fail before writing any logs.
+	if _, err := logOrderFromArg(args.Order); err != nil {
+		return err
 	}
 
 	orgStr := args.Organization
@@ -1161,9 +1160,27 @@ func (c *viamClient) fetchAndSaveLogs(
 	return nil
 }
 
+// logOrderFromArg maps the `--order` flag onto its proto enum. An empty value is left unset, so app
+// applies its own default of newest logs first.
+func logOrderFromArg(order string) (*apppb.LogOrder, error) {
+	switch order {
+	case "":
+		return nil, nil
+	case logOrderAscending:
+		return apppb.LogOrder_LOG_ORDER_ASCENDING.Enum(), nil
+	case logOrderDescending:
+		return apppb.LogOrder_LOG_ORDER_DESCENDING.Enum(), nil
+	default:
+		return nil, errors.Errorf("invalid %q value %q: must be one of %q or %q",
+			logsFlagOrder, order, logOrderAscending, logOrderDescending)
+	}
+}
+
 // streamLogsForPart streams logs for a specific part directly to a file.
 func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
-	if args.Start == "" {
+	// `--range` resolves against whichever of start and end is present, so defaulting start here
+	// would silently pin the window to the last 24 hours and make `--range` a no-op.
+	if args.Start == "" && args.Range == "" {
 		args.Start = time.Now().Add(defaultLogStartTime).UTC().Format(time.RFC3339)
 	}
 
@@ -1174,6 +1191,16 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 	endTime, err := parseTimeString(args.End)
 	if err != nil {
 		return errors.Wrap(err, "invalid end time format")
+	}
+	order, err := logOrderFromArg(args.Order)
+	if err != nil {
+		return err
+	}
+
+	// A nil `Range` leaves the field unset, rather than sending an empty string app would reject.
+	var logRange *string
+	if args.Range != "" {
+		logRange = &args.Range
 	}
 
 	keyword := &args.Keyword
@@ -1192,6 +1219,8 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 			Levels:    args.Levels,
 			Start:     startTime,
 			End:       endTime,
+			Range:     logRange,
+			Order:     order,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
