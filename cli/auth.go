@@ -492,27 +492,17 @@ func (c *viamClient) ensureLoggedInInner(ctx context.Context) error {
 		return errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
 
-	authToken, ok := c.conf.Auth.(*token)
-	if ok && authToken.isExpired() {
-		if !authToken.canRefresh() {
+	// Refresh (and persist) an expired user login before dialing. Uses the same
+	// helper as (*Config).Token/ConnectToApp so there is a single refresh path;
+	// API-key logins return ErrAPIKeyLogin and need no refresh.
+	if _, err := c.conf.refreshTokenIfExpired(ctx, c.authFlow); err != nil && !errors.Is(err, ErrAPIKeyLogin) {
+		if errors.Is(err, errTokenExpired) {
 			utils.UncheckedError(c.logout())
 			return errors.New("token expired and cannot refresh, logging out. Please log in again")
 		}
-
-		// expired.
-		newToken, err := c.authFlow.refreshToken(ctx, authToken)
-		if err != nil {
-			debugFlag := globalArgs.Debug
-			debugf(c.c.Root().Writer, debugFlag, "Token refresh error: %v", err)
-			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-			return errors.New("error while refreshing token, logging out. Please log in again")
-		}
-
-		// write token to config.
-		c.conf.Auth = newToken
-		if err := storeConfigToCache(c.conf); err != nil {
-			return err
-		}
+		debugf(c.c.Root().Writer, globalArgs.Debug, "Token refresh error: %v", err)
+		utils.UncheckedError(c.logout()) // clear cache if failed to refresh
+		return errors.New("error while refreshing token, logging out. Please log in again")
 	}
 
 	rpcOpts, err := c.conf.DialOptions()
