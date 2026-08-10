@@ -7,9 +7,8 @@ import (
 	"go.viam.com/test"
 )
 
-func TestStreamOptionsApplyDefaultsAndValidate(t *testing.T) {
-	c := StreamOptions{}
-	c.ApplyDefaults()
+func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
+	c := NewDefaultOptions()
 	test.That(t, c.TargetRunwayInArmMs, test.ShouldEqual, defaultTargetRunwayInArmMs)
 	test.That(t, c.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
 	test.That(t, c.VelLimitDegPerSec, test.ShouldEqual, defaultVelLimitDegPerSec)

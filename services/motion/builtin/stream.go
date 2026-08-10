@@ -135,7 +135,7 @@ func (ms *builtIn) streamStart(
 	}
 
 	go func() {
-		err := streaming.Run(streamCtx, a, &opts, s.jpCh, seed)
+		err := streaming.Run(streamCtx, a, opts, s.jpCh, seed)
 		s.resultErr = err
 		if err != nil {
 			s.logger.CWarnf(streamCtx, "arm streaming session ended with error: %v", err)
@@ -285,7 +285,8 @@ func (ms *builtIn) handleStreamCommand(
 }
 
 func parseStreamStart(req interface{}) (string, streaming.StreamOptions, error) {
-	var opts streaming.StreamOptions
+	// Start from the defaults; any options in the request override them.
+	opts := streaming.NewDefaultOptions()
 	m, err := utils.AssertType[map[string]interface{}](req)
 	if err != nil {
 		return "", opts, fmt.Errorf("%s expects an object", DoStreamStart)
@@ -304,7 +305,6 @@ func parseStreamStart(req interface{}) (string, streaming.StreamOptions, error) 
 
 	// Validate here so bad options fail the DoStreamStart synchronously, rather than
 	// spawning a session that is already dead.
-	opts.ApplyDefaults()
 	if err := opts.Validate(); err != nil {
 		return "", opts, fmt.Errorf("invalid streaming options: %w", err)
 	}

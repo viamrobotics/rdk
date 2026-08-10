@@ -57,19 +57,14 @@ func (o *StreamOptions) Validate() error {
 	return nil
 }
 
-// ApplyDefaults fills any zero-valued StreamOptions field with its default.
-func (o *StreamOptions) ApplyDefaults() {
-	if o.TargetRunwayInArmMs == 0 {
-		o.TargetRunwayInArmMs = defaultTargetRunwayInArmMs
-	}
-	if o.SendToArmIntervalMs == 0 {
-		o.SendToArmIntervalMs = defaultSendToArmIntervalMs
-	}
-	if o.VelLimitDegPerSec == 0 {
-		o.VelLimitDegPerSec = defaultVelLimitDegPerSec
-	}
-	if o.AccelLimitDegPerSec2 == 0 {
-		o.AccelLimitDegPerSec2 = defaultAccelLimitDegPerSec2
+// NewDefaultOptions returns StreamOptions with every field set to its default.
+// Callers overriding individual fields should start from this and then set them.
+func NewDefaultOptions() StreamOptions {
+	return StreamOptions{
+		TargetRunwayInArmMs:  defaultTargetRunwayInArmMs,
+		SendToArmIntervalMs:  defaultSendToArmIntervalMs,
+		VelLimitDegPerSec:    defaultVelLimitDegPerSec,
+		AccelLimitDegPerSec2: defaultAccelLimitDegPerSec2,
 	}
 }
 

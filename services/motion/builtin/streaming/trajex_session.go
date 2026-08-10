@@ -21,7 +21,7 @@ const (
 )
 
 type trajexSession struct {
-	opts *StreamOptions
+	opts StreamOptions
 
 	// State for the underlying trajex library session, set up by startSession.
 	sess               *totgstream.Session

@@ -13,8 +13,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-func runTestOptions() *StreamOptions {
-	return &StreamOptions{
+func runTestOptions() StreamOptions {
+	return StreamOptions{
 		TargetRunwayInArmMs:  50,
 		SendToArmIntervalMs:  10,
 		VelLimitDegPerSec:    90,

@@ -33,11 +33,10 @@ import (
 func Run(
 	ctx context.Context,
 	a arm.Arm,
-	opts *StreamOptions,
+	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
 ) (err error) {
-	opts.ApplyDefaults()
 	if err := opts.Validate(); err != nil {
 		return err
 	}

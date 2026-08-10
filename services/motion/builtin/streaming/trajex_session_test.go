@@ -20,13 +20,10 @@ func TestInputsWithin(t *testing.T) {
 	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1}, 1e-4), test.ShouldBeFalse)
 }
 
-func testStreamOptions() *StreamOptions {
-	opts := &StreamOptions{
-		VelLimitDegPerSec:    90,
-		AccelLimitDegPerSec2: 90,
-		SendToArmIntervalMs:  10,
-	}
-	opts.ApplyDefaults()
+func testStreamOptions() StreamOptions {
+	opts := NewDefaultOptions()
+	opts.VelLimitDegPerSec = 90
+	opts.AccelLimitDegPerSec2 = 90
 	return opts
 }
 

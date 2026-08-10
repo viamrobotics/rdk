@@ -16,7 +16,7 @@ import (
 func Run(
 	ctx context.Context,
 	a arm.Arm,
-	opts *StreamOptions,
+	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
 ) error {
