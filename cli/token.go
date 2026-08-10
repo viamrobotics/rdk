@@ -12,6 +12,10 @@ import (
 // bearer access token; authenticate them with (*Config).DialOptions instead.
 var ErrAPIKeyLogin = errors.New("cached credentials are an API key, which has no bearer token; use Config.DialOptions instead")
 
+// errTokenExpired is returned by the refresh helpers when the cached token has
+// expired and holds no refresh token to renew it with.
+var errTokenExpired = errors.New("cached token has expired and cannot be refreshed; run `viam login`")
+
 // TokenFromCache loads the CLI's cached credentials (written by `viam login`)
 // and returns a bearer access token for authenticating with app.viam.com — for
 // example as an "authorization: Bearer <token>" gRPC/HTTP header.
@@ -39,29 +43,57 @@ func TokenFromCache(ctx context.Context) (string, error) {
 // token. TokenFromCache is the usual entry point; use this when you already
 // hold a Config from ConfigFromCache.
 func (conf *Config) Token(ctx context.Context) (string, error) {
-	authToken, ok := conf.Auth.(*token)
-	if !ok {
-		return "", ErrAPIKeyLogin
-	}
-
-	if !authToken.isExpired() {
-		return authToken.AccessToken, nil
-	}
-	if !authToken.canRefresh() {
-		return "", errors.New("cached token has expired and cannot be refreshed; run `viam login`")
-	}
-
 	// refreshToken only uses the flow's HTTP client together with the token's
 	// own token_url/client_id, so the (prod) auth-domain constants baked into
 	// newCLIAuthFlow are not consulted here.
-	newToken, err := newCLIAuthFlow(io.Discard, true).refreshToken(ctx, authToken)
+	newToken, err := conf.refreshTokenIfExpired(ctx, newCLIAuthFlow(io.Discard, true))
 	if err != nil {
+		if errors.Is(err, ErrAPIKeyLogin) || errors.Is(err, errTokenExpired) {
+			return "", err
+		}
 		return "", errors.Wrap(err, "refreshing expired token (run `viam login` to re-authenticate)")
+	}
+	return newToken.AccessToken, nil
+}
+
+// refreshTokenIfExpired returns the config's cached user token, refreshing it
+// against the given auth flow and persisting the result to the cache when it
+// has expired. It returns ErrAPIKeyLogin when the config holds an API key
+// rather than a user login, and errTokenExpired when the token has expired but
+// carries no refresh token. This is the single place the CLI renews a cached
+// login, shared by (*Config).Token and the connect/ensureLoggedIn paths.
+func (conf *Config) refreshTokenIfExpired(ctx context.Context, flow *authFlow) (*token, error) {
+	authToken, ok := conf.Auth.(*token)
+	if !ok {
+		return nil, ErrAPIKeyLogin
+	}
+
+	if !authToken.isExpired() {
+		return authToken, nil
+	}
+	if !authToken.canRefresh() {
+		return nil, errTokenExpired
+	}
+
+	newToken, err := flow.refreshToken(ctx, authToken)
+	if err != nil {
+		return nil, err
 	}
 
 	conf.Auth = newToken
 	if err := storeConfigToCache(conf); err != nil {
-		return "", errors.Wrap(err, "caching refreshed token")
+		return nil, errors.Wrap(err, "caching refreshed token")
 	}
-	return newToken.AccessToken, nil
+	return newToken, nil
+}
+
+// ensureFreshToken refreshes and persists an expired cached user token so that
+// DialOptions builds authentication material from a valid token. API-key
+// configs need no refresh and are left untouched.
+func (conf *Config) ensureFreshToken(ctx context.Context, flow *authFlow) error {
+	_, err := conf.refreshTokenIfExpired(ctx, flow)
+	if errors.Is(err, ErrAPIKeyLogin) {
+		return nil
+	}
+	return err
 }
