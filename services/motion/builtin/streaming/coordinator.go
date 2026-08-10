@@ -49,11 +49,10 @@ func Run(
 	}
 	defer ts.close()
 
-	// Start the arm RPC stream.
-	as := &armStream{arm: a}
 	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
-	as.startStream(ctx)
+	// Start the arm RPC stream.
+	as := newArmStream(ctx, a)
 	defer func() {
 		if err != nil {
 			// On error, cancel first so that the RPC gets interrupted.

@@ -16,19 +16,21 @@ type armStream struct {
 	timeInTrajectoryClockOfLastSentPVAT time.Duration
 	timeFirstBatchWasSent               time.Time
 
-	// State for the current underlying RPC stream.
-	started     bool
+	// State for the underlying RPC stream.
 	batchesCh   chan []arm.TrajectoryPoint
 	responsesCh chan arm.Response
 	done        chan struct{}
 	err         error
 }
 
-func (s *armStream) startStream(ctx context.Context) {
-	s.batchesCh = make(chan []arm.TrajectoryPoint)
-	s.responsesCh = make(chan arm.Response)
-	s.done = make(chan struct{})
-	s.started = true
+// newArmStream constructs an armStream and starts its RPC stream to the arm.
+func newArmStream(ctx context.Context, a arm.Arm) *armStream {
+	s := &armStream{
+		arm:         a,
+		batchesCh:   make(chan []arm.TrajectoryPoint),
+		responsesCh: make(chan arm.Response),
+		done:        make(chan struct{}),
+	}
 
 	go func() {
 		err := s.arm.MoveThroughJointPositionsStreamed(ctx, s.batchesCh, s.responsesCh, nil)
@@ -41,6 +43,7 @@ func (s *armStream) startStream(ctx context.Context) {
 		for range s.responsesCh {
 		}
 	}()
+	return s
 }
 
 func (s *armStream) send(ctx context.Context, pvats []pvat) error {
@@ -76,13 +79,11 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 	return nil
 }
 
+// close ends the RPC stream, waits for it to finish, and returns its final
+// error. It must be called exactly once.
 func (s *armStream) close() error {
-	if !s.started {
-		return nil
-	}
 	close(s.batchesCh)
 	<-s.done
-	s.started = false
 	return s.err
 }
 
