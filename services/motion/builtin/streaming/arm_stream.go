@@ -19,8 +19,10 @@ type armStream struct {
 	// State for the underlying RPC stream.
 	batchesCh   chan []arm.TrajectoryPoint
 	responsesCh chan arm.Response
-	done        chan struct{}
-	err         error
+
+	moveThroughJointPositionsStreamedReturned chan struct{}
+
+	err error
 }
 
 // newArmStream constructs an armStream and starts its RPC stream to the arm.
@@ -29,14 +31,15 @@ func newArmStream(ctx context.Context, a arm.Arm) *armStream {
 		arm:         a,
 		batchesCh:   make(chan []arm.TrajectoryPoint),
 		responsesCh: make(chan arm.Response),
-		done:        make(chan struct{}),
+
+		moveThroughJointPositionsStreamedReturned: make(chan struct{}),
 	}
 
 	go func() {
 		err := s.arm.MoveThroughJointPositionsStreamed(ctx, s.batchesCh, s.responsesCh, nil)
 		s.err = err
 		close(s.responsesCh)
-		close(s.done)
+		close(s.moveThroughJointPositionsStreamedReturned)
 	}()
 	go func() {
 		// Drain acks so the impl never blocks writing them.
@@ -66,7 +69,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-s.done:
+	case <-s.moveThroughJointPositionsStreamedReturned:
 		return fmt.Errorf("arm streaming RPC ended before batch could be sent: %w", s.err)
 	case s.batchesCh <- batch:
 	}
@@ -83,7 +86,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 // error. It must be called exactly once.
 func (s *armStream) close() error {
 	close(s.batchesCh)
-	<-s.done
+	<-s.moveThroughJointPositionsStreamedReturned
 	return s.err
 }
 
