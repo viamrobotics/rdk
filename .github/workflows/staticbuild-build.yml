@@ -398,6 +398,48 @@ jobs:
         cd - && rm -rf $TEST_DIR
         [ $RET1 == 0 ] && [ $RET1 == 0 ]
 
+  # Boots the aarch64 binary in a JetPack 5 (L4T r35) container, the Ubuntu 20.04
+  # userspace Jetson devices run. The bare arm64 runners don't cover it.
+  jetpack_test:
+    name: JetPack Test
+    needs: static
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-large-arm
+    timeout-minutes: 15
+
+    steps:
+    - name: Clean Workspace
+      run: |
+        shopt -s dotglob
+        sudo chown -R "$(whoami)" ./
+        rm -rf ./*
+
+    - name: Test Static Binary On JetPack
+      run: |
+        set -euo pipefail
+        TEST_DIR="$(mktemp -d -t test-viam-server-XXXXXX)"
+        cd "$TEST_DIR"
+
+        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-${{ needs.static.outputs.channel }}-aarch64
+        chmod 755 viam-server
+
+        RAND_PORT=$((30000 + RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+
+        docker run -d --name jetpack-test --network host \
+          -v "$TEST_DIR/viam-server:/viam-server:ro" -v "$TEST_DIR/test.json:/test.json:ro" \
+          nvcr.io/nvidia/l4t-base:r35.4.1 /viam-server -config /test.json
+
+        if ! curl --retry 5 --retry-delay 5 --retry-connrefused "localhost:${RAND_PORT}"; then
+          echo "boot failed, container logs:"
+          docker logs jetpack-test || true
+          docker rm -f jetpack-test
+          exit 1
+        fi
+
+        docker rm -f jetpack-test
+        cd - && rm -rf "$TEST_DIR"
+
   mac_test:
     name: Mac Test
     needs: mac
