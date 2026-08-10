@@ -239,8 +239,6 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	}
 	ms.teleopMu.Unlock()
 
-	ms.streamAbort(ctx)
-
 	return nil
 }
 

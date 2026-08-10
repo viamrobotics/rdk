@@ -237,6 +237,11 @@ func TestDoCommandArmStreamingAbortTeardown(t *testing.T) {
 		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
 	})
 	test.That(t, err, test.ShouldBeNil)
+
+	// Close no longer aborts sessions, so end this one explicitly; otherwise its
+	// goroutines outlive the test and trip the package's goroutine-leak check.
+	status = ms.streamAbort(ctx)
+	test.That(t, status["running"], test.ShouldEqual, false)
 }
 
 // TestDoCommandArmStreamingProtocolEnforcement checks that the single-controller push protocol
