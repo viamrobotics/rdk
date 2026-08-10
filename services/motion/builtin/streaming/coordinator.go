@@ -41,13 +41,6 @@ func Run(
 		return err
 	}
 
-	// Start the trajex session.
-	ts := &trajexSession{opts: opts}
-	if err := ts.startSession(seed); err != nil {
-		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
-	}
-	defer ts.close()
-
 	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
 	// Start the arm RPC stream.
@@ -63,6 +56,13 @@ func Run(
 		err = as.close()
 		cancel()
 	}()
+
+	// Start the trajex session.
+	ts := &trajexSession{opts: opts}
+	if err := ts.startSession(seed); err != nil {
+		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
+	}
+	defer ts.close()
 
 	targetRunway := time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond
 
