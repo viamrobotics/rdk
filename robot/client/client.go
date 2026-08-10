@@ -1161,6 +1161,8 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 
 // CurrentInputs returns a map of the current inputs for each component of a machine's frame system
 // and a map of statuses indicating which of the machine's components may be actuated through input values.
+// Diverges from server-side impl at robot/framesystem/framesystem.go CurrentInputs.
+// See https://viam.atlassian.net/browse/RSDK-14393.
 func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	input := make(referenceframe.FrameSystemInputs)
 	for _, name := range rc.ResourceNames() {

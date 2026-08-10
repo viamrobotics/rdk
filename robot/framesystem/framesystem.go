@@ -319,6 +319,8 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 
 // CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
 // InputEnabled resources that those inputs came from.
+// Client-side impl at robot/client/client.go CurrentInputs diverges — no proto RPC to forward to.
+// See https://viam.atlassian.net/browse/RSDK-14393.
 func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	fs, err := NewFromService(ctx, svc, nil)
 	if err != nil {
