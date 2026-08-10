@@ -346,8 +346,8 @@ func (ms *builtIn) PlanHistory(
 //	                                                     // with an error
 //	             }
 //
-//	DoStreamAbort: cancels the session immediately, dropping any buffered trajectory that hasn't
-//	reached the arm. Blocks until the session finishes or ctx expires, whichever comes first.
+//	DoStreamAbort: signals the session to cancel, dropping any buffered trajectory that hasn't
+//	reached the arm. Waits until the session finishes tearing down or ctx expires, whichever comes first.
 //	  request:  {"stream_abort": true}
 //	  response: {
 //	               "running": false,                   // true if ctx expired before teardown
