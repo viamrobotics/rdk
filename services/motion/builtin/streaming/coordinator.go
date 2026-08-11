@@ -48,6 +48,9 @@ func Run(
 	defer func() {
 		if err != nil {
 			// On error, cancel first so that the RPC gets interrupted.
+			// as.close() will typically return a cancellation error (due to the
+			// cancel()), but if the arm independently errored just before
+			// cancel(), as.close() will return that error instead.
 			cancel()
 			err = multierr.Combine(err, as.close())
 			return
