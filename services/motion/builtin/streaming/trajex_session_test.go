@@ -12,14 +12,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-func TestInputsWithin(t *testing.T) {
-	a := []referenceframe.Input{0, 1, 2}
-	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1, 2}, 1e-4), test.ShouldBeTrue)
-	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1, 2.00005}, 1e-4), test.ShouldBeTrue)
-	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1, 2.001}, 1e-4), test.ShouldBeFalse)
-	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1}, 1e-4), test.ShouldBeFalse)
-}
-
 func testStreamOptions() StreamOptions {
 	opts := NewDefaultOptions()
 	opts.VelLimitDegPerSec = 90
@@ -27,9 +19,17 @@ func testStreamOptions() StreamOptions {
 	return opts
 }
 
-// drainHorizon is far longer than any trajectory these tests plan, so sampling with it drains
-// the session's entire remaining trajectory.
-const drainHorizon = time.Hour
+// sampleHorizon is far longer than any trajectory these tests plan, so sampling with it
+// pulls out the session's entire remaining trajectory.
+const sampleHorizon = time.Hour
+
+func TestInputsWithin(t *testing.T) {
+	a := []referenceframe.Input{0, 1, 2}
+	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1, 2}, 1e-4), test.ShouldBeTrue)
+	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1, 2.00005}, 1e-4), test.ShouldBeTrue)
+	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1, 2.001}, 1e-4), test.ShouldBeFalse)
+	test.That(t, inputsWithin(a, []referenceframe.Input{0, 1}, 1e-4), test.ShouldBeFalse)
+}
 
 // TestTrajexSessionSamplesTowardTarget checks that a trajexSession started at a seed and extended
 // toward a new target produces a non-empty stream of PVATs, at the configured dof, with
@@ -45,7 +45,7 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 
 	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
 
-	pvats, err := s.sampleAtLeast(ctx, drainHorizon)
+	pvats, err := s.sampleAtLeast(ctx, sampleHorizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(pvats), test.ShouldBeGreaterThan, 0)
 
@@ -63,8 +63,7 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 }
 
 // TestTrajexSessionAddJointPositionsDedups checks that extending toward a target within
-// waypointDedupEps of the current position is a no-op rather than an error (a zero-length
-// waypoint segment would otherwise be sent to the trajex library).
+// waypointDedupEps of the current position is a no-op rather than an error.
 func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	ctx := context.Background()
 	seed := []referenceframe.Input{0.2, 0.4}
@@ -77,15 +76,14 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	test.That(t, s.addJointPositionsToSession(ctx, nearlyIdentical), test.ShouldBeNil)
 	test.That(t, s.lastJointPositions, test.ShouldResemble, seed)
 
-	pvats, err := s.sampleAtLeast(ctx, drainHorizon)
+	pvats, err := s.sampleAtLeast(ctx, sampleHorizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(pvats), test.ShouldEqual, 0)
 }
 
 // TestTrajexSessionSampleHorizon checks that sampleAtLeast advances the watermark by only
-// (approximately) the requested horizon per call rather than draining the trajectory, and that
-// consecutive calls continue from where the previous one left off. This is the property Run's
-// deficit-driven sampling relies on to commit no more trajectory than the arm's runway needs.
+// (approximately) the requested horizon per call rather than sampling the full trajectory, and
+// that consecutive calls continue from where the previous one left off.
 func TestTrajexSessionSampleHorizon(t *testing.T) {
 	ctx := context.Background()
 	seed := []referenceframe.Input{0, 0}
