@@ -52,7 +52,7 @@ func Run(
 			err = multierr.Combine(err, as.close())
 			return
 		}
-		// On success, close first so that the RPC can finish gracefully.
+		// On success, close first to signal that the RPC can finish.
 		err = as.close()
 		cancel()
 	}()
