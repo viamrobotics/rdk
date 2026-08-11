@@ -103,8 +103,9 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 		return nil, err
 	}
 	defer out.Close()
-	// The trajex SampleAtLeast is guaranteed to return at least one pvat unless there is
-	// no unsampled trajectory left (nothing extended yet, or everything sampled through).
+	// The trajex SampleAtLeast is guaranteed to return at least one pvat, regardless of
+	// the size of 'horizon', unless there is no unsampled trajectory left (nothing
+	// extended yet, or everything sampled through).
 	if err := s.sess.SampleAtLeast(ctx, horizon, out); err != nil {
 		return nil, err
 	}
