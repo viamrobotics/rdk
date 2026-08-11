@@ -212,10 +212,17 @@ func (psc *PlanSegmentContext) CheckPath(
 	}
 
 	if err != nil && outPath != nil {
+		// `validSegment` is nil when even the start configuration violates a constraint. We
+		// assume the start is valid in that case, rather than leaving LastGoodInputs unset.
+		lastGood := start
+		if validSegment != nil {
+			lastGood = validSegment.EndConfiguration
+		}
+
 		*outPath = PathFeedback{
 			IsObstacleCollision: strings.Contains(err.Error(), motionplan.ObstacleConstraintDescription) ||
 				strings.Contains(err.Error(), motionplan.RobotCollisionConstraintDescription),
-			LastGoodInputs: validSegment.EndConfiguration,
+			LastGoodInputs: lastGood,
 		}
 	}
 	return err
