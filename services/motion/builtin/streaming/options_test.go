@@ -25,9 +25,9 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	}{
 		{"zero runway", func(o *StreamOptions) { o.TargetRunwayInArmMs = 0 }},
 		{"negative runway", func(o *StreamOptions) { o.TargetRunwayInArmMs = -1 }},
-		// A zero send interval is invalid (division by zero when converting to Hz).
 		{"zero send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = 0 }},
-		{"interval not less than runway", func(o *StreamOptions) { o.SendToArmIntervalMs = o.TargetRunwayInArmMs }},
+		{"negative send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = -1 }},
+		{"send interval not less than runway", func(o *StreamOptions) { o.SendToArmIntervalMs = o.TargetRunwayInArmMs }},
 		{"zero vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = 0 }},
 		{"negative vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = -1 }},
 		{"zero accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = 0 }},
