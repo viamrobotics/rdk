@@ -190,9 +190,6 @@ func (ms *builtIn) BuiltInReconfigure(
 	}
 	ms.teleopMu.Unlock()
 
-	// Stop any arm-streaming session before acquiring the write lock.
-	ms.streamAbort(ctx)
-
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	config, err := resource.NativeConfig[*Config](conf)
@@ -238,6 +235,8 @@ func (ms *builtIn) Close(ctx context.Context) error {
 		ms.teleopPipeline = nil
 	}
 	ms.teleopMu.Unlock()
+
+	ms.streamAbort(ctx)
 
 	return nil
 }
