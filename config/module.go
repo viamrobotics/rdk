@@ -271,7 +271,7 @@ func (m *Module) FirstRun(
 	env map[string]string,
 	logger logging.Logger,
 ) error {
-	logger = logger.Sublogger("first_run").WithFields("module", m.Name)
+	logger = logger.Sublogger(m.Name).Sublogger("first_run").WithFields("module", m.Name)
 
 	unpackedModDir, err := m.ExeDir(localPackagesDir)
 	if err != nil {
