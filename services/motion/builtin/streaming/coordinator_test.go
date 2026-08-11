@@ -8,15 +8,33 @@ import (
 )
 
 func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
-	c := NewDefaultOptions()
-	test.That(t, c.TargetRunwayInArmMs, test.ShouldEqual, defaultTargetRunwayInArmMs)
-	test.That(t, c.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
-	test.That(t, c.VelLimitDegPerSec, test.ShouldEqual, defaultVelLimitDegPerSec)
-	test.That(t, c.AccelLimitDegPerSec2, test.ShouldEqual, defaultAccelLimitDegPerSec2)
-	test.That(t, c.Validate(), test.ShouldBeNil)
+	valid := NewDefaultOptions()
+	test.That(t, valid.TargetRunwayInArmMs, test.ShouldEqual, defaultTargetRunwayInArmMs)
+	test.That(t, valid.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
+	test.That(t, valid.VelLimitDegPerSec, test.ShouldEqual, defaultVelLimitDegPerSec)
+	test.That(t, valid.AccelLimitDegPerSec2, test.ShouldEqual, defaultAccelLimitDegPerSec2)
+	test.That(t, valid.Validate(), test.ShouldBeNil)
 
-	test.That(t, (&StreamOptions{SendToArmIntervalMs: 10, TargetRunwayInArmMs: -1}).Validate(), test.ShouldNotBeNil)
-	// A zero send interval is invalid (division by zero when converting to Hz).
-	test.That(t, (&StreamOptions{SendToArmIntervalMs: 0, TargetRunwayInArmMs: 10}).Validate(), test.ShouldNotBeNil)
-	test.That(t, (&StreamOptions{SendToArmIntervalMs: 10, VelLimitDegPerSec: -1}).Validate(), test.ShouldNotBeNil)
+	// The zero value does not validate.
+	test.That(t, (&StreamOptions{}).Validate(), test.ShouldNotBeNil)
+
+	// Each Validate rule, violated in isolation against the otherwise-valid base.
+	for _, tc := range []struct {
+		name   string
+		mutate func(*StreamOptions)
+	}{
+		{"zero runway", func(o *StreamOptions) { o.TargetRunwayInArmMs = 0 }},
+		{"negative runway", func(o *StreamOptions) { o.TargetRunwayInArmMs = -1 }},
+		// A zero send interval is invalid (division by zero when converting to Hz).
+		{"zero send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = 0 }},
+		{"interval not less than runway", func(o *StreamOptions) { o.SendToArmIntervalMs = o.TargetRunwayInArmMs }},
+		{"zero vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = 0 }},
+		{"negative vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = -1 }},
+		{"zero accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = 0 }},
+		{"negative accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = -1 }},
+	} {
+		bad := valid
+		tc.mutate(&bad)
+		test.That(t, bad.Validate(), test.ShouldNotBeNil)
+	}
 }

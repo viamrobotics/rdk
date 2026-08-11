@@ -287,6 +287,7 @@ func (ms *builtIn) handleStreamCommand(
 func parseStreamStart(req interface{}) (string, streaming.StreamOptions, error) {
 	// Start from the defaults; any options in the request override them.
 	opts := streaming.NewDefaultOptions()
+
 	m, err := utils.AssertType[map[string]interface{}](req)
 	if err != nil {
 		return "", opts, fmt.Errorf("%s expects an object", DoStreamStart)

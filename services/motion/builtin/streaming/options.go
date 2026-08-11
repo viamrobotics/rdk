@@ -42,17 +42,20 @@ type StreamOptions struct {
 
 // Validate returns an error if any StreamOptions field is invalid.
 func (o *StreamOptions) Validate() error {
-	if o.TargetRunwayInArmMs < 0 {
-		return errors.New("streaming: target_runway_in_arm_ms must be non-negative")
+	if o.TargetRunwayInArmMs <= 0 {
+		return errors.New("streaming: target_runway_in_arm_ms must be positive")
 	}
 	if o.SendToArmIntervalMs <= 0 {
 		return errors.New("streaming: send_to_arm_interval_ms must be positive")
 	}
-	if o.VelLimitDegPerSec < 0 {
-		return errors.New("streaming: vel_limit_deg_per_sec must be non-negative")
+	if o.SendToArmIntervalMs >= o.TargetRunwayInArmMs {
+		return errors.New("streaming: send_to_arm_interval_ms must be less than target_runway_in_arm_ms")
 	}
-	if o.AccelLimitDegPerSec2 < 0 {
-		return errors.New("streaming: accel_limit_deg_per_sec2 must be non-negative")
+	if o.VelLimitDegPerSec <= 0 {
+		return errors.New("streaming: vel_limit_deg_per_sec must be positive")
+	}
+	if o.AccelLimitDegPerSec2 <= 0 {
+		return errors.New("streaming: accel_limit_deg_per_sec2 must be positive")
 	}
 	return nil
 }
