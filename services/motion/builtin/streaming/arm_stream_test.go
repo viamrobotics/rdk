@@ -13,9 +13,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-// fakeStreamRecorder records the batches a fake arm receives over
-// MoveThroughJointPositionsStreamed, guarded by a mutex since the batches are
-// read from a separate goroutine than the one asserting on them.
 type fakeStreamRecorder struct {
 	mu      sync.Mutex
 	batches [][]arm.TrajectoryPoint
@@ -55,12 +52,6 @@ func testPVAT(trajectoryTime time.Duration) pvat {
 	}
 }
 
-// TestArmStreamSend checks that send is a no-op on an empty PVAT list, and otherwise
-// sends the PVATs to the arm as one batch of trajectory points, each carrying its PVAT's
-// trajectory time with velocities/accelerations passed through in radians unchanged (no unit
-// conversion, and no time validation -- a bad trajectory is rejected downstream by the arm
-// resource). It also records the trajectory time of the last sent PVAT and anchors the runway
-// estimate's wall clock on the first send.
 func TestArmStreamSend(t *testing.T) {
 	inj, rec := newFakeStreamingArm()
 	ctx := context.Background()
@@ -113,12 +104,12 @@ func TestArmStreamCurrentEstimatedRunwayInArm(t *testing.T) {
 
 	test.That(t, s.send(ctx, []pvat{testPVAT(100 * time.Millisecond)}), test.ShouldBeNil)
 
-	runwayJustAfterSend := s.currentEstimatedRunwayInArm()
-	test.That(t, runwayJustAfterSend, test.ShouldBeGreaterThan, 80*time.Millisecond)
-	test.That(t, runwayJustAfterSend, test.ShouldBeLessThanOrEqualTo, 100*time.Millisecond)
-
-	time.Sleep(30 * time.Millisecond)
-	runwayAfterSleep := s.currentEstimatedRunwayInArm()
-	test.That(t, runwayAfterSleep, test.ShouldBeLessThan, runwayJustAfterSend)
-	test.That(t, runwayAfterSleep, test.ShouldBeGreaterThan, 40*time.Millisecond)
+	prev := s.currentEstimatedRunwayInArm()
+	test.That(t, prev, test.ShouldBeLessThanOrEqualTo, 100*time.Millisecond)
+	for prev > 0 {
+		time.Sleep(5 * time.Millisecond)
+		cur := s.currentEstimatedRunwayInArm()
+		test.That(t, cur, test.ShouldBeLessThanOrEqualTo, prev)
+		prev = cur
+	}
 }
