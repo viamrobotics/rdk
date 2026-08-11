@@ -73,8 +73,9 @@ var (
 	// context.Canceled.
 	errRobotClientClosed = errors.New("robot client is closed")
 
-	// defaultResourcesTimeout is the default timeout for getting resources.
-	defaultResourcesTimeout = 5 * time.Second
+	// defaultResourcesTimeout is the default timeout for each call made while getting
+	// resources, applied per call rather than across the set.
+	defaultResourcesTimeout = 4 * time.Second
 
 	// latencyPingNum controls the amount of times a gRPC request will be sent to the server
 	// to measure the latency of the connection. The latency is only measured in case
@@ -113,6 +114,8 @@ type RobotClient struct {
 	refClient                *grpcreflect.Client
 	connected                atomic.Bool
 	rpcSubtypesUnimplemented bool
+	withoutRPCSubtypes       bool
+	resourcesTimeout         time.Duration
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
@@ -322,6 +325,11 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		sessionsDisabled:    rOpts.disableSessions,
 		heartbeatCtx:        heartbeatCtx,
 		heartbeatCtxCancel:  heartbeatCtxCancel,
+		withoutRPCSubtypes:  rOpts.withoutRPCSubtypes,
+		resourcesTimeout:    defaultResourcesTimeout,
+	}
+	if rOpts.resourcesTimeout != nil && *rOpts.resourcesTimeout > 0 {
+		rc.resourcesTimeout = *rOpts.resourcesTimeout
 	}
 
 	otelStatsHandler := otelgrpc.NewClientHandler(
@@ -849,73 +857,75 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	return apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger)
 }
 
-func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
-	// RSDK-5356 If we are in a testing environment, never apply
-	// defaultResourcesTimeout. Tests run in parallel, and if execution of a test
-	// pauses for longer than 5s, below calls to ResourceNames or
-	// ResourceRPCSubtypes can result in context errors that appear in client.New
-	// and remote logic.
-	if !testing.Testing() {
-		var cancel func()
-		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
-		defer cancel()
+// resourcesCallCtx bounds one call, so a slow call cannot eat the time the next one needs.
+//
+// RSDK-5356: never bound in tests. They run in parallel, and a pause longer than the
+// timeout surfaces context errors out of client.New and remote logic.
+func (rc *RobotClient) resourcesCallCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	if testing.Testing() {
+		return ctx, func() {}
 	}
+	return contextutils.ContextWithTimeoutIfNoDeadline(ctx, rc.resourcesTimeout)
+}
 
-	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
+func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
+	namesCtx, cancel := rc.resourcesCallCtx(ctx)
+	resp, err := rc.client.ResourceNames(namesCtx, &pb.ResourceNamesRequest{})
+	cancel()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var resTypes []resource.RPCAPI
-
 	resources := make([]resource.Name, 0, len(resp.Resources))
 	for _, name := range resp.Resources {
-		newName := rprotoutils.ResourceNameFromProto(name)
-		resources = append(resources, newName)
+		resources = append(resources, rprotoutils.ResourceNameFromProto(name))
 	}
 
-	// resource has previously returned an unimplemented response, skip rpc call
-	if rc.rpcSubtypesUnimplemented {
-		return resources, resTypes, nil
+	// Descriptors are only needed to invoke APIs not compiled into this binary; createClient
+	// builds everything else from the local registry.
+	if rc.withoutRPCSubtypes || rc.rpcSubtypesUnimplemented {
+		return resources, nil, nil
 	}
 
-	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
-	if err == nil {
-		reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
-
-		resTypes = make([]resource.RPCAPI, 0, len(typesResp.ResourceRpcSubtypes))
-		for _, resAPI := range typesResp.ResourceRpcSubtypes {
-			symDesc, err := reflSource.FindSymbol(resAPI.ProtoService)
-			if err != nil {
-				// Note: This happens right now if a client is talking to a main server
-				// that has a remote or similarly if a server is talking to a remote that
-				// has a remote. This can be solved by either integrating reflection into
-				// robot.proto or by overriding the gRPC reflection service to return
-				// reflection results from its remotes.
-				rc.Logger().
-					CDebugw(
-						ctx,
-						"failed to find symbol for resource API",
-						"api", rprotoutils.ResourceNameFromProto(resAPI.Subtype).API.String(),
-						"error", err,
-					)
-				continue
-			}
-			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
-			if !ok {
-				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
-			}
-			resTypes = append(resTypes, resource.RPCAPI{
-				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
-				Desc: svcDesc,
-			})
-		}
-	} else {
+	subtypesCtx, cancel := rc.resourcesCallCtx(ctx)
+	typesResp, err := rc.client.ResourceRPCSubtypes(subtypesCtx, &pb.ResourceRPCSubtypesRequest{})
+	cancel()
+	if err != nil {
 		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
 			return nil, nil, err
 		}
 		// prevent future calls to ResourceRPCSubtypes
 		rc.rpcSubtypesUnimplemented = true
+		return resources, nil, nil
+	}
+
+	reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
+	resTypes := make([]resource.RPCAPI, 0, len(typesResp.ResourceRpcSubtypes))
+	for _, resAPI := range typesResp.ResourceRpcSubtypes {
+		symDesc, err := reflSource.FindSymbol(resAPI.ProtoService)
+		if err != nil {
+			// Note: This happens right now if a client is talking to a main server
+			// that has a remote or similarly if a server is talking to a remote that
+			// has a remote. This can be solved by either integrating reflection into
+			// robot.proto or by overriding the gRPC reflection service to return
+			// reflection results from its remotes.
+			rc.Logger().
+				CDebugw(
+					ctx,
+					"failed to find symbol for resource API",
+					"api", rprotoutils.ResourceNameFromProto(resAPI.Subtype).API.String(),
+					"error", err,
+				)
+			continue
+		}
+		svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
+		if !ok {
+			return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+		}
+		resTypes = append(resTypes, resource.RPCAPI{
+			API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
+			Desc: svcDesc,
+		})
 	}
 
 	return resources, resTypes, nil

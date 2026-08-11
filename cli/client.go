@@ -4054,7 +4054,10 @@ func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robots
 		return nil, err
 	}
 
-	robotClient, err := client.New(ctx, args.Address, logger, client.WithDialOptions(rpcOpts...))
+	robotClient, err := client.New(ctx, args.Address, logger,
+		client.WithDialOptions(rpcOpts...),
+		client.WithoutRPCSubtypes(),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
 	}
@@ -5624,6 +5627,9 @@ func (c *viamClient) connectToRobot(
 	clientOpts := []client.RobotClientOption{
 		client.WithDialOptions(rpcOpts...),
 		client.WithCheckConnectedEvery(globalArgs.CheckConnectedEvery),
+		// the CLI only uses compiled-in APIs, so the descriptors cost a connection and buy
+		// nothing
+		client.WithoutRPCSubtypes(),
 	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, clientOpts...)
 	if err != nil {
