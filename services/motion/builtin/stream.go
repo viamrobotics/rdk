@@ -44,16 +44,18 @@ type stream struct {
 	// closed reports that flush has closed jpCh. Guarded by opMu.
 	closed bool
 
-	// cancel is called to signal the background goroutine running the session
-	// to abort immediately, without sending the queued targets to the arm.
+	// cancel signals the background goroutine running the session to abort
+	// immediately, without sending the queued targets to the arm. It is one of
+	// several ways the session can end (flush and errors are the others).
 	cancel context.CancelFunc
 
-	// done is closed once the session has ended.
+	// done is closed by the background goroutine as the last thing it does on
+	// exit, whichever way the session ended (flush, abort, or error).
 	done chan struct{}
 
-	// resultErr is the error (if any) that caused the session to end.
-	// It should only be read after done is observed closed.
-	resultErr error
+	// err is the error (if any) that caused the session to end. It is only
+	// safe to read after done is closed.
+	err error
 }
 
 func (s *stream) finished() bool {
@@ -83,8 +85,8 @@ func (s *stream) send(ctx context.Context, targets []streaming.JointPositionsChI
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-s.done:
-			if s.resultErr != nil {
-				return fmt.Errorf("streaming session ended: %w", s.resultErr)
+			if s.err != nil {
+				return fmt.Errorf("streaming session ended: %w", s.err)
 			}
 			return errors.New("streaming session ended")
 		case s.jpCh <- t:
@@ -136,7 +138,7 @@ func (ms *builtIn) streamStart(
 
 	go func() {
 		err := streaming.Run(streamCtx, a, opts, s.jpCh, seed)
-		s.resultErr = err
+		s.err = err
 		if err != nil {
 			s.logger.CWarnf(streamCtx, "arm streaming session ended with error: %v", err)
 		}
@@ -188,8 +190,8 @@ func (ms *builtIn) streamFlush(ctx context.Context) (map[string]any, error) {
 	}
 
 	status := map[string]any{streamKeyRunning: false}
-	if s.resultErr != nil {
-		status[streamKeyError] = s.resultErr.Error()
+	if s.err != nil {
+		status[streamKeyError] = s.err.Error()
 	}
 	return status, nil
 }
@@ -215,8 +217,8 @@ func (ms *builtIn) streamAbort(ctx context.Context) map[string]any {
 	}
 
 	status := map[string]any{streamKeyRunning: false}
-	if s.resultErr != nil {
-		status[streamKeyError] = s.resultErr.Error()
+	if s.err != nil {
+		status[streamKeyError] = s.err.Error()
 	}
 	return status
 }
@@ -233,8 +235,8 @@ func (ms *builtIn) streamStatus() map[string]any {
 		streamKeyRunning: !finished,
 		streamKeyArm:     ms.stream.armName,
 	}
-	if finished && ms.stream.resultErr != nil {
-		status[streamKeyError] = ms.stream.resultErr.Error()
+	if finished && ms.stream.err != nil {
+		status[streamKeyError] = ms.stream.err.Error()
 	}
 	return status
 }
