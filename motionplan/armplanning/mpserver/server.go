@@ -577,7 +577,15 @@ var ikInspectTmpl = template.Must(template.New("ik-inspect").Parse(`<!DOCTYPE ht
 
 <h2>Start Configuration</h2>
 {{if .StartConfig}}
-<div id="start-config-editor"></div>
+<table>
+  <tr><th>Frame</th><th>Inputs</th></tr>
+  {{range .StartConfig}}
+  <tr>
+    <td>{{.Name}}</td>
+    <td><code>{{.Inputs}}</code></td>
+  </tr>
+  {{end}}
+</table>
 {{else}}
 <p><em>No moving-frame inputs in start state.</em></p>
 {{end}}
@@ -676,28 +684,6 @@ function readPoseEditors(containerId) {
   return result;
 }
 
-// ---- start configuration editing (raw comma-separated joint values per frame) ----
-
-function buildStartConfigEditor(startConfig) {
-  return Object.keys(startConfig).sort().map(frame => {
-    const vals = (startConfig[frame] || []).join(', ');
-    return '<div class="pose-editor" data-frame="' + escHtml(frame) + '">' +
-      '<strong>' + escHtml(frame) + '</strong>: ' +
-      '<input class="sc-values" type="text" style="width:40ch" value="' + escHtml(vals) + '"></div>';
-  }).join('');
-}
-
-function readStartConfigEditor() {
-  const result = {};
-  const container = document.getElementById('start-config-editor');
-  if (!container) return result;
-  container.querySelectorAll('.pose-editor').forEach(el => {
-    const raw = el.querySelector('.sc-values').value.trim();
-    result[el.getAttribute('data-frame')] = raw === '' ? [] : raw.split(',').map(s => s.trim());
-  });
-  return result;
-}
-
 // ---- live candidate pose preview ----
 //
 // As pose fields are edited, debounce and POST the in-progress pose to the visualizer in a
@@ -733,8 +719,6 @@ function wireCandidatePreview(containerId) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const scDiv = document.getElementById('start-config-editor');
-  if (scDiv) scDiv.innerHTML = buildStartConfigEditor(START_CONFIG);
   const gpDiv = document.getElementById('goal-poses-editor');
   if (gpDiv) gpDiv.innerHTML = buildPoseEditor(GOAL_POSES);
   wireCandidatePreview('goal-poses-editor');
@@ -779,7 +763,7 @@ function runIKInspect() {
   const div = document.getElementById('ik-result');
   div.textContent = 'Running IK inspection…';
   fetch('/ik-inspect/run?file=' + encodeURIComponent('{{.File}}') +
-        '&start_config=' + encodeURIComponent(JSON.stringify(readStartConfigEditor())) +
+        '&start_config=' + encodeURIComponent(JSON.stringify(START_CONFIG)) +
         '&goal_poses=' + encodeURIComponent(JSON.stringify(readPoseEditors('goal-poses-editor'))),
         { signal: ikInspectAbort.signal })
     .then(r => r.json())
@@ -844,7 +828,8 @@ function renderIKCell(file, cell) {
   if (cell.check_path_error) tip.push('checkPath: ' + cell.check_path_error);
 
   let inner = '<strong>' + cell.cost.toFixed(4) + '</strong>';
-  if (cell.check_path_error) inner += '<br><small>' + escHtml(cell.check_path_error) + '</small>';
+  const inlineError = cell.state_error || cell.check_path_error;
+  if (inlineError) inner += '<br><small>' + escHtml(inlineError) + '</small>';
   if (cell.inputs) {
     const inputsArg = JSON.stringify(cell.inputs);
     inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>Render</button>';
