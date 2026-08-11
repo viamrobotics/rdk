@@ -65,21 +65,22 @@ func streamTestOptions() map[string]interface{} {
 	}
 }
 
-func TestDoCommandArmStreaming(t *testing.T) {
+func TestDoCommandsHappyPath(t *testing.T) {
 	ms, counts := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	ctx := context.Background()
 
+	// status before start shows that no session is running
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["running"], test.ShouldEqual, false)
+
 	// start
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{
+	resp, err = ms.DoCommand(ctx, map[string]interface{}{
 		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp["ok"], test.ShouldEqual, 1)
-
-	// starting again while running should error
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStart: map[string]interface{}{"arm": "arm"}})
-	test.That(t, err, test.ShouldNotBeNil)
 
 	// push a ramp on joint 0
 	for i := 1; i <= 6; i++ {
@@ -96,7 +97,9 @@ func TestDoCommandArmStreaming(t *testing.T) {
 	test.That(t, resp["running"], test.ShouldEqual, true)
 	test.That(t, resp["arm"], test.ShouldEqual, "arm")
 
-	// flush blocks (ctx has no deadline) until the drain completes
+	// flush blocks until the drain completes. The deadline is a backstop: if it fired
+	// first, flush would report running=true and the assertions below would fail,
+	// turning a hung drain into a test failure rather than a stuck test.
 	flushCtx, flushCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer flushCancel()
 	resp, err = ms.DoCommand(flushCtx, map[string]interface{}{DoStreamFlush: true})
@@ -110,13 +113,14 @@ func TestDoCommandArmStreaming(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp["running"], test.ShouldEqual, false)
 
-	// The flush drained the full trajectory to the arm.
+	// The session did not end vacuously: trajectory points reached the arm over a
+	// stream RPC.
 	points, streams := counts()
 	test.That(t, points > 0, test.ShouldBeTrue)
 	test.That(t, streams >= 1, test.ShouldBeTrue)
 }
 
-func TestDoCommandArmStreamingErrors(t *testing.T) {
+func TestDoCommandsUsedIncorrectly(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	ctx := context.Background()
 
@@ -142,17 +146,18 @@ func TestDoCommandArmStreamingErrors(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid streaming options")
 
-	// status with no session is not running
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	// starting again while running should error
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
+	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["running"], test.ShouldEqual, false)
+	test.That(t, resp["ok"], test.ShouldEqual, 1)
+	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStart: map[string]interface{}{"arm": "arm"}})
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
-// TestDoCommandArmStreamingAbortTeardown checks that when an abort's request context expires
-// before session teardown completes, the session stays registered: status and abort report
-// running, a new start refuses to race a second stream onto the arm, and once teardown finishes
-// a new session can start.
-func TestDoCommandArmStreamingAbortTeardown(t *testing.T) {
+func TestDoCommandStreamAbort(t *testing.T) {
 	var rpcStarted sync.Once
 	rpcStartedCh := make(chan struct{})
 	releaseRPC := make(chan struct{})
@@ -188,11 +193,12 @@ func TestDoCommandArmStreamingAbortTeardown(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Push until the executor opens the arm RPC.
 	_, err = ms.DoCommand(ctx, map[string]interface{}{
 		DoStreamPush: []interface{}{[]interface{}{0.2, 0.0, 0.0, 0.0, 0.0, 0.0}},
 	})
 	test.That(t, err, test.ShouldBeNil)
+
+	// Wait for the arm RPC to be open (and parked on releaseRPC) before aborting.
 	select {
 	case <-rpcStartedCh:
 	case <-time.After(10 * time.Second):
@@ -210,8 +216,7 @@ func TestDoCommandArmStreamingAbortTeardown(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp["running"], test.ShouldEqual, true)
 
-	// A new start must not race a second stream onto the arm while the aborted
-	// session is still tearing down.
+	// A new startStream should fail because the previous session is still running.
 	_, err = ms.DoCommand(expiredCtx, map[string]interface{}{
 		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
 	})
@@ -237,17 +242,9 @@ func TestDoCommandArmStreamingAbortTeardown(t *testing.T) {
 		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
 	})
 	test.That(t, err, test.ShouldBeNil)
-
-	// Close no longer aborts sessions, so end this one explicitly; otherwise its
-	// goroutines outlive the test and trip the package's goroutine-leak check.
-	status = ms.streamAbort(ctx)
-	test.That(t, status["running"], test.ShouldEqual, false)
 }
 
-// TestDoCommandArmStreamingProtocolEnforcement checks that the single-controller push protocol
-// is enforced explicitly: a push overlapping another in-flight push or flush is rejected with a
-// protocol error rather than interleaved, and a push after flush is rejected rather than parked.
-func TestDoCommandArmStreamingProtocolEnforcement(t *testing.T) {
+func TestDoCommandSequentialCommandsEnforcement(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	ctx := context.Background()
@@ -287,7 +284,7 @@ func TestDoCommandArmStreamingProtocolEnforcement(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "flushing")
 }
 
-func TestDoCommandArmStreamingBatch(t *testing.T) {
+func TestDoCommandStreamPushBatch(t *testing.T) {
 	ms, counts := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	ctx := context.Background()
@@ -313,11 +310,15 @@ func TestDoCommandArmStreamingBatch(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	// give the pipeline a moment to deliver the first batch to the arm, then stop
-	time.Sleep(100 * time.Millisecond)
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
-	test.That(t, err, test.ShouldBeNil)
-
-	points, _ := counts()
-	test.That(t, points > 0, test.ShouldBeTrue)
+	// Wait until the arm has received at least one trajectory point.
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if points, _ := counts(); points > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("arm never received trajectory points")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }

@@ -75,7 +75,7 @@ func (s *stream) send(ctx context.Context, targets []streaming.JointPositionsChI
 	}
 	defer s.opMu.Unlock()
 	if s.closed {
-		return errors.New("streaming session is flushing; no further targets are accepted")
+		return errors.New("streaming session is flushing or has ended; no further targets are accepted")
 	}
 
 	for _, t := range targets {
