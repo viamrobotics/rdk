@@ -45,7 +45,7 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 
 	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
 
-	pvats, err := s.sample(ctx, drainHorizon)
+	pvats, err := s.sampleAtLeast(ctx, drainHorizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(pvats), test.ShouldBeGreaterThan, 0)
 
@@ -77,12 +77,12 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	test.That(t, s.addJointPositionsToSession(ctx, nearlyIdentical), test.ShouldBeNil)
 	test.That(t, s.lastJointPositions, test.ShouldResemble, seed)
 
-	pvats, err := s.sample(ctx, drainHorizon)
+	pvats, err := s.sampleAtLeast(ctx, drainHorizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(pvats), test.ShouldEqual, 0)
 }
 
-// TestTrajexSessionSampleHorizon checks that sample advances the watermark by only
+// TestTrajexSessionSampleHorizon checks that sampleAtLeast advances the watermark by only
 // (approximately) the requested horizon per call rather than draining the trajectory, and that
 // consecutive calls continue from where the previous one left off. This is the property Run's
 // deficit-driven sampling relies on to commit no more trajectory than the arm's runway needs.
@@ -98,7 +98,7 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
 
 	horizon := 20 * time.Millisecond
-	first, err := s.sample(ctx, horizon)
+	first, err := s.sampleAtLeast(ctx, horizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(first), test.ShouldBeGreaterThan, 0)
 	test.That(t, len(first[0].positions), test.ShouldEqual, len(seed))
@@ -107,7 +107,7 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 	test.That(t, first[len(first)-1].time, test.ShouldBeLessThan, horizon+20*time.Millisecond)
 
 	// A second call continues from the watermark rather than restarting.
-	second, err := s.sample(ctx, horizon)
+	second, err := s.sampleAtLeast(ctx, horizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(second), test.ShouldBeGreaterThan, 0)
 	test.That(t, second[0].time, test.ShouldBeGreaterThan, first[len(first)-1].time)

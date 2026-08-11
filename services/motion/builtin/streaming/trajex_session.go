@@ -97,7 +97,7 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 	return nil
 }
 
-func (s *trajexSession) sample(ctx context.Context, horizon time.Duration) ([]pvat, error) {
+func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration) ([]pvat, error) {
 	out, err := trajex.NewTensorMap()
 	if err != nil {
 		return nil, err

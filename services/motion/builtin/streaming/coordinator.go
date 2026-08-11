@@ -81,7 +81,7 @@ func Run(
 				// jpCh closed: no more targets can arrive, so nothing can pivot the remaining
 				// trajectory. Send all of it to the arm now, in targetRunway-sized batches.
 				for {
-					pvats, err := ts.sample(ctx, targetRunway)
+					pvats, err := ts.sampleAtLeast(ctx, targetRunway)
 					if err != nil {
 						return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 					}
@@ -106,7 +106,7 @@ func Run(
 			if deficit <= 0 {
 				continue
 			}
-			pvats, err := ts.sample(ctx, deficit)
+			pvats, err := ts.sampleAtLeast(ctx, deficit)
 			if err != nil {
 				return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
