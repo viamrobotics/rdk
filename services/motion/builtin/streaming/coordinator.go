@@ -122,17 +122,10 @@ func Run(
 }
 
 func waitOutRunway(ctx context.Context, as *armStream) error {
-	for {
-		remaining := as.currentEstimatedRunwayInArm()
-		if remaining <= 0 {
-			return nil
-		}
-		timer := time.NewTimer(remaining)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
-		}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(as.currentEstimatedRunwayInArm()):
+		return nil
 	}
 }
