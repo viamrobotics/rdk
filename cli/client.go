@@ -4137,7 +4137,8 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 	// check, which probes ResourceNames and would tear an open tunnel down.
 	// ensureTunnelPortAllowed reconnects on its own when it needs to.
 	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger,
-		client.WithoutInitialRefresh())
+		client.WithoutInitialRefresh(), client.WithCheckConnectedEvery(0),
+	)
 	if err != nil {
 		return err
 	}
