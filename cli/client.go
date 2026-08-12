@@ -4028,7 +4028,9 @@ func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPa
 }
 
 // connectToMachineDirectly dials a machine at an explicit address without contacting app.viam.com,
-// authenticating with the machine api-key in args.
+// authenticating with the machine api-key in args. Skips resource enumeration entirely - initial
+// refresh, periodic refresh and connection check: the sole caller tunnels, which needs nothing
+// but the robot service.
 func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) (*client.RobotClient, error) {
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
@@ -4057,6 +4059,9 @@ func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robots
 	robotClient, err := client.New(ctx, args.Address, logger,
 		client.WithDialOptions(rpcOpts...),
 		client.WithoutRPCSubtypes(),
+		client.WithoutInitialRefresh(),
+		client.WithRefreshEvery(0),
+		client.WithCheckConnectedEvery(0),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
@@ -4128,7 +4133,12 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 		return err
 	}
 
-	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	// Tunneling needs only the robot service, so skip the initial refresh - and the connection
+	// check, which probes ResourceNames and would tear an open tunnel down.
+	// ensureTunnelPortAllowed reconnects on its own when it needs to.
+	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger,
+		client.WithoutInitialRefresh(), client.WithCheckConnectedEvery(0),
+	)
 	if err != nil {
 		return err
 	}
@@ -5613,6 +5623,7 @@ func (c *viamClient) connectToRobot(
 	rpcOpts []rpc.DialOption,
 	debug bool,
 	logger logging.Logger,
+	extraOpts ...client.RobotClientOption,
 ) (*client.RobotClient, error) {
 	if debug {
 		printf(c.c.Root().Writer, "Establishing connection...")
@@ -5627,10 +5638,14 @@ func (c *viamClient) connectToRobot(
 	clientOpts := []client.RobotClientOption{
 		client.WithDialOptions(rpcOpts...),
 		client.WithCheckConnectedEvery(globalArgs.CheckConnectedEvery),
+		// CLI commands read the resource list once after connecting and never re-read it, so a
+		// periodic refresh is pure churn - and error noise when enumeration is what's failing.
+		client.WithRefreshEvery(0),
 		// the CLI only uses compiled-in APIs, so the descriptors cost a connection and buy
 		// nothing
 		client.WithoutRPCSubtypes(),
 	}
+	clientOpts = append(clientOpts, extraOpts...)
 	robotClient, err := client.New(dialCtx, fqdn, logger, clientOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
