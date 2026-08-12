@@ -75,7 +75,7 @@ var (
 
 	// defaultResourcesTimeout is the default timeout for each call made while getting
 	// resources, applied per call rather than across the set.
-	defaultResourcesTimeout = 4 * time.Second
+	defaultResourcesTimeout = 5 * time.Second
 
 	// latencyPingNum controls the amount of times a gRPC request will be sent to the server
 	// to measure the latency of the connection. The latency is only measured in case
