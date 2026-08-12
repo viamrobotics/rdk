@@ -830,7 +830,14 @@ function renderIKCell(file, cell) {
   let inner = '<strong>' + cell.cost.toFixed(4) + '</strong>';
   const inlineError = cell.state_error || cell.check_path_error;
   if (inlineError) inner += '<br><small>' + escHtml(inlineError) + '</small>';
-  if (cell.inputs) {
+  if (cls === 'cell-yellow' && cell.last_good_inputs) {
+    const violationArg = JSON.stringify(cell.last_good_inputs);
+    inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + violationArg + ')\'>Render Constraint Violation</button>';
+    if (cell.inputs) {
+      const inputsArg = JSON.stringify(cell.inputs);
+      inner += ' <button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>Render Final Position</button>';
+    }
+  } else if (cell.inputs) {
     const inputsArg = JSON.stringify(cell.inputs);
     inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>Render</button>';
   }
@@ -961,6 +968,7 @@ type ikInspectCellResult struct {
 	StateError     string              `json:"state_error,omitempty"`
 	CheckPathOK    bool                `json:"check_path_ok"`
 	CheckPathError string              `json:"check_path_error,omitempty"`
+	LastGoodInputs map[string][]string `json:"last_good_inputs,omitempty"`
 }
 
 // linearInputsToStrings converts LinearInputs to a map of string slices so that float64 values
@@ -1735,6 +1743,9 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 				}
 				if cell.CheckPathError != nil {
 					row.CheckPathError = cell.CheckPathError.Error()
+				}
+				if cell.LastGoodInputs != nil {
+					row.LastGoodInputs = linearInputsToStrings(cell.LastGoodInputs)
 				}
 				rows[cellIdx] = row
 			}
