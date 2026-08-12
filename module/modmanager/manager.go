@@ -1055,6 +1055,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 	mod.registerResourceModels(mgr)
+	// so activity observers can tell recovery from a module that stayed down
+	mod.logger.Activity("module", "start", "module", mod.cfg.Name)
 	mgr.setModuleStatusReady(mod.cfg.Name)
 	success = true
 	return nil
