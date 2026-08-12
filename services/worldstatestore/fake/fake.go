@@ -49,10 +49,12 @@ type Config struct {
 	WorldName string `json:"worldName,omitempty"`
 }
 
-// Validate checks that the config attributes are valid for a fake world state store.
+// Validate checks that the config attributes are valid for a fake world state store. An
+// empty WorldName is valid and defaults to the first known world at construction time.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
-	if conf.WorldName == "" || !slices.Contains(worldNames, conf.WorldName) {
-		conf.WorldName = worldNames[0]
+	if conf.WorldName != "" && !slices.Contains(worldNames, conf.WorldName) {
+		return nil, nil, resource.NewConfigValidationError(path,
+			fmt.Errorf("unknown worldName %q, must be one of %v", conf.WorldName, worldNames))
 	}
 	return nil, nil, nil
 }
@@ -151,11 +153,9 @@ func (f *WorldStateStore) Close(ctx context.Context) error {
 
 func newFakeWorldStateStore(name resource.Name, conf *Config, logger logging.Logger) worldstatestore.Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	var worldName string
-	if conf != nil {
+	worldName := worldNames[0]
+	if conf != nil && conf.WorldName != "" {
 		worldName = conf.WorldName
-	} else {
-		worldName = "moving_geos"
 	}
 
 	fake := &WorldStateStore{
