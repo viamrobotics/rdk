@@ -49,13 +49,13 @@ func emailUser(id string) config.User {
 
 func TestUserPermsAuthorizerNoUserPerms(t *testing.T) {
 	test.That(t, newUserPermsAuthorizer(nil, logging.NewTestLogger(t)), test.ShouldBeNil)
+	test.That(t, newUserPermsAuthorizer([]config.UserPermission{}, logging.NewTestLogger(t)), test.ShouldBeNil)
 }
 
 func TestUserPermsAuthorizer(t *testing.T) {
 	// The same person's API key ID and e-mail are two entries sharing permissions.
 	sharedPerms := []config.Permission{
-		{Resources: []string{"robot"}, AllowedMethods: []string{resourceNames}},
-		{Resources: []string{"streams"}, AllowedMethods: []string{listStreams}},
+		{Resources: []string{"_machine"}, AllowedMethods: []string{resourceNames, listStreams}},
 		{Resources: []string{"cam1", "cam2"}, AllowedMethods: []string{getImages, addStream}},
 		{Resources: []string{"sensor1"}, AllowedMethods: []string{getReadings}},
 	}
@@ -74,13 +74,13 @@ func TestUserPermsAuthorizer(t *testing.T) {
 		assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam3"}))
 		assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "cam1"}))
 
-		// machine-scoped methods work when granted under any resource name
+		// machine-scoped methods match only _machine grants
 		err = ra.authorize(ctx, resourceNames, &robotpb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		err = ra.authorize(ctx, listStreams, &streampb.ListStreamsRequest{})
 		test.That(t, err, test.ShouldBeNil)
 
-		// no default endpoints: ungranted robot methods are denied
+		// ungranted machine-scoped methods are denied: no default endpoints
 		assertDenied(t, ra.authorize(ctx, machineStatus, &robotpb.GetMachineStatusRequest{}))
 
 		// auth handshake plumbing is always exempt
@@ -99,6 +99,31 @@ func TestUserPermsAuthorizer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+func TestUserPermsAuthorizerMachineSentinel(t *testing.T) {
+	ra := newUserPermsAuthorizer([]config.UserPermission{
+		{
+			User: apiKeyUser(testKeyID),
+			Permissions: []config.Permission{
+				// machine-scoped method granted under a plain resource name does nothing
+				{Resources: []string{"robot"}, AllowedMethods: []string{resourceNames}},
+				// resource method granted under _machine does nothing for named requests
+				{Resources: []string{"_machine"}, AllowedMethods: []string{getImages}},
+			},
+		},
+	}, logging.NewTestLogger(t))
+
+	ctx := ctxWithUser(testKeyID)
+	assertDenied(t, ra.authorize(ctx, resourceNames, &robotpb.ResourceNamesRequest{}))
+	assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+
+	// the method-level streaming probe passes when the method is granted for any
+	// resources string, leaving enforcement to the first message
+	test.That(t, ra.methodGranted(ctx, resourceNames), test.ShouldBeTrue)
+	test.That(t, ra.methodGranted(ctx, getImages), test.ShouldBeTrue)
+	test.That(t, ra.methodGranted(ctx, getReadings), test.ShouldBeFalse)
+	test.That(t, ra.methodGranted(ctx, authenticate), test.ShouldBeTrue)
+}
+
 func TestUserPermsAuthorizerDefaultUser(t *testing.T) {
 	ra := newUserPermsAuthorizer([]config.UserPermission{
 		{
@@ -108,7 +133,7 @@ func TestUserPermsAuthorizerDefaultUser(t *testing.T) {
 		{
 			User: config.User{Type: config.UserTypeDefault},
 			Permissions: []config.Permission{
-				{Resources: []string{"robot"}, AllowedMethods: []string{resourceNames}},
+				{Resources: []string{"_machine"}, AllowedMethods: []string{resourceNames}},
 				{Resources: []string{"sensor1"}, AllowedMethods: []string{getReadings}},
 			},
 		},
