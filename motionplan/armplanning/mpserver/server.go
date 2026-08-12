@@ -247,8 +247,7 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 {{end}}
 {{end}}
 <p>
-  <button onclick="updatePlanRequest()">Update Plan Request</button>
-  &nbsp;<button onclick="downloadPlanRequest()">Download Plan Request</button>
+  <button onclick="downloadPlanRequest()">Download Plan Request</button>
 </p>
 {{else}}
 <p><em>No goals.</em></p>
@@ -267,8 +266,11 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 </table>
 
 <script>
+const OVERRIDES_PARAM = "{{.OverridesParam}}";
+
 function renderState() {
-  fetch('/render-start?file=' + encodeURIComponent('{{.File}}'))
+  fetch('/render-start?file=' + encodeURIComponent('{{.File}}') +
+        '&overrides=' + encodeURIComponent(OVERRIDES_PARAM))
     .then(r => { if (!r.ok) r.text().then(msg => console.error('Render error: ' + msg)); })
     .catch(err => console.error('Render error: ' + err));
 }
@@ -400,11 +402,6 @@ function currentOverrides() {
     goals[goalIndex] = readPoseEditors('goal-poses-' + goalIndex);
   });
   return {goals: goals};
-}
-
-function updatePlanRequest() {
-  window.location.href = '/detail?file=' + encodeURIComponent('{{.File}}') +
-    '&overrides=' + encodeURIComponent(JSON.stringify(currentOverrides()));
 }
 
 function downloadPlanRequest() {
@@ -750,7 +747,8 @@ function downloadURL() {
 }
 
 function renderStartAndGoals() {
-  fetch('/render-start?file=' + encodeURIComponent('{{.File}}'))
+  fetch('/render-start?file=' + encodeURIComponent('{{.File}}') +
+        '&overrides=' + encodeURIComponent(JSON.stringify(mergedOverrides())))
     .then(r => { if (!r.ok) r.text().then(msg => console.error('Render error: ' + msg)); })
     .catch(err => console.error('Render error: ' + err));
 }
@@ -1423,10 +1421,18 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 	return err
 }
 
-func renderState(relPath string) error {
+func renderState(relPath, overridesParam string) error {
 	req, err := armplanning.ReadRequestFromFile(filepath.Join(rdkRoot, relPath))
 	if err != nil {
 		return fmt.Errorf("reading plan file: %w", err)
+	}
+	overrides, err := decodeOverrides(overridesParam)
+	if err != nil {
+		return fmt.Errorf("decoding overrides: %w", err)
+	}
+	req, err = applyOverrides(req, overrides)
+	if err != nil {
+		return fmt.Errorf("applying overrides: %w", err)
 	}
 	startInputs := req.StartState.Configuration()
 	if _, err := vizapi.RemoveAll(); err != nil {
@@ -2156,8 +2162,9 @@ func handleRenderStart(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, "missing file parameter", http.StatusBadRequest)
 			return
 		}
+		overridesParam := r.URL.Query().Get("overrides")
 		beginRender()
-		if err := renderState(file); err != nil {
+		if err := renderState(file, overridesParam); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
