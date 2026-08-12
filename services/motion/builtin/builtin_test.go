@@ -873,3 +873,90 @@ func TestErrorMessageContext(t *testing.T) {
 	// E.g: `Frame: arm2.shoulder_lift_joint (joint 1): input out of bounds...`
 	test.That(t, err.Error(), test.ShouldContainSubstring, "arm2")
 }
+
+// TestInputRangeOverrideDisallowsReturningInsideRange demonstrates that once an arm's joint
+// position has drifted outside of an `input_range_override` bound, the motion service currently
+// refuses to plan a move for that same arm even when the requested move would bring it back
+// inside the allowed range.
+func TestInputRangeOverrideDisallowsReturningInsideRange(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	fakeModel := resource.DefaultModelFamily.WithModel("fake")
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "arm1",
+				API:   arm.API,
+				Model: fakeModel,
+				ConvertedAttributes: &fakearm.Config{
+					ArmModel: "ur5e",
+				},
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "builtin",
+				API:   motion.API,
+				Model: resource.DefaultServiceModel,
+				// The motion service Config.Validate is what normally declares the framesystem
+				// dependency. But because `ConvertedAttributes` is non-nil, we do not call
+				// validate. Explicitly declare the motion service -> frame system service
+				// dependency.
+				DependsOn: []string{framesystem.InternalServiceName.String()},
+				ConvertedAttributes: &Config{
+					// Restrict arm1's shoulder_lift_joint to a narrow range around zero.
+					InputRangeOverride: map[string]map[string]referenceframe.Limit{
+						"arm1": {
+							"shoulder_lift_joint": {Min: -math.Pi / 4, Max: math.Pi / 4},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer myRobot.Close(ctx)
+
+	ms, err := motion.FromProvider(myRobot, "builtin")
+	test.That(t, err, test.ShouldBeNil)
+
+	armComponent, err := arm.FromProvider(myRobot, "arm1")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Move the arm directly outside of the motion service's override bounds. This works because
+	// we're manipulating the arm directly, bypassing the motion service entirely.
+	err = armComponent.MoveToJointPositions(ctx, []referenceframe.Input{math.Pi, math.Pi, math.Pi, math.Pi, math.Pi, math.Pi}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Compute the world pose of the arm's all-zero joint configuration. That configuration is well
+	// within the overridden range, i.e. moving there would bring the arm back inside the allowed
+	// bounds.
+	frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
+	test.That(t, err, test.ShouldBeNil)
+	zeroInputs := referenceframe.FrameSystemInputs{"arm1": make([]referenceframe.Input, 6)}
+	homePoseInWorld, err := frameSys.Transform(
+		zeroInputs.ToLinearInputs(),
+		referenceframe.NewPoseInFrame("arm1", spatialmath.NewZeroPose()),
+		referenceframe.World)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Ask the motion service to move the arm back to that in-range pose. But because the arm's
+	// *current*, out-of-bounds position also gets validated against the overridden limits, the
+	// motion service refuses to plan the move at all.
+	_, err = ms.Move(ctx, motion.MoveReq{
+		ComponentName: "arm1",
+		Destination:   referenceframe.NewPoseInFrame(referenceframe.World, homePoseInWorld.(*referenceframe.PoseInFrame).Pose()),
+	})
+	// Today, the motion service disallows this: it validates the arm's starting position against
+	// the overridden limits and rejects the request before ever considering that the requested
+	// move would bring the arm back into range.
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, referenceframe.OOBErrString)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "shoulder_lift_joint")
+}
