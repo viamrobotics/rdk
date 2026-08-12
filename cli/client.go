@@ -5637,7 +5637,7 @@ func (c *viamClient) connectToRobot(
 	}
 	clientOpts := []client.RobotClientOption{
 		client.WithDialOptions(rpcOpts...),
-		client.WithCheckConnectedEvery(globalArgs.CheckConnectedEvery),
+		client.WithCheckConnectedEvery(globalArgs.CheckConnectionInterval),
 		// CLI commands read the resource list once after connecting and never re-read it, so a
 		// periodic refresh is pure churn - and error noise when enumeration is what's failing.
 		client.WithRefreshEvery(0),

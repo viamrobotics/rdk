@@ -330,13 +330,13 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL             string
-	Config              string
-	Debug               bool
-	Quiet               bool
-	Profile             string
-	DisableProfiles     bool
-	CheckConnectedEvery time.Duration
+	BaseURL                 string
+	Config                  string
+	Debug                   bool
+	Quiet                   bool
+	Profile                 string
+	DisableProfiles         bool
+	CheckConnectionInterval time.Duration
 }
 
 func (ga *globalArgs) createLogger() logging.Logger {
