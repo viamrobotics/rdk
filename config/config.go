@@ -957,7 +957,9 @@ type User struct {
 // resources.
 type Permission struct {
 	// Resources are the names of the resources this permission applies to, e.g.
-	// ["cam1", "cam2", "cam3"].
+	// ["cam1", "cam2", "cam3"]. The special string "_machine" refers to methods
+	// not associated with a single resource (e.g. RobotService methods and
+	// ListStreams).
 	Resources []string `json:"resources"`
 	// AllowedMethods is a list of fully qualified gRPC methods the user may invoke
 	// on the listed resources, e.g.
