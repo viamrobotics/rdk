@@ -652,18 +652,30 @@ func (g *Graph) remove(node Name) {
 // by RemoveMarked.
 func (g *Graph) MarkForRemoval(toMark *Graph) {
 	toMark.mu.Lock()
-	defer toMark.mu.Unlock()
 	g.mu.Lock()
-	defer g.mu.Unlock()
+	nodes := slices.Collect(toMark.nodes.Values())
+	g.mu.Unlock()
+	toMark.mu.Unlock()
 
-	for v := range toMark.nodes.Values() {
-		v.MarkForRemoval()
+	// Mark outside of the graph locks. Marking transitions node state, which can log, and a
+	// log write blocks until the log consumer accepts it; blocking there while holding the
+	// write lock would stall every reader of the graph.
+	for _, node := range nodes {
+		node.MarkForRemoval()
 	}
 }
 
 // RemoveMarked removes previously marked nodes from the graph and returns
 // all the resources removed that should now be closed by the caller.
 func (g *Graph) RemoveMarked() []Resource {
+	// See ResolveDependencies for why logging waits until the write lock is released.
+	var missingNodes []Name
+	defer func() {
+		for _, name := range missingNodes {
+			g.logger.Errorw("invariant: expected to find node during removal", "name", name)
+		}
+	}()
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -677,7 +689,7 @@ func (g *Graph) RemoveMarked() []Resource {
 		rNode, ok := g.nodes.Get(name)
 		if !ok {
 			// will never happen
-			g.logger.Errorw("invariant: expected to find node during removal", "name", name)
+			missingNodes = append(missingNodes, name)
 			continue
 		}
 		if rNode.MarkedForRemoval() {
@@ -837,6 +849,17 @@ func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
 // known way of reaching this state. Other unknown paths may still reach this state, and
 // this pass would not recover a dependent stranded that way.
 func (g *Graph) ResolveDependencies(logger logging.Logger) error {
+	// Log lines are collected here and emitted once the write lock is released. A log
+	// write blocks until the log consumer accepts it, so logging while holding the write
+	// lock can stall every reader of the graph. Deferred calls run in LIFO order, so this
+	// one runs after the unlock below.
+	var deferredLogs []func()
+	defer func() {
+		for _, emitLog := range deferredLogs {
+			emitLog()
+		}
+	}()
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -853,7 +876,9 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 			tryResolve := func() (Name, bool) {
 				if dep == nodeName.String() {
 					allErrs = multierr.Combine(errors.Errorf("node cannot depend on itself: %q", nodeName))
-					logger.Errorw("node cannot depend on itself", "name", nodeName)
+					deferredLogs = append(deferredLogs, func() {
+						logger.Errorw("node cannot depend on itself", "name", nodeName)
+					})
 					return Name{}, false
 				}
 				if resName, err := NewFromString(dep); err == nil {
@@ -868,24 +893,30 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 				case 1:
 					if nodeNames[0].String() == nodeName.String() {
 						allErrs = multierr.Combine(errors.Errorf("node cannot depend on itself: %q", nodeName))
-						logger.Errorw("node cannot depend on itself", "name", nodeName)
+						deferredLogs = append(deferredLogs, func() {
+							logger.Errorw("node cannot depend on itself", "name", nodeName)
+						})
 						return Name{}, false
 					}
-					logger.Debugw(
-						"dependency resolved for resource",
-						"name", nodeName,
-						"dependency", nodeNames[0],
-					)
+					deferredLogs = append(deferredLogs, func() {
+						logger.Debugw(
+							"dependency resolved for resource",
+							"name", nodeName,
+							"dependency", nodeNames[0],
+						)
+					})
 					return nodeNames[0], true
 				default:
 					allErrs = multierr.Combine(
 						allErrs,
 						errors.Errorf("conflicting names for resource %q: %v", nodeName, NamesToStrings(nodeNames)))
-					logger.Errorw(
-						"cannot resolve dependency for resource due to multiple matching names",
-						"name", nodeName,
-						"conflicts", NamesToStrings(nodeNames),
-					)
+					deferredLogs = append(deferredLogs, func() {
+						logger.Errorw(
+							"cannot resolve dependency for resource due to multiple matching names",
+							"name", nodeName,
+							"conflicts", NamesToStrings(nodeNames),
+						)
+					})
 				}
 				return Name{}, false
 			}
@@ -901,12 +932,14 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 					resolved = false
 				} else if err := g.addChild(nodeName, resolvedName); err != nil {
 					allErrs = multierr.Combine(allErrs, err)
-					logger.Errorw(
-						"error adding dependency for resource as a child to parent",
-						"name", nodeName,
-						"parent", resolvedName,
-						"error", err,
-					)
+					deferredLogs = append(deferredLogs, func() {
+						logger.Errorw(
+							"error adding dependency for resource as a child to parent",
+							"name", nodeName,
+							"parent", resolvedName,
+							"error", err,
+						)
+					})
 					resolved = false
 				}
 			}

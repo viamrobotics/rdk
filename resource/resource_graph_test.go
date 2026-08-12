@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -1278,6 +1279,69 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 		}
 	}
 	return ""
+}
+
+// lockProbeAppender records, for every log line written through it, whether the graph write
+// lock was held at the time.
+type lockProbeAppender struct {
+	graph             *Graph
+	writes            int
+	writesWhileLocked int
+}
+
+func (a *lockProbeAppender) Write(zapcore.Entry, []zapcore.Field) error {
+	a.writes++
+	if a.graph.mu.TryRLock() {
+		a.graph.mu.RUnlock()
+	} else {
+		a.writesWhileLocked++
+	}
+	return nil
+}
+
+func (a *lockProbeAppender) Sync() error { return nil }
+
+// TestGraphDoesNotLogWhileHoldingWriteLock verifies that graph mutations emit their log lines
+// after releasing the write lock. A log write blocks until the log consumer accepts it, so
+// logging under the write lock stalls every reader of the graph for that long.
+func TestGraphDoesNotLogWhileHoldingWriteLock(t *testing.T) {
+	t.Run("ResolveDependencies", func(t *testing.T) {
+		g := NewGraph(logging.NewTestLogger(t))
+		probe := &lockProbeAppender{graph: g}
+		logger := logging.NewTestLogger(t)
+		logger.AddAppender(probe)
+
+		// "a" depends on itself and on the short name "c", which two remote resources claim.
+		name1 := NewName(APINamespaceRDK.WithComponentType("aapi"), "a")
+		test.That(t, g.AddNode(name1, NewUnconfiguredGraphNode(Config{}, []string{"a", "c"})), test.ShouldBeNil)
+		name2 := NewName(APINamespaceRDK.WithComponentType("aapi"), "rem1:c")
+		test.That(t, g.AddNode(name2, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
+		name3 := NewName(APINamespaceRDK.WithComponentType("aapi"), "rem2:c")
+		test.That(t, g.AddNode(name3, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
+
+		test.That(t, g.ResolveDependencies(logger), test.ShouldNotBeNil)
+		test.That(t, probe.writes, test.ShouldBeGreaterThan, 0)
+		test.That(t, probe.writesWhileLocked, test.ShouldEqual, 0)
+	})
+
+	t.Run("MarkForRemoval", func(t *testing.T) {
+		g := NewGraph(logging.NewTestLogger(t))
+		probe := &lockProbeAppender{graph: g}
+		logger := logging.NewTestLogger(t)
+		logger.AddAppender(probe)
+
+		name := NewName(APINamespaceRDK.WithComponentType("aapi"), "a")
+		node := NewUnconfiguredGraphNode(Config{}, nil)
+		node.InitializeLogger(logger, "a")
+		test.That(t, g.AddNode(name, node), test.ShouldBeNil)
+
+		// A node in the configuring state cannot transition to removing, which logs a warning.
+		g.MarkForRemoval(g.Clone())
+
+		test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
+		test.That(t, probe.writes, test.ShouldBeGreaterThan, 0)
+		test.That(t, probe.writesWhileLocked, test.ShouldEqual, 0)
+	})
 }
 
 // TestResolveDependenciesSkipsDependencyMarkedForRemoval verifies that ResolveDependencies does
