@@ -1951,7 +1951,10 @@ func restartModule(
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(ctx, part.Fqdn, logger, client.WithDialOptions(creds))
+	robotClient, err := client.New(ctx, part.Fqdn, logger,
+		client.WithDialOptions(creds),
+		client.WithoutRPCSubtypes(),
+	)
 	if err != nil {
 		return err
 	}

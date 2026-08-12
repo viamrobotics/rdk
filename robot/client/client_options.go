@@ -51,6 +51,12 @@ type robotClientOpts struct {
 	// in production (not in a testing environment) will already allow connecting
 	// to still-initializing machines.
 	doNotWaitForRunning bool
+
+	// see WithoutRPCSubtypes.
+	withoutRPCSubtypes bool
+
+	// overrides defaultResourcesTimeout. See WithResourcesTimeout.
+	resourcesTimeout *time.Duration
 }
 
 // RobotClientOption configures how we set up the connection.
@@ -160,6 +166,31 @@ func WithoutInitialRefresh() RobotClientOption {
 func WithNetworkStats() RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.withNetworkStats = true
+	})
+}
+
+// WithoutRPCSubtypes returns a RobotClientOption which skips ResourceRPCSubtypes and the
+// gRPC reflection lookups resolving its descriptors. Those dominate the cost of connecting
+// -- a round trip per API, against a cache that is cold on every new client -- and nothing
+// needed to call a resource depends on them, since createClient builds clients from the
+// compiled-in registry.
+//
+// ResourceRPCAPIs then returns nil, so this must not be used by viam-server connecting to a
+// remote, nor by modules: both invoke APIs that are not compiled in and need the
+// descriptors. It suits clients that only use compiled-in APIs, such as the CLI.
+func WithoutRPCSubtypes() RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.withoutRPCSubtypes = true
+	})
+}
+
+// WithResourcesTimeout returns a RobotClientOption overriding how long each call made while
+// listing resources may take. Ignored if not positive, and only applied when the caller's
+// context carries no deadline of its own. Raise it for machines with many resources, a slow
+// link, or both.
+func WithResourcesTimeout(timeout time.Duration) RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.resourcesTimeout = &timeout
 	})
 }
 

@@ -4056,8 +4056,13 @@ func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robots
 		return nil, err
 	}
 
-	robotClient, err := client.New(ctx, args.Address, logger, client.WithDialOptions(rpcOpts...),
-		client.WithoutInitialRefresh(), client.WithRefreshEvery(0), client.WithCheckConnectedEvery(0))
+	robotClient, err := client.New(ctx, args.Address, logger,
+		client.WithDialOptions(rpcOpts...),
+		client.WithoutRPCSubtypes(),
+		client.WithoutInitialRefresh(),
+		client.WithRefreshEvery(0),
+		client.WithCheckConnectedEvery(0),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
 	}
@@ -5635,6 +5640,9 @@ func (c *viamClient) connectToRobot(
 		// CLI commands read the resource list once after connecting and never re-read it, so a
 		// periodic refresh is pure churn - and error noise when enumeration is what's failing.
 		client.WithRefreshEvery(0),
+		// the CLI only uses compiled-in APIs, so the descriptors cost a connection and buy
+		// nothing
+		client.WithoutRPCSubtypes(),
 	}
 	clientOpts = append(clientOpts, extraOpts...)
 	robotClient, err := client.New(dialCtx, fqdn, logger, clientOpts...)
