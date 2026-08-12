@@ -43,6 +43,9 @@ type robotClientOpts struct {
 
 	modName string
 
+	// skipInitialRefresh skips the resource refresh New otherwise requires before returning.
+	skipInitialRefresh bool
+
 	// doNotWaitForRunning allows connecting to still-initializing machines
 	// without waiting for it to reach the running state. Note that robot clients
 	// in production (not in a testing environment) will already allow connecting
@@ -140,6 +143,15 @@ func WithDialOptions(opts ...rpc.DialOption) RobotClientOption {
 func WithDoNotWaitForRunning() RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.doNotWaitForRunning = true
+	})
+}
+
+// WithoutInitialRefresh returns a RobotClientOption that skips the resource refresh New
+// otherwise has to complete before returning. Resources stay unknown until a periodic refresh
+// succeeds, so this only suits callers that talk to the robot service directly, such as tunneling.
+func WithoutInitialRefresh() RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.skipInitialRefresh = true
 	})
 }
 

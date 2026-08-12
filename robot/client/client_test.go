@@ -892,6 +892,45 @@ func TestClientRefresh(t *testing.T) {
 	})
 }
 
+// TestClientWithoutInitialRefresh covers RSDK-14365: a machine that can be reached but
+// whose resources can't be enumerated is still usable by callers that don't need them.
+func TestClientWithoutInitialRefresh(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, &mockRPCSubtypesImplemented{
+		ResourceNamesFunc: func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+			return nil, context.Canceled
+		},
+	})
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	// no background refresh/reconnect, so ResourceNames is only called when we ask for it
+	opts := []RobotClientOption{WithRefreshEvery(0), WithCheckConnectedEvery(0)}
+
+	_, err = New(context.Background(), listener.Addr().String(), logger, opts...)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error updating resources")
+
+	client, err := New(context.Background(), listener.Addr().String(), logger,
+		append(opts, WithoutInitialRefresh())...)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// resources are unknown, but the robot service itself is reachable
+	test.That(t, client.ResourceNames(), test.ShouldBeEmpty)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("arm1")))
+	mStatus, err := client.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.State, test.ShouldEqual, robot.StateRunning)
+}
+
 func TestClientDisconnect(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")

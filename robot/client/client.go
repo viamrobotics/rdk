@@ -445,8 +445,10 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	// refresh once to hydrate the robot.
-	if err := rc.Refresh(ctx); err != nil {
-		return nil, multierr.Combine(err, rc.conn.Close())
+	if !rOpts.skipInitialRefresh {
+		if err := rc.Refresh(ctx); err != nil {
+			return nil, multierr.Combine(err, rc.conn.Close())
+		}
 	}
 
 	var refreshTime time.Duration
