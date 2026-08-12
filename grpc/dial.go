@@ -39,13 +39,10 @@ func Dial(ctx context.Context, address string, logger logging.Logger, opts ...rp
 
 // InferSignalingServerAddress returns the appropriate WebRTC signaling server address
 // if it can be detected. Returns the address, if the endpoint is secure, and if found.
-// Matching is case-insensitive since DNS names are case-insensitive, so an address
-// entered with any capitalization still infers the correct signaling server.
 // TODO(RSDK-235):
 // remove hard coding of signaling server address and
 // prefer SRV lookup instead.
 func InferSignalingServerAddress(address string) (string, bool, bool) {
-	address = strings.ToLower(address)
 	switch {
 	case strings.HasSuffix(address, ".viam.cloud"):
 		return "app.viam.com:443", true, true
