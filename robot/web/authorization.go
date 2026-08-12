@@ -25,6 +25,13 @@ var exemptMethodPrefixes = []string{
 	"/grpc.reflection.",
 }
 
+const (
+	// machineResource is the special resources string granting methods not associated
+	// with a single resource (e.g. RobotService methods and ListStreams). Resource
+	// names must begin with a letter or number, so no real resource can claim it.
+	machineResource = "_machine"
+)
+
 // permSet maps an allowed method to the set of resource names it may be invoked on.
 type permSet map[string]map[string]bool
 
@@ -138,9 +145,10 @@ func emailFromContext(ctx context.Context) string {
 	return claims.Metadata()["email"]
 }
 
-// authorize returns nil if the user in ctx may invoke fullMethod. req may be nil for
-// streaming RPCs whose first message has not yet been received; a nil req performs
-// only the method-level (any-resource) check.
+// authorize returns nil if the user in ctx may invoke fullMethod. Requests that do
+// not address a named resource (e.g. RobotService methods, ListStreams) match only
+// grants under the special "_machine" resources string; requests that do address one
+// match only grants naming that resource.
 func (ra *userPermsAuthorizer) authorize(ctx context.Context, fullMethod string, req interface{}) error {
 	for _, prefix := range exemptMethodPrefixes {
 		if strings.HasPrefix(fullMethod, prefix) {
@@ -152,9 +160,7 @@ func (ra *userPermsAuthorizer) authorize(ctx context.Context, fullMethod string,
 	resources := perms[fullMethod]
 	resourceName := resourceNameFromRequest(fullMethod, req)
 	if resourceName == "" {
-		// Methods not associated with a single resource (e.g. RobotService methods,
-		// ListStreams) are allowed when granted under any resource name.
-		if len(resources) != 0 {
+		if resources[machineResource] {
 			return nil
 		}
 	} else if resources[resourceName] {
@@ -188,17 +194,30 @@ func (ra *userPermsAuthorizer) UnaryInterceptor(
 	return handler(ctx, req)
 }
 
-// StreamInterceptor enforces configured user_permissions on streaming RPCs. The method-level
-// check happens up front; resource-level authorization happens on receipt of the
-// stream's first message, since that is where the resource name lives.
+// methodGranted reports whether the user has fullMethod granted for at least one
+// resources string (including "_machine"), meaning first-message inspection could
+// still authorize a stream of that method.
+func (ra *userPermsAuthorizer) methodGranted(ctx context.Context, fullMethod string) bool {
+	for _, prefix := range exemptMethodPrefixes {
+		if strings.HasPrefix(fullMethod, prefix) {
+			return true
+		}
+	}
+	return len(ra.permsForUser(ctx)[fullMethod]) != 0
+}
+
+// StreamInterceptor enforces configured user_permissions on streaming RPCs. The
+// up-front check is method-level only; resource-level authorization happens on
+// receipt of the stream's first message, since that is where the resource name lives.
 func (ra *userPermsAuthorizer) StreamInterceptor(
 	srv interface{},
 	ss googlegrpc.ServerStream,
 	info *googlegrpc.StreamServerInfo,
 	handler googlegrpc.StreamHandler,
 ) error {
-	if err := ra.authorize(ss.Context(), info.FullMethod, nil); err != nil {
-		return err
+	if !ra.methodGranted(ss.Context(), info.FullMethod) {
+		return status.Errorf(codes.PermissionDenied,
+			"user is not authorized to invoke %q", info.FullMethod)
 	}
 	return handler(srv, &authzServerStream{ServerStream: ss, ra: ra, fullMethod: info.FullMethod})
 }
