@@ -54,7 +54,6 @@ func TestWithoutRPCSubtypes(t *testing.T) {
 	listener := gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	//nolint:errcheck
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
@@ -109,7 +108,6 @@ func TestResourcesTimeoutOption(t *testing.T) {
 	listener := gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	//nolint:errcheck
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
