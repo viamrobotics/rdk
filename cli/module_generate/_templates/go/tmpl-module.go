@@ -42,8 +42,12 @@ type Config struct {
 //
 // The `path` parameter indicates
 // where this resource appears in the machine's JSON configuration
-// (for example, "components.0"). You can use it in error messages 
+// (for example, "components.0"). You can use it in error messages
 // to indicate which resource has a problem.
+//
+// WARNING: Validate should only inspect the config; mutations to it will do
+// nothing. Fill in any default values in your resource's constructor function
+// instead.
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	// Add config validation code here
 	return nil, nil, nil

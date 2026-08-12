@@ -24,6 +24,7 @@ The generated `module.go` file contains the scaffolding for your resource. You w
    - **First return:** required dependencies (other resources that must exist)  
    - **Second return:** optional dependencies (resources that are nice to have but not required)  
    - `path` is provided by the runtime and indicates **where this resource appears in the JSON config**, e.g., `"components.0"`. Use it in error messages to show which resource has a problem.
+   - **WARNING:** `Validate` should only inspect the config — mutations to it will do nothing. Fill in any default values in your resource's constructor function instead.
 
 Example:
 
