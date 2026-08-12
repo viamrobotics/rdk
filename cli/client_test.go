@@ -1590,24 +1590,27 @@ func TestMachineViamHome(t *testing.T) {
 	t.Run("machine reports its VIAM_HOME", func(t *testing.T) {
 		// the "machine" is in-process, so its shell service reports this process's ViamDotDir
 		cCtx, vc, _, _ := setupWithRunningPart(t, asc, nil, nil, nil, "token", partFqdn)
-		test.That(t, vc.machineViamHome(context.Background(), cCtx, partFqdn, false, logger),
+		shellSvc, closeClient, err := vc.connectToShellServiceFqdn(context.Background(), partFqdn, false, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, closeClient(context.Background()), test.ShouldBeNil)
+		}()
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, shellSvc),
 			test.ShouldEqual, utils.ViamDotDir)
 	})
 
 	t.Run("--home override skips asking the machine", func(t *testing.T) {
 		cCtx, vc, _, _ := setup(asc, nil, nil, map[string]any{moduleFlagHomeDir: "/home/pi"}, "token")
-		// no dialOverride is set, so reaching for the machine would fail loudly
-		test.That(t, vc.machineViamHome(context.Background(), cCtx, partFqdn, false, logger),
+		// a nil shellSvc proves the override resolves without consulting the machine
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, nil),
 			test.ShouldEqual, "/home/pi/.viam")
 	})
 
-	t.Run("unreachable machine falls back to the legacy home", func(t *testing.T) {
-		cCtx, vc, _, _ := setupWithRunningPart(t, asc, nil, nil, nil, "token", partFqdn)
-		vc.dialOverride = func(context.Context, string, []rpc.DialOption, logging.Logger) (*client.RobotClient, error) {
-			return nil, errors.New("machine offline")
-		}
-		test.That(t, vc.machineViamHome(context.Background(), cCtx, partFqdn, false, logger),
+	t.Run("unreachable machine falls back to the legacy home with a warning", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(asc, nil, nil, nil, "token")
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, nil),
 			test.ShouldEqual, legacyViamHomeDir)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "did not report its VIAM_HOME")
 	})
 }
 

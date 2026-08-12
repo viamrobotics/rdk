@@ -29,6 +29,7 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
@@ -1679,13 +1680,39 @@ func reloadModuleActionInner(
 		if err != nil {
 			return err
 		}
-		dest = reloadingDestination(manifest,
-			vc.machineViamHome(ctx, cmd, part.Part.Fqdn, globalArgs.Debug, logger))
+		// Dial once; the VIAM_HOME query and the first copy attempt share the
+		// connection. Copy retries dial fresh, since a retry usually follows a
+		// connection-level failure.
+		shellSvc, closeShellSvc, dialErr := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
+		if dialErr != nil {
+			shellSvc = nil
+		}
+		shellSvcConsumed := dialErr != nil
+		defer func() {
+			if !shellSvcConsumed {
+				goutils.UncheckedError(closeShellSvc(ctx))
+			}
+		}()
+		dest = reloadingDestination(manifest, vc.machineViamHome(ctx, cmd, shellSvc))
 
 		if err := pm.Start("upload"); err != nil {
 			return err
 		}
 		copyFunc := func() error {
+			if !shellSvcConsumed {
+				// copyFilesToMachineInner closes the connection it is handed.
+				shellSvcConsumed = true
+				return vc.copyFilesToMachineInner(
+					ctx,
+					shellSvc,
+					closeShellSvc,
+					false, // allowRecursion
+					false, // preserve
+					[]string{buildPath},
+					dest,
+					true, // noProgress
+				)
+			}
 			return vc.copyFilesToFqdn(
 				ctx,
 				part.Part.Fqdn,
