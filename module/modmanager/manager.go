@@ -1056,7 +1056,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	}
 	mod.registerResourceModels(mgr)
 	// so activity observers can tell recovery from a module that stayed down
-	mod.logger.Activity("module", "start", "module", mod.cfg.Name)
+	mod.logger.Activity("module", "start", "module", mod.cfg.Name, "reason", "restart")
 	mgr.setModuleStatusReady(mod.cfg.Name)
 	success = true
 	return nil
