@@ -398,9 +398,8 @@ jobs:
         cd - && rm -rf $TEST_DIR
         [ $RET1 == 0 ] && [ $RET1 == 0 ]
 
-  # Boots the aarch64 binary in a JetPack 5 (L4T r35) container, the Ubuntu 20.04
-  # userspace Jetson devices run. The bare arm64 runners don't cover it.
-  # r35.2.1 is the newest r35 tag l4t-base publishes; r36 is JetPack 6 on Ubuntu 22.04.
+  # Jetson runs an Ubuntu 20.04 userspace; every other arm64 runner carries a newer glibc.
+  # l4t-base drops the `r` prefix after r35.2.1; r36 is JetPack 6 on Ubuntu 22.04.
   jetpack_test:
     name: JetPack Test
     needs: static
@@ -409,12 +408,6 @@ jobs:
     timeout-minutes: 15
 
     steps:
-    - name: Clean Workspace
-      run: |
-        shopt -s dotglob
-        sudo chown -R "$(whoami)" ./
-        rm -rf ./*
-
     - name: Test Static Binary On JetPack
       run: |
         set -euo pipefail
@@ -429,7 +422,7 @@ jobs:
 
         docker run -d --name jetpack-test --network host \
           -v "$TEST_DIR/viam-server:/viam-server:ro" -v "$TEST_DIR/test.json:/test.json:ro" \
-          nvcr.io/nvidia/l4t-base:r35.2.1 /viam-server -config /test.json
+          nvcr.io/nvidia/l4t-base:35.4.1 /viam-server -config /test.json
 
         if ! curl --retry 5 --retry-delay 5 --retry-connrefused "localhost:${RAND_PORT}"; then
           echo "boot failed, container logs:"
