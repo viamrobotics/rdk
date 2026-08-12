@@ -2470,19 +2470,28 @@ func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Assert that restoring the testmodule binary makes h start working again
-	// after the auto-restart code succeeds.
+	// after the auto-restart code succeeds. The background restart loop only
+	// retries every oueRestartInterval and a single restart (process start plus
+	// the WebRTC ready handshake) can itself take several seconds, so wait
+	// generously for the module to recover before asserting its resources are
+	// re-added.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 60, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
 	})
 
-	h, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
-	test.That(t, err, test.ShouldBeNil)
+	// The log above is emitted before the orphaned resources are actually
+	// re-added, so poll until 'h' is usable again.
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		res, err := r.ResourceByName(generic.Named("h"))
+		test.That(tb, err, test.ShouldBeNil)
+		_, err = res.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+		test.That(tb, err, test.ShouldBeNil)
+	})
 
 	// Also assert that testmodule's resources were reregistered and
 	// test that a new resource in the config gets built successfully.
