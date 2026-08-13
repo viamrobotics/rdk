@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -90,6 +91,10 @@ type Service interface {
 
 	Stats() any
 
+	// UpdateUserPermissions applies a new user_permissions config without restarting
+	// the web service, revoking streams whose users lost access.
+	UpdateUserPermissions([]config.UserPermission)
+
 	RequestCounter() *RequestCounter
 
 	ModPeerConnTracker() *grpc.ModPeerConnTracker
@@ -129,6 +134,78 @@ type webService struct {
 
 	requestCounter     RequestCounter
 	modPeerConnTracker *grpc.ModPeerConnTracker
+
+	// userPermsAuth is the authorizer for the current user_permissions config; nil
+	// means all users are unrestricted. It is swapped atomically on reconfiguration
+	// so new permissions apply to existing connections without a web restart.
+	userPermsAuth  atomic.Pointer[userPermsAuthorizer]
+	userPermsMu    sync.Mutex
+	userPermsCfg   []config.UserPermission
+	authzStreamsMu sync.Mutex
+	authzStreams   map[*authzServerStream]struct{}
+}
+
+func (svc *webService) registerAuthzStream(ss *authzServerStream) {
+	svc.authzStreamsMu.Lock()
+	defer svc.authzStreamsMu.Unlock()
+	if svc.authzStreams == nil {
+		svc.authzStreams = map[*authzServerStream]struct{}{}
+	}
+	svc.authzStreams[ss] = struct{}{}
+}
+
+func (svc *webService) unregisterAuthzStream(ss *authzServerStream) {
+	svc.authzStreamsMu.Lock()
+	defer svc.authzStreamsMu.Unlock()
+	delete(svc.authzStreams, ss)
+}
+
+// UpdateUserPermissions applies a new user_permissions config to the web service
+// without restarting it. New invocations are checked against the new permissions
+// immediately; in-flight gRPC streams and WebRTC video streams whose users lost
+// access are torn down, while unaffected streams continue undisturbed.
+func (svc *webService) UpdateUserPermissions(userPerms []config.UserPermission) {
+	svc.userPermsMu.Lock()
+	defer svc.userPermsMu.Unlock()
+	if reflect.DeepEqual(svc.userPermsCfg, userPerms) {
+		return
+	}
+	svc.userPermsCfg = userPerms
+	newAuth := newUserPermsAuthorizer(userPerms, svc.logger)
+	svc.userPermsAuth.Store(newAuth)
+	svc.logger.Info("user_permissions changed; re-evaluating active streams")
+
+	// Revoke in-flight gRPC streams that the new permissions no longer allow. Streams
+	// that have not yet sent their first message will be authorized against the new
+	// permissions when they do.
+	svc.authzStreamsMu.Lock()
+	streams := make([]*authzServerStream, 0, len(svc.authzStreams))
+	for ss := range svc.authzStreams {
+		streams = append(streams, ss)
+	}
+	svc.authzStreamsMu.Unlock()
+	for _, ss := range streams {
+		checked, resourceName := ss.firstMessageInfo()
+		if !checked {
+			continue
+		}
+		if newAuth != nil && !newAuth.allowed(ss.id, ss.fullMethod, resourceName) {
+			ss.revoke()
+		}
+	}
+
+	// Detach WebRTC video tracks that the new permissions no longer allow.
+	svc.mu.Lock()
+	streamServer := svc.streamServer
+	svc.mu.Unlock()
+	if streamServer != nil {
+		streamServer.RemoveUnauthorizedStreams(func(entity, email, name string) bool {
+			if newAuth == nil {
+				return true
+			}
+			return newAuth.allowed(identity{entity: entity, email: email}, addStreamMethod, name)
+		})
+	}
 }
 
 // New returns a new web service for the given robot.
@@ -640,10 +717,9 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 
 	unaryInterceptors = append(unaryInterceptors, grpc.ResourceNameTaggingUnaryServerInterceptor)
 
-	if authorizer := newUserPermsAuthorizer(options.Auth.UserPermissions, svc.logger); authorizer != nil {
-		unaryInterceptors = append(unaryInterceptors, authorizer.UnaryInterceptor)
-		streamInterceptors = append(streamInterceptors, authorizer.StreamInterceptor)
-	}
+	svc.UpdateUserPermissions(options.Auth.UserPermissions)
+	unaryInterceptors = append(unaryInterceptors, svc.userPermsUnaryInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.userPermsStreamInterceptor)
 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
