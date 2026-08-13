@@ -72,6 +72,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		return nil, err
 	}
 
+	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
 	ikMinimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))
 	retChan := make(chan *ik.Solution, 10)
