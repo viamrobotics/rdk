@@ -19,8 +19,10 @@ func testChdir(t *testing.T, dir string) {
 	t.Helper()
 	wd, err := os.Getwd()
 	test.That(t, err, test.ShouldBeNil)
+	//nolint: usetesting
 	err = os.Chdir(dir)
 	test.That(t, err, test.ShouldBeNil)
+	//nolint: usetesting
 	t.Cleanup(func() { os.Chdir(wd) })
 }
 

@@ -44,7 +44,9 @@ func (m *mockClient) TabularDataByMQL(
 func TestQueryTabularDataForResource(t *testing.T) {
 	client := &mockClient{}
 
+	//nolint: usetesting
 	os.Setenv(utils.PrimaryOrgIDEnvVar, "my_org")
+	//nolint: usetesting
 	os.Setenv(utils.MachinePartIDEnvVar, "part")
 
 	dataConsumer := &ResourceDataConsumer{dataClient: client}

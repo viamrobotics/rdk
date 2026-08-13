@@ -403,7 +403,9 @@ func TestValidateOutputWritable(t *testing.T) {
 	t.Run("path in current directory", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		originalDir, _ := os.Getwd()
+		//nolint: usetesting
 		defer os.Chdir(originalDir)
+		//nolint: usetesting
 		os.Chdir(tmpDir)
 
 		err := validateOutputWritable("output.urdf")
