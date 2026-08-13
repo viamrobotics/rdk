@@ -485,6 +485,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 			var frameInputs []Input
 			if offset == -1 {
 				mm := m.mimicMappings[chainFrame.Name()]
+				//nolint: gosec
 				frameInputs = []Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset}
 			} else {
 				frameInputs = inputs[offset : offset+dof]
@@ -505,6 +506,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				pose, err = chainFrame.Transform(emptyInputs)
 			} else if offset == -1 {
 				mm := m.mimicMappings[chainFrame.Name()]
+				//nolint: gosec
 				pose, err = chainFrame.Transform([]Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset})
 			} else {
 				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
