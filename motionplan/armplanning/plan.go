@@ -84,7 +84,19 @@ func (p *PlanState) ComputePoses(ctx context.Context, fs *referenceframe.FrameSy
 		return nil, errors.New("cannot computes poses, neither poses nor configuration are populated")
 	}
 
-	return p.structuredConfiguration.ComputePoses(fs)
+	allFramePoses, err := p.structuredConfiguration.ComputePoses(fs)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make(referenceframe.FrameSystemPoses)
+	for frameName, pose := range allFramePoses {
+		if _, exists := p.structuredConfiguration[frameName]; exists {
+			ret[frameName] = pose
+		}
+	}
+
+	return ret, nil
 }
 
 // Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.

@@ -285,11 +285,6 @@ func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
 	computedPoses := make(FrameSystemPoses)
 	for _, frameName := range fs.FrameNames() {
-		frame := fs.Frame(frameName)
-		if len(frame.DoF()) == 0 {
-			continue
-		}
-
 		pif, err := fs.Transform(li, NewZeroPoseInFrame(frameName), World)
 		if err != nil {
 			return nil, err
