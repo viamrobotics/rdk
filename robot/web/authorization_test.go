@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 )
 
@@ -237,7 +238,7 @@ func TestUpdateUserPermissionsRevocation(t *testing.T) {
 		},
 	})
 
-	newStream := func(id identity, method, resourceName string) *authzServerStream {
+	newStream := func(id rdkgrpc.Identity, method, resourceName string) *authzServerStream {
 		ctx, cancel := context.WithCancel(context.Background())
 		ss := &authzServerStream{
 			svc: svc, ctx: ctx, cancel: cancel, fullMethod: method,
@@ -246,8 +247,8 @@ func TestUpdateUserPermissionsRevocation(t *testing.T) {
 		svc.registerAuthzStream(ss)
 		return ss
 	}
-	cam1Stream := newStream(identity{entity: testKeyID}, getImages, "cam1")
-	cam2Stream := newStream(identity{entity: testKeyID}, getImages, "cam2")
+	cam1Stream := newStream(rdkgrpc.Identity{Entity: testKeyID}, getImages, "cam1")
+	cam2Stream := newStream(rdkgrpc.Identity{Entity: testKeyID}, getImages, "cam2")
 
 	// narrowing to cam1-only revokes exactly the cam2 stream
 	svc.UpdateUserPermissions([]config.UserPermission{

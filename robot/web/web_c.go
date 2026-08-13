@@ -52,10 +52,6 @@ func (svc *webService) initStreamServer(ctx context.Context, srv rpc.Server) err
 			svc.logger.Warn("streamConfig is nil, using empty config")
 		}
 		svc.streamServer = webstream.NewServer(svc.r, streamConfig, svc.logger)
-		svc.streamServer.SetIdentityExtractor(func(ctx context.Context) (string, string) {
-			id := identityFromContext(ctx)
-			return id.entity, id.email
-		})
 	}
 
 	if err := svc.streamServer.AddNewStreams(svc.cancelCtx); err != nil {
