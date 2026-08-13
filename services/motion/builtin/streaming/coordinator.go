@@ -132,6 +132,7 @@ func Run(
 			err := ts.addJointPositionsToSession(ctx, jp.Positions)
 			trace.recordTiming(pipeTimingExtend, time.Since(extendStart))
 			trace.record(pipeChanTrajexGen, pipeOpDequeue, int(ts.generationCount()), 0)
+			trace.record(pipeChanTrajexRunway, pipeOpEnqueue, int(ts.trajexRunway().Milliseconds()), 0)
 			if err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
@@ -156,6 +157,7 @@ func Run(
 				// No trajectory yet, or what we have received so far has been sampled through.
 				continue
 			}
+			trace.record(pipeChanTrajexRunway, pipeOpDequeue, int(ts.trajexRunway().Milliseconds()), 0)
 			if err := sendPVATs(pvats); err != nil {
 				return err
 			}

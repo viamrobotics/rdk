@@ -15,9 +15,10 @@ const (
 	pipeChanPlanQ      = "jointPositionsCh" // stream_push producer -> trajex session (jpCh)
 	pipeChanArmPending = "armQ"             // currentEstimatedRunwayInArm (ms) vs targetRunway (ms)
 	pipeChanArmSent    = "armSent"          // cumulative PVATs delivered to the arm RPC (len; cap unused)
-	pipeChanTrajexGen  = "trajex-gen"       // generation_count after each Extend (len); cap unused
-	pipeOpEnqueue      = "enq"
-	pipeOpDequeue      = "deq"
+	pipeChanTrajexGen     = "trajex-gen"     // generation_count after each Extend (len); cap unused
+	pipeChanTrajexRunway  = "trajex-runway"  // ActiveDuration−CurrentTime in ms (len) after each Extend/sampleAtLeast; cap unused
+	pipeOpEnqueue         = "enq"
+	pipeOpDequeue         = "deq"
 )
 
 // Event kinds — point-in-time lifecycle markers overlaid on the occupancy trace.

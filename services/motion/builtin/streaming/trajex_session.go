@@ -112,7 +112,8 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 	return pvatsFromOutput(out)
 }
 
-func (s *trajexSession) generationCount() int64 { return s.sess.GenerationCount() }
+func (s *trajexSession) generationCount() int64    { return s.sess.GenerationCount() }
+func (s *trajexSession) trajexRunway() time.Duration { return s.sess.ActiveDuration() - s.sess.CurrentTime() }
 
 func (s *trajexSession) close() { s.sess.Close() }
 
