@@ -98,10 +98,10 @@ func (p *PlanState) FilteredPoses(ctx context.Context, fs *referenceframe.FrameS
 	}
 
 	allRequestedFrames := make(map[string]struct{})
-	for frameName, _ := range p.poses {
+	for frameName := range p.poses {
 		allRequestedFrames[frameName] = struct{}{}
 	}
-	for frameName, _ := range p.structuredConfiguration {
+	for frameName := range p.structuredConfiguration {
 		allRequestedFrames[frameName] = struct{}{}
 	}
 
