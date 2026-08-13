@@ -929,34 +929,19 @@ func TestInputRangeOverrideDisallowsReturningInsideRange(t *testing.T) {
 	armComponent, err := arm.FromProvider(myRobot, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 
+	homePoseInWorld, err := ms.GetPose(ctx, "arm1", "world", nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+
 	// Move the arm directly outside of the motion service's override bounds. This works because
 	// we're manipulating the arm directly, bypassing the motion service entirely.
 	err = armComponent.MoveToJointPositions(ctx, []referenceframe.Input{math.Pi, math.Pi, math.Pi, math.Pi, math.Pi, math.Pi}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Compute the world pose of the arm's all-zero joint configuration. That configuration is well
-	// within the overridden range, i.e. moving there would bring the arm back inside the allowed
-	// bounds.
-	frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
-	test.That(t, err, test.ShouldBeNil)
-	zeroInputs := referenceframe.FrameSystemInputs{"arm1": make([]referenceframe.Input, 6)}
-	homePoseInWorld, err := frameSys.Transform(
-		zeroInputs.ToLinearInputs(),
-		referenceframe.NewPoseInFrame("arm1", spatialmath.NewZeroPose()),
-		referenceframe.World)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Ask the motion service to move the arm back to that in-range pose. But because the arm's
-	// *current*, out-of-bounds position also gets validated against the overridden limits, the
-	// motion service refuses to plan the move at all.
+	// Ask the motion service to move the arm back to that in-range pose.
 	_, err = ms.Move(ctx, motion.MoveReq{
 		ComponentName: "arm1",
-		Destination:   referenceframe.NewPoseInFrame(referenceframe.World, homePoseInWorld.(*referenceframe.PoseInFrame).Pose()),
+		Destination:   homePoseInWorld,
 	})
-	// Today, the motion service disallows this: it validates the arm's starting position against
-	// the overridden limits and rejects the request before ever considering that the requested
-	// move would bring the arm back into range.
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, referenceframe.OOBErrString)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "shoulder_lift_joint")
+
+	test.That(t, err, test.ShouldBeNil)
 }
