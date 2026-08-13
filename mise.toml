@@ -1,2 +1,10 @@
 [tools]
 golangci-lint = "2.9.0"
+
+[tasks.lint-go]
+alias = "lint"
+run = [
+  'go mod tidy',
+  'golangci-lint run',
+  './etc/lint_register_apis.sh',
+]
