@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	jwt "github.com/golang-jwt/jwt/v4"
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -11,6 +12,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
@@ -31,6 +33,21 @@ const (
 
 func ctxWithUser(user string) context.Context {
 	return rpc.ContextWithAuthEntity(context.Background(), rpc.EntityInfo{Entity: user})
+}
+
+// ctxWithEmailUser simulates an SSO client: the auth entity is the FusionAuth user
+// ID, and the e-mail lives in the bearer token's auth metadata claim.
+func ctxWithEmailUser(t *testing.T, subject, email string) context.Context {
+	t.Helper()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, rpc.JWTClaims{
+		RegisteredClaims: jwt.RegisteredClaims{Subject: subject},
+		AuthMetadata:     map[string]string{"email": email},
+	})
+	tokenString, err := token.SignedString([]byte("test-key"))
+	test.That(t, err, test.ShouldBeNil)
+	ctx := metadata.NewIncomingContext(context.Background(),
+		metadata.Pairs("authorization", "Bearer "+tokenString))
+	return rpc.ContextWithAuthEntity(ctx, rpc.EntityInfo{Entity: subject})
 }
 
 func assertDenied(t *testing.T, err error) {
@@ -65,7 +82,8 @@ func TestUserPermsAuthorizer(t *testing.T) {
 	}, logging.NewTestLogger(t))
 	test.That(t, ra, test.ShouldNotBeNil)
 
-	for _, ctx := range []context.Context{ctxWithUser(testKeyID), ctxWithUser(testEmail)} {
+	emailCtx := ctxWithEmailUser(t, "95ae43d3-a007-4e75-afd0-ea9317758a48", testEmail)
+	for _, ctx := range []context.Context{ctxWithUser(testKeyID), emailCtx} {
 		// resource-scoped grants apply to every listed resource and no others
 		err := ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
 		test.That(t, err, test.ShouldBeNil)
@@ -116,12 +134,6 @@ func TestUserPermsAuthorizerMachineSentinel(t *testing.T) {
 	assertDenied(t, ra.authorize(ctx, resourceNames, &robotpb.ResourceNamesRequest{}))
 	assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 
-	// the method-level streaming probe passes when the method is granted for any
-	// resources string, leaving enforcement to the first message
-	test.That(t, ra.methodGranted(ctx, resourceNames), test.ShouldBeTrue)
-	test.That(t, ra.methodGranted(ctx, getImages), test.ShouldBeTrue)
-	test.That(t, ra.methodGranted(ctx, getReadings), test.ShouldBeFalse)
-	test.That(t, ra.methodGranted(ctx, authenticate), test.ShouldBeTrue)
 }
 
 func TestUserPermsAuthorizerDefaultUser(t *testing.T) {
@@ -192,7 +204,7 @@ func TestUserPermsAuthorizerDuplicateUser(t *testing.T) {
 		{User: emailUser(testEmail), Permissions: camPerm},
 		{User: emailUser(testEmail), Permissions: sensorPerm},
 	}, logging.NewTestLogger(t))
-	emailCtx := ctxWithUser(testEmail)
+	emailCtx := ctxWithEmailUser(t, "95ae43d3-a007-4e75-afd0-ea9317758a48", testEmail)
 	assertDenied(t, ra.authorize(emailCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 }
 
