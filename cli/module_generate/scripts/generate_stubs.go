@@ -481,7 +481,7 @@ func formatNotImplementedBody(returns []string) string {
 		returnVar, needsVar := zeroValueForType(returns[0], 1)
 		if needsVar {
 			return fmt.Sprintf("\tvar %s %s\n\treturn %s", returnVar, returns[0], returnVar)
-		} else {
+		} else { //nolint: revive
 			return "\treturn " + returnVar
 		}
 	default:

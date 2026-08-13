@@ -1,6 +1,4 @@
 // Package mpserver is a webserver for diagnosing motion plans.
-//
-
 package mpserver
 
 import (
