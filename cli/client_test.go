@@ -913,10 +913,14 @@ func TestStreamLogsForPart(t *testing.T) {
 	}
 
 	var requests int
+	var firstRequest *apppb.GetRobotPartLogsRequest
 	getRobotPartLogsFunc := func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.GetRobotPartLogsResponse, error) {
 		requests++
+		if requests == 1 {
+			firstRequest = in
+		}
 		pt := 1
 		if receivedPt := in.PageToken; receivedPt != nil && *receivedPt != "" {
 			var err error
@@ -978,6 +982,165 @@ func TestStreamLogsForPart(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"count" cannot be negative`)
 		test.That(t, requests, test.ShouldEqual, 0)
+	})
+	t.Run("no range defaults start to 24 hours ago and leaves range and order unset", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, firstRequest, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Range, test.ShouldBeNil)
+		test.That(t, firstRequest.Order, test.ShouldBeNil)
+		test.That(t, firstRequest.Start, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Start.AsTime(), test.ShouldHappenBetween,
+			time.Now().Add(defaultLogStartTime).Add(-time.Minute), time.Now().Add(defaultLogStartTime).Add(time.Minute))
+	})
+	t.Run("range is passed through and suppresses the default start", func(t *testing.T) {
+		flags := map[string]any{logsFlagRange: "10h"}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, firstRequest, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Range, test.ShouldNotBeNil)
+		test.That(t, *firstRequest.Range, test.ShouldEqual, "10h")
+		// Defaulting start here would turn `--range` alone into a no-op window of the last 24 hours.
+		test.That(t, firstRequest.Start, test.ShouldBeNil)
+	})
+	t.Run("range is passed through alongside an explicit start", func(t *testing.T) {
+		start := "2025-01-15T14:00:00Z"
+		flags := map[string]any{logsFlagRange: "30m", generalFlagStart: start}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, firstRequest, test.ShouldNotBeNil)
+		test.That(t, *firstRequest.Range, test.ShouldEqual, "30m")
+		test.That(t, firstRequest.Start, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Start.AsTime().Format(time.RFC3339), test.ShouldEqual, start)
+	})
+	t.Run("order is mapped onto the proto enum", func(t *testing.T) {
+		for flagValue, expected := range map[string]apppb.LogOrder{
+			logOrderAscending:  apppb.LogOrder_LOG_ORDER_ASCENDING,
+			logOrderDescending: apppb.LogOrder_LOG_ORDER_DESCENDING,
+		} {
+			flags := map[string]any{logsFlagOrder: flagValue}
+			cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+			requests, firstRequest = 0, nil
+
+			var buf bytes.Buffer
+			args := parseStructFromCtx[robotsLogsArgs](cCtx)
+			test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+			test.That(t, firstRequest, test.ShouldNotBeNil)
+			test.That(t, firstRequest.Order, test.ShouldNotBeNil)
+			test.That(t, *firstRequest.Order, test.ShouldEqual, expected)
+		}
+	})
+	t.Run("invalid order errors before fetching", func(t *testing.T) {
+		flags := map[string]any{logsFlagOrder: "sideways"}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests = 0
+
+		err := ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `invalid "order" value "sideways"`)
+		test.That(t, requests, test.ShouldEqual, 0)
+	})
+	t.Run("start with a count and no end is allowed", func(t *testing.T) {
+		// App now supports this combination, so the CLI no longer rejects it up front.
+		flags := map[string]any{generalFlagStart: "2025-01-15T14:00:00Z", generalFlagCount: 5}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, countLines(buf.String()), test.ShouldEqual, 5)
+		test.That(t, firstRequest.End, test.ShouldBeNil)
+	})
+}
+
+// TestRobotsLogsAction covers `machines logs` from the action entrypoint, where flag validation
+// happens before any lookup or output.
+func TestRobotsLogsAction(t *testing.T) {
+	var lastRequest *apppb.GetRobotPartLogsRequest
+	loc := apppb.Location{Name: "naboo"}
+	asc := &inject.AppServiceClient{
+		GetRobotPartLogsFunc: func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartLogsResponse, error) {
+			lastRequest = in
+			return &apppb.GetRobotPartLogsResponse{Logs: []*commonpb.LogEntry{{Message: "hello"}}}, nil
+		},
+		ListOrganizationsFunc: func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListOrganizationsResponse, error) {
+			return &apppb.ListOrganizationsResponse{Organizations: []*apppb.Organization{{Name: "jedi", Id: "123"}}}, nil
+		},
+		ListLocationsFunc: func(ctx context.Context, in *apppb.ListLocationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListLocationsResponse, error) {
+			return &apppb.ListLocationsResponse{Locations: []*apppb.Location{&loc}}, nil
+		},
+		GetLocationFunc: func(ctx context.Context, in *apppb.GetLocationRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetLocationResponse, error) {
+			return &apppb.GetLocationResponse{Location: &loc}, nil
+		},
+		ListRobotsFunc: func(ctx context.Context, in *apppb.ListRobotsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListRobotsResponse, error) {
+			return &apppb.ListRobotsResponse{Robots: []*apppb.Robot{{Name: "r2d2"}}}, nil
+		},
+		GetRobotPartsFunc: func(ctx context.Context, in *apppb.GetRobotPartsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartsResponse, error) {
+			return &apppb.GetRobotPartsResponse{Parts: []*apppb.RobotPart{{Name: "main"}}}, nil
+		},
+	}
+
+	t.Run("start with a count and no end is no longer rejected", func(t *testing.T) {
+		flags := map[string]any{generalFlagStart: "2025-01-15T14:00:00Z", generalFlagCount: 5}
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "")
+		lastRequest = nil
+
+		test.That(t, ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, lastRequest, test.ShouldNotBeNil)
+		test.That(t, lastRequest.End, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldBeGreaterThan, 0)
+	})
+	t.Run("range and order reach app", func(t *testing.T) {
+		flags := map[string]any{logsFlagRange: "10d", logsFlagOrder: logOrderAscending}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		lastRequest = nil
+
+		test.That(t, ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, lastRequest, test.ShouldNotBeNil)
+		test.That(t, *lastRequest.Range, test.ShouldEqual, "10d")
+		test.That(t, *lastRequest.Order, test.ShouldEqual, apppb.LogOrder_LOG_ORDER_ASCENDING)
+	})
+	t.Run("invalid order errors before any output", func(t *testing.T) {
+		flags := map[string]any{logsFlagOrder: "ASCENDING"}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+		lastRequest = nil
+
+		err := ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `must be one of "asc" or "desc"`)
+		test.That(t, lastRequest, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	})
 }
 

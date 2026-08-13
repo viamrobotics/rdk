@@ -38,6 +38,8 @@ const (
 	logsFlagLevels     = "levels"
 	logsFlagErrors     = "errors"
 	logsFlagTail       = "tail"
+	logsFlagRange      = "range"
+	logsFlagOrder      = "order"
 
 	runFlagData      = "data"
 	runFlagStream    = "stream"
@@ -2726,11 +2728,28 @@ Note: There is no progress meter while copying is in progress.
 						&cli.StringFlag{
 							Name:        generalFlagStart,
 							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-							DefaultText: "24 hours ago",
+							DefaultText: "24 hours ago, unless --" + logsFlagRange + " is set",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
 							Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter (e.g., 2025-01-15T15:00:00Z)",
+						},
+						&cli.StringFlag{
+							Name: logsFlagRange,
+							Usage: "duration string in minutes, hours, or days (e.g. 10m, 10h, 10d) that is resolved against whichever " +
+								"of --" + generalFlagStart + " and --" + generalFlagEnd + " is present: with only --" + generalFlagEnd +
+								", [end - range, end]; with only --" + generalFlagStart + ", [start, start + range]; with neither, " +
+								"[now - range, now]. specifying --" + logsFlagRange + " together with both --" + generalFlagStart +
+								" and --" + generalFlagEnd + " is an error",
+						},
+						&cli.StringFlag{
+							Name: logsFlagOrder,
+							Usage: formatAcceptedValues(
+								"order in which logs are returned, by time: "+logOrderAscending+" is oldest logs first, "+
+									logOrderDescending+" is newest logs first",
+								logOrderAscending, logOrderDescending,
+							),
+							DefaultText: logOrderDescending,
 						},
 						&cli.IntFlag{
 							Name:        generalFlagCount,
