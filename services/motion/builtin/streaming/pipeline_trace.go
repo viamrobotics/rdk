@@ -15,6 +15,7 @@ const (
 	pipeChanPlanQ      = "jointPositionsCh" // stream_push producer -> trajex session (jpCh)
 	pipeChanArmPending = "armQ"             // currentEstimatedRunwayInArm (ms) vs targetRunway (ms)
 	pipeChanArmSent    = "armSent"          // cumulative PVATs delivered to the arm RPC (len; cap unused)
+	pipeChanTrajexGen  = "trajex-gen"       // generation_count after each Extend (len); cap unused
 	pipeOpEnqueue      = "enq"
 	pipeOpDequeue      = "deq"
 )
@@ -32,6 +33,7 @@ const (
 const (
 	pipeTimingExtend    = "trajex-extend" // one trajexSession.addJointPositionsToSession (Extend) call
 	pipeTimingSendPoint = "send-point"    // one armStream.send call (one sampled batch to the arm RPC)
+	pipeTimingTrajSent  = "traj-sent"    // trajectory duration (ms) delivered in one sendPVATs call
 )
 
 // PipeSample is one occupancy reading captured at an enqueue or dequeue of a pipeline channel,
@@ -54,7 +56,7 @@ type PipeEvent struct {
 // PipeTiming is one measured call duration.
 type PipeTiming struct {
 	TMs  float64 `json:"t_ms"` // milliseconds since the trace started
-	Kind string  `json:"kind"` // pipeTimingExtend or pipeTimingSendPoint
+	Kind string  `json:"kind"` // pipeTimingExtend, pipeTimingSendPoint, or pipeTimingTrajSent
 	Ms   float64 `json:"ms"`   // the measured duration in milliseconds
 }
 

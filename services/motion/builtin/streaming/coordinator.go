@@ -131,6 +131,7 @@ func Run(
 			extendStart := time.Now()
 			err := ts.addJointPositionsToSession(ctx, jp.Positions)
 			trace.recordTiming(pipeTimingExtend, time.Since(extendStart))
+			trace.record(pipeChanTrajexGen, pipeOpDequeue, int(ts.generationCount()), 0)
 			if err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
@@ -158,6 +159,7 @@ func Run(
 			if err := sendPVATs(pvats); err != nil {
 				return err
 			}
+			trace.recordTiming(pipeTimingTrajSent, deficit)
 		}
 	}
 }

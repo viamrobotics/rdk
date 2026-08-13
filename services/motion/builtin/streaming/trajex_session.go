@@ -112,6 +112,8 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 	return pvatsFromOutput(out)
 }
 
+func (s *trajexSession) generationCount() int64 { return s.sess.GenerationCount() }
+
 func (s *trajexSession) close() { s.sess.Close() }
 
 func pvatsFromOutput(out *trajex.TensorMap) ([]pvat, error) {
