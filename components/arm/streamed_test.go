@@ -28,6 +28,7 @@ import (
 // connection. Server and connection are torn down via t.Cleanup so goleak stays satisfied.
 func setupStreamedServer(t *testing.T, logger logging.Logger, injectArm *inject.Arm) rpc.ClientConn {
 	t.Helper()
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())

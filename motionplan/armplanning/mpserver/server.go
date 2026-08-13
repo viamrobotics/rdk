@@ -1,6 +1,6 @@
 // Package mpserver is a webserver for diagnosing motion plans.
 //
-//nolint // This is a self-contained program. Most lint errors do not help find bugs.
+
 package mpserver
 
 import (
@@ -2168,7 +2168,7 @@ func handleRenderStart(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		//nolint
+
 		fmt.Fprintf(w, "Rendered start state for %s", file)
 	}
 }
@@ -2191,6 +2191,6 @@ func RunServer() error {
 
 	addr := "localhost:8080"
 	logger.Infof("listening on http://%s", addr)
-	//nolint
+
 	return http.ListenAndServe(addr, nil)
 }

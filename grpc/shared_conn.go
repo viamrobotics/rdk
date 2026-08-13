@@ -25,7 +25,6 @@ import (
 // a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
-//nolint
 // The following describes the SharedConn lifetime for viam-server's modmanager communicating with
 // modules it has spawned.
 //
