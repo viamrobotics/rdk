@@ -5671,6 +5671,9 @@ func (c *viamClient) connectToRobot(
 	clientOpts := []client.RobotClientOption{
 		client.WithDialOptions(rpcOpts...),
 		client.WithCheckConnectedEvery(globalArgs.CheckConnectionInterval),
+		// The default retries immediately with no backoff, multiplying the wait when the machine
+		// is offline - the common failure here. One attempt keeps the command responsive.
+		client.WithInitialDialAttempts(1),
 		// CLI commands read the resource list once after connecting and never re-read it, so a
 		// periodic refresh is pure churn - and error noise when enumeration is what's failing.
 		client.WithRefreshEvery(0),
