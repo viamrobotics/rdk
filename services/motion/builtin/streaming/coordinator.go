@@ -98,6 +98,33 @@ func Run(
 		return nil
 	}
 
+	// topUpArm samples the deficit needed to bring the arm's estimated runway up to
+	// targetRunway and sends it. It is called both on the ticker and after every extend so
+	// that a long extend (longer than the ticker interval) does not cause a tick to be
+	// silently dropped, leaving the arm under-filled.
+	topUpArm := func() error {
+		estimatedRunway := as.currentEstimatedRunwayInArm()
+		trace.record(pipeChanArmPending, pipeOpDequeue,
+			int(estimatedRunway.Milliseconds()), int(targetRunway.Milliseconds()))
+		deficit := targetRunway - estimatedRunway
+		if deficit <= 0 {
+			return nil
+		}
+		pvats, err := ts.sampleAtLeast(ctx, deficit)
+		if err != nil {
+			return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+		}
+		if len(pvats) == 0 {
+			return nil
+		}
+		trace.record(pipeChanTrajexRunway, pipeOpDequeue, int(ts.trajexRunway().Milliseconds()), 0)
+		if err := sendPVATs(pvats); err != nil {
+			return err
+		}
+		trace.recordTiming(pipeTimingTrajSent, deficit)
+		return nil
+	}
+
 	sendToArmTicker := time.NewTicker(time.Duration(opts.SendToArmIntervalMs) * time.Millisecond)
 	defer sendToArmTicker.Stop()
 
@@ -136,32 +163,15 @@ func Run(
 			if err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
+			if err := topUpArm(); err != nil {
+				return err
+			}
 
 		// Time to check whether the arm's runway needs topping up.
 		case <-sendToArmTicker.C:
-			estimatedRunway := as.currentEstimatedRunwayInArm()
-			// armQ occupancy is the estimated arm-side buffer in ms (len) against the
-			// target runway (cap).
-			trace.record(pipeChanArmPending, pipeOpDequeue,
-				int(estimatedRunway.Milliseconds()), int(targetRunway.Milliseconds()))
-			// Sample out of trajex only the deficit needed to top up the arm's runway.
-			deficit := targetRunway - estimatedRunway
-			if deficit <= 0 {
-				continue
-			}
-			pvats, err := ts.sampleAtLeast(ctx, deficit)
-			if err != nil {
-				return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
-			}
-			if len(pvats) == 0 {
-				// No trajectory yet, or what we have received so far has been sampled through.
-				continue
-			}
-			trace.record(pipeChanTrajexRunway, pipeOpDequeue, int(ts.trajexRunway().Milliseconds()), 0)
-			if err := sendPVATs(pvats); err != nil {
+			if err := topUpArm(); err != nil {
 				return err
 			}
-			trace.recordTiming(pipeTimingTrajSent, deficit)
 		}
 	}
 }
