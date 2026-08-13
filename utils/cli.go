@@ -61,6 +61,7 @@ func ParseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOp
 
 	if verifyConnection {
 		// Check if URL is even valid with a TCP dial.
+		//nolint: noctx
 		conn, err := net.DialTimeout("tcp", baseURLParsed.Host, 10*time.Second)
 		if err != nil {
 			return nil, nil, fmt.Errorf("base URL %q (needed for auth) is currently unreachable (%v). "+

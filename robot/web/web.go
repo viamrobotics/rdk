@@ -254,6 +254,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	var addr string
 	if tcpMode {
 		addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
+		//nolint: noctx
 		lis, err = net.Listen("tcp", addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen over TCP")
@@ -263,6 +264,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		if err != nil {
 			return errors.WithMessage(err, "could not create filepath for parent socket")
 		}
+		//nolint: noctx
 		lis, err = net.Listen("unix", addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen over UDS")
@@ -440,6 +442,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	listener := options.Network.Listener
 
 	if listener == nil {
+		//nolint: noctx
 		listener, err = net.Listen("tcp", options.Network.BindAddress)
 		if err != nil {
 			return err

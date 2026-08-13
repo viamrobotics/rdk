@@ -30,6 +30,7 @@ func MakeRobotForModuleLogging(t *testing.T, parentAddr string) rpc.Server {
 	if utils.TCPRegex.MatchString(parentAddr) {
 		prot = "tcp"
 	}
+	//nolint: noctx
 	listener, err := net.Listen(prot, parentAddr)
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())

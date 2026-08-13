@@ -45,6 +45,7 @@ import (
 
 func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -501,6 +502,7 @@ func TestClient(t *testing.T) {
 
 func TestClientProperties(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -622,6 +624,7 @@ func TestClientProperties(t *testing.T) {
 func TestClientWithInterceptor(t *testing.T) {
 	// Set up gRPC server
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -686,6 +689,7 @@ func TestClientWithInterceptor(t *testing.T) {
 func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	camName := "rtp_passthrough_camera"
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -913,7 +917,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
+// nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}

@@ -78,6 +78,7 @@ func TestReflectionStreamNotLeaked(t *testing.T) {
 	pb.RegisterSensorServiceServer(server, sensorServer{})
 	reflection.Register(server)
 
+	//nolint: noctx
 	lis, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	go func() { utils.UncheckedError(server.Serve(lis)) }()

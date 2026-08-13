@@ -979,6 +979,7 @@ func TestForeignResource(t *testing.T) {
 	remoteServer := grpc.NewServer()
 	gizmopb.RegisterGizmoServiceServer(remoteServer, &myCompServer{})
 
+	//nolint: noctx
 	listenerR, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	go remoteServer.Serve(listenerR)
