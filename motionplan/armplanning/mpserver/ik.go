@@ -92,6 +92,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
+			//nolint: errcheck
 			_, _, _ = solver.Solve(ctxWithCancel, retChan, nil,
 				seeds, limits, ikMinimizingFunc, randSeed.Int())
 			cancel()

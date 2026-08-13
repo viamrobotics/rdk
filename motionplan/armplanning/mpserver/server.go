@@ -1306,7 +1306,9 @@ func buildIKInspectURL(
 	file string, goalIndex int, startConfig *referenceframe.LinearInputs,
 	goalPoseMap map[string]poseComponents, overridesParam string,
 ) string {
+	//nolint: errcheck
 	startJSON, _ := json.Marshal(linearInputsToStrings(startConfig))
+	//nolint: errcheck
 	goalJSON, _ := json.Marshal(goalPoseMap)
 	return "/ik-inspect?file=" + url.QueryEscape(file) +
 		"&goal_index=" + strconv.Itoa(goalIndex) +
@@ -1596,6 +1598,7 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 			if err != nil {
 				logger.Warnf("computing goal poses for goal %d: %v", idx, err)
 			}
+			//nolint: errcheck
 			poseMapJSON, _ := json.Marshal(poseMap)
 			goals[idx] = goalDetail{
 				Index:         idx,
@@ -1656,7 +1659,9 @@ func handleIKInspect(logger logging.Logger) http.HandlerFunc {
 			})
 		}
 		sort.Slice(startConfig, func(i, j int) bool { return startConfig[i].Name < startConfig[j].Name })
+		//nolint: errcheck
 		startConfigJSONBytes, _ := json.Marshal(startConfigStrings)
+		//nolint: errcheck
 		goalPosesJSONBytes, _ := json.Marshal(goalPoseMap)
 		data := ikInspectData{
 			File:            file,
@@ -2170,6 +2175,7 @@ func handleRenderStart(logger logging.Logger) http.HandlerFunc {
 			return
 		}
 
+		//nolint: errcheck
 		fmt.Fprintf(w, "Rendered start state for %s", file)
 	}
 }
