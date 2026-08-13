@@ -1306,9 +1306,9 @@ func buildIKInspectURL(
 	file string, goalIndex int, startConfig *referenceframe.LinearInputs,
 	goalPoseMap map[string]poseComponents, overridesParam string,
 ) string {
-	//nolint: errcheck
+	//nolint: errcheck,errchkjson
 	startJSON, _ := json.Marshal(linearInputsToStrings(startConfig))
-	//nolint: errcheck
+	//nolint: errcheck,errchkjson
 	goalJSON, _ := json.Marshal(goalPoseMap)
 	return "/ik-inspect?file=" + url.QueryEscape(file) +
 		"&goal_index=" + strconv.Itoa(goalIndex) +
