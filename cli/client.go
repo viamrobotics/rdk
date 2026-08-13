@@ -1097,6 +1097,10 @@ func (c *viamClient) robotsLogsAction(ctx context.Context, cmd *cli.Command, arg
 		return err
 	}
 
+	if args.Range != "" && args.Start != "" && args.End != "" {
+		return errors.Errorf("cannot use --%s together with both --%s and --%s", logsFlagRange, generalFlagStart, generalFlagEnd)
+	}
+
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
