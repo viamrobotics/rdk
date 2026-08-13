@@ -68,6 +68,7 @@ type Config struct {
 	// the step-pin pulse frequency. Therefore maxFreq = MaxRPM * TicksPerRotation * Microsteps / 60.
 	MaxRPM float64 `json:"max_rpm,omitempty"`
 	// StepperDelay is the minimum delay between step pulses in microseconds.
+	//
 	// Deprecated: set MaxRPM instead. Still honored when MaxRPM is unset.
 	StepperDelay int `json:"stepper_delay_usec,omitempty"`
 }
