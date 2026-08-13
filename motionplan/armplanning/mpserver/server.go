@@ -1508,6 +1508,7 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 	}
 	for idx, step := range steps {
 		if ctx.Err() != nil {
+			//nolint: nilerr
 			return nil
 		}
 		if idx > 0 {
@@ -1522,6 +1523,7 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 			}
 			for _, mp := range midPoints {
 				if ctx.Err() != nil {
+					//nolint: nilerr
 					return nil
 				}
 				if _, err := vizapi.DrawFrameSystem(vizapi.DrawFrameSystemOptions{
@@ -2013,6 +2015,7 @@ func drawShadows(ctx context.Context, fs *referenceframe.FrameSystem, configs []
 	shadowColors := []string{"blue", "red"}
 	for idx, cfg := range configs {
 		if ctx.Err() != nil {
+			//nolint: nilerr
 			return nil
 		}
 		gifs, err := referenceframe.FrameSystemGeometries(fs, cfg.ToFrameSystemInputs())
