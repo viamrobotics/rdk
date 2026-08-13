@@ -917,7 +917,6 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-// nolint: lll
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
@@ -928,6 +927,8 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 // TestWhyMustTimeoutOnReadRTP shows that if we don't timeout on ReadRTP (and also don't call RemoveStream) on close
 // calling Close() on main's camera client blocks forever if there is a live SubscribeRTP subscription with a remote
 // due to the fact that the TrackRemote.ReadRTP method blocking forever.
+//
+//nolint:lll
 func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
