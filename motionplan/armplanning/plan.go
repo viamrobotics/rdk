@@ -97,9 +97,17 @@ func (p *PlanState) FilteredPoses(ctx context.Context, fs *referenceframe.FrameS
 		return nil, err
 	}
 
+	allRequestedFrames := make(map[string]struct{})
+	for frameName, _ := range p.poses {
+		allRequestedFrames[frameName] = struct{}{}
+	}
+	for frameName, _ := range p.structuredConfiguration {
+		allRequestedFrames[frameName] = struct{}{}
+	}
+
 	ret := make(referenceframe.FrameSystemPoses)
 	for frameName, pose := range allFramePoses {
-		if _, exists := p.structuredConfiguration[frameName]; exists {
+		if _, exists := allRequestedFrames[frameName]; exists {
 			ret[frameName] = pose
 		}
 	}
