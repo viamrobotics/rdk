@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	internalcloud "go.viam.com/rdk/internal/cloud"
@@ -864,6 +865,168 @@ func TestFullResourceNameCollision(t *testing.T) {
 		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
 		test.That(t, arm3IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
 	}
+}
+
+func TestCrossAPINameCollision(t *testing.T) {
+	// Asserts machine-wide name uniqueness: two local resources may not share a simple name
+	// even under different APIs. On collision neither resource is built, and both become
+	// reachable again once the collision is resolved by renaming.
+	ctx := context.Background()
+
+	armModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(arm.API, armModel, resource.Registration[arm.Arm, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (arm.Arm, error) {
+			return &inject.Arm{}, nil
+		},
+	})
+	defer resource.Deregister(arm.API, armModel)
+
+	sensorModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(sensor.API, sensorModel, resource.Registration[sensor.Sensor, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (sensor.Sensor, error) {
+			return &inject.Sensor{}, nil
+		},
+	})
+	defer resource.Deregister(sensor.API, sensorModel)
+
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	// Start with an arm and a sensor that share the name "dup" across different APIs.
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "dup", Model: armModel, API: arm.API},
+			{Name: "dup", Model: sensorModel, API: sensor.API},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// A collision was logged, and neither resource is reachable.
+	test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldBeGreaterThan, 0)
+	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), []resource.Name{})
+	_, err := r.ResourceByName(arm.Named("dup"))
+	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	_, err = r.ResourceByName(sensor.Named("dup"))
+	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+
+	// Resolve the collision by renaming: both resources should now be reachable.
+	cfg = &config.Config{
+		Components: []resource.Config{
+			{Name: "armDup", Model: armModel, API: arm.API},
+			{Name: "sensorDup", Model: sensorModel, API: sensor.API},
+		},
+	}
+	r.Reconfigure(ctx, cfg)
+
+	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(),
+		[]resource.Name{arm.Named("armDup"), sensor.Named("sensorDup")})
+	_, err = r.ResourceByName(arm.Named("armDup"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(sensor.Named("sensorDup"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestThreeWayNameCollision(t *testing.T) {
+	// Three local resources share a name across APIs. The first two collide (the first
+	// is marked for removal, the second refused); the third must NOT slip through by
+	// finding only the marked-for-removal sibling. None of the three may be reachable.
+	ctx := context.Background()
+
+	armModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(arm.API, armModel, resource.Registration[arm.Arm, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (arm.Arm, error) {
+			return &inject.Arm{}, nil
+		},
+	})
+	defer resource.Deregister(arm.API, armModel)
+
+	sensorModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(sensor.API, sensorModel, resource.Registration[sensor.Sensor, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (sensor.Sensor, error) {
+			return &inject.Sensor{}, nil
+		},
+	})
+	defer resource.Deregister(sensor.API, sensorModel)
+
+	msModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(movementsensor.API, msModel,
+		resource.Registration[movementsensor.MovementSensor, resource.NoNativeConfig]{
+			Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (movementsensor.MovementSensor, error) {
+				return &inject.MovementSensor{}, nil
+			},
+		})
+	defer resource.Deregister(movementsensor.API, msModel)
+
+	logger := logging.NewTestLogger(t)
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{
+			{Name: "dup", Model: armModel, API: arm.API},
+			{Name: "dup", Model: sensorModel, API: sensor.API},
+			{Name: "dup", Model: msModel, API: movementsensor.API},
+		},
+	}, logger)
+
+	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), []resource.Name{})
+	for _, n := range []resource.Name{arm.Named("dup"), sensor.Named("dup"), movementsensor.Named("dup")} {
+		_, err := r.ResourceByName(n)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	}
+}
+
+func TestCrossAPIRemoteNameCollision(t *testing.T) {
+	// A remote resource whose name collides with a local resource of a different API is hidden
+	// from the machine's resource list (local wins) and logged, but is still directly resolvable
+	// by its exact name+API.
+	ctx := context.Background()
+
+	armModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(arm.API, armModel, resource.Registration[arm.Arm, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (arm.Arm, error) {
+			return &inject.Arm{}, nil
+		},
+	})
+	defer resource.Deregister(arm.API, armModel)
+
+	sensorModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(sensor.API, sensorModel, resource.Registration[sensor.Sensor, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (sensor.Sensor, error) {
+			return &inject.Sensor{}, nil
+		},
+	})
+	defer resource.Deregister(sensor.API, sensorModel)
+
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	// Remote exposes a sensor named "shared".
+	remote := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "shared", Model: sensorModel, API: sensor.API}},
+	}, logger.Sublogger("remote"))
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, options), test.ShouldBeNil)
+
+	// Main has a local arm named "shared" and connects to the remote with no prefix.
+	main := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "shared", Model: armModel, API: arm.API}},
+		Remotes:    []config.Remote{{Name: "r", Address: addr}},
+	}, logger.Sublogger("main"))
+
+	// Local arm "shared" wins; the remote sensor "shared" is hidden from the resource list, and
+	// the cross-API collision is logged.
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		names := main.ResourceNames()
+		test.That(tb, names, test.ShouldContain, arm.Named("shared"))
+		test.That(tb, names, test.ShouldNotContain, sensor.Named("shared"))
+		test.That(tb, logs.FilterMessageSnippet("collision with a remote resource").Len(), test.ShouldBeGreaterThan, 0)
+	})
+
+	// The local arm "shared" is reachable.
+	_, err := main.ResourceByName(arm.Named("shared"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// The hidden remote sensor "shared" is still directly resolvable by exact name+API.
+	res, err := main.ResourceByName(sensor.Named("shared"))
+	test.That(t, err, test.ShouldBeNil)
+	_, ok := res.(sensor.Sensor)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestRemoteCaptureMethodsName(t *testing.T) {

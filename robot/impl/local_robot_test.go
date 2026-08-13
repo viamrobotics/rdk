@@ -1968,13 +1968,15 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:                "fake2",
+				// Distinct from the data_manager service names above: resource names must be
+				// unique across the machine regardless of type.
+				Name:                "fakeArm1",
 				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
 			{
-				Name:                "fake3",
+				Name:                "fakeArm2",
 				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
