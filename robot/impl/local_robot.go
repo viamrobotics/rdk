@@ -1931,6 +1931,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}()
 
+	// Apply user_permissions changes to the running web service; this revokes
+	// exactly the streams and invocations of users whose permissions changed and
+	// must happen even when no resources changed.
+	r.webSvc.UpdateUserPermissions(newConfig.Auth.UserPermissions)
+
 	if diff.ResourcesEqual {
 		return
 	}

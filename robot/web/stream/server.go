@@ -49,6 +49,11 @@ const (
 type peerState struct {
 	streamState *state.StreamState
 	senders     []*webrtc.RTPSender
+
+	// identity of the user that added the stream, used to remove streams whose
+	// users lose AddStream permissions on a user_permissions change.
+	authEntity string
+	authEmail  string
 }
 
 // Server implements the gRPC video streaming service.
@@ -64,6 +69,11 @@ type Server struct {
 	activePeerStreams       map[*webrtc.PeerConnection]map[string]*peerState
 	activeBackgroundWorkers sync.WaitGroup
 	isAlive                 bool
+
+	// identityExtractor returns the authenticated entity and e-mail (either may be
+	// empty) associated with a request context. The web service injects an extractor
+	// that understands JWT auth metadata.
+	identityExtractor func(ctx context.Context) (string, string)
 
 	streamConfig       gostream.StreamConfig
 	videoSources       map[string]gostream.HotSwappableVideoSource
@@ -91,6 +101,7 @@ func NewServer(
 		closedFn:           closedFn,
 		robot:              robot,
 		logger:             logger,
+		identityExtractor:  func(context.Context) (string, string) { return "", "" },
 		nameToStreamState:  map[string]*state.StreamState{},
 		activePeerStreams:  map[*webrtc.PeerConnection]map[string]*peerState{},
 		isAlive:            true,
@@ -102,6 +113,38 @@ func NewServer(
 	}
 	server.startMonitorCameraAvailable()
 	return server
+}
+
+// SetIdentityExtractor sets the function used to derive the authenticated identity
+// (entity and e-mail) from a request context.
+func (server *Server) SetIdentityExtractor(extractor func(ctx context.Context) (string, string)) {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	server.identityExtractor = extractor
+}
+
+// RemoveUnauthorizedStreams removes all video subscriptions whose subscribing user is
+// not allowed (per the given callback) to add a stream of that name, detaching the
+// video tracks from the subscriber's peer connection.
+func (server *Server) RemoveUnauthorizedStreams(allowed func(entity, email, name string) bool) {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	for pc, nameToPeerState := range server.activePeerStreams {
+		for name, ps := range nameToPeerState {
+			if allowed(ps.authEntity, ps.authEmail, name) {
+				continue
+			}
+			server.logger.Infow("removing video stream after user_permissions change",
+				"name", name, "peerConn", fmt.Sprintf("%p", pc))
+			for _, sender := range ps.senders {
+				utils.UncheckedError(pc.RemoveTrack(sender))
+			}
+			if err := ps.streamState.Decrement(); err != nil {
+				server.logger.Error(err.Error())
+			}
+			delete(nameToPeerState, name)
+		}
+	}
 }
 
 // StreamAlreadyRegisteredError indicates that a stream has a name that is already registered on
@@ -215,7 +258,8 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	ps, ok := nameToPeerState[req.Name]
 	// if the active peer stream doesn't have a peerState, add one containing the stream in question
 	if !ok {
-		ps = &peerState{streamState: streamStateToAdd}
+		entity, email := server.identityExtractor(ctx)
+		ps = &peerState{streamState: streamStateToAdd, authEntity: entity, authEmail: email}
 		nameToPeerState[req.Name] = ps
 	}
 
