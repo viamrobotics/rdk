@@ -136,7 +136,7 @@ function renderStart(file) {
 </html>
 `))
 
-// nolint: lll
+//nolint:lll
 var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 <html>
 <head>
