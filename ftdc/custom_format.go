@@ -415,6 +415,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 			// able to return an error.
 			//
 			// Consume the 0x1 byte.
+			//nolint: errcheck
 			_, _ = reader.ReadByte()
 
 			// Read json and position the cursor at the next FTDC document. The JSON reader may
