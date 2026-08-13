@@ -251,6 +251,7 @@ func TestMachineState(t *testing.T) {
 	// Use a short temp dir (not t.TempDir, whose Windows path is long) because redirecting
 	// ViamDotDir also relocates the module socket dir on Windows, and the unix socket path has a
 	// 103-char OS limit (see module.CreateSocketAddress).
+	//nolint: usetesting
 	tempDir, err := os.MkdirTemp("", "vds")
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(tempDir)) })

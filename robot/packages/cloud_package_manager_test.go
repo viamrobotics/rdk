@@ -626,6 +626,7 @@ func TestMissingDirEntry(t *testing.T) {
 	gzipWriter.Close()
 	file.Close()
 	defer os.Remove(file.Name())
+	//nolint: usetesting
 	dest, err := os.MkdirTemp("", "missing-dir-entry")
 	defer os.RemoveAll(dest)
 	test.That(t, err, test.ShouldBeNil)

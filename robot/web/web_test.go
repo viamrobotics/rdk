@@ -1587,8 +1587,10 @@ func testResourceLimitsAndFTDC(
 	defer injectRobot.Close(ctx)
 
 	originalRequestLimit := os.Getenv(rutils.ViamResourceRequestsLimitEnvVar)
+	//nolint: usetesting
 	os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, "1")
 	t.Cleanup(func() {
+		//nolint: usetesting
 		os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, originalRequestLimit)
 	})
 
@@ -1802,8 +1804,10 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 
 		// Lower resource requests limit for test.
 		originalRequestLimit := os.Getenv(rutils.ViamResourceRequestsLimitEnvVar)
+		//nolint: usetesting
 		os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, "1")
 		t.Cleanup(func() {
+			//nolint: usetesting
 			os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, originalRequestLimit)
 		})
 

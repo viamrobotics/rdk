@@ -1329,7 +1329,9 @@ func TestShellFileCopy(t *testing.T) {
 			tempDir := t.TempDir()
 			cwd, err := os.Getwd()
 			test.That(t, err, test.ShouldBeNil)
+			//nolint: usetesting
 			t.Cleanup(func() { os.Chdir(cwd) })
+			//nolint: usetesting
 			test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
@@ -1686,9 +1688,11 @@ func TestShellGetFTDC(t *testing.T) {
 			tempDir := t.TempDir()
 			originalWd, err := os.Getwd()
 			test.That(t, err, test.ShouldBeNil)
+			//nolint: usetesting
 			err = os.Chdir(tempDir)
 			test.That(t, err, test.ShouldBeNil)
 			t.Cleanup(func() {
+				//nolint: usetesting
 				os.Chdir(originalWd)
 			})
 
@@ -1707,6 +1711,7 @@ func TestShellGetFTDC(t *testing.T) {
 		// Use a short temp dir (not t.TempDir, whose Windows path is long) because
 		// redirecting ViamDotDir also relocates the module socket dir on Windows, and the
 		// unix socket path has a 103-char OS limit (see module.CreateSocketAddress).
+		//nolint: usetesting
 		viamHome, err := os.MkdirTemp("", "vds")
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(viamHome)) })
