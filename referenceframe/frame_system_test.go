@@ -571,6 +571,7 @@ func TestTopologicalSortParts(t *testing.T) {
 	// not the arm nor gripper.
 	scrambledArmIdx := slices.IndexFunc(scrambled, findPartByName("arm"))
 
+	//nolint: gocritic
 	scrambledNoArm := append(scrambled[:scrambledArmIdx], scrambled[scrambledArmIdx+1:]...)
 	ordered, unlinked = TopologicallySortParts(scrambledNoArm)
 

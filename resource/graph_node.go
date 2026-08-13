@@ -592,18 +592,21 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	case NodeStateUnknown:
 	case NodeStateUnconfigured:
 
+		//nolint: exhaustive
 		switch state {
 		case NodeStateConfiguring, NodeStateRemoving:
 			return true
 		}
 	case NodeStateConfiguring:
 
+		//nolint: exhaustive
 		switch state {
 		case NodeStateReady, NodeStateUnhealthy:
 			return true
 		}
 	case NodeStateReady:
 
+		//nolint: exhaustive
 		switch state {
 		case NodeStateConfiguring, NodeStateRemoving:
 			return true
@@ -611,6 +614,7 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	case NodeStateRemoving:
 	case NodeStateUnhealthy:
 
+		//nolint: exhaustive
 		switch state {
 		case NodeStateRemoving, NodeStateUnhealthy:
 			return true

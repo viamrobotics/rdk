@@ -1470,6 +1470,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 				switch len(resGeometries) {
 				case 0:
+					//nolint: gocritic
 				default: // > 1
 					logger.Warnw(
 						"`Geometries` returned more than one geometry, but the LinkInFrame does not support that."+
