@@ -409,7 +409,6 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		// document. The rest of the bits (for diffing) are irrelevant and will be zero. Thus the
 		// check against `0x1`.
 		if peek[0] == 0x1 {
-
 			//
 			// Justifying the nolint: if `Peek(1)` does not return an error, `ReadByte` must not be
 			// able to return an error.
