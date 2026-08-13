@@ -543,6 +543,7 @@ func BsonToGo(rawData [][]byte) ([]map[string]any, error) {
 }
 
 // TabularDataByFilter queries tabular data and metadata based on given filters.
+//
 // Deprecated: This endpoint will be removed in a future version.
 func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilterOptions) (*TabularDataByFilterResponse, error) {
 	dataReq := pb.DataRequest{}
