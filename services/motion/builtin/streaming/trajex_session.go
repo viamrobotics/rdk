@@ -27,6 +27,13 @@ type trajexSession struct {
 	sess               *totgstream.Session
 	dof                int
 	lastJointPositions []referenceframe.Input
+
+	// runway tracking: ActiveDuration() is the raw TOTG duration of the current active
+	// trajectory (resets to a small value on each rebase), while CurrentTime() is a
+	// globally-increasing timer. epochBase records the CurrentTime() value at the start of
+	// the current epoch so the runway computation stays correct across rebases.
+	epochBase          time.Duration
+	prevActiveDuration time.Duration
 }
 
 func (s *trajexSession) startSession(startJointPositions []referenceframe.Input) error {
@@ -112,8 +119,26 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 	return pvatsFromOutput(out)
 }
 
-func (s *trajexSession) generationCount() int64    { return s.sess.GenerationCount() }
-func (s *trajexSession) trajexRunway() time.Duration { return s.sess.ActiveDuration() - s.sess.CurrentTime() }
+func (s *trajexSession) generationCount() int64 { return s.sess.GenerationCount() }
+
+// trajexRunway returns the unsampled trajectory remaining in the trajex session:
+// how much further the active trajectory extends beyond the most recently emitted sample.
+// A rebase resets ActiveDuration() to the new (short) trajectory's raw TOTG duration while
+// CurrentTime() keeps advancing, so a naive subtraction goes deeply negative. epochBase
+// tracks the CurrentTime() at the start of each epoch (detected by ActiveDuration() dropping)
+// so the difference stays meaningful.
+func (s *trajexSession) trajexRunway() time.Duration {
+	active := s.sess.ActiveDuration()
+	current := s.sess.CurrentTime()
+	if active < s.prevActiveDuration {
+		s.epochBase = current
+	}
+	s.prevActiveDuration = active
+	if r := active - (current - s.epochBase); r > 0 {
+		return r
+	}
+	return 0
+}
 
 func (s *trajexSession) close() { s.sess.Close() }
 
