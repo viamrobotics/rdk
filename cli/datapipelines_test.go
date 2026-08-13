@@ -115,7 +115,7 @@ func testBSONResemble(t *testing.T, actual, expected bson.M) {
 func createTempMQLFile(t *testing.T, mql string) string {
 	t.Helper()
 
-	f, err := os.CreateTemp("", "mql.json")
+	f, err := os.CreateTemp(t.TempDir(), "mql.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = f.WriteString(mql)

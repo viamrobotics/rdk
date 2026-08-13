@@ -369,7 +369,7 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	// Create a temporary file for testing
 	fileName := "test-logo-*.png"
-	tmpFile, err := os.CreateTemp("", fileName)
+	tmpFile, err := os.CreateTemp(t.TempDir(), fileName)
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(tmpFile.Name()) // Clean up temp file after test
 	test.That(t, ac.organizationLogoSetAction(context.Background(), cCtx, "test-org", tmpFile.Name()), test.ShouldBeNil)
@@ -380,7 +380,7 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	cCtx, ac, out, errOut = setup(asc, nil, nil, nil, "token")
 
 	logoFileName2 := "test-logo-2-*.PNG"
-	tmpFile2, err := os.CreateTemp("", logoFileName2)
+	tmpFile2, err := os.CreateTemp(t.TempDir(), logoFileName2)
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(tmpFile2.Name()) // Clean up temp file after test
 
