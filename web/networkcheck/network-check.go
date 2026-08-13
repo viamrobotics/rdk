@@ -619,14 +619,14 @@ func sendUDPBindRequest(
 	if err != nil {
 		errorString := fmt.Sprintf("error splitting STUN server URL: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 	udpAddr := &net.UDPAddr{}
 	udpAddr.Port, err = strconv.Atoi(stunServerPortString)
 	if err != nil {
 		errorString := fmt.Sprintf("error parsing STUN server port: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 	var exists bool
 	udpAddr.IP, exists = cachedResolvedIPs[stunServerHost]
@@ -637,7 +637,7 @@ func sendUDPBindRequest(
 			// resolution does not work.
 			errorString := fmt.Sprintf("error resolving address: %v", err.Error())
 			stunResponse.ErrorString = &errorString
-			return
+			return stunResponse
 		}
 		udpAddr.IP = ipAddr.IP
 		cachedResolvedIPs[stunServerHost] = ipAddr.IP
@@ -651,7 +651,7 @@ func sendUDPBindRequest(
 	if err != nil {
 		errorString := fmt.Sprintf("error writing to packet conn: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 	if n != len(bindRequest) {
 		errorString := fmt.Sprintf(
@@ -660,7 +660,7 @@ func sendUDPBindRequest(
 			len(bindRequest),
 		)
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 
 	// Set a read deadline for reading on the conn in this test and remove that deadline at
@@ -668,7 +668,7 @@ func sendUDPBindRequest(
 	if err = conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
 		errorString := fmt.Sprintf("error setting read deadline on packet conn: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 	defer func() {
 		if err := conn.SetReadDeadline(time.Time{}); err != nil {
@@ -685,14 +685,14 @@ func sendUDPBindRequest(
 	if _, _, err = conn.ReadFrom(rawResponse); err != nil {
 		errorString := fmt.Sprintf("error reading from packet conn: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 
 	response := &stun.Message{}
 	if err := stun.Decode(rawResponse, response); err != nil {
 		errorString := fmt.Sprintf("error decoding STUN message: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 
 	switch c := response.Type.Class; c {
@@ -702,7 +702,7 @@ func sendUDPBindRequest(
 			errorString := fmt.Sprintf("error extracting mapped address from STUN response: %v",
 				err.Error())
 			stunResponse.ErrorString = &errorString
-			return
+			return stunResponse
 		}
 
 		// Check for transaction ID mismatch.
@@ -712,7 +712,7 @@ func sendUDPBindRequest(
 				hex.EncodeToString(response.TransactionID[:]),
 			)
 			stunResponse.ErrorString = &errorString
-			return
+			return stunResponse
 		}
 
 		bindResponseAddrString := bindResponseAddr.String()
@@ -724,7 +724,7 @@ func sendUDPBindRequest(
 		stunResponse.ErrorString = &errorString
 	}
 
-	return
+	return stunResponse
 }
 
 // Tests NAT over UDP against STUN servers.
@@ -804,7 +804,7 @@ func sendTCPBindRequest(
 		// resolution does not work.
 		errorString := fmt.Sprintf("error resolving address: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 	stunServerAddr := tcpAddr.String()
 	stunResponse.STUNServerAddr = &stunServerAddr
@@ -815,7 +815,7 @@ func sendTCPBindRequest(
 	if err != nil {
 		errorString := fmt.Sprintf("error writing to connection: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 	if n != len(bindRequest) {
 		errorString := fmt.Sprintf(
@@ -824,7 +824,7 @@ func sendTCPBindRequest(
 			len(bindRequest),
 		)
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 
 	// Set a read deadline for reading on the conn in this test and remove that deadline at
@@ -832,7 +832,7 @@ func sendTCPBindRequest(
 	if err = conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
 		errorString := fmt.Sprintf("error setting read deadline on connection: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 	defer func() {
 		// This might be unnecessary since the next test will use a new `net.Conn`.
@@ -850,14 +850,14 @@ func sendTCPBindRequest(
 	if _, err = conn.Read(rawResponse); err != nil {
 		errorString := fmt.Sprintf("error reading from connection: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 
 	response := &stun.Message{}
 	if err := stun.Decode(rawResponse, response); err != nil {
 		errorString := fmt.Sprintf("error decoding STUN message: %v", err.Error())
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 
 	switch c := response.Type.Class; c {
@@ -867,7 +867,7 @@ func sendTCPBindRequest(
 			errorString := fmt.Sprintf("error extracting mapped address from STUN response: %v",
 				err.Error())
 			stunResponse.ErrorString = &errorString
-			return
+			return stunResponse
 		}
 
 		// Check for transaction ID mismatch.
@@ -877,7 +877,7 @@ func sendTCPBindRequest(
 				hex.EncodeToString(response.TransactionID[:]),
 			)
 			stunResponse.ErrorString = &errorString
-			return
+			return stunResponse
 		}
 
 		bindResponseAddrString := bindResponseAddr.String()
@@ -887,10 +887,10 @@ func sendTCPBindRequest(
 	case stun.ClassErrorResponse, stun.ClassIndication, stun.ClassRequest:
 		errorString := fmt.Sprintf("unexpected STUN response received: %s", c)
 		stunResponse.ErrorString = &errorString
-		return
+		return stunResponse
 	}
 
-	return
+	return stunResponse
 }
 
 // Tests NAT over TCP against STUN servers.

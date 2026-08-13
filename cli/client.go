@@ -3890,7 +3890,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			}
 			paths = append(paths, arg)
 		}
-		return
+		return isFrom, destination, paths, err
 	}
 
 	isFrom, destination, paths, err := determineDirection(args)

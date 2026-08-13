@@ -454,5 +454,5 @@ func testSetUpRegistryModule(t *testing.T) (module Module, metaJSONFilepath stri
 	env["VIAM_MODULE_ROOT"] = tmp
 
 	logger, observedLogs = logging.NewObservedTestLogger(t)
-	return
+	return module, metaJSONFilepath, env, logger, observedLogs
 }

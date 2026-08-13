@@ -217,7 +217,7 @@ func (c Color) RGBA() (r, g, b, a uint32) {
 	// b *= a
 	// b /= 0xff
 	a |= a << 8
-	return
+	return r, g, b, a
 }
 
 // Closest returns the color that is closet to this color based

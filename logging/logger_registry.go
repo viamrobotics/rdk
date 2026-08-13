@@ -46,7 +46,7 @@ func (lr *Registry) loggerNamed(name string) (logger Logger, ok bool) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	logger, ok = lr.loggers[name]
-	return
+	return logger, ok
 }
 
 func (lr *Registry) updateLoggerLevel(name string, level Level) error {

@@ -355,16 +355,16 @@ func parseFunctionSignature(
 	funcDecl *ast.FuncDecl,
 ) (name, receiver, args string, returns []string) {
 	if funcDecl == nil {
-		return
+		return name, receiver, args, returns
 	}
 
 	// Function name
 	funcName := funcDecl.Name.Name
 	if !unicode.IsUpper(rune(funcName[0])) {
-		return
+		return name, receiver, args, returns
 	}
 	if funcName == "Close" || funcName == "Name" || funcName == "Reconfigure" {
-		return
+		return name, receiver, args, returns
 	}
 
 	// Receiver
