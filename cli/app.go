@@ -530,6 +530,8 @@ var app = &cli.Command{
 					Usage: "Set default organization argument",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
+							//nolint:nolintlint // obnoxiously the nolint syntax differs for custom rules
+							// nolint:enforceorgoptional
 							cli.StringFlag{
 								Name:     generalFlagOrgID, // some functions require an ID, so we should do the same for defaults
 								Required: true,
@@ -548,6 +550,8 @@ var app = &cli.Command{
 					Usage: "Set default location argument",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
+							//nolint:nolintlint // obnoxiously the nolint syntax differs for custom rules
+							// nolint:enforcelocationoptional
 							cli.StringFlag{
 								Name:     generalFlagLocationID, // some functions require an ID, so we should do the same for defaults
 								Required: true,
