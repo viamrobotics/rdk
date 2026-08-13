@@ -95,14 +95,8 @@ actionlint:
 generate-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
-# Yes this regex could be more specific but making it more specific in a way
-# that works the same across GNU and BSD grep isn't currently worth the effort.
-GOVERSION = $(shell grep '^go .\..' go.mod | head -n1 | cut -d' ' -f2)
 lint-go:
-	go mod tidy
-	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
-	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml
-	./etc/lint_register_apis.sh
+	mise run lint-go
 
 cover-only: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover

@@ -24,7 +24,6 @@ linters:
     - ginkgolinter
     - gocheckcompilerdirectives
     - gochecksumtype
-    - goconst
     - gocritic
     - goheader
     - gomoddirectives
@@ -86,7 +85,6 @@ linters:
         - name: context-as-argument
           arguments:
             - allowTypesBefore: testing.TB,*testing.T,*testing.B,*testing.F
-            - - skip-package-name-checks: true
           disabled: false
         - name: context-keys-type
         - name: dot-imports
@@ -107,6 +105,11 @@ linters:
         - name: unreachable-code
         - name: var-declaration
         - name: var-naming
+          arguments:
+            - [] # AllowList
+            - [] # DenyList
+            - - skip-package-name-collision-with-go-std: true
+                skip-package-name-checks: true
     staticcheck:
       checks:
         - all
@@ -153,3 +156,5 @@ formatters:
       extra-rules: true
   exclusions:
     generated: lax
+    paths:
+      - '^cli/module_generate/_templates/'
