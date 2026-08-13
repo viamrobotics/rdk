@@ -900,6 +900,7 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 
 func TestNewFrameSystemClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()

@@ -76,6 +76,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 
 	ctxCancel, cancel := context.WithCancel(ctx)
 	//nolint:gosec
+	//nolint: noctx
 	cmd := exec.Command(defaultShellPath, shellArgs...)
 	cmd.Env = shellEnv
 	// xpty gives a unix pty or a Windows ConPTY behind one interface.

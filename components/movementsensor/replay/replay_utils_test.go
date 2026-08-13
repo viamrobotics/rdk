@@ -194,6 +194,7 @@ func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, erro
 // stored in a mockCloudConnectionService.
 func createMockCloudDependencies(ctx context.Context, t *testing.T, logger logging.Logger, validCloudConnection, useBadDataMessages bool,
 ) (resource.Dependencies, func() error) {
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
