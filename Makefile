@@ -29,6 +29,8 @@ LDFLAGS_WRAPPER = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLA
 default: build lint server
 
 setup:
+	mise trust
+	mise install
 	bash etc/setup.sh
 
 build: build-go
