@@ -87,6 +87,8 @@ func (p *PlanState) ComputePoses(ctx context.Context, fs *referenceframe.FrameSy
 	return p.structuredConfiguration.ComputePoses(fs)
 }
 
+// FilteredPoses gives the result of `ComputePoses` but filtered to onle include frames that were
+// explicitly mentioned.
 func (p *PlanState) FilteredPoses(ctx context.Context, fs *referenceframe.FrameSystem) (
 	referenceframe.FrameSystemPoses, error,
 ) {
