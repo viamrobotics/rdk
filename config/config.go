@@ -941,7 +941,7 @@ type UserPermission struct {
 	// User is the User this UserPermission applies to. A User can only be listed
 	// in a single UserPermission for a set of UserPermissions.
 	User        User         `json:"user"`
-	Permissions []Permission `json:"permissions,omitempty"`
+	Permissions []Permission `json:"permissions"`
 }
 
 // A User describes a single user that a UserPermission applies to.
@@ -964,7 +964,7 @@ type Permission struct {
 	// AllowedMethods is a list of fully qualified gRPC methods the user may invoke
 	// on the listed resources, e.g.
 	// ["/viam.component.camera.v1.CameraService/GetImages"].
-	AllowedMethods []string `json:"allowed_methods,omitempty"`
+	AllowedMethods []string `json:"allowed_methods"`
 }
 
 // ExternalAuthConfig contains information needed to verify externally authenticated tokens.
