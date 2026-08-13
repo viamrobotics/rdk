@@ -222,3 +222,61 @@ func TestUserPermsAuthorizerSameNameDifferentAPI(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "cam1"}))
 }
+
+func TestUpdateUserPermissionsRevocation(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	svc := &webService{logger: logger}
+
+	// seed: benji may stream cam1 and cam2
+	svc.UpdateUserPermissions([]config.UserPermission{
+		{
+			User: apiKeyUser(testKeyID),
+			Permissions: []config.Permission{
+				{Resources: []string{"cam1", "cam2"}, AllowedMethods: []string{addStream, getImages}},
+			},
+		},
+	})
+
+	newStream := func(id identity, method, resourceName string) *authzServerStream {
+		ctx, cancel := context.WithCancel(context.Background())
+		ss := &authzServerStream{
+			svc: svc, ctx: ctx, cancel: cancel, fullMethod: method,
+			id: id, checked: true, resourceName: resourceName,
+		}
+		svc.registerAuthzStream(ss)
+		return ss
+	}
+	cam1Stream := newStream(identity{entity: testKeyID}, getImages, "cam1")
+	cam2Stream := newStream(identity{entity: testKeyID}, getImages, "cam2")
+
+	// narrowing to cam1-only revokes exactly the cam2 stream
+	svc.UpdateUserPermissions([]config.UserPermission{
+		{
+			User: apiKeyUser(testKeyID),
+			Permissions: []config.Permission{
+				{Resources: []string{"cam1"}, AllowedMethods: []string{addStream, getImages}},
+			},
+		},
+	})
+	test.That(t, cam1Stream.revoked.Load(), test.ShouldBeFalse)
+	test.That(t, cam2Stream.revoked.Load(), test.ShouldBeTrue)
+	test.That(t, cam2Stream.ctx.Err(), test.ShouldNotBeNil)
+	assertDenied(t, cam2Stream.SendMsg(nil))
+
+	// unary authorization reflects the new permissions immediately
+	ra := svc.userPermsAuth.Load()
+	test.That(t, ra, test.ShouldNotBeNil)
+	ctx := ctxWithUser(testKeyID)
+	err := ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
+	test.That(t, err, test.ShouldBeNil)
+	assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam2"}))
+
+	// removing user_permissions entirely restores unrestricted access; no revocations
+	svc.UpdateUserPermissions(nil)
+	test.That(t, svc.userPermsAuth.Load(), test.ShouldBeNil)
+	test.That(t, cam1Stream.revoked.Load(), test.ShouldBeFalse)
+
+	// a no-op update does not log or re-sweep (same pointer retained)
+	svc.UpdateUserPermissions(nil)
+	test.That(t, svc.userPermsAuth.Load(), test.ShouldBeNil)
+}

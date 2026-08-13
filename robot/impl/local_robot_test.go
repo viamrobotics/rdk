@@ -6157,3 +6157,44 @@ func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
 	_, err = reader.(sensor.Sensor).Readings(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestUserPermissionsHotReconfiguration(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
+
+	// Without user_permissions, an unauthenticated client is unrestricted.
+	rc := robottestutils.NewRobotClient(t, logger, addr, time.Second)
+	_, err := rc.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Reconfiguring with user_permissions applies to the EXISTING connection: no web
+	// service restart, no disconnect, but the unauthenticated client is now fully
+	// restricted (beyond the exempt connection plumbing).
+	r.Reconfigure(ctx, &config.Config{
+		Auth: config.AuthConfig{
+			UserPermissions: []config.UserPermission{
+				{
+					User: config.User{Type: config.UserTypeAPIKeyID, ID: "some-key-id"},
+					Permissions: []config.Permission{
+						{
+							Resources:      []string{"_machine"},
+							AllowedMethods: []string{"/viam.robot.v1.RobotService/GetMachineStatus"},
+						},
+					},
+				},
+			},
+		},
+	})
+	_, err = rc.MachineStatus(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "PermissionDenied")
+
+	// Reconfiguring back to no user_permissions restores access on the same connection.
+	r.Reconfigure(ctx, &config.Config{})
+	_, err = rc.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+}
