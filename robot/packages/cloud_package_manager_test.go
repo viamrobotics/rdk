@@ -609,7 +609,7 @@ func TestSafeLink(t *testing.T) {
 }
 
 func TestMissingDirEntry(t *testing.T) {
-	file, err := os.CreateTemp("", "missing-dir-entry")
+	file, err := os.CreateTemp(t.TempDir(), "missing-dir-entry")
 	test.That(t, err, test.ShouldBeNil)
 	head := tar.Header{
 		Name: "subdir/file.md",

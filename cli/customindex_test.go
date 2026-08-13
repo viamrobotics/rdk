@@ -164,7 +164,7 @@ func TestReadJSONToByteSlices(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			tmpFile, err := os.CreateTemp("", "test-*.json")
+			tmpFile, err := os.CreateTemp(t.TempDir(), "test-*.json")
 			test.That(t, err, test.ShouldBeNil)
 			defer os.Remove(tmpFile.Name())
 
