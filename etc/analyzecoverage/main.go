@@ -466,6 +466,7 @@ func findPkgs(profiles []*cover.Profile) (map[string]*Pkg, error) {
 
 	// Note: usually run as "go tool cover" in which case $GOROOT is set,
 	// in which case runtime.GOROOT() does exactly what we want.
+	//nolint: staticcheck
 	goTool := filepath.Join(runtime.GOROOT(), "bin/go")
 	//nolint:gosec
 	//nolint: noctx
