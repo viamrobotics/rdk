@@ -119,7 +119,7 @@ func TestFieldConversion(t *testing.T) {
 			field: zap.Field{
 				Key:       "time",
 				Type:      zapcore.TimeType,
-				Interface: time.Local,
+				Interface: time.Local, //nolint: gosmopolitan
 				Integer:   testTime.UnixNano(),
 			},
 			// Ensure that UTC is used instead of the Local location from original time.
