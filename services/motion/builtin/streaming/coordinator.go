@@ -101,27 +101,36 @@ func Run(
 			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
+			if err := as.topUp(ctx, ts, targetRunway); err != nil {
+				return err
+			}
 
 		// Time to check whether the arm's runway needs topping up.
 		case <-sendToArmTicker.C:
-			// Sample out of trajex only the deficit needed to top up the arm's runway.
-			deficit := targetRunway - as.currentEstimatedRunwayInArm()
-			if deficit <= 0 {
-				continue
-			}
-			pvats, err := ts.sampleAtLeast(ctx, deficit)
-			if err != nil {
-				return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
-			}
-			if len(pvats) == 0 {
-				// No trajectory yet, or what we have received so far has been sampled through.
-				continue
-			}
-			if err := as.send(ctx, pvats); err != nil {
+			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+// topUp samples the deficit needed to bring the estimated arm runway up to targetRunway
+// and sends it. Called both on the send ticker and after every extend so that a long extend
+// (longer than the ticker interval) does not cause a tick to be silently dropped, leaving
+// the arm under-filled.
+func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
+	deficit := targetRunway - s.currentEstimatedRunwayInArm()
+	if deficit <= 0 {
+		return nil
+	}
+	pvats, err := ts.sampleAtLeast(ctx, deficit)
+	if err != nil {
+		return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+	}
+	if len(pvats) == 0 {
+		return nil
+	}
+	return s.send(ctx, pvats)
 }
 
 func waitOutRunway(ctx context.Context, as *armStream) error {
