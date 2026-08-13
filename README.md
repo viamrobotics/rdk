@@ -23,6 +23,8 @@ If you have a bug or an idea, please open an issue [here](https://viam.atlassian
 
 ### Dependencies
 
+* Install mise.
+  * This can be done on MacOS and most Linux distributions with `curl https://mise.run | sh`.
 * Install `make`.
 * Run `make setup` to install dev environment requirements.
   * This also installs some client side git hooks.
