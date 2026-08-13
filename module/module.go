@@ -408,7 +408,6 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 	}
 
 	if encodedOffer == "" {
-
 		return "", errors.New("Server not running with WebRTC enabled.")
 	}
 

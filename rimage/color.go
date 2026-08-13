@@ -386,7 +386,6 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-
 		//nolint: forbidigo
 		fmt.Printf("%v -- %v\n", c, b)
 
