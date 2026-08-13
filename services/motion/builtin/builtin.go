@@ -757,7 +757,7 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 					//nolint:errcheck
 					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}
-				return err
+				return fmt.Errorf("error moving component %s to inputs %v: %w", name, inputs, err)
 			}
 		}
 	}
