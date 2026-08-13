@@ -8,3 +8,11 @@ run = [
   'golangci-lint run',
   './etc/lint_register_apis.sh',
 ]
+
+[tasks.fix-go]
+alias = "fix"
+run = [
+  'go mod tidy',
+  'golangci-lint run --fix',
+  'golangci-lint fmt',
+]
