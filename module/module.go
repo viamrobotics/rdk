@@ -267,6 +267,7 @@ func (m *Module) Start(ctx context.Context) error {
 		prot = "tcp"
 	}
 
+	//nolint: noctx
 	lis, err := net.Listen(prot, m.addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
@@ -407,7 +408,7 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 	}
 
 	if encodedOffer == "" {
-		//nolint
+
 		return "", errors.New("Server not running with WebRTC enabled.")
 	}
 

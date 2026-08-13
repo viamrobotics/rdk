@@ -4136,6 +4136,7 @@ func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robots
 }
 
 func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.RobotClient, local, dest int) error {
+	//nolint: noctx
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
 		return fmt.Errorf("failed to create listener %w", err)
@@ -4703,6 +4704,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 
 // brew doesn't automatically get the latest update from tap, so we manually refresh
 func refreshViamTap() {
+	//nolint: noctx
 	repoOut, err := exec.Command("brew", "--repository", "viamrobotics/brews").Output()
 	if err != nil {
 		return
@@ -4712,12 +4714,14 @@ func refreshViamTap() {
 		return
 	}
 	// repoPath comes from `brew --repository`, not user input, so the subprocess args are safe.
+	//nolint: noctx
 	utils.UncheckedError(exec.Command("git", "-C", repoPath, "pull", "--ff-only", "--quiet").Run()) //nolint:gosec
 }
 
 // installedBrewVersion returns the version of viam currently installed by Homebrew
 func installedBrewVersion() (*semver.Version, error) {
 	// output looks like: "viam 0.130.0"
+	//nolint: noctx
 	out, err := exec.Command("brew", "list", "--versions", "viam").Output()
 	if err != nil {
 		return nil, errors.Errorf("failed to get installed brew version: %v", err)
@@ -4743,6 +4747,7 @@ func isRunningBrewBinary() (bool, error) {
 	// brew list viam will return err if brew is not installed, viam is not installed in brew, or if this command fails
 	// its extremely rare for this command to fail, but if it does then brew --prefix viam will also fail later on and
 	// we can't confirm the running binary path anyways
+	//nolint: noctx
 	if err := exec.Command("brew", "list", "viam").Run(); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
 			return false, nil
@@ -4762,6 +4767,7 @@ func isRunningBrewBinary() (bool, error) {
 	if err != nil {
 		return false, errors.Errorf("failed to resolve executable path %q: %v", execPath, err)
 	}
+	//nolint: noctx
 	brewPrefixOut, err := exec.Command("brew", "--prefix", "viam").Output()
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -4782,6 +4788,7 @@ func isRunningBrewBinary() (bool, error) {
 // confirming the running binary is brew-managed via isRunningBrewBinary. upgraded reports
 // whether brew installed a newer version (false means viam was already at the tap's latest).
 func tryBrewUpgrade() (bool, error) {
+	//nolint: noctx
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {
 		return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
@@ -4808,6 +4815,7 @@ func tryAptUpgrade() error {
 	} {
 		full := append(append([]string{}, prefix...), args...)
 		// fixed args, not user input
+		//nolint: noctx
 		aptCmd := exec.Command(full[0], full[1:]...) //nolint:gosec
 		// keep stdin attached so sudo can prompt for a password
 		aptCmd.Stdin = os.Stdin
@@ -4820,6 +4828,7 @@ func tryAptUpgrade() error {
 
 // installedDebVersion returns the version of the viam-cli deb currently installed.
 func installedDebVersion() (*semver.Version, error) {
+	//nolint: noctx
 	out, err := exec.Command("dpkg-query", "-W", "-f=${Version}", "viam-cli").Output()
 	if err != nil {
 		return nil, errors.Errorf("failed to get installed deb version: %v", err)
@@ -4962,6 +4971,7 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 	cleanDir := filepath.Clean(binaryDir)
 
 	// Read the current user-level PATH from the registry.
+	//nolint: noctx
 	out, err := exec.Command("powershell", "-Command",
 		`[Environment]::GetEnvironmentVariable("Path", "User")`).Output()
 	if err != nil {
@@ -4988,7 +4998,7 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 	}
 	newPath += cleanDir
 
-	//nolint:gosec
+	//nolint: gosec,noctx
 	setCmd := exec.Command("powershell", "-Command",
 		fmt.Sprintf(`[Environment]::SetEnvironmentVariable("Path", "%s", "User")`,
 			strings.ReplaceAll(newPath, `"`, `\"`)))

@@ -2038,6 +2038,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 	var conn net.Conn
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		var dialErr error
+		//nolint: noctx
 		conn, dialErr = net.Dial("tcp", sourceListenerAddr)
 		test.That(tb, dialErr, test.ShouldBeNil)
 	})
@@ -2456,6 +2457,7 @@ func TestIsRunningAptBinary(t *testing.T) {
 	}
 
 	// real ExitError, like dpkg returns for an unowned path
+	//nolint: noctx
 	exitErr := exec.Command("sh", "-c", "exit 1").Run()
 	var asExitErr *exec.ExitError
 	test.That(t, errors.As(exitErr, &asExitErr), test.ShouldBeTrue)

@@ -421,6 +421,7 @@ func testDNSServerConnectivity(ctx context.Context, dnsServer string) *DNSResult
 	// TODO(benji): Fall back to TCP in the event of a UDP timeout. That's what Golang's
 	// default resolver does.
 	start := time.Now()
+	//nolint: noctx
 	conn, err := net.DialTimeout("udp", dnsServer, timeout)
 	if err != nil {
 		errorString := fmt.Sprintf("failed to connect to DNS server: %v", err)
@@ -729,6 +730,7 @@ func sendUDPBindRequest(
 // Tests NAT over UDP against STUN servers.
 func testUDP(ctx context.Context, logger logging.Logger) error {
 	// Listen on arbitrary UDP port.
+	//nolint: noctx
 	conn, err := net.ListenPacket("udp", "0.0.0.0:0")
 	if err != nil {
 		logger.Warnw("Failed to listen over UDP on a port; UDP traffic may be blocked",

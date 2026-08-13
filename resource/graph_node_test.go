@@ -252,7 +252,6 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.UnresolvedDependencies(), test.ShouldBeEmpty)
 	verifyStateTransition(t, node, resource.NodeStateReady)
 
-	//nolint
 	test.That(t, node.Close(context.WithValue(context.Background(), "foo", "hi")), test.ShouldBeNil)
 	test.That(t, ourRes.closeCap, test.ShouldBeEmpty)
 	test.That(t, ourRes2.closeCap, test.ShouldBeEmpty)
@@ -278,7 +277,6 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 	verifySameState(t, node)
 
-	//nolint
 	err = node.Close(context.WithValue(context.Background(), "foo", "bye"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad close")

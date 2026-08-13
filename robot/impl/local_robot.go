@@ -1467,7 +1467,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			if err != nil {
 				logger.Debugw("`Geometries` method returned error.", "err", err)
 			} else {
-				//nolint
+
 				switch len(resGeometries) {
 				case 0:
 				default: // > 1

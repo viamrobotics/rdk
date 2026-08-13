@@ -681,6 +681,7 @@ func getExecutableArch(reader *tar.Reader) string {
 	if _, err := exec.LookPath("file"); err != nil {
 		return ""
 	}
+	//nolint: noctx
 	cmd := exec.Command("file", "-")
 	cmd.Stdin = reader
 	output, err := cmd.Output()

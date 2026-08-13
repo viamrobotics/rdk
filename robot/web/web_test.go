@@ -1518,7 +1518,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(conn.Close)
 	armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	//nolint
+
 	defer armClient.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
