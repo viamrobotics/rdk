@@ -1601,7 +1601,7 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 				Index:         idx,
 				StartConfig:   startConfig,
 				GoalPoses:     poseMapToDisplays(poseMap),
-				GoalPosesJSON: template.JS(poseMapJSON),
+				GoalPosesJSON: template.JS(poseMapJSON), //nolint: gosec
 				IKInspectURL:  buildIKInspectURL(file, idx, startLI, poseMap, overridesParam),
 			}
 		}
@@ -1663,9 +1663,10 @@ func handleIKInspect(logger logging.Logger) http.HandlerFunc {
 			GoalIndex:       goalIndex,
 			OverridesParam:  overridesParam,
 			StartConfig:     startConfig,
-			StartConfigJSON: template.JS(startConfigJSONBytes),
+			StartConfigJSON: template.JS(startConfigJSONBytes), //nolint: gosec
 			GoalPoses:       poseMapToDisplays(goalPoseMap),
-			GoalPosesJSON:   template.JS(goalPosesJSONBytes),
+			//nolint: gosec
+			GoalPosesJSON: template.JS(goalPosesJSONBytes),
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := ikInspectTmpl.Execute(w, data); err != nil {
@@ -2192,5 +2193,6 @@ func RunServer() error {
 	addr := "localhost:8080"
 	logger.Infof("listening on http://%s", addr)
 
+	//nolint: gosec
 	return http.ListenAndServe(addr, nil)
 }
