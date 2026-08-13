@@ -280,7 +280,6 @@ func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 	temp, averageColorDistance := ws.img.AverageColorAndStats(start, 1)
 	ws.originalColor = temp
 
-	//nolint:ifshort,nolintlint
 	oldThreshold := ws.threshold
 	defer func() {
 		ws.threshold = oldThreshold
