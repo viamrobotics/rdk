@@ -926,14 +926,9 @@ type AuthConfig struct {
 const (
 	// UserTypeAPIKeyID identifies a user by the ID of the API key they authenticate with.
 	UserTypeAPIKeyID = "api-key-id"
-<<<<<<< HEAD
 	// UserTypeAppUserID identifies a user by their Viam app user ID (a stable, non-PII
 	// identifier carried in the "app_user_id" auth metadata claim).
 	UserTypeAppUserID = "app-user-id"
-=======
-	// UserTypeEmail identifies a user by the e-mail they authenticate with.
-	UserTypeEmail = "email"
->>>>>>> 402af6327 (Scope updates)
 	// UserTypeDefault matches any authenticated user without a UserPermission of
 	// their own.
 	UserTypeDefault = "default"
@@ -947,11 +942,7 @@ type UserPermission struct {
 	// User is the User this UserPermission applies to. A User can only be listed
 	// in a single UserPermission for a set of UserPermissions.
 	User        User         `json:"user"`
-<<<<<<< HEAD
 	Permissions []Permission `json:"permissions"`
-=======
-	Permissions []Permission `json:"permissions,omitempty"`
->>>>>>> 402af6327 (Scope updates)
 }
 
 // A User describes a single user that a UserPermission applies to.

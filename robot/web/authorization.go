@@ -57,10 +57,9 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 		logger:      logger,
 	}
 
-	restricted := map[config.User]bool{}
-	for _, userPerm := range userPerms {
+	buildPermSet := func(permissions []config.Permission) permSet {
 		perms := permSet{}
-		for _, perm := range userPerm.Permissions {
+		for _, perm := range permissions {
 			for _, method := range perm.AllowedMethods {
 				if perms[method] == nil {
 					perms[method] = map[string]bool{}
@@ -70,7 +69,10 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 				}
 			}
 		}
+		return perms
+	}
 
+	for _, userPerm := range userPerms {
 		user := userPerm.User
 		var permsByID map[string]permSet
 		switch user.Type {
@@ -79,31 +81,29 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 		case config.UserTypeEmail:
 			permsByID = ra.emailPerms
 		case config.UserTypeDefault:
-			if ra.defaultPerms != nil || restricted[user] {
+			if ra.defaultPerms != nil {
 				ra.logger.Error(
-					"multiple user_permissions entries for default user; fully restricting until collision is fixed")
+					"multiple user_permissions entries for default user; fully restricting default user until collision is fixed")
+				// An empty permSet fully restricts.
 				ra.defaultPerms = permSet{}
-				restricted[user] = true
 				continue
 			}
-			ra.defaultPerms = perms
+			ra.defaultPerms = buildPermSet(userPerm.Permissions)
 			continue
 		default:
-			ra.logger.Errorw("unknown user type in user_permissions; ignoring user",
+			ra.logger.Warnw("unknown user type in user_permissions; ignoring user",
 				"type", user.Type, "id", user.ID)
 			continue
 		}
-		if _, seen := permsByID[user.ID]; seen || restricted[user] {
+		if _, seen := permsByID[user.ID]; seen {
 			ra.logger.Errorw(
 				"multiple user_permissions entries for user; fully restricting user until collision is fixed",
 				"type", user.Type, "id", user.ID)
-			// An empty permSet fully restricts: the user matches an entry, so they do
-			// not fall back to the default user's permissions.
+			// An empty permSet fully restricts.
 			permsByID[user.ID] = permSet{}
-			restricted[user] = true
 			continue
 		}
-		permsByID[user.ID] = perms
+		permsByID[user.ID] = buildPermSet(userPerm.Permissions)
 	}
 	return ra
 }
@@ -119,9 +119,8 @@ func (ra *userPermsAuthorizer) permsForUser(ctx context.Context) permSet {
 	if perms, ok := ra.apiKeyPerms[entity.Entity]; ok {
 		return perms
 	}
-	if perms, ok := ra.emailPerms[entity.Entity]; ok {
-		return perms
-	}
+	// The auth entity is an API key ID or a FusionAuth user ID, never an e-mail;
+	// e-mails are matched via the token's auth metadata claim.
 	if email := emailFromContext(ctx); email != "" {
 		if perms, ok := ra.emailPerms[email]; ok {
 			return perms
@@ -194,31 +193,15 @@ func (ra *userPermsAuthorizer) UnaryInterceptor(
 	return handler(ctx, req)
 }
 
-// methodGranted reports whether the user has fullMethod granted for at least one
-// resources string (including "_machine"), meaning first-message inspection could
-// still authorize a stream of that method.
-func (ra *userPermsAuthorizer) methodGranted(ctx context.Context, fullMethod string) bool {
-	for _, prefix := range exemptMethodPrefixes {
-		if strings.HasPrefix(fullMethod, prefix) {
-			return true
-		}
-	}
-	return len(ra.permsForUser(ctx)[fullMethod]) != 0
-}
-
-// StreamInterceptor enforces configured user_permissions on streaming RPCs. The
-// up-front check is method-level only; resource-level authorization happens on
-// receipt of the stream's first message, since that is where the resource name lives.
+// StreamInterceptor enforces configured user_permissions on streaming RPCs.
+// Authorization happens on receipt of the stream's first message, since that is
+// where the resource name lives.
 func (ra *userPermsAuthorizer) StreamInterceptor(
 	srv interface{},
 	ss googlegrpc.ServerStream,
 	info *googlegrpc.StreamServerInfo,
 	handler googlegrpc.StreamHandler,
 ) error {
-	if !ra.methodGranted(ss.Context(), info.FullMethod) {
-		return status.Errorf(codes.PermissionDenied,
-			"user is not authorized to invoke %q", info.FullMethod)
-	}
 	return handler(srv, &authzServerStream{ServerStream: ss, ra: ra, fullMethod: info.FullMethod})
 }
 

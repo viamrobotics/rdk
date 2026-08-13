@@ -707,7 +707,6 @@ func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 		return nil, err
 	}
 
-	// TODO(RSDK-6227): convert UserPermissions once go.viam.com/api ships pb.UserPermission/pb.User/pb.Permission.
 	proto := pb.AuthConfig{
 		Handlers:        handlers,
 		TlsAuthEntities: auth.TLSAuthEntities,
@@ -735,7 +734,6 @@ func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, e
 		return nil, err
 	}
 
-	// TODO(RSDK-6227): convert UserPermissions once go.viam.com/api ships pb.UserPermission/pb.User/pb.Permission.
 	auth := AuthConfig{
 		Handlers:        handlers,
 		TLSAuthEntities: proto.GetTlsAuthEntities(),
