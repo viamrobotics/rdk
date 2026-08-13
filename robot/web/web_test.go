@@ -1519,6 +1519,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	defer utils.UncheckedErrorFunc(conn.Close)
 	armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 
+	//nolint: staticcheck
 	defer armClient.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
