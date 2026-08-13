@@ -72,9 +72,9 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	)
 
 	localFunc := func(ctx context.Context) context.Context {
-		// nolint: staticcheck,revive
+		//nolint: staticcheck,revive
 		ctx = context.WithValue(ctx, "arbitrary-md-from-client", "fake")
-		// nolint: staticcheck,revive
+		//nolint: staticcheck,revive
 		ctx = context.WithValue(ctx, "arbitrary-md-from-client-fake", "fake")
 		ctx = grpcmetadata.AppendToOutgoingContext(ctx, "arbitrary-md-from-client", "fake")
 		ctx = grpcmetadata.AppendToOutgoingContext(ctx, "arbitrary-md-from-client-fake", "fake")

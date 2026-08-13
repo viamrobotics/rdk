@@ -657,7 +657,7 @@ func (gpw *gnuplotWriter) writeSinglePlot(metricName string, graphInfo *graphInf
 	//
 	// linestyle 7 is red, 6 is blue, lw is line-width (or weight) -- makes it thicker. The
 	// title is what's used in the legend.
-	// nolint: lll
+	//nolint: lll
 	writef(gnuFile, "plot '%v' using 1:2 with lines linestyle 7 lw 4 title '%v'", graphInfo.file.Name(), strings.ReplaceAll(metricName, "_", "\\_"))
 
 	// "vertical lines" for events are rendered as another set of data points for a
