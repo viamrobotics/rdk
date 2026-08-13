@@ -784,6 +784,67 @@ func TestAuthConfigToProto(t *testing.T) {
 		validateAuthConfig(t, *out, testAuthConfig)
 	})
 
+	t.Run("user permissions", func(t *testing.T) {
+		authConfig := AuthConfig{
+			UserPermissions: []UserPermission{
+				{
+					User: User{Type: UserTypeAPIKeyID, ID: "c6f77790-5405-488a-9c9c-9612402fb9b0"},
+					Permissions: []Permission{
+						{
+							Resources:      []string{"_machine"},
+							AllowedMethods: []string{"/viam.robot.v1.RobotService/ResourceNames"},
+						},
+						{
+							Resources: []string{"cam1", "cam2"},
+							AllowedMethods: []string{
+								"/viam.component.camera.v1.CameraService/GetImages",
+								"/proto.stream.v1.StreamService/AddStream",
+							},
+						},
+					},
+				},
+				{
+					User: User{Type: UserTypeEmail, ID: "benji@viam.com"},
+					Permissions: []Permission{
+						{
+							Resources:      []string{"sensor1"},
+							AllowedMethods: []string{"/viam.component.sensor.v1.SensorService/GetReadings"},
+						},
+					},
+				},
+				{
+					User: User{Type: UserTypeDefault},
+					Permissions: []Permission{
+						{
+							Resources:      []string{"_machine"},
+							AllowedMethods: []string{"/viam.robot.v1.RobotService/GetMachineStatus"},
+						},
+					},
+				},
+			},
+		}
+
+		proto, err := AuthConfigToProto(&authConfig)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, proto.GetUserPermissions(), test.ShouldHaveLength, 3)
+		test.That(t, proto.GetUserPermissions()[0].GetUser().GetType(), test.ShouldEqual, UserTypeAPIKeyID)
+		test.That(t, proto.GetUserPermissions()[2].GetUser().GetId(), test.ShouldBeEmpty)
+
+		out, err := AuthConfigFromProto(proto, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, out.UserPermissions, test.ShouldResemble, authConfig.UserPermissions)
+	})
+
+	t.Run("no user permissions", func(t *testing.T) {
+		proto, err := AuthConfigToProto(&AuthConfig{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, proto.GetUserPermissions(), test.ShouldBeEmpty)
+
+		out, err := AuthConfigFromProto(proto, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, out.UserPermissions, test.ShouldBeEmpty)
+	})
+
 	t.Run("external auth config", func(t *testing.T) {
 		keyset := jwk.NewSet()
 		privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)

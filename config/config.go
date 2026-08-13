@@ -918,6 +918,53 @@ type AuthConfig struct {
 	Handlers           []AuthHandlerConfig `json:"handlers,omitempty"`
 	TLSAuthEntities    []string            `json:"tls_auth_entities,omitempty"`
 	ExternalAuthConfig *ExternalAuthConfig `json:"external_auth_config,omitempty"`
+	// UserPermissions represents the map of Users to Permissions for this machine.
+	UserPermissions []UserPermission `json:"user_permissions,omitempty"`
+}
+
+// The set of valid User types.
+const (
+	// UserTypeAPIKeyID identifies a user by the ID of the API key they authenticate with.
+	UserTypeAPIKeyID = "api-key-id"
+	// UserTypeEmail identifies a user by the e-mail they authenticate with.
+	UserTypeEmail = "email"
+	// UserTypeDefault matches any authenticated user without a UserPermission of
+	// their own.
+	UserTypeDefault = "default"
+)
+
+// A UserPermission describes a User and the permissions granted to that user. If
+// no UserPermissions are configured, all users are unrestricted. If any are, users
+// are allowed only the methods their UserPermission (or the default user's, if
+// they have none) explicitly grants.
+type UserPermission struct {
+	// User is the User this UserPermission applies to. A User can only be listed
+	// in a single UserPermission for a set of UserPermissions.
+	User        User         `json:"user"`
+	Permissions []Permission `json:"permissions"`
+}
+
+// A User describes a single user that a UserPermission applies to.
+type User struct {
+	// Type is the type of user. Can be "api-key-id", "email", or "default".
+	Type string `json:"type"`
+	// ID is the API Key ID if Type is "api-key-id", the e-mail address if Type is
+	// "email", and empty if Type is "default".
+	ID string `json:"id,omitempty"`
+}
+
+// A Permission grants a User the ability to invoke a set of methods on a set of
+// resources.
+type Permission struct {
+	// Resources are the names of the resources this permission applies to, e.g.
+	// ["cam1", "cam2", "cam3"]. The special string "_machine" refers to methods
+	// not associated with a single resource (e.g. RobotService methods and
+	// ListStreams).
+	Resources []string `json:"resources"`
+	// AllowedMethods is a list of fully qualified gRPC methods the user may invoke
+	// on the listed resources, e.g.
+	// ["/viam.component.camera.v1.CameraService/GetImages"].
+	AllowedMethods []string `json:"allowed_methods"`
 }
 
 // ExternalAuthConfig contains information needed to verify externally authenticated tokens.
