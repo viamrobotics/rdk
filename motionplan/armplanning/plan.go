@@ -84,7 +84,13 @@ func (p *PlanState) ComputePoses(ctx context.Context, fs *referenceframe.FrameSy
 		return nil, errors.New("cannot computes poses, neither poses nor configuration are populated")
 	}
 
-	allFramePoses, err := p.structuredConfiguration.ComputePoses(fs)
+	return p.structuredConfiguration.ComputePoses(fs)
+}
+
+func (p *PlanState) FilteredPoses(ctx context.Context, fs *referenceframe.FrameSystem) (
+	referenceframe.FrameSystemPoses, error,
+) {
+	allFramePoses, err := p.ComputePoses(ctx, fs)
 	if err != nil {
 		return nil, err
 	}

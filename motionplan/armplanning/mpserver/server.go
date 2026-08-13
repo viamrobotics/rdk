@@ -1,6 +1,6 @@
 // Package mpserver is a webserver for diagnosing motion plans.
 //
-//nolint // This is a self-contained program. Most lint errors do not help find bugs.
+// nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (
@@ -1254,7 +1254,7 @@ func computeGoalPoseMap(req *armplanning.PlanRequest, goalIdx int) (map[string]p
 	if goalIdx < 0 || goalIdx >= len(req.Goals) {
 		return nil, fmt.Errorf("goal index %d out of range (have %d goals)", goalIdx, len(req.Goals))
 	}
-	poses, err := req.Goals[goalIdx].ComputePoses(context.Background(), req.FrameSystem)
+	poses, err := req.Goals[goalIdx].FilteredPoses(context.Background(), req.FrameSystem)
 	if err != nil {
 		return nil, err
 	}
@@ -1379,7 +1379,7 @@ func applyOverrides(req *armplanning.PlanRequest, ov requestOverrides) (*armplan
 func collectGoalPoses(req *armplanning.PlanRequest) ([]spatialmath.Pose, error) {
 	var goalPoses []spatialmath.Pose
 	for _, goalPlanState := range req.Goals {
-		poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
+		poses, err := goalPlanState.FilteredPoses(context.Background(), req.FrameSystem)
 		if err != nil {
 			return nil, err
 		}
