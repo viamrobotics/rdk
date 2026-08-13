@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -408,6 +409,7 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 	}
 
 	if encodedOffer == "" {
+		// nolint: revive
 		return "", errors.New("Server not running with WebRTC enabled.")
 	}
 

@@ -39,11 +39,13 @@ type IKInspectCell struct {
 	LastGoodInputs *referenceframe.LinearInputs
 }
 
+// nolint: revive
 type IKInspectTable struct {
 	Rows       [][]IKInspectCell
 	SeedLabels []string
 }
 
+// nolint: revive
 func InspectIK(ctx context.Context, logger logging.Logger,
 	req *armplanning.PlanRequest,
 	segmentStart referenceframe.FrameSystemInputs,
