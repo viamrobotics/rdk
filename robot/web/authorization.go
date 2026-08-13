@@ -6,21 +6,20 @@ import (
 	"sync"
 	"sync/atomic"
 
-	jwt "github.com/golang-jwt/jwt/v4"
-	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 // exemptMethodPrefixes are gRPC service namespaces that are connection plumbing
 // (authentication handshakes, WebRTC signaling, and reflection) rather than
-// viam-server endpoints. Enforcing user_permissions on them would prevent clients from ever
-// authenticating.
+// viam-server endpoints. Enforcing user_permissions on them could prevent clients
+// from authenticating.
 var exemptMethodPrefixes = []string{
 	"/proto.rpc.v1.",
 	"/proto.rpc.webrtc.v1.",
@@ -42,58 +41,26 @@ const (
 	// names must begin with a letter or number, so no real resource can claim it.
 	machineResource = "_machine"
 
+	// addStreamMethod is the method that creates WebRTC video streams. It is special
+	// to authorization: after it succeeds, video flows on the peer connection with no
+	// further gRPC calls, so when user_permissions change, active video streams are
+	// re-evaluated against this method to decide whether they may keep flowing.
 	addStreamMethod = "/proto.stream.v1.StreamService/AddStream"
 )
 
 // permSet maps an allowed method to the set of resource names it may be invoked on.
 type permSet map[string]map[string]bool
 
-// identity is the authorization-relevant identity of a connected client.
-type identity struct {
-	// entity is the JWT subject: an API key ID or a FusionAuth user ID. Empty if the
-	// client is unauthenticated.
-	entity string
-	// email is the e-mail from the token's auth metadata claim, if any.
-	email string
-}
-
-func (id identity) authenticated() bool {
-	return id.entity != ""
-}
-
-// identityFromContext extracts the caller's identity from a request context. The
-// returned identity is zero-valued for unauthenticated clients.
-func identityFromContext(ctx context.Context) identity {
-	entity, ok := rpc.ContextAuthEntity(ctx)
-	if !ok {
-		return identity{}
-	}
-	return identity{entity: entity.Entity, email: emailFromContext(ctx)}
-}
-
-// emailFromContext extracts the e-mail from the auth metadata claim of the request's
-// bearer token. The token's signature was already verified by the auth interceptor,
-// so parsing it unverified here is safe.
-func emailFromContext(ctx context.Context) string {
-	token, err := rpc.TokenFromContext(ctx)
-	if err != nil {
-		return ""
-	}
-	var claims rpc.JWTClaims
-	if _, _, err := jwt.NewParser().ParseUnverified(token, &claims); err != nil {
-		return ""
-	}
-	return claims.Metadata()["email"]
-}
-
 // userPermsAuthorizer decides whether users may invoke endpoints based on the
 // user_permissions section of the machine config. A nil *userPermsAuthorizer allows
 // everything.
 type userPermsAuthorizer struct {
-	apiKeyPerms  map[string]permSet // keyed by API key ID
-	emailPerms   map[string]permSet // keyed by e-mail address
-	defaultPerms permSet            // permissions of the "default" user; nil if none
-	logger       logging.Logger
+	// identityPerms is keyed by partial identities: an api-key-id user is stored as
+	// Identity{Entity: id} and an email user as Identity{Email: id}. Lookups probe
+	// both shapes for a connected client's identity.
+	identityPerms map[rdkgrpc.Identity]permSet
+	defaultPerms  permSet // permissions of the "default" user; nil if none
+	logger        logging.Logger
 }
 
 // newUserPermsAuthorizer returns an authorizer for the given user permissions, or nil
@@ -103,9 +70,8 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 		return nil
 	}
 	ra := &userPermsAuthorizer{
-		apiKeyPerms: map[string]permSet{},
-		emailPerms:  map[string]permSet{},
-		logger:      logger,
+		identityPerms: map[rdkgrpc.Identity]permSet{},
+		logger:        logger,
 	}
 
 	buildPermSet := func(permissions []config.Permission) permSet {
@@ -125,12 +91,12 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 
 	for _, userPerm := range userPerms {
 		user := userPerm.User
-		var permsByID map[string]permSet
+		var key rdkgrpc.Identity
 		switch user.Type {
 		case config.UserTypeAPIKeyID:
-			permsByID = ra.apiKeyPerms
+			key = rdkgrpc.Identity{Entity: user.ID}
 		case config.UserTypeEmail:
-			permsByID = ra.emailPerms
+			key = rdkgrpc.Identity{Email: user.ID}
 		case config.UserTypeDefault:
 			if ra.defaultPerms != nil {
 				ra.logger.Error(
@@ -146,33 +112,33 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 				"type", user.Type, "id", user.ID)
 			continue
 		}
-		if _, seen := permsByID[user.ID]; seen {
+		if _, seen := ra.identityPerms[key]; seen {
 			ra.logger.Errorw(
 				"multiple user_permissions entries for user; fully restricting user until collision is fixed",
 				"type", user.Type, "id", user.ID)
 			// An empty permSet fully restricts.
-			permsByID[user.ID] = permSet{}
+			ra.identityPerms[key] = permSet{}
 			continue
 		}
-		permsByID[user.ID] = buildPermSet(userPerm.Permissions)
+		ra.identityPerms[key] = buildPermSet(userPerm.Permissions)
 	}
 	return ra
 }
 
 // permsFor returns the permissions of the given identity, or nil if the identity is
 // unauthenticated or unknown with no default user configured.
-func (ra *userPermsAuthorizer) permsFor(id identity) permSet {
-	if !id.authenticated() {
+func (ra *userPermsAuthorizer) permsFor(id rdkgrpc.Identity) permSet {
+	if !id.Authenticated() {
 		// Unauthenticated (insecure connection): fully restrict.
 		return nil
 	}
-	if perms, ok := ra.apiKeyPerms[id.entity]; ok {
+	if perms, ok := ra.identityPerms[rdkgrpc.Identity{Entity: id.Entity}]; ok {
 		return perms
 	}
 	// The auth entity is an API key ID or a FusionAuth user ID, never an e-mail;
 	// e-mails are matched via the token's auth metadata claim.
-	if id.email != "" {
-		if perms, ok := ra.emailPerms[id.email]; ok {
+	if id.Email != "" {
+		if perms, ok := ra.identityPerms[rdkgrpc.Identity{Email: id.Email}]; ok {
 			return perms
 		}
 	}
@@ -182,11 +148,9 @@ func (ra *userPermsAuthorizer) permsFor(id identity) permSet {
 // allowed returns whether the given identity may invoke fullMethod. Requests that do
 // not address a named resource (e.g. RobotService methods, ListStreams) match only
 // grants under the special "_machine" resources string; requests that do address one
-// match only grants naming that resource.
-func (ra *userPermsAuthorizer) allowed(id identity, fullMethod, resourceName string) bool {
-	if isExemptMethod(fullMethod) {
-		return true
-	}
+// match only grants naming that resource. Exemptions for connection-plumbing methods
+// are the caller's responsibility.
+func (ra *userPermsAuthorizer) allowed(id rdkgrpc.Identity, fullMethod, resourceName string) bool {
 	resources := ra.permsFor(id)[fullMethod]
 	if resourceName == "" {
 		return resources[machineResource]
@@ -200,7 +164,7 @@ func (ra *userPermsAuthorizer) authorize(ctx context.Context, fullMethod string,
 		return nil
 	}
 	resourceName := resourceNameFromRequest(fullMethod, req)
-	if ra.allowed(identityFromContext(ctx), fullMethod, resourceName) {
+	if ra.allowed(rdkgrpc.IdentityFromContext(ctx), fullMethod, resourceName) {
 		return nil
 	}
 	return status.Errorf(codes.PermissionDenied,
@@ -246,6 +210,7 @@ func (svc *webService) userPermsStreamInterceptor(
 	info *googlegrpc.StreamServerInfo,
 	handler googlegrpc.StreamHandler,
 ) error {
+	// Don't even make an authz server stream if this is an authz-exempt method.
 	if isExemptMethod(info.FullMethod) {
 		return handler(srv, ss)
 	}
@@ -257,9 +222,11 @@ func (svc *webService) userPermsStreamInterceptor(
 		ctx:          ctx,
 		cancel:       cancel,
 		fullMethod:   info.FullMethod,
-		id:           identityFromContext(ss.Context()),
+		id:           rdkgrpc.IdentityFromContext(ss.Context()),
 	}
 	svc.registerAuthzStream(authzStream)
+	// The handler invocation spans the stream's entire lifetime, so unregistration happens
+	// once the stream is closed.
 	defer svc.unregisterAuthzStream(authzStream)
 	return handler(srv, authzStream)
 }
@@ -272,7 +239,7 @@ type authzServerStream struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	fullMethod string
-	id         identity
+	id         rdkgrpc.Identity
 
 	mu           sync.Mutex
 	checked      bool
@@ -322,6 +289,8 @@ func (ss *authzServerStream) RecvMsg(m interface{}) error {
 	resourceName := ss.resourceName
 	ss.mu.Unlock()
 
+	// If this is the first message and the resource/method combo is not allowed for this
+	// user, revoke the stream and return a permission denied error.
 	if first {
 		if ra := ss.svc.userPermsAuth.Load(); ra != nil && !ra.allowed(ss.id, ss.fullMethod, resourceName) {
 			ss.revoke()
@@ -329,6 +298,8 @@ func (ss *authzServerStream) RecvMsg(m interface{}) error {
 				"user is not authorized to invoke %q on resource %q", ss.fullMethod, resourceName)
 		}
 	}
+	// If this is NOT the first message, the stream was initially authorized but a
+	// revocation could have made it invalid.
 	if ss.revoked.Load() {
 		return ss.revokedErr()
 	}
@@ -336,6 +307,8 @@ func (ss *authzServerStream) RecvMsg(m interface{}) error {
 }
 
 func (ss *authzServerStream) SendMsg(m interface{}) error {
+	// Do not allow sending on a revoked stream (the permission denied error or a context
+	// canceled error should eventually reach the user).
 	if ss.revoked.Load() {
 		return ss.revokedErr()
 	}

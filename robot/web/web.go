@@ -161,7 +161,9 @@ func (svc *webService) unregisterAuthzStream(ss *authzServerStream) {
 // UpdateUserPermissions applies a new user_permissions config to the web service
 // without restarting it. New invocations are checked against the new permissions
 // immediately; in-flight gRPC streams and WebRTC video streams whose users lost
-// access are torn down, while unaffected streams continue undisturbed.
+// access are torn down, while unaffected streams continue undisturbed. In-flight
+// unary requests (e.g. a long-running motion Move) are NOT halted; they complete
+// under the permissions they were admitted with.
 func (svc *webService) UpdateUserPermissions(userPerms []config.UserPermission) {
 	svc.userPermsMu.Lock()
 	defer svc.userPermsMu.Unlock()
@@ -197,11 +199,11 @@ func (svc *webService) UpdateUserPermissions(userPerms []config.UserPermission) 
 	streamServer := svc.streamServer
 	svc.mu.Unlock()
 	if streamServer != nil {
-		streamServer.RemoveUnauthorizedStreams(func(entity, email, name string) bool {
+		streamServer.RemoveUnauthorizedStreams(func(id grpc.Identity, name string) bool {
 			if newAuth == nil {
 				return true
 			}
-			return newAuth.allowed(identity{entity: entity, email: email}, addStreamMethod, name)
+			return newAuth.allowed(id, addStreamMethod, name)
 		})
 	}
 }
