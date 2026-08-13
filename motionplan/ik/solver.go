@@ -164,6 +164,7 @@ func ComputeAdjustLimits(seed []float64, limits []referenceframe.Limit, delta fl
 
 		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
 	}
+
 	return newLimits
 }
 
@@ -178,8 +179,18 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 		lmin, lmax, r := limits[i].GoodLimits()
 		d := r * deltas[i]
 
-		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
+		varLimit := referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)}
+		if varLimit.Min > varLimit.Max {
+			varLimit.Min = varLimit.Max - d
+		}
+
+		if varLimit.Max < varLimit.Min {
+			varLimit.Max = varLimit.Min + d
+		}
+
+		newLimits = append(newLimits, varLimit)
 	}
+
 	return newLimits
 }
 

@@ -785,100 +785,10 @@ func TestWritePlanRequest(t *testing.T) {
 	test.That(t, planFile.Name(), test.ShouldContainSubstring, "-err")
 }
 
-func TestErrorMessageContext(t *testing.T) {
-	// When there's two with the same kinematics, it can be ambiguous which arm an error message is
-	// referring to. This test asserts the custom motion service joint limits provide this necessary
-	// context.
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	fakeModel := resource.DefaultModelFamily.WithModel("fake")
-	cfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "arm1",
-				API:   arm.API,
-				Model: fakeModel,
-				ConvertedAttributes: &fakearm.Config{
-					ArmModel: "ur5e",
-				},
-				Frame: &referenceframe.LinkConfig{
-					Parent: referenceframe.World,
-				},
-			},
-			{
-				Name:  "arm2",
-				API:   arm.API,
-				Model: fakeModel,
-				ConvertedAttributes: &fakearm.Config{
-					ArmModel: "ur5e",
-				},
-				Frame: &referenceframe.LinkConfig{
-					Parent:      referenceframe.World,
-					Translation: r3.Vector{X: 2000, Y: 0, Z: 0},
-				},
-			},
-		},
-		Services: []resource.Config{
-			{
-				Name:  "builtin",
-				API:   motion.API,
-				Model: resource.DefaultServiceModel,
-				// The motion service Config.Validate is what normally declares the framesystem
-				// dependency. But because `ConvertedAttributes` is non-nil, we do not call
-				// validate. Explicitly declare the motion service -> frame system service
-				// dependency.
-				DependsOn: []string{framesystem.InternalServiceName.String()},
-				ConvertedAttributes: &Config{
-					// Restrict arm2's shoulder_lift_joint to a narrow range.
-					InputRangeOverride: map[string]map[string]referenceframe.Limit{
-						"arm2": {
-							"shoulder_lift_joint": {Min: -math.Pi / 4, Max: math.Pi / 4},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close(ctx)
-
-	ms, err := motion.FromProvider(myRobot, "builtin")
-	test.That(t, err, test.ShouldBeNil)
-
-	// Move arm1 to a pose within the ur5e workspace (~850mm reach from base).
-	destination := referenceframe.NewPoseInFrame(
-		referenceframe.World,
-		spatialmath.NewPose(r3.Vector{X: 300, Y: -200, Z: 400}, &spatialmath.R4AA{Theta: 0, RX: 0, RY: 0, RZ: 1}),
-	)
-	_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "arm1", Destination: destination})
-	test.That(t, err, test.ShouldBeNil)
-
-	arm2, err := arm.FromProvider(myRobot, "arm2")
-	test.That(t, err, test.ShouldBeNil)
-
-	// Explicitly move arm2 outside of its motion service bounds. This works because we're
-	// manipulating the arm directly.
-	err = arm2.MoveToJointPositions(ctx, []referenceframe.Input{math.Pi, math.Pi, math.Pi, math.Pi, math.Pi, math.Pi}, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Trying to move arm1 again will fail. This is because `arm2` is starting out of bounds. We
-	// assert that the error message makes it clear that arm2 is the problem, not arm1.
-	_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "arm1", Destination: destination})
-	// It's not a requirement that this move request fails. In case in the future we want to be
-	// smarter. But we do assert it fails here lest the test passes for the wrong reasons.
-	test.That(t, err, test.ShouldNotBeNil)
-	// E.g: `Frame: arm2.shoulder_lift_joint (joint 1): input out of bounds...`
-	test.That(t, err.Error(), test.ShouldContainSubstring, "arm2")
-}
-
-// TestInputRangeOverrideDisallowsReturningInsideRange demonstrates that once an arm's joint
-// position has drifted outside of an `input_range_override` bound, the motion service currently
-// refuses to plan a move for that same arm even when the requested move would bring it back
-// inside the allowed range.
-func TestInputRangeOverrideDisallowsReturningInsideRange(t *testing.T) {
+// TestInputRangeOverrideAcceptsReturningInsideRange demonstrates that once an arm's joint position
+// has drifted outside of an `input_range_override` bound, the motion service can still be used to
+// move it back inside the acceptable range.
+func TestInputRangeOverrideAcceptsReturningInsideRange(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -937,7 +847,24 @@ func TestInputRangeOverrideDisallowsReturningInsideRange(t *testing.T) {
 	err = armComponent.MoveToJointPositions(ctx, []referenceframe.Input{math.Pi, math.Pi, math.Pi, math.Pi, math.Pi, math.Pi}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Ask the motion service to move the arm back to that in-range pose.
+	// Ask the motion service to move the arm back to that in-range pose. We want this to work
+	// despite the arm starting out of bounds.
+	_, err = ms.Move(ctx, motion.MoveReq{
+		ComponentName: "arm1",
+		Destination:   homePoseInWorld,
+	})
+
+	test.That(t, err, test.ShouldBeNil)
+
+	// Repeat the same test, but now move the arm out of bounds in the negative direction. This is
+	// important as some nlopt seeds create custom limits relative to the current arms position. And
+	// without careful error handling, can create scenarios where the min/max values are not
+	// consistent.
+	err = armComponent.MoveToJointPositions(ctx, []referenceframe.Input{math.Pi, -math.Pi, math.Pi, math.Pi, math.Pi, math.Pi}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Ask the motion service to move the arm back to that in-range pose. We want this to work
+	// despite the arm starting out of bounds.
 	_, err = ms.Move(ctx, motion.MoveReq{
 		ComponentName: "arm1",
 		Destination:   homePoseInWorld,

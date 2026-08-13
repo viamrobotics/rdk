@@ -66,7 +66,6 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		rseed++
 
 		activeSolvers.Add(1)
-		// fmt.Println("Spinning solver:", idx)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
