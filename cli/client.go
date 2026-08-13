@@ -6532,7 +6532,7 @@ type createOAuthAppArgs struct {
 	Pkce                 string
 	LogoutURI            string
 	InviteRedirectURI    string
-	UrlValidation        string //nolint:revive,stylecheck
+	UrlValidation        string //nolint:revive
 	OriginURIs           []string
 	RedirectURIs         []string
 	EnabledGrants        []string
@@ -6583,7 +6583,7 @@ type updateOAuthAppArgs struct {
 	Pkce                 string
 	LogoutURI            string
 	InviteRedirectURI    string
-	UrlValidation        string //nolint:revive,stylecheck
+	UrlValidation        string //nolint:revive
 	OriginURIs           []string
 	RedirectURIs         []string
 	EnabledGrants        []string
