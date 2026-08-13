@@ -811,7 +811,7 @@ func (mgr *Manager) getModule(conf resource.Config) (foundMod *module, exists bo
 		return true
 	})
 
-	return
+	return foundMod, exists
 }
 
 func (mgr *Manager) execPathAlreadyExists(conf *config.Module) (bool, string) {
@@ -927,11 +927,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			// starting and/or leaking a module process.
 			if err := ctx.Err(); err != nil {
 				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
-				return
+				return continueAttemptingRestart
 			}
 			if err := oueCtx.Err(); err != nil {
 				mod.logger.Infow("pexec context canceled, abandoning restart attempt", "err", err)
-				return
+				return continueAttemptingRestart
 			}
 
 			if !cleanupPerformed {
@@ -968,7 +968,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			"resources", orphanedResourceNamesStr)
 		unlock()
 		mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
-		return
+		return continueAttemptingRestart
 	}
 }
 

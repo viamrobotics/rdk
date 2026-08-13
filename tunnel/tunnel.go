@@ -34,7 +34,7 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{},
 	select {
 	case <-closeChan:
 		if errors.Is(err, net.ErrClosed) {
-			return
+			return filteredErr
 		}
 	default:
 	}
@@ -42,36 +42,36 @@ func filterError(ctx context.Context, err error, closeChan <-chan struct{},
 	// context.Canceled indicates that the context on the bidi stream was canceled midway
 	// through sending or receiving.
 	if errors.Is(err, context.Canceled) {
-		return
+		return filteredErr
 	}
 
 	// "read/write on closed pipe" can occur on either side if the connection is closed or
 	// currently closing.
 	if errors.Is(err, io.ErrClosedPipe) {
-		return
+		return filteredErr
 	}
 
 	// EOF indicates that the connection passed in is not going to receive any more data
 	// and is not expecting any more data to be written to it.
 	if errors.Is(err, io.EOF) {
-		return
+		return filteredErr
 	}
 
 	// Depending on when the tunnel is closed, the server may not have a chance to complete
 	// sending the HTTP2 header (gRPC is implemented over HTTP2.)
 	if err != nil && strings.Contains(err.Error(), "missing HTTP content-type") {
-		return
+		return filteredErr
 	}
 
 	// Depending on when the tunnel is closed, the server may not have a chance to send
 	// trailers.
 	if err != nil && strings.Contains(err.Error(),
 		"server closed the stream without sending trailers") {
-		return
+		return filteredErr
 	}
 
 	anomalous = true
-	return
+	return filteredErr
 }
 
 // ReaderSenderLoop implements a loop that reads bytes from the reader passed in and sends those bytes
@@ -95,9 +95,9 @@ func ReaderSenderLoop(
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return retErr
 		case <-connClosed:
-			return
+			return retErr
 		default:
 		}
 		// Allow sending of "packet"s up to size 1MB. Especially useful for VNC or other
@@ -110,11 +110,11 @@ func ReaderSenderLoop(
 		// considering the error
 		if nr > 0 {
 			if sendErr = sendFunc(buf[:nr]); sendErr != nil {
-				return
+				return retErr
 			}
 		}
 		if err != nil {
-			return
+			return retErr
 		}
 	}
 }
@@ -138,12 +138,12 @@ func RecvWriterLoop(
 	}()
 	for {
 		if ctx.Err() != nil {
-			return
+			return retErr
 		}
 		var data []byte
 		data, err = recvFunc()
 		if err != nil {
-			return
+			return retErr
 		}
 		// For bidi streaming, Recv should be called on the client/server until it errors.
 		// See [grpc.NewStream] for related docs.

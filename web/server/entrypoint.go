@@ -169,12 +169,12 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if argsParsed.Version {
 		// log startup info here and return if version flag.
 		logStartupInfo(rootLogger)
-		return
+		return err
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
 		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTests */)
-		return
+		return err
 	}
 
 	// log startup info locally if server fails and exits while attempting to start up
@@ -188,7 +188,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	if argsParsed.ConfigFile == "" {
 		rootLogger.Error("please specify a config file through the -config parameter.")
-		return
+		return err
 	}
 
 	if argsParsed.CPUProfile != "" {

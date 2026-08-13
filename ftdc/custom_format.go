@@ -401,7 +401,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 
 			if schema == nil {
 				retErr = errors.New("could not read first byte")
-				return
+				return ret, lastTimestampRead, retErr
 			}
 		}
 
@@ -429,7 +429,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 			continue
 		} else if schema == nil {
 			retErr = errors.New("first byte of FTDC data must be the magic 0x1 representing a new schema")
-			return
+			return ret, lastTimestampRead, retErr
 		}
 
 		// This FTDC document is a metric document. Read the "diff bits" that describe which metrics
@@ -439,7 +439,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		diffedFieldsIndexes, err := readDiffBits(reader, schema)
 		if err != nil {
 			logger.Debugw("Error reading diff bits. Returning.", "error", err.Error())
-			return
+			return ret, lastTimestampRead, retErr
 		}
 		logger.Debugw("Diff bits",
 			"changedFieldIndexes", diffedFieldsIndexes,
@@ -450,7 +450,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		if err = binary.Read(reader, binary.BigEndian, &dataTime); err != nil {
 			logger.Debugw("Error reading time", "error", err)
 			retErr = err
-			return
+			return ret, lastTimestampRead, retErr
 		}
 		logger.Debugw("Read time", "time", dataTime, "seconds", dataTime/1e9)
 
@@ -458,7 +458,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		// further ahead than the previous recorded timestamp (> a day ahead), we are in a bad
 		// state and need to return.
 		if lastTimestampRead != 0 && (dataTime < lastTimestampRead || dataTime > (lastTimestampRead+nsInADay)) {
-			return
+			return ret, lastTimestampRead, retErr
 		}
 		lastTimestampRead = dataTime
 
@@ -468,7 +468,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		if err != nil {
 			logger.Debugw("Error reading data", "error", err)
 			retErr = err
-			return
+			return ret, lastTimestampRead, retErr
 		}
 		logger.Debugw("Read data", "data", data)
 
@@ -485,7 +485,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
 		logger.Debugw("Hydrated data", "data", ret[len(ret)-1].Readings)
 	}
 
-	return
+	return ret, lastTimestampRead, retErr
 }
 
 func flatDatumsToDatums(inp []FlatDatum) []datum {

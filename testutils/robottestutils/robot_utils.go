@@ -163,6 +163,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	// Message:"\n\\_ 2024-02-07T20:47:03.576Z\tINFO\trobot_server\tweb/web.go:598\tserving\t{\"url\":\"http://127.0.0.1:20000\"}"
 	successRegex := regexp.MustCompile(fmt.Sprintf("\tserving\t.*:%d\"", port))
+	//nolint: lll
 	// Message:"\n\\_ 2024-02-02T14:43:02.862Z\tERROR\trobot_server\tserver/entrypoint.go:177\terror serving web\t{\"error\":\"listen tcp 127.0.0.1:8090: bind: address already in use\"}"
 	failRegex := regexp.MustCompile(fmt.Sprintf("\terror serving web\t.*:%d:", port))
 	lastSeenLogIdx := 0

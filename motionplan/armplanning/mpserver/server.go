@@ -84,7 +84,6 @@ func beginRender() context.Context {
 
 // ---- templates ----
 
-// nolint: lll
 var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 <html>
 <head>
