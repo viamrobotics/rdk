@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -17,12 +18,16 @@ func TestModelLoading(t *testing.T) {
 	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "xArm6")
-
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
-	orig[5] += math.Pi * 2
-	orig[4] -= math.Pi * 4
+	simpleM, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
+	test.That(t, err, test.ShouldBeNil)
+
+	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
+	test.That(t, simpleM.validInputs(randpos), test.ShouldBeNil)
 
 	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
