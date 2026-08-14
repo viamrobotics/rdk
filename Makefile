@@ -29,8 +29,6 @@ LDFLAGS_WRAPPER = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLA
 default: build lint server
 
 setup:
-	mise trust
-	mise install
 	bash etc/setup.sh
 
 build: build-go
@@ -82,6 +80,8 @@ deb-cli-upload:
 	done
 
 tool-install:
+	mise trust -y
+	mise install -y
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
