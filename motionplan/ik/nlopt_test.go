@@ -22,14 +22,28 @@ func TestNloptFixedJoint(t *testing.T) {
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	seed := []float64{1, 1, -1, 1, 1, 0}
-	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
-	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 100), m, logger)
-
+	// pin joint 0 at the model's real maximum, as happens when a planner freezes a
+	// non-moving joint whose start position is at a limit (e.g. an open gripper). nlopt
+	// can't handle zero-range bounds, so Solve nudges the window's upper bound past the
+	// real max. The cost function pulls joint 0 toward a target beyond that limit, the
+	// way a real goal metric can; emitted solutions must be clamped back to the real
+	// limits or they fail the model's own validation downstream.
 	dof := m.DoF()
+	seed := []float64{dof[0].Max, 1, -1, 1, 1, 0}
 	limits := make([]referenceframe.Limit, len(dof))
 	copy(limits, dof)
 	limits[0] = referenceframe.Limit{Min: seed[0], Max: seed[0]}
+
+	target := append([]float64{}, seed...)
+	target[0]++ // beyond the joint 0 limit
+	solveFunc := func(_ context.Context, inputs []float64) float64 {
+		total := 0.0
+		for i, v := range inputs {
+			d := v - target[i]
+			total += d * d
+		}
+		return total
+	}
 
 	ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
 	test.That(t, err, test.ShouldBeNil)
@@ -39,9 +53,9 @@ func TestNloptFixedJoint(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solutions), test.ShouldBeGreaterThan, 0)
 	for _, sol := range solutions {
-		// joint 0 is pinned - it may move at most one epsilon nudge upward
-		test.That(t, sol[0], test.ShouldBeGreaterThanOrEqualTo, seed[0])
-		test.That(t, sol[0], test.ShouldBeLessThanOrEqualTo, seed[0]+defaultGoalThreshold)
+		test.That(t, sol[0], test.ShouldEqual, seed[0])
+		_, err = m.Interpolate(sol, sol, 0.5)
+		test.That(t, err, test.ShouldBeNil)
 	}
 }
 
