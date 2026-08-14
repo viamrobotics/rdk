@@ -1745,6 +1745,38 @@ func TestLegacyViamHomePath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
+func TestMachineViamHome(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	partFqdn := uuid.NewString()
+	asc := &inject.AppServiceClient{}
+
+	t.Run("machine reports its VIAM_HOME", func(t *testing.T) {
+		// the "machine" is in-process, so its shell service reports this process's ViamDotDir
+		cCtx, vc, _, _ := setupWithRunningPart(t, asc, nil, nil, nil, "token", partFqdn)
+		shellSvc, closeClient, err := vc.connectToShellServiceFqdn(context.Background(), partFqdn, false, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, closeClient(context.Background()), test.ShouldBeNil)
+		}()
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, shellSvc),
+			test.ShouldEqual, utils.ViamDotDir)
+	})
+
+	t.Run("--home override skips asking the machine", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(asc, nil, nil, map[string]any{moduleFlagHomeDir: "/home/pi"}, "token")
+		// a nil shellSvc proves the override resolves without consulting the machine
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, nil),
+			test.ShouldEqual, "/home/pi/.viam")
+	})
+
+	t.Run("unreachable machine falls back to the legacy home with a warning", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(asc, nil, nil, nil, "token")
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, nil),
+			test.ShouldEqual, legacyViamHomeDir)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "did not report its VIAM_HOME")
+	})
+}
+
 func TestCreateOAuthAppAction(t *testing.T) {
 	createOAuthAppFunc := func(ctx context.Context, in *apppb.CreateOAuthAppRequest,
 		opts ...grpc.CallOption,

@@ -111,6 +111,39 @@ func legacyViamHomePath(src string) (string, bool) {
 	return path.Join(legacyViamHomeDir, rest), true
 }
 
+type machineViamHomeArgs struct {
+	Home string
+}
+
+// machineViamHome resolves the target machine's VIAM_HOME directory: the --home
+// override if set, otherwise the machine's own answer over shellSvc, otherwise
+// the legacy default for machines too old to answer. Pass a nil shellSvc when
+// the machine could not be dialed.
+func (c *viamClient) machineViamHome(ctx context.Context, cmd *cli.Command, shellSvc shell.Service) string {
+	if args := parseStructFromCtx[machineViamHomeArgs](cmd); args.Home != "" {
+		// Intentional use of path instead of filepath: Windows understands both / and
+		// \ as path separators, and we don't want a cli running on Windows to send
+		// a path using \ to a *NIX machine.
+		return path.Join(args.Home, ".viam")
+	}
+	err := errors.New("machine could not be reached")
+	if shellSvc != nil {
+		var resp map[string]interface{}
+		if resp, err = shellSvc.DoCommand(ctx, map[string]interface{}{shell.GetViamHomeCommand: true}); err == nil {
+			if home, ok := resp[shell.ViamHomeKey].(string); ok && home != "" {
+				return home
+			}
+			err = fmt.Errorf("unexpected response %v", resp)
+		}
+	}
+	// A wrong guess here puts the archive and reload_path outside the machine's real
+	// VIAM_HOME, so surface the fallback instead of hiding it behind --debug.
+	warningf(cmd.Root().ErrWriter,
+		"machine did not report its VIAM_HOME (%v); assuming %s. Pass --home if that is wrong for this machine",
+		err, legacyViamHomeDir)
+	return legacyViamHomeDir
+}
+
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
 type viamClient struct {

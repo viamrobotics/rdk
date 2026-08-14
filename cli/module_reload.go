@@ -29,7 +29,7 @@ const (
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
 func configureModule(
 	ctx context.Context, cmd *cli.Command, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart,
-	local, cloudReload bool, reloadUser, annotation string, reloadUnixTS int64,
+	local, cloudReload bool, reloadUser, annotation string, reloadUnixTS int64, remoteDest string,
 ) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
@@ -48,7 +48,7 @@ func configureModule(
 			return err
 		}
 		cfgJSON, needsRestart, err = mutateModuleConfig(
-			cmd, cfgJSON, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
+			cmd, cfgJSON, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS, remoteDest)
 		if err != nil {
 			return err
 		}
@@ -84,6 +84,7 @@ func mutateModuleConfig(
 	reloadUser string,
 	annotation string,
 	reloadUnixTS int64,
+	remoteDest string,
 ) (string, bool, error) {
 	var needsRestart bool
 
@@ -98,15 +99,20 @@ func mutateModuleConfig(
 
 	var absEntrypoint string
 	var err error
-	if local {
+	switch {
+	case local:
 		// This flag means that viam server is running on the same machine running the CLI
 		// Does not indicate module type (registry vs local)
 		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
 		if err != nil {
 			return "", false, err
 		}
-	} else {
-		absEntrypoint = reloadingDestination(cmd, &manifest)
+	case remoteDest != "":
+		absEntrypoint = remoteDest
+	default:
+		// cloud reload: never written to the config (reload_path is deleted below),
+		// only compared against a stale reload_path, so don't consult the machine.
+		absEntrypoint = reloadingDestination(&manifest, legacyViamHomeDir)
 	}
 
 	args, err := getGlobalArgs(cmd)
