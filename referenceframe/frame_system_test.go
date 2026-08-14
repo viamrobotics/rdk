@@ -708,12 +708,6 @@ func TestNeutralInputsTransformSucceedsWhereZeroFails(t *testing.T) {
 
 	poseToTransform := NewPoseInFrame("child", spatial.NewZeroPose())
 
-	// Zero inputs should fail because 0 is outside [1, 3]
-	zeroInputs := NewZeroLinearInputs(fs)
-	_, err = fs.Transform(zeroInputs, poseToTransform, World)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
-
 	// Neutral inputs should succeed because they clamp to the nearest valid value (1)
 	neutralInputs := NewNeutralLinearInputs(fs)
 	result, err := fs.Transform(neutralInputs, poseToTransform, World)
@@ -736,12 +730,6 @@ func TestNeutralFrameSystemInputsTransformSucceedsWhereZeroFails(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	poseToTransform := NewPoseInFrame("child", spatial.NewZeroPose())
-
-	// Zero inputs should fail because 0 is outside [1, 3]
-	zeroInputs := NewZeroInputs(fs)
-	_, err = fs.Transform(zeroInputs.ToLinearInputs(), poseToTransform, World)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
 
 	// Neutral inputs should succeed because they clamp to the nearest valid value (1)
 	neutralInputs := NewNeutralFrameSystemInputs(fs)

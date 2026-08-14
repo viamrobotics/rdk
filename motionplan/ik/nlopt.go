@@ -85,12 +85,14 @@ type nloptSeedState struct {
 }
 
 func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc CostFunc,
-	s []float64, limits []referenceframe.Limit, iterations *int,
+	seed []float64, limits []referenceframe.Limit, iterations *int,
 ) (*nloptSeedState, error) {
 	var err error
 
 	ss := &nloptSeedState{
-		seed:   s,
+		// We make a copy of seed as the input variable is re-used for all callers. And the code
+		// below massages ss.seed to make sure it is in bounds.
+		seed:   append([]float64{}, seed...),
 		meta:   fmt.Sprintf("s:%d", seedNumber),
 		logger: ik.logger,
 	}
@@ -98,6 +100,20 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	ss.lowerBound, ss.upperBound = limitsToArrays(limits)
 	if len(ss.lowerBound) == 0 || len(ss.upperBound) == 0 {
 		return nil, errBadBounds
+	}
+
+	// We sometimes set up a solver with intentionally smaller limits than what's possible. For
+	// example, the motion service can override the natural arm limits. And if the arm is starting
+	// outside those application limits, the seeds derived from the current state would be out of
+	// bounds.
+	for idx, seedVal := range ss.seed {
+		if seedVal < ss.lowerBound[idx] {
+			ss.seed[idx] = ss.lowerBound[idx] + defaultGoalThreshold
+		}
+
+		if seedVal > ss.upperBound[idx] {
+			ss.seed[idx] = ss.upperBound[idx] - defaultGoalThreshold
+		}
 	}
 
 	// nlopt returns INVALID_ARGS for zero-range variables - nudge the upper bound by a small epsilon.
@@ -108,10 +124,11 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	}
 
 	// Per-joint finite-difference step for the gradient computation in getMinFunc.
-	ss.jump = make([]float64, len(s))
+	ss.jump = make([]float64, len(seed))
 	for i := range ss.jump {
 		ss.jump[i] = defaultJump
 	}
+
 	ss.opt, err = nlopt.NewNLopt(NloptAlg, uint(len(ss.lowerBound)))
 	if err != nil {
 		return nil, errors.Wrap(err, "nlopt creation error")

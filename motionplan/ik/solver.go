@@ -152,19 +152,12 @@ func fixLimits(numSeeds int, limits [][]referenceframe.Limit) ([][]referencefram
 
 // ComputeAdjustLimits adjusts limits by delta.
 func ComputeAdjustLimits(seed []float64, limits []referenceframe.Limit, delta float64) []referenceframe.Limit {
-	if delta <= 0 || delta >= 1 {
-		return limits
+	deltaArr := make([]float64, len(limits))
+	for idx := range deltaArr {
+		deltaArr[idx] = delta
 	}
 
-	newLimits := []referenceframe.Limit{}
-
-	for i, s := range seed {
-		lmin, lmax, r := limits[i].GoodLimits()
-		d := r * delta
-
-		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
-	}
-	return newLimits
+	return ComputeAdjustLimitsArray(seed, limits, deltaArr)
 }
 
 // ComputeAdjustLimitsArray adjusts limits by deltas for each limit
@@ -172,14 +165,27 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 	if len(limits) != len(seed) || len(deltas) != len(seed) {
 		panic(fmt.Errorf("bad args seed: %d limits: %d deltas: %d", len(seed), len(limits), len(deltas)))
 	}
-	newLimits := []referenceframe.Limit{}
 
+	newLimits := []referenceframe.Limit{}
 	for i, s := range seed {
 		lmin, lmax, r := limits[i].GoodLimits()
 		d := r * deltas[i]
 
-		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
+		varLimit := referenceframe.Limit{
+			Min: max(lmin, s-d),
+			Max: min(lmax, s+d),
+		}
+		if varLimit.Min > varLimit.Max {
+			varLimit.Min = varLimit.Max - d
+		}
+
+		if varLimit.Max < varLimit.Min {
+			varLimit.Max = varLimit.Min + d
+		}
+
+		newLimits = append(newLimits, varLimit)
 	}
+
 	return newLimits
 }
 
