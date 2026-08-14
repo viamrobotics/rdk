@@ -526,6 +526,7 @@ function escHtml(s) {
 </html>
 `))
 
+//nolint:lll
 var ikInspectTmpl = template.Must(template.New("ik-inspect").Parse(`<!DOCTYPE html>
 <html>
 <head>
@@ -1321,17 +1322,6 @@ func buildIKInspectURL(
 // req.Goals; a nil entry means "use the file's original goal pose/cloud for that frame".
 type requestOverrides struct {
 	Goals []map[string]poseComponents `json:"goals,omitempty"`
-}
-
-// encodeOverrides JSON-encodes ov for embedding as a URL query param value (the caller is
-// responsible for url.QueryEscape-ing it into a URL, or relying on net/http's automatic decoding
-// of query param values read via r.URL.Query()).
-func encodeOverrides(ov requestOverrides) string {
-	data, err := json.Marshal(ov)
-	if err != nil {
-		return ""
-	}
-	return string(data)
 }
 
 // decodeOverrides parses a requestOverrides previously produced by encodeOverrides. An empty
