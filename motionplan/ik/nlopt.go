@@ -102,8 +102,10 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 		return nil, errBadBounds
 	}
 
-	// We sometimes set up a solver with intentionally smaller limits than what's possible. And
-	// seeds derived from the current state can be out of bounds in these cases.
+	// We sometimes set up a solver with intentionally smaller limits than what's possible. For
+	// example, the motion service can override the natural arm limits. And if the arm is starting
+	// outside those application limits, the seeds derived from the current state would be out of
+	// bounds.
 	for idx, seedVal := range ss.seed {
 		if seedVal < ss.lowerBound[idx] {
 			ss.seed[idx] = ss.lowerBound[idx] + defaultGoalThreshold
