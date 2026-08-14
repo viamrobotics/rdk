@@ -258,6 +258,11 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			panic("why is solutionRaw nil")
 		} else if result < defaultGoalThreshold || !ik.exact {
 			meta[seedNumberRanged].Valid++
+			// clamp back to the real limits - the zero-range nudge above (and general fp
+			// drift) can leave solutions epsilon outside them
+			for i, l := range limits[seedNumberRanged] {
+				solutionRaw[i] = min(max(solutionRaw[i], l.Min), l.Max)
+			}
 			solution := &Solution{
 				Configuration: solutionRaw,
 				Score:         result,
