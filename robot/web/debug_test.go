@@ -63,6 +63,10 @@ func TestDebugEndpointsGatedByWebProfile(t *testing.T) {
 		test.That(t, code, test.ShouldNotEqual, http.StatusOK)
 		test.That(t, body, test.ShouldNotContainSubstring, "Types of profiles available")
 
+		code, body = get(t, base+"/debug/pprof/goroutine?debug=1")
+		test.That(t, code, test.ShouldNotEqual, http.StatusOK)
+		test.That(t, body, test.ShouldNotContainSubstring, "goroutine profile")
+
 		code, body = get(t, base+"/debug/graph?layout=text")
 		test.That(t, code, test.ShouldNotEqual, http.StatusOK)
 		test.That(t, body, test.ShouldNotContainSubstring, dot)
@@ -74,6 +78,29 @@ func TestDebugEndpointsGatedByWebProfile(t *testing.T) {
 		code, body := get(t, base+"/debug/pprof/")
 		test.That(t, code, test.ShouldEqual, http.StatusOK)
 		test.That(t, body, test.ShouldContainSubstring, "Types of profiles available")
+
+		// The index is also reachable without the trailing slash (via a redirect).
+		code, body = get(t, base+"/debug/pprof")
+		test.That(t, code, test.ShouldEqual, http.StatusOK)
+		test.That(t, body, test.ShouldContainSubstring, "Types of profiles available")
+
+		// Named profiles are served by pprof.Index off the trailing path segment.
+		code, body = get(t, base+"/debug/pprof/goroutine?debug=1")
+		test.That(t, code, test.ShouldEqual, http.StatusOK)
+		test.That(t, body, test.ShouldContainSubstring, "goroutine profile")
+
+		for _, profile := range []string{"heap", "allocs", "block", "mutex", "threadcreate"} {
+			code, body = get(t, base+"/debug/pprof/"+profile+"?debug=1")
+			test.That(t, code, test.ShouldEqual, http.StatusOK)
+			test.That(t, body, test.ShouldNotBeEmpty)
+		}
+
+		// Profiles with dedicated handlers still work.
+		code, _ = get(t, base+"/debug/pprof/cmdline")
+		test.That(t, code, test.ShouldEqual, http.StatusOK)
+
+		code, _ = get(t, base+"/debug/pprof/symbol")
+		test.That(t, code, test.ShouldEqual, http.StatusOK)
 
 		code, body = get(t, base+"/debug/graph?layout=text")
 		test.That(t, code, test.ShouldEqual, http.StatusOK)
