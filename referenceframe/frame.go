@@ -274,7 +274,8 @@ func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 	return interpolateInputs(from, to, by), nil
 }
 
-// validInputs checks whether the given array of joint positions violates any joint limits.
+// validInputs checks whether the given array of joint positions has the right number of degrees of
+// freedom.
 func (bf *baseFrame) validInputs(inputs []Input) error {
 	if len(inputs) != len(bf.limits) {
 		return NewIncorrectDoFError(len(inputs), len(bf.limits))
