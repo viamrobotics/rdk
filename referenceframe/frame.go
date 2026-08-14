@@ -263,7 +263,24 @@ func (bf *baseFrame) DoF() []Limit {
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	err := bf.validInputs(from)
+	if err != nil {
+		return nil, err
+	}
+	err = bf.validInputs(to)
+	if err != nil {
+		return nil, err
+	}
 	return interpolateInputs(from, to, by), nil
+}
+
+// validInputs checks whether the given array of joint positions violates any joint limits.
+func (bf *baseFrame) validInputs(inputs []Input) error {
+	if len(inputs) != len(bf.limits) {
+		return NewIncorrectDoFError(len(inputs), len(bf.limits))
+	}
+
+	return nil
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
@@ -532,6 +549,10 @@ func (pf *translationalFrame) Hash() int {
 
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
+	err := pf.validInputs(input)
+	if err != nil {
+		return nil, err
+	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), nil
 }
 
@@ -619,6 +640,10 @@ func (rf *rotationalFrame) Hash() int {
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
+	err := rf.validInputs(input)
+	if err != nil {
+		return nil, err
+	}
 	// Create a copy of the r4aa for thread safety
 	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), nil
 }
@@ -712,6 +737,10 @@ func (pf *poseFrame) Hash() int {
 // Transform on the poseFrame acts as the identity function. Whatever inputs are given are directly translated
 // in a 7DoF pose. We note that theta should be in radians.
 func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
+	err := pf.validInputs(inputs)
+	if err != nil {
+		return nil, err
+	}
 	return spatial.NewPose(
 		r3.Vector{X: inputs[0], Y: inputs[1], Z: inputs[2]},
 		&spatial.OrientationVector{
