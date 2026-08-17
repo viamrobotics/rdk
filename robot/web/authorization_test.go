@@ -134,7 +134,6 @@ func TestUserPermsAuthorizerMachineSentinel(t *testing.T) {
 	ctx := ctxWithUser(testKeyID)
 	assertDenied(t, ra.authorize(ctx, resourceNames, &robotpb.ResourceNamesRequest{}))
 	assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
-
 }
 
 func TestUserPermsAuthorizerDefaultUser(t *testing.T) {
