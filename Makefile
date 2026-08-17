@@ -30,6 +30,8 @@ default: build lint server
 
 setup:
 	bash etc/setup.sh
+	mise trust -y
+	mise install -y
 
 build: build-go
 
@@ -80,8 +82,6 @@ deb-cli-upload:
 	done
 
 tool-install:
-	mise trust -y
-	mise install -y
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
