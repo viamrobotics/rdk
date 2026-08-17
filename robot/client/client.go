@@ -77,6 +77,10 @@ var (
 	// resources, applied per call rather than across the set.
 	defaultResourcesTimeout = 5 * time.Second
 
+	// localFallbackDialTimeout bounds the direct gRPC dial attempted after a WebRTC dial fails with
+	// NotFound. It covers an mDNS lookup (up to a second per candidate) as well as the dial itself.
+	localFallbackDialTimeout = 8 * time.Second
+
 	// latencyPingNum controls the amount of times a gRPC request will be sent to the server
 	// to measure the latency of the connection. The latency is only measured in case
 	// WithNetworkStats option is specified by the client.
@@ -547,6 +551,23 @@ func (rc *RobotClient) Connect(ctx context.Context) error {
 	return nil
 }
 
+// dialUnreachableErr reports whether a direct gRPC dial failed only because the machine could not
+// be reached - it timed out, or mDNS turned up no candidate. Which one comes back depends on
+// whether mDNS ran, so either alone qualifies; any other error in the chain is one the caller
+// needs to see.
+func dialUnreachableErr(err error) bool {
+	errs := multierr.Errors(err)
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if !errors.Is(e, context.DeadlineExceeded) && !errors.Is(e, rpc.ErrMDNSNoCandidatesFound) {
+			return false
+		}
+	}
+	return true
+}
+
 func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
@@ -587,35 +608,36 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		// we add this flag to partially override the above override.
 		dialOptionsGRPCOnly[1] = rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: false})
 
-		grpcConn, grpcErr := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsGRPCOnly...)
+		// A NotFound from the WebRTC dial means signaling is reachable but the machine is not
+		// registered with it, leaving only a local route - and a local dial that works, works fast.
+		// Past that, the dial is just retrying an unreachable address until the default deadline.
+		grpcCtx := ctx
+		if status.Code(err) == codes.NotFound {
+			var cancel context.CancelFunc
+			grpcCtx, cancel = context.WithTimeout(ctx, localFallbackDialTimeout)
+			defer cancel()
+		}
+
+		grpcConn, grpcErr := grpc.Dial(grpcCtx, rc.address, dialLogger, dialOptionsGRPCOnly...)
 		if grpcErr == nil {
 			conn = grpcConn
 			err = nil
 		} else {
-			// A NotFound error from the WebRTC dial means that the client is able to reach
-			// the signaling server but the machine is not. If the machine is running viam-server but not connected to the signaling server,
-			// it is expected to only be available to clients on the same network. If the errors returned from grpc dials are timeouts or mDNS
-			// failing to find a candidate, it implies that the machine is not connected to the same network the client is.
-			// In that case, filtering out the errors from grpc dials should reduce noise and give clients a clearer idea of what to do next.
-			if statusErr := status.Convert(err); statusErr != nil &&
-				statusErr.Code() == codes.NotFound &&
-				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) &&
-				errors.Is(grpcErr, context.DeadlineExceeded) {
+			switch {
+			// Signaling is reachable but the machine is not registered with it, and it is not on
+			// our network either. The WebRTC error already says the machine is offline; the dial
+			// error only adds noise.
+			case status.Code(err) == codes.NotFound && dialUnreachableErr(grpcErr):
 				return err
-			}
-			// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
-			// the signaling server, which likely means that the client is offline. In that case, if the errors returned from
-			// grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet
-			// connection and that the machine is on. This should be more helpful than simply returning a chain of context.DeadlineExceeded
-			// and candidate not found errors.
-			const connTimeoutURL = "https://docs.viam.com/dev/tools/common-errors/#conn-time-out"
-			if errors.Is(err, context.DeadlineExceeded) &&
-				errors.Is(grpcErr, context.DeadlineExceeded) &&
-				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) {
+			// Signaling was not reachable at all, so the client itself is likely offline. Say so
+			// rather than returning a chain of timeouts.
+			case errors.Is(err, context.DeadlineExceeded) && dialUnreachableErr(grpcErr):
+				const connTimeoutURL = "https://docs.viam.com/monitor/common-errors/#conn-time-out"
 				return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, " +
 					"and try again. see " + connTimeoutURL + " for troubleshooting steps")
+			default:
+				err = multierr.Combine(err, grpcErr)
 			}
-			err = multierr.Combine(err, grpcErr)
 		}
 	}
 	if err != nil {

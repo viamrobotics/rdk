@@ -2627,3 +2627,30 @@ func TestUploadDataFromPath(t *testing.T) {
 	test.That(t, capturedMD.GetTags(), test.ShouldResemble, []string{"tag1"})
 	test.That(t, capturedExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }
+
+func TestDialUnreachableErr(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"deadline exceeded", context.DeadlineExceeded, true},
+		{"no mDNS candidates", rpc.ErrMDNSNoCandidatesFound, true},
+		{"both", multierr.Combine(context.DeadlineExceeded, rpc.ErrMDNSNoCandidatesFound), true},
+		{"wrapped", fmt.Errorf("dialing: %w", context.DeadlineExceeded), true},
+		{"unrelated", errors.New("connection refused"), false},
+		{"canceled", context.Canceled, false},
+		{"nil", nil, false},
+		// goutils folds the mDNS failure into every bare-domain dial error, so an informative
+		// failure always arrives alongside it and must not be read as unreachable.
+		{
+			"informative alongside mDNS",
+			multierr.Combine(rpc.ErrInsecureWithCredentials, rpc.ErrMDNSNoCandidatesFound),
+			false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, dialUnreachableErr(tc.err), test.ShouldEqual, tc.expected)
+		})
+	}
+}
