@@ -32,10 +32,38 @@ func finiteOrZero(v float64) float64 {
 	return v
 }
 
-// Limit represents the limits of motion for a Frame.
+// limitPtr copies v, applying convert when it is non-nil, and returns nil when v is unset or
+// infinite. Marshaling goes through this because JSON cannot represent ±Inf, and an unbounded
+// limit is expressed by leaving the field out. Copying rather than aliasing keeps two Limits
+// from sharing the same float.
+func limitPtr(v *float64, convert func(float64) float64) *float64 {
+	if v == nil || math.IsInf(*v, 0) {
+		return nil
+	}
+	out := *v
+	if convert != nil {
+		out = convert(out)
+	}
+	return &out
+}
+
+// Limit represents the limits of motion for a Frame. Min and Max bound where the degree of
+// freedom can go, MaxVelocity and MaxAcceleration bound how fast it can get there.
+//
+// Units follow the kind of frame: radians and radians per second for rotational frames,
+// millimeters and millimeters per second for translational ones. A nil MaxVelocity or
+// MaxAcceleration means that axis is unbounded, which is different from a limit of 0, which
+// means the degree of freedom cannot move at all.
+// The tags matter beyond serialization. Limit is a user-facing config type, the motion
+// service's input_range_override is a map of them, so these names have to match the ones a
+// joint uses in a kinematics file. Without them an operator who writes max_velocity gets it
+// dropped with no error. Tagging Min and Max is safe because the decoder already matched
+// "min" and "max" case-insensitively.
 type Limit struct {
-	Min float64
-	Max float64
+	Min             float64  `json:"min"`
+	Max             float64  `json:"max"`
+	MaxVelocity     *float64 `json:"max_velocity,omitempty"`
+	MaxAcceleration *float64 `json:"max_acceleration,omitempty"`
 }
 
 // Range gives the range of the limit.
@@ -43,7 +71,29 @@ func (l *Limit) Range() float64 {
 	return l.Max - l.Min
 }
 
+// MaxVelocityOr returns the velocity limit, or def when the limit is unbounded.
+func (l *Limit) MaxVelocityOr(def float64) float64 {
+	if l.MaxVelocity == nil {
+		return def
+	}
+	return *l.MaxVelocity
+}
+
+// MaxAccelerationOr returns the acceleration limit, or def when the limit is unbounded.
+func (l *Limit) MaxAccelerationOr(def float64) float64 {
+	if l.MaxAcceleration == nil {
+		return def
+	}
+	return *l.MaxAcceleration
+}
+
 // Hash returns a hash value for this limit.
+//
+// We deliberately leave MaxVelocity and MaxAcceleration out. The only thing keyed on frame
+// hashes is the smart seed cache in motionplan/armplanning, which stores forward kinematics
+// samples derived from the position bounds and the frame's transform, so folding in velocity
+// would only split that cache into entries holding the same thing. Revisit this once something
+// caches data that does depend on the velocity limits.
 func (l *Limit) Hash() int {
 	hash := 0
 	hash += (5 * (int(l.Min*100) + 1000)) * 2
@@ -122,12 +172,37 @@ func AreInputsValid(ls []Limit, values []float64) bool {
 	return true
 }
 
+// isUnbounded reports whether an optional limit places no bound on its axis. Infinity says the
+// same thing as nil, and marshaling collapses infinity to nil, so the two have to be treated
+// alike or a frame stops comparing equal to its own clone.
+func isUnbounded(v *float64) bool {
+	return v == nil || math.IsInf(*v, 0)
+}
+
+// optionalLimitsAlmostEqual compares two optional limits, treating unbounded as equal only to
+// unbounded.
+func optionalLimitsAlmostEqual(a, b *float64, epsilon float64) bool {
+	if isUnbounded(a) || isUnbounded(b) {
+		return isUnbounded(a) && isUnbounded(b)
+	}
+	return math.Abs(*a-*b) <= epsilon
+}
+
+// limitsAlmostEqual compares limits including velocity and acceleration. Unlike Limit.Hash, this
+// does look at the new fields, because it backs framesAlmostEqual, and a round trip that quietly
+// drops a velocity limit is exactly what those tests are meant to catch.
 func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
 	if len(limits1) != len(limits2) {
 		return false
 	}
 	for i := range limits1 {
 		if math.Abs(limits1[i].Max-limits2[i].Max) > epsilon || math.Abs(limits1[i].Min-limits2[i].Min) > epsilon {
+			return false
+		}
+		if !optionalLimitsAlmostEqual(limits1[i].MaxVelocity, limits2[i].MaxVelocity, epsilon) {
+			return false
+		}
+		if !optionalLimitsAlmostEqual(limits1[i].MaxAcceleration, limits2[i].MaxAcceleration, epsilon) {
 			return false
 		}
 	}
@@ -596,6 +671,9 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
 		Max:  finiteOrZero(pf.limits[0].Max),
 		Min:  finiteOrZero(pf.limits[0].Min),
+		// translational limits are already in mm and mm/s, so no conversion
+		MaxVelocity:     limitPtr(pf.limits[0].MaxVelocity, nil),
+		MaxAcceleration: limitPtr(pf.limits[0].MaxAcceleration, nil),
 	}
 	if pf.geometry != nil {
 		var err error
@@ -614,7 +692,12 @@ func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	pf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: cfg.Min, Max: cfg.Max}}}
+	pf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{
+		Min:             cfg.Min,
+		Max:             cfg.Max,
+		MaxVelocity:     limitPtr(cfg.MaxVelocity, nil),
+		MaxAcceleration: limitPtr(cfg.MaxAcceleration, nil),
+	}}}
 	pf.transAxis = r3.Vector(cfg.Axis).Normalize()
 	if cfg.Geometry != nil {
 		geometry, err := cfg.Geometry.ParseConfig()
@@ -693,6 +776,10 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
 		Max:  finiteOrZero(utils.RadToDeg(rf.limits[0].Max)),
 		Min:  finiteOrZero(utils.RadToDeg(rf.limits[0].Min)),
+		// rotational limits are radians internally and degrees on the wire, and the same
+		// factor converts rad/s to deg/s and rad/s² to deg/s²
+		MaxVelocity:     limitPtr(rf.limits[0].MaxVelocity, utils.RadToDeg),
+		MaxAcceleration: limitPtr(rf.limits[0].MaxAcceleration, utils.RadToDeg),
 	}
 
 	return json.Marshal(temp)
@@ -704,7 +791,12 @@ func (rf *rotationalFrame) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	rf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)}}}
+	rf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{
+		Min:             utils.DegToRad(cfg.Min),
+		Max:             utils.DegToRad(cfg.Max),
+		MaxVelocity:     limitPtr(cfg.MaxVelocity, utils.DegToRad),
+		MaxAcceleration: limitPtr(cfg.MaxAcceleration, utils.DegToRad),
+	}}}
 	rotAxis := cfg.Axis.ParseConfig()
 	rf.rotAxis = r3.Vector{X: rotAxis.RX, Y: rotAxis.RY, Z: rotAxis.RZ}
 	return nil

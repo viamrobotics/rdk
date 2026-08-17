@@ -335,10 +335,10 @@ func makeTestFS(t *testing.T) *frame.FrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryOffset, fs.World())
 
-	gantryX, err := frame.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, frame.Limit{-1000000, 100000})
+	gantryX, err := frame.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, frame.Limit{Min: -1000000, Max: 100000})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryX, gantryOffset)
-	gantryY, err := frame.NewTranslationalFrame("gantryY", r3.Vector{0, 1, 0}, frame.Limit{-100000, 100000})
+	gantryY, err := frame.NewTranslationalFrame("gantryY", r3.Vector{0, 1, 0}, frame.Limit{Min: -100000, Max: 100000})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryY, gantryX)
 
@@ -633,7 +633,7 @@ func TestPlanMapMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	model, err := frame.New2DMobileModelFrame(
 		"test",
-		[]frame.Limit{{-100, 100}, {-100, 100}, {-2 * math.Pi, 2 * math.Pi}},
+		[]frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}, {Min: -2 * math.Pi, Max: 2 * math.Pi}},
 		sphere,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -761,7 +761,7 @@ func TestValidatePlanRequest(t *testing.T) {
 
 	fs := frame.NewEmptyFrameSystem("test")
 	frame1 := frame.NewZeroStaticFrame("frame1")
-	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{-1, 1})
+	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{Min: -1, Max: 1})
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame1, fs.World())
 	test.That(t, err, test.ShouldBeNil)

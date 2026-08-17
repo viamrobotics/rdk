@@ -162,7 +162,16 @@ func ComputeAdjustLimits(seed []float64, limits []referenceframe.Limit, delta fl
 		lmin, lmax, r := limits[i].GoodLimits()
 		d := r * delta
 
-		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
+		// only the position bounds narrow, the joint's velocity and acceleration limits are
+		// properties of the hardware and carry through untouched. We share the pointers with
+		// the incoming limits rather than copying them, which we can do because these bounds
+		// are search state that lives for one solve, and this runs in the planner's inner loop.
+		newLimits = append(newLimits, referenceframe.Limit{
+			Min:             max(lmin, s-d),
+			Max:             min(lmax, s+d),
+			MaxVelocity:     limits[i].MaxVelocity,
+			MaxAcceleration: limits[i].MaxAcceleration,
+		})
 	}
 	return newLimits
 }
@@ -178,7 +187,16 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 		lmin, lmax, r := limits[i].GoodLimits()
 		d := r * deltas[i]
 
-		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
+		// only the position bounds narrow, the joint's velocity and acceleration limits are
+		// properties of the hardware and carry through untouched. We share the pointers with
+		// the incoming limits rather than copying them, which we can do because these bounds
+		// are search state that lives for one solve, and this runs in the planner's inner loop.
+		newLimits = append(newLimits, referenceframe.Limit{
+			Min:             max(lmin, s-d),
+			Max:             min(lmax, s+d),
+			MaxVelocity:     limits[i].MaxVelocity,
+			MaxAcceleration: limits[i].MaxAcceleration,
+		})
 	}
 	return newLimits
 }

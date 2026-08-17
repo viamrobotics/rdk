@@ -288,7 +288,12 @@ func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
 
 // NewModelWithLimitOverrides constructs a new model identical to base but with the specified
 // joint limits overridden. Overrides are keyed by frame name. Each override replaces the
-// first DoF limit of the matching frame.
+// position bounds of the first DoF limit of the matching frame, and replaces the velocity or
+// acceleration bounds only when the override sets them.
+//
+// The callers of this are position overrides, the motion service's input_range_override in
+// particular, so assigning the whole struct would wipe out whatever velocity limits the model
+// declared for itself.
 func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
 	newFS, err := base.internalFS.Clone()
 	if err != nil {
@@ -300,7 +305,17 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 		if frame == nil || len(frame.DoF()) == 0 {
 			return nil, fmt.Errorf("frame %q not found or has no DoF", name)
 		}
-		frame.DoF()[0] = limit
+		// copy rather than store the caller's pointers: overrides come from a long-lived
+		// service config, and every plan builds a model off it
+		merged := frame.DoF()[0]
+		merged.Min, merged.Max = limit.Min, limit.Max
+		if limit.MaxVelocity != nil {
+			merged.MaxVelocity = limitPtr(limit.MaxVelocity, nil)
+		}
+		if limit.MaxAcceleration != nil {
+			merged.MaxAcceleration = limitPtr(limit.MaxAcceleration, nil)
+		}
+		frame.DoF()[0] = merged
 	}
 
 	var m *SimpleModel
