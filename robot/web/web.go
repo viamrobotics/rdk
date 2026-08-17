@@ -160,6 +160,16 @@ func (svc *webService) unregisterAuthzStream(ss *authzServerStream) {
 	delete(svc.authzStreams, ss)
 }
 
+// seedUserPermissions installs the user_permissions authorizer without sweeping
+// active streams. It is used during web service startup, where no streams exist yet
+// and the webService mutex is already held (UpdateUserPermissions would deadlock).
+func (svc *webService) seedUserPermissions(userPerms []config.UserPermission) {
+	svc.userPermsMu.Lock()
+	defer svc.userPermsMu.Unlock()
+	svc.userPermsCfg = userPerms
+	svc.userPermsAuth.Store(newUserPermsAuthorizer(userPerms, svc.logger))
+}
+
 // UpdateUserPermissions applies a new user_permissions config to the web service
 // without restarting it. New invocations are checked against the new permissions
 // immediately; in-flight gRPC streams and WebRTC video streams whose users lost
@@ -719,7 +729,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 
 	unaryInterceptors = append(unaryInterceptors, grpc.ResourceNameTaggingUnaryServerInterceptor)
 
-	svc.UpdateUserPermissions(options.Auth.UserPermissions)
+	svc.seedUserPermissions(options.Auth.UserPermissions)
 	unaryInterceptors = append(unaryInterceptors, svc.userPermsUnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.userPermsStreamInterceptor)
 
