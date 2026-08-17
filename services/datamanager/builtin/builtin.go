@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/video"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
@@ -76,6 +77,7 @@ func init() {
 			WeakDependencies: []resource.Matcher{
 				resource.TypeMatcher{Type: resource.APITypeComponentName},
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+				resource.SubtypeMatcher{Subtype: video.SubtypeName},
 				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
 		})
