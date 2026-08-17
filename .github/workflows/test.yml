@@ -289,6 +289,9 @@ jobs:
         if: needs.check-changes.outputs.skip_module == 'true'
         run: echo "SKIP_MODULE=true" >> $GITHUB_ENV
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run go unit tests
         env:
           # The devenv images have the C++ runtime the prebuilt trajex archives
