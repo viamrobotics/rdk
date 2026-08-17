@@ -152,28 +152,12 @@ func fixLimits(numSeeds int, limits [][]referenceframe.Limit) ([][]referencefram
 
 // ComputeAdjustLimits adjusts limits by delta.
 func ComputeAdjustLimits(seed []float64, limits []referenceframe.Limit, delta float64) []referenceframe.Limit {
-	if delta <= 0 || delta >= 1 {
-		return limits
+	deltaArr := make([]float64, len(limits))
+	for idx := range deltaArr {
+		deltaArr[idx] = delta
 	}
 
-	newLimits := []referenceframe.Limit{}
-
-	for i, s := range seed {
-		lmin, lmax, r := limits[i].GoodLimits()
-		d := r * delta
-
-		// only the position bounds narrow, the joint's velocity and acceleration limits are
-		// properties of the hardware and carry through untouched. We share the pointers with
-		// the incoming limits rather than copying them, which we can do because these bounds
-		// are search state that lives for one solve, and this runs in the planner's inner loop.
-		newLimits = append(newLimits, referenceframe.Limit{
-			Min:             max(lmin, s-d),
-			Max:             min(lmax, s+d),
-			MaxVelocity:     limits[i].MaxVelocity,
-			MaxAcceleration: limits[i].MaxAcceleration,
-		})
-	}
-	return newLimits
+	return ComputeAdjustLimitsArray(seed, limits, deltaArr)
 }
 
 // ComputeAdjustLimitsArray adjusts limits by deltas for each limit
@@ -181,8 +165,8 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 	if len(limits) != len(seed) || len(deltas) != len(seed) {
 		panic(fmt.Errorf("bad args seed: %d limits: %d deltas: %d", len(seed), len(limits), len(deltas)))
 	}
-	newLimits := []referenceframe.Limit{}
 
+	newLimits := []referenceframe.Limit{}
 	for i, s := range seed {
 		lmin, lmax, r := limits[i].GoodLimits()
 		d := r * deltas[i]
@@ -191,13 +175,23 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 		// properties of the hardware and carry through untouched. We share the pointers with
 		// the incoming limits rather than copying them, which we can do because these bounds
 		// are search state that lives for one solve, and this runs in the planner's inner loop.
-		newLimits = append(newLimits, referenceframe.Limit{
+		varLimit := referenceframe.Limit{
 			Min:             max(lmin, s-d),
 			Max:             min(lmax, s+d),
 			MaxVelocity:     limits[i].MaxVelocity,
 			MaxAcceleration: limits[i].MaxAcceleration,
-		})
+		}
+		if varLimit.Min > varLimit.Max {
+			varLimit.Min = varLimit.Max - d
+		}
+
+		if varLimit.Max < varLimit.Min {
+			varLimit.Max = varLimit.Min + d
+		}
+
+		newLimits = append(newLimits, varLimit)
 	}
+
 	return newLimits
 }
 

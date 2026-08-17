@@ -29,6 +29,7 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
@@ -1632,6 +1633,10 @@ func reloadModuleActionInner(
 		buildPath = manifest.Build.Path
 	}
 
+	// destination for the module archive on the machine; empty for cloud builds
+	// and local reloads, which don't shell-copy an archive over.
+	var dest string
+
 	// For cloud builds, the machine downloads the package directly from the cloud.
 	// Skip the shell copy and go straight to configure.
 	if cloudBuild {
@@ -1675,12 +1680,39 @@ func reloadModuleActionInner(
 		if err != nil {
 			return err
 		}
-		dest := reloadingDestination(cmd, manifest)
+		// Dial once; the VIAM_HOME query and the first copy attempt share the
+		// connection. Copy retries dial fresh, since a retry usually follows a
+		// connection-level failure.
+		shellSvc, closeShellSvc, dialErr := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
+		if dialErr != nil {
+			shellSvc = nil
+		}
+		shellSvcConsumed := dialErr != nil
+		defer func() {
+			if !shellSvcConsumed {
+				goutils.UncheckedError(closeShellSvc(ctx))
+			}
+		}()
+		dest = reloadingDestination(manifest, vc.machineViamHome(ctx, cmd, shellSvc))
 
 		if err := pm.Start("upload"); err != nil {
 			return err
 		}
 		copyFunc := func() error {
+			if !shellSvcConsumed {
+				// copyFilesToMachineInner closes the connection it is handed.
+				shellSvcConsumed = true
+				return vc.copyFilesToMachineInner(
+					ctx,
+					shellSvc,
+					closeShellSvc,
+					false, // allowRecursion
+					false, // preserve
+					[]string{buildPath},
+					dest,
+					true, // noProgress
+				)
+			}
 			return vc.copyFilesToFqdn(
 				ctx,
 				part.Part.Fqdn,
@@ -1720,7 +1752,7 @@ func reloadModuleActionInner(
 	}
 	var newPart *apppb.RobotPart
 	newPart, needsRestart, err = configureModule(
-		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix())
+		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest)
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {
@@ -1783,15 +1815,12 @@ func reloadModuleActionInner(
 	return nil
 }
 
-type reloadingDestinationArgs struct {
-	Home string
-}
-
-// this chooses a destination path for the module archive.
-func reloadingDestination(cmd *cli.Command, manifest *ModuleManifest) string {
-	args := parseStructFromCtx[reloadingDestinationArgs](cmd)
-	return filepath.Join(args.Home,
-		".viam", config.PackagesDirName+config.LocalPackagesSuffix,
+// this chooses a destination path for the module archive under the machine's
+// VIAM_HOME (see machineViamHome). Uses path (not filepath) so a Windows CLI
+// never sends backslashes to the machine.
+func reloadingDestination(manifest *ModuleManifest, viamHome string) string {
+	return path.Join(viamHome,
+		config.PackagesDirName+config.LocalPackagesSuffix,
 		utils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
 }
 
@@ -1951,7 +1980,10 @@ func restartModule(
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(ctx, part.Fqdn, logger, client.WithDialOptions(creds))
+	robotClient, err := client.New(ctx, part.Fqdn, logger,
+		client.WithDialOptions(creds),
+		client.WithoutRPCSubtypes(),
+	)
 	if err != nil {
 		return err
 	}

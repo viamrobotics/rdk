@@ -892,6 +892,45 @@ func TestClientRefresh(t *testing.T) {
 	})
 }
 
+// TestClientWithoutInitialRefresh covers RSDK-14365: a machine that can be reached but
+// whose resources can't be enumerated is still usable by callers that don't need them.
+func TestClientWithoutInitialRefresh(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, &mockRPCSubtypesImplemented{
+		ResourceNamesFunc: func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+			return nil, context.Canceled
+		},
+	})
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	// no background refresh/reconnect, so ResourceNames is only called when we ask for it
+	opts := []RobotClientOption{WithRefreshEvery(0), WithCheckConnectedEvery(0)}
+
+	_, err = New(context.Background(), listener.Addr().String(), logger, opts...)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error updating resources")
+
+	client, err := New(context.Background(), listener.Addr().String(), logger,
+		append(opts, WithoutInitialRefresh())...)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// resources are unknown, but the robot service itself is reachable
+	test.That(t, client.ResourceNames(), test.ShouldBeEmpty)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("arm1")))
+	mStatus, err := client.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.State, test.ShouldEqual, robot.StateRunning)
+}
+
 func TestClientDisconnect(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -2587,4 +2626,31 @@ func TestUploadDataFromPath(t *testing.T) {
 	test.That(t, capturedPath, test.ShouldEqual, "/data/foo")
 	test.That(t, capturedMD.GetTags(), test.ShouldResemble, []string{"tag1"})
 	test.That(t, capturedExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+}
+
+func TestDialUnreachableErr(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"deadline exceeded", context.DeadlineExceeded, true},
+		{"no mDNS candidates", rpc.ErrMDNSNoCandidatesFound, true},
+		{"both", multierr.Combine(context.DeadlineExceeded, rpc.ErrMDNSNoCandidatesFound), true},
+		{"wrapped", fmt.Errorf("dialing: %w", context.DeadlineExceeded), true},
+		{"unrelated", errors.New("connection refused"), false},
+		{"canceled", context.Canceled, false},
+		{"nil", nil, false},
+		// goutils folds the mDNS failure into every bare-domain dial error, so an informative
+		// failure always arrives alongside it and must not be read as unreachable.
+		{
+			"informative alongside mDNS",
+			multierr.Combine(rpc.ErrInsecureWithCredentials, rpc.ErrMDNSNoCandidatesFound),
+			false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, dialUnreachableErr(tc.err), test.ShouldEqual, tc.expected)
+		})
+	}
 }

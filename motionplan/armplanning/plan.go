@@ -87,6 +87,34 @@ func (p *PlanState) ComputePoses(ctx context.Context, fs *referenceframe.FrameSy
 	return p.structuredConfiguration.ComputePoses(fs)
 }
 
+// FilteredPoses gives the result of `ComputePoses` but filtered to onle include frames that were
+// explicitly mentioned.
+func (p *PlanState) FilteredPoses(ctx context.Context, fs *referenceframe.FrameSystem) (
+	referenceframe.FrameSystemPoses, error,
+) {
+	allFramePoses, err := p.ComputePoses(ctx, fs)
+	if err != nil {
+		return nil, err
+	}
+
+	allRequestedFrames := make(map[string]struct{})
+	for frameName := range p.poses {
+		allRequestedFrames[frameName] = struct{}{}
+	}
+	for frameName := range p.structuredConfiguration {
+		allRequestedFrames[frameName] = struct{}{}
+	}
+
+	ret := make(referenceframe.FrameSystemPoses)
+	for frameName, pose := range allFramePoses {
+		if _, exists := allRequestedFrames[frameName]; exists {
+			ret[frameName] = pose
+		}
+	}
+
+	return ret, nil
+}
+
 // Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.
 func (p PlanState) Serialize() map[string]interface{} {
 	m := map[string]interface{}{}

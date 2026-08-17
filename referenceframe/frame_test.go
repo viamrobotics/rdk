@@ -67,12 +67,6 @@ func TestPrismaticFrame(t *testing.T) {
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// if you try to move beyond set limits, should get an error
-	overLimit := 50.0
-	input = []Input{overLimit}
-	_, err = frame.Transform(input)
-	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
-
 	// gets the correct limits back
 	frameLimits := frame.DoF()
 	test.That(t, frameLimits[0], test.ShouldResemble, limit)
@@ -107,11 +101,7 @@ func TestRevoluteFrame(t *testing.T) {
 	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
-	// if you try to move beyond set limits, should get an error
-	overLimit := 100.0 // degrees
-	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{overLimit}})
-	_, err = frame.Transform(input)
-	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
+
 	// gets the correct limits back
 	limit := frame.DoF()
 	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}

@@ -75,6 +75,9 @@ const (
 	logoMaxSize = 1024 * 200 // 200 KB
 	// defaultLogStartTime is set to the last 24 hours.
 	defaultLogStartTime = -24 * time.Hour
+	// logOrderAscending and logOrderDescending are the accepted values of the `--order` flag.
+	logOrderAscending  = "asc"
+	logOrderDescending = "desc"
 	// yellow is the format string used to output warnings in yellow color.
 	yellow = "\033[1;33m%s\033[0m"
 )
@@ -106,6 +109,39 @@ func legacyViamHomePath(src string) (string, bool) {
 	// \ as path separators, and we don't want a cli running on Windows to send
 	// a path using \ to a *NIX machine.
 	return path.Join(legacyViamHomeDir, rest), true
+}
+
+type machineViamHomeArgs struct {
+	Home string
+}
+
+// machineViamHome resolves the target machine's VIAM_HOME directory: the --home
+// override if set, otherwise the machine's own answer over shellSvc, otherwise
+// the legacy default for machines too old to answer. Pass a nil shellSvc when
+// the machine could not be dialed.
+func (c *viamClient) machineViamHome(ctx context.Context, cmd *cli.Command, shellSvc shell.Service) string {
+	if args := parseStructFromCtx[machineViamHomeArgs](cmd); args.Home != "" {
+		// Intentional use of path instead of filepath: Windows understands both / and
+		// \ as path separators, and we don't want a cli running on Windows to send
+		// a path using \ to a *NIX machine.
+		return path.Join(args.Home, ".viam")
+	}
+	err := errors.New("machine could not be reached")
+	if shellSvc != nil {
+		var resp map[string]interface{}
+		if resp, err = shellSvc.DoCommand(ctx, map[string]interface{}{shell.GetViamHomeCommand: true}); err == nil {
+			if home, ok := resp[shell.ViamHomeKey].(string); ok && home != "" {
+				return home
+			}
+			err = fmt.Errorf("unexpected response %v", resp)
+		}
+	}
+	// A wrong guess here puts the archive and reload_path outside the machine's real
+	// VIAM_HOME, so surface the fallback instead of hiding it behind --debug.
+	warningf(cmd.Root().ErrWriter,
+		"machine did not report its VIAM_HOME (%v); assuming %s. Pass --home if that is wrong for this machine",
+		err, legacyViamHomeDir)
+	return legacyViamHomeDir
 }
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
@@ -1068,6 +1104,8 @@ type robotsLogsArgs struct {
 	Levels       []string
 	Start        string
 	End          string
+	Range        string
+	Order        string
 	Count        int
 }
 
@@ -1086,16 +1124,14 @@ func (c *viamClient) robotsLogsAction(ctx context.Context, cmd *cli.Command, arg
 		return errors.Errorf("%q cannot be negative", generalFlagCount)
 	}
 
-	// Check if both start time and count are provided
-	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
-	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
-	if args.Start != "" && args.Count > 0 && args.End == "" {
-		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
-			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
-			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
-			"rather than the 10 logs closest to the start time. " +
-			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
-		)
+	// `--range` is validated by app, but `--order` is an enum on the wire, so an unrecognized
+	// value has to be caught here. Do it up front so we fail before writing any logs.
+	if _, err := logOrderFromArg(args.Order); err != nil {
+		return err
+	}
+
+	if args.Range != "" && args.Start != "" && args.End != "" {
+		return errors.Errorf("cannot use --%s together with both --%s and --%s", logsFlagRange, generalFlagStart, generalFlagEnd)
 	}
 
 	orgStr := args.Organization
@@ -1161,9 +1197,27 @@ func (c *viamClient) fetchAndSaveLogs(
 	return nil
 }
 
+// logOrderFromArg maps the `--order` flag onto its proto enum. An empty value is left unset, so app
+// applies its own default of newest logs first.
+func logOrderFromArg(order string) (*apppb.LogOrder, error) {
+	switch order {
+	case "":
+		return nil, nil
+	case logOrderAscending:
+		return apppb.LogOrder_LOG_ORDER_ASCENDING.Enum(), nil
+	case logOrderDescending:
+		return apppb.LogOrder_LOG_ORDER_DESCENDING.Enum(), nil
+	default:
+		return nil, errors.Errorf("invalid %q value %q: must be one of %q or %q",
+			logsFlagOrder, order, logOrderAscending, logOrderDescending)
+	}
+}
+
 // streamLogsForPart streams logs for a specific part directly to a file.
 func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
-	if args.Start == "" {
+	// `--range` resolves against whichever of start and end is present, so defaulting start here
+	// would silently pin the window to the last 24 hours and make `--range` a no-op.
+	if args.Start == "" && args.Range == "" {
 		args.Start = time.Now().Add(defaultLogStartTime).UTC().Format(time.RFC3339)
 	}
 
@@ -1174,6 +1228,16 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 	endTime, err := parseTimeString(args.End)
 	if err != nil {
 		return errors.Wrap(err, "invalid end time format")
+	}
+	order, err := logOrderFromArg(args.Order)
+	if err != nil {
+		return err
+	}
+
+	// A nil `Range` leaves the field unset, rather than sending an empty string app would reject.
+	var logRange *string
+	if args.Range != "" {
+		logRange = &args.Range
 	}
 
 	keyword := &args.Keyword
@@ -1192,6 +1256,8 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 			Levels:    args.Levels,
 			Start:     startTime,
 			End:       endTime,
+			Range:     logRange,
+			Order:     order,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
@@ -4028,7 +4094,9 @@ func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPa
 }
 
 // connectToMachineDirectly dials a machine at an explicit address without contacting app.viam.com,
-// authenticating with the machine api-key in args.
+// authenticating with the machine api-key in args. Skips resource enumeration entirely - initial
+// refresh, periodic refresh and connection check: the sole caller tunnels, which needs nothing
+// but the robot service.
 func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) (*client.RobotClient, error) {
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
@@ -4054,7 +4122,13 @@ func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robots
 		return nil, err
 	}
 
-	robotClient, err := client.New(ctx, args.Address, logger, client.WithDialOptions(rpcOpts...))
+	robotClient, err := client.New(ctx, args.Address, logger,
+		client.WithDialOptions(rpcOpts...),
+		client.WithoutRPCSubtypes(),
+		client.WithoutInitialRefresh(),
+		client.WithRefreshEvery(0),
+		client.WithCheckConnectedEvery(0),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
 	}
@@ -4125,7 +4199,12 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 		return err
 	}
 
-	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	// Tunneling needs only the robot service, so skip the initial refresh - and the connection
+	// check, which probes ResourceNames and would tear an open tunnel down.
+	// ensureTunnelPortAllowed reconnects on its own when it needs to.
+	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger,
+		client.WithoutInitialRefresh(), client.WithCheckConnectedEvery(0),
+	)
 	if err != nil {
 		return err
 	}
@@ -5610,6 +5689,7 @@ func (c *viamClient) connectToRobot(
 	rpcOpts []rpc.DialOption,
 	debug bool,
 	logger logging.Logger,
+	extraOpts ...client.RobotClientOption,
 ) (*client.RobotClient, error) {
 	if debug {
 		printf(c.c.Root().Writer, "Establishing connection...")
@@ -5623,8 +5703,18 @@ func (c *viamClient) connectToRobot(
 	}
 	clientOpts := []client.RobotClientOption{
 		client.WithDialOptions(rpcOpts...),
-		client.WithCheckConnectedEvery(globalArgs.CheckConnectedEvery),
+		client.WithCheckConnectedEvery(globalArgs.CheckConnectionInterval),
+		// The default retries immediately with no backoff, multiplying the wait when the machine
+		// is offline - the common failure here. One attempt keeps the command responsive.
+		client.WithInitialDialAttempts(1),
+		// CLI commands read the resource list once after connecting and never re-read it, so a
+		// periodic refresh is pure churn - and error noise when enumeration is what's failing.
+		client.WithRefreshEvery(0),
+		// the CLI only uses compiled-in APIs, so the descriptors cost a connection and buy
+		// nothing
+		client.WithoutRPCSubtypes(),
 	}
+	clientOpts = append(clientOpts, extraOpts...)
 	robotClient, err := client.New(dialCtx, fqdn, logger, clientOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")

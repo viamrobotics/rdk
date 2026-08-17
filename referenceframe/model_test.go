@@ -18,19 +18,13 @@ func TestModelLoading(t *testing.T) {
 	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "xArm6")
+	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
+
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
-
 	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, err, test.ShouldBeNil)
-	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
-	test.That(t, err, test.ShouldNotBeNil)
-
-	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
-	orig[5] += math.Pi * 2
-	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.validInputs(randpos), test.ShouldBeNil)

@@ -1,0 +1,49 @@
+name: Verify Published Manifests
+
+# On-demand sweep of manifests already in the bucket. The post-publish check in
+# staticbuild-deploy.yml only sees what its own run published; this covers
+# history, prereleases, and anything written outside CI.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Single version to check, e.g. v1.1.0. Overrides count."
+        required: false
+        type: string
+      count:
+        description: "Check the N most recently written manifests. 0 checks every one."
+        required: false
+        default: '20'
+        type: string
+      include_prerelease:
+        description: "Include -dev./-rc manifests in a count sweep."
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    # A full sweep downloads every binary it checks; the default count of 20 is
+    # a few minutes, count=0 is considerably more.
+    timeout-minutes: 120
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    # Reads published objects anonymously, so this job needs no GCP credentials.
+    - name: Verify
+      run: |
+        args=()
+        if [ -n "${{ inputs.version }}" ]; then
+          args+=(--version "${{ inputs.version }}")
+        else
+          args+=(--count "${{ inputs.count }}")
+          if [ "${{ inputs.include_prerelease }}" = "true" ]; then
+            args+=(--include-prerelease)
+          fi
+        fi
+        ./etc/verify-manifests.sh "${args[@]}"

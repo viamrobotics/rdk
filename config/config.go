@@ -263,7 +263,22 @@ func (c *Config) StoreToCache() error {
 	}
 	reader := bytes.NewReader(c.toCache)
 	path := getCloudCacheFilePath(c.Cloud.ID)
-	return artifact.AtomicStore(path, reader, c.Cloud.ID)
+
+	// New cache files are created with permissions 0o600, but overwriting preserves any
+	// existing permissions. A user may relax the cached config's permissions (e.g. to
+	// 0o666) to allow alternating viam-server runs between root and non-root users.
+	var existingInfo os.FileInfo
+	if info, err := os.Stat(path); err == nil {
+		existingInfo = info
+	}
+
+	if err := artifact.AtomicStore(path, reader, c.Cloud.ID); err != nil {
+		return err
+	}
+	if existingInfo != nil && existingInfo.Mode().Perm() != 0o600 {
+		return os.Chmod(path, existingInfo.Mode().Perm())
+	}
+	return nil
 }
 
 // UnmarshalJSON unmarshals JSON into the config and adjusts some

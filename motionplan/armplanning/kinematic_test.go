@@ -74,11 +74,6 @@ func TestForwardKinematics(t *testing.T) {
 		&spatial.OrientationVectorDegrees{Theta: 90, OX: 0, OY: 0, OZ: -1},
 	)
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
-
-	// Test out of bounds
-	newPos = &pb.JointPositions{Values: []float64{-45, 0, 0, 0, 0, 999}}
-	_, err = m.Transform(m.InputFromProtobuf(newPos))
-	test.That(t, err, test.ShouldNotBeNil)
 }
 
 // Test dynamic frame systems

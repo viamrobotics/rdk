@@ -5,6 +5,14 @@ run:
   deadline: 900s
   modules-download-mode: readonly
   tests: true
+  # Lint code that is otherwise excluded by this build constraint. This works
+  # even on machines that cannot build the constrained code: type-checking
+  # compiles cgo packages against their C headers but never invokes the
+  # linker, which is the only step that reads prebuilt library archives and
+  # requires a C++ runtime compatible with them. Note that the inverse-tagged
+  # stub code does not get linted.
+  build-tags:
+    - viam_rdk_cgo_have_cxx20_rt
 linters:
   enable-all: true
   disable:

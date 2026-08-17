@@ -34,6 +34,10 @@ type IKInspectCell struct {
 	// explains why.
 	CheckPathOK    bool
 	CheckPathError error
+
+	// LastGoodInputs is the last interpolated configuration along the start→solution path before
+	// CheckPathError's problem was hit. Only set when CheckPathOK is false.
+	LastGoodInputs *referenceframe.LinearInputs
 }
 
 type IKInspectTable struct {
@@ -130,6 +134,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 					StateError:     finalStateErr,
 					CheckPathOK:    pathError == nil,
 					CheckPathError: pathError,
+					LastGoodInputs: pathFeedback.LastGoodInputs,
 				})
 			}
 		}

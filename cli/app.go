@@ -38,6 +38,8 @@ const (
 	logsFlagLevels     = "levels"
 	logsFlagErrors     = "errors"
 	logsFlagTail       = "tail"
+	logsFlagRange      = "range"
+	logsFlagOrder      = "order"
 
 	runFlagData      = "data"
 	runFlagStream    = "stream"
@@ -330,13 +332,13 @@ var dataTagByFilterFlags = append([]cli.Flag{
 type emptyArgs struct{}
 
 type globalArgs struct {
-	BaseURL             string
-	Config              string
-	Debug               bool
-	Quiet               bool
-	Profile             string
-	DisableProfiles     bool
-	CheckConnectedEvery time.Duration
+	BaseURL                 string
+	Config                  string
+	Debug                   bool
+	Quiet                   bool
+	Profile                 string
+	DisableProfiles         bool
+	CheckConnectionInterval time.Duration
 }
 
 func (ga *globalArgs) createLogger() logging.Logger {
@@ -2726,11 +2728,28 @@ Note: There is no progress meter while copying is in progress.
 						&cli.StringFlag{
 							Name:        generalFlagStart,
 							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-							DefaultText: "24 hours ago",
+							DefaultText: "24 hours ago, unless --" + logsFlagRange + " is set",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
 							Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter (e.g., 2025-01-15T15:00:00Z)",
+						},
+						&cli.StringFlag{
+							Name: logsFlagRange,
+							Usage: "duration string in minutes, hours, or days (e.g. 10m, 10h, 10d) that is resolved against whichever " +
+								"of --" + generalFlagStart + " and --" + generalFlagEnd + " is present: with only --" + generalFlagEnd +
+								", [end - range, end]; with only --" + generalFlagStart + ", [start, start + range]; with neither, " +
+								"[now - range, now]. specifying --" + logsFlagRange + " together with both --" + generalFlagStart +
+								" and --" + generalFlagEnd + " is an error",
+						},
+						&cli.StringFlag{
+							Name: logsFlagOrder,
+							Usage: formatAcceptedValues(
+								"order in which logs are returned, by time: "+logOrderAscending+" is oldest logs first, "+
+									logOrderDescending+" is newest logs first",
+								logOrderAscending, logOrderDescending,
+							),
+							DefaultText: logOrderDescending,
 						},
 						&cli.IntFlag{
 							Name:        generalFlagCount,
@@ -4111,9 +4130,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "hide progress of the file transfer",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagHomeDir,
-							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
-							Value: "~",
+							Name:        moduleFlagHomeDir,
+							Usage:       "remote machine home directory under which <home>/.viam is used as the module destination",
+							DefaultText: "the machine is asked for its VIAM_HOME",
 						},
 						&cli.StringFlag{
 							Name:      moduleBuildFlagCloudConfig,

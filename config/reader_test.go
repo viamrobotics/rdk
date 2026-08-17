@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -405,6 +406,43 @@ func TestReadFromCloudMarksUnprocessableConfigMalformed(t *testing.T) {
 	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
 	test.That(t, cfg, test.ShouldBeNil)
+}
+
+func TestStoreToCachePreservesPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file permission bits are not meaningful on Windows")
+	}
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	const cacheID = "forCachingPermsTest"
+	cfgToCache := &Config{Cloud: &Cloud{ID: cacheID}}
+	cfgToCache.SetToCache(cfg)
+	path := getCloudCacheFilePath(cacheID)
+	clearCache(cacheID)
+	defer clearCache(cacheID)
+
+	// fresh cache files are created with permissions 0o600
+	test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+	info, err := os.Stat(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Mode().Perm(), test.ShouldEqual, os.FileMode(0o600))
+
+	// overwriting a cache file whose permissions were relaxed preserves them
+	test.That(t, os.Chmod(path, 0o666), test.ShouldBeNil)
+	test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+	info, err = os.Stat(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Mode().Perm(), test.ShouldEqual, os.FileMode(0o666))
+
+	// overwriting a cache file with default permissions keeps 0o600
+	test.That(t, os.Chmod(path, 0o600), test.ShouldBeNil)
+	test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+	info, err = os.Stat(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Mode().Perm(), test.ShouldEqual, os.FileMode(0o600))
 }
 
 func TestStoreToCache(t *testing.T) {

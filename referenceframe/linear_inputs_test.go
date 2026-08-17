@@ -85,11 +85,6 @@ func TestLinearInputsLimits(t *testing.T) {
 	test.That(t, fmt.Sprintf("%v", spatial.Pose(&dq)), test.ShouldResemble,
 		"{X:0.000000 Y:0.000000 Z:0.000000 OX:0.000000 OY:0.141120 OZ:-0.989992 Theta:-90.000000°}")
 
-	// Change inputs to be out of bounds. Assert transforming fails.
-	li.Put("arm", []Input{-15, 5})
-	dq, err = fs.TransformToDQ(li, "arm", "world")
-	test.That(t, err, test.ShouldNotBeNil)
-
 	// Testing the internal state. We have not called `GetSchema`, hence we expect the limits to be
 	// all nil.
 	for _, meta := range li.schema.metas {

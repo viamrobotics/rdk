@@ -73,8 +73,13 @@ var (
 	// context.Canceled.
 	errRobotClientClosed = errors.New("robot client is closed")
 
-	// defaultResourcesTimeout is the default timeout for getting resources.
+	// defaultResourcesTimeout is the default timeout for each call made while getting
+	// resources, applied per call rather than across the set.
 	defaultResourcesTimeout = 5 * time.Second
+
+	// localFallbackDialTimeout bounds the direct gRPC dial attempted after a WebRTC dial fails with
+	// NotFound. It covers an mDNS lookup (up to a second per candidate) as well as the dial itself.
+	localFallbackDialTimeout = 8 * time.Second
 
 	// latencyPingNum controls the amount of times a gRPC request will be sent to the server
 	// to measure the latency of the connection. The latency is only measured in case
@@ -113,6 +118,8 @@ type RobotClient struct {
 	refClient                *grpcreflect.Client
 	connected                atomic.Bool
 	rpcSubtypesUnimplemented bool
+	withoutRPCSubtypes       bool
+	resourcesTimeout         time.Duration
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
@@ -322,6 +329,11 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		sessionsDisabled:    rOpts.disableSessions,
 		heartbeatCtx:        heartbeatCtx,
 		heartbeatCtxCancel:  heartbeatCtxCancel,
+		withoutRPCSubtypes:  rOpts.withoutRPCSubtypes,
+		resourcesTimeout:    defaultResourcesTimeout,
+	}
+	if rOpts.resourcesTimeout != nil && *rOpts.resourcesTimeout > 0 {
+		rc.resourcesTimeout = *rOpts.resourcesTimeout
 	}
 
 	otelStatsHandler := otelgrpc.NewClientHandler(
@@ -445,8 +457,10 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	// refresh once to hydrate the robot.
-	if err := rc.Refresh(ctx); err != nil {
-		return nil, multierr.Combine(err, rc.conn.Close())
+	if !rOpts.skipInitialRefresh {
+		if err := rc.Refresh(ctx); err != nil {
+			return nil, multierr.Combine(err, rc.conn.Close())
+		}
 	}
 
 	var refreshTime time.Duration
@@ -537,6 +551,23 @@ func (rc *RobotClient) Connect(ctx context.Context) error {
 	return nil
 }
 
+// dialUnreachableErr reports whether a direct gRPC dial failed only because the machine could not
+// be reached - it timed out, or mDNS turned up no candidate. Which one comes back depends on
+// whether mDNS ran, so either alone qualifies; any other error in the chain is one the caller
+// needs to see.
+func dialUnreachableErr(err error) bool {
+	errs := multierr.Errors(err)
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if !errors.Is(e, context.DeadlineExceeded) && !errors.Is(e, rpc.ErrMDNSNoCandidatesFound) {
+			return false
+		}
+	}
+	return true
+}
+
 func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
@@ -577,35 +608,36 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		// we add this flag to partially override the above override.
 		dialOptionsGRPCOnly[1] = rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: false})
 
-		grpcConn, grpcErr := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsGRPCOnly...)
+		// A NotFound from the WebRTC dial means signaling is reachable but the machine is not
+		// registered with it, leaving only a local route - and a local dial that works, works fast.
+		// Past that, the dial is just retrying an unreachable address until the default deadline.
+		grpcCtx := ctx
+		if status.Code(err) == codes.NotFound {
+			var cancel context.CancelFunc
+			grpcCtx, cancel = context.WithTimeout(ctx, localFallbackDialTimeout)
+			defer cancel()
+		}
+
+		grpcConn, grpcErr := grpc.Dial(grpcCtx, rc.address, dialLogger, dialOptionsGRPCOnly...)
 		if grpcErr == nil {
 			conn = grpcConn
 			err = nil
 		} else {
-			// A NotFound error from the WebRTC dial means that the client is able to reach
-			// the signaling server but the machine is not. If the machine is running viam-server but not connected to the signaling server,
-			// it is expected to only be available to clients on the same network. If the errors returned from grpc dials are timeouts or mDNS
-			// failing to find a candidate, it implies that the machine is not connected to the same network the client is.
-			// In that case, filtering out the errors from grpc dials should reduce noise and give clients a clearer idea of what to do next.
-			if statusErr := status.Convert(err); statusErr != nil &&
-				statusErr.Code() == codes.NotFound &&
-				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) &&
-				errors.Is(grpcErr, context.DeadlineExceeded) {
+			switch {
+			// Signaling is reachable but the machine is not registered with it, and it is not on
+			// our network either. The WebRTC error already says the machine is offline; the dial
+			// error only adds noise.
+			case status.Code(err) == codes.NotFound && dialUnreachableErr(grpcErr):
 				return err
-			}
-			// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
-			// the signaling server, which likely means that the client is offline. In that case, if the errors returned from
-			// grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet
-			// connection and that the machine is on. This should be more helpful than simply returning a chain of context.DeadlineExceeded
-			// and candidate not found errors.
-			const connTimeoutURL = "https://docs.viam.com/dev/tools/common-errors/#conn-time-out"
-			if errors.Is(err, context.DeadlineExceeded) &&
-				errors.Is(grpcErr, context.DeadlineExceeded) &&
-				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) {
+			// Signaling was not reachable at all, so the client itself is likely offline. Say so
+			// rather than returning a chain of timeouts.
+			case errors.Is(err, context.DeadlineExceeded) && dialUnreachableErr(grpcErr):
+				const connTimeoutURL = "https://docs.viam.com/monitor/common-errors/#conn-time-out"
 				return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, " +
 					"and try again. see " + connTimeoutURL + " for troubleshooting steps")
+			default:
+				err = multierr.Combine(err, grpcErr)
 			}
-			err = multierr.Combine(err, grpcErr)
 		}
 	}
 	if err != nil {
@@ -849,73 +881,75 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	return apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger)
 }
 
-func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
-	// RSDK-5356 If we are in a testing environment, never apply
-	// defaultResourcesTimeout. Tests run in parallel, and if execution of a test
-	// pauses for longer than 5s, below calls to ResourceNames or
-	// ResourceRPCSubtypes can result in context errors that appear in client.New
-	// and remote logic.
-	if !testing.Testing() {
-		var cancel func()
-		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
-		defer cancel()
+// resourcesCallCtx bounds one call, so a slow call cannot eat the time the next one needs.
+//
+// RSDK-5356: never bound in tests. They run in parallel, and a pause longer than the
+// timeout surfaces context errors out of client.New and remote logic.
+func (rc *RobotClient) resourcesCallCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	if testing.Testing() {
+		return ctx, func() {}
 	}
+	return contextutils.ContextWithTimeoutIfNoDeadline(ctx, rc.resourcesTimeout)
+}
 
-	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
+func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
+	namesCtx, cancel := rc.resourcesCallCtx(ctx)
+	resp, err := rc.client.ResourceNames(namesCtx, &pb.ResourceNamesRequest{})
+	cancel()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var resTypes []resource.RPCAPI
-
 	resources := make([]resource.Name, 0, len(resp.Resources))
 	for _, name := range resp.Resources {
-		newName := rprotoutils.ResourceNameFromProto(name)
-		resources = append(resources, newName)
+		resources = append(resources, rprotoutils.ResourceNameFromProto(name))
 	}
 
-	// resource has previously returned an unimplemented response, skip rpc call
-	if rc.rpcSubtypesUnimplemented {
-		return resources, resTypes, nil
+	// Descriptors are only needed to invoke APIs not compiled into this binary; createClient
+	// builds everything else from the local registry.
+	if rc.withoutRPCSubtypes || rc.rpcSubtypesUnimplemented {
+		return resources, nil, nil
 	}
 
-	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
-	if err == nil {
-		reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
-
-		resTypes = make([]resource.RPCAPI, 0, len(typesResp.ResourceRpcSubtypes))
-		for _, resAPI := range typesResp.ResourceRpcSubtypes {
-			symDesc, err := reflSource.FindSymbol(resAPI.ProtoService)
-			if err != nil {
-				// Note: This happens right now if a client is talking to a main server
-				// that has a remote or similarly if a server is talking to a remote that
-				// has a remote. This can be solved by either integrating reflection into
-				// robot.proto or by overriding the gRPC reflection service to return
-				// reflection results from its remotes.
-				rc.Logger().
-					CDebugw(
-						ctx,
-						"failed to find symbol for resource API",
-						"api", rprotoutils.ResourceNameFromProto(resAPI.Subtype).API.String(),
-						"error", err,
-					)
-				continue
-			}
-			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
-			if !ok {
-				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
-			}
-			resTypes = append(resTypes, resource.RPCAPI{
-				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
-				Desc: svcDesc,
-			})
-		}
-	} else {
+	subtypesCtx, cancel := rc.resourcesCallCtx(ctx)
+	typesResp, err := rc.client.ResourceRPCSubtypes(subtypesCtx, &pb.ResourceRPCSubtypesRequest{})
+	cancel()
+	if err != nil {
 		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
 			return nil, nil, err
 		}
 		// prevent future calls to ResourceRPCSubtypes
 		rc.rpcSubtypesUnimplemented = true
+		return resources, nil, nil
+	}
+
+	reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
+	resTypes := make([]resource.RPCAPI, 0, len(typesResp.ResourceRpcSubtypes))
+	for _, resAPI := range typesResp.ResourceRpcSubtypes {
+		symDesc, err := reflSource.FindSymbol(resAPI.ProtoService)
+		if err != nil {
+			// Note: This happens right now if a client is talking to a main server
+			// that has a remote or similarly if a server is talking to a remote that
+			// has a remote. This can be solved by either integrating reflection into
+			// robot.proto or by overriding the gRPC reflection service to return
+			// reflection results from its remotes.
+			rc.Logger().
+				CDebugw(
+					ctx,
+					"failed to find symbol for resource API",
+					"api", rprotoutils.ResourceNameFromProto(resAPI.Subtype).API.String(),
+					"error", err,
+				)
+			continue
+		}
+		svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
+		if !ok {
+			return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+		}
+		resTypes = append(resTypes, resource.RPCAPI{
+			API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
+			Desc: svcDesc,
+		})
 	}
 
 	return resources, resTypes, nil
@@ -1161,6 +1195,8 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 
 // CurrentInputs returns a map of the current inputs for each component of a machine's frame system
 // and a map of statuses indicating which of the machine's components may be actuated through input values.
+// Diverges from server-side impl at robot/framesystem/framesystem.go CurrentInputs.
+// See https://viam.atlassian.net/browse/RSDK-14393.
 func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	input := make(referenceframe.FrameSystemInputs)
 	for _, name := range rc.ResourceNames() {

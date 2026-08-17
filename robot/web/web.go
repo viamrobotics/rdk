@@ -816,11 +816,18 @@ func (svc *webService) initMux(options weboptions.Options) *goji.Mux {
 	// registered when the web profile option is enabled (via the `enable_web_profile`
 	// config field or the `--webprofile` command line flag).
 	if options.Pprof {
-		mux.HandleFunc(pat.New("/debug/pprof/"), pprof.Index)
+		mux.HandleFunc(pat.New("/debug/pprof"), func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/debug/pprof/", http.StatusMovedPermanently)
+		})
 		mux.HandleFunc(pat.New("/debug/pprof/cmdline"), pprof.Cmdline)
 		mux.HandleFunc(pat.New("/debug/pprof/profile"), pprof.Profile)
 		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
 		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
+		// pprof.Index serves both the profile listing and the named profiles (goroutine,
+		// heap, ...) that it parses out of the request path, so it must be registered with
+		// a wildcard. Routes are matched in registration order, so it goes after the
+		// handlers above, which pprof.Index does not know how to serve.
+		mux.HandleFunc(pat.New("/debug/pprof/*"), pprof.Index)
 
 		// serve resource graph visualization
 		// TODO: accept params to display different formats

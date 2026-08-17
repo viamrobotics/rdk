@@ -23,6 +23,14 @@ func init() {
 	}, newDoCommandCollector)
 }
 
+const (
+	// GetViamHomeCommand is the DoCommand key clients send to ask for the machine's
+	// VIAM_HOME directory, which only the machine itself can resolve (see ViamHomePrefix).
+	GetViamHomeCommand = "get_viam_home"
+	// ViamHomeKey is the DoCommand response key holding the machine's VIAM_HOME directory.
+	ViamHomeKey = "viam_home"
+)
+
 // A Service handles shells for a local robot.
 type Service interface {
 	resource.Resource

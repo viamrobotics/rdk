@@ -12,7 +12,7 @@ var (
 
 func init() {
 	resource.Register{{ .Module.ResourceTypePascal}}({{.Module.ResourceSubtypeAlias}}.API, {{.Module.ModelPascal}},
-		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, *{{.ConfigType}}]{
+		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, {{.ConfigType}}]{
 			Constructor: new{{.Module.ModulePascal}}{{.Module.ModelPascal}},
 		},
 	)
@@ -30,7 +30,7 @@ type {{.ConfigType}} struct {
 			MinDeg *float64 `json:"min_angle_deg,omitempty"`
 		}
 
-	If your model does not need a config, replace *{{.ConfigType}} in the init
+	If your model does not need a config, replace {{.ConfigType}} in the init
 	function with resource.NoNativeConfig
 	*/
 }
@@ -45,7 +45,11 @@ type {{.ConfigType}} struct {
 // where this resource appears in the machine's JSON configuration
 // (for example, "components.0"). You can use it in error messages
 // to indicate which resource has a problem.
-func (cfg *{{.ConfigType}}) Validate(path string) ([]string, []string, error) {
+//
+// Note: Validate receives a copy of the config; mutations to it will do
+// nothing. Fill in any default values in your resource's constructor function
+// instead.
+func (cfg {{.ConfigType}}) Validate(path string) ([]string, []string, error) {
 	// Add config validation code here
 	 return nil, nil, nil
 }
@@ -57,14 +61,14 @@ type {{.ModelType}} struct {
 	name   resource.Name
 
 	logger logging.Logger
-	cfg    *{{.ConfigType}}
+	cfg    {{.ConfigType}}
 
 	cancelCtx  context.Context
 	cancelFunc func()
 }
 
 func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
-	conf, err := resource.NativeConfig[*{{.ConfigType}}](rawConf)
+	conf, err := resource.NativeConfig[{{.ConfigType}}](rawConf)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +77,7 @@ func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, dep
 
 }
 
-func New{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *{{.ConfigType}}, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+func New{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf {{.ConfigType}}, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 

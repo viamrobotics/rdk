@@ -13,14 +13,14 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
-// OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
+// OOBErrString is no longer used. But the constant continues to exist as other programs may be
+// referencing it for error checking.
 const OOBErrString = "input out of bounds"
 
 // finiteOrZero returns v when finite, or 0 otherwise. Used when marshaling
@@ -349,22 +349,14 @@ func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 	return interpolateInputs(from, to, by), nil
 }
 
-// validInputs checks whether the given array of joint positions violates any joint limits.
+// validInputs checks whether the given array of joint positions has the right number of degrees of
+// freedom.
 func (bf *baseFrame) validInputs(inputs []Input) error {
-	var errAll error
 	if len(inputs) != len(bf.limits) {
 		return NewIncorrectDoFError(len(inputs), len(bf.limits))
 	}
 
-	for i := 0; i < len(bf.limits); i++ {
-		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
-			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
-			multierr.AppendInto(&errAll, fmt.Errorf("%s, input %.5f needs to be within range %.5f",
-				OOBErrString, inputs[i], lim))
-		}
-	}
-
-	return errAll
+	return nil
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
@@ -633,7 +625,8 @@ func (pf *translationalFrame) Hash() int {
 
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
-	if err := pf.validInputs(input); err != nil {
+	err := pf.validInputs(input)
+	if err != nil {
 		return nil, err
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), nil
@@ -731,7 +724,8 @@ func (rf *rotationalFrame) Hash() int {
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
-	if err := rf.validInputs(input); err != nil {
+	err := rf.validInputs(input)
+	if err != nil {
 		return nil, err
 	}
 	// Create a copy of the r4aa for thread safety
@@ -836,7 +830,8 @@ func (pf *poseFrame) Hash() int {
 // Transform on the poseFrame acts as the identity function. Whatever inputs are given are directly translated
 // in a 7DoF pose. We note that theta should be in radians.
 func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
-	if err := pf.baseFrame.validInputs(inputs); err != nil {
+	err := pf.validInputs(inputs)
+	if err != nil {
 		return nil, err
 	}
 	return spatial.NewPose(
@@ -852,12 +847,6 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	if err := pf.baseFrame.validInputs(from); err != nil {
-		return nil, NewIncorrectDoFError(len(from), len(pf.DoF()))
-	}
-	if err := pf.baseFrame.validInputs(to); err != nil {
-		return nil, NewIncorrectDoFError(len(to), len(pf.DoF()))
-	}
 	fromPose, err := pf.Transform(from)
 	if err != nil {
 		return nil, err
