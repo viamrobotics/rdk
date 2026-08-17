@@ -4105,7 +4105,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:      moduleFlagFile,
-							Usage:     "path to a module tarball to upload. skips the build step and does not require build.path in meta.json",
+							Usage:     "path to a module tarball to upload. implies --no-build and does not require build.path in meta.json",
 							TakesFile: true,
 						},
 						&cli.BoolFlag{

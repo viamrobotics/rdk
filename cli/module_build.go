@@ -753,7 +753,7 @@ type reloadModuleArgs struct {
 	Annotation   string
 	Builder      string
 	// File is an optional path to a module tarball to upload (reload-local only).
-	// When set, skips the build step and does not require build.path in meta.json.
+	// When set, implies NoBuild and does not require build.path in meta.json.
 	File string
 }
 
@@ -1592,6 +1592,10 @@ func reloadModuleActionInner(
 		printf(cmd.Root().ErrWriter, "Reloading to the machine configured at %s", args.CloudConfig)
 	}
 
+	if args.File != "" {
+		args.NoBuild = true
+	}
+
 	var needsRestart bool
 	var buildPath string
 	var buildInfo *moduleCloudBuildInfo
@@ -1605,7 +1609,7 @@ func reloadModuleActionInner(
 			return errors.New("--file cannot be used with --local (nothing to upload)")
 		}
 		if manifest == nil {
-			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, moduleFlagPath)
+			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, args.Module)
 		}
 		buildPath = args.File
 		if manifest.Build == nil {
@@ -1616,7 +1620,7 @@ func reloadModuleActionInner(
 		manifest.Build.Path = filepath.Base(args.File)
 	case !args.NoBuild:
 		if manifest == nil {
-			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, args.Module)
 		}
 		if manifest.Build == nil || manifest.Build.Build == "" {
 			return errors.New("your meta.json cannot have an empty build step. It is required for 'reload' and 'reload-local' commands")
@@ -1649,7 +1653,7 @@ func reloadModuleActionInner(
 	default:
 		// --no-build flag is set, look for existing artifact (only for reload-local)
 		if manifest == nil || manifest.Build == nil {
-			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, moduleFlagPath)
+			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, args.Module)
 		}
 		buildPath = manifest.Build.Path
 	}
