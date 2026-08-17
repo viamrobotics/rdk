@@ -632,7 +632,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			// Signaling was not reachable at all, so the client itself is likely offline. Say so
 			// rather than returning a chain of timeouts.
 			case errors.Is(err, context.DeadlineExceeded) && dialUnreachableErr(grpcErr):
-				const connTimeoutURL = "https://docs.viam.com/dev/tools/common-errors/#conn-time-out"
+				const connTimeoutURL = "https://docs.viam.com/monitor/common-errors/#conn-time-out"
 				return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, " +
 					"and try again. see " + connTimeoutURL + " for troubleshooting steps")
 			default:
