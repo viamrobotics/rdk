@@ -271,6 +271,9 @@ jobs:
           echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
           echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
+      - name: Install toolchain
+        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+
       - name: Chown
         run: chown -R testbot:testbot .
 
