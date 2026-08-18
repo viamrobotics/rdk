@@ -211,12 +211,36 @@ func TestLimitOverridesPreserveVelocity(t *testing.T) {
 		test.That(t, limit.MaxAcceleration, test.ShouldNotBeNil)
 	})
 
-	t.Run("an override that sets velocity still wins", func(t *testing.T) {
+	t.Run("an override may slow a joint down", func(t *testing.T) {
 		overridden, err := NewModelWithLimitOverrides(base,
 			map[string]Limit{"j1": {Min: -1, Max: 1, MaxVelocity: ptr(0.5)}})
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, *overridden.DoF()[0].MaxVelocity, test.ShouldEqual, 0.5)
+	})
+
+	// The case this guards: someone slows a fast arm down with an override, then swaps in an arm
+	// that physically cannot go that fast. A replacing override would raise the limit back up and
+	// hand a trajectory generator a speed the hardware cannot hold.
+	t.Run("an override may not speed a joint up", func(t *testing.T) {
+		overridden, err := NewModelWithLimitOverrides(base,
+			map[string]Limit{"j1": {Min: -1, Max: 1, MaxVelocity: ptr(100.0), MaxAcceleration: ptr(100.0)}})
+		test.That(t, err, test.ShouldBeNil)
+
+		limit := overridden.DoF()[0]
+		test.That(t, *limit.MaxVelocity, test.ShouldAlmostEqual, math.Pi, defaultFloatPrecision)
+		test.That(t, *limit.MaxAcceleration, test.ShouldAlmostEqual, utils.DegToRad(1145), defaultFloatPrecision)
+	})
+
+	t.Run("an override bounds a model that declared nothing", func(t *testing.T) {
+		unbounded, err := UnmarshalModelJSON(revoluteModelJSON(""), "")
+		test.That(t, err, test.ShouldBeNil)
+
+		overridden, err := NewModelWithLimitOverrides(unbounded.(*SimpleModel),
+			map[string]Limit{"j1": {Min: -1, Max: 1, MaxVelocity: ptr(2.0)}})
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, *overridden.DoF()[0].MaxVelocity, test.ShouldEqual, 2.0)
 	})
 
 	t.Run("the override map is not aliased into the model", func(t *testing.T) {
