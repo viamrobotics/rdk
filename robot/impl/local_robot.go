@@ -871,32 +871,32 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 		// Not checking whether the resource actually exists because that is done later in the function.
 		resolvedOptionalDepName, err := resource.NewFromString(optionalDepNameString)
 		if err != nil {
-			matchingResourceNames := r.manager.resources.FindBySimpleName(optionalDepNameString)
-			switch len(matchingResourceNames) {
-			case 0:
-				r.logger.Infow(
-					"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
-					"dependency", optionalDepNameString,
-					"resource", conf.ResourceName().String(),
-				)
-				continue
-			case 1:
-				if matchingResourceNames[0].String() == conf.ResourceName().String() {
-					r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
-					continue
+			resolved, findErr := r.manager.resources.FindBySimpleName(optionalDepNameString)
+			if findErr != nil {
+				var multiErr *resource.MultipleMatchingNamesError
+				if stderrors.As(findErr, &multiErr) {
+					r.logger.Errorw(
+						"Cannot resolve optional dependency for resource due to multiple matching names",
+						"resource", conf.ResourceName().String(),
+						"conflicts", resource.NamesToStrings(multiErr.Matches),
+					)
+				} else {
+					r.logger.Infow(
+						"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
+						"dependency", optionalDepNameString,
+						"resource", conf.ResourceName().String(),
+					)
 				}
-			default:
-				r.logger.Errorw(
-					"Cannot resolve optional dependency for resource due to multiple matching names",
-					"resource", conf.ResourceName().String(),
-					"conflicts", resource.NamesToStrings(matchingResourceNames),
-				)
+				continue
+			}
+			if resolved.String() == conf.ResourceName().String() {
+				r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
 				continue
 			}
 			// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
 			// Pop the remote name off since callers won't be expecting it when accessing it in the resource
 			// dependency map in a resource constructor.
-			resolvedOptionalDepName = matchingResourceNames[0].PopRemote()
+			resolvedOptionalDepName = resolved.PopRemote()
 			resolvedOptionalDepName.Name = optionalDepNameString
 		}
 

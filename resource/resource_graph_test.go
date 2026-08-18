@@ -1256,15 +1256,31 @@ func TestFindBySimpleNameAndAPI(t *testing.T) {
 
 func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
 	// Verifies machine-wide name uniqueness in SimpleNamesWhere: a bare name claimed by more
-	// than one resource across different APIs is hidden (a local resource wins over remotes),
-	// while the reserved "builtin" default-service name and rdk-internal resources are exempt
-	// and remain per-API.
+	// than one resource across different APIs is hidden (a local resource wins over remotes).
+	// Registered default services share the reserved "builtin" name across service APIS and are
+	// exempt, as are rdk-internal resources.
 	logger := logging.NewTestLogger(t)
 
 	compA := APINamespace("namespace").WithComponentType("aapi")
 	svcB := APINamespace("namespace").WithServiceType("bapi")
 	internalA := APINamespaceRDKInternal.WithServiceType("iapi")
 	internalB := APINamespaceRDKInternal.WithServiceType("japi")
+
+	// Register two APIs as default services so IsDefaultServiceName recognizes their "builtin"
+	// nodes as legitimate defaults (exempt), rather than a user collision.
+	defaultA := APINamespace("namespace").WithServiceType("defaultAapi")
+	defaultB := APINamespace("namespace").WithServiceType("defaultBapi")
+	model := DefaultModelFamily.WithModel("uniqueness_default_model")
+	registryMu.Lock()
+	registry[APIModel{defaultA, model}] = Registration[Resource, ConfigValidator]{api: defaultA, isDefault: true}
+	registry[APIModel{defaultB, model}] = Registration[Resource, ConfigValidator]{api: defaultB, isDefault: true}
+	registryMu.Unlock()
+	defer func() {
+		registryMu.Lock()
+		delete(registry, APIModel{defaultA, model})
+		delete(registry, APIModel{defaultB, model})
+		registryMu.Unlock()
+	}()
 
 	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
 	all := func(Name, *GraphNode) bool { return true }
@@ -1282,7 +1298,10 @@ func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
 	// Two remotes sharing a name across APIs, no local: both hidden.
 	g.AddNode(Name{API: compA, Name: "dupRemote", Remote: "r1"}, newNode())
 	g.AddNode(Name{API: svcB, Name: "dupRemote", Remote: "r2"}, newNode())
-	// Two "builtin" default services across APIs: both advertised (exempt).
+	// Two registered default services named "builtin" across service APIs: both advertised (exempt).
+	g.AddNode(Name{API: defaultA, Name: DefaultServiceName}, newNode())
+	g.AddNode(Name{API: defaultB, Name: DefaultServiceName}, newNode())
+	// Two NON-default resources named "builtin" across APIs: not exempt, so both hidden.
 	g.AddNode(Name{API: compA, Name: DefaultServiceName}, newNode())
 	g.AddNode(Name{API: svcB, Name: DefaultServiceName}, newNode())
 	// Two rdk-internal resources sharing a name across APIs: both advertised (exempt).
@@ -1294,8 +1313,8 @@ func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
 	expected := []Name{
 		{API: compA, Name: "solo"},
 		{API: compA, Name: "localWins"},
-		{API: compA, Name: DefaultServiceName},
-		{API: svcB, Name: DefaultServiceName},
+		{API: defaultA, Name: DefaultServiceName},
+		{API: defaultB, Name: DefaultServiceName},
 		{API: internalA, Name: "shared"},
 		{API: internalB, Name: "shared"},
 	}
@@ -1307,6 +1326,10 @@ func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
 	for _, n := range got {
 		test.That(t, n.Name, test.ShouldNotEqual, "dupLocal")
 		test.That(t, n.Name, test.ShouldNotEqual, "dupRemote")
+		if n.Name == DefaultServiceName {
+			test.That(t, n.API, test.ShouldNotResemble, compA)
+			test.That(t, n.API, test.ShouldNotResemble, svcB)
+		}
 	}
 }
 
@@ -1334,6 +1357,59 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 		}
 	}
 	return ""
+}
+
+func TestFindBySimpleName(t *testing.T) {
+	// FindBySimpleName resolves a simple name to the single owner under machine-wide name
+	// uniqueness (a local wins over same-named remotes; a MultipleMatchingNamesError if there are
+	// multiple locals or no local with multiple remotes; a NodeNotFoundError if nothing matches).
+	// FindAllBySimpleName returns every match unresolved.
+	logger := logging.NewTestLogger(t)
+
+	compA := APINamespace("namespace").WithComponentType("aapi")
+	svcB := APINamespace("namespace").WithServiceType("bapi")
+	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
+
+	g := NewGraph(logger)
+	// One local: resolves to it.
+	g.AddNode(Name{API: compA, Name: "solo"}, newNode())
+	// Local + remote sharing a name across APIs: local wins.
+	g.AddNode(Name{API: compA, Name: "localWins"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "localWins", Remote: "r1"}, newNode())
+	// A single remote with no local: resolves to the remote.
+	g.AddNode(Name{API: compA, Name: "remoteOnly", Remote: "r1"}, newNode())
+	// Two remotes across APIs with no local: unavailable.
+	g.AddNode(Name{API: compA, Name: "dupRemote", Remote: "r1"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "dupRemote", Remote: "r2"}, newNode())
+	// Two locals across APIs: unavailable.
+	g.AddNode(Name{API: compA, Name: "dupLocal"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "dupLocal"}, newNode())
+
+	// Single-owner resolution.
+	resolved, err := g.FindBySimpleName("solo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldResemble, Name{API: compA, Name: "solo"})
+	resolved, err = g.FindBySimpleName("localWins")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldResemble, Name{API: compA, Name: "localWins"})
+	resolved, err = g.FindBySimpleName("remoteOnly")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldResemble, Name{API: compA, Name: "remoteOnly", Remote: "r1"})
+
+	// Ambiguous names return a MultipleMatchingNamesError carrying every match.
+	_, err = g.FindBySimpleName("dupRemote")
+	test.That(t, IsMultipleMatchingNamesError(err), test.ShouldBeTrue)
+	_, err = g.FindBySimpleName("dupLocal")
+	test.That(t, IsMultipleMatchingNamesError(err), test.ShouldBeTrue)
+	// A name with no match returns a NodeNotFoundError.
+	_, err = g.FindBySimpleName("nonexistent")
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+
+	// FindAllBySimpleName returns every match without resolution.
+	test.That(t, g.FindAllBySimpleName("localWins"), test.ShouldHaveLength, 2)
+	test.That(t, g.FindAllBySimpleName("dupRemote"), test.ShouldHaveLength, 2)
+	test.That(t, g.FindAllBySimpleName("solo"), test.ShouldHaveLength, 1)
+	test.That(t, g.FindAllBySimpleName("nonexistent"), test.ShouldHaveLength, 0)
 }
 
 // TestResolveDependenciesSkipsDependencyMarkedForRemoval verifies that ResolveDependencies does

@@ -219,6 +219,38 @@ func DefaultServices() []Name {
 	return defaults
 }
 
+// isDefaultServiceAPI reports whether this api has a model registered as a default service:
+// one auto-constructed under the reserved "builtin" name when absent from the config.
+func isDefaultServiceAPI(api API) bool {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+
+	for _, reg := range registry {
+		if reg.isDefault && reg.api == api {
+			return true
+		}
+	}
+	return false
+}
+
+// IsDefaultServiceName reports whether name refers to a registered default service: one
+// with the "builtin" name on a default-service API. Default services share this name
+// across APIs and are therefore exempt from machine-wide name uniqueness. A non-default
+// resource named "builtin" is not exempt and participates in the uniqueness check.
+func IsDefaultServiceName(name string, api API) bool {
+	return name == DefaultServiceName && isDefaultServiceAPI(api)
+}
+
+// IsNameUniquenessExempt reports whether the (name, api) resource is exempt from machine-wide
+// resource-name uniqueness. Registered default services (which share the "builtin" name across
+// service APIs), rdk-internal resources, and anything that is neither a component nor a service are
+// exempt; every other resource participates in the check.
+func IsNameUniquenessExempt(name string, api API) bool {
+	return IsDefaultServiceName(name, api) ||
+		api.Type.Namespace == APINamespaceRDKInternal ||
+		!(api.IsComponent() || api.IsService())
+}
+
 // RegisterService registers a model for a service and its construction info. It's a helper for
 // Register.
 func RegisterService[ResourceT Resource, ConfigT ConfigValidator](api API, model Model, reg Registration[ResourceT, ConfigT]) {

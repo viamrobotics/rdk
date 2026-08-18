@@ -339,10 +339,10 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if !nodeAlreadyExists {
 			// Log if this remote resource's name collides with any existing resource. On collision
 			// the remote stays in the graph but is hidden from the machine's resource list. One
-			// FindBySimpleName scan spans all APIs, so it catches both same-API and cross-API
+			// FindAllBySimpleName scan spans all APIs, so it catches both same-API and cross-API
 			// collisions; enumerate every conflicting resource.
 			prefixedSimpleName := prefix + resName.Name
-			if conflicts := manager.resources.FindBySimpleName(prefixedSimpleName); len(conflicts) > 0 {
+			if conflicts := manager.resources.FindAllBySimpleName(prefixedSimpleName); len(conflicts) > 0 {
 				manager.logger.Errorw(logMsgRemoteNameCollision,
 					"name", prefixedSimpleName, "api", resName.API,
 					"conflicts_with", resource.NamesToStrings(conflicts), "remote", remoteName.Name)
@@ -1264,7 +1264,7 @@ func (manager *resourceManager) addToBeConstructedResource(
 	// wins its name and the remotes are hidden from the machine's resource list. The mirror case (a
 	// remote arriving after the local) is logged in updateRemoteResourceNames.
 	var remoteConflicts []resource.Name
-	for _, other := range manager.resources.FindBySimpleName(name.Name) {
+	for _, other := range manager.resources.FindAllBySimpleName(name.Name) {
 		if other.Remote != "" {
 			remoteConflicts = append(remoteConflicts, other)
 		}
@@ -1419,17 +1419,15 @@ func (manager *resourceManager) updateResources(
 }
 
 // collidingLocalNames returns the local component/service resources whose simple name is assigned to
-// more than one resource in the given config, deduplicated. builtin default services and rdk-internal
-// resources are exempt.
+// more than one resource in the given config. Registered default services and rdk-internal resources
+// are exempt.
 func collidingLocalNames(cfg *config.Config) []resource.Name {
-	counts := make(map[string]int)
-	var all []resource.Name
+	byName := make(map[string][]resource.Name)
 	record := func(rName resource.Name) {
-		if rName.Name == resource.DefaultServiceName || rName.API.Type.Namespace == resource.APINamespaceRDKInternal {
+		if resource.IsNameUniquenessExempt(rName.Name, rName.API) {
 			return
 		}
-		counts[rName.Name]++
-		all = append(all, rName)
+		byName[rName.Name] = append(byName[rName.Name], rName)
 	}
 	for _, c := range cfg.Components {
 		record(c.ResourceName())
@@ -1439,11 +1437,9 @@ func collidingLocalNames(cfg *config.Config) []resource.Name {
 	}
 
 	var colliding []resource.Name
-	seen := make(map[resource.Name]bool)
-	for _, rName := range all {
-		if counts[rName.Name] > 1 && !seen[rName] {
-			seen[rName] = true
-			colliding = append(colliding, rName)
+	for _, names := range byName {
+		if len(names) > 1 {
+			colliding = append(colliding, names...)
 		}
 	}
 	return colliding
