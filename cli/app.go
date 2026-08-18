@@ -446,6 +446,16 @@ func createBeforeCommandWithT[T any](
 	}
 }
 
+// mustBePositiveUint builds a flag Validator that rejects an explicit 0.
+func mustBePositiveUint(flagName string) func(uint) error {
+	return func(v uint) error {
+		if v == 0 {
+			return fmt.Errorf("--%s must be greater than 0", flagName)
+		}
+		return nil
+	}
+}
+
 // createUsageText is a helper for formatting UsageTexts. The created UsageText
 // contains "viam", the command, requiredFlags, "[other options]" if unrequiredOptions
 // is true, "<command> [command options]" if subcommand is true, and all passed-in
@@ -1338,9 +1348,10 @@ Note: There is no progress meter while copying is in progress.
 											TakesFile: true,
 										},
 										&cli.UintFlag{
-											Name:  dataFlagParallelDownloads,
-											Usage: "number of download requests to make in parallel",
-											Value: 100,
+											Name:      dataFlagParallelDownloads,
+											Usage:     "number of download requests to make in parallel",
+											Value:     defaultParallelBinaryDownloads,
+											Validator: mustBePositiveUint(dataFlagParallelDownloads),
 										},
 										&cli.UintFlag{
 											Name:  dataFlagTimeout,
@@ -1923,9 +1934,10 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "option to include only the JSON Lines files for local testing; no binary data will be downloaded",
 						},
 						&cli.UintFlag{
-							Name:  dataFlagParallelDownloads,
-							Usage: "number of download requests to make in parallel",
-							Value: 100,
+							Name:      dataFlagParallelDownloads,
+							Usage:     "number of download requests to make in parallel",
+							Value:     defaultParallelBinaryDownloads,
+							Validator: mustBePositiveUint(dataFlagParallelDownloads),
 						},
 						&cli.UintFlag{
 							Name:  dataFlagTimeout,
