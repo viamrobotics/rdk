@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"maps"
 	"path/filepath"
@@ -120,16 +121,22 @@ func (c *viamClient) exportSequenceTabular(
 			Interval:        interval,
 		}
 
-		// Name the resource before the export starts so it is on screen while the work runs, then
-		// add the row count below it. io.Discard because that writer's only output is a dot per
-		// retry attempt, which the count supersedes.
+		// The resource line is static; only the short count row below it is redrawn, which keeps
+		// that on one visual row where a carriage return works.
 		printf(c.c.Root().Writer, "  %s %s", resource.GetResourceName(), resource.GetMethodName())
-		rows, err := c.tabularDataToFile(filepath.Join(tabularDir, names[i]), request, io.Discard)
+		line := newProgressLine(c.c.Root().Writer, "    ",
+			func(rows int) string { return fmt.Sprintf("%d %s", rows, pluralize(rows, "row")) })
+		line.start("starting download...")
+
+		// io.Discard for the writer: its only output is a dot per retry attempt, which the row
+		// count supersedes. Progress comes through onRows instead.
+		rows, err := c.tabularDataToFile(filepath.Join(tabularDir, names[i]), request, io.Discard, line.update)
 		if err != nil {
+			line.abandon()
 			return errors.Wrapf(err, "failed to export tabular data for resource %q method %q",
 				resource.GetResourceName(), resource.GetMethodName())
 		}
-		printf(c.c.Root().Writer, "    %d %s", rows, pluralize(rows, "row"))
+		line.finish(rows)
 	}
 	return nil
 }
@@ -254,21 +261,26 @@ func (c *viamClient) exportSequenceBinary(
 		})
 	}
 
+	line := newProgressLine(c.c.Root().Writer, "  ", func(files int) string { return fmt.Sprintf("%d %s", files, pluralize(files, "file")) })
 	download := func(ctx context.Context, id string) error {
 		if err := c.downloadBinary(ctx, binaryDst, timeout, id); err != nil {
 			return err
 		}
-		downloaded.Add(1)
+		total := downloaded.Add(1)
 
 		progressMu.Lock()
 		defer progressMu.Unlock()
 		countByResource[resourceOf[id]]++
+		line.update(int(total))
 		return nil
 	}
 
 	printf(c.c.Root().Writer, "")
 	printf(c.c.Root().Writer, "Binary data (%s/):", sequenceBinaryExportDir)
+	// Nothing is reported until the first file lands, which for large blobs is a long silence.
+	line.waiting("starting download...")
 	if err := c.performActionOnBinaryDataIDs(ctx, fetchIDsInto, download, parallel, func(int32) {}); err != nil {
+		line.erase()
 		return err
 	}
 	if len(countByResource) == 0 {
@@ -276,6 +288,8 @@ func (c *viamClient) exportSequenceBinary(
 		return nil
 	}
 
+	// Replace the running total with the per-resource split.
+	line.erase()
 	for _, resource := range slices.Sorted(maps.Keys(countByResource)) {
 		printf(c.c.Root().Writer, "  %s", resource)
 		printf(c.c.Root().Writer, "    %d %s", countByResource[resource], pluralize(countByResource[resource], "file"))

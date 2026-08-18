@@ -43,6 +43,9 @@ const (
 
 	defaultParallelBinaryDownloads = 100
 
+	// tabularProgressEveryNRows is how often a tabular export reports its running row count.
+	tabularProgressEveryNRows = 100
+
 	dataCommandAdd    = "add"
 	dataCommandRemove = "remove"
 
@@ -1113,7 +1116,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 	}
 
 	fmt.Fprintf(c.c.Root().Writer, "Downloading..") //nolint:errcheck
-	_, err := c.tabularDataToFile(filepath.Join(dest, dataFileName), request, c.c.Root().Writer)
+	_, err := c.tabularDataToFile(filepath.Join(dest, dataFileName), request, c.c.Root().Writer, nil)
 	return err
 }
 
@@ -1121,8 +1124,9 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 // The parent directory must already exist. Returns the number of rows written.
 //
 // progressOut gets one '.' per attempt and a closing newline; pass io.Discard for no output.
+// onRows, if set, is called with the running row count every tabularProgressEveryNRows rows.
 func (c *viamClient) tabularDataToFile(
-	dataFilePath string, request *datapb.ExportTabularDataRequest, progressOut io.Writer,
+	dataFilePath string, request *datapb.ExportTabularDataRequest, progressOut io.Writer, onRows func(rows int),
 ) (int, error) {
 	var rows int
 	for count := 0; count < maxRetryCount; count++ {
@@ -1218,6 +1222,9 @@ func (c *viamClient) tabularDataToFile(
 						return exportErr
 					}
 					rows++
+					if onRows != nil && rows%tabularProgressEveryNRows == 0 {
+						onRows(rows)
+					}
 				case err := <-errChan:
 					exportErr = err
 					return err

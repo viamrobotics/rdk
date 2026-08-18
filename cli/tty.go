@@ -10,3 +10,14 @@ import (
 func isInteractive() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
+
+// isTerminalOutput reports whether stdout is connected to a terminal.
+func isTerminalOutput() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+// terminalWidth reports stdout's column count.
+func terminalWidth() (int, error) {
+	cols, _, err := term.GetSize(int(os.Stdout.Fd()))
+	return cols, err
+}
