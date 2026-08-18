@@ -958,7 +958,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 		for _, dep := range unresolvedDeps {
 			tryResolve := func() (Name, bool) {
 				if dep == nodeName.String() {
-					allErrs = multierr.Combine(errors.Errorf("node cannot depend on itself: %q", nodeName))
+					allErrs = multierr.Combine(allErrs, errors.Errorf("node cannot depend on itself: %q", nodeName))
 					logger.Errorw("node cannot depend on itself", "name", nodeName)
 					return Name{}, false
 				}
@@ -984,7 +984,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 					return Name{}, false
 				}
 				if resolved.String() == nodeName.String() {
-					allErrs = multierr.Combine(errors.Errorf("node cannot depend on itself: %q", nodeName))
+					allErrs = multierr.Combine(allErrs, errors.Errorf("node cannot depend on itself: %q", nodeName))
 					logger.Errorw("node cannot depend on itself", "name", nodeName)
 					return Name{}, false
 				}

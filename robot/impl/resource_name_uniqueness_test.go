@@ -463,9 +463,10 @@ func TestCrossAPINameCollision(t *testing.T) {
 }
 
 func TestThreeWayNameCollision(t *testing.T) {
-	// Three local resources share a name across APIs. The first two collide (the first
-	// is marked for removal, the second refused); the third must NOT slip through by
-	// finding only the marked-for-removal sibling. None of the three may be reachable.
+	// Three local resources of different APIs share a single simple name. Because their
+	// APIs differ, none is caught by the same-name+API duplicate check in
+	// addToBeConstructedResource; the collision is detected by collidingLocalNames'
+	// machine-wide pass, which must flag all three. None of the three may be reachable.
 	ctx := context.Background()
 
 	armModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
