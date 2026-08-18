@@ -210,7 +210,13 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 
 	components := make(map[string]resource.Resource)
 	for name, r := range deps {
-		if _, present := components[name.Name]; present {
+		if existing, present := components[name.Name]; present {
+			// A composite resource that serves multiple APIs (resource.RegisterMultiAPI) appears in
+			// deps once per API but is a single instance, so it is not a real duplicate. Only two
+			// *distinct* instances sharing a bare name is an error.
+			if existing == r {
+				continue
+			}
 			return DuplicateResourceNameError(name.Name)
 		}
 		components[name.Name] = r

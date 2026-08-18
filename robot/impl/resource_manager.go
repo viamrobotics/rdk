@@ -560,17 +560,26 @@ func (manager *resourceManager) ResourceRPCAPIs() []resource.RPCAPI {
 		if k.ContainsRemoteNames() {
 			continue
 		}
-		if types[k.API] != nil {
-			continue
-		}
 
-		st, ok := resourceAPIs[k.API]
-		if !ok {
-			continue
+		// Advertise every co-equal API a composite resource serves (resource.RegisterMultiAPI), or
+		// just its own API for an ordinary single-API resource.
+		apis := []resource.API{k.API}
+		if node, ok := manager.resources.Node(k); ok {
+			if served := resource.APIsForModel(node.Config().Model); len(served) > 0 {
+				apis = served
+			}
 		}
-
-		if st.ReflectRPCServiceDesc != nil {
-			types[k.API] = st.ReflectRPCServiceDesc
+		for _, api := range apis {
+			if types[api] != nil {
+				continue
+			}
+			st, ok := resourceAPIs[api]
+			if !ok {
+				continue
+			}
+			if st.ReflectRPCServiceDesc != nil {
+				types[api] = st.ReflectRPCServiceDesc
+			}
 		}
 	}
 	typesList := make([]resource.RPCAPI, 0, len(types))
