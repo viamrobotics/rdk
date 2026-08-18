@@ -323,14 +323,25 @@ func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 
-// AsType attempts to get a more specific interface from the resource.
+// AsType attempts to get a more specific interface from the resource. If from is a composite
+// (multi-API) resource that does not itself satisfy T, its sub-resources are tried and the one
+// satisfying T is returned — so a per-API server getter resolves the right sub-resource of a
+// composite without knowing which API it is looking for.
 func AsType[T Resource](from Resource) (T, error) {
-	res, ok := from.(T)
-	if !ok {
-		var zero T
-		return zero, TypeError[T](from)
+	if res, ok := from.(T); ok {
+		return res, nil
 	}
-	return res, nil
+	if mar, ok := from.(MultiAPIResource); ok {
+		for _, api := range mar.APIs() {
+			if sub, found := mar.ResourceForAPI(api); found {
+				if res, ok := sub.(T); ok {
+					return res, nil
+				}
+			}
+		}
+	}
+	var zero T
+	return zero, TypeError[T](from)
 }
 
 type closeOnlyResource struct {

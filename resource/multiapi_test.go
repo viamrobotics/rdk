@@ -21,6 +21,12 @@ type testAPITwo interface {
 	Two() string
 }
 
+// testAPIThree is served by neither sub-resource, for negative extraction tests.
+type testAPIThree interface {
+	Resource
+	Three() string
+}
+
 var (
 	apiOne = APINamespace("multiapi").WithComponentType("one")
 	apiTwo = APINamespace("multiapi").WithComponentType("two")
@@ -83,10 +89,8 @@ func TestCompositeFromResourceForAPI(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotTwo.Two(), test.ShouldEqual, "two")
 
-	// Asking the composite for an API it does not serve fails cleanly (falls back to asserting the
-	// composite itself, which is not a testAPIOne beyond what it delegates).
-	apiThree := APINamespace("multiapi").WithComponentType("three")
-	_, err = FromResourceForAPI[testAPIOne](composite, apiThree)
+	// Extracting a type that no sub-resource implements fails cleanly.
+	_, err = FromResourceForAPI[testAPIThree](composite, apiOne)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// APIs() reports the served set in declared order.
