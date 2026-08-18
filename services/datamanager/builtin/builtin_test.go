@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -977,4 +978,101 @@ func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n 
 			})
 		}
 	}
+}
+
+func TestRenameOrphanedProgFilesToCapture(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	dir := t.TempDir()
+	orphanTime := processStartTime.Add(-time.Hour)
+
+	// Orphaned .prog files: one at the top level, one nested the way collectors
+	// nest them (captureDir/api/name/method/file).
+	topOrphan := createTestFileModifiedAt(t, filepath.Join(dir, "top.prog"), orphanTime)
+	nestedOrphan := createTestFileModifiedAt(t,
+		filepath.Join(dir, "rdk_component_arm", "arm1", "EndPosition", "nested.prog"), orphanTime)
+
+	// A .prog file modified after process start: it may be held open by a live
+	// collector, so the mtime guard must leave it alone.
+	liveProg := createTestFileModifiedAt(t, filepath.Join(dir, "live.prog"), processStartTime.Add(time.Hour))
+
+	// Files the pass must never touch regardless of mtime: completed capture files,
+	// in-progress sequence files, arbitrary files, and anything under the failed/
+	// quarantine or datasetUpload/ subtrees.
+	completed := createTestFileModifiedAt(t, filepath.Join(dir, "done.capture"), orphanTime)
+	progseq := createTestFileModifiedAt(t, filepath.Join(dir, "seq"+data.InProgressSequenceFileExt), orphanTime)
+	arbitrary := createTestFileModifiedAt(t, filepath.Join(dir, "notes.txt"), orphanTime)
+	quarantined := createTestFileModifiedAt(t, filepath.Join(dir, datasync.FailedDir, "old.prog"), orphanTime)
+	dataset := createTestFileModifiedAt(t, filepath.Join(dir, datasync.DatasetDir, "old.prog"), orphanTime)
+
+	renameOrphanedProgFilesToCapture(dir, logger)
+
+	// The orphans were renamed .prog -> .capture.
+	testThatProgFileRenamed(t, topOrphan)
+	testThatProgFileRenamed(t, nestedOrphan)
+
+	// The mtime guard skipped the recently modified .prog file.
+	testThatProgFileUntouched(t, liveProg)
+
+	// Everything else is untouched.
+	testThatFileExists(t, completed)
+	testThatFileExists(t, progseq)
+	testThatFileExists(t, arbitrary)
+	testThatProgFileUntouched(t, quarantined)
+	testThatProgFileUntouched(t, dataset)
+
+	t.Run("a nonexistent capture dir is a warn-and-continue no-op", func(t *testing.T) {
+		renameOrphanedProgFilesToCapture(filepath.Join(t.TempDir(), "does-not-exist"), logger)
+	})
+}
+
+// createTestFileModifiedAt creates a file (and any missing parent directories) with
+// the given mtime and returns its path.
+func createTestFileModifiedAt(t *testing.T, path string, mtime time.Time) string {
+	t.Helper()
+	test.That(t, os.MkdirAll(filepath.Dir(path), 0o700), test.ShouldBeNil)
+	test.That(t, os.WriteFile(path, []byte("test-content"), 0o600), test.ShouldBeNil)
+	test.That(t, os.Chtimes(path, mtime, mtime), test.ShouldBeNil)
+	return path
+}
+
+// progToCapturePath returns the path a .prog file would have after being renamed to .capture.
+func progToCapturePath(progPath string) string {
+	return strings.TrimSuffix(progPath, data.InProgressCaptureFileExt) + data.CompletedCaptureFileExt
+}
+
+// testThatFileExists asserts that a file exists at path.
+func testThatFileExists(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// testThatFileDoesNotExist asserts that no file exists at path.
+func testThatFileDoesNotExist(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
+// testThatProgFileRenamed asserts that the .prog file at progPath was renamed to
+// its .capture equivalent.
+func testThatProgFileRenamed(t *testing.T, progPath string) {
+	t.Helper()
+	testThatFileDoesNotExist(t, progPath)
+	testThatFileExists(t, progToCapturePath(progPath))
+}
+
+// testThatProgFileUntouched asserts that the .prog file at progPath was not renamed:
+// it still exists and no .capture equivalent was created.
+func testThatProgFileUntouched(t *testing.T, progPath string) {
+	t.Helper()
+	testThatFileExists(t, progPath)
+	testThatFileDoesNotExist(t, progToCapturePath(progPath))
+}
+
+func fileSize(tb testing.TB, path string) int64 {
+	tb.Helper()
+	info, err := os.Stat(path)
+	test.That(tb, err, test.ShouldBeNil)
+	return info.Size()
 }
