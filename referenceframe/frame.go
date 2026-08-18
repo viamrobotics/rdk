@@ -182,23 +182,27 @@ func TrajectoryLimits(ls []Limit) (velocities, accelerations []float64, ok bool)
 	return velocities, accelerations, true
 }
 
-// tighterLimit returns whichever of two optional bounds is more restrictive, treating unbounded
-// as looser than any real value.
+// tighterBound returns whichever of two optional bounds is more restrictive, treating unbounded
+// as looser than any real value. The result is always a fresh float, so no two Limits end up
+// sharing one.
 //
 // Overrides use this so they can only ever lower a limit. Raising one would let a stale override
 // outlive the arm it was written for: someone tames a fast arm down to 1 rad/s, later swaps in an
 // arm that physically tops out at 0.5, and a replacing override would hand a trajectory generator
 // 1 rad/s for hardware that cannot do it. Nothing is lost by refusing to raise, since claiming a
 // joint is faster than the model says it is buys nothing real.
-func tighterLimit(current, override *float64) *float64 {
-	if isUnbounded(override) {
-		return current
+func tighterBound(a, b *float64) *float64 {
+	switch {
+	case isUnbounded(a) && isUnbounded(b):
+		return nil
+	case isUnbounded(a):
+		return limitPtr(b, nil)
+	case isUnbounded(b):
+		return limitPtr(a, nil)
+	default:
+		tightest := min(*a, *b)
+		return &tightest
 	}
-	if isUnbounded(current) {
-		return limitPtr(override, nil)
-	}
-	tightest := min(*current, *override)
-	return &tightest
 }
 
 // isUnbounded reports whether an optional limit places no bound on its axis. Infinity says the

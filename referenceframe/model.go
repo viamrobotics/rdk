@@ -306,12 +306,12 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 		if frame == nil || len(frame.DoF()) == 0 {
 			return nil, fmt.Errorf("frame %q not found or has no DoF", name)
 		}
-		// tighterLimit copies rather than storing the caller's pointers, which matters because
+		// tighterBound copies rather than storing the caller's pointers, which matters because
 		// overrides come from a long-lived service config and every plan builds a model off it
 		merged := frame.DoF()[0]
 		merged.Min, merged.Max = limit.Min, limit.Max
-		merged.MaxVelocity = tighterLimit(merged.MaxVelocity, limit.MaxVelocity)
-		merged.MaxAcceleration = tighterLimit(merged.MaxAcceleration, limit.MaxAcceleration)
+		merged.MaxVelocity = tighterBound(merged.MaxVelocity, limit.MaxVelocity)
+		merged.MaxAcceleration = tighterBound(merged.MaxAcceleration, limit.MaxAcceleration)
 		frame.DoF()[0] = merged
 	}
 

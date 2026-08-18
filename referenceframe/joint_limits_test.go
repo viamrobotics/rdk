@@ -253,6 +253,16 @@ func TestLimitOverridesPreserveVelocity(t *testing.T) {
 		test.That(t, overridden.DoF()[0].MaxVelocity, test.ShouldNotPointTo, override.MaxVelocity)
 	})
 
+	// the model's own float must not leak either, on the branch where the override loses
+	t.Run("the base model's floats are not aliased into the new model", func(t *testing.T) {
+		overridden, err := NewModelWithLimitOverrides(base,
+			map[string]Limit{"j1": {Min: -1, Max: 1, MaxVelocity: ptr(100.0)}})
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, overridden.DoF()[0].MaxVelocity, test.ShouldNotPointTo, base.DoF()[0].MaxVelocity)
+		test.That(t, *overridden.DoF()[0].MaxVelocity, test.ShouldAlmostEqual, math.Pi, defaultFloatPrecision)
+	})
+
 	t.Run("the base model is untouched", func(t *testing.T) {
 		test.That(t, *base.DoF()[0].MaxVelocity, test.ShouldAlmostEqual, math.Pi, defaultFloatPrecision)
 		test.That(t, base.DoF()[0].Min, test.ShouldAlmostEqual, utils.DegToRad(-360), defaultFloatPrecision)
