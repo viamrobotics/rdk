@@ -358,13 +358,21 @@ func (ms *builtIn) PlanHistory(
 //	             }
 //
 //	DoStreamStatus: reports the current session's state.
-//	  request:  {"stream_status": true}
+//	  request:  {"stream_status": true}                 // or {"stream_status": {"trace": false}}
+//	                                                      // for a cheap poll that skips the
+//	                                                      // (only ever growing) trace snapshot;
+//	                                                      // fetch it once, when you intend to
+//	                                                      // use it
 //	  response: {
 //	               "running": true,
 //	               "arm": "myArm",                      // present once a session has started
+//	               "trace": {...},                      // PipelineTraceOutput; omitted when
+//	                                                     // trace:false was requested
 //	               "error": "..."                       // present only once the session has
 //	                                                     // finished with an error
 //	             }
+//
+// The flush and abort responses never include the trace; fetch it via DoStreamStatus.
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
