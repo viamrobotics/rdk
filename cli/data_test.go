@@ -444,6 +444,8 @@ func TestDataExportBinaryAction(t *testing.T) {
 			dataExportBinaryArgs{Destination: t.TempDir(), Parallel: 2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "download failed")
+		// The cancellation is this function's own, so it should not ride along with the cause.
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "context canceled")
 	})
 }
 

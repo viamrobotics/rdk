@@ -773,9 +773,19 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(ctx context.Context,
 	}
 	close(errs)
 
-	var allErrs error
+	// A failing worker cancels the run, so the producer reports context.Canceled on its way out.
+	// That is our own doing, and appending it next to the real cause only obscures it. It still
+	// gets returned when nothing else went wrong, which is how a caller-cancelled run surfaces.
+	var allErrs, canceled error
 	for err := range errs {
+		if errors.Is(err, context.Canceled) {
+			canceled = err
+			continue
+		}
 		allErrs = multierr.Append(allErrs, err)
+	}
+	if allErrs == nil {
+		return canceled
 	}
 	return allErrs
 }
