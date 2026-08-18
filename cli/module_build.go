@@ -754,6 +754,9 @@ type reloadModuleArgs struct {
 	Path         string
 	Annotation   string
 	Builder      string
+	// File is an optional path to a module tarball to upload (reload-local only).
+	// When set, implies NoBuild and does not require build.path in meta.json.
+	File string
 }
 
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
@@ -1591,12 +1594,35 @@ func reloadModuleActionInner(
 		printf(cmd.Root().ErrWriter, "Reloading to the machine configured at %s", args.CloudConfig)
 	}
 
+	if args.File != "" {
+		args.NoBuild = true
+	}
+
 	var needsRestart bool
 	var buildPath string
 	var buildInfo *moduleCloudBuildInfo
-	if !args.NoBuild {
+	switch {
+	case args.File != "":
+		// --file provides the tarball to upload; skip building and do not require build.path.
+		if cloudBuild {
+			return errors.New("--file is only supported with 'reload-local'")
+		}
+		if args.Local {
+			return errors.New("--file cannot be used with --local (nothing to upload)")
+		}
 		if manifest == nil {
-			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, args.Module)
+		}
+		buildPath = args.File
+		if manifest.Build == nil {
+			manifest.Build = &manifestBuildInfo{}
+		}
+		// Destination and reload_path on the robot use this basename; the upload
+		// source remains the full path in buildPath.
+		manifest.Build.Path = filepath.Base(args.File)
+	case !args.NoBuild:
+		if manifest == nil {
+			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, args.Module)
 		}
 		if manifest.Build == nil || manifest.Build.Build == "" {
 			return errors.New("your meta.json cannot have an empty build step. It is required for 'reload' and 'reload-local' commands")
@@ -1626,10 +1652,10 @@ func reloadModuleActionInner(
 		if err != nil {
 			return err
 		}
-	} else {
+	default:
 		// --no-build flag is set, look for existing artifact (only for reload-local)
 		if manifest == nil || manifest.Build == nil {
-			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, moduleFlagPath)
+			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, args.Module)
 		}
 		buildPath = manifest.Build.Path
 	}
@@ -1648,10 +1674,10 @@ func reloadModuleActionInner(
 		if manifest == nil || manifest.Build == nil || buildPath == "" {
 			return errors.New(
 				"remote reloading requires a meta.json with the 'build.path' field set. " +
-					"try --local if you are testing on the same machine.",
+					"try --local if you are testing on the same machine, or pass --file with a tarball.",
 			)
 		}
-		if err := validateReloadableArchive(cmd, manifest.Build, manifest.FirstRun); err != nil {
+		if err := validateReloadableArchive(cmd, buildPath, manifest.FirstRun); err != nil {
 			return err
 		}
 
@@ -1828,15 +1854,26 @@ func reloadingDestination(manifest *ModuleManifest, viamHome string) string {
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
 // It also logs warnings for likely problems, such as a missing meta.json or a first_run script
 // declared in the manifest but absent from the archive.
-func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo, firstRun string) error {
-	reader, err := os.Open(build.Path)
+func validateReloadableArchive(cmd *cli.Command, archivePath, firstRun string) (err error) {
+	//nolint:gosec // archivePath is a user-provided path from meta.json build.path or --file
+	reader, err := os.Open(archivePath)
 	if err != nil {
-		return errors.Wrap(err, "error opening the build.path field in your meta.json")
+		return errors.Wrap(err, "error opening module archive")
 	}
+	defer func() {
+		if closeErr := reader.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close module archive"))
+		}
+	}()
 	decompressed, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if closeErr := decompressed.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close gzip reader"))
+		}
+	}()
 	archive := tar.NewReader(decompressed)
 	metaFound := false
 	firstRunFound := false
@@ -1846,7 +1883,7 @@ func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo, first
 			break
 		}
 		if err != nil {
-			return errors.Wrapf(err, "reading tar at %s", build.Path)
+			return errors.Wrapf(err, "reading tar at %s", archivePath)
 		}
 		name := filepath.Base(header.Name)
 		if name == "meta.json" {
@@ -1860,13 +1897,13 @@ func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo, first
 		}
 	}
 	if !metaFound {
-		warningf(cmd.Root().ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", build.Path)
+		warningf(cmd.Root().ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", archivePath)
 	}
 	if firstRun != "" && !firstRunFound {
 		warningf(cmd.Root().ErrWriter,
 			"archive at %s doesn't contain the first_run script %q declared in meta.json; "+
 				"the script will not run on the target machine. Include it in your build artifact",
-			build.Path, firstRun)
+			archivePath, firstRun)
 	}
 	return nil
 }

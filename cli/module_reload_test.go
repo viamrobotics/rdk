@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -727,6 +729,114 @@ func TestReloadWithMissingBuildSection(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "manifest required for reload")
 	})
+
+	t.Run("reload-local with --file bypasses missing build section", func(t *testing.T) {
+		manifestPath := createTestManifest(t, "", map[string]any{
+			"build": nil,
+		})
+
+		// Point at a missing archive so we fail at open (after build.path checks), not on shell upload.
+		archivePath := filepath.Join(t.TempDir(), "custom-module.tar.gz")
+
+		confStruct, err := structpb.NewStruct(map[string]any{
+			"modules": []any{},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		userInfo, err := structpb.NewStruct(map[string]any{
+			"version":  "0.90.0",
+			"platform": "linux/amd64",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, userInfo, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:        manifestPath,
+				generalFlagPartID:     "part-123",
+				moduleFlagFile:        archivePath,
+				generalFlagNoProgress: true,
+			},
+			"token",
+		)
+
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "error opening module archive")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "empty build step")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "build.path")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "manifest required for reload")
+	})
+
+	t.Run("reload-local with --file and --local errors", func(t *testing.T) {
+		manifestPath := createTestManifest(t, "", map[string]any{
+			"build": nil,
+		})
+
+		confStruct, err := structpb.NewStruct(map[string]any{
+			"modules": []any{},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		userInfo, err := structpb.NewStruct(map[string]any{
+			"version":  "0.90.0",
+			"platform": "linux/amd64",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, userInfo, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:        manifestPath,
+				generalFlagPartID:     "part-123",
+				moduleFlagFile:        "module.tar.gz",
+				moduleFlagLocal:       true,
+				generalFlagNoProgress: true,
+			},
+			"token",
+		)
+
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "--file cannot be used with --local")
+	})
+}
+
+func TestValidateReloadableArchiveWithFile(t *testing.T) {
+	archivePath := filepath.Join(t.TempDir(), "custom-module.tar.gz")
+	createTestModuleArchive(t, archivePath)
+
+	cCtx := newTestContext(t, map[string]any{})
+	err := validateReloadableArchive(cCtx, archivePath, "")
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// createTestModuleArchive writes a minimal valid module.tar.gz containing a meta.json.
+func createTestModuleArchive(t *testing.T, path string) {
+	t.Helper()
+	f, err := os.Create(path)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, f.Close(), test.ShouldBeNil) }()
+
+	gz := gzip.NewWriter(f)
+	defer func() { test.That(t, gz.Close(), test.ShouldBeNil) }()
+
+	tw := tar.NewWriter(gz)
+	defer func() { test.That(t, tw.Close(), test.ShouldBeNil) }()
+
+	content := []byte(`{"module_id":"test:test","entrypoint":"bin/module"}`)
+	err = tw.WriteHeader(&tar.Header{
+		Name: "meta.json",
+		Mode: 0o644,
+		Size: int64(len(content)),
+	})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = tw.Write(content)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestUpdateRobotPartPassesLastKnownUpdate(t *testing.T) {

@@ -108,6 +108,7 @@ const (
 	moduleFlagAppType         = "app-type"
 	moduleFlagUpload          = "upload"
 	moduleFlagAnnotation      = "annotation"
+	moduleFlagFile            = "file"
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
@@ -4109,7 +4110,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	viam module reload-local --model-name acme:module-name:mybase --name my-resource
 
 	# Build and configure a module running on your local machine without shipping a tarball.
-	viam module reload-local --local`,
+	viam module reload-local --local
+
+	# Upload an already-built tarball without requiring build.path in meta.json.
+	viam module reload-local --file module.tar.gz --part-id UUID`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
@@ -4132,6 +4136,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
 							Usage: "don't do build step",
+						},
+						&cli.StringFlag{
+							Name:      moduleFlagFile,
+							Usage:     "path to a module tarball to upload. implies --no-build and does not require build.path in meta.json",
+							TakesFile: true,
 						},
 						&cli.BoolFlag{
 							Name:  moduleFlagLocal,
