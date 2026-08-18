@@ -872,10 +872,13 @@ func openbrowser(url string) error {
 
 	switch runtime.GOOS {
 	case "linux":
+		//nolint: noctx
 		err = exec.Command("xdg-open", url).Start()
 	case osWindows:
+		//nolint: noctx
 		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 	case "darwin":
+		//nolint: noctx
 		err = exec.Command("open", url).Start()
 	default:
 		err = errors.New("unsupported platform")

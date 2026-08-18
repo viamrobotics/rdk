@@ -1335,6 +1335,7 @@ func generateGolangStubs(module modulegen.ModuleInputs) error {
 
 	// run go mod tidy
 	if module.Language == golang {
+		//nolint: noctx
 		tidyCmd := exec.Command("go", "mod", "tidy")
 		tidyCmd.Dir = module.ModuleName
 		if err := tidyCmd.Run(); err != nil {
@@ -1361,6 +1362,7 @@ func runGoImports(moduleFile *os.File) error {
 	goImportsPath := filepath.Join(goPath, "bin", goImportsName)
 	if _, err := os.Stat(goImportsPath); os.IsNotExist(err) {
 		// installing goimports
+		//nolint: noctx
 		installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
 		if err := installCmd.Run(); err != nil {
 			return fmt.Errorf("failed to install goimports: %w", err)
@@ -1368,7 +1370,7 @@ func runGoImports(moduleFile *os.File) error {
 	}
 
 	// goimports is installed. Run goimport on the module file
-	//nolint:gosec
+	//nolint: gosec,noctx
 	formatCmd := exec.Command(goImportsPath, "-w", moduleFile.Name())
 	_, err = formatCmd.Output()
 	if err != nil {
@@ -1378,6 +1380,7 @@ func runGoImports(moduleFile *os.File) error {
 }
 
 func checkGoPath() (string, error) {
+	//nolint: noctx
 	goPathCmd := exec.Command("go", "env", "GOPATH")
 	goPathBytes, err := goPathCmd.Output()
 	if err != nil {
@@ -1429,6 +1432,7 @@ func checkLanguageVersion(language string) error {
 	if cmd == "" {
 		return fmt.Errorf("%s runtime not found. Please install %s >= %s", displayName, displayName, minVersion)
 	}
+	//nolint: noctx
 	versionOutput, err := exec.Command(cmd, versionFlag).Output() //nolint:gosec
 	if err != nil {
 		return errors.Wrapf(err, "%s runtime not found", displayName)
@@ -1460,6 +1464,7 @@ func createPythonVenv(pythonCmd, venvName string) error {
 	const maxAttempts = 3
 	var err error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		//nolint: noctx
 		cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
@@ -1502,7 +1507,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
-	//nolint:gosec
+	//nolint: gosec,noctx
 	cmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
@@ -1863,7 +1868,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
-	//nolint:gosec
+	//nolint: gosec,noctx
 	stubCmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := stubCmd.Output()

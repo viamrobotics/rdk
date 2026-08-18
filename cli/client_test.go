@@ -369,6 +369,7 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	// Create a temporary file for testing
 	fileName := "test-logo-*.png"
+	//nolint:usetesting
 	tmpFile, err := os.CreateTemp("", fileName)
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(tmpFile.Name()) // Clean up temp file after test
@@ -380,6 +381,7 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	cCtx, ac, out, errOut = setup(asc, nil, nil, nil, "token")
 
 	logoFileName2 := "test-logo-2-*.PNG"
+	//nolint:usetesting
 	tmpFile2, err := os.CreateTemp("", logoFileName2)
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(tmpFile2.Name()) // Clean up temp file after test
@@ -1329,7 +1331,9 @@ func TestShellFileCopy(t *testing.T) {
 			tempDir := t.TempDir()
 			cwd, err := os.Getwd()
 			test.That(t, err, test.ShouldBeNil)
+			//nolint: usetesting
 			t.Cleanup(func() { os.Chdir(cwd) })
+			//nolint: usetesting
 			test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
@@ -1686,9 +1690,11 @@ func TestShellGetFTDC(t *testing.T) {
 			tempDir := t.TempDir()
 			originalWd, err := os.Getwd()
 			test.That(t, err, test.ShouldBeNil)
+			//nolint: usetesting
 			err = os.Chdir(tempDir)
 			test.That(t, err, test.ShouldBeNil)
 			t.Cleanup(func() {
+				//nolint: usetesting
 				os.Chdir(originalWd)
 			})
 
@@ -1707,6 +1713,7 @@ func TestShellGetFTDC(t *testing.T) {
 		// Use a short temp dir (not t.TempDir, whose Windows path is long) because
 		// redirecting ViamDotDir also relocates the module socket dir on Windows, and the
 		// unix socket path has a 103-char OS limit (see module.CreateSocketAddress).
+		//nolint: usetesting
 		viamHome, err := os.MkdirTemp("", "vds")
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(viamHome)) })
@@ -2033,6 +2040,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 	var conn net.Conn
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		var dialErr error
+		//nolint: noctx
 		conn, dialErr = net.Dial("tcp", sourceListenerAddr)
 		test.That(tb, dialErr, test.ShouldBeNil)
 	})
@@ -2451,6 +2459,7 @@ func TestIsRunningAptBinary(t *testing.T) {
 	}
 
 	// real ExitError, like dpkg returns for an unowned path
+	//nolint: noctx
 	exitErr := exec.Command("sh", "-c", "exit 1").Run()
 	var asExitErr *exec.ExitError
 	test.That(t, errors.As(exitErr, &asExitErr), test.ShouldBeTrue)

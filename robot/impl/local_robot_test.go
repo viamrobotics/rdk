@@ -1707,6 +1707,7 @@ func TestMachineStatusPackageFirstRun(t *testing.T) {
 
 	// The first_run script connects to this listener and blocks until the test writes a
 	// line back, holding the module's package in the first-run state.
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	defer listener.Close()

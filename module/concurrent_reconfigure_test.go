@@ -63,7 +63,7 @@ func TestConcurrentReconfiguration(t *testing.T) {
 			for i := 0; i < resCount; i++ {
 				deps = append(deps, nil)
 			}
-			return
+			return deps
 		}()},
 		{"some dependencies", func() (deps [][]string) {
 			// Update config to include N resources such that for approximately 1/3 of
@@ -79,7 +79,7 @@ func TestConcurrentReconfiguration(t *testing.T) {
 				}
 				deps = append(deps, dependsOn)
 			}
-			return
+			return deps
 		}()},
 		{"serial dependencies", func() (deps [][]string) {
 			// Update config to include N resources such that:
@@ -97,7 +97,7 @@ func TestConcurrentReconfiguration(t *testing.T) {
 				}
 				deps = append(deps, dependsOn)
 			}
-			return
+			return deps
 		}()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

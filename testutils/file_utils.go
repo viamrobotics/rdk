@@ -61,12 +61,13 @@ func BuildViamServer(tb testing.TB) string {
 			command = "server"
 			serverPath = filepath.Join(buildOutputPath, "viam-server")
 		}
+		//nolint: noctx
 		builder = exec.Command("make", command)
 		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
 	} else {
 		// we don't have access to make on Windows, so copy the build command from the Makefile.
 		serverPath += ".exe"
-		//nolint:gosec
+		//nolint: gosec,noctx
 		builder = exec.Command(
 			"go", "build", "-tags", "no_cgo",
 			"-ldflags=-s -w",
@@ -155,7 +156,7 @@ func BuildTempModuleWithOpts(tb testing.TB, modDir, variant, ldflags string) str
 		buildArgs = append(buildArgs, "-ldflags", ldflags)
 	}
 	buildArgs = append(buildArgs, ".")
-	//nolint:gosec
+	//nolint: gosec,noctx
 	builder := exec.Command("go", buildArgs...)
 	builder.Dir = utils.ResolveFile(modDir)
 	out, err := builder.CombinedOutput()
@@ -236,7 +237,7 @@ func VerifyDirectoryBuilds(tb testing.TB, dir string) {
 	tb.Helper()
 
 	resolvedDir := utils.ResolveFile(dir)
-	//nolint:gosec
+	//nolint: gosec,noctx
 	builder := exec.Command("go", "build", "-o", os.DevNull, ".")
 	builder.Dir = resolvedDir
 	out, err := builder.CombinedOutput()

@@ -1053,6 +1053,7 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, modStatus.LastUpdated, test.ShouldHappenBefore, reconfigureEnd)
 
 	// set up a listener so we can communicate with the blocked module
+	//nolint: noctx
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	defer ln.Close()
@@ -1150,6 +1151,7 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, s.Error, test.ShouldNotBeNil)
 
 	// set up a close socket
+	//nolint: noctx
 	ln, err = net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	defer ln.Close()

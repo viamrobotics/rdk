@@ -9,9 +9,7 @@ import (
 	"github.com/shirou/gopsutil/v3/process"
 )
 
-var (
-	machineBootTimeSecsSinceEpoch float64
-)
+var machineBootTimeSecsSinceEpoch float64
 
 func init() {
 	bootTime, err := host.BootTime()

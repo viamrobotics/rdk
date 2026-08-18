@@ -3,12 +3,11 @@ package main
 
 import (
 	"os"
-
-	"go.viam.com/rdk/utils"
+	"testing"
 )
 
 func main() {
-	if utils.Testing() {
+	if testing.Testing() {
 		os.Exit(1)
 	}
 }

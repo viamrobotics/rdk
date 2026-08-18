@@ -3459,6 +3459,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 	}
 	t.Run("new", func(t *testing.T) {
 		timeout = 50 * time.Millisecond
+		//nolint: usetesting
 		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, timeout.String()),
 			test.ShouldBeNil)
 		defer func() {
@@ -3474,6 +3475,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 		r := setupLocalRobot(t, context.Background(), cfg, logger)
 
 		timeout = 200 * time.Millisecond
+		//nolint: usetesting
 		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, timeout.String()),
 			test.ShouldBeNil)
 		defer func() {

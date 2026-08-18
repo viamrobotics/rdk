@@ -38,7 +38,7 @@ import (
 
 func init() {
 	if err := cleanAppImageEnv(); err != nil {
-		//nolint
+		//nolint: forbidigo
 		fmt.Println("Error cleaning up app image environement:", err)
 	}
 }

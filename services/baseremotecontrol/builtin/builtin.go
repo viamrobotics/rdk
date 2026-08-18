@@ -560,7 +560,6 @@ func similar(a, b r3.Vector, deltaThreshold float64) bool {
 }
 
 func scaleThrottle(a float64) float64 {
-	//nolint:ifshort
 	neg := a < 0
 
 	a = math.Abs(a)

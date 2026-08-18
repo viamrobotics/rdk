@@ -24,7 +24,9 @@ func TestFixPeerPath(t *testing.T) {
 	tempDir := t.TempDir()
 	cwd, err := os.Getwd()
 	test.That(t, err, test.ShouldBeNil)
+	//nolint: usetesting
 	t.Cleanup(func() { os.Chdir(cwd) })
+	//nolint: usetesting
 	test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
 	// macos uses /private for /var temp dirs, getwd will give us that path
 	realTempDir, err := os.Getwd()
@@ -164,7 +166,9 @@ func TestLocalFileCopy(t *testing.T) {
 		tempDir := t.TempDir()
 		cwd, err := os.Getwd()
 		test.That(t, err, test.ShouldBeNil)
+		//nolint: usetesting
 		t.Cleanup(func() { os.Chdir(cwd) })
+		//nolint: usetesting
 		test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
 
 		factory, err := NewLocalFileCopyFactory("foo", false, false)

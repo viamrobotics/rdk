@@ -120,10 +120,7 @@ func ImageAlign(
 	colorAngle /= (math.Pi / 2)
 	depthAngle /= (math.Pi / 2)
 
-	rotated := false
-	if colorAngle < 1 && depthAngle > 1 || colorAngle > 1 && depthAngle < 1 {
-		rotated = true
-	}
+	rotated := colorAngle < 1 && depthAngle > 1 || colorAngle > 1 && depthAngle < 1
 
 	if true {
 		logger.Debugf("colorAngle: %v depthAngle: %v rotated: %v", colorAngle, depthAngle, rotated)

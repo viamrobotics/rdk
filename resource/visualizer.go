@@ -151,8 +151,8 @@ func getRemoteNames(nodes graphStorage) []string {
 	}
 
 	var ret []string
-	//nolint
-	for remote, _ := range uniqueRemotes {
+
+	for remote := range uniqueRemotes {
 		ret = append(ret, remote)
 	}
 

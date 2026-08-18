@@ -1,0 +1,17 @@
+[tools]
+golangci-lint = "2.9.0"
+
+[tasks.lint-go]
+alias = "lint"
+description = 'Lint and format go code'
+usage = '''
+flag "-n --dry-run" default=#false env="LINT_DRY_RUN" help="Print diffs rather than automatically applying fixes"
+'''
+run = '''
+set -x
+go mod tidy{% if usage.dry_run %} -diff{% endif %}|| result=$?
+golangci-lint run{% if env.CI %} -v{% endif %}{% if not usage.dry_run %} --fix{% endif %} || result=$?
+golangci-lint fmt{% if env.CI %} -v{% endif %}{% if usage.dry_run %} --diff{% endif %} || result=$?
+./etc/lint_register_apis.sh || result=$?
+exit ${result:-0}
+'''

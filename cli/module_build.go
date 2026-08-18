@@ -527,6 +527,7 @@ func ModuleBuildLinkRepoAction(ctx context.Context, cmd *cli.Command, args modul
 	}
 
 	if repo == "" {
+		//nolint: noctx
 		remoteURL, err := exec.Command("git", "config", "--get", "remote.origin.url").Output()
 		if err != nil {
 			return fmt.Errorf("no %s provided and unable to get git remote from current directory", moduleBuildFlagRepo)

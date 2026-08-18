@@ -80,7 +80,8 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 	// Create a client connection to the robot. Disable direct GRPC to force a WebRTC
 	// connection. Fail if a WebRTC connection cannot be made.
 	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
-	//nolint
+
+	//nolint: staticcheck
 	defer conn.Close()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -584,7 +585,8 @@ func TestStreamServerSurvivesWebRestart(t *testing.T) {
 	// Create a client connection to the robot. Disable direct GRPC to force a WebRTC
 	// connection. Fail if a WebRTC connection cannot be made.
 	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
-	//nolint
+
+	//nolint: staticcheck
 	defer conn.Close()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -616,7 +618,8 @@ func TestStreamServerSurvivesWebRestart(t *testing.T) {
 
 	// The web service was restarted, disconnecting all of the clients. Reconnect to the robot.
 	conn, err = rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
-	//nolint
+
+	//nolint: staticcheck
 	defer conn.Close()
 	test.That(t, err, test.ShouldBeNil)
 

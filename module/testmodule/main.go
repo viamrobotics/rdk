@@ -109,6 +109,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 
 	// Wait indefinitely on a socket during the "start" phase
 	if addr := os.Getenv("VIAM_TESTMODULE_BLOCK_START"); addr != "" {
+		//nolint: noctx
 		conn, err := net.Dial("tcp", addr)
 		if err != nil {
 			return err
@@ -143,6 +144,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 
 	// Wait indefinitely on a socket during the "close" phase
 	if addr := os.Getenv("VIAM_TESTMODULE_BLOCK_CLOSE"); addr != "" {
+		//nolint: noctx
 		conn, err := net.Dial("tcp", addr)
 		if err != nil {
 			return err

@@ -101,6 +101,7 @@ func TestEntrypoint(t *testing.T) {
 		tempDir := t.TempDir()
 		outputFile := filepath.Join(tempDir, "resources.json")
 		serverPath := testutils.BuildViamServer(t)
+		//nolint: noctx
 		command := exec.Command(serverPath, "--dump-resources", outputFile)
 		err := command.Run()
 		test.That(t, err, test.ShouldBeNil)
@@ -251,6 +252,7 @@ func TestMachineState(t *testing.T) {
 	// Use a short temp dir (not t.TempDir, whose Windows path is long) because redirecting
 	// ViamDotDir also relocates the module socket dir on Windows, and the unix socket path has a
 	// 103-char OS limit (see module.CreateSocketAddress).
+	//nolint: usetesting
 	tempDir, err := os.MkdirTemp("", "vds")
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(tempDir)) })
@@ -487,6 +489,7 @@ func TestTunnelE2E(t *testing.T) {
 	// We will not be actually writing anything to/reading anything from the `net.Conn`, as
 	// we only want to ensure that instantiation of the tunnel fails as expected.
 	{
+		//nolint: noctx
 		googleConn, err := net.Dial("tcp", "google.com:443")
 		test.That(t, err, test.ShouldBeNil)
 
@@ -495,6 +498,7 @@ func TestTunnelE2E(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "tunnel not available at port")
 
+		//nolint: noctx
 		googleConn, err = net.Dial("tcp", "google.com:443")
 		test.That(t, err, test.ShouldBeNil)
 
@@ -519,6 +523,7 @@ func TestTunnelE2E(t *testing.T) {
 	}()
 
 	// Write `tunnelMsg` to "source" listener over TCP from this test process.
+	//nolint: noctx
 	conn, err := net.Dial("tcp", sourceListenerAddr)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {

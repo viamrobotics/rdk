@@ -242,6 +242,7 @@ func TestCountingBytes(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Isolate all of the files we're going to create to a single, fresh directory.
+	//nolint: usetesting
 	ftdcFileDir, err := os.MkdirTemp("./", "countingBytesTest")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(ftdcFileDir)
@@ -270,6 +271,7 @@ func TestCountingBytes(t *testing.T) {
 			// We're about to write a new ftdc file. The ftdc file names are a function of
 			// "now". Given the test runs fast, the generated name will collide (names only use
 			// seconds resolution).  Make a subdirectory to avoid a naming conflict.
+			//nolint: usetesting
 			ftdc.ftdcDir, err = os.MkdirTemp(ftdcFileDir, "subdirectory")
 			test.That(t, err, test.ShouldBeNil)
 
@@ -369,6 +371,7 @@ func TestFileDeletion(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Isolate all of the files we're going to create to a single, fresh directory.
+	//nolint: usetesting
 	ftdcFileDir, err := os.MkdirTemp("./", "fileDeletionTest")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(ftdcFileDir)

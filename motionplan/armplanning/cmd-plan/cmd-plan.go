@@ -543,7 +543,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			render = false
 		}
 
-		//nolint
+		//nolint: forbidigo
 		fmt.Print("$ ") // `logger.Print` seems to add a newline.
 		cmd, err := stdinReader.ReadString('\n')
 		cmd = strings.TrimSpace(cmd)

@@ -609,7 +609,7 @@ func TestSafeLink(t *testing.T) {
 }
 
 func TestMissingDirEntry(t *testing.T) {
-	file, err := os.CreateTemp("", "missing-dir-entry")
+	file, err := os.CreateTemp(t.TempDir(), "missing-dir-entry")
 	test.That(t, err, test.ShouldBeNil)
 	head := tar.Header{
 		Name: "subdir/file.md",
@@ -626,6 +626,7 @@ func TestMissingDirEntry(t *testing.T) {
 	gzipWriter.Close()
 	file.Close()
 	defer os.Remove(file.Name())
+	//nolint: usetesting
 	dest, err := os.MkdirTemp("", "missing-dir-entry")
 	defer os.RemoveAll(dest)
 	test.That(t, err, test.ShouldBeNil)

@@ -1,6 +1,4 @@
 // Package mpserver is a webserver for diagnosing motion plans.
-//
-//nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (
@@ -138,6 +136,7 @@ function renderStart(file) {
 </html>
 `))
 
+//nolint:lll
 var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 <html>
 <head>
@@ -527,6 +526,7 @@ function escHtml(s) {
 </html>
 `))
 
+//nolint:lll
 var ikInspectTmpl = template.Must(template.New("ik-inspect").Parse(`<!DOCTYPE html>
 <html>
 <head>
@@ -1306,7 +1306,9 @@ func buildIKInspectURL(
 	file string, goalIndex int, startConfig *referenceframe.LinearInputs,
 	goalPoseMap map[string]poseComponents, overridesParam string,
 ) string {
+	//nolint: errcheck,errchkjson
 	startJSON, _ := json.Marshal(linearInputsToStrings(startConfig))
+	//nolint: errcheck,errchkjson
 	goalJSON, _ := json.Marshal(goalPoseMap)
 	return "/ik-inspect?file=" + url.QueryEscape(file) +
 		"&goal_index=" + strconv.Itoa(goalIndex) +
@@ -1320,17 +1322,6 @@ func buildIKInspectURL(
 // req.Goals; a nil entry means "use the file's original goal pose/cloud for that frame".
 type requestOverrides struct {
 	Goals []map[string]poseComponents `json:"goals,omitempty"`
-}
-
-// encodeOverrides JSON-encodes ov for embedding as a URL query param value (the caller is
-// responsible for url.QueryEscape-ing it into a URL, or relying on net/http's automatic decoding
-// of query param values read via r.URL.Query()).
-func encodeOverrides(ov requestOverrides) string {
-	data, err := json.Marshal(ov)
-	if err != nil {
-		return ""
-	}
-	return string(data)
 }
 
 // decodeOverrides parses a requestOverrides previously produced by encodeOverrides. An empty
@@ -1504,6 +1495,7 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 	}
 	for idx, step := range steps {
 		if ctx.Err() != nil {
+			//nolint: nilerr
 			return nil
 		}
 		if idx > 0 {
@@ -1518,6 +1510,7 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 			}
 			for _, mp := range midPoints {
 				if ctx.Err() != nil {
+					//nolint: nilerr
 					return nil
 				}
 				if _, err := vizapi.DrawFrameSystem(vizapi.DrawFrameSystemOptions{
@@ -1596,12 +1589,13 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 			if err != nil {
 				logger.Warnf("computing goal poses for goal %d: %v", idx, err)
 			}
+			//nolint: errcheck
 			poseMapJSON, _ := json.Marshal(poseMap)
 			goals[idx] = goalDetail{
 				Index:         idx,
 				StartConfig:   startConfig,
 				GoalPoses:     poseMapToDisplays(poseMap),
-				GoalPosesJSON: template.JS(poseMapJSON),
+				GoalPosesJSON: template.JS(poseMapJSON), //nolint: gosec
 				IKInspectURL:  buildIKInspectURL(file, idx, startLI, poseMap, overridesParam),
 			}
 		}
@@ -1656,16 +1650,19 @@ func handleIKInspect(logger logging.Logger) http.HandlerFunc {
 			})
 		}
 		sort.Slice(startConfig, func(i, j int) bool { return startConfig[i].Name < startConfig[j].Name })
+		//nolint: errcheck
 		startConfigJSONBytes, _ := json.Marshal(startConfigStrings)
+		//nolint: errcheck
 		goalPosesJSONBytes, _ := json.Marshal(goalPoseMap)
 		data := ikInspectData{
 			File:            file,
 			GoalIndex:       goalIndex,
 			OverridesParam:  overridesParam,
 			StartConfig:     startConfig,
-			StartConfigJSON: template.JS(startConfigJSONBytes),
+			StartConfigJSON: template.JS(startConfigJSONBytes), //nolint: gosec
 			GoalPoses:       poseMapToDisplays(goalPoseMap),
-			GoalPosesJSON:   template.JS(goalPosesJSONBytes),
+			//nolint: gosec
+			GoalPosesJSON: template.JS(goalPosesJSONBytes),
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := ikInspectTmpl.Execute(w, data); err != nil {
@@ -2005,6 +2002,7 @@ func drawShadows(ctx context.Context, fs *referenceframe.FrameSystem, configs []
 	shadowColors := []string{"blue", "red"}
 	for idx, cfg := range configs {
 		if ctx.Err() != nil {
+			//nolint: nilerr
 			return nil
 		}
 		gifs, err := referenceframe.FrameSystemGeometries(fs, cfg.ToFrameSystemInputs())
@@ -2168,7 +2166,8 @@ func handleRenderStart(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		//nolint
+
+		//nolint: errcheck
 		fmt.Fprintf(w, "Rendered start state for %s", file)
 	}
 }
@@ -2191,6 +2190,7 @@ func RunServer() error {
 
 	addr := "localhost:8080"
 	logger.Infof("listening on http://%s", addr)
-	//nolint
+
+	//nolint: gosec
 	return http.ListenAndServe(addr, nil)
 }

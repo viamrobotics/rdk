@@ -51,6 +51,7 @@ func TestAppTemplateCompiles(t *testing.T) {
 	err = os.WriteFile(goModPath, goMod, 0o644)
 	test.That(t, err, test.ShouldBeNil)
 
+	//nolint: noctx
 	goGet := exec.Command("go", "get", "github.com/erh/vmodutils@latest")
 	goGet.Dir = appPath
 	goGetOut, err := goGet.CombinedOutput()
@@ -59,6 +60,7 @@ func TestAppTemplateCompiles(t *testing.T) {
 	}
 
 	// Run go mod tidy to resolve dependencies
+	//nolint: noctx
 	tidy := exec.Command("go", "mod", "tidy")
 	tidy.Dir = appPath
 	tidyOut, err := tidy.CombinedOutput()
@@ -67,6 +69,7 @@ func TestAppTemplateCompiles(t *testing.T) {
 	}
 
 	// Verify the generated module.go compiles against current rdk
+	//nolint: noctx
 	build := exec.Command("go", "build", "./...")
 	build.Dir = appPath
 	buildOut, err := build.CombinedOutput()
