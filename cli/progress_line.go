@@ -11,7 +11,7 @@ import (
 // rewrites the line in place; elsewhere it writes once, when the count is final.
 //
 // Keep the prefix short. A carriage return only returns to the start of the current visual row, so
-// a line long enough to wrap cannot be redrawn -- the redraw lands beside the wrapped remainder.
+// a line long enough to wrap cannot be redrawn.
 type progressLine struct {
 	w        io.Writer
 	prefix   string
@@ -38,8 +38,7 @@ func newProgressLine(w io.Writer, prefix string, tail func(count int) string) *p
 	return l
 }
 
-// widestCount is the count assumed when checking the line fits. Counts past it are rare enough
-// that the extra column is not worth measuring for.
+// widestCount is the count assumed when checking the line fits.
 const widestCount = 999_999
 
 // fitsOneRow reports whether s stays on a single visual row. An unknown width is treated as
