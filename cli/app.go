@@ -156,6 +156,9 @@ const (
 	dataFlagIndexName                      = "index-name"
 	dataFlagIndexSpecFile                  = "index-path"
 	dataFlagLimit                          = "limit"
+	dataFlagSequenceID                     = "sequence-id"
+	dataFlagOnlyTabular                    = "only-tabular"
+	dataFlagOnlyBinary                     = "only-binary"
 
 	datapipelineFlagSchedule       = "schedule"
 	datapipelineFlagEnableBackfill = "enable-backfill"
@@ -1443,6 +1446,49 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createActionCommandWithT[dataExportTabularArgs](DataExportTabularAction),
+						},
+						{
+							Name:      "sequence",
+							Usage:     "download all data belonging to a single sequence",
+							UsageText: createUsageText("data export sequence", []string{generalFlagDestination, dataFlagSequenceID}, true, false),
+							Description: "Downloads everything a single sequence references. For each resource the sequence " +
+								"covers, exports that resource's tabular data over the sequence's capture interval to " +
+								"<destination>/tabular/<resource-name>-<method-name>.ndjson, then downloads the sequence's " +
+								"binary data into <destination>/binary/data and <destination>/binary/metadata. " +
+								"Use --only-tabular or --only-binary to export just one of the two.",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:      generalFlagDestination,
+									Required:  true,
+									Usage:     "output directory for downloaded data",
+									TakesFile: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagSequenceID,
+									Required: true,
+									Usage:    "ID of the sequence to export",
+								},
+								&cli.UintFlag{
+									Name:      dataFlagParallelDownloads,
+									Usage:     "number of binary download requests to make in parallel",
+									Value:     defaultParallelBinaryDownloads,
+									Validator: mustBePositiveUint(dataFlagParallelDownloads),
+								},
+								&cli.UintFlag{
+									Name:  dataFlagTimeout,
+									Usage: "number of seconds to wait for large binary file downloads",
+									Value: 30,
+								},
+								&cli.BoolFlag{
+									Name:  dataFlagOnlyTabular,
+									Usage: "export only the sequence's tabular data; no binary data will be downloaded",
+								},
+								&cli.BoolFlag{
+									Name:  dataFlagOnlyBinary,
+									Usage: "export only the sequence's binary data; no tabular data will be downloaded",
+								},
+							},
+							Action: createActionCommandWithT[dataExportSequenceArgs](DataExportSequenceAction),
 						},
 					},
 				},

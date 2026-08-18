@@ -713,8 +713,23 @@ func (c *viamClient) binaryData(ctx context.Context, dst string, filter *datapb.
 // Each time `logEveryN` actions have been performed, the printStatement logs a statement that takes in as
 // input how much binary data has been processed thus far.
 func (c *viamClient) performActionOnBinaryDataFromFilter(ctx context.Context,
-	actionOnBinaryData func(ctx context.Context, id string) error,
+	actionOnBinaryData func(context.Context, string) error,
 	filter *datapb.Filter, parallelActions uint, printStatement func(int32),
+) error {
+	fetchIDsInto := func(ctx context.Context, ids chan<- string) error {
+		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
+		limit := min(parallelActions, maxLimit)
+		return getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit)
+	}
+	return c.performActionOnBinaryDataIDs(ctx, fetchIDsInto, actionOnBinaryData, parallelActions, printStatement)
+}
+
+// performActionOnBinaryDataIDs runs actionOnBinaryData across parallelActions workers over ids from
+// fetchIDsInto, which owns closing the channel. The first error cancels the rest -- both callbacks
+// get that cancellable context -- and printStatement reports every logEveryN.
+func (c *viamClient) performActionOnBinaryDataIDs(ctx context.Context,
+	fetchIDsInto func(ctx context.Context, ids chan<- string) error,
+	actionOnBinaryData func(ctx context.Context, id string) error, parallelActions uint, printStatement func(int32),
 ) error {
 	ids := make(chan string, parallelActions)
 	// Give channel buffer of 1+parallelActions because that is the number of goroutines that may be passing an
@@ -724,13 +739,11 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(ctx context.Context,
 	defer cancel()
 	var wg sync.WaitGroup
 
-	// In one routine, get all IDs matching the filter and pass them into the ids channel.
+	// In one routine, get all matching IDs and pass them into the ids channel.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		// If limit is too high the request can time out, so limit each call to a maximum value of 100.
-		limit := min(parallelActions, maxLimit)
-		if err := getMatchingBinaryIDs(ctx, c.dataClient, filter, ids, limit); err != nil {
+		if err := fetchIDsInto(ctx, ids); err != nil {
 			errs <- err
 			cancel()
 		}
@@ -1100,10 +1113,21 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 	}
 
 	fmt.Fprintf(c.c.Root().Writer, "Downloading..") //nolint:errcheck
+	_, err := c.tabularDataToFile(filepath.Join(dest, dataFileName), request, c.c.Root().Writer)
+	return err
+}
 
+// tabularDataToFile streams a tabular export request into the provided dataFilePath.
+// The parent directory must already exist. Returns the number of rows written.
+//
+// progressOut gets one '.' per attempt and a closing newline; pass io.Discard for no output.
+func (c *viamClient) tabularDataToFile(
+	dataFilePath string, request *datapb.ExportTabularDataRequest, progressOut io.Writer,
+) (int, error) {
+	var rows int
 	for count := 0; count < maxRetryCount; count++ {
+		rows = 0
 		err := func() error {
-			dataFilePath := filepath.Join(dest, dataFileName)
 			dataFile, err := os.Create(dataFilePath) //nolint:gosec
 			if err != nil {
 				return errors.Wrapf(err, "could not create data file")
@@ -1136,7 +1160,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 				}
 			}()
 
-			fmt.Fprintf(c.c.Root().Writer, ".") //nolint:errcheck // Adds '.' to 'Downloading..' output.
+			fmt.Fprintf(progressOut, ".") //nolint:errcheck // appends to whatever line the caller opened
 
 			go func() {
 				defer close(dataRowChan)
@@ -1193,6 +1217,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 						exportErr = errors.Wrap(err, "error writing data")
 						return exportErr
 					}
+					rows++
 				case err := <-errChan:
 					exportErr = err
 					return err
@@ -1207,11 +1232,11 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 			continue
 		}
 
-		printf(c.c.Root().Writer, "") // newline
-		return err
+		printf(progressOut, "") // end the progress line
+		return rows, err
 	}
 
-	return nil
+	return rows, nil
 }
 
 func writeData(writer *bufio.Writer, dataRow []byte) error {

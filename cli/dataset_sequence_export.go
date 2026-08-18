@@ -150,33 +150,50 @@ func (c *viamClient) streamSequenceBinaryJobs(
 		return err
 	}
 	for _, seqID := range sequenceIDs {
-		pageToken := ""
-		for {
-			resp, err := c.dataClient.GetSequenceBinaryData(ctx, &datapb.GetSequenceBinaryDataRequest{
-				SequenceId: seqID,
-				PageToken:  pageToken,
-			})
-			if err != nil {
-				return errors.Wrapf(err, "failed to list binary data for sequence %s", seqID)
+		err := forEachSequenceBinaryData(ctx, c.dataClient, seqID, func(bd *datapb.BinaryData) error {
+			job := sequenceBlobJob{
+				binaryDataID: bd.GetMetadata().GetBinaryDataId(),
+				fileExt:      bd.GetMetadata().GetFileExt(),
 			}
-			for _, bd := range resp.GetData() {
-				job := sequenceBlobJob{
-					binaryDataID: bd.GetMetadata().GetBinaryDataId(),
-					fileExt:      bd.GetMetadata().GetFileExt(),
-				}
-				select {
-				case work <- job:
-				case <-ctx.Done():
-					return ctx.Err()
-				}
+			select {
+			case work <- job:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
 			}
-			pageToken = resp.GetNextPageToken()
-			if pageToken == "" {
-				break
-			}
+		})
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// forEachSequenceBinaryData pages through every binary data record belonging to sequenceID,
+// invoking fn on each. It stops at the first error fn or the server returns.
+func forEachSequenceBinaryData(
+	ctx context.Context, client datapb.DataServiceClient, sequenceID string,
+	fn func(*datapb.BinaryData) error,
+) error {
+	pageToken := ""
+	for {
+		resp, err := client.GetSequenceBinaryData(ctx, &datapb.GetSequenceBinaryDataRequest{
+			SequenceId: sequenceID,
+			PageToken:  pageToken,
+		})
+		if err != nil {
+			return errors.Wrapf(err, "failed to list binary data for sequence %s", sequenceID)
+		}
+		for _, bd := range resp.GetData() {
+			if err := fn(bd); err != nil {
+				return err
+			}
+		}
+		pageToken = resp.GetNextPageToken()
+		if pageToken == "" {
+			return nil
+		}
+	}
 }
 
 func (c *viamClient) allSequenceIDsForDataset(
