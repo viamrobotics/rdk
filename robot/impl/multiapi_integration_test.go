@@ -2,6 +2,7 @@ package robotimpl
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 
 	"go.viam.com/test"
@@ -17,10 +18,13 @@ import (
 // (Readings) and the generic API (DoCommand). It is registered via resource.RegisterMultiAPI.
 var multiAPIModel = resource.DefaultModelFamily.WithModel("multiapi_integration")
 
+// multiAPICloseCount counts Close calls on instances of multiAPIThing, to verify a composite
+// instance is closed exactly once even though it is reachable under multiple APIs.
+var multiAPICloseCount atomic.Int64
+
 type multiAPIThing struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	resource.TriviallyCloseable
 }
 
 func (m *multiAPIThing) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
@@ -31,12 +35,19 @@ func (m *multiAPIThing) DoCommand(ctx context.Context, cmd map[string]interface{
 	return map[string]interface{}{"did": "it"}, nil
 }
 
+func (m *multiAPIThing) Close(ctx context.Context) error {
+	multiAPICloseCount.Add(1)
+	return nil
+}
+
 // TestMultiAPIResourceEndToEnd verifies, through a real local robot, that one model serving a set of
 // co-equal APIs is a single instance reachable and advertised under each of its APIs — configured
-// with NO `api` field (resolved from the model).
+// with NO `api` field (resolved from the model) — and that it advertises both APIs, and is closed
+// exactly once when removed.
 func TestMultiAPIResourceEndToEnd(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
+	multiAPICloseCount.Store(0)
 
 	resource.RegisterMultiAPI(
 		[]resource.API{sensor.API, generic.API},
@@ -63,10 +74,18 @@ func TestMultiAPIResourceEndToEnd(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	// Advertised under BOTH APIs.
+	// Advertised under BOTH APIs in ResourceNames.
 	names := r.ResourceNames()
 	test.That(t, names, test.ShouldContain, sensor.Named("combo"))
 	test.That(t, names, test.ShouldContain, generic.Named("combo"))
+
+	// (item 2) Advertised under both APIs in ResourceRPCAPIs (what a connecting client discovers).
+	var advertised []resource.API
+	for _, rpcAPI := range r.ResourceRPCAPIs() {
+		advertised = append(advertised, rpcAPI.API)
+	}
+	test.That(t, advertised, test.ShouldContain, sensor.API)
+	test.That(t, advertised, test.ShouldContain, generic.API)
 
 	// Reachable and usable under the sensor API.
 	s, err := sensor.FromProvider(r, "combo")
@@ -88,4 +107,15 @@ func TestMultiAPIResourceEndToEnd(t *testing.T) {
 	viaGeneric, err := r.ResourceByName(generic.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, viaSensor, test.ShouldEqual, viaGeneric)
+
+	// (item 5) Removing the resource (reconfigure to empty) tears it down under both APIs and closes
+	// the single instance exactly once.
+	empty := &config.Config{}
+	test.That(t, empty.Ensure(false, logger), test.ShouldBeNil)
+	r.Reconfigure(ctx, empty)
+
+	namesAfter := r.ResourceNames()
+	test.That(t, namesAfter, test.ShouldNotContain, sensor.Named("combo"))
+	test.That(t, namesAfter, test.ShouldNotContain, generic.Named("combo"))
+	test.That(t, multiAPICloseCount.Load(), test.ShouldEqual, 1)
 }

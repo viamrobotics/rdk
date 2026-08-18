@@ -106,6 +106,11 @@ func FromProvider(provider resource.Provider, name string) (Switch, error) {
 	return resource.FromProvider[Switch](provider, Named(name))
 }
 
+// FromResource extracts this API from a resource that may be a multi-API (composite) resource.
+func FromResource(res resource.Resource) (Switch, error) {
+	return resource.FromResourceForAPI[Switch](res, API)
+}
+
 // NamesFromRobot is a helper for getting all switch names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
