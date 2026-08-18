@@ -71,22 +71,6 @@ func (l *Limit) Range() float64 {
 	return l.Max - l.Min
 }
 
-// MaxVelocityOr returns the velocity limit, or def when the limit is unbounded.
-func (l *Limit) MaxVelocityOr(def float64) float64 {
-	if l.MaxVelocity == nil {
-		return def
-	}
-	return *l.MaxVelocity
-}
-
-// MaxAccelerationOr returns the acceleration limit, or def when the limit is unbounded.
-func (l *Limit) MaxAccelerationOr(def float64) float64 {
-	if l.MaxAcceleration == nil {
-		return def
-	}
-	return *l.MaxAcceleration
-}
-
 // Hash returns a hash value for this limit.
 //
 // We deliberately leave MaxVelocity and MaxAcceleration out. The only thing keyed on frame
@@ -170,6 +154,32 @@ func AreInputsValid(ls []Limit, values []float64) bool {
 	}
 
 	return true
+}
+
+// TrajectoryLimits returns the per-degree-of-freedom velocity and acceleration limits, in the
+// same order as DoF, in the internal units of rad/s and mm/s. ok is false when any degree of
+// freedom leaves either limit unbounded, and both slices are nil in that case.
+//
+// This is all or nothing rather than filling in defaults. A generator handed bounds for five
+// joints of six has nothing sensible to do with the sixth, and inventing a number for it would
+// put a speed on that joint which the hardware never agreed to. A caller that gets false should
+// plan without timing instead of guessing.
+//
+// A frame with no degrees of freedom returns two empty slices and true, since it has no joint
+// that could be unbounded.
+func TrajectoryLimits(ls []Limit) (velocities, accelerations []float64, ok bool) {
+	velocities = make([]float64, 0, len(ls))
+	accelerations = make([]float64, 0, len(ls))
+
+	for i := range ls {
+		if isUnbounded(ls[i].MaxVelocity) || isUnbounded(ls[i].MaxAcceleration) {
+			return nil, nil, false
+		}
+		velocities = append(velocities, *ls[i].MaxVelocity)
+		accelerations = append(accelerations, *ls[i].MaxAcceleration)
+	}
+
+	return velocities, accelerations, true
 }
 
 // isUnbounded reports whether an optional limit places no bound on its axis. Infinity says the

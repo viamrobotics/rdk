@@ -52,8 +52,10 @@ func TestJointLimitsParsing(t *testing.T) {
 		limit := m.DoF()[0]
 		test.That(t, limit.MaxVelocity, test.ShouldBeNil)
 		test.That(t, limit.MaxAcceleration, test.ShouldBeNil)
-		test.That(t, limit.MaxVelocityOr(42), test.ShouldEqual, 42)
-		test.That(t, limit.MaxAccelerationOr(42), test.ShouldEqual, 42)
+
+		// and so the model cannot be used for trajectory generation at all
+		_, _, ok := TrajectoryLimits(m.DoF())
+		test.That(t, ok, test.ShouldBeFalse)
 	})
 
 	// The reason the fields are pointers: a joint that is pinned in place is a different
@@ -65,7 +67,6 @@ func TestJointLimitsParsing(t *testing.T) {
 		limit := m.DoF()[0]
 		test.That(t, limit.MaxVelocity, test.ShouldNotBeNil)
 		test.That(t, *limit.MaxVelocity, test.ShouldEqual, 0.0)
-		test.That(t, limit.MaxVelocityOr(42), test.ShouldEqual, 0.0)
 	})
 
 	t.Run("prismatic limits stay in mm", func(t *testing.T) {
@@ -285,6 +286,64 @@ func TestJointLimitsCrossProtobuf(t *testing.T) {
 
 	test.That(t, limitsAlmostEqual(rebuilt.DoF(), m.DoF(), defaultFloatPrecision), test.ShouldBeTrue)
 	test.That(t, *rebuilt.DoF()[0].MaxVelocity, test.ShouldAlmostEqual, math.Pi, defaultFloatPrecision)
+}
+
+// The question a trajectory generator asks of a model: are all the bounds here, or none of them?
+func TestTrajectoryLimits(t *testing.T) {
+	t.Run("a fully specified model hands over both vectors", func(t *testing.T) {
+		m, err := UnmarshalModelJSON(revoluteModelJSON(`, "max_velocity": 180, "max_acceleration": 90`), "")
+		test.That(t, err, test.ShouldBeNil)
+
+		vels, accs, ok := TrajectoryLimits(m.DoF())
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, vels, test.ShouldHaveLength, 1)
+		test.That(t, accs, test.ShouldHaveLength, 1)
+		// internal units, so degrees on the wire come back as radians
+		test.That(t, vels[0], test.ShouldAlmostEqual, math.Pi, defaultFloatPrecision)
+		test.That(t, accs[0], test.ShouldAlmostEqual, math.Pi/2, defaultFloatPrecision)
+	})
+
+	t.Run("an explicit zero is a real bound, not a missing one", func(t *testing.T) {
+		vels, accs, ok := TrajectoryLimits([]Limit{
+			{Min: -1, Max: 1, MaxVelocity: ptr(0.0), MaxAcceleration: ptr(0.0)},
+		})
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, vels, test.ShouldResemble, []float64{0})
+		test.That(t, accs, test.ShouldResemble, []float64{0})
+	})
+
+	t.Run("no degrees of freedom is vacuously bounded", func(t *testing.T) {
+		vels, accs, ok := TrajectoryLimits(nil)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, vels, test.ShouldBeEmpty)
+		test.That(t, accs, test.ShouldBeEmpty)
+	})
+
+	// the case that would otherwise bite: most joints declare limits, one does not, and a caller
+	// that only checked the first joint would generate a trajectory against an invented bound
+	for _, tc := range []struct {
+		name   string
+		limits []Limit
+	}{
+		{"one joint missing velocity", []Limit{
+			{MaxVelocity: ptr(1.0), MaxAcceleration: ptr(1.0)},
+			{MaxAcceleration: ptr(1.0)},
+		}},
+		{"one joint missing acceleration", []Limit{
+			{MaxVelocity: ptr(1.0), MaxAcceleration: ptr(1.0)},
+			{MaxVelocity: ptr(1.0)},
+		}},
+		{"infinite counts as unbounded", []Limit{
+			{MaxVelocity: ptr(math.Inf(1)), MaxAcceleration: ptr(1.0)},
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vels, accs, ok := TrajectoryLimits(tc.limits)
+			test.That(t, ok, test.ShouldBeFalse)
+			test.That(t, vels, test.ShouldBeNil)
+			test.That(t, accs, test.ShouldBeNil)
+		})
+	}
 }
 
 // Hash deliberately ignores the velocity fields. The only consumer is the smart seed cache,
