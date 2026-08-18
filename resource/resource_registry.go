@@ -391,6 +391,17 @@ func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](
 	for _, api := range apis {
 		Register(api, model, reg)
 	}
+	RegisterMultiAPISet(model, apis)
+}
+
+// RegisterMultiAPISet records the set of co-equal APIs a model serves, without registering
+// constructors (which are registered separately). Used when a model's per-API constructors already
+// exist — e.g. modular resources, whose constructors are the module proxies registered from the
+// module's handler map. A set of fewer than two APIs is ignored.
+func RegisterMultiAPISet(model Model, apis []API) {
+	if len(apis) < 2 {
+		return
+	}
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	multiAPIByModel[model] = append([]API(nil), apis...)

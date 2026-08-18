@@ -362,6 +362,25 @@ func (m *Module) addResource(
 		return multierr.Combine(err, res.Close(ctx))
 	}
 
+	// Construct-once for composite (multi-API) models: the module builds one instance but serves it
+	// on each of its APIs, so register the same res in every other API's collection under that API's
+	// name. Each of the module's per-API gRPC services then resolves the one instance.
+	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+		base := conf.ResourceName()
+		for _, api := range apis {
+			if api == conf.API {
+				continue
+			}
+			other, ok := m.collections[api]
+			if !ok {
+				return fmt.Errorf("module cannot service api: %s", api)
+			}
+			if err := other.Add(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, res); err != nil {
+				return multierr.Combine(err, res.Close(ctx))
+			}
+		}
+	}
+
 	m.resLoggers[res] = resLogger
 	// add the video stream resources upon creation
 	if p, ok := res.(rtppassthrough.Source); ok {

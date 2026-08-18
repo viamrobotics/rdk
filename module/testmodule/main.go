@@ -32,6 +32,7 @@ var (
 	testSlowModel            = resource.NewModel("rdk", "test", "slow")
 	testFSDependentModel     = resource.NewModel("rdk", "test", "fsdep")
 	testSensorDependentModel = resource.NewModel("rdk", "test", "sensordep")
+	testMultiAPIModel        = resource.NewModel("rdk", "test", "multi")
 	myMod                    *module.Module
 )
 
@@ -104,6 +105,19 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		resource.Registration[resource.Resource, *sensorDepConfig]{Constructor: newSensorDependent})
 	err = myMod.AddModelFromRegistry(ctx, sensor.API, testSensorDependentModel)
 	if err != nil {
+		return err
+	}
+
+	// A composite (multi-API) model: one instance serves both the sensor API (Readings) and the
+	// generic API (DoCommand). Advertised under both APIs.
+	resource.RegisterMultiAPI(
+		[]resource.API{sensor.API, generic.API},
+		testMultiAPIModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newMultiAPI})
+	if err = myMod.AddModelFromRegistry(ctx, sensor.API, testMultiAPIModel); err != nil {
+		return err
+	}
+	if err = myMod.AddModelFromRegistry(ctx, generic.API, testMultiAPIModel); err != nil {
 		return err
 	}
 
@@ -529,4 +543,27 @@ func (sd *sensorDependent) Readings(ctx context.Context, _ map[string]interface{
 // DoCommand returns the number of times validate has been called on this module.
 func (sd *sensorDependent) DoCommand(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{"validate_calls": sensorValidateCalls}, nil
+}
+
+// multiAPIThing is a composite resource that serves both the sensor API (via Readings) and the
+// generic API (via DoCommand) from a single instance.
+type multiAPIThing struct {
+	resource.Named
+	resource.TriviallyCloseable
+}
+
+func newMultiAPI(
+	_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+) (resource.Resource, error) {
+	return &multiAPIThing{Named: conf.ResourceName().AsNamed()}, nil
+}
+
+// Readings implements the sensor API.
+func (m *multiAPIThing) Readings(_ context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{"reading": 42}, nil
+}
+
+// DoCommand implements the generic API.
+func (m *multiAPIThing) DoCommand(_ context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{"did": "it"}, nil
 }
