@@ -374,6 +374,9 @@ func echoBinaryDataByIDs(_ context.Context, in *datapb.BinaryDataByIDsRequest, _
 // records the filter it was asked with.
 type binaryFilterFake struct {
 	pages [][]string
+	// repeat serves the first page forever, so the producer never runs out of ids to send.
+	repeat   bool
+	byIDsErr error
 
 	mu     sync.Mutex
 	call   int
@@ -389,56 +392,59 @@ func (f *binaryFilterFake) client() *inject.DataServiceClient {
 			f.filter = in.GetDataRequest().GetFilter()
 
 			resp := &datapb.BinaryDataByFilterResponse{}
-			if f.call < len(f.pages) {
-				for _, id := range f.pages[f.call] {
+			if page := f.call; f.repeat || page < len(f.pages) {
+				if f.repeat {
+					page = 0
+				}
+				for _, id := range f.pages[page] {
 					resp.Data = append(resp.Data, &datapb.BinaryData{Metadata: binaryMeta(id)})
 				}
 			}
 			f.call++
 			return resp, nil
 		},
-		BinaryDataByIDsFunc: echoBinaryDataByIDs,
-	}
-}
-
-// Guards the shared performActionOnBinaryDataIDs driver the sequence export also runs on.
-func TestDataExportBinaryFromFilter(t *testing.T) {
-	fake := &binaryFilterFake{pages: [][]string{{"bin-1", "bin-2"}, {"bin-3"}}}
-	_, ac, out, _ := setup(&inject.AppServiceClient{}, fake.client(), nil, nil, "token")
-
-	dst := t.TempDir()
-	err := ac.binaryData(context.Background(), dst, &datapb.Filter{PartId: "p1"}, 4, 0)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fake.filter.GetPartId(), test.ShouldEqual, "p1")
-
-	for _, id := range []string{"bin-1", "bin-2", "bin-3"} {
-		path := dataFilePath(dst, filenameForDownload(binaryMeta(id)), ".jpg")
-		test.That(t, mustReadFile(t, path), test.ShouldResemble, []byte("bytes-"+id))
-	}
-	test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "Downloaded 3 files")
-}
-
-// When an action fails the workers cancel and return, so a producer still sending must abort too
-// or the command hangs. Times out if getMatchingBinaryIDs stops selecting on ctx.
-func TestDataExportBinaryCancelsProducerOnActionError(t *testing.T) {
-	page := &datapb.BinaryDataByFilterResponse{}
-	for range 10 {
-		page.Data = append(page.Data, &datapb.BinaryData{Metadata: binaryMeta("bin-1")})
-	}
-	dsc := &inject.DataServiceClient{
-		BinaryDataByFilterFunc: func(_ context.Context, _ *datapb.BinaryDataByFilterRequest, _ ...grpc.CallOption,
-		) (*datapb.BinaryDataByFilterResponse, error) {
-			return page, nil // never exhausts, so the producer always has more to send
+		BinaryDataByIDsFunc: func(ctx context.Context, in *datapb.BinaryDataByIDsRequest, opts ...grpc.CallOption,
+		) (*datapb.BinaryDataByIDsResponse, error) {
+			if f.byIDsErr != nil {
+				return nil, f.byIDsErr
+			}
+			return echoBinaryDataByIDs(ctx, in, opts...)
 		},
 	}
-	cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
-	_ = cCtx
+}
 
-	err := ac.performActionOnBinaryDataFromFilter(context.Background(),
-		func(context.Context, string) error { return errors.New("action failed") },
-		&datapb.Filter{PartId: "p1"}, 2, func(int32) {})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "action failed")
+func TestDataExportBinaryAction(t *testing.T) {
+	t.Run("downloads every id the filter matches", func(t *testing.T) {
+		fake := &binaryFilterFake{pages: [][]string{{"bin-1", "bin-2"}, {"bin-3"}}}
+		cCtx, ac, out, _ := setup(&inject.AppServiceClient{}, fake.client(), nil,
+			map[string]any{generalFlagPartID: "p1"}, "token")
+
+		dst := t.TempDir()
+		err := ac.dataExportBinaryAction(context.Background(), cCtx, dataExportBinaryArgs{Destination: dst, Parallel: 4})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fake.filter.GetPartId(), test.ShouldEqual, "p1")
+
+		for _, id := range []string{"bin-1", "bin-2", "bin-3"} {
+			path := dataFilePath(dst, filenameForDownload(binaryMeta(id)), ".jpg")
+			test.That(t, mustReadFile(t, path), test.ShouldResemble, []byte("bytes-"+id))
+		}
+		test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "Downloaded 3 files")
+	})
+
+	t.Run("reports a download failure instead of hanging", func(t *testing.T) {
+		fake := &binaryFilterFake{
+			pages:    [][]string{{"bin-1", "bin-2", "bin-3", "bin-4"}},
+			repeat:   true,
+			byIDsErr: errors.New("download failed"),
+		}
+		cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, fake.client(), nil,
+			map[string]any{generalFlagPartID: "p1"}, "token")
+
+		err := ac.dataExportBinaryAction(context.Background(), cCtx,
+			dataExportBinaryArgs{Destination: t.TempDir(), Parallel: 2})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "download failed")
+	})
 }
 
 func TestDataQueryBinaryAction(t *testing.T) {
