@@ -78,6 +78,8 @@ func buildTestFlags(m map[string]any) []cli.Flag {
 		switch v := val.(type) {
 		case int:
 			flags = append(flags, &cli.IntFlag{Name: name, Value: v})
+		case uint:
+			flags = append(flags, &cli.UintFlag{Name: name, Value: v})
 		case string:
 			flags = append(flags, &cli.StringFlag{Name: name, Value: v})
 		case bool:
