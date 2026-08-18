@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"go.viam.com/test"
@@ -241,4 +242,29 @@ func TestConfigOmitsAPIForMultiAPIModel(t *testing.T) {
 	conf.AdjustPartialNames("")
 	test.That(t, conf.API, test.ShouldResemble, apiOne)
 	test.That(t, conf.ResourceName(), test.ShouldResemble, NewName(apiOne, "dev"))
+}
+
+func TestConfigJSONRoundTripOmitsAPI(t *testing.T) {
+	// A composite resource's config, parsed from JSON with no "api" field, resolves its API from the
+	// model's registered set through the normal Validate path (as config.Read would).
+	model := DefaultModelFamily.WithModel("multiapi_jsonmodel")
+	registryMu.Lock()
+	multiAPIByModel[model] = []API{apiOne, apiTwo}
+	registryMu.Unlock()
+	defer func() {
+		registryMu.Lock()
+		delete(multiAPIByModel, model)
+		registryMu.Unlock()
+	}()
+
+	var conf Config
+	err := json.Unmarshal([]byte(`{"name": "dev", "model": "rdk:builtin:multiapi_jsonmodel"}`), &conf)
+	test.That(t, err, test.ShouldBeNil)
+	// No api in the JSON.
+	test.That(t, conf.API, test.ShouldResemble, API{})
+
+	_, _, err = conf.Validate("test", "component")
+	test.That(t, err, test.ShouldBeNil)
+	// Resolved to the canonical (first) API of the set.
+	test.That(t, conf.API, test.ShouldResemble, apiOne)
 }
