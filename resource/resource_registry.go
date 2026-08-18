@@ -201,6 +201,10 @@ var (
 	registry                      = map[APIModel]Registration[Resource, ConfigValidator]{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
 	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
+	// multiAPIByModel records the set of co-equal APIs a model serves, for models registered via
+	// RegisterMultiAPI. Keyed by Model so config resolution can find a resource's API set from its
+	// model alone (a composite resource's config may omit `api`). See RegisterMultiAPI.
+	multiAPIByModel = map[Model][]API{}
 )
 
 // DefaultServices returns all servies that will be constructed by default if not
@@ -348,6 +352,36 @@ func LookupRegistration(api API, model Model) (Registration[Resource, ConfigVali
 		return registration, true
 	}
 	return Registration[Resource, ConfigValidator]{}, false
+}
+
+// RegisterMultiAPI registers one model that serves a set of co-equal APIs (a "composite" resource).
+// The APIs form a set with no primary: one instance of the model is reachable, routed, and advertised
+// under any of them, and the model's Go type must implement each API's interface (routing casts to the
+// requested one via AsType at call time). The single constructor in reg is registered under every API
+// in the set, and the set is recorded so config resolution can expand the model (with or without an
+// `api` field) into its full identity. Declare at init time. Panics if fewer than two APIs are given
+// (use RegisterComponent/RegisterService for a single API).
+func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](
+	apis []API, model Model, reg Registration[ResourceT, ConfigT],
+) {
+	if len(apis) < 2 {
+		panic(errors.Errorf("RegisterMultiAPI needs at least two APIs for model %q, got %d", model, len(apis)))
+	}
+	for _, api := range apis {
+		Register(api, model, reg)
+	}
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	multiAPIByModel[model] = append([]API(nil), apis...)
+}
+
+// APIsForModel returns the set of co-equal APIs a composite model serves, or nil for an ordinary
+// single-API model. Config resolution uses this to expand a model into its API set when the config
+// omits `api`. The returned slice is shared and must not be mutated.
+func APIsForModel(model Model) []API {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	return multiAPIByModel[model]
 }
 
 // RegisterAPI register a ResourceAPI to its corresponding resource api.

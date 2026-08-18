@@ -102,6 +102,7 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 	if err != nil {
 		return zero, DependencyNotFoundError(name)
 	}
+	res = subresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
@@ -116,11 +117,24 @@ func FromProvider[T Resource](provider Provider, name Name) (T, error) {
 	if err != nil {
 		return zero, err
 	}
+	res = subresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
 	}
 	return typedRes, nil
+}
+
+// subresourceForAPI unwraps a composite (multi-API) resource to the sub-resource serving api, so a
+// typed accessor for one of a composite's APIs resolves to that API's client. A non-composite (or a
+// composite that does not serve api) is returned unchanged.
+func subresourceForAPI(res Resource, api API) Resource {
+	if mar, ok := res.(MultiAPIResource); ok {
+		if sub, ok := mar.ResourceForAPI(api); ok {
+			return sub
+		}
+	}
+	return res
 }
 
 // GetResource implements Provider for Dependencies by looking up a resource by name.

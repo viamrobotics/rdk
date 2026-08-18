@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -873,6 +874,27 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
+	// A multi-API (composite) resource is advertised as several resource names that share a bare
+	// name but differ by API. Assemble one composite object holding a sub-client per API, so
+	// ResourceByName / the dependencies map hand back a single handle. Callers reach a specific API
+	// off it via that API package's FromResource / FromProvider helper. (Relies on machine-wide name
+	// uniqueness so a shared bare name is guaranteed to be one instance.)
+	if apis := rc.apisSharingName(name); len(apis) > 1 {
+		byAPI := make(map[resource.API]resource.Resource, len(apis))
+		for _, api := range apis {
+			sub, err := rc.createSingleClient(resource.NewName(api, name.Name).PrependRemote(name.Remote))
+			if err != nil {
+				return nil, err
+			}
+			byAPI[api] = sub
+		}
+		return resource.NewMultiAPIResource(resource.NewName(apis[0], name.Name).PrependRemote(name.Remote), apis, byAPI), nil
+	}
+	return rc.createSingleClient(name)
+}
+
+// createSingleClient builds the typed client for exactly one (api, name).
+func (rc *RobotClient) createSingleClient(name resource.Name) (resource.Resource, error) {
 	apiInfo, ok := resource.LookupGenericAPIRegistration(name.API)
 	if !ok || apiInfo.RPCClient == nil {
 		return grpc.NewForeignResource(name, rc.getClientConn()), nil
@@ -890,6 +912,21 @@ func (rc *RobotClient) resourcesCallCtx(ctx context.Context) (context.Context, c
 		return ctx, func() {}
 	}
 	return contextutils.ContextWithTimeoutIfNoDeadline(ctx, rc.resourcesTimeout)
+}
+
+// apisSharingName returns, sorted, every API advertised under name's bare name and remote. A single
+// element means an ordinary single-API resource; more than one means a composite. rc.mu must be held.
+func (rc *RobotClient) apisSharingName(name resource.Name) []resource.API {
+	var apis []resource.API
+	seen := make(map[resource.API]bool)
+	for _, known := range rc.resourceNames {
+		if known.Name == name.Name && known.Remote == name.Remote && !seen[known.API] {
+			seen[known.API] = true
+			apis = append(apis, known.API)
+		}
+	}
+	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+	return apis
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
