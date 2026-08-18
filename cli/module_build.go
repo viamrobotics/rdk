@@ -1824,16 +1824,26 @@ func reloadingDestination(cmd *cli.Command, manifest *ModuleManifest) string {
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
 // It also logs warnings for likely problems, such as a missing meta.json or a first_run script
 // declared in the manifest but absent from the archive.
-func validateReloadableArchive(cmd *cli.Command, archivePath, firstRun string) error {
+func validateReloadableArchive(cmd *cli.Command, archivePath, firstRun string) (err error) {
 	//nolint:gosec // archivePath is a user-provided path from meta.json build.path or --file
 	reader, err := os.Open(archivePath)
 	if err != nil {
 		return errors.Wrap(err, "error opening module archive")
 	}
+	defer func() {
+		if closeErr := reader.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close module archive"))
+		}
+	}()
 	decompressed, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if closeErr := decompressed.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close gzip reader"))
+		}
+	}()
 	archive := tar.NewReader(decompressed)
 	metaFound := false
 	firstRunFound := false
