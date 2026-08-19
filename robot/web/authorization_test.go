@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	jwt "github.com/golang-jwt/jwt/v4"
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -12,7 +11,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
@@ -36,19 +34,13 @@ func ctxWithUser(user string) context.Context {
 	return rpc.ContextWithAuthEntity(context.Background(), rpc.EntityInfo{Entity: user})
 }
 
-// ctxWithEmailUser simulates an SSO client: the auth entity is the FusionAuth user
-// ID, and the e-mail lives in the bearer token's auth metadata claim.
-func ctxWithEmailUser(t *testing.T, subject, email string) context.Context {
-	t.Helper()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, rpc.JWTClaims{
-		RegisteredClaims: jwt.RegisteredClaims{Subject: subject},
-		AuthMetadata:     map[string]string{"email": email},
+// ctxWithEmailUser simulates an SSO client as the auth layer presents it: the auth
+// entity is the FusionAuth user ID, and the e-mail is on the entity's auth metadata.
+func ctxWithEmailUser(subject, email string) context.Context {
+	return rpc.ContextWithAuthEntity(context.Background(), rpc.EntityInfo{
+		Entity:       subject,
+		AuthMetadata: map[string]string{"email": email},
 	})
-	tokenString, err := token.SignedString([]byte("test-key"))
-	test.That(t, err, test.ShouldBeNil)
-	ctx := metadata.NewIncomingContext(context.Background(),
-		metadata.Pairs("authorization", "Bearer "+tokenString))
-	return rpc.ContextWithAuthEntity(ctx, rpc.EntityInfo{Entity: subject})
 }
 
 func assertDenied(t *testing.T, err error) {
@@ -83,7 +75,7 @@ func TestUserPermsAuthorizer(t *testing.T) {
 	}, logging.NewTestLogger(t))
 	test.That(t, ra, test.ShouldNotBeNil)
 
-	emailCtx := ctxWithEmailUser(t, "95ae43d3-a007-4e75-afd0-ea9317758a48", testEmail)
+	emailCtx := ctxWithEmailUser("95ae43d3-a007-4e75-afd0-ea9317758a48", testEmail)
 	for _, ctx := range []context.Context{ctxWithUser(testKeyID), emailCtx} {
 		// resource-scoped grants apply to every listed resource and no others
 		err := ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
@@ -204,7 +196,7 @@ func TestUserPermsAuthorizerDuplicateUser(t *testing.T) {
 		{User: emailUser(testEmail), Permissions: camPerm},
 		{User: emailUser(testEmail), Permissions: sensorPerm},
 	}, logging.NewTestLogger(t))
-	emailCtx := ctxWithEmailUser(t, "95ae43d3-a007-4e75-afd0-ea9317758a48", testEmail)
+	emailCtx := ctxWithEmailUser("95ae43d3-a007-4e75-afd0-ea9317758a48", testEmail)
 	assertDenied(t, ra.authorize(emailCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 }
 
