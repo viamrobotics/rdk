@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 
-	jwt "github.com/golang-jwt/jwt/v4"
 	"go.viam.com/utils/rpc"
 )
 
@@ -22,22 +21,13 @@ func (id Identity) Authenticated() bool {
 }
 
 // IdentityFromContext extracts the caller's identity from a request context. The
-// returned identity is zero-valued for unauthenticated clients.
+// returned identity is zero-valued for unauthenticated clients. Both the entity and
+// the e-mail come from the auth entity that the auth layer (or, over WebRTC, the
+// signaling-forwarded token) placed on the context; no token re-parsing is needed.
 func IdentityFromContext(ctx context.Context) Identity {
 	entity, ok := rpc.ContextAuthEntity(ctx)
 	if !ok {
 		return Identity{}
 	}
-	var email string
-	token, err := rpc.TokenFromContext(ctx)
-	if err == nil {
-		// The token's signature was already verified by the auth interceptor, so parsing it
-		// unverified here is safe.
-		var claims rpc.JWTClaims
-		if _, _, err := jwt.NewParser().ParseUnverified(token, &claims); err == nil {
-			email = claims.Metadata()["email"]
-		}
-	}
-
-	return Identity{Entity: entity.Entity, Email: email}
+	return Identity{Entity: entity.Entity, Email: entity.AuthMetadata["email"]}
 }
