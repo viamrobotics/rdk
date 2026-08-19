@@ -65,9 +65,10 @@ func signExternalTokenWithEmail(key *rsa.PrivateKey, subject, email, aud string)
 }
 
 // TestUserPermissionsE2E asserts that an API-key-ID user, an e-mail user, and a
-// default user can each authenticate to a machine with user_permissions defined and
-// use their granted permissions to get images from and add a live stream of a fake
-// camera, while ungranted resources stay denied.
+// default user each authenticate to a machine with user_permissions defined and are
+// authorized against their own entry: each may get images from and add a live stream
+// of the fake camera its entry grants, and is denied a camera granted only to a
+// different user (which also proves the identity resolved to the right entry).
 func TestUserPermissionsE2E(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -84,9 +85,13 @@ func TestUserPermissionsE2E(t *testing.T) {
 			},
 		}
 	}
+	// listedCam is granted to the explicitly-listed users (API key + e-mail); defaultCam
+	// is granted only to the default user. Each user is denied the other's camera, so a
+	// mis-resolved identity (e.g. an e-mail user silently falling through to the default
+	// user) would fail its assertions instead of passing on identical grants.
 	robotCfg := &config.Config{Components: []resource.Config{
-		fakeCamCfg("grantedCam"),
-		fakeCamCfg("privateCam"),
+		fakeCamCfg("listedCam"),
+		fakeCamCfg("defaultCam"),
 	}}
 
 	// The robot's own web service needs a video encoder to serve live streams.
@@ -125,16 +130,18 @@ func TestUserPermissionsE2E(t *testing.T) {
 	}
 	options.Auth.ExternalAuthConfig = &config.ExternalAuthConfig{ValidatedKeySet: keyset}
 
-	grantedCamPerms := []config.Permission{
-		{
-			Resources:      []string{"grantedCam"},
-			AllowedMethods: []string{authzGetImages, authzAddStream, authzRemoveStream},
-		},
+	camPerms := func(camName string) []config.Permission {
+		return []config.Permission{
+			{
+				Resources:      []string{camName},
+				AllowedMethods: []string{authzGetImages, authzAddStream, authzRemoveStream},
+			},
+		}
 	}
 	options.Auth.UserPermissions = []config.UserPermission{
-		{User: config.User{Type: config.UserTypeAPIKeyID, ID: listedKeyID}, Permissions: grantedCamPerms},
-		{User: config.User{Type: config.UserTypeEmail, ID: authzTestEmail}, Permissions: grantedCamPerms},
-		{User: config.User{Type: config.UserTypeDefault}, Permissions: grantedCamPerms},
+		{User: config.User{Type: config.UserTypeAPIKeyID, ID: listedKeyID}, Permissions: camPerms("listedCam")},
+		{User: config.User{Type: config.UserTypeEmail, ID: authzTestEmail}, Permissions: camPerms("listedCam")},
+		{User: config.User{Type: config.UserTypeDefault}, Permissions: camPerms("defaultCam")},
 	}
 
 	test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
@@ -143,22 +150,27 @@ func TestUserPermissionsE2E(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
-		name    string
-		dialOpt rpc.DialOption
+		name       string
+		dialOpt    rpc.DialOption
+		grantedCam string // the camera this user may access
+		deniedCam  string // a camera this user may not access (another user's)
 	}{
 		{
 			"api key ID user",
 			rutils.WithEntityCredentials(listedKeyID,
 				rpc.Credentials{Type: rpc.CredentialsTypeAPIKey, Payload: listedKey}),
+			"listedCam", "defaultCam",
 		},
 		{
 			"email user",
 			rpc.WithStaticAuthenticationMaterial(emailToken),
+			"listedCam", "defaultCam",
 		},
 		{
 			"default user",
 			rutils.WithEntityCredentials(unlistedKeyID,
 				rpc.Credentials{Type: rpc.CredentialsTypeAPIKey, Payload: unlistedKey}),
+			"defaultCam", "listedCam",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -174,7 +186,7 @@ func TestUserPermissionsE2E(t *testing.T) {
 			}()
 
 			// granted camera: images work
-			grantedCam, err := camera.NewClientFromConn(ctx, conn, "", camera.Named("grantedCam"), logger)
+			grantedCam, err := camera.NewClientFromConn(ctx, conn, "", camera.Named(tc.grantedCam), logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
 				test.That(t, grantedCam.Close(ctx), test.ShouldBeNil)
@@ -182,32 +194,34 @@ func TestUserPermissionsE2E(t *testing.T) {
 			_, _, err = grantedCam.Images(ctx, nil, nil)
 			test.That(t, err, test.ShouldBeNil)
 
-			// ungranted camera: images denied
-			privateCam, err := camera.NewClientFromConn(ctx, conn, "", camera.Named("privateCam"), logger)
+			// another user's camera: images denied. This also proves the caller's identity
+			// resolved to its own user_permissions entry rather than silently falling
+			// through to another (e.g. the default) user.
+			deniedCam, err := camera.NewClientFromConn(ctx, conn, "", camera.Named(tc.deniedCam), logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
-				test.That(t, privateCam.Close(ctx), test.ShouldBeNil)
+				test.That(t, deniedCam.Close(ctx), test.ShouldBeNil)
 			}()
-			_, _, err = privateCam.Images(ctx, nil, nil)
+			_, _, err = deniedCam.Images(ctx, nil, nil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, status.Code(err), test.ShouldEqual, codes.PermissionDenied)
 
 			// granted camera: live stream works; the server renegotiates a video track
 			// onto the peer connection
 			streamClient := streampb.NewStreamServiceClient(conn)
-			_, err = streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "grantedCam"})
+			_, err = streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: tc.grantedCam})
 			test.That(t, err, test.ShouldBeNil)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				test.That(tb, conn.PeerConn().CurrentLocalDescription().SDP, test.ShouldContainSubstring, "m=video")
 			})
 
-			// ungranted camera: live stream denied
-			_, err = streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "privateCam"})
+			// another user's camera: live stream denied
+			_, err = streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: tc.deniedCam})
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, status.Code(err), test.ShouldEqual, codes.PermissionDenied)
 
 			// clean up the granted stream so the next user starts fresh
-			_, err = streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: "grantedCam"})
+			_, err = streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: tc.grantedCam})
 			test.That(t, err, test.ShouldBeNil)
 		})
 	}
