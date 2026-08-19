@@ -1869,7 +1869,7 @@ func TestConfigMethod(t *testing.T) {
 				ImplicitDependsOn:   []string{"foo:builtin:data_manager"},
 			},
 			{
-				Name:  "builtin",
+				Name:  "nav1",
 				API:   navigation.API,
 				Model: resource.DefaultServiceModel,
 			},
