@@ -171,9 +171,15 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 		lmin, lmax, r := limits[i].GoodLimits()
 		d := r * deltas[i]
 
+		// only the position bounds narrow, the joint's velocity and acceleration limits are
+		// properties of the hardware and carry through untouched. We share the pointers with
+		// the incoming limits rather than copying them, which we can do because these bounds
+		// are search state that lives for one solve, and this runs in the planner's inner loop.
 		varLimit := referenceframe.Limit{
-			Min: max(lmin, s-d),
-			Max: min(lmax, s+d),
+			Min:             max(lmin, s-d),
+			Max:             min(lmax, s+d),
+			MaxVelocity:     limits[i].MaxVelocity,
+			MaxAcceleration: limits[i].MaxAcceleration,
 		}
 		if varLimit.Min > varLimit.Max {
 			varLimit.Min = varLimit.Max - d

@@ -84,8 +84,8 @@ func TestPrismaticFrame(t *testing.T) {
 }
 
 func TestRevoluteFrame(t *testing.T) {
-	axis := r3.Vector{1, 0, 0}                                                                // axis of rotation is x axis
-	frame := &rotationalFrame{&baseFrame{"test", []Limit{{-math.Pi / 2, math.Pi / 2}}}, axis} // limits between -90 and 90 degrees
+	axis := r3.Vector{1, 0, 0}                                                                          // axis of rotation is x axis
+	frame := &rotationalFrame{&baseFrame{"test", []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}}, axis} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromOrientation(&spatial.R4AA{math.Pi / 4, 1, 0, 0}) // 45 degrees
 	// get expected transform back
@@ -123,7 +123,7 @@ func TestGeometries(t *testing.T) {
 	test.That(t, spatial.GeometriesAlmostEqual(expectedBox, geometries.Geometries()[0]), test.ShouldBeTrue)
 
 	// test erroring correctly from trying to create a geometry for a rotational frame
-	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{Min: 5, Max: 6})
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = rf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
@@ -164,7 +164,7 @@ func TestSerializationStatic(t *testing.T) {
 }
 
 func TestSerializationTranslation(t *testing.T) {
-	f, err := NewTranslationalFrame("foo", r3.Vector{1, 0, 0}, Limit{1, 2})
+	f, err := NewTranslationalFrame("foo", r3.Vector{1, 0, 0}, Limit{Min: 1, Max: 2})
 	test.That(t, err, test.ShouldBeNil)
 
 	data, err := f.MarshalJSON()
@@ -181,7 +181,7 @@ func TestSerializationTranslation(t *testing.T) {
 }
 
 func TestSerializationRotations(t *testing.T) {
-	f, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+	f, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{Min: 5, Max: 6})
 	test.That(t, err, test.ShouldBeNil)
 
 	data, err := f.MarshalJSON()
@@ -252,14 +252,14 @@ func TestFrameSystemMarshalWithNamedFrame(t *testing.T) {
 }
 
 func TestRandomFrameInputs(t *testing.T) {
-	frame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-10, 10})
+	frame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{Min: -10, Max: 10})
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < 100; i++ {
 		_, err := frame.Transform(RandomFrameInputs(frame, seed))
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	limitedFrame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-2, 2})
+	limitedFrame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{Min: -2, Max: 2})
 	for i := 0; i < 100; i++ {
 		r, err := RestrictedRandomFrameInputs(frame, seed, .2, []Input{0})
 		test.That(t, err, test.ShouldBeNil)
@@ -356,7 +356,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	test.That(t, eq, test.ShouldBeTrue)
 
 	// translational frame
-	tF, err := NewTranslationalFrame("foo", r3.Vector{X: 1, Y: 0, Z: 0}, Limit{1, 2})
+	tF, err := NewTranslationalFrame("foo", r3.Vector{X: 1, Y: 0, Z: 0}, Limit{Min: 1, Max: 2})
 	test.That(t, err, test.ShouldBeNil)
 
 	jsonData, err = frameToJSON(tF)
@@ -370,7 +370,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	test.That(t, eq, test.ShouldBeTrue)
 
 	// rotational frame
-	rot, err := NewRotationalFrame("foo", spatial.R4AA{Theta: 3.7, RX: 2.1, RY: 3.1, RZ: 4.1}, Limit{5, 6})
+	rot, err := NewRotationalFrame("foo", spatial.R4AA{Theta: 3.7, RX: 2.1, RY: 3.1, RZ: 4.1}, Limit{Min: 5, Max: 6})
 	test.That(t, err, test.ShouldBeNil)
 
 	jsonData, err = frameToJSON(rot)
@@ -400,21 +400,21 @@ func TestFrameToJSONAndBack(t *testing.T) {
 
 func TestLimitMethods(t *testing.T) {
 	// test basic
-	l := Limit{0, 10}
+	l := Limit{Min: 0, Max: 10}
 	a, b, c := l.GoodLimits()
 	test.That(t, a, test.ShouldEqual, 0)
 	test.That(t, b, test.ShouldEqual, 10)
 	test.That(t, c, test.ShouldEqual, 10)
 
 	// finite limits above rangeLimit must pass through unchanged (prismatic mm-scale joints)
-	prismatic := Limit{0, 2224}
+	prismatic := Limit{Min: 0, Max: 2224}
 	a, b, c = prismatic.GoodLimits()
 	test.That(t, a, test.ShouldEqual, 0)
 	test.That(t, b, test.ShouldEqual, 2224)
 	test.That(t, c, test.ShouldEqual, 2224)
 
 	// infinite limits are capped to +/- rangeLimit
-	infinite := Limit{math.Inf(-1), math.Inf(1)}
+	infinite := Limit{Min: math.Inf(-1), Max: math.Inf(1)}
 	a, b, c = infinite.GoodLimits()
 	test.That(t, a, test.ShouldEqual, -rangeLimit)
 	test.That(t, b, test.ShouldEqual, rangeLimit)
@@ -433,28 +433,28 @@ func TestLimitMethods(t *testing.T) {
 	test.That(t, isMultipleOfPi(10), test.ShouldBeFalse)
 
 	// test IsRotational
-	test.That(t, (&Limit{-math.Pi, math.Pi}).IsRotational(), test.ShouldBeTrue)
-	test.That(t, (&Limit{-2 * math.Pi, 2 * math.Pi}).IsRotational(), test.ShouldBeTrue)
-	test.That(t, (&Limit{-4 * math.Pi, 4 * math.Pi}).IsRotational(), test.ShouldBeTrue)
-	test.That(t, (&Limit{0, 10}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
-	test.That(t, (&Limit{0, math.Pi}).IsRotational(), test.ShouldBeTrue)                           // 0 is a multiple of pi, 0 is in range
-	test.That(t, (&Limit{math.Pi, 2 * math.Pi}).IsRotational(), test.ShouldBeFalse)                // 0 not in range
-	test.That(t, (&Limit{-1, 1}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
-	test.That(t, (&Limit{-6.265732014659642, 6.26573201465964}).IsRotational(), test.ShouldBeTrue) // xarm limits ≈ -2pi to 2pi
+	test.That(t, (&Limit{Min: -math.Pi, Max: math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{Min: -4 * math.Pi, Max: 4 * math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{Min: 0, Max: 10}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
+	test.That(t, (&Limit{Min: 0, Max: math.Pi}).IsRotational(), test.ShouldBeTrue)                           // multiple of pi, 0 in range
+	test.That(t, (&Limit{Min: math.Pi, Max: 2 * math.Pi}).IsRotational(), test.ShouldBeFalse)                // 0 not in range
+	test.That(t, (&Limit{Min: -1, Max: 1}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
+	test.That(t, (&Limit{Min: -6.265732014659642, Max: 6.26573201465964}).IsRotational(), test.ShouldBeTrue) // xarm limits ≈ -2pi to 2pi
 
-	l = Limit{-4 * math.Pi, 4 * math.Pi}
+	l = Limit{Min: -4 * math.Pi, Max: 4 * math.Pi}
 	_, _, c = l.GoodLimits()
 	test.That(t, c, test.ShouldEqual, 8*math.Pi)
 
 	d = l.Jog(0, .25)
 	test.That(t, d, test.ShouldEqual, math.Pi/2)
 
-	l = Limit{-6.265732014659642, 6.26573201465964} // from xarm
+	l = Limit{Min: -6.265732014659642, Max: 6.26573201465964} // from xarm
 	d = l.Jog(0, .25)
 	test.That(t, d, test.ShouldEqual, math.Pi/2)
 
 	// sanity
-	l = Limit{math.Inf(-1), math.Inf(1)}
+	l = Limit{Min: math.Inf(-1), Max: math.Inf(1)}
 	d = l.Jog(0, .25)
 	test.That(t, d, test.ShouldAlmostEqual, rangeLimit/2, 1)
 }

@@ -565,7 +565,7 @@ func TestConfigureJointLimits(t *testing.T) {
 	test.That(t, f.DoF()[1].Min, test.ShouldAlmostEqual, -2*math.Pi)
 
 	svc.conf.InputRangeOverride = map[string]map[string]referenceframe.Limit{
-		"pieceArm": {"0": referenceframe.Limit{0, 1}},
+		"pieceArm": {"0": referenceframe.Limit{Min: 0, Max: 1}},
 	}
 
 	fs, err = svc.getFrameSystem(ctx, nil)
@@ -583,7 +583,7 @@ func TestConfigureJointLimits(t *testing.T) {
 	test.That(t, f.DoF()[0].Min, test.ShouldAlmostEqual, -2*math.Pi)
 
 	svc.conf.InputRangeOverride = map[string]map[string]referenceframe.Limit{
-		"pieceArm": {"shoulder_lift_joint": referenceframe.Limit{0, 1}},
+		"pieceArm": {"shoulder_lift_joint": referenceframe.Limit{Min: 0, Max: 1}},
 	}
 
 	fs, err = svc.getFrameSystem(ctx, nil)

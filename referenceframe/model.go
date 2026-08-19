@@ -287,8 +287,14 @@ func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
 }
 
 // NewModelWithLimitOverrides constructs a new model identical to base but with the specified
-// joint limits overridden. Overrides are keyed by frame name. Each override replaces the
-// first DoF limit of the matching frame.
+// joint limits overridden. Overrides are keyed by frame name and apply to the first DoF limit of
+// the matching frame.
+//
+// Position bounds are replaced outright. Velocity and acceleration bounds are tightened rather
+// than replaced, so an override can slow a joint down but never speed it up past what the model
+// declared, and leaving one unset keeps whatever the model already had. Assigning the whole
+// struct, which is what this used to do, would instead wipe out the model's own limits, since the
+// callers here are position overrides.
 func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
 	newFS, err := base.internalFS.Clone()
 	if err != nil {
@@ -300,7 +306,13 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 		if frame == nil || len(frame.DoF()) == 0 {
 			return nil, fmt.Errorf("frame %q not found or has no DoF", name)
 		}
-		frame.DoF()[0] = limit
+		// tighterBound copies rather than storing the caller's pointers, which matters because
+		// overrides come from a long-lived service config and every plan builds a model off it
+		merged := frame.DoF()[0]
+		merged.Min, merged.Max = limit.Min, limit.Max
+		merged.MaxVelocity = tighterBound(merged.MaxVelocity, limit.MaxVelocity)
+		merged.MaxAcceleration = tighterBound(merged.MaxAcceleration, limit.MaxAcceleration)
+		frame.DoF()[0] = merged
 	}
 
 	var m *SimpleModel

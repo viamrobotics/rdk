@@ -90,7 +90,7 @@ func TestLimitsParsing(t *testing.T) {
 	// the interface `DoF` method.
 	test.That(t, simpleModelDeserialized.limits[0].Min, test.ShouldEqual, 0)
 	test.That(t, simpleModelDeserialized.limits[0].Max, test.ShouldEqual, 1)
-	test.That(t, simpleModelDeserialized.DoF()[0], test.ShouldResemble, Limit{0, 1})
+	test.That(t, simpleModelDeserialized.DoF()[0], test.ShouldResemble, Limit{Min: 0, Max: 1})
 }
 
 // Tests that yml files are properly parsed and correctly loaded into the model

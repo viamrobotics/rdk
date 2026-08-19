@@ -57,16 +57,16 @@ func TestLinearInputsLimits(t *testing.T) {
 	err := fs.AddFrame(NewZeroStaticFrame("0dof"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	rotFrame, err := NewRotationalFrame("1dof", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	rotFrame, err := NewRotationalFrame("1dof", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -10, Max: 10})
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(rotFrame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	baseArmFrame := NewZeroStaticFrame("base")
-	shoulderArmFrame, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	shoulderArmFrame, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -10, Max: 10})
 	test.That(t, err, test.ShouldBeNil)
 	upperArmFrame := NewZeroStaticFrame("upperArm")
-	elbowArmFrame, err := NewRotationalFrame("elbow", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	elbowArmFrame, err := NewRotationalFrame("elbow", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -10, Max: 10})
 	test.That(t, err, test.ShouldBeNil)
 	handArmFrame := NewZeroStaticFrame("hand")
 	armFrame, err := NewSerialModel("arm", []Frame{
