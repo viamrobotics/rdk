@@ -682,11 +682,11 @@ func TestModularOptionalDependencies(t *testing.T) {
 }
 
 func TestOptionalDependencyOnBuiltin(t *testing.T) {
-	// A resource may not be named "builtin" — that name is reserved for the default services (see
+	// A resource may not be named "builtin", which is reserved for the default services (see
 	// resource.IsNameUniquenessExempt). This test ensures the reservation composes with the
-	// optional-dependency system: a motor named "builtin" is rejected, so a component that
-	// optionally depends on "builtin" still builds, just with that optional dependency left
-	// unresolved.
+	// optional-dependency system: a motor named "builtin" is rejected and not confused with an
+	// internal service, so a component that optionally depends on "builtin" still builds, just with
+	// that optional dependency left unresolved.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
