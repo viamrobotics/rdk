@@ -51,9 +51,11 @@ var (
 // Machine-wide resource-name uniqueness: a simple name identifies at most one resource across the
 // whole machine, regardless of API. Collisions resolve one of two ways, each with its own log
 // message below:
-//   - Two local resources share a name -> all of them are made unreachable. Colliding names
-//     are computed from the incoming config in a single pass at the end of updateResources
-//     (see collidingLocalNames).
+//   - Two local resources share a name -> all of them are made unreachable. The reserved "builtin"
+//     name is a special case of this: it belongs to the exempt default and rdk-internal services, so
+//     any user resource that claims it is treated as colliding and made unreachable. Colliding names
+//     are computed from the incoming config in a single pass at the end of updateResources (see
+//     collidingLocalNames).
 //   - A resource shares a name with a remote resource -> the remote resource is hidden from the
 //     machine's resource list (a local resource wins its name; two remotes sharing a name both
 //     hide). This is logged from both the local-add path (addToBeConstructedResource) and the
@@ -1418,13 +1420,24 @@ func (manager *resourceManager) updateResources(
 	return allErrs
 }
 
-// collidingLocalNames returns the local component/service resources whose simple name is assigned to
-// more than one resource in the given config. Registered default services and rdk-internal resources
-// are exempt.
+// collidingLocalNames returns the local component/service resources whose simple name must be
+// torn down to keep simple names machine-wide unique. Two cases produce a collision:
+//   - the reserved "builtin" name, which belongs to the exempt default and rdk-internal services
+//     (see resource.IsNameUniquenessExempt)
+//   - any other simple name assigned to more than one resource across APIs.
+//
+// Only user-configured components/services are examined, and the exempt resources (the default
+// services and rdk-internal resources) are never returned.
 func collidingLocalNames(cfg *config.Config) []resource.Name {
 	byName := make(map[string][]resource.Name)
+	var colliding []resource.Name
 	record := func(rName resource.Name) {
 		if resource.IsNameUniquenessExempt(rName.Name, rName.API) {
+			return
+		}
+		if rName.Name == resource.DefaultServiceName {
+			// "builtin" is reserved for the default services; a non-exempt resource may not take it.
+			colliding = append(colliding, rName)
 			return
 		}
 		byName[rName.Name] = append(byName[rName.Name], rName)
@@ -1436,7 +1449,6 @@ func collidingLocalNames(cfg *config.Config) []resource.Name {
 		record(s.ResourceName())
 	}
 
-	var colliding []resource.Name
 	for _, names := range byName {
 		if len(names) > 1 {
 			colliding = append(colliding, names...)

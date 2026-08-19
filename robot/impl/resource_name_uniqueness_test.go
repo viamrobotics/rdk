@@ -511,10 +511,10 @@ func TestThreeWayNameCollision(t *testing.T) {
 }
 
 func TestUserBuiltinNameCollision(t *testing.T) {
-	// The default services legitimately share the "builtin" name across service APIs and are exempt,
-	// so a lone non-default resource may also use "builtin". But two non-default resources sharing
-	// "builtin" across APIs collide like any other duplicated name: neither is built and it is
-	// logged. Renaming one resolves the collision and the surviving lone "builtin" is reachable.
+	// The default services legitimately share the "builtin" name across service APIs so it is reserved.
+	// No user resource may take it: a non-exempt resource named "builtin" is rejected and the rejection
+	// is logged, even when it is the only user resource claiming the name. Renaming it off "builtin"
+	// makes it reachable.
 	ctx := context.Background()
 
 	armModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
@@ -525,42 +525,29 @@ func TestUserBuiltinNameCollision(t *testing.T) {
 	})
 	defer resource.Deregister(arm.API, armModel)
 
-	sensorModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
-	resource.RegisterComponent(sensor.API, sensorModel, resource.Registration[sensor.Sensor, resource.NoNativeConfig]{
-		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (sensor.Sensor, error) {
-			return &inject.Sensor{}, nil
-		},
-	})
-	defer resource.Deregister(sensor.API, sensorModel)
-
 	logger, logs := logging.NewObservedTestLogger(t)
 
-	// An arm and a sensor both named "builtin": a cross-API collision, neither reachable.
+	// A lone arm named "builtin" claims the reserved name: it is rejected and not reachable.
 	r := setupLocalRobot(t, ctx, &config.Config{
 		Components: []resource.Config{
 			{Name: resource.DefaultServiceName, Model: armModel, API: arm.API},
-			{Name: resource.DefaultServiceName, Model: sensorModel, API: sensor.API},
 		},
 	}, logger)
 
 	test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldBeGreaterThan, 0)
 	_, err := r.ResourceByName(arm.Named(resource.DefaultServiceName))
 	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
-	_, err = r.ResourceByName(sensor.Named(resource.DefaultServiceName))
-	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
-	// Renaming the sensor off "builtin" resolves the collision. The lone remaining "builtin" arm is
-	// then allowed (it does not collide with the exempt default services).
+	// Renaming the arm off "builtin" resolves the collision and it becomes reachable.
 	r.Reconfigure(ctx, &config.Config{
 		Components: []resource.Config{
-			{Name: resource.DefaultServiceName, Model: armModel, API: arm.API},
-			{Name: "sensorOK", Model: sensorModel, API: sensor.API},
+			{Name: "armOK", Model: armModel, API: arm.API},
 		},
 	})
+	_, err = r.ResourceByName(arm.Named("armOK"))
+	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named(resource.DefaultServiceName))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.ResourceByName(sensor.Named("sensorOK"))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 }
 
 func TestCrossAPIRemoteNameCollision(t *testing.T) {

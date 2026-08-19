@@ -1266,7 +1266,7 @@ func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
 	internalA := APINamespaceRDKInternal.WithServiceType("iapi")
 	internalB := APINamespaceRDKInternal.WithServiceType("japi")
 
-	// Register two APIs as default services so IsDefaultServiceName recognizes their "builtin"
+	// Register two APIs as default services so IsDefaultService recognizes their "builtin"
 	// nodes as legitimate defaults (exempt), rather than a user collision.
 	defaultA := APINamespace("namespace").WithServiceType("defaultAapi")
 	defaultB := APINamespace("namespace").WithServiceType("defaultBapi")

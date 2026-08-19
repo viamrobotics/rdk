@@ -233,11 +233,11 @@ func isDefaultServiceAPI(api API) bool {
 	return false
 }
 
-// IsDefaultServiceName reports whether name refers to a registered default service: one
-// with the "builtin" name on a default-service API. Default services share this name
-// across APIs and are therefore exempt from machine-wide name uniqueness. A non-default
-// resource named "builtin" is not exempt and participates in the uniqueness check.
-func IsDefaultServiceName(name string, api API) bool {
+// IsDefaultService reports whether the (name, api) pair identifies a registered default service:
+// the reserved "builtin" name on a default-service API. Default services are exempt from
+// machine-wide name uniqueness; a non-default user resource named "builtin" is not exempt and
+// automatically fails the uniqueness check.
+func IsDefaultService(name string, api API) bool {
 	return name == DefaultServiceName && isDefaultServiceAPI(api)
 }
 
@@ -246,7 +246,7 @@ func IsDefaultServiceName(name string, api API) bool {
 // service APIs), rdk-internal resources, and anything that is neither a component nor a service are
 // exempt; every other resource participates in the check.
 func IsNameUniquenessExempt(name string, api API) bool {
-	return IsDefaultServiceName(name, api) ||
+	return IsDefaultService(name, api) ||
 		api.Type.Namespace == APINamespaceRDKInternal ||
 		!(api.IsComponent() || api.IsService())
 }
