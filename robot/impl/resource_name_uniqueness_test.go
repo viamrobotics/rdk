@@ -511,10 +511,9 @@ func TestThreeWayNameCollision(t *testing.T) {
 }
 
 func TestUserBuiltinNameCollision(t *testing.T) {
-	// The default services legitimately share the "builtin" name across service APIs so it is reserved.
-	// No user resource may take it: a non-exempt resource named "builtin" is rejected and the rejection
-	// is logged, even when it is the only user resource claiming the name. Renaming it off "builtin"
-	// makes it reachable.
+	// "builtin" is reserved for the built-in default services, so no user resource may take it: a
+	// component named "builtin" is rejected at config validation (its rejection logged) and is not
+	// reachable. Renaming it off "builtin" makes it reachable.
 	ctx := context.Background()
 
 	armModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
@@ -534,11 +533,12 @@ func TestUserBuiltinNameCollision(t *testing.T) {
 		},
 	}, logger)
 
-	test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldBeGreaterThan, 0)
+	test.That(t, logs.FilterMessageSnippet("reserved").Len(), test.ShouldBeGreaterThan, 0)
+	// The reserved-name arm fails validation, so it is not usable.
 	_, err := r.ResourceByName(arm.Named(resource.DefaultServiceName))
-	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	test.That(t, err, test.ShouldNotBeNil)
 
-	// Renaming the arm off "builtin" resolves the collision and it becomes reachable.
+	// Renaming the arm off "builtin" resolves the rejection and it becomes reachable.
 	r.Reconfigure(ctx, &config.Config{
 		Components: []resource.Config{
 			{Name: "armOK", Model: armModel, API: arm.API},
@@ -548,6 +548,52 @@ func TestUserBuiltinNameCollision(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named(resource.DefaultServiceName))
 	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+}
+
+type fakeDefaultSvc struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
+}
+
+func TestReservedBuiltinPreservesDefaultService(t *testing.T) {
+	// A user resource named "builtin" is rejected before it enters the graph, so it can never
+	// collide with and tear down the default service that legitimately owns "builtin".
+	ctx := context.Background()
+
+	// Register a fake service as a default service so it is auto-injected under the name "builtin".
+	defAPI := resource.APINamespaceRDK.WithServiceType("uniqueness_default_" + goutils.RandomAlphaString(5))
+	resource.RegisterDefaultService(defAPI, resource.DefaultServiceModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+				return &fakeDefaultSvc{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
+	defer resource.Deregister(defAPI, resource.DefaultServiceModel)
+
+	armModel := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(arm.API, armModel, resource.Registration[arm.Arm, resource.NoNativeConfig]{
+		Constructor: func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (arm.Arm, error) {
+			return &inject.Arm{}, nil
+		},
+	})
+	defer resource.Deregister(arm.API, armModel)
+
+	logger := logging.NewTestLogger(t)
+
+	// A user arm tries to claim the reserved "builtin" name alongside the auto-injected default service.
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{
+			{Name: resource.DefaultServiceName, Model: armModel, API: arm.API},
+		},
+	}, logger)
+
+	// The default service keeps "builtin" and stays reachable...
+	_, err := r.ResourceByName(resource.NewName(defAPI, resource.DefaultServiceName))
+	test.That(t, err, test.ShouldBeNil)
+	// ...while the user arm that tried to take "builtin" is rejected.
+	_, err = r.ResourceByName(arm.Named(resource.DefaultServiceName))
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestCrossAPIRemoteNameCollision(t *testing.T) {

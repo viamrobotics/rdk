@@ -191,7 +191,7 @@ func TestNew(t *testing.T) {
 			resource.Dependencies{},
 			resource.Config{ConvertedAttributes: &Config{}}, datasync.NoOpCloudClientConstructor, logger)
 		errExp := errors.New("Resource missing from dependencies. " +
-			"Resource: rdk-internal:service:cloud_connection/builtin")
+			"Resource: " + cloud.InternalServiceName.String())
 		test.That(t, err, test.ShouldBeError, errExp)
 	})
 
@@ -263,7 +263,7 @@ func TestReconfigure(t *testing.T) {
 		config := resource.Config{ConvertedAttributes: &Config{}}
 		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, config)
 		errExp := errors.New("Resource missing from dependencies. Resource: " +
-			"rdk-internal:service:cloud_connection/builtin")
+			cloud.InternalServiceName.String())
 		test.That(t, err, test.ShouldBeError, errExp)
 	})
 

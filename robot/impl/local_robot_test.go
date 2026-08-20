@@ -3999,7 +3999,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("frame_system"),
-					Name: "builtin",
+					Name: "$frame_system",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4009,7 +4009,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-					Name: "builtin",
+					Name: "$cloud_connection",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4019,7 +4019,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-					Name: "builtin",
+					Name: "$packagemanager",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4029,7 +4029,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-					Name: "builtin",
+					Name: "$web",
 				},
 				State: resource.NodeStateReady,
 			},

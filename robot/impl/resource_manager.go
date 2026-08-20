@@ -65,6 +65,8 @@ const (
 		"regardless of API. The colliding resources will not be reachable until the config is fixed"
 	logMsgRemoteNameCollision = "Resource name collision with a remote resource; the remote resource " +
 		"will be hidden until the collision is fixed. Rename the resource or add a prefix to the remote"
+	logMsgReservedName = "Resource name \"builtin\" is reserved for built-in default services and " +
+		"cannot be used by another resource; the resource was rejected. Rename it to fix the config"
 )
 
 type moduleManager interface {
@@ -1255,10 +1257,19 @@ func (manager *resourceManager) addToBeConstructedResource(
 	deps []string,
 	revision string,
 ) error {
-	// Logging of unique name collisions is handled uniformly by the machine-wide uniqueness check at the
-	// end of updateResources
+	// "builtin" is reserved for the default services, which own the name. Reject a non-default
+	// resource claiming it here so it never enters the graph, otherwise it would collide with
+	// the default service in the end-of-reconfigure walk and tear it down.
+	if name.Name == resource.DefaultServiceName && !resource.IsDefaultService(name.Name, name.API) {
+		manager.logger.Errorw(logMsgReservedName, "name", name.String())
+		return fmt.Errorf("name %q is reserved for built-in default services", name.Name)
+	}
+
+	// A second resource with an identical name+API would collapse onto the same graph node.
+	// Don't build it, tear down the pre-existing node, and log the collision here.
 	if _, hasNode := manager.resources.Node(name); hasNode {
 		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* remove dependents */)
+		manager.logger.Errorw(logMsgLocalNameCollision, "colliding", []string{name.String()})
 		return fmt.Errorf("cannot add duplicate resource %q: name %q is already in use", name, name.Name)
 	}
 
@@ -1408,53 +1419,14 @@ func (manager *resourceManager) updateResources(
 			"The processes config of this machine part has been ignored.")
 	}
 
-	// Enforce machine-wide name uniqueness: any simple name the config assigns to more than one
-	// local component/service is a collision, so remove every resource sharing it.
-	if conf.Right != nil {
-		if colliding := collidingLocalNames(conf.Right); len(colliding) > 0 {
-			manager.markResourcesRemoved(colliding, nil, true /* remove dependents */)
-			manager.logger.Errorw(logMsgLocalNameCollision, "colliding", resource.NamesToStrings(colliding))
-		}
+	// Enforce machine-wide name uniqueness: walk the final graph and tear down every local
+	// resource whose simple name is shared by another local resource.
+	if colliding := manager.resources.CollidingNames(); len(colliding) > 0 {
+		manager.markResourcesRemoved(colliding, nil, true /* remove dependents */)
+		manager.logger.Errorw(logMsgLocalNameCollision, "colliding", resource.NamesToStrings(colliding))
 	}
 
 	return allErrs
-}
-
-// collidingLocalNames returns the local component/service resources whose simple name must be
-// torn down to keep simple names machine-wide unique. Two cases produce a collision:
-//   - the reserved "builtin" name, which belongs to the exempt default and rdk-internal services
-//     (see resource.IsNameUniquenessExempt)
-//   - any other simple name assigned to more than one resource across APIs.
-//
-// Only user-configured components/services are examined, and the exempt resources (the default
-// services and rdk-internal resources) are never returned.
-func collidingLocalNames(cfg *config.Config) []resource.Name {
-	byName := make(map[string][]resource.Name)
-	var colliding []resource.Name
-	record := func(rName resource.Name) {
-		if resource.IsNameUniquenessExempt(rName.Name, rName.API) {
-			return
-		}
-		if rName.Name == resource.DefaultServiceName {
-			// "builtin" is reserved for the default services; a non-exempt resource may not take it.
-			colliding = append(colliding, rName)
-			return
-		}
-		byName[rName.Name] = append(byName[rName.Name], rName)
-	}
-	for _, c := range cfg.Components {
-		record(c.ResourceName())
-	}
-	for _, s := range cfg.Services {
-		record(s.ResourceName())
-	}
-
-	for _, names := range byName {
-		if len(names) > 1 {
-			colliding = append(colliding, names...)
-		}
-	}
-	return colliding
 }
 
 // ResourceByName returns the given resource by fully qualified name, if it

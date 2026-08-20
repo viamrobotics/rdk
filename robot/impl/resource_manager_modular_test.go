@@ -447,9 +447,9 @@ func (m *dummyModMan) RemoveResource(ctx context.Context, name resource.Name) er
 func (m *dummyModMan) IsModularResource(name resource.Name) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// "nonmod" is the test's non-modular resource; "builtin" covers the auto-constructed
-	// rdk-internal services (web, frame_system, ...). Neither is a modular resource.
-	return name.Name != "nonmod" && name.Name != resource.DefaultServiceName
+	// "nonmod" is the test's non-modular resource; the rdk-internal namespace covers the
+	// auto-constructed internal services (web, frame_system, ...). Neither is a modular resource.
+	return name.Name != "nonmod" && name.API.Type.Namespace != resource.APINamespaceRDKInternal
 }
 
 func (m *dummyModMan) Configs() []config.Module {

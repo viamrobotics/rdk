@@ -461,10 +461,10 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 			c.node = remNode
 		}
 
-		// Only components and services participate in machine-wide name uniqueness. Registered
-		// default services (which share the reserved "builtin" name across service APIs) and
-		// rdk-internal resources are exempt and emitted per-API.
-		if IsNameUniquenessExempt(k.name, k.api) {
+		// Name uniqueness covers only components and services. Other nodes — e.g. a remote-machine
+		// connection, whose name is a prefix, not a resource name — skip grouping and pass straight
+		// to the filter.
+		if !(k.api.IsComponent() || k.api.IsService()) {
 			emit(c)
 			continue
 		}
@@ -490,6 +490,46 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 		emit(chosen)
 	}
 	return result
+}
+
+// CollidingNames returns every local component/service whose simple name is shared by more than one
+// local resource across APIs. Callers tear these down to keep every simple name unique machine-wide.
+//
+// Nothing is exempt: rdk-internal services use reserved "$"-prefixed names that config validation
+// forbids for user resources, and "builtin" is reserved for the default services at config validation,
+// so neither can ever be the duplicate a user introduces.
+//
+// This counts only local nodes. A remote resource is never torn down here: when it shares a name
+// with a local one the local wins and the remote is hidden (not removed) by [Graph.SimpleNamesWhere].
+// Remote-machine connection nodes are ignored as well.
+func (g *Graph) CollidingNames() []Name {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	byName := make(map[string][]Name)
+	for k, v := range g.nodes.simpleNameCache {
+		if v.local == nil {
+			continue
+		}
+		// Nodes already marked for removal (e.g. a resource dropped by the incoming config) are on
+		// their way out and must not be counted — otherwise a departing resource would spuriously
+		// collide with the incoming resource that replaces its name.
+		if v.local.MarkedForRemoval() {
+			continue
+		}
+		if !(k.api.IsComponent() || k.api.IsService()) {
+			continue
+		}
+		byName[k.name] = append(byName[k.name], Name{API: k.api, Name: k.name})
+	}
+
+	var colliding []Name
+	for _, names := range byName {
+		if len(names) > 1 {
+			colliding = append(colliding, names...)
+		}
+	}
+	return colliding
 }
 
 // ReachableNames returns the all resource graph names, excluding remote resources that are unreached.

@@ -682,11 +682,10 @@ func TestModularOptionalDependencies(t *testing.T) {
 }
 
 func TestOptionalDependencyOnBuiltin(t *testing.T) {
-	// A resource may not be named "builtin", which is reserved for the default services (see
-	// resource.IsNameUniquenessExempt). This test ensures the reservation composes with the
-	// optional-dependency system: a motor named "builtin" is rejected and not confused with an
-	// internal service, so a component that optionally depends on "builtin" still builds, just with
-	// that optional dependency left unresolved.
+	// A resource may not be named "builtin", which is reserved for the default services at config
+	// validation. This test ensures the reservation composes with the optional-dependency system: a
+	// motor named "builtin" is rejected and not confused with an internal service, so a component
+	// that optionally depends on "builtin" still builds, just with that optional dependency unresolved.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -735,10 +734,10 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg)
 
-	// The reserved-name collision was logged and the "builtin" motor is not reachable.
-	test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldBeGreaterThan, 0)
+	// The reserved-name rejection was logged and the "builtin" motor is not reachable.
+	test.That(t, logs.FilterMessageSnippet("reserved").Len(), test.ShouldBeGreaterThan, 0)
 	_, err := lr.ResourceByName(motor.Named("builtin"))
-	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	// The optional child still built: its required motor 'm' is present, and its optional
 	// dependency on the rejected "builtin" is simply left unresolved.
@@ -804,10 +803,10 @@ func TestModularOptionalDependencyOnBuiltin(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg)
 
-	// The reserved-name collision was logged and the "builtin" motor is not reachable.
-	test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldBeGreaterThan, 0)
+	// The reserved-name rejection was logged and the "builtin" motor is not reachable.
+	test.That(t, logs.FilterMessageSnippet("reserved").Len(), test.ShouldBeGreaterThan, 0)
 	_, err := lr.ResourceByName(motor.Named("builtin"))
-	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	// The foo component still built against its required motor 'm'.
 	fooRes, err := lr.ResourceByName(fooName)

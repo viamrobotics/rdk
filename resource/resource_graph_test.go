@@ -1255,32 +1255,17 @@ func TestFindBySimpleNameAndAPI(t *testing.T) {
 }
 
 func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
-	// Verifies machine-wide name uniqueness in SimpleNamesWhere: a bare name claimed by more
-	// than one resource across different APIs is hidden (a local resource wins over remotes).
-	// Registered default services share the reserved "builtin" name across service APIS and are
-	// exempt, as are rdk-internal resources.
+	// Verifies machine-wide name uniqueness in SimpleNamesWhere: a bare name claimed by more than
+	// one advertised resource across APIs is hidden (a local resource wins over remotes). Only nodes
+	// that are neither a component nor a service bypass grouping and are always emitted.
 	logger := logging.NewTestLogger(t)
 
 	compA := APINamespace("namespace").WithComponentType("aapi")
 	svcB := APINamespace("namespace").WithServiceType("bapi")
 	internalA := APINamespaceRDKInternal.WithServiceType("iapi")
 	internalB := APINamespaceRDKInternal.WithServiceType("japi")
-
-	// Register two APIs as default services so IsDefaultService recognizes their "builtin"
-	// nodes as legitimate defaults (exempt), rather than a user collision.
-	defaultA := APINamespace("namespace").WithServiceType("defaultAapi")
-	defaultB := APINamespace("namespace").WithServiceType("defaultBapi")
-	model := DefaultModelFamily.WithModel("uniqueness_default_model")
-	registryMu.Lock()
-	registry[APIModel{defaultA, model}] = Registration[Resource, ConfigValidator]{api: defaultA, isDefault: true}
-	registry[APIModel{defaultB, model}] = Registration[Resource, ConfigValidator]{api: defaultB, isDefault: true}
-	registryMu.Unlock()
-	defer func() {
-		registryMu.Lock()
-		delete(registry, APIModel{defaultA, model})
-		delete(registry, APIModel{defaultB, model})
-		registryMu.Unlock()
-	}()
+	// An API that is neither a component nor a service (e.g. a remote-machine connection node).
+	nonResource := NewAPI("namespace", "remote", "capi")
 
 	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
 	all := func(Name, *GraphNode) bool { return true }
@@ -1298,38 +1283,33 @@ func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
 	// Two remotes sharing a name across APIs, no local: both hidden.
 	g.AddNode(Name{API: compA, Name: "dupRemote", Remote: "r1"}, newNode())
 	g.AddNode(Name{API: svcB, Name: "dupRemote", Remote: "r2"}, newNode())
-	// Two registered default services named "builtin" across service APIs: both advertised (exempt).
-	g.AddNode(Name{API: defaultA, Name: DefaultServiceName}, newNode())
-	g.AddNode(Name{API: defaultB, Name: DefaultServiceName}, newNode())
-	// Two NON-default resources named "builtin" across APIs: not exempt, so both hidden.
-	g.AddNode(Name{API: compA, Name: DefaultServiceName}, newNode())
-	g.AddNode(Name{API: svcB, Name: DefaultServiceName}, newNode())
-	// Two rdk-internal resources sharing a name across APIs: both advertised (exempt).
+	// rdk-internal services are NOT exempt: two sharing a name collapse like any other resource.
 	g.AddNode(Name{API: internalA, Name: "shared"}, newNode())
 	g.AddNode(Name{API: internalB, Name: "shared"}, newNode())
+	// Resources sharing "builtin" across APIs are not exempt either, so all are hidden.
+	g.AddNode(Name{API: compA, Name: DefaultServiceName}, newNode())
+	g.AddNode(Name{API: svcB, Name: DefaultServiceName}, newNode())
+	// A node that is neither a component nor a service (e.g. a remote-machine connection) bypasses
+	// grouping and is emitted directly.
+	g.AddNode(Name{API: nonResource, Name: "connection"}, newNode())
 
 	got := g.SimpleNamesWhere(all)
 
 	expected := []Name{
 		{API: compA, Name: "solo"},
 		{API: compA, Name: "localWins"},
-		{API: defaultA, Name: DefaultServiceName},
-		{API: defaultB, Name: DefaultServiceName},
-		{API: internalA, Name: "shared"},
-		{API: internalB, Name: "shared"},
+		{API: nonResource, Name: "connection"},
 	}
 	test.That(t, len(got), test.ShouldEqual, len(expected))
 	for _, e := range expected {
 		test.That(t, got, test.ShouldContain, e)
 	}
-	// The hidden names must not appear under any API.
+	// None of the collapsed names are advertised.
 	for _, n := range got {
 		test.That(t, n.Name, test.ShouldNotEqual, "dupLocal")
 		test.That(t, n.Name, test.ShouldNotEqual, "dupRemote")
-		if n.Name == DefaultServiceName {
-			test.That(t, n.API, test.ShouldNotResemble, compA)
-			test.That(t, n.API, test.ShouldNotResemble, svcB)
-		}
+		test.That(t, n.Name, test.ShouldNotEqual, "shared")
+		test.That(t, n.Name, test.ShouldNotEqual, DefaultServiceName)
 	}
 }
 
