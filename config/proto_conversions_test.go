@@ -827,7 +827,7 @@ func TestAuthConfigToProto(t *testing.T) {
 		proto, err := AuthConfigToProto(&authConfig)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, proto.GetUserPermissions(), test.ShouldHaveLength, 3)
-		test.That(t, proto.GetUserPermissions()[0].GetUser().GetType(), test.ShouldEqual, UserTypeAPIKeyID)
+		test.That(t, proto.GetUserPermissions()[0].GetUser().GetType(), test.ShouldEqual, pb.UserType_USER_TYPE_API_KEY_ID)
 		test.That(t, proto.GetUserPermissions()[2].GetUser().GetId(), test.ShouldBeEmpty)
 
 		out, err := AuthConfigFromProto(proto, logger)
