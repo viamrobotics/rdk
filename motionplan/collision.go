@@ -184,8 +184,18 @@ func checkCollisionsHinted(
 		return !collectAllCollisions
 	}
 
+	// The slow-check diagnostic costs two clock syscalls per pair; at millions of
+	// pair checks per plan that is real wall time. Only pay it when the debug log
+	// would actually be emitted, and even then sample 1 in 16 pairs — recurring
+	// slow pairs still surface, without the per-pair clock tax.
+	timeChecks := logger.GetLevel() <= logging.DEBUG
+	var pairCounter atomic.Uint64
 	checkOnePair := func(xName, yName string, xGeometry, yGeometry spatialmath.Geometry) (bool, error) {
-		start := time.Now()
+		var start time.Time
+		timeThis := timeChecks && pairCounter.Add(1)&15 == 0
+		if timeThis {
+			start = time.Now()
+		}
 		isCollision, distance, err := xGeometry.CollidesWith(yGeometry, collisionBufferMM)
 		if err != nil {
 			isCollision, distance, err = yGeometry.CollidesWith(xGeometry, collisionBufferMM)
@@ -193,10 +203,12 @@ func checkCollisionsHinted(
 				return false, err
 			}
 		}
-		if elapsed := time.Since(start); elapsed > slowCollisionThreshold {
-			rp := relativePoseHash(xGeometry, yGeometry)
-			logger.Debugf("slow collision check %v: %s vs %s collides=%v dist=%.4f rposeHash=%x",
-				elapsed, xName, yName, isCollision, distance, rp)
+		if timeThis {
+			if elapsed := time.Since(start); elapsed > slowCollisionThreshold {
+				rp := relativePoseHash(xGeometry, yGeometry)
+				logger.Debugf("slow collision check %v: %s vs %s collides=%v dist=%.4f rposeHash=%x",
+					elapsed, xName, yName, isCollision, distance, rp)
+			}
 		}
 		if isCollision {
 			return recordCollision(xName, yName), nil
