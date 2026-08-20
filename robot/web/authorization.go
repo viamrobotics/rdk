@@ -56,8 +56,8 @@ type permSet map[string]map[string]bool
 // everything.
 type userPermsAuthorizer struct {
 	// identityPerms is keyed by partial identities: an api-key-id user is stored as
-	// Identity{Entity: id} and an email user as Identity{Email: id}. Lookups probe
-	// both shapes for a connected client's identity.
+	// Identity{Entity: id} and an app-user-id user as Identity{AppUserID: id}. Lookups
+	// probe both shapes for a connected client's identity.
 	identityPerms map[rdkgrpc.Identity]permSet
 	defaultPerms  permSet // permissions of the "default" user; nil if none
 	logger        logging.Logger
@@ -95,8 +95,8 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 		switch user.Type {
 		case config.UserTypeAPIKeyID:
 			key = rdkgrpc.Identity{Entity: user.ID}
-		case config.UserTypeEmail:
-			key = rdkgrpc.Identity{Email: user.ID}
+		case config.UserTypeAppUserID:
+			key = rdkgrpc.Identity{AppUserID: user.ID}
 		case config.UserTypeDefault:
 			if ra.defaultPerms != nil {
 				ra.logger.Error(
@@ -135,10 +135,10 @@ func (ra *userPermsAuthorizer) permsFor(id rdkgrpc.Identity) permSet {
 	if perms, ok := ra.identityPerms[rdkgrpc.Identity{Entity: id.Entity}]; ok {
 		return perms
 	}
-	// The auth entity is an API key ID or a FusionAuth user ID, never an e-mail;
-	// e-mails are matched via the token's auth metadata claim.
-	if id.Email != "" {
-		if perms, ok := ra.identityPerms[rdkgrpc.Identity{Email: id.Email}]; ok {
+	// The auth entity is an API key ID or a FusionAuth user ID, never an app user ID;
+	// app user IDs are matched via the token's auth metadata claim.
+	if id.AppUserID != "" {
+		if perms, ok := ra.identityPerms[rdkgrpc.Identity{AppUserID: id.AppUserID}]; ok {
 			return perms
 		}
 	}

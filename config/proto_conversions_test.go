@@ -804,7 +804,7 @@ func TestAuthConfigToProto(t *testing.T) {
 					},
 				},
 				{
-					User: User{Type: UserTypeEmail, ID: "benji@viam.com"},
+					User: User{Type: UserTypeAppUserID, ID: "a1b2c3d4-0000-4000-8000-000000000001"},
 					Permissions: []Permission{
 						{
 							Resources:      []string{"sensor1"},
