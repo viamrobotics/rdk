@@ -749,27 +749,11 @@ func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, e
 	return &auth, nil
 }
 
-// userTypeToProto maps a config user-type string to its proto enum. An unknown
-// (or empty) type maps to USER_TYPE_UNSPECIFIED.
-var userTypeToProto = map[string]pb.UserType{
-	UserTypeAPIKeyID:  pb.UserType_USER_TYPE_API_KEY_ID,
-	UserTypeAppUserID: pb.UserType_USER_TYPE_APP_USER_ID,
-	UserTypeDefault:   pb.UserType_USER_TYPE_DEFAULT,
-}
-
-// userTypeFromProto is the inverse of userTypeToProto. An unrecognized enum maps
-// to the empty string.
-var userTypeFromProto = map[pb.UserType]string{
-	pb.UserType_USER_TYPE_API_KEY_ID:  UserTypeAPIKeyID,
-	pb.UserType_USER_TYPE_APP_USER_ID: UserTypeAppUserID,
-	pb.UserType_USER_TYPE_DEFAULT:     UserTypeDefault,
-}
-
 // userPermissionToProto converts UserPermission to the proto equivalent.
 func userPermissionToProto(up UserPermission, _ int) *pb.UserPermission {
 	return &pb.UserPermission{
 		User: &pb.User{
-			Type: userTypeToProto[up.User.Type],
+			Type: up.User.Type,
 			Id:   up.User.ID,
 		},
 		Permissions: lo.Map(up.Permissions, func(perm Permission, _ int) *pb.Permission {
@@ -785,7 +769,7 @@ func userPermissionToProto(up UserPermission, _ int) *pb.UserPermission {
 func userPermissionFromProto(proto *pb.UserPermission, _ int) UserPermission {
 	return UserPermission{
 		User: User{
-			Type: userTypeFromProto[proto.GetUser().GetType()],
+			Type: proto.GetUser().GetType(),
 			ID:   proto.GetUser().GetId(),
 		},
 		Permissions: lo.Map(proto.GetPermissions(), func(perm *pb.Permission, _ int) Permission {
