@@ -33,16 +33,16 @@ import (
 
 const (
 	authzTestFQDN      = "authz-e2e-test"
-	authzTestEmail     = "benji@viam.com"
+	authzTestAppUserID = "a1b2c3d4-0000-4000-8000-000000000001"
 	authzGetImages     = "/viam.component.camera.v1.CameraService/GetImages"
 	authzAddStream     = "/proto.stream.v1.StreamService/AddStream"
 	authzRemoveStream  = "/proto.stream.v1.StreamService/RemoveStream"
 	authzExternalKeyID = "external-auth-key-id"
 )
 
-// signExternalTokenWithEmail mints an app-style external auth token: RS256-signed,
-// FusionAuth user ID as the subject, and the user's e-mail in the auth metadata claim.
-func signExternalTokenWithEmail(key *rsa.PrivateKey, subject, email, aud string) (string, error) {
+// signExternalTokenWithAppUserID mints an app-style external auth token: RS256-signed,
+// FusionAuth user ID as the subject, and the user's app user ID in the auth metadata claim.
+func signExternalTokenWithAppUserID(key *rsa.PrivateKey, subject, appUserID, aud string) (string, error) {
 	token := &jwt.Token{
 		Header: map[string]interface{}{
 			"typ": "JWT",
@@ -57,14 +57,14 @@ func signExternalTokenWithEmail(key *rsa.PrivateKey, subject, email, aud string)
 				IssuedAt: jwt.NewNumericDate(time.Now()),
 			},
 			AuthCredentialsType: rpc.CredentialsTypeExternal,
-			AuthMetadata:        map[string]string{"email": email},
+			AuthMetadata:        map[string]string{"app_user_id": appUserID},
 		},
 		Method: jwt.SigningMethodRS256,
 	}
 	return token.SignedString(key)
 }
 
-// TestUserPermissionsE2E asserts that an API-key-ID user, an e-mail user, and a
+// TestUserPermissionsE2E asserts that an API-key-ID user, an app-user-id user, and a
 // default user each authenticate to a machine with user_permissions defined and are
 // authorized against their own entry: each may get images from and add a live stream
 // of the fake camera its entry grants, and is denied a camera granted only to a
@@ -85,9 +85,9 @@ func TestUserPermissionsE2E(t *testing.T) {
 			},
 		}
 	}
-	// listedCam is granted to the explicitly-listed users (API key + e-mail); defaultCam
+	// listedCam is granted to the explicitly-listed users (API key + app user ID); defaultCam
 	// is granted only to the default user. Each user is denied the other's camera, so a
-	// mis-resolved identity (e.g. an e-mail user silently falling through to the default
+	// mis-resolved identity (e.g. an app-user-id user silently falling through to the default
 	// user) would fail its assertions instead of passing on identical grants.
 	robotCfg := &config.Config{Components: []resource.Config{
 		fakeCamCfg("listedCam"),
@@ -100,7 +100,7 @@ func TestUserPermissionsE2E(t *testing.T) {
 			VideoEncoderFactory: x264.NewEncoderFactory(),
 		})))
 
-	// External auth (e-mail user): the machine trusts tokens signed by this key, as it
+	// External auth (app-user-id user): the machine trusts tokens signed by this key, as it
 	// would trust app-signed tokens via its configured JWKS.
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	test.That(t, err, test.ShouldBeNil)
@@ -140,13 +140,13 @@ func TestUserPermissionsE2E(t *testing.T) {
 	}
 	options.Auth.UserPermissions = []config.UserPermission{
 		{User: config.User{Type: config.UserTypeAPIKeyID, ID: listedKeyID}, Permissions: camPerms("listedCam")},
-		{User: config.User{Type: config.UserTypeEmail, ID: authzTestEmail}, Permissions: camPerms("listedCam")},
+		{User: config.User{Type: config.UserTypeAppUserID, ID: authzTestAppUserID}, Permissions: camPerms("listedCam")},
 		{User: config.User{Type: config.UserTypeDefault}, Permissions: camPerms("defaultCam")},
 	}
 
 	test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
 
-	emailToken, err := signExternalTokenWithEmail(privKey, "someauthprovider/fusionauth-user-id", authzTestEmail, authzTestFQDN)
+	appUserToken, err := signExternalTokenWithAppUserID(privKey, "someauthprovider/fusionauth-user-id", authzTestAppUserID, authzTestFQDN)
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
@@ -162,8 +162,8 @@ func TestUserPermissionsE2E(t *testing.T) {
 			"listedCam", "defaultCam",
 		},
 		{
-			"email user",
-			rpc.WithStaticAuthenticationMaterial(emailToken),
+			"app user ID user",
+			rpc.WithStaticAuthenticationMaterial(appUserToken),
 			"listedCam", "defaultCam",
 		},
 		{
