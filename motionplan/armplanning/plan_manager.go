@@ -212,6 +212,20 @@ func (pm *planManager) planSingleGoal(
 	}
 
 	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
+
+	// Before paying for a full bidirectional RRT search, try repairing the
+	// straight-line path with small nudges off whatever it grazes — the common
+	// case for barely-blocked paths.
+	if nudged := tryNudgedStraightLine(ctx, psc, planSeed.maps.goalMap, pm.pc.randseed, pm.logger.Sublogger("nudge")); nudged != nil {
+		steps, err := smoothPath(ctx, psc, nudged)
+		if err == nil {
+			pm.logger.Debugf("solved with nudged straight line: %d -> %d waypoints", len(nudged), len(steps))
+			pm.pc.planMeta.GoalsNudgeSolved++
+			return steps, nil
+		}
+		pm.logger.Debugf("nudged path failed to smooth, falling back to cbirrt: %v", err)
+	}
+
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
 	if err != nil {
 		return nil, err
@@ -362,7 +376,7 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 			rrt.steps = []*referenceframe.LinearInputs{solution.inputs}
 			return rrt, nil
 		}
-		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
+		rrt.maps.goalMap[&node{inputs: solution.inputs, cost: solution.cost}] = nil
 	}
 	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
 
