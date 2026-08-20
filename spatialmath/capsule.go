@@ -158,6 +158,10 @@ func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, flo
 		// Use fast collision check for box
 		col, d := capsuleVsBoxCollision(c, other, collisionBufferMM)
 		return col, d, nil
+	case *Mesh:
+		// Mesh's BVH walk (witness caching, early exit) is far cheaper than the
+		// exact per-triangle distance scan DistanceFrom would run.
+		return other.CollidesWith(c, collisionBufferMM)
 	default:
 		// For other types, distance calculation is relatively cheap
 		dist, err := c.DistanceFrom(g)
@@ -292,22 +296,24 @@ func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 // IMPORTANT: meshes are not considered solid. A mesh is not guaranteed to represent an enclosed area. This will measure ONLY the distance
 // to the closest triangle in the mesh.
 func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
+	// Distances are preserved under rigid transforms, so rather than transforming
+	// every triangle into world space (which allocates per triangle), bring the
+	// capsule's segment into the mesh's local frame once and scan the triangles
+	// where they already live.
+	inv := PoseInverse(other.pose)
+	q := inv.Orientation().Quaternion()
+	t := inv.Point()
+	segA := TransformPoint(q, t, c.segA)
+	segB := TransformPoint(q, t, c.segB)
 	lowDist := math.Inf(1)
-	for _, t := range other.triangles {
-		// Measure distance to each mesh triangle
-		// Make sure the triangle is transformed by the pose of the mesh to ensure that it is properly positioned
-		properlyPositionedTriangle := t.Transform(other.pose).(*Triangle)
-		dist := capsuleVsTriangleDistance(c, properlyPositionedTriangle)
+	for _, tri := range other.triangles {
+		capPt, triPt := ClosestPointsSegmentTriangle(segA, segB, tri)
+		dist := capPt.Sub(triPt).Norm()
 		if dist < lowDist {
 			lowDist = dist
 		}
 	}
-	return lowDist
-}
-
-func capsuleVsTriangleDistance(c *capsule, other *Triangle) float64 {
-	capPt, triPt := ClosestPointsSegmentTriangle(c.segA, c.segB, other)
-	return capPt.Sub(triPt).Norm() - c.radius
+	return lowDist - c.radius
 }
 
 // capsuleInCapsule returns a bool describing if the inner capsule is fully encompassed by the outer capsule.
