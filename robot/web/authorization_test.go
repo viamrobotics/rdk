@@ -20,7 +20,7 @@ import (
 
 const (
 	testKeyID     = "c6f77790-5405-488a-9c9c-9612402fb9b0"
-	testEmail     = "benji@viam.com"
+	testAppUserID = "a1b2c3d4-0000-4000-8000-000000000001"
 	getImages     = "/viam.component.camera.v1.CameraService/GetImages"
 	getReadings   = "/viam.component.sensor.v1.SensorService/GetReadings"
 	listStreams   = "/proto.stream.v1.StreamService/ListStreams"
@@ -34,12 +34,12 @@ func ctxWithUser(user string) context.Context {
 	return rpc.ContextWithAuthEntity(context.Background(), rpc.EntityInfo{Entity: user})
 }
 
-// ctxWithEmailUser simulates an SSO client as the auth layer presents it: the auth
-// entity is the FusionAuth user ID, and the e-mail is on the entity's auth metadata.
-func ctxWithEmailUser(subject, email string) context.Context {
+// ctxWithAppUserID simulates an SSO client as the auth layer presents it: the auth
+// entity is the FusionAuth user ID, and the app user ID is on the entity's auth metadata.
+func ctxWithAppUserID(subject, appUserID string) context.Context {
 	return rpc.ContextWithAuthEntity(context.Background(), rpc.EntityInfo{
 		Entity:       subject,
-		AuthMetadata: map[string]string{"email": email},
+		AuthMetadata: map[string]string{"app_user_id": appUserID},
 	})
 }
 
@@ -53,8 +53,8 @@ func apiKeyUser(id string) config.User {
 	return config.User{Type: config.UserTypeAPIKeyID, ID: id}
 }
 
-func emailUser(id string) config.User {
-	return config.User{Type: config.UserTypeEmail, ID: id}
+func appUserIDUser(id string) config.User {
+	return config.User{Type: config.UserTypeAppUserID, ID: id}
 }
 
 func TestUserPermsAuthorizerNoUserPerms(t *testing.T) {
@@ -63,7 +63,7 @@ func TestUserPermsAuthorizerNoUserPerms(t *testing.T) {
 }
 
 func TestUserPermsAuthorizer(t *testing.T) {
-	// The same person's API key ID and e-mail are two entries sharing permissions.
+	// The same person's API key ID and app user ID are two entries sharing permissions.
 	sharedPerms := []config.Permission{
 		{Resources: []string{"_machine"}, AllowedMethods: []string{resourceNames, listStreams}},
 		{Resources: []string{"cam1", "cam2"}, AllowedMethods: []string{getImages, addStream}},
@@ -71,12 +71,12 @@ func TestUserPermsAuthorizer(t *testing.T) {
 	}
 	ra := newUserPermsAuthorizer([]config.UserPermission{
 		{User: apiKeyUser(testKeyID), Permissions: sharedPerms},
-		{User: emailUser(testEmail), Permissions: sharedPerms},
+		{User: appUserIDUser(testAppUserID), Permissions: sharedPerms},
 	}, logging.NewTestLogger(t))
 	test.That(t, ra, test.ShouldNotBeNil)
 
-	emailCtx := ctxWithEmailUser("95ae43d3-a007-4e75-afd0-ea9317758a48", testEmail)
-	for _, ctx := range []context.Context{ctxWithUser(testKeyID), emailCtx} {
+	appUserCtx := ctxWithAppUserID("95ae43d3-a007-4e75-afd0-ea9317758a48", testAppUserID)
+	for _, ctx := range []context.Context{ctxWithUser(testKeyID), appUserCtx} {
 		// resource-scoped grants apply to every listed resource and no others
 		err := ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
 		test.That(t, err, test.ShouldBeNil)
@@ -191,13 +191,13 @@ func TestUserPermsAuthorizerDuplicateUser(t *testing.T) {
 	assertDenied(t, ra.authorize(otherCtx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
 	assertDenied(t, ra.authorize(otherCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 
-	// duplicate emails collide the same way api key IDs do
+	// duplicate app user IDs collide the same way api key IDs do
 	ra = newUserPermsAuthorizer([]config.UserPermission{
-		{User: emailUser(testEmail), Permissions: camPerm},
-		{User: emailUser(testEmail), Permissions: sensorPerm},
+		{User: appUserIDUser(testAppUserID), Permissions: camPerm},
+		{User: appUserIDUser(testAppUserID), Permissions: sensorPerm},
 	}, logging.NewTestLogger(t))
-	emailCtx := ctxWithEmailUser("95ae43d3-a007-4e75-afd0-ea9317758a48", testEmail)
-	assertDenied(t, ra.authorize(emailCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+	appUserCtx := ctxWithAppUserID("95ae43d3-a007-4e75-afd0-ea9317758a48", testAppUserID)
+	assertDenied(t, ra.authorize(appUserCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
 }
 
 func TestUserPermsAuthorizerSameNameDifferentAPI(t *testing.T) {
