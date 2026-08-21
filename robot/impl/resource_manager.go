@@ -48,6 +48,27 @@ var (
 	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
 )
 
+// Machine-wide resource-name uniqueness: a simple name identifies at most one resource across the
+// whole machine, regardless of API. Collisions resolve one of two ways, each with its own log
+// message below:
+//   - Two local resources share a name -> all of them are made unreachable. The reserved "builtin"
+//     name is a special case of this: it belongs to the exempt default and rdk-internal services, so
+//     any user resource that claims it is treated as colliding and made unreachable. Colliding names
+//     are computed from the incoming config in a single pass at the end of updateResources (see
+//     collidingLocalNames).
+//   - A resource shares a name with a remote resource -> the remote resource is hidden from the
+//     machine's resource list (a local resource wins its name; two remotes sharing a name both
+//     hide). This is logged from both the local-add path (addToBeConstructedResource) and the
+//     remote-add path (updateRemoteResourceNames) so the collision surfaces regardless of arrival order.
+const (
+	logMsgLocalNameCollision = "Resource name collision; names must be unique across the machine " +
+		"regardless of API. The colliding resources will not be reachable until the config is fixed"
+	logMsgRemoteNameCollision = "Resource name collision with a remote resource; the remote resource " +
+		"will be hidden until the collision is fixed. Rename the resource or add a prefix to the remote"
+	logMsgReservedName = "Resource name \"builtin\" is reserved for built-in default services and " +
+		"cannot be used by another resource; the resource was rejected. Rename it to fix the config"
+)
+
 type moduleManager interface {
 	Add(ctx context.Context, confs ...config.Module) error
 	AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error)
@@ -320,20 +341,15 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if !nodeAlreadyExists {
-			// Check for a full resource name collision and log an error if there is one.
+			// Log if this remote resource's name collides with any existing resource. On collision
+			// the remote stays in the graph but is hidden from the machine's resource list. One
+			// FindAllBySimpleName scan spans all APIs, so it catches both same-API and cross-API
+			// collisions; enumerate every conflicting resource.
 			prefixedSimpleName := prefix + resName.Name
-			_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
-			switch {
-			case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
-				// A collision could be indicated by a non-nil graph node (a single pre-existing
-				// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
-				// pre-existing remote resources with the same name).
-				manager.logger.Errorw("Found resource name collision when querying remote, please rename this resource or use a remote prefix",
-					"name", prefixedSimpleName, "api", resName.API, "remote", remoteName.Name)
-			case resource.IsNodeNotFoundError(err):
-				// No resources with the given simple name + API exists yet.
-			default:
-				manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
+			if conflicts := manager.resources.FindAllBySimpleName(prefixedSimpleName); len(conflicts) > 0 {
+				manager.logger.Errorw(logMsgRemoteNameCollision,
+					"name", prefixedSimpleName, "api", resName.API,
+					"conflicts_with", resource.NamesToStrings(conflicts), "remote", remoteName.Name)
 			}
 
 			// Configure a new graph node with the gRPC client to this remote resource.
@@ -1241,25 +1257,34 @@ func (manager *resourceManager) addToBeConstructedResource(
 	deps []string,
 	revision string,
 ) error {
-	if _, hasNode := manager.resources.Node(name); hasNode {
-		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* remove dependents */)
-		manager.logger.Errorw("Cannot add duplicate local resource. Rename the resource. Neither resource will be reachable through "+
-			"this machine until collision is fixed", "colliding name", name)
-		return fmt.Errorf("cannot add duplicate local resource %s", name)
+	// "builtin" is reserved for the default services, which own the name. Reject a non-default
+	// resource claiming it here so it never enters the graph, otherwise it would collide with
+	// the default service in the end-of-reconfigure walk and tear it down.
+	if name.Name == resource.DefaultServiceName && !resource.IsDefaultService(name.Name, name.API) {
+		manager.logger.Errorw(logMsgReservedName, "name", name.String())
+		return fmt.Errorf("name %q is reserved for built-in default services", name.Name)
 	}
 
-	// Check for a full resource name collision and log an error if there is one.
-	_, err := manager.resources.FindBySimpleNameAndAPI(name.Name, name.API)
-	switch {
-	case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
-		// A collision could be indicated by a non-nil graph node (a single pre-existing
-		// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
-		// pre-existing remote resources with the same name).
-		manager.logger.Errorw("Found resource name collision, please check your configuration", "name", name.Name, "api", name.API)
-	case resource.IsNodeNotFoundError(err):
-		// No resources with the given simple name + API exists yet. All good.
-	default:
-		manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
+	// A second resource with an identical name+API would collapse onto the same graph node.
+	// Don't build it, tear down the pre-existing node, and log the collision here.
+	if _, hasNode := manager.resources.Node(name); hasNode {
+		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* remove dependents */)
+		manager.logger.Errorw(logMsgLocalNameCollision, "colliding", []string{name.String()})
+		return fmt.Errorf("cannot add duplicate resource %q: name %q is already in use", name, name.Name)
+	}
+
+	// Log if this local resource's name collides with any remote resource (of any API). The local
+	// wins its name and the remotes are hidden from the machine's resource list. The mirror case (a
+	// remote arriving after the local) is logged in updateRemoteResourceNames.
+	var remoteConflicts []resource.Name
+	for _, other := range manager.resources.FindAllBySimpleName(name.Name) {
+		if other.Remote != "" {
+			remoteConflicts = append(remoteConflicts, other)
+		}
+	}
+	if len(remoteConflicts) > 0 {
+		manager.logger.Errorw(logMsgRemoteNameCollision,
+			"name", name.Name, "api", name.API, "conflicts_with", resource.NamesToStrings(remoteConflicts))
 	}
 
 	gNode := resource.NewUnconfiguredGraphNode(conf, deps)
@@ -1392,6 +1417,13 @@ func (manager *resourceManager) updateResources(
 	if len(conf.Added.Processes) > 0 || len(conf.Modified.Processes) > 0 {
 		manager.logger.CErrorw(ctx, "Processes have been deprecated and are no longer supported in viam-server versions v0.74.0+. "+
 			"The processes config of this machine part has been ignored.")
+	}
+
+	// Enforce machine-wide name uniqueness: walk the final graph and tear down every local
+	// resource whose simple name is shared by another local resource.
+	if colliding := manager.resources.CollidingNames(); len(colliding) > 0 {
+		manager.markResourcesRemoved(colliding, nil, true /* remove dependents */)
+		manager.logger.Errorw(logMsgLocalNameCollision, "colliding", resource.NamesToStrings(colliding))
 	}
 
 	return allErrs

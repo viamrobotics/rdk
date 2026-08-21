@@ -1870,7 +1870,7 @@ func TestConfigMethod(t *testing.T) {
 				ImplicitDependsOn:   []string{"foo:builtin:data_manager"},
 			},
 			{
-				Name:  "builtin",
+				Name:  "nav1",
 				API:   navigation.API,
 				Model: resource.DefaultServiceModel,
 			},
@@ -1969,13 +1969,15 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:                "fake2",
+				// Distinct from the data_manager service names above: resource names must be
+				// unique across the machine regardless of type.
+				Name:                "fakeArm1",
 				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
 			{
-				Name:                "fake3",
+				Name:                "fakeArm2",
 				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
@@ -3998,7 +4000,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("frame_system"),
-					Name: "builtin",
+					Name: "$frame_system",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4008,7 +4010,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-					Name: "builtin",
+					Name: "$cloud_connection",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4018,7 +4020,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-					Name: "builtin",
+					Name: "$packagemanager",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4028,7 +4030,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-					Name: "builtin",
+					Name: "$web",
 				},
 				State: resource.NodeStateReady,
 			},

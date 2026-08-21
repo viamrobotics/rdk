@@ -395,7 +395,8 @@ func TestServiceValidate(t *testing.T) {
 		deps, _, err := emptyConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, `subtype field`)
+		// With no subtype the name cannot default to a subtype, so the missing-name error surfaces.
+		test.That(t, err.Error(), test.ShouldContainSubstring, `Field: "name"`)
 	})
 
 	t.Run("config valid", func(t *testing.T) {
@@ -490,7 +491,9 @@ func TestServiceValidate(t *testing.T) {
 		deps, _, err := testConfig.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultServiceName)
+		// A service without a registered default name defaults to its subtype (not the reserved
+		// "builtin"), so it stays machine-wide unique.
+		test.That(t, testConfig.Name, test.ShouldEqual, "frame_system")
 	})
 
 	t.Run("with namespace", func(t *testing.T) {
