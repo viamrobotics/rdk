@@ -145,6 +145,15 @@ func (ra *userPermsAuthorizer) permsFor(id rdkgrpc.Identity) permSet {
 	return ra.defaultPerms
 }
 
+// allowedOnAnyResource reports whether the given identity may invoke fullMethod on at
+// least one resource (including the "_machine" sentinel). It gates stream creation: a
+// user with no access to a method at all should not be able to open its stream and
+// receive server-pushed messages before the per-resource check runs, since that check
+// needs the stream's first client message to learn the resource name.
+func (ra *userPermsAuthorizer) allowedOnAnyResource(id rdkgrpc.Identity, fullMethod string) bool {
+	return len(ra.permsFor(id)[fullMethod]) > 0
+}
+
 // allowed returns whether the given identity may invoke fullMethod. Requests that do
 // not address a named resource (e.g. RobotService methods, ListStreams) match only
 // grants under the special "_machine" resources string; requests that do address one
@@ -216,6 +225,17 @@ func (svc *webService) userPermsStreamInterceptor(
 	if isExemptMethod(info.FullMethod) {
 		return handler(srv, ss)
 	}
+	id := rdkgrpc.IdentityFromContext(ss.Context())
+	// Reject the stream up front if the user cannot invoke this method on any resource.
+	// This blocks an unauthorized user from opening the stream and receiving server-pushed
+	// messages before the per-resource check (which needs the first client message) has a
+	// chance to run. Users with access to some resource pass here and are still checked
+	// against the specific resource on their first message.
+	if ra := svc.userPermsAuth.Load(); ra != nil && !ra.allowedOnAnyResource(id, info.FullMethod) {
+		ra.logger.Warnf("%s request from %s unauthorized", info.FullMethod, id)
+		return status.Errorf(codes.PermissionDenied,
+			"user is not authorized to invoke %q", info.FullMethod)
+	}
 	ctx, cancel := context.WithCancel(ss.Context())
 	defer cancel()
 	authzStream := &authzServerStream{
@@ -224,7 +244,7 @@ func (svc *webService) userPermsStreamInterceptor(
 		ctx:          ctx,
 		cancel:       cancel,
 		fullMethod:   info.FullMethod,
-		id:           rdkgrpc.IdentityFromContext(ss.Context()),
+		id:           id,
 	}
 	svc.registerAuthzStream(authzStream)
 	// The handler invocation spans the stream's entire lifetime, so unregistration happens

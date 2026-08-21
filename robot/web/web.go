@@ -162,6 +162,11 @@ func (svc *webService) unregisterAuthzStream(ss *authzServerStream) {
 // active streams. It is used during web service startup, where no streams exist yet
 // and the webService mutex is already held (UpdateUserPermissions would deadlock).
 func (svc *webService) seedUserPermissions(userPerms []config.UserPermission) {
+	// An empty slice and a nil slice both mean "no restrictions"; normalize so the two
+	// are indistinguishable to the change detection in UpdateUserPermissions.
+	if len(userPerms) == 0 {
+		userPerms = nil
+	}
 	svc.userPermsMu.Lock()
 	defer svc.userPermsMu.Unlock()
 	svc.userPermsCfg = userPerms
@@ -175,6 +180,12 @@ func (svc *webService) seedUserPermissions(userPerms []config.UserPermission) {
 // unary requests (e.g. a long-running motion Move) are NOT halted; they complete
 // under the permissions they were admitted with.
 func (svc *webService) UpdateUserPermissions(userPerms []config.UserPermission) {
+	// An empty slice and a nil slice both mean "no restrictions"; normalize so a
+	// nil<->empty transition is not treated as a change and does not spuriously
+	// re-evaluate every active stream.
+	if len(userPerms) == 0 {
+		userPerms = nil
+	}
 	svc.userPermsMu.Lock()
 	defer svc.userPermsMu.Unlock()
 	if reflect.DeepEqual(svc.userPermsCfg, userPerms) {
