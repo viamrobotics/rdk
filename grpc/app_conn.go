@@ -74,7 +74,10 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
 		// cache the token now - this is also blocking
-		authErr := cacheConnToken(appConn.conn, ctxWithTimeout)
+		cacheErr := cacheConnToken(appConn.conn, partID, grpcURL.Host, ctxWithTimeout)
+		if cacheErr != nil {
+			logger.Warnw("auth token caching failed", cacheErr)
+		}
 		appConn.watchState(grpcURL.Host, logger)
 		return appConn, nil
 	}
@@ -101,7 +104,10 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 
 			ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, false, partID, logger)
 			conn, err := rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
-			cacheConnToken(conn, ctxWithTimeout)
+			cacheErr := cacheConnToken(conn, partID, grpcURL.Host, ctxWithTimeout)
+			if cacheErr != nil {
+				logger.Warnw("auth token caching failed", cacheErr)
+			}
 			ctxWithTimeoutCancel()
 			if err != nil {
 				logger.Debugw("error while dialing app. Could not establish global, unified connection", "error", err)
@@ -121,17 +127,25 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	return appConn, nil
 }
 
-func cacheConnToken(conn rpc.ClientConn, ctx context.Context) error {
-	token, err := conn.Authenticate(ctx)
+func cacheConnToken(conn rpc.ClientConn, partID string, host string, ctx context.Context) error {
+	authenticator, ok := conn.(rpc.ClientConnAuthenticator)
+	// if there's no authenticator, we can't authenticate this connection
+	// and there's nothing to cache. but it could just be an unauthenticated connection,
+	// so no error
+	if !ok {
+		return nil
+	}
+	token, err := authenticator.Authenticate(ctx)
 	if err != nil {
 		return err
 	}
-	tokenFilename := base64.RawURLEncoding.EncodeToString([]byte("part id" + "_" + "addr" + ".jwt"))
-	tokenPath := filepath.Join(rutils.ViamDotDir, "grpc", tokenFilename)
-	err = os.WriteFile(tokenPath, token, os.FileMode("0o600"))
+	tokenFilename := base64.RawURLEncoding.EncodeToString([]byte(partID + "_" + host))
+	tokenPath := filepath.Join(rutils.ViamDotDir, "grpc", tokenFilename+".jwt")
+	err = os.WriteFile(tokenPath, []byte(token), 0o600)
 	if err != nil {
 		return err
 	}
+	return nil
 }
 
 // watchState starts a background worker that subscribes to connectivity state changes on
