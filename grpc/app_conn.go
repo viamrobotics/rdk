@@ -182,8 +182,7 @@ func authedDialDirectGRPC(ctx context.Context, partID string, host string, logge
 		// attempt to dial again with the cached credentials
 		newConn, newErr := rpc.DialDirectGRPC(ctx, host, logger, append(dialOpts, rpc.WithStaticAuthenticationMaterial(cachedToken))...)
 		if newErr != nil {
-			logger.Warnw("error connecting with cached token", "error", newConn)
-			newConn.Close()
+			logger.Warnw("error connecting with cached token", "error", newErr)
 			return conn, nil
 		}
 		// the new connection with the cached token succeeded, so return it and close the old one
