@@ -71,13 +71,8 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	}
 
 	// lock not necessary here because call is blocking
-	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
+	appConn.conn, err = authedDialDirectGRPC(ctxWithTimeout, partID, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
-		// cache the token now - this is also blocking
-		cacheErr := cacheConnToken(ctxWithTimeout, appConn.conn, partID, grpcURL.Host)
-		if cacheErr != nil {
-			logger.Warnw("auth token caching failed", "error", cacheErr)
-		}
 		appConn.watchState(grpcURL.Host, logger)
 		return appConn, nil
 	}
@@ -103,11 +98,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 			}
 
 			ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, false, partID, logger)
-			conn, err := rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
-			cacheErr := cacheConnToken(ctxWithTimeout, conn, partID, grpcURL.Host)
-			if cacheErr != nil {
-				logger.Warnw("auth token caching failed", "error", cacheErr)
-			}
+			conn, err := authedDialDirectGRPC(ctxWithTimeout, partID, grpcURL.Host, logger, dialOpts...)
 			ctxWithTimeoutCancel()
 			if err != nil {
 				logger.Debugw("error while dialing app. Could not establish global, unified connection", "error", err)
@@ -127,23 +118,18 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	return appConn, nil
 }
 
-func cacheConnToken(ctx context.Context, conn rpc.ClientConn, partID string, host string) error {
-	authenticator, ok := conn.(rpc.ClientConnAuthenticator)
-	// if there's no authenticator, we can't authenticate this connection
-	// and there's nothing to cache. but it could just be an unauthenticated connection,
-	// so no error
-	if !ok {
-		return nil
-	}
-	token, err := authenticator.Authenticate(ctx)
-	if err != nil {
-		return err
-	}
+func tokenInfo(partID, host string) (string, string) {
 	cacheDir := filepath.Join(rutils.ViamDotDir, "grpc")
 	tokenFilename := base64.RawURLEncoding.EncodeToString([]byte(partID + "_" + host))
 	tokenPath := filepath.Join(cacheDir, tokenFilename+".jwt")
 
-	err = os.MkdirAll(cacheDir, 0o700)
+	return cacheDir, tokenPath
+}
+
+func tokenCacheWrite(partID, host, token string) error {
+	cacheDir, tokenPath := tokenInfo(partID, host)
+
+	err := os.MkdirAll(cacheDir, 0o700)
 	if err != nil {
 		return err
 	}
@@ -153,6 +139,65 @@ func cacheConnToken(ctx context.Context, conn rpc.ClientConn, partID string, hos
 		return err
 	}
 	return nil
+}
+
+func tokenCacheRead(partID, host string) (string, error) {
+	_, tokenPath := tokenInfo(partID, host)
+
+	tokenData, err := os.ReadFile(tokenPath)
+	if err != nil {
+		return "", err
+	}
+	return string(tokenData), nil
+}
+
+// authedDialDirectGRPC calls DialDirectGRPC while also explicitly authenticating the connection
+// and caching the resulting token on disk. If the normal auth path fails, we attempt to auth
+// with the cached token
+func authedDialDirectGRPC(ctx context.Context, partID string, host string, logger utils.ZapCompatibleLogger, dialOpts ...rpc.DialOption) (rpc.ClientConn, error) {
+	conn, err := rpc.DialDirectGRPC(ctx, host, logger, dialOpts...)
+	if err != nil {
+		// dial completely failed, pass the results through for the retry loop
+		return conn, err
+	}
+
+	authenticator, ok := conn.(rpc.ClientConnAuthenticator)
+	if !ok {
+		// we cannot auth this connection, but it might still be valid, so just return it
+		return conn, nil
+	}
+	// now, attempt to auth the connection
+	token, authErr := authenticator.Authenticate(ctx)
+	if authErr != nil {
+		// auth failed, so check if we have a cached token, then try dialing with it
+		logger.Warnw("auth failed, attempting auth with cached token", "error", authErr)
+		cachedToken, cacheErr := tokenCacheRead(partID, host)
+		if cacheErr != nil {
+			// we couldn't get the cached token, so give up and return the conection
+			// err is nil because the connection *is* valid, just not authenticated,
+			// so the original lazy auth path can still run
+			logger.Warnw("error reading token cache", "error", cacheErr)
+			return conn, nil
+		}
+		// attempt to dial again with the cached credentials
+		newConn, newErr := rpc.DialDirectGRPC(ctx, host, logger, append(dialOpts, rpc.WithStaticAuthenticationMaterial(cachedToken))...)
+		if newErr != nil {
+			logger.Warnw("error connecting with cached token", "error", newConn)
+			newConn.Close()
+			return conn, nil
+		}
+		// the new connection with the cached token succeeded, so return it and close the old one
+		conn.Close()
+		return newConn, nil
+	}
+	// auth succeeded, so cache the token and return
+	cacheErr := tokenCacheWrite(partID, host, token)
+	if cacheErr != nil {
+		// there's nothing to do about this, and the connection is already valid and authed,
+		// so just log and move on
+		logger.Warnw("error writing to token cache", "error", cacheErr)
+	}
+	return conn, nil
 }
 
 // watchState starts a background worker that subscribes to connectivity state changes on
