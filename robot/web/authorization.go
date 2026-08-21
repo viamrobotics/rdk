@@ -164,9 +164,11 @@ func (ra *userPermsAuthorizer) authorize(ctx context.Context, fullMethod string,
 		return nil
 	}
 	resourceName := resourceNameFromRequest(fullMethod, req)
-	if ra.allowed(rdkgrpc.IdentityFromContext(ctx), fullMethod, resourceName) {
+	id := rdkgrpc.IdentityFromContext(ctx)
+	if ra.allowed(id, fullMethod, resourceName) {
 		return nil
 	}
+	ra.logger.Warnf("%s request from %s unauthorized", fullMethod, id)
 	return status.Errorf(codes.PermissionDenied,
 		"user is not authorized to invoke %q on resource %q", fullMethod, resourceName)
 }
@@ -293,6 +295,7 @@ func (ss *authzServerStream) RecvMsg(m interface{}) error {
 	// user, revoke the stream and return a permission denied error.
 	if first {
 		if ra := ss.svc.userPermsAuth.Load(); ra != nil && !ra.allowed(ss.id, ss.fullMethod, resourceName) {
+			ra.logger.Warnf("%s request from %s unauthorized", ss.fullMethod, ss.id)
 			ss.revoke()
 			return status.Errorf(codes.PermissionDenied,
 				"user is not authorized to invoke %q on resource %q", ss.fullMethod, resourceName)
