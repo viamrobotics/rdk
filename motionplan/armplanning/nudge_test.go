@@ -92,15 +92,17 @@ func TestNudgeApplyJointDeltaClamps(t *testing.T) {
 
 // TestNudgeSolvesBarelyBlockedPath reproduces the scenario the nudge pass is
 // for: the straight-line joint interpolation to the goal grazes a small
-// obstacle mid-path, and a slight detour clears it. The plan must succeed via
-// the nudge repair, without falling back to a CBiRRT search.
-func TestNudgeSolvesBarelyBlockedPath(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	fs := nudgeTestFS(t)
+// obstacle mid-path, and a slight detour clears it.
+//
+// nudgeBlockedScene builds the scene: start/goal joint configurations whose
+// straight-line interpolation sweeps the end effector through a thin post.
+func nudgeBlockedScene(t *testing.T) (fs *referenceframe.FrameSystem, startJoints, goalJoints []float64, req *PlanRequest) {
+	t.Helper()
+	fs = nudgeTestFS(t)
 	model := fs.Frame("arm")
 
-	startJoints := []float64{0, 0.5, -1.0, 0, 0.5, 0}
-	goalJoints := []float64{math.Pi / 2, 0.5, -1.0, 0, 0.5, 0}
+	startJoints = []float64{0, 0.5, -1.0, 0, 0.5, 0}
+	goalJoints = []float64{math.Pi / 2, 0.5, -1.0, 0, 0.5, 0}
 	midJoints := []float64{math.Pi / 4, 0.5, -1.0, 0, 0.5, 0}
 
 	midPose, err := model.Transform(midJoints)
@@ -114,7 +116,7 @@ func TestNudgeSolvesBarelyBlockedPath(t *testing.T) {
 		spatialmath.NewPoseFromPoint(midPose.Point()), r3.Vector{X: 20, Y: 20, Z: 150}, "post")
 	test.That(t, err, test.ShouldBeNil)
 
-	plan, meta, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	req = &PlanRequest{
 		FrameSystem: fs,
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{"arm": referenceframe.NewPoseInFrame(referenceframe.World, goalPose)}},
@@ -122,12 +124,61 @@ func TestNudgeSolvesBarelyBlockedPath(t *testing.T) {
 		StartState:            &PlanState{structuredConfiguration: referenceframe.FrameSystemInputs{"arm": startJoints}},
 		ObstaclesInWorldFrame: referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{obstacle}),
 		PlannerOptions:        NewBasicPlannerOptions(),
-	})
+	}
+	return fs, startJoints, goalJoints, req
+}
+
+// TestNudgeRepairsBlockedStraightLine drives tryNudgedStraightLine directly
+// with a fixed goal configuration, so the outcome does not depend on which IK
+// solutions the solver happens to find (which varies by platform - e.g. the
+// smart-seed cache is disabled on 32-bit systems, and a different IK solution
+// may have an unobstructed straight line).
+func TestNudgeRepairsBlockedStraightLine(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	_, startJoints, goalJoints, req := nudgeBlockedScene(t)
+
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, meta.GoalsNudgeSolved, test.ShouldEqual, 1)
+
+	start := referenceframe.FrameSystemInputs{"arm": startJoints}.ToLinearInputs()
+	goalConfig := referenceframe.FrameSystemInputs{"arm": goalJoints}.ToLinearInputs()
+	goalPoses, err := req.Goals[0].ComputePoses(ctx, req.FrameSystem)
+	test.That(t, err, test.ShouldBeNil)
+	psc, err := NewPlanSegmentContext(ctx, pc, start, goalPoses)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Sanity: the straight line to this goal configuration must actually be blocked.
+	test.That(t, psc.CheckPath(ctx, start, goalConfig, true, nil), test.ShouldNotBeNil)
+
+	path := tryNudgedStraightLine(ctx, psc, rrtMap{&node{inputs: goalConfig}: nil}, pc.randseed, logger)
+	test.That(t, path, test.ShouldNotBeNil)
+	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 3)
+	test.That(t, path[0], test.ShouldEqual, start)
+	test.That(t, path[len(path)-1], test.ShouldEqual, goalConfig)
+
+	// Every hop of the repaired path must be collision-free.
+	for i := 1; i < len(path); i++ {
+		test.That(t, psc.CheckPath(ctx, path[i-1], path[i], true, nil), test.ShouldBeNil)
+	}
+}
+
+// TestNudgeSolvesBarelyBlockedPath checks the end-to-end wiring: the plan must
+// succeed without ever needing a CBiRRT search. Depending on the platform's IK
+// solution set the goal is solved either directly (an unobstructed solution
+// exists) or via the nudge repair; both are acceptable - what matters is that
+// this barely-blocked scene never requires the expensive search.
+func TestNudgeSolvesBarelyBlockedPath(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fs, _, goalJoints, req := nudgeBlockedScene(t)
+
+	plan, meta, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, meta.GoalsCBIRRTSolved, test.ShouldEqual, 0)
 
 	// The trajectory should still land on the goal pose.
+	goalPose, err := fs.Frame("arm").Transform(goalJoints)
+	test.That(t, err, test.ShouldBeNil)
 	finalPose, err := fs.Transform(
 		plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(),
 		referenceframe.NewPoseInFrame("arm", spatialmath.NewZeroPose()),
