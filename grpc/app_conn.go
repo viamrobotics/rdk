@@ -74,9 +74,9 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
 		// cache the token now - this is also blocking
-		cacheErr := cacheConnToken(appConn.conn, partID, grpcURL.Host, ctxWithTimeout)
+		cacheErr := cacheConnToken(ctxWithTimeout, appConn.conn, partID, grpcURL.Host)
 		if cacheErr != nil {
-			logger.Warnw("auth token caching failed", cacheErr)
+			logger.Warnw("auth token caching failed", "error", cacheErr)
 		}
 		appConn.watchState(grpcURL.Host, logger)
 		return appConn, nil
@@ -104,9 +104,9 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 
 			ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, false, partID, logger)
 			conn, err := rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
-			cacheErr := cacheConnToken(conn, partID, grpcURL.Host, ctxWithTimeout)
+			cacheErr := cacheConnToken(ctxWithTimeout, conn, partID, grpcURL.Host)
 			if cacheErr != nil {
-				logger.Warnw("auth token caching failed", cacheErr)
+				logger.Warnw("auth token caching failed", "error", cacheErr)
 			}
 			ctxWithTimeoutCancel()
 			if err != nil {
@@ -127,7 +127,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	return appConn, nil
 }
 
-func cacheConnToken(conn rpc.ClientConn, partID string, host string, ctx context.Context) error {
+func cacheConnToken(ctx context.Context, conn rpc.ClientConn, partID string, host string) error {
 	authenticator, ok := conn.(rpc.ClientConnAuthenticator)
 	// if there's no authenticator, we can't authenticate this connection
 	// and there's nothing to cache. but it could just be an unauthenticated connection,
@@ -139,8 +139,15 @@ func cacheConnToken(conn rpc.ClientConn, partID string, host string, ctx context
 	if err != nil {
 		return err
 	}
+	cacheDir := filepath.Join(rutils.ViamDotDir, "grpc")
 	tokenFilename := base64.RawURLEncoding.EncodeToString([]byte(partID + "_" + host))
-	tokenPath := filepath.Join(rutils.ViamDotDir, "grpc", tokenFilename+".jwt")
+	tokenPath := filepath.Join(cacheDir, tokenFilename+".jwt")
+
+	err = os.MkdirAll(cacheDir, 0o700)
+	if err != nil {
+		return err
+	}
+
 	err = os.WriteFile(tokenPath, []byte(token), 0o600)
 	if err != nil {
 		return err
