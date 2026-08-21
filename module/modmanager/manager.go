@@ -577,6 +577,30 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
+	// A composite (multi-API) model: the module constructs one instance and serves it on each of its
+	// APIs (see module.Module.AddResource). Build a per-API client for every API in the set, all over
+	// the same shared connection, and return one composite so the server routes each API to the one
+	// module instance. Single-API resources take the plain path below.
+	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+		base := conf.ResourceName()
+		byAPI := make(map[resource.API]resource.Resource, len(apis))
+		for _, api := range apis {
+			subName := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+			mgr.rMap.Store(subName, mod)
+			apiInfo, ok := resource.LookupGenericAPIRegistration(api)
+			if !ok || apiInfo.RPCClient == nil {
+				byAPI[api] = rdkgrpc.NewForeignResource(subName, &mod.sharedConn)
+				continue
+			}
+			client, err := apiInfo.RPCClient(ctx, &mod.sharedConn, "", subName, mgr.logger)
+			if err != nil {
+				return nil, err
+			}
+			byAPI[api] = client
+		}
+		return resource.NewMultiAPIResource(resource.Name{API: apis[0], Remote: base.Remote, Name: base.Name}, apis, byAPI), nil
+	}
+
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mod.logger.CWarnw(ctx, "No built-in grpc client for modular resource", "resource", conf.ResourceName())

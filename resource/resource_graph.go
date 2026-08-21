@@ -76,19 +76,34 @@ func (s graphStorage) Set(name Name, node *GraphNode) {
 	s.setSimpleNameCache(name, node)
 }
 
-func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
-	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
-	val := s.simpleNameCache[simpleName]
-	if val == nil {
-		val = &simpleNameVal{
-			remote: map[string]*GraphNode{},
+// apisForNode returns the full set of co-equal APIs the node's resource serves (see
+// resource.RegisterMultiAPI), or just name.API for an ordinary single-API resource. A composite
+// (multi-API) node is cached under every one of its APIs so the one instance is routable and
+// advertisable as each of them.
+func apisForNode(name Name, node *GraphNode) []API {
+	if node != nil {
+		if apis := APIsForModel(node.config.Model); len(apis) > 0 {
+			return apis
 		}
-		s.simpleNameCache[simpleName] = val
 	}
-	if name.Remote == "" {
-		val.local = node
-	} else {
-		val.remote[name.Remote] = node
+	return []API{name.API}
+}
+
+func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
+	for _, api := range apisForNode(name, node) {
+		simpleName := simpleNameKey{node.prefix + name.Name, api}
+		val := s.simpleNameCache[simpleName]
+		if val == nil {
+			val = &simpleNameVal{
+				remote: map[string]*GraphNode{},
+			}
+			s.simpleNameCache[simpleName] = val
+		}
+		if name.Remote == "" {
+			val.local = node
+		} else {
+			val.remote[name.Remote] = node
+		}
 	}
 }
 
@@ -96,14 +111,15 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 	if prevPrefix == node.prefix {
 		return
 	}
-	prevSimpleName := simpleNameKey{prevPrefix + name.Name, name.API}
-
-	prevVal := s.simpleNameCache[prevSimpleName]
-	if prevVal != nil {
-		if name.Remote == "" {
-			prevVal.local = nil
-		} else {
-			delete(prevVal.remote, name.Remote)
+	for _, api := range apisForNode(name, node) {
+		prevSimpleName := simpleNameKey{prevPrefix + name.Name, api}
+		prevVal := s.simpleNameCache[prevSimpleName]
+		if prevVal != nil {
+			if name.Remote == "" {
+				prevVal.local = nil
+			} else {
+				delete(prevVal.remote, name.Remote)
+			}
 		}
 	}
 
@@ -116,16 +132,18 @@ func (s graphStorage) Delete(name Name) {
 	if node == nil {
 		return
 	}
-	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
-	existing := s.simpleNameCache[simpleName]
-	if existing == nil {
-		return
+	for _, api := range apisForNode(name, node) {
+		simpleName := simpleNameKey{node.prefix + name.Name, api}
+		existing := s.simpleNameCache[simpleName]
+		if existing == nil {
+			continue
+		}
+		if name.Remote == "" {
+			existing.local = nil
+		} else {
+			delete(existing.remote, name.Remote)
+		}
 	}
-	if name.Remote == "" {
-		existing.local = nil
-		return
-	}
-	delete(existing.remote, name.Remote)
 }
 
 func (s graphStorage) Copy() graphStorage {

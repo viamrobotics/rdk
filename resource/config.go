@@ -272,6 +272,16 @@ func (conf *Config) Validate(path, defaultAPIType string) ([]string, []string, e
 // stored (JSON/Proto/Database) and will fix them up to the builtin values they
 // are intended for.
 func (conf *Config) AdjustPartialNames(defaultAPIType string) {
+	// A composite (multi-API) resource may omit `api` entirely; resolve its canonical API from the
+	// model's registered set. The node is later cached under every API in the set (see
+	// resource.RegisterMultiAPI / apisForNode), so any one of them serves as the config's API. This
+	// runs before the default-filling below so an omitted api is not mistaken for a partial rdk api.
+	if conf.API == (API{}) {
+		if apis := APIsForModel(conf.Model); len(apis) > 0 {
+			conf.API = apis[0]
+		}
+	}
+
 	if conf.API.Type.Namespace == "" {
 		conf.API.Type.Namespace = APINamespaceRDK
 	}

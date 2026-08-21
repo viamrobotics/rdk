@@ -172,6 +172,11 @@ func FromProvider(provider resource.Provider, name string) (Base, error) {
 	return resource.FromProvider[Base](provider, Named(name))
 }
 
+// FromResource extracts this API from a resource that may be a multi-API (composite) resource.
+func FromResource(res resource.Resource) (Base, error) {
+	return resource.FromResourceForAPI[Base](res, API)
+}
+
 // NamesFromRobot is a helper for getting all base names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
