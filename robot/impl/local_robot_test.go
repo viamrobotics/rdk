@@ -2471,10 +2471,13 @@ func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Assert that restoring the testmodule binary makes h start working again
-	// after the auto-restart code succeeds.
+	// after the auto-restart code succeeds. This can take a while: the restart
+	// loop only retries every oueRestartInterval (5s), and a freshly-forked
+	// module process can be slow to start listening on its socket when the CI
+	// machine is under load, so allow a generous window here to avoid flakiness.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
