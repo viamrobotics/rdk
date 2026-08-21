@@ -272,3 +272,36 @@ func TestUpdateUserPermissionsRevocation(t *testing.T) {
 	svc.UpdateUserPermissions(nil)
 	test.That(t, svc.userPermsAuth.Load(), test.ShouldBeNil)
 }
+
+func TestIdentityString(t *testing.T) {
+	test.That(t, rdkgrpc.Identity{}.String(), test.ShouldEqual, "unauthenticated client")
+	test.That(t, rdkgrpc.Identity{Entity: "key-id"}.String(), test.ShouldEqual, "key-id")
+	test.That(t, rdkgrpc.Identity{Entity: "sub", AppUserID: "11111"}.String(),
+		test.ShouldEqual, "user_id 11111")
+	test.That(t, rdkgrpc.Identity{Entity: "sub", Email: "steve@viam.com"}.String(),
+		test.ShouldEqual, "steve@viam.com")
+	test.That(t, rdkgrpc.Identity{Entity: "sub", AppUserID: "11111", Email: "steve@viam.com"}.String(),
+		test.ShouldEqual, "steve@viam.com (user_id 11111)")
+}
+
+func TestUserPermsAuthorizerDenialLogging(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	// This authorizer grants nothing to our SSO caller, so the request is denied.
+	ra := newUserPermsAuthorizer([]config.UserPermission{
+		{User: apiKeyUser("someone-else"), Permissions: nil},
+	}, logger)
+	test.That(t, ra, test.ShouldNotBeNil)
+
+	// An SSO caller as the auth layer presents it: FusionAuth subject as the entity,
+	// app user ID and e-mail on the auth metadata.
+	ctx := rpc.ContextWithAuthEntity(context.Background(), rpc.EntityInfo{
+		Entity:       "95ae43d3-a007-4e75-afd0-ea9317758a48",
+		AuthMetadata: map[string]string{"app_user_id": "11111", "email": "steve@viam.com"},
+	})
+	assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+
+	denials := logs.FilterMessageSnippet("unauthorized").All()
+	test.That(t, denials, test.ShouldHaveLength, 1)
+	test.That(t, denials[0].Message, test.ShouldEqual,
+		getImages+" request from steve@viam.com (user_id 11111) unauthorized")
+}
