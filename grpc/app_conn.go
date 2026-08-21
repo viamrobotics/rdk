@@ -144,6 +144,10 @@ func tokenCacheWrite(partID, host, token string) error {
 func tokenCacheRead(partID, host string) (string, error) {
 	_, tokenPath := tokenInfo(partID, host)
 
+	// token files are created by rdk
+	// anybody with access to the machine can pass in any token they like,
+	// but this was already true before we wrote the tokens to disk
+	//nolint:gosec
 	tokenData, err := os.ReadFile(tokenPath)
 	if err != nil {
 		return "", err
@@ -154,7 +158,11 @@ func tokenCacheRead(partID, host string) (string, error) {
 // authedDialDirectGRPC calls DialDirectGRPC while also explicitly authenticating the connection
 // and caching the resulting token on disk. If the normal auth path fails, we attempt to auth
 // with the cached token
-func authedDialDirectGRPC(ctx context.Context, partID string, host string, logger utils.ZapCompatibleLogger, dialOpts ...rpc.DialOption) (rpc.ClientConn, error) {
+func authedDialDirectGRPC(ctx context.Context,
+	partID, host string,
+	logger utils.ZapCompatibleLogger,
+	dialOpts ...rpc.DialOption,
+) (rpc.ClientConn, error) {
 	conn, err := rpc.DialDirectGRPC(ctx, host, logger, dialOpts...)
 	if err != nil {
 		// dial completely failed, pass the results through for the retry loop
@@ -173,7 +181,7 @@ func authedDialDirectGRPC(ctx context.Context, partID string, host string, logge
 		logger.Warnw("auth failed, attempting auth with cached token", "error", authErr)
 		cachedToken, cacheErr := tokenCacheRead(partID, host)
 		if cacheErr != nil {
-			// we couldn't get the cached token, so give up and return the conection
+			// we couldn't get the cached token, so give up and return the connection
 			// err is nil because the connection *is* valid, just not authenticated,
 			// so the original lazy auth path can still run
 			logger.Warnw("error reading token cache", "error", cacheErr)
@@ -186,7 +194,11 @@ func authedDialDirectGRPC(ctx context.Context, partID string, host string, logge
 			return conn, nil
 		}
 		// the new connection with the cached token succeeded, so return it and close the old one
-		conn.Close()
+		err = conn.Close()
+		if err != nil {
+			// this isn't a big deal since we have a new authed connection
+			logger.Warnw("error closing old connection", "error", err)
+		}
 		return newConn, nil
 	}
 	// auth succeeded, so cache the token and return
