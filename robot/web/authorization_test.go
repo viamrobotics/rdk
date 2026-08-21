@@ -10,6 +10,7 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -304,4 +305,57 @@ func TestUserPermsAuthorizerDenialLogging(t *testing.T) {
 	test.That(t, denials, test.ShouldHaveLength, 1)
 	test.That(t, denials[0].Message, test.ShouldEqual,
 		getImages+" request from steve@viam.com (user_id 11111) unauthorized")
+}
+
+// fakeServerStream is a minimal googlegrpc.ServerStream whose only meaningful method is
+// Context(); the stream-creation gate and our test handler use nothing else.
+type fakeServerStream struct {
+	googlegrpc.ServerStream
+	ctx context.Context
+}
+
+func (f *fakeServerStream) Context() context.Context { return f.ctx }
+
+func TestUserPermsStreamInterceptorGate(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	svc := &webService{logger: logger}
+	// testKeyID may invoke getImages, but only on cam1.
+	svc.UpdateUserPermissions([]config.UserPermission{
+		{
+			User:        apiKeyUser(testKeyID),
+			Permissions: []config.Permission{{Resources: []string{"cam1"}, AllowedMethods: []string{getImages}}},
+		},
+	})
+
+	// call runs the stream interceptor and reports whether the handler was reached.
+	call := func(ctx context.Context, method string) (handlerRan bool, err error) {
+		info := &googlegrpc.StreamServerInfo{FullMethod: method}
+		handler := func(_ interface{}, _ googlegrpc.ServerStream) error {
+			handlerRan = true
+			return nil
+		}
+		err = svc.userPermsStreamInterceptor(nil, &fakeServerStream{ctx: ctx}, info, handler)
+		return handlerRan, err
+	}
+
+	// user with access to the method on some resource: gate passes, handler runs (the
+	// per-resource check happens later, on the first message)
+	ran, err := call(ctxWithUser(testKeyID), getImages)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ran, test.ShouldBeTrue)
+
+	// unknown user with no access to the method at all: rejected before the handler
+	ran, err = call(ctxWithUser("nobody"), getImages)
+	assertDenied(t, err)
+	test.That(t, ran, test.ShouldBeFalse)
+
+	// known user, but a method they have zero access to: rejected before the handler
+	ran, err = call(ctxWithUser(testKeyID), getReadings)
+	assertDenied(t, err)
+	test.That(t, ran, test.ShouldBeFalse)
+
+	// exempt plumbing methods always pass through, even unauthenticated
+	ran, err = call(context.Background(), authenticate)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ran, test.ShouldBeTrue)
 }
