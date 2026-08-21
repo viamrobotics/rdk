@@ -2,8 +2,11 @@ package grpc
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 
 	"go.viam.com/utils"
@@ -12,6 +15,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/logging"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/rdk/web/networkcheck"
 )
@@ -69,6 +73,8 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	// lock not necessary here because call is blocking
 	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
+		// cache the token now - this is also blocking
+		authErr := cacheConnToken(appConn.conn, ctxWithTimeout)
 		appConn.watchState(grpcURL.Host, logger)
 		return appConn, nil
 	}
@@ -95,6 +101,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 
 			ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, false, partID, logger)
 			conn, err := rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
+			cacheConnToken(conn, ctxWithTimeout)
 			ctxWithTimeoutCancel()
 			if err != nil {
 				logger.Debugw("error while dialing app. Could not establish global, unified connection", "error", err)
@@ -112,6 +119,19 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	})
 
 	return appConn, nil
+}
+
+func cacheConnToken(conn rpc.ClientConn, ctx context.Context) error {
+	token, err := conn.Authenticate(ctx)
+	if err != nil {
+		return err
+	}
+	tokenFilename := base64.RawURLEncoding.EncodeToString([]byte("part id" + "_" + "addr" + ".jwt"))
+	tokenPath := filepath.Join(rutils.ViamDotDir, "grpc", tokenFilename)
+	err = os.WriteFile(tokenPath, token, os.FileMode("0o600"))
+	if err != nil {
+		return err
+	}
 }
 
 // watchState starts a background worker that subscribes to connectivity state changes on
