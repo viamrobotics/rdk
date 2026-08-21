@@ -685,7 +685,9 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 	// A resource may not be named "builtin", which is reserved for the default services at config
 	// validation. This test ensures the reservation composes with the optional-dependency system: a
 	// motor named "builtin" is rejected and not confused with an internal service, so a component
-	// that optionally depends on "builtin" still builds, just with that optional dependency unresolved.
+	// that optionally depends on "builtin" still builds. The optional dependency resolves to the
+	// builtin motion service (not a motor); the constructor finds no motor among its dependencies,
+	// but since the dependency was optional it does not complain.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
