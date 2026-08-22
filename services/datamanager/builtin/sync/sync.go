@@ -79,6 +79,8 @@ type FTDCSyncStats struct {
 	SchedulerRoundsTotal         uint64
 	SchedulerDurationMillisTotal uint64
 	FilesToSyncChannelLength     uint64
+	ActiveSyncs                  uint32
+	MaxActiveSyncs               uint32
 }
 
 // FTDCUploadStats represents upload metric values for a given moment.
@@ -134,7 +136,7 @@ type Sync struct {
 	cloudConnManager *goutils.StoppableWorkers
 	// FileDeletingWorkers is only public for tests
 	FileDeletingWorkers *goutils.StoppableWorkers
-	// MaxSyncThreads only exists for tests
+	// MaxSyncThreads exists for FTDC stat and tests
 	MaxSyncThreads int
 }
 
@@ -252,6 +254,8 @@ func (s *Sync) GetStats() FTDCStats {
 			SchedulerRoundsTotal:         s.syncStats.schedulerRoundsTotal.Load(),
 			SchedulerDurationMillisTotal: s.syncStats.schedulerDurationMillisTotal.Load(),
 			FilesToSyncChannelLength:     uint64(len(s.filesToSync)),
+			ActiveSyncs:                  uint32(s.fileTracker.Len()),
+			MaxActiveSyncs:               uint32(s.MaxSyncThreads),
 		},
 
 		Upload: FTDCUploadStats{

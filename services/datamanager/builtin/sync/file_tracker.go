@@ -36,3 +36,10 @@ func (ft *fileTracker) unmarkInProgress(path string) {
 	defer ft.mu.Unlock()
 	delete(ft.store, path)
 }
+
+func (ft *fileTracker) Len() int {
+	ft.mu.Lock()
+	count := len(ft.store)
+	ft.mu.Unlock()
+	return count
+}
