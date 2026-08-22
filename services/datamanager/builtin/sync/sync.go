@@ -738,8 +738,8 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 // while walkDirsAndSendFilesToSync.
 func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) error {
 	now := s.clock.Now()
-	s.syncStats.schedulerRoundsTotal.Add(1)
 	defer func() {
+		s.syncStats.schedulerRoundsTotal.Add(1)
 		s.syncStats.schedulerDurationMillisTotal.Add(uint64(s.clock.Since(now).Milliseconds()))
 	}()
 
