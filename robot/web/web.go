@@ -819,6 +819,7 @@ func (svc *webService) initMux(options weboptions.Options) *goji.Mux {
 	// registered when the web profile option is enabled (via the `enable_web_profile`
 	// config field or the `--webprofile` command line flag).
 	if options.Pprof {
+		svc.logger.Infof("Web profile enabled")
 		mux.HandleFunc(pat.New("/debug/pprof"), func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/debug/pprof/", http.StatusMovedPermanently)
 		})
@@ -835,6 +836,8 @@ func (svc *webService) initMux(options weboptions.Options) *goji.Mux {
 		// serve resource graph visualization
 		// TODO: accept params to display different formats
 		mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
+	} else {
+		svc.logger.Debugf("Web profile disabled")
 	}
 
 	// serve restart status
