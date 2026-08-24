@@ -668,6 +668,59 @@ func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame
 	return result, nil
 }
 
+// localFrameTransform evaluates one frame's own local transform for the given
+// inputs, handling mimic and zero-DoF frames.
+func (sfs *FrameSystem) localFrameTransform(frame Frame, linearInputs *LinearInputs) (spatial.Pose, error) {
+	if mi, isMimic := sfs.mimicFrames[frame.Name()]; isMimic {
+		// Mimic frame: derive input from the source frame's input
+		sourceInputs := linearInputs.Get(mi.sourceFrameName)
+		if len(sourceInputs) == 0 {
+			sourceInputs = sfs.resolveFrameInputs(linearInputs, mi.sourceFrameName)
+		}
+		if len(sourceInputs) == 0 {
+			return nil, fmt.Errorf("mimic source frame %q has no inputs", mi.sourceFrameName)
+		}
+		derived := []Input{mi.multiplier*sourceInputs[0] + mi.offset}
+		return frame.Transform(derived)
+	}
+	if len(frame.DoF()) == 0 {
+		return frame.Transform([]Input{})
+	}
+	frameInputs := linearInputs.Get(frame.Name())
+	if frameInputs == nil {
+		frameInputs = sfs.resolveFrameInputs(linearInputs, frame.Name())
+	}
+	if len(frame.DoF()) != len(frameInputs) {
+		return nil, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+	}
+	return frame.Transform(frameInputs)
+}
+
+// FrameToWorld provides memoized frame-to-world transforms for one
+// configuration: each frame's local transform is evaluated at most once no
+// matter how many frames are queried. This is the allocation-light FK entry
+// point for hot paths that need many world poses per configuration.
+type FrameToWorld struct {
+	l *lazyFrameToWorld
+}
+
+// NewFrameToWorld creates a memoized FK solver for the given configuration.
+// The configuration must not be mutated while the solver is in use.
+func (sfs *FrameSystem) NewFrameToWorld(li *LinearInputs) *FrameToWorld {
+	return &FrameToWorld{l: newLazyFrameToWorld(sfs, li)}
+}
+
+// PoseQT returns the frame's world pose as a rotation quaternion and a
+// translation, allocating nothing beyond the memo.
+func (f *FrameToWorld) PoseQT(name string) (quat.Number, r3.Vector, error) {
+	dq, err := f.l.get(name)
+	if err != nil {
+		return quat.Number{}, r3.Vector{}, err
+	}
+	d := spatial.DualQuaternion{Number: dq}
+	return dq.Real, d.Point(), nil
+}
+
 // composeTransforms assumes there is one moveable frame and its DoF is equal to the `inputs`
 // length.
 func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInputs) (dualquat.Number, error) {
@@ -676,44 +729,10 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		Dual: quat.Number{},
 	}
 
-	numMoveableFrames := 0
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
-		var pose spatial.Pose
-		var err error
-
-		if mi, isMimic := sfs.mimicFrames[frame.Name()]; isMimic {
-			// Mimic frame: derive input from the source frame's input
-			sourceInputs := linearInputs.Get(mi.sourceFrameName)
-			if len(sourceInputs) == 0 {
-				sourceInputs = sfs.resolveFrameInputs(linearInputs, mi.sourceFrameName)
-			}
-			if len(sourceInputs) == 0 {
-				return ret, fmt.Errorf("mimic source frame %q has no inputs", mi.sourceFrameName)
-			}
-			derived := []Input{mi.multiplier*sourceInputs[0] + mi.offset}
-			pose, err = frame.Transform(derived)
-			if err != nil {
-				return ret, err
-			}
-		} else if len(frame.DoF()) == 0 {
-			pose, err = frame.Transform([]Input{})
-			if err != nil {
-				return ret, err
-			}
-		} else {
-			frameInputs := linearInputs.Get(frame.Name())
-			if frameInputs == nil {
-				frameInputs = sfs.resolveFrameInputs(linearInputs, frame.Name())
-			}
-			numMoveableFrames++
-			if len(frame.DoF()) != len(frameInputs) {
-				return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
-			}
-
-			pose, err = frame.Transform(frameInputs)
-			if err != nil {
-				return ret, err
-			}
+		pose, err := sfs.localFrameTransform(frame, linearInputs)
+		if err != nil {
+			return ret, err
 		}
 
 		ret = pose.(*spatial.DualQuaternion).Transformation(ret)
@@ -721,6 +740,58 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 	}
 
 	return ret, nil
+}
+
+// lazyFrameToWorld memoizes frame-to-world transforms for one configuration.
+// composeTransforms re-evaluates every ancestor's local transform per queried
+// frame, which makes whole-frame-system sweeps quadratic in chain depth; this
+// evaluates each frame's local transform at most once across all queries.
+// Errors are memoized per frame so one bad frame doesn't poison its siblings.
+type lazyFrameToWorld struct {
+	sfs  *FrameSystem
+	li   *LinearInputs
+	memo map[string]lazyFrameToWorldEntry
+}
+
+type lazyFrameToWorldEntry struct {
+	dq  dualquat.Number
+	err error
+}
+
+func newLazyFrameToWorld(sfs *FrameSystem, li *LinearInputs) *lazyFrameToWorld {
+	return &lazyFrameToWorld{sfs: sfs, li: li, memo: make(map[string]lazyFrameToWorldEntry, len(sfs.frames)+1)}
+}
+
+func (l *lazyFrameToWorld) get(name string) (dualquat.Number, error) {
+	if e, ok := l.memo[name]; ok {
+		return e.dq, e.err
+	}
+	identity := dualquat.Number{Real: quat.Number{Real: 1}}
+	// Mirrors composeTransforms: the walk stops at (and excludes) the frame
+	// with no recorded parent, i.e. world contributes identity.
+	if l.sfs.parents[name] == "" {
+		l.memo[name] = lazyFrameToWorldEntry{dq: identity}
+		return identity, nil
+	}
+	frame := l.sfs.lookupFrame(name)
+	if frame == nil {
+		err := NewFrameMissingError(name)
+		l.memo[name] = lazyFrameToWorldEntry{dq: identity, err: err}
+		return identity, err
+	}
+	parentDQ, err := l.get(l.sfs.parents[name])
+	if err == nil {
+		var local spatial.Pose
+		local, err = l.sfs.localFrameTransform(frame, l.li)
+		if err == nil {
+			pdq := spatial.DualQuaternion{Number: parentDQ}
+			dq := pdq.Transformation(local.(*spatial.DualQuaternion).Number)
+			l.memo[name] = lazyFrameToWorldEntry{dq: dq}
+			return dq, nil
+		}
+	}
+	l.memo[name] = lazyFrameToWorldEntry{dq: identity, err: err}
+	return identity, err
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.
@@ -985,6 +1056,8 @@ func FrameSystemGeometriesForFrames(
 	var errAll error
 	allFrameNames := fs.FrameNames()
 	allGeometries := make(map[string]*GeometriesInFrame, len(allFrameNames))
+	// One memoized FK pass instead of an ancestor walk per frame.
+	fk := newLazyFrameToWorld(fs, linearInputs)
 	for _, name := range allFrameNames {
 		if wanted != nil && !wanted[name] {
 			continue
@@ -1003,12 +1076,19 @@ func FrameSystemGeometriesForFrames(
 		}
 
 		if len(geosInFrame.Geometries()) > 0 {
-			transformed, err := fs.Transform(linearInputs, geosInFrame, World)
+			// Geometries attach at the frame's parent, not the frame itself -
+			// see the GeometriesInFrame special case in FrameSystem.Transform.
+			dq, err := fk.get(fs.parents[name])
 			if err != nil {
 				errAll = multierr.Append(errAll, err)
 				continue
 			}
-			allGeometries[name] = transformed.(*GeometriesInFrame)
+			pose := &spatial.DualQuaternion{Number: dq}
+			transformed := make([]spatial.Geometry, 0, len(geosInFrame.Geometries()))
+			for _, g := range geosInFrame.Geometries() {
+				transformed = append(transformed, g.Transform(pose))
+			}
+			allGeometries[name] = NewGeometriesInFrame(World, transformed)
 		}
 	}
 
