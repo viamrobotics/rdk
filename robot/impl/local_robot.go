@@ -226,7 +226,54 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 // FindBySimpleNameAndAPI. ResourceByName is only called internally for some dependency
 // calculation and session code.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
+	// An API-less name (from resource.SimpleName) identifies a resource by its bare name; resolve it
+	// to the resource of that name — a single composite handle for a multi-API model — so
+	// resource.AsType and resource.APIsOf work the same in-process as over a client.
+	if name.API == (resource.API{}) {
+		return r.resourceBySimpleName(name.Name)
+	}
 	return r.FindBySimpleNameAndAPI(name.Name, name.API)
+}
+
+// resourceBySimpleName resolves an API-less name to its resource. For a multi-API (composite) model
+// it returns one composite handle serving every API; for a single-API resource it returns that
+// resource directly. Only this api-less path wraps a composite — an api-specific lookup still returns
+// the raw instance, so in-process capability detection and typed handlers are unaffected.
+func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error) {
+	seen := make(map[resource.API]bool)
+	var apis []resource.API
+	for _, match := range r.manager.resources.FindAllBySimpleName(name) {
+		if !seen[match.API] {
+			seen[match.API] = true
+			apis = append(apis, match.API)
+		}
+	}
+	switch len(apis) {
+	case 0:
+		return nil, resource.NewNotFoundError(resource.SimpleName(name))
+	case 1:
+		return r.FindBySimpleNameAndAPI(name, apis[0])
+	}
+	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+
+	canonical, err := r.FindBySimpleNameAndAPI(name, apis[0])
+	if err != nil {
+		return nil, err
+	}
+	// A modular composite is already a composite handle; return it as-is. A builtin composite is one
+	// raw instance serving every API, so wrap it under each API for uniform APIs()/AsType/APIsOf.
+	if _, ok := canonical.(resource.MultiAPIResource); ok {
+		return canonical, nil
+	}
+	byAPI := make(map[resource.API]resource.Resource, len(apis))
+	for _, api := range apis {
+		res, err := r.FindBySimpleNameAndAPI(name, api)
+		if err != nil {
+			return nil, err
+		}
+		byAPI[api] = res
+	}
+	return resource.NewMultiAPIResource(resource.NewName(apis[0], name), apis, byAPI), nil
 }
 
 // RemoteNames returns the names of all known remote robots.

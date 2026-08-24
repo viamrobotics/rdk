@@ -108,6 +108,18 @@ func TestMultiAPIResourceEndToEnd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, viaSensor, test.ShouldEqual, viaGeneric)
 
+	// (gaps 2/3) An api-less SimpleName lookup resolves in-process to one composite handle serving
+	// every API — AsType extracts each capability, and APIsOf reports the full set off that handle.
+	viaSimple, err := r.ResourceByName(resource.SimpleName("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	sen, err := resource.AsType[sensor.Sensor](viaSimple)
+	test.That(t, err, test.ShouldBeNil)
+	simpleReadings, err := sen.Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, simpleReadings["reading"], test.ShouldEqual, 42)
+	test.That(t, resource.APIsOf(viaSimple), test.ShouldContain, sensor.API)
+	test.That(t, resource.APIsOf(viaSimple), test.ShouldContain, generic.API)
+
 	// (item 5) Removing the resource (reconfigure to empty) tears it down under both APIs and closes
 	// the single instance exactly once.
 	empty := &config.Config{}
