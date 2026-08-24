@@ -16,8 +16,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// NodeNotFoundError is returned when the name and API combination are not found after
-// by FindBySimpleNameAndAPI.
+// NodeNotFoundError is returned when the name and API combination are not found by
+// FindBySimpleNameAndAPI, or when a simple name is not found by FindBySimpleName.
 type NodeNotFoundError struct {
 	Name string
 	API  API
@@ -50,6 +50,24 @@ func (e *MultipleMatchingRemoteNodesError) Error() string {
 func IsMultipleMatchingRemoteNodesError(err error) bool {
 	var mmrnErr *MultipleMatchingRemoteNodesError
 	return errors.As(err, &mmrnErr)
+}
+
+// MultipleMatchingNamesError is returned by FindBySimpleName when a simple name is claimed by more
+// than one resource (multiple locals, or multiple remotes with no local) so no single owner can be
+// resolved under machine-wide name uniqueness. Matches holds every colliding name.
+type MultipleMatchingNamesError struct {
+	Name    string
+	Matches []Name
+}
+
+func (e *MultipleMatchingNamesError) Error() string {
+	return fmt.Sprintf("found multiple resources matching name %q: %v", e.Name, NamesToStrings(e.Matches))
+}
+
+// IsMultipleMatchingNamesError returns if the given error is any kind of multiple matching names error.
+func IsMultipleMatchingNamesError(err error) bool {
+	var mmnErr *MultipleMatchingNamesError
+	return errors.As(err, &mmnErr)
 }
 
 type graphNodes map[Name]*GraphNode
@@ -416,29 +434,102 @@ func seq2First[K, V any](seq iter.Seq2[K, V]) (K, V, bool) {
 func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	type candidate struct {
+		name Name
+		node *GraphNode
+	}
 	var result []Name
+	emit := func(c candidate) {
+		if filter(c.name, c.node) {
+			result = append(result, c.name)
+		}
+	}
+
+	// Group candidates by simple name to enforce name uniqueness across APIs.
+	byName := make(map[string][]candidate)
 	for k, v := range g.nodes.simpleNameCache {
 		if v.local == nil && len(v.remote) != 1 {
 			continue
 		}
-		name := Name{
-			API:  k.api,
-			Name: k.name,
-		}
+		c := candidate{name: Name{API: k.api, Name: k.name}}
 		if v.local != nil {
-			if !filter(name, v.local) {
-				continue
-			}
+			c.node = v.local
 		} else {
 			remName, remNode, _ := seq2First(maps.All(v.remote))
-			name.Remote = remName
-			if !filter(name, remNode) {
+			c.name.Remote = remName
+			c.node = remNode
+		}
+
+		// Name uniqueness covers only components and services. Other nodes — e.g. a remote-machine
+		// connection, whose name is a prefix, not a resource name — skip grouping and pass straight
+		// to the filter.
+		if !(k.api.IsComponent() || k.api.IsService()) {
+			emit(c)
+			continue
+		}
+		byName[k.name] = append(byName[k.name], c)
+	}
+
+	for _, cands := range byName {
+		chosen := cands[0]
+		if len(cands) > 1 {
+			// A local resource wins over remotes claiming the same name. If there is not
+			// exactly one local claimant (e.g. remote resources collide), the name is hidden.
+			var localCands []candidate
+			for _, c := range cands {
+				if c.name.Remote == "" {
+					localCands = append(localCands, c)
+				}
+			}
+			if len(localCands) != 1 {
 				continue
 			}
+			chosen = localCands[0]
 		}
-		result = append(result, name)
+		emit(chosen)
 	}
 	return result
+}
+
+// CollidingNames returns every local component/service whose simple name is shared by more than one
+// local resource across APIs. Callers tear these down to keep every simple name unique machine-wide.
+//
+// Nothing is exempt: rdk-internal services use reserved "$"-prefixed names that config validation
+// forbids for user resources, and "builtin" is reserved for the default services at config validation,
+// so neither can ever be the duplicate a user introduces.
+//
+// This counts only local nodes. A remote resource is never torn down here: when it shares a name
+// with a local one the local wins and the remote is hidden (not removed) by [Graph.SimpleNamesWhere].
+// Remote-machine connection nodes are ignored as well.
+func (g *Graph) CollidingNames() []Name {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	byName := make(map[string][]Name)
+	for k, v := range g.nodes.simpleNameCache {
+		if v.local == nil {
+			continue
+		}
+		// Nodes already marked for removal (e.g. a resource dropped by the incoming config) are on
+		// their way out and must not be counted — otherwise a departing resource would spuriously
+		// collide with the incoming resource that replaces its name.
+		if v.local.MarkedForRemoval() {
+			continue
+		}
+		if !(k.api.IsComponent() || k.api.IsService()) {
+			continue
+		}
+		byName[k.name] = append(byName[k.name], Name{API: k.api, Name: k.name})
+	}
+
+	var colliding []Name
+	for _, names := range byName {
+		if len(names) > 1 {
+			colliding = append(colliding, names...)
+		}
+	}
+	return colliding
 }
 
 // ReachableNames returns the all resource graph names, excluding remote resources that are unreached.
@@ -481,15 +572,70 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 	return ret
 }
 
-// FindBySimpleName returns all unmodified resource names that match the
-// provided string after applying any remote prefixes. This means that while
-// the "name" argument to this function should include remote prefix(es), the
-// Name.Name field of the return value: will not include remote prefix(es).
+// FindBySimpleName resolves the given simple name to the single resource that owns it under
+// machine-wide name uniqueness: a local resource wins over same-named remotes. It returns a
+// NodeNotFoundError when nothing matches and a MultipleMatchingNamesError when the name has
+// collisions (more than one local claimant, or no local claimant with more than one remote
+// claimant). The "name" argument should include any remote prefix(es); the Name.Name field
+// of the return value will not.
 //
-// It will also ignore internal resources (if namespace is "rdk-internal") because
-// none of them besides the framesystem have exposed grpc methods. In any case, the framesystem
-// is expected to be called for differently.
-func (g *Graph) FindBySimpleName(name string) []Name {
+// Internal resources ("rdk-internal" namespace) are ignored because none of them besides the
+// framesystem have exposed grpc methods. In any case, the framesystem is expected to be called for
+// differently.
+//
+// Use [Graph.FindAllBySimpleName] instead when every matching name is needed (e.g. to enumerate
+// collisions for logging) rather than the single resolved winner.
+func (g *Graph) FindBySimpleName(name string) (Name, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.findBySimpleName(name)
+}
+
+// findBySimpleName is the unlocked implementation of [Graph.FindBySimpleName]. Callers must hold
+// g.mu.
+func (g *Graph) findBySimpleName(name string) (Name, error) {
+	matches := g.namesMatchingSimpleName(name)
+	var locals, remotes []Name
+	for _, n := range matches {
+		if n.Remote == "" {
+			locals = append(locals, n)
+		} else {
+			remotes = append(remotes, n)
+		}
+	}
+	switch {
+	case len(locals) == 1:
+		// A local resource wins its simple name over any same-named remotes.
+		return locals[0], nil
+	case len(locals) == 0 && len(remotes) == 1:
+		return remotes[0], nil
+	case len(matches) == 0:
+		return Name{}, &NodeNotFoundError{Name: name}
+	default:
+		// More than one local claimant, or no local claimant with more than one remote claimant:
+		// the name has no single owner.
+		return Name{}, &MultipleMatchingNamesError{Name: name, Matches: matches}
+	}
+}
+
+// FindAllBySimpleName returns every unmodified resource name that matches the provided string
+// after applying any remote prefixes. The "name" argument should include any remote prefix(es);
+// the Name.Name field of the return value will not. Unlike [Graph.FindBySimpleName] it does not
+// apply machine-wide name-uniqueness resolution, so it may return several names sharing a simple
+// name; use it where all matches are needed (e.g. to enumerate collisions for logging).
+//
+// Internal resources ("rdk-internal" namespace) are ignored because none of them besides the
+// framesystem have exposed grpc methods. In any case, the framesystem is expected to be called for
+// differently.
+func (g *Graph) FindAllBySimpleName(name string) []Name {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.namesMatchingSimpleName(name)
+}
+
+// namesMatchingSimpleName is the unlocked all-matches scan backing [Graph.FindAllBySimpleName].
+// Callers must hold g.mu.
+func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	var result []Name
 	for key, val := range g.nodes.simpleNameCache {
 		if key.api.Type.Namespace == APINamespaceRDKInternal {
@@ -852,7 +998,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 		for _, dep := range unresolvedDeps {
 			tryResolve := func() (Name, bool) {
 				if dep == nodeName.String() {
-					allErrs = multierr.Combine(errors.Errorf("node cannot depend on itself: %q", nodeName))
+					allErrs = multierr.Combine(allErrs, errors.Errorf("node cannot depend on itself: %q", nodeName))
 					logger.Errorw("node cannot depend on itself", "name", nodeName)
 					return Name{}, false
 				}
@@ -862,32 +1008,32 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 				// if a name is later added that conflicts, it will not
 				// necessarily be caught unless the resource config changes.
-				nodeNames := g.FindBySimpleName(dep)
-				switch len(nodeNames) {
-				case 0:
-				case 1:
-					if nodeNames[0].String() == nodeName.String() {
-						allErrs = multierr.Combine(errors.Errorf("node cannot depend on itself: %q", nodeName))
-						logger.Errorw("node cannot depend on itself", "name", nodeName)
-						return Name{}, false
+				resolved, err := g.findBySimpleName(dep)
+				if err != nil {
+					var multiErr *MultipleMatchingNamesError
+					if errors.As(err, &multiErr) {
+						allErrs = multierr.Combine(
+							allErrs,
+							errors.Errorf("conflicting names for resource %q: %v", nodeName, NamesToStrings(multiErr.Matches)))
+						logger.Errorw(
+							"cannot resolve dependency for resource due to multiple matching names",
+							"name", nodeName,
+							"conflicts", NamesToStrings(multiErr.Matches),
+						)
 					}
-					logger.Debugw(
-						"dependency resolved for resource",
-						"name", nodeName,
-						"dependency", nodeNames[0],
-					)
-					return nodeNames[0], true
-				default:
-					allErrs = multierr.Combine(
-						allErrs,
-						errors.Errorf("conflicting names for resource %q: %v", nodeName, NamesToStrings(nodeNames)))
-					logger.Errorw(
-						"cannot resolve dependency for resource due to multiple matching names",
-						"name", nodeName,
-						"conflicts", NamesToStrings(nodeNames),
-					)
+					return Name{}, false
 				}
-				return Name{}, false
+				if resolved.String() == nodeName.String() {
+					allErrs = multierr.Combine(allErrs, errors.Errorf("node cannot depend on itself: %q", nodeName))
+					logger.Errorw("node cannot depend on itself", "name", nodeName)
+					return Name{}, false
+				}
+				logger.Debugw(
+					"dependency resolved for resource",
+					"name", nodeName,
+					"dependency", resolved,
+				)
+				return resolved, true
 			}
 
 			resolvedName, resolved := tryResolve()

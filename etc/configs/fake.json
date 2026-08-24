@@ -237,7 +237,7 @@
             "model": "builtin"
         },
         {
-            "name": "generic1",
+            "name": "generic1svc",
             "type": "generic",
             "model": "fake"
         }

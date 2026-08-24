@@ -122,7 +122,7 @@ func TestModularResources(t *testing.T) {
 
 		// non-modular
 		cfg3 := resource.Config{
-			Name:                "builtin",
+			Name:                "nonmod",
 			API:                 motor.API,
 			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
@@ -261,7 +261,7 @@ func TestModularResources(t *testing.T) {
 		test.That(t, expected, test.ShouldBeEmpty)
 	})
 
-	t.Run("builtin depends on previously removed but now added modular", func(t *testing.T) {
+	t.Run("non-modular depends on previously removed but now added modular", func(t *testing.T) {
 		r, _ := setupTest(t)
 
 		// modular we do not want
@@ -271,7 +271,7 @@ func TestModularResources(t *testing.T) {
 
 		// non-modular
 		cfg2 := resource.Config{
-			Name:                "builtin",
+			Name:                "nonmod",
 			API:                 motor.API,
 			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
@@ -352,10 +352,10 @@ func TestModularResources(t *testing.T) {
 	t.Run("recovers dropped modular dependencies", func(t *testing.T) {
 		// Disable the background worker so the re-resolution pass is driven synchronously.
 		r, mod := setupTest(t, WithDisableCompleteConfigWorker())
-		mod.validateRequiredDeps = []string{"builtin"}
+		mod.validateRequiredDeps = []string{"nonmod"}
 
 		motorCfg := resource.Config{
-			Name:                "builtin",
+			Name:                "nonmod",
 			API:                 motor.API,
 			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
@@ -372,13 +372,13 @@ func TestModularResources(t *testing.T) {
 		_, err := r.ResourceByName(compCfg.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
 
-		// The resource is built with "builtin" as a dependency rather than the empty set it
+		// The resource is built with "nonmod" as a dependency rather than the empty set it
 		// would have received had the build used the dropped dependencies.
 		mod.mu.Lock()
 		deps := mod.addDeps[compCfg.ResourceName()]
 		mod.mu.Unlock()
 		test.That(t, deps, test.ShouldHaveLength, 1)
-		test.That(t, deps[0], test.ShouldContainSubstring, "builtin")
+		test.That(t, deps[0], test.ShouldContainSubstring, "nonmod")
 	})
 }
 
@@ -447,7 +447,9 @@ func (m *dummyModMan) RemoveResource(ctx context.Context, name resource.Name) er
 func (m *dummyModMan) IsModularResource(name resource.Name) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return name.Name != "builtin"
+	// "nonmod" is the test's non-modular resource; the rdk-internal namespace covers the
+	// auto-constructed internal services (web, frame_system, ...). Neither is a modular resource.
+	return name.Name != "nonmod" && name.API.Type.Namespace != resource.APINamespaceRDKInternal
 }
 
 func (m *dummyModMan) Configs() []config.Module {
@@ -459,7 +461,7 @@ func (m *dummyModMan) Configs() []config.Module {
 func (m *dummyModMan) Provides(cfg resource.Config) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return cfg.Name != "builtin"
+	return cfg.Name != "nonmod" && cfg.Name != resource.DefaultServiceName
 }
 
 func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, []string, error) {
