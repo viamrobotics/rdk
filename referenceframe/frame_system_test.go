@@ -738,3 +738,23 @@ func TestNeutralFrameSystemInputsTransformSucceedsWhereZeroFails(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldNotBeNil)
 }
+
+func TestNewFrameToWorldUnknownFrame(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+	frame, err := NewStaticFrame("a", spatial.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(frame, fs.World()), test.ShouldBeNil)
+
+	fk := fs.NewFrameToWorld(NewLinearInputs())
+	_, tr, err := fk.PoseQT("a")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, tr.X, test.ShouldAlmostEqual, 1)
+
+	// A name the frame system does not contain must error, not silently
+	// resolve to world.
+	_, _, err = fk.PoseQT("typo")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, _, err = fk.PoseQT(World)
+	test.That(t, err, test.ShouldBeNil)
+}

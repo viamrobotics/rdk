@@ -669,8 +669,11 @@ func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame
 }
 
 // localFrameTransform evaluates one frame's own local transform for the given
-// inputs, handling mimic and zero-DoF frames.
-func (sfs *FrameSystem) localFrameTransform(frame Frame, linearInputs *LinearInputs) (spatial.Pose, error) {
+// inputs, handling mimic and zero-DoF frames. Frame.Transform always produces
+// a *spatial.DualQuaternion, so the unwrap lives here rather than in every
+// caller.
+func (sfs *FrameSystem) localFrameTransform(frame Frame, linearInputs *LinearInputs) (dualquat.Number, error) {
+	var frameInputs []Input
 	if mi, isMimic := sfs.mimicFrames[frame.Name()]; isMimic {
 		// Mimic frame: derive input from the source frame's input
 		sourceInputs := linearInputs.Get(mi.sourceFrameName)
@@ -678,22 +681,25 @@ func (sfs *FrameSystem) localFrameTransform(frame Frame, linearInputs *LinearInp
 			sourceInputs = sfs.resolveFrameInputs(linearInputs, mi.sourceFrameName)
 		}
 		if len(sourceInputs) == 0 {
-			return nil, fmt.Errorf("mimic source frame %q has no inputs", mi.sourceFrameName)
+			return dualquat.Number{}, fmt.Errorf("mimic source frame %q has no inputs", mi.sourceFrameName)
 		}
-		derived := []Input{mi.multiplier*sourceInputs[0] + mi.offset}
-		return frame.Transform(derived)
+		frameInputs = []Input{mi.multiplier*sourceInputs[0] + mi.offset}
+	} else if len(frame.DoF()) != 0 {
+		frameInputs = linearInputs.Get(frame.Name())
+		if frameInputs == nil {
+			frameInputs = sfs.resolveFrameInputs(linearInputs, frame.Name())
+		}
+		if len(frame.DoF()) != len(frameInputs) {
+			return dualquat.Number{}, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+		}
+	} else {
+		frameInputs = []Input{}
 	}
-	if len(frame.DoF()) == 0 {
-		return frame.Transform([]Input{})
+	pose, err := frame.Transform(frameInputs)
+	if err != nil {
+		return dualquat.Number{}, err
 	}
-	frameInputs := linearInputs.Get(frame.Name())
-	if frameInputs == nil {
-		frameInputs = sfs.resolveFrameInputs(linearInputs, frame.Name())
-	}
-	if len(frame.DoF()) != len(frameInputs) {
-		return nil, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
-	}
-	return frame.Transform(frameInputs)
+	return pose.(*spatial.DualQuaternion).Number, nil
 }
 
 // FrameToWorld provides memoized frame-to-world transforms for one
@@ -730,12 +736,13 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 	}
 
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
-		pose, err := sfs.localFrameTransform(frame, linearInputs)
+		local, err := sfs.localFrameTransform(frame, linearInputs)
 		if err != nil {
 			return ret, err
 		}
 
-		ret = pose.(*spatial.DualQuaternion).Transformation(ret)
+		ldq := spatial.DualQuaternion{Number: local}
+		ret = ldq.Transformation(ret)
 		frame = sfs.lookupFrame(sfs.parents[frame.Name()])
 	}
 
@@ -767,25 +774,32 @@ func (l *lazyFrameToWorld) get(name string) (dualquat.Number, error) {
 		return e.dq, e.err
 	}
 	identity := dualquat.Number{Real: quat.Number{Real: 1}}
-	// Mirrors composeTransforms: the walk stops at (and excludes) the frame
-	// with no recorded parent, i.e. world contributes identity.
-	if l.sfs.parents[name] == "" {
+	if name == World {
 		l.memo[name] = lazyFrameToWorldEntry{dq: identity}
 		return identity, nil
 	}
+	// Unknown names must error - a missing map entry also reads as "", so the
+	// frame lookup has to come before the no-parent check or a typo would
+	// silently resolve to world.
 	frame := l.sfs.lookupFrame(name)
 	if frame == nil {
 		err := NewFrameMissingError(name)
 		l.memo[name] = lazyFrameToWorldEntry{dq: identity, err: err}
 		return identity, err
 	}
+	// Mirrors composeTransforms: the walk stops at (and excludes) the frame
+	// with no recorded parent.
+	if l.sfs.parents[name] == "" {
+		l.memo[name] = lazyFrameToWorldEntry{dq: identity}
+		return identity, nil
+	}
 	parentDQ, err := l.get(l.sfs.parents[name])
 	if err == nil {
-		var local spatial.Pose
+		var local dualquat.Number
 		local, err = l.sfs.localFrameTransform(frame, l.li)
 		if err == nil {
 			pdq := spatial.DualQuaternion{Number: parentDQ}
-			dq := pdq.Transformation(local.(*spatial.DualQuaternion).Number)
+			dq := pdq.Transformation(local)
 			l.memo[name] = lazyFrameToWorldEntry{dq: dq}
 			return dq, nil
 		}
