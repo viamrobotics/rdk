@@ -92,6 +92,45 @@ func (oc *OrientationConstraint) Distance(from, to, now spatialmath.Orientation)
 	return min(a, b)
 }
 
+// OrientationConstraintEval evaluates one OrientationConstraint against fixed
+// start and goal orientations. The endpoints never change during a plan, but
+// Distance re-derives their orientation-vector forms on every call -
+// precomputing them leaves one conversion (the current orientation) per check.
+type OrientationConstraintEval struct {
+	oc           OrientationConstraint
+	from, to     spatialmath.Orientation
+	fromOV, toOV *spatialmath.OrientationVectorDegrees
+}
+
+// NewOrientationConstraintEval precomputes the fixed endpoint conversions.
+func NewOrientationConstraintEval(oc OrientationConstraint, from, to spatialmath.Orientation) *OrientationConstraintEval {
+	return &OrientationConstraintEval{
+		oc: oc, from: from, to: to,
+		fromOV: from.OrientationVectorDegrees(), toOV: to.OrientationVectorDegrees(),
+	}
+}
+
+// Distance is OrientationConstraint.Distance with the endpoint conversions amortized.
+func (e *OrientationConstraintEval) Distance(now spatialmath.Orientation) float64 {
+	n := now.OrientationVectorDegrees()
+	if between(e.fromOV.OX, e.toOV.OX, n.OX) &&
+		between(e.fromOV.OY, e.toOV.OY, n.OY) &&
+		between(e.fromOV.OZ, e.toOV.OZ, n.OZ) &&
+		between(e.fromOV.Theta, e.toOV.Theta, n.Theta) {
+		return 0
+	}
+	return min(OrientDist(e.from, now), OrientDist(e.to, now))
+}
+
+// Score mirrors OrientationConstraint.Score.
+func (e *OrientationConstraintEval) Score(now spatialmath.Orientation) float64 {
+	d := e.Distance(now)
+	if d <= 0 {
+		return 0
+	}
+	return max(0, d-e.oc.OrientationToleranceDegs)
+}
+
 // CollisionSpecificationAllowedFrameCollisions is used to define frames that are allowed to collide.
 type CollisionSpecificationAllowedFrameCollisions struct {
 	Frame1, Frame2 string

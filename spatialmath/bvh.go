@@ -137,6 +137,24 @@ func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 	case *point:
 		pt := geom.position
 		return pt, pt
+	case *Cylinder:
+		// Conservative: the cylinder's bounding capsule (axis segment padded
+		// by radius on every axis), at most radius of slack along the axis.
+		center := geom.pose.Point()
+		q := geom.pose.Orientation().Quaternion()
+		half := TransformPoint(q, r3.Vector{}, r3.Vector{Z: geom.height / 2})
+		segA, segB := center.Sub(half), center.Add(half)
+		lo := r3.Vector{
+			X: math.Min(segA.X, segB.X) - geom.radius,
+			Y: math.Min(segA.Y, segB.Y) - geom.radius,
+			Z: math.Min(segA.Z, segB.Z) - geom.radius,
+		}
+		hi := r3.Vector{
+			X: math.Max(segA.X, segB.X) + geom.radius,
+			Y: math.Max(segA.Y, segB.Y) + geom.radius,
+			Z: math.Max(segA.Z, segB.Z) + geom.radius,
+		}
+		return lo, hi
 	case *Mesh:
 		// BVH stores bounds in local space. We must transform to world space via the mesh pose.
 		// Previously this returned bvh.min/max directly (local space), which caused collision

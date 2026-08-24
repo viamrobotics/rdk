@@ -19,7 +19,11 @@ func TestVoxelSDFConservative(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	tri := NewTriangle(r3.Vector{X: 0, Y: 200, Z: -50}, r3.Vector{X: 50, Y: 250, Z: 60}, r3.Vector{X: -60, Y: 220, Z: 40})
 	mesh := NewMesh(NewZeroPose(), []*Triangle{tri}, "m")
-	geoms := []Geometry{b, s, c, mesh}
+	// Tilted cylinder: regression for the whitelisted-but-unbuildable case
+	// (computeGeometryAABB used to panic on cylinders).
+	cyl, err := NewCylinder(NewPose(r3.Vector{X: 150, Y: 150, Z: -50}, &OrientationVectorDegrees{OX: 1, OZ: 1, Theta: 20}), 35, 120, "cyl")
+	test.That(t, err, test.ShouldBeNil)
+	geoms := []Geometry{b, s, c, mesh, cyl}
 
 	sdf := NewVoxelSDF(geoms, 10)
 	test.That(t, sdf, test.ShouldNotBeNil)
