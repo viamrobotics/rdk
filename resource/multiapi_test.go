@@ -188,6 +188,27 @@ func TestRegisterMultiAPI(t *testing.T) {
 	test.That(t, APIsForModel(DefaultModelFamily.WithModel("nonexistent")), test.ShouldBeNil)
 }
 
+func TestRegisterMultiAPISingleAPI(t *testing.T) {
+	// RegisterMultiAPI may serve as the uniform registration entry point: with a single API it
+	// registers the model like RegisterComponent/RegisterService and records no composite set.
+	model := DefaultModelFamily.WithModel("multiapi_single")
+	ctor := func(context.Context, Dependencies, Config, logging.Logger) (Resource, error) { return nil, nil }
+
+	RegisterMultiAPI([]API{apiOne}, model, Registration[Resource, NoNativeConfig]{Constructor: ctor})
+	defer Deregister(apiOne, model)
+
+	_, ok := LookupRegistration(apiOne, model)
+	test.That(t, ok, test.ShouldBeTrue)
+	// One API is not a composite, so nothing is recorded and the model resolves as single-API.
+	test.That(t, APIsForModel(model), test.ShouldBeNil)
+
+	// No APIs is a programmer error.
+	test.That(t, func() {
+		RegisterMultiAPI([]API{}, DefaultModelFamily.WithModel("multiapi_none"),
+			Registration[Resource, NoNativeConfig]{Constructor: ctor})
+	}, test.ShouldPanic)
+}
+
 func TestMultiAPIGraphPeerRouting(t *testing.T) {
 	// A node whose model serves {apiOne, apiTwo} is cached under BOTH, resolving to one node.
 	logger := logging.NewTestLogger(t)

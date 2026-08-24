@@ -380,17 +380,21 @@ func LookupRegistration(api API, model Model) (Registration[Resource, ConfigVali
 // under any of them, and the model's Go type must implement each API's interface (routing casts to the
 // requested one via AsType at call time). The single constructor in reg is registered under every API
 // in the set, and the set is recorded so config resolution can expand the model (with or without an
-// `api` field) into its full identity. Declare at init time. Panics if fewer than two APIs are given
-// (use RegisterComponent/RegisterService for a single API).
+// `api` field) into its full identity. With a single API it behaves like RegisterComponent/
+// RegisterService and records no multi-API set, so it can serve as one uniform registration entry
+// point that a model adopts whether it serves one API or several. Declare at init time. Panics only
+// if no APIs are given.
 func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](
 	apis []API, model Model, reg Registration[ResourceT, ConfigT],
 ) {
-	if len(apis) < 2 {
-		panic(errors.Errorf("RegisterMultiAPI needs at least two APIs for model %q, got %d", model, len(apis)))
+	if len(apis) == 0 {
+		panic(errors.Errorf("RegisterMultiAPI needs at least one API for model %q", model))
 	}
 	for _, api := range apis {
 		Register(api, model, reg)
 	}
+	// Only two or more APIs make a composite; RegisterMultiAPISet ignores a single-API set, so a
+	// one-API registration is recorded exactly like a plain single-API model.
 	RegisterMultiAPISet(model, apis)
 }
 
