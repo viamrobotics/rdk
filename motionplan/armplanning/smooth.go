@@ -38,6 +38,77 @@ func simpleSmoothStep(ctx context.Context, psc *PlanSegmentContext, steps []*ref
 // uncapped pass over a long raw search path could cost more than the search.
 const smoothProbeBudget = 300
 
+// vertexPullStep shrinks detours that waypoint removal cannot: when deleting
+// an interior waypoint is blocked (the straight bypass clips an obstacle),
+// the waypoint can often still be pulled partway toward the midpoint of its
+// neighbors, tightening the arc around the obstacle. Without this, a path
+// routed through an arbitrary intermediate configuration (a roadmap sample, a
+// search tree node) keeps that configuration's full detour forever - which
+// also means harvesting locks the detour into every future replan. Every
+// accepted pull strictly lowers path cost, so a few rounds converge.
+func vertexPullStep(ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs,
+	budget *int,
+) []*referenceframe.LinearInputs {
+	if len(steps) < 3 {
+		return steps
+	}
+	segCost := func(a, b *referenceframe.LinearInputs) float64 {
+		return psc.pc.ConfigurationDistanceFunc(&motionplan.SegmentFS{StartConfiguration: a, EndConfiguration: b})
+	}
+	// Only paths carrying substantial detour are worth the CheckPath spend:
+	// a path near the direct start-goal cost has nothing to reclaim (and a
+	// converged, previously-pulled path re-entering smoothing skips straight
+	// through here on replans).
+	const vertexPullSlackFactor = 1.5
+	total := 0.0
+	for i := 1; i < len(steps); i++ {
+		total += segCost(steps[i-1], steps[i])
+	}
+	direct := segCost(steps[0], steps[len(steps)-1])
+	if total <= vertexPullSlackFactor*direct {
+		return steps
+	}
+	const pullRounds = 6
+	for r := 0; r < pullRounds; r++ {
+		improved := false
+		for i := 1; i+1 < len(steps); i++ {
+			prev, cur, next := steps[i-1], steps[i], steps[i+1]
+			mid, err := referenceframe.InterpolateFS(psc.pc.fs, prev, next, 0.5)
+			if err != nil {
+				return steps
+			}
+			curCost := segCost(prev, cur) + segCost(cur, next)
+			// Blend from cur toward the neighbors' midpoint, most aggressive
+			// first. The full midpoint itself is never a candidate: it lies on
+			// the straight prev-next line, which waypoint removal already
+			// proved blocked whenever this step matters.
+			for _, alpha := range []float64{0.75, 0.5, 0.25} {
+				cand, err := referenceframe.InterpolateFS(psc.pc.fs, cur, mid, alpha)
+				if err != nil {
+					return steps
+				}
+				if segCost(prev, cand)+segCost(cand, next) >= curCost-1e-9 {
+					continue
+				}
+				if *budget <= 0 {
+					return steps
+				}
+				*budget -= 2
+				if psc.CheckPath(ctx, prev, cand, false, nil) != nil || psc.CheckPath(ctx, cand, next, false, nil) != nil {
+					continue
+				}
+				steps[i] = cand
+				improved = true
+				break
+			}
+		}
+		if !improved {
+			break
+		}
+	}
+	return steps
+}
+
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
 func smoothPathSimple(ctx context.Context, psc *PlanSegmentContext,
@@ -55,6 +126,10 @@ func smoothPathSimple(ctx context.Context, psc *PlanSegmentContext,
 	if len(steps) > 15 {
 		steps = simpleSmoothStep(ctx, psc, steps, 3, &budget)
 	}
+	steps = simpleSmoothStep(ctx, psc, steps, 1, &budget)
+	steps = vertexPullStep(ctx, psc, steps, &budget)
+	// Pulled vertices can straighten segments enough to make whole waypoints
+	// removable, so run one more removal pass.
 	steps = simpleSmoothStep(ctx, psc, steps, 1, &budget)
 
 	steps = tryOnlyMovingComponentsThatNeedToMove(ctx, psc, steps)
