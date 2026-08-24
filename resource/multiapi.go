@@ -31,6 +31,18 @@ func FromResourceForAPI[T Resource](res Resource, api API) (T, error) {
 	return AsType[T](subresourceForAPI(res, api))
 }
 
+// APIsOf returns the set of APIs a resource handle serves. For a composite (multi-API) resource it
+// returns every API it was registered under, in a stable order; for an ordinary resource it returns
+// the single API of its Name. It lets a consumer discover a handle's capabilities without a
+// MultiAPIResource type assertion or trial-and-error AsType, and is the runtime counterpart to
+// APIsForModel (which answers the same question from a model, before construction).
+func APIsOf(res Resource) []API {
+	if mar, ok := res.(MultiAPIResource); ok {
+		return mar.APIs()
+	}
+	return []API{res.Name().API}
+}
+
 // compositeResource is the default MultiAPIResource: one identity holding a typed sub-resource per
 // API. The client builds one of these for a multi-API resource by dialing each advertised API's
 // RPCClient; on the robot/in-process side the sub-resources may all be the same underlying object.

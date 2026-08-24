@@ -165,6 +165,17 @@ func TestCompositeCloseClosesEachOnce(t *testing.T) {
 	test.That(t, twoClosed, test.ShouldBeTrue)
 }
 
+func TestAPIsOf(t *testing.T) {
+	nameOne := NewName(apiOne, "dev")
+	one := &oneImpl{Named: nameOne.AsNamed()}
+	two := &twoImpl{Named: NewName(apiTwo, "dev").AsNamed()}
+	composite := NewMultiAPIResource(nameOne, []API{apiOne, apiTwo}, map[API]Resource{apiOne: one, apiTwo: two})
+
+	// A composite reports every API it serves; an ordinary resource reports its single API.
+	test.That(t, APIsOf(composite), test.ShouldResemble, []API{apiOne, apiTwo})
+	test.That(t, APIsOf(one), test.ShouldResemble, []API{apiOne})
+}
+
 func TestRegisterMultiAPI(t *testing.T) {
 	model := DefaultModelFamily.WithModel("multiapi_regmodel")
 	ctor := func(context.Context, Dependencies, Config, logging.Logger) (Resource, error) { return nil, nil }
