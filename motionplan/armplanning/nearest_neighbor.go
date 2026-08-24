@@ -17,10 +17,13 @@ func nodeConfigurationDistanceFunc(node1, node2 *node) float64 {
 }
 
 func nodeLinear(n *node) []float64 {
-	if n.linear == nil {
-		n.linear = n.inputs.GetLinearizedInputs()
+	if p := n.linear.Load(); p != nil {
+		return *p
 	}
-	return n.linear
+	// Concurrent computes are fine: the value is deterministic.
+	l := n.inputs.GetLinearizedInputs()
+	n.linear.Store(&l)
+	return l
 }
 
 // nearestNeighbor scans the tree for the node closest to seed. The scan runs
