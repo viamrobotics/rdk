@@ -80,6 +80,24 @@ type box struct {
 	// as the box's local axes in world.
 	rotMatrix *RotationMatrix
 	once      sync.Once
+
+	// aabbMin/aabbMax cache the box's world-space AABB. A box is immutable, and
+	// obstacle boxes are checked against every robot geometry at every planner
+	// state - recomputing the AABB (which derives a fresh rotation matrix) per
+	// query was the planner's single largest allocation source.
+	aabbMin, aabbMax r3.Vector
+	aabbOnce         sync.Once
+}
+
+// worldAABB returns the box's cached world-space axis-aligned bounding box.
+func (b *box) worldAABB() (r3.Vector, r3.Vector) {
+	b.aabbOnce.Do(func() {
+		rm := b.center.Orientation().RotationMatrix()
+		halfSize := r3.Vector{X: b.halfSize[0], Y: b.halfSize[1], Z: b.halfSize[2]}
+		worldExtents := rotatedAABBExtents(rm, halfSize)
+		b.aabbMin, b.aabbMax = aabbFromCenterExtents(b.center.Point(), worldExtents)
+	})
+	return b.aabbMin, b.aabbMax
 }
 
 // NewBox instantiates a new box Geometry.
