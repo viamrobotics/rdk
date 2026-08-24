@@ -677,6 +677,38 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	return result
 }
 
+// resolveCompositeName resolves a set of names that share a bare name to the single graph node
+// backing them. A composite (multi-API) resource is cached under each of its APIs, so a bare name
+// can match several API names that all back one node; that is one resource, not a conflict. It
+// returns the node's canonical name (the key it is stored under) and true when every name maps to
+// the same node, and false for a genuine conflict between distinct nodes. g.mu must be held.
+func (g *Graph) resolveCompositeName(names []Name) (Name, bool) {
+	var node *GraphNode
+	var canonical Name
+	var haveCanonical bool
+	for _, n := range names {
+		found, err := g.nodes.FindBySimpleNameAndAPI(n.Name, n.API)
+		if err != nil || found == nil {
+			return Name{}, false
+		}
+		if node == nil {
+			node = found
+		} else if found != node {
+			return Name{}, false
+		}
+		// Exactly one of the API names is the actual key the node is stored under; that is the
+		// canonical name a dependency edge should point at.
+		if _, ok := g.nodes.Get(n); ok {
+			canonical = n
+			haveCanonical = true
+		}
+	}
+	if node == nil || !haveCanonical {
+		return Name{}, false
+	}
+	return canonical, true
+}
+
 // GetAllChildrenOf returns all direct children of a node.
 func (g *Graph) GetAllChildrenOf(node Name) []Name {
 	g.mu.RLock()
@@ -1030,6 +1062,24 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 				if err != nil {
 					var multiErr *MultipleMatchingNamesError
 					if errors.As(err, &multiErr) {
+						// A composite (multi-API) resource is advertised under several API names that
+						// share one bare name but back a single graph node. That is one resource, not a
+						// conflict — resolve it to the node's canonical name. Only distinct nodes sharing
+						// a bare name are a genuine conflict.
+						if canonical, ok := g.resolveCompositeName(multiErr.Matches); ok {
+							if canonical.String() == nodeName.String() {
+								allErrs = multierr.Combine(allErrs,
+									errors.Errorf("node cannot depend on itself: %q", nodeName))
+								logger.Errorw("node cannot depend on itself", "name", nodeName)
+								return Name{}, false
+							}
+							logger.Debugw(
+								"composite dependency resolved for resource",
+								"name", nodeName,
+								"dependency", canonical,
+							)
+							return canonical, true
+						}
 						allErrs = multierr.Combine(
 							allErrs,
 							errors.Errorf("conflicting names for resource %q: %v", nodeName, NamesToStrings(multiErr.Matches)))

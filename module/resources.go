@@ -309,6 +309,15 @@ func (m *Module) getDependenciesForConstruction(ctx context.Context, depStrings 
 			return nil, err
 		}
 		deps[depName] = clientRes
+
+		// A composite (multi-API) dependency is one object serving several APIs. Key it under each of
+		// its API names so a typed accessor for any of them (e.g. sensor.FromProvider) resolves it,
+		// matching how the client caches a composite under every one of its API names.
+		if mar, ok := clientRes.(resource.MultiAPIResource); ok {
+			for _, api := range mar.APIs() {
+				deps[resource.Name{API: api, Remote: depName.Remote, Name: depName.Name}] = clientRes
+			}
+		}
 	}
 
 	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient

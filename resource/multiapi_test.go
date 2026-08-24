@@ -225,6 +225,39 @@ func TestMultiAPIGraphPeerRouting(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
+func TestResolveDependencyOnComposite(t *testing.T) {
+	// A resource can depend on a composite by its bare name. The bare name matches every one of the
+	// composite's API names, which all back one node — that must resolve as a single dependency
+	// rather than being reported as a conflict between distinct names.
+	logger := logging.NewTestLogger(t)
+	model := DefaultModelFamily.WithModel("multiapi_depmodel")
+	registryMu.Lock()
+	multiAPIByModel[model] = []API{apiOne, apiTwo}
+	registryMu.Unlock()
+	defer func() {
+		registryMu.Lock()
+		delete(multiAPIByModel, model)
+		registryMu.Unlock()
+	}()
+
+	g := NewGraph(logger)
+
+	// The composite node, advertised under both apiOne and apiTwo.
+	composite := NewUnconfiguredGraphNode(Config{API: apiOne, Name: "dev", Model: model}, nil)
+	test.That(t, g.AddNode(NewName(apiOne, "dev"), composite), test.ShouldBeNil)
+
+	// A consumer that depends on the composite by its bare name.
+	consumerName := NewName(apiOne, "consumer")
+	consumer := NewUnconfiguredGraphNode(Config{API: apiOne, Name: "consumer"}, []string{"dev"})
+	test.That(t, g.AddNode(consumerName, consumer), test.ShouldBeNil)
+
+	// Resolution succeeds (one composite, not a conflict) and the edge points at the composite's
+	// canonical stored name.
+	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
+	test.That(t, consumer.UnresolvedDependencies(), test.ShouldBeEmpty)
+	test.That(t, g.GetAllParentsOf(consumerName), test.ShouldContain, NewName(apiOne, "dev"))
+}
+
 func TestConfigOmitsAPIForMultiAPIModel(t *testing.T) {
 	// A composite resource's config may omit `api`; AdjustPartialNames resolves the canonical API
 	// from the model's registered set.
