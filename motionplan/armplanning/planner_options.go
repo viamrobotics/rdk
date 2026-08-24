@@ -159,12 +159,25 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 
 // GetGoalMetric creates the distance metric for the solver using the configured options.
 func (p *PlannerOptions) GetGoalMetric(goals referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
+	return p.GetGoalMetricWithOrientationSlack(goals, 0)
+}
+
+// GetGoalMetricWithOrientationSlack creates the goal distance metric with a
+// free orientation band of slackDegs around each goal orientation - any
+// orientation within the band scores as exact. Used when solving for
+// intermediate keypoints: their orientation only needs to satisfy the
+// request's constraints (or, with no constraints, doesn't matter at all), and
+// insisting on an exact orientation needlessly rejects reachable keypoints.
+func (p *PlannerOptions) GetGoalMetricWithOrientationSlack(
+	goals referenceframe.FrameSystemPoses, slackDegs float64,
+) motionplan.StateFSMetric {
 	cartesianScale := 1.0
 	orientScale := 100.0
 
 	if p.GoalMetricType == motionplan.PositionOnly {
 		orientScale = 0
 	}
+	slackRads := utils.DegToRad(slackDegs)
 
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
@@ -179,7 +192,7 @@ func (p *PlannerOptions) GetGoalMetric(goals referenceframe.FrameSystemPoses) mo
 				continue
 			}
 
-			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), &dq, cartesianScale, orientScale)
+			score += motionplan.WeightedSquaredNormDistanceWithTolerance(goal.Pose(), &dq, cartesianScale, orientScale, slackRads)
 		}
 		return score
 	}
