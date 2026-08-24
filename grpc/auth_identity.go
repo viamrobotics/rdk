@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"context"
-	"fmt"
 
 	"go.viam.com/utils/rpc"
 )
@@ -33,23 +32,27 @@ func (id Identity) Authenticated() bool {
 	return id.Entity != ""
 }
 
-// String renders the identity for human-readable logs, e.g.
-// "steve@viam.com (user_id 11111)". It prefers e-mail and app user ID when present and
-// falls back to the raw entity or an "unauthenticated client" note.
-func (id Identity) String() string {
-	if !id.Authenticated() {
-		return "unauthenticated client"
-	}
+// AuthType returns the kind of credential the caller was identified by, for logging:
+// "app-user-id" when the app_user_id claim is present, otherwise "api-key-id" (the JWT
+// subject, which is an API key ID for API-key auth), or "unauthenticated".
+func (id Identity) AuthType() string {
 	switch {
-	case id.Email != "" && id.AppUserID != "":
-		return fmt.Sprintf("%s (user_id %s)", id.Email, id.AppUserID)
-	case id.Email != "":
-		return id.Email
+	case !id.Authenticated():
+		return "unauthenticated"
 	case id.AppUserID != "":
-		return fmt.Sprintf("user_id %s", id.AppUserID)
+		return "app-user-id"
 	default:
-		return id.Entity
+		return "api-key-id"
 	}
+}
+
+// AuthID returns the identifying value matching AuthType: the app user ID for an
+// app-user-id caller, otherwise the JWT subject (API key ID).
+func (id Identity) AuthID() string {
+	if id.AppUserID != "" {
+		return id.AppUserID
+	}
+	return id.Entity
 }
 
 // IdentityFromContext extracts the caller's identity from a request context. The
