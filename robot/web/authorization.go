@@ -177,9 +177,32 @@ func (ra *userPermsAuthorizer) authorize(ctx context.Context, fullMethod string,
 	if ra.allowed(id, fullMethod, resourceName) {
 		return nil
 	}
-	ra.logger.Warnf("%s request from %s unauthorized", fullMethod, id)
+	logUnauthorized(ra.logger, id, fullMethod, resourceName)
 	return status.Errorf(codes.PermissionDenied,
 		"user is not authorized to invoke %q on resource %q", fullMethod, resourceName)
+}
+
+// logUnauthorized emits a structured warning for a denied request, identifying the
+// method, the resource it addressed, and the caller's authorization method (type and ID,
+// plus e-mail for an app-user-id caller). Pass no resource for the stream-creation gate,
+// which fires before the resource is known; a resource-scoped denial always passes one
+// (possibly "" for a _machine method).
+func logUnauthorized(logger logging.Logger, id rdkgrpc.Identity, fullMethod string, resource ...string) {
+	fields := []any{"method", fullMethod}
+	if len(resource) > 0 {
+		// A machine-scoped method (e.g. a RobotService method) addresses no named
+		// resource; surface it as the "_machine" sentinel it was matched against.
+		name := resource[0]
+		if name == "" {
+			name = machineResource
+		}
+		fields = append(fields, "resource", name)
+	}
+	fields = append(fields, "auth_type", id.AuthType(), "auth_id", id.AuthID())
+	if id.Email != "" {
+		fields = append(fields, "email", id.Email)
+	}
+	logger.Warnw("unauthorized request", fields...)
 }
 
 func resourceNameFromRequest(fullMethod string, req interface{}) string {
@@ -232,7 +255,7 @@ func (svc *webService) userPermsStreamInterceptor(
 	// chance to run. Users with access to some resource pass here and are still checked
 	// against the specific resource on their first message.
 	if ra := svc.userPermsAuth.Load(); ra != nil && !ra.allowedOnAnyResource(id, info.FullMethod) {
-		ra.logger.Warnf("%s request from %s unauthorized", info.FullMethod, id)
+		logUnauthorized(ra.logger, id, info.FullMethod)
 		return status.Errorf(codes.PermissionDenied,
 			"user is not authorized to invoke %q", info.FullMethod)
 	}
@@ -315,7 +338,7 @@ func (ss *authzServerStream) RecvMsg(m interface{}) error {
 	// user, revoke the stream and return a permission denied error.
 	if first {
 		if ra := ss.svc.userPermsAuth.Load(); ra != nil && !ra.allowed(ss.id, ss.fullMethod, resourceName) {
-			ra.logger.Warnf("%s request from %s unauthorized", ss.fullMethod, ss.id)
+			logUnauthorized(ra.logger, ss.id, ss.fullMethod, resourceName)
 			ss.revoke()
 			return status.Errorf(codes.PermissionDenied,
 				"user is not authorized to invoke %q on resource %q", ss.fullMethod, resourceName)

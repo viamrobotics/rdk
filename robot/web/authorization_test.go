@@ -274,17 +274,6 @@ func TestUpdateUserPermissionsRevocation(t *testing.T) {
 	test.That(t, svc.userPermsAuth.Load(), test.ShouldBeNil)
 }
 
-func TestIdentityString(t *testing.T) {
-	test.That(t, rdkgrpc.Identity{}.String(), test.ShouldEqual, "unauthenticated client")
-	test.That(t, rdkgrpc.Identity{Entity: "key-id"}.String(), test.ShouldEqual, "key-id")
-	test.That(t, rdkgrpc.Identity{Entity: "sub", AppUserID: "11111"}.String(),
-		test.ShouldEqual, "user_id 11111")
-	test.That(t, rdkgrpc.Identity{Entity: "sub", Email: "steve@viam.com"}.String(),
-		test.ShouldEqual, "steve@viam.com")
-	test.That(t, rdkgrpc.Identity{Entity: "sub", AppUserID: "11111", Email: "steve@viam.com"}.String(),
-		test.ShouldEqual, "steve@viam.com (user_id 11111)")
-}
-
 func TestUserPermsAuthorizerDenialLogging(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	// This authorizer grants nothing to our SSO caller, so the request is denied.
@@ -303,8 +292,31 @@ func TestUserPermsAuthorizerDenialLogging(t *testing.T) {
 
 	denials := logs.FilterMessageSnippet("unauthorized").All()
 	test.That(t, denials, test.ShouldHaveLength, 1)
-	test.That(t, denials[0].Message, test.ShouldEqual,
-		getImages+" request from steve@viam.com (user_id 11111) unauthorized")
+	fields := denials[0].ContextMap()
+	test.That(t, fields["method"], test.ShouldEqual, getImages)
+	test.That(t, fields["resource"], test.ShouldEqual, "cam1")
+	test.That(t, fields["auth_type"], test.ShouldEqual, "app-user-id")
+	test.That(t, fields["auth_id"], test.ShouldEqual, "11111")
+	test.That(t, fields["email"], test.ShouldEqual, "steve@viam.com")
+
+	// An api-key caller (no app_user_id/email) logs auth_type api-key-id and no email.
+	logs.TakeAll()
+	keyCtx := ctxWithUser("some-key-id")
+	assertDenied(t, ra.authorize(keyCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+	keyDenials := logs.FilterMessageSnippet("unauthorized").All()
+	test.That(t, keyDenials, test.ShouldHaveLength, 1)
+	keyFields := keyDenials[0].ContextMap()
+	test.That(t, keyFields["auth_type"], test.ShouldEqual, "api-key-id")
+	test.That(t, keyFields["auth_id"], test.ShouldEqual, "some-key-id")
+	_, hasEmail := keyFields["email"]
+	test.That(t, hasEmail, test.ShouldBeFalse)
+
+	// A machine-scoped method (no named resource) logs resource "_machine".
+	logs.TakeAll()
+	assertDenied(t, ra.authorize(keyCtx, resourceNames, &robotpb.ResourceNamesRequest{}))
+	machineDenials := logs.FilterMessageSnippet("unauthorized").All()
+	test.That(t, machineDenials, test.ShouldHaveLength, 1)
+	test.That(t, machineDenials[0].ContextMap()["resource"], test.ShouldEqual, "_machine")
 }
 
 // fakeServerStream is a minimal googlegrpc.ServerStream whose only meaningful method is
