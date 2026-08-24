@@ -16,26 +16,17 @@ func nodeConfigurationDistanceFunc(node1, node2 *node) float64 {
 	})
 }
 
-func nodeLinear(n *node) []float64 {
-	if p := n.linear.Load(); p != nil {
-		return *p
-	}
-	// Concurrent computes are fine: the value is deterministic.
-	l := n.inputs.GetLinearizedInputs()
-	n.linear.Store(&l)
-	return l
-}
-
 // nearestNeighbor scans the tree for the node closest to seed. The scan runs
 // once per extend over trees that grow to thousands of nodes, so it compares
-// cached linearized-input slices directly instead of going through the
-// LinearInputs frame-map distance (which was the planner's hottest loop).
+// the linearized-input slices directly (a field read on LinearInputs) instead
+// of going through the frame-map distance metric (which was the planner's
+// hottest loop).
 func nearestNeighbor(seed *node, tree rrtMap, nodeDistanceFunc NodeDistanceMetric) *node {
-	sl := nodeLinear(seed)
+	sl := seed.inputs.GetLinearizedInputs()
 	bestDist := math.Inf(1)
 	var best *node
 	for k := range tree {
-		kl := nodeLinear(k)
+		kl := k.inputs.GetLinearizedInputs()
 		if len(kl) != len(sl) {
 			// Mixed schemas: fall back to the full metric for this candidate.
 			if dist := nodeDistanceFunc(seed, k); dist < bestDist {

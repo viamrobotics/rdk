@@ -71,11 +71,6 @@ type node struct {
 	// cost of moving from seed to this inputs
 	cost float64
 
-	// linear caches inputs.GetLinearizedInputs() for the nearest-neighbor hot
-	// loop, which distance-compares a target against every tree node per
-	// extend. Populated lazily by nodeLinear; atomic because racing searches
-	// share nodes through their cloned tree maps.
-	linear atomic.Pointer[[]float64]
 	// checkPathError is nil when the straight-line path to this node meets all constraints.
 	checkPath bool
 
