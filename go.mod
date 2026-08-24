@@ -390,4 +390,4 @@ require (
 
 replace go.viam.com/api => github.com/benjirewis/api v0.0.0-20260824165850-23b73d0fdf36
 
-replace go.viam.com/utils => github.com/benjirewis/goutils v0.0.0-20260824185926-043392fd3d64
+replace go.viam.com/utils => github.com/benjirewis/goutils v0.0.0-20260824191402-ebbabc059089
