@@ -190,6 +190,8 @@ github.com/benjirewis/goutils v0.0.0-20260824185500-7e4ded295d2e h1:XEi3YVTNyh/3
 github.com/benjirewis/goutils v0.0.0-20260824185500-7e4ded295d2e/go.mod h1:oogUl3d1n+CJmhUA3ekkF7JjiAuw68RJos6Tsz4/JHY=
 github.com/benjirewis/goutils v0.0.0-20260824185926-043392fd3d64 h1:YBWlGtWitryVSIxG3MR3t8HmURX/xjOHHveKhia6FQQ=
 github.com/benjirewis/goutils v0.0.0-20260824185926-043392fd3d64/go.mod h1:oogUl3d1n+CJmhUA3ekkF7JjiAuw68RJos6Tsz4/JHY=
+github.com/benjirewis/goutils v0.0.0-20260824191402-ebbabc059089 h1:2y+L3cDzcg2VWPlsGkO5aXwr7NVDKOhRkDBCFG7Bxu0=
+github.com/benjirewis/goutils v0.0.0-20260824191402-ebbabc059089/go.mod h1:oogUl3d1n+CJmhUA3ekkF7JjiAuw68RJos6Tsz4/JHY=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
