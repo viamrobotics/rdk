@@ -70,6 +70,11 @@ type node struct {
 	inputs *referenceframe.LinearInputs
 	// cost of moving from seed to this inputs
 	cost float64
+
+	// linear caches inputs.GetLinearizedInputs() for the nearest-neighbor hot
+	// loop, which distance-compares a target against every tree node per
+	// extend. Populated lazily by nodeLinear.
+	linear []float64
 	// checkPathError is nil when the straight-line path to this node meets all constraints.
 	checkPath bool
 

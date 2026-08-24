@@ -3,6 +3,7 @@ package armplanning
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -11,6 +12,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // planManager is intended to be the single entry point to motion planners.
@@ -169,7 +171,7 @@ func (pm *planManager) planToDirectJoints(
 	if err != nil {
 		return nil, err
 	}
-	finalSteps.steps, err = smoothPath(ctx, psc, finalSteps.steps)
+	finalSteps.steps, _, err = smoothPath(ctx, psc, finalSteps.steps)
 	if err != nil {
 		return nil, err
 	}
@@ -204,6 +206,7 @@ func (pm *planManager) planSingleGoal(
 
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
+		pm.harvestPlan(psc, append([]*referenceframe.LinearInputs{psc.start}, planSeed.steps...), pm.logger)
 		return planSeed.steps, nil
 	}
 
@@ -217,32 +220,50 @@ func (pm *planManager) planSingleGoal(
 	// straight-line path with small nudges off whatever it grazes — the common
 	// case for barely-blocked paths.
 	if nudged := tryNudgedStraightLine(ctx, psc, planSeed.maps.goalMap, pm.pc.randseed, pm.logger.Sublogger("nudge")); nudged != nil {
-		steps, err := smoothPath(ctx, psc, nudged)
+		steps, compact, err := smoothPath(ctx, psc, nudged)
 		if err == nil {
 			pm.logger.Debugf("solved with nudged straight line: %d -> %d waypoints", len(nudged), len(steps))
 			pm.pc.planMeta.GoalsNudgeSolved++
+			pm.harvestPlan(psc, compact, pm.logger)
 			return steps, nil
 		}
 		pm.logger.Debugf("nudged path failed to smooth, falling back to cbirrt: %v", err)
 	}
 
-	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
+	// Roadmap: reusable configuration-space graph with per-scene lazily
+	// validated edges - including workspace bridge edges between joint
+	// families. First query in a scene pays edge validation; later queries in
+	// the same scene reuse the verdicts.
+	goalRoots := make([]*node, 0, len(planSeed.maps.goalMap))
+	for n, parent := range planSeed.maps.goalMap {
+		if parent == nil {
+			goalRoots = append(goalRoots, n)
+		}
+	}
+	if path := pm.tryRoadmap(ctx, psc, goalRoots, pm.logger.Sublogger("roadmap")); path != nil {
+		smoothed, compact, err := smoothPath(ctx, psc, path)
+		if err == nil {
+			pm.logger.Debugf("solved via roadmap: %d -> %d waypoints", len(path), len(smoothed))
+			pm.pc.planMeta.GoalsRoadmapSolved++
+			pm.harvestPlan(psc, compact, pm.logger)
+			return smoothed, nil
+		}
+		pm.logger.Debugf("roadmap path failed to smooth, falling back: %v", err)
+	}
+
+	rawSteps, err := pm.raceCBiRRT(ctx, psc, planSeed.maps)
 	if err != nil {
 		return nil, err
 	}
 
-	finalSteps, err := pathPlanner.rrtRunner(ctx, planSeed.maps)
-	if err != nil {
-		return nil, err
-	}
-
-	finalSteps.steps, err = smoothPath(ctx, psc, finalSteps.steps)
+	steps, compact, err := smoothPath(ctx, psc, rawSteps)
 	if err != nil {
 		return nil, err
 	}
 
 	pm.pc.planMeta.GoalsCBIRRTSolved++
-	return finalSteps.steps, nil
+	pm.harvestPlan(psc, compact, pm.logger)
+	return steps, nil
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
@@ -381,4 +402,101 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
 
 	return rrt, nil
+}
+
+// cbirrtRaceAttempts is how many independently-seeded cBiRRT searches run
+// concurrently when the search phase is reached. Constrained searches have
+// heavy-tailed run-to-run variance (samples on one captured scene span 18s to
+// 139s under identical inputs); racing takes roughly the minimum of that
+// distribution and turns the tail into the exception instead of the ruin of a
+// plan. The searches share the plan's collision caches (concurrent-safe, and
+// one racer's discoveries speed up the others) but use private RNG streams
+// and tree maps.
+var cbirrtRaceAttempts = utils.GetenvInt("CBIRRT_RACE_ATTEMPTS", 4)
+
+// cloneRRTMaps gives one racing attempt its own tree maps. Nodes are shared
+// (they are never mutated after insertion); only the map structure - tree
+// membership and parentage - must be private per attempt.
+func cloneRRTMaps(maps *rrtMaps) *rrtMaps {
+	c := &rrtMaps{
+		startMap: make(rrtMap, len(maps.startMap)),
+		goalMap:  make(rrtMap, len(maps.goalMap)),
+		optNode:  maps.optNode,
+	}
+	for k, v := range maps.startMap {
+		c.startMap[k] = v
+	}
+	for k, v := range maps.goalMap {
+		c.goalMap[k] = v
+	}
+	return c
+}
+
+// raceCBiRRT runs cbirrtRaceAttempts independent cBiRRT searches concurrently
+// and returns the first solution found, cancelling the rest.
+func (pm *planManager) raceCBiRRT(
+	ctx context.Context,
+	psc *PlanSegmentContext,
+	maps *rrtMaps,
+) ([]*referenceframe.LinearInputs, error) {
+	attempts := max(1, cbirrtRaceAttempts)
+
+	raceCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	type raceResult struct {
+		steps   []*referenceframe.LinearInputs
+		err     error
+		attempt int
+	}
+	results := make(chan raceResult, attempts)
+
+	// Seed the goal retreat corridors once on the master maps; every attempt's
+	// clone inherits them, so restarts don't repeat the corridor IK.
+	if seeder, err := newCBiRRTMotionPlanner(raceCtx, pm.pc, psc, pm.logger.Sublogger("corridors")); err == nil {
+		seeder.seedGoalRetreatCorridors(raceCtx, maps)
+	}
+	// NOTE: pruning goal roots without corridors was tried here and reverted:
+	// corridor presence is not connectability, and on the captured hard scene
+	// it sometimes removed every root the search could actually reach,
+	// converting a solvable plan into a timeout. The corridor-aiming already
+	// biases racers toward corridor-bearing roots without excluding the rest.
+
+	for a := 0; a < attempts; a++ {
+		go func(a int) {
+			logger := pm.logger.Sublogger(fmt.Sprintf("cbirrt%d", a))
+			planner, err := newCBiRRTMotionPlanner(raceCtx, pm.pc, psc, logger)
+			if err != nil {
+				results <- raceResult{nil, err, a}
+				return
+			}
+			// Continuous searches (restart-chopping was tried and hurt: the
+			// trees are the asset, and successful searches historically need
+			// several hundred iterations). Diversity comes from the racers'
+			// distinct RNG streams.
+			//nolint:gosec
+			planner.rnd = rand.New(rand.NewSource(int64(pm.pc.planOpts.RandomSeed) + int64(a)*7919))
+			sol, err := planner.rrtRunner(raceCtx, cloneRRTMaps(maps))
+			if err != nil {
+				results <- raceResult{nil, err, a}
+				return
+			}
+			results <- raceResult{sol.steps, nil, a}
+		}(a)
+	}
+
+	var firstErr error
+	for i := 0; i < attempts; i++ {
+		r := <-results
+		if r.err == nil {
+			pm.logger.Debugf("cbirrt race: attempt %d finished first (%d raw nodes)", r.attempt, len(r.steps))
+			return r.steps, nil
+		}
+		// Context cancellation of the losers is expected once someone wins;
+		// remember only the first real failure.
+		if firstErr == nil {
+			firstErr = r.err
+		}
+	}
+	return nil, firstErr
 }

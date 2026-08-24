@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"time"
 
@@ -12,11 +13,14 @@ import (
 )
 
 func simpleSmoothStep(ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs, step int,
+	budget *int,
 ) []*referenceframe.LinearInputs {
-	ctx, span := trace.StartSpan(ctx, "simpleSmoothStep")
-	defer span.End()
 	// look at each triplet, see if we can remove the middle one
 	for i := step + 1; i < len(steps); i += step {
+		if *budget <= 0 {
+			return steps
+		}
+		*budget--
 		err := psc.CheckPath(ctx, steps[i-step-1], steps[i], false, nil)
 		if err != nil {
 			continue
@@ -28,6 +32,12 @@ func simpleSmoothStep(ctx context.Context, psc *PlanSegmentContext, steps []*ref
 	return steps
 }
 
+// smoothProbeBudget caps the total number of coarse shortcut probes one
+// smoothing invocation may spend. Smoothing has diminishing returns - the
+// close-obstacle sweep afterwards validates whatever shape remains - and an
+// uncapped pass over a long raw search path could cost more than the search.
+const smoothProbeBudget = 300
+
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
 func smoothPathSimple(ctx context.Context, psc *PlanSegmentContext,
@@ -38,9 +48,14 @@ func smoothPathSimple(ctx context.Context, psc *PlanSegmentContext,
 	start := time.Now()
 
 	originalSize := len(steps)
-	steps = simpleSmoothStep(ctx, psc, steps, 10)
-	steps = simpleSmoothStep(ctx, psc, steps, 3)
-	steps = simpleSmoothStep(ctx, psc, steps, 1)
+	budget := smoothProbeBudget
+	if len(steps) > 40 {
+		steps = simpleSmoothStep(ctx, psc, steps, 10, &budget)
+	}
+	if len(steps) > 15 {
+		steps = simpleSmoothStep(ctx, psc, steps, 3, &budget)
+	}
+	steps = simpleSmoothStep(ctx, psc, steps, 1, &budget)
 
 	steps = tryOnlyMovingComponentsThatNeedToMove(ctx, psc, steps)
 
@@ -50,25 +65,29 @@ func smoothPathSimple(ctx context.Context, psc *PlanSegmentContext,
 	return steps
 }
 
+// smoothPath returns the final trajectory and, separately, the compact
+// smoothed path from before close-obstacle waypoint insertion. Harvesting
+// must use the compact form: the close waypoints are interpolation guards,
+// not corridor structure, and feeding them back into the roadmap makes every
+// replan's path longer than the last.
 func smoothPath(
 	ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs,
-) ([]*referenceframe.LinearInputs, error) {
+) (final, compact []*referenceframe.LinearInputs, err error) {
 	ctx, span := trace.StartSpan(ctx, "smoothPlan")
 	defer span.End()
-	var err error
-	steps = smoothPathSimple(ctx, psc, steps)
-	if !psc.pc.request.myTestOptions.doNotCloseObstacles {
-		steps, err = addCloseObstacleWaypoints(ctx, psc, steps)
-		if err != nil {
-			return nil, err
-		}
+
+	compact = smoothPathSimple(ctx, psc, steps)
+
+	if psc.pc.request.myTestOptions.doNotCloseObstacles {
+		return compact, compact, nil
 	}
-	return steps, nil
+	final, err = addCloseObstacleWaypoints(ctx, psc, compact)
+	return final, compact, err
 }
 
-// addCloseObstacleWaypoints interpolates between waypoints and adds new waypoints
-// where the path comes within twice the minimum distance of an obstacle.
-// This prevents the smoothed path from getting too close to obstacles during interpolation.
+// addCloseObstacleWaypoints interpolates every segment at full resolution and
+// inserts waypoints wherever the path comes close to an obstacle, preventing
+// later interpolation from cutting corners.
 func addCloseObstacleWaypoints(
 	ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs,
 ) ([]*referenceframe.LinearInputs, error) {
@@ -80,15 +99,14 @@ func addCloseObstacleWaypoints(
 	}
 
 	result := []*referenceframe.LinearInputs{steps[0]}
-
 	for i := 1; i < len(steps); i++ {
-		// Get waypoints that are close to obstacles in this segment
-		closeWaypoints, err := findCloseObstacleWaypoints(ctx, psc, steps[i-1], steps[i])
+		closeWaypoints, blocked, err := findCloseObstacleWaypoints(ctx, psc, steps[i-1], steps[i])
 		if err != nil {
 			return nil, err
 		}
-
-		// Add close waypoints before the current step
+		if blocked {
+			return nil, fmt.Errorf("smoothed path segment %d invalid at full resolution", i)
+		}
 		result = append(result, closeWaypoints...)
 		result = append(result, steps[i])
 	}
@@ -97,34 +115,37 @@ func addCloseObstacleWaypoints(
 		psc.pc.logger.Debugf("addCloseObstacleWaypoints: added %d waypoints (%d -> %d)",
 			len(result)-len(steps), len(steps), len(result))
 	}
-
 	return result, nil
 }
 
-// findCloseObstacleWaypoints interpolates between start and end configurations
-// and returns configurations where the robot has a local minimum distance to obstacles
-// less than twice the global min distance. Instead of adding every point within the threshold,
-// this finds contiguous "close zones" and adds only the point of closest approach
-// in each zone.
+// findCloseObstacleWaypoints interpolates between start and end at full
+// resolution, verifying every state, and reports configurations that come
+// within the close-obstacle threshold. blocked is true when any state violates
+// a constraint. States whose clearance proves the next several interpolation
+// steps cannot collide are skipped for collision purposes (their cheap
+// topological constraints are still verified individually).
 func findCloseObstacleWaypoints(
 	ctx context.Context,
 	psc *PlanSegmentContext,
 	start, end *referenceframe.LinearInputs,
-) ([]*referenceframe.LinearInputs, error) {
+) ([]*referenceframe.LinearInputs, bool, error) {
 	segment := &motionplan.SegmentFS{
 		StartConfiguration: start,
 		EndConfiguration:   end,
 		FS:                 psc.pc.fs,
 	}
 
-	interpolated, err := motionplan.InterpolateSegmentFS(segment, psc.pc.planOpts.Resolution)
+	resolution := psc.pc.planOpts.Resolution
+	interpolated, err := motionplan.InterpolateSegmentFS(segment, resolution)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if len(interpolated) < 3 {
-		return nil, nil
+		return nil, false, nil
 	}
+
+	closeThreshold := max(.1, 10*psc.pc.planOpts.CollisionBufferMM)
 
 	var closeWaypoints []*referenceframe.LinearInputs
 
@@ -136,15 +157,32 @@ func findCloseObstacleWaypoints(
 
 		closestObstacle, err := psc.Checker.CheckStateFSConstraints(ctx, state)
 		if err != nil {
-			return nil, err
+			return nil, true, nil //nolint:nilerr // constraint violation is the blocked verdict, not an error
 		}
 
-		if closestObstacle < max(.1, 10*psc.pc.planOpts.CollisionBufferMM) {
+		if closestObstacle < closeThreshold {
 			closeWaypoints = append(closeWaypoints, interpolated[i])
+			continue
 		}
+
+		// Clearance-bound skipping (same argument as the segment checker's):
+		// nothing can collide within the next canSkip steps, and no state in
+		// them can be within the close threshold either. Topological
+		// constraints carry no such bound but are cheap; verify them per
+		// skipped state.
+		canSkip := int(min(100, (closestObstacle-closeThreshold)/resolution))
+		for j := i + 1; j <= i+canSkip && j < len(interpolated)-1; j++ {
+			if err := psc.Checker.CheckStateFSTopoOnly(&motionplan.StateFS{
+				FS:            psc.pc.fs,
+				Configuration: interpolated[j],
+			}); err != nil {
+				return nil, true, nil //nolint:nilerr // constraint violation is the blocked verdict, not an error
+			}
+		}
+		i += canSkip
 	}
 
-	return closeWaypoints, nil
+	return closeWaypoints, false, nil
 }
 
 func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *PlanSegmentContext,
@@ -158,6 +196,7 @@ func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *PlanSegment
 
 		updated := curr.Copy()
 
+		changed := false
 		for component, currInputs := range curr.Items() {
 			if slices.Contains(moving, component) {
 				continue
@@ -168,8 +207,17 @@ func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *PlanSegment
 			}
 
 			prevInputs := prev.Get(component)
+			if referenceframe.InputsL2Distance(prevInputs, currInputs) == 0 {
+				continue
+			}
 
 			updated.Put(component, prevInputs)
+			changed = true
+		}
+		// Nothing to pin down (the non-moving components already hold still):
+		// skip the full path check entirely.
+		if !changed {
+			continue
 		}
 
 		err := psc.CheckPath(ctx, prev, updated, false, nil)
