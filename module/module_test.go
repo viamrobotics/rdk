@@ -135,6 +135,42 @@ func TestAddModelFromRegistry(t *testing.T) {
 	}
 }
 
+func TestAddModelFromRegistryCompositeGuard(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	ctor := func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (resource.Resource, error) {
+		return nil, nil
+	}
+	reg := resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: ctor}
+
+	// A model registered under two APIs WITHOUT RegisterMultiAPI is incidental reuse; the module
+	// guard must reject advertising it under the second API.
+	incidental := resource.NewModel("acme", "test", "incidental")
+	resource.Register(gizmoapi.API, incidental, reg)
+	resource.Register(summationapi.API, incidental, reg)
+	defer resource.Deregister(gizmoapi.API, incidental)
+	defer resource.Deregister(summationapi.API, incidental)
+
+	m1, err := module.NewModule(ctx, filepath.Join(t.TempDir(), "guard1.sock"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m1.AddModelFromRegistry(ctx, gizmoapi.API, incidental), test.ShouldBeNil)
+	err = m1.AddModelFromRegistry(ctx, summationapi.API, incidental)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "without RegisterMultiAPI")
+
+	// A model declared via RegisterMultiAPI may be advertised under each of its APIs.
+	declared := resource.NewModel("acme", "test", "declared")
+	resource.RegisterMultiAPI([]resource.API{gizmoapi.API, summationapi.API}, declared, reg)
+	defer resource.Deregister(gizmoapi.API, declared)
+	defer resource.Deregister(summationapi.API, declared)
+
+	m2, err := module.NewModule(ctx, filepath.Join(t.TempDir(), "guard2.sock"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m2.AddModelFromRegistry(ctx, gizmoapi.API, declared), test.ShouldBeNil)
+	test.That(t, m2.AddModelFromRegistry(ctx, summationapi.API, declared), test.ShouldBeNil)
+}
+
 func TestModuleFunctions(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)

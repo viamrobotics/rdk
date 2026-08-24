@@ -280,8 +280,26 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 	}
 
 	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
+	// A model advertised under more than one API must be a declared composite (via
+	// resource.RegisterMultiAPI), not an incidental reuse of one model string across APIs. Reject the
+	// latter so viam-server's inference — "a model under >=2 APIs is a composite" — is sound. Builtins
+	// that reuse a model across APIs (fake, gpio) register through the core registry rather than a
+	// module, so they are unaffected by this module-side guard.
+	for existingAPI, models := range m.handlers {
+		if existingAPI.API == api {
+			continue
+		}
+		for _, existing := range models {
+			if existing == model && len(resource.APIsForModel(model)) == 0 {
+				return fmt.Errorf(
+					"model %q is registered under multiple APIs (%s and %s) without RegisterMultiAPI; "+
+						"use resource.RegisterMultiAPI to declare a composite (multi-API) model",
+					model, existingAPI.API, api)
+			}
+		}
+	}
 	m.handlers[rpcAPI] = append(m.handlers[rpcAPI], model)
-	m.registerMu.Unlock()
 	return nil
 }
 
