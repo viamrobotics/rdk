@@ -94,6 +94,38 @@ func TestMultiAPIModules(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, readings["reading"], test.ShouldEqual, 42)
 	})
+
+	// An api-less name resolves to the one composite, and every API is reachable off that handle.
+	t.Run("api-less SimpleName resolves the composite", func(t *testing.T) {
+		res, err := rc.ResourceByName(resource.SimpleName(comboName))
+		test.That(t, err, test.ShouldBeNil)
+
+		giz, err := resource.AsType[gizmoapi.Gizmo](res)
+		test.That(t, err, test.ShouldBeNil)
+		two, err := giz.DoTwo(context.Background(), true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, two, test.ShouldEqual, "combo saw arg1=true")
+
+		sen, err := resource.AsType[sensor.Sensor](res)
+		test.That(t, err, test.ShouldBeNil)
+		readings, err := sen.Readings(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, readings["reading"], test.ShouldEqual, 42)
+	})
+
+	// Every lookup of the composite — by any API, or api-less — returns the one cached object rather
+	// than re-dialing per API.
+	t.Run("lookups share one cached composite", func(t *testing.T) {
+		viaGizmo, err := rc.ResourceByName(gizmoapi.Named(comboName))
+		test.That(t, err, test.ShouldBeNil)
+		viaSensor, err := rc.ResourceByName(sensor.Named(comboName))
+		test.That(t, err, test.ShouldBeNil)
+		viaBare, err := rc.ResourceByName(resource.SimpleName(comboName))
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, viaGizmo == viaSensor, test.ShouldBeTrue)
+		test.That(t, viaGizmo == viaBare, test.ShouldBeTrue)
+	})
 }
 
 func connect(port int, logger logging.Logger, dialOpts ...rpc.DialOption) (robot.Robot, error) {
