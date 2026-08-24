@@ -200,11 +200,7 @@ func computeSphereAABB(s *sphere) (r3.Vector, r3.Vector) {
 }
 
 func computeBoxAABB(b *box) (r3.Vector, r3.Vector) {
-	rm := b.center.Orientation().RotationMatrix()
-	center := b.center.Point()
-	halfSize := r3.Vector{X: b.halfSize[0], Y: b.halfSize[1], Z: b.halfSize[2]}
-	worldExtents := rotatedAABBExtents(rm, halfSize)
-	return aabbFromCenterExtents(center, worldExtents)
+	return b.worldAABB()
 }
 
 // computeCapsuleAABB computes the AABB for a capsule.

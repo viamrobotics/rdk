@@ -127,11 +127,11 @@ type meshState struct {
 	// centimeters, so this removes the large majority of BVH walks. Pairs that
 	// never move relative to each other (e.g. a parked arm vs world obstacles)
 	// hit the anchor forever.
-	distAnchors sync.Map // *meshState (partner) -> *distAnchor
+	distAnchors sync.Map // *meshState (partner) -> *distAnchorSet
 
 	// geomAnchors is the same idea for non-mesh partners, keyed by label the
 	// same way geomWitness is.
-	geomAnchors sync.Map // string (other.Label()) -> *distAnchor
+	geomAnchors sync.Map // string (other.Label()) -> *distAnchorSet
 
 	// boundingRadius is the max distance of any local-space point of the mesh
 	// from the mesh origin (computed from the BVH root AABB). Used to bound how
@@ -139,6 +139,11 @@ type meshState struct {
 	// fast path. Built lazily; shared across Transform copies via meshState.
 	boundingRadius     float64
 	boundingRadiusOnce sync.Once
+
+	// sphereCover is the mesh's conservative local-frame sphere cover, used by
+	// the SDF collision fast path. Built lazily; shared across Transform copies.
+	sphereCover     []SphereBound
+	sphereCoverOnce sync.Once
 }
 
 // distAnchor records the clearance measured by a full narrow-phase query at a
@@ -147,6 +152,51 @@ type distAnchor struct {
 	relQ quat.Number // rotation part of inv(aPose) * bPose
 	relT r3.Vector   // translation part of inv(aPose) * bPose
 	dist float64     // conservative lower bound on separation at that pose
+}
+
+// distAnchorSetSize is how many anchors each pair keeps. A single anchor is
+// enough for one smoothly-moving pose stream, but planners interleave several
+// (a bidirectional RRT alternates between two trees, and racing planners add
+// more); one slot per stream stops them from evicting each other every query.
+// Sized for up to four concurrent bidirectional searches.
+const distAnchorSetSize = 8
+
+// distAnchorSet is a small lock-free ring of anchors for one geometry pair.
+// Lookups scan all slots and use whichever anchor proves the most clearance at
+// the queried pose; stores overwrite slots round-robin.
+type distAnchorSet struct {
+	next    atomic.Uint32
+	entries [distAnchorSetSize]atomic.Pointer[distAnchor]
+}
+
+// bestClearance returns the largest clearance any anchor in the set can prove
+// for the given relative pose (math.Inf(-1) when the set is empty).
+func (as *distAnchorSet) bestClearance(relQ quat.Number, relT r3.Vector, radius float64) float64 {
+	best := math.Inf(-1)
+	for i := range as.entries {
+		a := as.entries[i].Load()
+		if a == nil {
+			continue
+		}
+		if lb := a.dist - a.displacement(relQ, relT, radius); lb > best {
+			best = lb
+		}
+	}
+	return best
+}
+
+// add records an anchor, overwriting the oldest slot.
+func (as *distAnchorSet) add(a *distAnchor) {
+	as.entries[(as.next.Add(1)-1)%distAnchorSetSize].Store(a)
+}
+
+// anchorSetFor returns the (created-on-demand) anchor set stored in m under key.
+func anchorSetFor(m *sync.Map, key any) *distAnchorSet {
+	if v, ok := m.Load(key); ok {
+		return v.(*distAnchorSet)
+	}
+	v, _ := m.LoadOrStore(key, &distAnchorSet{})
+	return v.(*distAnchorSet)
 }
 
 // relativeQT decomposes inv(a)*b into rotation and translation without allocating.
@@ -781,8 +831,7 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 		relQ, relT = relativeQT(m.pose, other.pose)
 		relComputed = true
 		if v, ok := m.state.distAnchors.Load(other.state); ok {
-			a := v.(*distAnchor)
-			if lb := a.dist - a.displacement(relQ, relT, other.localBoundingRadius()); lb > collisionBufferMM {
+			if lb := v.(*distAnchorSet).bestClearance(relQ, relT, other.localBoundingRadius()); lb > collisionBufferMM {
 				return false, lb, nil
 			}
 		}
@@ -806,7 +855,7 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 			m.state.witnesses.Store(other.state, &witnessPair{t1: witness[0], t2: witness[1]})
 		} else if !collides {
 			if relComputed && dist > collisionBufferMM {
-				m.state.distAnchors.Store(other.state, &distAnchor{relQ: relQ, relT: relT, dist: dist})
+				anchorSetFor(&m.state.distAnchors, other.state).add(&distAnchor{relQ: relQ, relT: relT, dist: dist})
 			}
 			if !negKeyComputed {
 				negKey = negCacheKey(other.state, m.pose, other.pose)
@@ -889,9 +938,8 @@ func (m *Mesh) geomAnchorClear(g Geometry, collisionBufferMM float64) (bool, flo
 	if !ok {
 		return false, 0
 	}
-	a := v.(*distAnchor)
 	relQ, relT := relativeQT(m.pose, g.Pose())
-	if lb := a.dist - a.displacement(relQ, relT, geometryBoundingRadius(g)); lb > collisionBufferMM {
+	if lb := v.(*distAnchorSet).bestClearance(relQ, relT, geometryBoundingRadius(g)); lb > collisionBufferMM {
 		return true, lb
 	}
 	return false, 0
@@ -905,7 +953,7 @@ func (m *Mesh) collidesWithGeometryAnchored(g Geometry, collisionBufferMM float6
 	if err == nil && !collides && dist > collisionBufferMM && m.state != nil {
 		if label := g.Label(); label != "" {
 			relQ, relT := relativeQT(m.pose, g.Pose())
-			m.state.geomAnchors.Store(label, &distAnchor{relQ: relQ, relT: relT, dist: dist})
+			anchorSetFor(&m.state.geomAnchors, label).add(&distAnchor{relQ: relQ, relT: relT, dist: dist})
 		}
 	}
 	return collides, dist, err
