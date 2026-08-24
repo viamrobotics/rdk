@@ -240,12 +240,17 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 	// Goal-adjacent configurations remembered by the roadmap (harvested from
 	// earlier successful plans) seed IK with each known-good joint family, so
 	// the family nearest the start is reliably among the ranked solutions
-	// rather than depending on nlopt's random draws.
-	for i, s := range roadmapGoalSeeds(psc, 4) {
-		si := s.GetLinearizedInputs()
-		sss.LinearSeeds = append(sss.LinearSeeds, si)
-		sss.SeedLimits = append(sss.SeedLimits, ik.ComputeAdjustLimits(si, sss.SeedLimits[0], .1))
-		sss.SeedDescriptions = append(sss.SeedDescriptions, fmt.Sprintf("roadmap goal-adjacent %d", i))
+	// rather than depending on nlopt's random draws. Only for far goals (same
+	// bar as smart seeds): family choice is irrelevant for near goals, and
+	// the per-call overhead multiplies across the subgoals of waypoint
+	// ladders.
+	if sss.goodCost > 1 {
+		for i, s := range roadmapGoalSeeds(psc, 4) {
+			si := s.GetLinearizedInputs()
+			sss.LinearSeeds = append(sss.LinearSeeds, si)
+			sss.SeedLimits = append(sss.SeedLimits, ik.ComputeAdjustLimits(si, sss.SeedLimits[0], .1))
+			sss.SeedDescriptions = append(sss.SeedDescriptions, fmt.Sprintf("roadmap goal-adjacent %d", i))
+		}
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
