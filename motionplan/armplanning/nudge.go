@@ -69,8 +69,12 @@ func tryNudgedStraightLine(
 		return nil
 	}
 
+	// Nudge exists for barely-blocked straight lines; if the several
+	// lowest-cost goal configurations all fail, more distant ones will not do
+	// better, and each attempt burns a full segment-check budget.
+	const maxNudgeGoals = 6
 	for gi, g := range goals {
-		if ctx.Err() != nil {
+		if gi >= maxNudgeGoals || ctx.Err() != nil {
 			return nil
 		}
 		budget := nudgeMaxSegmentChecks

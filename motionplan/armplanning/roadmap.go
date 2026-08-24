@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -57,13 +58,23 @@ var roadmapRegistry sync.Map // string -> *roadmap
 type roadmap struct {
 	frames []string // moving chain frames with DoF, sorted; defines flat layout
 	dims   []int    // DoF per frame
+	// goalFrame is the frame whose world position eePos records.
+	goalFrame string
 
-	// mu guards flat and neighbors: queries hold it for read, harvesting
-	// appends under write.
+	// mu guards flat, neighbors, and eePos: queries hold it for read,
+	// harvesting appends under write.
 	mu   sync.RWMutex
 	flat [][]float64
 	// neighbors is the union of joint-space and workspace candidate edges.
 	neighbors [][]int
+	// eePos is the goalFrame's world position per node (non-chain frames at
+	// the building query's start). Used to find goal-adjacent configurations
+	// for IK seeding; entries that failed FK hold +Inf.
+	eePos [][3]float64
+
+	// built flips true once build has completed successfully; lock-free
+	// readers (peekRoadmap) must check it before touching any other field.
+	built atomic.Bool
 
 	// sceneVerdicts caches per-scene edge validity: key -> bool.
 	sceneVerdicts sync.Map // roadmapVerdictKey -> bool
@@ -110,6 +121,92 @@ func getRoadmap(psc *PlanSegmentContext, logger logging.Logger) *roadmap {
 		return nil
 	}
 	return rm
+}
+
+// peekRoadmap returns the already-built structure for this segment context,
+// or nil. Unlike getRoadmap it never builds, so cheap callers (IK seeding)
+// don't pay the build cost for plans that may never need the roadmap.
+func peekRoadmap(psc *PlanSegmentContext) *roadmap {
+	frames := movingFrameNamesWithDoF(psc)
+	if len(frames) == 0 || len(psc.goal) != 1 {
+		return nil
+	}
+	sort.Strings(frames)
+	v, ok := roadmapRegistry.Load(roadmapKeyFor(psc, frames))
+	if !ok {
+		return nil
+	}
+	rm := v.(*roadmap)
+	if !rm.built.Load() {
+		return nil
+	}
+	return rm
+}
+
+// roadmapGoalSeeds returns up to maxSeeds roadmap configurations whose end
+// effector already sits near this goal's world position - in practice, goal
+// configurations harvested from earlier successful plans in this process.
+// They are fed to IK as seeds: nlopt's per-seed draws sometimes miss the
+// joint family closest to the start entirely, and every downstream strategy
+// then pays a reconfiguration detour to whatever family it did find. Seeding
+// with remembered goal-adjacent configurations makes the good family reliably
+// present, so the solution ranking (by cost from start) can prefer it.
+func roadmapGoalSeeds(psc *PlanSegmentContext, maxSeeds int) []*referenceframe.LinearInputs {
+	rm := peekRoadmap(psc)
+	if rm == nil {
+		return nil
+	}
+	var goalFrame string
+	goalPt := [3]float64{}
+	for f, p := range psc.goal {
+		goalFrame = f
+		pt := p.Pose().Point()
+		goalPt = [3]float64{pt.X, pt.Y, pt.Z}
+	}
+	if goalFrame != rm.goalFrame {
+		return nil
+	}
+	// Generous radius: harvested goal configurations match the goal almost
+	// exactly; uniform samples essentially never land this close. The seeds
+	// are advisory (IK still solves to the actual goal), so a near-miss from
+	// a slightly moved goal is still a useful seed.
+	const goalSeedRadiusMM = 100.0
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
+	type cand struct {
+		d float64
+		i int
+	}
+	cands := make([]cand, 0, 8)
+	for i, p := range rm.eePos {
+		dx, dy, dz := p[0]-goalPt[0], p[1]-goalPt[1], p[2]-goalPt[2]
+		if d := dx*dx + dy*dy + dz*dz; d < goalSeedRadiusMM*goalSeedRadiusMM {
+			cands = append(cands, cand{d, i})
+		}
+	}
+	sort.Slice(cands, func(i, j int) bool { return cands[i].d < cands[j].d })
+	out := make([]*referenceframe.LinearInputs, 0, maxSeeds)
+	chosen := make([][]float64, 0, maxSeeds)
+	for _, c := range cands {
+		f := rm.flat[c.i]
+		// Keep only one representative per joint family.
+		distinct := true
+		for _, cf := range chosen {
+			if flatL2Sq(cf, f) < 1.0 {
+				distinct = false
+				break
+			}
+		}
+		if !distinct {
+			continue
+		}
+		chosen = append(chosen, f)
+		out = append(out, rm.compose(psc.start, f))
+		if len(out) >= maxSeeds {
+			break
+		}
+	}
+	return out
 }
 
 // build samples the structure. No collision checking happens here.
@@ -177,6 +274,8 @@ func (rm *roadmap) build(psc *PlanSegmentContext, logger logging.Logger) error {
 		}
 		positions[n] = [3]float64{pt.X, pt.Y, pt.Z}
 	}
+	rm.goalFrame = goalFrame
+	rm.eePos = positions
 
 	// Candidate edges: joint kNN plus workspace kNN.
 	rm.neighbors = make([][]int, roadmapNodes)
@@ -222,6 +321,7 @@ func (rm *roadmap) build(psc *PlanSegmentContext, logger logging.Logger) error {
 		edgeCount += len(nb)
 	}
 	logger.Debugf("roadmap built: %d nodes, %d DoF, %d edges", roadmapNodes, totalDoF, edgeCount/2)
+	rm.built.Store(true)
 	return nil
 }
 
@@ -274,6 +374,14 @@ func (pm *planManager) tryRoadmap(
 	rm := getRoadmap(psc, logger)
 	if rm == nil || len(goalRoots) == 0 {
 		return nil
+	}
+	// Every goal root costs roadmapQueryK candidate connections in the
+	// multi-goal A*; past the several cheapest, extra roots only burn edge
+	// budget.
+	const roadmapMaxGoals = 8
+	if len(goalRoots) > roadmapMaxGoals {
+		sort.Slice(goalRoots, func(i, j int) bool { return goalRoots[i].cost < goalRoots[j].cost })
+		goalRoots = goalRoots[:roadmapMaxGoals]
 	}
 	sceneKey := pm.roadmapSceneKey(psc, rm)
 	rm.mu.RLock()
@@ -527,7 +635,7 @@ const harvestKNN = 6
 // plan thereby teaches the roadmap a working corridor - including the
 // joint-family reconfigurations a fresh search pays hundreds of iterations to
 // rediscover.
-func (rm *roadmap) harvest(scene uint64, path []*referenceframe.LinearInputs, logger logging.Logger) {
+func (rm *roadmap) harvest(psc *PlanSegmentContext, scene uint64, path []*referenceframe.LinearInputs, logger logging.Logger) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
@@ -559,6 +667,11 @@ func (rm *roadmap) harvest(scene uint64, path []*referenceframe.LinearInputs, lo
 			id = len(rm.flat)
 			rm.flat = append(rm.flat, flat)
 			rm.neighbors = append(rm.neighbors, nil)
+			pos := [3]float64{math.Inf(1), math.Inf(1), math.Inf(1)}
+			if _, pt, err := psc.pc.fs.NewFrameToWorld(cfg).PoseQT(rm.goalFrame); err == nil {
+				pos = [3]float64{pt.X, pt.Y, pt.Z}
+			}
+			rm.eePos = append(rm.eePos, pos)
 			added++
 			// Candidate-link into the structure.
 			cands := make([]distIdx, 0, id)
@@ -604,5 +717,5 @@ func (pm *planManager) harvestPlan(psc *PlanSegmentContext, steps []*referencefr
 		logger.Debugf("skipping harvest of %d-waypoint path", len(steps))
 		return
 	}
-	rm.harvest(pm.roadmapSceneKey(psc, rm), steps, logger)
+	rm.harvest(psc, pm.roadmapSceneKey(psc, rm), steps, logger)
 }

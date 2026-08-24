@@ -385,6 +385,14 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 		}
 	}
 
+	// Near-duplicate goal solutions (IK polishing the same joint family from
+	// several seeds) add no reachability but multiply the work of everything
+	// downstream - nudge target attempts, the roadmap's multi-goal A* edge
+	// validations, cBiRRT goal trees. goalNodes is cost-sorted, so keeping
+	// the first of each cluster keeps the best.
+	const goalRootDedupSq = 0.25 // squared L2 rad; IK near-dupes are far under, families far over
+	const maxGoalRoots = 16
+	kept := make([][]float64, 0, maxGoalRoots)
 	for _, solution := range goalNodes {
 		if solution.cost > reasonableCost {
 			// if it's this bad, we don't want for cbirrt or going straight
@@ -397,6 +405,21 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 			rrt.steps = []*referenceframe.LinearInputs{solution.inputs}
 			return rrt, nil
 		}
+		if len(kept) >= maxGoalRoots {
+			break
+		}
+		flat := solution.inputs.GetLinearizedInputs()
+		dup := false
+		for _, k := range kept {
+			if flatL2Sq(k, flat) < goalRootDedupSq {
+				dup = true
+				break
+			}
+		}
+		if dup {
+			continue
+		}
+		kept = append(kept, flat)
 		rrt.maps.goalMap[&node{inputs: solution.inputs, cost: solution.cost}] = nil
 	}
 	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
