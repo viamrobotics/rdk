@@ -14,14 +14,12 @@
 	"components": [
 		{
 			"name": "combodev1",
-			"namespace": "acme",
-			"type": "gizmo",
+			"api": "acme:component:gizmo",
 			"model": "acme:demo:combodevice"
 		},
 		{
 			"name": "user1",
-			"namespace": "rdk",
-			"type": "generic",
+			"api": "rdk:component:generic",
 			"model": "acme:demo:combouser",
 			"attributes": {
 				"combo": "combodev1"
