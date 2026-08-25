@@ -85,7 +85,7 @@ require (
 	github.com/tidwall/sjson v1.2.5
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v3 v3.7.0
-	github.com/viam-labs/motion-tools v1.35.1
+	github.com/viam-labs/motion-tools v1.45.2-0.20260825171254-94549756064c
 	github.com/viam-modules/trajex/go v0.100.2
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/viamrobotics/webrtc/v3 v3.99.16
