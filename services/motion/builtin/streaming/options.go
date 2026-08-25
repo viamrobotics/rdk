@@ -1,4 +1,3 @@
-// Package streaming implements the ability to stream joint positions to an arm resource.
 package streaming
 
 import (

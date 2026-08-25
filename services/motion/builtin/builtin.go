@@ -354,7 +354,8 @@ func (ms *builtIn) PlanHistory(
 //	                                                     // tearing down on its own -- repeat
 //	                                                     // DoStreamAbort or poll DoStreamStatus
 //	               "error": "..."                      // present only if the session ended
-//	                                                     // with an error
+//	                                                     // with an error; an aborted session
+//	                                                     // reports "context canceled"
 //	             }
 //
 //	DoStreamStatus: reports the current session's state.
@@ -365,6 +366,9 @@ func (ms *builtIn) PlanHistory(
 //	               "error": "..."                       // present only once the session has
 //	                                                     // finished with an error
 //	             }
+//
+// See services/motion/builtin/streaming/README.md for a streaming usage guide and
+// architecture overview, and examples/armstreaming for a runnable client.
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
