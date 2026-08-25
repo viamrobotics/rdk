@@ -68,9 +68,7 @@ func TestOpID(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		if success = robottestutils.WaitForServing(logObserver, port); success {
-			defer func() {
-				test.That(t, server.Stop(), test.ShouldBeNil)
-			}()
+			defer robottestutils.StopServerProcess(t, server)
 			break
 		}
 		logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
