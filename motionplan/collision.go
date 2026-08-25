@@ -191,6 +191,17 @@ func checkCollisionsHinted(
 	timeChecks := logger.GetLevel() <= logging.DEBUG
 	var pairCounter atomic.Uint64
 	checkOnePair := func(xName, yName string, xGeometry, yGeometry spatialmath.Geometry) (bool, error) {
+		// Bounding-sphere broadphase: most pairs in the moving-vs-static
+		// product are nowhere near each other, and even the cached narrow
+		// phase costs three orders of magnitude more than this gap test.
+		if cx, rx, okx := spatialmath.BoundingSphere(xGeometry); okx {
+			if cy, ry, oky := spatialmath.BoundingSphere(yGeometry); oky {
+				if gap := cx.Sub(cy).Norm() - rx - ry; gap > collisionBufferMM {
+					minDistance = min(minDistance, gap)
+					return false, nil
+				}
+			}
+		}
 		var start time.Time
 		timeThis := timeChecks && pairCounter.Add(1)&15 == 0
 		if timeThis {

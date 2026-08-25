@@ -3,10 +3,12 @@ package armplanning
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"hash/fnv"
 	"math"
 	"math/rand"
 	"strings"
+	"sync/atomic"
 
 	"go.viam.com/utils/trace"
 
@@ -65,13 +67,31 @@ func NewPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	}
 
 	for _, fn := range pc.fs.FrameNames() {
-		f := pc.fs.Frame(fn)
-		if len(f.DoF()) > 0 {
+		if frameCanMove(pc.fs, pc.fs.Frame(fn)) {
 			pc.movableFrames = append(pc.movableFrames, fn)
 		}
 	}
 
 	return pc, nil
+}
+
+// frameCanMove reports whether a frame's world pose depends on the
+// configuration: the frame itself or any ancestor has DoF. A static frame
+// attached below a joint (e.g. a held object hanging off a gripper) moves with
+// it, and a collision involving it is recoverable by moving that joint - it
+// must not be misclassified as a fatal static-geometry collision.
+func frameCanMove(fs *referenceframe.FrameSystem, f referenceframe.Frame) bool {
+	for f != nil {
+		if len(f.DoF()) > 0 {
+			return true
+		}
+		parent, err := fs.Parent(f)
+		if err != nil {
+			return false
+		}
+		f = parent
+	}
+	return false
 }
 
 // GetLinearInputsSchema gets the LinearInputsSchema.
@@ -180,9 +200,6 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 func (psc *PlanSegmentContext) CheckPath(
 	ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool, outPath *PathFeedback,
 ) error {
-	ctx, span := trace.StartSpan(ctx, "checkPath")
-	defer span.End()
-
 	// Edge-result memoization: RRT-Connect rewire and path smoothing re-check
 	// the same (start, end) edges constantly. Skip the full interpolated sweep
 	// when the cache has already verified this edge collision-free under the
@@ -212,13 +229,84 @@ func (psc *PlanSegmentContext) CheckPath(
 	}
 
 	if err != nil && outPath != nil {
-		*outPath = PathFeedback{
+		fb := PathFeedback{
 			IsObstacleCollision: strings.Contains(err.Error(), motionplan.ObstacleConstraintDescription) ||
 				strings.Contains(err.Error(), motionplan.RobotCollisionConstraintDescription),
-			LastGoodInputs: validSegment.EndConfiguration,
 		}
+		// validSegment is nil when the very first state of the segment fails.
+		if validSegment != nil {
+			fb.LastGoodInputs = validSegment.EndConfiguration
+		}
+		*outPath = fb
 	}
 	return err
+}
+
+// topoProjectionMetric returns a metric scoring how far a configuration's
+// orientations stray beyond the request's orientation-constraint band, used to
+// gradient-descend configurations back onto the constraint manifold. Returns
+// nil when the request carries no orientation constraints.
+func (psc *PlanSegmentContext) topoProjectionMetric() motionplan.StateFSMetric {
+	if psc.pc.request.Constraints == nil || len(psc.pc.request.Constraints.OrientationConstraint) == 0 {
+		return nil
+	}
+	// Precompute per-frame evaluators - the endpoint orientation conversions
+	// are fixed for the plan and this metric runs once per IK gradient sample.
+	evals := map[string][]*motionplan.OrientationConstraintEval{}
+	for f, g := range psc.goal {
+		s := psc.startPoses[f]
+		if g.Parent() != referenceframe.World || s.Parent() != referenceframe.World {
+			panic(fmt.Errorf("mismatch frame %v %v", g.Parent(), s.Parent()))
+		}
+		for _, c := range psc.pc.request.Constraints.OrientationConstraint {
+			evals[f] = append(evals[f],
+				motionplan.NewOrientationConstraintEval(c, s.Pose().Orientation(), g.Pose().Orientation()))
+		}
+	}
+
+	return func(state *motionplan.StateFS) float64 {
+		score := 0.0
+		for f := range psc.goal {
+			// Per-frame FK: this metric runs inside nlopt's gradient loop
+			// (thousands of evaluations per projection), and computing poses
+			// for every frame in the system was the dominant cost of the
+			// whole search.
+			dq, err := state.FS.TransformToDQ(state.Configuration, f, referenceframe.World)
+			if err != nil {
+				panic(err)
+			}
+			o := dq.Orientation()
+			for _, e := range evals[f] {
+				score += e.Score(o)
+			}
+		}
+		return score
+	}
+}
+
+// projectToOrientationBand gradient-descends cfg back onto the orientation
+// constraint manifold using the given solver and metric (from
+// topoProjectionMetric). Returns the projected configuration, or nil when the
+// descent fails.
+func (psc *PlanSegmentContext) projectToOrientationBand(
+	ctx context.Context,
+	solver *ik.NloptIK,
+	metric motionplan.StateFSMetric,
+	cfg *referenceframe.LinearInputs,
+) *referenceframe.LinearInputs {
+	linearSeed := cfg.GetLinearizedInputs()
+	var totalAttempts atomic.Int32
+	solutions, _, err := ik.DoSolve(ctx, solver, &totalAttempts,
+		psc.pc.LinearizeFSMetric(metric),
+		[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, psc.pc.lis.GetLimits(), .05)})
+	if err != nil || len(solutions) == 0 {
+		return nil
+	}
+	out, err := psc.pc.lis.FloatsToInputs(solutions[0])
+	if err != nil {
+		return nil
+	}
+	return out
 }
 
 // hashLinearInputs computes a deterministic FNV-1a hash over the float values

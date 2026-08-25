@@ -224,24 +224,34 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 	s := &sphere{pose: NewZeroPose(), radius: c.radius}
 	vecList := s.ToPoints(resolution)
 	// move points to be correctly located on capsule endcaps
+	// (this previously ranged over value copies, leaving every endcap point
+	// unmoved at the center)
 	adj := c.length/2 - c.radius
-	for _, pt := range vecList {
-		if pt.Z >= 0 {
-			pt.Z += adj
+	for i := range vecList {
+		if vecList[i].Z >= 0 {
+			vecList[i].Z += adj
 		} else {
-			pt.Z -= adj
+			vecList[i].Z -= adj
 		}
 	}
 
-	// Now distribute points along the cylindrical shaft
+	// Now distribute points along the cylindrical shaft, which spans
+	// [-(l/2 - r), +(l/2 - r)] about the center - the same frame the endcap
+	// points were placed in above. (This previously spanned (0, l), placing
+	// shaft points off-center and beyond the capsule's actual surface.)
+	shaftLen := c.length - 2*c.radius
 	totalShaftPts := (c.radius * c.length) * resolution
 	ptsPerRing := totalShaftPts / (c.length * resolution)
 	ringCnt := math.Floor(totalShaftPts / ptsPerRing)
-	zInc := c.length / (ringCnt + 1)
+	zInc := shaftLen / (ringCnt + 1)
 	for ring := 1.; ring <= ringCnt; ring++ {
 		for ringPt := 0.; ringPt < ptsPerRing; ringPt++ {
 			theta := 2. * math.Pi * (ringPt / ptsPerRing)
-			vecList = append(vecList, r3.Vector{math.Cos(theta) * c.radius, math.Sin(theta) * c.radius, zInc * ring})
+			vecList = append(vecList, r3.Vector{
+				X: math.Cos(theta) * c.radius,
+				Y: math.Sin(theta) * c.radius,
+				Z: -shaftLen/2 + zInc*ring,
+			})
 		}
 	}
 

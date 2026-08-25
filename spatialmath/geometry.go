@@ -84,6 +84,12 @@ type GeometryConfig struct {
 	// parameter used for defining a capsule's length
 	L float64 `json:"l"`
 
+	// Capped controls whether a cylinder's flat end caps are included. Nil (the
+	// default, and the value for every non-cylinder geometry) means capped/solid;
+	// an explicit false produces an open tube. A pointer so that an absent field
+	// round-trips as a solid cylinder, matching pre-existing configs.
+	Capped *bool `json:"capped,omitempty"`
+
 	// parameters used for defining a mesh
 	MeshData        []byte `json:"mesh_data,omitempty"`         // Binary mesh file data
 	MeshContentType string `json:"mesh_content_type,omitempty"` // e.g., "stl", "ply"
@@ -120,6 +126,12 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.R = gType.radius
 		config.L = gType.height
 		config.Label = gType.label
+		// Only emit "capped" for the non-default (open) case, so solid cylinders
+		// round-trip byte-identically to pre-existing configs.
+		if !gType.capped {
+			open := false
+			config.Capped = &open
+		}
 	case *point:
 		config.Type = PointType
 		config.Label = gType.label
@@ -161,7 +173,11 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	case CapsuleType:
 		return NewCapsule(offset, config.R, config.L, config.Label)
 	case CylinderType:
-		return NewCylinder(offset, config.R, config.L, config.Label)
+		capped := true
+		if config.Capped != nil {
+			capped = *config.Capped
+		}
+		return NewCylinderWithCapped(offset, config.R, config.L, capped, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
 	case MeshType:

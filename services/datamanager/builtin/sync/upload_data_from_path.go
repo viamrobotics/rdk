@@ -81,10 +81,6 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 			return
 		}
 
-		if rmErr := os.Remove(filePath); rmErr != nil {
-			s.logger.Warnw("failed to delete file after upload", "path", filePath, "error", rmErr)
-		}
-
 		s.uploadStats.arbitrary.uploadedFileCount.Add(1)
 		s.uploadStats.arbitrary.completedUploadBytes.Add(uploadedBytes)
 		result.FilesUploaded++

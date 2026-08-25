@@ -244,6 +244,10 @@ type PlanMeta struct {
 	// straight-line path with small nudges around obstacles, skipping CBIRRT.
 	GoalsNudgeSolved int
 
+	// GoalsRoadmapSolved is the number of waypoints solved through the lazy
+	// roadmap, skipping CBIRRT.
+	GoalsRoadmapSolved int
+
 	// SubgoalsPerGoal will have size of `GoalsProcessed`. If there are no linear/orientation
 	// constraints, we do not create any additional subgoals/waypoints. SubgoalsPerGoal in that case
 	// will be set to 1 for each goal index. Otherwise it will be sent to the number of internal

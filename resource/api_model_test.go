@@ -72,7 +72,8 @@ func TestServiceAdjustPartialNames(t *testing.T) {
 	// Running `AdjustPartialNames` on a service should fill in all of the remaining `API` and
 	// `Model` fields.
 	resConfig.AdjustPartialNames("service")
-	test.That(t, resConfig.Name, test.ShouldEqual, "builtin")
+	// A service without a registered default name defaults to its subtype, not the reserved "builtin".
+	test.That(t, resConfig.Name, test.ShouldEqual, "nav")
 	test.That(t, resConfig.API.Type.Namespace, test.ShouldEqual, "rdk")
 	test.That(t, resConfig.API.Type.Name, test.ShouldEqual, "service")
 	test.That(t, resConfig.API.SubtypeName, test.ShouldEqual, "nav")

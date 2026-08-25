@@ -3,6 +3,8 @@ package referenceframe
 import (
 	"fmt"
 	"iter"
+
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // LinearInputsSchema describes the order of frame names and their degrees of freedom in a set of
@@ -283,13 +285,15 @@ func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 // ComputePoses computes the poses for each frame in a framesystem in frame of World, using the
 // provided configuration.
 func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
-	computedPoses := make(FrameSystemPoses)
+	// One memoized FK pass instead of an ancestor walk per frame.
+	fk := newLazyFrameToWorld(fs, li)
+	computedPoses := make(FrameSystemPoses, len(fs.FrameNames()))
 	for _, frameName := range fs.FrameNames() {
-		pif, err := fs.Transform(li, NewZeroPoseInFrame(frameName), World)
+		dq, err := fk.get(frameName)
 		if err != nil {
 			return nil, err
 		}
-		computedPoses[frameName] = pif.(*PoseInFrame)
+		computedPoses[frameName] = NewPoseInFrame(World, &spatial.DualQuaternion{Number: dq})
 	}
 	return computedPoses, nil
 }

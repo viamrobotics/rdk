@@ -192,6 +192,10 @@ const (
 	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
 	xacroFlagInstallPackages   = "install-packages"
 	xacroFlagROSDistro         = "ros-distro"
+
+	// Printing every revision of a frequently-edited part takes minutes and scrolls past anything
+	// useful, so cap the listing by default. --count=0 still walks the whole range.
+	defaultHistoryCount = 100
 )
 
 var commonPartFlags = []cli.Flag{
@@ -2889,10 +2893,25 @@ Note: There is no progress meter while copying is in progress.
 							Name:      "history",
 							Usage:     "display configuration history for a machine part",
 							UsageText: createUsageText("machines part history", []string{generalFlagPart}, true, false),
-							Flags: append(commonPartFlags, &cli.StringFlag{
-								Name:  "filter-by-email",
-								Usage: "show only history entries saved by this email address",
-							}),
+							Flags: append(commonPartFlags,
+								&cli.StringFlag{
+									Name:  "filter-by-email",
+									Usage: "show only history entries saved by this email address",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagStart,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagEnd,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter (e.g., 2025-01-15T15:00:00Z)",
+								},
+								&cli.IntFlag{
+									Name:  generalFlagCount,
+									Value: defaultHistoryCount,
+									Usage: "maximum number of history entries to list, or 0 for every entry in the range",
+								},
+							),
 							Action: createActionCommandWithT[machinesPartHistoryArgs](machinesPartHistoryAction),
 						},
 						{

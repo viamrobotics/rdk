@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"runtime/pprof"
 	"slices"
 	"sort"
@@ -48,6 +49,14 @@ func main() {
 }
 
 func realMain() error {
+	// The planner allocates heavily during search (per-state geometry
+	// materialization); the default GC target spends a quarter of planning
+	// CPU on mark work. A higher target trades memory headroom for planning
+	// speed. Overridable with the GOGC env var.
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(300)
+	}
+
 	ctx := context.Background()
 	logger, reg := logging.NewLoggerWithRegistry("cmd-plan")
 
@@ -187,7 +196,7 @@ func realMain() error {
 		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
 
-	for *cpu != "" && time.Since(start) < (10*time.Second) {
+	for *cpu != "" && time.Since(start) < (45*time.Second) {
 		ss := time.Now()
 		_, _, err := armplanning.PlanMotion(ctx, mpLogger, req)
 		if err != nil {

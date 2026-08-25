@@ -57,7 +57,7 @@ func TestSmoothPlans1(t *testing.T) {
 		inputSlice[i] = n.inputs
 	}
 
-	nodes, err := smoothPath(ctx, psc, inputSlice)
+	nodes, _, err := smoothPath(ctx, psc, inputSlice)
 	test.That(t, err, test.ShouldBeNil)
 
 	for idx, n := range nodes {
@@ -94,7 +94,7 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		nodes, err := smoothPath(ctx, psc, inputSlice)
+		nodes, _, err := smoothPath(ctx, psc, inputSlice)
 		test.That(b, err, test.ShouldBeNil)
 		test.That(b, len(nodes), test.ShouldEqual, 5)
 	}
