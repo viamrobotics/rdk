@@ -216,11 +216,11 @@ func authedDialDirectGRPC(ctx context.Context,
 	if token != "" {
 		// auth succeeded, and the token should be valid, so cache the token and return
 		cacheErr := tokenCacheWrite(partID, host, token)
-	}
-	if cacheErr != nil {
-		// there's nothing to do about this, and the connection is already valid and authed,
-		// so just log and move on
-		logger.Warnw("error writing to token cache", "error", cacheErr)
+		if cacheErr != nil {
+			// there's nothing to do about this, and the connection is already valid and authed,
+			// so just log and move on
+			logger.Warnw("error writing to token cache", "error", cacheErr)
+		}
 	}
 	return conn, nil
 }
