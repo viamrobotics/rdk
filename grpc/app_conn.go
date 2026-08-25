@@ -12,7 +12,9 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
@@ -177,7 +179,15 @@ func authedDialDirectGRPC(ctx context.Context,
 	// now, attempt to auth the connection
 	token, authErr := authenticator.Authenticate(ctx)
 	if authErr != nil {
-		// auth failed, so check if we have a cached token, then try dialing with it
+		// if our auth request gets denied with certain failure codes, it means serverside auth is working fine
+		// and our credentials were just bad. in that case, we want to fail early instead of trying the cached token,
+		// which could mask a real problem with auth
+		if code := status.Code(authErr); code == codes.Unauthenticated || code == codes.PermissionDenied {
+			logger.Warnw("auth rejected credentials, not falling back to cached token",
+				"error", authErr, "code", code.String())
+			return conn, nil
+		}
+		// auth failed but our token was not explicitly rejected, so check if we have a cached token, then try dialing with it
 		logger.Warnw("auth failed, attempting auth with cached token", "error", authErr)
 		cachedToken, cacheErr := tokenCacheRead(partID, host)
 		if cacheErr != nil {
@@ -201,8 +211,12 @@ func authedDialDirectGRPC(ctx context.Context,
 		}
 		return newConn, nil
 	}
-	// auth succeeded, so cache the token and return
-	cacheErr := tokenCacheWrite(partID, host, token)
+	// just in case we got an empty token, we don't want to overwrite a potentially good cache
+	// this check is most likely unnecessary, but it's cheap and harmless
+	if token != "" {
+		// auth succeeded, and the token should be valid, so cache the token and return
+		cacheErr := tokenCacheWrite(partID, host, token)
+	}
 	if cacheErr != nil {
 		// there's nothing to do about this, and the connection is already valid and authed,
 		// so just log and move on
