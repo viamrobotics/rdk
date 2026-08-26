@@ -3620,10 +3620,12 @@ func fragmentListAction(ctx context.Context, cmd *cli.Command, args fragmentList
 }
 
 func (c *viamClient) fragmentListAction(ctx context.Context, cmd *cli.Command, args fragmentListArgs) error {
-	org, err := c.getOrg(ctx, args.Organization)
-	if err != nil {
+	// An empty --organization falls back to the default (or first) org, so the flag stays optional
+	// and configured default-org values are respected.
+	if err := c.selectOrganization(ctx, args.Organization); err != nil {
 		return err
 	}
+	org := c.selectedOrg
 
 	resp, err := c.client.ListFragments(ctx, &apppb.ListFragmentsRequest{OrganizationId: org.Id})
 	if err != nil {

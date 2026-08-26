@@ -3446,13 +3446,13 @@ Example trigger for conditional_logs_ingested:
 				{
 					Name:      "list",
 					Usage:     "list fragments for an organization",
-					UsageText: createUsageText("fragment list", []string{generalFlagOrganization}, true, false),
+					UsageText: createUsageText("fragment list", nil, true, false),
 					Flags: []cli.Flag{
 						&AliasStringFlag{
 							cli.StringFlag{
-								Name:     generalFlagOrganization,
-								Aliases:  []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								Required: true,
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "default-org value if set, else the first organization alphabetically",
 							},
 						},
 					},

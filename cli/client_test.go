@@ -1489,6 +1489,26 @@ func TestFragmentActions(t *testing.T) {
 		test.That(t, joined, test.ShouldNotContainSubstring, "0001")
 	})
 
+	t.Run("list with no --organization falls back to the default org", func(t *testing.T) {
+		var lastReq *apppb.ListFragmentsRequest
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			ListFragmentsFunc: func(ctx context.Context, in *apppb.ListFragmentsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.ListFragmentsResponse, error) {
+				lastReq = in
+				return &apppb.ListFragmentsResponse{
+					Fragments: []*apppb.Fragment{{Id: fragmentID, Name: fragmentName, Revision: "rev-1"}},
+				}, nil
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentListAction(context.Background(), cCtx, fragmentListArgs{})
+		test.That(t, err, test.ShouldBeNil)
+		// With no org specified, the first organization is used.
+		test.That(t, lastReq.OrganizationId, test.ShouldEqual, orgID)
+	})
+
 	t.Run("get prints the fragment config and forwards the version", func(t *testing.T) {
 		var lastReq *apppb.GetFragmentRequest
 		asc := &inject.AppServiceClient{
