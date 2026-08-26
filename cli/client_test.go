@@ -1436,6 +1436,39 @@ func TestMachinesPartConfigAction(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "could not parse time string")
 	})
+
+	t.Run("--at picks the earliest edit after the timestamp from a newest-first list", func(t *testing.T) {
+		// Three edits, returned newest-first as the server sorts them. `at` predates all of them,
+		// so the config live at `at` is the Old of the oldest edit (the last entry in the list).
+		e3 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+		e2 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+		e1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		conf := func(marker string) *structpb.Struct {
+			s, cerr := structpb.NewStruct(map[string]any{"marker": marker})
+			test.That(t, cerr, test.ShouldBeNil)
+			return s
+		}
+		multiAsc := &inject.AppServiceClient{
+			GetRobotPartFunc: getRobotPartFunc,
+			GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartHistoryResponse, error) {
+				return &apppb.GetRobotPartHistoryResponse{
+					History: []*apppb.RobotPartHistoryEntry{
+						{Part: partID, When: timestamppb.New(e3), Old: &apppb.RobotPart{RobotConfig: conf("before-e3")}},
+						{Part: partID, When: timestamppb.New(e2), Old: &apppb.RobotPart{RobotConfig: conf("before-e2")}},
+						{Part: partID, When: timestamppb.New(e1), Old: &apppb.RobotPart{RobotConfig: conf("before-e1")}},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, _ := setup(multiAsc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "2025-12-01T00:00:00Z"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "before-e1"`)
+	})
 }
 
 func TestFragmentActions(t *testing.T) {

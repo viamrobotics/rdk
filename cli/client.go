@@ -3329,6 +3329,10 @@ func (c *viamClient) machinesPartConfigAction(ctx context.Context, cmd *cli.Comm
 // store the config as it was *before* each edit (Old), so the config live at `at` is the Old of
 // the earliest edit made strictly after `at`. If no edit happened after `at`, `at` is at or after
 // the most recent change and the current config applies.
+//
+// GetRobotPartHistory returns entries newest-first (the server sorts by edit time descending), so
+// with Start bounding the query to edits at/after `at`, the earliest edit after `at` is simply the
+// last entry we see — we page to the end and keep the most recent assignment.
 func (c *viamClient) robotPartConfigAt(ctx context.Context, partID string, at time.Time) (*structpb.Struct, error) {
 	startTime := timestamppb.New(at)
 	pageLimit := int64(historyFetchPageSize)
@@ -3347,13 +3351,10 @@ func (c *viamClient) robotPartConfigAt(ctx context.Context, partID string, at ti
 		if len(resp.History) == 0 {
 			break
 		}
-		// Don't assume a page ordering: keep the entry with the smallest When that is still after
-		// `at`, so whichever way the server sorts we converge on the same boundary edit.
+		// Entries arrive newest-first, so the last one still after `at` (the oldest edit after
+		// `at`) is the boundary we want; keep overwriting and the final value wins.
 		for _, entry := range resp.History {
-			if entry.When == nil || !entry.When.AsTime().After(at) {
-				continue
-			}
-			if earliestAfter == nil || entry.When.AsTime().Before(earliestAfter.When.AsTime()) {
+			if entry.When != nil && entry.When.AsTime().After(at) {
 				earliestAfter = entry
 			}
 		}
