@@ -2919,22 +2919,14 @@ Note: There is no progress meter while copying is in progress.
 							Name:      "config",
 							Usage:     "print a machine part's config JSON to stdout",
 							UsageText: createUsageText("machines part config", []string{generalFlagPart}, true, false),
-							Flags: []cli.Flag{
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID},
-										Required: true,
-										Usage:    "part ID whose config to fetch",
-									},
-								},
+							Flags: append(commonPartFlags,
 								&cli.StringFlag{
 									Name: generalFlagAt,
 									Usage: "ISO-8601 timestamp in RFC3339 format to fetch the config that was in effect at that " +
 										"time (e.g., 2025-01-15T14:00:00Z)",
 									DefaultText: "current config",
 								},
-							},
+							),
 							Action: createActionCommandWithT[machinesPartConfigArgs](machinesPartConfigAction),
 						},
 						{

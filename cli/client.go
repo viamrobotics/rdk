@@ -3268,8 +3268,11 @@ func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Com
 }
 
 type machinesPartConfigArgs struct {
-	Part string
-	At   string
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+	At           string
 }
 
 // marshalConfigJSON renders a config struct as indented JSON. Going through AsMap means
@@ -3298,15 +3301,14 @@ func (c *viamClient) machinesPartConfigAction(ctx context.Context, cmd *cli.Comm
 		return err
 	}
 
-	var config *structpb.Struct
-	if at == nil {
-		resp, err := c.getRobotPart(ctx, args.Part)
-		if err != nil {
-			return errors.Wrap(err, "could not get machine part")
-		}
-		config = resp.Part.GetRobotConfig()
-	} else {
-		config, err = c.robotPartConfigAt(ctx, args.Part, at.AsTime())
+	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return errors.Wrap(err, "could not get machine part")
+	}
+
+	config := part.GetRobotConfig()
+	if at != nil {
+		config, err = c.robotPartConfigAt(ctx, part.Id, at.AsTime())
 		if err != nil {
 			return err
 		}
@@ -3643,7 +3645,7 @@ func (c *viamClient) fragmentListAction(ctx context.Context, cmd *cli.Command, a
 	tableFormat := "%s\t%s\t%s\t%s\n"
 	fmt.Fprintf(w, tableFormat, "ID", "NAME", "REVISION", "UPDATED") //nolint:errcheck
 	for _, f := range resp.Fragments {
-		fmt.Fprintf(w, tableFormat, f.Id, f.Name, fragmentRevisionOrNone(f.Revision), formatTimestamp(f.LastUpdated)) //nolint:errcheck
+		fmt.Fprintf(w, tableFormat, f.Id, f.Name, orUnknown(f.Revision), formatTimestamp(f.LastUpdated)) //nolint:errcheck
 	}
 	//nolint:errcheck
 	w.Flush()
@@ -3660,11 +3662,13 @@ func formatTimestamp(ts *timestamppb.Timestamp) string {
 	return ts.AsTime().Format(time.RFC3339)
 }
 
-func fragmentRevisionOrNone(revision string) string {
-	if revision == "" {
-		return "<none>"
+// orUnknown renders empty string values as the same "<unknown>" placeholder used by
+// formatTimestamp, so blank table cells read consistently.
+func orUnknown(s string) string {
+	if s == "" {
+		return "<unknown>"
 	}
-	return revision
+	return s
 }
 
 type fragmentGetArgs struct {

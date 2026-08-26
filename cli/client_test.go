@@ -1394,7 +1394,16 @@ func TestMachinesPartConfigAction(t *testing.T) {
 		}, nil
 	}
 
+	// ListOrganizations errors so robotPart falls back to a direct ID lookup via GetRobotPartFunc,
+	// mirroring TestMachinesPartHistoryAction.
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		return nil, errors.New("not used in this test")
+	}
+
 	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc:   listOrganizationsFunc,
 		GetRobotPartFunc:        getRobotPartFunc,
 		GetRobotPartHistoryFunc: getRobotPartHistoryFunc,
 	}
@@ -1449,7 +1458,8 @@ func TestMachinesPartConfigAction(t *testing.T) {
 			return s
 		}
 		multiAsc := &inject.AppServiceClient{
-			GetRobotPartFunc: getRobotPartFunc,
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
 			GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
 				opts ...grpc.CallOption,
 			) (*apppb.GetRobotPartHistoryResponse, error) {
@@ -1629,9 +1639,12 @@ func TestFragmentActions(t *testing.T) {
 		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 		err := ac.fragmentHistoryAction(context.Background(), cCtx, fragmentHistoryArgs{Fragment: fragmentID, Count: 1})
 		test.That(t, err, test.ShouldBeNil)
-		joined := strings.Join(out.messages, "")
-		test.That(t, joined, test.ShouldContainSubstring, "3")
-		test.That(t, joined, test.ShouldNotContainSubstring, "2\t")
+		// tabwriter turns the column tabs into spaces on Flush, so assert on the rendered row count
+		// rather than a tab-delimited substring: header + exactly one data row means --count capped it.
+		lines := strings.Split(strings.TrimRight(strings.Join(out.messages, ""), "\n"), "\n")
+		test.That(t, len(lines), test.ShouldEqual, 2)
+		test.That(t, lines[0], test.ShouldContainSubstring, "REVISION")
+		test.That(t, lines[1], test.ShouldContainSubstring, "3")
 		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "stopped at --count=1")
 	})
 
