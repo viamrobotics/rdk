@@ -291,3 +291,47 @@ func TestGeoGeometryProtobufRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+// A cylinder must survive the wire. Before commonpb carried a Cylinder message,
+// Cylinder.ToProtobuf() panicked, so any component returning one from
+// Geometries() panicked its own GetGeometries handler and the client rendered
+// nothing -- while every in-process test still passed.
+func TestCylinderProtoRoundTrip(t *testing.T) {
+	for _, capped := range []bool{true, false} {
+		orig, err := spatialmath.NewCylinderWithCapped(
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: -2, Z: -134.5}), 35.5, 129, capped, "body")
+		test.That(t, err, test.ShouldBeNil)
+
+		back, err := NewGeometryFromProto(orig.ToProtobuf())
+		test.That(t, err, test.ShouldBeNil)
+
+		_, isCylinder := back.(*spatialmath.Cylinder)
+		test.That(t, isCylinder, test.ShouldBeTrue)
+		test.That(t, back.Label(), test.ShouldEqual, "body")
+		test.That(t, spatialmath.GeometriesAlmostEqual(orig, back), test.ShouldBeTrue)
+
+		// The open/closed distinction must survive too, or an open tube silently
+		// becomes a solid and a planner will refuse to route through its interior.
+		test.That(t,
+			len(back.(*spatialmath.Cylinder).ToMesh().Triangles()),
+			test.ShouldEqual,
+			len(orig.(*spatialmath.Cylinder).ToMesh().Triangles()))
+	}
+}
+
+// The whole-list conversion is what the component servers actually call.
+func TestCylinderInGeometriesToProto(t *testing.T) {
+	cyl, err := spatialmath.NewCylinder(spatialmath.NewZeroPose(), 24.5, 44, "cup")
+	test.That(t, err, test.ShouldBeNil)
+	box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 1, Y: 2, Z: 3}, "plate")
+	test.That(t, err, test.ShouldBeNil)
+
+	proto := NewGeometriesToProto([]spatialmath.Geometry{cyl, box})
+	test.That(t, len(proto), test.ShouldEqual, 2)
+
+	back, err := NewGeometriesFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(back), test.ShouldEqual, 2)
+	test.That(t, spatialmath.GeometriesAlmostEqual(cyl, back[0]), test.ShouldBeTrue)
+	test.That(t, spatialmath.GeometriesAlmostEqual(box, back[1]), test.ShouldBeTrue)
+}

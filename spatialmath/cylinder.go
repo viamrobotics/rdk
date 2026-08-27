@@ -197,11 +197,25 @@ func (c *Cylinder) buildMesh() *Mesh {
 	return NewMesh(c.pose, tris, c.label)
 }
 
-// ToProtobuf is not implemented for Cylinder: there is no Cylinder message in
-// commonpb. Any attempt to serialize a Cylinder over gRPC must be intercepted
-// upstream. This panic is intentional and load-bearing.
+// ToProtobuf converts the Cylinder to its protobuf representation.
+//
+// uncapped is the negation of capped: the proto3 default (false) is the solid
+// cylinder, so a producer or consumer that ignores the field still gets the
+// common case, and gets it conservatively -- an open tube read as solid
+// over-approximates, while a solid read as open would let a caller plan a path
+// straight through it.
 func (c *Cylinder) ToProtobuf() *commonpb.Geometry {
-	panic("Cylinder.ToProtobuf: unimplemented -- no Cylinder message in commonpb")
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(c.pose),
+		GeometryType: &commonpb.Geometry_Cylinder{
+			Cylinder: &commonpb.Cylinder{
+				RadiusMm: c.radius,
+				HeightMm: c.height,
+				Uncapped: !c.capped,
+			},
+		},
+		Label: c.label,
+	}
 }
 
 // asMeshIfCylinder converts g to its mesh form when g is a *Cylinder. Mesh's
