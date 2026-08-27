@@ -1823,7 +1823,7 @@ func reloadModuleActionInner(
 		if err := pm.Start("wait"); err != nil {
 			return err
 		}
-		moduleName := localizeModuleID(manifest.ModuleID)
+		moduleName := configuredModuleName(part.Part, manifest.ModuleID)
 		modStatus, err := vc.waitForModuleReload(ctx, cmd, part.Part, moduleName, reloadTime, logger)
 		if err != nil {
 			_ = pm.Fail("wait", err)                                 //nolint:errcheck

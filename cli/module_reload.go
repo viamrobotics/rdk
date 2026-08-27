@@ -511,6 +511,22 @@ func localizeModuleID(moduleID string) string {
 	return strings.ReplaceAll(moduleID, ":", "_")
 }
 
+// configuredModuleName returns the config's name for the module entry whose module_id matches,
+// falling back to localizeModuleID. Configs written by older CLIs name reload entries
+// "<namespace>_<moduleName>_from_reload", so the name cannot be derived from the module ID.
+func configuredModuleName(part *apppb.RobotPart, moduleID string) string {
+	if cfgJSON, err := partConfigJSON(part); err == nil {
+		for _, mod := range gjson.Get(cfgJSON, "modules").Array() {
+			if mod.Get("module_id").String() == moduleID {
+				if name := mod.Get("name").String(); name != "" {
+					return name
+				}
+			}
+		}
+	}
+	return localizeModuleID(moduleID)
+}
+
 // reloadUser returns the identity string to stamp on reload configs.
 // For token-based auth this is the user's email; for API keys it's the key ID.
 func reloadUser(conf *Config) string {
