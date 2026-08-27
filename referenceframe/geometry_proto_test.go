@@ -319,6 +319,41 @@ func TestCylinderProtoRoundTrip(t *testing.T) {
 	}
 }
 
+// A cylinder's orientation IS its axis, so it is the one thing that must not be
+// dropped. Every other test here uses an identity orientation, which means a
+// ToProtobuf that serialized only the translation would pass all of them.
+func TestCylinderProtoRoundTripPreservesOrientation(t *testing.T) {
+	orientations := []spatialmath.Orientation{
+		&spatialmath.OrientationVectorDegrees{OX: 1, OY: 0, OZ: 0, Theta: 30},
+		&spatialmath.OrientationVectorDegrees{OX: 0, OY: 1, OZ: 0, Theta: -75},
+		&spatialmath.EulerAngles{Roll: 0.3, Pitch: 0.7, Yaw: -1.2},
+		// Axis flipped end for end: distinguishable only if orientation survives.
+		&spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: -1, Theta: 0},
+	}
+	for i, ori := range orientations {
+		orig, err := spatialmath.NewCylinder(
+			spatialmath.NewPose(r3.Vector{X: 5, Y: -6, Z: 7}, ori), 20, 80, "tilted")
+		test.That(t, err, test.ShouldBeNil)
+
+		back, err := NewGeometryFromProto(orig.ToProtobuf())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatialmath.GeometriesAlmostEqual(orig, back), test.ShouldBeTrue)
+		test.That(t, spatialmath.OrientationAlmostEqual(
+			orig.Pose().Orientation(), back.Pose().Orientation()), test.ShouldBeTrue)
+
+		// Guard against the equality check being orientation-blind: a cylinder
+		// rotated away from this one must NOT compare equal.
+		other, err := spatialmath.NewCylinder(
+			spatialmath.NewPose(r3.Vector{X: 5, Y: -6, Z: 7},
+				&spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 0, Theta: 45}),
+			20, 80, "tilted")
+		test.That(t, err, test.ShouldBeNil)
+		if i == 0 {
+			test.That(t, spatialmath.GeometriesAlmostEqual(orig, other), test.ShouldBeFalse)
+		}
+	}
+}
+
 // The whole-list conversion is what the component servers actually call.
 func TestCylinderInGeometriesToProto(t *testing.T) {
 	cyl, err := spatialmath.NewCylinder(spatialmath.NewZeroPose(), 24.5, 44, "cup")

@@ -199,11 +199,16 @@ func (c *Cylinder) buildMesh() *Mesh {
 
 // ToProtobuf converts the Cylinder to its protobuf representation.
 //
-// uncapped is the negation of capped: the proto3 default (false) is the solid
-// cylinder, so a producer or consumer that ignores the field still gets the
-// common case, and gets it conservatively -- an open tube read as solid
-// over-approximates, while a solid read as open would let a caller plan a path
-// straight through it.
+// uncapped is the negation of capped, so the proto3 default (false) is the solid
+// cylinder: the overwhelmingly common case, what NewCylinder builds, and what a
+// cylinder means in URDF and SDF.
+//
+// Note this is a defaulting convention, not a safety guarantee. Cylinder
+// collision goes through the tessellated mesh, which is a surface: a point fully
+// inside a "solid" cylinder does not register a collision, where the same point
+// inside a box, sphere or capsule does. Capping therefore adds two zero-thickness
+// cap discs rather than filling the interior, and reading an open tube as solid
+// is not automatically the conservative direction.
 func (c *Cylinder) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(c.pose),
