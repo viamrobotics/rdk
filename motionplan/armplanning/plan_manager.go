@@ -3,6 +3,7 @@ package armplanning
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -277,12 +278,18 @@ func (pm *planManager) planSingleGoal(
 	allowRelaunch := true
 	if lc := tightestLinearConstraintMM(pm.request.Constraints); lc > 0 && planSeed.maps.optNode != nil {
 		eeDelta := maxGoalTranslationMM(psc)
-		if eeDelta >= 0 && eeDelta < 50 && lc <= 50 && planSeed.maps.optNode.cost > 1.5 {
+		// True joint-space L2 in radians, computed directly: optNode.cost is
+		// the configured distance metric plus a neutral-pose bias, so it is
+		// not a joint angle and cannot back the threshold or the message.
+		reconfigL2 := math.Sqrt(flatL2Sq(
+			psc.start.GetLinearizedInputs(), planSeed.maps.optNode.inputs.GetLinearizedInputs()))
+		const reconfigWallRad = 1.5
+		if eeDelta >= 0 && eeDelta < 50 && lc <= 50 && reconfigL2 > reconfigWallRad {
 			pm.logger.Warnf("goal is %0.1fmm of end-effector motion but the nearest valid goal configuration is "+
-				"%0.2f rad of joint motion; a linear constraint of %0.0fmm likely cannot accommodate that "+
+				"%0.2f rad (joint-space L2) away; a linear constraint of %0.0fmm likely cannot accommodate that "+
 				"reconfiguration. Planning one search round only. Consider relaxing the constraint for this step "+
 				"or approaching in a different joint configuration.",
-				eeDelta, planSeed.maps.optNode.cost, lc)
+				eeDelta, reconfigL2, lc)
 			allowRelaunch = false
 		}
 	}
@@ -473,6 +480,12 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 // and tree maps.
 var cbirrtRaceAttempts = utils.GetenvInt("CBIRRT_RACE_ATTEMPTS", 4)
 
+// maxTotalAttempts caps how many search attempts (initial racers plus
+// relaunches) one raceCBiRRT call may spawn over its lifetime - a backstop
+// against tight failure loops, not a budget. Also sizes the results channel
+// so senders can never block.
+const maxTotalAttempts = 64
+
 // cloneRRTMaps gives one racing attempt its own tree maps. Nodes are shared
 // (they are never mutated after insertion); only the map structure - tree
 // membership and parentage - must be private per attempt.
@@ -509,7 +522,13 @@ func (pm *planManager) raceCBiRRT(
 		err     error
 		attempt int
 	}
-	results := make(chan raceResult, attempts)
+	// Buffered to the lifetime attempt cap so no sender can ever block: once
+	// a winner returns, the remaining in-flight attempts each deposit their
+	// result and exit regardless of readers. (In-flight concurrency is still
+	// bounded by `attempts` - relaunches only follow a consumed result - but
+	// sizing the buffer to the cap makes the no-blocked-sender property
+	// unconditional rather than an invariant of the reader loop.)
+	results := make(chan raceResult, maxTotalAttempts)
 
 	// Seed the goal retreat corridors once on the master maps; every attempt's
 	// clone inherits them, so restarts don't repeat the corridor IK.
@@ -557,7 +576,6 @@ func (pm *planManager) raceCBiRRT(
 	// Before this, racers could exhaust 5000 iterations in 20s of a 300s
 	// request and fail the plan with 280s unused. maxTotalAttempts is a
 	// backstop against tight failure loops, not a budget.
-	const maxTotalAttempts = 64
 	totalLaunched := attempts
 	var firstErr error
 	for inFlight := attempts; inFlight > 0; {
