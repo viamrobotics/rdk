@@ -289,6 +289,9 @@ func checkOrientationConstraintEval(frame string, e *OrientationConstraintEval, 
 // per plan, and per-call span creation plus exporter wakeups measurably
 // dominated planning time once the checks themselves became cheap.
 func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *StateFS) (float64, error) {
+	// The cover evaluation is shared by the collision constraints below and
+	// recycled once this state check completes.
+	defer releaseCoverSet(state)
 	// Topological constraints (orientation/linear) cost a single FK pass —
 	// orders of magnitude cheaper than the collision sweeps below — so check
 	// them first: constrained planners generate many candidate states that fail
@@ -562,6 +565,11 @@ func NewCollisionConstraintFS(
 	}
 	sdfClearThreshold := math.Max(2.0, 2*collisionBufferMM)
 
+	// The static side of every pair check is the same geometry set at the
+	// same poses for the life of this checker; prebuilding its names, allow
+	// flags, and bounding spheres removes that work from every state check.
+	staticPre := prenameGeoms(static, allowed)
+
 	// finish shares the tail of every path: convert a found collision into
 	// the constraint-violated error.
 	finish := func(collisions []Collision, minDist float64, err error) (float64, error) {
@@ -609,7 +617,7 @@ func NewCollisionConstraintFS(
 			return 0, err
 		}
 		collisions, minDist, err := checkCollisionsHinted(
-			geoms, static, allowed, collisionBufferMM, false, pairHint, logger)
+			geoms, static, staticPre, allowed, collisionBufferMM, false, pairHint, logger)
 		return finish(collisions, math.Min(minDist, sdfMin), err)
 	}
 
@@ -669,7 +677,7 @@ func NewCollisionConstraintFS(
 			return 0, err
 		}
 		collisions, minDist, err := checkCollisionsHinted(
-			geoms, geoms, allowed, collisionBufferMM, false, pairHint, logger)
+			geoms, geoms, nil, allowed, collisionBufferMM, false, pairHint, logger)
 		return finish(collisions, math.Min(minDist, selfMin), err)
 	}
 
@@ -737,8 +745,12 @@ func NewCollisionConstraintFS(
 			staticToCheck = internalGeoms
 		}
 
+		staticPreToUse := staticPre
+		if isSelfCollision {
+			staticPreToUse = nil
+		}
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, allowed, collisionBufferMM, false, pairHint, logger)
+			internalGeoms, staticToCheck, staticPreToUse, allowed, collisionBufferMM, false, pairHint, logger)
 		minDist = math.Min(minDist, sdfMin)
 		if err != nil {
 			return minDist, err
@@ -764,7 +776,7 @@ func computeInitialCollisionsToIgnore(
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
 	initialCollisions, _, err := checkCollisionsHinted(
-		group1, group2, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
+		group1, group2, nil, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
 	if err != nil {
 		return nil, err
 	}
