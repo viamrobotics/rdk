@@ -287,6 +287,7 @@ func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
 	// One memoized FK pass instead of an ancestor walk per frame.
 	fk := newLazyFrameToWorld(fs, li)
+	defer fk.release()
 	computedPoses := make(FrameSystemPoses, len(fs.FrameNames()))
 	for _, frameName := range fs.FrameNames() {
 		dq, err := fk.get(frameName)
