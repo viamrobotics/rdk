@@ -109,6 +109,16 @@ func realMain() error {
 
 	// The default logger keeps `mp` at the default INFO level. But all loggers underneath only emit
 	// WARN+ logs. Let's start with DEBUG everywhere and:
+	// Persist learned roadmaps across runs: harvested corridors and scene
+	// verdicts are what make replans of a hard scene sub-second, and replaying
+	// captures cold defeats them otherwise. Respect an explicit setting;
+	// export MOTION_ROADMAP_CACHE_DIR="" to disable.
+	if _, ok := os.LookupEnv("MOTION_ROADMAP_CACHE_DIR"); !ok {
+		if cacheDir, err := os.UserCacheDir(); err == nil {
+			utils.UncheckedError(os.Setenv("MOTION_ROADMAP_CACHE_DIR", filepath.Join(cacheDir, "viam-motion-roadmap")))
+		}
+	}
+
 	logger.SetLevel(logging.DEBUG)
 	if *verbose {
 		// For verbose keep everything at DEBUG and only claw back `ik` logs to INFO.
