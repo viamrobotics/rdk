@@ -559,12 +559,16 @@ func drmOverlaps(occ map[uint64]struct{}, voxels []uint64) bool {
 
 // constraintsFingerprint hashes the request's constraints; DRM verdict
 // transfer is only valid between scenes planned under identical constraints.
+// The salt names the constraint *semantics* generation: verdicts persisted to
+// disk before a semantics change (e.g. the orientation band becoming a
+// geodesic tube) must miss rather than transfer.
 func constraintsFingerprint(c *motionplan.Constraints) uint64 {
 	data, err := json.Marshal(c)
 	if err != nil {
 		return 0
 	}
 	h := fnv.New64a()
+	h.Write([]byte("orient-tube-v1:"))
 	h.Write(data)
 	return h.Sum64()
 }
