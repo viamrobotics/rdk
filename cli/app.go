@@ -970,7 +970,7 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:      "list",
-					Usage:     "list organizations for the current user",
+					Usage:     "list organizations for the current user (marks the default org with *)",
 					UsageText: createUsageText("organizations list", nil, false, false),
 					Action:    createActionCommandWithT[emptyArgs](ListOrganizationsAction),
 				},

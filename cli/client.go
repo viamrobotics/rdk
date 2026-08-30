@@ -193,7 +193,15 @@ func (c *viamClient) listOrganizationsAction(ctx context.Context, cmd *cli.Comma
 		if org.PublicNamespace != "" {
 			namespaceInfo = fmt.Sprintf(" (namespace: %s)", org.PublicNamespace)
 		}
-		printf(cmd.Root().Writer, "\t%s %s%s", org.Name, idInfo, namespaceInfo)
+		prefix := ""
+		if c.conf.DefaultOrg != "" {
+			if org.Id == c.conf.DefaultOrg {
+				prefix = "* "
+			} else {
+				prefix = "  "
+			}
+		}
+		printf(cmd.Root().Writer, "\t%s%s %s%s", prefix, org.Name, idInfo, namespaceInfo)
 	}
 	return nil
 }
