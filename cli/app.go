@@ -537,7 +537,7 @@ var app = &cli.Command{
 	Commands: []*cli.Command{
 		{
 			Name:      "defaults",
-			Usage:     "Set or clear default argument values",
+			Usage:     "Set, view, or clear default argument values",
 			UsageText: createUsageText("defaults", nil, false, false),
 			Commands: []*cli.Command{
 				{
@@ -554,6 +554,12 @@ var app = &cli.Command{
 						},
 					},
 					Action: createActionCommandWithT(defaultsSetOrgAction),
+				},
+				{
+					Name:      "view-org",
+					Usage:     "View default organization argument",
+					UsageText: createUsageText("defaults view-org", nil, false, false),
+					Action:    createActionCommandWithT(defaultsViewOrgAction),
 				},
 				{
 					Name:   "clear-org",
@@ -574,6 +580,12 @@ var app = &cli.Command{
 						},
 					},
 					Action: createActionCommandWithT(defaultsSetLocationAction),
+				},
+				{
+					Name:      "view-location",
+					Usage:     "View default location argument",
+					UsageText: createUsageText("defaults view-location", nil, false, false),
+					Action:    createActionCommandWithT(defaultsViewLocationAction),
 				},
 				{
 					Name:   "clear-location",

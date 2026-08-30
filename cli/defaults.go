@@ -204,6 +204,28 @@ func defaultsClearOrgAction(ctx context.Context, cmd *cli.Command, args emptyArg
 	return writeDefaultOrg(ctx, cmd, "")
 }
 
+func defaultsViewOrgAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
+	c, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return c.viewDefaultOrgAction(ctx, cmd)
+}
+
+func (c *viamClient) viewDefaultOrgAction(ctx context.Context, cmd *cli.Command) error {
+	orgID := c.conf.DefaultOrg
+	if orgID == "" {
+		printf(cmd.Root().Writer, "No default organization set")
+		return nil
+	}
+	if org, err := c.getOrg(ctx, orgID); err == nil {
+		printf(cmd.Root().Writer, "%s (id: %s)", org.Name, org.Id)
+		return nil
+	}
+	printf(cmd.Root().Writer, "%s", orgID)
+	return nil
+}
+
 type defaultsSetLocationArgs struct {
 	LocationID string
 }
@@ -214,4 +236,32 @@ func defaultsSetLocationAction(ctx context.Context, cmd *cli.Command, args defau
 
 func defaultsClearLocationAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	return writeDefaultLocation(ctx, cmd, "")
+}
+
+func defaultsViewLocationAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
+	c, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return c.viewDefaultLocationAction(ctx, cmd)
+}
+
+func (c *viamClient) viewDefaultLocationAction(ctx context.Context, cmd *cli.Command) error {
+	locID := c.conf.DefaultLocation
+	if locID == "" {
+		printf(cmd.Root().Writer, "No default location set")
+		return nil
+	}
+	if c.conf.DefaultOrg != "" {
+		if locs, err := c.listLocations(ctx, c.conf.DefaultOrg); err == nil {
+			for _, loc := range locs {
+				if loc.Id == locID {
+					printf(cmd.Root().Writer, "%s (id: %s)", loc.Name, loc.Id)
+					return nil
+				}
+			}
+		}
+	}
+	printf(cmd.Root().Writer, "%s", locID)
+	return nil
 }

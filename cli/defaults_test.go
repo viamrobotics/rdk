@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -130,4 +131,92 @@ func TestSetLocation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestViewOrg(t *testing.T) {
+	orgID := uuid.New().String()
+	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc: func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListOrganizationsResponse, error) {
+			return &apppb.ListOrganizationsResponse{Organizations: []*apppb.Organization{
+				{Id: orgID, Name: "otf"},
+			}}, nil
+		},
+	}
+
+	t.Run("unset", func(t *testing.T) {
+		cCtx, vc, out, errOut := setup(asc, nil, nil, nil, "token")
+		test.That(t, vc.viewDefaultOrgAction(context.Background(), cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldEqual, "No default organization set\n")
+	})
+
+	t.Run("set with name", func(t *testing.T) {
+		cCtx, vc, out, errOut := setup(asc, nil, nil, nil, "token")
+		vc.conf.DefaultOrg = orgID
+		test.That(t, vc.viewDefaultOrgAction(context.Background(), cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("otf (id: %s)\n", orgID))
+	})
+
+	t.Run("set but org not found", func(t *testing.T) {
+		cCtx, vc, out, errOut := setup(asc, nil, nil, nil, "token")
+		missingID := uuid.New().String()
+		vc.conf.DefaultOrg = missingID
+		test.That(t, vc.viewDefaultOrgAction(context.Background(), cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldEqual, missingID+"\n")
+	})
+}
+
+func TestViewLocation(t *testing.T) {
+	orgID := uuid.New().String()
+	locID := uuid.New().String()
+	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc: func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListOrganizationsResponse, error) {
+			return &apppb.ListOrganizationsResponse{Organizations: []*apppb.Organization{
+				{Id: orgID, Name: "otf"},
+			}}, nil
+		},
+		ListLocationsFunc: func(ctx context.Context, in *apppb.ListLocationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListLocationsResponse, error) {
+			return &apppb.ListLocationsResponse{Locations: []*apppb.Location{
+				{Id: locID, Name: "lab"},
+			}}, nil
+		},
+	}
+
+	t.Run("unset", func(t *testing.T) {
+		cCtx, vc, out, errOut := setup(asc, nil, nil, nil, "token")
+		test.That(t, vc.viewDefaultLocationAction(context.Background(), cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldEqual, "No default location set\n")
+	})
+
+	t.Run("set with name", func(t *testing.T) {
+		cCtx, vc, out, errOut := setup(asc, nil, nil, nil, "token")
+		vc.conf.DefaultOrg = orgID
+		vc.conf.DefaultLocation = locID
+		test.That(t, vc.viewDefaultLocationAction(context.Background(), cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("lab (id: %s)\n", locID))
+	})
+
+	t.Run("set without default org", func(t *testing.T) {
+		cCtx, vc, out, errOut := setup(asc, nil, nil, nil, "token")
+		vc.conf.DefaultLocation = locID
+		test.That(t, vc.viewDefaultLocationAction(context.Background(), cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldEqual, locID+"\n")
+	})
 }
