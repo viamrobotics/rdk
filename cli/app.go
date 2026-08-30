@@ -953,6 +953,22 @@ Note: There is no progress meter while copying is in progress.
 					},
 				},
 				{
+					Name:      "create",
+					Usage:     "create an organization and set its public namespace",
+					UsageText: createUsageText("organizations create", nil, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  generalFlagName,
+							Usage: "display name for the organization",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPublicNamespace,
+							Usage: "public namespace used in module IDs (namespace:module-name). lowercase letters, numbers, and hyphens",
+						},
+					},
+					Action: createActionCommandWithT[organizationsCreateArgs](OrganizationsCreateAction),
+				},
+				{
 					Name:      "list",
 					Usage:     "list organizations for the current user",
 					UsageText: createUsageText("organizations list", nil, false, false),
