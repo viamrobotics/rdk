@@ -104,5 +104,22 @@ Export the captures for one order:
 viam data export binary filter --destination ./order-export --tags <order-tag> --timeout 120
 ```
 
-Create a manifest similar to `motionplan/armplanning/orderbench/corpora/cappuccina-5fb95a4c.json`
-Use `artifact push` to push those our files storage
+Create a manifest similar to `motionplan/armplanning/orderbench/corpora/cappuccina-5fb95a4c.json`,
+ordering the entries by the capture timestamp in each source filename. The export mixes in unrelated
+captures that share the order tag — the current one carries 215 MB of video alongside 107 MB of
+plans — so the manifest is also what decides which files are part of the corpus.
+
+Then stage the payloads and push them to our file storage. `artifact push` uploads whatever sits
+under the manifest's `artifact_path`, so a manifest whose payloads were never staged points at
+nothing:
+
+```bash
+mkdir -p .artifact/data/motionplan/order-replay/<name>
+cp <plans> .artifact/data/motionplan/order-replay/<name>/
+artifact push   # needs ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS
+```
+
+Do not put the manifest itself in that directory: it is committed to the repo, and a stray file
+there would be swept up as corpus payload by the next push. The replay verifies every payload
+against the manifest before running, because a corpus that has silently drifted would invalidate
+every comparison made against it.
