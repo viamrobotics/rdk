@@ -1,9 +1,12 @@
-// Package main is the CLI for the motion order benchmark: it turns a `viam data export` tree into
-// a replayable corpus, replays that corpus against the current revision, and diffs two runs.
+// Package main is the CLI for the motion order benchmark: it fetches a recorded corpus of plan
+// requests, replays it against the current revision, and diffs two runs.
 //
-//	orderbench ingest -export ./order-export -order <tag> -out ./corpus
-//	orderbench run    -corpus ./corpus -mode warm -out head.ndjson
+//	orderbench fetch   -out ./corpus
+//	orderbench run     -corpus ./corpus -mode warm -out head.ndjson
 //	orderbench compare -base base.ndjson -head head.ndjson -out report.md
+//
+// Building a corpus from a `viam data export` tree is a rare maintenance task rather than part of
+// running a benchmark, so it lives in orderbench.Ingest rather than here.
 package main
 
 import (
@@ -30,11 +33,9 @@ func main() {
 
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: orderbench <ingest|run|replay-one|compare> [flags]")
+		return errors.New("usage: orderbench <fetch|run|replay-one|compare> [flags]")
 	}
 	switch os.Args[1] {
-	case "ingest":
-		return runIngest(os.Args[2:])
 	case "fetch":
 		return runFetch(os.Args[2:])
 	case "run":
@@ -44,7 +45,7 @@ func run() error {
 	case "compare":
 		return runCompare(os.Args[2:])
 	default:
-		return fmt.Errorf("unknown command %q; want ingest, fetch, run, replay-one or compare", os.Args[1])
+		return fmt.Errorf("unknown command %q; want fetch, run, replay-one or compare", os.Args[1])
 	}
 }
 
@@ -77,33 +78,6 @@ func runFetch(args []string) error {
 		manifest.Order, len(manifest.Entries), float64(manifest.TotalBytes())/(1024*1024))
 	// The resolved path goes to stdout alone so a shell can capture it.
 	log.New(os.Stdout, "", 0).Print(dir)
-	return nil
-}
-
-func runIngest(args []string) error {
-	fs := flag.NewFlagSet("ingest", flag.ExitOnError)
-	exportDir := fs.String("export", "", "directory written by `viam data export binary filter --destination`")
-	order := fs.String("order", "", "order tag the captures were filtered by")
-	out := fs.String("out", "", "corpus directory to create")
-	artifactPath := fs.String("artifact-path", "", "path this corpus will occupy in the artifact tree")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if *exportDir == "" || *order == "" || *out == "" {
-		return errors.New("ingest requires -export, -order and -out")
-	}
-
-	manifest, err := orderbench.Ingest(*exportDir, *order, *out, *artifactPath)
-	if err != nil {
-		return err
-	}
-
-	stdout := log.New(os.Stdout, "", 0)
-	stdout.Printf("ingested %d plans (%.1f MB) into %s",
-		len(manifest.Entries), float64(manifest.TotalBytes())/(1024*1024), *out)
-	stdout.Printf("recorded span: %s .. %s",
-		manifest.Entries[0].RecordedAt.Format(time.TimeOnly),
-		manifest.Entries[len(manifest.Entries)-1].RecordedAt.Format(time.TimeOnly))
 	return nil
 }
 
