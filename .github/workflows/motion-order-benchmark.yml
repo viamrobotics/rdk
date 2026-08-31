@@ -87,9 +87,16 @@ jobs:
         # Interleaved, not batched: a runner that slows down halfway through would otherwise land
         # entirely on whichever side ran second. Each invocation is a fresh process, which is what
         # makes the passes independent samples rather than progressively warmer ones.
+        #
+        # The pinned settings are repeated on each command line because `sudo -H` resets the
+        # environment: a job-level `env:` block never reaches the replay. The harness pins both
+        # itself, so this is redundancy rather than the only line of defence -- but a comparison
+        # whose controls depend on the harness under test is not much of a control.
         for pass in $(seq 1 "$PASSES"); do
-          sudo -Hu testbot bash -lc "./orderbench-base run -corpus ./corpus -mode $MODE -out base-$pass.ndjson"
-          sudo -Hu testbot bash -lc "./orderbench-head run -corpus ./corpus -mode $MODE -out head-$pass.ndjson"
+          sudo -Hu testbot bash -lc \
+            "GOGC=$GOGC MOTION_ROADMAP_CACHE_DIR='$MOTION_ROADMAP_CACHE_DIR' ./orderbench-base run -corpus ./corpus -mode $MODE -out base-$pass.ndjson"
+          sudo -Hu testbot bash -lc \
+            "GOGC=$GOGC MOTION_ROADMAP_CACHE_DIR='$MOTION_ROADMAP_CACHE_DIR' ./orderbench-head run -corpus ./corpus -mode $MODE -out head-$pass.ndjson"
         done
         cat base-*.ndjson > base.ndjson
         cat head-*.ndjson > head.ndjson
