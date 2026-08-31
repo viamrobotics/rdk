@@ -116,6 +116,11 @@ type meshState struct {
 	// is *negCacheEntry which carries the original key components so we can
 	// verify on lookup — hash collisions are rare but treated as cache misses
 	// (the cached entry is overwritten by the next BVH walk anyway).
+	//
+	// The buffer is deliberately NOT part of the key: an entry stores the
+	// measured separation, so one entry serves every buffer. Reuse is gated at
+	// lookup on that separation exceeding the querying buffer — a pair cleared
+	// at 1e-8 is still a collision at 3mm, and must re-walk.
 	negCache sync.Map // uint64 -> *negCacheEntry
 
 	// distAnchors generalizes negCache from "same world poses" to "nearby
@@ -847,7 +852,14 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 		if v, ok := m.state.negCache.Load(negKey); ok {
 			e := v.(*negCacheEntry)
 			if negCacheEntryMatches(e, other.state, m.pose, other.pose) {
-				return false, math.Sqrt(e.minDistSq), nil
+				// The entry records the measured separation, not a verdict: only a
+				// separation strictly greater than the *current* buffer proves no
+				// collision. An entry stored under a smaller buffer says nothing
+				// about a larger one, so fall through to the walk rather than reuse
+				// it. Mirrors the distAnchors gate above.
+				if d := math.Sqrt(e.minDistSq); d > collisionBufferMM {
+					return false, d, nil
+				}
 			}
 		}
 	}
