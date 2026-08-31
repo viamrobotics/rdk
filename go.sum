@@ -184,6 +184,8 @@ github.com/benbjohnson/clock v1.3.5 h1:VvXlSJBzZpA/zum6Sj74hxwYI2DIxRWuNIoXAzHZz
 github.com/benbjohnson/clock v1.3.5/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/benjirewis/goutils v0.0.0-20260824191402-ebbabc059089 h1:2y+L3cDzcg2VWPlsGkO5aXwr7NVDKOhRkDBCFG7Bxu0=
 github.com/benjirewis/goutils v0.0.0-20260824191402-ebbabc059089/go.mod h1:oogUl3d1n+CJmhUA3ekkF7JjiAuw68RJos6Tsz4/JHY=
+github.com/benjirewis/goutils v0.0.0-20260831144921-bfb9d9e5eef3 h1:HORdd00/4QlrinHjRZ83F7mHTUbo5I5Y0gsaz3msJg0=
+github.com/benjirewis/goutils v0.0.0-20260831144921-bfb9d9e5eef3/go.mod h1:oogUl3d1n+CJmhUA3ekkF7JjiAuw68RJos6Tsz4/JHY=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
