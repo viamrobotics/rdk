@@ -12,21 +12,10 @@ which plans ran before it. A benchmark built from independent requests cannot se
 where real regressions have hidden — the same plan can be 0.07x or 5x depending on what the roadmap
 learned earlier in the order.
 
-So the corpus is ordered by the capture timestamp in each source filename, and the default replay
-runs the whole order in one process.
-
-## The two modes measure different things
-
-| mode   | what it does                                            | what it tells you                                       |
-| ------ | ------------------------------------------------------- | ------------------------------------------------------- |
-| `warm` | one process, plans in recorded order, caches accumulate | what production experiences over a shift                |
-| `cold` | a fresh forked process per plan                         | the per-plan floor — preprocessing that never amortises |
-
-They routinely disagree, which is the point. On the current corpus, the first few plans run 10–24 ms
-warm and 145–156 ms cold: that gap is scene preprocessing that a long-lived process pays once.
-
-Cold mode forks because the state that has to be discarded is process-global; there is nothing to
-reset from inside the process.
+So the corpus is ordered by the capture timestamp in each source filename, and the replay runs the
+whole order in a single process, letting those caches accumulate exactly as they do during a real
+shift. That is the only thing it measures, deliberately: an isolated per-plan number would be a
+different benchmark answering a question production never asks.
 
 ## Usage
 
@@ -34,7 +23,7 @@ Replay against the current checkout, pulling the corpus from the artifact store:
 
 ```bash
 go run ./motionplan/armplanning/orderbench/cmd/orderbench fetch
-go run ./motionplan/armplanning/orderbench/cmd/orderbench run -mode warm -out head.ndjson
+go run ./motionplan/armplanning/orderbench/cmd/orderbench run -out head.ndjson
 ```
 
 Compare two revisions. The harness must be the *same* on both sides or you are comparing harnesses
@@ -50,8 +39,8 @@ go build -o /tmp/orderbench-head ./motionplan/armplanning/orderbench/cmd/orderbe
 
 # Interleave the passes: a machine that drifts mid-run would otherwise charge it all to one side.
 for pass in 1 2; do
-  /tmp/orderbench-base run -corpus ./corpus -mode warm -out base-$pass.ndjson
-  /tmp/orderbench-head run -corpus ./corpus -mode warm -out head-$pass.ndjson
+  /tmp/orderbench-base run -corpus ./corpus -out base-$pass.ndjson
+  /tmp/orderbench-head run -corpus ./corpus -out head-$pass.ndjson
 done
 cat base-*.ndjson > base.ndjson; cat head-*.ndjson > head.ndjson
 
@@ -73,13 +62,13 @@ go test ./motionplan/armplanning/orderbench -run xxx -bench OrderReplay -benchti
 Each of these has silently produced a wrong answer at least once:
 
 - **On-disk roadmap cache.** `MOTION_ROADMAP_CACHE_DIR` is set explicitly (empty by default).
-  `viam-server` never sets it, so production runs cold; left enabled, the newer revision replays
-  learned corridors the older one structurally cannot have.
+  `viam-server` never sets it, so production starts with no roadmap on disk; left enabled, the newer
+  revision replays learned corridors the older one structurally cannot have.
 - **`GOGC`.** Pinned to 300 by the harness and by the workflow. `cmd-plan` sets this only on newer
   revisions, so an unpinned run measures the CLI difference rather than the library.
-- **Cold versus warm is a fork, not noise.** In-process repetitions reuse the in-memory roadmap, so
-  `-repeat N` measures the *warm* path getting warmer. Independent samples need separate processes —
-  which is why the workflow loops the binary instead of raising `-repeat`.
+- **Repetition inside one process is not replication.** In-process repeats reuse the in-memory
+  roadmap, so `-repeat N` measures the same warm path getting warmer. Independent samples need
+  separate processes — which is why the workflow loops the binary instead of raising `-repeat`.
 - **Records go to a file, never stdout.** `smart_seed.go` holds a package-level logger that writes
   to stdout and that no caller can silence, so anything parsing stdout eventually reads a log line
   as a result.

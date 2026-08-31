@@ -2,7 +2,7 @@
 // requests, replays it against the current revision, and diffs two runs.
 //
 //	orderbench fetch   -out ./corpus
-//	orderbench run     -corpus ./corpus -mode warm -out head.ndjson
+//	orderbench run     -corpus ./corpus -out head.ndjson
 //	orderbench compare -base base.ndjson -head head.ndjson -out report.md
 //
 // Building a corpus from a `viam data export` tree is a rare maintenance task rather than part of
@@ -33,19 +33,17 @@ func main() {
 
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: orderbench <fetch|run|replay-one|compare> [flags]")
+		return errors.New("usage: orderbench <fetch|run|compare> [flags]")
 	}
 	switch os.Args[1] {
 	case "fetch":
 		return runFetch(os.Args[2:])
 	case "run":
 		return runReplay(os.Args[2:])
-	case "replay-one":
-		return runReplayOne(os.Args[2:])
 	case "compare":
 		return runCompare(os.Args[2:])
 	default:
-		return fmt.Errorf("unknown command %q; want fetch, run, replay-one or compare", os.Args[1])
+		return fmt.Errorf("unknown command %q; want fetch, run or compare", os.Args[1])
 	}
 }
 
@@ -84,7 +82,6 @@ func runFetch(args []string) error {
 type replayFlags struct {
 	corpus      string
 	corpusName  string
-	mode        string
 	repeat      int
 	limit       int
 	only        string
@@ -99,8 +96,6 @@ func (f *replayFlags) bind(fs *flag.FlagSet) {
 		"local corpus directory; when empty, -corpus-name is pulled from the artifact store")
 	fs.StringVar(&f.corpusName, "corpus-name", orderbench.DefaultCorpus,
 		"name of a compiled-in corpus manifest to resolve from the artifact store")
-	fs.StringVar(&f.mode, "mode", string(orderbench.ModeWarm),
-		"warm (one process, recorded order, caches accumulate) or cold (fresh process per plan)")
 	fs.IntVar(&f.repeat, "repeat", 1, "replay the whole order this many times")
 	fs.IntVar(&f.limit, "limit", 0, "replay only the first N plans (0 = all)")
 	fs.StringVar(&f.only, "only", "", "comma-separated substrings; keep only matching plans")
@@ -116,7 +111,6 @@ func (f *replayFlags) options() orderbench.Options {
 	opts := orderbench.Options{
 		CorpusDir:       f.corpus,
 		CorpusName:      f.corpusName,
-		Mode:            orderbench.Mode(f.mode),
 		Repeat:          f.repeat,
 		Limit:           f.limit,
 		RoadmapCacheDir: f.roadmapDir,
@@ -152,8 +146,8 @@ func runReplay(args []string) error {
 		source = "artifact:" + opts.CorpusName
 	}
 	stderr := log.New(os.Stderr, "", 0)
-	stderr.Printf("replaying %s in %s mode (repeat=%d, gc=%d, roadmap-cache=%q)",
-		source, opts.Mode, opts.Repeat, opts.GCPercent, opts.RoadmapCacheDir)
+	stderr.Printf("replaying %s (repeat=%d, gc=%d, roadmap-cache=%q)",
+		source, opts.Repeat, opts.GCPercent, opts.RoadmapCacheDir)
 
 	start := time.Now()
 	records, err := orderbench.Run(context.Background(), opts)
@@ -176,43 +170,6 @@ func runReplay(args []string) error {
 	stderr.Printf("replayed %d plans in %s wall clock; planning total %.2fs, %d failed",
 		len(stats), time.Since(start).Round(time.Millisecond), total/1000, failures)
 	return nil
-}
-
-// runReplayOne plans a single request in this fresh process and writes its record out. Cold mode
-// spawns this once per plan.
-func runReplayOne(args []string) error {
-	fs := flag.NewFlagSet("replay-one", flag.ExitOnError)
-	var flags replayFlags
-	flags.bind(fs)
-	recordOut := fs.String("record-out", "", "write the single JSON record here (required)")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if fs.NArg() != 1 {
-		return errors.New("replay-one takes exactly one plan file")
-	}
-	if *recordOut == "" {
-		return errors.New("replay-one requires -record-out")
-	}
-
-	entry, err := orderbench.EntryFromEnv()
-	if err != nil {
-		return err
-	}
-
-	opts := flags.options()
-	opts.Mode = orderbench.ModeWarm // the child plans in-process; it *is* the fresh process
-	orderbench.ApplyProcessControls(opts)
-
-	record, err := orderbench.PlanOne(context.Background(), fs.Arg(0), entry, opts)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(record)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(*recordOut, data, 0o600)
 }
 
 func runCompare(args []string) error {

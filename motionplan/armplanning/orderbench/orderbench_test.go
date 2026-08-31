@@ -2,12 +2,10 @@ package orderbench
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"go.viam.com/test"
 )
@@ -116,19 +114,17 @@ func TestSummarizeExcludesFailedPlansFromQuality(t *testing.T) {
 
 func TestCompareFlagsRegressionsAndFailures(t *testing.T) {
 	base := []Record{
-		{Mode: "warm", Index: 0, Name: "000/a/move", PlanMS: 1000, TrajectoryLen: 100, TotalL2: 3},
-		{Mode: "warm", Index: 1, Name: "001/b/move", PlanMS: 500, TrajectoryLen: 50, TotalL2: 2},
-		{Mode: "warm", Index: 2, Name: "002/c/move", PlanMS: 200, TrajectoryLen: 20, TotalL2: 1},
+		{Index: 0, Name: "000/a/move", PlanMS: 1000, TrajectoryLen: 100, TotalL2: 3},
+		{Index: 1, Name: "001/b/move", PlanMS: 500, TrajectoryLen: 50, TotalL2: 2},
+		{Index: 2, Name: "002/c/move", PlanMS: 200, TrajectoryLen: 20, TotalL2: 1},
 	}
 	head := []Record{
-		{Mode: "warm", Index: 0, Name: "000/a/move", PlanMS: 6000, TrajectoryLen: 140, TotalL2: 4},
-		{Mode: "warm", Index: 1, Name: "001/b/move", PlanMS: 480, TrajectoryLen: 50, TotalL2: 2},
-		{Mode: "warm", Index: 2, Name: "002/c/move", PlanMS: 210, Err: "no path found"},
+		{Index: 0, Name: "000/a/move", PlanMS: 6000, TrajectoryLen: 140, TotalL2: 4},
+		{Index: 1, Name: "001/b/move", PlanMS: 480, TrajectoryLen: 50, TotalL2: 2},
+		{Index: 2, Name: "002/c/move", PlanMS: 210, Err: "no path found"},
 	}
 
 	report := Compare(base, head, "v1.5.0", "main")
-	test.That(t, report.Mode, test.ShouldEqual, "warm")
-
 	regressions := report.Regressions()
 	test.That(t, len(regressions), test.ShouldEqual, 1)
 	test.That(t, regressions[0].Name, test.ShouldEqual, "000/a/move")
@@ -152,8 +148,8 @@ func TestCompareFlagsRegressionsAndFailures(t *testing.T) {
 
 func TestCompareIgnoresRatiosOnTrivialPlans(t *testing.T) {
 	// A 3ms plan going to 9ms is a 3x that says nothing about the planner.
-	base := []Record{{Mode: "warm", Name: "000/a/move", PlanMS: 3, TrajectoryLen: 2}}
-	head := []Record{{Mode: "warm", Name: "000/a/move", PlanMS: 9, TrajectoryLen: 2}}
+	base := []Record{{Name: "000/a/move", PlanMS: 3, TrajectoryLen: 2}}
+	head := []Record{{Name: "000/a/move", PlanMS: 9, TrajectoryLen: 2}}
 
 	report := Compare(base, head, "base", "head")
 	test.That(t, len(report.Regressions()), test.ShouldEqual, 0)
@@ -161,12 +157,12 @@ func TestCompareIgnoresRatiosOnTrivialPlans(t *testing.T) {
 
 func TestCompareCleanRunHasNoVerdict(t *testing.T) {
 	base := []Record{
-		{Mode: "warm", Index: 0, Name: "000/a/move", PlanMS: 1000, TrajectoryLen: 100},
-		{Mode: "warm", Index: 1, Name: "001/b/move", PlanMS: 500, TrajectoryLen: 50},
+		{Index: 0, Name: "000/a/move", PlanMS: 1000, TrajectoryLen: 100},
+		{Index: 1, Name: "001/b/move", PlanMS: 500, TrajectoryLen: 50},
 	}
 	head := []Record{
-		{Mode: "warm", Index: 0, Name: "000/a/move", PlanMS: 1010, TrajectoryLen: 100},
-		{Mode: "warm", Index: 1, Name: "001/b/move", PlanMS: 495, TrajectoryLen: 50},
+		{Index: 0, Name: "000/a/move", PlanMS: 1010, TrajectoryLen: 100},
+		{Index: 1, Name: "001/b/move", PlanMS: 495, TrajectoryLen: 50},
 	}
 	report := Compare(base, head, "base", "head")
 	test.That(t, report.Verdict(), test.ShouldBeNil)
@@ -176,8 +172,8 @@ func TestCompareCleanRunHasNoVerdict(t *testing.T) {
 func TestRecordsRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "records.ndjson")
 	records := []Record{
-		{Mode: "cold", Index: 0, Name: "000/a/move", PlanMS: 1.5},
-		{Mode: "cold", Index: 1, Name: "001/b/move", PlanMS: 2.5, Err: "boom"},
+		{Index: 0, Name: "000/a/move", PlanMS: 1.5},
+		{Index: 1, Name: "001/b/move", PlanMS: 2.5, Err: "boom"},
 	}
 	test.That(t, WriteRecords(path, records), test.ShouldBeNil)
 
@@ -188,29 +184,20 @@ func TestRecordsRoundTrip(t *testing.T) {
 
 func TestOptionsDefaults(t *testing.T) {
 	opts := Options{}.WithDefaults()
-	test.That(t, opts.Mode, test.ShouldEqual, ModeWarm)
 	test.That(t, opts.Repeat, test.ShouldEqual, 1)
 	test.That(t, opts.GCPercent, test.ShouldEqual, defaultGCPercent)
 	test.That(t, opts.Logger, test.ShouldNotBeNil)
 
 	// An explicit zero GC target is not reachable through the options; that is deliberate, since an
 	// unpinned GC target is the difference a cross-revision comparison would silently absorb.
-	opts = Options{Mode: ModeCold, Repeat: 3, GCPercent: 100}.WithDefaults()
-	test.That(t, opts.Mode, test.ShouldEqual, ModeCold)
+	opts = Options{Repeat: 3, GCPercent: 100}.WithDefaults()
 	test.That(t, opts.Repeat, test.ShouldEqual, 3)
 	test.That(t, opts.GCPercent, test.ShouldEqual, 100)
 }
 
-func TestEntryFromEnvRoundTrip(t *testing.T) {
-	entry := Entry{Index: 7, File: "007-x.json", Step: "brewing", Motion: "move", RecordedAt: time.Now().UTC().Truncate(time.Millisecond)}
-	data, err := json.Marshal(entry)
-	test.That(t, err, test.ShouldBeNil)
-	t.Setenv(subprocessEnvEntry, string(data))
-
-	got, err := EntryFromEnv()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, got, test.ShouldResemble, entry)
-	test.That(t, got.Name(), test.ShouldEqual, "007/brewing/move")
+func TestEntryName(t *testing.T) {
+	entry := Entry{Index: 7, Step: "brewing", Motion: "move"}
+	test.That(t, entry.Name(), test.ShouldEqual, "007/brewing/move")
 }
 
 // writeCapture lays down one file in the nested `tag=` layout that `viam data export binary`

@@ -6,10 +6,6 @@ on:
     inputs:
       pr_number:
         type: string
-      mode:
-        description: 'Replay mode: warm (one process, recorded order) or cold (fresh process per plan).'
-        type: string
-        default: warm
       passes:
         description: 'Independent replays per side. Each is a fresh process; the comparator takes a median.'
         type: string
@@ -19,9 +15,16 @@ on:
         type: boolean
         default: false
 
+# Read-only by default; the job below takes the one write it needs for the sticky comment.
+permissions:
+  contents: read
+
 jobs:
   motion_order_benchmark:
     name: Motion Order Benchmark
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-large
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     timeout-minutes: 45
@@ -32,7 +35,6 @@ jobs:
       # viam-server never sets this, so production plans cold. Leaving the on-disk roadmap enabled
       # would let the newer revision replay learned corridors the older one structurally cannot have.
       MOTION_ROADMAP_CACHE_DIR: ''
-      MODE: ${{ inputs.mode || 'warm' }}
       PASSES: ${{ inputs.passes || '2' }}
     steps:
     - name: Check out head code
@@ -88,15 +90,19 @@ jobs:
         # entirely on whichever side ran second. Each invocation is a fresh process, which is what
         # makes the passes independent samples rather than progressively warmer ones.
         #
-        # The pinned settings are repeated on each command line because `sudo -H` resets the
-        # environment: a job-level `env:` block never reaches the replay. The harness pins both
-        # itself, so this is redundancy rather than the only line of defence -- but a comparison
-        # whose controls depend on the harness under test is not much of a control.
+        # `sudo env VAR=...` rather than a job-level `env:` block, because `sudo -H` resets the
+        # environment and the block would never reach the replay. The harness pins both itself, so
+        # this is redundancy rather than the only line of defence -- but a comparison whose controls
+        # depend on the harness under test is not much of a control.
+        #
+        # The binary is invoked directly instead of through `bash -lc`: it needs no Go toolchain on
+        # PATH, and every argument then stays a shell word rather than being re-parsed by a nested
+        # shell.
         for pass in $(seq 1 "$PASSES"); do
-          sudo -Hu testbot bash -lc \
-            "GOGC=$GOGC MOTION_ROADMAP_CACHE_DIR='$MOTION_ROADMAP_CACHE_DIR' ./orderbench-base run -corpus ./corpus -mode $MODE -out base-$pass.ndjson"
-          sudo -Hu testbot bash -lc \
-            "GOGC=$GOGC MOTION_ROADMAP_CACHE_DIR='$MOTION_ROADMAP_CACHE_DIR' ./orderbench-head run -corpus ./corpus -mode $MODE -out head-$pass.ndjson"
+          sudo -Hu testbot env GOGC="$GOGC" MOTION_ROADMAP_CACHE_DIR="$MOTION_ROADMAP_CACHE_DIR" \
+            ./orderbench-base run -corpus ./corpus -out "base-$pass.ndjson"
+          sudo -Hu testbot env GOGC="$GOGC" MOTION_ROADMAP_CACHE_DIR="$MOTION_ROADMAP_CACHE_DIR" \
+            ./orderbench-head run -corpus ./corpus -out "head-$pass.ndjson"
         done
         cat base-*.ndjson > base.ndjson
         cat head-*.ndjson > head.ndjson
@@ -106,21 +112,28 @@ jobs:
       env:
         BASELINE: ${{ github.event.pull_request.base.label || 'main' }}
         MODIFIED: ${{ github.event.pull_request.head.label || github.ref_name }}
-        FAIL_ON_REGRESSION: ${{ inputs.fail_on_regression && '-fail-on-regression' || '' }}
+        FAIL_ON_REGRESSION: ${{ inputs.fail_on_regression }}
       run: |
-        sudo -Hu testbot bash -lc "./orderbench-head compare \
+        # BASELINE and MODIFIED are branch labels from the pull request, so they are attacker
+        # controlled on a fork PR and a git ref may legally contain a single quote. They reach the
+        # binary as quoted shell words, never as text inside a nested `bash -lc` script.
+        args=()
+        if [ "$FAIL_ON_REGRESSION" = "true" ]; then
+          args+=(-fail-on-regression)
+        fi
+        sudo -Hu testbot ./orderbench-head compare \
           -base base.ndjson -head head.ndjson \
-          -base-label '$BASELINE' -head-label '$MODIFIED' \
+          -base-label "$BASELINE" -head-label "$MODIFIED" \
           -out motion-order-benchmark.md \
           -json-out motion-order-benchmark.json \
-          $FAIL_ON_REGRESSION"
+          "${args[@]}"
         cat motion-order-benchmark.md
 
     - name: Upload raw records
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: motion-order-benchmark-${{ env.MODE }}
+        name: motion-order-benchmark
         path: |
           base.ndjson
           head.ndjson
@@ -131,7 +144,7 @@ jobs:
       uses: marocchino/sticky-pull-request-comment@v2
       if: ${{ inputs.pr_number }}
       with:
-        header: motion-order-benchmark-${{ env.MODE }}
+        header: motion-order-benchmark
         number: ${{ inputs.pr_number }}
         recreate: true
         path: motion-order-benchmark.md

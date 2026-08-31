@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -20,26 +19,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// Mode selects how much planner state carries from one plan in the order to the next. The two
-// modes measure genuinely different things and routinely disagree, so a comparison must name which
-// one it ran.
-type Mode string
-
-const (
-	// ModeWarm replays the whole order in one process, in recorded order. Learned roadmaps,
-	// smart-seed caches and the static-scene SDF registry accumulate exactly as they do during a
-	// real shift, so this is the number that reflects production behaviour.
-	ModeWarm Mode = "warm"
-
-	// ModeCold plans each request in a freshly forked process. Nothing is shared between plans, so
-	// this isolates the per-plan floor -- scene preprocessing that does not amortise -- and is
-	// insensitive to the order the plans run in.
-	ModeCold Mode = "cold"
-)
-
-// Modes lists every valid replay mode.
-var Modes = []Mode{ModeWarm, ModeCold}
-
 // defaultGCPercent matches what cmd-plan (and therefore the planner's tuned behaviour) uses. It is
 // set explicitly rather than inherited so that a GOGC difference between two revisions' CLIs
 // cannot masquerade as a planner change.
@@ -47,6 +26,11 @@ const defaultGCPercent = 300
 
 // Options configures a replay. Every field that can move a timing number is explicit: a
 // cross-revision comparison is only meaningful if both sides ran with an identical configuration.
+//
+// The whole order is replayed in a single process, in recorded order, so learned roadmaps, the
+// smart-seed cache and the static-scene SDF registry accumulate exactly as they do during a real
+// shift. That is deliberate rather than incidental: it is the shape production runs, and a plan's
+// cost depends on which plans preceded it.
 type Options struct {
 	// CorpusDir holds the payloads and the manifest. Leave empty to resolve CorpusName from the
 	// artifact store instead.
@@ -59,7 +43,6 @@ type Options struct {
 	// there would put a stray file in the artifact cache -- so a caller that has already resolved
 	// passes what it got back through here.
 	Manifest *Manifest
-	Mode     Mode
 	// Repeat runs the whole order this many times. Passes are recorded separately so the
 	// comparator can take a median and shrug off a noisy runner.
 	Repeat int
@@ -83,9 +66,6 @@ type Options struct {
 // WithDefaults fills in the fields that were left zero. Callers that report their configuration
 // should normalize through this first, so what they print is what actually ran.
 func (o Options) WithDefaults() Options {
-	if o.Mode == "" {
-		o.Mode = ModeWarm
-	}
 	if o.Repeat <= 0 {
 		o.Repeat = 1
 	}
@@ -101,7 +81,6 @@ func (o Options) WithDefaults() Options {
 // Record is one plan's result. Field names are the join keys between two runs, so they are part of
 // the file format and should only be added to.
 type Record struct {
-	Mode   string `json:"mode"`
 	Pass   int    `json:"pass"`
 	Index  int    `json:"index"`
 	Name   string `json:"name"`
@@ -166,23 +145,11 @@ func Run(ctx context.Context, opts Options) ([]Record, error) {
 			if err := ctx.Err(); err != nil {
 				return records, err
 			}
-			var (
-				rec Record
-				err error
-			)
-			switch o.Mode {
-			case ModeWarm:
-				rec, err = planOne(ctx, filepath.Join(o.CorpusDir, entry.File), entry, o)
-			case ModeCold:
-				rec, err = planInSubprocess(ctx, filepath.Join(o.CorpusDir, entry.File), entry, o)
-			default:
-				return nil, fmt.Errorf("unknown mode %q", o.Mode)
-			}
+			rec, err := planOne(ctx, filepath.Join(o.CorpusDir, entry.File), entry, o)
 			if err != nil {
 				return records, err
 			}
 			rec.Pass = pass
-			rec.Mode = string(o.Mode)
 			records = append(records, rec)
 		}
 	}
@@ -210,12 +177,6 @@ func matchesAny(name string, patterns []string) bool {
 		}
 	}
 	return false
-}
-
-// PlanOne parses and plans a single captured request in the current process. Exported so the cold
-// mode's forked child can reach it.
-func PlanOne(ctx context.Context, path string, entry Entry, opts Options) (Record, error) {
-	return planOne(ctx, path, entry, opts.WithDefaults())
 }
 
 func planOne(ctx context.Context, path string, entry Entry, o Options) (Record, error) {
@@ -317,86 +278,6 @@ func trajectoryL2(traj motionplan.Trajectory) float64 {
 
 func msSince(start time.Time) float64 {
 	return float64(time.Since(start).Microseconds()) / 1000.0
-}
-
-// subprocessEnvEntry names the environment variable the parent uses to hand an entry to its forked
-// child in cold mode.
-const subprocessEnvEntry = "ORDERBENCH_ENTRY"
-
-// planInSubprocess runs one plan in a fresh copy of this binary. armplanning keeps process-global
-// state -- the learned roadmap, the smart-seed cache, the static-scene SDF registry -- so a cold
-// measurement is not reachable by resetting anything from inside the process.
-func planInSubprocess(ctx context.Context, path string, entry Entry, o Options) (Record, error) {
-	self, err := os.Executable()
-	if err != nil {
-		return Record{}, fmt.Errorf("locating own executable for cold mode: %w", err)
-	}
-
-	entryJSON, err := json.Marshal(entry)
-	if err != nil {
-		return Record{}, err
-	}
-
-	// The child hands its record back through a file, not stdout. armplanning holds package-level
-	// loggers (smart_seed.go's cache-build logger, for one) that write to stdout and that no caller
-	// can silence, so anything parsing the child's stdout would eventually read a log line as a
-	// result.
-	recordFile, err := os.CreateTemp("", "orderbench-record-*.json")
-	if err != nil {
-		return Record{}, err
-	}
-	recordPath := recordFile.Name()
-	if err := recordFile.Close(); err != nil {
-		return Record{}, err
-	}
-	defer os.Remove(recordPath) //nolint:errcheck
-
-	args := []string{
-		"replay-one",
-		"-corpus", o.CorpusDir,
-		"-gc-percent", fmt.Sprint(o.GCPercent),
-		"-record-out", recordPath,
-	}
-	if o.PlanTimeout > 0 {
-		args = append(args, "-plan-timeout", o.PlanTimeout.String())
-	}
-	args = append(args, path)
-
-	cmd := exec.CommandContext(ctx, self, args...) //nolint:gosec // self-exec with harness-built args
-	cmd.Env = append(os.Environ(),
-		subprocessEnvEntry+"="+string(entryJSON),
-		"MOTION_ROADMAP_CACHE_DIR="+o.RoadmapCacheDir,
-		"GOGC="+fmt.Sprint(o.GCPercent),
-	)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return Record{}, fmt.Errorf("cold replay of %s failed: %w", entry.Name(), err)
-	}
-
-	data, err := os.ReadFile(recordPath) //nolint:gosec // path created by this process
-	if err != nil {
-		return Record{}, fmt.Errorf("cold replay of %s wrote no record: %w", entry.Name(), err)
-	}
-	var rec Record
-	if err := json.Unmarshal(data, &rec); err != nil {
-		return Record{}, fmt.Errorf("cold replay of %s returned unparseable record: %w", entry.Name(), err)
-	}
-	return rec, nil
-}
-
-// EntryFromEnv reads the entry a cold-mode parent handed to this child process.
-func EntryFromEnv() (Entry, error) {
-	raw, ok := os.LookupEnv(subprocessEnvEntry)
-	if !ok {
-		return Entry{}, fmt.Errorf("%s is not set; replay-one is only meant to be spawned by a cold replay", subprocessEnvEntry)
-	}
-	var entry Entry
-	if err := json.Unmarshal([]byte(raw), &entry); err != nil {
-		return Entry{}, err
-	}
-	return entry, nil
 }
 
 // ApplyProcessControls pins the process-wide settings that would otherwise silently differ between

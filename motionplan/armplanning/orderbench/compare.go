@@ -81,9 +81,8 @@ type PlanDelta struct {
 	FixedFailure    bool    `json:"fixed_failure"`
 }
 
-// Report is a full base-vs-head comparison for one replay mode.
+// Report is a full base-vs-head comparison.
 type Report struct {
-	Mode      string      `json:"mode"`
 	BaseLabel string      `json:"base_label"`
 	HeadLabel string      `json:"head_label"`
 	Base      Aggregate   `json:"base"`
@@ -180,9 +179,6 @@ func Compare(base, head []Record, baseLabel, headLabel string) *Report {
 		PlanThreshold:  DefaultRegressionThreshold,
 		GateThreshold:  DefaultGateThreshold,
 		TotalThreshold: DefaultTotalThreshold,
-	}
-	if len(head) > 0 {
-		report.Mode = head[0].Mode
 	}
 
 	names := map[string]bool{}
@@ -335,7 +331,7 @@ func (r *Report) Verdict() error {
 func (r *Report) Markdown() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "### Motion order benchmark — `%s` replay\n\n", r.Mode)
+	b.WriteString("### Motion order benchmark\n\n")
 	fmt.Fprintf(&b, "`%s` (base) vs `%s` (head), %d plans replayed in recorded order.\n\n", r.BaseLabel, r.HeadLabel, r.Head.Plans)
 
 	fmt.Fprintf(&b, "| | base | head | ratio |\n|---|---:|---:|---:|\n")
