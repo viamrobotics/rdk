@@ -244,6 +244,11 @@ type PlanMeta struct {
 	// straight-line path with small nudges around obstacles, skipping CBIRRT.
 	GoalsNudgeSolved int
 
+	// GoalsSalvagedRaw is the number of waypoints where the smoothed path
+	// failed full-resolution validation and the unsmoothed search path was
+	// returned instead.
+	GoalsSalvagedRaw int
+
 	// GoalsRoadmapSolved is the number of waypoints solved through the lazy
 	// roadmap, skipping CBIRRT.
 	GoalsRoadmapSolved int

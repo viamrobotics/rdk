@@ -172,12 +172,15 @@ func (pm *planManager) planToDirectJoints(
 	if err != nil {
 		return nil, err
 	}
-	finalSteps.steps, _, err = smoothPath(ctx, psc, finalSteps.steps)
+	smoothed, _, err := smoothPath(ctx, psc, finalSteps.steps)
 	if err != nil {
-		return nil, err
+		smoothed, err = salvageRawPath(ctx, psc, finalSteps.steps, err)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return finalSteps.steps, nil
+	return smoothed, nil
 }
 
 func (pm *planManager) planSingleGoal(
@@ -301,7 +304,11 @@ func (pm *planManager) planSingleGoal(
 
 	steps, compact, err := smoothPath(ctx, psc, rawSteps)
 	if err != nil {
-		return nil, err
+		steps, err = salvageRawPath(ctx, psc, rawSteps, err)
+		if err != nil {
+			return nil, err
+		}
+		compact = rawSteps
 	}
 
 	pm.pc.planMeta.GoalsCBIRRTSolved++

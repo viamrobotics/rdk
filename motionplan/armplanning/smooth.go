@@ -160,6 +160,27 @@ func smoothPath(
 	return final, compact, err
 }
 
+// salvageRawPath recovers a plan whose smoothed path failed full-resolution
+// validation. The segment sweeps that vet shortcuts skip states by clearance,
+// while addCloseObstacleWaypoints checks every near-obstacle state, so a
+// shortcut can thread a gap the sweep never sampled. The pre-smoothing path is
+// a searched, sweep-validated asset: re-validate it at full resolution and
+// return it unsmoothed rather than discarding the whole plan.
+func salvageRawPath(
+	ctx context.Context, psc *PlanSegmentContext, rawSteps []*referenceframe.LinearInputs, smoothErr error,
+) ([]*referenceframe.LinearInputs, error) {
+	validated, err := addCloseObstacleWaypoints(ctx, psc, rawSteps)
+	if err != nil {
+		// The raw path fails full-resolution validation too; the sweep missed
+		// a violation during search itself. Surface the original error.
+		return nil, smoothErr
+	}
+	psc.pc.logger.Infof("smoothed path failed full-resolution validation, salvaging unsmoothed path (%d waypoints): %v",
+		len(validated), smoothErr)
+	psc.pc.planMeta.GoalsSalvagedRaw++
+	return validated, nil
+}
+
 // addCloseObstacleWaypoints interpolates every segment at full resolution and
 // inserts waypoints wherever the path comes close to an obstacle, preventing
 // later interpolation from cutting corners.
