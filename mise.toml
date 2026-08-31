@@ -1,7 +1,11 @@
 min_version = '2026.8.16'
 
 [tools]
+"gem:license_finder" = "7.2.1"
+go = "1.25"
 golangci-lint = "2.9.0"
+ruby = "4.0.6"
+upx = "5.2.1"
 
 [tasks.lint-go]
 alias = "lint"
@@ -17,3 +21,9 @@ golangci-lint fmt{% if env.CI %} -v{% endif %}{% if usage.dry_run %} --diff{% en
 ./etc/lint_register_apis.sh || result=$?
 exit ${result:-0}
 '''
+
+[tasks.license-check]
+run = [
+  'license_finder version',
+  'license_finder',
+]
