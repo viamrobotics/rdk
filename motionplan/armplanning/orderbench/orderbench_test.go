@@ -1,10 +1,8 @@
 package orderbench
 
 import (
-	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"go.viam.com/test"
@@ -15,77 +13,6 @@ func TestTagLabels(t *testing.T) {
 	test.That(t, labels["step"], test.ShouldEqual, "opening_fridge")
 	test.That(t, labels["motion"], test.ShouldEqual, "open_door")
 	test.That(t, labels["planning"], test.ShouldEqual, "success")
-}
-
-func TestIngestOrdersByRecordedTime(t *testing.T) {
-	exportDir := t.TempDir()
-	order := "test-order"
-
-	// Written in an order that is neither recorded order nor alphabetical by step, so a walk that
-	// forgot to sort would not accidentally pass.
-	writeCapture(t, exportDir, order, "serving", "carry", "20260828_153900.100")
-	writeCapture(t, exportDir, order, "grinding", "move", "20260828_153126.083")
-	writeCapture(t, exportDir, order, "tamping", "move", "20260828_153143.958")
-
-	// A video capture shares the order tag but is not a plan; ingest must not pick it up.
-	videoDir := filepath.Join(exportDir, "data", "video-upload")
-	test.That(t, os.MkdirAll(videoDir, 0o750), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(videoDir, "20260828_153200.000_clip.mp4"), []byte("not json"), 0o600), test.ShouldBeNil)
-
-	dstDir := filepath.Join(t.TempDir(), "corpus")
-	manifest, err := Ingest(exportDir, order, dstDir, "motionplan/order-replay/test")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(manifest.Entries), test.ShouldEqual, 3)
-
-	test.That(t, manifest.Entries[0].Step, test.ShouldEqual, "grinding")
-	test.That(t, manifest.Entries[1].Step, test.ShouldEqual, "tamping")
-	test.That(t, manifest.Entries[2].Step, test.ShouldEqual, "serving")
-	for i, entry := range manifest.Entries {
-		test.That(t, entry.Index, test.ShouldEqual, i)
-		test.That(t, strings.HasPrefix(entry.Name(), entry.File[:3]), test.ShouldBeTrue)
-	}
-
-	// The manifest must round-trip and validate against what was written.
-	reloaded, err := LoadManifest(dstDir)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reloaded.Order, test.ShouldEqual, order)
-	test.That(t, reloaded.Verify(dstDir), test.ShouldBeNil)
-}
-
-func TestVerifyRejectsDriftedCorpus(t *testing.T) {
-	exportDir := t.TempDir()
-	writeCapture(t, exportDir, "o", "grinding", "move", "20260828_153126.083")
-
-	dstDir := filepath.Join(t.TempDir(), "corpus")
-	manifest, err := Ingest(exportDir, "o", dstDir, "")
-	test.That(t, err, test.ShouldBeNil)
-
-	payload := filepath.Join(dstDir, manifest.Entries[0].File)
-	test.That(t, os.WriteFile(payload, []byte(`{"changed": true}`), 0o600), test.ShouldBeNil)
-
-	err = manifest.Verify(dstDir)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "does not match manifest")
-}
-
-func TestRunAcceptsAManifestForADirectoryWithoutOne(t *testing.T) {
-	exportDir := t.TempDir()
-	writeCapture(t, exportDir, "o", "grinding", "move", "20260828_153126.083")
-
-	dstDir := filepath.Join(t.TempDir(), "corpus")
-	manifest, err := Ingest(exportDir, "o", dstDir, "")
-	test.That(t, err, test.ShouldBeNil)
-
-	// A corpus resolved from the artifact store has no manifest of its own, by design. Passing the
-	// manifest explicitly has to be enough, or every caller that already resolved one would have to
-	// write a stray file into the artifact cache to use it.
-	test.That(t, os.Remove(filepath.Join(dstDir, ManifestName)), test.ShouldBeNil)
-
-	_, err = Run(context.Background(), Options{CorpusDir: dstDir, Manifest: manifest, Limit: 1})
-	// The capture is a stub, so planning cannot succeed -- but resolution must get far enough to
-	// try, rather than failing on the missing manifest.
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldNotContainSubstring, ManifestName)
 }
 
 func TestSummarizeTakesMedianAcrossPasses(t *testing.T) {

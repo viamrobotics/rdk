@@ -4,9 +4,7 @@
 //	orderbench fetch   -out ./corpus
 //	orderbench run     -corpus ./corpus -out head.ndjson
 //	orderbench compare -base base.ndjson -head head.ndjson -out report.md
-//
-// Building a corpus from a `viam data export` tree is a rare maintenance task rather than part of
-// running a benchmark, so it lives in orderbench.Ingest rather than here.
+
 package main
 
 import (

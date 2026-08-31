@@ -17,7 +17,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 )
@@ -68,96 +67,6 @@ func (m *Manifest) TotalBytes() int64 {
 		total += e.Bytes
 	}
 	return total
-}
-
-// Ingest converts a `viam data export binary` tree into a flat, ordered corpus directory plus its
-// manifest. The export layout nests each capture under `tag=` directories that carry the labels we
-// want to keep, and mixes in unrelated captures (video uploads) that share the order tag, so this
-// cannot be a plain directory copy.
-func Ingest(exportDir, order, dstDir, artifactPath string) (*Manifest, error) {
-	dataRoot := filepath.Join(exportDir, "data", "tag="+order)
-	if _, err := os.Stat(dataRoot); err != nil {
-		return nil, fmt.Errorf("no captures for order %q under %q: %w", order, exportDir, err)
-	}
-
-	type found struct {
-		src   string
-		entry Entry
-	}
-	var candidates []found
-
-	err := filepath.WalkDir(dataRoot, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		match := exportFileRe.FindStringSubmatch(d.Name())
-		if match == nil {
-			return nil
-		}
-		recordedAt, err := time.Parse(recordedTimeLayout, match[1])
-		if err != nil {
-			return fmt.Errorf("unparseable timestamp in %q: %w", path, err)
-		}
-		rel, err := filepath.Rel(dataRoot, path)
-		if err != nil {
-			return err
-		}
-		labels := tagLabels(rel)
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		candidates = append(candidates, found{
-			src: path,
-			entry: Entry{
-				RecordedAt: recordedAt,
-				Step:       labels["step"],
-				Motion:     labels["motion"],
-				Outcome:    labels["planning"],
-				Bytes:      info.Size(),
-			},
-		})
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no plan captures found under %q", dataRoot)
-	}
-
-	// Ties would make the corpus order depend on filesystem walk order, which differs between
-	// machines; fall back to the source path so the manifest is reproducible.
-	sort.Slice(candidates, func(i, j int) bool {
-		if !candidates[i].entry.RecordedAt.Equal(candidates[j].entry.RecordedAt) {
-			return candidates[i].entry.RecordedAt.Before(candidates[j].entry.RecordedAt)
-		}
-		return candidates[i].src < candidates[j].src
-	})
-
-	if err := os.MkdirAll(dstDir, 0o750); err != nil {
-		return nil, err
-	}
-
-	manifest := &Manifest{Order: order, ArtifactPath: artifactPath}
-	for i := range candidates {
-		c := &candidates[i]
-		c.entry.Index = i
-		c.entry.File = fmt.Sprintf("%03d-%s-%s-%s.json",
-			i, c.entry.RecordedAt.Format("150405.000"), c.entry.Step, c.entry.Motion)
-
-		sum, err := copyFile(c.src, filepath.Join(dstDir, c.entry.File))
-		if err != nil {
-			return nil, err
-		}
-		c.entry.SHA256 = sum
-		manifest.Entries = append(manifest.Entries, c.entry)
-	}
-
-	return manifest, manifest.WriteToFile(filepath.Join(dstDir, ManifestName))
 }
 
 // tagLabels pulls the `tag=<key>_<value>` path components the export uses to encode capture

@@ -104,28 +104,5 @@ Export the captures for one order:
 viam data export binary filter --destination ./order-export --tags <order-tag> --timeout 120
 ```
 
-Then build the corpus with `orderbench.Ingest`, which flattens the export's nested `tag=`
-directories, orders the plans by capture timestamp and writes the manifest. This is a rare
-maintenance task rather than part of running a benchmark, so it is a library call and not a CLI
-subcommand — a throwaway `main` is enough:
-
-```go
-manifest, err := orderbench.Ingest(
-    "./order-export", "<order-tag>", "./corpus", "motionplan/order-replay/<name>")
-```
-
-Commit the manifest, stage the payloads, and push:
-
-```bash
-cp ./corpus/manifest.json motionplan/armplanning/orderbench/corpora/<name>.json
-mkdir -p .artifact/data/motionplan/order-replay/<name>
-cp ./corpus/*.json .artifact/data/motionplan/order-replay/<name>/
-rm .artifact/data/motionplan/order-replay/<name>/manifest.json
-artifact push   # needs ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS
-```
-
-The export mixes in unrelated captures that share the order tag — the current one carries 215 MB of
-video alongside 107 MB of plans — which `Ingest` filters out. Payloads go to the artifact store;
-only the manifest is committed, and it is what pins order, labels and content hashes. The replay
-verifies every payload against it before running, because a corpus that has silently drifted would
-invalidate every comparison made against it.
+Create a manifest similar to `motionplan/armplanning/orderbench/corpora/cappuccina-5fb95a4c.json`
+Use `artifact push` to push those our files storage
