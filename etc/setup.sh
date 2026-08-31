@@ -33,20 +33,10 @@ do_piOS(){
 	sudo apt-get install -y --no-install-recommends libopus-dev libx11-dev libxext-dev libopusfile-dev
 
 	# Install backports
-	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
-
-	# upx
-	UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-amd64_linux.tar.xz
-	if [ "$(uname -m)" = "aarch64" ]; then
-		UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-arm64_linux.tar.xz
-	fi
-	curl -L "\$UPX_URL" | tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
+	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports
 
 	# canon
 	GOBIN=/usr/local/bin go install github.com/viamrobotics/canon@latest
-
-	# license_finder
-	apt-get install -y ruby && gem install license_finder
 	EOS
 
 	if [ $? -ne 0 ]; then
@@ -181,17 +171,12 @@ do_brew(){
 	# viam tap
 	tap  "viamrobotics/brews"
 
-	# pinned
-	brew "go@1.23", link: true, conflicts_with: ["go"]
-	brew "node@18", link: true, conflicts_with: ["node"]
-
 	# unpinned
 	brew "viamrobotics/brews/canon"
 	brew "pkg-config"
 	brew "viamrobotics/brews/nlopt-static"
 	brew "x264", args: ["build-from-source"]
 	brew "ffmpeg"
-	brew "licensefinder"
 	brew "opus"
 	brew "opusfile"
 	EOS
@@ -200,12 +185,6 @@ do_brew(){
 		echo "Package installation failed when running brew command, please retry."
 		exit 1
 	fi
-
-	# replace default go with pinned
-	brew link --overwrite go@1.23
-
-	# due to a missing bottle in homebrew, this has to be installed on its own
-	brew install upx
 
 	echo "Brew installed software versions..."
 	brew list --version
