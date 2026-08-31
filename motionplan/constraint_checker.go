@@ -50,6 +50,8 @@ type ConstraintChecker struct {
 	collisionConstraints CollisionConstraints
 	topoConstraint       StateFSConstraint
 
+	collisionBufferMM float64
+
 	logger logging.Logger
 }
 
@@ -80,6 +82,7 @@ func NewConstraintChecker(
 		constraints = &Constraints{}
 	}
 	handler := NewEmptyConstraintChecker(logger)
+	handler.collisionBufferMM = collisionBufferMM
 
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
 	if err != nil {
@@ -413,7 +416,18 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 		// constraints (orientation/linear) carry no such guarantee but are
 		// cheap - a single FK pass per state - so evaluate just those on the
 		// skipped states instead of disabling skipping altogether.
-		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
+		//
+		// The cushion keeps this sweep's verdicts consistent with the
+		// full-resolution finalization pass (armplanning's
+		// findCloseObstacleWaypoints), which checks every state within
+		// 10x the collision buffer of an obstacle: skipping must never hop
+		// into that near zone, or a path accepted here can be rejected at
+		// finalization and fail an otherwise-solved plan. The interpolation
+		// step count also bounds only frame-origin and joint deltas, not
+		// distal geometry on a lever arm, so the raw clearance skip could
+		// overshoot through a thin obstacle; the cushion absorbs that too.
+		cushion := math.Max(0.1, 10*c.collisionBufferMM)
+		canSkip := int(min(100, math.Floor((closestObstacle-cushion)/resolution)))
 		if canSkip > 0 && c.topoConstraint != nil {
 			for j := i + 1; j <= i+canSkip && j < end; j++ {
 				topoC := &StateFS{FS: ci.FS, Configuration: interpolatedConfigurations[j]}
