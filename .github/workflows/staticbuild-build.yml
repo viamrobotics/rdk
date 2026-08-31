@@ -184,7 +184,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/'
         glob: 'viam-server-*'
         parent: false
         gzip: false
@@ -195,7 +195,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/manifest/'
-        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/'
         glob: 'viam-server-*'
         parent: false
         gzip: false
@@ -346,7 +346,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/'
         glob: 'viam-server-*'
         parent: false
         gzip: false
@@ -357,7 +357,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/manifest/'
-        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/'
         glob: 'viam-server-*'
         parent: false
         gzip: false
@@ -385,7 +385,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-${{ needs.static.outputs.channel }}-`uname -m`
+        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/viam-server-${{ needs.static.outputs.channel }}-`uname -m`
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
@@ -416,7 +416,7 @@ jobs:
         TEST_DIR="$(mktemp -d -t test-viam-server-XXXXXX)"
         cd "$TEST_DIR"
 
-        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-${{ needs.static.outputs.channel }}-aarch64
+        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/viam-server-${{ needs.static.outputs.channel }}-aarch64
         chmod 755 viam-server
 
         RAND_PORT=$((30000 + RANDOM))
@@ -449,7 +449,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.mac.outputs.date }}/${{ github.sha }}/viam-server-${{ needs.mac.outputs.channel }}-darwin-aarch64
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.mac.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/viam-server-${{ needs.mac.outputs.channel }}-darwin-aarch64
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))

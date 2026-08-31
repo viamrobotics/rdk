@@ -32,47 +32,64 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
-    - name: Publish Static Binary
-      if: inputs.release_type != 'latest'
-      run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
-
-    - name: Publish Static Binary (Latest)
-      if: inputs.release_type == 'latest'
-      run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/viam-server-v*" "gs://packages.viam.com/apps/viam-server/prerelease/"
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/viam-server-latest*" "gs://packages.viam.com/apps/viam-server/"
-
-    # Captured before the move, because the move is what empties this prefix.
+    # Captured before any move, because the moves are what empty these prefixes.
     - name: List Manifests To Publish
       id: staged_manifests
+      env:
+        MANIFESTS: gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
       run: |
-        names=$(gsutil ls "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/*" | sed 's|.*/||' | tr '\n' ' ')
-        echo "names=$names" >> $GITHUB_OUTPUT
-
-    - name: Publish Subsystem Metadata
-      id: publish_manifests
-      run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-subsystems/"
-
-    # Gated on the publish step's outcome rather than on a copy of the upload
-    # steps' `if` conditions. Restating `release_type == 'latest'` would tie the
-    # check to the same predicate that routes the binaries, so a regression in
-    # that predicate would skip the check in exactly the run that mispublished.
-    # Keying off what actually ran means any run that publishes also re-reads
-    # what it published, so the last writer in a race inspects the state it left.
-    - name: Verify Published Manifests
-      if: steps.publish_manifests.outcome == 'success'
-      run: |
-        names="${{ steps.staged_manifests.outputs.names }}"
-        # Unquoted below so the names word-split into separate arguments. Empty
-        # would make the script fall back to sweeping recent history, which is
-        # not what this step is for -- fail instead.
+        names=$(gsutil ls "$MANIFESTS/*" | sed 's|.*/||' | tr '\n' ' ')
+        # The pipeline hides a failed ls, and an empty list would send every
+        # staged binary to the release path. Stop before anything moves.
         if [ -z "${names// /}" ]; then
           echo "no manifests were staged for this run" >&2
           exit 1
         fi
-        ./etc/verify-manifests.sh $names
+        echo "names=$names" >> $GITHUB_OUTPUT
+
+    - name: Publish Static Binary
+      env:
+        NAMES: ${{ steps.staged_manifests.outputs.names }}
+        BINARIES: gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
+        MANIFESTS: gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
+      run: |
+        # A versioned binary lands where its own manifest says, so the two
+        # cannot disagree about the prerelease path.
+        read -ra staged <<<"$NAMES"
+        for name in "${staged[@]}"; do
+          dest=$(gsutil cat "$MANIFESTS/$name" | jq -r '."upload-path"')
+          gsutil mv "$BINARIES/${name%.json}" "gs://$dest"
+        done
+
+        # Channel aliases (latest, stable) carry no manifest and publish under
+        # their fixed name at the release path.
+        aliases=$(gsutil ls "$BINARIES/*" 2>/dev/null || true)
+        if [ -n "$aliases" ]; then
+          gsutil mv "$BINARIES/*" "gs://packages.viam.com/apps/viam-server/"
+        fi
+
+    - name: Publish Subsystem Metadata
+      id: publish_manifests
+      env:
+        MANIFESTS: gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
+      run: |
+        gsutil mv "$MANIFESTS/*" "gs://packages.viam.com/apps/viam-subsystems/"
+
+    # Gated on the publish step's outcome, so every run that publishes re-reads
+    # what it published and the last writer in a race inspects what it left.
+    - name: Verify Published Manifests
+      if: steps.publish_manifests.outcome == 'success'
+      env:
+        NAMES: ${{ steps.staged_manifests.outputs.names }}
+      run: |
+        read -ra names <<<"$NAMES"
+        # No names would make the script fall back to sweeping recent history,
+        # which is not what this step is for; fail instead.
+        if [ ${#names[@]} -eq 0 ]; then
+          echo "no manifests were staged for this run" >&2
+          exit 1
+        fi
+        ./etc/verify-manifests.sh "${names[@]}"
 
     - name: Output Summary
       run: |
