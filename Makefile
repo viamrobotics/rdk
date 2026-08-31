@@ -170,7 +170,7 @@ windows: bin/windows/viam-server-amd64.exe
 
 $(BIN_OUTPUT_PATH)/viam-server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static
 	cp $< $@
-	upx --best --lzma $@
+	mise x -- upx --best --lzma $@
 
 .PHONY: server-static-compressed
 server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
@@ -179,8 +179,7 @@ clean-all:
 	git clean -fxd
 
 license-check:
-	license_finder version
-	license_finder
+	mise run license-check
 
 FFMPEG_ROOT ?= etc/FFmpeg
 $(FFMPEG_ROOT):
