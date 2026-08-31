@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // This file implements a lazy probabilistic roadmap: a reusable graph over the
@@ -796,18 +795,14 @@ func (pm *planManager) tryRoadmap(
 	return nil
 }
 
-// roadmapSceneKeyGeoms folds the static robot geometry's world poses into the
-// scene key. Toggle for A/B diagnosis of the input-only key, which is blind to
-// environment geometry that lives in the frame system (a door whose fixed
-// transform is updated between plans, a tracked fixture): the non-chain inputs
-// never change while the geometry moves, so edge verdicts, cached occupancy,
-// and cached smoothed trajectories are shared across physically different
-// scenes.
-var roadmapSceneKeyGeoms = utils.GetenvBool("ROADMAP_SCENE_KEY_GEOMS", true)
-
 // roadmapSceneKey fingerprints everything edge validity depends on beyond the
 // structure: the obstacle set, the non-chain part of the configuration, and
-// the static robot geometry's world poses.
+// the static robot geometry's world poses. The geometry poses must be in the
+// key because the non-chain inputs alone are blind to environment geometry
+// that lives in the frame system (a door whose fixed transform is updated
+// between plans, a tracked fixture): the inputs never change while the
+// geometry moves, so edge verdicts, cached occupancy, and cached smoothed
+// trajectories would be shared across physically different scenes.
 func (pm *planManager) roadmapSceneKey(psc *PlanSegmentContext, rm *roadmap) uint64 {
 	const fnvPrime = 0x100000001b3
 	h := uint64(0xcbf29ce484222325)
@@ -830,9 +825,7 @@ func (pm *planManager) roadmapSceneKey(psc *PlanSegmentContext, rm *roadmap) uin
 			mix(math.Float64bits(v))
 		}
 	}
-	if roadmapSceneKeyGeoms {
-		mix(psc.staticGeomHash)
-	}
+	mix(psc.staticGeomHash)
 	if pm.request.ObstaclesInWorldFrame != nil {
 		for _, g := range pm.request.ObstaclesInWorldFrame.Geometries() {
 			for _, ch := range g.Label() {
