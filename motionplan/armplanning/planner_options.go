@@ -153,8 +153,19 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 	if opt.CollisionBufferMM < 0 {
 		return nil, errors.New("collision_buffer_mm can't be negative")
 	}
+	opt.normalizeCollisionBuffer()
 
 	return opt, nil
+}
+
+// normalizeCollisionBuffer treats a zero collision buffer as the 1e-8 default.
+// A 0 only arises from decoding into a zero-valued struct or an explicit 0,
+// and exactly 0 flips collision verdicts for geometries modeled in contact,
+// turning millisecond plans into timeouts - so it is normalized, not honored.
+func (p *PlannerOptions) normalizeCollisionBuffer() {
+	if p.CollisionBufferMM == 0 {
+		p.CollisionBufferMM = defaultCollisionBufferMM
+	}
 }
 
 // GetGoalMetric creates the distance metric for the solver using the configured options.
