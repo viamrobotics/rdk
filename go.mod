@@ -388,4 +388,4 @@ require (
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 )
 
-replace go.viam.com/utils => github.com/benjirewis/goutils v0.0.0-20260831144921-bfb9d9e5eef3
+replace go.viam.com/utils => github.com/benjirewis/goutils v0.0.0-20260831202658-07ccb8175e11
