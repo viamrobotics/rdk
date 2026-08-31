@@ -2,37 +2,45 @@ package armplanning
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
+// orderReplayCorpus is the artifact directory holding a captured order's plan
+// requests: one full espresso-drink order of 98 plans, filenames prefixed with
+// their position in the order.
+const orderReplayCorpus = "motionplan/order-replay/cappuccina-5fb95a4c"
+
+// diagCorpusFiles fetches the captured order's plan payloads from the artifact
+// store and returns them in recorded order (Glob sorts, and the fixed-width
+// index prefix makes lexical order the recorded order). The corpus is ~100MB,
+// so a machine that cannot reach the artifact store skips rather than fails -
+// that keeps plain `go test` usable offline.
+func diagCorpusFiles(t *testing.T) []string {
+	t.Helper()
+	dir, err := artifact.Path(orderReplayCorpus)
+	if err != nil {
+		t.Skipf("corpus %q unavailable in the artifact store: %v", orderReplayCorpus, err)
+	}
+	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(files), test.ShouldBeGreaterThan, 0)
+	return files
+}
+
 // TestDiagSceneKeyChurn replays the captured order's 98 plan requests and
 // reports how the roadmap scene key and the SDF static-set hashes actually
-// behave across them. Diagnostic only; skipped unless ORDER_EXPORT_DIR is set.
+// behave across them.
 func TestDiagSceneKeyChurn(t *testing.T) {
-	dir := os.Getenv("ORDER_EXPORT_DIR")
-	if dir == "" {
-		t.Skip("set ORDER_EXPORT_DIR to the captured order's data directory")
-	}
-	var files []string
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err == nil && !info.IsDir() && filepath.Ext(path) == ".json" {
-			files = append(files, path)
-		}
-		return nil
-	})
-	test.That(t, err, test.ShouldBeNil)
-	sort.Slice(files, func(i, j int) bool { return filepath.Base(files[i]) < filepath.Base(files[j]) })
-	test.That(t, len(files), test.ShouldBeGreaterThan, 0)
+	files := diagCorpusFiles(t)
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -62,7 +70,7 @@ func TestDiagSceneKeyChurn(t *testing.T) {
 		sceneKeys[key] = append(sceneKeys[key], i)
 
 		if i == 0 {
-			fmt.Printf("chain frames: %v; goal frames: %d\n", frames, len(psc.goal))
+			t.Logf("chain frames: %v; goal frames: %d", frames, len(psc.goal))
 		}
 
 		// Mirror what NewPlanSegmentContext feeds the constraint checker.
@@ -82,15 +90,15 @@ func TestDiagSceneKeyChurn(t *testing.T) {
 		}
 	}
 
-	fmt.Printf("distinct roadmap scene keys: %d\n", len(sceneKeys))
+	t.Logf("distinct roadmap scene keys: %d", len(sceneKeys))
 	for k, idxs := range sceneKeys {
-		fmt.Printf("  key %016x -> %d plans %v\n", k, len(idxs), truncInts(idxs, 12))
+		t.Logf("  key %016x -> %d plans %v", k, len(idxs), truncInts(idxs, 12))
 	}
-	fmt.Printf("distinct static-robot SDF hashes: %d (consecutive changes: %d)\n", len(staticHashes), staticChanges)
+	t.Logf("distinct static-robot SDF hashes: %d (consecutive changes: %d)", len(staticHashes), staticChanges)
 	for k, idxs := range staticHashes {
-		fmt.Printf("  static %016x -> %d plans %v\n", k, len(idxs), truncInts(idxs, 12))
+		t.Logf("  static %016x -> %d plans %v", k, len(idxs), truncInts(idxs, 12))
 	}
-	fmt.Printf("distinct world-obstacle SDF hashes: %d\n", len(worldHashes))
+	t.Logf("distinct world-obstacle SDF hashes: %d", len(worldHashes))
 
 	// Cross-tab: how many distinct static-geometry environments hide behind
 	// each roadmap scene key. >1 means edge verdicts and cached smoothed
@@ -106,7 +114,7 @@ func TestDiagSceneKeyChurn(t *testing.T) {
 		for _, i := range idxs {
 			envs[staticOf[i]] = true
 		}
-		fmt.Printf("scene key %016x: %d plans across %d distinct environments\n", k, len(idxs), len(envs))
+		t.Logf("scene key %016x: %d plans across %d distinct environments", k, len(idxs), len(envs))
 	}
 
 	// Compact per-plan assignment for visualization: scene-key ordinal and
@@ -131,8 +139,8 @@ func TestDiagSceneKeyChurn(t *testing.T) {
 		keySeq[i] = keyOrd[keyOf[i]]
 		envSeq[i] = envOrd[staticOf[i]]
 	}
-	fmt.Printf("keySeq: %v\n", keySeq)
-	fmt.Printf("envSeq: %v\n", envSeq)
+	t.Logf("keySeq: %v", keySeq)
+	t.Logf("envSeq: %v", envSeq)
 }
 
 func truncInts(v []int, n int) []int {
