@@ -1,0 +1,130 @@
+name: Motion Order Benchmark
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      pr_number:
+        type: string
+      mode:
+        description: 'Replay mode: warm (one process, recorded order) or cold (fresh process per plan).'
+        type: string
+        default: warm
+      passes:
+        description: 'Independent replays per side. Each is a fresh process; the comparator takes a median.'
+        type: string
+        default: '2'
+      fail_on_regression:
+        description: 'Fail the job when the comparison verdict is a regression.'
+        type: boolean
+        default: false
+
+jobs:
+  motion_order_benchmark:
+    name: Motion Order Benchmark
+    runs-on: ubuntu-large
+    container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+    timeout-minutes: 45
+    env:
+      # Pinned rather than inherited: an unset GOGC means "whatever this revision's code decides",
+      # which is exactly the difference a cross-revision comparison must not absorb.
+      GOGC: '300'
+      # viam-server never sets this, so production plans cold. Leaving the on-disk roadmap enabled
+      # would let the newer revision replay learned corridors the older one structurally cannot have.
+      MOTION_ROADMAP_CACHE_DIR: ''
+      MODE: ${{ inputs.mode || 'warm' }}
+      PASSES: ${{ inputs.passes || '2' }}
+    steps:
+    - name: Check out head code
+      uses: actions/checkout@v4
+      with:
+        path: head
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+        # Fork PRs only reach pull_request_target runs behind the 'safe to test' label
+        # (see motion-pull-request-trusted.yml).
+        allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' }}
+
+    - name: Check out base code
+      uses: actions/checkout@v4
+      with:
+        path: base
+        ref: ${{ github.event.pull_request.base.sha || 'main' }}
+
+    - name: Graft the head harness onto the base checkout
+      shell: bash
+      run: |
+        # The base binary must measure the base library with the *head* harness. Building the base
+        # revision's own copy would compare two harnesses as well as two libraries, and would not
+        # work at all for a base that predates the harness.
+        rm -rf base/motionplan/armplanning/orderbench
+        cp -r head/motionplan/armplanning/orderbench base/motionplan/armplanning/orderbench
+
+    - name: Change ownership to testbot
+      run: chown -R testbot:testbot .
+
+    - name: Build both binaries
+      shell: bash
+      run: |
+        sudo -Hu testbot bash -lc "cd head && go build -o ../orderbench-head ./motionplan/armplanning/orderbench/cmd/orderbench"
+        sudo -Hu testbot bash -lc "cd base && go build -o ../orderbench-base ./motionplan/armplanning/orderbench/cmd/orderbench"
+
+    - name: Fetch the plan corpus
+      shell: bash
+      run: |
+        # Pull the ~100MB corpus out of the artifact store up front, so that a first-use download
+        # cannot land inside a timed replay. The artifact path comes from the manifest compiled into
+        # the binary, so the workflow never restates where the payloads live. Both binaries embed
+        # the same manifest -- the head one, after the graft -- so one fetch serves both.
+        #
+        # Run from inside the checkout, because artifact resolution searches upwards for
+        # .artifact/config.json; stage into a shared directory so the base binary, which has no
+        # checkout-relative artifact config of its own to find, can read the same payloads by path.
+        sudo -Hu testbot bash -lc "cd head && ../orderbench-head fetch -out ../corpus"
+
+    - name: Replay both revisions
+      shell: bash
+      run: |
+        # Interleaved, not batched: a runner that slows down halfway through would otherwise land
+        # entirely on whichever side ran second. Each invocation is a fresh process, which is what
+        # makes the passes independent samples rather than progressively warmer ones.
+        for pass in $(seq 1 "$PASSES"); do
+          sudo -Hu testbot bash -lc "./orderbench-base run -corpus ./corpus -mode $MODE -out base-$pass.ndjson"
+          sudo -Hu testbot bash -lc "./orderbench-head run -corpus ./corpus -mode $MODE -out head-$pass.ndjson"
+        done
+        cat base-*.ndjson > base.ndjson
+        cat head-*.ndjson > head.ndjson
+
+    - name: Compare
+      shell: bash
+      env:
+        BASELINE: ${{ github.event.pull_request.base.label || 'main' }}
+        MODIFIED: ${{ github.event.pull_request.head.label || github.ref_name }}
+        FAIL_ON_REGRESSION: ${{ inputs.fail_on_regression && '-fail-on-regression' || '' }}
+      run: |
+        sudo -Hu testbot bash -lc "./orderbench-head compare \
+          -base base.ndjson -head head.ndjson \
+          -base-label '$BASELINE' -head-label '$MODIFIED' \
+          -out motion-order-benchmark.md \
+          -json-out motion-order-benchmark.json \
+          $FAIL_ON_REGRESSION"
+        cat motion-order-benchmark.md
+
+    - name: Upload raw records
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: motion-order-benchmark-${{ env.MODE }}
+        path: |
+          base.ndjson
+          head.ndjson
+          motion-order-benchmark.md
+          motion-order-benchmark.json
+
+    - name: Add Motion Order Benchmark Comment
+      uses: marocchino/sticky-pull-request-comment@v2
+      if: ${{ inputs.pr_number }}
+      with:
+        header: motion-order-benchmark-${{ env.MODE }}
+        number: ${{ inputs.pr_number }}
+        recreate: true
+        path: motion-order-benchmark.md

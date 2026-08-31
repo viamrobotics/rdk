@@ -3691,6 +3691,404 @@
       }
     }
   },
+  "motionplan": {
+    "order-replay": {
+      "cappuccina-5fb95a4c": {
+        "000-153126.083-grinding-move.json": {
+          "hash": "d9afb60374b7b84d0d0d57457f2d3d4f",
+          "size": 578556
+        },
+        "001-153129.698-grinding-move.json": {
+          "hash": "125b9944c422d7339655488073643bc1",
+          "size": 703897
+        },
+        "002-153130.689-grinding-move.json": {
+          "hash": "dfbf0be24dda41f39566c9cdb03ddbd1",
+          "size": 703796
+        },
+        "003-153131.847-grinding-circular.json": {
+          "hash": "fd6819579e41171677785f99ff219fec",
+          "size": 1080984
+        },
+        "004-153143.958-tamping-move.json": {
+          "hash": "e352c48b941c368e363c3283f9f779af",
+          "size": 638962
+        },
+        "005-153147.607-tamping-move.json": {
+          "hash": "99113eea91a0f1491415aab68732633a",
+          "size": 1618872
+        },
+        "006-153152.592-tamping-move.json": {
+          "hash": "d87969a9acd9ea409d1df6fae3b52afc",
+          "size": 1619099
+        },
+        "007-153209.673-locking_portafilter-move.json": {
+          "hash": "b10d7e1feb33ceb6c747d94a376f59a0",
+          "size": 720883
+        },
+        "008-153214.999-locking_portafilter-move.json": {
+          "hash": "90cfff039ec2d98db13d2117bf2b1847",
+          "size": 1015590
+        },
+        "009-153216.395-locking_portafilter-pivot.json": {
+          "hash": "1f94d5c1ba1104f1a04cd89ca652cac1",
+          "size": 1372568
+        },
+        "010-153224.639-releasing_filter-move.json": {
+          "hash": "f1258e55311cea251a099b362de02d3d",
+          "size": 1812532
+        },
+        "011-153227.696-placing_cup-move.json": {
+          "hash": "c7fe2acbadf69c7446b9fb82bb06a0d7",
+          "size": 578034
+        },
+        "012-153235.149-placing_cup-move.json": {
+          "hash": "32736e02997fa64f9e7a05b4d906d6c4",
+          "size": 578027
+        },
+        "013-153235.711-placing_cup-move.json": {
+          "hash": "6a9759922f152aa9f52f24357a286c24",
+          "size": 1961196
+        },
+        "014-153244.672-placing_cup-move.json": {
+          "hash": "382f284da6a7d3f7643dfda749a973c2",
+          "size": 1978383
+        },
+        "015-153257.279-placing_cup-move.json": {
+          "hash": "0f97b75841944d67e31a2227cbb62f42",
+          "size": 835312
+        },
+        "016-153310.154-placing_cup-move.json": {
+          "hash": "ffb6e3a3af6c7dabaeca44007b03703c",
+          "size": 2454585
+        },
+        "017-153314.165-placing_cup-move.json": {
+          "hash": "70d1bf2883553a235910bcce29198028",
+          "size": 2409161
+        },
+        "018-153332.655-brewing-move.json": {
+          "hash": "e7d596749c127925277e14c154e7bcd5",
+          "size": 663331
+        },
+        "019-153336.155-brewing-move.json": {
+          "hash": "8b3736aedde40f26643d985005a1b248",
+          "size": 846129
+        },
+        "020-153337.336-brewing-move.json": {
+          "hash": "83d7cdbc2a21c634f19a3de3f24de406",
+          "size": 846051
+        },
+        "021-153338.286-brewing-move.json": {
+          "hash": "9e4dd2b6c6e5234802ea158eeb3ba647",
+          "size": 578003
+        },
+        "022-153346.202-brewing-move.json": {
+          "hash": "f300fdd024c5b98d01b23cab4f09074c",
+          "size": 577988
+        },
+        "023-153346.645-brewing-move.json": {
+          "hash": "c83f51b0afae1af0791ea77c801094de",
+          "size": 1795210
+        },
+        "024-153352.938-brewing-move.json": {
+          "hash": "0aa06c6bad7512372a2244fa1234a19b",
+          "size": 1810376
+        },
+        "025-153404.593-brewing-move.json": {
+          "hash": "7f0a34532b54f295a51c448ce476ae2f",
+          "size": 915731
+        },
+        "026-153415.753-brewing-move.json": {
+          "hash": "3773cdf7e516ff4b7458ee419a12610c",
+          "size": 1811254
+        },
+        "027-153433.046-brewing-move.json": {
+          "hash": "ce58331577f9327b7326445bd6796184",
+          "size": 1808962
+        },
+        "028-153435.099-brewing-carry.json": {
+          "hash": "a149cb0c7e74f467a4f00995935c12ad",
+          "size": 663768
+        },
+        "029-153439.206-brewing-move.json": {
+          "hash": "cf8d7ae21078a3d7629ac2d871785447",
+          "size": 1979424
+        },
+        "030-153443.810-brewing-move.json": {
+          "hash": "9fc384bb975c95d0e063f49e0787c313",
+          "size": 1967616
+        },
+        "031-153448.198-opening_fridge-move.json": {
+          "hash": "ea807472a20c8001ca12d757c3a5cdf5",
+          "size": 794189
+        },
+        "032-153503.048-opening_fridge-move.json": {
+          "hash": "2cea29fa8a99b169b2821559825a5f29",
+          "size": 1488762
+        },
+        "033-153505.743-opening_fridge-open_door.json": {
+          "hash": "94b8c10a19b5ad68adce97c0e1daa8a3",
+          "size": 601744
+        },
+        "034-153505.957-opening_fridge-open_door.json": {
+          "hash": "9167ef4f217eb500f0f2708d72d96514",
+          "size": 579832
+        },
+        "035-153506.192-opening_fridge-open_door.json": {
+          "hash": "3a118369d80b302211d6ea9661cb71dc",
+          "size": 579690
+        },
+        "036-153506.394-opening_fridge-open_door.json": {
+          "hash": "f486cf54f6282bb0b4d58d8b4a4d6a8d",
+          "size": 579231
+        },
+        "037-153506.598-opening_fridge-open_door.json": {
+          "hash": "971cb93a4e18a28a9b0606653e529250",
+          "size": 579162
+        },
+        "038-153506.794-opening_fridge-open_door.json": {
+          "hash": "5496299b538bf2550eef03900d3e354c",
+          "size": 579352
+        },
+        "039-153507.001-opening_fridge-open_door.json": {
+          "hash": "4015a204d67acd923e3a8519463ea2f5",
+          "size": 579463
+        },
+        "040-153507.196-opening_fridge-open_door.json": {
+          "hash": "91c728396d7d311ff69e680c12bdfa3e",
+          "size": 579381
+        },
+        "041-153514.279-opening_fridge-move.json": {
+          "hash": "b7bfa3eb0c413916c32babf13c83555f",
+          "size": 1500141
+        },
+        "042-153516.784-adding_milk-move.json": {
+          "hash": "9de52f67f7210fd63d8cb68afb2942eb",
+          "size": 630787
+        },
+        "043-153521.282-adding_milk-move.json": {
+          "hash": "63f57b7162be80d96dc3906576d7e867",
+          "size": 579377
+        },
+        "044-153521.781-adding_milk-move.json": {
+          "hash": "3d7e8eee437076b91a018c4dc51e6e3c",
+          "size": 2531219
+        },
+        "045-153529.604-adding_milk-move.json": {
+          "hash": "1d75a2ebce859252c5fee235d7766602",
+          "size": 2551896
+        },
+        "046-153535.297-adding_milk-move.json": {
+          "hash": "580b726aa85e1ef8e9212e20a66cbae4",
+          "size": 794004
+        },
+        "047-153542.859-adding_milk-pivot.json": {
+          "hash": "b0b6863fdc64751967d44a2c5e827956",
+          "size": 1331421
+        },
+        "048-153548.126-adding_milk-pivot.json": {
+          "hash": "32fedca5879b2be9df48cd3a54022a4f",
+          "size": 1330651
+        },
+        "049-153550.610-adding_milk-move.json": {
+          "hash": "9ed988d7669469c2c79dfc5acfce86ff",
+          "size": 798434
+        },
+        "050-153558.469-adding_milk-move.json": {
+          "hash": "1219dbc8c0af61e9e206fec99d7a9c1e",
+          "size": 2553698
+        },
+        "051-153603.443-adding_milk-move.json": {
+          "hash": "587d41924d7deccbe0aca3cf6894b54c",
+          "size": 2528490
+        },
+        "052-153608.679-closing_fridge-move.json": {
+          "hash": "1b19cf1a87e923640c9f88403f55ef97",
+          "size": 706785
+        },
+        "053-153613.932-closing_fridge-move.json": {
+          "hash": "5efae368f06f6d3580298dcd7d93c913",
+          "size": 1500227
+        },
+        "054-153616.186-closing_fridge-close_door.json": {
+          "hash": "97101c383ed80eb53fccf4fd5b13d376",
+          "size": 579564
+        },
+        "055-153616.384-closing_fridge-close_door.json": {
+          "hash": "bb416e9ec9220589bcc86d09f4ebfae4",
+          "size": 579358
+        },
+        "056-153616.607-closing_fridge-close_door.json": {
+          "hash": "13da347495e7fb3a268658dc1d99cee0",
+          "size": 579001
+        },
+        "057-153616.814-closing_fridge-close_door.json": {
+          "hash": "f18825d6a8eea5b5e0a5dd846d4434e2",
+          "size": 579143
+        },
+        "058-153617.011-closing_fridge-close_door.json": {
+          "hash": "cb7be13cbebb6ec51605baca687316ae",
+          "size": 579645
+        },
+        "059-153617.272-closing_fridge-close_door.json": {
+          "hash": "fff8fa848e28191a62d0d6644bd76dba",
+          "size": 579851
+        },
+        "060-153617.462-closing_fridge-close_door.json": {
+          "hash": "dfde4a02c9dec204faa8db0553a82b7b",
+          "size": 579951
+        },
+        "061-153617.649-closing_fridge-close_door.json": {
+          "hash": "af250993664ee618992d1f8e8a772de5",
+          "size": 578752
+        },
+        "062-153624.673-closing_fridge-move.json": {
+          "hash": "40df823488d3973f83db989c0ea0a81f",
+          "size": 1488819
+        },
+        "063-153628.349-serving-move.json": {
+          "hash": "af0503003686890ac831ad015d846f66",
+          "size": 753394
+        },
+        "064-153638.882-serving-move.json": {
+          "hash": "428bb649c53f733142fa2e80ad4962fd",
+          "size": 2439061
+        },
+        "065-153642.369-serving-move.json": {
+          "hash": "8988566293eeecbca7dd21b2318d62c6",
+          "size": 2438291
+        },
+        "066-153644.748-serving-carry.json": {
+          "hash": "cb57c1d095e9531c595287f8356c4ca6",
+          "size": 643548
+        },
+        "067-153647.477-serving-pivot.json": {
+          "hash": "af89fe7d05c5d8c09fd4b74fa6b06279",
+          "size": 1002934
+        },
+        "068-153651.758-serving-pivot.json": {
+          "hash": "48efba643906f94ac9d88e2f19a0b645",
+          "size": 1003008
+        },
+        "069-153653.214-serving-carry.json": {
+          "hash": "fb7e671c3b6f640fb821e019bceda003",
+          "size": 686096
+        },
+        "070-153659.568-serving-move.json": {
+          "hash": "619a5d87101ffb684d3f816a1b3ee85c",
+          "size": 2047138
+        },
+        "071-153703.339-serving-move.json": {
+          "hash": "c3c36c307e92f414b629773dafb68105",
+          "size": 2026703
+        },
+        "072-153706.529-serving-move.json": {
+          "hash": "40698efacd64103487803add8fbb7e4c",
+          "size": 578534
+        },
+        "073-153712.604-serving-move.json": {
+          "hash": "e9ca85d069cecede3c4fc7e94ad810f7",
+          "size": 1966943
+        },
+        "074-153716.800-serving-move.json": {
+          "hash": "7f27714443e21f71326bb6b0362a02cf",
+          "size": 1978945
+        },
+        "075-153733.046-serving-carry.json": {
+          "hash": "d4033a93722cb0e51c009cfced389a08",
+          "size": 909035
+        },
+        "076-153746.084-serving-move.json": {
+          "hash": "aaadbc3b72f6e2cc9840aa9f98454e81",
+          "size": 2040186
+        },
+        "077-153749.872-serving-move.json": {
+          "hash": "00a13a615b81493eb08225840c62c6e5",
+          "size": 2020837
+        },
+        "078-153807.814-grabbing_filter-move.json": {
+          "hash": "07ceaea1fd431a5980d031f9ad06c747",
+          "size": 704174
+        },
+        "079-153815.779-grabbing_filter-move.json": {
+          "hash": "6a53aae187796d6aa57ad6d46e2ee167",
+          "size": 1812534
+        },
+        "080-153819.582-unlocking_portafilter-pivot.json": {
+          "hash": "7d0afc02958518231074c2159dd7f57a",
+          "size": 1247397
+        },
+        "081-153824.736-unlocking_portafilter-move.json": {
+          "hash": "835a23741a81e6bffc52ee3d8adcb766",
+          "size": 703435
+        },
+        "082-153825.312-unlocking_portafilter-circular.json": {
+          "hash": "ba17d9d784f804b8d4c488884e46e086",
+          "size": 726096
+        },
+        "083-153826.144-unlocking_portafilter-move.json": {
+          "hash": "fc8dba2ce3c4666154e5859c1ad3a4e4",
+          "size": 703598
+        },
+        "084-153826.731-unlocking_portafilter-move.json": {
+          "hash": "2e4cc9100836460a30e023afe77e5946",
+          "size": 703479
+        },
+        "085-153827.773-unlocking_portafilter-circular.json": {
+          "hash": "57e1cc5fe5c2e68cf3f5147eb2438034",
+          "size": 726124
+        },
+        "086-153828.689-unlocking_portafilter-move.json": {
+          "hash": "86f0a803290afd2060c1315e63df3bda",
+          "size": 869660
+        },
+        "087-153833.922-cleaning-move.json": {
+          "hash": "6483bfc645caa72c5903710340b7c005",
+          "size": 645186
+        },
+        "088-153836.752-cleaning-move.json": {
+          "hash": "2f63905a7ee49364ce72f6a0e64f79ee",
+          "size": 578681
+        },
+        "089-153842.065-cleaning-move.json": {
+          "hash": "41d902915531149df359cd635688c461",
+          "size": 1245807
+        },
+        "090-153843.194-cleaning-circular.json": {
+          "hash": "a607d9b5e92b90386ece1abf26a13867",
+          "size": 726081
+        },
+        "091-153846.164-cleaning-move.json": {
+          "hash": "876acad2fb381ab9ab34fb4d611905b1",
+          "size": 1245143
+        },
+        "092-153847.685-cleaning-move.json": {
+          "hash": "f2e8108b49233ab610a0628aaaef552e",
+          "size": 1412793
+        },
+        "093-153849.454-cleaning-move.json": {
+          "hash": "d1dc4d8877396857f3e5c84b66112ec6",
+          "size": 1245965
+        },
+        "094-153850.584-cleaning-circular.json": {
+          "hash": "ccea90c5966eb4a5f4718778cd167bd5",
+          "size": 726106
+        },
+        "095-153853.741-cleaning-move.json": {
+          "hash": "ba66d2c467a17ec54ca4c1f5a3c6efb9",
+          "size": 1246211
+        },
+        "096-153854.899-cleaning-move.json": {
+          "hash": "18b264f861bc64d1f370eb30f5d5be8f",
+          "size": 578656
+        },
+        "097-153900.281-finishing_up-move.json": {
+          "hash": "3ecf64e3dc2f892267cadc89db9744f0",
+          "size": 578470
+        }
+      }
+    }
+  },
   "pointcloud": {
     "bun0.pcd": {
       "hash": "2a8eeb771a594acc62d68b2032b62349",

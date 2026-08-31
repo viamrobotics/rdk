@@ -20,9 +20,23 @@ on:
 jobs:
   motion_benchmarks:
     if: |
-      github.event_name == 'workflow_dispatch' || 
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request_target' && github.event.label.name == 'safe to test' && contains(github.event.pull_request.labels.*.name, 'safe to test'))
     uses: viamrobotics/rdk/.github/workflows/motion-benchmarks.yml@main
     with:
       pr_number: ${{ github.event.pull_request.number }}
+
+  motion_order_benchmark:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request_target' && github.event.label.name == 'safe to test' && contains(github.event.pull_request.labels.*.name, 'safe to test'))
+    uses: viamrobotics/rdk/.github/workflows/motion-order-benchmark.yml@main
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      mode: warm
+      passes: '2'
+      # The job fails on a regression so the verdict is unmissable, but the check is deliberately
+      # not marked required: planner timings on a shared runner are noisy enough that a red mark
+      # should prompt a look at the comment, not block the merge.
+      fail_on_regression: true
 

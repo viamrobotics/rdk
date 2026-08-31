@@ -1,0 +1,986 @@
+{
+  "order": "5fb95a4c-83f8-4e66-862d-52cbca842ed5",
+  "artifact_path": "motionplan/order-replay/cappuccina-5fb95a4c",
+  "entries": [
+    {
+      "index": 0,
+      "file": "000-153126.083-grinding-move.json",
+      "recorded_at": "2026-08-28T15:31:26.083Z",
+      "step": "grinding",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 578556,
+      "sha256": "7dd8a43435a8d32429c3beacbaf9f1121e1fef34a4705f63793958127799a05c"
+    },
+    {
+      "index": 1,
+      "file": "001-153129.698-grinding-move.json",
+      "recorded_at": "2026-08-28T15:31:29.698Z",
+      "step": "grinding",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 703897,
+      "sha256": "a047013d607d6a784b3b18a03fa13a31fd089f67a114d219c44861ffbfedcec1"
+    },
+    {
+      "index": 2,
+      "file": "002-153130.689-grinding-move.json",
+      "recorded_at": "2026-08-28T15:31:30.689Z",
+      "step": "grinding",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 703796,
+      "sha256": "c6d27b1c4fb01f80961974d6794abfdc71e08a6780ff4a552c2c4df7489caad9"
+    },
+    {
+      "index": 3,
+      "file": "003-153131.847-grinding-circular.json",
+      "recorded_at": "2026-08-28T15:31:31.847Z",
+      "step": "grinding",
+      "motion": "circular",
+      "outcome": "success",
+      "bytes": 1080984,
+      "sha256": "b7539d3e246e6dd51112a201ac57449ecd558e6effac40843dc2d941f1211e60"
+    },
+    {
+      "index": 4,
+      "file": "004-153143.958-tamping-move.json",
+      "recorded_at": "2026-08-28T15:31:43.958Z",
+      "step": "tamping",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 638962,
+      "sha256": "692d5dcc893b4e59b6ac567c26d44e1a921ee365992cde0cb934a77d9532afe5"
+    },
+    {
+      "index": 5,
+      "file": "005-153147.607-tamping-move.json",
+      "recorded_at": "2026-08-28T15:31:47.607Z",
+      "step": "tamping",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1618872,
+      "sha256": "0622c436f7b14111b2ec9750946e41bb5682f85613b135d1897d748ebc35c568"
+    },
+    {
+      "index": 6,
+      "file": "006-153152.592-tamping-move.json",
+      "recorded_at": "2026-08-28T15:31:52.592Z",
+      "step": "tamping",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1619099,
+      "sha256": "69c08140b31b0262bca3d9112189a9704ce81eba9ab10918f77999a24941e299"
+    },
+    {
+      "index": 7,
+      "file": "007-153209.673-locking_portafilter-move.json",
+      "recorded_at": "2026-08-28T15:32:09.673Z",
+      "step": "locking_portafilter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 720883,
+      "sha256": "df52c97aa122f88e6dc563bbed7d81b7381454822193cdd125845c2f4f02984d"
+    },
+    {
+      "index": 8,
+      "file": "008-153214.999-locking_portafilter-move.json",
+      "recorded_at": "2026-08-28T15:32:14.999Z",
+      "step": "locking_portafilter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1015590,
+      "sha256": "8f4a32244bad255b27d51726a68a7b931de64e1e19f11e23e4d5b6355d0ff1c9"
+    },
+    {
+      "index": 9,
+      "file": "009-153216.395-locking_portafilter-pivot.json",
+      "recorded_at": "2026-08-28T15:32:16.395Z",
+      "step": "locking_portafilter",
+      "motion": "pivot",
+      "outcome": "success",
+      "bytes": 1372568,
+      "sha256": "59aeff56e86e9dc0c08959097a62524d60ed98662f9cf5381ec70032d1ad41c7"
+    },
+    {
+      "index": 10,
+      "file": "010-153224.639-releasing_filter-move.json",
+      "recorded_at": "2026-08-28T15:32:24.639Z",
+      "step": "releasing_filter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1812532,
+      "sha256": "30b0e5f186ba470a2582e9f7c5deda40cc3e190e975beab2d7308dd11bbb1e8d"
+    },
+    {
+      "index": 11,
+      "file": "011-153227.696-placing_cup-move.json",
+      "recorded_at": "2026-08-28T15:32:27.696Z",
+      "step": "placing_cup",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 578034,
+      "sha256": "fa212d140894e400c45132cda3f3950d678fc80b73566aa8d9451e9f8ffd3f26"
+    },
+    {
+      "index": 12,
+      "file": "012-153235.149-placing_cup-move.json",
+      "recorded_at": "2026-08-28T15:32:35.149Z",
+      "step": "placing_cup",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 578027,
+      "sha256": "c6cbfed5cd7e12d9ea672e7aa1dd67fd2ca08ee6cfc53660d7f2029eaad39ae4"
+    },
+    {
+      "index": 13,
+      "file": "013-153235.711-placing_cup-move.json",
+      "recorded_at": "2026-08-28T15:32:35.711Z",
+      "step": "placing_cup",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1961196,
+      "sha256": "e143aac080de1994dcba78a7c8b210d2c56f717d03b26f8c17b616e44257f704"
+    },
+    {
+      "index": 14,
+      "file": "014-153244.672-placing_cup-move.json",
+      "recorded_at": "2026-08-28T15:32:44.672Z",
+      "step": "placing_cup",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1978383,
+      "sha256": "d023d3ffed62329b6a638a252dbdd95f312f3cb1320dba9643d93928dd8501da"
+    },
+    {
+      "index": 15,
+      "file": "015-153257.279-placing_cup-move.json",
+      "recorded_at": "2026-08-28T15:32:57.279Z",
+      "step": "placing_cup",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 835312,
+      "sha256": "5a7012eaae058302ac9e00361017ef65945406d6e7fbaf1939e28f3a550d595d"
+    },
+    {
+      "index": 16,
+      "file": "016-153310.154-placing_cup-move.json",
+      "recorded_at": "2026-08-28T15:33:10.154Z",
+      "step": "placing_cup",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2454585,
+      "sha256": "7e0f30ae6d6eb39f43a516612f59954cc0535c93cf5155f22bf552f9261db27e"
+    },
+    {
+      "index": 17,
+      "file": "017-153314.165-placing_cup-move.json",
+      "recorded_at": "2026-08-28T15:33:14.165Z",
+      "step": "placing_cup",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2409161,
+      "sha256": "5b33d737939fa068857437f7a85997c4463f31ee2b81da241016fb3df4ba516e"
+    },
+    {
+      "index": 18,
+      "file": "018-153332.655-brewing-move.json",
+      "recorded_at": "2026-08-28T15:33:32.655Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 663331,
+      "sha256": "4d98f706bd115c32e6ba8646b8a486b55e4f3ea9ea9cf9f01f8f798db17624c6"
+    },
+    {
+      "index": 19,
+      "file": "019-153336.155-brewing-move.json",
+      "recorded_at": "2026-08-28T15:33:36.155Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 846129,
+      "sha256": "b1f4b9145452168c68acfbe037ef14910eab12e25c44cb88bba9f0e45e35fd44"
+    },
+    {
+      "index": 20,
+      "file": "020-153337.336-brewing-move.json",
+      "recorded_at": "2026-08-28T15:33:37.336Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 846051,
+      "sha256": "b59165713ad31a6bd935ee56991206ed8433055812cecb39368813b2a4d8fbb8"
+    },
+    {
+      "index": 21,
+      "file": "021-153338.286-brewing-move.json",
+      "recorded_at": "2026-08-28T15:33:38.286Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 578003,
+      "sha256": "89f8a3a97e1df2b3c564c1aaba098926927c404cd17f078b29c85bad69657c7b"
+    },
+    {
+      "index": 22,
+      "file": "022-153346.202-brewing-move.json",
+      "recorded_at": "2026-08-28T15:33:46.202Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 577988,
+      "sha256": "176a263c7ec12f80c3578b5bb379c12601f49a1f4cecc3bbf7f55f24c6f487b7"
+    },
+    {
+      "index": 23,
+      "file": "023-153346.645-brewing-move.json",
+      "recorded_at": "2026-08-28T15:33:46.645Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1795210,
+      "sha256": "37d65860a38e3fb2d684885512ee626594bdcd63865e7d18d59282c022354812"
+    },
+    {
+      "index": 24,
+      "file": "024-153352.938-brewing-move.json",
+      "recorded_at": "2026-08-28T15:33:52.938Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1810376,
+      "sha256": "ea4243c5d438e4b6264bf832a742cc3d226350dcb29ab8ae0c45790694890e78"
+    },
+    {
+      "index": 25,
+      "file": "025-153404.593-brewing-move.json",
+      "recorded_at": "2026-08-28T15:34:04.593Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 915731,
+      "sha256": "04fd9770714bfa3a428a4b79634eadf88db6ee73da117684c9f0e3bd46ce537d"
+    },
+    {
+      "index": 26,
+      "file": "026-153415.753-brewing-move.json",
+      "recorded_at": "2026-08-28T15:34:15.753Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1811254,
+      "sha256": "f6fdebc8dc6d277f91aeed3bf63536f5bada0ebb0a557fbc255f267faac14a0f"
+    },
+    {
+      "index": 27,
+      "file": "027-153433.046-brewing-move.json",
+      "recorded_at": "2026-08-28T15:34:33.046Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1808962,
+      "sha256": "898003fb36b08d16e16cc567325fe3cf119d40ee7db259e8bf25ddbe6af8cc6c"
+    },
+    {
+      "index": 28,
+      "file": "028-153435.099-brewing-carry.json",
+      "recorded_at": "2026-08-28T15:34:35.099Z",
+      "step": "brewing",
+      "motion": "carry",
+      "outcome": "success",
+      "bytes": 663768,
+      "sha256": "b4d84532a3ec0a261d3f7a6d469bec7e739284f48271358f7f337cc53a1e13dd"
+    },
+    {
+      "index": 29,
+      "file": "029-153439.206-brewing-move.json",
+      "recorded_at": "2026-08-28T15:34:39.206Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1979424,
+      "sha256": "7584706d43a20d784bd1f8c33344ff97c0d31840ebb1a28267bf0c23364f531e"
+    },
+    {
+      "index": 30,
+      "file": "030-153443.810-brewing-move.json",
+      "recorded_at": "2026-08-28T15:34:43.81Z",
+      "step": "brewing",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1967616,
+      "sha256": "eb419d4e6328da83670f0fa345b2b072ae6dce7d665d58b4f334f73c80f9ef52"
+    },
+    {
+      "index": 31,
+      "file": "031-153448.198-opening_fridge-move.json",
+      "recorded_at": "2026-08-28T15:34:48.198Z",
+      "step": "opening_fridge",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 794189,
+      "sha256": "700560385550cdd30e6c0a2e836e3b53eadca90f0bd3a5304d8f0becbfb02516"
+    },
+    {
+      "index": 32,
+      "file": "032-153503.048-opening_fridge-move.json",
+      "recorded_at": "2026-08-28T15:35:03.048Z",
+      "step": "opening_fridge",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1488762,
+      "sha256": "f51e3786e339b8bc1df434b7c3bea414e5d1b1451dc87cd0e66dcd36c79d9844"
+    },
+    {
+      "index": 33,
+      "file": "033-153505.743-opening_fridge-open_door.json",
+      "recorded_at": "2026-08-28T15:35:05.743Z",
+      "step": "opening_fridge",
+      "motion": "open_door",
+      "outcome": "success",
+      "bytes": 601744,
+      "sha256": "37c63d9202793fc04e88825f85cdcc7e8e064443917869f051e9db9f4e58e2bd"
+    },
+    {
+      "index": 34,
+      "file": "034-153505.957-opening_fridge-open_door.json",
+      "recorded_at": "2026-08-28T15:35:05.957Z",
+      "step": "opening_fridge",
+      "motion": "open_door",
+      "outcome": "success",
+      "bytes": 579832,
+      "sha256": "af14e950053f5532315a451d5822e84ad308778e3a4c893c25c309cac4c2f720"
+    },
+    {
+      "index": 35,
+      "file": "035-153506.192-opening_fridge-open_door.json",
+      "recorded_at": "2026-08-28T15:35:06.192Z",
+      "step": "opening_fridge",
+      "motion": "open_door",
+      "outcome": "success",
+      "bytes": 579690,
+      "sha256": "bf2f82bdf8b3c0993dbe96095097929f9c0d93345cd2d8c81fff725dffec2c19"
+    },
+    {
+      "index": 36,
+      "file": "036-153506.394-opening_fridge-open_door.json",
+      "recorded_at": "2026-08-28T15:35:06.394Z",
+      "step": "opening_fridge",
+      "motion": "open_door",
+      "outcome": "success",
+      "bytes": 579231,
+      "sha256": "3a30fc34036099f419e045066873446e56e9b83ab6f71949175c8ac8f5aa5eda"
+    },
+    {
+      "index": 37,
+      "file": "037-153506.598-opening_fridge-open_door.json",
+      "recorded_at": "2026-08-28T15:35:06.598Z",
+      "step": "opening_fridge",
+      "motion": "open_door",
+      "outcome": "success",
+      "bytes": 579162,
+      "sha256": "6d01a82038c980fd49d54dfe7cbe10b069fefcd9d6b2cc0ba37afdf26fcf9da2"
+    },
+    {
+      "index": 38,
+      "file": "038-153506.794-opening_fridge-open_door.json",
+      "recorded_at": "2026-08-28T15:35:06.794Z",
+      "step": "opening_fridge",
+      "motion": "open_door",
+      "outcome": "success",
+      "bytes": 579352,
+      "sha256": "479a51ab57d05ac0c5480df73253536634df8d3dbd91131094335aab323044b3"
+    },
+    {
+      "index": 39,
+      "file": "039-153507.001-opening_fridge-open_door.json",
+      "recorded_at": "2026-08-28T15:35:07.001Z",
+      "step": "opening_fridge",
+      "motion": "open_door",
+      "outcome": "success",
+      "bytes": 579463,
+      "sha256": "2d6c8795c534f554fa2b6b9f3cd51bc0589b3d8e3de846713f236681811b96ec"
+    },
+    {
+      "index": 40,
+      "file": "040-153507.196-opening_fridge-open_door.json",
+      "recorded_at": "2026-08-28T15:35:07.196Z",
+      "step": "opening_fridge",
+      "motion": "open_door",
+      "outcome": "success",
+      "bytes": 579381,
+      "sha256": "51ebc6a6b76e8c2e6ab154d8b9f0874396365503850df853973ca8b9d2cc2e1b"
+    },
+    {
+      "index": 41,
+      "file": "041-153514.279-opening_fridge-move.json",
+      "recorded_at": "2026-08-28T15:35:14.279Z",
+      "step": "opening_fridge",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1500141,
+      "sha256": "c4e2187bf843e7bf7193685f188fc28f785bde56993ddf23d651ea64d88d19ea"
+    },
+    {
+      "index": 42,
+      "file": "042-153516.784-adding_milk-move.json",
+      "recorded_at": "2026-08-28T15:35:16.784Z",
+      "step": "adding_milk",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 630787,
+      "sha256": "b9fb68851557e86d1de730131477f8c13e274ff6e1667e9b5ded514a5943dac7"
+    },
+    {
+      "index": 43,
+      "file": "043-153521.282-adding_milk-move.json",
+      "recorded_at": "2026-08-28T15:35:21.282Z",
+      "step": "adding_milk",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 579377,
+      "sha256": "8aee2e2a9dae6bacfdbe5f0c8a7bfb4dc5778b88b510f4e805c7b1cfbf941c7e"
+    },
+    {
+      "index": 44,
+      "file": "044-153521.781-adding_milk-move.json",
+      "recorded_at": "2026-08-28T15:35:21.781Z",
+      "step": "adding_milk",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2531219,
+      "sha256": "fb0671d372f01836de6b9cdb93b5af1a9875a4d81f1e48af94431b5597485693"
+    },
+    {
+      "index": 45,
+      "file": "045-153529.604-adding_milk-move.json",
+      "recorded_at": "2026-08-28T15:35:29.604Z",
+      "step": "adding_milk",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2551896,
+      "sha256": "15af490c011ba04dc20dc05ba478abf261486c989edd53a0506c32a7b74a0790"
+    },
+    {
+      "index": 46,
+      "file": "046-153535.297-adding_milk-move.json",
+      "recorded_at": "2026-08-28T15:35:35.297Z",
+      "step": "adding_milk",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 794004,
+      "sha256": "dd635578ea61ca4f27d020a417055eca49b9dd81c3f43422582461b97201d67d"
+    },
+    {
+      "index": 47,
+      "file": "047-153542.859-adding_milk-pivot.json",
+      "recorded_at": "2026-08-28T15:35:42.859Z",
+      "step": "adding_milk",
+      "motion": "pivot",
+      "outcome": "success",
+      "bytes": 1331421,
+      "sha256": "84a929676737202a8e0454976424abae8df02cc209e193812fc7eecb64eed6a8"
+    },
+    {
+      "index": 48,
+      "file": "048-153548.126-adding_milk-pivot.json",
+      "recorded_at": "2026-08-28T15:35:48.126Z",
+      "step": "adding_milk",
+      "motion": "pivot",
+      "outcome": "success",
+      "bytes": 1330651,
+      "sha256": "7e8a8f0c3fe6da36b06cf3eb79b8353d6ba9fb4b33841bf9bf0f81c41a321b14"
+    },
+    {
+      "index": 49,
+      "file": "049-153550.610-adding_milk-move.json",
+      "recorded_at": "2026-08-28T15:35:50.61Z",
+      "step": "adding_milk",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 798434,
+      "sha256": "fa7670af0a92b32871cf2ca5d366346465b3278853d6159536bf135acd60c62b"
+    },
+    {
+      "index": 50,
+      "file": "050-153558.469-adding_milk-move.json",
+      "recorded_at": "2026-08-28T15:35:58.469Z",
+      "step": "adding_milk",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2553698,
+      "sha256": "ddf38117e85dc074a428a1a736d616961e7ca6281ba89bccf0c3bbaaf9eb241b"
+    },
+    {
+      "index": 51,
+      "file": "051-153603.443-adding_milk-move.json",
+      "recorded_at": "2026-08-28T15:36:03.443Z",
+      "step": "adding_milk",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2528490,
+      "sha256": "515abae39ba714dcfd57b4a52bf090263c8378929de4eda605797c31c0b8af1a"
+    },
+    {
+      "index": 52,
+      "file": "052-153608.679-closing_fridge-move.json",
+      "recorded_at": "2026-08-28T15:36:08.679Z",
+      "step": "closing_fridge",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 706785,
+      "sha256": "d6b68e43b16ff1c195c0b27cdc8ff607ed6899fe04dd11f940c2adb46f424828"
+    },
+    {
+      "index": 53,
+      "file": "053-153613.932-closing_fridge-move.json",
+      "recorded_at": "2026-08-28T15:36:13.932Z",
+      "step": "closing_fridge",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1500227,
+      "sha256": "59c829728e312cd6683214be8a376127639f6c0b723620ee2efad6bd33ead34a"
+    },
+    {
+      "index": 54,
+      "file": "054-153616.186-closing_fridge-close_door.json",
+      "recorded_at": "2026-08-28T15:36:16.186Z",
+      "step": "closing_fridge",
+      "motion": "close_door",
+      "outcome": "success",
+      "bytes": 579564,
+      "sha256": "3bacbb6f3c48d03b53f9582c507fda5afd7468a61cf803f05e8d1d24506440ea"
+    },
+    {
+      "index": 55,
+      "file": "055-153616.384-closing_fridge-close_door.json",
+      "recorded_at": "2026-08-28T15:36:16.384Z",
+      "step": "closing_fridge",
+      "motion": "close_door",
+      "outcome": "success",
+      "bytes": 579358,
+      "sha256": "7da8a077f2f26aff50737bcd5b5c92eadb70519a975b16844c5f7f7797fac15a"
+    },
+    {
+      "index": 56,
+      "file": "056-153616.607-closing_fridge-close_door.json",
+      "recorded_at": "2026-08-28T15:36:16.607Z",
+      "step": "closing_fridge",
+      "motion": "close_door",
+      "outcome": "success",
+      "bytes": 579001,
+      "sha256": "e90edf2955ce9743c91f1e1940dba24af09e52e3e00669069e219b5b294ef7bc"
+    },
+    {
+      "index": 57,
+      "file": "057-153616.814-closing_fridge-close_door.json",
+      "recorded_at": "2026-08-28T15:36:16.814Z",
+      "step": "closing_fridge",
+      "motion": "close_door",
+      "outcome": "success",
+      "bytes": 579143,
+      "sha256": "51e345f8a517ba3f14f8884c1b545b5963c4c06a7d9d2843a8d974ba82141432"
+    },
+    {
+      "index": 58,
+      "file": "058-153617.011-closing_fridge-close_door.json",
+      "recorded_at": "2026-08-28T15:36:17.011Z",
+      "step": "closing_fridge",
+      "motion": "close_door",
+      "outcome": "success",
+      "bytes": 579645,
+      "sha256": "53b2886ac362f2e3c479600ad6bf48d8b4f535d4653ac677a1f9d7d96db64bdd"
+    },
+    {
+      "index": 59,
+      "file": "059-153617.272-closing_fridge-close_door.json",
+      "recorded_at": "2026-08-28T15:36:17.272Z",
+      "step": "closing_fridge",
+      "motion": "close_door",
+      "outcome": "success",
+      "bytes": 579851,
+      "sha256": "c857bf35266804bb1246688c0538fc8547c800ba8309ef07a4af4c2081793c9c"
+    },
+    {
+      "index": 60,
+      "file": "060-153617.462-closing_fridge-close_door.json",
+      "recorded_at": "2026-08-28T15:36:17.462Z",
+      "step": "closing_fridge",
+      "motion": "close_door",
+      "outcome": "success",
+      "bytes": 579951,
+      "sha256": "7b093d057ec0cf753d4058715727b4947577bea4dc8e37d9a0ef0873fca23fac"
+    },
+    {
+      "index": 61,
+      "file": "061-153617.649-closing_fridge-close_door.json",
+      "recorded_at": "2026-08-28T15:36:17.649Z",
+      "step": "closing_fridge",
+      "motion": "close_door",
+      "outcome": "success",
+      "bytes": 578752,
+      "sha256": "47fb3e8f62efc566eb841fee7fcb1bf546a22970c020b4eb954cae2f07023a2f"
+    },
+    {
+      "index": 62,
+      "file": "062-153624.673-closing_fridge-move.json",
+      "recorded_at": "2026-08-28T15:36:24.673Z",
+      "step": "closing_fridge",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1488819,
+      "sha256": "c4fac7c48dbeda16b2ebe9b2c60e3cf35f3baec34f08e7511bbf1dac97186559"
+    },
+    {
+      "index": 63,
+      "file": "063-153628.349-serving-move.json",
+      "recorded_at": "2026-08-28T15:36:28.349Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 753394,
+      "sha256": "579d5e526d7a7d759155cd432b5fb35c92bc2e05fa01f64f814e3a16c363a671"
+    },
+    {
+      "index": 64,
+      "file": "064-153638.882-serving-move.json",
+      "recorded_at": "2026-08-28T15:36:38.882Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2439061,
+      "sha256": "4f059d8ee73221f87678f4502bb3ec1b7b9922a47748b54ea51d4aae525e3541"
+    },
+    {
+      "index": 65,
+      "file": "065-153642.369-serving-move.json",
+      "recorded_at": "2026-08-28T15:36:42.369Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2438291,
+      "sha256": "9d87865571b5d6ec8f3e79688d962b5407fa3213331aee05f1b7ac945e0e9adf"
+    },
+    {
+      "index": 66,
+      "file": "066-153644.748-serving-carry.json",
+      "recorded_at": "2026-08-28T15:36:44.748Z",
+      "step": "serving",
+      "motion": "carry",
+      "outcome": "success",
+      "bytes": 643548,
+      "sha256": "2d5aebfd5de2910c710df8c16ff749e6b082b8f022937eb8441b68bdad19928a"
+    },
+    {
+      "index": 67,
+      "file": "067-153647.477-serving-pivot.json",
+      "recorded_at": "2026-08-28T15:36:47.477Z",
+      "step": "serving",
+      "motion": "pivot",
+      "outcome": "success",
+      "bytes": 1002934,
+      "sha256": "d061a1cb458870c68e8f69745a4f7b26fdd2334aa4d4d473fdec4d26f17435a1"
+    },
+    {
+      "index": 68,
+      "file": "068-153651.758-serving-pivot.json",
+      "recorded_at": "2026-08-28T15:36:51.758Z",
+      "step": "serving",
+      "motion": "pivot",
+      "outcome": "success",
+      "bytes": 1003008,
+      "sha256": "8a0e83923cc994acdb3de2edd2819af26471f026c8a530489481be206447a039"
+    },
+    {
+      "index": 69,
+      "file": "069-153653.214-serving-carry.json",
+      "recorded_at": "2026-08-28T15:36:53.214Z",
+      "step": "serving",
+      "motion": "carry",
+      "outcome": "success",
+      "bytes": 686096,
+      "sha256": "040acc94d9b032cb4c05c4fe88ffd5ebb58f6d47ddcd1c55cbcd211339943411"
+    },
+    {
+      "index": 70,
+      "file": "070-153659.568-serving-move.json",
+      "recorded_at": "2026-08-28T15:36:59.568Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2047138,
+      "sha256": "9f4479ab342f2033dd85823bce8bd06ca8e1a213fef780a63c646e6ef30a900c"
+    },
+    {
+      "index": 71,
+      "file": "071-153703.339-serving-move.json",
+      "recorded_at": "2026-08-28T15:37:03.339Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2026703,
+      "sha256": "c4f16c254c2ff554a16f1d04d0e93645fd04bcce52f245dea759bb20f48538e6"
+    },
+    {
+      "index": 72,
+      "file": "072-153706.529-serving-move.json",
+      "recorded_at": "2026-08-28T15:37:06.529Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 578534,
+      "sha256": "5df69f9255e2f6e8df2796022788de50824100541ac707098827606501a638f8"
+    },
+    {
+      "index": 73,
+      "file": "073-153712.604-serving-move.json",
+      "recorded_at": "2026-08-28T15:37:12.604Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1966943,
+      "sha256": "bf3ce9998f959158078683f95329cbdf3c2435d21ee503155accd80846896efb"
+    },
+    {
+      "index": 74,
+      "file": "074-153716.800-serving-move.json",
+      "recorded_at": "2026-08-28T15:37:16.8Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1978945,
+      "sha256": "c179b9b4d7f681485320c8b6790508ccb78f6466f1b2f9b104a1509efc7f0de0"
+    },
+    {
+      "index": 75,
+      "file": "075-153733.046-serving-carry.json",
+      "recorded_at": "2026-08-28T15:37:33.046Z",
+      "step": "serving",
+      "motion": "carry",
+      "outcome": "success",
+      "bytes": 909035,
+      "sha256": "a560224b47c7e849eb74a2a0f4d7ebbaa14acf1e988eee5bc357ba6097491ebf"
+    },
+    {
+      "index": 76,
+      "file": "076-153746.084-serving-move.json",
+      "recorded_at": "2026-08-28T15:37:46.084Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2040186,
+      "sha256": "6578f8a72b5c227f5acc736934eafa173610efae5f9d82fb1bb0fc97ecb82305"
+    },
+    {
+      "index": 77,
+      "file": "077-153749.872-serving-move.json",
+      "recorded_at": "2026-08-28T15:37:49.872Z",
+      "step": "serving",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 2020837,
+      "sha256": "eee6725a083726d0ec1f296a0c64c11c1a119013bc765e745e2afe5d2c2b88a4"
+    },
+    {
+      "index": 78,
+      "file": "078-153807.814-grabbing_filter-move.json",
+      "recorded_at": "2026-08-28T15:38:07.814Z",
+      "step": "grabbing_filter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 704174,
+      "sha256": "4dff5fcd1ba02482c05efde8f8b1b42b59945d130e5ae467595a90825cbfd429"
+    },
+    {
+      "index": 79,
+      "file": "079-153815.779-grabbing_filter-move.json",
+      "recorded_at": "2026-08-28T15:38:15.779Z",
+      "step": "grabbing_filter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1812534,
+      "sha256": "45ddd106c060e705008f360e156e07c8803e97dbaf46224435652c03ab6d35b1"
+    },
+    {
+      "index": 80,
+      "file": "080-153819.582-unlocking_portafilter-pivot.json",
+      "recorded_at": "2026-08-28T15:38:19.582Z",
+      "step": "unlocking_portafilter",
+      "motion": "pivot",
+      "outcome": "success",
+      "bytes": 1247397,
+      "sha256": "772acabd49a29d0aa6aa9c5d737fb3f9ee875c2a97f9cfe33d1b22a6176da424"
+    },
+    {
+      "index": 81,
+      "file": "081-153824.736-unlocking_portafilter-move.json",
+      "recorded_at": "2026-08-28T15:38:24.736Z",
+      "step": "unlocking_portafilter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 703435,
+      "sha256": "e7695348bfae16e8abb33d03630f43b048bd4f934a6e641c7d2ef5c7ac8fc2f0"
+    },
+    {
+      "index": 82,
+      "file": "082-153825.312-unlocking_portafilter-circular.json",
+      "recorded_at": "2026-08-28T15:38:25.312Z",
+      "step": "unlocking_portafilter",
+      "motion": "circular",
+      "outcome": "success",
+      "bytes": 726096,
+      "sha256": "5fac032097a749eb3bc56defb40684e8459d6bad5255f8b1df0650539fc59da2"
+    },
+    {
+      "index": 83,
+      "file": "083-153826.144-unlocking_portafilter-move.json",
+      "recorded_at": "2026-08-28T15:38:26.144Z",
+      "step": "unlocking_portafilter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 703598,
+      "sha256": "30c733988943214b00344369ed1f3434e136a2f143e48708d94c8b50e079b7b5"
+    },
+    {
+      "index": 84,
+      "file": "084-153826.731-unlocking_portafilter-move.json",
+      "recorded_at": "2026-08-28T15:38:26.731Z",
+      "step": "unlocking_portafilter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 703479,
+      "sha256": "3168c111619b68a8d0287a17223ed2f278fc226ceb3284295fa5436afa18ea20"
+    },
+    {
+      "index": 85,
+      "file": "085-153827.773-unlocking_portafilter-circular.json",
+      "recorded_at": "2026-08-28T15:38:27.773Z",
+      "step": "unlocking_portafilter",
+      "motion": "circular",
+      "outcome": "success",
+      "bytes": 726124,
+      "sha256": "a538f83bc424f577e407374a58a6303017a32b4ae18cc5f3dc98e7ed576d0608"
+    },
+    {
+      "index": 86,
+      "file": "086-153828.689-unlocking_portafilter-move.json",
+      "recorded_at": "2026-08-28T15:38:28.689Z",
+      "step": "unlocking_portafilter",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 869660,
+      "sha256": "42c4eeac94b87b050fc99b357d6deb2cda11f38d1a51b22318ac364827e0f7fd"
+    },
+    {
+      "index": 87,
+      "file": "087-153833.922-cleaning-move.json",
+      "recorded_at": "2026-08-28T15:38:33.922Z",
+      "step": "cleaning",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 645186,
+      "sha256": "91c263e9a9e4bdce615519bfb7079f457ab074df2f8a9b86182f8037c939c099"
+    },
+    {
+      "index": 88,
+      "file": "088-153836.752-cleaning-move.json",
+      "recorded_at": "2026-08-28T15:38:36.752Z",
+      "step": "cleaning",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 578681,
+      "sha256": "133eb4252ad82319c2d33b472e30f125b48bf3764bdb13a5e911d8ba92a62c04"
+    },
+    {
+      "index": 89,
+      "file": "089-153842.065-cleaning-move.json",
+      "recorded_at": "2026-08-28T15:38:42.065Z",
+      "step": "cleaning",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1245807,
+      "sha256": "9bb5f4379b66eb260a2bccb2c05b5a6e577838b5ef6c93e74a522b28e6980a80"
+    },
+    {
+      "index": 90,
+      "file": "090-153843.194-cleaning-circular.json",
+      "recorded_at": "2026-08-28T15:38:43.194Z",
+      "step": "cleaning",
+      "motion": "circular",
+      "outcome": "success",
+      "bytes": 726081,
+      "sha256": "99346fd10f11460ed8b04ffa0ac3984ccb706522f8d423846ab6698e57a11d9d"
+    },
+    {
+      "index": 91,
+      "file": "091-153846.164-cleaning-move.json",
+      "recorded_at": "2026-08-28T15:38:46.164Z",
+      "step": "cleaning",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1245143,
+      "sha256": "95b7b9be2fef84aeea11d48229f8d8cf1206619eac5b8ddee73d70e2f7319f04"
+    },
+    {
+      "index": 92,
+      "file": "092-153847.685-cleaning-move.json",
+      "recorded_at": "2026-08-28T15:38:47.685Z",
+      "step": "cleaning",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1412793,
+      "sha256": "a2cdd776db3e26f84b196ee6cde332ac45278bd6ae8f1943ae06343f14fda5dc"
+    },
+    {
+      "index": 93,
+      "file": "093-153849.454-cleaning-move.json",
+      "recorded_at": "2026-08-28T15:38:49.454Z",
+      "step": "cleaning",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1245965,
+      "sha256": "dd6a972dab930306b5dd4cba15277d64d76aa37592b7dfb6a21dbe54d283f2d7"
+    },
+    {
+      "index": 94,
+      "file": "094-153850.584-cleaning-circular.json",
+      "recorded_at": "2026-08-28T15:38:50.584Z",
+      "step": "cleaning",
+      "motion": "circular",
+      "outcome": "success",
+      "bytes": 726106,
+      "sha256": "50468c2f2be2cf101b3c9d47988e7e9a8544ac88886ef3f8d0cf88713075e2f6"
+    },
+    {
+      "index": 95,
+      "file": "095-153853.741-cleaning-move.json",
+      "recorded_at": "2026-08-28T15:38:53.741Z",
+      "step": "cleaning",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 1246211,
+      "sha256": "83a99a343d0fbdad5c0c3cf6f8fcad2c39f72c859074f5b735973fce4702aa0c"
+    },
+    {
+      "index": 96,
+      "file": "096-153854.899-cleaning-move.json",
+      "recorded_at": "2026-08-28T15:38:54.899Z",
+      "step": "cleaning",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 578656,
+      "sha256": "10a6162d52871ccce47fd7a7ed3ff04eebb9dddbd64ae34bdf37d5d7326bc653"
+    },
+    {
+      "index": 97,
+      "file": "097-153900.281-finishing_up-move.json",
+      "recorded_at": "2026-08-28T15:39:00.281Z",
+      "step": "finishing_up",
+      "motion": "move",
+      "outcome": "success",
+      "bytes": 578470,
+      "sha256": "409ab62caf834f2dcb4adb18cc38faec986f53297c9fe0f16e98b5927f4bd770"
+    }
+  ]
+}
