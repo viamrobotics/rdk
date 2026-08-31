@@ -13,22 +13,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"time"
 )
 
 // ManifestName is the file, committed alongside the corpus, that pins replay order and labels.
 const ManifestName = "manifest.json"
-
-// recordedTimeLayout matches the timestamp prefix that the data capture pipeline puts on every
-// exported plan file, e.g. "20260828_153733.046_carry.json".
-const recordedTimeLayout = "20060102_150405.000"
-
-var exportFileRe = regexp.MustCompile(`^(\d{8}_\d{6}\.\d{3})_(.+)\.json$`)
 
 // Entry describes one captured plan request within a corpus. Entries are ordered by RecordedAt,
 // which is the order the robot actually planned them in.
@@ -67,47 +58,6 @@ func (m *Manifest) TotalBytes() int64 {
 		total += e.Bytes
 	}
 	return total
-}
-
-// tagLabels pulls the `tag=<key>_<value>` path components the export uses to encode capture
-// labels. The order step, the motion kind and the planning outcome all arrive this way.
-func tagLabels(relPath string) map[string]string {
-	labels := map[string]string{}
-	for part := range strings.SplitSeq(filepath.ToSlash(relPath), "/") {
-		tag, ok := strings.CutPrefix(part, "tag=")
-		if !ok {
-			continue
-		}
-		key, value, ok := strings.Cut(tag, "_")
-		if !ok {
-			continue
-		}
-		labels[key] = value
-	}
-	return labels
-}
-
-func copyFile(src, dst string) (string, error) {
-	in, err := os.Open(filepath.Clean(src))
-	if err != nil {
-		return "", err
-	}
-	defer in.Close() //nolint:errcheck
-
-	out, err := os.OpenFile(filepath.Clean(dst), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return "", err
-	}
-
-	hasher := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(out, hasher), in); err != nil {
-		out.Close() //nolint:errcheck
-		return "", err
-	}
-	if err := out.Close(); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // WriteToFile writes the manifest as indented JSON, which keeps it reviewable in a diff.

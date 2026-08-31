@@ -1,19 +1,11 @@
 package orderbench
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"go.viam.com/test"
 )
-
-func TestTagLabels(t *testing.T) {
-	labels := tagLabels("tag=step_opening_fridge/tag=motion_open_door/tag=planning_success/20260828_153733.046_carry.json")
-	test.That(t, labels["step"], test.ShouldEqual, "opening_fridge")
-	test.That(t, labels["motion"], test.ShouldEqual, "open_door")
-	test.That(t, labels["planning"], test.ShouldEqual, "success")
-}
 
 func TestSummarizeTakesMedianAcrossPasses(t *testing.T) {
 	records := []Record{
@@ -125,15 +117,4 @@ func TestOptionsDefaults(t *testing.T) {
 func TestEntryName(t *testing.T) {
 	entry := Entry{Index: 7, Step: "brewing", Motion: "move"}
 	test.That(t, entry.Name(), test.ShouldEqual, "007/brewing/move")
-}
-
-// writeCapture lays down one file in the nested `tag=` layout that `viam data export binary`
-// produces, with just enough content for the ingest to treat it as a plan capture.
-func writeCapture(t *testing.T, exportDir, order, step, motion, stamp string) {
-	t.Helper()
-	dir := filepath.Join(exportDir, "data", "tag="+order, "tag=step_"+step, "tag=motion_"+motion, "tag=planning_success")
-	test.That(t, os.MkdirAll(dir, 0o750), test.ShouldBeNil)
-	path := filepath.Join(dir, stamp+"_"+motion+".json")
-	body := `{"step":"` + step + `"}`
-	test.That(t, os.WriteFile(path, []byte(body), 0o600), test.ShouldBeNil)
 }

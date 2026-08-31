@@ -4,7 +4,6 @@
 //	orderbench fetch   -out ./corpus
 //	orderbench run     -corpus ./corpus -out head.ndjson
 //	orderbench compare -base base.ndjson -head head.ndjson -out report.md
-
 package main
 
 import (
