@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // PlanContext wraps a bunch of variables related to performing a single `PlanMotion` API call.
@@ -181,7 +182,7 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 	}
 
 	movingRobotGeometries, staticRobotGeometries, movingFrameNames := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
-	psc.staticGeomHash = geomSetHash(staticRobotGeometries)
+	psc.staticGeomHash = spatialmath.GeometrySetHash(staticRobotGeometries)
 
 	psc.Checker, err = motionplan.NewConstraintChecker(
 		pc.planOpts.CollisionBufferMM,

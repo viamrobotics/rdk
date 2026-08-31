@@ -3,7 +3,6 @@ package armplanning
 import (
 	"context"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -71,7 +70,7 @@ func TestDiagSceneKeyChurn(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		movingG, staticG, _ := psc.motionChains.geometries(pm.pc.fs, fsg)
 		_ = movingG
-		sh := diagStaticSetHash(staticG)
+		sh := spatialmath.GeometrySetHash(staticG)
 		staticHashes[sh] = append(staticHashes[sh], i)
 		if i > 0 && sh != prevStatic {
 			staticChanges++
@@ -79,7 +78,7 @@ func TestDiagSceneKeyChurn(t *testing.T) {
 		prevStatic = sh
 
 		if req.ObstaclesInWorldFrame != nil {
-			worldHashes[diagStaticSetHash(req.ObstaclesInWorldFrame.Geometries())] = true
+			worldHashes[spatialmath.GeometrySetHash(req.ObstaclesInWorldFrame.Geometries())] = true
 		}
 	}
 
@@ -141,28 +140,4 @@ func truncInts(v []int, n int) []int {
 		return v
 	}
 	return v[:n]
-}
-
-// diagStaticSetHash replicates motionplan.staticSetHash (unexported there).
-func diagStaticSetHash(geoms []spatialmath.Geometry) uint64 {
-	const fnvPrime = 0x100000001b3
-	total := uint64(len(geoms))
-	for _, g := range geoms {
-		h := uint64(0xcbf29ce484222325)
-		mix := func(v uint64) {
-			h ^= v
-			h *= fnvPrime
-		}
-		for _, ch := range g.Label() {
-			mix(uint64(ch))
-		}
-		pt := g.Pose().Point()
-		q := g.Pose().Orientation().Quaternion()
-		for _, f := range [7]float64{pt.X, pt.Y, pt.Z, q.Real, q.Imag, q.Jmag, q.Kmag} {
-			mix(math.Float64bits(f))
-		}
-		mix(uint64(g.Hash()))
-		total += h
-	}
-	return total
 }
