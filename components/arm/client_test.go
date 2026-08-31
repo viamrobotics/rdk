@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	robotpb "go.viam.com/api/robot/v1"
@@ -95,6 +96,22 @@ func TestClient(t *testing.T) {
 	}
 	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
+	}
+	injectArm.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (arm.Properties, error) {
+		extraOptions = extra
+		return arm.Properties{SupportManualMode: true, SupportCartesianCommands: true}, nil
+	}
+	var capManualMode bool
+	var capEnabledFor time.Duration
+	injectArm.SetManualModeFunc = func(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error {
+		capManualMode = manualMode
+		capEnabledFor = enabledFor
+		extraOptions = extra
+		return nil
+	}
+	injectArm.ManualModeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		extraOptions = extra
+		return true, nil
 	}
 
 	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 4, Y: 5, Z: 6})
@@ -212,6 +229,23 @@ func TestClient(t *testing.T) {
 		for i, geometry := range geometries {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
+
+		props, err := arm1Client.Properties(context.Background(), map[string]interface{}{"foo": "Properties"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, props.SupportManualMode, test.ShouldBeTrue)
+		test.That(t, props.SupportCartesianCommands, test.ShouldBeTrue)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Properties"})
+
+		err = arm1Client.SetManualMode(context.Background(), true, 90*time.Second, map[string]interface{}{"foo": "SetManualMode"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capManualMode, test.ShouldBeTrue)
+		test.That(t, capEnabledFor, test.ShouldEqual, 90*time.Second)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "SetManualMode"})
+
+		manualMode, err := arm1Client.ManualMode(context.Background(), map[string]interface{}{"foo": "ManualMode"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, manualMode, test.ShouldBeTrue)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "ManualMode"})
 
 		// Status - default empty status
 		statusResult, err := arm1Client.Status(context.Background())
