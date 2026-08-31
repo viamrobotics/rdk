@@ -74,6 +74,7 @@ func realMain() error {
 	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
 	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
 	quiet := flag.Bool("quiet", false, "quiet")
+	noViz := flag.Bool("no-viz", false, "skip rendering the plan; useful for benchmarking success rate and planning speed")
 
 	flag.Parse()
 
@@ -318,7 +319,7 @@ func realMain() error {
 		}
 	}
 
-	for i := 0; i < *loop; i++ {
+	for i := 0; !*noViz && i < *loop; i++ {
 		err = visualize(req, plan, mylog, *showPoses)
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
