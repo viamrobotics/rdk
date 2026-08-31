@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // This file implements a lazy probabilistic roadmap: a reusable graph over the
@@ -795,8 +796,44 @@ func (pm *planManager) tryRoadmap(
 	return nil
 }
 
+// roadmapSceneKeyGeoms folds the static robot geometry's world poses into the
+// scene key. Toggle for A/B diagnosis of the input-only key, which is blind to
+// environment geometry that lives in the frame system (a door whose fixed
+// transform is updated between plans, a tracked fixture): the non-chain inputs
+// never change while the geometry moves, so edge verdicts, cached occupancy,
+// and cached smoothed trajectories are shared across physically different
+// scenes.
+var roadmapSceneKeyGeoms = utils.GetenvBool("ROADMAP_SCENE_KEY_GEOMS", true)
+
+// geomSetHash fingerprints a geometry set by label, world pose, and shape,
+// combined commutatively so iteration order cannot change the hash. Mirrors
+// motionplan's staticSetHash (unexported there).
+func geomSetHash(geoms []spatialmath.Geometry) uint64 {
+	const fnvPrime = 0x100000001b3
+	total := uint64(len(geoms))
+	for _, g := range geoms {
+		h := uint64(0xcbf29ce484222325)
+		mix := func(v uint64) {
+			h ^= v
+			h *= fnvPrime
+		}
+		for _, ch := range g.Label() {
+			mix(uint64(ch))
+		}
+		pt := g.Pose().Point()
+		q := g.Pose().Orientation().Quaternion()
+		for _, f := range [7]float64{pt.X, pt.Y, pt.Z, q.Real, q.Imag, q.Jmag, q.Kmag} {
+			mix(math.Float64bits(f))
+		}
+		mix(uint64(g.Hash()))
+		total += h
+	}
+	return total
+}
+
 // roadmapSceneKey fingerprints everything edge validity depends on beyond the
-// structure: the obstacle set and the non-chain part of the configuration.
+// structure: the obstacle set, the non-chain part of the configuration, and
+// the static robot geometry's world poses.
 func (pm *planManager) roadmapSceneKey(psc *PlanSegmentContext, rm *roadmap) uint64 {
 	const fnvPrime = 0x100000001b3
 	h := uint64(0xcbf29ce484222325)
@@ -818,6 +855,9 @@ func (pm *planManager) roadmapSceneKey(psc *PlanSegmentContext, rm *roadmap) uin
 		for _, v := range vals {
 			mix(math.Float64bits(v))
 		}
+	}
+	if roadmapSceneKeyGeoms {
+		mix(psc.staticGeomHash)
 	}
 	if pm.request.ObstaclesInWorldFrame != nil {
 		for _, g := range pm.request.ObstaclesInWorldFrame.Geometries() {
