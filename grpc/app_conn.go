@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -128,7 +129,7 @@ func tokenInfo(partID, host string) (string, string) {
 	return cacheDir, tokenPath
 }
 
-func tokenCacheWrite(partID, host, token string) error {
+func jwtCacheWrite(partID, host, token string) error {
 	cacheDir, tokenPath := tokenInfo(partID, host)
 
 	err := os.MkdirAll(cacheDir, 0o700)
@@ -143,7 +144,7 @@ func tokenCacheWrite(partID, host, token string) error {
 	return nil
 }
 
-func tokenCacheRead(partID, host string) (string, error) {
+func jwtCacheRead(partID, host string) (string, error) {
 	_, tokenPath := tokenInfo(partID, host)
 
 	// token files are created by rdk
@@ -157,9 +158,32 @@ func tokenCacheRead(partID, host string) (string, error) {
 	return string(tokenData), nil
 }
 
-// authedDialDirectGRPC calls DialDirectGRPC while also explicitly authenticating the connection
-// and caching the resulting token on disk. If the normal auth path fails, we attempt to auth
-// with the cached token
+func redialWithCachedJwt(authErr error, rps.ClientConn conn, partID, host string,
+	logger utils.ZapCompatibleLogger, dialOpts ...rpc.DialOption,
+) (rpc.ClientConn, error) {
+	cachedJwt, cacheErr := jwtCacheRead(partID, host)
+	if cacheErr != nil {
+		logger.Warnw("could not read jwt from cache", "error", cacheErr)
+		// the connection is still valid, so return it
+		return conn, nil
+	}
+	// attempt to dial again with the cached credentials
+	newConn, newErr := rpc.DialDirectGRPC(ctx, host, logger, append(dialOpts, rpc.WithStaticAuthenticationMaterial(cachedJwt))...)
+	if newErr != nil {
+		logger.Warnw("error connecting with cached token", "error", newErr)
+		return conn, nil
+	}
+	// the new connection with the cached token succeeded, so return it and close the old one
+	err = conn.Close()
+	if err != nil {
+		// this isn't a big deal since we have a new authed connection
+		logger.Warnw("error closing old connection", "error", err)
+	}
+	return newConn, nil
+}
+
+// authedDialDirectGRPC calls rpc.DialDirectGRPC while also explicitly authenticating the connection and caching the
+// host-provided JWT on disk. If the normal auth path fails, we attempt to auth with the cached JWT
 func authedDialDirectGRPC(ctx context.Context,
 	partID, host string,
 	logger utils.ZapCompatibleLogger,
@@ -167,59 +191,25 @@ func authedDialDirectGRPC(ctx context.Context,
 ) (rpc.ClientConn, error) {
 	conn, err := rpc.DialDirectGRPC(ctx, host, logger, dialOpts...)
 	if err != nil {
-		// dial completely failed, pass the results through for the retry loop
 		return conn, err
 	}
-
 	authenticator, ok := conn.(rpc.ClientConnAuthenticator)
 	if !ok {
-		// we cannot auth this connection, but it might still be valid, so just return it
+		logger.Warnw("connection cannot be authenticated: robot did not supply cloud credentials. "
+			+"reinstall viam-server, or clear the cached cloud config.", "connection", conn)
 		return conn, nil
 	}
-	// now, attempt to auth the connection
-	token, authErr := authenticator.Authenticate(ctx)
+	freshJwt, authErr := authenticator.Authenticate(ctx)
 	if authErr != nil {
-		// if our auth request gets denied with certain failure codes, it means serverside auth is working fine
-		// and our credentials were just bad. in that case, we want to fail early instead of trying the cached token,
-		// which could mask a real problem with auth
-		if code := status.Code(authErr); code == codes.Unauthenticated || code == codes.PermissionDenied {
-			logger.Warnw("auth rejected credentials, not falling back to cached token",
-				"error", authErr, "code", code.String())
-			return conn, nil
-		}
-		// auth failed but our token was not explicitly rejected, so check if we have a cached token, then try dialing with it
-		logger.Warnw("auth failed, attempting auth with cached token", "error", authErr)
-		cachedToken, cacheErr := tokenCacheRead(partID, host)
-		if cacheErr != nil {
-			// we couldn't get the cached token, so give up and return the connection
-			// err is nil because the connection *is* valid, just not authenticated,
-			// so the original lazy auth path can still run
-			logger.Warnw("error reading token cache", "error", cacheErr)
-			return conn, nil
-		}
-		// attempt to dial again with the cached credentials
-		newConn, newErr := rpc.DialDirectGRPC(ctx, host, logger, append(dialOpts, rpc.WithStaticAuthenticationMaterial(cachedToken))...)
-		if newErr != nil {
-			logger.Warnw("error connecting with cached token", "error", newErr)
-			return conn, nil
-		}
-		// the new connection with the cached token succeeded, so return it and close the old one
-		err = conn.Close()
-		if err != nil {
-			// this isn't a big deal since we have a new authed connection
-			logger.Warnw("error closing old connection", "error", err)
-		}
-		return newConn, nil
+		logger.Warnw(fmt.Sprintf("authenticating connection with %s failed, attempting to dial again with cached JWT", host), "error", authErr)
+		return redialWithCachedJwt(authErr, conn, partID, host, logger, dialOpts...)
 	}
-	// just in case we got an empty token, we don't want to overwrite a potentially good cache
-	// this check is most likely unnecessary, but it's cheap and harmless
-	if token != "" {
-		// auth succeeded, and the token should be valid, so cache the token and return
-		cacheErr := tokenCacheWrite(partID, host, token)
+	if freshJwt == "" {
+		logger.Warnf("auth succeeded but the JWT from %s was empty, not updating cache\n", host)
+	} else {
+		cacheErr := jwtCacheWrite(partID, host, freshJwt)
 		if cacheErr != nil {
-			// there's nothing to do about this, and the connection is already valid and authed,
-			// so just log and move on
-			logger.Warnw("error writing to token cache", "error", cacheErr)
+			logger.Warnw("could not write to JWT cache", "error", cacheErr)
 		}
 	}
 	return conn, nil
