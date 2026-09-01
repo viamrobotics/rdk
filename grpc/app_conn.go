@@ -135,9 +135,23 @@ func jwtCacheWrite(partID, host, jwt string) error {
 		return err
 	}
 
-	err = os.WriteFile(jwtPath, []byte(jwt), 0o600)
+	// atomic write - this duplicates the atomic write in goutils so we don't
+	// have to pull goutils.artifact and all its dependencies into grpc
+	tmpFile, err := os.CreateTemp(cacheDir, "*.jwt.tmp")
 	if err != nil {
 		return err
+	}
+	_, err = tmpFile.WriteString(jwt)
+	if err != nil {
+		return errors.Join(err, tmpFile.Close(), os.Remove(tmpFile.Name()))
+	}
+	err = tmpFile.Close()
+	if err != nil {
+		return errors.Join(err, os.Remove(tmpFile.Name()))
+	}
+	err = os.Rename(tmpFile.Name(), jwtPath)
+	if err != nil {
+		return errors.Join(err, os.Remove(tmpFile.Name()))
 	}
 	return nil
 }

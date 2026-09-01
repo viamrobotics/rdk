@@ -17,7 +17,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// redirectViamDotDir points the on-disk token cache at a temp dir for the duration of a test.
+// redirectViamDotDir points the on-disk JWT cache at a temp dir for the duration of a test.
 func redirectViamDotDir(t *testing.T) {
 	t.Helper()
 	orig := rutils.ViamDotDir
@@ -25,8 +25,8 @@ func redirectViamDotDir(t *testing.T) {
 	t.Cleanup(func() { rutils.ViamDotDir = orig })
 }
 
-// TestTokenCache exercises the on-disk token cache helpers directly (no network).
-func TestTokenCache(t *testing.T) {
+// TestJWTCache exercises the on-disk JWT cache helpers directly (no network).
+func TestJWTCache(t *testing.T) {
 	redirectViamDotDir(t)
 
 	const (
@@ -36,17 +36,17 @@ func TestTokenCache(t *testing.T) {
 	)
 
 	t.Run("write then read round trips", func(t *testing.T) {
-		test.That(t, tokenCacheWrite(partID, host, token), test.ShouldBeNil)
-		got, err := tokenCacheRead(partID, host)
+		test.That(t, jwtCacheWrite(partID, host, token), test.ShouldBeNil)
+		got, err := jwtCacheRead(partID, host)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, got, test.ShouldEqual, token)
 	})
 
-	t.Run("token file is 0600 and its dir is 0700", func(t *testing.T) {
-		test.That(t, tokenCacheWrite(partID, host, token), test.ShouldBeNil)
-		cacheDir, tokenPath := tokenInfo(partID, host)
+	t.Run("JWT file is 0600 and its dir is 0700", func(t *testing.T) {
+		test.That(t, jwtCacheWrite(partID, host, token), test.ShouldBeNil)
+		cacheDir, jwtPath := jwtInfo(partID, host)
 
-		fi, err := os.Stat(tokenPath)
+		fi, err := os.Stat(jwtPath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fi.Mode().Perm(), test.ShouldEqual, os.FileMode(0o600))
 
@@ -56,33 +56,33 @@ func TestTokenCache(t *testing.T) {
 	})
 
 	t.Run("reading a missing token errors", func(t *testing.T) {
-		_, err := tokenCacheRead("no-such-part", "nowhere:443")
+		_, err := jwtCacheRead("no-such-part", "nowhere:443")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("overwrite keeps the latest token", func(t *testing.T) {
-		test.That(t, tokenCacheWrite(partID, host, "first"), test.ShouldBeNil)
-		test.That(t, tokenCacheWrite(partID, host, "second"), test.ShouldBeNil)
-		got, err := tokenCacheRead(partID, host)
+		test.That(t, jwtCacheWrite(partID, host, "first"), test.ShouldBeNil)
+		test.That(t, jwtCacheWrite(partID, host, "second"), test.ShouldBeNil)
+		got, err := jwtCacheRead(partID, host)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, got, test.ShouldEqual, "second")
 	})
 
 	t.Run("cache is keyed by both partID and host", func(t *testing.T) {
-		_, pathBaseline := tokenInfo(partID, host)
-		_, pathOtherPart := tokenInfo("other-part", host)
-		_, pathOtherHost := tokenInfo(partID, "other-host:443")
+		_, pathBaseline := jwtInfo(partID, host)
+		_, pathOtherPart := jwtInfo("other-part", host)
+		_, pathOtherHost := jwtInfo(partID, "other-host:443")
 		// distinct partID or host must yield distinct files so co-located parts and the
 		// app vs signaling endpoints never clobber each other.
 		test.That(t, pathOtherPart, test.ShouldNotEqual, pathBaseline)
 		test.That(t, pathOtherHost, test.ShouldNotEqual, pathBaseline)
 
-		test.That(t, tokenCacheWrite(partID, host, "mine"), test.ShouldBeNil)
-		test.That(t, tokenCacheWrite("other-part", host, "theirs"), test.ShouldBeNil)
-		mine, err := tokenCacheRead(partID, host)
+		test.That(t, jwtCacheWrite(partID, host, "mine"), test.ShouldBeNil)
+		test.That(t, jwtCacheWrite("other-part", host, "theirs"), test.ShouldBeNil)
+		mine, err := jwtCacheRead(partID, host)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mine, test.ShouldEqual, "mine")
-		theirs, err := tokenCacheRead("other-part", host)
+		theirs, err := jwtCacheRead("other-part", host)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, theirs, test.ShouldEqual, "theirs")
 	})
@@ -161,8 +161,8 @@ func TestAuthedDialDirectGRPC(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn, test.ShouldNotBeNil)
 
-	_, tokenPath := tokenInfo(partID, addr)
-	fi, err := os.Stat(tokenPath)
+	_, jwtPath := jwtInfo(partID, addr)
+	fi, err := os.Stat(jwtPath)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fi.Size(), test.ShouldBeGreaterThan, 0)
 
