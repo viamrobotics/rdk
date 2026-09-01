@@ -156,7 +156,7 @@ func jwtCacheRead(partID, host string) (string, error) {
 	return string(tokenData), nil
 }
 
-func redialWithCachedJwt(authErr error, rps.ClientConn conn, partID, host string,
+func redialWithCachedJwt(rps.ClientConn conn, partID, host string,
 	logger utils.ZapCompatibleLogger, dialOpts ...rpc.DialOption,
 ) (rpc.ClientConn, error) {
 	cachedJwt, cacheErr := jwtCacheRead(partID, host)
@@ -200,10 +200,10 @@ func authedDialDirectGRPC(ctx context.Context,
 	freshJwt, authErr := authenticator.Authenticate(ctx)
 	if authErr != nil {
 		logger.Warnw(fmt.Sprintf("authenticating connection with %s failed, attempting to dial again with cached JWT", host), "error", authErr)
-		return redialWithCachedJwt(authErr, conn, partID, host, logger, dialOpts...)
+		return redialWithCachedJwt(conn, partID, host, logger, dialOpts...)
 	}
 	if freshJwt == "" {
-		logger.Warnf("auth succeeded but the JWT from %s was empty, not updating cache\n", host)
+		logger.Warnf("auth succeeded but the JWT from %s was empty, not updating cache", host)
 	} else {
 		cacheErr := jwtCacheWrite(partID, host, freshJwt)
 		if cacheErr != nil {
