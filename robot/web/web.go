@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -202,10 +204,7 @@ func (svc *webService) UpdateUserPermissions(userPerms []config.UserPermission) 
 	// that have not yet sent their first message will be authorized against the new
 	// permissions when they do.
 	svc.authzStreamsMu.Lock()
-	streams := make([]*authzServerStream, 0, len(svc.authzStreams))
-	for ss := range svc.authzStreams {
-		streams = append(streams, ss)
-	}
+	streams := slices.Collect(maps.Keys(svc.authzStreams))
 	svc.authzStreamsMu.Unlock()
 	for _, ss := range streams {
 		checked, resourceName := ss.firstMessageInfo()
