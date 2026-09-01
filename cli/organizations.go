@@ -12,8 +12,11 @@ import (
 )
 
 // orgPublicNamespacePattern is the org public-namespace format used by the app:
-// lowercase letters, numbers, and hyphens, starting with a letter.
-var orgPublicNamespacePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
+// 2–39 characters; lowercase letters, numbers, and hyphens; must start and end
+// with a letter or number.
+var orgPublicNamespacePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,37}[a-z0-9]$`)
+
+const orgPublicNamespaceErr = "public namespace must be 2-39 characters: lowercase letters, numbers, and hyphens, and must start and end with a letter or number"
 
 type organizationsCreateArgs struct {
 	Name            string
@@ -39,7 +42,7 @@ func (c *viamClient) organizationsCreateAction(ctx context.Context, cmd *cli.Com
 		return errors.New("organization name must not be empty")
 	}
 	if !orgPublicNamespacePattern.MatchString(ns) {
-		return errors.New("public namespace must be lowercase letters, numbers, and hyphens, and start with a letter")
+		return errors.New(orgPublicNamespaceErr)
 	}
 
 	avail, err := c.client.GetOrganizationNamespaceAvailability(ctx, &apppb.GetOrganizationNamespaceAvailabilityRequest{
@@ -112,12 +115,12 @@ func promptOrganizationsCreate(args *organizationsCreateArgs) error {
 	if args.PublicNamespace == "" {
 		fields = append(fields, huh.NewInput().
 			Title("Public namespace").
-			Description("Used in module IDs (namespace:module-name).\nLowercase letters, numbers, and hyphens. Set this before viam module generate.").
+			Description("Used in module IDs (namespace:module-name).\n2-39 characters: lowercase letters, numbers, and hyphens; must start and end with a letter or number. Set this before viam module generate.").
 			Placeholder("my-namespace").
 			Value(&args.PublicNamespace).
 			Validate(func(s string) error {
 				if !orgPublicNamespacePattern.MatchString(s) {
-					return errors.New("must be lowercase letters, numbers, and hyphens, and start with a letter")
+					return errors.New(orgPublicNamespaceErr)
 				}
 				return nil
 			}))

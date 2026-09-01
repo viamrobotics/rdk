@@ -167,7 +167,11 @@ func TestViewOrg(t *testing.T) {
 		missingID := uuid.New().String()
 		vc.conf.DefaultOrg = missingID
 		test.That(t, vc.viewDefaultOrgAction(context.Background(), cCtx), test.ShouldBeNil)
-		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(errOut.messages), test.ShouldBeGreaterThan, 1)
+		test.That(t, errOut.messages[0], test.ShouldEqual, "Warning: ")
+		test.That(t, errOut.messages[1], test.ShouldContainSubstring, "could not resolve default org")
+		test.That(t, errOut.messages[1], test.ShouldContainSubstring, missingID)
+		test.That(t, errOut.messages[1], test.ShouldContainSubstring, "no organization found")
 		test.That(t, len(out.messages), test.ShouldEqual, 1)
 		test.That(t, out.messages[0], test.ShouldEqual, missingID+"\n")
 	})

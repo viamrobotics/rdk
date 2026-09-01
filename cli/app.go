@@ -975,7 +975,7 @@ Note: There is no progress meter while copying is in progress.
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPublicNamespace,
-							Usage: "public namespace used in module IDs (namespace:module-name). lowercase letters, numbers, and hyphens",
+							Usage: "public namespace used in module IDs (namespace:module-name). 2-39 characters: lowercase letters, numbers, and hyphens; must start and end with a letter or number",
 						},
 					},
 					Action: createActionCommandWithT[organizationsCreateArgs](OrganizationsCreateAction),

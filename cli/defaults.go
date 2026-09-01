@@ -218,11 +218,13 @@ func (c *viamClient) viewDefaultOrgAction(ctx context.Context, cmd *cli.Command)
 		printf(cmd.Root().Writer, "No default organization set")
 		return nil
 	}
-	if org, err := c.getOrg(ctx, orgID); err == nil {
-		printf(cmd.Root().Writer, "%s (id: %s)", org.Name, org.Id)
+	org, err := c.getOrg(ctx, orgID)
+	if err != nil {
+		warningf(cmd.Root().ErrWriter, "could not resolve default org %s: %v", orgID, err)
+		printf(cmd.Root().Writer, "%s", orgID)
 		return nil
 	}
-	printf(cmd.Root().Writer, "%s", orgID)
+	printf(cmd.Root().Writer, "%s (id: %s)", org.Name, org.Id)
 	return nil
 }
 
