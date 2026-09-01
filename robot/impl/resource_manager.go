@@ -300,9 +300,20 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			if errors.Is(err, client.ErrMissingClientRegistration) {
 				resLogger.CDebugw(ctx, "couldn't obtain remote resource interface",
 					"reason", err)
-			} else {
-				resLogger.CErrorw(ctx, "couldn't obtain remote resource interface",
-					"reason", err)
+				continue
+			}
+			// The remote still advertises this resource, so a failed client fetch is a transient
+			// disconnect, not a removal. Keep the node (marked unreachable) so local resources
+			// that only optionally depend on it keep their stale client instead of being rebuilt
+			// without that dependency.
+			resLogger.CDebugw(ctx, "couldn't obtain remote resource interface; keeping existing node",
+				"reason", err)
+			resName.Remote = remoteName.Name
+			if _, ok := manager.resources.Node(resName); ok {
+				activeResourceNames[resName] = true
+				if markErr := manager.resources.MarkReachability(resName, false); markErr != nil {
+					resLogger.CErrorw(ctx, "unable to mark remote resource as unreachable", "error", markErr)
+				}
 			}
 			continue
 		}
