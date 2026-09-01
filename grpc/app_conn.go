@@ -121,23 +121,23 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	return appConn, nil
 }
 
-func tokenInfo(partID, host string) (string, string) {
+func jwtInfo(partID, host string) (string, string) {
 	cacheDir := filepath.Join(rutils.ViamDotDir, "grpc")
-	tokenFilename := base64.RawURLEncoding.EncodeToString([]byte(partID + "_" + host))
-	tokenPath := filepath.Join(cacheDir, tokenFilename+".jwt")
+	jwtFilename := base64.RawURLEncoding.EncodeToString([]byte(partID + "_" + host))
+	jwtPath := filepath.Join(cacheDir, jwtFilename+".jwt")
 
-	return cacheDir, tokenPath
+	return cacheDir, jwtPath
 }
 
 func jwtCacheWrite(partID, host, token string) error {
-	cacheDir, tokenPath := tokenInfo(partID, host)
+	cacheDir, jwtPath := jwtInfo(partID, host)
 
 	err := os.MkdirAll(cacheDir, 0o700)
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(tokenPath, []byte(token), 0o600)
+	err = os.WriteFile(jwtPath, []byte(token), 0o600)
 	if err != nil {
 		return err
 	}
@@ -145,13 +145,11 @@ func jwtCacheWrite(partID, host, token string) error {
 }
 
 func jwtCacheRead(partID, host string) (string, error) {
-	_, tokenPath := tokenInfo(partID, host)
+	_, jwtPath := jwtInfo(partID, host)
 
-	// token files are created by rdk
-	// anybody with access to the machine can pass in any token they like,
-	// but this was already true before we wrote the tokens to disk
+	// we need to write the token provided by the host to disk
 	//nolint:gosec
-	tokenData, err := os.ReadFile(tokenPath)
+	tokenData, err := os.ReadFile(jwtPath)
 	if err != nil {
 		return "", err
 	}
