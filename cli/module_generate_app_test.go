@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -51,28 +50,22 @@ func TestAppTemplateCompiles(t *testing.T) {
 	err = os.WriteFile(goModPath, goMod, 0o644)
 	test.That(t, err, test.ShouldBeNil)
 
-	//nolint: noctx
-	goGet := exec.Command("go", "get", "github.com/erh/vmodutils@latest")
-	goGet.Dir = appPath
-	goGetOut, err := goGet.CombinedOutput()
+	// The generated module resolves its dependencies from scratch, so every step below
+	// reaches the module proxy and checksum database. runGoWithRetry absorbs the
+	// intermittent stream resets those endpoints return.
+	goGetOut, err := runGoWithRetry(appPath, "get", "github.com/erh/vmodutils@latest")
 	if err != nil {
 		t.Fatalf("go get vmodutils failed: %v\n%s", err, goGetOut)
 	}
 
 	// Run go mod tidy to resolve dependencies
-	//nolint: noctx
-	tidy := exec.Command("go", "mod", "tidy")
-	tidy.Dir = appPath
-	tidyOut, err := tidy.CombinedOutput()
+	tidyOut, err := runGoWithRetry(appPath, "mod", "tidy")
 	if err != nil {
 		t.Fatalf("go mod tidy failed: %v\n%s", err, tidyOut)
 	}
 
 	// Verify the generated module.go compiles against current rdk
-	//nolint: noctx
-	build := exec.Command("go", "build", "./...")
-	build.Dir = appPath
-	buildOut, err := build.CombinedOutput()
+	buildOut, err := runGoWithRetry(appPath, "build", "./...")
 	if err != nil {
 		t.Fatalf("generated app module does not compile: %v\n%s", err, buildOut)
 	}

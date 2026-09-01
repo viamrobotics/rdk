@@ -1155,3 +1155,52 @@ func main() {
 		test.That(t, string(result), test.ShouldEqual, original)
 	})
 }
+
+func TestTransientGoFetchFailure(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		output   string
+		expected bool
+	}{
+		{
+			name: "sumdb stream reset",
+			output: "go: downloading go.viam.com/utils v0.10.1\n" +
+				"go: go.viam.com/utils@v0.10.1: verifying go.mod: go.viam.com/utils@v0.10.1/go.mod: " +
+				"reading https://sum.golang.org/tile/8/0/x227/599: stream error: stream ID 3637; " +
+				"INTERNAL_ERROR; received from peer\n",
+			expected: true,
+		},
+		{
+			name:     "proxy gateway error",
+			output:   "go: module lookup disabled: 502 Bad Gateway\n",
+			expected: true,
+		},
+		{
+			name:     "checksum mismatch is not transient",
+			output:   "go: github.com/foo/bar@v1.0.0: checksum mismatch\n\tSECURITY ERROR\n",
+			expected: false,
+		},
+		{
+			name:     "unknown revision is not transient",
+			output:   "go: github.com/foo/bar@v9.9.9: invalid version: unknown revision v9.9.9\n",
+			expected: false,
+		},
+		{
+			name:     "compile error is not transient",
+			output:   "# go.viam.com/rdk/grpc\n./auth_identity.go:69:21: entity.AuthMetadata undefined\n",
+			expected: false,
+		},
+		{
+			name:     "empty output",
+			output:   "",
+			expected: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			test.That(t, transientGoFetchFailure([]byte(tc.output)), test.ShouldEqual, tc.expected)
+		})
+	}
+}
