@@ -106,6 +106,7 @@ jobs:
       env:
         GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
       run: |
+        sed -i '/^deb .*bullseye-backports/d' /etc/apt/sources.list
         apt-get update
         apt-get install -y openjdk-17-jre-headless jq
         curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
