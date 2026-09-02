@@ -84,7 +84,12 @@ jobs:
         go-version-file: go.mod
 
     - name: Install apt deps
-      run: apt update && apt install -y xz-utils
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          build-essential \
+          ca-certificates curl file git make nasm pkg-config sudo xz-utils \
+          libjpeg-turbo8-dev
 
     - name: Install upx
       # rdk-focal ships no upx
