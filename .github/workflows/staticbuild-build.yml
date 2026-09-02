@@ -30,19 +30,19 @@ jobs:
         # images (antique-validate keeps that path green).
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
+            image: ghcr.io/viamrobotics/canon:amd64
             platform: linux/amd64
             target: static-release
             sign_cmd_arg: ''
             build_tags_arg: 'GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt'
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/rdk-focal:arm64-cache
+            image: ghcr.io/viamrobotics/canon:arm64
             platform: linux/arm64
             target: static-release
             sign_cmd_arg: ''
             build_tags_arg: 'GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt'
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
+            image: ghcr.io/viamrobotics/canon:amd64
             platform: linux/amd64
             target: static-release-win
             sign_cmd_arg: 'SIGN_CMD=/tmp/sign-binary.sh'
@@ -79,10 +79,9 @@ jobs:
         # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
         allow-unsafe-pr-checkout: true
 
-    - name: Clean and Fix Permissions
-      run: |
-        chown -R testbot:testbot .
-        sudo -Hu testbot bash -lc 'make clean-all'
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
 
     - name: Install upx
       # rdk-focal ships no upx
@@ -91,10 +90,6 @@ jobs:
       with:
         version: v5.2.0
         install-only: true
-
-    - name: Link upx into /usr/local/bin
-      # sudo -Hu testbot's secure_path misses the runner tool dir
-      run: ln -sf "$(command -v upx)" /usr/local/bin/upx
 
     - name: Authorize signing (windows)
       if: matrix.target == 'static-release-win'
@@ -142,12 +137,12 @@ jobs:
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
+        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
+        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -163,12 +158,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
+        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
+        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
 
     - name: Set Date and Channel
       id: build_date
@@ -210,10 +205,10 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            image: ghcr.io/viamrobotics/antique2:amd64
             platform: linux/amd64
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/antique2:arm64-cache
+            image: ghcr.io/viamrobotics/antique2:arm64
             platform: linux/arm64
     runs-on: ${{ matrix.arch }}
     container:
@@ -251,14 +246,15 @@ jobs:
         # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
         allow-unsafe-pr-checkout: true
 
-    - name: Clean and Fix Permissions
-      run: |
-        chown -R testbot:testbot .
-        sudo -Hu testbot bash -lc 'make clean-all'
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
 
     - name: Build
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="antique-validate" static-release'
+        git config --global --add safe.directory /__w/rdk/rdk
+        make clean-all
+        make BUILD_CHANNEL="antique-validate" static-release
 
   mac:
     name: Build MacOS
@@ -287,7 +283,7 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
 
