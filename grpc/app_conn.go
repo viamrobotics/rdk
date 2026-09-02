@@ -127,7 +127,7 @@ func jwtInfo(partID, host string) (string, string) {
 	return cacheDir, jwtPath
 }
 
-func jwtCacheAtomicWrite(partID, host, jwt string) error {
+func jwtCacheWrite(partID, host, jwt string) error {
 	cacheDir, jwtPath := jwtInfo(partID, host)
 
 	err := os.MkdirAll(cacheDir, 0o700)
@@ -215,7 +215,7 @@ func authedDialDirectGRPC(ctx context.Context,
 	if freshJwt == "" {
 		logger.Warnf("auth succeeded but the JWT from %s was empty, not updating cache", host)
 	} else {
-		cacheErr := jwtCacheAtomicWrite(partID, host, freshJwt)
+		cacheErr := jwtCacheWrite(partID, host, freshJwt)
 		if cacheErr != nil {
 			logger.Warnw("could not write to JWT cache", "error", cacheErr)
 		}
