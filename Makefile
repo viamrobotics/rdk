@@ -9,6 +9,8 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 BUILD_CHANNEL ?= local
 
+export PATH := $(HOME)/.local/bin:$(PATH)
+
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
@@ -30,7 +32,6 @@ default: build lint server
 
 setup:
 	bash etc/setup.sh
-	mise trust -y
 	mise install -y
 
 build: build-go
