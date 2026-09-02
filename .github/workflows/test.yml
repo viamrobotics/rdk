@@ -236,11 +236,11 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-16-core
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-arm-16-core
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64
             platform: linux/arm64
             platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
@@ -271,9 +271,6 @@ jobs:
           echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
           echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
-      - name: Chown
-        run: chown -R testbot:testbot .
-
       - name: Set SKIP_ROBOT_IMPL if robot/impl deps are unchanged
         if: needs.check-changes.outputs.skip_robot_impl == 'true'
         run: echo "SKIP_ROBOT_IMPL=true" >> $GITHUB_ENV
@@ -286,6 +283,10 @@ jobs:
         if: needs.check-changes.outputs.skip_module == 'true'
         run: echo "SKIP_MODULE=true" >> $GITHUB_ENV
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: Run go unit tests
         env:
           # The devenv images have the C++ runtime the prebuilt trajex archives
@@ -295,7 +296,9 @@ jobs:
           GO_BUILD_TAGS_EXTRA: viam_rdk_cgo_have_cxx20_rt
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
-          sudo apt-get update && sudo apt-get install -y python3-venv
+          sudo apt-get update && sudo apt-get install -y python3-venv which
+          which -a go
+          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE,GO_BUILD_TAGS_EXTRA -Hu testbot bash -lc 'which -a go'
           sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE,GO_BUILD_TAGS_EXTRA -Hu testbot bash -lc 'make test-go'
 
       - name: Upload test.json
