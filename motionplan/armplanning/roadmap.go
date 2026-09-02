@@ -64,13 +64,10 @@ const (
 // roadmapRegistry caches structures per key for the life of the process.
 var roadmapRegistry sync.Map // string -> *roadmap
 
-// ClearRoadmapCache discards every learned roadmap: the sampled structures, harvested
-// corridors, per-scene edge verdicts and memoized smoothed trajectories. Call it between
-// planning requests that must not share learned state - resetting a long-lived process, or
-// measuring a cold start the way a freshly started viam-server would plan. A plan already in
-// flight keeps the roadmap it holds. Roadmaps persisted to disk (MOTION_ROADMAP_CACHE_DIR)
-// are not deleted and will be reloaded on next use; leave that variable unset for a fully
-// cold start.
+// ClearRoadmapCache discards all learned roadmap data. Call this between planning requests
+// that must not share learned state, such as when measuring a cold start. A plan already in
+// flight keeps the roadmap it holds, and roadmaps persisted to disk (MOTION_ROADMAP_CACHE_DIR)
+// are reloaded on next use.
 func ClearRoadmapCache() {
 	roadmapRegistry.Clear()
 }
