@@ -83,6 +83,9 @@ jobs:
       with:
         go-version-file: go.mod
 
+    - name: Install apt deps
+      run: apt update && apt install -y xz-utils
+
     - name: Install upx
       # rdk-focal ships no upx
       # crazy-max/ghaction-upx@v4.0.0
