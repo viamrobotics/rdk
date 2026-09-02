@@ -101,6 +101,8 @@ func Run(
 			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
+
+			// Top up in case we missed the last tick.
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
 			}
@@ -114,10 +116,6 @@ func Run(
 	}
 }
 
-// topUp samples the deficit needed to bring the estimated arm runway up to targetRunway
-// and sends it. Called both on the send ticker and after every extend so that a long extend
-// (longer than the ticker interval) does not cause a tick to be silently dropped, leaving
-// the arm under-filled.
 func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
 	deficit := targetRunway - s.currentEstimatedRunwayInArm()
 	if deficit <= 0 {
