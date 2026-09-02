@@ -8,7 +8,7 @@ endif
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 BUILD_CHANNEL ?= local
-
+# Include mise in path.
 export PATH := $(HOME)/.local/bin:$(PATH)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
