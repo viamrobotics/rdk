@@ -64,6 +64,14 @@ const (
 // roadmapRegistry caches structures per key for the life of the process.
 var roadmapRegistry sync.Map // string -> *roadmap
 
+// ClearRoadmapCache discards all learned roadmap data. Call this between planning requests
+// that must not share learned state, such as when measuring a cold start. A plan already in
+// flight keeps the roadmap it holds, and roadmaps persisted to disk (MOTION_ROADMAP_CACHE_DIR)
+// are reloaded on next use.
+func ClearRoadmapCache() {
+	roadmapRegistry.Clear()
+}
+
 type roadmap struct {
 	frames []string // moving chain frames with DoF, sorted; defines flat layout
 	dims   []int    // DoF per frame
