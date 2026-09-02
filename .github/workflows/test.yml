@@ -337,20 +337,26 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # Use this action to run golangci-lint and skip it in the following make
-      # invocation. Using this action gives us convenient caching behavior that
-      # significantly speeds up lint times.
+      # Use this action just to save and restore the golangci-lint cache. The
+      # binary is actually installed by mise in the previous step and executed
+      # as part of a make/mise target in the following step. The weird looking
+      # combination of `install-only` and `install-mode` does still let the
+      # caching parts of the action run. We should probably verify if that's
+      # still the case if we ever change this version because there's a good
+      # chance the current behavior was not intentional on the part of the
+      # authors.
       - name: golangci-lint
         # golangci/golangci-lint-action@9.3.0
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
         with:
           install-mode: 'none' # already installed by mise
+          install-only: true
           cache-invalidation-interval: 1 # days
 
       - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
         run: |
           git init && git add .
-          LINT_DRY_RUN=1 LINT_SKIP_GOLANGCI_LINT=1 make build-go lint-go generate-go
+          LINT_DRY_RUN=1 make build-go lint-go generate-go
           GEN_DIFF=$(git status -s)
           if [ -n "$GEN_DIFF" ]; then
               echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2

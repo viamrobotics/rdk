@@ -8,15 +8,12 @@ alias = "lint"
 description = 'Lint and format go code'
 usage = '''
 flag "-n --dry-run" default=#false env="LINT_DRY_RUN" help="Print diffs rather than automatically applying fixes"
-flag "--skip-golangci-lint" default=#false env="LINT_SKIP_GOLANGCI_LINT" help="Skip commands that use the golangci-lint binary"
 '''
 run = '''
 set -x
 go mod tidy{% if usage.dry_run %} -diff{% endif %}|| result=$?
-{% if not usage.skip_golangci_lint %}
 golangci-lint run{% if env.CI %} -v{% endif %}{% if not usage.dry_run %} --fix{% endif %} || result=$?
 golangci-lint fmt{% if env.CI %} -v{% endif %}{% if usage.dry_run %} --diff{% endif %} || result=$?
-{% endif %}
 ./etc/lint_register_apis.sh || result=$?
 exit ${result:-0}
 '''
