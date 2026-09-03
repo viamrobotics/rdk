@@ -7,6 +7,16 @@ golangci-lint = "2.9.0"
 # out that it needs to install ruby before any gem tools and the whole install
 # fails. Installing ruby only takes ~3s on an amd64 linux machine anyway.
 ruby = "4.0.6"
+"go:github.com/AlekSi/gocov-xml" = "v1.0.0"
+"go:github.com/axw/gocov/gocov" = "v1.1.0"
+gotestsum = "1.12.2"
+buf = "v1.71.0"
+grpcurl = "v1.8.6"
+actionlint = "v1.7.8"
+protoc-gen-go-grpc = "v1.5.1"
+"go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway" = "v2.20.0"
+"go:golang.org/x/mobile/cmd/gomobile" = "0.0.0-20260821190718-4776eadac327"
+"go:golang.org/x/tools/cmd/stringer" = "0.49.0"
 
 [tools.upx]
 version = "5.2.1"
