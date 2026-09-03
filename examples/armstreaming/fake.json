@@ -1,0 +1,16 @@
+{
+	"components": [
+		{
+			"name": "arm1",
+			"namespace": "rdk",
+			"type": "arm",
+			"model": "fake",
+			"attributes": {
+				"arm-model": "ur5e"
+			}
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}
