@@ -2123,9 +2123,6 @@ func TestTunnelE2ECLI(t *testing.T) {
 	destPort, destListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
-	defer func() {
-		test.That(t, destListener.Close(), test.ShouldBeNil)
-	}()
 
 	sourcePort, err := goutils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
@@ -2135,26 +2132,38 @@ func TestTunnelE2ECLI(t *testing.T) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
+	// Ensure context is always cancelled and goroutines always drain, even when
+	// an assertion fails mid-test. destListener must be closed before wg.Wait to
+	// unblock a potentially pending Accept() in the echo goroutine.
+	defer func() {
+		ctxCancel()
+		destListener.Close()
+		wg.Wait()
+	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
 		logger.Infof("Listening on %s for tunnel message", destListenerAddr)
 		conn, err := destListener.Accept()
+		if ctx.Err() != nil {
+			// Test is shutting down; do not assert on a cancelled listener.
+			return
+		}
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, conn.Close(), test.ShouldBeNil)
 		}()
 
-		bytes := make([]byte, 1024)
-		n, err := conn.Read(bytes)
+		buf := make([]byte, len(tunnelMsg))
+		_, err = io.ReadFull(conn, buf)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
-		test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
+		test.That(t, string(buf), test.ShouldEqual, tunnelMsg)
 		logger.Info("Received expected tunnel message at", destListenerAddr)
 
 		// Write the same message back.
-		n, err = conn.Write([]byte(tunnelMsg))
+		n, err := conn.Write([]byte(tunnelMsg))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 	}()
@@ -2211,19 +2220,20 @@ func TestTunnelE2ECLI(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
 
-	// Expect `tunnelMsg` to be written back.
-	bytes := make([]byte, 1024)
-	n, err = conn.Read(bytes)
+	// Expect `tunnelMsg` to be written back. Use io.ReadFull so we read exactly
+	// len(tunnelMsg) bytes; a plain conn.Read on a TCP stream may return more or
+	// fewer bytes depending on how the kernel coalesces segments.
+	echoBuf := make([]byte, len(tunnelMsg))
+	_, err = io.ReadFull(conn, echoBuf)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, n, test.ShouldEqual, len(tunnelMsg))
-	test.That(t, string(bytes), test.ShouldContainSubstring, tunnelMsg)
+	test.That(t, string(echoBuf), test.ShouldEqual, tunnelMsg)
 
 	// Cancel test's context once message has made it all the way across and has been echoed
 	// back. This stops the RunServer goroutine and the tunnel itself.
+	// ctxCancel and wg.Wait are also deferred above so cleanup still happens if
+	// an assertion above fails.
 	ctxCancel()
 	test.That(t, stopServer(), test.ShouldBeNil)
-
-	wg.Wait()
 }
 
 // fakeTunnelLister is a tunnelLister test double. Before `reloadAfter` ListTunnels
