@@ -469,6 +469,49 @@ func TestArmOOBSolve(t *testing.T) {
 	}
 }
 
+func TestImmovableGoalFrame(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fs := makeTestFS(t)
+
+	// A fixture bolted to world: nothing in its parent chain has any degrees of freedom, so no
+	// configuration of the arms changes where it sits.
+	fixture, err := frame.NewStaticFrame("fixture", spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 300, Z: 0}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(fixture, fs.World()), test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 400, Y: 300, Z: 100})
+	_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
+		FrameSystem:    fs,
+		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"fixture": frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:     &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
+		PlannerOptions: NewBasicPlannerOptions(),
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `cannot move frame "fixture" relative to "world"`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no DoF lies between them")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "fixture -> world")
+
+	// A static frame is only immovable if its whole chain is: one hanging off an arm is fine, and
+	// so is an immovable frame whose goal is stated relative to a frame the arm carries.
+	tool, err := frame.NewStaticFrame("tool", spatialmath.NewPoseFromPoint(r3.Vector{Z: 50}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(tool, fs.Frame("xArmVgripper")), test.ShouldBeNil)
+
+	for _, tc := range []struct {
+		moveFrame, goalParent string
+	}{
+		{"tool", frame.World},
+		{"xArm6", frame.World},
+		{"fixture", "tool"},
+	} {
+		chains, err := motionChainsFromPlanState(fs, frame.FrameSystemPoses{
+			tc.moveFrame: frame.NewPoseInFrame(tc.goalParent, goal),
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, chains.immovableGoalError(), test.ShouldBeNil)
+	}
+}
+
 func TestArmObstacleSolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
