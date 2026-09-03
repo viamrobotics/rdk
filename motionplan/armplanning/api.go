@@ -80,6 +80,10 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.PlannerOptions == nil {
 		req.PlannerOptions = NewBasicPlannerOptions()
 	}
+	if req.PlannerOptions.CollisionBufferMM < 0 {
+		return errors.New("collision_buffer_mm can't be negative")
+	}
+	req.PlannerOptions.normalizeCollisionBuffer()
 
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.structuredConfiguration) > 0 {
@@ -458,11 +462,17 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 	// We've removed world state from the plan request object. Instead forcing callers to merge
 	// world state transforms into the `FrameSystem` member itself. And world state obstacles are
 	// now passed in directly.
-	req := &PlanRequest{}
+	//
+	// PlannerOptions is pre-seeded with defaults so a saved options object that omits a field
+	// merges into the default rather than the type's zero value. A request captured before a
+	// field existed (or with the key stripped) must replay with the same effective options
+	// production would use - most acutely collision_buffer_mm, where a decoded 0 flips collision
+	// verdicts and can turn a milliseconds plan into a timeout.
+	req := &PlanRequest{PlannerOptions: NewBasicPlannerOptions()}
 	if _, hasWorldState := probe["world_state"]; hasWorldState {
 		// Legacy format, parse as a `PlanRequestWithWorldState` and have that "upgrade" to a modern
 		// `PlanRequest`.
-		legacy := &PlanRequestWithWorldState{}
+		legacy := &PlanRequestWithWorldState{PlannerOptions: NewBasicPlannerOptions()}
 		if err = json.Unmarshal(raw, legacy); err != nil {
 			return nil, nil, err
 		}

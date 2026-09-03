@@ -57,7 +57,9 @@ func checkStartupPerf(logger logging.Logger) (time.Duration, error) {
 }
 
 func readRequestFromBytes(data []byte) (*PlanRequest, error) {
-	req := &PlanRequest{}
+	// Pre-seeded so options fields absent from the JSON decode to their
+	// defaults, not the type's zero values; see ReadRequestAndResponseFromFile.
+	req := &PlanRequest{PlannerOptions: NewBasicPlannerOptions()}
 	err := json.NewDecoder(bytes.NewReader(data)).Decode(req)
 	if err != nil {
 		return nil, err
