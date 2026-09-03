@@ -3,6 +3,7 @@ min_version = '2026.8.16'
 [tools]
 "gem:license_finder" = "7.2.1"
 go = "1.25"
+"go:github.com/viamrobotics/canon" = "latest"
 golangci-lint = "2.9.0"
 ruby = "4.0.6"
 upx = "5.2.1"
