@@ -26,6 +26,9 @@ jobs:
         # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
         allow-unsafe-pr-checkout: true
 
+    - name: Install toolchain
+      uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+
     - name: Run license finder
       run: |
         sudo -Hu testbot bash -lc 'make license-check'
