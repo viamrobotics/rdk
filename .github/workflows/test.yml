@@ -346,8 +346,7 @@ jobs:
       # chance the current behavior was not intentional on the part of the
       # authors.
       - name: golangci-lint
-        # golangci/golangci-lint-action@9.3.0
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+        uses: jmatth/golangci-lint-action@cc0c0830013569a8f76ba125403d0f0ea5a9d184
         with:
           install-mode: 'none' # already installed by mise
           install-only: true
