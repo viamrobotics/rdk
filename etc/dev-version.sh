@@ -5,19 +5,18 @@ if [ -n "$(git status -s)" ]; then
     exit 0
 fi
 
-# See if we have a direct tag
-DIRECT_TAG=$(git tag --points-at | tr - \~ | sort -Vr | tr \~ - | head -n1)
-if [ -n "$DIRECT_TAG" ]; then
-    echo ${DIRECT_TAG}
-    exit 0
-fi
-
 if [ -z "$GITHUB_REF_NAME" ]; then
     GITHUB_REF_NAME=$(git rev-parse --abbrev-ref HEAD)
 fi
 
-# If we're not on main, we have no (automated) version to create
+# A release tag can point at main's HEAD. Builds of main still take the dev
+# version, so that they never republish the release's artifacts.
 if [ "$GITHUB_REF_NAME" != "main" ]; then
+    DIRECT_TAG=$(git tag --points-at | tr - \~ | sort -Vr | tr \~ - | head -n1)
+    if [ -n "$DIRECT_TAG" ]; then
+        echo ${DIRECT_TAG}
+    fi
+    # Off main and untagged there is no version to create.
     exit 0
 fi
 
@@ -35,12 +34,9 @@ COMMIT_HASH=$(git rev-parse --short=9 HEAD)
 # Calculate next version by incrementing patch number
 NEXT_VERSION=$(echo "$BASE_VERSION" | awk -F. '{$3+=1}1' OFS=.)
 
-# Set TAG_VERSION based on commits since last tag
-if [ "$COMMITS_SINCE_TAG" -eq 0 ]; then
-    TAG_VERSION="$BASE_VERSION"
-else
-    TAG_VERSION="${NEXT_VERSION}-dev.${COMMITS_SINCE_TAG}-${COMMIT_HASH}"
-fi
+# Always the dev form: a stable tag can be cut at main's HEAD, and a bare
+# release version here would publish over that release's artifacts.
+TAG_VERSION="${NEXT_VERSION}-dev.${COMMITS_SINCE_TAG}-${COMMIT_HASH}"
 
 # Set PATH_VERSION based on TAG_VERSION
 PATH_VERSION="v${TAG_VERSION}"
