@@ -73,6 +73,90 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	}
 }
 
+// TestRunBackpressureGatesPushOnTrajexRunway covers MaxTrajexRunwayMs: a push made while
+// the trajectory buffered inside trajex exceeds the cap is not accepted until execution
+// drains the runway back under it.
+func TestRunBackpressureGatesPushOnTrajexRunway(t *testing.T) {
+	inj, _ := newFakeStreamingArm()
+	jpCh := make(chan JointPositionsChItem)
+	opts := runTestOptions()
+	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of trajectory, far over the cap.
+	opts.VelLimitDegPerSec = 10
+	opts.MaxTrajexRunwayMs = 200
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(context.Background(), inj, opts, jpCh, []referenceframe.Input{0})
+	}()
+
+	// The first push is accepted immediately: the trajex runway is empty.
+	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.35}}
+
+	// The second push must stay blocked until the runway drains to under 200ms of the
+	// ~2s trajectory, which takes execution (wall-clock) time.
+	start := time.Now()
+	select {
+	case jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.36}}:
+	case <-time.After(15 * time.Second):
+		t.Fatal("gated push was never accepted")
+	}
+	test.That(t, time.Since(start), test.ShouldBeGreaterThan, 500*time.Millisecond)
+
+	close(jpCh)
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(15 * time.Second):
+		t.Fatal("Run did not finish after jpCh was closed")
+	}
+}
+
+// TestRunBackpressureUnblocksOnCancel covers ending a session whose pusher is gated: Run
+// must return on cancellation without ever accepting the gated push.
+func TestRunBackpressureUnblocksOnCancel(t *testing.T) {
+	inj, _ := newFakeStreamingArm()
+	jpCh := make(chan JointPositionsChItem)
+	opts := runTestOptions()
+	opts.VelLimitDegPerSec = 10
+	opts.MaxTrajexRunwayMs = 200
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(ctx, inj, opts, jpCh, []referenceframe.Input{0})
+	}()
+
+	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.35}}
+
+	// Leave a push pending against the closed gate, then cancel.
+	pushAccepted := make(chan struct{})
+	testDone := make(chan struct{})
+	defer close(testDone)
+	go func() {
+		select {
+		case jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.36}}:
+			close(pushAccepted)
+		case <-testDone:
+		}
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-errCh:
+		test.That(t, errors.Is(err, context.Canceled), test.ShouldBeTrue)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return promptly after cancellation while a push was gated")
+	}
+	select {
+	case <-pushAccepted:
+		t.Fatal("the gated push was accepted even though the runway never drained")
+	default:
+	}
+}
+
 func TestRunEndsContextCanceled(t *testing.T) {
 	t.Run("while streaming", func(t *testing.T) {
 		inj, _ := newFakeStreamingArm()

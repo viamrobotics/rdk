@@ -112,6 +112,15 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 	return pvatsFromOutput(out)
 }
 
+// trajexRunway is the un-emitted trajectory time remaining in the trajex session, as
+// reported by the session itself: the exact remainder of its active trajectory plus a
+// velocity-limit estimate of any waypoints it has staged but not yet built a trajectory
+// for. It is continuous across the session's internal pivots and rebases, which is what
+// makes it safe to gate on.
+func (s *trajexSession) trajexRunway() time.Duration {
+	return s.sess.TotalRemainingDuration()
+}
+
 func (s *trajexSession) close() { s.sess.Close() }
 
 func pvatsFromOutput(out *trajex.TensorMap) ([]pvat, error) {

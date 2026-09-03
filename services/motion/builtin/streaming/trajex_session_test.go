@@ -81,6 +81,49 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	test.That(t, len(pvats), test.ShouldEqual, 0)
 }
 
+// TestTrajexSessionRunwayTracksBacklog reproduces the field failure where the runway
+// read zero while backlog grew (deriving it client-side from the session's time
+// accessors was unreliable — their time base shifts between pivots and rebases): after
+// sampling deep into one move, a direction-reversing extend leaves a large unsampled
+// backlog. The session-reported runway must report it, shrink as sampling proceeds, and
+// reach zero once sampling catches up.
+func TestTrajexSessionRunwayTracksBacklog(t *testing.T) {
+	ctx := context.Background()
+	opts := testStreamOptions()
+	opts.VelLimitDegPerSec = 10 // slow, so trajectories are long relative to sampling noise
+
+	s := &trajexSession{opts: opts}
+	test.That(t, s.startSession([]referenceframe.Input{0}), test.ShouldBeNil)
+	defer s.close()
+	test.That(t, s.trajexRunway(), test.ShouldEqual, time.Duration(0))
+
+	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of backlog, none of it sampled.
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.35}), test.ShouldBeNil)
+	test.That(t, s.trajexRunway(), test.ShouldBeGreaterThan, 1500*time.Millisecond)
+
+	// Sample most of the way through, then reverse with a farther target: a new install
+	// whose backlog the estimate must keep reporting.
+	_, err := s.sampleAtLeast(ctx, s.sess.ActiveDuration()-100*time.Millisecond)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.trajexRunway(), test.ShouldBeLessThan, 300*time.Millisecond)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{-0.3}), test.ShouldBeNil)
+	backlog := s.trajexRunway()
+	test.That(t, backlog, test.ShouldBeGreaterThan, 1500*time.Millisecond)
+
+	// Sampling shrinks it monotonically toward zero.
+	_, err = s.sampleAtLeast(ctx, 500*time.Millisecond)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.trajexRunway(), test.ShouldBeLessThan, backlog)
+	for range 20 {
+		pvats, err := s.sampleAtLeast(ctx, time.Second)
+		test.That(t, err, test.ShouldBeNil)
+		if len(pvats) == 0 {
+			break
+		}
+	}
+	test.That(t, s.trajexRunway(), test.ShouldBeLessThan, 20*time.Millisecond)
+}
+
 // TestTrajexSessionSampleHorizon checks that sampleAtLeast advances the watermark by only
 // (approximately) the requested horizon per call rather than sampling the full trajectory, and
 // that consecutive calls continue from where the previous one left off.

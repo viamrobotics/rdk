@@ -38,6 +38,13 @@ type StreamOptions struct {
 	// TODO: Replace these with querying the arm's properties API.
 	VelLimitDegPerSec    float64 `json:"vel_limit_deg_per_sec"`
 	AccelLimitDegPerSec2 float64 `json:"accel_limit_deg_per_sec2"`
+
+	// MaxTrajexRunwayMs, when positive, backpressures the pusher: a pushed target is
+	// only accepted while the not-yet-sampled trajectory buffered inside the trajex
+	// session is below this duration, and the push blocks otherwise. 0 (the default)
+	// disables the gate, restoring trajex's native behavior of accepting targets
+	// without bound.
+	MaxTrajexRunwayMs int `json:"max_trajex_runway_ms"`
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
@@ -56,6 +63,9 @@ func (o *StreamOptions) Validate() error {
 	}
 	if o.AccelLimitDegPerSec2 <= 0 {
 		return errors.New("streaming: accel_limit_deg_per_sec2 must be positive")
+	}
+	if o.MaxTrajexRunwayMs < 0 {
+		return errors.New("streaming: max_trajex_runway_ms must be non-negative")
 	}
 	return nil
 }

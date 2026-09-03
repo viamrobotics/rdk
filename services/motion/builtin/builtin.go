@@ -323,12 +323,16 @@ func (ms *builtIn) PlanHistory(
 //	                 "target_runway_in_arm_ms": 100,
 //	                 "send_to_arm_interval_ms": 10,
 //	                 "vel_limit_deg_per_sec": 10,
-//	                 "accel_limit_deg_per_sec2": 10
+//	                 "accel_limit_deg_per_sec2": 10,
+//	                 "max_trajex_runway_ms": 0           // 0 disables push backpressure
 //	               }
 //	             }}
 //	  response: {"ok": 1}
 //
-//	DoStreamPush: appends joint-position targets to the running session.
+//	DoStreamPush: appends joint-position targets to the running session. When the session was
+//	started with a positive max_trajex_runway_ms, each target is only accepted while the
+//	trajectory buffered inside trajex is below that cap, so the call blocks until execution
+//	drains the backlog, the session ends, or ctx expires.
 //	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
 //	  response: {"ok": 1}
 //
