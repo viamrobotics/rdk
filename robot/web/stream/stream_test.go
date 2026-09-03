@@ -7,8 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 
@@ -25,6 +27,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	webstream "go.viam.com/rdk/robot/web/stream"
 	"go.viam.com/rdk/testutils/robottestutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // setupRealRobot creates a robot from the input config and starts a WebRTC server with video
@@ -630,4 +633,92 @@ func TestStreamServerSurvivesWebRestart(t *testing.T) {
 		Name: "test",
 	})
 	test.That(t, err, test.ShouldBeNil)
+}
+
+// TestUserPermissionsRevokesLiveVideoStreams is an end-to-end check that a real
+// user_permissions change tears down in-flight video streams the caller has lost access
+// to while leaving streams it still has access to untouched. Unlike the focused
+// RemoveUnauthorizedStreams unit test, this drives the actual web-service entry point
+// (UpdateUserPermissions, the same method robot reconfiguration calls) against a live,
+// authenticated WebRTC connection with real video streams. Client-side track removal is
+// not reliably observable on the peer connection, so the teardown is asserted via the
+// server's "removing active video stream" log.
+func TestUserPermissionsRevokesLiveVideoStreams(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	fakeCam := func(name string) resource.Config {
+		return resource.Config{
+			Name:                name,
+			API:                 resource.NewAPI("rdk", "component", "camera"),
+			Model:               resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{Animated: true, Width: 100, Height: 50},
+		}
+	}
+	robotCfg := &config.Config{Components: []resource.Config{fakeCam("keepCam"), fakeCam("dropCam")}}
+
+	r, err := robotimpl.RobotFromConfig(ctx, robotCfg, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, r.Close(ctx), test.ShouldBeNil) }()
+
+	// The web service needs a video encoder to serve live streams.
+	webSvc := web.New(r, logger, web.WithStreamConfig(gostream.StreamConfig{
+		VideoEncoderFactory: x264.NewEncoderFactory(),
+	}))
+	defer func() { test.That(t, webSvc.Close(ctx), test.ShouldBeNil) }()
+
+	keyID, key := uuid.NewString(), utils.RandomAlphaString(32)
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	options.FQDN = "revoke-live-stream-test"
+	options.Auth.Handlers = []config.AuthHandlerConfig{
+		{
+			Type: rpc.CredentialsTypeAPIKey,
+			Config: rutils.AttributeMap{
+				keyID:  key,
+				"keys": []string{keyID},
+			},
+		},
+	}
+	addStreamOn := func(cams ...string) []config.Permission {
+		return []config.Permission{{Resources: cams, AllowedMethods: []string{"/proto.stream.v1.StreamService/AddStream"}}}
+	}
+	// Initially the caller may stream both cameras.
+	options.Auth.UserPermissions = []config.UserPermission{
+		{User: config.User{Type: config.UserTypeAPIKeyID, ID: keyID}, Permissions: addStreamOn("keepCam", "dropCam")},
+	}
+	test.That(t, webSvc.Start(ctx, options), test.ShouldBeNil)
+
+	// AddStream only works over WebRTC; authenticate as the api-key user.
+	conn, err := rgrpc.Dial(ctx, addr, logger.Sublogger("dial"),
+		rpc.WithDisableDirectGRPC(),
+		rpc.WithAllowInsecureWithCredentialsDowngrade(),
+		rutils.WithEntityCredentials(keyID, rpc.Credentials{Type: rpc.CredentialsTypeAPIKey, Payload: key}),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, conn.Close(), test.ShouldBeNil) }()
+
+	streamClient := streampb.NewStreamServiceClient(conn)
+	_, err = streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "keepCam"})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "dropCam"})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Wait for both live video tracks to be negotiated so the streams are actually flowing.
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video"), test.ShouldEqual, 2)
+	})
+
+	// A real user_permissions change revoking dropCam but retaining keepCam. This is the
+	// exact method invoked during robot reconfiguration.
+	webSvc.UpdateUserPermissions([]config.UserPermission{
+		{User: config.User{Type: config.UserTypeAPIKeyID, ID: keyID}, Permissions: addStreamOn("keepCam")},
+	})
+
+	// The server tears down exactly the now-unauthorized dropCam stream and never the
+	// still-authorized keepCam stream.
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		removals := logs.FilterMessageSnippet("removing active video stream").All()
+		test.That(tb, removals, test.ShouldHaveLength, 1)
+		test.That(tb, removals[0].ContextMap()["name"], test.ShouldEqual, "dropCam")
+	})
 }
