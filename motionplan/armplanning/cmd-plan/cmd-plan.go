@@ -5,6 +5,7 @@
 //	cmd-plan plan.json                     # the original single-request behavior
 //	cmd-plan plan1.json plan2.json         # replay both exactly as recorded
 //	cmd-plan -chain plan1.json plan2.json  # plan2 starts where plan1's plan ended
+//	cmd-plan -fs-override limits.json plan1.json plan2.json  # both against edited DoF limits
 //
 // Replaying as recorded asks whether each plan still solves on its own. Chaining asks whether the
 // robot could actually have run them back to back, which is the question when a captured sequence
@@ -77,8 +78,9 @@ type runOptions struct {
 
 // runner replays the sequence of plan requests named on the command line.
 type runner struct {
-	opts   *runOptions
-	logger logging.Logger
+	opts     *runOptions
+	override *frameSystemOverride
+	logger   logging.Logger
 	// mpLogger is what PlanMotion logs through; -quiet swaps it for a logger with no appenders.
 	mpLogger logging.Logger
 	mylog    *log.Logger
@@ -140,6 +142,8 @@ func realMain() error {
 	noViz := flag.Bool("no-viz", false, "skip rendering the plan; useful for benchmarking success rate and planning speed")
 	chain := flag.Bool("chain", false,
 		"plan each request from the configuration the previous plan ended in, rather than from its own recorded start state")
+	fsOverrideFile := flag.String("fs-override", "",
+		"json file of frame system overrides to apply to every request, e.g. tighter DoF limits. See override.go for the schema")
 
 	flag.Parse()
 
@@ -221,6 +225,14 @@ func realMain() error {
 		}, logger)
 	}
 
+	var override *frameSystemOverride
+	if *fsOverrideFile != "" {
+		var err error
+		if override, err = readFrameSystemOverride(*fsOverrideFile); err != nil {
+			return err
+		}
+	}
+
 	metricsExporter := perf.NewDevelopmentExporterWithOptions(perf.DevelopmentExporterOptions{
 		ReportingInterval: time.Second * 10,
 		TracesDisabled:    true,
@@ -255,6 +267,7 @@ func realMain() error {
 			noViz:                   *noViz,
 			chain:                   *chain,
 		},
+		override: override,
 		logger:   logger,
 		mpLogger: mpLogger,
 		mylog:    log.New(os.Stdout, "", 0),
@@ -337,7 +350,8 @@ func realMain() error {
 }
 
 // loadRequest reads one request off disk and applies everything that is a property of the run
-// rather than of the recorded request: the pseudolinear constraints and the seed.
+// rather than of the recorded request: the pseudolinear constraints, the seed and the frame system
+// override.
 func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.Plan, error) {
 	r.logger.Infof("reading plan from %s", file)
 	req, origPlan, err := armplanning.ReadRequestAndResponseFromFile(file)
@@ -354,6 +368,13 @@ func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.
 		req.PlannerOptions.RandomSeed = r.opts.seed
 	}
 
+	if r.override != nil {
+		if err := r.override.apply(req.FrameSystem, r.logger); err != nil {
+			return nil, nil, fmt.Errorf("applying %s to %s: %w", r.override.source, file, err)
+		}
+	}
+
+	// Must run after the override, because the seed cache is built from the frame system's limits.
 	if err := armplanning.PrepSmartSeed(req.FrameSystem, r.logger); err != nil {
 		return nil, nil, err
 	}
@@ -652,9 +673,9 @@ func chainStartState(req *armplanning.PlanRequest, prevEnd referenceframe.FrameS
 
 		for i, limit := range frame.DoF() {
 			if inputs[i] < limit.Min || inputs[i] > limit.Max {
-				// Two requests captured against different limits can leave the robot parked
-				// outside the bounds of the one it lands in. The planner can still move it back
-				// inside, so say so and carry on.
+				// Tightening a limit with -fs-override, or two requests captured against
+				// different limits, can leave the robot parked outside the bounds it lands in.
+				// The planner can still move it back inside, so say so and carry on.
 				logger.Warnf("chain: frame %q joint %d carries over as %0.4f, outside its limit [%0.4f, %0.4f]",
 					name, i, inputs[i], limit.Min, limit.Max)
 			}
