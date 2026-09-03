@@ -94,19 +94,34 @@ func (s graphStorage) Set(name Name, node *GraphNode) {
 	s.setSimpleNameCache(name, node)
 }
 
-func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
-	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
-	val := s.simpleNameCache[simpleName]
-	if val == nil {
-		val = &simpleNameVal{
-			remote: map[string]*GraphNode{},
+// apisForNode returns the full set of co-equal APIs the node's resource serves (see
+// resource.RegisterMultiAPI), or just name.API for an ordinary single-API resource. A composite
+// (multi-API) node is cached under every one of its APIs so the one instance is routable and
+// advertisable as each of them.
+func apisForNode(name Name, node *GraphNode) []API {
+	if node != nil {
+		if apis := APIsForModel(node.config.Model); len(apis) > 0 {
+			return apis
 		}
-		s.simpleNameCache[simpleName] = val
 	}
-	if name.Remote == "" {
-		val.local = node
-	} else {
-		val.remote[name.Remote] = node
+	return []API{name.API}
+}
+
+func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
+	for _, api := range apisForNode(name, node) {
+		simpleName := simpleNameKey{node.prefix + name.Name, api}
+		val := s.simpleNameCache[simpleName]
+		if val == nil {
+			val = &simpleNameVal{
+				remote: map[string]*GraphNode{},
+			}
+			s.simpleNameCache[simpleName] = val
+		}
+		if name.Remote == "" {
+			val.local = node
+		} else {
+			val.remote[name.Remote] = node
+		}
 	}
 }
 
@@ -114,14 +129,15 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 	if prevPrefix == node.prefix {
 		return
 	}
-	prevSimpleName := simpleNameKey{prevPrefix + name.Name, name.API}
-
-	prevVal := s.simpleNameCache[prevSimpleName]
-	if prevVal != nil {
-		if name.Remote == "" {
-			prevVal.local = nil
-		} else {
-			delete(prevVal.remote, name.Remote)
+	for _, api := range apisForNode(name, node) {
+		prevSimpleName := simpleNameKey{prevPrefix + name.Name, api}
+		prevVal := s.simpleNameCache[prevSimpleName]
+		if prevVal != nil {
+			if name.Remote == "" {
+				prevVal.local = nil
+			} else {
+				delete(prevVal.remote, name.Remote)
+			}
 		}
 	}
 
@@ -134,16 +150,18 @@ func (s graphStorage) Delete(name Name) {
 	if node == nil {
 		return
 	}
-	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
-	existing := s.simpleNameCache[simpleName]
-	if existing == nil {
-		return
+	for _, api := range apisForNode(name, node) {
+		simpleName := simpleNameKey{node.prefix + name.Name, api}
+		existing := s.simpleNameCache[simpleName]
+		if existing == nil {
+			continue
+		}
+		if name.Remote == "" {
+			existing.local = nil
+		} else {
+			delete(existing.remote, name.Remote)
+		}
 	}
-	if name.Remote == "" {
-		existing.local = nil
-		return
-	}
-	delete(existing.remote, name.Remote)
 }
 
 func (s graphStorage) Copy() graphStorage {
@@ -429,16 +447,51 @@ func seq2First[K, V any](seq iter.Seq2[K, V]) (K, V, bool) {
 	return resK, resV, ok
 }
 
+// candidate is a (name, node) pairing considered by [Graph.SimpleNamesWhere] when applying
+// machine-wide name-uniqueness resolution.
+type candidate struct {
+	name Name
+	node *GraphNode
+}
+
+// candidatesAreOneComposite reports whether several candidates that share a simple name are one
+// composite (multi-API) resource rather than a genuine collision between distinct resources. They
+// are one composite when they all back the same graph node (a local composite advertised under
+// several APIs) or all come from a single remote (which enforces its own name uniqueness, so one
+// remote advertising a bare name under several APIs is a composite whose per-API names arrive as
+// distinct proxy nodes locally).
+func candidatesAreOneComposite(cands []candidate) bool {
+	if len(cands) < 2 {
+		return true
+	}
+	allSameNode := true
+	for _, c := range cands[1:] {
+		if c.node != cands[0].node {
+			allSameNode = false
+			break
+		}
+	}
+	if allSameNode {
+		return true
+	}
+	remote := cands[0].name.Remote
+	if remote == "" {
+		return false
+	}
+	for _, c := range cands[1:] {
+		if c.name.Remote != remote {
+			return false
+		}
+	}
+	return true
+}
+
 // SimpleNamesWhere returns a list of resource names with any configured remote
 // prefix applied. Names are only included in the return if filter returns true.
 func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	type candidate struct {
-		name Name
-		node *GraphNode
-	}
 	var result []Name
 	emit := func(c candidate) {
 		if filter(c.name, c.node) {
@@ -472,10 +525,21 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	}
 
 	for _, cands := range byName {
-		chosen := cands[0]
 		if len(cands) > 1 {
-			// A local resource wins over remotes claiming the same name. If there is not
-			// exactly one local claimant (e.g. remote resources collide), the name is hidden.
+			// Several candidates sharing a simple name are one composite (multi-API) resource — not a
+			// collision — when they either all back the same graph node (a local composite advertised
+			// under each of its APIs) or all come from a single remote (a remote enforces its own name
+			// uniqueness, so one remote advertising a bare name under several APIs is a composite; its
+			// per-API names arrive as distinct proxy nodes locally). Advertise every such entry.
+			if candidatesAreOneComposite(cands) {
+				for _, c := range cands {
+					emit(c)
+				}
+				continue
+			}
+
+			// Genuine collision between distinct resources: a local resource wins over remotes claiming
+			// the same name. If there is not exactly one local claimant, the name is hidden.
 			var localCands []candidate
 			for _, c := range cands {
 				if c.name.Remote == "" {
@@ -485,9 +549,10 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 			if len(localCands) != 1 {
 				continue
 			}
-			chosen = localCands[0]
+			emit(localCands[0])
+			continue
 		}
-		emit(chosen)
+		emit(cands[0])
 	}
 	return result
 }
@@ -506,7 +571,11 @@ func (g *Graph) CollidingNames() []Name {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	byName := make(map[string][]Name)
+	type entry struct {
+		name Name
+		node *GraphNode
+	}
+	byName := make(map[string][]entry)
 	for k, v := range g.nodes.simpleNameCache {
 		if v.local == nil {
 			continue
@@ -520,13 +589,22 @@ func (g *Graph) CollidingNames() []Name {
 		if !(k.api.IsComponent() || k.api.IsService()) {
 			continue
 		}
-		byName[k.name] = append(byName[k.name], Name{API: k.api, Name: k.name})
+		byName[k.name] = append(byName[k.name], entry{Name{API: k.api, Name: k.name}, v.local})
 	}
 
 	var colliding []Name
-	for _, names := range byName {
-		if len(names) > 1 {
-			colliding = append(colliding, names...)
+	for _, entries := range byName {
+		// A composite (multi-API) resource is one node advertised under several APIs, so several
+		// entries share its simple name while backing the same node — that is not a collision. Only
+		// two or more distinct nodes sharing a simple name collide.
+		distinct := make(map[*GraphNode]bool)
+		for _, e := range entries {
+			distinct[e.node] = true
+		}
+		if len(distinct) > 1 {
+			for _, e := range entries {
+				colliding = append(colliding, e.name)
+			}
 		}
 	}
 	return colliding
@@ -657,6 +735,38 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 		}
 	}
 	return result
+}
+
+// resolveCompositeName resolves a set of names that share a bare name to the single graph node
+// backing them. A composite (multi-API) resource is cached under each of its APIs, so a bare name
+// can match several API names that all back one node; that is one resource, not a conflict. It
+// returns the node's canonical name (the key it is stored under) and true when every name maps to
+// the same node, and false for a genuine conflict between distinct nodes. g.mu must be held.
+func (g *Graph) resolveCompositeName(names []Name) (Name, bool) {
+	var node *GraphNode
+	var canonical Name
+	var haveCanonical bool
+	for _, n := range names {
+		found, err := g.nodes.FindBySimpleNameAndAPI(n.Name, n.API)
+		if err != nil || found == nil {
+			return Name{}, false
+		}
+		if node == nil {
+			node = found
+		} else if found != node {
+			return Name{}, false
+		}
+		// Exactly one of the API names is the actual key the node is stored under; that is the
+		// canonical name a dependency edge should point at.
+		if _, ok := g.nodes.Get(n); ok {
+			canonical = n
+			haveCanonical = true
+		}
+	}
+	if node == nil || !haveCanonical {
+		return Name{}, false
+	}
+	return canonical, true
 }
 
 // GetAllChildrenOf returns all direct children of a node.
@@ -1012,6 +1122,24 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 				if err != nil {
 					var multiErr *MultipleMatchingNamesError
 					if errors.As(err, &multiErr) {
+						// A composite (multi-API) resource is advertised under several API names that
+						// share one bare name but back a single graph node. That is one resource, not a
+						// conflict — resolve it to the node's canonical name. Only distinct nodes sharing
+						// a bare name are a genuine conflict.
+						if canonical, ok := g.resolveCompositeName(multiErr.Matches); ok {
+							if canonical.String() == nodeName.String() {
+								allErrs = multierr.Combine(allErrs,
+									errors.Errorf("node cannot depend on itself: %q", nodeName))
+								logger.Errorw("node cannot depend on itself", "name", nodeName)
+								return Name{}, false
+							}
+							logger.Debugw(
+								"composite dependency resolved for resource",
+								"name", nodeName,
+								"dependency", canonical,
+							)
+							return canonical, true
+						}
 						allErrs = multierr.Combine(
 							allErrs,
 							errors.Errorf("conflicting names for resource %q: %v", nodeName, NamesToStrings(multiErr.Matches)))

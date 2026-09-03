@@ -61,6 +61,11 @@ func FromProvider(provider resource.Provider, name string) (resource.Resource, e
 	return resource.FromProvider[resource.Resource](provider, Named(name))
 }
 
+// FromResource extracts the generic API from a resource that may be a multi-API (composite) resource.
+func FromResource(res resource.Resource) (resource.Resource, error) {
+	return resource.FromResourceForAPI[resource.Resource](res, API)
+}
+
 // NamesFromRobot is a helper for getting all generic names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)

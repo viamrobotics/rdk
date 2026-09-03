@@ -280,8 +280,26 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 	}
 
 	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
+	// A model advertised under more than one API must be a declared composite (via
+	// resource.RegisterMultiAPI), not an incidental reuse of one model string across APIs. Reject the
+	// latter so viam-server's inference — "a model under >=2 APIs is a composite" — is sound. Builtins
+	// that reuse a model across APIs (fake, gpio) register through the core registry rather than a
+	// module, so they are unaffected by this module-side guard.
+	for existingAPI, models := range m.handlers {
+		if existingAPI.API == api {
+			continue
+		}
+		for _, existing := range models {
+			if existing == model && len(resource.APIsForModel(model)) == 0 {
+				return fmt.Errorf(
+					"model %q is registered under multiple APIs (%s and %s) without RegisterMultiAPI; "+
+						"use resource.RegisterMultiAPI to declare a composite (multi-API) model",
+					model, existingAPI.API, api)
+			}
+		}
+	}
 	m.handlers[rpcAPI] = append(m.handlers[rpcAPI], model)
-	m.registerMu.Unlock()
 	return nil
 }
 
@@ -309,6 +327,15 @@ func (m *Module) getDependenciesForConstruction(ctx context.Context, depStrings 
 			return nil, err
 		}
 		deps[depName] = clientRes
+
+		// A composite (multi-API) dependency is one object serving several APIs. Key it under each of
+		// its API names so a typed accessor for any of them (e.g. sensor.FromProvider) resolves it,
+		// matching how the client caches a composite under every one of its API names.
+		if mar, ok := clientRes.(resource.MultiAPIResource); ok {
+			for _, api := range mar.APIs() {
+				deps[resource.Name{API: api, Remote: depName.Remote, Name: depName.Name}] = clientRes
+			}
+		}
 	}
 
 	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
@@ -360,6 +387,25 @@ func (m *Module) addResource(
 	// If adding the resource name to the collection fails, close the resource and return an error.
 	if err := coll.Add(conf.ResourceName(), res); err != nil {
 		return multierr.Combine(err, res.Close(ctx))
+	}
+
+	// Construct-once for composite (multi-API) models: the module builds one instance but serves it
+	// on each of its APIs, so register the same res in every other API's collection under that API's
+	// name. Each of the module's per-API gRPC services then resolves the one instance.
+	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+		base := conf.ResourceName()
+		for _, api := range apis {
+			if api == conf.API {
+				continue
+			}
+			other, ok := m.collections[api]
+			if !ok {
+				return fmt.Errorf("module cannot service api: %s", api)
+			}
+			if err := other.Add(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, res); err != nil {
+				return multierr.Combine(err, res.Close(ctx))
+			}
+		}
 	}
 
 	m.resLoggers[res] = resLogger

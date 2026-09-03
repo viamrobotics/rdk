@@ -229,6 +229,13 @@ func FromProvider(provider resource.Provider, name string) (Arm, error) {
 	return resource.FromProvider[Arm](provider, Named(name))
 }
 
+// FromResource extracts an Arm from a resource that may be a multi-API (composite) resource. This is
+// the open-world access path: it works whether res is a plain arm client or a composite that serves
+// the arm API alongside others.
+func FromResource(res resource.Resource) (Arm, error) {
+	return resource.FromResourceForAPI[Arm](res, API)
+}
+
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)

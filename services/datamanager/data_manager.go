@@ -91,6 +91,11 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 	return resource.FromProvider[Service](provider, Named(name))
 }
 
+// FromResource extracts this API from a resource that may be a multi-API (composite) resource.
+func FromResource(res resource.Resource) (Service, error) {
+	return resource.FromResourceForAPI[Service](res, API)
+}
+
 // NamesFromRobot is a helper for getting all data manager services from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
@@ -144,18 +149,26 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 	if len(ac.CaptureMethods) == 0 {
 		return
 	}
-
-	// infer name from first index in CaptureMethods
-	name := ac.CaptureMethods[0].Name
-	captureMethodCopies := make([]DataCaptureConfig, 0, len(ac.CaptureMethods))
-	for _, method := range ac.CaptureMethods {
-		methodCopy := method
-		captureMethodCopies = append(captureMethodCopies, methodCopy)
-	}
 	if conf.AssociatedAttributes == nil {
 		conf.AssociatedAttributes = make(map[resource.Name]resource.AssociatedConfig)
 	}
-	conf.AssociatedAttributes[name] = &AssociatedConfig{CaptureMethods: captureMethodCopies}
+
+	// Group capture methods by their target resource name, which includes the API. For an ordinary
+	// single-API resource every method shares one name, so this is a single group (unchanged
+	// behavior). For a resource serving multiple APIs (resource.RegisterMultiAPI), methods can target
+	// different APIs of the same bare name (e.g. arm/x EndPosition and camera/x ReadImage); each
+	// (api, name) bucket is filed separately and resolves to the one underlying instance.
+	order := make([]resource.Name, 0)
+	byName := make(map[resource.Name][]DataCaptureConfig)
+	for _, method := range ac.CaptureMethods {
+		if _, ok := byName[method.Name]; !ok {
+			order = append(order, method.Name)
+		}
+		byName[method.Name] = append(byName[method.Name], method)
+	}
+	for _, name := range order {
+		conf.AssociatedAttributes[name] = &AssociatedConfig{CaptureMethods: byName[name]}
+	}
 }
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.

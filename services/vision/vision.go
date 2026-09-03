@@ -247,6 +247,11 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 	return resource.FromProvider[Service](provider, Named(name))
 }
 
+// FromResource extracts this API from a resource that may be a multi-API (composite) resource.
+func FromResource(res resource.Resource) (Service, error) {
+	return resource.FromResourceForAPI[Service](res, API)
+}
+
 // Properties returns various information regarding the current vision service,
 // specifically, which vision tasks are supported by the resource.
 type Properties struct {
