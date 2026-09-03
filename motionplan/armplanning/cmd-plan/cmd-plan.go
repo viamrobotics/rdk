@@ -1,4 +1,14 @@
-// package main for testing armplanning
+// package main for testing armplanning.
+//
+// It takes one or more recorded plan request files and replays them in the order given:
+//
+//	cmd-plan plan.json                     # the original single-request behavior
+//	cmd-plan plan1.json plan2.json         # replay both exactly as recorded
+//	cmd-plan -chain plan1.json plan2.json  # plan2 starts where plan1's plan ended
+//
+// Replaying as recorded asks whether each plan still solves on its own. Chaining asks whether the
+// robot could actually have run them back to back, which is the question when a captured sequence
+// worked step by step but drifted somewhere along the way.
 package main
 
 import (
@@ -48,6 +58,59 @@ func main() {
 	}
 }
 
+// runOptions carries the parsed flags that the per-request planning path needs, so each step
+// doesn't have to thread a dozen parameters.
+type runOptions struct {
+	pseudolinearLine        float64
+	pseudolinearOrientation float64
+	seed                    int
+	loop                    int
+	cpu                     string
+	interactive             bool
+	host                    string
+	forceMotion             bool
+	showPoses               bool
+	tryManySeeds            int
+	noViz                   bool
+	chain                   bool
+}
+
+// runner replays the sequence of plan requests named on the command line.
+type runner struct {
+	opts   *runOptions
+	logger logging.Logger
+	// mpLogger is what PlanMotion logs through; -quiet swaps it for a logger with no appenders.
+	mpLogger logging.Logger
+	mylog    *log.Logger
+	// start is when the run began, and bounds the -cpu re-plan loop.
+	start time.Time
+	// single is true when exactly one request was given, which keeps the output identical to what
+	// this tool printed before it understood sequences.
+	single bool
+}
+
+// step is one request in the sequence.
+type step struct {
+	idx      int
+	total    int
+	file     string
+	req      *armplanning.PlanRequest
+	origPlan motionplan.Plan
+}
+
+// stepResult is what one step produced, kept for the end-of-run summary and for chaining. A nil
+// plan means the step did not produce one, which only happens when interactive mode consumed a
+// planning failure.
+type stepResult struct {
+	file           string
+	goals          int
+	plan           motionplan.Plan
+	meta           *armplanning.PlanMeta
+	duration       time.Duration
+	totalL2        float64
+	totalCartesion float64
+}
+
 func realMain() error {
 	// The planner allocates heavily during search (per-state geometry
 	// materialization); the default GC target spends a quarter of planning
@@ -75,6 +138,8 @@ func realMain() error {
 	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
 	quiet := flag.Bool("quiet", false, "quiet")
 	noViz := flag.Bool("no-viz", false, "skip rendering the plan; useful for benchmarking success rate and planning speed")
+	chain := flag.Bool("chain", false,
+		"plan each request from the configuration the previous plan ended in, rather than from its own recorded start state")
 
 	flag.Parse()
 
@@ -82,8 +147,18 @@ func realMain() error {
 		return mpserver.RunServer()
 	}
 
-	if len(flag.Args()) == 0 {
-		return fmt.Errorf("need a json file")
+	files := flag.Args()
+	if len(files) == 0 {
+		return errors.New("need at least one json file")
+	}
+
+	// Requests are read one step at a time, because a single one carrying meshes is big enough
+	// that holding a whole sequence in memory is worth avoiding. Stat them all up front so a typo
+	// in the last path doesn't surface only after minutes spent planning the ones before it.
+	for _, file := range files {
+		if _, err := os.Stat(file); err != nil {
+			return err
+		}
 	}
 
 	if *cpu != "" {
@@ -104,12 +179,12 @@ func realMain() error {
 				logger.Errorf("couldn't write profiling file: %v", err)
 			}
 		}()
+
+		if len(files) > 1 {
+			logger.Info("-cpu: skipping the repeated re-plan loop, the sequence itself is what gets profiled")
+		}
 	}
 
-	_ = reg
-
-	// The default logger keeps `mp` at the default INFO level. But all loggers underneath only emit
-	// WARN+ logs. Let's start with DEBUG everywhere and:
 	// Persist learned roadmaps across runs: harvested corridors and scene
 	// verdicts are what make replans of a hard scene sub-second, and replaying
 	// captures cold defeats them otherwise. Respect an explicit setting;
@@ -120,6 +195,8 @@ func realMain() error {
 		}
 	}
 
+	// The default logger keeps `mp` at the default INFO level. But all loggers underneath only emit
+	// WARN+ logs. Let's start with DEBUG everywhere and:
 	logger.SetLevel(logging.DEBUG)
 	if *verbose {
 		// For verbose keep everything at DEBUG and only claw back `ik` logs to INFO.
@@ -144,29 +221,6 @@ func realMain() error {
 		}, logger)
 	}
 
-	logger.Infof("reading plan from %s", flag.Arg(0))
-	req, origPlan, err := armplanning.ReadRequestAndResponseFromFile(flag.Arg(0))
-	if err != nil {
-		return err
-	}
-
-	if *pseudolinearLine > 0 || *pseudolinearOrientation > 0 {
-		req.Constraints.AddPseudolinearConstraint(motionplan.PseudolinearConstraint{*pseudolinearLine, *pseudolinearOrientation})
-	}
-
-	if *seed >= 0 {
-		req.PlannerOptions.RandomSeed = *seed
-	}
-
-	err = armplanning.PrepSmartSeed(req.FrameSystem, logger)
-	if err != nil {
-		return err
-	}
-
-	logger.Infof("starting motion planning for %d goals", len(req.Goals))
-	mylog := log.New(os.Stdout, "", 0)
-	start := time.Now()
-
 	metricsExporter := perf.NewDevelopmentExporterWithOptions(perf.DevelopmentExporterOptions{
 		ReportingInterval: time.Second * 10,
 		TracesDisabled:    true,
@@ -185,64 +239,279 @@ func realMain() error {
 		// Suppress logs by using a logger that has no appenders to output to.
 		mpLogger = logging.NewBlankLogger("mp")
 	}
-	plan, meta, err := armplanning.PlanMotion(ctx, mpLogger, req)
+
+	r := &runner{
+		opts: &runOptions{
+			pseudolinearLine:        *pseudolinearLine,
+			pseudolinearOrientation: *pseudolinearOrientation,
+			seed:                    *seed,
+			loop:                    *loop,
+			cpu:                     *cpu,
+			interactive:             *interactive,
+			host:                    *host,
+			forceMotion:             *forceMotion,
+			showPoses:               *showPoses,
+			tryManySeeds:            *tryManySeeds,
+			noViz:                   *noViz,
+			chain:                   *chain,
+		},
+		logger:   logger,
+		mpLogger: mpLogger,
+		mylog:    log.New(os.Stdout, "", 0),
+		start:    time.Now(),
+		single:   len(files) == 1,
+	}
+
+	if !r.single {
+		mode := "as recorded"
+		if r.opts.chain {
+			mode = "chained, each plan starting where the previous one ended"
+		}
+		logger.Infof("replaying %d plan requests %s", len(files), mode)
+	}
+
+	var results []*stepResult
+
+	// carried is the configuration the previous plan ended in. Only ever populated in chained mode.
+	var carried referenceframe.FrameSystemInputs
+
+	for i, file := range files {
+		req, origPlan, err := r.loadRequest(file)
+		if err != nil {
+			return err
+		}
+
+		if carried != nil {
+			if err := chainStartState(req, carried, logger); err != nil {
+				return err
+			}
+		}
+
+		res, err := r.planOne(ctx, &step{idx: i, total: len(files), file: file, req: req, origPlan: origPlan})
+		if err != nil {
+			return err
+		}
+		results = append(results, res)
+
+		if res.plan == nil {
+			// Interactive mode consumed a planning failure. There is no end state to chain from,
+			// and replaying the rest of a sequence past a failure isn't what the user asked for.
+			break
+		}
+
+		if r.opts.chain {
+			if res.meta != nil && res.meta.PartialError != nil {
+				logger.Warnf("plan %d/%d is partial (%v); the next request starts from where it stopped",
+					i+1, len(files), res.meta.PartialError)
+			}
+			if carried = endConfiguration(res.plan); carried == nil {
+				return fmt.Errorf("cannot chain from %s: its plan has an empty trajectory", file)
+			}
+		}
+	}
+
 	if err := trace.Shutdown(ctx); err != nil {
 		logger.Errorw("Got error while shutting down tracing", "err", err)
 	}
 	metricsExporter.Stop()
-	if *interactive {
-		if interactiveErr := doInteractive(req, plan, err, mylog, *showPoses); interactiveErr != nil {
-			logger.Fatal("Interactive mode failed:", interactiveErr)
-		}
-		return nil
+
+	if !r.single {
+		printSummary(r.mylog, results, time.Since(r.start))
 	}
-	if err != nil {
-		if plan != nil {
-			mylog.Printf("error but partial result of length: %d", len(plan.Trajectory()))
+
+	if *waypointsFile != "" {
+		plans := make([]motionplan.Plan, 0, len(results))
+		for _, res := range results {
+			if res.plan != nil {
+				plans = append(plans, res.plan)
+			}
 		}
-		return err
+		if len(plans) == 0 {
+			logger.Warnf("not writing %s, the run produced no plans", *waypointsFile)
+		} else if err := writeWaypointsToFile(ctx, plans, *waypointsFile); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// loadRequest reads one request off disk and applies everything that is a property of the run
+// rather than of the recorded request: the pseudolinear constraints and the seed.
+func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.Plan, error) {
+	r.logger.Infof("reading plan from %s", file)
+	req, origPlan, err := armplanning.ReadRequestAndResponseFromFile(file)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if r.opts.pseudolinearLine > 0 || r.opts.pseudolinearOrientation > 0 {
+		req.Constraints.AddPseudolinearConstraint(
+			motionplan.PseudolinearConstraint{r.opts.pseudolinearLine, r.opts.pseudolinearOrientation})
+	}
+
+	if r.opts.seed >= 0 {
+		req.PlannerOptions.RandomSeed = r.opts.seed
+	}
+
+	if err := armplanning.PrepSmartSeed(req.FrameSystem, r.logger); err != nil {
+		return nil, nil, err
+	}
+
+	return req, origPlan, nil
+}
+
+// planOne plans a single request, reports on it, and renders and executes it if asked to.
+func (r *runner) planOne(ctx context.Context, s *step) (*stepResult, error) {
+	if !r.single {
+		r.mylog.Printf("\n===== plan %d/%d: %s =====", s.idx+1, s.total, s.file)
+	}
+
+	req := s.req
+	r.logger.Infof("starting motion planning for %d goals", len(req.Goals))
+
+	planStart := time.Now()
+	plan, meta, planErr := armplanning.PlanMotion(ctx, r.mpLogger, req)
+	res := &stepResult{
+		file:     s.file,
+		goals:    len(req.Goals),
+		plan:     plan,
+		meta:     meta,
+		duration: time.Since(planStart),
+	}
+
+	if planErr == nil {
+		var err error
+		if res.totalCartesion, res.totalL2, err = planDistances(plan); err != nil {
+			return nil, err
+		}
+	}
+
+	if r.opts.interactive {
+		if err := doInteractive(req, plan, planErr, r.mylog, r.opts.showPoses); err != nil {
+			r.logger.Fatal("Interactive mode failed:", err)
+		}
+		if planErr != nil {
+			// The user has already inspected the failure interactively, so exit cleanly rather
+			// than surfacing the planning error a second time.
+			res.plan = nil
+		}
+		return res, nil
+	}
+
+	if planErr != nil {
+		if plan != nil {
+			r.mylog.Printf("error but partial result of length: %d", len(plan.Trajectory()))
+		}
+		return nil, planErr
 	}
 
 	if len(plan.Path()) != len(plan.Trajectory()) {
-		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
+		return nil, fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
 
-	for *cpu != "" && time.Since(start) < (45*time.Second) {
+	// Keep re-planning under the profiler so a single request yields a sample big enough to read.
+	// A sequence is its own workload and needs no padding.
+	for r.opts.cpu != "" && r.single && time.Since(r.start) < (45*time.Second) {
 		ss := time.Now()
-		_, _, err := armplanning.PlanMotion(ctx, mpLogger, req)
+		if _, _, err := armplanning.PlanMotion(ctx, r.mpLogger, req); err != nil {
+			return nil, err
+		}
+		r.mylog.Printf("extra plan took %v", time.Since(ss))
+	}
+
+	if r.opts.tryManySeeds > 1 {
+		if err := r.reportManySeeds(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+
+	r.reportPlan(req, plan, meta, s.origPlan, res)
+
+	for i := 0; !r.opts.noViz && i < r.opts.loop; i++ {
+		if err := visualize(req, plan, r.mylog, r.opts.showPoses); err != nil {
+			r.mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
+			break
+		}
+	}
+
+	if r.opts.host != "" {
+		if err := executeOnArm(ctx, r.opts.host, plan, r.opts.forceMotion, r.logger); err != nil {
+			return nil, err
+		}
+	}
+
+	return res, nil
+}
+
+// reportManySeeds re-plans the request under a range of random seeds and reports the spread of
+// joint space distances, to show how much of a plan's quality is luck.
+func (r *runner) reportManySeeds(ctx context.Context, req *armplanning.PlanRequest) error {
+	minDistance := 10000.0
+	maxDistance := 0.0
+
+	for i := 1; i < r.opts.tryManySeeds; i++ {
+		req.PlannerOptions.RandomSeed = i
+		seedPlan, _, err := armplanning.PlanMotion(ctx, r.logger, req)
 		if err != nil {
-			return err
+			return fmt.Errorf("planning for seed %d failed %w", i, err)
 		}
-		mylog.Printf("extra plan took %v", time.Since(ss))
+
+		seedTotalL2 := 0.0
+		t := seedPlan.Trajectory()
+		for idx := 1; idx < len(t); idx++ {
+			for k := range t[idx] {
+				myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
+				seedTotalL2 += myl2n
+			}
+		}
+
+		minDistance = min(minDistance, seedTotalL2)
+		maxDistance = max(maxDistance, seedTotalL2)
+
+		r.mylog.Printf("tryManySeeds seed %4d: traj_len=%d l2=%0.4f", i, len(t), seedTotalL2)
+	}
+	r.mylog.Printf("tryManySeeds result min: %0.2f max:%0.2f", minDistance, maxDistance)
+
+	return nil
+}
+
+// planDistances is how far a plan travels in cartesian space and in joint space, summed over every
+// moving frame. Kept separate from reportPlan so that modes which skip the report, interactive
+// mode in particular, still have real numbers to put in the sequence summary.
+func planDistances(plan motionplan.Plan) (totalCartesion, totalL2 float64, err error) {
+	for idx, p := range plan.Path() {
+		t := plan.Trajectory()[idx]
+		if len(p) != len(t) {
+			return 0, 0, fmt.Errorf("p and t are different sizes %d vs %d", len(p), len(t))
+		}
+		if idx == 0 {
+			continue
+		}
+
+		// Keyed off the path rather than the trajectory so that a frame without a pose can never
+		// be dereferenced, and skipping unnamed frames the way the step report does.
+		for c, pose := range p {
+			if c == "" || len(t[c]) == 0 {
+				continue
+			}
+			totalL2 += referenceframe.InputsL2Distance(plan.Trajectory()[idx-1][c], t[c])
+			totalCartesion += pose.Pose().Point().Distance(plan.Path()[idx-1][c].Pose().Point())
+		}
 	}
 
-	if *tryManySeeds > 1 {
-		minDistance := 10000.0
-		maxDistance := 0.0
+	return totalCartesion, totalL2, nil
+}
 
-		for i := 1; i < *tryManySeeds; i++ {
-			req.PlannerOptions.RandomSeed = i
-			seedPlan, _, err := armplanning.PlanMotion(ctx, logger, req)
-			if err != nil {
-				return fmt.Errorf("planning for seed %d failed %w", i, err)
-			}
-
-			seedTotalL2 := 0.0
-			t := seedPlan.Trajectory()
-			for idx := 1; idx < len(t); idx++ {
-				for k := range t[idx] {
-					myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
-					seedTotalL2 += myl2n
-				}
-			}
-
-			minDistance = min(minDistance, seedTotalL2)
-			maxDistance = max(maxDistance, seedTotalL2)
-
-			mylog.Printf("tryManySeeds seed %4d: traj_len=%d l2=%0.4f", i, len(t), seedTotalL2)
-		}
-		mylog.Printf("tryManySeeds result min: %0.2f max:%0.2f", minDistance, maxDistance)
-	}
+// reportPlan prints the step-by-step breakdown of a plan.
+func (r *runner) reportPlan(
+	req *armplanning.PlanRequest,
+	plan motionplan.Plan,
+	meta *armplanning.PlanMeta,
+	origPlan motionplan.Plan,
+	res *stepResult,
+) {
+	mylog := r.mylog
 
 	relevantParts := []string{}
 	for c := range plan.Path()[0] {
@@ -253,9 +522,6 @@ func realMain() error {
 	}
 	sort.Strings(relevantParts)
 
-	totalCartesion := 0.0
-	totalL2 := 0.0
-
 	if origPlan != nil {
 		mylog.Printf("Original plan length: %v Current plan length: %v\n",
 			len(origPlan.Trajectory()), len(plan.Trajectory()))
@@ -264,10 +530,6 @@ func realMain() error {
 		mylog.Printf("step %d", idx)
 
 		t := plan.Trajectory()[idx]
-
-		if len(p) != len(t) {
-			return fmt.Errorf("p and t are different sizes %d vs %d", len(p), len(t))
-		}
 
 		for _, c := range relevantParts {
 			pp := p[c]
@@ -280,15 +542,10 @@ func realMain() error {
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
 
-				myl2n := referenceframe.InputsL2Distance(p, t[c])
-				totalL2 += myl2n
-				cart := pp.Pose().Point().Distance(plan.Path()[idx-1][c].Pose().Point())
-				totalCartesion += cart
-
 				mylog.Printf("\t\t\t\t distances l2: %0.4f Linf %0.4f cartesion: %0.2f",
-					myl2n,
+					referenceframe.InputsL2Distance(p, t[c]),
 					referenceframe.InputsLinfDistance(p, t[c]),
-					cart)
+					pp.Pose().Point().Distance(plan.Path()[idx-1][c].Pose().Point()))
 
 				deltas := []float64{}
 				for i, a := range t[c] {
@@ -305,9 +562,9 @@ func realMain() error {
 	}
 
 	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
-		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
-	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
-	mylog.Printf("totalL2: %0.4f\n", totalL2)
+		res.duration.Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
+	mylog.Printf("totalCartesion: %0.4f\n", res.totalCartesion)
+	mylog.Printf("totalL2: %0.4f\n", res.totalL2)
 
 	// Print delta statistics if trajectory has more than 5 points
 	if len(plan.Trajectory()) > 5 {
@@ -318,30 +575,117 @@ func realMain() error {
 				s.Component, s.JointIdx, s.Mean, s.StdDev, s.Outside1, s.Outside2, s.Count)
 		}
 	}
+}
 
-	for i := 0; !*noViz && i < *loop; i++ {
-		err = visualize(req, plan, mylog, *showPoses)
-		if err != nil {
-			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-			break
+// printSummary reports one line per replayed request. Only interesting for a sequence, so callers
+// skip it when a single request was given.
+func printSummary(mylog *log.Logger, results []*stepResult, wallClock time.Duration) {
+	mylog.Printf("\n===== sequence summary: %d plan(s) in %v =====", len(results), wallClock.Truncate(time.Millisecond))
+
+	var planning time.Duration
+	trajectorySteps := 0
+	totalL2, totalCartesion := 0.0, 0.0
+
+	for i, res := range results {
+		if res.plan == nil {
+			mylog.Printf("  %d %s: no plan", i+1, filepath.Base(res.file))
+			continue
+		}
+
+		note := ""
+		if res.meta != nil && res.meta.PartialError != nil {
+			note = " PARTIAL"
+		}
+		mylog.Printf("  %d %s: %v for %d goals => trajectory length %d, totalL2 %0.4f totalCartesion %0.4f%s",
+			i+1, filepath.Base(res.file), res.duration.Truncate(time.Millisecond), res.goals,
+			len(res.plan.Trajectory()), res.totalL2, res.totalCartesion, note)
+
+		planning += res.duration
+		trajectorySteps += len(res.plan.Trajectory())
+		totalL2 += res.totalL2
+		totalCartesion += res.totalCartesion
+	}
+
+	mylog.Printf("  total: %v planning => trajectory length %d, totalL2 %0.4f totalCartesion %0.4f",
+		planning.Truncate(time.Millisecond), trajectorySteps, totalL2, totalCartesion)
+}
+
+// endConfiguration is the configuration a plan leaves the robot in, or nil if the plan is empty.
+func endConfiguration(plan motionplan.Plan) referenceframe.FrameSystemInputs {
+	traj := plan.Trajectory()
+	if len(traj) == 0 {
+		return nil
+	}
+	return traj[len(traj)-1]
+}
+
+// chainStartState replaces req's recorded start state with the configuration the previous plan
+// ended in, which is what -chain does.
+//
+// Only the configuration carries over. Each request keeps its own frame system, obstacles and
+// goals, so a chained replay answers "could the robot have run these plans back to back" rather
+// than re-planning the whole sequence as one motion. Frames the previous plan didn't cover keep
+// whatever the request recorded for them, and every such divergence is logged: a chain that
+// silently starts somewhere other than where the last one stopped is worse than no chain at all.
+func chainStartState(req *armplanning.PlanRequest, prevEnd referenceframe.FrameSystemInputs, logger logging.Logger) error {
+	merged := referenceframe.FrameSystemInputs{}
+	for name, inputs := range req.StartState.Configuration() {
+		merged[name] = slices.Clone(inputs)
+	}
+
+	for _, name := range sortedFrameNames(prevEnd) {
+		inputs := prevEnd[name]
+		if len(inputs) == 0 {
+			// A frame that cannot move has nothing to carry over.
+			continue
+		}
+
+		frame := req.FrameSystem.Frame(name)
+		if frame == nil {
+			logger.Warnf("chain: dropping the end configuration of frame %q, absent from the next request's frame system", name)
+			continue
+		}
+		if len(frame.DoF()) != len(inputs) {
+			return fmt.Errorf("chain: frame %q ended the previous plan with %d inputs but takes %d",
+				name, len(inputs), len(frame.DoF()))
+		}
+
+		for i, limit := range frame.DoF() {
+			if inputs[i] < limit.Min || inputs[i] > limit.Max {
+				// Two requests captured against different limits can leave the robot parked
+				// outside the bounds of the one it lands in. The planner can still move it back
+				// inside, so say so and carry on.
+				logger.Warnf("chain: frame %q joint %d carries over as %0.4f, outside its limit [%0.4f, %0.4f]",
+					name, i, inputs[i], limit.Min, limit.Max)
+			}
+		}
+
+		merged[name] = slices.Clone(inputs)
+	}
+
+	for _, name := range sortedFrameNames(merged) {
+		if len(merged[name]) == 0 {
+			continue
+		}
+		if _, carried := prevEnd[name]; !carried {
+			logger.Warnf("chain: frame %q keeps the start configuration recorded in the request, "+
+				"the previous plan did not cover it", name)
 		}
 	}
 
-	if *waypointsFile != "" {
-		err := writeWaypointsToFile(ctx, plan, *waypointsFile)
-		if err != nil {
-			return err
-		}
-	}
-
-	if *host != "" {
-		err := executeOnArm(ctx, *host, plan, *forceMotion, logger)
-		if err != nil {
-			return err
-		}
-	}
+	req.StartState = armplanning.NewPlanState(nil, merged)
 
 	return nil
+}
+
+// sortedFrameNames keeps the warnings emitted while walking a configuration in a stable order.
+func sortedFrameNames(inputs referenceframe.FrameSystemInputs) []string {
+	names := make([]string, 0, len(inputs))
+	for name := range inputs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
@@ -775,15 +1119,28 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 	return nil
 }
 
-func writeWaypointsToFile(ctx context.Context, plan motionplan.Plan, fileName string) error {
-	byComponent := getFullTrajectoryByComponent(plan)
-	if len(byComponent) != 1 {
-		return fmt.Errorf("to output waypointsFile need exactly one component moving, not %d", len(byComponent))
-	}
-
+// writeWaypointsToFile writes the waypoints of every plan in the run, concatenated in the order
+// they were planned. The seam between two plans is left exactly as planned, so a chained sequence
+// repeats a position there while an as-is replay carries a jump wherever one plan's end doesn't
+// meet the next one's start.
+func writeWaypointsToFile(ctx context.Context, plans []motionplan.Plan, fileName string) error {
 	ff := &waypointsFileFormat{}
-	for _, v := range byComponent {
-		ff.Waypoints = v
+	moving := ""
+
+	for _, plan := range plans {
+		byComponent := getFullTrajectoryByComponent(plan)
+		if len(byComponent) != 1 {
+			return fmt.Errorf("to output waypointsFile need exactly one component moving, not %d", len(byComponent))
+		}
+
+		for cName, v := range byComponent {
+			if moving != "" && cName != moving {
+				return fmt.Errorf("to output waypointsFile the same component must move in every plan, got both %s and %s",
+					moving, cName)
+			}
+			moving = cName
+			ff.Waypoints = append(ff.Waypoints, v...)
+		}
 	}
 
 	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
