@@ -11,7 +11,7 @@ BUILD_CHANNEL ?= local
 # Include mise in path.
 export PATH := $(HOME)/.local/bin:$(PATH)
 
-PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
+PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
