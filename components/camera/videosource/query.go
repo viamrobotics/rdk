@@ -83,11 +83,11 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
-	if runtime.GOOS == "linux" {
-		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
-		// So we can call Initialize() only once, and call discover() as many times as we need.
-		mediadevicescamera.Initialize()
-	}
+	// On Linux this (re)registers RDK's own V4L2 camera driver in place of the upstream mediadevices
+	// one; see v4l2_driver_linux.go for why. It is a no-op on other platforms.
+	// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
+	// So we can call Initialize() only once, and call discover() as many times as we need.
+	initializeDrivers()
 
 	constraints := makeConstraints(conf, logger)
 

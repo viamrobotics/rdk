@@ -16,6 +16,7 @@ require (
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/benbjohnson/clock v1.3.5
 	github.com/bep/debounce v1.2.1
+	github.com/blackjack/webcam v0.6.1
 	github.com/bluenviron/gortsplib/v4 v4.8.0
 	github.com/bluenviron/mediacommon v1.9.2
 	github.com/bufbuild/buf v1.71.0
@@ -179,7 +180,6 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bitfield/gotestdox v0.2.2 // indirect
-	github.com/blackjack/webcam v0.6.1 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/bufbuild/protocompile v0.14.2-0.20260605203730-cd7c3c124e10 // indirect
 	github.com/bufbuild/protoplugin v0.0.0-20260414125817-25d1d281b46b // indirect
