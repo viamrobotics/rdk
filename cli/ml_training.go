@@ -148,11 +148,14 @@ type mlListContainersArgs struct {
 
 type prettyPrintContainer struct {
 	Name        string
-	EndOfLife   string
+	EndOfLife   string `json:",omitempty"`
 	Description string
-	Framework   string
+	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
-}
+	OrgID       string
+	Role        string 
+	CreatedOn   string `json:",omitempty"`
+} 
 
 // MLListContainers is the corresponding action for 'train containers'.
 func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContainersArgs) error {
@@ -171,9 +174,20 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
-			Framework:   v.Framework,
-			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+			OrgID:	     v.OrgIDd,
+			Role: 		 v.Role.String(),
 		}
+		if v.Role == 1 {
+			// viam container
+			container.Framework = v.Framework
+			container.EndOfLife = v.Eol.String()
+		} else if v.Role == 2 {
+			// custom container
+			container.CreatedOn = v.CreatedOn
+		} else {
+			return errors.New("Container rule is unspecified")
+		}
+		
 		if args.IncludeURIs {
 			container.URI = v.Uri
 		}
