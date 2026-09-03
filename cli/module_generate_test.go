@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -839,6 +840,32 @@ func TestCreatePythonVenv(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		_, statErr := os.Stat(venvDir)
 		test.That(t, os.IsNotExist(statErr), test.ShouldBeTrue)
+	})
+}
+
+func TestErrorWithCommandStderr(t *testing.T) {
+	t.Run("surfaces the stderr captured by (*exec.Cmd).Output", func(t *testing.T) {
+		t.Parallel()
+		exitErr := &exec.ExitError{
+			ProcessState: &os.ProcessState{},
+			Stderr:       []byte("\nCould not install requirements to generate python stubs:\nERROR: no matching distribution\n"),
+		}
+		err := errorWithCommandStderr(exitErr)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "Could not install requirements to generate python stubs")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "ERROR: no matching distribution")
+	})
+
+	t.Run("returns the original error when the command produced no stderr", func(t *testing.T) {
+		t.Parallel()
+		exitErr := &exec.ExitError{ProcessState: &os.ProcessState{}}
+		test.That(t, errorWithCommandStderr(exitErr), test.ShouldEqual, exitErr)
+	})
+
+	t.Run("returns the original error when the command never ran", func(t *testing.T) {
+		t.Parallel()
+		base := errors.New("exec: \"python3\": executable file not found in $PATH")
+		test.That(t, errorWithCommandStderr(base), test.ShouldEqual, base)
 	})
 }
 
