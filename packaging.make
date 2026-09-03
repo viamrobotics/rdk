@@ -2,6 +2,9 @@ BUILD_CHANNEL?=local
 # note: UNAME_M is overrideable because it is wrong in 32-bit arm container executing natively on 64-bit arm
 UNAME_M ?= $(shell uname -m)
 
+# Include mise and its shims in path.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
+
 PRERELEASE_PATH := $(if $(findstring -dev,$(BUILD_CHANNEL)),"prerelease/","")
 
 static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
