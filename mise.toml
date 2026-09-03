@@ -11,12 +11,21 @@ ruby = "4.0.6"
 "go:github.com/axw/gocov/gocov" = "v1.1.0"
 gotestsum = "1.12.2"
 buf = "v1.71.0"
-grpcurl = "v1.8.6"
 actionlint = "v1.7.8"
 protoc-gen-go-grpc = "v1.5.1"
 "go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway" = "v2.20.0"
-"go:golang.org/x/mobile/cmd/gomobile" = "0.0.0-20260821190718-4776eadac327"
 "go:golang.org/x/tools/cmd/stringer" = "0.49.0"
+
+[tools.grpcurl]
+version = "v1.8.6"
+# Nothing in this repo actually invokes grpcurl. Probably just here for
+# developer convenience?
+lazy = true
+
+[tools."go:golang.org/x/mobile/cmd/gomobile"]
+version = "0.0.0-20260821190718-4776eadac327"
+lazy = true
+lazy_bins = ['gomobile']
 
 [tools.upx]
 version = "5.2.1"
