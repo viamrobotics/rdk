@@ -25,16 +25,14 @@ export function getHostAndCredentials() {
         if (cookieData) {
             try {
                 const parsed = JSON.parse(cookieData);
-                const id = parsed?.apiKey?.id;
-                const key = parsed?.apiKey?.key;
                 const h = parsed?.hostname;
                 const machineId = parsed?.machineId || null;
-                if (h && id && key) {
-                    return {
-                        host: h,
-                        credentials: { type: 'api-key', payload: key, authEntity: id },
-                        machineId
-                    };
+                // Forward whatever credentials the platform injected for this machine — an
+                // app-user access token (app-user-id) or a machine API key — instead of
+                // assuming api-key.
+                const credentials = parsed?.credentials;
+                if (h && credentials?.payload) {
+                    return { host: h, credentials, machineId };
                 }
             } catch {
                 // Invalid cookie data
