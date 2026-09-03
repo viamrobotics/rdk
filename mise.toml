@@ -1,12 +1,17 @@
 min_version = '2026.8.16'
 
 [tools]
-"gem:license_finder" = "7.2.1"
 go = "1.25"
-"go:github.com/viamrobotics/canon" = "latest"
-golangci-lint = "2.9.0"
-ruby = "4.0.6"
 upx = "5.2.1"
+golangci-lint = "2.9.0"
+"go:github.com/viamrobotics/canon" = "latest"
+
+# It would be nice to make these dependencies lazy, but at time of writing mise
+# isn't able to figure out that it needs to install ruby before
+# gem:license_finder when both are lazy, and it only saves ~6 seconds during
+# the install process anyway.
+ruby = "4.0.6"
+"gem:license_finder" = "7.2.1"
 
 [tasks.lint-go]
 alias = "lint"
@@ -25,6 +30,6 @@ exit ${result:-0}
 
 [tasks.license-check]
 run = [
-  'license_finder version',
-  'license_finder',
+	'license_finder version',
+	'license_finder',
 ]
