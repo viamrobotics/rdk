@@ -20,6 +20,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +30,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
+	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/nathan-fiscaletti/consolesize-go"
@@ -3631,6 +3633,7 @@ type machinesPartRunArgs struct {
 	Stream       time.Duration
 	Method       string
 	Component    string
+	List         bool
 }
 
 // apiToGRPCServiceName converts a resource API to its gRPC service name.
@@ -3691,8 +3694,8 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 	if svcMethod == "" {
 		svcMethod = cmd.Args().First()
 	}
-	if svcMethod == "" && args.Component == "" {
-		return errors.New("service method required")
+	if svcMethod == "" && args.Component == "" && !args.List {
+		return errors.New("service method required (or --list to see what the machine serves)")
 	}
 
 	viamClient, err := newViamClient(ctx, cmd)
@@ -3742,9 +3745,13 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 			return errors.Errorf("component %q not found on machine", args.Component)
 		}
 
+		if args.List {
+			return viamClient.listRobotPartMethods(ctx, args.Organization, args.Location, args.Machine, args.Part,
+				apiToGRPCServiceName(*foundAPI), globalArgs.Debug, logger)
+		}
 		// If method is a short name, expand it
 		if svcMethod == "" {
-			return errors.New("method is required when using --component")
+			return errors.New("method is required when using --component (or --list to see its methods)")
 		}
 		if isShortMethodName(svcMethod) {
 			serviceName := apiToGRPCServiceName(*foundAPI)
@@ -3756,6 +3763,11 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 		if err != nil {
 			return err
 		}
+	}
+
+	if args.List {
+		return viamClient.listRobotPartMethods(ctx, args.Organization, args.Location, args.Machine, args.Part,
+			"", globalArgs.Debug, logger)
 	}
 
 	return viamClient.runRobotPartCommand(
@@ -6733,4 +6745,181 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 		enabledGrantsProto = append(enabledGrantsProto, enabledGrant)
 	}
 	return enabledGrantsProto, nil
+}
+
+// machinesPartResourcesArgs are the arguments for 'machines part resources'.
+type machinesPartResourcesArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+}
+
+// MachinesPartResourcesAction is the corresponding Action for 'machines part resources'.
+// It lists every resource the machine serves with the API methods each one answers, so a
+// caller (a person or an agent) can learn what to call without documentation.
+func MachinesPartResourcesAction(ctx context.Context, cmd *cli.Command, args machinesPartResourcesArgs) error {
+	viamClient, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	globalArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	if globalArgs.Debug {
+		logger = logging.NewDebugLogger("cli")
+	}
+	dialCtx, fqdn, rpcOpts, err := viamClient.prepareDial(
+		ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+	if err != nil {
+		return err
+	}
+	robotClient, err := viamClient.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(robotClient.Close(ctx))
+	}()
+	conn, err := grpc.Dial(dialCtx, fqdn, logger, rpcOpts...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(conn.Close())
+	}()
+	refClient := grpcreflect.NewClientV1Alpha(
+		metadata.NewOutgoingContext(ctx, nil), reflectpb.NewServerReflectionClient(conn))
+	descSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)
+
+	for _, line := range resourceListing(robotClient.ResourceNames(), func(service string) []string {
+		methods, err := grpcurl.ListMethods(descSource, service)
+		if err != nil {
+			return nil
+		}
+		return methods
+	}) {
+		fmt.Fprintln(cmd.Root().Writer, line)
+	}
+	fmt.Fprintln(cmd.Root().Writer,
+		"\nCall a method: viam machines part run --part <part> --component <name> --method <Method> [--data '<json>']")
+	fmt.Fprintln(cmd.Root().Writer,
+		"Request fields: viam machines part run --part <part> --component <name> --list")
+	return nil
+}
+
+// resourceListing renders one line per resource: its name, API, and the short names of the
+// methods its service answers. listMethods returns fully qualified method names for a gRPC
+// service (or nil when the service is unknown to the machine). Resources are ordered by API
+// then name so related resources sit together.
+func resourceListing(names []resource.Name, listMethods func(service string) []string) []string {
+	sorted := make([]resource.Name, 0, len(names))
+	for _, n := range names {
+		if strings.HasPrefix(n.Name, "$") {
+			continue // internal
+		}
+		sorted = append(sorted, n)
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].API.String() != sorted[j].API.String() {
+			return sorted[i].API.String() < sorted[j].API.String()
+		}
+		return sorted[i].Name < sorted[j].Name
+	})
+	lines := make([]string, 0, len(sorted))
+	for _, n := range sorted {
+		service := apiToGRPCServiceName(n.API)
+		var short []string
+		for _, m := range listMethods(service) {
+			short = append(short, strings.TrimPrefix(m, service+"."))
+		}
+		methods := strings.Join(short, ", ")
+		if methods == "" {
+			methods = "(methods not reported; use --method with the full service method)"
+		}
+		lines = append(lines, fmt.Sprintf("%-24s %-32s %s", n.Name, n.API.String(), methods))
+	}
+	return lines
+}
+
+// listRobotPartMethods prints the services a machine serves, or, when service is set, that
+// service's methods with the fields of each request message. Backs 'machines part run --list'.
+func (c *viamClient) listRobotPartMethods(
+	ctx context.Context,
+	orgStr, locStr, robotStr, partStr, service string,
+	debug bool,
+	logger logging.Logger,
+) error {
+	dialCtx, fqdn, rpcOpts, err := c.prepareDial(ctx, orgStr, locStr, robotStr, partStr, debug)
+	if err != nil {
+		return err
+	}
+	conn, err := grpc.Dial(dialCtx, fqdn, logger, rpcOpts...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(conn.Close())
+	}()
+	refClient := grpcreflect.NewClientV1Alpha(
+		metadata.NewOutgoingContext(ctx, nil), reflectpb.NewServerReflectionClient(conn))
+	descSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)
+	w := c.c.Root().Writer
+
+	if service == "" {
+		services, err := grpcurl.ListServices(descSource)
+		if err != nil {
+			return err
+		}
+		for _, svc := range services {
+			if strings.HasPrefix(svc, "grpc.") {
+				continue
+			}
+			methods, err := grpcurl.ListMethods(descSource, svc)
+			if err != nil {
+				return err
+			}
+			for i := range methods {
+				methods[i] = strings.TrimPrefix(methods[i], svc+".")
+			}
+			fmt.Fprintf(w, "%s\n    %s\n", svc, strings.Join(methods, ", "))
+		}
+		return nil
+	}
+
+	methods, err := grpcurl.ListMethods(descSource, service)
+	if err != nil {
+		return err
+	}
+	for _, m := range methods {
+		fmt.Fprintln(w, describeMethod(descSource, m, service))
+	}
+	return nil
+}
+
+// describeMethod renders "Method(field type, ...)" for a fully qualified method name.
+func describeMethod(descSource grpcurl.DescriptorSource, method, service string) string {
+	short := strings.TrimPrefix(method, service+".")
+	sym, err := descSource.FindSymbol(method)
+	if err != nil {
+		return short
+	}
+	md, ok := sym.(*desc.MethodDescriptor)
+	if !ok {
+		return short
+	}
+	var fields []string
+	for _, f := range md.GetInputType().GetFields() {
+		typ := strings.ToLower(strings.TrimPrefix(f.GetType().String(), "TYPE_"))
+		if f.GetMessageType() != nil {
+			typ = f.GetMessageType().GetName()
+		}
+		if f.IsRepeated() {
+			typ = "[]" + typ
+		}
+		fields = append(fields, f.GetName()+" "+typ)
+	}
+	return fmt.Sprintf("%s(%s)", short, strings.Join(fields, ", "))
 }

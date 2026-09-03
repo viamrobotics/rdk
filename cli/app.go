@@ -44,6 +44,7 @@ const (
 	runFlagData      = "data"
 	runFlagStream    = "stream"
 	runFlagComponent = "component"
+	runFlagList      = "list"
 
 	loginFlagDisableBrowser = "disable-browser-open"
 	loginFlagKeyID          = "key-id"
@@ -2821,6 +2822,80 @@ Note: There is no progress meter while copying is in progress.
 							Action:    createActionCommandWithT(machinesPartDeleteAction),
 						},
 						{
+							Name:      "resources",
+							Usage:     "list the resources on a machine part and the API methods each one answers",
+							UsageText: createUsageText("machines part resources", []string{generalFlagPart}, true, false),
+							Flags:     commonPartFlags,
+							Action:    createActionCommandWithT[machinesPartResourcesArgs](MachinesPartResourcesAction),
+						},
+						{
+							Name:  "run",
+							Usage: "call any API method on a machine part (JSON in, JSON out)",
+							Description: `Invokes any gRPC method the machine serves: list its resources, read a camera or
+sensor, move an arm, or call DoCommand. The machine describes its own methods over
+reflection, so no SDK code is needed. With --component the method's short name is
+enough and the resource name is filled in for you.
+
+Examples:
+   viam machines part run --part <part> --method viam.robot.v1.RobotService.ResourceNames
+   viam machines part run --part <part> --component my-arm --method GetJointPositions
+   viam machines part run --part <part> --component my-vision --method CaptureAllFromCamera \
+       --data '{"camera_name":"my-cam","return_detections":true}'
+   viam machines part run --part <part> --component my-arm --method MoveToJointPositions \
+       --data '{"positions":{"values":[0,-90,0,0,90,0]}}'`,
+							UsageText: createUsageText("machines part run", []string{generalFlagPart, generalFlagMethod}, true, false),
+							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
+										Required: true,
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+									},
+								},
+								&cli.StringFlag{
+									Name:    runFlagData,
+									Aliases: []string{"d"},
+								},
+								&cli.DurationFlag{
+									Name:    runFlagStream,
+									Aliases: []string{"s"},
+								},
+								&cli.StringFlag{
+									Name:     generalFlagMethod,
+									Usage:    "method to call: a short name with --component (e.g. 'GetJointPositions') or the full service method (e.g. 'viam.robot.v1.RobotService.ResourceNames')",
+									Required: false, // should be required but set as false to ensure backwards capability
+								},
+								&cli.BoolFlag{
+									Name:  runFlagList,
+									Usage: "list the services the machine serves, or with --component that resource's methods and their request fields",
+								},
+								&cli.StringFlag{
+									Name:    runFlagComponent,
+									Aliases: []string{"c"},
+									Usage:   "component name - automatically sets 'name' in data and resolves short method names",
+								},
+							},
+							Action: createActionCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
+						},
+						{
 							Name:  "add-resource",
 							Usage: "add a resource to a machine part",
 							UsageText: createUsageText(
@@ -3035,57 +3110,6 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createActionCommandWithT[robotsPartRestartArgs](RobotsPartRestartAction),
-						},
-						{
-							Name:      "run",
-							Usage:     "run a command on a machine part",
-							UsageText: createUsageText("machines part run", []string{generalFlagPart, generalFlagMethod}, true, false),
-							Flags: []cli.Flag{
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:     generalFlagPart,
-										Aliases:  []string{generalFlagPartID, generalFlagPartName},
-										Required: true,
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagOrganization,
-										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagLocation,
-										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-									},
-								},
-								&AliasStringFlag{
-									cli.StringFlag{
-										Name:    generalFlagMachine,
-										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-									},
-								},
-								&cli.StringFlag{
-									Name:    runFlagData,
-									Aliases: []string{"d"},
-								},
-								&cli.DurationFlag{
-									Name:    runFlagStream,
-									Aliases: []string{"s"},
-								},
-								&cli.StringFlag{
-									Name:     generalFlagMethod,
-									Usage:    "method name (e.g., 'DoCommand') or full service method (e.g., 'viam.component.camera.v1.CameraService.DoCommand')",
-									Required: false, // should be required but set as false to ensure backwards capability
-								},
-								&cli.StringFlag{
-									Name:    runFlagComponent,
-									Aliases: []string{"c"},
-									Usage:   "component name - automatically sets 'name' in data and resolves short method names",
-								},
-							},
-							Action: createActionCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
 						},
 						{
 							Name:  "add-job",
