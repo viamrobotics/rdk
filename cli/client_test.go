@@ -241,24 +241,45 @@ func setupWithRunningPart(
 }
 
 func TestListOrganizationsAction(t *testing.T) {
+	jediID := "org-jedi"
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
-		orgs := []*apppb.Organization{{Name: "jedi", PublicNamespace: "anakin"}, {Name: "mandalorians"}}
+		orgs := []*apppb.Organization{
+			{Name: "jedi", Id: jediID, PublicNamespace: "anakin"},
+			{Name: "mandalorians", Id: "org-mando"},
+		}
 		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
 	}
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
-	test.That(t, ac.listOrganizationsAction(context.Background(), cCtx), test.ShouldBeNil)
-	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-	test.That(t, len(out.messages), test.ShouldEqual, 3)
-	test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("Organizations for %q:\n", testEmail))
-	test.That(t, out.messages[1], test.ShouldContainSubstring, "jedi")
-	test.That(t, out.messages[1], test.ShouldContainSubstring, "anakin")
-	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
+	t.Run("no default org", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+
+		test.That(t, ac.listOrganizationsAction(context.Background(), cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 3)
+		test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("Organizations for %q:\n", testEmail))
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "jedi")
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "anakin")
+		test.That(t, out.messages[1], test.ShouldNotContainSubstring, "*")
+		test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
+		test.That(t, out.messages[2], test.ShouldNotContainSubstring, "*")
+	})
+
+	t.Run("marks default org", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		ac.conf.DefaultOrg = jediID
+
+		test.That(t, ac.listOrganizationsAction(context.Background(), cCtx), test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 3)
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "* jedi")
+		test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
+		test.That(t, out.messages[2], test.ShouldNotContainSubstring, "*")
+	})
 }
 
 func TestSetSupportEmailAction(t *testing.T) {

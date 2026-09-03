@@ -537,7 +537,7 @@ var app = &cli.Command{
 	Commands: []*cli.Command{
 		{
 			Name:      "defaults",
-			Usage:     "Set or clear default argument values",
+			Usage:     "Set, view, or clear default argument values",
 			UsageText: createUsageText("defaults", nil, false, false),
 			Commands: []*cli.Command{
 				{
@@ -554,6 +554,12 @@ var app = &cli.Command{
 						},
 					},
 					Action: createActionCommandWithT(defaultsSetOrgAction),
+				},
+				{
+					Name:      "view-org",
+					Usage:     "View default organization argument",
+					UsageText: createUsageText("defaults view-org", nil, false, false),
+					Action:    createActionCommandWithT(defaultsViewOrgAction),
 				},
 				{
 					Name:   "clear-org",
@@ -574,6 +580,12 @@ var app = &cli.Command{
 						},
 					},
 					Action: createActionCommandWithT(defaultsSetLocationAction),
+				},
+				{
+					Name:      "view-location",
+					Usage:     "View default location argument",
+					UsageText: createUsageText("defaults view-location", nil, false, false),
+					Action:    createActionCommandWithT(defaultsViewLocationAction),
 				},
 				{
 					Name:   "clear-location",
@@ -953,8 +965,24 @@ Note: There is no progress meter while copying is in progress.
 					},
 				},
 				{
+					Name:      "create",
+					Usage:     "create an organization and set its public namespace",
+					UsageText: createUsageText("organizations create", nil, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  generalFlagName,
+							Usage: "display name for the organization",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPublicNamespace,
+							Usage: "public namespace used in module IDs (namespace:module-name). 2-39 characters: lowercase letters, numbers, and hyphens; must start and end with a letter or number",
+						},
+					},
+					Action: createActionCommandWithT[organizationsCreateArgs](OrganizationsCreateAction),
+				},
+				{
 					Name:      "list",
-					Usage:     "list organizations for the current user",
+					Usage:     "list organizations for the current user (marks the default org with *)",
 					UsageText: createUsageText("organizations list", nil, false, false),
 					Action:    createActionCommandWithT[emptyArgs](ListOrganizationsAction),
 				},
