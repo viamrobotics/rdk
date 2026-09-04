@@ -128,12 +128,7 @@ func findReaderAndDriver(
 	return reader, driver, path, nil
 }
 
-// findReaderAndDriverByName finds a video device whose driver Name matches the given name and returns an image
-// reader, the driver instance, and the driver's label (the value the config treats as a video path).
-//
-// The driver Name is the OS-reported device name (e.g. "HD Pro Webcam C920"). Unlike the label, it does not
-// change when a device is replugged into a different port, so it is used to recover a camera whose label is gone.
-// When several devices share a name, the first one that is available and not already in use is chosen.
+// findReaderAndDriverByName finds a video device whose driver Name matches the given name. The driver Name is the OS-reported device name
 func findReaderAndDriverByName(
 	conf *WebcamConfig,
 	name string,
@@ -141,7 +136,7 @@ func findReaderAndDriverByName(
 ) (video.Reader, driver.Driver, string, error) {
 	constraints := makeConstraints(conf, logger)
 
-	reader, driver, err := getReaderAndDriver(labelFilter(name, true, true), name, constraints, logger)
+	reader, driver, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
 	if err != nil {
 		return nil, nil, "", err
 	}
