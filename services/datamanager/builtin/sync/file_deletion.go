@@ -88,7 +88,7 @@ func maybeDeleteExcessFiles(
 	if err != nil {
 		logger.Errorw("error deleting cached datacapture files",
 			"captureDir", captureDir, "error", err, "execution time", duration.String())
-	} else {
+	} else if count > 0 {
 		logger.Infow("Performed delete excess files round",
 			"captureDir", captureDir, "count", count, "execution time", duration.String())
 	}
@@ -241,6 +241,8 @@ func deleteFiles(
 		// if at nth file and the file is not currently being written, mark as in progress if possible
 		if filepath.Ext(fileInfo.Name()) == data.CompletedCaptureFileExt {
 			if index%deleteEveryNth == 0 {
+				// Atomically claim the file so a concurrent sync won't pick it up mid-delete,
+				// and so we don't delete a file mid-sync.
 				if !fileTracker.markInProgress(path) {
 					logger.Debugw("Tried to mark file as in progress but lock already held", "file", d.Name())
 					return nil
@@ -256,7 +258,7 @@ func deleteFiles(
 				deletedFileCount++
 			}
 
-			// Increment the index only if we did successfully delete a file. We don't to
+			// Increment for every completed file unless we bailed early. We don't want to
 			// skip deleting a file just because a given Nth file happened to be in progress.
 			index++
 		}

@@ -51,6 +51,8 @@ type syncStats struct {
 	filesDeletedToFreeSpace      atomic.Int64
 	schedulerRoundsTotal         atomic.Uint64
 	schedulerDurationMillisTotal atomic.Uint64
+	// activeSyncs counts in-flight file syncs.
+	activeSyncs atomic.Int64
 }
 
 // uploadStats tracks cumulative upload statistics.
@@ -255,7 +257,7 @@ func (s *Sync) GetStats() FTDCStats {
 			SchedulerRoundsTotal:         s.syncStats.schedulerRoundsTotal.Load(),
 			SchedulerDurationMillisTotal: s.syncStats.schedulerDurationMillisTotal.Load(),
 			FilesToSyncChannelLength:     uint64(len(s.filesToSync)),
-			ActiveSyncs:                  uint32(s.fileTracker.Len()),
+			ActiveSyncs:                  uint32(s.syncStats.activeSyncs.Load()),
 			MaxActiveSyncs:               uint32(s.MaxSyncThreads),
 		},
 
@@ -450,6 +452,9 @@ func (s *Sync) syncFile(config Config, filePath string) {
 		return
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
+
+	s.syncStats.activeSyncs.Add(1)
+	defer s.syncStats.activeSyncs.Add(-1)
 
 	// Sequence files upload via CreateSequence; dispatch by path before opening so we don't
 	// leak a file descriptor on the sequence path (which does its own os.ReadFile).
