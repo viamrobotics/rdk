@@ -106,7 +106,7 @@ func findReaderAndDriver(
 			searchPath = filepath.Base(path)
 		}
 
-		reader, driver, err := getReaderAndDriver(labelFilter(searchPath, true), searchPath, constraints, logger)
+		reader, driver, err := getReaderAndDriver(labelFilter(searchPath, true, false), searchPath, constraints, logger)
 		if err != nil {
 			return nil, nil, "", err
 		}
@@ -141,7 +141,7 @@ func findReaderAndDriverByName(
 ) (video.Reader, driver.Driver, string, error) {
 	constraints := makeConstraints(conf, logger)
 
-	reader, driver, err := getReaderAndDriver(nameFilter(name), name, constraints, logger)
+	reader, driver, err := getReaderAndDriver(labelFilter(name, true, true), name, constraints, logger)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -223,28 +223,19 @@ func newReaderFromDriver(
 	return recorder.VideoRecord(mediaProp)
 }
 
-func labelFilter(target string, useSep bool) driver.FilterFn {
+// labelFilter matches drivers whose Label equals target, or whose Name equals target when isName is set.
+func labelFilter(target string, useSep, isName bool) driver.FilterFn {
 	return driver.FilterFn(func(d driver.Driver) bool {
-		if !useSep {
-			return d.Info().Label == target
+		value := d.Info().Label
+		if isName {
+			value = d.Info().Name
 		}
-		labels := strings.Split(d.Info().Label, mediadevicescamera.LabelSeparator)
+		if !useSep {
+			return value == target
+		}
+		labels := strings.Split(value, mediadevicescamera.LabelSeparator)
 		for _, label := range labels {
 			if label == target {
-				return true
-			}
-		}
-		return false
-	})
-}
-
-// nameFilter matches drivers whose Name equals target. Like labels, names may pack several values separated by
-// LabelSeparator (linux uses "name;busInfo"), so each component is compared individually.
-func nameFilter(target string) driver.FilterFn {
-	return driver.FilterFn(func(d driver.Driver) bool {
-		names := strings.Split(d.Info().Name, mediadevicescamera.LabelSeparator)
-		for _, name := range names {
-			if name == target {
 				return true
 			}
 		}
