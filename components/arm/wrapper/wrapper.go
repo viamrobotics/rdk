@@ -4,6 +4,7 @@ package wrapper
 import (
 	"context"
 	"sync"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 
@@ -225,6 +226,21 @@ func (wrapper *Arm) Get3DModels(ctx context.Context, extra map[string]interface{
 		return nil, err
 	}
 	return models, nil
+}
+
+// Properties returns which optional features the arm supports.
+func (wrapper *Arm) Properties(ctx context.Context, extra map[string]interface{}) (arm.Properties, error) {
+	return wrapper.actual.Properties(ctx, extra)
+}
+
+// SetManualMode enables or disables manual mode on the arm.
+func (wrapper *Arm) SetManualMode(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error {
+	return wrapper.actual.SetManualMode(ctx, manualMode, enabledFor, extra)
+}
+
+// ManualMode reports whether the arm is currently in manual mode.
+func (wrapper *Arm) ManualMode(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	return wrapper.actual.ManualMode(ctx, extra)
 }
 
 // modelFromPath returns a Model from a given path.

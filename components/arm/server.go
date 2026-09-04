@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -364,6 +365,42 @@ func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DMode
 		return nil, err
 	}
 	return &commonpb.Get3DModelsResponse{Models: models}, nil
+}
+
+// GetProperties returns which optional features the arm supports.
+func (s *serviceServer) GetProperties(ctx context.Context, req *pb.GetPropertiesRequest) (*pb.GetPropertiesResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	props, err := arm.Properties(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return PropertiesToProtoResponse(props)
+}
+
+// SetManualMode enables or disables manual mode on the arm.
+func (s *serviceServer) SetManualMode(ctx context.Context, req *pb.SetManualModeRequest) (*pb.SetManualModeResponse, error) {
+	arm, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	enabledFor := time.Duration(req.EnabledFor) * time.Second
+	return &pb.SetManualModeResponse{}, arm.SetManualMode(ctx, req.ManualMode, enabledFor, req.Extra.AsMap())
+}
+
+// GetManualMode reports whether the arm is currently in manual mode.
+func (s *serviceServer) GetManualMode(ctx context.Context, req *pb.GetManualModeRequest) (*pb.GetManualModeResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	manualMode, err := arm.ManualMode(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetManualModeResponse{ManualMode: manualMode}, nil
 }
 
 // GetKinematics returns the kinematics information associated with the arm.
