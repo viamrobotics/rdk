@@ -124,6 +124,8 @@ type webcam struct {
 	// This is returned to us as a label in mediadevices but our config
 	// treats it as a video path.
 	targetPath string
+	// targetName is the OS-reported name of the driver behind targetPath
+	targetName string
 	conf       WebcamConfig
 
 	closed       bool // set by Close method
@@ -220,6 +222,7 @@ func newWebcam(
 		reader:      reader,
 		driver:      driver,
 		targetPath:  targetPath,
+		targetName:  driver.Info().Name,
 		conf:        conf,
 		idleTimeout: time.Duration(conf.IdleTimeoutMs) * time.Millisecond,
 		wakeTimeout: defaultWakeTimeout,
@@ -338,6 +341,7 @@ func (c *webcam) startMonitorWorker() {
 						oldDriver, oldRelease := c.detachLocked()
 						conf := c.conf
 						targetPath := c.targetPath
+						targetName := c.targetName
 						c.mu.Unlock()
 
 						if err := closeCamera(oldDriver, oldRelease); err != nil {
@@ -346,6 +350,14 @@ func (c *webcam) startMonitorWorker() {
 
 						// Heavy I/O, so stays outside the lock.
 						reader, driver, label, err := c.openCamera(&conf, targetPath, c.logger)
+						reconnectedByName := false
+						if err != nil && targetName != "" {
+							// The label may have changed, fall back to the device name
+							c.logger.Debugw("failed to reconnect camera by path; retrying by name",
+								"error", err, "name", targetName)
+							reader, driver, label, err = findReaderAndDriverByName(&conf, targetName, c.logger)
+							reconnectedByName = err == nil
+						}
 						if err != nil {
 							c.logger.Debugw("failed to reconnect camera", "error", err)
 							continue
@@ -354,6 +366,10 @@ func (c *webcam) startMonitorWorker() {
 						c.mu.Lock()
 						c.attachLocked(reader, driver)
 						if c.targetPath == "" {
+							c.targetPath = label
+						}
+						if reconnectedByName && label != c.targetPath {
+							c.logger.Infow("camera reconnected under a new path", "old_path", c.targetPath, "new_path", label)
 							c.targetPath = label
 						}
 						c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
