@@ -16,11 +16,12 @@ import (
 // Keys used in arm-streaming DoCommand requests and responses. streamKeyArm
 // names the arm both in DoStreamStart requests and in DoStreamStatus responses.
 const (
-	streamKeyArm     = "arm"
-	streamKeyOptions = "options"
-	streamKeyRunning = "running"
-	streamKeyError   = "error"
-	streamKeyOk      = "ok"
+	streamKeyArm         = "arm"
+	streamKeyOptions     = "options"
+	streamKeyRunning     = "running"
+	streamKeyError       = "error"
+	streamKeyOk          = "ok"
+	streamKeyDiagnostics = "diagnostics"
 )
 
 // stream manages a single arm-streaming session across start/push/abort/status
@@ -56,6 +57,11 @@ type stream struct {
 	// err is the error (if any) that caused the session to end. It is only
 	// safe to read after done is closed.
 	err error
+
+	// diagnostics is the session's flight recorder: buffer occupancies, call timings,
+	// per-extend outcomes, and PVAT velocities, for diagnosing pacing/buffering issues.
+	// Exposed via stream_status.
+	diagnostics *streaming.StreamDiagnostics
 }
 
 func (s *stream) finished() bool {
@@ -129,15 +135,16 @@ func (ms *builtIn) streamStart(
 
 	streamCtx, cancel := context.WithCancel(context.Background())
 	s := &stream{
-		logger:  ms.logger.Sublogger("arm_streaming"),
-		armName: armName,
-		jpCh:    make(chan streaming.JointPositionsChItem),
-		cancel:  cancel,
-		done:    make(chan struct{}),
+		logger:      ms.logger.Sublogger("arm_streaming"),
+		armName:     armName,
+		jpCh:        make(chan streaming.JointPositionsChItem),
+		cancel:      cancel,
+		done:        make(chan struct{}),
+		diagnostics: streaming.NewStreamDiagnostics(),
 	}
 
 	go func() {
-		err := streaming.Run(streamCtx, a, opts, s.jpCh, seed)
+		err := streaming.Run(streamCtx, a, opts, s.jpCh, seed, s.diagnostics)
 		s.err = err
 		if err != nil {
 			s.logger.CWarnf(streamCtx, "arm streaming session ended with error: %v", err)
@@ -189,6 +196,8 @@ func (ms *builtIn) streamFlush(ctx context.Context) (map[string]any, error) {
 		return map[string]any{streamKeyRunning: true}, nil
 	}
 
+	// The flush response never includes the diagnostics -- it's a completion acknowledgment,
+	// not a place callers fetch diagnostics from; fetch them via stream_status instead.
 	status := map[string]any{streamKeyRunning: false}
 	if s.err != nil {
 		status[streamKeyError] = s.err.Error()
@@ -223,7 +232,11 @@ func (ms *builtIn) streamAbort(ctx context.Context) map[string]any {
 	return status
 }
 
-func (ms *builtIn) streamStatus() map[string]any {
+// streamStatus reports the active session's state. includeDiagnostics controls whether the
+// (potentially large) diagnostics snapshot -- the session's most recent minute of pipeline
+// history -- is attached: a caller polling repeatedly just to watch "running"/"error" doesn't
+// need to re-fetch and re-serialize the whole window on every call; pass false for those polls.
+func (ms *builtIn) streamStatus(includeDiagnostics bool) map[string]any {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 	if ms.stream == nil {
@@ -234,6 +247,9 @@ func (ms *builtIn) streamStatus() map[string]any {
 	status := map[string]any{
 		streamKeyRunning: !finished,
 		streamKeyArm:     ms.stream.armName,
+	}
+	if includeDiagnostics {
+		status[streamKeyDiagnostics] = ms.stream.diagnostics.Snapshot()
 	}
 	if finished && ms.stream.err != nil {
 		status[streamKeyError] = ms.stream.err.Error()
@@ -279,11 +295,26 @@ func (ms *builtIn) handleStreamCommand(
 		return ms.streamAbort(ctx), true, nil
 	}
 
-	if _, ok := cmd[DoStreamStatus]; ok {
-		return ms.streamStatus(), true, nil
+	if req, ok := cmd[DoStreamStatus]; ok {
+		return ms.streamStatus(parseIncludeDiagnostics(req)), true, nil
 	}
 
 	return nil, false, nil
+}
+
+// parseIncludeDiagnostics reports whether a stream_status request opted out of the diagnostics
+// snapshot via {"diagnostics": false}. Defaults to true (the original, unconditional behavior)
+// for any other input, including the common `DoStreamStatus: true` case.
+func parseIncludeDiagnostics(req interface{}) bool {
+	m, ok := req.(map[string]interface{})
+	if !ok {
+		return true
+	}
+	include, ok := m[streamKeyDiagnostics].(bool)
+	if !ok {
+		return true
+	}
+	return include
 }
 
 func parseStreamStart(req interface{}) (string, streaming.StreamOptions, error) {
