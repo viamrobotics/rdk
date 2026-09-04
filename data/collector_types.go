@@ -210,7 +210,7 @@ func (dt CaptureType) ToProto() datasyncPB.DataType {
 // MethodToCaptureType returns the DataType of the method.
 func MethodToCaptureType(methodName string) CaptureType {
 	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera, getAudio:
+	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera, getAudio, getVideo:
 		return CaptureTypeBinary
 	default:
 		return CaptureTypeTabular
@@ -387,6 +387,9 @@ func getFileExt(dataType CaptureType, methodName string, parameters map[string]i
 			default:
 				return ExtDefault
 			}
+		}
+		if methodName == getVideo {
+			return ExtMP4
 		}
 		if methodName == getAudio {
 			switch parameters["codec"] {
