@@ -31,8 +31,7 @@ type localAppTestingArgs struct {
 type localAppTestingServer struct {
 	machineID       string
 	machineHostname string
-	machineAPIKey   string
-	machineAPIKeyID string
+	accessToken     string
 	serverURL       string
 	logger          io.Writer
 }
@@ -61,9 +60,12 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 	if args.MachineID != "" {
 		printf(cmd.Root().Writer, "Local testing for a single-machine Viam app, machine ID: %s", args.MachineID)
 
-		machineAPIKeyID, machineAPIKey, err := getMachineAPIKeys(ctx, viamClient.client, args.MachineID)
-		if err != nil {
-			return err
+		// Connect as the logged-in user (app-user-id) using their access token, rather than
+		// grabbing a machine API key. Requires a token login, not an API-key login.
+		currentToken, found := viamClient.conf.Auth.(*token)
+		if !found || currentToken.AccessToken == "" {
+			printf(cmd.Root().ErrWriter, "You need an access token configured in the CLI to proceed. "+
+				"Run the `viam login` command to re-authenticate, do NOT use an API key")
 		}
 
 		machineHostname, err := getMachineHostname(ctx, viamClient.client, args.MachineID)
@@ -73,8 +75,7 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 
 		localAppTesting.machineID = args.MachineID
 		localAppTesting.machineHostname = machineHostname
-		localAppTesting.machineAPIKey = machineAPIKey
-		localAppTesting.machineAPIKeyID = machineAPIKeyID
+		localAppTesting.accessToken = currentToken.AccessToken
 
 		httpServer = localAppTesting.setupHTTPServerSingleMachineApp(serverPort, args.AppURL)
 	} else {
@@ -107,22 +108,6 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 	}
 
 	return nil
-}
-
-func getMachineAPIKeys(ctx context.Context, viamAppClient apppb.AppServiceClient, machineID string) (string, string, error) {
-	resp, err := viamAppClient.GetRobotAPIKeys(ctx, &apppb.GetRobotAPIKeysRequest{
-		RobotId: machineID,
-	})
-	if err != nil {
-		return "", "", err
-	}
-
-	keys := resp.GetApiKeys()
-	if len(keys) == 0 {
-		return "", "", errors.Errorf("Machine %s has no API keys", machineID)
-	}
-
-	return keys[0].GetApiKey().GetId(), keys[0].GetApiKey().GetKey(), nil
 }
 
 func getMachineHostname(ctx context.Context, viamAppClient apppb.AppServiceClient, machineID string) (string, error) {
@@ -175,33 +160,23 @@ type machineAuthCookieValue struct {
 	Hostname    string             `json:"hostname"`
 	MachineID   string             `json:"machineId"`
 	Credentials machineCredentials `json:"credentials"`
-	APIKey      machineAPIKey      `json:"apiKey"`
 }
 
 type machineCredentials struct {
 	Type       string `json:"type"`
 	Payload    string `json:"payload"`
-	AuthEntity string `json:"authEntity"`
-}
-
-type machineAPIKey struct {
-	Key string `json:"key"`
-	ID  string `json:"id"`
+	AuthEntity string `json:"authEntity,omitempty"`
 }
 
 func (l *localAppTestingServer) singleMachineCookieSetup(resp http.ResponseWriter, req *http.Request) {
-	// Generate machine auth cookie
+	// Generate machine auth cookie carrying the logged-in user's access token, so the app
+	// connects to this machine as the user (app-user-id) instead of a machine API key.
 	cookieValue := machineAuthCookieValue{
 		Hostname:  l.machineHostname,
 		MachineID: l.machineID,
 		Credentials: machineCredentials{
-			Type:       "api-key",
-			Payload:    l.machineAPIKey,
-			AuthEntity: l.machineAPIKeyID,
-		},
-		APIKey: machineAPIKey{
-			Key: l.machineAPIKey,
-			ID:  l.machineAPIKeyID,
+			Type:    "access-token",
+			Payload: l.accessToken,
 		},
 	}
 
