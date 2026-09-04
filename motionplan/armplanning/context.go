@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // PlanContext wraps a bunch of variables related to performing a single `PlanMotion` API call.
@@ -129,6 +130,14 @@ type PlanSegmentContext struct {
 
 	motionChains *motionChains
 	Checker      *motionplan.ConstraintChecker
+
+	// staticGeomHash fingerprints the world poses and shapes of the static
+	// (non-moving) robot geometry this segment plans against - the same split
+	// the constraint checker collision-checks the moving chain against. The
+	// roadmap folds it into its scene key: environment geometry that lives in
+	// the frame system (a door whose fixed transform is updated between plans,
+	// a tracked fixture) is invisible to inputs alone.
+	staticGeomHash uint64
 }
 
 // NewPlanSegmentContext returns a new PlanSegmentContext.
@@ -173,6 +182,7 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 	}
 
 	movingRobotGeometries, staticRobotGeometries, movingFrameNames := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
+	psc.staticGeomHash = spatialmath.GeometrySetHash(staticRobotGeometries)
 
 	psc.Checker, err = motionplan.NewConstraintChecker(
 		pc.planOpts.CollisionBufferMM,
