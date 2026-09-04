@@ -33,12 +33,37 @@ func newFakeStreamingArm() (*inject.Arm, *fakeStreamRecorder) {
 		responses chan<- arm.Response,
 		extra map[string]interface{},
 	) error {
+		// Honor the interface contract: return only once the trajectory is done, not
+		// when the input stream closes. Playback is simulated against a wall clock
+		// anchored at the first batch; after the input stream closes, wait out
+		// whatever trajectory time remains (or bail on ctx cancellation, like a real
+		// driver interrupting a move).
+		var started time.Time
+		var lastPointTime time.Duration
 		for batch := range batches {
+			if started.IsZero() {
+				started = time.Now()
+			}
 			rec.mu.Lock()
 			rec.batches = append(rec.batches, batch)
 			rec.mu.Unlock()
+			if len(batch) > 0 {
+				lastPointTime = batch[len(batch)-1].Time
+			}
 		}
-		return nil
+		if started.IsZero() {
+			return nil
+		}
+		remaining := lastPointTime - time.Since(started)
+		if remaining <= 0 {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(remaining):
+			return nil
+		}
 	}
 	return inj, rec
 }
