@@ -96,6 +96,8 @@ type webcam struct {
 	// This is returned to us as a label in mediadevices but our config
 	// treats it as a video path.
 	targetPath string
+	// targetName is the OS-reported name of the driver behind targetPath
+	targetName string
 	conf       WebcamConfig
 
 	closed       bool // set by Close method
@@ -167,6 +169,7 @@ func NewWebcam(
 	if c.targetPath == "" {
 		c.targetPath = label
 	}
+	c.targetName = driver.Info().Name
 	c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
 
 	// only set once we're good
@@ -255,6 +258,7 @@ func (c *webcam) startMonitorWorker() {
 						oldRelease := c.buffer.release
 						conf := c.conf
 						targetPath := c.targetPath
+						targetName := c.targetName
 
 						c.driver = nil
 						c.reader = nil
@@ -277,6 +281,14 @@ func (c *webcam) startMonitorWorker() {
 
 						// Try to find and reconnect to camera outside lock (heavy I/O)
 						reader, driver, label, err := findReaderAndDriver(&conf, targetPath, c.logger)
+						reconnectedByName := false
+						if err != nil && targetName != "" {
+							// The label may have changed, fall back to the device name
+							c.logger.Debugw("failed to reconnect camera by path; retrying by name",
+								"error", err, "name", targetName)
+							reader, driver, label, err = findReaderAndDriverByName(&conf, targetName, c.logger)
+							reconnectedByName = err == nil
+						}
 						if err != nil {
 							c.logger.Debugw("failed to reconnect camera", "error", err)
 							continue
@@ -288,6 +300,10 @@ func (c *webcam) startMonitorWorker() {
 						c.driver = driver
 						c.disconnected = false
 						if c.targetPath == "" {
+							c.targetPath = label
+						}
+						if reconnectedByName && label != c.targetPath {
+							c.logger.Infow("camera reconnected under a new path", "old_path", c.targetPath, "new_path", label)
 							c.targetPath = label
 						}
 						c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
