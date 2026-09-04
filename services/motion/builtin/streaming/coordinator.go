@@ -56,6 +56,7 @@ func Run(
 			return
 		}
 		// On success, close first to signal that the RPC can finish.
+		// This blocks until the arm reports that it has completed executing the stream.
 		err = as.close()
 		cancel()
 	}()
@@ -89,7 +90,7 @@ func Run(
 						return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 					}
 					if len(pvats) == 0 {
-						return waitOutRunway(ctx, as)
+						return nil
 					}
 					if err := as.send(ctx, pvats); err != nil {
 						return err
@@ -129,13 +130,4 @@ func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway t
 		return nil
 	}
 	return s.send(ctx, pvats)
-}
-
-func waitOutRunway(ctx context.Context, as *armStream) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(as.currentEstimatedRunwayInArm()):
-		return nil
-	}
 }
