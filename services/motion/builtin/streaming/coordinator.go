@@ -15,8 +15,7 @@ import (
 
 // Run executes a streaming session through one trajex session and one arm stream RPC.
 // If jpCh is closed, it samples everything out of the trajex session and sends it to the
-// arm, then waits for the arm to have finished executing before returning, including for the
-// runway estimate to reach zero.
+// arm, then waits for the arm to have finished executing before returning.
 //
 // --- An important note on backpressure --
 //
