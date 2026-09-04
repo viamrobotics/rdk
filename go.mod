@@ -139,8 +139,8 @@ require (
 	buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go v1.36.11-20260722160903-4d94f3df3a7b.1 // indirect
 	buf.build/gen/go/bufbuild/protodescriptor/protocolbuffers/go v1.36.11-20250109164928-1da0de137947.1 // indirect
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260825204119-511051f7f437.1 // indirect
-	buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20260713175918-10d915f5b43b.1 // indirect
-	buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20260713175918-10d915f5b43b.1 // indirect
+	buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20260831211851-b4432e12a6e7.1 // indirect
+	buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20260831211851-b4432e12a6e7.1 // indirect
 	buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go v1.36.11-20241007202033-cf42259fcbfc.1 // indirect
 	buf.build/go/app v0.2.1-0.20260407195847-833f8f978cda // indirect
 	buf.build/go/bufplugin v0.10.0 // indirect
