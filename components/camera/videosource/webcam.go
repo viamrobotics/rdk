@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"runtime"
 	"sync"
 	"time"
 
@@ -282,8 +283,9 @@ func (c *webcam) startMonitorWorker() {
 						// Try to find and reconnect to camera outside lock (heavy I/O)
 						reader, driver, label, err := findReaderAndDriver(&conf, targetPath, c.logger)
 						reconnectedByName := false
-						if err != nil && targetName != "" {
-							// The label may have changed, fall back to the device name
+
+						// On darwin, label changes when webcam port is switched so fall back to device name
+						if err != nil && targetName != "" && runtime.GOOS == "darwin" {
 							c.logger.Debugw("failed to reconnect camera by path; retrying by name",
 								"error", err, "name", targetName)
 							reader, driver, label, err = findReaderAndDriverByName(&conf, targetName, c.logger)
