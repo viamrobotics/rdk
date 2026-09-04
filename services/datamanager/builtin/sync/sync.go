@@ -240,7 +240,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 				config.CaptureDirDeletionThreshold,
 				s.clock,
 				s.logger,
-				&s.syncStats.filesDeletedToFreeSpace,
+				s.syncStats,
 			)
 		})
 	}

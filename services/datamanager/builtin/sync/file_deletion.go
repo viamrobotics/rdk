@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
-	"sync/atomic"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
@@ -29,7 +27,7 @@ func deleteExcessFilesOnSchedule(
 	captureDirThreshold float64,
 	clock clock.Clock,
 	logger logging.Logger,
-	deletedFileCount *atomic.Int64,
+	syncStats *syncStats,
 ) {
 	if runtime.GOOS == "android" {
 		logger.Debug("file deletion if disk is full is not currently supported on Android")
@@ -47,7 +45,7 @@ func deleteExcessFilesOnSchedule(
 			return
 		case <-t.C:
 			maybeDeleteExcessFiles(
-				ctx, fileTracker, captureDir, deleteEveryNth, diskUsageThreshold, captureDirThreshold, clock, logger, deletedFileCount,
+				ctx, fileTracker, captureDir, deleteEveryNth, diskUsageThreshold, captureDirThreshold, clock, logger, syncStats,
 			)
 		}
 	}
@@ -62,7 +60,7 @@ func maybeDeleteExcessFiles(
 	captureDirThreshold float64,
 	clock clock.Clock,
 	logger logging.Logger,
-	deletedFileCount *atomic.Int64,
+	syncStats *syncStats,
 ) {
 	start := clock.Now()
 	usage, err := diskusage.Statfs(captureDir)
@@ -84,16 +82,15 @@ func maybeDeleteExcessFiles(
 		diskUsageThreshold,
 		captureDirThreshold,
 		logger)
-
 	duration := clock.Since(start)
+	syncStats.filesDeletedToFreeSpace.Add(int64(count))
 
-	switch {
-	case err != nil:
-		logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.String())
-	case count > 0:
-		if deletedFileCount != nil {
-			deletedFileCount.Add(int64(count))
-		}
+	if err != nil {
+		logger.Errorw("error deleting cached datacapture files",
+			"captureDir", captureDir, "error", err, "execution time", duration.String())
+	} else {
+		logger.Infow("Performed delete excess files round",
+			"captureDir", captureDir, "count", count, "execution time", duration.String())
 	}
 }
 
@@ -214,7 +211,7 @@ func deleteFiles(
 ) (int, error) {
 	index := 0
 	deletedFileCount := 0
-	logger.Infof("Deleting every %dth file", deleteEveryNth)
+	logger.Infof("Deleting every %dth capture file", deleteEveryNth)
 	fileDeletion := func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -240,23 +237,27 @@ func deleteFiles(
 			}
 			return err
 		}
-		isCompletedDataCaptureFile := strings.Contains(fileInfo.Name(), data.CompletedCaptureFileExt)
+
 		// if at nth file and the file is not currently being written, mark as in progress if possible
-		if isCompletedDataCaptureFile && index%deleteEveryNth == 0 {
-			if !fileTracker.markInProgress(path) {
-				logger.Debugw("Tried to mark file as in progress but lock already held", "file", d.Name())
-				return nil
+		if filepath.Ext(fileInfo.Name()) == data.CompletedCaptureFileExt {
+			if index%deleteEveryNth == 0 {
+				if !fileTracker.markInProgress(path) {
+					logger.Debugw("Tried to mark file as in progress but lock already held", "file", d.Name())
+					return nil
+				}
+				// don't memory leak the in-progress tracking
+				defer fileTracker.unmarkInProgress(path)
+
+				if err = os.Remove(path); err != nil {
+					logger.Warnw("error deleting file", "error", err)
+					return err
+				}
+				logger.Infof("successfully deleted %s", d.Name())
+				deletedFileCount++
 			}
-			if err := os.Remove(path); err != nil {
-				logger.Warnw("error deleting file", "error", err)
-				fileTracker.unmarkInProgress(path)
-				return err
-			}
-			logger.Infof("successfully deleted %s", d.Name())
-			deletedFileCount++
-		}
-		// only increment on completed files
-		if isCompletedDataCaptureFile {
+
+			// Increment the index only if we did successfully delete a file. We don't to
+			// skip deleting a file just because a given Nth file happened to be in progress.
 			index++
 		}
 		return nil
