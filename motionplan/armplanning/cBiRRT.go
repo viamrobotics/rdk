@@ -39,6 +39,12 @@ type cBiRRTMotionPlanner struct {
 
 	fastGradDescent *ik.NloptIK
 
+	// topoMetric is psc.topoProjectionMetric() built once: constrainNear
+	// consults it on every failed extend step, and rebuilding the per-frame
+	// evaluators each time is pure overhead. Nil when the request carries no
+	// orientation constraints.
+	topoMetric motionplan.StateFSMetric
+
 	// rnd drives sampling. Defaults to the shared PlanContext rand; racing
 	// attempts (raceCBiRRT) each get their own stream so they explore
 	// different regions and can run concurrently.
@@ -69,6 +75,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *PlanContext, psc *PlanSegme
 	if err != nil {
 		return nil, err
 	}
+	c.topoMetric = psc.topoProjectionMetric()
 
 	return c, nil
 }
@@ -304,7 +311,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	// Check if the arc of "seedInputs" to "target" is valid
-	_, err := mp.psc.Checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution, true)
+	failpos, err := mp.psc.Checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution, true)
 	if debugConstrainNear {
 		mp.logger.Infof("\t err %v", err)
 	}
@@ -312,8 +319,14 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		return target
 	}
 
-	if metric := mp.psc.topoProjectionMetric(); metric != nil {
-		projected := mp.psc.projectToOrientationBand(ctx, mp.fastGradDescent, metric, target)
+	// Projection must keep every target on the orientation manifold (that is
+	// the "constrained" in cBiRRT - even a collision-failed arc may aim at an
+	// off-band target, since the walk stops before checking it). But when the
+	// target already scores 0, nlopt's stopval returns the seed untouched, so
+	// gate the solve on one cheap metric evaluation and reuse the failure
+	// point from the check above instead.
+	if mp.topoMetric != nil && mp.topoMetric(&motionplan.StateFS{FS: mp.pc.fs, Configuration: target}) > 0 {
+		projected := mp.psc.projectToOrientationBand(ctx, mp.fastGradDescent, mp.topoMetric, target)
 		if projected == nil {
 			mp.logger.Debugf("constrainNear: orientation projection failed")
 			return nil
@@ -322,23 +335,23 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			mp.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", projected.GetLinearizedInputs()})
 		}
 		target = projected
-	}
 
-	failpos, err := mp.psc.Checker.CheckStateConstraintsAcrossSegmentFS(
-		ctx,
-		&motionplan.SegmentFS{
-			StartConfiguration: seedInputs,
-			EndConfiguration:   target,
-			FS:                 mp.pc.fs,
-		},
-		mp.pc.planOpts.Resolution,
-		true,
-	)
-	if debugConstrainNear {
-		mp.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
-	}
-	if err == nil {
-		return target
+		failpos, err = mp.psc.Checker.CheckStateConstraintsAcrossSegmentFS(
+			ctx,
+			&motionplan.SegmentFS{
+				StartConfiguration: seedInputs,
+				EndConfiguration:   target,
+				FS:                 mp.pc.fs,
+			},
+			mp.pc.planOpts.Resolution,
+			true,
+		)
+		if debugConstrainNear {
+			mp.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
+		}
+		if err == nil {
+			return target
+		}
 	}
 
 	if failpos == nil {
