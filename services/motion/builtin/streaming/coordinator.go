@@ -32,12 +32,16 @@ import (
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
 // executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
+//
+// trace, if non-nil, accumulates pipeline diagnostics over the session's lifetime; snapshot
+// it via PipelineTrace.Snapshot.
 func Run(
 	ctx context.Context,
 	a arm.Arm,
 	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
+	trace *PipelineTrace,
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err
@@ -46,8 +50,11 @@ func Run(
 	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
 	// Start the arm RPC stream.
-	as := newArmStream(ctx, a)
+	as := newArmStream(ctx, a, trace)
+	trace.recordEvent(pipeEventStreamOpen, "")
 	defer func() {
+		// Record the stream close on both the error and success paths.
+		defer trace.recordEvent(pipeEventStreamClose, "")
 		if err != nil {
 			// On error, cancel first so that the RPC gets interrupted.
 			// as.close() will typically return a cancellation error (due to the
@@ -68,7 +75,11 @@ func Run(
 	if err := ts.startSession(seed); err != nil {
 		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}
-	defer ts.close()
+	trace.recordEvent(pipeEventSessionOpen, "")
+	defer func() {
+		ts.close()
+		trace.recordEvent(pipeEventSessionClose, "")
+	}()
 
 	targetRunway := time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond
 	maxTrajexRunway := time.Duration(opts.MaxTrajexRunwayMs) * time.Millisecond
@@ -109,9 +120,23 @@ func Run(
 					}
 				}
 			}
+			trace.record(pipeChanPlanQ, pipeOpDequeue, len(jpCh), cap(jpCh))
 
 			// Add the new joint positions to the trajex session.
-			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
+			extendStart := time.Now()
+			extended, err := ts.addJointPositionsToSession(ctx, jp.Positions)
+			trace.recordTiming(pipeTimingExtend, time.Since(extendStart))
+			trace.record(pipeChanTrajexGen, pipeOpDequeue, int(ts.generationCount()), 0)
+			trace.record(pipeChanTrajexRunway, pipeOpEnqueue, int(ts.trajexRunway().Milliseconds()), 0)
+			if extended {
+				disposition, marginMS, hasMargin := ts.lastExtendBranch()
+				marginValid := 0
+				if hasMargin {
+					marginValid = 1
+				}
+				trace.record(pipeChanExtendBranch, disposition, marginMS, marginValid)
+			}
+			if err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 
@@ -130,7 +155,12 @@ func Run(
 }
 
 func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
-	deficit := targetRunway - s.currentEstimatedRunwayInArm()
+	estimatedRunway := s.currentEstimatedRunwayInArm()
+	// armQ occupancy is the estimated arm-side buffer in ms (len) against the
+	// target runway (cap).
+	s.trace.record(pipeChanArmPending, pipeOpDequeue,
+		int(estimatedRunway.Milliseconds()), int(targetRunway.Milliseconds()))
+	deficit := targetRunway - estimatedRunway
 	if deficit <= 0 {
 		return nil
 	}
@@ -141,5 +171,10 @@ func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway t
 	if len(pvats) == 0 {
 		return nil
 	}
-	return s.send(ctx, pvats)
+	s.trace.record(pipeChanTrajexRunway, pipeOpDequeue, int(ts.trajexRunway().Milliseconds()), 0)
+	if err := s.send(ctx, pvats); err != nil {
+		return err
+	}
+	s.trace.recordTiming(pipeTimingTrajSent, deficit)
+	return nil
 }

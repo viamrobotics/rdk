@@ -43,7 +43,9 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 	test.That(t, s.startSession(seed), test.ShouldBeNil)
 	defer s.close()
 
-	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
+	extended, err := s.addJointPositionsToSession(ctx, target)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeTrue)
 
 	pvats, err := s.sampleAtLeast(ctx, sampleHorizon)
 	test.That(t, err, test.ShouldBeNil)
@@ -73,7 +75,9 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	defer s.close()
 
 	nearlyIdentical := []referenceframe.Input{0.2 + 1e-6, 0.4 - 1e-6}
-	test.That(t, s.addJointPositionsToSession(ctx, nearlyIdentical), test.ShouldBeNil)
+	extended, err := s.addJointPositionsToSession(ctx, nearlyIdentical)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeFalse)
 	test.That(t, s.lastJointPositions, test.ShouldResemble, seed)
 
 	pvats, err := s.sampleAtLeast(ctx, sampleHorizon)
@@ -98,15 +102,19 @@ func TestTrajexSessionRunwayTracksBacklog(t *testing.T) {
 	test.That(t, s.trajexRunway(), test.ShouldEqual, time.Duration(0))
 
 	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of backlog, none of it sampled.
-	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.35}), test.ShouldBeNil)
+	extended, err := s.addJointPositionsToSession(ctx, []referenceframe.Input{0.35})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeTrue)
 	test.That(t, s.trajexRunway(), test.ShouldBeGreaterThan, 1500*time.Millisecond)
 
 	// Sample most of the way through, then reverse with a farther target: a new install
 	// whose backlog the estimate must keep reporting.
-	_, err := s.sampleAtLeast(ctx, s.sess.ActiveDuration()-100*time.Millisecond)
+	_, err = s.sampleAtLeast(ctx, s.sess.ActiveDuration()-100*time.Millisecond)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s.trajexRunway(), test.ShouldBeLessThan, 300*time.Millisecond)
-	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{-0.3}), test.ShouldBeNil)
+	extended, err = s.addJointPositionsToSession(ctx, []referenceframe.Input{-0.3})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeTrue)
 	backlog := s.trajexRunway()
 	test.That(t, backlog, test.ShouldBeGreaterThan, 1500*time.Millisecond)
 
@@ -136,7 +144,9 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 	test.That(t, s.startSession(seed), test.ShouldBeNil)
 	defer s.close()
 
-	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
+	extended, err := s.addJointPositionsToSession(ctx, target)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeTrue)
 
 	horizon := 20 * time.Millisecond
 	first, err := s.sampleAtLeast(ctx, horizon)

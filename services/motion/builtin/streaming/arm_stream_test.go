@@ -80,7 +80,7 @@ func testPVAT(trajectoryTime time.Duration) pvat {
 func TestArmStreamSend(t *testing.T) {
 	inj, rec := newFakeStreamingArm()
 	ctx := context.Background()
-	s := newArmStream(ctx, inj)
+	s := newArmStream(ctx, inj, nil)
 
 	// Empty PVAT list: nothing sent, wall clock not anchored.
 	test.That(t, s.send(ctx, nil), test.ShouldBeNil)
@@ -122,7 +122,7 @@ func TestArmStreamSend(t *testing.T) {
 func TestArmStreamCurrentEstimatedRunwayInArm(t *testing.T) {
 	inj, _ := newFakeStreamingArm()
 	ctx := context.Background()
-	s := newArmStream(ctx, inj)
+	s := newArmStream(ctx, inj, nil)
 	defer s.close()
 
 	test.That(t, s.currentEstimatedRunwayInArm(), test.ShouldEqual, time.Duration(0))

@@ -23,16 +23,25 @@ type armStream struct {
 	moveThroughJointPositionsStreamedReturned chan struct{}
 
 	err error
+
+	// trace receives per-send diagnostics (velocities, send latency, cumulative PVAT
+	// count); nil disables them, since every PipelineTrace method is nil-safe.
+	trace *PipelineTrace
+	// totalPVATsSent counts the PVATs delivered to the RPC over the stream's lifetime,
+	// reported to the trace after each send.
+	totalPVATsSent int
 }
 
 // newArmStream constructs an armStream and starts its RPC stream to the arm.
-func newArmStream(ctx context.Context, a arm.Arm) *armStream {
+func newArmStream(ctx context.Context, a arm.Arm, trace *PipelineTrace) *armStream {
 	s := &armStream{
 		arm:         a,
 		batchesCh:   make(chan []arm.TrajectoryPoint),
 		responsesCh: make(chan arm.Response),
 
 		moveThroughJointPositionsStreamedReturned: make(chan struct{}),
+
+		trace: trace,
 	}
 
 	go func() {
@@ -56,6 +65,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 
 	batch := make([]arm.TrajectoryPoint, 0, len(pvats))
 	for _, p := range pvats {
+		s.trace.recordVelocity(p.positions, p.velocities)
 		batch = append(batch, arm.TrajectoryPoint{
 			Time:      p.time,
 			Positions: append([]referenceframe.Input(nil), p.positions...),
@@ -66,13 +76,19 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		})
 	}
 
+	sendStart := time.Now()
 	select {
 	case <-ctx.Done():
+		s.trace.recordEvent(pipeEventStreamDied, "")
 		return ctx.Err()
 	case <-s.moveThroughJointPositionsStreamedReturned:
+		s.trace.recordEvent(pipeEventStreamDied, "")
 		return fmt.Errorf("arm streaming RPC ended before batch could be sent: %w", s.err)
 	case s.batchesCh <- batch:
 	}
+	s.trace.recordTiming(pipeTimingSendPoint, time.Since(sendStart))
+	s.totalPVATsSent += len(batch)
+	s.trace.record(pipeChanArmSent, pipeOpEnqueue, s.totalPVATsSent, 0)
 
 	s.timeInTrajectoryClockOfLastSentPVAT = batch[len(batch)-1].Time
 	if s.timeFirstBatchWasSent.IsZero() {

@@ -29,9 +29,10 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	jpCh := make(chan JointPositionsChItem)
 
 	start := time.Now()
+	trace := NewPipelineTrace()
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0})
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, trace)
 	}()
 
 	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.05, -0.05}}
@@ -71,6 +72,18 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	for _, v := range lastVelocities {
 		test.That(t, v, test.ShouldAlmostEqual, 0, 0.05)
 	}
+
+	// The trace carries one extend-disposition sample per pushed target, the first of
+	// them the session's first build (which has no branch margin).
+	var extendSamples []PipeSample
+	for _, sample := range trace.Snapshot().Samples {
+		if sample.Ch == pipeChanExtendBranch {
+			extendSamples = append(extendSamples, sample)
+		}
+	}
+	test.That(t, len(extendSamples), test.ShouldEqual, 2)
+	test.That(t, extendSamples[0].Op, test.ShouldEqual, "first")
+	test.That(t, extendSamples[0].Cap, test.ShouldEqual, 0)
 }
 
 // TestRunBackpressureGatesPushOnTrajexRunway covers MaxTrajexRunwayMs: a push made while
@@ -86,7 +99,7 @@ func TestRunBackpressureGatesPushOnTrajexRunway(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, opts, jpCh, []referenceframe.Input{0})
+		errCh <- Run(context.Background(), inj, opts, jpCh, []referenceframe.Input{0}, nil)
 	}()
 
 	// The first push is accepted immediately: the trajex runway is empty.
@@ -124,7 +137,7 @@ func TestRunBackpressureUnblocksOnCancel(t *testing.T) {
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(ctx, inj, opts, jpCh, []referenceframe.Input{0})
+		errCh <- Run(ctx, inj, opts, jpCh, []referenceframe.Input{0}, nil)
 	}()
 
 	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.35}}
@@ -165,7 +178,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 		}()
 
 		// The send on jpCh returning proves Run is in its loop; then cancel.
@@ -191,7 +204,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 		}()
 
 		// Let the flush finish and the wait begin, then cancel.
@@ -226,7 +239,7 @@ func TestRunEndsOnArmError(t *testing.T) {
 	jpCh := make(chan JointPositionsChItem)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 	}()
 
 	// One target is enough trajectory for several sends; the first is accepted, the
