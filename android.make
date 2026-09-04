@@ -1,3 +1,6 @@
+# Include mise in path.
+export PATH := $(HOME)/.local/bin:$(PATH)
+
 $(NDK_ROOT):
 	# todo: remove this once we are building .aar in CI
 	# download ndk (used by server-android)
@@ -34,7 +37,7 @@ droid-rdk.%.aar: etc/android/prefix/aarch64 etc/android/prefix/x86_64
 	$(eval CPU_ARCH := $(if $(filter arm64,$*),aarch64,x86_64))
         # checklinkname here is from https://github.com/wlynxg/anet#how-to-build-with-go-1230-or-later
 	CGO_LDFLAGS= PKG_CONFIG_PATH=$(DROID_PREFIX)/$(CPU_ARCH)/lib/pkgconfig \
-		gomobile bind -v -target android/$* -androidapi 28 -tags no_cgo \
+		mise x -- gomobile bind -v -target android/$* -androidapi 28 -tags no_cgo \
                 -ldflags="-checklinkname=0" \
 		-o $@ ./web/cmd/droid
 	rm -rf droidtmp/jni/$(JNI_ARCH)
