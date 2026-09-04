@@ -69,17 +69,21 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 	return nil
 }
 
-func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJointPositions []referenceframe.Input) error {
+// addJointPositionsToSession extends the session toward nextJointPositions. The bool
+// reports whether an Extend actually ran: false for a target within waypointDedupEps of
+// the current position, which is skipped — the session's last-extend diagnostics are
+// stale in that case and must not be recorded again.
+func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJointPositions []referenceframe.Input) (bool, error) {
 	if inputsWithin(nextJointPositions, s.lastJointPositions, waypointDedupEps) {
-		return nil
+		return false, nil
 	}
 	if len(nextJointPositions) != s.dof {
-		return fmt.Errorf("target has %d joint positions, but the arm has %d joints", len(nextJointPositions), s.dof)
+		return false, fmt.Errorf("target has %d joint positions, but the arm has %d joints", len(nextJointPositions), s.dof)
 	}
 
 	waypoints, err := trajex.NewTensorMap()
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer waypoints.Close()
 
@@ -88,13 +92,13 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 	flat = append(flat, nextJointPositions...)
 
 	if err := waypoints.InsertFloat64s(totgstream.KeyWaypointsRads, []uint64{2, uint64(s.dof)}, flat); err != nil {
-		return err
+		return false, err
 	}
 	if err := s.sess.Extend(ctx, waypoints); err != nil {
-		return err
+		return false, err
 	}
 	s.lastJointPositions = nextJointPositions
-	return nil
+	return true, nil
 }
 
 func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration) ([]pvat, error) {
@@ -110,6 +114,42 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 		return nil, err
 	}
 	return pvatsFromOutput(out)
+}
+
+// trajexRunway is the un-emitted trajectory time remaining in the trajex session, as
+// reported by the session itself: the exact remainder of its active trajectory plus a
+// velocity-limit estimate of any waypoints it has staged but not yet built a trajectory
+// for. It is continuous across the session's internal pivots and rebases, which is what
+// makes it safe to gate on.
+func (s *trajexSession) trajexRunway() time.Duration {
+	return s.sess.TotalRemainingDuration()
+}
+
+func (s *trajexSession) generationCount() int64 { return s.sess.GenerationCount() }
+
+// lastExtendBranch reports the most recent Extend's disposition as a trace label, its
+// signed branch margin (divergence point minus sampling watermark) in ms, and whether
+// that margin exists (a locked-out stage builds no candidate, so it has none).
+func (s *trajexSession) lastExtendBranch() (string, int, bool) {
+	disposition, margin, hasMargin := s.sess.LastExtend()
+	label := "unknown"
+	switch disposition {
+	case totgstream.ExtendFirstBuild:
+		label = "first"
+	case totgstream.ExtendPivot:
+		label = "pivot"
+	case totgstream.ExtendStagedBranchBehind:
+		label = "stage-behind"
+	case totgstream.ExtendStagedNoMaterial:
+		label = "stage-nomaterial"
+	case totgstream.ExtendStagedLockedOut:
+		label = "stage-locked"
+	case totgstream.ExtendNoop:
+		label = "noop"
+	case totgstream.ExtendNone:
+		label = "none"
+	}
+	return label, int(margin.Milliseconds()), hasMargin
 }
 
 func (s *trajexSession) close() { s.sess.Close() }

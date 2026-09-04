@@ -43,7 +43,9 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 	test.That(t, s.startSession(seed), test.ShouldBeNil)
 	defer s.close()
 
-	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
+	extended, err := s.addJointPositionsToSession(ctx, target)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeTrue)
 
 	pvats, err := s.sampleAtLeast(ctx, sampleHorizon)
 	test.That(t, err, test.ShouldBeNil)
@@ -73,12 +75,61 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	defer s.close()
 
 	nearlyIdentical := []referenceframe.Input{0.2 + 1e-6, 0.4 - 1e-6}
-	test.That(t, s.addJointPositionsToSession(ctx, nearlyIdentical), test.ShouldBeNil)
+	extended, err := s.addJointPositionsToSession(ctx, nearlyIdentical)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeFalse)
 	test.That(t, s.lastJointPositions, test.ShouldResemble, seed)
 
 	pvats, err := s.sampleAtLeast(ctx, sampleHorizon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(pvats), test.ShouldEqual, 0)
+}
+
+// TestTrajexSessionRunwayTracksBacklog reproduces the field failure where the runway
+// read zero while backlog grew (deriving it client-side from the session's time
+// accessors was unreliable — their time base shifts between pivots and rebases): after
+// sampling deep into one move, a direction-reversing extend leaves a large unsampled
+// backlog. The session-reported runway must report it, shrink as sampling proceeds, and
+// reach zero once sampling catches up.
+func TestTrajexSessionRunwayTracksBacklog(t *testing.T) {
+	ctx := context.Background()
+	opts := testStreamOptions()
+	opts.VelLimitDegPerSec = 10 // slow, so trajectories are long relative to sampling noise
+
+	s := &trajexSession{opts: opts}
+	test.That(t, s.startSession([]referenceframe.Input{0}), test.ShouldBeNil)
+	defer s.close()
+	test.That(t, s.trajexRunway(), test.ShouldEqual, time.Duration(0))
+
+	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of backlog, none of it sampled.
+	extended, err := s.addJointPositionsToSession(ctx, []referenceframe.Input{0.35})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeTrue)
+	test.That(t, s.trajexRunway(), test.ShouldBeGreaterThan, 1500*time.Millisecond)
+
+	// Sample most of the way through, then reverse with a farther target: a new install
+	// whose backlog the estimate must keep reporting.
+	_, err = s.sampleAtLeast(ctx, s.sess.ActiveDuration()-100*time.Millisecond)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.trajexRunway(), test.ShouldBeLessThan, 300*time.Millisecond)
+	extended, err = s.addJointPositionsToSession(ctx, []referenceframe.Input{-0.3})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeTrue)
+	backlog := s.trajexRunway()
+	test.That(t, backlog, test.ShouldBeGreaterThan, 1500*time.Millisecond)
+
+	// Sampling shrinks it monotonically toward zero.
+	_, err = s.sampleAtLeast(ctx, 500*time.Millisecond)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.trajexRunway(), test.ShouldBeLessThan, backlog)
+	for range 20 {
+		pvats, err := s.sampleAtLeast(ctx, time.Second)
+		test.That(t, err, test.ShouldBeNil)
+		if len(pvats) == 0 {
+			break
+		}
+	}
+	test.That(t, s.trajexRunway(), test.ShouldBeLessThan, 20*time.Millisecond)
 }
 
 // TestTrajexSessionSampleHorizon checks that sampleAtLeast advances the watermark by only
@@ -93,7 +144,9 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 	test.That(t, s.startSession(seed), test.ShouldBeNil)
 	defer s.close()
 
-	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
+	extended, err := s.addJointPositionsToSession(ctx, target)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extended, test.ShouldBeTrue)
 
 	horizon := 20 * time.Millisecond
 	first, err := s.sampleAtLeast(ctx, horizon)

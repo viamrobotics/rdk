@@ -323,12 +323,16 @@ func (ms *builtIn) PlanHistory(
 //	                 "target_runway_in_arm_ms": 100,
 //	                 "send_to_arm_interval_ms": 10,
 //	                 "vel_limit_deg_per_sec": 10,
-//	                 "accel_limit_deg_per_sec2": 10
+//	                 "accel_limit_deg_per_sec2": 10,
+//	                 "max_trajex_runway_ms": 0           // 0 disables push backpressure
 //	               }
 //	             }}
 //	  response: {"ok": 1}
 //
-//	DoStreamPush: appends joint-position targets to the running session.
+//	DoStreamPush: appends joint-position targets to the running session. When the session was
+//	started with a positive max_trajex_runway_ms, each target is only accepted while the
+//	trajectory buffered inside trajex is below that cap, so the call blocks until execution
+//	drains the backlog, the session ends, or ctx expires.
 //	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
 //	  response: {"ok": 1}
 //
@@ -358,13 +362,21 @@ func (ms *builtIn) PlanHistory(
 //	             }
 //
 //	DoStreamStatus: reports the current session's state.
-//	  request:  {"stream_status": true}
+//	  request:  {"stream_status": true}                 // or {"stream_status": {"trace": false}}
+//	                                                      // for a cheap poll that skips the
+//	                                                      // (only ever growing) trace snapshot;
+//	                                                      // fetch it once, when you intend to
+//	                                                      // use it
 //	  response: {
 //	               "running": true,
 //	               "arm": "myArm",                      // present once a session has started
+//	               "trace": {...},                      // PipelineTraceOutput; omitted when
+//	                                                     // trace:false was requested
 //	               "error": "..."                       // present only once the session has
 //	                                                     // finished with an error
 //	             }
+//
+// The flush and abort responses never include the trace; fetch it via DoStreamStatus.
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
