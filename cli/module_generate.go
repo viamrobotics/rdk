@@ -1535,6 +1535,17 @@ func errorWithStderr(err error, stderr string) error {
 	return err
 }
 
+// errorWithCommandStderr augments the error of a command run with (*exec.Cmd).Output with
+// the stderr that Output captured, so a failing subprocess reports why it failed rather
+// than only "exit status 1".
+func errorWithCommandStderr(err error) error {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return errorWithStderr(err, string(exitErr.Stderr))
+	}
+	return err
+}
+
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := findPythonCommand()
@@ -1560,7 +1571,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
+		return errors.Wrap(errorWithCommandStderr(err), "cannot generate python stubs -- generator script encountered an error")
 	}
 
 	resourcePath := filepath.Join(module.ModuleName, "src", "models", fmt.Sprintf("%s.py", module.ModelSnake))
@@ -1921,11 +1932,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := stubCmd.Output()
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-			return fmt.Errorf("generator script encountered an error:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
-		}
-		return errors.Wrap(err, "generator script encountered an error")
+		return errors.Wrap(errorWithCommandStderr(err), "generator script encountered an error")
 	}
 
 	resourcePath := filepath.Join("src", "models", fmt.Sprintf("%s.py", module.ModelSnake))
