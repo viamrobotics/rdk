@@ -56,6 +56,7 @@ mplans
 
 out/
 .idea/*
+*.iml
 bin/
 
 # artifact
@@ -100,4 +101,3 @@ web/cmd/server/*.core
 # Claude Code
 .claude/worktrees
 .claude/settings.local.json
-*.iml
