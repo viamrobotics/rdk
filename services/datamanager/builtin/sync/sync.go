@@ -74,6 +74,7 @@ type FTDCStats struct {
 	Upload FTDCUploadStats
 }
 
+// FTDCSyncStats represents sync metric values for a given moment.
 type FTDCSyncStats struct {
 	FilesDeletedToFreeSpace      int64
 	SchedulerRoundsTotal         uint64
