@@ -6801,11 +6801,11 @@ func MachinesPartResourcesAction(ctx context.Context, cmd *cli.Command, args mac
 		}
 		return methods
 	}) {
-		fmt.Fprintln(cmd.Root().Writer, line)
+		printf(cmd.Root().Writer, "%s", line)
 	}
-	fmt.Fprintln(cmd.Root().Writer,
+	printf(cmd.Root().Writer,
 		"\nCall a method: viam machines part run --part <part> --component <name> --method <Method> [--data '<json>']")
-	fmt.Fprintln(cmd.Root().Writer,
+	printf(cmd.Root().Writer,
 		"Request fields: viam machines part run --part <part> --component <name> --list")
 	return nil
 }
@@ -6884,7 +6884,7 @@ func (c *viamClient) listRobotPartMethods(
 			for i := range methods {
 				methods[i] = strings.TrimPrefix(methods[i], svc+".")
 			}
-			fmt.Fprintf(w, "%s\n    %s\n", svc, strings.Join(methods, ", "))
+			printf(w, "%s\n    %s", svc, strings.Join(methods, ", "))
 		}
 		return nil
 	}
@@ -6894,7 +6894,7 @@ func (c *viamClient) listRobotPartMethods(
 		return err
 	}
 	for _, m := range methods {
-		fmt.Fprintln(w, describeMethod(descSource, m, service))
+		printf(w, "%s", describeMethod(descSource, m, service))
 	}
 	return nil
 }

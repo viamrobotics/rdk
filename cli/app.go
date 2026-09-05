@@ -2886,8 +2886,9 @@ https://docs.viam.com/build-apps/use-viam-from-an-agent/`,
 									Aliases: []string{"s"},
 								},
 								&cli.StringFlag{
-									Name:     generalFlagMethod,
-									Usage:    "method to call: a short name with --component (e.g. 'GetJointPositions') or the full service method (e.g. 'viam.robot.v1.RobotService.ResourceNames')",
+									Name: generalFlagMethod,
+									Usage: "method to call: a short name with --component (e.g. 'GetJointPositions') " +
+										"or the full service method (e.g. 'viam.robot.v1.RobotService.ResourceNames')",
 									Required: false, // should be required but set as false to ensure backwards capability
 								},
 								&cli.BoolFlag{
