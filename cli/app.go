@@ -2822,8 +2822,11 @@ Note: There is no progress meter while copying is in progress.
 							Action:    createActionCommandWithT(machinesPartDeleteAction),
 						},
 						{
-							Name:      "resources",
-							Usage:     "list the resources on a machine part and the API methods each one answers",
+							Name:  "resources",
+							Usage: "list the resources on a machine part and the API methods each one answers",
+							Description: `Lists every resource on the part with the API each implements and the methods it
+answers, so the next call can be made with "part run". Start here on an unfamiliar
+machine; the workflow is at https://docs.viam.com/build-apps/use-viam-from-an-agent/`,
 							UsageText: createUsageText("machines part resources", []string{generalFlagPart}, true, false),
 							Flags:     commonPartFlags,
 							Action:    createActionCommandWithT[machinesPartResourcesArgs](MachinesPartResourcesAction),
@@ -2842,7 +2845,11 @@ Examples:
    viam machines part run --part <part> --component my-vision --method CaptureAllFromCamera \
        --data '{"camera_name":"my-cam","return_detections":true}'
    viam machines part run --part <part> --component my-arm --method MoveToJointPositions \
-       --data '{"positions":{"values":[0,-90,0,0,90,0]}}'`,
+       --data '{"positions":{"values":[0,-90,0,0,90,0]}}'
+
+The workflow (discover, observe, plan a motion, stop) and the things a machine cannot
+tell you (units, frames, what a session end does) are at
+https://docs.viam.com/build-apps/use-viam-from-an-agent/`,
 							UsageText: createUsageText("machines part run", []string{generalFlagPart, generalFlagMethod}, true, false),
 							Flags: []cli.Flag{
 								&AliasStringFlag{
