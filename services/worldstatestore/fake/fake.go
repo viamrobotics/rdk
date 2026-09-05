@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"sync"
 	"time"
@@ -20,7 +21,11 @@ import (
 var worldNames = []string{
 	"moving_geos",
 	"pcd_stream",
+	"depth_camera",
+	"lidar",
 }
+
+const defaultParentFrame = "world"
 
 // WorldStateStore implements the worldstatestore.Service interface.
 type WorldStateStore struct {
@@ -35,25 +40,40 @@ type WorldStateStore struct {
 	startTime               time.Time
 	activeBackgroundWorkers sync.WaitGroup
 
-	changeChan chan worldstatestore.TransformChange
-	streamCtx  context.Context
-	cancel     context.CancelFunc
+	broadcaster *worldstatestore.TransformChangeBroadcaster
+	streamCtx   context.Context
+	cancel      context.CancelFunc
 
 	logger logging.Logger
 
-	worldName string
+	worldName   string
+	parentFrame string
 }
 
 // Config is the configuration for a fake world state store.
 type Config struct {
+	// WorldName selects the simulation to run. It accepts both the demo worlds ("moving_geos",
+	// "pcd_stream") and the simulated sensors ("depth_camera", "lidar").
 	WorldName string `json:"worldName,omitempty"`
+	// InputSensorType is a descriptive alias for selecting a simulated sensor ("depth_camera",
+	// "lidar"). It takes precedence over WorldName when set.
+	InputSensorType string `json:"input_sensor_type,omitempty"`
+	// ParentFrame is the reference frame the simulated detections are reported in. Defaults to "world".
+	ParentFrame string `json:"parent_frame,omitempty"`
+}
+
+// resolveWorldName picks the simulation, preferring InputSensorType, then WorldName, then the default.
+func (conf *Config) resolveWorldName() string {
+	for _, candidate := range []string{conf.InputSensorType, conf.WorldName} {
+		if slices.Contains(worldNames, candidate) {
+			return candidate
+		}
+	}
+	return worldNames[0]
 }
 
 // Validate checks that the config attributes are valid for a fake world state store.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
-	if conf.WorldName == "" || !slices.Contains(worldNames, conf.WorldName) {
-		conf.WorldName = worldNames[0]
-	}
 	return nil, nil, nil
 }
 
@@ -107,7 +127,38 @@ func (f *WorldStateStore) StreamTransformChanges(
 	ctx context.Context,
 	extra map[string]any,
 ) (*worldstatestore.TransformChangeStream, error) {
-	return worldstatestore.NewTransformChangeStreamFromChannel(ctx, f.changeChan), nil
+	// Snapshot and subscribe under the read lock: concurrent mutations emit only after they re-acquire
+	// the lock, so the subscriber gets the full current world as ADDED and then every change, none missed.
+	f.mu.RLock()
+	snapshot := make([]worldstatestore.TransformChange, 0, len(f.transforms))
+	for _, tf := range f.transforms {
+		snapshot = append(snapshot, worldstatestore.TransformChange{
+			ChangeType: pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED,
+			Transform:  tf,
+		})
+	}
+	ch, unsubscribe := f.broadcaster.Subscribe(100)
+	f.mu.RUnlock()
+
+	idx := 0
+	return worldstatestore.NewTransformChangeStream(func() (worldstatestore.TransformChange, error) {
+		if idx < len(snapshot) {
+			change := snapshot[idx]
+			idx++
+			return change, nil
+		}
+		select {
+		case <-ctx.Done():
+			unsubscribe()
+			return worldstatestore.TransformChange{}, ctx.Err()
+		case change, ok := <-ch:
+			if !ok {
+				unsubscribe()
+				return worldstatestore.TransformChange{}, io.EOF
+			}
+			return change, nil
+		}
+	}), nil
 }
 
 // DoCommand handles arbitrary commands. Currently accepts "fps": float64 to set the animation rate.
@@ -145,17 +196,19 @@ func (f *WorldStateStore) Close(ctx context.Context) error {
 		// proceed even if workers did not exit in time
 	}
 
-	close(f.changeChan)
+	f.broadcaster.Close()
 	return nil
 }
 
 func newFakeWorldStateStore(name resource.Name, conf *Config, logger logging.Logger) worldstatestore.Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	var worldName string
+	worldName := worldNames[0]
+	parentFrame := defaultParentFrame
 	if conf != nil {
-		worldName = conf.WorldName
-	} else {
-		worldName = "moving_geos"
+		worldName = conf.resolveWorldName()
+		if conf.ParentFrame != "" {
+			parentFrame = conf.ParentFrame
+		}
 	}
 
 	fake := &WorldStateStore{
@@ -164,11 +217,12 @@ func newFakeWorldStateStore(name resource.Name, conf *Config, logger logging.Log
 		transforms:         make(map[string]*commonpb.Transform),
 		fps:                10,
 		startTime:          time.Now(),
-		changeChan:         make(chan worldstatestore.TransformChange, 100),
+		broadcaster:        worldstatestore.NewTransformChangeBroadcaster(),
 		streamCtx:          ctx,
 		cancel:             cancel,
 		logger:             logger,
 		worldName:          worldName,
+		parentFrame:        parentFrame,
 	}
 
 	fake.startWorld()
@@ -190,37 +244,30 @@ func (f *WorldStateStore) startWorld() {
 			spacing:         10,
 		}
 		world.StartWorld()
+	case "depth_camera":
+		world := DepthCameraWorld{worldStateStore: f}
+		world.StartWorld()
+	case "lidar":
+		world := LidarWorld{worldStateStore: f}
+		world.StartWorld()
 	}
 }
 
 func (f *WorldStateStore) emitTransformChange(transform *commonpb.Transform, changeType pb.TransformChangeType, updatedFields []string) {
-	change := worldstatestore.TransformChange{
+	f.broadcaster.Broadcast(worldstatestore.TransformChange{
 		ChangeType:    changeType,
 		Transform:     transform,
 		UpdatedFields: updatedFields,
-	}
-
-	select {
-	case f.changeChan <- change:
-	case <-f.streamCtx.Done():
-	default:
-		// Channel is full, skip this update
-	}
+	})
 }
 
 func (f *WorldStateStore) emitTransformUpdate(partial *commonpb.Transform, updatedFields []string) {
 	if partial == nil || len(partial.GetUuid()) == 0 {
 		return
 	}
-	change := worldstatestore.TransformChange{
+	f.broadcaster.Broadcast(worldstatestore.TransformChange{
 		ChangeType:    pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED,
 		Transform:     partial,
 		UpdatedFields: updatedFields,
-	}
-	select {
-	case f.changeChan <- change:
-	case <-f.streamCtx.Done():
-	default:
-		// Channel is full, skip this update
-	}
+	})
 }
