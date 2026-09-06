@@ -53,7 +53,7 @@ type syncStats struct {
 	schedulerDurationMillisTotal atomic.Uint64
 	// activeBackgroundFileSyncs counts in-flight background file syncs from data manager
 	// but does not include any on-demand file upload requests.
-	activeBackgroundFileSyncs atomic.Uint32
+	activeBackgroundFileSyncs atomic.Int32
 }
 
 // uploadStats tracks cumulative upload statistics.
@@ -258,7 +258,7 @@ func (s *Sync) GetStats() FTDCStats {
 			SchedulerRoundsTotal:         s.syncStats.schedulerRoundsTotal.Load(),
 			SchedulerDurationMillisTotal: s.syncStats.schedulerDurationMillisTotal.Load(),
 			QueuedFilesToSync:            uint64(len(s.filesToSync)),
-			ActiveBackgroundFileSyncs:    s.syncStats.activeBackgroundFileSyncs.Load(),
+			ActiveBackgroundFileSyncs:    uint32(s.syncStats.activeBackgroundFileSyncs.Load()),
 			MaxActiveBackgroundFileSyncs: uint32(s.MaxSyncThreads),
 		},
 
