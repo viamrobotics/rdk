@@ -51,8 +51,9 @@ type syncStats struct {
 	filesDeletedToFreeSpace      atomic.Int64
 	schedulerRoundsTotal         atomic.Uint64
 	schedulerDurationMillisTotal atomic.Uint64
-	// activeSyncs counts in-flight file syncs.
-	activeSyncs atomic.Int64
+	// activeBackgroundFileSyncs counts in-flight background file syncs from data manager
+	// but does not include any on-demand file upload requests.
+	activeBackgroundFileSyncs atomic.Uint32
 }
 
 // uploadStats tracks cumulative upload statistics.
@@ -81,9 +82,9 @@ type FTDCSyncStats struct {
 	FilesDeletedToFreeSpace      int64
 	SchedulerRoundsTotal         uint64
 	SchedulerDurationMillisTotal uint64
-	FilesToSyncChannelLength     uint64
-	ActiveSyncs                  uint32
-	MaxActiveSyncs               uint32
+	QueuedFilesToSync            uint64
+	ActiveBackgroundFileSyncs    uint32
+	MaxActiveBackgroundFileSyncs uint32
 }
 
 // FTDCUploadStats represents upload metric values for a given moment.
@@ -256,9 +257,9 @@ func (s *Sync) GetStats() FTDCStats {
 			FilesDeletedToFreeSpace:      s.syncStats.filesDeletedToFreeSpace.Load(),
 			SchedulerRoundsTotal:         s.syncStats.schedulerRoundsTotal.Load(),
 			SchedulerDurationMillisTotal: s.syncStats.schedulerDurationMillisTotal.Load(),
-			FilesToSyncChannelLength:     uint64(len(s.filesToSync)),
-			ActiveSyncs:                  uint32(s.syncStats.activeSyncs.Load()),
-			MaxActiveSyncs:               uint32(s.MaxSyncThreads),
+			QueuedFilesToSync:            uint64(len(s.filesToSync)),
+			ActiveBackgroundFileSyncs:    s.syncStats.activeBackgroundFileSyncs.Load(),
+			MaxActiveBackgroundFileSyncs: uint32(s.MaxSyncThreads),
 		},
 
 		Upload: FTDCUploadStats{
@@ -432,8 +433,8 @@ func (s *Sync) runWorker(config Config) {
 		select {
 		case <-s.configCtx.Done():
 			return
-		case path := <-s.filesToSync:
-			s.syncFile(config, path)
+		case filePath := <-s.filesToSync:
+			s.syncFile(config, filePath)
 		}
 	}
 }
@@ -453,8 +454,8 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
 
-	s.syncStats.activeSyncs.Add(1)
-	defer s.syncStats.activeSyncs.Add(-1)
+	s.syncStats.activeBackgroundFileSyncs.Add(1)
+	defer s.syncStats.activeBackgroundFileSyncs.Add(-1)
 
 	// Sequence files upload via CreateSequence; dispatch by path before opening so we don't
 	// leak a file descriptor on the sequence path (which does its own os.ReadFile).
@@ -520,7 +521,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
-		logger.Debugf("Sync data capture file uploaded with %d bytes", bytesUploaded)
+		logger.Debugf("Background sync uploaded data capture file with %d bytes", bytesUploaded)
 		return bytesUploaded, nil
 	})
 
@@ -554,7 +555,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		logger.Error(errors.Wrap(err, "error deleting data capture file").Error())
 	}
 
-	logger.Debugf("Sync deleted capture file after successful upload %s", f.Name())
+	logger.Debugf("Background sync deleted capture file after successful upload %s", f.Name())
 	if isBinary {
 		s.uploadStats.binary.uploadedFileCount.Add(1)
 		s.uploadStats.binary.completedUploadBytes.Add(bytesUploaded)
@@ -608,7 +609,7 @@ func (s *Sync) syncArbitraryFile(
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
 	}
 
-	logger.Debugf("Sync deleted arbitrary file after successful upload %s", f.Name())
+	logger.Debugf("Deleted arbitrary file after successful upload %s", f.Name())
 	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
 	return nil
