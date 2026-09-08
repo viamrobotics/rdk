@@ -1204,3 +1204,27 @@ func TestTransientGoFetchFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestRunWithSpinner(t *testing.T) {
+	t.Parallel()
+
+	// `go test` hands the test binary /dev/null for stdin, so isInteractive() is false
+	// throughout: both cases below take the print-the-titles path, which is what CI runs.
+	for _, debug := range []bool{false, true} {
+		t.Run(fmt.Sprintf("debug=%t", debug), func(t *testing.T) {
+			t.Parallel()
+			out := &testWriter{}
+			cmd := buildTestCmd(out, &testWriter{}, nil)
+
+			ran := false
+			err := runWithSpinner(cmd.Root().Writer, debug, func(logTitle func(string)) {
+				logTitle("Doing the thing...")
+				ran = true
+			})
+
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ran, test.ShouldBeTrue)
+			test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "Doing the thing...")
+		})
+	}
+}
