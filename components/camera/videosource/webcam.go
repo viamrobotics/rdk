@@ -37,6 +37,8 @@ var (
 const (
 	defaultFrameRate = float32(30.0)
 	resWarnInterval  = 10 * time.Minute
+	// wakeTimeout bounds how long Images waits for an idle camera to reopen and deliver a frame.
+	wakeTimeout = 15 * time.Second
 )
 
 func init() {
@@ -57,6 +59,7 @@ type WebcamConfig struct {
 	Width                int                                `json:"width_px,omitempty"`
 	Height               int                                `json:"height_px,omitempty"`
 	FrameRate            float32                            `json:"frame_rate,omitempty"`
+	IdleTimeoutSeconds   float64                            `json:"idle_timeout_seconds,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -70,6 +73,11 @@ func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf(
 			"got illegal negative frame rate (%.2f) field set for webcam camera",
 			c.FrameRate)
+	}
+	if c.IdleTimeoutSeconds < 0 {
+		return nil, nil, fmt.Errorf(
+			"got illegal negative idle timeout (%.2f) field set for webcam camera",
+			c.IdleTimeoutSeconds)
 	}
 
 	return []string{}, nil, nil
@@ -100,6 +108,16 @@ type webcam struct {
 
 	closed       bool // set by Close method
 	disconnected bool // set by monitor worker
+
+	// idleTimeout > 0: buffer worker closes the camera after idleTimeout without an Images call,
+	// reopens on wakeCh; readyCh is made on entering idle and closed when the wake attempt ends.
+	idleTimeout time.Duration
+	lastAccess  time.Time
+	idle        bool
+	wakeCh      chan struct{}
+	readyCh     chan struct{}
+	// openCamera is findReaderAndDriver; overridable in tests.
+	openCamera func(*WebcamConfig, string, logging.Logger) (video.Reader, driverutils.Driver, string, error)
 
 	logger          logging.Logger
 	buffer          *webcamBuffer
@@ -175,6 +193,10 @@ func NewWebcam(
 	if c.conf.FrameRate == 0.0 {
 		c.conf.FrameRate = defaultFrameRate
 	}
+	c.idleTimeout = time.Duration(c.conf.IdleTimeoutSeconds * float64(time.Second))
+	c.lastAccess = time.Now()
+	c.wakeCh = make(chan struct{}, 1)
+	c.openCamera = findReaderAndDriver
 
 	// Start both workers after successful configuration
 	c.startMonitorWorker()
@@ -224,6 +246,10 @@ func (c *webcam) startMonitorWorker() {
 				return
 			case <-ticker.C:
 				c.mu.Lock()
+				if c.idle {
+					c.mu.Unlock()
+					continue
+				}
 				logger := c.logger
 				driver := c.driver
 				c.mu.Unlock()
@@ -322,53 +348,159 @@ func (c *webcam) startBufferWorker() {
 			case <-ctx.Done():
 				c.logger.Debug("buffer worker context done")
 				return
+			case <-c.wakeCh:
+				c.wake()
 			case <-ticker.C:
 				c.mu.Lock()
-
-				if c.disconnected {
+				if c.idle {
 					c.mu.Unlock()
 					continue
 				}
-
-				reader := c.reader
-				if reader == nil {
-					c.mu.Unlock()
+				if c.idleTimeout > 0 && !c.disconnected && time.Since(c.lastAccess) > c.idleTimeout {
+					c.goIdleLocked()
 					continue
 				}
-
-				// Get the release function to call outside the lock to avoid potential deadlocks.
-				oldRelease := c.buffer.release
-				c.buffer.release = nil
 				c.mu.Unlock()
-
-				// Call release and read outside the lock to avoid holding the lock during I/O
-				if oldRelease != nil {
-					oldRelease()
-				}
-				img, release, err := reader.Read()
-
-				c.mu.Lock()
-				c.buffer.err = err
-				if err != nil {
-					c.buffer.release = nil
-					c.buffer.frame = nil
-					c.logger.Errorw("error reading frame", "error", err)
-					c.mu.Unlock()
-					continue
-				}
-				c.buffer.frame = img
-				c.buffer.release = release
-				c.mu.Unlock()
+				c.readFrame()
 			}
 		}
 	})
 }
 
-func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+// readFrame reads one frame into the buffer. Must be called without mu held.
+func (c *webcam) readFrame() {
+	c.mu.Lock()
+	if c.disconnected || c.reader == nil {
+		c.mu.Unlock()
+		return
+	}
+	reader := c.reader
+	// Release and read happen outside the lock to avoid holding it during I/O.
+	oldRelease := c.buffer.release
+	c.buffer.release = nil
+	c.mu.Unlock()
+
+	if oldRelease != nil {
+		oldRelease()
+	}
+	img, release, err := reader.Read()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.buffer.err = err
+	if err != nil {
+		c.buffer.release = nil
+		c.buffer.frame = nil
+		c.logger.Errorw("error reading frame", "error", err)
+		return
+	}
+	c.buffer.frame = img
+	c.buffer.release = release
+}
+
+// goIdleLocked closes the camera until the next Images call. Must be called with mu held; releases mu.
+func (c *webcam) goIdleLocked() {
+	oldDriver := c.driver
+	oldRelease := c.buffer.release
+	c.driver = nil
+	c.reader = nil
+	c.buffer.release = nil
+	c.buffer.frame = nil
+	c.idle = true
+	c.readyCh = make(chan struct{})
+	logger := c.logger
+	c.mu.Unlock()
+
+	logger.Infow("no frames requested; closing camera until next request", "idle_timeout", c.idleTimeout.String())
+	if oldRelease != nil {
+		oldRelease()
+	}
+	if oldDriver != nil {
+		if err := oldDriver.Close(); err != nil {
+			logger.Errorw("failed to close idle camera", "error", err)
+		}
+	}
+}
+
+// wake reopens an idle camera, reads a first frame, and releases Images callers blocked on readyCh.
+func (c *webcam) wake() {
+	c.mu.Lock()
+	if !c.idle {
+		c.mu.Unlock()
+		return
+	}
+	conf := c.conf
+	targetPath := c.targetPath
+	logger := c.logger
+	c.mu.Unlock()
+
+	reader, driver, _, err := c.openCamera(&conf, targetPath, logger)
+
+	c.mu.Lock()
+	if err != nil {
+		logger.Errorw("failed to reopen idle camera", "error", err)
+		c.buffer.err = fmt.Errorf("failed to reopen idle camera: %w", err)
+		close(c.readyCh)
+		c.readyCh = make(chan struct{})
+		c.mu.Unlock()
+		return
+	}
+	c.reader = reader
+	c.driver = driver
+	c.idle = false
+	c.buffer.err = nil
+	c.lastAccess = time.Now()
+	c.mu.Unlock()
+
+	logger.Info("camera reopened after idle")
+	c.readFrame()
+
+	c.mu.Lock()
+	close(c.readyCh)
+	c.readyCh = nil
+	c.mu.Unlock()
+}
+
+// waitForWakeLocked signals the buffer worker to reopen an idle camera and waits for the attempt
+// to finish. Must be called with mu held; mu is released while waiting and re-acquired on return.
+func (c *webcam) waitForWakeLocked(ctx context.Context) error {
+	ready := c.readyCh
+	if c.idle {
+		select {
+		case c.wakeCh <- struct{}{}:
+		default:
+		}
+	}
+	c.mu.Unlock()
+	defer c.mu.Lock()
+
+	timer := time.NewTimer(wakeTimeout)
+	defer timer.Stop()
+	select {
+	case <-ready:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return errors.New("timed out waiting for idle camera to reopen")
+	}
+}
+
+func (c *webcam) Images(ctx context.Context, _ []string, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if err := c.ensureActive(); err != nil {
 		return nil, resource.ResponseMetadata{}, err
+	}
+	c.lastAccess = time.Now()
+
+	if c.buffer.frame == nil && c.readyCh != nil {
+		if err := c.waitForWakeLocked(ctx); err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		if err := c.ensureActive(); err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
 	}
 
 	if c.buffer.frame == nil {
@@ -437,6 +569,10 @@ func (c *webcam) Close(ctx context.Context) error {
 		return fmt.Errorf("webcam already closed: %w", errClosed)
 	}
 	c.closed = true
+	if c.readyCh != nil {
+		close(c.readyCh)
+		c.readyCh = nil
+	}
 
 	// Extract resources to clean up outside the lock
 	oldRelease := c.buffer.release
