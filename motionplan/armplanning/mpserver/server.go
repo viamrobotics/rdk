@@ -193,6 +193,9 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 &nbsp;<label>Seed: <input id="seed" type="number" step="1" value="0" style="width:6ch; padding:4px 8px; border:1px solid black;"></label>
 &nbsp;<button onclick="runPlanning()">Do Motion Planning</button>
 &nbsp;<button onclick="renderState()">Render Start State</button>
+{{if .ExecutedPlanSteps}}
+&nbsp;<button onclick="renderExecutedPlan()">Render Executed Plan ({{.ExecutedPlanSteps}} steps)</button>
+{{end}}
 <div id="result"></div>
 
 <h2>Start Inputs</h2>
@@ -275,6 +278,15 @@ function renderState() {
 }
 
 renderState();
+
+// renderExecutedPlan replays the plan recorded in the file alongside the request — the trajectory
+// that actually ran — instead of one computed now. The button only exists for files that carry
+// one, so a 404 here means the file changed underneath the page.
+function renderExecutedPlan() {
+  fetch('/render-executed-plan?file=' + encodeURIComponent('{{.File}}'))
+    .then(r => { if (!r.ok) r.text().then(msg => alert('Render error: ' + msg)); })
+    .catch(err => alert('Render error: ' + err));
+}
 
 // ---- goal pose editing ----
 
@@ -909,6 +921,9 @@ type detailData struct {
 	StartInputs    []frameInputs
 	Goals          []goalDetail
 	Constraints    *detailConstraints // nil when no linear/orientation constraints are present
+	// ExecutedPlanSteps is the trajectory length of the plan recorded in the file alongside the
+	// request, or 0 for a request-only file. It gates the "Render Executed Plan" button.
+	ExecutedPlanSteps int
 }
 
 type ikInspectData struct {
@@ -1533,6 +1548,20 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 	return nil
 }
 
+// executedTrajectory returns the recorded plan's trajectory as visualizer-ready configurations,
+// or nil when the file carried no plan alongside its request.
+func executedTrajectory(plan motionplan.Plan) []*referenceframe.LinearInputs {
+	if plan == nil {
+		return nil
+	}
+	traj := plan.Trajectory()
+	steps := make([]*referenceframe.LinearInputs, len(traj))
+	for idx, step := range traj {
+		steps[idx] = step.ToLinearInputs()
+	}
+	return steps
+}
+
 func planTrajectoryToStrings(plan motionplan.Plan) []map[string][]string {
 	traj := plan.Trajectory()
 	result := make([]map[string][]string, len(traj))
@@ -1565,10 +1594,14 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, "missing file parameter", http.StatusBadRequest)
 			return
 		}
-		req, err := armplanning.ReadRequestFromFile(filepath.Join(rdkRoot, file))
+		req, executed, err := armplanning.ReadRequestAndResponseFromFile(filepath.Join(rdkRoot, file))
 		if err != nil {
 			http.Error(w, fmt.Sprintf("reading plan file: %v", err), http.StatusInternalServerError)
 			return
+		}
+		executedSteps := 0
+		if executed != nil {
+			executedSteps = len(executed.Trajectory())
 		}
 		overridesParam := r.URL.Query().Get("overrides")
 		overrides, err := decodeOverrides(overridesParam)
@@ -1600,12 +1633,13 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 			}
 		}
 		data := detailData{
-			File:           file,
-			OverridesParam: overridesParam,
-			Frames:         buildFrameInfo(req.FrameSystem),
-			StartInputs:    startConfig,
-			Goals:          goals,
-			Constraints:    buildDetailConstraints(req.Constraints),
+			File:              file,
+			OverridesParam:    overridesParam,
+			Frames:            buildFrameInfo(req.FrameSystem),
+			StartInputs:       startConfig,
+			Goals:             goals,
+			Constraints:       buildDetailConstraints(req.Constraints),
+			ExecutedPlanSteps: executedSteps,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := detailTmpl.Execute(w, data); err != nil {
@@ -2073,6 +2107,34 @@ func handleRenderPlan(logger logging.Logger) http.HandlerFunc {
 	}
 }
 
+// handleRenderExecutedPlan replays the plan recorded in the file alongside the request — the
+// trajectory that actually ran — instead of one computed now. Goal-pose overrides are deliberately
+// not applied: the recorded trajectory belongs to the recorded goals, so re-aiming the goals would
+// leave the animation and the goal arrows describing two different motions.
+func handleRenderExecutedPlan(logger logging.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		file := r.URL.Query().Get("file")
+		if file == "" {
+			http.Error(w, "missing file parameter", http.StatusBadRequest)
+			return
+		}
+		req, executed, err := armplanning.ReadRequestAndResponseFromFile(filepath.Join(rdkRoot, file))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("reading plan file: %v", err), http.StatusInternalServerError)
+			return
+		}
+		steps := executedTrajectory(executed)
+		if len(steps) == 0 {
+			http.Error(w, "plan file has no executed plan recorded alongside the request", http.StatusNotFound)
+			return
+		}
+		ctx := beginRender()
+		if err := visualizeLinearTrajectory(ctx, req, steps); err != nil {
+			logger.Warnf("visualization failed (motion-tools server may not be running): %v", err)
+		}
+	}
+}
+
 // handlePlanDownload serves the plan request (with any in-progress overrides applied) as a
 // downloadable JSON file, in the same format ReadRequestFromFile expects back.
 func handlePlanDownload(logger logging.Logger) http.HandlerFunc {
@@ -2183,6 +2245,7 @@ func RunServer() error {
 	http.HandleFunc("/plan/run", handlePlanRun(logger))
 	http.HandleFunc("/plan/download", handlePlanDownload(logger))
 	http.HandleFunc("/render-plan", handleRenderPlan(logger))
+	http.HandleFunc("/render-executed-plan", handleRenderExecutedPlan(logger))
 	http.HandleFunc("/render-start", handleRenderStart(logger))
 	http.HandleFunc("/render-solution", handleRenderSolution(logger))
 	http.HandleFunc("/render-shadows", handleRenderShadows(logger))
