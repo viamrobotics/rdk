@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"runtime"
 	"sync"
 	"time"
 
@@ -96,6 +97,8 @@ type webcam struct {
 	// This is returned to us as a label in mediadevices but our config
 	// treats it as a video path.
 	targetPath string
+	// targetName is the OS-reported name of the driver behind targetPath
+	targetName string
 	conf       WebcamConfig
 
 	closed       bool // set by Close method
@@ -156,7 +159,7 @@ func NewWebcam(
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(nativeConf.CameraParameters, nativeConf.DistortionParameters)
 
 	c.targetPath = nativeConf.Path
-	reader, driver, label, err := findReaderAndDriver(nativeConf, c.targetPath, c.logger)
+	reader, driver, path, err := findReaderAndDriver(nativeConf, c.targetPath, c.logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find camera: %w", err)
 	}
@@ -165,8 +168,9 @@ func NewWebcam(
 	c.driver = driver
 	c.disconnected = false
 	if c.targetPath == "" {
-		c.targetPath = label
+		c.targetPath = path
 	}
+	c.targetName = driver.Info().Name
 	c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
 
 	// only set once we're good
@@ -239,7 +243,14 @@ func (c *webcam) startMonitorWorker() {
 
 				c.mu.Lock()
 				c.disconnected = true
+				targetName := c.targetName
 				c.mu.Unlock()
+
+				// A device Name cannot tell identical cameras apart, so record which same-Name paths already exist:
+				var knownPaths map[string]struct{}
+				if runtime.GOOS == "darwin" && targetName != "" {
+					knownPaths = pathsWithName(targetName)
+				}
 
 				logger.Error("camera no longer connected; reconnecting")
 			reconnectLoop:
@@ -276,7 +287,22 @@ func (c *webcam) startMonitorWorker() {
 						}
 
 						// Try to find and reconnect to camera outside lock (heavy I/O)
-						reader, driver, label, err := findReaderAndDriver(&conf, targetPath, c.logger)
+						reader, driver, path, err := findReaderAndDriver(&conf, targetPath, c.logger)
+						reconnectedByName := false
+
+						// On darwin, path changes when webcam port is switched so fall back to device name if old path is gone
+						if err != nil && runtime.GOOS == "darwin" && targetName != "" && !isPathRegistered(targetPath) {
+							newPath, nameErr := findNewPathByName(targetName, knownPaths)
+							if nameErr != nil {
+								c.logger.Debugw("failed to reconnect camera by path or name",
+									"path_error", err, "name_error", nameErr)
+								continue
+							}
+							c.logger.Debugw("failed to reconnect camera by path; retrying under new path found by name",
+								"error", err, "name", targetName, "new_path", newPath)
+							reader, driver, path, err = findReaderAndDriver(&conf, newPath, c.logger)
+							reconnectedByName = err == nil
+						}
 						if err != nil {
 							c.logger.Debugw("failed to reconnect camera", "error", err)
 							continue
@@ -288,7 +314,11 @@ func (c *webcam) startMonitorWorker() {
 						c.driver = driver
 						c.disconnected = false
 						if c.targetPath == "" {
-							c.targetPath = label
+							c.targetPath = path
+						}
+						if reconnectedByName && path != c.targetPath {
+							c.logger.Infow("camera reconnected under a new path", "old_path", c.targetPath, "new_path", path)
+							c.targetPath = path
 						}
 						c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
 

@@ -106,7 +106,7 @@ func findReaderAndDriver(
 			searchPath = filepath.Base(path)
 		}
 
-		reader, driver, err := getReaderAndDriver(searchPath, constraints, logger)
+		reader, driver, err := getReaderAndDriver(labelFilter(searchPath, true, false), searchPath, constraints, logger)
 		if err != nil {
 			return nil, nil, "", err
 		}
@@ -114,7 +114,7 @@ func findReaderAndDriver(
 	}
 
 	// Handle "any" path
-	reader, driver, err := getReaderAndDriver("", constraints, logger)
+	reader, driver, err := getReaderAndDriver(nil, "", constraints, logger)
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "found no webcams")
 	}
@@ -128,20 +128,51 @@ func findReaderAndDriver(
 	return reader, driver, path, nil
 }
 
-// GetNamedVideoSource attempts to find a device (not a screen) by the given name.
-// If name is empty, it finds any device.
+// pathsWithName returns the path of every registered video device whose driver Name matches name
+func pathsWithName(name string) map[string]struct{} {
+	drivers := driver.GetManager().Query(getVideoFilter(labelFilter(name, false, true)))
+	paths := make(map[string]struct{}, len(drivers))
+	for _, d := range drivers {
+		paths[strings.Split(d.Info().Label, mediadevicescamera.LabelSeparator)[0]] = struct{}{}
+	}
+	return paths
+}
+
+// isPathRegistered reports whether a video device with the given path is already registered
+func isPathRegistered(path string) bool {
+	drivers := driver.GetManager().Query(getVideoFilter(labelFilter(filepath.Base(path), true, false)))
+	return len(drivers) > 0
+}
+
+// findNewPathByName returns the path of the single registered video device whose driver Name matches name and whose
+// path is not in knownPaths
+func findNewPathByName(name string, knownPaths map[string]struct{}) (string, error) {
+	var candidates []string
+	for path := range pathsWithName(name) {
+		if _, known := knownPaths[path]; !known {
+			candidates = append(candidates, path)
+		}
+	}
+	switch len(candidates) {
+	case 0:
+		return "", errors.Errorf("no new device with name '%s'", name)
+	case 1:
+		return candidates[0], nil
+	default:
+		return "", errors.Errorf("multiple new devices share name '%s'", name)
+	}
+}
+
+// getReaderAndDriver attempts to find a device (not a screen) matching the given filter.
+// If filter is nil, it finds any device. target is the identifier being searched for and is only used in
+// error messages.
 func getReaderAndDriver(
-	name string,
+	filter driver.FilterFn,
+	target string,
 	constraints mediadevices.MediaStreamConstraints,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, error) {
-	var ptr *string
-	if name == "" {
-		ptr = nil
-	} else {
-		ptr = &name
-	}
-	d, selectedMedia, err := getUserVideoDriver(constraints, ptr, logger)
+	d, selectedMedia, err := getUserVideoDriver(constraints, filter, target, logger)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -170,14 +201,15 @@ func getReaderAndDriver(
 
 func getUserVideoDriver(
 	constraints mediadevices.MediaStreamConstraints,
-	label *string,
+	filter driver.FilterFn,
+	target string,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	var videoConstraints mediadevices.MediaTrackConstraints
 	if constraints.Video != nil {
 		constraints.Video(&videoConstraints)
 	}
-	return selectVideo(videoConstraints, label, logger)
+	return selectVideo(videoConstraints, filter, target, logger)
 }
 
 func openDriver(d driver.Driver) error {
@@ -205,12 +237,17 @@ func newReaderFromDriver(
 	return recorder.VideoRecord(mediaProp)
 }
 
-func labelFilter(target string, useSep bool) driver.FilterFn {
+// labelFilter matches drivers whose Label equals target, or whose Name equals target when isName is set.
+func labelFilter(target string, useSep, isName bool) driver.FilterFn {
 	return driver.FilterFn(func(d driver.Driver) bool {
-		if !useSep {
-			return d.Info().Label == target
+		value := d.Info().Label
+		if isName {
+			value = d.Info().Name
 		}
-		labels := strings.Split(d.Info().Label, mediadevicescamera.LabelSeparator)
+		if !useSep {
+			return value == target
+		}
+		labels := strings.Split(value, mediadevicescamera.LabelSeparator)
 		for _, label := range labels {
 			if label == target {
 				return true
@@ -222,14 +259,11 @@ func labelFilter(target string, useSep bool) driver.FilterFn {
 
 func selectVideo(
 	constraints mediadevices.MediaTrackConstraints,
-	label *string,
+	filter driver.FilterFn,
+	target string,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
-	labelStr := ""
-	if label != nil {
-		labelStr = *label
-	}
-	return selectBestDriver(getVideoFilterBase(), getVideoFilter(label), labelStr, constraints, logger)
+	return selectBestDriver(getVideoFilterBase(), getVideoFilter(filter), target, constraints, logger)
 }
 
 func getVideoFilterBase() driver.FilterFn {
@@ -238,10 +272,11 @@ func getVideoFilterBase() driver.FilterFn {
 	return driver.FilterAnd(typeFilter, notScreenFilter)
 }
 
-func getVideoFilter(label *string) driver.FilterFn {
+// getVideoFilter combines the base video filter with an optional device-specific filter.
+func getVideoFilter(specific driver.FilterFn) driver.FilterFn {
 	filter := getVideoFilterBase()
-	if label != nil {
-		filter = driver.FilterAnd(filter, labelFilter(*label, true))
+	if specific != nil {
+		filter = driver.FilterAnd(filter, specific)
 	}
 	return filter
 }
@@ -251,7 +286,7 @@ func getVideoFilter(label *string) driver.FilterFn {
 func selectBestDriver(
 	baseFilter driver.FilterFn,
 	filter driver.FilterFn,
-	label string,
+	target string,
 	constraints mediadevices.MediaTrackConstraints,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
@@ -273,8 +308,8 @@ func selectBestDriver(
 
 	driverProperties := queryDriverProperties(filter, logger)
 	if len(driverProperties) == 0 {
-		msg := fmt.Sprintf("no queryable drivers for video path: '%s'", label)
-		if label != "" {
+		msg := fmt.Sprintf("no queryable drivers for video path: '%s'", target)
+		if target != "" {
 			msg += "; check if the device is available or already in use (busy)"
 		}
 		return nil, prop.Media{}, errors.New(msg)
