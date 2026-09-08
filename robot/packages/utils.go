@@ -36,7 +36,7 @@ const maxPartialAge = 72 * time.Hour
 // having to actually fill a disk.
 var enoughFreeSpace = diskusage.EnoughFreeSpace
 
-// errInsufficientDiskSpace is returned by checkDiskSpace when blocking is on and the volume is
+// errInsufficientDiskSpace is returned by CheckDiskSpace when blocking is on and the volume is
 // low. Callers use errors.Is to tell a disk-space refusal from other failures (e.g. a corrupt
 // archive) and surface an accurate message.
 var errInsufficientDiskSpace = errors.New("not enough free disk space")
@@ -57,13 +57,13 @@ func diskSpaceBlockingEnabled() bool {
 	return rutils.GetenvBool(rutils.ViamEnableDiskSpaceBlockEnvVar, false)
 }
 
-// checkDiskSpace checks whether the volume holding path has required bytes free. It returns
+// CheckDiskSpace checks whether the volume holding path has required bytes free. It returns
 // low=true whenever space is low. When blocking is enabled via ViamEnableDiskSpaceBlockEnvVar it
-// returns an error refusing the op (the caller logs it, so checkDiskSpace stays quiet to avoid
+// returns an error refusing the op (the caller logs it, so CheckDiskSpace stays quiet to avoid
 // double-logging the same reason every cycle); otherwise it logs a warning and returns nil so the
 // op proceeds (log-only). A failed check is logged and treated as "proceed" so a broken statfs
 // never blocks installs. desc names the op in logs/errors; extraFields extend the warning.
-func checkDiskSpace(logger logging.Logger, path, desc string, required uint64, extraFields ...any) (low bool, err error) {
+func CheckDiskSpace(logger logging.Logger, path, desc string, required uint64, extraFields ...any) (low bool, err error) {
 	enough, available, err := enoughFreeSpace(path, required)
 	if err != nil {
 		logger.Warnw("could not check free disk space; proceeding",
@@ -333,7 +333,7 @@ func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir stri
 			if !loggedLowSpace && bytesSinceDiskCheck >= unpackDiskCheckInterval {
 				bytesSinceDiskCheck = 0
 				required := diskusage.MinFreeBytes + uint64(header.Size)
-				low, err := checkDiskSpace(logger, toDir, "unpacking package", required)
+				low, err := CheckDiskSpace(logger, toDir, "unpacking package", required)
 				if err != nil {
 					return err
 				}

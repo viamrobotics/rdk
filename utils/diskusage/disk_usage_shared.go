@@ -53,7 +53,7 @@ func IsLowOnSpace(path string) (usage DiskUsage, low bool, err error) {
 func (du DiskUsage) IsLow() bool {
 	// A zero total size is a pseudo-fs (procfs/sysfs) or garbage statfs result, not a real volume
 	// we can assess — treat it as not-low rather than warning every interval. (Mirrors
-	// checkDiskSpace, which proceeds on an outright statfs error.)
+	// CheckDiskSpace, which proceeds on an outright statfs error.)
 	if du.SizeBytes == 0 {
 		return false
 	}
@@ -69,7 +69,7 @@ func EnoughFreeSpace(path string, minBytes uint64) (enough bool, available uint6
 		return false, 0, err
 	}
 	// Don't refuse an install on a pseudo-fs/garbage (zero total size) result; let ENOSPC be the
-	// backstop, consistent with how checkDiskSpace handles a statfs error.
+	// backstop, consistent with how CheckDiskSpace handles a statfs error.
 	if usage.SizeBytes == 0 {
 		return true, usage.AvailableBytes, nil
 	}
@@ -81,7 +81,7 @@ func EnoughFreeSpace(path string, minBytes uint64) (enough bool, available uint6
 // path unchanged and lets the subsequent Statfs surface the error.
 func nearestExistingDir(path string) string {
 	for path != "" {
-		if _, err := os.Stat(path); err == nil {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
 			return path
 		}
 		parent := filepath.Dir(path)
