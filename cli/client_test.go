@@ -2229,11 +2229,17 @@ func TestTunnelTrafficLocalPortInUse(t *testing.T) {
 	t.Parallel()
 	// A local port that something else already owns must surface as an error instead of
 	// leaving the caller tunneling traffic into whatever is listening there (RSDK-14479).
-	port, li, err := goutils.ReserveRandomPort()
+	//
+	// Listen on "localhost" explicitly so the address matches what tunnelTraffic binds
+	// (net.Listen("tcp", "localhost:PORT")). Using ReserveRandomPort (which binds to
+	// 0.0.0.0) does not conflict on dual-stack macOS/Windows where localhost resolves
+	// to the IPv6 loopback.
+	li, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, li.Close(), test.ShouldBeNil)
 	}()
+	port := li.Addr().(*net.TCPAddr).Port
 
 	//nolint:dogsled
 	cCtx, _, _, _ := setup(nil, nil, nil, nil, "token")
