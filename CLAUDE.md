@@ -18,3 +18,5 @@ This repository is `go.viam.com/rdk` and ships three primary surfaces:
 
 - Verify changes with `make lint-go` and `make test-go`. The `rdk-devenv` container has Go tooling pre-installed; locally, run `make tool-install` first.
 - Generated protobuf (`*.pb.go`), build files (`Makefile`, `*.make`), `go.sum`, and workflow files are deny-listed in `.claude/settings.ci.json`. Update `go.sum` via `go mod tidy`.
+- Default to no inline code comments; godoc comments on exported symbols are expected. Add terse inline one-liners only when the WHY (not the WHAT) is non-obvious.
+- Do NOT bandaid over upstream bugs or platform gaps in any dependency — raise them immediately with a severity (critical / high / medium / low).
