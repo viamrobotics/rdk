@@ -83,9 +83,8 @@ func EnoughFreeSpace(path string, minBytes uint64) (enough bool, available uint6
 // archive) and surface an accurate message.
 var ErrInsufficientDiskSpace = errors.New("not enough free disk space")
 
-// EnoughFreeSpace reports whether the volume holding path has at least minBytes
-// available. It is a package var so tests can inject a low-space result without
-// having to actually fill a disk.
+// EnoughFreeSpaceFunc is the probe CheckDiskSpace uses to measure free space. It is a package
+// var so tests can inject a low-space result without having to actually fill a disk.
 var EnoughFreeSpaceFunc = EnoughFreeSpace
 
 // blockingEnabled reports whether low-space conditions should refuse the operation (download,
