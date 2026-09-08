@@ -82,9 +82,9 @@ func TestUploadDataFromPath(t *testing.T) {
 		test.That(t, res.BytesTotal, test.ShouldEqual, uint64(len(contents)))
 		test.That(t, res.IDs, test.ShouldResemble, []string{"bin-1"})
 
-		// arbitrary files are deleted after a successful upload
+		// arbitrary files are NOT deleted after a successful upload
 		_, statErr := os.Stat(fp)
-		test.That(t, os.IsNotExist(statErr), test.ShouldBeTrue)
+		test.That(t, statErr, test.ShouldBeNil)
 	})
 
 	t.Run("directory of files", func(t *testing.T) {

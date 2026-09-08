@@ -62,19 +62,17 @@ const (
 	DoTeleopMove   = "teleop_move"
 	DoTeleopStop   = "teleop_stop"
 	DoTeleopStatus = "teleop_status"
+
+	DoStreamStart  = "stream_start"
+	DoStreamPush   = "stream_push"
+	DoStreamFlush  = "stream_flush"
+	DoStreamAbort  = "stream_abort"
+	DoStreamStatus = "stream_status"
 )
 
 const (
-	builtinOpLabel                     = "motion-service"
-	maxTravelDistanceMM                = 5e6 // this is equivalent to 5km
-	lookAheadDistanceMM        float64 = 5e6
-	defaultSmoothIter                  = 30
-	defaultAngularDegsPerSec           = 60.
-	defaultLinearMPerSec               = 0.3
-	defaultSlamPlanDeviationM          = 1.
-	defaultGlobePlanDeviationM         = 2.6
-	defaultCollisionBuffer             = 150. // mm
-	defaultExecuteEpsilon              = 0.01 // rad or mm
+	builtinOpLabel        = "motion-service"
+	defaultExecuteEpsilon = 0.01 // rad or mm
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
@@ -88,7 +86,6 @@ type inputEnabledActuator interface {
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
 type Config struct {
 	LogFilePath string `json:"log_file_path"`
-	NumThreads  int    `json:"num_threads"`
 
 	PlanFilePath                string `json:"plan_file_path"`
 	PlanDirectoryIncludeTraceID bool   `json:"plan_directory_include_trace_id"`
@@ -128,10 +125,6 @@ func (c *Config) shouldWritePlan(start time.Time, err error) bool {
 
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, []string, error) {
-	if c.NumThreads < 0 {
-		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
-	}
-
 	if c.LogPlannerErrors && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors)
 	}
@@ -150,19 +143,22 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 
 type builtIn struct {
 	resource.Named
-	conf                    *Config
-	mu                      sync.RWMutex
-	fsService               framesystem.Service
-	movementSensors         map[string]movementsensor.MovementSensor
-	slamServices            map[string]slam.Service
-	visionServices          map[string]vision.Service
-	components              map[string]resource.Resource
-	logger                  logging.Logger
-	configuredDefaultExtras map[string]any
+	conf            *Config
+	mu              sync.RWMutex
+	fsService       framesystem.Service
+	movementSensors map[string]movementsensor.MovementSensor
+	slamServices    map[string]slam.Service
+	visionServices  map[string]vision.Service
+	components      map[string]resource.Resource
+	logger          logging.Logger
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
+
+	// Arm-streaming session. Protected by streamMu (separate from mu to simplify lock ordering).
+	streamMu sync.RWMutex
+	stream   *stream
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -170,9 +166,8 @@ func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
 	ms := &builtIn{
-		Named:                   conf.ResourceName().AsNamed(),
-		logger:                  logger,
-		configuredDefaultExtras: make(map[string]any),
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
 	}
 
 	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
@@ -207,10 +202,6 @@ func (ms *builtIn) BuiltInReconfigure(
 		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)
 		ms.logger.AddAppender(fileAppender)
 	}
-	if config.NumThreads > 0 {
-		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
-	}
-
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
@@ -245,6 +236,8 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	}
 	ms.teleopMu.Unlock()
 
+	ms.streamAbort(ctx)
+
 	return nil
 }
 
@@ -253,7 +246,6 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	ms.applyDefaultExtras(req.Extra)
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
 		return false, err
@@ -305,18 +297,82 @@ func (ms *builtIn) PlanHistory(
 	return nil, fmt.Errorf("PlanHistory not supported by builtin")
 }
 
-// DoCommand supports two commands which are specified through the command map
+// DoCommand supports the following commands, specified through the command map
+//
 //   - DoPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
 //     required key: DoPlan
 //     input value: a motionpb.MoveRequest which will be used to create a Trajectory
 //     output value: a motionplan.Trajectory specified as a map (the mapstructure.Decode function is useful for decoding this)
+//
 //   - DoExecute takes a Trajectory and executes it
 //     required key: DoExecute
 //     input value: a motionplan.Trajectory
 //     output value: a bool
+//
+// Streaming commands:
+//
+// An arm-streaming session is started with DoStreamStart, fed joint-position targets with
+// DoStreamPush, and ended with either DoStreamFlush (drain what's queued, then stop) or
+// DoStreamAbort (stop immediately). DoStreamStatus can be used to poll the session state at
+// any point.
+//
+//	DoStreamStart: starts a session on a named arm. Fails if a session is already running.
+//	  request:  {"stream_start": {
+//	               "arm": "myArm",
+//	               "options": {                        // optional; shown values are defaults
+//	                 "target_runway_in_arm_ms": 100,
+//	                 "send_to_arm_interval_ms": 10,
+//	                 "vel_limit_deg_per_sec": 10,
+//	                 "accel_limit_deg_per_sec2": 10
+//	               }
+//	             }}
+//	  response: {"ok": 1}
+//
+//	DoStreamPush: appends joint-position targets to the running session.
+//	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
+//	  response: {"ok": 1}
+//
+//	DoStreamFlush: stops accepting new targets and drains what's already queued to the arm; the
+//	session ends once that finishes. Blocks until the arm has (by the runway estimate) finished
+//	executing the drained trajectory, or ctx expires, whichever comes first.
+//	  request:  {"stream_flush": true}
+//	  response: {
+//	               "running": false,                   // true if ctx expired before the drain
+//	                                                     // finished; the session keeps draining
+//	                                                     // on its own -- repeat DoStreamFlush or
+//	                                                     // poll DoStreamStatus
+//	               "error": "..."                      // present only if the session ended
+//	                                                     // with an error
+//	             }
+//
+//	DoStreamAbort: signals the session to cancel, dropping any buffered trajectory that hasn't
+//	reached the arm. Waits until the session finishes tearing down or ctx expires, whichever comes first.
+//	  request:  {"stream_abort": true}
+//	  response: {
+//	               "running": false,                   // true if ctx expired before teardown
+//	                                                     // finished; the session is still
+//	                                                     // tearing down on its own -- repeat
+//	                                                     // DoStreamAbort or poll DoStreamStatus
+//	               "error": "..."                      // present only if the session ended
+//	                                                     // with an error
+//	             }
+//
+//	DoStreamStatus: reports the current session's state.
+//	  request:  {"stream_status": true}
+//	  response: {
+//	               "running": true,
+//	               "arm": "myArm",                      // present once a session has started
+//	               "error": "..."                       // present only once the session has
+//	                                                     // finished with an error
+//	             }
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
+		return resp, err
+	}
+
+	// Handle arm-streaming commands (they manage their own locking).
+	if resp, handled, err := ms.handleStreamCommand(ctx, cmd); handled {
 		return resp, err
 	}
 
@@ -701,24 +757,11 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 					//nolint:errcheck
 					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}
-				return err
+				return fmt.Errorf("error moving component %s to inputs %v: %w", name, inputs, err)
 			}
 		}
 	}
 	return nil
-}
-
-// applyDefaultExtras iterates through the list of default extras configured on the builtIn motion service and adds them to the
-// given map of extras if the key does not already exist.
-func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
-	if extras == nil {
-		extras = make(map[string]any)
-	}
-	for key, val := range ms.configuredDefaultExtras {
-		if _, ok := extras[key]; !ok {
-			extras[key] = val
-		}
-	}
 }
 
 func waypointsFromRequest(
@@ -814,12 +857,14 @@ func (ms *builtIn) writePlanRequest(
 	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
 		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
 
-	// Full plans (request + response) get tag=motion-plan so data manager can infer a
-	// stable type tag on arbitrary-file upload.
+	// Type tags so data manager can infer a stable filter on arbitrary-file upload.
 	const motionPlanTypeTag = "motion-plan"
+	const motionPlanErrTypeTag = "motion-plan-err"
 	tags := []string{}
 	if plan != nil {
 		tags = append(tags, "tag="+motionPlanTypeTag)
+	} else {
+		tags = append(tags, "tag="+motionPlanErrTypeTag)
 	}
 	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
 		tags = append(tags, "tag="+traceID)

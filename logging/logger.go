@@ -23,6 +23,13 @@ type Logger interface {
 	Write(*LogEntry)
 	WithFields(args ...interface{}) Logger
 
+	// Activity emits an activity event through this logger's activity logger
+	// (<root>.activity). It always emits regardless of any configured level and is
+	// never deduplicated. activity names what the event is about (e.g. "reconfigure",
+	// "module", "remote"); event is the transition verb (e.g. "start", "complete",
+	// "fail", "connect"). Callers must not set "activity" or "event" in keysAndValues.
+	Activity(activity, event string, keysAndValues ...any)
+
 	CDebug(ctx context.Context, args ...interface{})
 	CDebugf(ctx context.Context, template string, args ...interface{})
 	CDebugw(ctx context.Context, msg string, keysAndValues ...interface{})
@@ -175,6 +182,12 @@ func (logger zLogger) CErrorf(ctx context.Context, template string, args ...inte
 
 func (logger zLogger) CErrorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	logger.Errorw(msg, keysAndValues...)
+}
+
+// Activity on a zap-compat logger has no registry to route through; emit the fields as
+// an ordinary structured log so the event is at least visible in this logger's sinks.
+func (logger zLogger) Activity(activity, event string, keysAndValues ...any) {
+	logger.Infow("", append([]any{"activity", activity, "event", event}, keysAndValues...)...)
 }
 
 func (logger zLogger) Write(entry *LogEntry) {

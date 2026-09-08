@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	pb "go.viam.com/api/component/camera/v1"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/vcamera"
 )

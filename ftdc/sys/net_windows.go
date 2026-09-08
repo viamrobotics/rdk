@@ -12,6 +12,7 @@ type netStatser struct{}
 func newNetUsage() (*netStatser, error) {
 	return &netStatser{}, nil
 }
+
 func (netStatser *netStatser) Stats() any {
 	ret := networkStats{
 		Ifaces: make(map[string]netDevLine),

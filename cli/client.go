@@ -70,29 +70,79 @@ import (
 const (
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
 	osWindows     = "windows"
-	// defaultNumLogs is the same as the number of logs currently returned by app
-	// in a single GetRobotPartLogsResponse.
-	defaultNumLogs = 100
-	// maxNumLogs is an arbitrary limit used to stop CLI users from overwhelming
-	// our logs DB with heavy reads.
-	maxNumLogs = 10000
+	osLinux       = "linux"
 	// logoMaxSize is the maximum size of a logo in bytes.
 	logoMaxSize = 1024 * 200 // 200 KB
-	// defaultLogStartTime is set to the last 12 hours,
-	// logs older than 24 hours are stored in the online archive.
-	//
-	// 12 hours is a temporary decrease from the matching 24 hour window to
-	// avoid an edge case where network latency always triggers an online
-	// archive query and causes a "resource usage limit exceeded" error.
-	defaultLogStartTime = -12 * time.Hour
+	// defaultLogStartTime is set to the last 24 hours.
+	defaultLogStartTime = -24 * time.Hour
+	// logOrderAscending and logOrderDescending are the accepted values of the `--order` flag.
+	logOrderAscending  = "asc"
+	logOrderDescending = "desc"
 	// yellow is the format string used to output warnings in yellow color.
 	yellow = "\033[1;33m%s\033[0m"
 )
 
+// ftdc data is stored at VIAM_HOME/diagnostics.data/[part-id]
+const ftdcRelativePath = "diagnostics.data"
+
+// legacyViamHomeDir is where the CLI assumed viam-server kept its data before it
+// learned to let the machine resolve its own VIAM_HOME.
+const legacyViamHomeDir = "~/.viam"
+
 var (
 	errNoShellService = errors.New("shell service is not enabled on this machine part")
-	ftdcPath          = path.Join("~", ".viam", "diagnostics.data")
+	ftdcPath          = path.Join(shell.ViamHomePrefix, ftdcRelativePath)
 )
+
+// legacyViamHomePath rewrites a shell.ViamHomePrefix path to the directory the CLI used
+// to hardcode, reporting whether src was rooted at the prefix at all.
+//
+// A viam-server predating the prefix does not know how to expand it. A machine that old
+// either has VIAM_HOME unset — in which case ~/.viam is the right answer — or was
+// already failing this command before the prefix existed.
+func legacyViamHomePath(src string) (string, bool) {
+	rest, found := strings.CutPrefix(src, shell.ViamHomePrefix)
+	if !found {
+		return "", false
+	}
+	// Intentional use of path instead of filepath: Windows understands both / and
+	// \ as path separators, and we don't want a cli running on Windows to send
+	// a path using \ to a *NIX machine.
+	return path.Join(legacyViamHomeDir, rest), true
+}
+
+type machineViamHomeArgs struct {
+	Home string
+}
+
+// machineViamHome resolves the target machine's VIAM_HOME directory: the --home
+// override if set, otherwise the machine's own answer over shellSvc, otherwise
+// the legacy default for machines too old to answer. Pass a nil shellSvc when
+// the machine could not be dialed.
+func (c *viamClient) machineViamHome(ctx context.Context, cmd *cli.Command, shellSvc shell.Service) string {
+	if args := parseStructFromCtx[machineViamHomeArgs](cmd); args.Home != "" {
+		// Intentional use of path instead of filepath: Windows understands both / and
+		// \ as path separators, and we don't want a cli running on Windows to send
+		// a path using \ to a *NIX machine.
+		return path.Join(args.Home, ".viam")
+	}
+	err := errors.New("machine could not be reached")
+	if shellSvc != nil {
+		var resp map[string]interface{}
+		if resp, err = shellSvc.DoCommand(ctx, map[string]interface{}{shell.GetViamHomeCommand: true}); err == nil {
+			if home, ok := resp[shell.ViamHomeKey].(string); ok && home != "" {
+				return home
+			}
+			err = fmt.Errorf("unexpected response %v", resp)
+		}
+	}
+	// A wrong guess here puts the archive and reload_path outside the machine's real
+	// VIAM_HOME, so surface the fallback instead of hiding it behind --debug.
+	warningf(cmd.Root().ErrWriter,
+		"machine did not report its VIAM_HOME (%v); assuming %s. Pass --home if that is wrong for this machine",
+		err, legacyViamHomeDir)
+	return legacyViamHomeDir
+}
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
@@ -1044,20 +1094,6 @@ func RobotsStatusAction(ctx context.Context, cmd *cli.Command, args robotsStatus
 	return nil
 }
 
-func getNumLogs(cmd *cli.Command, numLogs int) (int, error) {
-	if numLogs < 0 {
-		warningf(cmd.Root().ErrWriter, "Provided negative %q value. Defaulting to %d", generalFlagCount, defaultNumLogs)
-		return defaultNumLogs, nil
-	}
-	if numLogs == 0 {
-		return defaultNumLogs, nil
-	}
-	if numLogs > maxNumLogs {
-		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", generalFlagCount, maxNumLogs)
-	}
-	return numLogs, nil
-}
-
 type robotsLogsArgs struct {
 	Organization string
 	Location     string
@@ -1068,6 +1104,8 @@ type robotsLogsArgs struct {
 	Levels       []string
 	Start        string
 	End          string
+	Range        string
+	Order        string
 	Count        int
 }
 
@@ -1078,22 +1116,28 @@ func RobotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs
 		return err
 	}
 
-	// Check if both start time and count are provided
-	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
-	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
-	if args.Start != "" && args.Count > 0 && args.End == "" {
-		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
-			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
-			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
-			"rather than the 10 logs closest to the start time. " +
-			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
-		)
+	return client.robotsLogsAction(ctx, cmd, args)
+}
+
+func (c *viamClient) robotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs) error {
+	if args.Count < 0 {
+		return errors.Errorf("%q cannot be negative", generalFlagCount)
+	}
+
+	// `--range` is validated by app, but `--order` is an enum on the wire, so an unrecognized
+	// value has to be caught here. Do it up front so we fail before writing any logs.
+	if _, err := logOrderFromArg(args.Order); err != nil {
+		return err
+	}
+
+	if args.Range != "" && args.Start != "" && args.End != "" {
+		return errors.Errorf("cannot use --%s together with both --%s and --%s", logsFlagRange, generalFlagStart, generalFlagEnd)
 	}
 
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
-	robot, err := client.robot(ctx, orgStr, locStr, robotStr)
+	robot, err := c.robot(ctx, orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
 	}
@@ -1101,7 +1145,7 @@ func RobotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs
 	// TODO(RSDK-9727) - this is a little inefficient insofar as a `robot` is created immediately
 	// above and then also again within this `robotParts` call. Might be nice to have a helper
 	// API for getting parts when we already have a `Robot`
-	parts, err := client.robotParts(ctx, orgStr, locStr, robotStr)
+	parts, err := c.robotParts(ctx, orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine parts")
 	}
@@ -1121,7 +1165,7 @@ func RobotsLogsAction(ctx context.Context, cmd *cli.Command, args robotsLogsArgs
 		writer = cmd.Root().Writer
 	}
 
-	return client.fetchAndSaveLogs(ctx, robot, parts, args, writer)
+	return c.fetchAndSaveLogs(ctx, robot, parts, args, writer)
 }
 
 // fetchLogs fetches logs for all parts and writes them to the provided writer.
@@ -1153,14 +1197,27 @@ func (c *viamClient) fetchAndSaveLogs(
 	return nil
 }
 
+// logOrderFromArg maps the `--order` flag onto its proto enum. An empty value is left unset, so app
+// applies its own default of newest logs first.
+func logOrderFromArg(order string) (*apppb.LogOrder, error) {
+	switch order {
+	case "":
+		return nil, nil
+	case logOrderAscending:
+		return apppb.LogOrder_LOG_ORDER_ASCENDING.Enum(), nil
+	case logOrderDescending:
+		return apppb.LogOrder_LOG_ORDER_DESCENDING.Enum(), nil
+	default:
+		return nil, errors.Errorf("invalid %q value %q: must be one of %q or %q",
+			logsFlagOrder, order, logOrderAscending, logOrderDescending)
+	}
+}
+
 // streamLogsForPart streams logs for a specific part directly to a file.
 func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
-	maxLogsToFetch, err := getNumLogs(c.c, args.Count)
-	if err != nil {
-		return err
-	}
-
-	if args.Start == "" {
+	// `--range` resolves against whichever of start and end is present, so defaulting start here
+	// would silently pin the window to the last 24 hours and make `--range` a no-op.
+	if args.Start == "" && args.Range == "" {
 		args.Start = time.Now().Add(defaultLogStartTime).UTC().Format(time.RFC3339)
 	}
 
@@ -1172,6 +1229,16 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 	if err != nil {
 		return errors.Wrap(err, "invalid end time format")
 	}
+	order, err := logOrderFromArg(args.Order)
+	if err != nil {
+		return err
+	}
+
+	// A nil `Range` leaves the field unset, rather than sending an empty string app would reject.
+	var logRange *string
+	if args.Range != "" {
+		logRange = &args.Range
+	}
 
 	keyword := &args.Keyword
 
@@ -1179,12 +1246,9 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 	var pageToken string
 
 	// Fetch logs in batches and write them to the output.
-	for fetchedLogCount := 0; fetchedLogCount < maxLogsToFetch; {
-		// We do not request the exact limit specified by the user in the `count` argument because the API enforces a maximum
-		// limit of 100 logs per batch fetch. To keep the RDK independent of specific limits imposed by the app API,
-		// we always request the next full batch of logs as allowed by the API (currently 100). This approach
-		// ensures that if the API limit changes in the future, only the app API logic needs to be updated without requiring
-		// changes in the RDK.
+	for fetchedLogCount := 0; ; {
+		// We never request a specific limit: app caps a single response at its own batch size, so
+		// asking for the full batch each time keeps the RDK independent of whatever that cap is.
 		resp, err := c.client.GetRobotPartLogs(ctx, &apppb.GetRobotPartLogsRequest{
 			Id:        part.Id,
 			Filter:    keyword,
@@ -1192,6 +1256,8 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 			Levels:    args.Levels,
 			Start:     startTime,
 			End:       endTime,
+			Range:     logRange,
+			Order:     order,
 		})
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch logs")
@@ -1202,17 +1268,12 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 			break
 		}
 
-		// The API may return more logs than the user requested via the `count` argument.
-		// This is because the API uses pagination internally and fetches logs in batches.
-		// To ensure we do not append more logs than the user requested, we calculate the
-		// `remainingLogsNeeded` by subtracting the logs we have already fetched (`logsFetched`)
-		// from the total number of logs the user asked for (`numLogs`).
-		// If the current batch contains more logs than the remaining needed, we truncate the
-		// batch to include only the necessary number of logs.
-		// This ensures the output strictly adheres to the `count` limit specified by the user.
-		remainingLogsNeeded := maxLogsToFetch - fetchedLogCount
-		if remainingLogsNeeded < len(resp.Logs) {
-			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		// A batch can overshoot the user's `--count`, since batch size is app's choice, not ours.
+		// Truncate the logs for the final response if this happens.
+		if args.Count > 0 {
+			if remainingLogsNeeded := args.Count - fetchedLogCount; remainingLogsNeeded < len(resp.Logs) {
+				resp.Logs = resp.Logs[:remainingLogsNeeded]
+			}
 		}
 
 		for _, log := range resp.Logs {
@@ -1227,6 +1288,10 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 		}
 
 		fetchedLogCount += len(resp.Logs)
+
+		if args.Count > 0 && fetchedLogCount >= args.Count {
+			break
+		}
 
 		// End of pagination if there is no next page token.
 		if pageToken = resp.NextPageToken; pageToken == "" {
@@ -1786,7 +1851,7 @@ func machinesPartAddTriggerAction(ctx context.Context, cmd *cli.Command, args ma
 		return err
 	}
 
-	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+	if err := client.updateRobotPartFromMap(ctx, part, config, nil); err != nil {
 		return err
 	}
 
@@ -2927,7 +2992,7 @@ func machinesPartAddJobAction(ctx context.Context, cmd *cli.Command, args machin
 	jobs = append(jobs, jobConfig)
 	config["jobs"] = jobs
 
-	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+	if err := client.updateRobotPartFromMap(ctx, part, config, nil); err != nil {
 		return err
 	}
 
@@ -2995,7 +3060,7 @@ func machinesPartUpdateJobAction(ctx context.Context, cmd *cli.Command, args mac
 
 	config["jobs"] = jobs
 
-	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+	if err := client.updateRobotPartFromMap(ctx, part, config, nil); err != nil {
 		return err
 	}
 
@@ -3052,7 +3117,7 @@ func machinesPartDeleteJobAction(ctx context.Context, cmd *cli.Command, args mac
 
 	config["jobs"] = newJobs
 
-	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+	if err := client.updateRobotPartFromMap(ctx, part, config, nil); err != nil {
 		return err
 	}
 
@@ -3105,7 +3170,15 @@ type machinesPartHistoryArgs struct {
 	Machine       string
 	Part          string
 	FilterByEmail string
+	Start         string
+	End           string
+	Count         int
 }
+
+// Every history entry embeds a full machine config (~73KB on a real part), so asking app for the
+// whole range at once exceeds the 32MB gRPC max message size. Request fixed-size pages and follow
+// the token instead; at that entry size 100 leaves roughly 4x headroom per response.
+const historyFetchPageSize = 100
 
 // machinesPartHistoryAction is the corresponding action for 'machines part history'.
 func machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
@@ -3117,35 +3190,77 @@ func machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machi
 }
 
 func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
+	if args.Count < 0 {
+		return errors.Errorf("%q cannot be negative", generalFlagCount)
+	}
+
 	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine part")
 	}
 
-	resp, err := c.client.GetRobotPartHistory(ctx, &apppb.GetRobotPartHistoryRequest{Id: part.Id})
+	startTime, err := parseTimeString(args.Start)
+	if err != nil {
+		return err
+	}
+	endTime, err := parseTimeString(args.End)
 	if err != nil {
 		return err
 	}
 
-	history := resp.History
-	if len(history) == 0 {
-		printf(cmd.Root().Writer, "no history found for part %s", part.Name)
-		return nil
+	pageLimit := int64(historyFetchPageSize)
+	var pageToken string
+	listed := 0
+	for {
+		resp, err := c.client.GetRobotPartHistory(ctx, &apppb.GetRobotPartHistoryRequest{
+			Id:        part.Id,
+			Start:     startTime,
+			End:       endTime,
+			PageLimit: &pageLimit,
+			PageToken: &pageToken,
+		})
+		if err != nil {
+			return err
+		}
+
+		// Treat an empty page as the end of the range even if a token came back with it, so a
+		// server that keeps handing out tokens can't spin this loop forever.
+		if len(resp.History) == 0 {
+			break
+		}
+
+		for _, entry := range resp.History {
+			if args.FilterByEmail != "" && (entry.EditedBy == nil || entry.EditedBy.Value != args.FilterByEmail) {
+				continue
+			}
+			when := "<unknown time>"
+			if entry.When != nil {
+				when = entry.When.AsTime().Format(time.UnixDate)
+			}
+			editedBy := "<unknown>"
+			if entry.EditedBy != nil && entry.EditedBy.Value != "" {
+				editedBy = entry.EditedBy.Value
+			}
+			listed++
+			printf(cmd.Root().Writer, "[%d] %s — edited by %s", listed, when, editedBy)
+
+			// --count bounds what the user sees, not what we fetch, so a filtered listing keeps
+			// paging until it has that many matches instead of stopping after the first page.
+			if args.Count > 0 && listed == args.Count {
+				printf(cmd.Root().Writer,
+					"stopped at --%s=%d; raise it or narrow the range with --%s/--%s to see more",
+					generalFlagCount, args.Count, generalFlagStart, generalFlagEnd)
+				return nil
+			}
+		}
+
+		if pageToken = resp.NextPageToken; pageToken == "" {
+			break
+		}
 	}
 
-	for i, entry := range history {
-		if args.FilterByEmail != "" && (entry.EditedBy == nil || entry.EditedBy.Value != args.FilterByEmail) {
-			continue
-		}
-		when := "<unknown time>"
-		if entry.When != nil {
-			when = entry.When.AsTime().Format(time.UnixDate)
-		}
-		editedBy := "<unknown>"
-		if entry.EditedBy != nil && entry.EditedBy.Value != "" {
-			editedBy = entry.EditedBy.Value
-		}
-		printf(cmd.Root().Writer, "[%d] %s — edited by %s", i+1, when, editedBy)
+	if listed == 0 {
+		printf(cmd.Root().Writer, "no history found for part %s", part.Name)
 	}
 
 	return nil
@@ -3404,6 +3519,10 @@ func RobotsPartLogsAction(ctx context.Context, cmd *cli.Command, args robotsPart
 }
 
 func (c *viamClient) robotsPartLogsAction(ctx context.Context, cmd *cli.Command, args robotsPartLogsArgs) error {
+	if args.Count < 0 {
+		return errors.Errorf("%q cannot be negative", generalFlagCount)
+	}
+
 	// Check if both start time and count are provided
 	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
 	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
@@ -3458,16 +3577,12 @@ func (c *viamClient) robotsPartLogsAction(ctx context.Context, cmd *cli.Command,
 			header,
 		)
 	}
-	numLogs, err := getNumLogs(cmd, args.Count)
-	if err != nil {
-		return err
-	}
 	return c.printRobotPartLogs(
 		ctx, orgStr, locStr, robotStr, partStr,
 		args.Errors,
 		"",
 		header,
-		numLogs,
+		args.Count,
 		startTime, endTime,
 	)
 }
@@ -3741,6 +3856,7 @@ type machinesPartGetFTDCArgs struct {
 	Location     string
 	Machine      string
 	Part         string
+	ViamHomeDir  string
 }
 
 // MachinesPartGetFTDCAction is the corresponding Action for 'machines part get-ftdc'.
@@ -3824,7 +3940,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			}
 			paths = append(paths, arg)
 		}
-		return
+		return isFrom, destination, paths, err
 	}
 
 	isFrom, destination, paths, err := determineDirection(args)
@@ -3940,6 +4056,10 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	// \ as path separators, and we don't want a cli running on Windows to send
 	// a path using \ to a *NIX machine.
 	src := path.Join(ftdcPath, part.Id)
+	// if target part has a non-default VIAM_HOME, the caller can specify it.
+	if flagArgs.ViamHomeDir != "" {
+		src = path.Join(flagArgs.ViamHomeDir, ftdcRelativePath, part.Id)
+	}
 	gArgs, err := getGlobalArgs(cmd)
 	quiet := err == nil && gArgs != nil && gArgs.Quiet
 	var startTime time.Time
@@ -4024,7 +4144,9 @@ func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPa
 }
 
 // connectToMachineDirectly dials a machine at an explicit address without contacting app.viam.com,
-// authenticating with the machine api-key in args.
+// authenticating with the machine api-key in args. Skips resource enumeration entirely - initial
+// refresh, periodic refresh and connection check: the sole caller tunnels, which needs nothing
+// but the robot service.
 func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) (*client.RobotClient, error) {
 	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
@@ -4050,7 +4172,13 @@ func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robots
 		return nil, err
 	}
 
-	robotClient, err := client.New(ctx, args.Address, logger, client.WithDialOptions(rpcOpts...))
+	robotClient, err := client.New(ctx, args.Address, logger,
+		client.WithDialOptions(rpcOpts...),
+		client.WithoutRPCSubtypes(),
+		client.WithoutInitialRefresh(),
+		client.WithRefreshEvery(0),
+		client.WithCheckConnectedEvery(0),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
 	}
@@ -4058,6 +4186,7 @@ func connectToMachineDirectly(ctx context.Context, cmd *cli.Command, args robots
 }
 
 func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.RobotClient, local, dest int) error {
+	//nolint: noctx
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
 		return fmt.Errorf("failed to create listener %w", err)
@@ -4121,7 +4250,12 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 		return err
 	}
 
-	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	// Tunneling needs only the robot service, so skip the initial refresh - and the connection
+	// check, which probes ResourceNames and would tear an open tunnel down.
+	// ensureTunnelPortAllowed reconnects on its own when it needs to.
+	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger,
+		client.WithoutInitialRefresh(), client.WithCheckConnectedEvery(0),
+	)
 	if err != nil {
 		return err
 	}
@@ -4138,6 +4272,7 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 // flow can be tested without a live machine.
 type tunnelLister interface {
 	ListTunnels(ctx context.Context) ([]rconfig.TrafficTunnelEndpoint, error)
+	Connect(ctx context.Context) error
 }
 
 // tunnelPortAllowed reports whether the given destination port is present in the
@@ -4230,8 +4365,14 @@ func (c *viamClient) ensureTunnelPortAllowed(
 	timeoutCtx, cancel := context.WithTimeout(ctx, tunnelConfigTimeout)
 	defer cancel()
 	for {
-		if allowed, _ := tunnelPortAllowed(timeoutCtx, lister, dest); allowed {
+		allowed, known := tunnelPortAllowed(timeoutCtx, lister, dest)
+		if allowed {
 			return nil
+		}
+		if !known {
+			// If we couldn't read the tunnel list, viam-server may have restarted due
+			// the network config change and we may need to reconnect before retrying.
+			lister.Connect(ctx) //nolint: errcheck
 		}
 		select {
 		case <-timeoutCtx.Done():
@@ -4402,6 +4543,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		{ID: "check", Message: "Checking for updates", IndentLevel: 0},
 		{ID: "update", Message: "Updating...", IndentLevel: 0},
 		{ID: "brew-upgrade", Message: "Updating via Homebrew", IndentLevel: 1},
+		{ID: "apt-upgrade", Message: "Updating via apt", IndentLevel: 1},
 		{ID: "download", Message: "Downloading latest CLI", IndentLevel: 1},
 		{ID: "install", Message: "Installing update", IndentLevel: 1},
 	}, WithProgressOutput(!args.NoProgress))
@@ -4508,7 +4650,47 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		return nil
 	}
 
-	// 4. get the local version binary path (use full path if no symlinks)
+	// 4. if the binary is dpkg-managed, upgrade through apt instead of self-replacing.
+	isApt, aptCheckErr := isRunningAptBinary()
+	if aptCheckErr != nil {
+		if failErr := pm.Fail("update", aptCheckErr); failErr != nil {
+			return failErr
+		}
+		return errors.Errorf("CLI update failed: %v", aptCheckErr)
+	}
+	if isApt {
+		if err := pm.Start("apt-upgrade"); err != nil {
+			return err
+		}
+		pm.UpdateText("  → Updating via apt — you may be prompted for your sudo password")
+		if aptErr := tryAptUpgrade(); aptErr != nil {
+			if failErr := pm.Fail("apt-upgrade", aptErr); failErr != nil {
+				return failErr
+			}
+			return errors.Errorf("CLI update via apt failed: %v\n"+
+				"To update manually: sudo apt update && sudo apt install --only-upgrade viam-cli", aptErr)
+		}
+		installed, installedErr := installedDebVersion()
+		if installedErr != nil {
+			debugf(cmd.Root().Writer, globalArgs.Debug, "CLI Update: failed to read installed deb version: %v", installedErr)
+		}
+		aptMsg := "Updated via apt"
+		if installedErr == nil {
+			aptMsg = fmt.Sprintf("Updated via apt (version %s)", installed.Original())
+		}
+		if err := pm.Complete("apt-upgrade"); err != nil {
+			return err
+		}
+		if err := pm.CompleteWithMessage("update", aptMsg); err != nil {
+			return err
+		}
+		if args.NoProgress {
+			infof(cmd.Root().Writer, aptMsg)
+		}
+		return nil
+	}
+
+	// 5. get the local version binary path (use full path if no symlinks)
 	execPath, err := os.Executable()
 	if err != nil {
 		return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
@@ -4519,7 +4701,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 	}
 	directoryPath := filepath.Dir(localBinaryPath)
 
-	// 5. get the latest binary (from storage.googleapis.com) and write it into a temp file
+	// 6. get the latest binary (from storage.googleapis.com) and write it into a temp file
 	if err := pm.Start("download"); err != nil {
 		return err
 	}
@@ -4536,7 +4718,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		return err
 	}
 
-	// 6. replace the old binary with the new one
+	// 7. replace the old binary with the new one
 	if err := pm.Start("install"); err != nil {
 		return err
 	}
@@ -4550,7 +4732,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		return err
 	}
 
-	// 7. on Windows, ensure the CLI directory is in the user's PATH
+	// 8. on Windows, ensure the CLI directory is in the user's PATH
 	if runtime.GOOS == osWindows {
 		if err := addToWindowsUserPATH(cmd, directoryPath); err != nil {
 			warningf(cmd.Root().ErrWriter, "Failed to add CLI to user PATH. "+
@@ -4572,6 +4754,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 
 // brew doesn't automatically get the latest update from tap, so we manually refresh
 func refreshViamTap() {
+	//nolint: noctx
 	repoOut, err := exec.Command("brew", "--repository", "viamrobotics/brews").Output()
 	if err != nil {
 		return
@@ -4581,12 +4764,14 @@ func refreshViamTap() {
 		return
 	}
 	// repoPath comes from `brew --repository`, not user input, so the subprocess args are safe.
+	//nolint: noctx
 	utils.UncheckedError(exec.Command("git", "-C", repoPath, "pull", "--ff-only", "--quiet").Run()) //nolint:gosec
 }
 
 // installedBrewVersion returns the version of viam currently installed by Homebrew
 func installedBrewVersion() (*semver.Version, error) {
 	// output looks like: "viam 0.130.0"
+	//nolint: noctx
 	out, err := exec.Command("brew", "list", "--versions", "viam").Output()
 	if err != nil {
 		return nil, errors.Errorf("failed to get installed brew version: %v", err)
@@ -4612,6 +4797,7 @@ func isRunningBrewBinary() (bool, error) {
 	// brew list viam will return err if brew is not installed, viam is not installed in brew, or if this command fails
 	// its extremely rare for this command to fail, but if it does then brew --prefix viam will also fail later on and
 	// we can't confirm the running binary path anyways
+	//nolint: noctx
 	if err := exec.Command("brew", "list", "viam").Run(); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
 			return false, nil
@@ -4631,6 +4817,7 @@ func isRunningBrewBinary() (bool, error) {
 	if err != nil {
 		return false, errors.Errorf("failed to resolve executable path %q: %v", execPath, err)
 	}
+	//nolint: noctx
 	brewPrefixOut, err := exec.Command("brew", "--prefix", "viam").Output()
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -4651,6 +4838,7 @@ func isRunningBrewBinary() (bool, error) {
 // confirming the running binary is brew-managed via isRunningBrewBinary. upgraded reports
 // whether brew installed a newer version (false means viam was already at the tap's latest).
 func tryBrewUpgrade() (bool, error) {
+	//nolint: noctx
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {
 		return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
@@ -4659,6 +4847,79 @@ func tryBrewUpgrade() (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+// tryAptUpgrade upgrades viam-cli through apt, with sudo when not root.
+// Call only after isRunningAptBinary confirms the binary is dpkg-managed.
+func tryAptUpgrade() error {
+	var prefix []string
+	if os.Geteuid() != 0 {
+		if _, err := exec.LookPath("sudo"); err != nil {
+			return errors.New("not running as root and sudo is not available")
+		}
+		prefix = []string{"sudo"}
+	}
+	for _, args := range [][]string{
+		{"apt-get", "update"},
+		{"apt-get", "install", "--only-upgrade", "-y", "viam-cli"},
+	} {
+		full := append(append([]string{}, prefix...), args...)
+		// fixed args, not user input
+		//nolint: noctx
+		aptCmd := exec.Command(full[0], full[1:]...) //nolint:gosec
+		// keep stdin attached so sudo can prompt for a password
+		aptCmd.Stdin = os.Stdin
+		if out, err := aptCmd.CombinedOutput(); err != nil {
+			return errors.Errorf("failed to run %q: %v\n%s", strings.Join(full, " "), err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
+// installedDebVersion returns the version of the viam-cli deb currently installed.
+func installedDebVersion() (*semver.Version, error) {
+	//nolint: noctx
+	out, err := exec.Command("dpkg-query", "-W", "-f=${Version}", "viam-cli").Output()
+	if err != nil {
+		return nil, errors.Errorf("failed to get installed deb version: %v", err)
+	}
+	version, err := semver.NewVersion(strings.TrimSpace(string(out)))
+	if err != nil {
+		return nil, errors.Errorf("failed to parse installed deb version %q: %v", strings.TrimSpace(string(out)), err)
+	}
+	return version, nil
+}
+
+// dpkgQueryOwnerFunc runs `dpkg -S <path>`; overridable in tests.
+var dpkgQueryOwnerFunc = func(path string) (string, error) {
+	out, err := exec.Command("dpkg", "-S", path).Output()
+	return string(out), err
+}
+
+// isRunningAptBinary reports whether the running binary is owned by the viam-cli
+// deb. Returns (false, nil) when dpkg is absent or does not own the path.
+func isRunningAptBinary() (bool, error) {
+	if runtime.GOOS != osLinux {
+		return false, nil
+	}
+	execPath, err := os.Executable()
+	if err != nil {
+		return false, errors.Errorf("failed to get executable path: %v", err)
+	}
+	resolved, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		resolved = execPath
+	}
+	out, err := dpkgQueryOwnerFunc(resolved)
+	if err != nil {
+		// dpkg absent or path unowned: not an apt install
+		var exitErr *exec.ExitError
+		if errors.Is(err, exec.ErrNotFound) || errors.As(err, &exitErr) {
+			return false, nil
+		}
+		return false, errors.Errorf("failed to query dpkg for %q: %v", resolved, err)
+	}
+	return strings.HasPrefix(strings.TrimSpace(out), "viam-cli:"), nil
 }
 
 func binaryURL() string {
@@ -4760,10 +5021,16 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 	cleanDir := filepath.Clean(binaryDir)
 
 	// Read the current user-level PATH from the registry.
+	//nolint: noctx
 	out, err := exec.Command("powershell", "-Command",
 		`[Environment]::GetEnvironmentVariable("Path", "User")`).Output()
 	if err != nil {
-		return errors.Errorf("failed to read user PATH: %v", err)
+		// Surface PowerShell's stderr (stashed on the ExitError) instead of just "exit status 1".
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			return errors.Errorf("failed to read user PATH:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return errors.Wrap(err, "failed to read user PATH")
 	}
 	currentPath := strings.TrimSpace(string(out))
 
@@ -4781,12 +5048,16 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 	}
 	newPath += cleanDir
 
-	//nolint:gosec
-	if err := exec.Command("powershell", "-Command",
+	//nolint: gosec,noctx
+	setCmd := exec.Command("powershell", "-Command",
 		fmt.Sprintf(`[Environment]::SetEnvironmentVariable("Path", "%s", "User")`,
-			strings.ReplaceAll(newPath, `"`, `\"`)),
-	).Run(); err != nil {
-		return errors.Errorf("failed to update user PATH: %v", err)
+			strings.ReplaceAll(newPath, `"`, `\"`)))
+	// CombinedOutput (not Run) so PowerShell's error is surfaced instead of just "exit status 1".
+	if out, err := setCmd.CombinedOutput(); err != nil {
+		if trimmed := strings.TrimSpace(string(out)); trimmed != "" {
+			return errors.Errorf("failed to update user PATH:\n%s", trimmed)
+		}
+		return errors.Wrap(err, "failed to update user PATH")
 	}
 
 	infof(cmd.Root().Writer, "Added %s to your user PATH. Restart your terminal to use 'viam' from anywhere.", cleanDir)
@@ -5180,21 +5451,34 @@ func (c *viamClient) getRobotPart(ctx context.Context, partID string) (*apppb.Ge
 	return c.client.GetRobotPart(ctx, &apppb.GetRobotPartRequest{Id: partID})
 }
 
+// updateRobotPart sends a robot config to the app backend as a raw JSON string.
+// Passing the config as JSON (rather than a structpb.Struct) preserves field order,
+// which matters because the config is stored and displayed as-is.
 func (c *viamClient) updateRobotPart(
-	ctx context.Context, part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp,
+	ctx context.Context, part *apppb.RobotPart, confJSON string, lastKnownUpdate *timestamppb.Timestamp,
 ) error {
-	confStruct, err := structpb.NewStruct(confMap)
-	if err != nil {
-		return errors.Wrap(err, "in NewStruct")
-	}
 	req := apppb.UpdateRobotPartRequest{
 		Id:              part.Id,
 		Name:            part.Name,
-		RobotConfig:     confStruct,
+		RobotConfigJson: &confJSON,
 		LastKnownUpdate: lastKnownUpdate,
 	}
-	_, err = c.client.UpdateRobotPart(ctx, &req)
+	_, err := c.client.UpdateRobotPart(ctx, &req)
 	return err
+}
+
+// updateRobotPartFromMap is a compatibility shim for callers that still build the config
+// as a map[string]any. It marshals the map to JSON and delegates to updateRobotPart.
+// Note: field order is not preserved through the map; prefer updateRobotPart for flows
+// where order matters (e.g. module reload).
+func (c *viamClient) updateRobotPartFromMap(
+	ctx context.Context, part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp,
+) error {
+	confJSON, err := json.Marshal(confMap)
+	if err != nil {
+		return errors.Wrap(err, "marshaling robot config")
+	}
+	return c.updateRobotPart(ctx, part, string(confJSON), lastKnownUpdate)
 }
 
 func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr, partStr string, errorsOnly bool,
@@ -5205,11 +5489,11 @@ func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr
 		return nil, err
 	}
 
-	// Use page tokens to get batches of 100 up to numLogs and throw away any
-	// extra logs in last batch.
-	logs := make([]*commonpb.LogEntry, 0, numLogs)
+	// Page through logs until exhausted, or until numLogs is reached when the user capped it.
+	// `numLogs` is unvalidated user input, so let append grow rather than preallocating from it.
+	var logs []*commonpb.LogEntry
 	var pageToken string
-	for i := 0; i < numLogs; {
+	for {
 		resp, err := c.client.GetRobotPartLogs(ctx, &apppb.GetRobotPartLogsRequest{
 			Id:         part.Id,
 			ErrorsOnly: errorsOnly,
@@ -5221,22 +5505,27 @@ func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr
 			return nil, err
 		}
 
-		pageToken = resp.NextPageToken
-		// Break in the event of no logs in GetRobotPartLogsResponse or when
-		// page token is empty (no more pages).
-		if resp.Logs == nil || pageToken == "" {
+		if len(resp.Logs) == 0 {
 			break
 		}
 
 		// Truncate this intermediate slice of resp.Logs based on how many logs
 		// are still required by numLogs.
-		remainingLogsNeeded := numLogs - i
-		if remainingLogsNeeded < len(resp.Logs) {
-			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		if numLogs > 0 {
+			if remainingLogsNeeded := numLogs - len(logs); remainingLogsNeeded < len(resp.Logs) {
+				resp.Logs = resp.Logs[:remainingLogsNeeded]
+			}
 		}
 		logs = append(logs, resp.Logs...)
 
-		i += len(resp.Logs)
+		if numLogs > 0 && len(logs) >= numLogs {
+			break
+		}
+
+		// End of pagination if there is no next page token.
+		if pageToken = resp.NextPageToken; pageToken == "" {
+			break
+		}
 	}
 
 	return logs, nil
@@ -5460,6 +5749,7 @@ func (c *viamClient) connectToRobot(
 	rpcOpts []rpc.DialOption,
 	debug bool,
 	logger logging.Logger,
+	extraOpts ...client.RobotClientOption,
 ) (*client.RobotClient, error) {
 	if debug {
 		printf(c.c.Root().Writer, "Establishing connection...")
@@ -5473,8 +5763,18 @@ func (c *viamClient) connectToRobot(
 	}
 	clientOpts := []client.RobotClientOption{
 		client.WithDialOptions(rpcOpts...),
-		client.WithCheckConnectedEvery(globalArgs.CheckConnectedEvery),
+		client.WithCheckConnectedEvery(globalArgs.CheckConnectionInterval),
+		// The default retries immediately with no backoff, multiplying the wait when the machine
+		// is offline - the common failure here. One attempt keeps the command responsive.
+		client.WithInitialDialAttempts(1),
+		// CLI commands read the resource list once after connecting and never re-read it, so a
+		// periodic refresh is pure churn - and error noise when enumeration is what's failing.
+		client.WithRefreshEvery(0),
+		// the CLI only uses compiled-in APIs, so the descriptors cost a connection and buy
+		// nothing
+		client.WithoutRPCSubtypes(),
 	}
+	clientOpts = append(clientOpts, extraOpts...)
 	robotClient, err := client.New(dialCtx, fqdn, logger, clientOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
@@ -5979,14 +6279,46 @@ func (c *viamClient) copyFilesFromMachine(
 		utils.UncheckedError(closeClient(ctx))
 	}()
 
-	// prepare a factory that understands how to work with our local filesystem.
+	// prepare a factory that understands how to work with our local filesystem. It is
+	// stateless across attempts, and a failed copy errors on the machine before any
+	// metadata comes back, so no copier is ever made for one.
 	factory, err := shell.NewLocalFileCopyFactory(destination, preserve, false)
 	if err != nil {
 		return err
 	}
 
+	// A machine whose viam-server predates shell.ViamHomePrefix cannot expand it, so try
+	// the path the CLI used to hardcode too. Retried on this connection rather than by
+	// the caller, since dialing the machine again would cost far more than the copy.
+	attempts := [][]string{paths}
+	if len(paths) == 1 {
+		if legacy, ok := legacyViamHomePath(paths[0]); ok {
+			attempts = append(attempts, []string{legacy})
+		}
+	}
+
 	// let the shell service figure out how to grab the files for and pass them to our copier.
-	return shellSvc.CopyFilesFromMachine(ctx, paths, allowRecursion, preserve, factory, nil)
+	// The first attempt's error is the one worth reporting, since that is the path we
+	// expect to work.
+	var firstErr error
+	for i, attempt := range attempts {
+		err := shellSvc.CopyFilesFromMachine(ctx, attempt, allowRecursion, preserve, factory, nil)
+		if err == nil {
+			if i > 0 {
+				// Never hand back files from a path the caller did not ask for without
+				// saying so: on a machine mid-migration to viam-agent this directory can
+				// still hold stale data from before the move.
+				warningf(c.c.Root().Writer,
+					"%s could not be resolved by this machine, copied from %s instead",
+					shell.ViamHomePrefix, strings.Join(attempt, " "))
+			}
+			return nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
@@ -6250,7 +6582,7 @@ type createOAuthAppArgs struct {
 	Pkce                 string
 	LogoutURI            string
 	InviteRedirectURI    string
-	UrlValidation        string //nolint:revive,stylecheck
+	UrlValidation        string //nolint:revive
 	OriginURIs           []string
 	RedirectURIs         []string
 	EnabledGrants        []string
@@ -6301,7 +6633,7 @@ type updateOAuthAppArgs struct {
 	Pkce                 string
 	LogoutURI            string
 	InviteRedirectURI    string
-	UrlValidation        string //nolint:revive,stylecheck
+	UrlValidation        string //nolint:revive
 	OriginURIs           []string
 	RedirectURIs         []string
 	EnabledGrants        []string

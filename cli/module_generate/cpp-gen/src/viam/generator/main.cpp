@@ -47,7 +47,7 @@ OUTPUT DIRECTORY HELP:
 The directory option (-d) is used to automatically deduced output file names to be created
 in a directory prefix. Given -d generator/output/directory, the output file will be
 deduced from either the quick exit options, or the appropriate directory and filenames
-from the source file input. For example, /path/to/components/arm.cpp will generate an
+from the source file input. For example, /path/to/components/arm.hpp will generate an
 arm.hpp.in and arm.cpp.in in the output directory. This implies in particular that the
 output directory must already contain components/ and services/ subdirectories.
 
@@ -104,21 +104,21 @@ int main(int argc, const char** argv) try {
         return 1;
     }
 
-    // Validate source path has a terminal .cpp file and a parent directory component
-    // (e.g. components/arm.cpp or services/motion.cpp)
+    // Validate source path has a terminal .hpp file and a parent directory component
+    // (e.g. components/arm.hpp or services/motion.hpp)
     {
         const std::string& src = SourcePath.getValue();
         auto it = llvm::sys::path::rbegin(src);
         const auto rend = llvm::sys::path::rend(src);
-        if (it == rend || !llvm::StringRef(*it).endswith(".cpp")) {
-            llvm::errs() << "Source path must end in a .cpp file "
-                            "(e.g. components/arm.cpp)\n";
+        if (it == rend || !llvm::StringRef(*it).endswith(".hpp")) {
+            llvm::errs() << "Source path must end in a .hpp file "
+                            "(e.g. components/arm.hpp)\n";
             return 1;
         }
         ++it;
         if (it == rend) {
             llvm::errs() << "Source path must include a parent directory component "
-                            "(e.g. components/arm.cpp)\n";
+                            "(e.g. components/arm.hpp)\n";
             return 1;
         }
     }

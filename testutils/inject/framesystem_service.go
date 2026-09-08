@@ -33,12 +33,8 @@ type FrameSystemService struct {
 		srcpc pointcloud.PointCloud,
 		srcName, dstName string,
 	) (pointcloud.PointCloud, error)
-	CurrentInputsFunc func(ctx context.Context) (referenceframe.FrameSystemInputs, map[string]framesystem.InputEnabled, error)
-	FrameSystemFunc   func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (*referenceframe.FrameSystem, error)
-	DoCommandFunc func(
+	CurrentInputsFunc func(ctx context.Context) (referenceframe.FrameSystemInputs, error)
+	DoCommandFunc     func(
 		ctx context.Context,
 		cmd map[string]interface{},
 	) (map[string]interface{}, error)
@@ -103,6 +99,14 @@ func (fs *FrameSystemService) TransformPointCloud(
 		return fs.Service.TransformPointCloud(ctx, srcpc, srcName, dstName)
 	}
 	return fs.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
+}
+
+// CurrentInputs calls the injected CurrentInputs or the real variant.
+func (fs *FrameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	if fs.CurrentInputsFunc == nil {
+		return fs.Service.CurrentInputs(ctx)
+	}
+	return fs.CurrentInputsFunc(ctx)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

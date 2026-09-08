@@ -1027,7 +1027,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 			},
 			{
@@ -1035,7 +1035,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 			},
 			{
@@ -1043,7 +1043,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+					ModelFilePath: "../../components/arm/kinematics/fake.json",
 				},
 			},
 		},
@@ -1282,7 +1282,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		API:   arm.API,
 		Model: fakeModel,
 		ConvertedAttributes: &fake.Config{
-			ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
+			ModelFilePath: "../../components/arm/kinematics/fake.json",
 		},
 	}
 	cfg := config.Config{
@@ -1707,6 +1707,7 @@ func TestMachineStatusPackageFirstRun(t *testing.T) {
 
 	// The first_run script connects to this listener and blocks until the test writes a
 	// line back, holding the module's package in the first-run state.
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	defer listener.Close()
@@ -1869,7 +1870,7 @@ func TestConfigMethod(t *testing.T) {
 				ImplicitDependsOn:   []string{"foo:builtin:data_manager"},
 			},
 			{
-				Name:  "builtin",
+				Name:  "nav1",
 				API:   navigation.API,
 				Model: resource.DefaultServiceModel,
 			},
@@ -1968,13 +1969,15 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:                "fake2",
+				// Distinct from the data_manager service names above: resource names must be
+				// unique across the machine regardless of type.
+				Name:                "fakeArm1",
 				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
 			{
-				Name:                "fake3",
+				Name:                "fakeArm2",
 				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
@@ -2383,17 +2386,25 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for restart attempt in logs.
+		// Wait for the new restart attempt in logs. This is the second such log:
+		// the first came from the successful testmodule restart above, so we must
+		// wait for the count to reach 2 to know the disguised-simplemodule restart
+		// has actually happened.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
-				test.ShouldBeGreaterThanOrEqualTo, 1)
+				test.ShouldBeGreaterThanOrEqualTo, 2)
 		})
-		time.Sleep(2 * time.Second)
 
-		_, err = r.ResourceByName(generic.Named("h"))
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, `resource rdk:component:generic/h not available`)
+		// simplemodule cannot manage helper 'h', so the reconfigure triggered by
+		// the restart should orphan it and make it unavailable. Poll until this
+		// happens rather than relying on a fixed sleep.
+		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+			tb.Helper()
+			_, err := r.ResourceByName(generic.Named("h"))
+			test.That(tb, err, test.ShouldNotBeNil)
+			test.That(tb, err.Error(), test.ShouldContainSubstring, `resource rdk:component:generic/h not available`)
+		})
 
 		// Also assert that testmodule's resources were deregistered.
 		_, ok := resource.LookupRegistration(generic.API, helperModel)
@@ -2871,9 +2882,80 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	})
 }
 
+func TestReconfigureActivityEvents(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
+	ctx := context.Background()
+
+	cfg := &config.Config{
+		Initial: true,
+		Components: []resource.Config{
+			{
+				Name:  "b1",
+				API:   base.API,
+				Model: fakeModel,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
+
+	// reconfigureEvents returns (event, reconfigure_type) pairs in emission order.
+	reconfigureEvents := func() [][2]string {
+		var events [][2]string
+		for _, entry := range activityLogs.All() {
+			fields := entry.ContextMap()
+			if fields["activity"] != "reconfigure" {
+				continue
+			}
+			events = append(events, [2]string{fmt.Sprint(fields["event"]), fmt.Sprint(fields["reconfigure_type"])})
+		}
+		return events
+	}
+
+	// The Initial config pass is a construction, even though r.initializing is not yet
+	// set at pass entry (the flag lags by one pass; labels derive from newConfig.Initial).
+	test.That(t, reconfigureEvents(), test.ShouldResemble, [][2]string{
+		{"start", "construction"},
+		{"complete", "construction"},
+	})
+
+	cfg2 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "b1",
+				API:   base.API,
+				Model: fakeModel,
+			},
+			{
+				Name:  "b2",
+				API:   base.API,
+				Model: fakeModel,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	test.That(t, reconfigureEvents(), test.ShouldResemble, [][2]string{
+		{"start", "construction"},
+		{"complete", "construction"},
+		{"start", "reconfiguration"},
+		{"complete", "reconfiguration"},
+	})
+
+	// Terminal events carry a duration.
+	for _, entry := range activityLogs.All() {
+		fields := entry.ContextMap()
+		if fields["activity"] == "reconfigure" && fields["event"] == "complete" {
+			test.That(t, fields["duration"], test.ShouldNotBeEmpty)
+			test.That(t, fields["duration_us"], test.ShouldBeGreaterThan, 0)
+		}
+	}
+}
+
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
@@ -3055,7 +3137,7 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
 		test.ShouldEqual, 3)
 
-	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+	test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 6)
 
 	// Assert that helper and other are only constructed after module
 	// crash/successful restart and not `Reconfigure`d.
@@ -3070,7 +3152,7 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 8)
+		test.That(tb, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 8)
 	})
 
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
@@ -3918,7 +4000,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("frame_system"),
-					Name: "builtin",
+					Name: "$frame_system",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -3928,7 +4010,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-					Name: "builtin",
+					Name: "$cloud_connection",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -3938,7 +4020,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-					Name: "builtin",
+					Name: "$packagemanager",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -3948,7 +4030,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-					Name: "builtin",
+					Name: "$web",
 				},
 				State: resource.NodeStateReady,
 			},

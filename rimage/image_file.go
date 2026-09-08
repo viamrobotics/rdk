@@ -501,5 +501,5 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) { //nolint:unparam
 	bb = uint8(b)
 	a >>= 8
 	aa = uint8(a)
-	return
+	return rr, gg, bb, aa
 }

@@ -45,6 +45,7 @@ import (
 
 func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -501,6 +502,7 @@ func TestClient(t *testing.T) {
 
 func TestClientProperties(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -622,6 +624,7 @@ func TestClientProperties(t *testing.T) {
 func TestClientWithInterceptor(t *testing.T) {
 	// Set up gRPC server
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -686,6 +689,7 @@ func TestClientWithInterceptor(t *testing.T) {
 func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	camName := "rtp_passthrough_camera"
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -913,7 +917,6 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
@@ -924,6 +927,8 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 // TestWhyMustTimeoutOnReadRTP shows that if we don't timeout on ReadRTP (and also don't call RemoveStream) on close
 // calling Close() on main's camera client blocks forever if there is a live SubscribeRTP subscription with a remote
 // due to the fact that the TrackRemote.ReadRTP method blocking forever.
+//
+//nolint:lll
 func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
@@ -1079,8 +1084,14 @@ func TestGrandRemoteRebooting(t *testing.T) {
 		},
 	}
 
-	// Create a robot with a single fake camera.
-	options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	// Create a robot with a single fake camera. remote-2 is shut down and brought back up on
+	// the same address later in this test. Hold its port so that it stays bound while remote-2
+	// is down: the port is an OS assigned ephemeral one, so otherwise anything else on the
+	// machine (another test binary reserving a random listener, an outgoing connection) can
+	// claim it in the meantime and binding it again fails with "address already in use".
+	options2, lis2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	hold2 := testutils.HoldPort(t, lis2)
+	options2.Network.Listener = hold2
 	remote2Ctx, remoteRobot2, remoteWebSvc2 := setupRealRobotWithOptions(t, remoteCfg2, logger.Sublogger("remote-2"), options2)
 
 	remoteCfg1 := &config.Config{
@@ -1197,14 +1208,12 @@ Loop:
 	// remote-1 which can be detectd
 	// by the fact that sub.Terminated.Done() is always the path this test goes down
 
-	logger.Infow("old robot address", "address", addr2)
-	tcpAddr, ok := options2.Network.Listener.Addr().(*net.TCPAddr)
-	test.That(t, ok, test.ShouldBeTrue)
-	newListener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: tcpAddr.Port})
-	test.That(t, err, test.ShouldBeNil)
-	options2.Network.Listener = newListener
+	// Re-arm the held listener so the second instance of remote-2 serves on the very same
+	// socket the first instance used. The port was never released, so there was no window for
+	// something else to claim it.
+	hold2.Rearm(t)
 
-	logger.Infof("setting up new robot at address %s", newListener.Addr().String())
+	logger.Infof("setting up new robot at address %s", addr2)
 
 	remote2CtxSecond, remoteRobot2Second, remoteWebSvc2Second := setupRealRobotWithOptions(
 		t,

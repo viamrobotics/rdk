@@ -330,7 +330,7 @@ func TestPirouette(t *testing.T) {
 	}
 	// get arm kinematics for forward kinematics
 	armName := "ur5e"
-	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
 	idealJointValues := pirIdealJointValues

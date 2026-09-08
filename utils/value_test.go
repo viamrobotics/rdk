@@ -41,6 +41,7 @@ func TestFilterMap(t *testing.T) {
 
 func TestTesting(t *testing.T) {
 	test.That(t, Testing(), test.ShouldBeTrue)
+	//nolint: noctx
 	cmd := exec.Command("go", "run", "./test_detector")
 	cmd.Start()
 	cmd.Wait()

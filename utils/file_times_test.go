@@ -8,7 +8,7 @@ import (
 
 func TestGetFileTimes(t *testing.T) {
 	// Create a temporary test file
-	tmpFile, err := os.CreateTemp("", "test_file_times_*.txt")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "test_file_times_*.txt")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}

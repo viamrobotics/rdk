@@ -244,7 +244,10 @@ func ProjectOrientationTo2dRotation(pose Pose) (Pose, error) {
 		return nil, errors.New("orientation appears to be pointing straight down, cannot project to 2d")
 	}
 	// This is the vector across the ground of the above hypothetical vector, projected onto the X-Y plane.
-	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)
+	// adjPt starts at +Y, so a pure Z rotation of psi sends it to (-sin(psi), cos(psi), 0); atan2(-X, Y) recovers psi.
+	// Argument order matters here: swapping it collapses to psi-90deg and makes this discontinuous with the
+	// in-plane early return above.
+	theta := math.Atan2(-newAdjPt.X, newAdjPt.Y)
 	return NewPose(pose.Point(), &OrientationVector{OZ: 1, Theta: theta}), nil
 }
 

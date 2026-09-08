@@ -126,7 +126,10 @@ func uploadArbitraryFile(
 		return 0, "", errors.Wrap(err, "FileUpload failed sending metadata")
 	}
 
-	if err := sendFileUploadRequests(ctx, stream, f, path, logger, bytesUploadingCounter); err != nil {
+	// Log throttled progress of the upload at Info level.
+	progress := newUploadProgressLogger(logger, clock, path, info.Size())
+
+	if err := sendFileUploadRequests(ctx, stream, f, path, logger, bytesUploadingCounter, progress); err != nil {
 		return 0, "", errors.Wrap(err, "FileUpload failed to sync")
 	}
 
@@ -135,6 +138,7 @@ func uploadArbitraryFile(
 	if err != nil {
 		return 0, "", errors.Wrap(err, "FileUpload  CloseAndRecv failed")
 	}
+	progress.complete()
 	return uint64(info.Size()), resp.GetBinaryDataId(), nil
 }
 
@@ -145,6 +149,7 @@ func sendFileUploadRequests(
 	path string,
 	logger logging.Logger,
 	bytesUploadingCounter *atomic.Uint64,
+	progress *uploadProgressLogger,
 ) error {
 	// Loop until there is no more content to be read from file.
 	i := 0
@@ -169,12 +174,13 @@ func sendFileUploadRequests(
 			return err
 		}
 
-		// Update byte counter after successful chunk upload.
-		if bytesUploadingCounter != nil {
-			if fileContents := uploadReq.GetFileContents(); fileContents != nil {
-				chunkSize := uint64(len(fileContents.Data))
-				bytesUploadingCounter.Add(chunkSize)
+		// Update byte counter and progress logging after successful chunk upload.
+		if fileContents := uploadReq.GetFileContents(); fileContents != nil {
+			chunkSize := len(fileContents.Data)
+			if bytesUploadingCounter != nil {
+				bytesUploadingCounter.Add(uint64(chunkSize))
 			}
+			progress.addBytes(chunkSize)
 		}
 
 		i++

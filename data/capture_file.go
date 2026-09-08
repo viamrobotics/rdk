@@ -34,6 +34,10 @@ var ErrSensorMetadataTooLarge = errors.New("SensorMetadata field exceeds size li
 // be streamed due to an unexpected wire format (e.g. unknown wire type).
 var ErrUnparsableBinaryCapture = errors.New("capture file cannot be streamed due to unexpected wire format")
 
+// ErrFileClosed is returned by read and write methods called after the capture
+// file has been closed (via Close or Delete). It matches errors.Is(err, os.ErrClosed).
+var ErrFileClosed = fmt.Errorf("capture file already closed: %w", os.ErrClosed)
+
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
 const (
@@ -72,6 +76,7 @@ type CaptureFile struct {
 	writer   *bufio.Writer
 	size     int64
 	metadata *v1.DataCaptureMetadata
+	closed   bool
 
 	initialReadOffset int64
 	readOffset        int64
@@ -127,6 +132,7 @@ func NewCaptureFile(dir string, md *v1.DataCaptureMetadata) (*CaptureFile, error
 		path:              f.Name(),
 		writer:            bufio.NewWriter(f),
 		file:              f,
+		metadata:          md,
 		size:              int64(n),
 		initialReadOffset: int64(n),
 		readOffset:        int64(n),
@@ -143,6 +149,9 @@ func (f *CaptureFile) ReadMetadata() *v1.DataCaptureMetadata {
 func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	if f.closed {
+		return nil, ErrFileClosed
+	}
 
 	if err := f.writer.Flush(); err != nil {
 		return nil, err
@@ -165,6 +174,9 @@ func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 func (f *CaptureFile) WriteNext(data *v1.SensorData) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	if f.closed {
+		return ErrFileClosed
+	}
 
 	if _, err := f.file.Seek(f.writeOffset, 0); err != nil {
 		return err
@@ -178,10 +190,14 @@ func (f *CaptureFile) WriteNext(data *v1.SensorData) error {
 	return nil
 }
 
-// Flush flushes any buffered writes to disk.
+// Flush flushes any buffered writes to disk. A closed file has no buffered
+// writes, so flushing it is a no-op rather than an error.
 func (f *CaptureFile) Flush() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	if f.closed {
+		return nil
+	}
 	return f.writer.Flush()
 }
 
@@ -199,15 +215,25 @@ func (f *CaptureFile) Size() int64 {
 	return f.size
 }
 
-// GetPath returns the path of the underlying os.File.
+// GetPath returns the file's current on-disk path, accounting for the
+// .prog → .capture rename performed by a successful Close.
 func (f *CaptureFile) GetPath() string {
+	f.lock.Lock()
+	defer f.lock.Unlock()
 	return f.path
 }
 
-// Close closes the file.
+// Close flushes buffered writes, closes the underlying file, and renames it
+// from .prog to .capture to mark it complete. It is idempotent: calls after the
+// underlying file has been closed (by Close or Delete) return nil, so callers
+// retrying after a failure (e.g. a failed rename) don't hit "file already
+// closed" errors forever (RSDK-14184).
 func (f *CaptureFile) Close() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	if f.closed {
+		return nil
+	}
 	if err := f.writer.Flush(); err != nil {
 		return err
 	}
@@ -218,17 +244,26 @@ func (f *CaptureFile) Close() error {
 	if err := f.file.Close(); err != nil {
 		return err
 	}
-	return os.Rename(f.file.Name(), newName)
+	f.closed = true
+	if err := os.Rename(f.file.Name(), newName); err != nil {
+		return err
+	}
+	f.path = newName
+	return nil
 }
 
-// Delete deletes the file.
+// Delete deletes the file. It closes the underlying file descriptor if Close
+// has not already done so, then removes the file at its current on-disk path.
 func (f *CaptureFile) Delete() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	if err := f.file.Close(); err != nil {
-		return err
+	if !f.closed {
+		if err := f.file.Close(); err != nil {
+			return err
+		}
+		f.closed = true
 	}
-	return os.Remove(f.GetPath())
+	return os.Remove(f.path)
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
@@ -318,6 +353,9 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reader, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	if f.closed {
+		return nil, 0, nil, ErrFileClosed
+	}
 
 	// Seek to where we left off. seekOffset is captured before the seek so we can
 	// compute absolute file positions for the SectionReader later.

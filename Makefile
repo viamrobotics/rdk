@@ -8,6 +8,8 @@ endif
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 BUILD_CHANNEL ?= local
+# Include mise in path.
+export PATH := $(HOME)/.local/bin:$(PATH)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
@@ -30,6 +32,7 @@ default: build lint server
 
 setup:
 	bash etc/setup.sh
+	mise install -y
 
 build: build-go
 
@@ -56,6 +59,29 @@ cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 		cp $< bin/deploy-ci/viam-cli-$(CI_RELEASE)-$(GOOS)-$(GOARCH)$(EXE_SUFFIX); \
 	fi
 
+NFPM_VERSION = v2.47.0
+GAR_PROJECT ?= static-file-server-310021
+GAR_REPO ?= viam
+GAR_LOCATION ?= us
+
+# GOOS=linux GOARCH=amd64|arm64 make deb-cli; set TAG_VERSION on a dirty tree (nfpm rejects empty)
+.PHONY: deb-cli
+deb-cli: bin/linux-$(GOARCH)/viam-cli
+	mkdir -p bin/deb
+	sed -e 's/$${DEB_ARCH}/$(GOARCH)/g' -e 's/$${DEB_VERSION}/$(TAG_VERSION)/g' \
+		etc/packaging/nfpm/viam-cli.yaml > bin/deb/.nfpm-$(GOARCH).yaml
+	# GOTOOLCHAIN=auto: nfpm needs a newer Go than go.mod; CI's setup-go pins GOTOOLCHAIN=local
+	GOOS= GOARCH= GOTOOLCHAIN=auto go run github.com/goreleaser/nfpm/v2/cmd/nfpm@$(NFPM_VERSION) package \
+		--config bin/deb/.nfpm-$(GOARCH).yaml --packager deb --target bin/deb/
+
+# needs gcloud auth with artifactregistry.writer; re-runs skip versions already in the repo
+.PHONY: deb-cli-upload
+deb-cli-upload:
+	for deb in bin/deb/*.deb; do \
+		out=$$(gcloud artifacts apt upload $(GAR_REPO) --project=$(GAR_PROJECT) --location=$(GAR_LOCATION) --source=$$deb 2>&1) \
+			|| { echo "$$out" | grep -qi "already exists" && echo "skipping $$deb: already in repo" || { echo "$$out"; exit 1; }; }; \
+	done
+
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/AlekSi/gocov-xml \
@@ -72,14 +98,8 @@ actionlint:
 generate-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
-# Yes this regex could be more specific but making it more specific in a way
-# that works the same across GNU and BSD grep isn't currently worth the effort.
-GOVERSION = $(shell grep '^go .\..' go.mod | head -n1 | cut -d' ' -f2)
 lint-go:
-	go mod tidy
-	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
-	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml
-	./etc/lint_register_apis.sh
+	mise run lint-go
 
 cover-only: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover

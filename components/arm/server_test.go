@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -31,6 +32,9 @@ var (
 	errGeometriesUnimplemented   = errors.New("Geometries unimplemented")
 	errArmUnimplemented          = errors.New("not found")
 	errGetStatusFailed           = errors.New("can't get status")
+	errPropertiesFailed          = errors.New("can't get properties")
+	errSetManualModeFailed       = errors.New("can't set manual mode")
+	errManualModeFailed          = errors.New("can't get manual mode")
 )
 
 func newServer(logger logging.Logger) (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
@@ -418,6 +422,78 @@ func TestServer(t *testing.T) {
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
+	})
+
+	t.Run("get properties", func(t *testing.T) {
+		injectArm.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (arm.Properties, error) {
+			extraOptions = extra
+			return arm.Properties{SupportManualMode: true, SupportCartesianCommands: true}, nil
+		}
+		injectArm2.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (arm.Properties, error) {
+			return arm.Properties{}, errPropertiesFailed
+		}
+
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "Properties"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := armServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testArmName, Extra: ext})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.SupportManualMode, test.ShouldBeTrue)
+		test.That(t, resp.SupportCartesianCommands, test.ShouldBeTrue)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Properties"})
+
+		_, err = armServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: failArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPropertiesFailed.Error())
+	})
+
+	t.Run("set manual mode", func(t *testing.T) {
+		var capManualMode bool
+		var capEnabledFor time.Duration
+		injectArm.SetManualModeFunc = func(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error {
+			capManualMode = manualMode
+			capEnabledFor = enabledFor
+			extraOptions = extra
+			return nil
+		}
+		injectArm2.SetManualModeFunc = func(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error {
+			return errSetManualModeFailed
+		}
+
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "SetManualMode"})
+		test.That(t, err, test.ShouldBeNil)
+		_, err = armServer.SetManualMode(
+			context.Background(),
+			&pb.SetManualModeRequest{Name: testArmName, ManualMode: true, EnabledFor: 90, Extra: ext},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capManualMode, test.ShouldBeTrue)
+		test.That(t, capEnabledFor, test.ShouldEqual, 90*time.Second)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "SetManualMode"})
+
+		_, err = armServer.SetManualMode(context.Background(), &pb.SetManualModeRequest{Name: failArmName, ManualMode: true})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errSetManualModeFailed.Error())
+	})
+
+	t.Run("get manual mode", func(t *testing.T) {
+		injectArm.ManualModeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+			extraOptions = extra
+			return true, nil
+		}
+		injectArm2.ManualModeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+			return false, errManualModeFailed
+		}
+
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "ManualMode"})
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := armServer.GetManualMode(context.Background(), &pb.GetManualModeRequest{Name: testArmName, Extra: ext})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.ManualMode, test.ShouldBeTrue)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "ManualMode"})
+
+		_, err = armServer.GetManualMode(context.Background(), &pb.GetManualModeRequest{Name: failArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errManualModeFailed.Error())
 	})
 
 	t.Run("GetStatus", func(t *testing.T) {

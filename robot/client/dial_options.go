@@ -96,6 +96,12 @@ func WithTLSConfig(config *tls.Config) DialOption {
 
 // WithWebRTCOptions returns a DialOption which sets the WebRTC options to use if the
 // dialer tries to establish a WebRTC connection.
+//
+// Note: this sets the complete DialWebRTCOptions base struct, replacing WebRTC
+// options set before it. The granular ICE/TURN options (WithForceP2P,
+// WithForceRelay, WithTurn*) are meant to layer on top, so pass them after
+// WithWebRTCOptions and they override just their own fields. The base struct is
+// typically set first (often by the dialer), so this ordering is the norm.
 func WithWebRTCOptions(webrtcOpts DialWebRTCOptions) DialOption {
 	return rpc.WithWebRTCOptions(webrtcOpts)
 }
@@ -136,4 +142,67 @@ func WithDisableDirectGRPC() DialOption {
 // WebRTC connections and mDNS lookup.
 func WithForceDirectGRPC() DialOption {
 	return rpc.WithForceDirectGRPC()
+}
+
+// WithForceP2P returns a DialOption which forces ICE connections to use only
+// non-relay candidates (host, server-reflexive, and peer-reflexive) by
+// stripping TURN servers.
+//
+// Note: this sets only its own field, layering on top of any WithWebRTCOptions.
+// Apply it after WithWebRTCOptions, since a later WithWebRTCOptions replaces the
+// entire struct and would overwrite this.
+func WithForceP2P() DialOption {
+	return rpc.WithForceP2P()
+}
+
+// WithForceRelay returns a DialOption which forces ICE connections to use relay
+// (TURN) candidates only.
+//
+// Note: this sets only its own field, layering on top of any WithWebRTCOptions.
+// Apply it after WithWebRTCOptions, since a later WithWebRTCOptions replaces the
+// entire struct and would overwrite this.
+func WithForceRelay() DialOption {
+	return rpc.WithForceRelay()
+}
+
+// WithTurnURI returns a DialOption which filters the signaling server's TURN
+// list down to the server whose parsed URI matches uri (e.g.
+// "turn:turn.viam.com:443"). Has no effect when ForceP2P is set, since TURN
+// servers are stripped in that case.
+//
+// Note: this sets only its own field, layering on top of any WithWebRTCOptions.
+// Apply it after WithWebRTCOptions, since a later WithWebRTCOptions replaces the
+// entire struct and would overwrite this.
+func WithTurnURI(uri string) DialOption {
+	return rpc.WithTurnURI(uri)
+}
+
+// WithTurnScheme returns a DialOption which overrides the scheme ("turn" or
+// "turns") of the URI matched by WithTurnURI.
+//
+// Note: this sets only its own field, layering on top of any WithWebRTCOptions.
+// Apply it after WithWebRTCOptions, since a later WithWebRTCOptions replaces the
+// entire struct and would overwrite this.
+func WithTurnScheme(scheme string) DialOption {
+	return rpc.WithTurnScheme(scheme)
+}
+
+// WithTurnTransport returns a DialOption which overrides the transport ("tcp" or
+// "udp") of the URI matched by WithTurnURI.
+//
+// Note: this sets only its own field, layering on top of any WithWebRTCOptions.
+// Apply it after WithWebRTCOptions, since a later WithWebRTCOptions replaces the
+// entire struct and would overwrite this.
+func WithTurnTransport(transport string) DialOption {
+	return rpc.WithTurnTransport(transport)
+}
+
+// WithTurnPort returns a DialOption which overrides the port of the URI matched
+// by WithTurnURI. A port of 0 means no override.
+//
+// Note: this sets only its own field, layering on top of any WithWebRTCOptions.
+// Apply it after WithWebRTCOptions, since a later WithWebRTCOptions replaces the
+// entire struct and would overwrite this.
+func WithTurnPort(port int) DialOption {
+	return rpc.WithTurnPort(port)
 }

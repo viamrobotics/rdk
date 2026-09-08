@@ -143,8 +143,11 @@ jobs:
   license_finder:
     uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
 
+  # Name the states we want rather than negating success(): a `needs` job that is
+  # skipped (release gating above) is also "not success", which made !success()
+  # fire on green runs.
   slack-workflow-status:
-    if: ${{ !success() && inputs.release_type != 'pr' && !inputs.no_prod_upload }}
+    if: ${{ (failure() || cancelled()) && inputs.release_type != 'pr' && !inputs.no_prod_upload }}
     name: Post Workflow Status To Slack
     needs:
       - test

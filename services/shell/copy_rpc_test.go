@@ -458,6 +458,30 @@ func TestShellRPCCopyWriterTo(t *testing.T) {
 		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.NotFound)
 	})
 
+	t.Run("terminal server status wins over a bare stream-context cancellation", func(t *testing.T) {
+		// mimic the real webrtc client stream, whose context is canceled with a bare
+		// context.Canceled cause. If that cancellation races ahead of the server status,
+		// we must still surface the status (NotFound), not "context canceled".
+		streamCtx, cancelStream := context.WithCancel(context.Background())
+		fake := newFakeCopyFilesToMachineClient()
+		fake.ctx = streamCtx
+		writer := newShellRPCCopyWriterTo(fake)
+
+		terminalErr := status.Error(codes.NotFound, `"/some/dir" does not exist or is not a directory`)
+		// cancel the stream context first (bare cause), then deliver the real status.
+		cancelStream()
+		fake.recvCh <- copyToMachineRecv{err: terminalErr}
+		<-writer.ctx.Done()
+
+		err := writer.SendFile(&pb.FileData{Name: "foo", Data: []byte("data")})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.NotFound)
+
+		err = writer.WaitLastACK()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.NotFound)
+	})
+
 	t.Run("WaitLastACK returns nil per ACK and prefers a buffered ACK over EOF", func(t *testing.T) {
 		fake := newFakeCopyFilesToMachineClient()
 		writer := newShellRPCCopyWriterTo(fake)

@@ -158,6 +158,10 @@ func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, flo
 		// Use fast collision check for box
 		col, d := capsuleVsBoxCollision(c, other, collisionBufferMM)
 		return col, d, nil
+	case *Mesh:
+		// Mesh's BVH walk (witness caching, early exit) is far cheaper than the
+		// exact per-triangle distance scan DistanceFrom would run.
+		return other.CollidesWith(c, collisionBufferMM)
 	default:
 		// For other types, distance calculation is relatively cheap
 		dist, err := c.DistanceFrom(g)
@@ -220,24 +224,34 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 	s := &sphere{pose: NewZeroPose(), radius: c.radius}
 	vecList := s.ToPoints(resolution)
 	// move points to be correctly located on capsule endcaps
+	// (this previously ranged over value copies, leaving every endcap point
+	// unmoved at the center)
 	adj := c.length/2 - c.radius
-	for _, pt := range vecList {
-		if pt.Z >= 0 {
-			pt.Z += adj
+	for i := range vecList {
+		if vecList[i].Z >= 0 {
+			vecList[i].Z += adj
 		} else {
-			pt.Z -= adj
+			vecList[i].Z -= adj
 		}
 	}
 
-	// Now distribute points along the cylindrical shaft
+	// Now distribute points along the cylindrical shaft, which spans
+	// [-(l/2 - r), +(l/2 - r)] about the center - the same frame the endcap
+	// points were placed in above. (This previously spanned (0, l), placing
+	// shaft points off-center and beyond the capsule's actual surface.)
+	shaftLen := c.length - 2*c.radius
 	totalShaftPts := (c.radius * c.length) * resolution
 	ptsPerRing := totalShaftPts / (c.length * resolution)
 	ringCnt := math.Floor(totalShaftPts / ptsPerRing)
-	zInc := c.length / (ringCnt + 1)
+	zInc := shaftLen / (ringCnt + 1)
 	for ring := 1.; ring <= ringCnt; ring++ {
 		for ringPt := 0.; ringPt < ptsPerRing; ringPt++ {
 			theta := 2. * math.Pi * (ringPt / ptsPerRing)
-			vecList = append(vecList, r3.Vector{math.Cos(theta) * c.radius, math.Sin(theta) * c.radius, zInc * ring})
+			vecList = append(vecList, r3.Vector{
+				X: math.Cos(theta) * c.radius,
+				Y: math.Sin(theta) * c.radius,
+				Z: -shaftLen/2 + zInc*ring,
+			})
 		}
 	}
 
@@ -292,22 +306,24 @@ func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 // IMPORTANT: meshes are not considered solid. A mesh is not guaranteed to represent an enclosed area. This will measure ONLY the distance
 // to the closest triangle in the mesh.
 func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
+	// Distances are preserved under rigid transforms, so rather than transforming
+	// every triangle into world space (which allocates per triangle), bring the
+	// capsule's segment into the mesh's local frame once and scan the triangles
+	// where they already live.
+	inv := PoseInverse(other.pose)
+	q := inv.Orientation().Quaternion()
+	t := inv.Point()
+	segA := TransformPoint(q, t, c.segA)
+	segB := TransformPoint(q, t, c.segB)
 	lowDist := math.Inf(1)
-	for _, t := range other.triangles {
-		// Measure distance to each mesh triangle
-		// Make sure the triangle is transformed by the pose of the mesh to ensure that it is properly positioned
-		properlyPositionedTriangle := t.Transform(other.pose).(*Triangle)
-		dist := capsuleVsTriangleDistance(c, properlyPositionedTriangle)
+	for _, tri := range other.triangles {
+		capPt, triPt := ClosestPointsSegmentTriangle(segA, segB, tri)
+		dist := capPt.Sub(triPt).Norm()
 		if dist < lowDist {
 			lowDist = dist
 		}
 	}
-	return lowDist
-}
-
-func capsuleVsTriangleDistance(c *capsule, other *Triangle) float64 {
-	capPt, triPt := ClosestPointsSegmentTriangle(c.segA, c.segB, other)
-	return capPt.Sub(triPt).Norm() - c.radius
+	return lowDist - c.radius
 }
 
 // capsuleInCapsule returns a bool describing if the inner capsule is fully encompassed by the outer capsule.

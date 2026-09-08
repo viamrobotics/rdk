@@ -236,11 +236,11 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-16-core
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-arm-16-core
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64
             platform: linux/arm64
             platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
@@ -286,11 +286,21 @@ jobs:
         if: needs.check-changes.outputs.skip_module == 'true'
         run: echo "SKIP_MODULE=true" >> $GITHUB_ENV
 
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
       - name: Run go unit tests
+        env:
+          # The devenv images have the C++ runtime the prebuilt trajex archives
+          # need, so include the trajex-backed arm-streaming code and its tagged
+          # tests, matching the viam-server shipped on linux amd64/arm64. See
+          # GO_BUILD_TAGS_EXTRA in the Makefile and etc/test.sh.
+          GO_BUILD_TAGS_EXTRA: viam_rdk_cgo_have_cxx20_rt
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           sudo apt-get update && sudo apt-get install -y python3-venv
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE -Hu testbot bash -lc 'make test-go'
+          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE,GO_BUILD_TAGS_EXTRA -Hu testbot bash -lc 'make test-go'
 
       - name: Upload test.json
         if: always()
@@ -319,14 +329,34 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
           allow-unsafe-pr-checkout: true
-      - uses: actions/setup-go@v6
+
+      - name: Install toolchain
+        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+
+      # Use this action just to save and restore the golangci-lint cache. The
+      # binary is actually installed by mise in the previous step and executed
+      # as part of a make/mise target in the following step. The weird looking
+      # combination of `install-only` and `install-mode` does still let the
+      # caching parts of the action run. We should probably verify if that's
+      # still the case if we ever change this version because there's a good
+      # chance the current behavior was not intentional on the part of the
+      # authors.
+      - name: golangci-lint
+        # golangci/golangci-lint-action@9.3.0
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+        with:
+          install-mode: 'none' # already installed by mise
+          install-only: true
+          cache-invalidation-interval: 1 # days
 
       - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
         run: |
           git init && git add .
-          make build-go lint-go generate-go
+          LINT_DRY_RUN=1 make build-go lint-go generate-go
           GEN_DIFF=$(git status -s)
           if [ -n "$GEN_DIFF" ]; then
               echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2
@@ -439,7 +469,9 @@ jobs:
           echo "SKIP_MODULE set; excluding module, module/modmanager, and example module tests"
           TEST_TARGET=$(echo "$TEST_TARGET" | grep -vE '^go\.viam\.com/rdk/(module|module/modmanager|examples/customresources/demos/.*/moduletest)$')
         fi
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $TEST_TARGET
+        # viam_rdk_cgo_have_cxx20_rt includes the trajex-backed arm-streaming
+        # code and its tagged tests (prebuilt darwin_arm64 trajex archives).
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log -- -tags=viam_rdk_cgo_have_cxx20_rt $TEST_TARGET
 
     - name: Upload test.json
       if: always()

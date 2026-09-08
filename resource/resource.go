@@ -248,7 +248,7 @@ var ErrDoUnimplemented = errors.New("DoCommand unimplemented")
 // Deprecated: TriviallyReconfigurable is to be embedded by any resource that does not care about
 // changes to its config or dependencies.
 //
-//nolint:revive,stylecheck // ignore exported comment check.
+//nolint:revive // ignore exported comment check.
 type TriviallyReconfigurable struct{}
 
 // TriviallyCloseable is to be embedded by any resource that does not care about
@@ -280,7 +280,7 @@ type NoNativeConfig struct {
 // Deprecated: AlwaysRebuild is to be embedded by any resource that must always rebuild
 // and not reconfigure.
 //
-//nolint:revive,stylecheck // ignore exported comment check.
+//nolint:revive // ignore exported comment check.
 type AlwaysRebuild struct{}
 
 // Named is to be embedded by any resource that just needs to return a name.

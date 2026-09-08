@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -470,10 +471,14 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Assert that restoring the testmodule binary makes 'h' start working again
-	// after the auto-restart code succeeds.
+	// after the auto-restart code succeeds. The background restart loop only
+	// retries every oueRestartInterval and a single restart (process start plus
+	// the WebRTC ready handshake) can itself take several seconds, so wait
+	// generously for the module to recover before asserting its resources are
+	// re-added.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 60, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
@@ -511,6 +516,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	// 'h' is setup to always fail on the first construction on the module.
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
 	r, cfg := setupModuleTest(t, ctx, true, logger)
 
 	// Assert that removing testmodule binary and killing testmodule
@@ -548,12 +554,15 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 3)
+	test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 3)
 
 	// Assert that restoring the testmodule binary restores the module but not 'h'.
+	// The background restart loop only retries every oueRestartInterval and a
+	// single restart (process start plus the WebRTC ready handshake) can itself
+	// take several seconds, so wait generously for the module to recover.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 60, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
@@ -588,7 +597,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+		test.That(tb, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 6)
 	})
 
 	h, err = r.ResourceByName(generic.Named("h"))
@@ -702,6 +711,18 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`There may be no module in config that provides this model`).Len(),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
+}
+
+// countActivityEvents returns how many observed activity events match activity and event.
+func countActivityEvents(activityLogs *observer.ObservedLogs, activity, event string) int {
+	count := 0
+	for _, entry := range activityLogs.All() {
+		fields := entry.ContextMap()
+		if fields["activity"] == activity && fields["event"] == event {
+			count++
+		}
+	}
+	return count
 }
 
 func TestImplicitDependencyUpdatesAfterModuleStartupCrash(t *testing.T) {
@@ -1032,6 +1053,7 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, modStatus.LastUpdated, test.ShouldHappenBefore, reconfigureEnd)
 
 	// set up a listener so we can communicate with the blocked module
+	//nolint: noctx
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	defer ln.Close()
@@ -1129,6 +1151,7 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, s.Error, test.ShouldNotBeNil)
 
 	// set up a close socket
+	//nolint: noctx
 	ln, err = net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	defer ln.Close()

@@ -68,6 +68,13 @@ type Mesh struct {
 	uniqueVerts     []r3.Vector
 	uniqueVertsOnce sync.Once
 
+	// poseCache is the mesh's pose pre-decomposed for BVH traversal. A Mesh's
+	// pose is immutable, but one Mesh copy is collision-checked against many
+	// geometries per planner state; memoizing avoids re-deriving the rotation
+	// matrix/quaternion (which allocate) on every query.
+	poseCache     bvhPoseCache
+	poseCacheOnce sync.Once
+
 	// state carries per-logical-mesh witness caches that survive Transform copies
 	// (the pointer is shared across Transform-derived Meshes). The hot collision
 	// path reaches the witness caches via direct field access; this turned out
@@ -109,7 +116,142 @@ type meshState struct {
 	// is *negCacheEntry which carries the original key components so we can
 	// verify on lookup — hash collisions are rare but treated as cache misses
 	// (the cached entry is overwritten by the next BVH walk anyway).
+	//
+	// The buffer is deliberately NOT part of the key: an entry stores the
+	// measured separation, so one entry serves every buffer. Reuse is gated at
+	// lookup on that separation exceeding the querying buffer — a pair cleared
+	// at 1e-8 is still a collision at 3mm, and must re-walk.
 	negCache sync.Map // uint64 -> *negCacheEntry
+
+	// distAnchors generalizes negCache from "same world poses" to "nearby
+	// relative pose". Each entry records the clearance a full BVH walk measured
+	// at a specific relative pose; while the pair's relative pose stays within
+	// that clearance of the anchor, collision-freedom follows without a walk —
+	// rigid geometry cannot close a gap faster than it moves. During fine path
+	// interpolation consecutive states move millimeters while clearances are
+	// centimeters, so this removes the large majority of BVH walks. Pairs that
+	// never move relative to each other (e.g. a parked arm vs world obstacles)
+	// hit the anchor forever.
+	distAnchors sync.Map // *meshState (partner) -> *distAnchorSet
+
+	// geomAnchors is the same idea for non-mesh partners, keyed by label the
+	// same way geomWitness is.
+	geomAnchors sync.Map // string (other.Label()) -> *distAnchorSet
+
+	// boundingRadius is the max distance of any local-space point of the mesh
+	// from the mesh origin (computed from the BVH root AABB). Used to bound how
+	// far mesh points can move under a relative-pose change in the distAnchors
+	// fast path. Built lazily; shared across Transform copies via meshState.
+	boundingRadius     float64
+	boundingRadiusOnce sync.Once
+
+	// sphereCover is the mesh's conservative local-frame sphere cover, used by
+	// the SDF collision fast path. Built lazily; shared across Transform copies.
+	sphereCover     []SphereBound
+	sphereCoverOnce sync.Once
+}
+
+// distAnchor records the clearance measured by a full narrow-phase query at a
+// specific relative pose between two geometries. See meshState.distAnchors.
+type distAnchor struct {
+	relQ quat.Number // rotation part of inv(aPose) * bPose
+	relT r3.Vector   // translation part of inv(aPose) * bPose
+	dist float64     // conservative lower bound on separation at that pose
+}
+
+// distAnchorSetSize is how many anchors each pair keeps. A single anchor is
+// enough for one smoothly-moving pose stream, but planners interleave several
+// (a bidirectional RRT alternates between two trees, and racing planners add
+// more); one slot per stream stops them from evicting each other every query.
+// Sized for up to four concurrent bidirectional searches.
+const distAnchorSetSize = 8
+
+// distAnchorSet is a small lock-free ring of anchors for one geometry pair.
+// Lookups scan all slots and use whichever anchor proves the most clearance at
+// the queried pose; stores overwrite slots round-robin.
+type distAnchorSet struct {
+	next    atomic.Uint32
+	entries [distAnchorSetSize]atomic.Pointer[distAnchor]
+}
+
+// bestClearance returns the largest clearance any anchor in the set can prove
+// for the given relative pose (math.Inf(-1) when the set is empty).
+func (as *distAnchorSet) bestClearance(relQ quat.Number, relT r3.Vector, radius float64) float64 {
+	best := math.Inf(-1)
+	for i := range as.entries {
+		a := as.entries[i].Load()
+		if a == nil {
+			continue
+		}
+		if lb := a.dist - a.displacement(relQ, relT, radius); lb > best {
+			best = lb
+		}
+	}
+	return best
+}
+
+// add records an anchor, overwriting the oldest slot.
+func (as *distAnchorSet) add(a *distAnchor) {
+	as.entries[(as.next.Add(1)-1)%distAnchorSetSize].Store(a)
+}
+
+// anchorSetFor returns the (created-on-demand) anchor set stored in m under key.
+func anchorSetFor(m *sync.Map, key any) *distAnchorSet {
+	if v, ok := m.Load(key); ok {
+		return v.(*distAnchorSet)
+	}
+	v, _ := m.LoadOrStore(key, &distAnchorSet{})
+	return v.(*distAnchorSet)
+}
+
+// relativeQT decomposes inv(a)*b into rotation and translation without allocating.
+func relativeQT(a, b Pose) (quat.Number, r3.Vector) {
+	qaConj := quat.Conj(a.Orientation().Quaternion())
+	relQ := quat.Mul(qaConj, b.Orientation().Quaternion())
+	relT := TransformPoint(qaConj, r3.Vector{}, b.Point().Sub(a.Point()))
+	return relQ, relT
+}
+
+// displacement bounds how far any point of the partner geometry (within
+// `radius` of its own origin) can have moved, in the anchor owner's frame,
+// between the anchor's relative pose and the given one: translation delta plus
+// the rotation chord 2·sin(Δθ/2)·radius.
+func (a *distAnchor) displacement(relQ quat.Number, relT r3.Vector, radius float64) float64 {
+	dt := relT.Sub(a.relT).Norm()
+	dot := math.Abs(relQ.Real*a.relQ.Real + relQ.Imag*a.relQ.Imag + relQ.Jmag*a.relQ.Jmag + relQ.Kmag*a.relQ.Kmag)
+	if dot > 1 {
+		dot = 1
+	}
+	return dt + 2*math.Sqrt(1-dot*dot)*radius
+}
+
+// localBoundingRadius returns the max distance of any point of the mesh from
+// its local origin, computed conservatively from the BVH root AABB corners.
+func (m *Mesh) localBoundingRadius() float64 {
+	m.state.boundingRadiusOnce.Do(func() {
+		if bvh := m.ensureBVH(); bvh != nil {
+			for _, x := range []float64{bvh.min.X, bvh.max.X} {
+				for _, y := range []float64{bvh.min.Y, bvh.max.Y} {
+					for _, z := range []float64{bvh.min.Z, bvh.max.Z} {
+						m.state.boundingRadius = math.Max(m.state.boundingRadius, r3.Vector{X: x, Y: y, Z: z}.Norm())
+					}
+				}
+			}
+		}
+	})
+	return m.state.boundingRadius
+}
+
+// geometryBoundingRadius bounds the distance of any point of g from its pose
+// origin, via its current world AABB. The value is orientation-invariant, so a
+// snapshot at any pose is a valid bound.
+func geometryBoundingRadius(g Geometry) float64 {
+	gMin, gMax := computeGeometryAABB(g)
+	c := g.Pose().Point()
+	dx := math.Max(gMax.X-c.X, c.X-gMin.X)
+	dy := math.Max(gMax.Y-c.Y, c.Y-gMin.Y)
+	dz := math.Max(gMax.Z-c.Z, c.Z-gMin.Z)
+	return math.Sqrt(dx*dx + dy*dy + dz*dz)
 }
 
 // witnessPair records a previously-colliding triangle pair so subsequent
@@ -452,28 +594,42 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 
 	switch other := g.(type) {
 	case *box:
+		if isClear, lb := m.geomAnchorClear(other, collisionBufferMM); isClear {
+			return false, lb, nil
+		}
 		// Mesh-ifying the box misses the case where the box encompasses a mesh triangle without its surface intersecting a triangle.
 		encompassed := m.boxIntersectsVertex(other)
 		if encompassed {
 			return true, -1, nil
 		}
-		return m.collidesWithGeometryBVH(other, collisionBufferMM)
+		return m.collidesWithGeometryAnchored(other, collisionBufferMM)
 	case *Mesh:
 		return m.collidesWithMesh(other, collisionBufferMM)
 	case *Cylinder:
 		return other.CollidesWith(m, collisionBufferMM)
 	case *capsule, *point, *sphere:
-		return m.collidesWithGeometryBVH(other, collisionBufferMM)
+		if isClear, lb := m.geomAnchorClear(g, collisionBufferMM); isClear {
+			return false, lb, nil
+		}
+		return m.collidesWithGeometryAnchored(g, collisionBufferMM)
 	case *Triangle:
-		// Wrap in a Mesh so we get the negative-cache short-circuit in
-		// collidesWithMesh — RRT smoothing re-checks the same triangle at the
-		// same pose, and the geometry-BVH path has no negCache. The wrap is
-		// cheap now that NewMesh defers PLY serialization (ensurePLYBytes).
-		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		return m.collidesWithMesh(triMesh, collisionBufferMM)
+		// Wrap in a (stateless) Mesh to reuse the mesh-vs-mesh BVH path; see
+		// wrapTriangle for why the wrapper deliberately carries no cache state.
+		return m.collidesWithMesh(wrapTriangle(other), collisionBufferMM)
 	default:
 		return true, math.Inf(1), newCollisionTypeUnsupportedError(m, g)
 	}
+}
+
+// wrapTriangle wraps a standalone *Triangle for the mesh-vs-mesh path.
+// Deliberately STATELESS (nil meshState): standalone triangles are usually
+// per-configuration transients, so a fresh meshState per wrapper both churned
+// allocation and - worse - permanently leaked entries into the other mesh's
+// state-identity-keyed caches (witnesses, distance anchors, negCache), whose
+// sync.Maps only ever grow. A nil state disables those caches for the
+// wrapper, which every consumer already guards for.
+func wrapTriangle(t *Triangle) *Mesh {
+	return &Mesh{pose: NewZeroPose(), triangles: []*Triangle{t}}
 }
 
 // EncompassedBy returns whether this mesh is completely contained within another geometry.
@@ -526,8 +682,7 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	case *sphere:
 		return m.distanceFromSphere(other), nil
 	case *Triangle:
-		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		return m.distanceFromMesh(triMesh)
+		return m.distanceFromMesh(wrapTriangle(other))
 	case *Mesh:
 		return m.distanceFromMesh(other)
 	case *Cylinder:
@@ -560,16 +715,40 @@ func (m *Mesh) ensureUniqueVertices() []r3.Vector {
 
 // Returns true if any triangle vertex of the mesh intersects the box.
 func (m *Mesh) boxIntersectsVertex(b *box) bool {
-	q := m.pose.Orientation().Quaternion()
-	t := m.pose.Point()
-	for _, pt := range m.ensureUniqueVertices() {
-		worldPt := TransformPoint(q, t, pt)
-		c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
-		if c {
-			return true
-		}
+	// Descend the mesh BVH so subtrees whose bounds don't reach the box are pruned,
+	// instead of sweeping every vertex of the mesh on every call.
+	bvh := m.ensureBVH()
+	if bvh == nil {
+		return false
 	}
-	return false
+	bMin, bMax := computeGeometryAABB(b)
+	bMin, bMax = expandAABBBuffer(bMin, bMax, defaultCollisionBufferMM)
+	return boxIntersectsVertexRec(bvh, m.ensurePoseCache(), b, bMin, bMax)
+}
+
+func boxIntersectsVertexRec(node *bvhNode, pc *bvhPoseCache, b *box, bMin, bMax r3.Vector) bool {
+	nMin, nMax := transformAABBCached(node.min, node.max, pc)
+	if !aabbOverlap(nMin, nMax, bMin, bMax) {
+		return false
+	}
+	if node.geoms != nil {
+		for _, g := range node.geoms {
+			// A Mesh's own BVH only holds triangles.
+			tri, ok := g.(*Triangle)
+			if !ok {
+				continue
+			}
+			for _, pt := range [3]r3.Vector{tri.p0, tri.p1, tri.p2} {
+				worldPt := TransformPoint(pc.q, pc.trans, pt)
+				if c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM); c {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return boxIntersectsVertexRec(node.left, pc, b, bMin, bMax) ||
+		boxIntersectsVertexRec(node.right, pc, b, bMin, bMax)
 }
 
 func (m *Mesh) distanceFromSphere(s *sphere) float64 {
@@ -606,6 +785,17 @@ func (m *Mesh) encompassedByMeshAABB(other *Mesh) bool {
 	return true
 }
 
+// ensurePoseCache returns the mesh's pose pre-decomposed for BVH traversal,
+// building it on first use (thread-safe). A Mesh's pose is immutable, so the
+// cache stays valid for the life of this Mesh value; Transform() copies start
+// with a fresh cache for their new pose.
+func (m *Mesh) ensurePoseCache() *bvhPoseCache {
+	m.poseCacheOnce.Do(func() {
+		m.poseCache = newBVHPoseCache(m.pose)
+	})
+	return &m.poseCache
+}
+
 // ensureBVH builds the BVH if it hasn't been built yet (thread-safe).
 // Returns nil for empty meshes (no triangles).
 func (m *Mesh) ensureBVH() *bvhNode {
@@ -639,6 +829,9 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 	var (
 		negKey         uint64
 		negKeyComputed bool
+		relQ           quat.Number
+		relT           r3.Vector
+		relComputed    bool
 	)
 	if m.state != nil && other.state != nil {
 		if v, ok := m.state.witnesses.Load(other.state); ok {
@@ -647,17 +840,32 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 				return true, -1, nil
 			}
 		}
+		relQ, relT = relativeQT(m.pose, other.pose)
+		relComputed = true
+		if v, ok := m.state.distAnchors.Load(other.state); ok {
+			if lb := v.(*distAnchorSet).bestClearance(relQ, relT, other.localBoundingRadius()); lb > collisionBufferMM {
+				return false, lb, nil
+			}
+		}
 		negKey = negCacheKey(other.state, m.pose, other.pose)
 		negKeyComputed = true
 		if v, ok := m.state.negCache.Load(negKey); ok {
 			e := v.(*negCacheEntry)
 			if negCacheEntryMatches(e, other.state, m.pose, other.pose) {
-				return false, math.Sqrt(e.minDistSq), nil
+				// The entry records the measured separation, not a verdict: only a
+				// separation strictly greater than the *current* buffer proves no
+				// collision. An entry stored under a smaller buffer says nothing
+				// about a larger one, so fall through to the walk rather than reuse
+				// it. Mirrors the distAnchors gate above.
+				if d := math.Sqrt(e.minDistSq); d > collisionBufferMM {
+					return false, d, nil
+				}
 			}
 		}
 	}
 
-	collides, dist, witness, err := bvhCollidesWithBVHTracked(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
+	collides, dist, witness, err := bvhCollidesWithBVHTracked(
+		m.ensureBVH(), other.ensureBVH(), m.ensurePoseCache(), other.ensurePoseCache(), collisionBufferMM)
 	if err != nil {
 		return false, 0, err
 	}
@@ -665,6 +873,9 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 		if collides && witness[0] != nil && witness[1] != nil {
 			m.state.witnesses.Store(other.state, &witnessPair{t1: witness[0], t2: witness[1]})
 		} else if !collides {
+			if relComputed && dist > collisionBufferMM {
+				anchorSetFor(&m.state.distAnchors, other.state).add(&distAnchor{relQ: relQ, relT: relT, dist: dist})
+			}
 			if !negKeyComputed {
 				negKey = negCacheKey(other.state, m.pose, other.pose)
 			}
@@ -718,7 +929,7 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 	}
 
 	otherMin, otherMax := computeGeometryAABB(other)
-	collides, dist, witness, err := bvhCollidesWithGeometryTracked(bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
+	collides, dist, witness, err := bvhCollidesWithGeometryTracked(bvh, m.ensurePoseCache(), other, otherMin, otherMax, collisionBufferMM)
 	if err != nil {
 		return false, 0, err
 	}
@@ -728,6 +939,43 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 		}
 	}
 	return collides, dist, nil
+}
+
+// geomAnchorClear consults the distAnchors entry for a non-mesh partner (keyed
+// by label, like geomWitness). Returns (true, clearance) when the anchor proves
+// the pair is still separated by more than the collision buffer at the current
+// poses, letting the caller skip both the box-vertex sweep and the BVH walk.
+func (m *Mesh) geomAnchorClear(g Geometry, collisionBufferMM float64) (bool, float64) {
+	if m.state == nil {
+		return false, 0
+	}
+	label := g.Label()
+	if label == "" {
+		return false, 0
+	}
+	v, ok := m.state.geomAnchors.Load(label)
+	if !ok {
+		return false, 0
+	}
+	relQ, relT := relativeQT(m.pose, g.Pose())
+	if lb := v.(*distAnchorSet).bestClearance(relQ, relT, geometryBoundingRadius(g)); lb > collisionBufferMM {
+		return true, lb
+	}
+	return false, 0
+}
+
+// collidesWithGeometryAnchored runs the BVH query and, on a clear result,
+// records a distAnchor so future queries at nearby relative poses can skip the
+// walk (see meshState.distAnchors).
+func (m *Mesh) collidesWithGeometryAnchored(g Geometry, collisionBufferMM float64) (bool, float64, error) {
+	collides, dist, err := m.collidesWithGeometryBVH(g, collisionBufferMM)
+	if err == nil && !collides && dist > collisionBufferMM && m.state != nil {
+		if label := g.Label(); label != "" {
+			relQ, relT := relativeQT(m.pose, g.Pose())
+			anchorSetFor(&m.state.geomAnchors, label).add(&distAnchor{relQ: relQ, relT: relT, dist: dist})
+		}
+	}
+	return collides, dist, err
 }
 
 // witnessTriCollidesWith re-checks a cached colliding triangle (from m's BVH)

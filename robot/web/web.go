@@ -64,8 +64,10 @@ const (
 // API is the fully qualified API for the internal web service.
 var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
-// InternalServiceName is used to refer to/depend on this service internally.
-var InternalServiceName = resource.NewName(API, "builtin")
+// InternalServiceName is used to refer to/depend on this service internally. The "$" prefix marks
+// it as a reserved internal name a user cannot create (the resource-name validator forbids "$"), so
+// it never collides with a user resource under machine-wide name uniqueness.
+var InternalServiceName = resource.NewName(API, "$"+SubtypeName)
 
 // A Service controls the web server for a robot.
 type Service interface {
@@ -196,7 +198,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		return err
 	}
 	<-ctx.Done()
-	logger.Info("viam-server shutting down")
+	logger.Debug("viam-server shutting down")
 	return ctx.Err()
 }
 
@@ -254,6 +256,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	var addr string
 	if tcpMode {
 		addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
+		//nolint: noctx
 		lis, err = net.Listen("tcp", addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen over TCP")
@@ -263,6 +266,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		if err != nil {
 			return errors.WithMessage(err, "could not create filepath for parent socket")
 		}
+		//nolint: noctx
 		lis, err = net.Listen("unix", addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen over UDS")
@@ -440,6 +444,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	listener := options.Network.Listener
 
 	if listener == nil {
+		//nolint: noctx
 		listener, err = net.Listen("tcp", options.Network.BindAddress)
 		if err != nil {
 			return err
@@ -812,18 +817,30 @@ func (svc *webService) initMux(options weboptions.Options) *goji.Mux {
 		}
 	})
 
+	// The /debug endpoints can leak internal details about the robot, so they are only
+	// registered when the web profile option is enabled (via the `enable_web_profile`
+	// config field or the `--webprofile` command line flag).
 	if options.Pprof {
-		mux.HandleFunc(pat.New("/debug/pprof/"), pprof.Index)
+		svc.logger.Infof("Web profile enabled")
+		mux.HandleFunc(pat.New("/debug/pprof"), func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/debug/pprof/", http.StatusMovedPermanently)
+		})
 		mux.HandleFunc(pat.New("/debug/pprof/cmdline"), pprof.Cmdline)
 		mux.HandleFunc(pat.New("/debug/pprof/profile"), pprof.Profile)
 		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
 		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
-	}
+		// pprof.Index serves both the profile listing and the named profiles (goroutine,
+		// heap, ...) that it parses out of the request path, so it must be registered with
+		// a wildcard. Routes are matched in registration order, so it goes after the
+		// handlers above, which pprof.Index does not know how to serve.
+		mux.HandleFunc(pat.New("/debug/pprof/*"), pprof.Index)
 
-	// serve resource graph visualization
-	// TODO: hide behind option
-	// TODO: accept params to display different formats
-	mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
+		// serve resource graph visualization
+		// TODO: accept params to display different formats
+		mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
+	} else {
+		svc.logger.Debugf("Web profile disabled")
+	}
 
 	// serve restart status
 	mux.HandleFunc(pat.New("/restart_status"), svc.handleRestartStatus)
@@ -1077,6 +1094,13 @@ type RestartStatusResponse struct {
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
+	// Only serve callers on this machine: the endpoint exposes internal details meant
+	// for the local viam-agent only, and the server may listen on non-loopback interfaces.
+	if !remoteAddrIsLocal(r.RemoteAddr) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	modAddrs := svc.ModuleAddresses()
 	response := RestartStatusResponse{
 		RestartAllowed:            svc.r.RestartAllowed(),
@@ -1088,4 +1112,31 @@ func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Reques
 	// Only log errors from encoding here. A failure to encode should never
 	// happen.
 	utils.UncheckedError(json.NewEncoder(w).Encode(response))
+}
+
+// remoteAddrIsLocal reports whether remoteAddr is on this machine: a loopback address, or
+// one of the host's own interface addresses (covers servers bound to a specific non-loopback IP).
+func remoteAddrIsLocal(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// remoteAddr may not contain a port.
+		host = remoteAddr
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() {
+		return true
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && ipNet.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
 }

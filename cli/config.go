@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -202,6 +203,12 @@ func ConnectToMachine(ctx context.Context, hostname string, logger logging.Logge
 		return nil, err
 	}
 
+	// Renew an expired `viam login` before dialing so callers get the same
+	// auto-refresh behavior as ordinary CLI commands; API keys are left as-is.
+	if err := c.ensureFreshToken(ctx, newCLIAuthFlow(io.Discard, true)); err != nil {
+		return nil, err
+	}
+
 	dopts, err := c.DialOptions()
 	if err != nil {
 		return nil, err
@@ -219,6 +226,12 @@ func ConnectToMachine(ctx context.Context, hostname string, logger logging.Logge
 func ConnectToApp(ctx context.Context, logger logging.Logger) (*appClient.ViamClient, error) {
 	c, err := ConfigFromCache(nil)
 	if err != nil {
+		return nil, err
+	}
+
+	// Renew an expired `viam login` before dialing so callers get the same
+	// auto-refresh behavior as ordinary CLI commands; API keys are left as-is.
+	if err := c.ensureFreshToken(ctx, newCLIAuthFlow(io.Discard, true)); err != nil {
 		return nil, err
 	}
 

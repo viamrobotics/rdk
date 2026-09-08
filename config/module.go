@@ -183,13 +183,16 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 // ExeDir returns the parent directory for the unpacked module.
 func (m Module) ExeDir(packagesDir string) (string, error) {
 	if !m.NeedsSyntheticPackage() {
-		return filepath.Dir(m.ExePath), nil
+		// Resolve to an absolute path. Otherwise a relative or bare ExePath yields
+		// ".", which downstream produces a nonsensical first-run marker path such as
+		// "..first_run_succeeded" (see FirstRun).
+		return filepath.Abs(filepath.Dir(m.ExePath))
 	}
 	pkg, err := m.SyntheticPackage()
 	if err != nil {
 		return "", err
 	}
-	return pkg.LocalDataDirectory(packagesDir), nil
+	return filepath.Abs(pkg.LocalDataDirectory(packagesDir))
 }
 
 // parseJSONFile returns a *T by parsing the json file at `path`.
@@ -268,7 +271,7 @@ func (m *Module) FirstRun(
 	env map[string]string,
 	logger logging.Logger,
 ) error {
-	logger = logger.Sublogger("first_run").WithFields("module", m.Name)
+	logger = logger.Sublogger(m.Name).Sublogger("first_run").WithFields("module", m.Name)
 
 	unpackedModDir, err := m.ExeDir(localPackagesDir)
 	if err != nil {

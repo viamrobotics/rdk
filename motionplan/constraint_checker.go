@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -51,6 +50,8 @@ type ConstraintChecker struct {
 	collisionConstraints CollisionConstraints
 	topoConstraint       StateFSConstraint
 
+	collisionBufferMM float64
+
 	logger logging.Logger
 }
 
@@ -81,6 +82,7 @@ func NewConstraintChecker(
 		constraints = &Constraints{}
 	}
 	handler := NewEmptyConstraintChecker(logger)
+	handler.collisionBufferMM = collisionBufferMM
 
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
 	if err != nil {
@@ -169,13 +171,24 @@ func (c *ConstraintChecker) addTopoConstraints(
 		fromPoses[f] = x.(*referenceframe.PoseInFrame)
 	}
 
+	// Precompute per-frame orientation-constraint evaluators: the endpoint
+	// orientation-vector conversions are the expensive part of the check and
+	// the endpoints are fixed for the plan's lifetime.
+	orientationEvals := map[string][]*OrientationConstraintEval{}
+	for frame, toPIF := range toPoses {
+		fromPIF := fromPoses[frame]
+		if fromPIF.Parent() != toPIF.Parent() {
+			return fmt.Errorf("in topo constraint, from and to are in different frames %s != %s", fromPIF.Parent(), toPIF.Parent())
+		}
+		for _, oc := range constraints.OrientationConstraint {
+			orientationEvals[frame] = append(orientationEvals[frame],
+				NewOrientationConstraintEval(oc, fromPIF.Pose().Orientation(), toPIF.Pose().Orientation()))
+		}
+	}
+
 	c.topoConstraint = func(state *StateFS) error {
 		for frame, toPIF := range toPoses {
 			fromPIF := fromPoses[frame]
-
-			if fromPIF.Parent() != toPIF.Parent() {
-				return fmt.Errorf("in topo constraint, from and to are in different frames %s != %s", fromPIF.Parent(), toPIF.Parent())
-			}
 
 			currPosePIF, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), toPIF.Parent())
 			if err != nil {
@@ -200,8 +213,8 @@ func (c *ConstraintChecker) addTopoConstraints(
 				}
 			}
 
-			for _, oc := range constraints.OrientationConstraint {
-				err := checkOrientationConstraint(frame, oc, from, to, currPose)
+			for _, eval := range orientationEvals[frame] {
+				err := checkOrientationConstraintEval(frame, eval, currPose)
 				if err != nil {
 					return err
 				}
@@ -265,19 +278,32 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 	return nil
 }
 
-func checkOrientationConstraint(frame string, c OrientationConstraint, from, to, currPose spatialmath.Pose) error {
-	dist := c.Distance(from.Orientation(), to.Orientation(), currPose.Orientation())
-	if dist > c.OrientationToleranceDegs {
-		return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, c.OrientationToleranceDegs)
+func checkOrientationConstraintEval(frame string, e *OrientationConstraintEval, currPose spatialmath.Pose) error {
+	dist := e.Distance(currPose.Orientation())
+	if dist > e.oc.OrientationToleranceDegs {
+		return orientationError(frame, e.from, e.to, currPose.Orientation(), dist, e.oc.OrientationToleranceDegs)
 	}
 	return nil
 }
 
 // CheckStateFSConstraints will check a given input against all FS state constraints.
 // first is closest obstacle, negative if in collision
+// Deliberately no tracing span here: this runs hundreds of thousands of times
+// per plan, and per-call span creation plus exporter wakeups measurably
+// dominated planning time once the checks themselves became cheap.
 func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *StateFS) (float64, error) {
-	_, span := trace.StartSpan(ctx, "CheckStateFSConstraints")
-	defer span.End()
+	// The cover evaluation is shared by the collision constraints below and
+	// recycled once this state check completes.
+	defer releaseCoverSet(state)
+	// Topological constraints (orientation/linear) cost a single FK pass —
+	// orders of magnitude cheaper than the collision sweeps below — so check
+	// them first: constrained planners generate many candidate states that fail
+	// only the topological check, and those shouldn't pay for collision work.
+	if c.topoConstraint != nil {
+		if err := c.topoConstraint(state); err != nil {
+			return math.Inf(1), err
+		}
+	}
 
 	closest := math.Inf(1)
 
@@ -299,13 +325,18 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 		}
 	}
 
-	if c.topoConstraint != nil {
-		err := c.topoConstraint(state)
-		if err != nil {
-			return closest, err
-		}
-	}
 	return closest, nil
+}
+
+// CheckStateFSTopoOnly evaluates only the topological (orientation/linear)
+// constraints for a state — the cheap, single-FK subset of
+// CheckStateFSConstraints. For callers that skip collision checks under a
+// clearance bound but must still verify topological validity per state.
+func (c *ConstraintChecker) CheckStateFSTopoOnly(state *StateFS) error {
+	if c.topoConstraint == nil {
+		return nil
+	}
+	return c.topoConstraint(state)
 }
 
 // InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
@@ -355,9 +386,6 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	resolution float64,
 	checkFinal bool,
 ) (*SegmentFS, error) {
-	ctx, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
-	defer span.End()
-
 	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
 	if err != nil {
 		return nil, err
@@ -382,8 +410,35 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 		}
 		lastGood = interpC.Configuration
 
-		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
-		if canSkip > 0 && c.topoConstraint == nil {
+		// The clearance at this state proves the next canSkip states cannot
+		// collide (the robot can't cross a gap faster than it moves), so the
+		// expensive collision constraints may be skipped for them. Topological
+		// constraints (orientation/linear) carry no such guarantee but are
+		// cheap - a single FK pass per state - so evaluate just those on the
+		// skipped states instead of disabling skipping altogether.
+		//
+		// The cushion keeps this sweep's verdicts consistent with the
+		// full-resolution finalization pass (armplanning's
+		// findCloseObstacleWaypoints), which checks every state within
+		// 10x the collision buffer of an obstacle: skipping must never hop
+		// into that near zone, or a path accepted here can be rejected at
+		// finalization and fail an otherwise-solved plan. The interpolation
+		// step count also bounds only frame-origin and joint deltas, not
+		// distal geometry on a lever arm, so the raw clearance skip could
+		// overshoot through a thin obstacle; the cushion absorbs that too.
+		cushion := math.Max(0.1, 10*c.collisionBufferMM)
+		canSkip := int(min(100, math.Floor((closestObstacle-cushion)/resolution)))
+		if canSkip > 0 && c.topoConstraint != nil {
+			for j := i + 1; j <= i+canSkip && j < end; j++ {
+				topoC := &StateFS{FS: ci.FS, Configuration: interpolatedConfigurations[j]}
+				if err := c.topoConstraint(topoC); err != nil {
+					return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
+				}
+				// Collision-free by the clearance bound and topo-checked: valid.
+				lastGood = topoC.Configuration
+			}
+		}
+		if canSkip > 0 {
 			i += canSkip
 		}
 	}
@@ -416,6 +471,11 @@ func CreateAllCollisionConstraints(
 		selfHint = &cache.selfPairHint
 	}
 
+	// Precompute local-frame sphere covers for the moving frames once; the
+	// three constraint closures share the table (and, per state, the world
+	// covers computed from it) so most states never materialize geometry.
+	coverTable := buildFrameCoverTable(fs, movingFrameNames)
+
 	if len(worldGeometries) > 0 {
 		obstacleConstraintFS, err := NewCollisionConstraintFS(
 			fs,
@@ -427,6 +487,7 @@ func CreateAllCollisionConstraints(
 			false,
 			obstacleHint,
 			cache,
+			coverTable,
 			logger,
 		)
 		if err != nil {
@@ -446,6 +507,7 @@ func CreateAllCollisionConstraints(
 			false,
 			robotHint,
 			cache,
+			coverTable,
 			logger,
 		)
 		if err != nil {
@@ -465,6 +527,7 @@ func CreateAllCollisionConstraints(
 			true,
 			selfHint,
 			cache,
+			coverTable,
 			logger,
 		)
 		if err != nil {
@@ -491,9 +554,9 @@ func NewCollisionConstraintFS(
 	isSelfCollision bool,
 	pairHint *atomic.Pointer[[2]string],
 	cache *CollisionCache,
+	coverTable *frameCoverTable,
 	logger logging.Logger,
 ) (CollisionConstraintFunc, error) {
-	_ = cache // reserved for future planner-level caches (edge memoization lives elsewhere on the same struct)
 	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
 		collisionSpecifications, collisionBufferMM, logger)
 	if err != nil {
@@ -502,8 +565,149 @@ func NewCollisionConstraintFS(
 
 	allowed := makeAllowedCollisionsLookup(ignoreCollisions)
 
+	// Distance-field fast path for the moving-vs-static product: a voxel SDF
+	// over the static set answers "this moving geometry is at least D away
+	// from everything static" from a handful of array lookups against the
+	// geometry's conservative sphere cover. Only clear verdicts are used -
+	// anything near, uncovered, or colliding falls through to the exact
+	// checker, so allowed-collision pairs and near-contact distances keep
+	// their exact semantics. The field is built once per static scene and
+	// shared across all segment contexts through the plan cache.
+	var sdf *spatialmath.VoxelSDF
+	if !isSelfCollision {
+		sdf = cache.SDFFor(static)
+	}
+	sdfClearThreshold := math.Max(2.0, 2*collisionBufferMM)
+
+	// The static side of every pair check is the same geometry set at the
+	// same poses for the life of this checker; prebuilding its names, allow
+	// flags, and bounding spheres removes that work from every state check.
+	staticPre := prenameGeoms(static, allowed)
+
+	// finish shares the tail of every path: convert a found collision into
+	// the constraint-violated error.
+	finish := func(collisions []Collision, minDist float64, err error) (float64, error) {
+		if err != nil {
+			return minDist, err
+		}
+		if len(collisions) != 0 {
+			return minDist, fmt.Errorf(
+				"violation between %s and %s geometries",
+				collisions[0].name1,
+				collisions[0].name2,
+			)
+		}
+		return minDist, nil
+	}
+
+	// checkStaticViaCovers evaluates the moving-vs-static constraint from the
+	// state's sphere covers and the distance field, materializing geometry
+	// only for the frames the sphere phase cannot clear.
+	checkStaticViaCovers := func(state *StateFS, cs *stateCoverSet) (float64, error) {
+		sdfMin := math.Inf(1)
+		needFrames := map[string]bool{}
+		for f := range coverTable.materialize {
+			needFrames[f] = true
+		}
+		for i := range cs.geoms {
+			cg := &cs.geoms[i]
+			lb := math.Inf(1)
+			for _, sb := range cg.world {
+				if v := sdf.PointClearance(sb.Center) - sb.R; v < lb {
+					lb = v
+				}
+			}
+			if lb > sdfClearThreshold {
+				sdfMin = math.Min(sdfMin, lb)
+			} else {
+				needFrames[cg.frameName] = true
+			}
+		}
+		if len(needFrames) == 0 {
+			return sdfMin, nil
+		}
+		geoms, err := materializedSubset(state, fs, needFrames)
+		if err != nil {
+			return 0, err
+		}
+		collisions, minDist, err := checkCollisionsHinted(
+			geoms, static, staticPre, allowed, collisionBufferMM, false, pairHint, logger)
+		return finish(collisions, math.Min(minDist, sdfMin), err)
+	}
+
+	// checkSelfViaCovers evaluates self-collision pairwise from the covers'
+	// enclosing spheres; only frames belonging to a near pair (or without
+	// covers) are materialized and checked exactly.
+	checkSelfViaCovers := func(state *StateFS, cs *stateCoverSet) (float64, error) {
+		selfMin := math.Inf(1)
+		near := map[string]bool{}
+		for f := range coverTable.materialize {
+			near[f] = true
+		}
+		// Uncovered frames must pair against everything; materialize them
+		// first so their bounding spheres can prune covered partners.
+		var uncoveredBounds []spatialmath.SphereBound
+		if len(near) > 0 {
+			geoms, err := materializedSubset(state, fs, near)
+			if err != nil {
+				return 0, err
+			}
+			for _, g := range geoms {
+				if c, r, ok := spatialmath.BoundingSphere(g); ok {
+					uncoveredBounds = append(uncoveredBounds, spatialmath.SphereBound{Center: c, R: r})
+				} else {
+					// No cheap bound: everything is potentially near it.
+					for i := range cs.geoms {
+						near[cs.geoms[i].frameName] = true
+					}
+					uncoveredBounds = nil
+					break
+				}
+			}
+		}
+		for i := range cs.geoms {
+			a := &cs.geoms[i]
+			for j := i + 1; j < len(cs.geoms); j++ {
+				b := &cs.geoms[j]
+				gap := a.bound.Center.Sub(b.bound.Center).Norm() - a.bound.R - b.bound.R
+				if gap > sdfClearThreshold {
+					selfMin = math.Min(selfMin, gap)
+					continue
+				}
+				near[a.frameName] = true
+				near[b.frameName] = true
+			}
+			for _, ub := range uncoveredBounds {
+				if a.bound.Center.Sub(ub.Center).Norm()-a.bound.R-ub.R <= sdfClearThreshold {
+					near[a.frameName] = true
+				}
+			}
+		}
+		if len(near) == 0 {
+			return selfMin, nil
+		}
+		geoms, err := materializedSubset(state, fs, near)
+		if err != nil {
+			return 0, err
+		}
+		collisions, minDist, err := checkCollisionsHinted(
+			geoms, geoms, nil, allowed, collisionBufferMM, false, pairHint, logger)
+		return finish(collisions, math.Min(minDist, selfMin), err)
+	}
+
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
+		if coverTable != nil {
+			if cs := coverSetFor(state, fs, coverTable); !cs.failed {
+				if isSelfCollision {
+					return checkSelfViaCovers(state, cs)
+				}
+				if sdf != nil {
+					return checkStaticViaCovers(state, cs)
+				}
+			}
+		}
+
 		// state.movingGeometries is shared across the three collision constraints
 		// (obstacle / robot-vs-robot / self-collision); whichever runs first for
 		// this state populates it, the others hit the cache. Safe because all
@@ -521,14 +725,47 @@ func NewCollisionConstraintFS(
 			internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
 		}
 
+		sdfMin := math.Inf(1)
+		if sdf != nil {
+			// Keep only the geometries the SDF cannot clear for the exact pass.
+			needExact := internalGeoms[:0:0]
+			for _, g := range internalGeoms {
+				cover := spatialmath.SphereCover(g)
+				if cover == nil {
+					needExact = append(needExact, g)
+					continue
+				}
+				lb := math.Inf(1)
+				for _, sb := range cover {
+					if v := sdf.PointClearance(sb.Center) - sb.R; v < lb {
+						lb = v
+					}
+				}
+				if lb > sdfClearThreshold {
+					sdfMin = math.Min(sdfMin, lb)
+				} else {
+					needExact = append(needExact, g)
+				}
+			}
+			if len(needExact) == 0 {
+				return sdfMin, nil
+			}
+			internalGeoms = needExact
+		}
+
 		// For self-collision, compare moving geometries against themselves
 		staticToCheck := static
 		if isSelfCollision {
 			staticToCheck = internalGeoms
 		}
 
+		staticPreToUse := staticPre
+		if isSelfCollision {
+			staticPreToUse = nil
+		}
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, allowed, collisionBufferMM, false, pairHint, logger)
+			internalGeoms, staticToCheck, staticPreToUse, allowed, collisionBufferMM, false, pairHint, logger)
+		minDist = math.Min(minDist, sdfMin)
 		if err != nil {
 			return minDist, err
 		}
@@ -553,7 +790,7 @@ func computeInitialCollisionsToIgnore(
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
 	initialCollisions, _, err := checkCollisionsHinted(
-		group1, group2, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
+		group1, group2, nil, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
 	if err != nil {
 		return nil, err
 	}

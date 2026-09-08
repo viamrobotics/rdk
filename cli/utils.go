@@ -113,3 +113,13 @@ func parseTimeString(timeStr string) (*timestamppb.Timestamp, error) {
 func formatStringForOutput(protoString, prefixToTrim string) string {
 	return strings.ToLower(strings.TrimPrefix(protoString, prefixToTrim))
 }
+
+// pluralize returns the form of noun that agrees with count, plural for everything but exactly
+// one. Only regular nouns are covered; an irregular one needs its own handling rather than a
+// second parameter here.
+func pluralize(count int, noun string) string {
+	if count == 1 {
+		return noun
+	}
+	return noun + "s"
+}

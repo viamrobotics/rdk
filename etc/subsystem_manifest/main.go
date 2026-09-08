@@ -109,6 +109,7 @@ func getViamServerMetadata(path, resourcesOutputFileName string) (*viamServerMet
 		//nolint:errcheck
 		defer os.Remove(resourcesOutputFileName)
 
+		//nolint: noctx
 		command := exec.Command(path, "--dump-resources", resourcesOutputFileName)
 		if err := command.Run(); err != nil {
 			return nil, err

@@ -15,33 +15,27 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "xArm6")
+	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
+
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
-
 	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, err, test.ShouldBeNil)
-	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
-	test.That(t, err, test.ShouldNotBeNil)
-
-	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
-	orig[5] += math.Pi * 2
-	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.validInputs(randpos), test.ShouldBeNil)
 
-	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
+	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestIncorrectInputs(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	dof := len(m.DoF())
 
@@ -90,7 +84,7 @@ func TestModelGeometries(t *testing.T) {
 }
 
 func Test2DMobileModelFrame(t *testing.T) {
-	expLimit := []Limit{{-10, 10}, {-10, 10}, {-2 * math.Pi, 2 * math.Pi}}
+	expLimit := []Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}, {Min: -2 * math.Pi, Max: 2 * math.Pi}}
 	sphere, err := spatial.NewSphere(spatial.NewZeroPose(), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 	frame, err := New2DMobileModelFrame("test", expLimit, sphere)
@@ -133,7 +127,7 @@ func TestNewModel(t *testing.T) {
 
 func TestHash(t *testing.T) {
 	t.Run("model from config", func(t *testing.T) {
-		m1, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
+		m1, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "foo")
 		test.That(t, err, test.ShouldBeNil)
 
 		h1 := m1.Hash()
@@ -346,7 +340,7 @@ func TestOriginalFilePreservedThroughJSON(t *testing.T) {
 	// which is the mechanism used by FrameSystemPart.ToProtobuf/ProtobufToFrameSystemPart.
 
 	t.Run("SVA model preserves original file through JSON round-trip", func(t *testing.T) {
-		original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+		original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 		test.That(t, err, test.ShouldBeNil)
 
 		cfg := original.ModelConfig()

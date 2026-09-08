@@ -21,6 +21,7 @@ import (
 func setupAudioInService(t *testing.T, injectAudioIn *inject.AudioIn) (net.Listener, func()) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())

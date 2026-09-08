@@ -21,6 +21,9 @@ type progressSpinnerFactory func(string) (progressSpinner, error)
 var defaultSpinnerFactory progressSpinnerFactory = func(text string) (progressSpinner, error) {
 	spinner, err := pterm.DefaultSpinner.
 		WithRemoveWhenDone(false).
+		// Use the terminal's default foreground color so running text stays legible
+		// on both light and dark backgrounds (pterm defaults to bright white).
+		WithMessageStyle(pterm.NewStyle(pterm.FgDefault)).
 		WithText(text).
 		Start()
 	if err != nil {

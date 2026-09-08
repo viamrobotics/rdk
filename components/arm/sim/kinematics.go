@@ -2,72 +2,22 @@ package sim
 
 import (
 	"context"
-	_ "embed"
 	"errors"
-	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
+	"go.viam.com/rdk/components/arm/kinematics"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
-var (
-	ur5eModel   = "ur5e"
-	ur7eModel   = "ur7e"
-	ur20Model   = "ur20"
-	xArm6Model  = "xarm6"
-	xArm7Model  = "xarm7"
-	lite6Model  = "lite6"
-	dofbotModel = "dofbot"
-)
-
-//go:embed kinematics/fake.json
-var fakejson []byte
-
-//go:embed kinematics/ur5e.json
-var ur5eJSON []byte
-
-//go:embed kinematics/ur7e.json
-var ur7eJSON []byte
-
-//go:embed kinematics/ur20.json
-var ur20JSON []byte
-
-//go:embed kinematics/xarm6.json
-var xarm6JSON []byte
-
-//go:embed kinematics/xarm7.json
-var xarm7JSON []byte
-
-//go:embed kinematics/lite6.json
-var lite6JSON []byte
-
-//go:embed kinematics/dofbot.json
-var dofbotJSON []byte
-
 func modelFromName(model, name string) (referenceframe.Model, error) {
-	switch model {
-	case ur5eModel:
-		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
-	case ur7eModel:
-		return referenceframe.UnmarshalModelJSON(ur7eJSON, name)
-	case ur20Model:
-		return referenceframe.UnmarshalModelJSON(ur20JSON, name)
-	case xArm6Model:
-		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
-	case xArm7Model:
-		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
-	case lite6Model:
-		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
-	case dofbotModel:
-		return referenceframe.UnmarshalModelJSON(dofbotJSON, name)
-	case Model.Name:
-		return referenceframe.UnmarshalModelJSON(fakejson, name)
-	default:
-		return nil, fmt.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
+	if model == Model.Name {
+		// The simulated arm's own model name selects the generic kinematics.
+		model = kinematics.Fake
 	}
+	return kinematics.ModelFromName(model, name)
 }
 
 func buildModel(resName string, conf *Config) (referenceframe.Model, error) {

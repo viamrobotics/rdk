@@ -17,6 +17,27 @@ GeneratorCompDB::GeneratorCompDB(
     }
 }
 
+bool GeneratorCompDB::retarget(llvm::StringRef from, llvm::StringRef to) {
+    auto it = std::find_if(commands_.begin(), commands_.end(), [from](const auto& cmd) {
+        return from == cmd.Filename;
+    });
+    if (it == commands_.end()) {
+        return false;
+    }
+
+    // ClangTool rejects a command line yielding more than one compiler job, so `to` must not
+    // end up named twice.
+    for (std::string& arg : it->CommandLine) {
+        if (arg == from) {
+            arg = to.str();
+        }
+    }
+
+    it->Filename = to.str();
+
+    return true;
+}
+
 std::vector<std::string> GeneratorCompDB::getAllFiles() const {
     std::vector<std::string> result;
     result.reserve(commands_.size());

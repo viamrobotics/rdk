@@ -24,11 +24,12 @@ The generated `module.go` file contains the scaffolding for your resource. You w
    - **First return:** required dependencies (other resources that must exist)  
    - **Second return:** optional dependencies (resources that are nice to have but not required)  
    - `path` is provided by the runtime and indicates **where this resource appears in the JSON config**, e.g., `"components.0"`. Use it in error messages to show which resource has a problem.
+   - Note: `Validate` receives a copy of the config — mutations to it will do nothing. Fill in any default values in your resource's constructor function instead.
 
 Example:
 
 ```go
-func (cfg *Config) Validate(path string) ([]string, []string, error) {
+func (cfg Config) Validate(path string) ([]string, []string, error) {
     if cfg.Camera == "" {
         return nil, nil, fmt.Errorf("%s: missing required field 'camera'", path)
     }
@@ -39,13 +40,13 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 2. **`new<ModuleName><ModelName>(...)`**
    - Automatically called by the runtime after validation.
    - Takes a generic `rawConf` from the robot’s JSON config.  
-   - Converts it into a typed `*Config`.
+   - Converts it into a typed `Config`.
    - Passes the config to `New<ModelName>` to create the resource instance.
    - You usually won’t edit this function. 
 
 3. **`New<ModelName>(...)`**
    - Your actual constructor.
-   - Receives the already-parsed `*Config`. 
+   - Receives the already-parsed `Config`. 
    - Sets up the logger, config, and any initial state.
    - You can add hardware initialization or background tasks here.
    - Returns the fully constructed resource instance.

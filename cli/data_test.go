@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -348,6 +349,103 @@ func TestDataSourceTypeToProto(t *testing.T) {
 				"invalid data source type: %q. Supported values: %v",
 				name, tabularDataByMQLDataSourceTypes))
 		}
+	})
+}
+
+func binaryMeta(id string) *datapb.BinaryMetadata {
+	return &datapb.BinaryMetadata{BinaryDataId: id, FileName: id + ".jpg", FileExt: ".jpg"}
+}
+
+// echoBinaryDataByIDs returns one datum per requested id, with bytes when the caller asks for them.
+func echoBinaryDataByIDs(_ context.Context, in *datapb.BinaryDataByIDsRequest, _ ...grpc.CallOption,
+) (*datapb.BinaryDataByIDsResponse, error) {
+	resp := &datapb.BinaryDataByIDsResponse{}
+	for _, id := range in.GetBinaryDataIds() {
+		datum := &datapb.BinaryData{Metadata: binaryMeta(id)}
+		if in.GetIncludeBinary() {
+			datum.Binary = []byte("bytes-" + id)
+		}
+		resp.Data = append(resp.Data, datum)
+	}
+	return resp, nil
+}
+
+// binaryFilterFake serves one page of ids per BinaryDataByFilter call, then empty pages, and
+// records the filter it was asked with.
+type binaryFilterFake struct {
+	pages [][]string
+	// repeat serves the first page forever, so the producer never runs out of ids to send.
+	repeat   bool
+	byIDsErr error
+
+	mu     sync.Mutex
+	call   int
+	filter *datapb.Filter
+}
+
+func (f *binaryFilterFake) client() *inject.DataServiceClient {
+	return &inject.DataServiceClient{
+		BinaryDataByFilterFunc: func(_ context.Context, in *datapb.BinaryDataByFilterRequest, _ ...grpc.CallOption,
+		) (*datapb.BinaryDataByFilterResponse, error) {
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			f.filter = in.GetDataRequest().GetFilter()
+
+			resp := &datapb.BinaryDataByFilterResponse{}
+			if page := f.call; f.repeat || page < len(f.pages) {
+				if f.repeat {
+					page = 0
+				}
+				for _, id := range f.pages[page] {
+					resp.Data = append(resp.Data, &datapb.BinaryData{Metadata: binaryMeta(id)})
+				}
+			}
+			f.call++
+			return resp, nil
+		},
+		BinaryDataByIDsFunc: func(ctx context.Context, in *datapb.BinaryDataByIDsRequest, opts ...grpc.CallOption,
+		) (*datapb.BinaryDataByIDsResponse, error) {
+			if f.byIDsErr != nil {
+				return nil, f.byIDsErr
+			}
+			return echoBinaryDataByIDs(ctx, in, opts...)
+		},
+	}
+}
+
+func TestDataExportBinaryAction(t *testing.T) {
+	t.Run("downloads every id the filter matches", func(t *testing.T) {
+		fake := &binaryFilterFake{pages: [][]string{{"bin-1", "bin-2"}, {"bin-3"}}}
+		cCtx, ac, out, _ := setup(&inject.AppServiceClient{}, fake.client(), nil,
+			map[string]any{generalFlagPartID: "p1"}, "token")
+
+		dst := t.TempDir()
+		err := ac.dataExportBinaryAction(context.Background(), cCtx, dataExportBinaryArgs{Destination: dst, Parallel: 4})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fake.filter.GetPartId(), test.ShouldEqual, "p1")
+
+		for _, id := range []string{"bin-1", "bin-2", "bin-3"} {
+			path := dataFilePath(dst, filenameForDownload(binaryMeta(id)), ".jpg")
+			test.That(t, mustReadFile(t, path), test.ShouldResemble, []byte("bytes-"+id))
+		}
+		test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "Downloaded 3 files")
+	})
+
+	t.Run("reports a download failure instead of hanging", func(t *testing.T) {
+		fake := &binaryFilterFake{
+			pages:    [][]string{{"bin-1", "bin-2", "bin-3", "bin-4"}},
+			repeat:   true,
+			byIDsErr: errors.New("download failed"),
+		}
+		cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, fake.client(), nil,
+			map[string]any{generalFlagPartID: "p1"}, "token")
+
+		err := ac.dataExportBinaryAction(context.Background(), cCtx,
+			dataExportBinaryArgs{Destination: t.TempDir(), Parallel: 2})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "download failed")
+		// The cancellation is this function's own, so it should not ride along with the cause.
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "context canceled")
 	})
 }
 

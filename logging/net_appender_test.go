@@ -85,6 +85,7 @@ type serverForRobotLogger struct {
 
 func makeServerForRobotLogger(t *testing.T) serverForRobotLogger {
 	logger := NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())

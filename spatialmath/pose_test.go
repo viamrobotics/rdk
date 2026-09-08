@@ -9,6 +9,8 @@ import (
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
+
+	"go.viam.com/rdk/utils"
 )
 
 func TestBasicPoseConstruction(t *testing.T) {
@@ -219,4 +221,38 @@ func TestInterpolateSand1(t *testing.T) {
 	y := Interpolate(a, b, .75)
 
 	test.That(t, x.Point().Distance(y.Point()), test.ShouldAlmostEqual, y.Point().Distance(b.Point()), .00001)
+}
+
+func TestProjectOrientationTo2dRotation(t *testing.T) {
+	// A pure yaw must survive the projection unchanged, and must not depend on whether the
+	// component happens to be perfectly level: an infinitesimal tilt takes the general code path
+	// while a perfectly level pose takes the in-plane early return, and the two must agree.
+	for _, yawDeg := range []float64{0, 30, 90, 180, -45, -170} {
+		yaw := utils.DegToRad(yawDeg)
+		for _, pitch := range []float64{0, 1e-12, 1e-6, 0.02, 0.3} {
+			pose := NewPose(r3.Vector{1, 2, 3}, &EulerAngles{Yaw: yaw, Pitch: pitch})
+			projected, err := ProjectOrientationTo2dRotation(pose)
+			test.That(t, err, test.ShouldBeNil)
+
+			// position is carried through untouched
+			test.That(t, projected.Point().Distance(pose.Point()), test.ShouldAlmostEqual, 0, 1e-9)
+
+			ov := projected.Orientation().OrientationVectorDegrees()
+			// the result is a pure rotation about +Z
+			test.That(t, ov.OX, test.ShouldAlmostEqual, 0, 1e-8)
+			test.That(t, ov.OY, test.ShouldAlmostEqual, 0, 1e-8)
+			test.That(t, ov.OZ, test.ShouldAlmostEqual, 1, 1e-8)
+			// and it preserves the heading
+			test.That(t, utils.DegToRad(ov.Theta), test.ShouldAlmostEqual, yaw, 1e-6)
+		}
+	}
+}
+
+func TestProjectOrientationTo2dRotationPoles(t *testing.T) {
+	// Pointing the "forward" axis straight up or down has no ground projection.
+	for _, roll := range []float64{math.Pi / 2, -math.Pi / 2} {
+		_, err := ProjectOrientationTo2dRotation(NewPoseFromOrientation(&EulerAngles{Roll: roll}))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot project to 2d")
+	}
 }

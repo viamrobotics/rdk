@@ -476,7 +476,9 @@ func testChdir(t *testing.T, dest string) {
 	t.Helper()
 	orig, err := os.Getwd()
 	test.That(t, err, test.ShouldBeNil)
+	//nolint: usetesting
 	os.Chdir(dest)
+	//nolint: usetesting
 	t.Cleanup(func() { os.Chdir(orig) })
 }
 
@@ -894,4 +896,16 @@ func TestCreateGitArchive(t *testing.T) {
 		files := archiveFiles(t, archivePath)
 		test.That(t, files, test.ShouldResemble, []string{".gitignore", "main.go"})
 	})
+}
+
+func TestReloadingDestination(t *testing.T) {
+	manifest := &ModuleManifest{
+		ModuleID: "viam-labs:test-module",
+		Build:    &manifestBuildInfo{Path: "module.tar.gz"},
+	}
+	// forward slashes regardless of the CLI's platform: the path is for the machine
+	test.That(t, reloadingDestination(manifest, "/opt/viam"),
+		test.ShouldEqual, "/opt/viam/packages-local/viam-labs_test-module-module.tar.gz")
+	test.That(t, reloadingDestination(manifest, legacyViamHomeDir),
+		test.ShouldEqual, "~/.viam/packages-local/viam-labs_test-module-module.tar.gz")
 }

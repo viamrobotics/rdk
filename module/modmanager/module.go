@@ -526,6 +526,7 @@ func (m *module) registerProcessWithFTDC() {
 // Return an address string with an auto-assigned port.
 // This gets closed and then passed down to the module child process.
 func getAutomaticPort() (string, error) {
+	//nolint: noctx
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		return "", err

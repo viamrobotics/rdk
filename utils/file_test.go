@@ -22,12 +22,10 @@ func TestResolveFile(t *testing.T) {
 }
 
 func TestSafeJoinDir(t *testing.T) {
-	parentDir := "/some/parent"
-
-	validate := func(in, expectedOut string, expectedErr error) {
+	validate := func(parent, in, expectedOut string, expectedErr error) {
 		t.Helper()
 
-		out, err := SafeJoinDir(parentDir, in)
+		out, err := SafeJoinDir(parent, in)
 		if expectedErr == nil {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, out, test.ShouldEqual, expectedOut)
@@ -37,9 +35,21 @@ func TestSafeJoinDir(t *testing.T) {
 		}
 	}
 
-	validate("sub/dir", "/some/parent/sub/dir", nil)
-	validate("/other/parent", "/some/parent/other/parent", nil)
-	validate("../../../root", "", errors.New("unsafe path join"))
+	parentDir := "/some/parent"
+	validate(parentDir, "sub/dir", filepath.Join(parentDir, "sub/dir"), nil)
+	validate(parentDir, "/other/parent", filepath.Join(parentDir, "other/parent"), nil)
+	validate(parentDir, "meta.json", filepath.Join(parentDir, "meta.json"), nil)
+	validate(parentDir, "../../../root", "", errors.New("unsafe path join"))
+	validate(parentDir, "..", "", errors.New("unsafe path join"))
+
+	// Relative parents (including ".") must be handled. Previously SafeJoinDir(".", "meta.json")
+	// returned a spurious error, which broke module meta.json discovery (notably on Windows).
+	validate(".", "meta.json", "meta.json", nil)
+	validate(".", "sub/dir", filepath.Join("sub", "dir"), nil)
+	validate(".", "..", "", errors.New("unsafe path join"))
+	validate(".", "../escape", "", errors.New("unsafe path join"))
+	validate("relative/parent", "child", filepath.Join("relative/parent", "child"), nil)
+	validate("relative/parent", "../../escape", "", errors.New("unsafe path join"))
 }
 
 func TestExpandHomeDir(t *testing.T) {

@@ -27,8 +27,10 @@ const SubtypeName = "frame_system"
 // API is the fully qualified API for the internal frame system service.
 var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
-// InternalServiceName is used to refer to/depend on this service internally.
-var InternalServiceName = resource.NewName(API, "builtin")
+// InternalServiceName is used to refer to/depend on this service internally. The "$" prefix marks
+// it as a reserved internal name a user cannot create (the resource-name validator forbids "$"), so
+// it never collides with a user resource under machine-wide name uniqueness.
+var InternalServiceName = resource.NewName(API, "$"+SubtypeName)
 
 // PublicServiceName is used by modules to refer to the robot's frame system.
 var PublicServiceName = resource.NewName(API, "$framesystem")
@@ -319,6 +321,8 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 
 // CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
 // InputEnabled resources that those inputs came from.
+// Client-side impl at robot/client/client.go CurrentInputs diverges — no proto RPC to forward to.
+// See https://viam.atlassian.net/browse/RSDK-14393.
 func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	fs, err := NewFromService(ctx, svc, nil)
 	if err != nil {

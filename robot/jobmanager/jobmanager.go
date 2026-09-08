@@ -168,10 +168,12 @@ func (jm *JobManager) Close() error {
 
 // createDescriptorSourceAndgRPCMethod sets up a DescriptorSource for grpc translations
 // and sets up parts of the grpc method string that will be invoked later.
+// The refClient is returned (not Reset here) because the returned DescriptorSource is
+// backed by it and the caller keeps using it through InvokeRPC; the caller Resets it.
 func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 	res resource.Resource,
 	method string,
-) (grpcurl.DescriptorSource, string, string, error) {
+) (grpcurl.DescriptorSource, *grpcreflect.Client, string, string, error) {
 	refCtx := metadata.NewOutgoingContext(jm.ctx, nil)
 	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(jm.conn))
 	// TODO(RSDK-9718)
@@ -184,7 +186,7 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 	resourceType = strings.ReplaceAll(resourceType, "_", "")
 	services, err := descSource.ListServices()
 	if err != nil {
-		return nil, "", "", err
+		return nil, refClient, "", "", err
 	}
 	var grpcService string
 	for _, srv := range services {
@@ -194,9 +196,9 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 		}
 	}
 	if grpcService == "" {
-		return nil, "", "", errors.Errorf("could not find a service for type: %s", resourceType)
+		return nil, refClient, "", "", errors.Errorf("could not find a service for type: %s", resourceType)
 	}
-	return descSource, grpcService, method, nil
+	return descSource, refClient, grpcService, method, nil
 }
 
 // createJobFunction returns a function that the job scheduler puts on its queue.
@@ -230,7 +232,12 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 			return nil
 		}
 
-		descSource, grpcService, grpcMethod, err := jm.createDescriptorSourceAndgRPCMethod(res, jc.Method)
+		descSource, refClient, grpcService, grpcMethod, err := jm.createDescriptorSourceAndgRPCMethod(res, jc.Method)
+		// Reset the reflection stream; otherwise each invocation leaks one on the shared jm.conn
+		// until it hits MaxConcurrentStreams and jobs stop running (APP-16939).
+		if refClient != nil {
+			defer refClient.Reset()
+		}
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "grpc setup failed", "error", err)
 			return err

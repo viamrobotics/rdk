@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -45,6 +46,15 @@ type builtIn struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// DoCommand answers environment queries a client cannot resolve on its own,
+// e.g. the CLI asking where this machine's VIAM_HOME is before placing files.
+func (svc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if _, ok := cmd[shell.GetViamHomeCommand]; ok {
+		return map[string]interface{}{shell.ViamHomeKey: rutils.ViamDotDir}, nil
+	}
+	return nil, resource.ErrDoUnimplemented
+}
+
 func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	chan<- string, chan<- map[string]interface{}, <-chan shell.Output, error,
 ) {
@@ -65,7 +75,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	}
 
 	ctxCancel, cancel := context.WithCancel(ctx)
-	//nolint:gosec
+	//nolint: gosec,noctx
 	cmd := exec.Command(defaultShellPath, shellArgs...)
 	cmd.Env = shellEnv
 	// xpty gives a unix pty or a Windows ConPTY behind one interface.

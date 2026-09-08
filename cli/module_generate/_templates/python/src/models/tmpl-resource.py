@@ -29,6 +29,10 @@ class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
         """This method allows you to validate the configuration object received from the machine,
         as well as to return any required dependencies or optional dependencies based on that `config`.
 
+        Note: validate_config should only inspect the config; mutations to it
+        will do nothing. Fill in any default values in your resource's
+        constructor (or reconfigure) instead.
+
         Args:
             config (ComponentConfig): The configuration for this resource
 

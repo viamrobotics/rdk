@@ -41,11 +41,13 @@ type IKInspectCell struct {
 	CheckPathFeedback armplanning.PathFeedback
 }
 
+//nolint:revive
 type IKInspectTable struct {
 	SeedResults [][]IKInspectCell
 	SeedLabels  []string
 }
 
+//nolint:revive
 func InspectIK(ctx context.Context, logger logging.Logger,
 	req *armplanning.PlanRequest,
 	segmentStart referenceframe.FrameSystemInputs,
@@ -74,6 +76,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		return nil, err
 	}
 
+	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
 	ikMinimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))
 	retChan := make(chan *ik.Solution, 10)
@@ -93,6 +96,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
+			//nolint: errcheck
 			_, _, _ = solver.Solve(ctxWithCancel, retChan, nil,
 				seeds, limits, ikMinimizingFunc, randSeed.Int())
 			cancel()

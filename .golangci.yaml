@@ -1,0 +1,160 @@
+version: "2"
+run:
+  build-tags:
+    - viam_rdk_cgo_have_cxx20_rt
+  modules-download-mode: readonly
+  tests: true
+linters:
+  default: standard
+  enable:
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - decorder
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gocritic
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosmopolitan
+    - govet
+    - grouper
+    - lll
+    - loggercheck
+    - mirror
+    - misspell
+    - nilerr
+    - nilnesserr
+    - noctx
+    - nolintlint
+    - promlinter
+    - reassign
+    - revive
+    - rowserrcheck
+    - sloglint
+    - sqlclosecheck
+    - staticcheck
+    - tagalign
+    - testableexamples
+    - testifylint
+    - unconvert
+    - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - whitespace
+    - zerologlint
+  settings:
+    errcheck:
+      check-blank: true
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/hashicorp/go-getter
+    gosec:
+      excludes:
+        - G104
+        - G115
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
+        - composites
+      enable-all: true
+    lll:
+      line-length: 140
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+          arguments:
+            - allowTypesBefore: testing.TB,*testing.T,*testing.B,*testing.F
+          disabled: false
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: var-declaration
+        - name: var-naming
+          arguments:
+            - [] # AllowList
+            - [] # DenyList
+            - - skip-package-name-collision-with-go-std: true
+                skip-package-name-checks: true
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1005
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        - -QF1008
+        - -QF1001
+        - -QF1002
+        - -QF1003
+        - -QF1005
+        - -QF1006
+        - -QF1012
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - dupword
+          - errcheck
+          - exhaustive
+          - goconst
+          - gosec
+        path: _test\.go$
+      - linters:
+          - lll
+        path: /doc.go$
+issues:
+  max-same-issues: 0
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(go.viam.com/rdk)
+    gofumpt:
+      extra-rules: true
+  exclusions:
+    generated: lax
+    paths:
+      - '^cli/module_generate/_templates/'

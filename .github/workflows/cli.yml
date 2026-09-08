@@ -105,3 +105,85 @@ jobs:
         pip install -r cli/test-requirements.txt
         check-jsonschema --schemafile ./cli/module.schema.json meta2.json
         rm meta.json meta2.json
+
+  viam-cli-deb:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write" # WIF auth for the stable upload
+    steps:
+    - name: Check out code
+      # actions/checkout@v7.0.1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        # empty ref checks out the triggering commit
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
+        fetch-depth: 0
+        # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
+        allow-unsafe-pr-checkout: true
+
+    # actions/setup-go@v7.0.0
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+      with:
+        go-version-file: go.mod
+
+    - name: build debs
+      shell: bash
+      env:
+        RELEASE_TYPE: ${{ inputs.release_type }}
+      run: |
+        # only stable tags carry a real version
+        if [ "$RELEASE_TYPE" != stable ]; then
+          export TAG_VERSION='0.0.0~ci'
+        fi
+        GOOS=linux GOARCH=amd64 make deb-cli
+        GOOS=linux GOARCH=arm64 make deb-cli
+
+    - name: install test amd64
+      run: |
+        for img in debian:bookworm ubuntu:24.04; do
+          docker run --rm -v "$PWD/bin/deb:/deb:ro" "$img" \
+            bash -ec 'apt-get update -qq && apt-get install -yqq /deb/viam-cli_*_amd64.deb >/dev/null && viam version'
+        done
+
+    - name: install test arm64 (qemu)
+      continue-on-error: true # emulation is best-effort
+      run: |
+        docker run --privileged --rm tonistiigi/binfmt --install arm64
+        docker run --platform linux/arm64 --rm -v "$PWD/bin/deb:/deb:ro" debian:bookworm \
+          bash -ec 'apt-get update -qq && apt-get install -yqq /deb/viam-cli_*_arm64.deb >/dev/null && viam version'
+
+    - name: Authorize GAR upload
+      if: inputs.release_type == 'stable'
+      # google-github-actions/auth@v3
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+      with:
+        workload_identity_provider: projects/785265540/locations/global/workloadIdentityPools/github-rdk-id/providers/github-provider-rdk
+        service_account: rdk-apt-publisher@static-file-server-310021.iam.gserviceaccount.com
+    - name: Set up gcloud
+      if: inputs.release_type == 'stable'
+      # google-github-actions/setup-gcloud@v3.0.1
+      uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+    - name: upload to apt repo
+      if: inputs.release_type == 'stable'
+      run: make deb-cli-upload
+
+  # installs from the published repo exactly as the docs describe
+  viam-cli-apt-e2e:
+    if: inputs.release_type == 'stable'
+    needs: viam-cli-deb
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+    steps:
+    - name: Check out code
+      # actions/checkout@v7.0.1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - name: apt install e2e
+      env:
+        EXPECTED_VERSION: ${{ github.ref_name }}
+      run: |
+        for img in debian:bookworm ubuntu:24.04; do
+          docker run --rm -v "$PWD/etc/apt-e2e.sh:/apt-e2e.sh:ro" \
+            -e EXPECTED_VERSION="${EXPECTED_VERSION#v}" "$img" bash /apt-e2e.sh
+        done

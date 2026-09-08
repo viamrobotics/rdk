@@ -13,14 +13,17 @@ import (
 	"go.viam.com/utils"
 	gotestutils "go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -679,10 +682,12 @@ func TestModularOptionalDependencies(t *testing.T) {
 }
 
 func TestOptionalDependencyOnBuiltin(t *testing.T) {
-	// This test ensures that a component can optionally depend upon a resource named
-	// "builtin". This validates that the optional dependency system works correctly when the
-	// dependency name is "builtin", which could be confused with internal builtin services
-	// but is actually just a regular resource with that name.
+	// A resource may not be named "builtin", which is reserved for the default services at config
+	// validation. This test ensures the reservation composes with the optional-dependency system: a
+	// motor named "builtin" is rejected and not confused with an internal service, so a component
+	// that optionally depends on "builtin" still builds. The optional dependency resolves to the
+	// builtin motion service (not a motor); the constructor finds no motor among its dependencies,
+	// but since the dependency was optional it does not complain.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -700,8 +705,9 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 		})
 	defer resource.Deregister(generic.API, optionalChildModel)
 
-	// Reconfigure the robot to have an optional child component with a required motor 'm'
-	// and an optional dependency on a motor named "builtin" (which already exists).
+	// Reconfigure the robot to have an optional child component with a required motor 'm' and an
+	// optional dependency on a motor named "builtin". The "builtin" motor claims the reserved name
+	// and will be rejected.
 	cfg := config.Config{
 		Components: []resource.Config{
 			{
@@ -730,35 +736,27 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg)
 
-	// Assert that the optional child component built successfully.
+	// The reserved-name rejection was logged and the "builtin" motor is not reachable.
+	test.That(t, logs.FilterMessageSnippet("reserved").Len(), test.ShouldBeGreaterThan, 0)
+	_, err := lr.ResourceByName(motor.Named("builtin"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// The optional child still built: its required motor 'm' is present, and its optional
+	// dependency on the rejected "builtin" is simply left unresolved.
 	ocRes, err := lr.ResourceByName(ocName)
 	test.That(t, err, test.ShouldBeNil)
 
 	oc, err := resource.AsType[*optionalChild](ocRes)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Assert that there is either 0 or 1 log about an inability to "get optional motor."
-	//
-	// The optional child _might_ get 'builtin' as a dependency as part of its initial
-	// construction (if builtin initializes first), in which case no log will be emitted, or
-	// it _might_ get 'builtin' as a dependency only during the rebuild triggered by
-	// `updateWeakAndOptionalDependents` detecting that the snapshot changed, in which case
-	// one log will be emitted due to the initial construction lacking the 'builtin' dependency.
-	//
-	// Optional dependencies are _not_ represented as edges in the resource graph and have no
-	// influence on build order. 0 logs would mean the order was m -> builtin -> oc. 1 log
-	// would mean the order was m -> oc -> builtin (or builtin -> m -> oc).
-	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-	test.That(t, msgNum, test.ShouldBeIn, []int{0, 1})
-
-	// Assert that, on the component itself, both `requiredMotor` and `optionalMotor` are set.
 	test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
-	test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
+	test.That(t, oc.optionalMotor, test.ShouldBeNil)
 }
 
 func TestModularOptionalDependencyOnBuiltin(t *testing.T) {
-	// This test ensures that a modular component can optionally depend upon a resource named
-	// "builtin". This is a modular version of TestOptionalDependencyOnBuiltin.
+	// Modular version of TestOptionalDependencyOnBuiltin: a motor named "builtin" claims the
+	// reserved name and is rejected, so a modular component that optionally depends on "builtin"
+	// builds without it (the module reports the optional motor as "unset").
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -771,8 +769,8 @@ func TestModularOptionalDependencyOnBuiltin(t *testing.T) {
 	fooModel := resource.NewModel("acme", "demo", "foo")
 	fooName := generic.Named("f")
 
-	// Reconfigure the robot to have a foo component with a required motor 'm' and an
-	// optional dependency on a motor named "builtin".
+	// Reconfigure the robot to have a foo component with a required motor 'm' and an optional
+	// dependency on a motor named "builtin". The "builtin" motor is reserved and will be rejected.
 	cfg := config.Config{
 		Modules: []config.Module{
 			{
@@ -807,27 +805,24 @@ func TestModularOptionalDependencyOnBuiltin(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg)
 
-	// Assert that the foo component built successfully.
+	// The reserved-name rejection was logged and the "builtin" motor is not reachable.
+	test.That(t, logs.FilterMessageSnippet("reserved").Len(), test.ShouldBeGreaterThan, 0)
+	_, err := lr.ResourceByName(motor.Named("builtin"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// The foo component still built against its required motor 'm'.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
-
-	// Assert that there are either 0 or 1 logs about an inability to "get optional motor."
-	// With serial configuration (WithDisableCompleteConfigWorker), the build order is more
-	// predictable but still depends on module startup timing. 0 logs means 'builtin' was
-	// fully available during construction. 1 log means 'builtin' was available during the
-	// updateWeakAndOptionalDependents rebuild.
-	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-	test.That(t, msgNum, test.ShouldBeIn, []int{0, 1})
 
 	// Assert that 'm' is accessible through the foo component and not moving.
 	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
 
-	// Assert that 'builtin' is accessible through the foo component and not moving.
+	// The optional dependency on the rejected "builtin" motor is left unset.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "unset"})
 }
 
 func TestModularOptionalDependencyOnRemote(t *testing.T) {
@@ -960,6 +955,55 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+}
+
+func TestOptionalDependencyLocalWinsOverRemote(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker()).(*localRobot)
+
+	// A local arm and an (unprefixed) remote sensor both named "shared".
+	injectArm := &inject.Arm{}
+	localArmCfg := resource.Config{API: arm.API, Name: "shared"}
+	err := lr.manager.resources.AddNode(
+		localArmCfg.ResourceName(),
+		resource.NewConfiguredGraphNode(localArmCfg, injectArm, localArmCfg.Model),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectSensor := &inject.Sensor{}
+	remoteSensorCfg := resource.Config{API: sensor.API, Name: "shared"}
+	err = lr.manager.resources.AddNode(
+		remoteSensorCfg.ResourceName().PrependRemote("remote1"),
+		resource.NewConfiguredGraphNode(remoteSensorCfg, injectSensor, remoteSensorCfg.Model),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// FindAllBySimpleName surfaces both matches (the ambiguity that used to make the resolver bail
+	// out), while FindBySimpleName applies name uniqueness and resolves to the local arm.
+	test.That(t, len(lr.manager.resources.FindAllBySimpleName("shared")), test.ShouldEqual, 2)
+	resolvedShared, err := lr.manager.resources.FindBySimpleName("shared")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolvedShared, test.ShouldResemble, arm.Named("shared"))
+
+	// A resource optionally depending on the bare name "shared".
+	dependentCfg := resource.Config{
+		API:                       generic.API,
+		Name:                      "dependent",
+		ImplicitOptionalDependsOn: []string{"shared"},
+	}
+	optDeps, snapshot := lr.getOptionalDependenciesAndSnapshot(dependentCfg)
+
+	// The optional dependency resolves to the local arm, not the remote sensor.
+	test.That(t, len(optDeps), test.ShouldEqual, 1)
+	resolved, ok := optDeps[arm.Named("shared")]
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resolved, test.ShouldEqual, injectArm)
+	_, sensorResolved := optDeps[sensor.Named("shared")]
+	test.That(t, sensorResolved, test.ShouldBeFalse)
+	_, inSnapshot := snapshot[arm.Named("shared")]
+	test.That(t, inSnapshot, test.ShouldBeTrue)
 }
 
 func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {

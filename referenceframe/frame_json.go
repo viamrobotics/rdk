@@ -47,15 +47,21 @@ func (mc *MimicConfig) EffectiveMultiplier() float64 {
 }
 
 // JointConfig is a frame with nonzero DOF. Supports rotational or translational.
+//
+// MaxVelocity and MaxAcceleration are pointers so that leaving a field out, which means the
+// joint is unbounded on that axis, stays distinguishable from setting it to 0, which means the
+// joint cannot move.
 type JointConfig struct {
-	ID       string                  `json:"id"`
-	Type     string                  `json:"type"`
-	Parent   string                  `json:"parent"`
-	Axis     spatial.AxisConfig      `json:"axis"`
-	Max      float64                 `json:"max"`                // in mm or degs
-	Min      float64                 `json:"min"`                // in mm or degs
-	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"` // only valid for prismatic/translational joints
-	Mimic    *MimicConfig            `json:"mimic,omitempty"`
+	ID              string                  `json:"id"`
+	Type            string                  `json:"type"`
+	Parent          string                  `json:"parent"`
+	Axis            spatial.AxisConfig      `json:"axis"`
+	Max             float64                 `json:"max"`                        // in mm or degs
+	Min             float64                 `json:"min"`                        // in mm or degs
+	MaxVelocity     *float64                `json:"max_velocity,omitempty"`     // in mm/s or degs/s
+	MaxAcceleration *float64                `json:"max_acceleration,omitempty"` // in mm/s² or degs/s²
+	Geometry        *spatial.GeometryConfig `json:"geometry,omitempty"`         // only valid for prismatic/translational joints
+	Mimic           *MimicConfig            `json:"mimic,omitempty"`
 }
 
 // DHParamConfig is a revolute and static frame combined in a set of Denavit Hartenberg parameters.
@@ -149,9 +155,21 @@ func (cfg *JointConfig) ToFrame() (Frame, error) {
 	var limit Limit
 	switch cfg.Type {
 	case RevoluteJoint:
-		limit = Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)}
+		// degrees on the wire, radians internally, and the same factor converts the
+		// velocity and acceleration limits
+		limit = Limit{
+			Min:             utils.DegToRad(cfg.Min),
+			Max:             utils.DegToRad(cfg.Max),
+			MaxVelocity:     limitPtr(cfg.MaxVelocity, utils.DegToRad),
+			MaxAcceleration: limitPtr(cfg.MaxAcceleration, utils.DegToRad),
+		}
 	case PrismaticJoint:
-		limit = Limit{Min: cfg.Min, Max: cfg.Max}
+		limit = Limit{
+			Min:             cfg.Min,
+			Max:             cfg.Max,
+			MaxVelocity:     limitPtr(cfg.MaxVelocity, nil),
+			MaxAcceleration: limitPtr(cfg.MaxAcceleration, nil),
+		}
 	default:
 		return nil, NewUnsupportedJointTypeError(cfg.Type)
 	}

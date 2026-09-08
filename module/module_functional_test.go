@@ -32,6 +32,7 @@ func setupLocalModule(t *testing.T, ctx context.Context, logger logging.Logger) 
 
 	// Hit Ready as a way to close m.pcFailed, so that AddResource can proceed. Set
 	// NoModuleParentEnvVar so that parent connection will not be attempted.
+	//nolint: usetesting
 	test.That(t, os.Setenv(NoModuleParentEnvVar, "true"), test.ShouldBeNil)
 	t.Cleanup(func() {
 		test.That(t, os.Unsetenv(NoModuleParentEnvVar), test.ShouldBeNil)

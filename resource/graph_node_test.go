@@ -252,7 +252,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.UnresolvedDependencies(), test.ShouldBeEmpty)
 	verifyStateTransition(t, node, resource.NodeStateReady)
 
-	//nolint
+	//nolint: staticcheck,revive
 	test.That(t, node.Close(context.WithValue(context.Background(), "foo", "hi")), test.ShouldBeNil)
 	test.That(t, ourRes.closeCap, test.ShouldBeEmpty)
 	test.That(t, ourRes2.closeCap, test.ShouldBeEmpty)
@@ -278,7 +278,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 	verifySameState(t, node)
 
-	//nolint
+	//nolint: staticcheck,revive
 	err = node.Close(context.WithValue(context.Background(), "foo", "bye"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad close")
@@ -362,4 +362,32 @@ func TestTransitionToBlocking(t *testing.T) {
 	node.LogAndSetLastError(errors.New("Its error time"))
 	// Node should stay still be in state removing
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeTrue)
+}
+
+func TestReconfigureReason(t *testing.T) {
+	node := withTestLogger(t, resource.NewUninitializedNode())
+	// A fresh node has no reason; empty means initial construction.
+	test.That(t, node.ReconfigureReason(), test.ShouldEqual, "")
+
+	node.SetNewConfig(resource.Config{}, nil)
+	test.That(t, node.ReconfigureReason(), test.ShouldEqual, "config_change")
+
+	node.SetNeedsUpdate()
+	test.That(t, node.ReconfigureReason(), test.ShouldEqual, "dependency_update")
+
+	node.SetNeedsRebuild()
+	test.That(t, node.ReconfigureReason(), test.ShouldEqual, "module_rebuild")
+}
+
+func TestPendingRevision(t *testing.T) {
+	node := withTestLogger(t, resource.NewUninitializedNode())
+	test.That(t, node.PendingRevision(), test.ShouldEqual, "")
+
+	node.UpdatePendingRevision("rev1")
+	test.That(t, node.PendingRevision(), test.ShouldEqual, "rev1")
+
+	// SwapResource promotes the pending revision to current; pending is retained.
+	res := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
+	node.SwapResource(res, resource.DefaultModelFamily.WithModel("bar"), nil, true)
+	test.That(t, node.PendingRevision(), test.ShouldEqual, "rev1")
 }

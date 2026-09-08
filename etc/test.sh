@@ -24,6 +24,15 @@ if [[ -z "$TEST_TARGET" ]] && [[ -n "${SKIP_ROBOT_IMPL}${SKIP_ARMPLANNING}${SKIP
 fi
 TEST_TARGET=${TEST_TARGET:-./...}
 
+# GO_BUILD_TAGS_EXTRA (comma- or space-separated) appends extra build tags, the
+# same knob the Makefile uses for server builds. CI sets it to
+# viam_rdk_cgo_have_cxx20_rt so the trajex-backed arm-streaming code and its
+# tagged tests compile and run on platforms whose toolchain supports it.
+GO_TAGS=no_skip
+if [[ -n "$GO_BUILD_TAGS_EXTRA" ]]; then
+	GO_TAGS="$GO_TAGS,$(echo $GO_BUILD_TAGS_EXTRA | tr ' ' ',')"
+fi
+
 # Race is unsupported on some linux/arm64 hosts. See https://github.com/golang/go/issues/29948.
 # To run without race, use `make test-no-race` or `make test-go-no-race`.
 # Running race and cover at the same time results in DRAMATIC test slowdowns, especially with parallel processing.
@@ -44,7 +53,7 @@ if test -n "$GITHUB_RUN_ID"; then
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format $FORMAT $LOGFILE -- -tags=no_skip -timeout 40m $RACE $COVER $TEST_TARGET
+PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format $FORMAT $LOGFILE -- -tags=$GO_TAGS -timeout 40m $RACE $COVER $TEST_TARGET
 SUCCESS=$?
 
 if [[ $RACE != "" ]]; then

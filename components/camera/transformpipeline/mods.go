@@ -269,7 +269,7 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 				return nil, nil, fmt.Errorf("could not overlay crop box: %w", err)
 			}
 			return newImg, release, nil
-		} else {
+		} else { //nolint: revive
 			newImg := imaging.Crop(orig, cs.cropWindow)
 			if newImg.Bounds().Empty() {
 				return nil, nil, errors.New("crop transform cropped image to 0 pixels")

@@ -60,11 +60,13 @@ type FakePackagesClientAndGCSServer struct {
 
 // NewFakePackageServer creates a new fake package server.
 func NewFakePackageServer(ctx context.Context, logger logging.Logger) (*FakePackagesClientAndGCSServer, error) {
+	//nolint: noctx
 	httplistener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, err
 	}
 
+	//nolint: noctx
 	rpclistener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, err

@@ -48,6 +48,7 @@ type Rand interface {
 }
 
 // Testing returns true when you are running in test suite.
+//
 // Deprecated: this is in the standard library now.
 func Testing() bool {
 	return testing.Testing()

@@ -29,6 +29,7 @@ func TestFFMPEGCamera(t *testing.T) {
 func TestFFMPEGNotFound(t *testing.T) {
 	oldpath := os.Getenv("PATH")
 	defer func() {
+		//nolint: usetesting
 		os.Setenv("PATH", oldpath)
 	}()
 	os.Unsetenv("PATH")

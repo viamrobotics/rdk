@@ -219,6 +219,27 @@ func DefaultServices() []Name {
 	return defaults
 }
 
+// isDefaultServiceAPI reports whether this api has a model registered as a default service:
+// one auto-constructed under the reserved "builtin" name when absent from the config.
+func isDefaultServiceAPI(api API) bool {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+
+	for _, reg := range registry {
+		if reg.isDefault && reg.api == api {
+			return true
+		}
+	}
+	return false
+}
+
+// IsDefaultService reports whether the (name, api) pair identifies a registered default service:
+// the reserved "builtin" name on a default-service API. "builtin" is reserved for these services
+// at config validation, so no other resource may take it.
+func IsDefaultService(name string, api API) bool {
+	return name == DefaultServiceName && isDefaultServiceAPI(api)
+}
+
 // RegisterService registers a model for a service and its construction info. It's a helper for
 // Register.
 func RegisterService[ResourceT Resource, ConfigT ConfigValidator](api API, model Model, reg Registration[ResourceT, ConfigT]) {

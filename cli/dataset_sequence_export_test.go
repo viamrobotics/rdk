@@ -26,6 +26,7 @@ import (
 // shutdown function.
 func startMockDatasetServer(t *testing.T, srv datasetpb.DatasetServiceServer) (datasetpb.DatasetServiceClient, func()) {
 	t.Helper()
+	//nolint: noctx
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	gs := grpc.NewServer()
@@ -249,6 +250,7 @@ func noopCLICtx(t *testing.T) *cli.Command {
 // DataServiceServer impl and returns a connected client + a shutdown.
 func startMockDataServer(t *testing.T, srv datapb.DataServiceServer) (datapb.DataServiceClient, func()) {
 	t.Helper()
+	//nolint: noctx
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	test.That(t, err, test.ShouldBeNil)
 	gs := grpc.NewServer()

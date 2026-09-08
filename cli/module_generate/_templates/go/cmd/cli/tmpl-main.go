@@ -24,7 +24,7 @@ func realMain() error {
 
 	cfg := {{.ModuleLowercase}}.Config{}
 
-	thing, err := {{.ModuleLowercase}}.New{{.ModelPascal}}(ctx, deps, {{.ResourceSubtypeAlias}}.Named("foo"), &cfg, logger)
+	thing, err := {{.ModuleLowercase}}.New{{.ModelPascal}}(ctx, deps, {{.ResourceSubtypeAlias}}.Named("foo"), cfg, logger)
 	if err != nil {
 		return err
 	}

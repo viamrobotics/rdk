@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -1334,14 +1335,65 @@ func generateGolangStubs(module modulegen.ModuleInputs) error {
 
 	// run go mod tidy
 	if module.Language == golang {
-		tidyCmd := exec.Command("go", "mod", "tidy")
-		tidyCmd.Dir = module.ModuleName
-		if err := tidyCmd.Run(); err != nil {
-			return fmt.Errorf("failed to run go mod tidy: %w", err)
+		if out, err := runGoWithRetry(module.ModuleName, "mod", "tidy"); err != nil {
+			return fmt.Errorf("failed to run go mod tidy: %w\n%s", err, out)
 		}
 	}
 
 	return nil
+}
+
+// goFetchAttempts bounds how many times runGoWithRetry re-runs a `go` subcommand that
+// failed while talking to the module proxy or checksum database.
+const goFetchAttempts = 3
+
+// goFetchRetryDelay is the base backoff between attempts; attempt N waits N times this.
+const goFetchRetryDelay = 2 * time.Second
+
+// transientGoFetchMarkers are substrings the Go toolchain emits when proxy.golang.org or
+// sum.golang.org drops a request mid-flight. They say nothing about the module being
+// fetched, so the same command usually succeeds on a retry. Errors that describe the
+// module itself -- a bad version, a missing package, a checksum mismatch -- are absent
+// here on purpose, so a genuinely broken dependency still fails on the first attempt.
+var transientGoFetchMarkers = []string{
+	"INTERNAL_ERROR; received from peer",
+	"connection reset by peer",
+	"unexpected EOF",
+	"TLS handshake timeout",
+	"i/o timeout",
+	"502 Bad Gateway",
+	"503 Service Unavailable",
+	"504 Gateway Timeout",
+}
+
+// transientGoFetchFailure reports whether combined `go` output looks like a retryable
+// module-fetch failure rather than a real problem with the module graph.
+func transientGoFetchFailure(output []byte) bool {
+	out := string(output)
+	for _, marker := range transientGoFetchMarkers {
+		if strings.Contains(out, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// runGoWithRetry runs a `go` subcommand in dir, retrying transient module-proxy and
+// checksum-database failures. It returns the combined output of the final attempt so
+// callers can surface the toolchain's own diagnostics.
+func runGoWithRetry(dir string, args ...string) ([]byte, error) {
+	var out []byte
+	var err error
+	for attempt := 1; ; attempt++ {
+		//nolint: noctx
+		cmd := exec.Command(golang, args...)
+		cmd.Dir = dir
+		out, err = cmd.CombinedOutput()
+		if err == nil || attempt == goFetchAttempts || !transientGoFetchFailure(out) {
+			return out, err
+		}
+		time.Sleep(time.Duration(attempt) * goFetchRetryDelay)
+	}
 }
 
 // run goimports to remove unused imports and add necessary imports.
@@ -1360,14 +1412,13 @@ func runGoImports(moduleFile *os.File) error {
 	goImportsPath := filepath.Join(goPath, "bin", goImportsName)
 	if _, err := os.Stat(goImportsPath); os.IsNotExist(err) {
 		// installing goimports
-		installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
-		if err := installCmd.Run(); err != nil {
-			return fmt.Errorf("failed to install goimports: %w", err)
+		if out, err := runGoWithRetry("", "install", "golang.org/x/tools/cmd/goimports@latest"); err != nil {
+			return fmt.Errorf("failed to install goimports: %w\n%s", err, out)
 		}
 	}
 
 	// goimports is installed. Run goimport on the module file
-	//nolint:gosec
+	//nolint: gosec,noctx
 	formatCmd := exec.Command(goImportsPath, "-w", moduleFile.Name())
 	_, err = formatCmd.Output()
 	if err != nil {
@@ -1377,6 +1428,7 @@ func runGoImports(moduleFile *os.File) error {
 }
 
 func checkGoPath() (string, error) {
+	//nolint: noctx
 	goPathCmd := exec.Command("go", "env", "GOPATH")
 	goPathBytes, err := goPathCmd.Output()
 	if err != nil {
@@ -1428,6 +1480,7 @@ func checkLanguageVersion(language string) error {
 	if cmd == "" {
 		return fmt.Errorf("%s runtime not found. Please install %s >= %s", displayName, displayName, minVersion)
 	}
+	//nolint: noctx
 	versionOutput, err := exec.Command(cmd, versionFlag).Output() //nolint:gosec
 	if err != nil {
 		return errors.Wrapf(err, "%s runtime not found", displayName)
@@ -1450,15 +1503,45 @@ func findPythonCommand() string {
 	return ""
 }
 
+// createPythonVenv creates a Python virtual environment at venvName. Creating a venv
+// bootstraps pip via ensurepip in a subprocess, which can fail intermittently under CI
+// load, so we retry a few times and remove any partially-created environment between
+// attempts. The returned error includes the subprocess's stderr, since a bare
+// "exit status 1" is not actionable on its own.
+func createPythonVenv(pythonCmd, venvName string) error {
+	const maxAttempts = 3
+	var err error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		//nolint: noctx
+		cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if err = cmd.Run(); err == nil {
+			return nil
+		}
+		err = errorWithStderr(err, stderr.String())
+		// Remove any partial environment so the next attempt starts clean.
+		utils.UncheckedError(os.RemoveAll(venvName))
+	}
+	return err
+}
+
+// errorWithStderr augments err with the trimmed stderr of a failed command so callers
+// surface why a subprocess failed instead of only its exit status.
+func errorWithStderr(err error, stderr string) error {
+	if trimmed := strings.TrimSpace(stderr); trimmed != "" {
+		return errors.Errorf("%s: %s", err, trimmed)
+	}
+	return err
+}
+
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := findPythonCommand()
 	if pythonCmd == "" {
 		return errors.New("cannot generate python stubs -- python runtime not found")
 	}
-	cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
-	_, err := cmd.Output()
-	if err != nil {
+	if err := createPythonVenv(pythonCmd, venvName); err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
 	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(venvName) })
@@ -1472,8 +1555,8 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
-	//nolint:gosec
-	cmd = exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
+	//nolint: gosec,noctx
+	cmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
@@ -1819,8 +1902,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if pythonCmd == "" {
 		return errors.New("python runtime not found")
 	}
-	cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
-	if _, err := cmd.Output(); err != nil {
+	if err := createPythonVenv(pythonCmd, venvName); err != nil {
 		return errors.Wrap(err, "unable to create python virtual environment")
 	}
 	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(venvName) })
@@ -1834,7 +1916,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
-	//nolint:gosec
+	//nolint: gosec,noctx
 	stubCmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := stubCmd.Output()

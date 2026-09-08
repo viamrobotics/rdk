@@ -58,7 +58,7 @@ class Generator {
     Generator(GeneratorCompDB db,
               ResourceType resourceType,
               std::string resourceSubtypeSnake,
-              std::string resourcePath,
+              std::string resourceHeaderPath,
               std::unique_ptr<llvm::raw_fd_ostream> headerOut,
               std::unique_ptr<llvm::raw_fd_ostream> srcOut);
 
@@ -75,7 +75,9 @@ class Generator {
     std::string resourceSubtypeSnake_;
     std::string resourceSubtypePascal_;
 
-    std::string resourcePath_;
+    // The header we parse, and the .cpp whose compile command supplies its flags.
+    std::string resourceHeaderPath_;
+    std::string resourceSourcePath_;
 
     std::unique_ptr<llvm::raw_fd_ostream> headerOut_;
     std::unique_ptr<llvm::raw_fd_ostream> srcOut_;

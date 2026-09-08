@@ -74,6 +74,7 @@ func TestConfigRobot(t *testing.T) {
 func TestConfig3(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
+	//nolint: usetesting
 	test.That(t, os.Setenv("TEST_THING_FOO", "5"), test.ShouldBeNil)
 	cfg, err := config.Read(context.Background(), "data/config3.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)

@@ -1,8 +1,11 @@
 package motionplan
 
 import (
+	"math"
 	"sync"
 	"sync/atomic"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // CollisionCache holds planner-level temporal-coherence state for collision
@@ -79,3 +82,76 @@ func (c *CollisionCache) StoreEdgeResult(hashA, hashB uint64, isClear bool) {
 	}
 	c.edgeResults.Store(edgeResultKey{a: hashA, b: hashB}, edgeResultValue{isClear: isClear})
 }
+
+// sdfRegistry caches voxel distance fields process-wide. A field depends only
+// on the static scene (keyed by the shape-aware spatialmath.GeometrySetHash),
+// never on the plan, and costs ~35-70ms plus a multi-MB grid allocation to
+// build - caching it per plan made every replan of an otherwise-trivial scene
+// pay that in full. Small LRU: each field can be tens of MB, and a scene whose
+// obstacles move between plans mints a new key every time.
+type sdfRegistry struct {
+	mu      sync.Mutex
+	tick    uint64
+	entries map[uint64]*sdfRegistryEntry
+}
+
+type sdfRegistryEntry struct {
+	sdf      *spatialmath.VoxelSDF // nil records a scene the SDF cannot represent
+	lastUsed uint64
+}
+
+const sdfRegistryCap = 8
+
+var globalSDFRegistry = sdfRegistry{entries: map[uint64]*sdfRegistryEntry{}}
+
+func (r *sdfRegistry) lookup(key uint64) (*spatialmath.VoxelSDF, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e, ok := r.entries[key]
+	if !ok {
+		return nil, false
+	}
+	r.tick++
+	e.lastUsed = r.tick
+	return e.sdf, true
+}
+
+func (r *sdfRegistry) insert(key uint64, sdf *spatialmath.VoxelSDF) *spatialmath.VoxelSDF {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if e, ok := r.entries[key]; ok {
+		// Another plan built the same field concurrently; keep the incumbent.
+		return e.sdf
+	}
+	r.tick++
+	r.entries[key] = &sdfRegistryEntry{sdf: sdf, lastUsed: r.tick}
+	for len(r.entries) > sdfRegistryCap {
+		var oldestKey uint64
+		oldest := uint64(math.MaxUint64)
+		for k, e := range r.entries {
+			if e.lastUsed < oldest {
+				oldest, oldestKey = e.lastUsed, k
+			}
+		}
+		delete(r.entries, oldestKey)
+	}
+	return sdf
+}
+
+// SDFFor returns the voxel distance field for the given static geometry set,
+// building it on first request anywhere in the process and sharing it across
+// plans of the same scene. sdfResolutionMM balances build time (~70ms for a
+// dual-arm scene at 10mm) against the conservative margin subtracted from
+// every query (half the voxel diagonal, ~8.7mm at 10mm).
+func (c *CollisionCache) SDFFor(static []spatialmath.Geometry) *spatialmath.VoxelSDF {
+	if c == nil || len(static) == 0 {
+		return nil
+	}
+	key := spatialmath.GeometrySetHash(static)
+	if sdf, ok := globalSDFRegistry.lookup(key); ok {
+		return sdf
+	}
+	return globalSDFRegistry.insert(key, spatialmath.NewVoxelSDF(static, sdfResolutionMM))
+}
+
+const sdfResolutionMM = 10.0

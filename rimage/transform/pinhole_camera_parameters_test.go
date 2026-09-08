@@ -3,6 +3,7 @@ package transform
 import (
 	"context"
 	"image"
+	"image/color"
 	"math"
 	"testing"
 
@@ -268,4 +269,51 @@ func TestNilIntrinsics(t *testing.T) {
 	test.That(t, func() { nilIntrinsics.ImagePointTo3DPoint(image.Point{}, rimage.Depth(0)) }, test.ShouldNotPanic)
 	test.That(t, func() { nilIntrinsics.RGBDToPointCloud(&rimage.Image{}, &rimage.DepthMap{}) }, test.ShouldNotPanic)
 	test.That(t, func() { nilIntrinsics.PointCloudToRGBD(pointcloud.PointCloud(nil)) }, test.ShouldNotPanic)
+}
+
+func TestPointToPixelRejectsNonPositiveDepth(t *testing.T) {
+	params := &PinholeCameraIntrinsics{Width: 640, Height: 480, Fx: 500, Fy: 500, Ppx: 320, Ppy: 240}
+
+	// In front of the camera: projects normally.
+	u, v := params.PointToPixel(10, 10, 1000)
+	test.That(t, u, test.ShouldEqual, 325.)
+	test.That(t, v, test.ShouldEqual, 245.)
+
+	// At or behind the pinhole there is no projection. Dividing by a negative z would otherwise
+	// flip both signs and hand back a perfectly in-bounds pixel for a point behind the camera.
+	for _, z := range []float64{0, -1, -1000} {
+		u, v := params.PointToPixel(10, 10, z)
+		test.That(t, u, test.ShouldEqual, -1.)
+		test.That(t, v, test.ShouldEqual, -1.)
+	}
+}
+
+func TestPointCloudToRGBDDepthOrdering(t *testing.T) {
+	params := &PinholeCameraIntrinsics{Width: 640, Height: 480, Fx: 500, Fy: 500, Ppx: 320, Ppy: 240}
+
+	// (10,10,1000) and (-10,-10,-1000) both land on pixel (325,245); the second is behind the camera.
+	cloud := pointcloud.NewBasicEmpty()
+	test.That(t, cloud.Set(r3.Vector{10, 10, 1000}, pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255})), test.ShouldBeNil)
+	test.That(t, cloud.Set(r3.Vector{-10, -10, -1000}, pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255})), test.ShouldBeNil)
+
+	_, dm, err := params.PointCloudToRGBD(cloud)
+	test.That(t, err, test.ShouldBeNil)
+	// The behind-camera point must not appear anywhere, and must not have clobbered the real one.
+	test.That(t, dm.GetDepth(325, 245), test.ShouldEqual, rimage.Depth(1000))
+	test.That(t, dm.GetDepth(315, 235), test.ShouldEqual, rimage.Depth(0))
+}
+
+func TestPointCloudToRGBDKeepsNearest(t *testing.T) {
+	params := &PinholeCameraIntrinsics{Width: 640, Height: 480, Fx: 500, Fy: 500, Ppx: 320, Ppy: 240}
+
+	// Two points on the same ray -> same pixel. The nearer one must win regardless of iteration order.
+	cloud := pointcloud.NewBasicEmpty()
+	test.That(t, cloud.Set(r3.Vector{20, 20, 2000}, pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255})), test.ShouldBeNil)
+	test.That(t, cloud.Set(r3.Vector{10, 10, 1000}, pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255})), test.ShouldBeNil)
+
+	img, dm, err := params.PointCloudToRGBD(cloud)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dm.GetDepth(325, 245), test.ShouldEqual, rimage.Depth(1000))
+	r, g, b := img.GetXY(325, 245).RGB255()
+	test.That(t, []uint8{r, g, b}, test.ShouldResemble, []uint8{255, 0, 0})
 }

@@ -64,18 +64,20 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 
 		now := time.Now()
 
-		toDelete := map[uuid.UUID]struct{}{}
+		toDelete := map[uuid.UUID]*session.Session{}
+		stoppedBySession := map[uuid.UUID][]string{}
 		var toStop []resource.Name
 		m.sessionResourceMu.RLock()
 		for id, sess := range m.sessions {
 			if !sess.Active(now) {
-				toDelete[id] = struct{}{}
+				toDelete[id] = sess
 			}
 		}
 		for res, sess := range m.resourceToSession {
 			if _, ok := toDelete[sess]; ok {
 				resCopy := res
 				toStop = append(toStop, resCopy)
+				stoppedBySession[sess] = append(stoppedBySession[sess], res.String())
 			}
 		}
 		m.sessionResourceMu.RUnlock()
@@ -132,8 +134,14 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 
 		if len(toDelete) != 0 {
 			var deletedIDs []string
-			for id := range toDelete {
+			for id, sess := range toDelete {
 				deletedIDs = append(deletedIDs, id.String())
+				pcInfo := sess.PeerConnectionInfo()
+				m.logger.Activity("liveness", "expired",
+					"session_id", id.String(),
+					"connection_type", pcInfo.GetType().String(),
+					"remote_address", pcInfo.GetRemoteAddress(),
+					"stopped_resources", stoppedBySession[id])
 			}
 			m.logger.CDebugw(ctx, "sessions expired", "session_ids", deletedIDs)
 		}

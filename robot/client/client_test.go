@@ -186,6 +186,7 @@ func makeRPCServer(logger logging.Logger, option rpc.ServerOption) (rpc.Server, 
 		}
 
 		addr = fmt.Sprint("localhost:", port)
+		//nolint: noctx
 		listener, err = net.Listen("tcp", addr)
 		if err != nil {
 			continue
@@ -356,8 +357,10 @@ func TestUnimplementedRPCSubtypes(t *testing.T) {
 
 func TestStatusClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
+	//nolint: noctx
 	listener2, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
@@ -892,8 +895,49 @@ func TestClientRefresh(t *testing.T) {
 	})
 }
 
+// TestClientWithoutInitialRefresh covers RSDK-14365: a machine that can be reached but
+// whose resources can't be enumerated is still usable by callers that don't need them.
+func TestClientWithoutInitialRefresh(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, &mockRPCSubtypesImplemented{
+		ResourceNamesFunc: func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
+			return nil, context.Canceled
+		},
+	})
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	// no background refresh/reconnect, so ResourceNames is only called when we ask for it
+	opts := []RobotClientOption{WithRefreshEvery(0), WithCheckConnectedEvery(0)}
+
+	_, err = New(context.Background(), listener.Addr().String(), logger, opts...)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error updating resources")
+
+	client, err := New(context.Background(), listener.Addr().String(), logger,
+		append(opts, WithoutInitialRefresh())...)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// resources are unknown, but the robot service itself is reachable
+	test.That(t, client.ResourceNames(), test.ShouldBeEmpty)
+	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("arm1")))
+	mStatus, err := client.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.State, test.ShouldEqual, robot.StateRunning)
+}
+
 func TestClientDisconnect(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -948,6 +992,7 @@ func TestClientDisconnect(t *testing.T) {
 
 func TestClientHealthCheckRateLimitedStaysConnected(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1026,6 +1071,7 @@ func TestIsResourceExhaustedError(t *testing.T) {
 
 func TestClientUnaryDisconnectHandler(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1103,6 +1149,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 
 func TestClientStreamDisconnectHandler(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1372,6 +1419,7 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 
 func TestClientDialerOption(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -1423,6 +1471,7 @@ func TestClientResources(t *testing.T) {
 
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	logger := logging.NewTestLogger(t)
@@ -1447,6 +1496,7 @@ func TestClientResources(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	reflection.Register(gServer)
 	test.That(t, err, test.ShouldBeNil)
+	//nolint: noctx
 	listener, err = net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	go gServer.Serve(listener)
@@ -1499,6 +1549,7 @@ func TestClientGetModelsFromModules(t *testing.T) {
 
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	logger := logging.NewTestLogger(t)
@@ -1555,8 +1606,10 @@ func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error 
 
 func TestClientConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
+	//nolint: noctx
 	listener2, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	workingServer := grpc.NewServer()
@@ -1731,6 +1784,7 @@ func TestForeignResource(t *testing.T) {
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	reflection.Register(gServer)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	logger := logging.NewTestLogger(t)
@@ -1762,6 +1816,7 @@ func TestForeignResource(t *testing.T) {
 func TestNewRobotClientRefresh(t *testing.T) {
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -1821,6 +1876,7 @@ func TestNewRobotClientRefresh(t *testing.T) {
 
 func TestClientStopAll(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
@@ -1855,6 +1911,7 @@ func TestClientStopAll(t *testing.T) {
 
 func TestRemoteClientMatch(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
@@ -1908,6 +1965,7 @@ func TestRemoteClientMatch(t *testing.T) {
 
 func TestRemoteClientDuplicate(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
@@ -1956,6 +2014,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 
 func TestClientOperationIntercept(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2003,6 +2062,7 @@ func TestClientOperationIntercept(t *testing.T) {
 
 func TestGetUnknownResource(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2042,6 +2102,7 @@ func TestGetUnknownResource(t *testing.T) {
 }
 
 func TestLoggingInterceptor(t *testing.T) {
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2093,6 +2154,7 @@ func TestLoggingInterceptor(t *testing.T) {
 
 func TestCloudMetadata(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -2135,6 +2197,7 @@ func TestCloudMetadata(t *testing.T) {
 
 func TestShutDown(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2169,6 +2232,7 @@ func TestShutDown(t *testing.T) {
 
 func TestCurrentInputs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -2186,7 +2250,7 @@ func TestCurrentInputs(t *testing.T) {
 			return expectedInputs[testName.ShortName()], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
+			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
 		},
 	}
 	injectArm2 := &inject.Arm{
@@ -2194,7 +2258,7 @@ func TestCurrentInputs(t *testing.T) {
 			return expectedInputs[testName2.ShortName()], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 		},
 	}
 	resourceNames := []resource.Name{testName, testName2}
@@ -2230,6 +2294,7 @@ func TestCurrentInputs(t *testing.T) {
 
 func TestUnregisteredResourceByName(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2412,6 +2477,7 @@ func TestMachineStatus(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			logger, logs := logging.NewObservedTestLogger(t)
+			//nolint: noctx
 			listener, err := net.Listen("tcp", "localhost:0")
 			test.That(t, err, test.ShouldBeNil)
 			gServer := grpc.NewServer()
@@ -2452,6 +2518,7 @@ func TestMachineStatus(t *testing.T) {
 
 func TestVersion(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -2487,6 +2554,7 @@ func TestVersion(t *testing.T) {
 
 func TestListTunnels(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -2533,6 +2601,7 @@ func TestListTunnels(t *testing.T) {
 
 func TestUploadDataFromPath(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -2587,4 +2656,31 @@ func TestUploadDataFromPath(t *testing.T) {
 	test.That(t, capturedPath, test.ShouldEqual, "/data/foo")
 	test.That(t, capturedMD.GetTags(), test.ShouldResemble, []string{"tag1"})
 	test.That(t, capturedExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+}
+
+func TestDialUnreachableErr(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"deadline exceeded", context.DeadlineExceeded, true},
+		{"no mDNS candidates", rpc.ErrMDNSNoCandidatesFound, true},
+		{"both", multierr.Combine(context.DeadlineExceeded, rpc.ErrMDNSNoCandidatesFound), true},
+		{"wrapped", fmt.Errorf("dialing: %w", context.DeadlineExceeded), true},
+		{"unrelated", errors.New("connection refused"), false},
+		{"canceled", context.Canceled, false},
+		{"nil", nil, false},
+		// goutils folds the mDNS failure into every bare-domain dial error, so an informative
+		// failure always arrives alongside it and must not be read as unreachable.
+		{
+			"informative alongside mDNS",
+			multierr.Combine(rpc.ErrInsecureWithCredentials, rpc.ErrMDNSNoCandidatesFound),
+			false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, dialUnreachableErr(tc.err), test.ShouldEqual, tc.expected)
+		})
+	}
 }

@@ -115,5 +115,5 @@ func (level *Level) UnmarshalJSON(data []byte) (err error) {
 	}
 
 	*level, err = LevelFromString(levelStr)
-	return
+	return err
 }

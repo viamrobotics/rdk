@@ -175,6 +175,16 @@ type Arm interface {
 
 	// Get3DModels returns the 3D models of the arm.
 	Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error)
+
+	// Properties returns which optional features the arm supports.
+	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
+
+	// SetManualMode enables or disables manual mode on the arm.
+	// enabledFor bounds how long manual mode stays enabled, with one-second resolution; zero means no limit.
+	SetManualMode(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error
+
+	// ManualMode reports whether the arm is currently in manual mode.
+	ManualMode(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
 
 // TrajectoryPoint is one waypoint in a streamed joint-space trajectory.

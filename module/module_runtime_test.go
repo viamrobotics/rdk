@@ -48,9 +48,11 @@ func TestModularMain(t *testing.T) {
 			if tc.UdsMode {
 				parentAddr, err := CreateSocketAddress(t.TempDir(), utils.RandomAlphaString(5))
 				test.That(t, err, test.ShouldBeNil)
+				//nolint: noctx
 				robotServerListener, err = net.Listen("unix", parentAddr)
 				test.That(t, err, test.ShouldBeNil)
 			} else {
+				//nolint: noctx
 				robotServerListener, err = net.Listen("tcp", "127.0.0.1:0")
 				test.That(t, err, test.ShouldBeNil)
 			}

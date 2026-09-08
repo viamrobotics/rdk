@@ -23,6 +23,9 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	ctx := context.Background()
 	r, err := robotimpl.New(ctx, &config.Config{}, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
+	// Closing the robot joins its web module-server goroutines. Leaving them running
+	// races the test logger against test completion.
+	defer r.Close(ctx)
 	fsCfg, err := r.FrameSystemConfig(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsCfg.Parts, test.ShouldHaveLength, 0)

@@ -1077,3 +1077,44 @@ func TestDiffTracing(t *testing.T) {
 		})
 	}
 }
+
+func TestDiffLogConfig(t *testing.T) {
+	// LogEqual gates whether the entrypoint reapplies log patterns on reconfigure.
+	left := config.Config{
+		LogConfig: []logging.LoggerPatternConfig{{Pattern: "rdk.*", Level: "INFO"}},
+	}
+	right := config.Config{
+		LogConfig: []logging.LoggerPatternConfig{{Pattern: "rdk.*", Level: "DEBUG"}},
+	}
+
+	diff, err := config.DiffConfigs(left, left, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diff.LogEqual, test.ShouldBeTrue)
+
+	diff, err = config.DiffConfigs(left, right, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diff.LogEqual, test.ShouldBeFalse)
+
+	diff, err = config.DiffConfigs(left, config.Config{}, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diff.LogEqual, test.ShouldBeFalse)
+}
+
+func TestDiffModuleLogLevelOnly(t *testing.T) {
+	// A module differing only in LogLevel must be marked modified so it restarts
+	// with the new --log-level.
+	left := config.Config{
+		Modules: []config.Module{{Name: "m", ExePath: ".", LogLevel: "info"}},
+	}
+	right := config.Config{
+		Modules: []config.Module{{Name: "m", ExePath: ".", LogLevel: "debug"}},
+	}
+
+	diff, err := config.DiffConfigs(left, right, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diff.Modified.Modules, test.ShouldResemble, right.Modules)
+
+	diff, err = config.DiffConfigs(left, left, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diff.Modified.Modules, test.ShouldBeEmpty)
+}

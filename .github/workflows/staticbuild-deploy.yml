@@ -21,6 +21,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
     - name: Authorize GCP
       uses: google-github-actions/auth@v2
       with:
@@ -40,9 +43,36 @@ jobs:
         gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/viam-server-v*" "gs://packages.viam.com/apps/viam-server/prerelease/"
         gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/viam-server-latest*" "gs://packages.viam.com/apps/viam-server/"
 
+    # Captured before the move, because the move is what empties this prefix.
+    - name: List Manifests To Publish
+      id: staged_manifests
+      run: |
+        names=$(gsutil ls "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/*" | sed 's|.*/||' | tr '\n' ' ')
+        echo "names=$names" >> $GITHUB_OUTPUT
+
     - name: Publish Subsystem Metadata
+      id: publish_manifests
       run: |
         gsutil mv "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-subsystems/"
+
+    # Gated on the publish step's outcome rather than on a copy of the upload
+    # steps' `if` conditions. Restating `release_type == 'latest'` would tie the
+    # check to the same predicate that routes the binaries, so a regression in
+    # that predicate would skip the check in exactly the run that mispublished.
+    # Keying off what actually ran means any run that publishes also re-reads
+    # what it published, so the last writer in a race inspects the state it left.
+    - name: Verify Published Manifests
+      if: steps.publish_manifests.outcome == 'success'
+      run: |
+        names="${{ steps.staged_manifests.outputs.names }}"
+        # Unquoted below so the names word-split into separate arguments. Empty
+        # would make the script fall back to sweeping recent history, which is
+        # not what this step is for -- fail instead.
+        if [ -z "${names// /}" ]; then
+          echo "no manifests were staged for this run" >&2
+          exit 1
+        fi
+        ./etc/verify-manifests.sh $names
 
     - name: Output Summary
       run: |

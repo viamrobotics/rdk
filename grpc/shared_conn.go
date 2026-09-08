@@ -25,11 +25,11 @@ import (
 // a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
-//nolint
+// SharedConn wraps both a GRPC connection & (optionally) a peer connection & controls access to both.
+//
 // The following describes the SharedConn lifetime for viam-server's modmanager communicating with
 // modules it has spawned.
 //
-// SharedConn wraps both a GRPC connection & (optionally) a peer connection & controls access to both.
 // For modules, the grpc connection is over a Unix socket. The WebRTC `PeerConnection` is made
 // separately. The `SharedConn` continues to implement the `rpc.ClientConn` interface by pairing up
 // the two underlying connections a client may want to communicate over.

@@ -56,6 +56,7 @@ mplans
 
 out/
 .idea/*
+*.iml
 bin/
 
 # artifact

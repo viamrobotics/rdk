@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -422,6 +423,50 @@ func (c *client) Get3DModels(ctx context.Context, extra map[string]interface{}) 
 		return nil, err
 	}
 	return resp.Models, nil
+}
+
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Properties{}, err
+	}
+	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return Properties{}, err
+	}
+	return ProtoFeaturesToProperties(resp), nil
+}
+
+func (c *client) SetManualMode(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.SetManualMode(ctx, &pb.SetManualModeRequest{
+		Name:       c.name,
+		ManualMode: manualMode,
+		EnabledFor: int32(enabledFor / time.Second),
+		Extra:      ext,
+	})
+	return err
+}
+
+func (c *client) ManualMode(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
+	resp, err := c.client.GetManualMode(ctx, &pb.GetManualModeRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.ManualMode, nil
 }
 
 // warnKinematicsUnsafe is a helper function to warn the user that no kinematics have been supplied for the conversion between

@@ -784,6 +784,7 @@ func setupLocalModule(t *testing.T, ctx context.Context, logger logging.Logger) 
 
 	// Hit Ready as a way to close m.pcFailed, so that AddResource can proceed. Set NoModuleParentEnvVar so that parent connection
 	// will not be attempted.
+	//nolint: usetesting
 	test.That(t, os.Setenv(module.NoModuleParentEnvVar, "true"), test.ShouldBeNil)
 	t.Cleanup(func() {
 		test.That(t, os.Unsetenv(module.NoModuleParentEnvVar), test.ShouldBeNil)
@@ -900,6 +901,7 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 
 func TestNewFrameSystemClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -916,7 +918,7 @@ func TestNewFrameSystemClient(t *testing.T) {
 			return expectedInputs[testName.ShortName()], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
+			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
 		},
 	}
 

@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"runtime/pprof"
 	"slices"
 	"sort"
@@ -48,6 +49,14 @@ func main() {
 }
 
 func realMain() error {
+	// The planner allocates heavily during search (per-state geometry
+	// materialization); the default GC target spends a quarter of planning
+	// CPU on mark work. A higher target trades memory headroom for planning
+	// speed. Overridable with the GOGC env var.
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(300)
+	}
+
 	ctx := context.Background()
 	logger, reg := logging.NewLoggerWithRegistry("cmd-plan")
 
@@ -65,6 +74,7 @@ func realMain() error {
 	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
 	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
 	quiet := flag.Bool("quiet", false, "quiet")
+	noViz := flag.Bool("no-viz", false, "skip rendering the plan; useful for benchmarking success rate and planning speed")
 
 	flag.Parse()
 
@@ -100,6 +110,16 @@ func realMain() error {
 
 	// The default logger keeps `mp` at the default INFO level. But all loggers underneath only emit
 	// WARN+ logs. Let's start with DEBUG everywhere and:
+	// Persist learned roadmaps across runs: harvested corridors and scene
+	// verdicts are what make replans of a hard scene sub-second, and replaying
+	// captures cold defeats them otherwise. Respect an explicit setting;
+	// export MOTION_ROADMAP_CACHE_DIR="" to disable.
+	if _, ok := os.LookupEnv("MOTION_ROADMAP_CACHE_DIR"); !ok {
+		if cacheDir, err := os.UserCacheDir(); err == nil {
+			utils.UncheckedError(os.Setenv("MOTION_ROADMAP_CACHE_DIR", filepath.Join(cacheDir, "viam-motion-roadmap")))
+		}
+	}
+
 	logger.SetLevel(logging.DEBUG)
 	if *verbose {
 		// For verbose keep everything at DEBUG and only claw back `ik` logs to INFO.
@@ -187,7 +207,7 @@ func realMain() error {
 		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
 
-	for *cpu != "" && time.Since(start) < (10*time.Second) {
+	for *cpu != "" && time.Since(start) < (45*time.Second) {
 		ss := time.Now()
 		_, _, err := armplanning.PlanMotion(ctx, mpLogger, req)
 		if err != nil {
@@ -299,7 +319,7 @@ func realMain() error {
 		}
 	}
 
-	for i := 0; i < *loop; i++ {
+	for i := 0; !*noViz && i < *loop; i++ {
 		err = visualize(req, plan, mylog, *showPoses)
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
@@ -543,7 +563,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			render = false
 		}
 
-		//nolint
+		//nolint: forbidigo
 		fmt.Print("$ ") // `logger.Print` seems to add a newline.
 		cmd, err := stdinReader.ReadString('\n')
 		cmd = strings.TrimSpace(cmd)

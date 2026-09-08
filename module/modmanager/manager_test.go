@@ -126,6 +126,7 @@ func TestCrashShortCircuit(t *testing.T) {
 			logger := logging.NewTestLoggerSilentAfterComplete(t)
 
 			if mode == "tcp" {
+				//nolint: usetesting
 				os.Setenv("VIAM_TCP_SOCKETS", "yes")
 				t.Cleanup(func() { os.Unsetenv("VIAM_TCP_SOCKETS") })
 			}
@@ -169,6 +170,7 @@ func TestModManagerFunctions(t *testing.T) {
 			logger := logging.NewTestLogger(t)
 
 			if mode == "tcp" {
+				//nolint: usetesting
 				os.Setenv("VIAM_TCP_SOCKETS", "yes")
 				t.Cleanup(func() { os.Unsetenv("VIAM_TCP_SOCKETS") })
 			}

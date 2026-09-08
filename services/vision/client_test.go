@@ -26,6 +26,7 @@ var visName1 = vision.Named("vision1")
 
 func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -176,6 +177,7 @@ func TestClient(t *testing.T) {
 
 func TestInjectedServiceClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())

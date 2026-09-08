@@ -40,11 +40,18 @@ func RemoveFileNoError(path string) {
 }
 
 // SafeJoinDir performs a filepath.Join of 'parent' and 'subdir' but returns an error
-// if the resulting path points outside of 'parent'.
+// if the resulting path points outside of 'parent'. It handles relative parents
+// (including ".") and is cross-platform (Windows and POSIX).
 // See also https://github.com/cyphar/filepath-securejoin.
 func SafeJoinDir(parent, subdir string) (string, error) {
 	res := filepath.Join(parent, subdir)
-	if !strings.HasPrefix(filepath.Clean(res), filepath.Clean(parent)+string(os.PathSeparator)) {
+	// Compute the location of the result relative to parent. If that path climbs
+	// above parent (i.e. it is ".." or starts with "../"), the join escaped parent
+	// and is unsafe. Using filepath.Rel here (instead of a string prefix check)
+	// correctly handles relative parents such as ".", which previously produced a
+	// spurious error.
+	rel, err := filepath.Rel(filepath.Clean(parent), res)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		return res, fmt.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
 	}
 	return res, nil

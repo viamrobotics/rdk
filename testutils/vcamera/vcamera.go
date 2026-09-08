@@ -127,6 +127,7 @@ func createCameras(c *Config) error {
 	labels := fmt.Sprintf("%s=%s", "card_label", strings.Join(devLabels, ","))
 
 	cmd := fmt.Sprintf("sudo modprobe v4l2loopback %s %s", devices, labels)
+	//nolint: noctx
 	out, err := exec.Command("bash", "-c", cmd).CombinedOutput() //nolint:gosec
 	if err != nil {
 		return errors.New(string(out))
@@ -231,6 +232,7 @@ func (c *Config) Shutdown() error {
 	c.err = errors.New("stopped streaming")
 
 	// removes all virtual cameras
+	//nolint: noctx
 	if out, err := exec.Command("bash", "-c", "sudo modprobe v4l2loopback -r").CombinedOutput(); err != nil {
 		return errors.New(string(out))
 	}

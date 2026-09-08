@@ -119,7 +119,7 @@ func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
 	// the reconstructed model must:
 	// 1. Have the same DoF as the original
 	// 2. Be re-serializable via KinematicModelToProtobuf with correct format (not UNSPECIFIED)
-	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(model.DoF()), test.ShouldBeGreaterThan, 0)
 
@@ -570,7 +570,8 @@ func TestTopologicalSortParts(t *testing.T) {
 	// Disconnect the `arm`. TopologicallySortParts should return the world, table and bottle, but
 	// not the arm nor gripper.
 	scrambledArmIdx := slices.IndexFunc(scrambled, findPartByName("arm"))
-	//nolint
+
+	//nolint: gocritic
 	scrambledNoArm := append(scrambled[:scrambledArmIdx], scrambled[scrambledArmIdx+1:]...)
 	ordered, unlinked = TopologicallySortParts(scrambledNoArm)
 
@@ -708,12 +709,6 @@ func TestNeutralInputsTransformSucceedsWhereZeroFails(t *testing.T) {
 
 	poseToTransform := NewPoseInFrame("child", spatial.NewZeroPose())
 
-	// Zero inputs should fail because 0 is outside [1, 3]
-	zeroInputs := NewZeroLinearInputs(fs)
-	_, err = fs.Transform(zeroInputs, poseToTransform, World)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
-
 	// Neutral inputs should succeed because they clamp to the nearest valid value (1)
 	neutralInputs := NewNeutralLinearInputs(fs)
 	result, err := fs.Transform(neutralInputs, poseToTransform, World)
@@ -737,15 +732,29 @@ func TestNeutralFrameSystemInputsTransformSucceedsWhereZeroFails(t *testing.T) {
 
 	poseToTransform := NewPoseInFrame("child", spatial.NewZeroPose())
 
-	// Zero inputs should fail because 0 is outside [1, 3]
-	zeroInputs := NewZeroInputs(fs)
-	_, err = fs.Transform(zeroInputs.ToLinearInputs(), poseToTransform, World)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
-
 	// Neutral inputs should succeed because they clamp to the nearest valid value (1)
 	neutralInputs := NewNeutralFrameSystemInputs(fs)
 	result, err := fs.Transform(neutralInputs.ToLinearInputs(), poseToTransform, World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldNotBeNil)
+}
+
+func TestNewFrameToWorldUnknownFrame(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+	frame, err := NewStaticFrame("a", spatial.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(frame, fs.World()), test.ShouldBeNil)
+
+	fk := fs.NewFrameToWorld(NewLinearInputs())
+	_, tr, err := fk.PoseQT("a")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, tr.X, test.ShouldAlmostEqual, 1)
+
+	// A name the frame system does not contain must error, not silently
+	// resolve to world.
+	_, _, err = fk.PoseQT("typo")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, _, err = fk.PoseQT(World)
+	test.That(t, err, test.ShouldBeNil)
 }

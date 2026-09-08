@@ -18,11 +18,6 @@ func TestAbs1(t *testing.T) {
 	test.That(t, AbsInt64(0), test.ShouldEqual, int64(0))
 }
 
-func TestCubeRoot(t *testing.T) {
-	test.That(t, CubeRoot(1.0), test.ShouldAlmostEqual, 1.0)
-	test.That(t, CubeRoot(8.0), test.ShouldAlmostEqual, 2.0)
-}
-
 func TestSquare1(t *testing.T) {
 	test.That(t, Square(2.0), test.ShouldEqual, 4.0)
 	test.That(t, SquareInt(2), test.ShouldEqual, 4)
@@ -83,6 +78,18 @@ func TestAngleDiffDeg(t *testing.T) {
 		{0, 360, 0},
 		{350, 20, 30},
 		{20, 350, 30},
+		// Inputs outside [0, 360) must still fold into [0, 180].
+		{0, 370, 10},
+		{370, 0, 10},
+		{720, 10, 10},
+		{10, 720, 10},
+		{400, 30, 10},
+		{-370, 0, 10},
+		{0, -370, 10},
+		{-180, 180, 0},
+		{1080, 0, 0},
+		// |-1000 - 1000| mod 360 is 200, which folds to 160.
+		{-1000, 1000, 160},
 	} {
 		t.Run(fmt.Sprintf("|%f-%f|=%f", tc.a1, tc.a2, tc.expected), func(t *testing.T) {
 			test.That(t, AngleDiffDeg(tc.a1, tc.a2), test.ShouldEqual, tc.expected)

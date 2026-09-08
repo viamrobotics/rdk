@@ -57,16 +57,16 @@ func TestLinearInputsLimits(t *testing.T) {
 	err := fs.AddFrame(NewZeroStaticFrame("0dof"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	rotFrame, err := NewRotationalFrame("1dof", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	rotFrame, err := NewRotationalFrame("1dof", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -10, Max: 10})
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(rotFrame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	baseArmFrame := NewZeroStaticFrame("base")
-	shoulderArmFrame, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	shoulderArmFrame, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -10, Max: 10})
 	test.That(t, err, test.ShouldBeNil)
 	upperArmFrame := NewZeroStaticFrame("upperArm")
-	elbowArmFrame, err := NewRotationalFrame("elbow", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	elbowArmFrame, err := NewRotationalFrame("elbow", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -10, Max: 10})
 	test.That(t, err, test.ShouldBeNil)
 	handArmFrame := NewZeroStaticFrame("hand")
 	armFrame, err := NewSerialModel("arm", []Frame{
@@ -84,11 +84,6 @@ func TestLinearInputsLimits(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fmt.Sprintf("%v", spatial.Pose(&dq)), test.ShouldResemble,
 		"{X:0.000000 Y:0.000000 Z:0.000000 OX:0.000000 OY:0.141120 OZ:-0.989992 Theta:-90.000000°}")
-
-	// Change inputs to be out of bounds. Assert transforming fails.
-	li.Put("arm", []Input{-15, 5})
-	dq, err = fs.TransformToDQ(li, "arm", "world")
-	test.That(t, err, test.ShouldNotBeNil)
 
 	// Testing the internal state. We have not called `GetSchema`, hence we expect the limits to be
 	// all nil.

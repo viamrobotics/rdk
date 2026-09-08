@@ -32,9 +32,16 @@ func RadToDeg(radians float64) float64 {
 }
 
 // AngleDiffDeg returns the closest difference from the two given
-// angles. The arguments are commutative.
+// angles, in the range [0, 180]. The arguments are commutative and
+// need not be normalized to [0, 360).
 func AngleDiffDeg(a1, a2 float64) float64 {
-	return float64(180) - math.Abs(math.Abs(a1-a2)-float64(180))
+	// Folding about 180 is only valid once the separation is inside one revolution; folding a raw
+	// separation greater than 360 yields a negative result.
+	diff := math.Mod(math.Abs(a1-a2), 360)
+	if diff > 180 {
+		diff = 360 - diff
+	}
+	return diff
 }
 
 // AntiCWDeg flips the given degrees as if you were to start at 0 and
@@ -106,13 +113,6 @@ func MinUint8(a, b uint8) uint8 {
 		return a
 	}
 	return b
-}
-
-const cubeRootExp = 1.0 / 3.0
-
-// CubeRoot returns the cube root of the given value.
-func CubeRoot(x float64) float64 {
-	return math.Pow(x, cubeRootExp)
 }
 
 // Square returns the square of the given value.

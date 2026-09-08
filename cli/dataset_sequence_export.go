@@ -86,9 +86,6 @@ func (c *viamClient) downloadSequenceBinaryBlobs(
 	if err := os.MkdirAll(binaryDir, 0o700); err != nil {
 		return errors.Wrapf(err, "could not create %s", binaryDir)
 	}
-	if parallel == 0 {
-		parallel = 100
-	}
 
 	printf(c.c.Root().Writer, "Downloading binary blobs to %s", binaryDir)
 
@@ -121,7 +118,7 @@ func (c *viamClient) downloadSequenceBinaryBlobs(
 					return
 				}
 				if n := done.Add(1); n%100 == 0 {
-					printf(c.c.Root().Writer, "Downloaded %d binary blobs", n)
+					printf(c.c.Root().Writer, "Downloaded %d %s", n, pluralize(int(n), "binary blob"))
 				}
 			}
 		}()
@@ -136,7 +133,8 @@ func (c *viamClient) downloadSequenceBinaryBlobs(
 		allErrs = multierr.Append(allErrs, e)
 	}
 	if allErrs == nil {
-		printf(c.c.Root().Writer, "Done — wrote %d binary blobs to %s", done.Load(), binaryDir)
+		wrote := int(done.Load())
+		printf(c.c.Root().Writer, "Done — wrote %d %s to %s", wrote, pluralize(wrote, "binary blob"), binaryDir)
 	}
 	return allErrs
 }

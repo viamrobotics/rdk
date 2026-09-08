@@ -138,6 +138,121 @@ func TestCylinderToMeshShape(t *testing.T) {
 	}
 }
 
+func makeOpenTestCylinder(o Orientation, pt r3.Vector, radius, height float64, label string) *Cylinder {
+	c, _ := NewCylinderWithCapped(NewPose(pt, o), radius, height, false, label)
+	return c.(*Cylinder)
+}
+
+func TestOpenCylinderMeshShape(t *testing.T) {
+	open := makeOpenTestCylinder(NewZeroOrientation(), r3.Vector{}, 4, 6, "")
+	solid := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 4, 6, "")
+
+	// Open cylinder has only the side wall: 2*cylinderSides triangles, no caps.
+	test.That(t, len(open.ToMesh().Triangles()), test.ShouldEqual, 2*cylinderSides)
+	test.That(t, len(solid.ToMesh().Triangles()), test.ShouldEqual, 4*cylinderSides)
+
+	// No cap-center vertices remain: every vertex lies on the side ring.
+	const halfH = 3.0
+	const r = 4.0
+	for _, tri := range open.ToMesh().Triangles() {
+		for _, p := range tri.Points() {
+			onSideRing := (math.Abs(math.Abs(p.Z)-halfH) < 1e-9) &&
+				math.Abs(math.Hypot(p.X, p.Y)-r) < 1e-9
+			test.That(t, onSideRing, test.ShouldBeTrue)
+		}
+	}
+}
+
+func TestOpenCylinderNoContainment(t *testing.T) {
+	// A solid cylinder contains its interior; an open one does not.
+	solid := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 50, 100, "")
+	open := makeOpenTestCylinder(NewZeroOrientation(), r3.Vector{}, 50, 100, "")
+
+	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	test.That(t, solid.containsPoint(center), test.ShouldBeTrue)
+	test.That(t, open.containsPoint(center), test.ShouldBeFalse)
+
+	test.That(t, solid.containsSphere(center, 5), test.ShouldBeTrue)
+	test.That(t, open.containsSphere(center, 5), test.ShouldBeFalse)
+}
+
+func TestOpenCylinderCollisionSemantics(t *testing.T) {
+	// Radius 50, height 100 tube along Z at the origin.
+	solid := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 50, 100, "")
+	open := makeOpenTestCylinder(NewZeroOrientation(), r3.Vector{}, 50, 100, "")
+
+	// A box centered on the top rim, near the axis: it intersects the top-cap
+	// plane (z=+50) but stays well clear of the side wall at radius 50. This is
+	// the defining difference between a solid and an open cylinder: the cap
+	// blocks a reach down the axis, the open tube lets it through.
+	throughTop, err := NewBox(NewPoseFromPoint(r3.Vector{0, 0, 50}), r3.Vector{20, 20, 20}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// The solid cylinder collides with the cap...
+	col, _, err := solid.CollidesWith(throughTop, defaultCollisionBufferMM)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, col, test.ShouldBeTrue)
+
+	// ...but the open tube does not: no cap, and the wall is far away.
+	col, _, err = open.CollidesWith(throughTop, defaultCollisionBufferMM)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, col, test.ShouldBeFalse)
+
+	// A box straddling the wall collides with both.
+	onWall, err := NewBox(NewPoseFromPoint(r3.Vector{50, 0, 0}), r3.Vector{20, 20, 20}, "")
+	test.That(t, err, test.ShouldBeNil)
+	col, _, err = solid.CollidesWith(onWall, defaultCollisionBufferMM)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, col, test.ShouldBeTrue)
+	col, _, err = open.CollidesWith(onWall, defaultCollisionBufferMM)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, col, test.ShouldBeTrue)
+}
+
+func TestOpenCylinderHashAndEqual(t *testing.T) {
+	solid := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 5, 10, "a")
+	open := makeOpenTestCylinder(NewZeroOrientation(), r3.Vector{}, 5, 10, "a")
+
+	// Same dimensions but different capping => not equal, distinct hashes.
+	test.That(t, solid.almostEqual(open), test.ShouldBeFalse)
+	test.That(t, solid.Hash(), test.ShouldNotEqual, open.Hash())
+	test.That(t, open.String(), test.ShouldContainSubstring, "open")
+}
+
+func TestOpenCylinderJSONRoundTrip(t *testing.T) {
+	orig := makeOpenTestCylinder(&EulerAngles{0, math.Pi / 6, 0}, r3.Vector{1, 2, 3}, 5, 12, "rt")
+	bytes, err := json.Marshal(orig)
+	test.That(t, err, test.ShouldBeNil)
+
+	var cfg GeometryConfig
+	test.That(t, json.Unmarshal(bytes, &cfg), test.ShouldBeNil)
+	test.That(t, cfg.Capped, test.ShouldNotBeNil)
+	test.That(t, *cfg.Capped, test.ShouldBeFalse)
+
+	reparsed, err := cfg.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	rc, ok := reparsed.(*Cylinder)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, rc.capped, test.ShouldBeFalse)
+	test.That(t, orig.almostEqual(rc), test.ShouldBeTrue)
+}
+
+func TestCylinderDefaultCappedJSON(t *testing.T) {
+	// A solid cylinder must not emit "capped" (byte-compatible with old configs),
+	// and an absent "capped" must parse back as solid.
+	solid := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 5, 12, "s")
+	bytes, err := json.Marshal(solid)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(bytes), test.ShouldNotContainSubstring, "capped")
+
+	var cfg GeometryConfig
+	test.That(t, json.Unmarshal(bytes, &cfg), test.ShouldBeNil)
+	test.That(t, cfg.Capped, test.ShouldBeNil)
+	reparsed, err := cfg.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reparsed.(*Cylinder).capped, test.ShouldBeTrue)
+}
+
 func TestCylinderJSONRoundTrip(t *testing.T) {
 	orig := makeTestCylinder(&EulerAngles{0, math.Pi / 6, 0}, r3.Vector{1, 2, 3}, 5, 12, "rt")
 	bytes, err := json.Marshal(orig)

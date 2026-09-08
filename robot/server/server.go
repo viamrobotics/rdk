@@ -122,6 +122,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 	dest := strconv.Itoa(int(req.DestinationPort))
 
 	s.robot.Logger().CInfow(srv.Context(), "dialing to destination port", "port", dest, "timeout", dialTimeout)
+	//nolint: noctx
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", dest), dialTimeout)
 	if err != nil {
 		return fmt.Errorf("failed to dial to destination port %v: %w", dest, err)

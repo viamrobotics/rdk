@@ -355,16 +355,16 @@ func parseFunctionSignature(
 	funcDecl *ast.FuncDecl,
 ) (name, receiver, args string, returns []string) {
 	if funcDecl == nil {
-		return
+		return name, receiver, args, returns
 	}
 
 	// Function name
 	funcName := funcDecl.Name.Name
 	if !unicode.IsUpper(rune(funcName[0])) {
-		return
+		return name, receiver, args, returns
 	}
 	if funcName == "Close" || funcName == "Name" || funcName == "Reconfigure" {
-		return
+		return name, receiver, args, returns
 	}
 
 	// Receiver
@@ -481,7 +481,7 @@ func formatNotImplementedBody(returns []string) string {
 		returnVar, needsVar := zeroValueForType(returns[0], 1)
 		if needsVar {
 			return fmt.Sprintf("\tvar %s %s\n\treturn %s", returnVar, returns[0], returnVar)
-		} else {
+		} else { //nolint: revive
 			return "\treturn " + returnVar
 		}
 	default:

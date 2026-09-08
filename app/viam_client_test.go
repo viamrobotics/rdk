@@ -112,7 +112,9 @@ func TestCreateViamClientFromEnvVarsTests(t *testing.T) {
 	}
 	for _, tt := range apiKeyTests {
 		t.Run(tt.name, func(t *testing.T) {
+			//nolint: usetesting
 			os.Setenv(rutils.APIKeyEnvVar, tt.apiKey)
+			//nolint: usetesting
 			os.Setenv(rutils.APIKeyIDEnvVar, tt.apiKeyID)
 			client, err := CreateViamClientFromEnvVars(context.Background(), &Options{}, logger)
 			if (err != nil) != tt.expectErr {

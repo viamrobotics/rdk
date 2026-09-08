@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"slices"
-	"sync/atomic"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -38,6 +38,16 @@ type cBiRRTMotionPlanner struct {
 	logger logging.Logger
 
 	fastGradDescent *ik.NloptIK
+
+	// rnd drives sampling. Defaults to the shared PlanContext rand; racing
+	// attempts (raceCBiRRT) each get their own stream so they explore
+	// different regions and can run concurrently.
+	rnd *rand.Rand
+
+	// maxIter caps rrtRunner's iterations when positive; raceCBiRRT uses short
+	// caps so failed attempts restart with a fresh RNG stream instead of
+	// grinding a bad trajectory to the 5000-iteration default.
+	maxIter int
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -49,6 +59,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *PlanContext, psc *PlanSegme
 		pc:     pc,
 		psc:    psc,
 		logger: logger,
+		rnd:    pc.randseed,
 	}
 
 	var err error
@@ -103,6 +114,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	defer cancel()
 	startTime := time.Now()
 
+	corridorTops := mp.seedGoalRetreatCorridors(ctx, rrtMaps)
+
 	// initialize maps
 	// Pick a random (first in map) seed node to create the first interp node
 	var seed *referenceframe.LinearInputs
@@ -123,8 +136,12 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 	target := newConfigurationNode(interpConfig)
 
+	iterCap := maxPlanIter
+	if mp.maxIter > 0 && mp.maxIter < iterCap {
+		iterCap = mp.maxIter
+	}
 	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
-	for i := 0; i < maxPlanIter; i++ {
+	for i := 0; i < iterCap; i++ {
 		mp.logger.CDebugf(ctx, "iteration: %d target: %v", i, logging.FloatArrayFormat{"", target.inputs.GetLinearizedInputs()})
 		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
@@ -175,10 +192,18 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			return &rrtSolution{steps: path, maps: rrtMaps}, nil
 		}
 
-		// sample near map 1 and switch which map is which to keep adding to them even
-		target, err = mp.sample(map1reached, i)
-		if err != nil {
-			return &rrtSolution{maps: rrtMaps}, err
+		// Aim the early iterations at the goal corridors' open-space entrances:
+		// they are already wired into the goal tree, so each such iteration is
+		// a direct attempt to connect the start tree to a validated descent.
+		// After that, revisit them occasionally as the trees grow.
+		if len(corridorTops) > 0 && (i < 2*len(corridorTops) || i%8 == 0) {
+			target = newConfigurationNode(corridorTops[i%len(corridorTops)].inputs)
+		} else {
+			// sample near map 1 and switch which map is which to keep adding to them even
+			target, err = mp.sample(map1reached, i)
+			if err != nil {
+				return &rrtSolution{maps: rrtMaps}, err
+			}
 		}
 		map1, map2 = map2, map1
 	}
@@ -194,8 +219,6 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	rrtMap map[*node]*node,
 	near, target *node,
 ) *node {
-	ctx, span := trace.StartSpan(ctx, "constrainedExtend")
-	defer span.End()
 	qstep := mp.getFrameSteps(defaultFrameStep, iterationNumber, false)
 
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
@@ -289,57 +312,16 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		return target
 	}
 
-	if len(mp.psc.pc.request.Constraints.OrientationConstraint) > 0 {
-		myFunc := func(metric *motionplan.StateFS) float64 {
-			score := 0.0
-			now, err := metric.Poses()
-			if err != nil {
-				panic(err)
-			}
-			for f, g := range mp.psc.goal {
-				s := mp.psc.startPoses[f]
-				n := now[f]
-				if g.Parent() != referenceframe.World ||
-					s.Parent() != referenceframe.World ||
-					n.Parent() != referenceframe.World {
-					panic(fmt.Errorf("mismatch frame %v %v %v", g.Parent(), s.Parent(), n.Parent()))
-				}
-
-				for _, c := range mp.psc.pc.request.Constraints.OrientationConstraint {
-					score += c.Score(
-						s.Pose().Orientation(),
-						g.Pose().Orientation(),
-						n.Pose().Orientation(),
-					)
-				}
-			}
-
-			return score
-		}
-
-		linearSeed := target.GetLinearizedInputs()
-		var totalAttempts atomic.Int32
-		solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent, &totalAttempts,
-			mp.psc.pc.LinearizeFSMetric(myFunc),
-			[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .05)})
-		if err != nil {
-			mp.logger.Debugf("constrainNear fail (DoSolve): %v", err)
+	if metric := mp.psc.topoProjectionMetric(); metric != nil {
+		projected := mp.psc.projectToOrientationBand(ctx, mp.fastGradDescent, metric, target)
+		if projected == nil {
+			mp.logger.Debugf("constrainNear: orientation projection failed")
 			return nil
 		}
-
-		if len(solutions) == 0 {
-			return nil
-		}
-
 		if debugConstrainNear {
-			mp.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", solutions[0]})
+			mp.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", projected.GetLinearizedInputs()})
 		}
-
-		target, err = mp.psc.pc.lis.FloatsToInputs(solutions[0])
-		if err != nil {
-			mp.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
-			return nil
-		}
+		target = projected
 	}
 
 	failpos, err := mp.psc.Checker.CheckStateConstraintsAcrossSegmentFS(
@@ -442,7 +424,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 	for name, inputs := range rSeed.inputs.Items() {
 		f := mp.pc.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
-			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.pc.randseed, percent, inputs)
+			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.rnd, percent, inputs)
 			if err != nil {
 				return nil, err
 			}
@@ -450,4 +432,64 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 		}
 	}
 	return newConfigurationNode(newInputs), nil
+}
+
+// seedGoalRetreatCorridors pre-populates the goal tree with a "descent
+// corridor" per goal root: a chain of validated configurations jogging the
+// end effector straight up into open space. The final approach to a goal is
+// usually the most cluttered part of a scene, and random bidirectional
+// sampling spends most of its iterations rediscovering how to descend into
+// it; a deterministic retreat chain lets the search connect to the corridor
+// high in open space instead, with the descent already validated.
+func (mp *cBiRRTMotionPlanner) seedGoalRetreatCorridors(ctx context.Context, rrtMaps *rrtMaps) []*node {
+	if len(mp.psc.goal) != 1 {
+		return nil
+	}
+	var frame string
+	for f := range mp.psc.goal {
+		frame = f
+	}
+
+	roots := []*node{}
+	isParent := map[*node]bool{}
+	childCount := 0
+	for n, parent := range rrtMaps.goalMap {
+		if parent == nil {
+			roots = append(roots, n)
+		} else {
+			childCount++
+			isParent[parent] = true
+		}
+	}
+	if childCount > 0 {
+		// Corridors were already seeded (racing attempts share pre-seeded
+		// maps); the corridor tops are the non-root leaves.
+		tops := []*node{}
+		for n, parent := range rrtMaps.goalMap {
+			if parent != nil && !isParent[n] {
+				tops = append(tops, n)
+			}
+		}
+		return tops
+	}
+
+	added := 0
+	tops := []*node{}
+	for _, root := range roots {
+		chain := retreatChain(ctx, mp.psc, mp.fastGradDescent, frame, root.inputs)
+		cur := root
+		for _, cfg := range chain[1:] {
+			n := &node{inputs: cfg}
+			rrtMaps.goalMap[n] = cur
+			cur = n
+			added++
+		}
+		if cur != root {
+			tops = append(tops, cur)
+		}
+	}
+	if added > 0 {
+		mp.logger.CDebugf(ctx, "seeded %d goal retreat corridor nodes across %d roots (%d corridor tops)", added, len(roots), len(tops))
+	}
+	return tops
 }

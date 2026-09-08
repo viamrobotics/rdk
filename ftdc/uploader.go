@@ -3,6 +3,7 @@ package ftdc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -61,6 +62,8 @@ func (uploader *uploader) uploadRunner(ctx context.Context) {
 		case ftdcFilename := <-uploader.toUpload:
 			if err := uploader.uploadFile(ctx, ftdcFilename); err != nil {
 				uploader.logger.Warnw("Error uploading FTDC file", "filename", ftdcFilename, "error", err)
+			} else {
+				uploader.logger.Infow("Successfully uploaded FTDC file", "filename", ftdcFilename)
 			}
 		}
 	}
@@ -72,12 +75,12 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 	// Get file timestamps
 	fileTimes, err := utils.GetFileTimes(filename)
 	if err != nil {
-		return err
+		return fmt.Errorf("failure getting file times: %w", err)
 	}
 
 	binaryClient, err := uploader.dataSyncClient.FileUpload(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failure establishing file upload client stream: %w", err)
 	}
 
 	err = binaryClient.Send(&v1.FileUploadRequest{
@@ -96,7 +99,7 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 		if !errors.Is(err, io.EOF) {
 			// When the error is not an EOF, it means the client code encountered an error. Return
 			// that directly.
-			return err
+			return fmt.Errorf("failure sending file upload metadata: %w", err)
 		}
 
 		// `Send` returning an EOF means the an error originated outside of the client code. We
@@ -108,7 +111,7 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 
 	file, err := os.Open(filename) //nolint: gosec
 	if err != nil {
-		return err
+		return fmt.Errorf("failure opening filename for upload: %w", err)
 	}
 	defer viamutils.UncheckedErrorFunc(file.Close)
 
@@ -131,7 +134,7 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 			if !errors.Is(err, io.EOF) {
 				// When the error is not an EOF, it means the client code encountered an error. Return
 				// that directly.
-				return err
+				return fmt.Errorf("failure sending file upload content message with %d bytes: %w", bytesRead, err)
 			}
 
 			// `Send` returning an EOF means the an error originated outside of the client code. We
@@ -143,10 +146,10 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 	}
 
 	_, err = binaryClient.CloseAndRecv()
-	if errors.Is(err, io.EOF) {
+	if err == nil || errors.Is(err, io.EOF) {
 		// We've finished sending. `CloseAndRecv` will return an EOF to denote success. The server
 		// has acknowledged receipt of the full file.
 		return nil
 	}
-	return err
+	return fmt.Errorf("failure closing file upload client stream after finishing upload: %w", err)
 }

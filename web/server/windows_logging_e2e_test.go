@@ -20,11 +20,11 @@ import (
 	"golang.org/x/sys/windows"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/etc/winlogproc"
 	"go.viam.com/rdk/logging"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/etc/winlogproc"
 )
 
 const (

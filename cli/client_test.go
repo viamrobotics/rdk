@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -76,6 +78,8 @@ func buildTestFlags(m map[string]any) []cli.Flag {
 		switch v := val.(type) {
 		case int:
 			flags = append(flags, &cli.IntFlag{Name: name, Value: v})
+		case uint:
+			flags = append(flags, &cli.UintFlag{Name: name, Value: v})
 		case string:
 			flags = append(flags, &cli.StringFlag{Name: name, Value: v})
 		case bool:
@@ -367,6 +371,7 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 	// Create a temporary file for testing
 	fileName := "test-logo-*.png"
+	//nolint:usetesting
 	tmpFile, err := os.CreateTemp("", fileName)
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(tmpFile.Name()) // Clean up temp file after test
@@ -378,6 +383,7 @@ func TestOrganizationSetLogoAction(t *testing.T) {
 	cCtx, ac, out, errOut = setup(asc, nil, nil, nil, "token")
 
 	logoFileName2 := "test-logo-2-*.PNG"
+	//nolint:usetesting
 	tmpFile2, err := os.CreateTemp("", logoFileName2)
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(tmpFile2.Name()) // Clean up temp file after test
@@ -728,9 +734,11 @@ func TestLogEntryFieldsToString(t *testing.T) {
 }
 
 func TestGetRobotPartLogs(t *testing.T) {
+	const testTotalLogs = 10000
+
 	// Create fake logs of "0"->"9999".
-	logs := make([]*commonpb.LogEntry, 0, maxNumLogs)
-	for i := 0; i < maxNumLogs; i++ {
+	logs := make([]*commonpb.LogEntry, 0, testTotalLogs)
+	for i := 0; i < testTotalLogs; i++ {
 		logs = append(logs, &commonpb.LogEntry{Message: fmt.Sprintf("%d", i)})
 	}
 
@@ -745,9 +753,16 @@ func TestGetRobotPartLogs(t *testing.T) {
 			pt, err = strconv.Atoi(*receivedPt)
 			test.That(t, err, test.ShouldBeNil)
 		}
-		resp := &apppb.GetRobotPartLogsResponse{
-			Logs:          logs[(pt-1)*100 : pt*100],
-			NextPageToken: fmt.Sprintf("%d", pt+1),
+		batchStart := (pt - 1) * 100
+		if batchStart >= testTotalLogs {
+			return &apppb.GetRobotPartLogsResponse{}, nil
+		}
+		batchEnd := min(pt*100, testTotalLogs)
+
+		resp := &apppb.GetRobotPartLogsResponse{Logs: logs[batchStart:batchEnd]}
+		// An empty next page token marks the last page, as app does when logs are exhausted.
+		if batchEnd < testTotalLogs {
+			resp.NextPageToken = fmt.Sprintf("%d", pt+1)
 		}
 		return resp, nil
 	}
@@ -801,7 +816,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 		GetOrganizationsWithAccessToLocationFunc: getOrganizationsWithAccessToLocationFunc,
 	}
 
-	t.Run("no count", func(t *testing.T) {
+	t.Run("no count fetches every log", func(t *testing.T) {
 		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "")
 
 		test.That(t, ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
@@ -810,12 +825,12 @@ func TestGetRobotPartLogs(t *testing.T) {
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
 		// There should be a message for "organization -> location -> robot"
-		// followed by maxNumLogs messages.
-		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
+		// followed by every log, since omitting count no longer caps the fetch.
+		test.That(t, len(out.messages), test.ShouldEqual, testTotalLogs+1)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
-		// Logs should be printed in order oldest->newest ("99"->"0").
-		expectedLogNum := defaultNumLogs - 1
-		for i := 1; i <= defaultNumLogs; i++ {
+		// Logs should be printed in order oldest->newest ("9999"->"0").
+		expectedLogNum := testTotalLogs - 1
+		for i := 1; i <= testTotalLogs; i++ {
 			test.That(t, out.messages[i], test.ShouldContainSubstring,
 				fmt.Sprintf("%d", expectedLogNum))
 			expectedLogNum--
@@ -842,8 +857,8 @@ func TestGetRobotPartLogs(t *testing.T) {
 			expectedLogNum--
 		}
 	})
-	t.Run("max count", func(t *testing.T) {
-		flags := map[string]any{generalFlagCount: maxNumLogs}
+	t.Run("large count", func(t *testing.T) {
+		flags := map[string]any{generalFlagCount: testTotalLogs}
 		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
@@ -852,48 +867,284 @@ func TestGetRobotPartLogs(t *testing.T) {
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
 		// There should be a message for "organization -> location -> robot"
-		// followed by maxNumLogs messages.
-		test.That(t, len(out.messages), test.ShouldEqual, maxNumLogs+1)
+		// followed by testTotalLogs messages.
+		test.That(t, len(out.messages), test.ShouldEqual, testTotalLogs+1)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
 
 		// Logs should be printed in order oldest->newest ("9999"->"0").
-		expectedLogNum := maxNumLogs - 1
-		for i := 1; i <= maxNumLogs; i++ {
+		expectedLogNum := testTotalLogs - 1
+		for i := 1; i <= testTotalLogs; i++ {
 			test.That(t, out.messages[i], test.ShouldContainSubstring,
 				fmt.Sprintf("%d", expectedLogNum))
 			expectedLogNum--
 		}
 	})
-	t.Run("negative count", func(t *testing.T) {
+	t.Run("negative count errors before fetching", func(t *testing.T) {
 		flags := map[string]any{"count": -1}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+
+		err := ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"count" cannot be negative`)
+
+		// Validation runs before the header lookup, so nothing is emitted on either stream.
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	})
+	t.Run("count stopping mid-batch does not over-fetch", func(t *testing.T) {
+		// 250 lands mid-batch on the third page, exercising the truncation path.
+		flags := map[string]any{generalFlagCount: 250}
 		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx)), test.ShouldBeNil)
 
-		// Warning should read: `Warning:\nProvided negative "count" value. Defaulting to 100`.
-		test.That(t, len(errOut.messages), test.ShouldEqual, 2)
-		test.That(t, errOut.messages[0], test.ShouldEqual, "Warning: ")
-		test.That(t, errOut.messages[1], test.ShouldContainSubstring, `Provided negative "count" value. Defaulting to 100`)
-
-		// There should be a message for "organization -> location -> robot"
-		// followed by maxNumLogs messages.
-		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 251)
 		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
-		// Logs should be printed in order oldest->oldest ("99"->"0").
-		expectedLogNum := defaultNumLogs - 1
-		for i := 1; i <= defaultNumLogs; i++ {
-			test.That(t, out.messages[i], test.ShouldContainSubstring,
-				fmt.Sprintf("%d", expectedLogNum))
-			expectedLogNum--
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "249")
+		test.That(t, out.messages[250], test.ShouldContainSubstring, "0")
+	})
+}
+
+// TestStreamLogsForPart covers the `machines logs` fetch loop, which pages independently of the
+// `machines part logs` path exercised by TestGetRobotPartLogs.
+func TestStreamLogsForPart(t *testing.T) {
+	const testTotalLogs = 450
+
+	logs := make([]*commonpb.LogEntry, 0, testTotalLogs)
+	for i := 0; i < testTotalLogs; i++ {
+		logs = append(logs, &commonpb.LogEntry{Message: fmt.Sprintf("%d", i)})
+	}
+
+	var requests int
+	var firstRequest *apppb.GetRobotPartLogsRequest
+	getRobotPartLogsFunc := func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartLogsResponse, error) {
+		requests++
+		if requests == 1 {
+			firstRequest = in
+		}
+		pt := 1
+		if receivedPt := in.PageToken; receivedPt != nil && *receivedPt != "" {
+			var err error
+			pt, err = strconv.Atoi(*receivedPt)
+			test.That(t, err, test.ShouldBeNil)
+		}
+		batchStart := (pt - 1) * 100
+		if batchStart >= testTotalLogs {
+			return &apppb.GetRobotPartLogsResponse{}, nil
+		}
+		batchEnd := min(pt*100, testTotalLogs)
+
+		resp := &apppb.GetRobotPartLogsResponse{Logs: logs[batchStart:batchEnd]}
+		if batchEnd < testTotalLogs {
+			resp.NextPageToken = fmt.Sprintf("%d", pt+1)
+		}
+		return resp, nil
+	}
+
+	asc := &inject.AppServiceClient{GetRobotPartLogsFunc: getRobotPartLogsFunc}
+	part := &apppb.RobotPart{Id: "part-id", Name: "main"}
+
+	countLines := func(s string) int {
+		return len(strings.Split(strings.TrimSuffix(s, "\n"), "\n"))
+	}
+
+	t.Run("no count drains every page", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "")
+		requests = 0
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		// All logs, including the final short page, which the old page-token handling dropped.
+		test.That(t, countLines(buf.String()), test.ShouldEqual, testTotalLogs)
+		test.That(t, buf.String(), test.ShouldContainSubstring, "449")
+		test.That(t, requests, test.ShouldEqual, 5)
+	})
+	t.Run("count caps the fetch and stops paging early", func(t *testing.T) {
+		flags := map[string]any{generalFlagCount: 150}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests = 0
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, countLines(buf.String()), test.ShouldEqual, 150)
+		// Two pages are enough for 150 logs; a third request would be wasted work.
+		test.That(t, requests, test.ShouldEqual, 2)
+	})
+	t.Run("negative count errors before fetching", func(t *testing.T) {
+		flags := map[string]any{generalFlagCount: -1}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests = 0
+
+		err := ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"count" cannot be negative`)
+		test.That(t, requests, test.ShouldEqual, 0)
+	})
+	t.Run("no range defaults start to 24 hours ago and leaves range and order unset", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, firstRequest, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Range, test.ShouldBeNil)
+		test.That(t, firstRequest.Order, test.ShouldBeNil)
+		test.That(t, firstRequest.Start, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Start.AsTime(), test.ShouldHappenBetween,
+			time.Now().Add(defaultLogStartTime).Add(-time.Minute), time.Now().Add(defaultLogStartTime).Add(time.Minute))
+	})
+	t.Run("range is passed through and suppresses the default start", func(t *testing.T) {
+		flags := map[string]any{logsFlagRange: "10h"}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, firstRequest, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Range, test.ShouldNotBeNil)
+		test.That(t, *firstRequest.Range, test.ShouldEqual, "10h")
+		// Defaulting start here would turn `--range` alone into a no-op window of the last 24 hours.
+		test.That(t, firstRequest.Start, test.ShouldBeNil)
+	})
+	t.Run("range is passed through alongside an explicit start", func(t *testing.T) {
+		start := "2025-01-15T14:00:00Z"
+		flags := map[string]any{logsFlagRange: "30m", generalFlagStart: start}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, firstRequest, test.ShouldNotBeNil)
+		test.That(t, *firstRequest.Range, test.ShouldEqual, "30m")
+		test.That(t, firstRequest.Start, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Start.AsTime().Format(time.RFC3339), test.ShouldEqual, start)
+	})
+	t.Run("order is mapped onto the proto enum", func(t *testing.T) {
+		for flagValue, expected := range map[string]apppb.LogOrder{
+			logOrderAscending:  apppb.LogOrder_LOG_ORDER_ASCENDING,
+			logOrderDescending: apppb.LogOrder_LOG_ORDER_DESCENDING,
+		} {
+			flags := map[string]any{logsFlagOrder: flagValue}
+			cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+			requests, firstRequest = 0, nil
+
+			var buf bytes.Buffer
+			args := parseStructFromCtx[robotsLogsArgs](cCtx)
+			test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+			test.That(t, firstRequest, test.ShouldNotBeNil)
+			test.That(t, firstRequest.Order, test.ShouldNotBeNil)
+			test.That(t, *firstRequest.Order, test.ShouldEqual, expected)
 		}
 	})
-	t.Run("count too high", func(t *testing.T) {
-		flags := map[string]any{"count": 1000000}
+	t.Run("invalid order errors before fetching", func(t *testing.T) {
+		flags := map[string]any{logsFlagOrder: "sideways"}
 		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests = 0
 
-		err := ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx))
+		err := ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(`provided too high of a "count" value. Maximum is 10000`))
+		test.That(t, err.Error(), test.ShouldContainSubstring, `invalid "order" value "sideways"`)
+		test.That(t, requests, test.ShouldEqual, 0)
+	})
+	t.Run("start with a count and no end is allowed", func(t *testing.T) {
+		// App now supports this combination, so the CLI no longer rejects it up front.
+		flags := map[string]any{generalFlagStart: "2025-01-15T14:00:00Z", generalFlagCount: 5}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		test.That(t, countLines(buf.String()), test.ShouldEqual, 5)
+		test.That(t, firstRequest.End, test.ShouldBeNil)
+	})
+}
+
+// TestRobotsLogsAction covers `machines logs` from the action entrypoint, where flag validation
+// happens before any lookup or output.
+func TestRobotsLogsAction(t *testing.T) {
+	var lastRequest *apppb.GetRobotPartLogsRequest
+	loc := apppb.Location{Name: "naboo"}
+	asc := &inject.AppServiceClient{
+		GetRobotPartLogsFunc: func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartLogsResponse, error) {
+			lastRequest = in
+			return &apppb.GetRobotPartLogsResponse{Logs: []*commonpb.LogEntry{{Message: "hello"}}}, nil
+		},
+		ListOrganizationsFunc: func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListOrganizationsResponse, error) {
+			return &apppb.ListOrganizationsResponse{Organizations: []*apppb.Organization{{Name: "jedi", Id: "123"}}}, nil
+		},
+		ListLocationsFunc: func(ctx context.Context, in *apppb.ListLocationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListLocationsResponse, error) {
+			return &apppb.ListLocationsResponse{Locations: []*apppb.Location{&loc}}, nil
+		},
+		GetLocationFunc: func(ctx context.Context, in *apppb.GetLocationRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetLocationResponse, error) {
+			return &apppb.GetLocationResponse{Location: &loc}, nil
+		},
+		ListRobotsFunc: func(ctx context.Context, in *apppb.ListRobotsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListRobotsResponse, error) {
+			return &apppb.ListRobotsResponse{Robots: []*apppb.Robot{{Name: "r2d2"}}}, nil
+		},
+		GetRobotPartsFunc: func(ctx context.Context, in *apppb.GetRobotPartsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartsResponse, error) {
+			return &apppb.GetRobotPartsResponse{Parts: []*apppb.RobotPart{{Name: "main"}}}, nil
+		},
+	}
+
+	t.Run("start with a count and no end is no longer rejected", func(t *testing.T) {
+		flags := map[string]any{generalFlagStart: "2025-01-15T14:00:00Z", generalFlagCount: 5}
+		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "")
+		lastRequest = nil
+
+		test.That(t, ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, lastRequest, test.ShouldNotBeNil)
+		test.That(t, lastRequest.End, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldBeGreaterThan, 0)
+	})
+	t.Run("range and order reach app", func(t *testing.T) {
+		flags := map[string]any{logsFlagRange: "10d", logsFlagOrder: logOrderAscending}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		lastRequest = nil
+
+		test.That(t, ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx)), test.ShouldBeNil)
+		test.That(t, lastRequest, test.ShouldNotBeNil)
+		test.That(t, *lastRequest.Range, test.ShouldEqual, "10d")
+		test.That(t, *lastRequest.Order, test.ShouldEqual, apppb.LogOrder_LOG_ORDER_ASCENDING)
+	})
+	t.Run("invalid order errors before any output", func(t *testing.T) {
+		flags := map[string]any{logsFlagOrder: "ASCENDING"}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+		lastRequest = nil
+
+		err := ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `must be one of "asc" or "desc"`)
+		test.That(t, lastRequest, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldEqual, 0)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	})
 }
 
@@ -910,10 +1161,12 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 		return &apppb.GetRobotPartResponse{Part: &apppb.RobotPart{Id: partID, Name: partName}}, nil
 	}
 
+	var lastReq *apppb.GetRobotPartHistoryRequest
 	getRobotPartHistoryFunc := func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.GetRobotPartHistoryResponse, error) {
 		test.That(t, in.Id, test.ShouldEqual, partID)
+		lastReq = in
 		return &apppb.GetRobotPartHistoryResponse{
 			History: []*apppb.RobotPartHistoryEntry{
 				{
@@ -982,6 +1235,162 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, 1)
 		test.That(t, out.messages[0], test.ShouldContainSubstring, "no history found")
 	})
+
+	t.Run("time range is forwarded and the page size is fixed", func(t *testing.T) {
+		cCtx, ac, _, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{
+			Part:  partID,
+			Start: "2026-01-14T00:00:00Z",
+			End:   "2026-01-15T23:59:59Z",
+			Count: 25,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, lastReq.Start.AsTime().Format(time.RFC3339), test.ShouldEqual, "2026-01-14T00:00:00Z")
+		test.That(t, lastReq.End.AsTime().Format(time.RFC3339), test.ShouldEqual, "2026-01-15T23:59:59Z")
+		// --count caps the listing; the wire page size stays fixed so no single response can
+		// outgrow the gRPC max message size.
+		test.That(t, lastReq.PageLimit, test.ShouldNotBeNil)
+		test.That(t, *lastReq.PageLimit, test.ShouldEqual, int64(historyFetchPageSize))
+	})
+
+	t.Run("an unset range is omitted from the request", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, lastReq.Start, test.ShouldBeNil)
+		test.That(t, lastReq.End, test.ShouldBeNil)
+	})
+
+	t.Run("unparseable timestamp errors", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, Start: "yesterday"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "could not parse time string")
+	})
+
+	t.Run("negative count errors before fetching", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		lastReq = nil
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, Count: -1})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"count" cannot be negative`)
+		test.That(t, lastReq, test.ShouldBeNil)
+	})
+
+	// A two-page history: alice on the first page, bob behind the token.
+	var tokensSeen []string
+	pagedAsc := &inject.AppServiceClient{
+		ListOrganizationsFunc: listOrganizationsFunc,
+		GetRobotPartFunc:      getRobotPartFunc,
+		GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartHistoryResponse, error) {
+			tokensSeen = append(tokensSeen, in.GetPageToken())
+			if in.GetPageToken() == "" {
+				return &apppb.GetRobotPartHistoryResponse{
+					History: []*apppb.RobotPartHistoryEntry{
+						{Part: partID, When: timestamppb.New(ts1), EditedBy: &apppb.AuthenticatorInfo{Value: "alice@viam.com"}},
+					},
+					NextPageToken: "page-2",
+				}, nil
+			}
+			return &apppb.GetRobotPartHistoryResponse{
+				History: []*apppb.RobotPartHistoryEntry{
+					{Part: partID, When: timestamppb.New(ts2), EditedBy: &apppb.AuthenticatorInfo{Value: "bob@viam.com"}},
+				},
+			}, nil
+		},
+	}
+
+	t.Run("pages are followed until the token is empty", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(pagedAsc, nil, nil, nil, "token")
+		tokensSeen = nil
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, tokensSeen, test.ShouldResemble, []string{"", "page-2"})
+		test.That(t, len(out.messages), test.ShouldEqual, 2)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "alice@viam.com")
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "bob@viam.com")
+	})
+
+	t.Run("a filtered listing keeps paging and numbers matches contiguously", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(pagedAsc, nil, nil, nil, "token")
+		tokensSeen = nil
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, FilterByEmail: "bob@viam.com"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, tokensSeen, test.ShouldResemble, []string{"", "page-2"})
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "[1]")
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "bob@viam.com")
+	})
+
+	t.Run("an empty page ends the walk even with a token", func(t *testing.T) {
+		spinAsc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartHistoryResponse, error) {
+				return &apppb.GetRobotPartHistoryResponse{NextPageToken: "never-ends"}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(spinAsc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "no history found")
+	})
+
+	t.Run("count stops the listing and says so", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(pagedAsc, nil, nil, nil, "token")
+		tokensSeen = nil
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx,
+			machinesPartHistoryArgs{Part: partID, Count: 1})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, tokensSeen, test.ShouldResemble, []string{""})
+		test.That(t, len(out.messages), test.ShouldEqual, 2)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "alice@viam.com")
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "stopped at --count=1")
+	})
+}
+
+// TestMachinesPartHistoryCountDefault pins the flag default: without one, printing every revision
+// of a frequently-edited part takes minutes and buries anything useful.
+func TestMachinesPartHistoryCountDefault(t *testing.T) {
+	app := NewApp(&testWriter{}, &testWriter{})
+
+	findCommand := func(cmds []*cli.Command, name string) *cli.Command {
+		for _, cmd := range cmds {
+			if cmd.Name == name {
+				return cmd
+			}
+		}
+		return nil
+	}
+
+	machines := findCommand(app.Commands, "machines")
+	test.That(t, machines, test.ShouldNotBeNil)
+	part := findCommand(machines.Commands, "part")
+	test.That(t, part, test.ShouldNotBeNil)
+	history := findCommand(part.Commands, "history")
+	test.That(t, history, test.ShouldNotBeNil)
+
+	var count *cli.IntFlag
+	for _, flag := range history.Flags {
+		if intFlag, ok := flag.(*cli.IntFlag); ok && intFlag.Name == generalFlagCount {
+			count = intFlag
+		}
+	}
+	test.That(t, count, test.ShouldNotBeNil)
+	test.That(t, count.Value, test.ShouldEqual, defaultHistoryCount)
 }
 
 func TestShellFileCopy(t *testing.T) {
@@ -1082,7 +1491,9 @@ func TestShellFileCopy(t *testing.T) {
 			tempDir := t.TempDir()
 			cwd, err := os.Getwd()
 			test.That(t, err, test.ShouldBeNil)
+			//nolint: usetesting
 			t.Cleanup(func() { os.Chdir(cwd) })
+			//nolint: usetesting
 			test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
@@ -1439,9 +1850,11 @@ func TestShellGetFTDC(t *testing.T) {
 			tempDir := t.TempDir()
 			originalWd, err := os.Getwd()
 			test.That(t, err, test.ShouldBeNil)
+			//nolint: usetesting
 			err = os.Chdir(tempDir)
 			test.That(t, err, test.ShouldBeNil)
 			t.Cleanup(func() {
+				//nolint: usetesting
 				os.Chdir(originalWd)
 			})
 
@@ -1450,6 +1863,84 @@ func TestShellGetFTDC(t *testing.T) {
 		t.Run("download to specified path", func(t *testing.T) {
 			testDownload(t, t.TempDir())
 		})
+	})
+
+	// The CLI cannot know where the machine keeps VIAM_HOME, so by default it asks the
+	// machine to resolve it. Leaving ftdcPath at its real default and pointing this
+	// process's VIAM_HOME at a directory outside any user's home stands in for an agent
+	// install, where the two diverge.
+	t.Run("ftdc data lives outside the home directory", func(t *testing.T) {
+		// Use a short temp dir (not t.TempDir, whose Windows path is long) because
+		// redirecting ViamDotDir also relocates the module socket dir on Windows, and the
+		// unix socket path has a 103-char OS limit (see module.CreateSocketAddress).
+		//nolint: usetesting
+		viamHome, err := os.MkdirTemp("", "vds")
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { goutils.UncheckedError(os.RemoveAll(viamHome)) })
+
+		partFtdcPath := filepath.Join(viamHome, ftdcRelativePath, partID)
+		test.That(t, os.MkdirAll(partFtdcPath, 0o750), test.ShouldBeNil)
+		test.That(t, os.WriteFile(filepath.Join(partFtdcPath, "foo"), nil, 0o640), test.ShouldBeNil)
+
+		origViamDotDir := utils.ViamDotDir
+		utils.ViamDotDir = viamHome
+		t.Cleanup(func() { utils.ViamDotDir = origViamDotDir })
+
+		targetPath := t.TempDir()
+		cCtx, viamClient, _, _ := setupWithRunningPart(
+			t, asc, nil, nil, partFlags, "token", partFqdn, targetPath)
+		test.That(t,
+			viamClient.machinesPartGetFTDCAction(context.Background(), cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
+			test.ShouldBeNil)
+
+		entries, err := os.ReadDir(filepath.Join(targetPath, partID))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, entries, test.ShouldHaveLength, 1)
+		test.That(t, entries[0].Name(), test.ShouldEqual, "foo")
+	})
+}
+
+func TestLegacyViamHomePath(t *testing.T) {
+	// paths rooted at the prefix get a legacy candidate for machines whose
+	// viam-server is too old to expand it
+	legacy, ok := legacyViamHomePath("$VIAM_HOME/diagnostics.data/abc123")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, legacy, test.ShouldEqual, "~/.viam/diagnostics.data/abc123")
+
+	// an explicit --viam-home-dir, or a path a test has redirected, has no legacy form
+	_, ok = legacyViamHomePath("/opt/viam/trace/abc123")
+	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestMachineViamHome(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	partFqdn := uuid.NewString()
+	asc := &inject.AppServiceClient{}
+
+	t.Run("machine reports its VIAM_HOME", func(t *testing.T) {
+		// the "machine" is in-process, so its shell service reports this process's ViamDotDir
+		cCtx, vc, _, _ := setupWithRunningPart(t, asc, nil, nil, nil, "token", partFqdn)
+		shellSvc, closeClient, err := vc.connectToShellServiceFqdn(context.Background(), partFqdn, false, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, closeClient(context.Background()), test.ShouldBeNil)
+		}()
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, shellSvc),
+			test.ShouldEqual, utils.ViamDotDir)
+	})
+
+	t.Run("--home override skips asking the machine", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(asc, nil, nil, map[string]any{moduleFlagHomeDir: "/home/pi"}, "token")
+		// a nil shellSvc proves the override resolves without consulting the machine
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, nil),
+			test.ShouldEqual, "/home/pi/.viam")
+	})
+
+	t.Run("unreachable machine falls back to the legacy home with a warning", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(asc, nil, nil, nil, "token")
+		test.That(t, vc.machineViamHome(context.Background(), cCtx, nil),
+			test.ShouldEqual, legacyViamHomeDir)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "did not report its VIAM_HOME")
 	})
 }
 
@@ -1680,7 +2171,14 @@ func TestTunnelE2ECLI(t *testing.T) {
 			},
 		},
 	}
-	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil)
+	// Connect over direct gRPC with no TLS. Skipping the WebRTC signaling/ICE
+	// handshake avoids its long worst-case retry tail on slow CI runners
+	// (RSDK-14333). WithInsecure is required because the test server has no TLS
+	// certs; without it the TLS downgrade probe races the server startup and the
+	// client falls back to a TLS dial that hangs against the plaintext listener.
+	rc, stopServer := serverutils.TryStartServerAndConnect(t, ctx, cfg, logger, nil,
+		client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithInsecure()),
+	)
 	t.Cleanup(func() {
 		test.That(t, rc.Close(ctx), test.ShouldBeNil)
 		// stopServer will be called toward the end of the test so we can wait on the
@@ -1702,6 +2200,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 	var conn net.Conn
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		var dialErr error
+		//nolint: noctx
 		conn, dialErr = net.Dial("tcp", sourceListenerAddr)
 		test.That(tb, dialErr, test.ShouldBeNil)
 	})
@@ -1751,6 +2250,11 @@ func (f *fakeTunnelLister) ListTunnels(ctx context.Context) ([]robotconfig.Traff
 		out = append(out, robotconfig.TrafficTunnelEndpoint{Port: p})
 	}
 	return out, nil
+}
+
+func (f *fakeTunnelLister) Connect(ctx context.Context) error {
+	// This is a no-op
+	return nil
 }
 
 func TestEnsureTunnelPortAllowed(t *testing.T) {
@@ -2095,6 +2599,57 @@ func TestCLIUpdateAction(t *testing.T) {
 	_, err = os.ReadFile(newBinaryPath)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
+func TestIsRunningAptBinary(t *testing.T) {
+	originalDpkgQueryOwner := dpkgQueryOwnerFunc
+	defer func() {
+		dpkgQueryOwnerFunc = originalDpkgQueryOwner
+	}()
+
+	if runtime.GOOS != "linux" {
+		// dpkg query must never run off linux
+		dpkgQueryOwnerFunc = func(string) (string, error) {
+			panic("dpkg query must not run off linux")
+		}
+		isApt, err := isRunningAptBinary()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isApt, test.ShouldBeFalse)
+		return
+	}
+
+	// real ExitError, like dpkg returns for an unowned path
+	//nolint: noctx
+	exitErr := exec.Command("sh", "-c", "exit 1").Run()
+	var asExitErr *exec.ExitError
+	test.That(t, errors.As(exitErr, &asExitErr), test.ShouldBeTrue)
+
+	for _, tc := range []struct {
+		name      string
+		out       string
+		err       error
+		wantIsApt bool
+		wantErr   bool
+	}{
+		{name: "owned by viam-cli", out: "viam-cli: /usr/bin/viam\n", wantIsApt: true},
+		{name: "owned by another package", out: "coreutils: /usr/bin/viam\n"},
+		{name: "dpkg not installed", err: exec.ErrNotFound},
+		{name: "path not owned by any package", err: exitErr},
+		{name: "unexpected dpkg failure", err: errors.New("boom"), wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dpkgQueryOwnerFunc = func(string) (string, error) {
+				return tc.out, tc.err
+			}
+			isApt, err := isRunningAptBinary()
+			if tc.wantErr {
+				test.That(t, err, test.ShouldNotBeNil)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+			test.That(t, isApt, test.ShouldEqual, tc.wantIsApt)
+		})
+	}
 }
 
 func TestRetryableCopy(t *testing.T) {

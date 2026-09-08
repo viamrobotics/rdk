@@ -30,12 +30,13 @@ jobs:
         github.event.workflow_run.conclusion == 'failure' &&
         startsWith(github.event.workflow_run.head_branch, 'claude/')
       )
-    # viamrobotics/claude-ci-workflows@v2.2.1
-    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-ci-fix.yml@5506bdaf04cc7d1adbd2df0f31f108834b01aea6
+    # viamrobotics/claude-ci-workflows@v2.3.0
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-ci-fix.yml@27cff0006ae4b5f5eaf86a30fcb6c1b818fb10bd
     with:
       container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
       run_id: ${{ github.event.workflow_run.id || inputs.run_id }}
       branch: ${{ github.event.workflow_run.head_branch || inputs.branch }}
+      install_mise: true
       install_command: make tool-install
       allowed_tools: 'Edit,Read,Write,Glob,Grep,Bash(make build*),Bash(make build-go*),Bash(make lint*),Bash(make lint-go*),Bash(make test-go*),Bash(make test-go-no-race*),Bash(make tool-install*),Bash(go build*),Bash(go test*),Bash(go vet*),Bash(go list *),Bash(go doc *),Bash(go mod *),Bash(gofmt *),Bash(ls *),Bash(find *),Bash(git config *),Bash(git add *),Bash(git commit *),Bash(git push *),Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git checkout *),Bash(git branch *),Bash(git rev-parse *),Bash(git fetch *)'
       max_turns: 50

@@ -105,6 +105,55 @@ func BenchmarkEncodeYCbCr(b *testing.B) {
 	}
 }
 
+func TestNewEncoderCropDecision(t *testing.T) {
+	tests := []struct {
+		name         string
+		width        int
+		height       int
+		wantCrop     bool
+		wantAlignedW int
+	}{
+		{"aligned width and height (no-op)", 1280, 720, false, 1280},
+		{"aligned width, unaligned height (no-op)", 1280, 730, false, 1280},
+		{"unaligned width, aligned height (crop)", 2472, 2064, true, 2464},
+		{"unaligned width and height (crop, height preserved)", 1000, 730, true, 992},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
+			enc, err := NewEncoder(tt.width, tt.height, DefaultKeyFrameInterval, logger)
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				test.That(t, enc.Close(), test.ShouldBeNil)
+			}()
+
+			e := enc.(*encoder)
+			test.That(t, e.needsCrop, test.ShouldEqual, tt.wantCrop)
+			if tt.wantCrop {
+				test.That(t, e.dstBounds.Dx(), test.ShouldEqual, tt.wantAlignedW)
+				test.That(t, e.dstBounds.Dy(), test.ShouldEqual, tt.height)
+				test.That(t, e.scratchRGBA, test.ShouldNotBeNil)
+			} else {
+				test.That(t, e.scratchRGBA, test.ShouldBeNil)
+			}
+		})
+	}
+}
+
+func TestEncodeUnalignedInputDoesNotPanic(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	enc, err := NewEncoder(2472, 2064, DefaultKeyFrameInterval, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, enc.Close(), test.ShouldBeNil)
+	}()
+
+	img := image.NewYCbCr(image.Rect(0, 0, 2472, 2064), image.YCbCrSubsampleRatio420)
+	_, err = enc.Encode(context.Background(), img)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestCalcBitrateFromResolution(t *testing.T) {
 	bitrateTests := []struct {
 		width, height int
@@ -112,7 +161,7 @@ func TestCalcBitrateFromResolution(t *testing.T) {
 		expected      int
 	}{
 		{640, 480, 30, 1382400},
-		{1920, 1080, 30, 9331200},
+		{1920, 1080, 30, maxBitrate},
 		{3840, 2160, 30, maxBitrate},
 		{240, 180, 30, minBitrate},
 	}

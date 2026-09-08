@@ -18,7 +18,7 @@ func TestPlanningWithIntermediateFrame(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Load UR5e arm model
-	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "ur5e")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "ur5e")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Build FS via NewFrameSystem so flattening occurs.

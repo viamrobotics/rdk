@@ -4,11 +4,13 @@ package robottestutils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"regexp"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -125,6 +127,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 			shortTmp := "c:/tmp"
 			err := os.MkdirAll(shortTmp, 0o700)
 			test.That(t, err, test.ShouldBeNil)
+			//nolint: usetesting
 			testTempHome, err = os.MkdirTemp(shortTmp, "viam-test-*")
 			test.That(t, err, test.ShouldBeNil)
 			t.Cleanup(func() { os.RemoveAll(testTempHome) }) //nolint:errcheck
@@ -153,16 +156,45 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 	return server
 }
 
+// StopServerProcess stops a viam-server subprocess started by [ServerAsSeparateProcess] and
+// asserts that it shut down cleanly.
+//
+// Prefer this to asserting on [pexec.ManagedProcess.Stop] directly. If the server has not been
+// reaped a few seconds after its SIGTERM, pexec signals the whole process group to sweep up any
+// orphaned children. A server that exited promptly but has not been reaped yet loses that race,
+// and the sweep then reports on an empty process group rather than on how the shutdown went:
+// Darwin returns EPERM while the exited process is still a zombie, and ESRCH once it has been
+// reaped. Both mean the process is gone, which is what stopping it was for, so treat them as
+// success — as modmanager already does for pexec.ProcessNotExistsError.
+func StopServerProcess(tb testing.TB, server pexec.ManagedProcess) {
+	tb.Helper()
+	if err := server.Stop(); !processAlreadyGone(err) {
+		test.That(tb, err, test.ShouldBeNil)
+	}
+}
+
+// processAlreadyGone reports whether err is pexec saying there was nothing left to signal
+// rather than a genuine failure to stop the process.
+func processAlreadyGone(err error) bool {
+	var notExists *pexec.ProcessNotExistsError
+	if errors.As(err, &notExists) {
+		return true
+	}
+	// pexec wraps the raw errno from its kill(2) on the process group.
+	var errno syscall.Errno
+	return errors.As(err, &errno) && (errno == syscall.ESRCH || errno == syscall.EPERM)
+}
+
 // WaitForServing will scan the logs in the `observer` input until seeing a "serving" or "error
 // serving web" message. For added accuracy, it also checks that the port a test is expecting to
 // start a server on matches the one in the log message.
 //
 // WaitForServing will return true if the server has started successfully in the allotted time, and
 // false otherwise.
-//nolint
 func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	// Message:"\n\\_ 2024-02-07T20:47:03.576Z\tINFO\trobot_server\tweb/web.go:598\tserving\t{\"url\":\"http://127.0.0.1:20000\"}"
 	successRegex := regexp.MustCompile(fmt.Sprintf("\tserving\t.*:%d\"", port))
+	//nolint: lll
 	// Message:"\n\\_ 2024-02-02T14:43:02.862Z\tERROR\trobot_server\tserver/entrypoint.go:177\terror serving web\t{\"error\":\"listen tcp 127.0.0.1:8090: bind: address already in use\"}"
 	failRegex := regexp.MustCompile(fmt.Sprintf("\terror serving web\t.*:%d:", port))
 	lastSeenLogIdx := 0

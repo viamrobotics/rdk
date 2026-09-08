@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pterm/pterm"
 	"go.viam.com/test"
 )
 
@@ -93,6 +94,23 @@ func TestNewProgressManager(t *testing.T) {
 			t.Errorf("Step %q not found in step map", step.ID)
 		}
 	}
+}
+
+func TestDefaultSpinnerUsesTerminalDefaultColor(t *testing.T) {
+	// The running spinner text must use the terminal's default foreground color
+	// (pterm.FgDefault) rather than pterm's bright white default, otherwise it is
+	// illegible on light backgrounds.
+	//
+	// We build the same chain that defaultSpinnerFactory uses but skip Start()
+	// to avoid a known data race inside pterm's SpinnerPrinter goroutine
+	// (unsynchronized read/write of IsActive between the animation loop and Stop).
+	pspinner := pterm.DefaultSpinner.
+		WithRemoveWhenDone(false).
+		WithMessageStyle(pterm.NewStyle(pterm.FgDefault)).
+		WithText("building")
+
+	test.That(t, pspinner.MessageStyle, test.ShouldNotBeNil)
+	test.That(t, *pspinner.MessageStyle, test.ShouldResemble, pterm.Style{pterm.FgDefault})
 }
 
 func TestGetPrefix(t *testing.T) {

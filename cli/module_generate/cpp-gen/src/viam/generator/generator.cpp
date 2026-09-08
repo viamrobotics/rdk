@@ -45,7 +45,7 @@ Generator Generator::create(Generator::ModuleInfo moduleInfo,
         moduleInfo.resourceType,
         moduleInfo.resourceSubtypeSnake.str(),
         (cppInfo.sourceDir +
-         resourceToSource(moduleInfo.resourceSubtypeSnake, moduleInfo.resourceType, SrcType::cpp))
+         resourceToSource(moduleInfo.resourceSubtypeSnake, moduleInfo.resourceType, SrcType::hpp))
             .str(),
         std::move(headerOut),
         std::move(srcOut));
@@ -78,19 +78,32 @@ Generator::ResourceType Generator::to_resource_type(llvm::StringRef resourceType
 Generator::Generator(GeneratorCompDB db,
                      ResourceType resourceType,
                      std::string resourceSubtypeSnake,
-                     std::string resourcePath,
+                     std::string resourceHeaderPath,
                      std::unique_ptr<llvm::raw_fd_ostream> headerOut,
                      std::unique_ptr<llvm::raw_fd_ostream> srcOut)
     : db_(std::move(db)),
       resourceType_(resourceType),
       resourceSubtypeSnake_(std::move(resourceSubtypeSnake)),
       resourceSubtypePascal_(llvm::convertToCamelFromSnakeCase(resourceSubtypeSnake_, true)),
-      resourcePath_(std::move(resourcePath)),
+      resourceHeaderPath_(std::move(resourceHeaderPath)),
       headerOut_(std::move(headerOut)),
       srcOut_(std::move(srcOut)) {
     if (resourceSubtypeSnake_ == "generic") {
         resourceSubtypePascal_ +=
             (resourceType_ == ResourceType::component) ? "Component" : "Service";
+    }
+
+    // getAbsolutePath normalizes as ClangTool does before a database lookup, so that a relative
+    // command line path matches the absolute filenames a database records.
+    llvm::SmallString<256> path(clang::tooling::getAbsolutePath(resourceHeaderPath_));
+    resourceHeaderPath_ = path.str().str();
+
+    // A database records flags against the .cpp, so the header borrows its neighbour's.
+    llvm::sys::path::replace_extension(path, "cpp");
+    resourceSourcePath_ = path.str().str();
+
+    if (!db_.retarget(resourceSourcePath_, resourceHeaderPath_)) {
+        throw std::runtime_error("No compile command found for " + resourceSourcePath_);
     }
 }
 
@@ -184,7 +197,7 @@ void Generator::include_stmts() {
 }
 
 void Generator::do_stubs() {
-    clang::tooling::ClangTool tool(db_, resourcePath_);
+    clang::tooling::ClangTool tool(db_, resourceHeaderPath_);
 
     using namespace clang::ast_matchers;
 

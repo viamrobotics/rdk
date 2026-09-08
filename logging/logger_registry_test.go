@@ -139,3 +139,23 @@ func TestLoggerLevelReset(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
 }
+
+func TestUpdateFallsBackToRootLevel(t *testing.T) {
+	// Loggers with no matching pattern take the root logger's level on Update.
+	// This is how the top-level debug flag reaches existing subloggers on
+	// reconfigure — in both directions (RSDK-13456).
+	registry := newRegistry()
+	registry.registerLogger("rdk.a", NewLogger("rdk.a"))
+
+	root := NewLogger("rdk")
+	root.SetLevel(DEBUG)
+	registry.Update(nil, root)
+
+	logger, ok := registry.loggerNamed("rdk.a")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel(), test.ShouldEqual, DEBUG)
+
+	root.SetLevel(INFO)
+	registry.Update(nil, root)
+	test.That(t, logger.GetLevel(), test.ShouldEqual, INFO)
+}

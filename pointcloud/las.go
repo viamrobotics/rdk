@@ -70,7 +70,7 @@ func newFromLASFile(fn string, cfg TypeConfig) (PointCloud, error) {
 func writeToLASFile(cloud PointCloud, fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
-		return
+		return err
 	}
 	defer func() {
 		cerr := lf.Close()
@@ -86,7 +86,7 @@ func writeToLASFile(cloud PointCloud, fn string) (err error) {
 	if err = lf.AddHeader(lidario.LasHeader{
 		PointFormatID: byte(pointFormatID),
 	}); err != nil {
-		return
+		return err
 	}
 
 	var pVals []int
@@ -158,14 +158,14 @@ func writeToLASFile(cloud PointCloud, fn string) (err error) {
 			BinaryData:              buf.Bytes(),
 			RecordLengthAfterHeader: buf.Len(),
 		}); err != nil {
-			return
+			return err
 		}
 	}
 	if lastErr != nil {
 		err = lastErr
-		return
+		return err
 	}
 
 	//nolint:nakedret
-	return
+	return err
 }

@@ -113,7 +113,7 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 	}
 
 	// Strict containment: if sampled hull misses extremes, scale it outward just enough to contain all vertices.
-	hullCenter := centroidOfPoints(hullPoints)
+	hullCenter := CentroidOfPoints(hullPoints)
 	scale := requiredHullScale(vertices, faces, hullCenter)
 	if scale > 1.0 {
 		hullTris = scaleTrianglesAboutPoint(hullTris, hullCenter, scale*(1.0+1e-9))
@@ -297,7 +297,7 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 	for len(selected) < maxPoints {
 		if len(selected) < 4 {
 			// Not enough for a hull yet — add farthest from centroid.
-			center := centroidOfPoints(selected)
+			center := CentroidOfPoints(selected)
 			bestDist := -1.0
 			bestVert := r3.Vector{}
 			for _, v := range vertices {
@@ -439,7 +439,7 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 		return nil, nil, errors.New("points are nearly coplanar")
 	}
 
-	interior := centroidOfPoints([]r3.Vector{points[i0], points[i1], points[i2], points[i3]})
+	interior := CentroidOfPoints([]r3.Vector{points[i0], points[i1], points[i2], points[i3]})
 	faces := []quickHullFace{
 		newQuickHullFace(points, i0, i1, i2, interior),
 		newQuickHullFace(points, i0, i3, i1, interior),
@@ -669,17 +669,6 @@ func hullFacesToTriangles(faces []quickHullFace, points []r3.Vector) []*Triangle
 		tris = append(tris, NewTriangle(points[face.a], points[face.b], points[face.c]))
 	}
 	return tris
-}
-
-func centroidOfPoints(points []r3.Vector) r3.Vector {
-	if len(points) == 0 {
-		return r3.Vector{}
-	}
-	acc := r3.Vector{}
-	for _, p := range points {
-		acc = acc.Add(p)
-	}
-	return acc.Mul(1.0 / float64(len(points)))
 }
 
 func requiredHullScale(original []r3.Vector, faces []quickHullFace, center r3.Vector) float64 {

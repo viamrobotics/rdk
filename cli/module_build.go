@@ -29,11 +29,13 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/utils"
@@ -526,6 +528,7 @@ func ModuleBuildLinkRepoAction(ctx context.Context, cmd *cli.Command, args modul
 	}
 
 	if repo == "" {
+		//nolint: noctx
 		remoteURL, err := exec.Command("git", "config", "--get", "remote.origin.url").Output()
 		if err != nil {
 			return fmt.Errorf("no %s provided and unable to get git remote from current directory", moduleBuildFlagRepo)
@@ -752,6 +755,9 @@ type reloadModuleArgs struct {
 	Path         string
 	Annotation   string
 	Builder      string
+	// File is an optional path to a module tarball to upload (reload-local only).
+	// When set, implies NoBuild and does not require build.path in meta.json.
+	File string
 }
 
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
@@ -1561,6 +1567,7 @@ func reloadModuleActionInner(
 			// Dynamic build steps (e.g., "Spin up environment", "Install dependencies") are added at runtime with IndentLevel: 1
 			{ID: "reload", Message: "Reloading to part...", CompletedMsg: "Reloaded to part", IndentLevel: 0},
 			{ID: "configure", Message: "Configuring module...", CompletedMsg: "Module configured", IndentLevel: 1},
+			{ID: "wait", Message: "Waiting for machine to apply reload...", CompletedMsg: "Machine applied reload", IndentLevel: 1},
 			{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
 		}
 	} else {
@@ -1578,6 +1585,7 @@ func reloadModuleActionInner(
 			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 1},
 			{ID: "configure", Message: "Configuring module...", CompletedMsg: "Module configured", IndentLevel: 1},
 			{ID: "restart", Message: "Restarting module...", CompletedMsg: "Module restarted successfully", IndentLevel: 1},
+			{ID: "wait", Message: "Waiting for machine to apply reload...", CompletedMsg: "Machine applied reload", IndentLevel: 1},
 			{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
 		}
 	}
@@ -1589,12 +1597,35 @@ func reloadModuleActionInner(
 		printf(cmd.Root().ErrWriter, "Reloading to the machine configured at %s", args.CloudConfig)
 	}
 
+	if args.File != "" {
+		args.NoBuild = true
+	}
+
 	var needsRestart bool
 	var buildPath string
 	var buildInfo *moduleCloudBuildInfo
-	if !args.NoBuild {
+	switch {
+	case args.File != "":
+		// --file provides the tarball to upload; skip building and do not require build.path.
+		if cloudBuild {
+			return errors.New("--file is only supported with 'reload-local'")
+		}
+		if args.Local {
+			return errors.New("--file cannot be used with --local (nothing to upload)")
+		}
 		if manifest == nil {
-			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, args.Module)
+		}
+		buildPath = args.File
+		if manifest.Build == nil {
+			manifest.Build = &manifestBuildInfo{}
+		}
+		// Destination and reload_path on the robot use this basename; the upload
+		// source remains the full path in buildPath.
+		manifest.Build.Path = filepath.Base(args.File)
+	case !args.NoBuild:
+		if manifest == nil {
+			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, args.Module)
 		}
 		if manifest.Build == nil || manifest.Build.Build == "" {
 			return errors.New("your meta.json cannot have an empty build step. It is required for 'reload' and 'reload-local' commands")
@@ -1624,13 +1655,17 @@ func reloadModuleActionInner(
 		if err != nil {
 			return err
 		}
-	} else {
+	default:
 		// --no-build flag is set, look for existing artifact (only for reload-local)
 		if manifest == nil || manifest.Build == nil {
-			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, moduleFlagPath)
+			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, args.Module)
 		}
 		buildPath = manifest.Build.Path
 	}
+
+	// destination for the module archive on the machine; empty for cloud builds
+	// and local reloads, which don't shell-copy an archive over.
+	var dest string
 
 	// For cloud builds, the machine downloads the package directly from the cloud.
 	// Skip the shell copy and go straight to configure.
@@ -1642,10 +1677,10 @@ func reloadModuleActionInner(
 		if manifest == nil || manifest.Build == nil || buildPath == "" {
 			return errors.New(
 				"remote reloading requires a meta.json with the 'build.path' field set. " +
-					"try --local if you are testing on the same machine.",
+					"try --local if you are testing on the same machine, or pass --file with a tarball.",
 			)
 		}
-		if err := validateReloadableArchive(cmd, manifest.Build, manifest.FirstRun); err != nil {
+		if err := validateReloadableArchive(cmd, buildPath, manifest.FirstRun); err != nil {
 			return err
 		}
 
@@ -1675,12 +1710,39 @@ func reloadModuleActionInner(
 		if err != nil {
 			return err
 		}
-		dest := reloadingDestination(cmd, manifest)
+		// Dial once; the VIAM_HOME query and the first copy attempt share the
+		// connection. Copy retries dial fresh, since a retry usually follows a
+		// connection-level failure.
+		shellSvc, closeShellSvc, dialErr := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
+		if dialErr != nil {
+			shellSvc = nil
+		}
+		shellSvcConsumed := dialErr != nil
+		defer func() {
+			if !shellSvcConsumed {
+				goutils.UncheckedError(closeShellSvc(ctx))
+			}
+		}()
+		dest = reloadingDestination(manifest, vc.machineViamHome(ctx, cmd, shellSvc))
 
 		if err := pm.Start("upload"); err != nil {
 			return err
 		}
 		copyFunc := func() error {
+			if !shellSvcConsumed {
+				// copyFilesToMachineInner closes the connection it is handed.
+				shellSvcConsumed = true
+				return vc.copyFilesToMachineInner(
+					ctx,
+					shellSvc,
+					closeShellSvc,
+					false, // allowRecursion
+					false, // preserve
+					[]string{buildPath},
+					dest,
+					true, // noProgress
+				)
+			}
 			return vc.copyFilesToFqdn(
 				ctx,
 				part.Part.Fqdn,
@@ -1720,7 +1782,7 @@ func reloadModuleActionInner(
 	}
 	var newPart *apppb.RobotPart
 	newPart, needsRestart, err = configureModule(
-		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix())
+		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest)
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {
@@ -1757,6 +1819,31 @@ func reloadModuleActionInner(
 		}
 	}
 
+	if manifest != nil {
+		if err := pm.Start("wait"); err != nil {
+			return err
+		}
+		moduleName := configuredModuleName(part.Part, manifest.ModuleID)
+		modStatus, err := vc.waitForModuleReload(ctx, cmd, part.Part, moduleName, reloadTime, logger)
+		if err != nil {
+			_ = pm.Fail("wait", err)                                 //nolint:errcheck
+			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			return err
+		}
+		waitMessage := "Machine applied reload"
+		if modStatus.State == modulestatus.ModuleStateUnhealthy {
+			waitMessage = "Machine applied reload (module unhealthy)"
+			if modStatus.Error != nil {
+				warningf(cmd.Root().ErrWriter, "module %q reloaded but is unhealthy: %v", moduleName, modStatus.Error)
+			} else {
+				warningf(cmd.Root().ErrWriter, "module %q reloaded but is unhealthy", moduleName)
+			}
+		}
+		if err := pm.CompleteWithMessage("wait", waitMessage); err != nil {
+			return err
+		}
+	}
+
 	if args.ModelName != "" {
 		if err := pm.Start("resource"); err != nil {
 			return err
@@ -1783,30 +1870,38 @@ func reloadModuleActionInner(
 	return nil
 }
 
-type reloadingDestinationArgs struct {
-	Home string
-}
-
-// this chooses a destination path for the module archive.
-func reloadingDestination(cmd *cli.Command, manifest *ModuleManifest) string {
-	args := parseStructFromCtx[reloadingDestinationArgs](cmd)
-	return filepath.Join(args.Home,
-		".viam", config.PackagesDirName+config.LocalPackagesSuffix,
+// this chooses a destination path for the module archive under the machine's
+// VIAM_HOME (see machineViamHome). Uses path (not filepath) so a Windows CLI
+// never sends backslashes to the machine.
+func reloadingDestination(manifest *ModuleManifest, viamHome string) string {
+	return path.Join(viamHome,
+		config.PackagesDirName+config.LocalPackagesSuffix,
 		utils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
 }
 
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
 // It also logs warnings for likely problems, such as a missing meta.json or a first_run script
 // declared in the manifest but absent from the archive.
-func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo, firstRun string) error {
-	reader, err := os.Open(build.Path)
+func validateReloadableArchive(cmd *cli.Command, archivePath, firstRun string) (err error) {
+	//nolint:gosec // archivePath is a user-provided path from meta.json build.path or --file
+	reader, err := os.Open(archivePath)
 	if err != nil {
-		return errors.Wrap(err, "error opening the build.path field in your meta.json")
+		return errors.Wrap(err, "error opening module archive")
 	}
+	defer func() {
+		if closeErr := reader.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close module archive"))
+		}
+	}()
 	decompressed, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if closeErr := decompressed.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close gzip reader"))
+		}
+	}()
 	archive := tar.NewReader(decompressed)
 	metaFound := false
 	firstRunFound := false
@@ -1816,7 +1911,7 @@ func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo, first
 			break
 		}
 		if err != nil {
-			return errors.Wrapf(err, "reading tar at %s", build.Path)
+			return errors.Wrapf(err, "reading tar at %s", archivePath)
 		}
 		name := filepath.Base(header.Name)
 		if name == "meta.json" {
@@ -1830,13 +1925,13 @@ func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo, first
 		}
 	}
 	if !metaFound {
-		warningf(cmd.Root().ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", build.Path)
+		warningf(cmd.Root().ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", archivePath)
 	}
 	if firstRun != "" && !firstRunFound {
 		warningf(cmd.Root().ErrWriter,
 			"archive at %s doesn't contain the first_run script %q declared in meta.json; "+
 				"the script will not run on the target machine. Include it in your build artifact",
-			build.Path, firstRun)
+			archivePath, firstRun)
 	}
 	return nil
 }
@@ -1951,7 +2046,10 @@ func restartModule(
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(ctx, part.Fqdn, logger, client.WithDialOptions(creds))
+	robotClient, err := client.New(ctx, part.Fqdn, logger,
+		client.WithDialOptions(creds),
+		client.WithoutRPCSubtypes(),
+	)
 	if err != nil {
 		return err
 	}

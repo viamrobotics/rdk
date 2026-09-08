@@ -36,6 +36,7 @@ const (
 
 func TestClientWorkingService(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -287,6 +288,7 @@ func TestClientWorkingService(t *testing.T) {
 
 func TestFailingClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	//nolint: noctx
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 

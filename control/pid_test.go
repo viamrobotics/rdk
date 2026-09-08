@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -212,4 +213,93 @@ func TestPIDMultiTuner(t *testing.T) {
 		// disable the tuner to test the next signal
 		pid.tuners[signalIndex].tuning = false
 	}
+}
+
+// A MIMO PID where only some sets need auto-tuning leaves the remaining tuners nil. getTuning()
+// reports true as soon as any one set is tuning, so Next() walks every index and used to
+// dereference the nil tuners belonging to the fully-configured sets.
+func TestPIDMixedAutoTuningDoesNotPanic(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	cfg := BlockConfig{
+		Name: "PID1",
+		Attribute: utils.AttributeMap{
+			// first set is fully configured (tuner stays nil), second needs tuning
+			"PIDSets": []*PIDConfig{{P: .12, I: .22, D: .11}, {P: 0, I: 0, D: 0}},
+		},
+		Type:      "PID",
+		DependsOn: []string{"A", "B"},
+	}
+	pid, err := loop.newPID(cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	b, ok := pid.(*basicPID)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, b.tuners[0], test.ShouldBeNil)
+	test.That(t, b.tuners[1], test.ShouldNotBeNil)
+	test.That(t, b.GetTuning(), test.ShouldBeTrue)
+
+	s := makeSignals("A", "endpoint", 2)
+	s.SetSignalValueAt(0, 10.0)
+	s.SetSignalValueAt(1, 10.0)
+	test.That(t, func() {
+		pid.Next(ctx, []*Signal{s}, time.Millisecond*10)
+	}, test.ShouldNotPanic)
+}
+
+func TestPIDTunerComputeGains(t *testing.T) {
+	// Ziegler-Nichols: kU = 4d/(pi*a) where d = 0.5*stepPwr and a is the mean oscillation amplitude.
+	// With limUp 100 and stepPct 0.5, stepPwr = 50 and d = 25.
+	newTuner := func(peaksH, peaksL []float64, tC time.Duration) *pidTuner {
+		return &pidTuner{
+			limUp: 100, stepPct: 0.5,
+			tuneMethod: tuneMethodZiegerNicholsPI,
+			pPeakH:     peaksH, pPeakL: peaksL, tC: tC,
+		}
+	}
+
+	t.Run("amplitude is the mean over the peak pairs", func(t *testing.T) {
+		// One pair, peak-to-peak swing of 10, so a = 5.
+		p := newTuner([]float64{10}, []float64{0}, time.Second)
+		test.That(t, p.computeGains(), test.ShouldBeNil)
+		expectedKU := (4 * 25.0) / (math.Pi * 5.0)
+		test.That(t, p.kP, test.ShouldAlmostEqual, 0.4545*expectedKU, 1e-9)
+
+		// Two identical pairs must give the same amplitude, and so the same gains: the result must
+		// not depend on how many peaks were observed.
+		p2 := newTuner([]float64{10, 10}, []float64{0, 0}, time.Second)
+		test.That(t, p2.computeGains(), test.ShouldBeNil)
+		test.That(t, p2.kP, test.ShouldAlmostEqual, p.kP, 1e-9)
+	})
+
+	t.Run("degenerate relay results are rejected", func(t *testing.T) {
+		// No peaks bracketed: the amplitude would be zero and kU infinite.
+		p := newTuner(nil, nil, time.Second)
+		err := p.computeGains()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no oscillation peaks")
+		test.That(t, math.IsInf(p.kP, 0), test.ShouldBeFalse)
+
+		// Flat oscillation.
+		p = newTuner([]float64{5}, []float64{5}, time.Second)
+		test.That(t, p.computeGains().Error(), test.ShouldContainSubstring, "zero-amplitude")
+
+		// tC never established.
+		p = newTuner([]float64{10}, []float64{0}, 0)
+		test.That(t, p.computeGains().Error(), test.ShouldContainSubstring, "zero oscillation period")
+	})
+
+	t.Run("cohen-coons does not require relay quantities", func(t *testing.T) {
+		// Cohen-Coons runs before tC is known, so it must not be rejected for a zero tC.
+		p := &pidTuner{
+			limUp: 100, stepPct: 0.5,
+			tuneMethod: tuneMethodCohenCoonsPID,
+			avgSpeedSS: 40,
+			ccT2:       2 * time.Second,
+			ccT3:       3 * time.Second,
+		}
+		test.That(t, p.computeGains(), test.ShouldBeNil)
+		test.That(t, p.kP, test.ShouldNotAlmostEqual, 0.0)
+		test.That(t, math.IsInf(p.kP, 0) || math.IsNaN(p.kP), test.ShouldBeFalse)
+	})
 }

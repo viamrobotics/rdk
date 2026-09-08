@@ -58,8 +58,8 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
-    # viamrobotics/claude-ci-workflows@v2.2.1
-    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-jira.yml@5506bdaf04cc7d1adbd2df0f31f108834b01aea6
+    # viamrobotics/claude-ci-workflows@v2.3.0
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-jira.yml@27cff0006ae4b5f5eaf86a30fcb6c1b818fb10bd
     with:
       container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
       ticket_id: ${{ github.event.client_payload.ticket_id || inputs.ticket_id }}
@@ -68,6 +68,7 @@ jobs:
       task_complexity: ${{ github.event.client_payload.task_complexity || inputs.task_complexity || 'small' }}
       assignee: ${{ github.event.client_payload.assignee || inputs.assignee || '' }}
       assignee_email: ${{ github.event.client_payload.assignee_email || inputs.assignee_email || '' }}
+      install_mise: true
       install_command: make tool-install
       jira_base_url: ${{ vars.JIRA_BASE_URL }}
       jira_user_email: ${{ vars.JIRA_USER_EMAIL }}

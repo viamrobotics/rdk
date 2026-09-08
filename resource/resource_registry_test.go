@@ -74,6 +74,34 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
+func TestDefaultServiceName(t *testing.T) {
+	// An unnamed default service (registered via RegisterDefaultService) takes the reserved
+	// "builtin" name; every other unnamed service is named after its subtype, never "builtin".
+	rf := func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (motor.Motor, error) {
+		return &fake.Motor{}, nil
+	}
+
+	defaultAPI := resource.APINamespaceRDK.WithServiceType("test_default_service")
+	resource.RegisterDefaultService(defaultAPI, resource.DefaultServiceModel,
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{Constructor: rf})
+	defer resource.Deregister(defaultAPI, resource.DefaultServiceModel)
+
+	plainAPI := resource.APINamespaceRDK.WithServiceType("test_plain_service")
+	resource.RegisterService(plainAPI, resource.DefaultServiceModel,
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{Constructor: rf})
+	defer resource.Deregister(plainAPI, resource.DefaultServiceModel)
+
+	// An unnamed default service takes "builtin"...
+	defaultConf := resource.Config{API: defaultAPI}
+	defaultConf.AdjustPartialNames(resource.APITypeServiceName)
+	test.That(t, defaultConf.Name, test.ShouldEqual, resource.DefaultServiceName)
+
+	// ...while an unnamed non-default service is named after its subtype.
+	plainConf := resource.Config{API: plainAPI}
+	plainConf.AdjustPartialNames(resource.APITypeServiceName)
+	test.That(t, plainConf.Name, test.ShouldEqual, "test_plain_service")
+}
+
 func TestResourceAPIRegistry(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	var capColl resource.APIResourceGetter[motor.Motor]

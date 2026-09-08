@@ -82,7 +82,7 @@ func TestConstraintPath(t *testing.T) {
 	homePos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
 	toPos := []referenceframe.Input{0, 0, 0, 0, 0, 1}
 
-	modelXarm, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	modelXarm, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	handler := NewEmptyConstraintChecker(logger)
@@ -194,7 +194,7 @@ func TestLineFollow(t *testing.T) {
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm7.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
@@ -291,7 +291,7 @@ func TestCollisionConstraints(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// setup zero position as reference CollisionGraph and use it in handler
-	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(referenceframe.World))
@@ -380,7 +380,7 @@ func TestCalculateJointStepCount(t *testing.T) {
 
 // TestSegmentStepCount tests that segmentStepCount correctly emits step count from either joint or cartesian excursion
 func TestSegmentStepCount(t *testing.T) {
-	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur20.json"), "")
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur20.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	jointStepSize := jointStepSizeFromLimits(model.DoF())
 
@@ -500,7 +500,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewZeroPose())
 		geom2.SetLabel("box2")
 
-		collisions, _, err := checkCollisionsHinted([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil,
+		collisions, _, err := checkCollisionsHinted([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, nil,
 			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldNotBeEmpty)
@@ -515,8 +515,8 @@ func TestCollisionDistance(t *testing.T) {
 		geom2.SetLabel("box2")
 
 		collisions, minDist, err := checkCollisionsHinted(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t),
-		)
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, nil,
+			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
@@ -530,9 +530,8 @@ func TestCollisionDistance(t *testing.T) {
 
 		ignoreList := []Collision{{"box1", "box2"}}
 		collisions, minDist, err := checkCollisionsHinted(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, makeAllowedCollisionsLookup(ignoreList),
-			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t),
-		)
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, makeAllowedCollisionsLookup(ignoreList),
+			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
@@ -552,7 +551,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	// setup zero position as reference CollisionGraph and use it in handler
-	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(referenceframe.World))
@@ -637,7 +636,7 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 	}, nil)
 	test.That(b, err, test.ShouldBeNil)
 
-	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(referenceframe.World))

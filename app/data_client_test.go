@@ -1303,7 +1303,7 @@ func TestDataSyncClient(t *testing.T) {
 		}
 		// Create a temporary file for testing
 		tempContent := []byte("test file content")
-		tempFile, err := os.CreateTemp("", "test-upload-*.txt")
+		tempFile, err := os.CreateTemp(t.TempDir(), "test-upload-*.txt")
 		test.That(t, err, test.ShouldBeNil)
 		defer os.Remove(tempFile.Name())
 		// Mock implementation of the streaming client.

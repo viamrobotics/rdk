@@ -52,6 +52,7 @@ Multiple SDKs are available for writing client applications that interface with 
 |-------------------------------------|----------------------------------------------------------------|----------------------|
 | VIAM_RESOURCE_CONFIGURATION_TIMEOUT | Duration for which resources are allowed to (re)configure.     | 1 minute             |
 | VIAM_MODULE_STARTUP_TIMEOUT         | Duration for which modules are allowed to startup.             | 5 minutes            |
+| VIAM_ENABLE_DISK_SPACE_BLOCK        | When true-like, refuse package/module installs on a low-space volume. | unset (log-only)     |
 
 ## Development
 

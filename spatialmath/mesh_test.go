@@ -739,3 +739,68 @@ func TestLazyBVHConstruction(t *testing.T) {
 		test.That(t, transformed.bvh, test.ShouldEqual, originalBVH)
 	})
 }
+
+// TestNegCacheRespectsCollisionBuffer pins the invariant that a cached "no
+// collision" verdict is reusable only for buffers below the separation it
+// measured. A pair cleared at a tight buffer is still a collision at a wider
+// one; reusing the cached verdict there silently drops real collisions —
+// including the start-state collisions the motion planner relies on to build
+// its allowed-collision list, whose absence then surfaces mid-plan as a
+// violation between two geometries that never move relative to each other.
+func TestNegCacheRespectsCollisionBuffer(t *testing.T) {
+	const gap = 1.5 // mm of clear space between the two meshes
+
+	// Two parallel single-triangle meshes, gap apart along X.
+	newPair := func() (*Mesh, *Mesh) {
+		tri := func(x float64) *Triangle {
+			return NewTriangle(
+				r3.Vector{X: x, Y: 0, Z: 0},
+				r3.Vector{X: x, Y: 10, Z: 0},
+				r3.Vector{X: x, Y: 0, Z: 10},
+			)
+		}
+		a := NewMesh(NewZeroPose(), []*Triangle{tri(0)}, "a")
+		b := NewMesh(NewZeroPose(), []*Triangle{tri(gap)}, "b")
+		return a, b
+	}
+
+	t.Run("wide buffer collides on a cold cache", func(t *testing.T) {
+		a, b := newPair()
+		collides, _, err := a.CollidesWith(b, gap*2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	t.Run("wide buffer still collides after a tight-buffer check", func(t *testing.T) {
+		a, b := newPair()
+
+		collides, _, err := a.CollidesWith(b, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+
+		// Same pair at the same poses, wider buffer. The verdict cached by the
+		// call above measured gap of clearance, which does not clear gap*2.
+		collides, _, err = a.CollidesWith(b, gap*2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Guards against "fixing" the above by disabling the cache outright: an
+	// entry must still be stored, and a repeat query at the same buffer must
+	// still be served from it.
+	t.Run("cache still serves a repeat query at the same buffer", func(t *testing.T) {
+		a, b := newPair()
+
+		collides, _, err := a.CollidesWith(b, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+
+		_, cached := a.state.negCache.Load(negCacheKey(b.state, a.pose, b.pose))
+		test.That(t, cached, test.ShouldBeTrue)
+
+		collides, dist, err := a.CollidesWith(b, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+		test.That(t, dist, test.ShouldAlmostEqual, gap)
+	})
+}

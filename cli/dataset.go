@@ -118,8 +118,8 @@ func (c *viamClient) mergeDatasets(orgID, newDatasetName string, datasetIDs []st
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	printf(c.c.Root().Writer, "Successfully merged %d datasets into new dataset '%s' with ID: %s",
-		len(datasetIDs), newDatasetName, resp.GetDatasetId())
+	printf(c.c.Root().Writer, "Successfully merged %d %s into new dataset '%s' with ID: %s",
+		len(datasetIDs), pluralize(len(datasetIDs), "dataset"), newDatasetName, resp.GetDatasetId())
 	return nil
 }
 
@@ -286,8 +286,8 @@ func (c *viamClient) downloadDataset(
 		return fmt.Errorf("%s does not match any dataset IDs", datasetID)
 	}
 
-	return c.performActionOnBinaryDataFromFilter(
-		func(id string) error {
+	return c.performActionOnBinaryDataFromFilter(ctx,
+		func(ctx context.Context, id string) error {
 			var downloadErr error
 			var datasetFilePath string
 			if !onlyJSONLines {
@@ -302,7 +302,7 @@ func (c *viamClient) downloadDataset(
 			DatasetId: datasetID,
 		}, parallelDownloads,
 		func(i int32) {
-			printf(c.c.Root().Writer, "Downloaded %d files", i)
+			printf(c.c.Root().Writer, "Downloaded %d %s", i, pluralize(int(i), "file"))
 		},
 	)
 }
