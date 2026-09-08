@@ -1489,12 +1489,7 @@ func TestShellFileCopy(t *testing.T) {
 
 		t.Run("single file relative", func(t *testing.T) {
 			tempDir := t.TempDir()
-			cwd, err := os.Getwd()
-			test.That(t, err, test.ShouldBeNil)
-			//nolint: usetesting
-			t.Cleanup(func() { os.Chdir(cwd) })
-			//nolint: usetesting
-			test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
+			t.Chdir(tempDir)
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
@@ -1848,15 +1843,7 @@ func TestShellGetFTDC(t *testing.T) {
 
 		t.Run("download to cwd", func(t *testing.T) {
 			tempDir := t.TempDir()
-			originalWd, err := os.Getwd()
-			test.That(t, err, test.ShouldBeNil)
-			//nolint: usetesting
-			err = os.Chdir(tempDir)
-			test.That(t, err, test.ShouldBeNil)
-			t.Cleanup(func() {
-				//nolint: usetesting
-				os.Chdir(originalWd)
-			})
+			t.Chdir(tempDir)
 
 			testDownload(t, "")
 		})
