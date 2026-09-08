@@ -804,7 +804,13 @@ func (pm *planManager) tryRoadmap(
 }
 
 // roadmapSceneKey fingerprints everything edge validity depends on beyond the
-// structure: the obstacle set and the non-chain part of the configuration.
+// structure: the obstacle set, the non-chain part of the configuration, and
+// the static robot geometry's world poses. The geometry poses must be in the
+// key because the non-chain inputs alone are blind to environment geometry
+// that lives in the frame system (a door whose fixed transform is updated
+// between plans, a tracked fixture): the inputs never change while the
+// geometry moves, so edge verdicts, cached occupancy, and cached smoothed
+// trajectories would be shared across physically different scenes.
 func (pm *planManager) roadmapSceneKey(psc *PlanSegmentContext, rm *roadmap) uint64 {
 	const fnvPrime = 0x100000001b3
 	h := uint64(0xcbf29ce484222325)
@@ -827,6 +833,7 @@ func (pm *planManager) roadmapSceneKey(psc *PlanSegmentContext, rm *roadmap) uin
 			mix(math.Float64bits(v))
 		}
 	}
+	mix(psc.staticGeomHash)
 	if pm.request.ObstaclesInWorldFrame != nil {
 		for _, g := range pm.request.ObstaclesInWorldFrame.Geometries() {
 			for _, ch := range g.Label() {

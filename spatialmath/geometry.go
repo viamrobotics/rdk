@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -53,6 +54,35 @@ type Geometry interface {
 	Hash() int
 
 	json.Marshaler
+}
+
+// GeometrySetHash fingerprints a geometry set by label, pose, and shape (via
+// Geometry.Hash, which folds in type-specific dimensions - a cache keyed on
+// this hash must not serve a stale entry to a same-named, same-posed geometry
+// whose size changed). The per-geometry hashes are combined commutatively
+// because callers assemble the set from map iteration - the same set must hash
+// identically regardless of geometry order.
+func GeometrySetHash(geoms []Geometry) uint64 {
+	const fnvPrime = 0x100000001b3
+	total := uint64(len(geoms))
+	for _, g := range geoms {
+		h := uint64(0xcbf29ce484222325)
+		mix := func(v uint64) {
+			h ^= v
+			h *= fnvPrime
+		}
+		for _, ch := range g.Label() {
+			mix(uint64(ch))
+		}
+		pt := g.Pose().Point()
+		q := g.Pose().Orientation().Quaternion()
+		for _, f := range [7]float64{pt.X, pt.Y, pt.Z, q.Real, q.Imag, q.Jmag, q.Kmag} {
+			mix(math.Float64bits(f))
+		}
+		mix(uint64(g.Hash()))
+		total += h
+	}
+	return total
 }
 
 // GeometryType defines what geometry representations are known.
