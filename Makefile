@@ -172,6 +172,10 @@ clean-all:
 	git clean -fxd
 
 license-check:
+	# Only need this install command because `mise run` isn't smart enough to
+	# install ruby before trying to install the gem, but `mise install` is. Remove
+	# this if this is fixed upstream.
+	mise install ruby gem:license_finder
 	mise run license-check
 
 FFMPEG_ROOT ?= etc/FFmpeg
