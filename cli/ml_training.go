@@ -201,6 +201,18 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	return nil
 }
 
+type RegisterCustomContainerArgs struct {
+
+}
+
+func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args mlListContainersArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	// TOD: look at code for registering other things (such as training scripts) as a reference
+}
+
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
 func MLSubmitTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitTrainingJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
