@@ -706,8 +706,7 @@ solutionLoop:
 	solvingState.flushFailuresToMeta()
 
 	if len(solvingState.solutions) == 0 {
-		// A goal whose frame no joint can move is unsatisfiable by construction, not merely
-		// hard.
+		// A goal whose frame no DoF moves is unsatisfiable by construction, not merely hard.
 		if err := psc.motionChains.immovableGoalError(); err != nil {
 			return nil, err
 		}

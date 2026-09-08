@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sort"
 	"testing"
@@ -488,27 +489,37 @@ func TestImmovableGoalFrame(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `cannot move frame "fixture" relative to "world"`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no DoF lies between them")
+	test.That(t, err.Error(), test.ShouldContainSubstring, `no DoF moves "fixture"`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "fixture -> world")
 
-	// A static frame is only immovable if its whole chain is: one hanging off an arm is fine, and
-	// so is an immovable frame whose goal is stated relative to a frame the arm carries.
+	// A static frame is only immovable if its whole chain is: one hanging off an arm is fine. The
+	// mobility that counts is the moved frame's own - a goal stated relative to a frame the arm
+	// carries does not make a world-bolted frame reachable.
 	tool, err := frame.NewStaticFrame("tool", spatialmath.NewPoseFromPoint(r3.Vector{Z: 50}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(tool, fs.Frame("xArmVgripper")), test.ShouldBeNil)
 
 	for _, tc := range []struct {
 		moveFrame, goalParent string
+		immovable             bool
 	}{
-		{"tool", frame.World},
-		{"xArm6", frame.World},
-		{"fixture", "tool"},
+		{"tool", frame.World, false},
+		{"xArm6", frame.World, false},
+		{"fixture", "tool", true},
 	} {
 		chains, err := motionChainsFromPlanState(fs, frame.FrameSystemPoses{
 			tc.moveFrame: frame.NewPoseInFrame(tc.goalParent, goal),
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, chains.immovableGoalError(), test.ShouldBeNil)
+
+		immovableErr := chains.immovableGoalError()
+		if !tc.immovable {
+			test.That(t, immovableErr, test.ShouldBeNil)
+			continue
+		}
+		test.That(t, immovableErr, test.ShouldNotBeNil)
+		test.That(t, immovableErr.Error(), test.ShouldContainSubstring,
+			fmt.Sprintf("cannot move frame %q relative to %q", tc.moveFrame, tc.goalParent))
 	}
 }
 

@@ -23,14 +23,14 @@ var (
 )
 
 // newImmovableGoalError is returned when a goal is unsatisfiable by construction rather than
-// merely hard: no DoF lies between the frame being moved and the goal's reference frame, so
-// their relative pose is fixed by the frame system and no configuration can change it.
+// merely hard: no DoF moves the frame being moved, and planning only reconfigures that frame
+// and its ancestors.
 func newImmovableGoalError(fs *referenceframe.FrameSystem, moveFrameName, goalFrameName string) error {
 	return fmt.Errorf(
-		"cannot move frame %q relative to %q: no DoF lies between them, so their relative pose is fixed by the frame "+
-			"system and no motion plan can change it. %q is rigidly attached to the world frame through: %s. Check that "+
-			"the goal names a frame that some joint actually moves, such as an arm or a frame mounted on one",
-		moveFrameName, goalFrameName, moveFrameName, chainToWorldDescription(fs, moveFrameName))
+		"cannot move frame %q relative to %q: no DoF moves %q, so planning cannot reposition it. %q is rigidly "+
+			"attached to the world frame through: %s. Check that the frame being moved is one which some DoF "+
+			"actually moves, such as an arm or a frame mounted on one",
+		moveFrameName, goalFrameName, moveFrameName, moveFrameName, chainToWorldDescription(fs, moveFrameName))
 }
 
 // chainToWorldDescription renders a frame's parentage as "frame -> parent -> ... -> world".
