@@ -8,9 +8,6 @@ jobs:
   license_finder:
     name: Audit 3rd-Party Licenses
     runs-on: [ubuntu-latest]
-    container:
-      image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-      options: --platform linux/amd64
     timeout-minutes: 30
     env:
       MISE_GO_SET_GOROOT: false
@@ -19,11 +16,11 @@ jobs:
     steps:
     - name: Check out code
       if: github.event_name != 'pull_request_target'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
