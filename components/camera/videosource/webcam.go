@@ -356,7 +356,7 @@ func (c *webcam) startBufferWorker() {
 
 					var jpegErr jpeg.FormatError
 					if errors.As(err, &jpegErr) {
-						c.logger.Warnw("dropped corrupt frame (usually benign, investigate only if continuous)", "error", err)
+						c.logger.Debugw("dropped corrupt frame (usually benign, investigate only if continuous)", "error", err)
 					} else {
 						c.logger.Errorw("error reading frame", "error", err)
 					}
