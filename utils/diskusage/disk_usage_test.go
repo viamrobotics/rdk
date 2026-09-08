@@ -1,10 +1,13 @@
 package diskusage
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestEnoughFreeSpace(t *testing.T) {
@@ -105,4 +108,20 @@ func TestDiskUsage(t *testing.T) {
 			test.That(t, tc.du.String(), test.ShouldResemble, tc.exp)
 		}
 	})
+}
+
+func TestCheckDiskSpace(t *testing.T) {
+	// Cover the one path the robot/packages guard tests don't: a probe that errors must proceed
+	// even with blocking on, so a broken statfs never refuses an install.
+	orig := EnoughFreeSpaceFunc
+	EnoughFreeSpaceFunc = func(string, uint64) (bool, uint64, error) {
+		return false, 0, errors.New("statfs failed")
+	}
+	t.Cleanup(func() { EnoughFreeSpaceFunc = orig })
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	low, err := CheckDiskSpace(logger, t.TempDir(), "test op", 1<<20, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, low, test.ShouldBeFalse)
+	test.That(t, logs.FilterMessage("could not check free disk space; proceeding").Len(), test.ShouldEqual, 1)
 }

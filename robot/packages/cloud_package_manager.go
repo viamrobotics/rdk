@@ -556,7 +556,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 		}
 		required := remaining + diskusage.MinFreeBytes
 		if _, err := diskusage.CheckDiskSpace(m.logger, downloadPath, "package download", required,
-			"content_size", rutils.FormatBytes(uint64(resp.ContentLength))); err != nil {
+			diskSpaceBlockingEnabled(), "content_size", rutils.FormatBytes(uint64(resp.ContentLength))); err != nil {
 			return "", "", err
 		}
 	}

@@ -31,6 +31,14 @@ const partialsDirName = "part"
 // cleanup partial downloads that were started this long ago
 const maxPartialAge = 72 * time.Hour
 
+// diskSpaceBlockingEnabled reports whether viam-server should refuse an operation (download,
+// local copy, or unpack) when space is low. Default (unset) is false: low space is logged but the
+// operation proceeds (log-only). CheckDiskSpace takes this as an argument so each caller sets its
+// own policy; viam-server's comes from the environment.
+func diskSpaceBlockingEnabled() bool {
+	return rutils.GetenvBool(rutils.ViamEnableDiskSpaceBlockEnvVar, false)
+}
+
 // isTransientDiskSpaceError reports whether err is a low-space failure that should be retried
 // rather than marked syncStatusFailed. Two paths reach here: blocking mode refuses the op up front
 // with diskusage.ErrInsufficientDiskSpace, and log-only mode proceeds past the warning but then the write
@@ -281,7 +289,7 @@ func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir stri
 			if !loggedLowSpace && bytesSinceDiskCheck >= unpackDiskCheckInterval {
 				bytesSinceDiskCheck = 0
 				required := diskusage.MinFreeBytes + uint64(header.Size)
-				low, err := diskusage.CheckDiskSpace(logger, toDir, "unpacking package", required)
+				low, err := diskusage.CheckDiskSpace(logger, toDir, "unpacking package", required, diskSpaceBlockingEnabled())
 				if err != nil {
 					return err
 				}

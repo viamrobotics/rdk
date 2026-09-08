@@ -10,10 +10,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// MinFreeBytes is the floor of free space viam-server tries to keep on volumes it writes to
+// MinFreeBytes is the floor of free space callers try to keep on volumes they write to
 // (downloads, local copies, unpacking). Falling below it always logs a warning, and refuses the
-// install only when VIAM_ENABLE_DISK_SPACE_BLOCK is set (otherwise log-only). Also a trigger for
-// the background monitor; see IsLow.
+// operation only when the caller asks CheckDiskSpace to block (otherwise log-only). Also a
+// trigger for the background monitor; see IsLow.
 const MinFreeBytes uint64 = 10 * mb
 
 // MaxUsedFraction is the utilization (0.0-1.0) at or above which the monitor flags a volume as
@@ -87,20 +87,14 @@ var ErrInsufficientDiskSpace = errors.New("not enough free disk space")
 // var so tests can inject a low-space result without having to actually fill a disk.
 var EnoughFreeSpaceFunc = EnoughFreeSpace
 
-// blockingEnabled reports whether low-space conditions should refuse the operation (download,
-// local copy, or unpack). Default (unset) is false: low-space is logged but the operation
-// proceeds (log-only). See utils.ViamEnableDiskSpaceBlockEnvVar.
-func blockingEnabled() bool {
-	return utils.GetenvBool(utils.ViamEnableDiskSpaceBlockEnvVar, false)
-}
-
 // CheckDiskSpace checks whether the volume holding path has required bytes free. It returns
-// low=true whenever space is low. When blocking is enabled via ViamEnableDiskSpaceBlockEnvVar it
-// returns an error refusing the op (the caller logs it, so CheckDiskSpace stays quiet to avoid
-// double-logging the same reason every cycle); otherwise it logs a warning and returns nil so the
-// op proceeds (log-only). A failed check is logged and treated as "proceed" so a broken statfs
-// never blocks installs. desc names the op in logs/errors; extraFields extend the warning.
-func CheckDiskSpace(logger logging.Logger, path, desc string, required uint64, extraFields ...any) (low bool, err error) {
+// low=true whenever space is low. When blocking is true it returns an error refusing the op (the
+// caller logs it, so CheckDiskSpace stays quiet to avoid double-logging the same reason every
+// cycle); otherwise it logs a warning and returns nil so the op proceeds (log-only). Blocking is
+// the caller's policy: viam-server reads utils.ViamEnableDiskSpaceBlockEnvVar, viam-agent reads
+// its own config. A failed check is logged and treated as "proceed" so a broken statfs never
+// blocks installs. desc names the op in logs/errors; extraFields extend the warning.
+func CheckDiskSpace(logger logging.Logger, path, desc string, required uint64, blocking bool, extraFields ...any) (low bool, err error) {
 	enough, available, err := EnoughFreeSpaceFunc(path, required)
 	if err != nil {
 		logger.Warnw("could not check free disk space; proceeding",
@@ -110,7 +104,7 @@ func CheckDiskSpace(logger logging.Logger, path, desc string, required uint64, e
 	if enough {
 		return false, nil
 	}
-	if !blockingEnabled() {
+	if !blocking {
 		// Log-only: the op proceeds and returns no error, so this warning is the only signal
 		// that space is low.
 		logger.Warnw("not enough free disk space",
