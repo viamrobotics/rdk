@@ -334,8 +334,6 @@ jobs:
 
       - name: Install toolchain
         uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
-        with:
-          install_args: "--include-lazy"
 
       - uses: actions/setup-go@v7
         with:
