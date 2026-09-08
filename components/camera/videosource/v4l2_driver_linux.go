@@ -59,8 +59,9 @@ const (
 )
 
 var (
-	errReadTimeout = errors.New("read timeout")
-	errEmptyFrame  = errors.New("empty frame")
+	errReadTimeout    = errors.New("read timeout")
+	errEmptyFrame     = errors.New("empty frame")
+	errTruncatedFrame = errors.New("truncated MJPEG frame")
 	// Reference: https://commons.wikimedia.org/wiki/File:Vector_Video_Standards2.svg
 	supportedResolutions = [][2]int{
 		{320, 240},
@@ -309,12 +310,14 @@ func (c *v4l2Camera) VideoRecord(p prop.Media) (video.Reader, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
+	isMJPEG := p.FrameFormat == frame.FormatMJPEG
 	var buf []byte
 	r := video.ReaderFunc(func() (img image.Image, release func(), err error) {
 		// Lock to avoid accessing the buffer after StopStreaming()
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
 
+		truncated := 0
 		// Wait until a frame is ready
 		for i := 0; i < maxEmptyFrameCount; i++ {
 			if ctx.Err() != nil {
@@ -379,7 +382,17 @@ func (c *v4l2Camera) VideoRecord(p prop.Media) (video.Reader, error) {
 				continue
 			}
 
+			// The kernel does not flag truncated compressed frames (see mjpegFrameComplete), so
+			// treat one like an empty frame and try the next buffer rather than decoding it.
+			if isMJPEG && !mjpegFrameComplete(buf[:n]) {
+				truncated++
+				continue
+			}
+
 			return decoder.Decode(buf[:n], p.Width, p.Height)
+		}
+		if truncated > 0 {
+			return nil, func() {}, errTruncatedFrame
 		}
 		return nil, func() {}, errEmptyFrame
 	})
