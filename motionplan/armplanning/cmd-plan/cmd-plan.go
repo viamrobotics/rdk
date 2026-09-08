@@ -1,9 +1,11 @@
 // package main for testing armplanning.
 //
-// It takes one or more recorded plan request files and replays them in the order given:
+// It takes recorded plan request files, or directories of them, and replays them in the order
+// given:
 //
 //	cmd-plan plan.json                     # the original single-request behavior
 //	cmd-plan plan1.json plan2.json         # replay both exactly as recorded
+//	cmd-plan capture/                      # replay every .json in capture/, alphabetically
 //	cmd-plan -chain plan1.json plan2.json  # plan2 starts where plan1's plan ended
 //
 // Replaying as recorded asks whether each plan still solves on its own. Chaining asks whether the
@@ -147,18 +149,9 @@ func realMain() error {
 		return mpserver.RunServer()
 	}
 
-	files := flag.Args()
-	if len(files) == 0 {
-		return errors.New("need at least one json file")
-	}
-
-	// Requests are read one step at a time, because a single one carrying meshes is big enough
-	// that holding a whole sequence in memory is worth avoiding. Stat them all up front so a typo
-	// in the last path doesn't surface only after minutes spent planning the ones before it.
-	for _, file := range files {
-		if _, err := os.Stat(file); err != nil {
-			return err
-		}
+	files, err := collectRequestFiles(flag.Args())
+	if err != nil {
+		return err
 	}
 
 	if *cpu != "" {
@@ -334,6 +327,50 @@ func realMain() error {
 	}
 
 	return nil
+}
+
+// collectRequestFiles resolves the positional arguments into the sequence of requests to replay,
+// expanding a directory to the .json files directly inside it, non-recursively.
+//
+// Order is os.ReadDir's, by filename, so step 10 sorts before step 2 in a sequence numbered
+// without padding; name the files explicitly when the order matters. Every path is resolved up
+// front so a typo in the last argument doesn't surface after minutes of planning the others.
+func collectRequestFiles(args []string) ([]string, error) {
+	if len(args) == 0 {
+		return nil, errors.New("need at least one json file or directory")
+	}
+
+	var files []string
+	for _, arg := range args {
+		info, err := os.Stat(arg)
+		if err != nil {
+			return nil, err
+		}
+
+		if !info.IsDir() {
+			files = append(files, arg)
+			continue
+		}
+
+		entries, err := os.ReadDir(arg)
+		if err != nil {
+			return nil, err
+		}
+
+		found := 0
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".json") {
+				continue
+			}
+			files = append(files, filepath.Join(arg, entry.Name()))
+			found++
+		}
+		if found == 0 {
+			return nil, fmt.Errorf("no json files in %s", arg)
+		}
+	}
+
+	return files, nil
 }
 
 // loadRequest reads one request off disk and applies everything that is a property of the run
