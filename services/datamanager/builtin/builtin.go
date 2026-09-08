@@ -590,10 +590,10 @@ func (b *builtIn) UploadDataFromPath(ctx context.Context, path string, uploadMet
 }
 
 type dataManagerStats struct {
-	SyncPaths               syncPathsSummary
-	DiskUsage               diskUsageSummary
-	FilesDeletedToFreeSpace int64
-	Upload                  datasync.FTDCUploadStats
+	SyncPaths syncPathsSummary
+	DiskUsage diskUsageSummary
+	Sync      datasync.FTDCSyncStats
+	Upload    datasync.FTDCUploadStats
 }
 
 // Stats satisfies the ftdc.Statser interface and will return the disk usage and sync statistics.
@@ -611,7 +611,7 @@ func (b *builtIn) Stats() any {
 	// Upload and deleted file stats.
 	if b.sync != nil {
 		syncStats := b.sync.GetStats()
-		result.FilesDeletedToFreeSpace = syncStats.FilesDeletedToFreeSpace
+		result.Sync = syncStats.Sync
 		result.Upload = syncStats.Upload
 	}
 

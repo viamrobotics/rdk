@@ -47,6 +47,15 @@ const (
 	durationBetweenAcquireConnection = time.Second
 )
 
+type syncStats struct {
+	filesDeletedToFreeSpace      atomic.Int64
+	schedulerRoundsTotal         atomic.Uint64
+	schedulerDurationMillisTotal atomic.Uint64
+	// activeBackgroundFileSyncs counts in-flight background file syncs from data manager
+	// but does not include any on-demand file upload requests.
+	activeBackgroundFileSyncs atomic.Int32
+}
+
 // uploadStats tracks cumulative upload statistics.
 type uploadStats struct {
 	binary    dataTypeUploadStats
@@ -62,10 +71,20 @@ type dataTypeUploadStats struct {
 	uploadFailedFileCount atomic.Uint64
 }
 
-// FTDCStats represents upload and deleted file metric values for a given moment. Returned by Sync.GetStats().
+// FTDCStats represents upload and sync metric values for a given moment. Returned by Sync.GetStats().
 type FTDCStats struct {
-	FilesDeletedToFreeSpace int64
-	Upload                  FTDCUploadStats
+	Sync   FTDCSyncStats
+	Upload FTDCUploadStats
+}
+
+// FTDCSyncStats represents sync metric values for a given moment.
+type FTDCSyncStats struct {
+	FilesDeletedToFreeSpace      int64
+	SchedulerRoundsTotal         uint64
+	SchedulerDurationMillisTotal uint64
+	QueuedFilesToSync            uint64
+	ActiveBackgroundFileSyncs    uint32
+	MaxActiveBackgroundFileSyncs uint32
 }
 
 // FTDCUploadStats represents upload metric values for a given moment.
@@ -107,7 +126,7 @@ type Sync struct {
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
 	clock             clock.Clock
 	uploadStats       *uploadStats
-	deletedFileCount  atomic.Int64
+	syncStats         *syncStats
 
 	configMu sync.Mutex
 	config   Config
@@ -121,7 +140,7 @@ type Sync struct {
 	cloudConnManager *goutils.StoppableWorkers
 	// FileDeletingWorkers is only public for tests
 	FileDeletingWorkers *goutils.StoppableWorkers
-	// MaxSyncThreads only exists for tests
+	// MaxSyncThreads exists for FTDC stat and tests
 	MaxSyncThreads int
 }
 
@@ -133,7 +152,6 @@ func New(
 	logger logging.Logger,
 ) *Sync {
 	configCtx, configCancelFunc := context.WithCancel(context.Background())
-	var uploadStats uploadStats
 	s := Sync{
 		clock:               clock,
 		configCtx:           configCtx,
@@ -146,7 +164,8 @@ func New(
 		Scheduler:           goutils.NewBackgroundStoppableWorkers(),
 		cloudConn:           cloudConn{ready: make(chan struct{})},
 		FileDeletingWorkers: goutils.NewBackgroundStoppableWorkers(),
-		uploadStats:         &uploadStats,
+		uploadStats:         new(uploadStats),
+		syncStats:           new(syncStats),
 	}
 	return &s
 }
@@ -205,6 +224,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		s.Scheduler = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			s.runScheduler(ctx, tkr, config)
 		})
+		s.logger.Infof("Started sync scheduler with interval %dms", interval.Milliseconds())
 	} else {
 		s.logger.Info("Sync Disabled")
 	}
@@ -223,7 +243,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 				config.CaptureDirDeletionThreshold,
 				s.clock,
 				s.logger,
-				&s.deletedFileCount,
+				s.syncStats,
 			)
 		})
 	}
@@ -233,7 +253,14 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 func (s *Sync) GetStats() FTDCStats {
 	return FTDCStats{
 		// File deletion metric.
-		FilesDeletedToFreeSpace: s.deletedFileCount.Load(),
+		Sync: FTDCSyncStats{
+			FilesDeletedToFreeSpace:      s.syncStats.filesDeletedToFreeSpace.Load(),
+			SchedulerRoundsTotal:         s.syncStats.schedulerRoundsTotal.Load(),
+			SchedulerDurationMillisTotal: s.syncStats.schedulerDurationMillisTotal.Load(),
+			QueuedFilesToSync:            uint64(len(s.filesToSync)),
+			ActiveBackgroundFileSyncs:    uint32(s.syncStats.activeBackgroundFileSyncs.Load()),
+			MaxActiveBackgroundFileSyncs: uint32(s.MaxSyncThreads),
+		},
 
 		Upload: FTDCUploadStats{
 			// Upload metrics - arbitrary files.
@@ -406,8 +433,8 @@ func (s *Sync) runWorker(config Config) {
 		select {
 		case <-s.configCtx.Done():
 			return
-		case path := <-s.filesToSync:
-			s.syncFile(config, path)
+		case filePath := <-s.filesToSync:
+			s.syncFile(config, filePath)
 		}
 	}
 }
@@ -426,6 +453,9 @@ func (s *Sync) syncFile(config Config, filePath string) {
 		return
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
+
+	s.syncStats.activeBackgroundFileSyncs.Add(1)
+	defer s.syncStats.activeBackgroundFileSyncs.Add(-1)
 
 	// Sequence files upload via CreateSequence; dispatch by path before opening so we don't
 	// leak a file descriptor on the sequence path (which does its own os.ReadFile).
@@ -491,7 +521,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
-		logger.Debugf("uploadDataCaptureFile uploaded: %d bytes", bytesUploaded)
+		logger.Debugf("Background sync uploaded data capture file with %d bytes", bytesUploaded)
 		return bytesUploaded, nil
 	})
 
@@ -524,6 +554,8 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	if err := captureFile.Delete(); err != nil {
 		logger.Error(errors.Wrap(err, "error deleting data capture file").Error())
 	}
+
+	logger.Debugf("Background sync deleted capture file after successful upload %s", f.Name())
 	if isBinary {
 		s.uploadStats.binary.uploadedFileCount.Add(1)
 		s.uploadStats.binary.completedUploadBytes.Add(bytesUploaded)
@@ -576,6 +608,8 @@ func (s *Sync) syncArbitraryFile(
 	if err := os.Remove(f.Name()); err != nil {
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
 	}
+
+	logger.Debugf("Deleted arbitrary file after successful upload %s", f.Name())
 	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
 	return nil
@@ -710,6 +744,12 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 // returns early with an error if either ctx is cancelled or if the reconfigure is called
 // while walkDirsAndSendFilesToSync.
 func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) error {
+	now := s.clock.Now()
+	defer func() {
+		s.syncStats.schedulerRoundsTotal.Add(1)
+		s.syncStats.schedulerDurationMillisTotal.Add(uint64(s.clock.Since(now).Milliseconds()))
+	}()
+
 	s.flushCollectors()
 	var errs []error
 	for _, dir := range config.SyncPaths() {

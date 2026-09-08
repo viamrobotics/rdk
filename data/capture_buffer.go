@@ -1,6 +1,7 @@
 package data
 
 import (
+	goerrors "errors"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -60,11 +61,11 @@ func (b *CaptureBuffer) WriteBinary(item *v1.SensorData, mimeType string) error 
 		return err
 	}
 
-	if err := binFile.WriteNext(item); err != nil {
-		return err
+	if err = binFile.WriteNext(item); err != nil {
+		return goerrors.Join(err, binFile.Close())
 	}
 
-	if err := binFile.Close(); err != nil {
+	if err = binFile.Close(); err != nil {
 		return err
 	}
 	return nil
