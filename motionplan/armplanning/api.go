@@ -80,10 +80,9 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.PlannerOptions == nil {
 		req.PlannerOptions = NewBasicPlannerOptions()
 	}
-	if req.PlannerOptions.CollisionBufferMM < 0 {
-		return errors.New("collision_buffer_mm can't be negative")
+	if req.PlannerOptions.CollisionBufferMM <= 0 {
+		return errors.New("collision_buffer_mm has to be positive")
 	}
-	req.PlannerOptions.normalizeCollisionBuffer()
 
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.structuredConfiguration) > 0 {

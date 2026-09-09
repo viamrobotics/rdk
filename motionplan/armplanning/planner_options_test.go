@@ -15,10 +15,9 @@ func TestNewPlannerOptionsFromExtraCollisionBuffer(t *testing.T) {
 		test.That(t, opt.CollisionBufferMM, test.ShouldEqual, defaultCollisionBufferMM)
 	})
 
-	t.Run("explicit zero is normalized to the default", func(t *testing.T) {
-		opt, err := NewPlannerOptionsFromExtra(map[string]interface{}{"collision_buffer_mm": 0})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, opt.CollisionBufferMM, test.ShouldEqual, defaultCollisionBufferMM)
+	t.Run("explicit zero errors", func(t *testing.T) {
+		_, err := NewPlannerOptionsFromExtra(map[string]interface{}{"collision_buffer_mm": 0})
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("positive value is honored", func(t *testing.T) {
@@ -59,6 +58,13 @@ func TestReadRequestSeedsPlannerOptionDefaults(t *testing.T) {
 		test.That(t, req.PlannerOptions.CollisionBufferMM, test.ShouldEqual, 2.0)
 	})
 
+	t.Run("an explicit zero survives seeding", func(t *testing.T) {
+		// Seeding must not paper over a value the JSON actually states; the
+		// zero is caught later, by validatePlanRequest.
+		req := read(t, `{"planner_options": {"collision_buffer_mm": 0}}`)
+		test.That(t, req.PlannerOptions.CollisionBufferMM, test.ShouldEqual, 0.0)
+	})
+
 	t.Run("null options fall back to defaults", func(t *testing.T) {
 		req := read(t, `{"planner_options": null}`)
 		test.That(t, req.PlannerOptions.CollisionBufferMM, test.ShouldEqual, defaultCollisionBufferMM)
@@ -71,8 +77,9 @@ func TestReadRequestSeedsPlannerOptionDefaults(t *testing.T) {
 }
 
 // TestValidatePlanRequestCollisionBuffer pins the request-level backstop: a
-// request assembled with a zero buffer (however it was produced) plans with
-// the default, and a negative buffer is rejected.
+// non-positive buffer is rejected however the request was assembled. Exactly 0
+// flips collision verdicts for geometries modeled in contact, so it is refused
+// rather than planned at a value production never uses.
 func TestValidatePlanRequestCollisionBuffer(t *testing.T) {
 	newReq := func(t *testing.T) *PlanRequest {
 		t.Helper()
@@ -81,11 +88,10 @@ func TestValidatePlanRequestCollisionBuffer(t *testing.T) {
 		return req
 	}
 
-	t.Run("zero is normalized to the default", func(t *testing.T) {
+	t.Run("zero is rejected", func(t *testing.T) {
 		req := newReq(t)
 		req.PlannerOptions.CollisionBufferMM = 0
-		test.That(t, req.validatePlanRequest(), test.ShouldBeNil)
-		test.That(t, req.PlannerOptions.CollisionBufferMM, test.ShouldEqual, defaultCollisionBufferMM)
+		test.That(t, req.validatePlanRequest(), test.ShouldNotBeNil)
 	})
 
 	t.Run("negative is rejected", func(t *testing.T) {
