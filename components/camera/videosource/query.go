@@ -139,7 +139,7 @@ func findReaderAndDriverByName(
 	matches := driver.GetManager().Query(getVideoFilter(nameFilter))
 	if len(matches) != 1 {
 		return nil, nil, "", errors.Errorf(
-			"cannot reconnect by name: expected exactly one device named '%s', found %d", name, len(matches))
+			"cannot reconnect by name: multiple webcams with identical hardware names")
 	}
 
 	constraints := makeConstraints(conf, logger)
