@@ -98,7 +98,7 @@ func TestWebcamIdleTimeout(t *testing.T) {
 	test.That(t, c.driver, test.ShouldEqual, second)
 	c.mu.Unlock()
 
-	// A failed reopen surfaces to the caller and leaves the camera idle for the next attempt.
+	// A failed reopen marks the camera disconnected; the monitor worker then reconnects it.
 	openErr.Store(true)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		c.mu.Lock()
@@ -107,12 +107,17 @@ func TestWebcamIdleTimeout(t *testing.T) {
 		test.That(tb, idle, test.ShouldBeTrue)
 	})
 	_, _, err = c.Images(ctx, nil, nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "failed to reopen idle camera")
+	test.That(t, errors.Is(err, errDisconnected), test.ShouldBeTrue)
+	c.mu.Lock()
+	test.That(t, c.idle, test.ShouldBeFalse)
+	test.That(t, c.disconnected, test.ShouldBeTrue)
+	c.mu.Unlock()
 	openErr.Store(false)
-	imgs, _, err = c.Images(ctx, nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, imgs, test.ShouldHaveLength, 1)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		imgs, _, err := c.Images(ctx, nil, nil)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, imgs, test.ShouldHaveLength, 1)
+	})
 
 	// Caller context cancellation is honored while waiting on a reopen.
 	testutils.WaitForAssertion(t, func(tb testing.TB) {

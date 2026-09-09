@@ -109,8 +109,8 @@ type webcam struct {
 	closed       bool // set by Close method
 	disconnected bool // set by monitor worker
 
-	// idleTimeout > 0: buffer worker closes the camera after idleTimeout without an Images call,
-	// reopens on wakeCh; readyCh is made on entering idle and closed when the wake attempt ends.
+	// idleTimeout > 0: buffer worker closes the camera after idleTimeout without an Images call and
+	// reopens it on wakeCh. readyCh is non-nil from entering idle until the reopen attempt finishes.
 	idleTimeout time.Duration
 	lastAccess  time.Time
 	idle        bool
@@ -234,6 +234,7 @@ func isCameraConnected(driver driverutils.Driver) (bool, error) {
 // It checks camera connectivity using isCameraConnected every ticker tick. If disconnected,
 // it marks the camera as disconnected and attempts reconnection every tick until successful.
 // Upon successful reconnection, it resets the buffer state and flags to resume healthy operation.
+// A failed reopen after idle also marks the camera disconnected, so this worker owns all recovery.
 func (c *webcam) startMonitorWorker() {
 	c.workers.Add(func(ctx context.Context) {
 		ticker := time.NewTicker(500 * time.Millisecond)
@@ -252,22 +253,25 @@ func (c *webcam) startMonitorWorker() {
 				}
 				logger := c.logger
 				driver := c.driver
+				disconnected := c.disconnected
 				c.mu.Unlock()
 
-				ok, err := isCameraConnected(driver)
-				if err != nil {
-					logger.Debugw("cannot determine camera status", "error", err)
-					continue
-				}
-				if ok {
-					continue
-				}
+				if !disconnected {
+					ok, err := isCameraConnected(driver)
+					if err != nil {
+						logger.Debugw("cannot determine camera status", "error", err)
+						continue
+					}
+					if ok {
+						continue
+					}
 
-				c.mu.Lock()
-				c.disconnected = true
-				c.mu.Unlock()
+					c.mu.Lock()
+					c.disconnected = true
+					c.mu.Unlock()
 
-				logger.Error("camera no longer connected; reconnecting")
+					logger.Error("camera no longer connected; reconnecting")
+				}
 			reconnectLoop:
 				for {
 					select {
@@ -302,7 +306,7 @@ func (c *webcam) startMonitorWorker() {
 						}
 
 						// Try to find and reconnect to camera outside lock (heavy I/O)
-						reader, driver, label, err := findReaderAndDriver(&conf, targetPath, c.logger)
+						reader, driver, label, err := c.openCamera(&conf, targetPath, c.logger)
 						if err != nil {
 							c.logger.Debugw("failed to reconnect camera", "error", err)
 							continue
@@ -351,20 +355,21 @@ func (c *webcam) startBufferWorker() {
 			case <-c.wakeCh:
 				c.wake()
 			case <-ticker.C:
-				c.mu.Lock()
-				if c.idle {
-					c.mu.Unlock()
+				if c.idleExpired() {
+					c.goIdle()
 					continue
 				}
-				if c.idleTimeout > 0 && !c.disconnected && time.Since(c.lastAccess) > c.idleTimeout {
-					c.goIdleLocked()
-					continue
-				}
-				c.mu.Unlock()
 				c.readFrame()
 			}
 		}
 	})
+}
+
+// idleExpired reports whether the camera should be closed for inactivity.
+func (c *webcam) idleExpired() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.idleTimeout > 0 && !c.idle && !c.disconnected && time.Since(c.lastAccess) > c.idleTimeout
 }
 
 // readFrame reads one frame into the buffer. Must be called without mu held.
@@ -398,8 +403,13 @@ func (c *webcam) readFrame() {
 	c.buffer.release = release
 }
 
-// goIdleLocked closes the camera until the next Images call. Must be called with mu held; releases mu.
-func (c *webcam) goIdleLocked() {
+// goIdle closes the camera until the next Images call. Must be called without mu held.
+func (c *webcam) goIdle() {
+	c.mu.Lock()
+	if c.idle || c.disconnected {
+		c.mu.Unlock()
+		return
+	}
 	oldDriver := c.driver
 	oldRelease := c.buffer.release
 	c.driver = nil
@@ -423,6 +433,7 @@ func (c *webcam) goIdleLocked() {
 }
 
 // wake reopens an idle camera, reads a first frame, and releases Images callers blocked on readyCh.
+// On failure the camera is marked disconnected and the monitor worker takes over reconnection.
 func (c *webcam) wake() {
 	c.mu.Lock()
 	if !c.idle {
@@ -437,17 +448,17 @@ func (c *webcam) wake() {
 	reader, driver, _, err := c.openCamera(&conf, targetPath, logger)
 
 	c.mu.Lock()
+	c.idle = false
 	if err != nil {
-		logger.Errorw("failed to reopen idle camera", "error", err)
-		c.buffer.err = fmt.Errorf("failed to reopen idle camera: %w", err)
+		logger.Errorw("failed to reopen idle camera; reconnecting", "error", err)
+		c.disconnected = true
 		close(c.readyCh)
-		c.readyCh = make(chan struct{})
+		c.readyCh = nil
 		c.mu.Unlock()
 		return
 	}
 	c.reader = reader
 	c.driver = driver
-	c.idle = false
 	c.buffer.err = nil
 	c.lastAccess = time.Now()
 	c.mu.Unlock()
@@ -461,19 +472,8 @@ func (c *webcam) wake() {
 	c.mu.Unlock()
 }
 
-// waitForWakeLocked signals the buffer worker to reopen an idle camera and waits for the attempt
-// to finish. Must be called with mu held; mu is released while waiting and re-acquired on return.
-func (c *webcam) waitForWakeLocked(ctx context.Context) error {
-	ready := c.readyCh
-	if c.idle {
-		select {
-		case c.wakeCh <- struct{}{}:
-		default:
-		}
-	}
-	c.mu.Unlock()
-	defer c.mu.Lock()
-
+// waitForWake blocks until a reopen attempt signalled by ready finishes, the context ends, or wakeTimeout elapses.
+func waitForWake(ctx context.Context, ready <-chan struct{}) error {
 	timer := time.NewTimer(wakeTimeout)
 	defer timer.Stop()
 	select {
@@ -488,19 +488,31 @@ func (c *webcam) waitForWakeLocked(ctx context.Context) error {
 
 func (c *webcam) Images(ctx context.Context, _ []string, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if err := c.ensureActive(); err != nil {
+		c.mu.Unlock()
 		return nil, resource.ResponseMetadata{}, err
 	}
 	c.lastAccess = time.Now()
+	// readyCh is non-nil while idle or reopening; ask the buffer worker to wake and wait outside the lock.
+	ready := c.readyCh
+	if c.idle {
+		select {
+		case c.wakeCh <- struct{}{}:
+		default:
+		}
+	}
+	c.mu.Unlock()
 
-	if c.buffer.frame == nil && c.readyCh != nil {
-		if err := c.waitForWakeLocked(ctx); err != nil {
+	if ready != nil {
+		if err := waitForWake(ctx, ready); err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		if err := c.ensureActive(); err != nil {
-			return nil, resource.ResponseMetadata{}, err
-		}
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.ensureActive(); err != nil {
+		return nil, resource.ResponseMetadata{}, err
 	}
 
 	if c.buffer.frame == nil {
