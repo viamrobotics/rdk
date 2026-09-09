@@ -53,9 +53,9 @@ func TestWebcamValidation(t *testing.T) {
 
 	// error with a negative idle timeout
 	webCfg.FrameRate = 100
-	webCfg.IdleTimeoutSeconds = -1.5
+	webCfg.IdleTimeoutMs = -1
 	deps, _, err = webCfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldEqual,
-		"got illegal negative idle timeout (-1.50) field set for webcam camera")
+		"got illegal negative idle timeout (-1) field set for webcam camera")
 	test.That(t, deps, test.ShouldBeNil)
 }

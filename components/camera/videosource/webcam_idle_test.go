@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,9 +13,9 @@ import (
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
-	goutils "go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -35,129 +36,176 @@ func fakeReader() video.Reader {
 	})
 }
 
-// newFakeWebcam mirrors NewWebcam without touching hardware.
-func newFakeWebcam(t *testing.T, idleTimeout time.Duration, first *fakeDriver) *webcam {
-	t.Helper()
-	c := &webcam{
-		Named:   resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "cam").AsNamed(),
-		logger:  logging.NewTestLogger(t),
-		workers: goutils.NewBackgroundStoppableWorkers(),
-		buffer:  newWebcamBuffer(),
-		reader:  fakeReader(),
-		driver:  first,
-		conf:    WebcamConfig{FrameRate: 100},
+// fakeOpener stands in for findReaderAndDriver. Each call blocks on gate (if set), then fails if
+// fail is set, otherwise hands back a fresh reader and the shared driver.
+type fakeOpener struct {
+	opens  atomic.Int32
+	fail   atomic.Bool
+	gate   chan struct{}
+	driver *fakeDriver
+}
+
+func (o *fakeOpener) open(*WebcamConfig, string, logging.Logger) (video.Reader, driverutils.Driver, string, error) {
+	o.opens.Add(1)
+	if o.gate != nil {
+		<-o.gate
 	}
-	c.idleTimeout = idleTimeout
-	c.lastAccess = time.Now()
-	c.wakeCh = make(chan struct{}, 1)
+	if o.fail.Load() {
+		return nil, nil, "", errors.New("camera busy")
+	}
+	return fakeReader(), o.driver, "fake", nil
+}
+
+const testIdleTimeoutMs = 100
+
+func newFakeWebcam(t *testing.T, idleTimeoutMs int, first *fakeDriver, opener *fakeOpener) *webcam {
+	t.Helper()
+	conf := WebcamConfig{FrameRate: 100, IdleTimeoutMs: idleTimeoutMs}
+	c := newWebcam(resource.NewName(camera.API, "cam"), conf, "fake", fakeReader(), first, opener.open, logging.NewTestLogger(t))
+	t.Cleanup(func() { _ = c.Close(context.Background()) })
 	return c
+}
+
+func idleStateOf(c *webcam) idleState {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.idleState
+}
+
+func waitIdle(t *testing.T, c *webcam) {
+	t.Helper()
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, idleStateOf(c), test.ShouldEqual, stateIdle)
+	})
+}
+
+func waitFrame(t *testing.T, c *webcam) {
+	t.Helper()
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		imgs, _, err := c.Images(context.Background(), nil, nil)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, imgs, test.ShouldHaveLength, 1)
+	})
 }
 
 func TestWebcamIdleTimeout(t *testing.T) {
 	ctx := context.Background()
-	first := &fakeDriver{}
-	c := newFakeWebcam(t, 100*time.Millisecond, first)
 
-	var opens atomic.Int32
-	second := &fakeDriver{}
-	var openErr atomic.Bool
-	c.openCamera = func(*WebcamConfig, string, logging.Logger) (video.Reader, driverutils.Driver, string, error) {
-		opens.Add(1)
-		if openErr.Load() {
-			return nil, nil, "", errors.New("camera busy")
+	t.Run("reopens on request", func(t *testing.T) {
+		first, second := &fakeDriver{}, &fakeDriver{}
+		opener := &fakeOpener{driver: second}
+		c := newFakeWebcam(t, testIdleTimeoutMs, first, opener)
+
+		waitFrame(t, c)
+		waitIdle(t, c)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, first.closes.Load(), test.ShouldEqual, int32(1))
+		})
+		test.That(t, opener.opens.Load(), test.ShouldEqual, int32(0))
+
+		imgs, _, err := c.Images(ctx, nil, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, imgs, test.ShouldHaveLength, 1)
+		test.That(t, opener.opens.Load(), test.ShouldEqual, int32(1))
+		test.That(t, idleStateOf(c), test.ShouldEqual, stateStreaming)
+		c.mu.Lock()
+		test.That(t, c.driver, test.ShouldEqual, second)
+		c.mu.Unlock()
+
+		test.That(t, c.Close(ctx), test.ShouldBeNil)
+		test.That(t, second.closes.Load(), test.ShouldEqual, int32(1))
+		_, _, err = c.Images(ctx, nil, nil)
+		test.That(t, errors.Is(err, errClosed), test.ShouldBeTrue)
+	})
+
+	t.Run("concurrent callers share one reopen", func(t *testing.T) {
+		opener := &fakeOpener{driver: &fakeDriver{}, gate: make(chan struct{})}
+		c := newFakeWebcam(t, testIdleTimeoutMs, &fakeDriver{}, opener)
+		waitIdle(t, c)
+
+		const callers = 3
+		var wg sync.WaitGroup
+		errs := make([]error, callers)
+		for i := range callers {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, _, errs[i] = c.Images(ctx, nil, nil)
+			}()
 		}
-		return fakeReader(), second, "fake", nil
-	}
-	c.startMonitorWorker()
-	c.startBufferWorker()
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, opener.opens.Load(), test.ShouldEqual, int32(1))
+		})
+		close(opener.gate)
+		wg.Wait()
+		for _, err := range errs {
+			test.That(t, err, test.ShouldBeNil)
+		}
+		test.That(t, opener.opens.Load(), test.ShouldEqual, int32(1))
+	})
 
-	// Streams while recently accessed.
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
+	t.Run("failed reopen hands recovery to the monitor", func(t *testing.T) {
+		opener := &fakeOpener{driver: &fakeDriver{}}
+		c := newFakeWebcam(t, testIdleTimeoutMs, &fakeDriver{}, opener)
+		waitIdle(t, c)
+
+		opener.fail.Store(true)
+		_, _, err := c.Images(ctx, nil, nil)
+		test.That(t, errors.Is(err, errDisconnected), test.ShouldBeTrue)
+		c.mu.Lock()
+		test.That(t, c.idleState, test.ShouldEqual, stateStreaming)
+		test.That(t, c.disconnected, test.ShouldBeTrue)
+		c.mu.Unlock()
+
+		opener.fail.Store(false)
+		waitFrame(t, c)
+		test.That(t, opener.opens.Load(), test.ShouldBeGreaterThanOrEqualTo, int32(2))
+
+		// Idles again once the reconnected camera goes unused.
+		waitIdle(t, c)
+	})
+
+	t.Run("wake timeout", func(t *testing.T) {
+		opener := &fakeOpener{driver: &fakeDriver{}, gate: make(chan struct{})}
+		c := newFakeWebcam(t, testIdleTimeoutMs, &fakeDriver{}, opener)
+		c.mu.Lock()
+		c.wakeTimeout = 50 * time.Millisecond
+		c.mu.Unlock()
+		waitIdle(t, c)
+
+		_, _, err := c.Images(ctx, nil, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "timed out waiting for idle camera")
+		close(opener.gate)
+		waitFrame(t, c)
+	})
+
+	t.Run("caller context cancellation", func(t *testing.T) {
+		opener := &fakeOpener{driver: &fakeDriver{}, gate: make(chan struct{})}
+		c := newFakeWebcam(t, testIdleTimeoutMs, &fakeDriver{}, opener)
+		waitIdle(t, c)
+
+		cancelled, cancel := context.WithCancel(ctx)
+		cancel()
+		_, _, err := c.Images(cancelled, nil, nil)
+		test.That(t, errors.Is(err, context.Canceled), test.ShouldBeTrue)
+		close(opener.gate)
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		first := &fakeDriver{}
+		opener := &fakeOpener{driver: &fakeDriver{}}
+		c := newFakeWebcam(t, 0, first, opener)
+
+		time.Sleep(3 * testIdleTimeoutMs * time.Millisecond)
+		test.That(t, idleStateOf(c), test.ShouldEqual, stateStreaming)
+		test.That(t, first.closes.Load(), test.ShouldEqual, int32(0))
+
 		imgs, _, err := c.Images(ctx, nil, nil)
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, imgs, test.ShouldHaveLength, 1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, imgs, test.ShouldHaveLength, 1)
+		test.That(t, c.Close(ctx), test.ShouldBeNil)
+		test.That(t, first.closes.Load(), test.ShouldEqual, int32(1))
+		test.That(t, opener.opens.Load(), test.ShouldEqual, int32(0))
 	})
-
-	// Goes idle and closes the camera once unused (driver close happens after idle is set).
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		c.mu.Lock()
-		idle := c.idle
-		c.mu.Unlock()
-		test.That(tb, idle, test.ShouldBeTrue)
-		test.That(tb, first.closes.Load(), test.ShouldEqual, int32(1))
-	})
-	test.That(t, opens.Load(), test.ShouldEqual, int32(0))
-
-	// Next request reopens and returns a frame synchronously.
-	imgs, _, err := c.Images(ctx, nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, imgs, test.ShouldHaveLength, 1)
-	test.That(t, opens.Load(), test.ShouldEqual, int32(1))
-	c.mu.Lock()
-	test.That(t, c.idle, test.ShouldBeFalse)
-	test.That(t, c.driver, test.ShouldEqual, second)
-	c.mu.Unlock()
-
-	// A failed reopen marks the camera disconnected; the monitor worker then reconnects it.
-	openErr.Store(true)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		c.mu.Lock()
-		idle := c.idle
-		c.mu.Unlock()
-		test.That(tb, idle, test.ShouldBeTrue)
-	})
-	_, _, err = c.Images(ctx, nil, nil)
-	test.That(t, errors.Is(err, errDisconnected), test.ShouldBeTrue)
-	c.mu.Lock()
-	test.That(t, c.idle, test.ShouldBeFalse)
-	test.That(t, c.disconnected, test.ShouldBeTrue)
-	c.mu.Unlock()
-	openErr.Store(false)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		imgs, _, err := c.Images(ctx, nil, nil)
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, imgs, test.ShouldHaveLength, 1)
-	})
-
-	// Caller context cancellation is honored while waiting on a reopen.
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		c.mu.Lock()
-		idle := c.idle
-		c.mu.Unlock()
-		test.That(tb, idle, test.ShouldBeTrue)
-	})
-	cancelled, cancel := context.WithCancel(ctx)
-	cancel()
-	_, _, err = c.Images(cancelled, nil, nil)
-	test.That(t, errors.Is(err, context.Canceled), test.ShouldBeTrue)
-
-	test.That(t, c.Close(ctx), test.ShouldBeNil)
-	_, _, err = c.Images(ctx, nil, nil)
-	test.That(t, errors.Is(err, errClosed), test.ShouldBeTrue)
-}
-
-func TestWebcamIdleTimeoutDisabled(t *testing.T) {
-	ctx := context.Background()
-	first := &fakeDriver{}
-	c := newFakeWebcam(t, 0, first)
-	var opens atomic.Int32
-	c.openCamera = func(*WebcamConfig, string, logging.Logger) (video.Reader, driverutils.Driver, string, error) {
-		opens.Add(1)
-		return fakeReader(), &fakeDriver{}, "fake", nil
-	}
-	c.startMonitorWorker()
-	c.startBufferWorker()
-
-	time.Sleep(300 * time.Millisecond)
-	c.mu.Lock()
-	test.That(t, c.idle, test.ShouldBeFalse)
-	c.mu.Unlock()
-	test.That(t, first.closes.Load(), test.ShouldEqual, int32(0))
-
-	imgs, _, err := c.Images(ctx, nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, imgs, test.ShouldHaveLength, 1)
-	test.That(t, c.Close(ctx), test.ShouldBeNil)
-	test.That(t, first.closes.Load(), test.ShouldEqual, int32(1))
-	test.That(t, opens.Load(), test.ShouldEqual, int32(0))
 }
