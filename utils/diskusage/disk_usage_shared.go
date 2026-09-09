@@ -123,8 +123,10 @@ func CheckDiskSpace(logger logging.Logger, path, desc string, required uint64, b
 		ErrInsufficientDiskSpace, desc, utils.FormatBytes(available), utils.FormatBytes(required))
 }
 
-// nearestExistingDir walks up from path until it finds an existing directory,
-// returning that ancestor. Non-directories are skipped
+// nearestExistingDir walks up from path until it finds an existing directory, returning that
+// ancestor. It skips non-directories because Statfs reads the whole volume either way, and on
+// Windows GetDiskFreeSpaceExW rejects a file path outright. If no ancestor exists (e.g. an empty
+// path), it returns path unchanged and lets the subsequent Statfs surface the error.
 func nearestExistingDir(path string) string {
 	for path != "" {
 		if info, err := os.Stat(path); err == nil && info.IsDir() {
