@@ -129,10 +129,7 @@ func findReaderAndDriver(
 }
 
 // findReaderAndDriverByName finds a video device whose driver Name matches the given name. The driver Name is the OS-reported device name.
-//
-// It only proceeds when exactly one registered device has that Name. Identical cameras share a Name and cannot be
-// told apart by it, so rather than guess (and risk attaching to the wrong device or stealing another webcam's
-// device), the fallback is refused until the ambiguity is gone.
+// It only proceeds when exactly one registered device has that Name to prevent ambiguity
 func findReaderAndDriverByName(
 	conf *WebcamConfig,
 	name string,
