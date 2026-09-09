@@ -68,12 +68,12 @@ type DiagnosticsTiming struct {
 	Ms   float64 `json:"ms"`   // the measured duration in milliseconds
 }
 
-// DiagnosticsVelocity is the arm's speed and configuration at one PVAT, taken from the trajex output.
+// DiagnosticsKinematics is the arm's kinematic state at one PVAT, taken from the trajex output.
 // DegPerSec collapses JointDegPerSec to a single number for the existing aggregate chart;
 // JointDegPerSec/JointPositionsDeg/JointAccelDegPerSec2 carry the full per-joint state so a fault
 // right before a trajectory rejection can be attributed to a specific joint instead of just
 // "some joint, somewhere".
-type DiagnosticsVelocity struct {
+type DiagnosticsKinematics struct {
 	TMs                  float64   `json:"t_ms"`                     // milliseconds since the recording started
 	DegPerSec            float64   `json:"deg_per_sec"`              // max |joint velocity| across all joints for this PVAT
 	JointDegPerSec       []float64 `json:"joint_deg_per_sec"`        // per-joint velocity, deg/s, arm DoF order
@@ -82,15 +82,15 @@ type DiagnosticsVelocity struct {
 }
 
 // StreamDiagnosticsOutput is the snapshot shape returned to callers: occupancy samples, event
-// markers, timings, and velocities recorded so far for one streaming session. StartUnixMs
+// markers, timings, and kinematics recorded so far for one streaming session. StartUnixMs
 // is the wall-clock time the recorder's clock started, so consumers can render the relative
 // t_ms values as timestamps.
 type StreamDiagnosticsOutput struct {
-	StartUnixMs float64               `json:"start_unix_ms"`
-	Samples     []DiagnosticsSample   `json:"samples"`
-	Events      []DiagnosticsEvent    `json:"events"`
-	Timings     []DiagnosticsTiming   `json:"timings"`
-	Velocities  []DiagnosticsVelocity `json:"velocities"`
+	StartUnixMs float64                 `json:"start_unix_ms"`
+	Samples     []DiagnosticsSample     `json:"samples"`
+	Events      []DiagnosticsEvent      `json:"events"`
+	Timings     []DiagnosticsTiming     `json:"timings"`
+	Kinematics  []DiagnosticsKinematics `json:"kinematics"`
 }
 
 // diagnosticsWindowMs is how much history a StreamDiagnostics retains: entries older than this
@@ -99,7 +99,7 @@ type StreamDiagnosticsOutput struct {
 const diagnosticsWindowMs = 60_000
 
 // StreamDiagnostics is a flight recorder for one arm-streaming session: queue-occupancy
-// samples, call timings, per-extend outcomes, PVAT velocities, and lifecycle events. Rather
+// samples, call timings, per-extend outcomes, per-PVAT kinematics, and lifecycle events. Rather
 // than sampling on a timer, the executor records at each enqueue/dequeue, so the recording
 // captures every change point of the pipeline's buffers. Recording happens from the
 // trajex-session and arm-stream goroutines, so it is mutex-guarded; len()/cap() on a channel
@@ -117,7 +117,7 @@ type StreamDiagnostics struct {
 	samples    []DiagnosticsSample
 	events     []DiagnosticsEvent
 	timings    []DiagnosticsTiming
-	velocities []DiagnosticsVelocity
+	kinematics []DiagnosticsKinematics
 }
 
 // NewStreamDiagnostics returns an empty recorder whose clock starts now.
@@ -142,7 +142,7 @@ func (t *StreamDiagnostics) pruneLocked(nowMs float64) {
 	t.samples = pruneBefore(t.samples, func(s DiagnosticsSample) float64 { return s.TMs }, cutoff)
 	t.events = pruneBefore(t.events, func(e DiagnosticsEvent) float64 { return e.TMs }, cutoff)
 	t.timings = pruneBefore(t.timings, func(x DiagnosticsTiming) float64 { return x.TMs }, cutoff)
-	t.velocities = pruneBefore(t.velocities, func(v DiagnosticsVelocity) float64 { return v.TMs }, cutoff)
+	t.kinematics = pruneBefore(t.kinematics, func(v DiagnosticsKinematics) float64 { return v.TMs }, cutoff)
 }
 
 // record appends one occupancy sample. Safe to call on a nil recorder (no-op) so call sites need
@@ -213,7 +213,7 @@ func (t *StreamDiagnostics) recordKinematics(positionsRad, velocitiesRadPerSec, 
 
 	tMs := float64(time.Since(t.start).Microseconds()) / 1000.0
 	t.mu.Lock()
-	t.velocities = append(t.velocities, DiagnosticsVelocity{
+	t.kinematics = append(t.kinematics, DiagnosticsKinematics{
 		TMs:                  tMs,
 		DegPerSec:            maxAbs,
 		JointDegPerSec:       jointDegPerSec,
@@ -224,7 +224,7 @@ func (t *StreamDiagnostics) recordKinematics(positionsRad, velocitiesRadPerSec, 
 	t.mu.Unlock()
 }
 
-// Snapshot returns a copy of the samples, events, timings, and velocities recorded so far.
+// Snapshot returns a copy of the samples, events, timings, and kinematics recorded so far.
 // Safe to call on a nil recorder (returns the zero value).
 func (t *StreamDiagnostics) Snapshot() StreamDiagnosticsOutput {
 	if t == nil {
@@ -241,13 +241,13 @@ func (t *StreamDiagnostics) Snapshot() StreamDiagnosticsOutput {
 	copy(events, t.events)
 	timings := make([]DiagnosticsTiming, len(t.timings))
 	copy(timings, t.timings)
-	velocities := make([]DiagnosticsVelocity, len(t.velocities))
-	copy(velocities, t.velocities)
+	kinematics := make([]DiagnosticsKinematics, len(t.kinematics))
+	copy(kinematics, t.kinematics)
 	return StreamDiagnosticsOutput{
 		StartUnixMs: float64(t.start.UnixMilli()),
 		Samples:     samples,
 		Events:      events,
 		Timings:     timings,
-		Velocities:  velocities,
+		Kinematics:  kinematics,
 	}
 }

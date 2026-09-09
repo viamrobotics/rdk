@@ -46,8 +46,8 @@ func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	test.That(t, out.Timings[0].Kind, test.ShouldEqual, diagTimingExtend)
 	test.That(t, out.Timings[0].Ms, test.ShouldAlmostEqual, 5.0, 0.5)
 
-	test.That(t, len(out.Velocities), test.ShouldEqual, 1)
-	v := out.Velocities[0]
+	test.That(t, len(out.Kinematics), test.ShouldEqual, 1)
+	v := out.Kinematics[0]
 	test.That(t, v.DegPerSec, test.ShouldAlmostEqual, 42.0, 1e-9)
 	test.That(t, len(v.JointDegPerSec), test.ShouldEqual, 2)
 	test.That(t, v.JointDegPerSec[0], test.ShouldAlmostEqual, 15.0, 1e-9)
@@ -73,7 +73,7 @@ func TestStreamDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
 	diagnostics.samples = append(diagnostics.samples, DiagnosticsSample{TMs: oldT, Ch: "old", Op: "enq"})
 	diagnostics.events = append(diagnostics.events, DiagnosticsEvent{TMs: oldT, Kind: "old"})
 	diagnostics.timings = append(diagnostics.timings, DiagnosticsTiming{TMs: oldT, Kind: "old"})
-	diagnostics.velocities = append(diagnostics.velocities, DiagnosticsVelocity{TMs: oldT})
+	diagnostics.kinematics = append(diagnostics.kinematics, DiagnosticsKinematics{TMs: oldT})
 
 	diagnostics.record("fresh", diagOpEnqueue, 1, 2)
 	diagnostics.recordEvent("fresh", "")
@@ -87,7 +87,7 @@ func TestStreamDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
 	test.That(t, out.Events[0].Kind, test.ShouldEqual, "fresh")
 	test.That(t, len(out.Timings), test.ShouldEqual, 1)
 	test.That(t, out.Timings[0].Kind, test.ShouldEqual, "fresh")
-	test.That(t, len(out.Velocities), test.ShouldEqual, 1)
+	test.That(t, len(out.Kinematics), test.ShouldEqual, 1)
 
 	// Snapshot alone also prunes: entries recorded now age out once the wall clock has
 	// moved a window past them, even with no further records. Simulate by backdating the
@@ -97,5 +97,5 @@ func TestStreamDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
 	test.That(t, len(out.Samples), test.ShouldEqual, 0)
 	test.That(t, len(out.Events), test.ShouldEqual, 0)
 	test.That(t, len(out.Timings), test.ShouldEqual, 0)
-	test.That(t, len(out.Velocities), test.ShouldEqual, 0)
+	test.That(t, len(out.Kinematics), test.ShouldEqual, 0)
 }

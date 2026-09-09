@@ -59,7 +59,7 @@ type stream struct {
 	err error
 
 	// diagnostics is the session's flight recorder: buffer occupancies, call timings,
-	// per-extend outcomes, and PVAT velocities, for diagnosing pacing/buffering issues.
+	// per-extend outcomes, and per-PVAT kinematics, for diagnosing pacing/buffering issues.
 	// Exposed via stream_status.
 	diagnostics *streaming.StreamDiagnostics
 }

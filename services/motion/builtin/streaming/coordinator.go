@@ -34,7 +34,7 @@ import (
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
 //
 // diagnostics, if non-nil, is the session's flight recorder — it accumulates buffer
-// occupancies, timings, per-extend outcomes, and velocities over the session's lifetime;
+// occupancies, timings, per-extend outcomes, and kinematics over the session's lifetime;
 // snapshot it via StreamDiagnostics.Snapshot.
 func Run(
 	ctx context.Context,
