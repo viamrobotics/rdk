@@ -14,12 +14,26 @@ import (
 )
 
 var (
-	cudaRegex            = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
-	aptCacheVersionRegex = regexp.MustCompile(`\nVersion: (\d+)\D`)
-	piModelRegex         = regexp.MustCompile(`Raspberry Pi\s?(Compute Module)?\s?(\d\w*)?\s?(\w+)?\s?(Model (.+))? Rev`)
-	darwinVersionRegex   = regexp.MustCompile(`(\d+)\.`)
-	savedPlatformTags    []string
+	cudaRegex = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
+	// l4tReleaseRegex captures the L4T (Jetson Linux) major release from the first line of
+	// /etc/nv_tegra_release, e.g. "# R36 (release), REVISION: 4.4, ..." -> "36".
+	l4tReleaseRegex    = regexp.MustCompile(`# R(\d+) `)
+	piModelRegex       = regexp.MustCompile(`Raspberry Pi\s?(Compute Module)?\s?(\d\w*)?\s?(\w+)?\s?(Model (.+))? Rev`)
+	darwinVersionRegex = regexp.MustCompile(`(\d+)\.`)
+	savedPlatformTags  []string
 )
+
+// l4tToJetpack maps an L4T (Jetson Linux) major release to its JetPack major version.
+// R32->JetPack 4, R34/R35->JetPack 5, R36->JetPack 6, R38/R39->JetPack 7 (see
+// https://developer.nvidia.com/embedded/jetson-linux-archive).
+var l4tToJetpack = map[string]string{
+	"32": "4",
+	"34": "5",
+	"35": "5",
+	"36": "6",
+	"38": "7",
+	"39": "7",
+}
 
 // helper to read platform tags for GPU-related system libraries.
 func readGPUTags(ctx context.Context, logger logging.Logger, tags []string) []string {
@@ -34,16 +48,34 @@ func readGPUTags(ctx context.Context, logger logging.Logger, tags []string) []st
 			logger.Error("error parsing `nvcc --version` output. Cuda-specific modules may not load")
 		}
 	}
-	if _, err := exec.LookPath("apt-cache"); err == nil {
-		out, err := exec.CommandContext(ctx, "apt-cache", "show", "nvidia-jetpack").Output()
-		// note: the error case here will usually mean 'package missing', we don't analyze it.
-		if err == nil {
-			if match := aptCacheVersionRegex.FindSubmatch(out); match != nil {
-				tags = append(tags, "jetpack:"+string(match[1]))
-			}
-		}
-	}
+	tags = readJetpackTag(logger, tags)
 	return tags
+}
+
+// readJetpackTag adds a `jetpack:<major>` tag derived from the installed L4T (Jetson Linux)
+// release, if this is a Jetson.
+func readJetpackTag(logger logging.Logger, tags []string) []string {
+	body, err := os.ReadFile("/etc/nv_tegra_release")
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Errorw("can't read /etc/nv_tegra_release, jetpack modules may not load", "err", err)
+		}
+		// not a Jetson (file absent), or unreadable: no jetpack tag.
+		return tags
+	}
+	match := l4tReleaseRegex.FindSubmatch(body)
+	if match == nil {
+		logger.Warnw("could not parse L4T release from /etc/nv_tegra_release; jetpack tag not set",
+			"contents", string(body))
+		return tags
+	}
+	l4tMajor := string(match[1])
+	jetpack, ok := l4tToJetpack[l4tMajor]
+	if !ok {
+		logger.Warnw("unrecognized L4T major release; jetpack tag not set", "l4t_major", l4tMajor)
+		return tags
+	}
+	return append(tags, "jetpack:"+jetpack)
 }
 
 type piModel struct {
