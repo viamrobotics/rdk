@@ -25,8 +25,6 @@ type armStream struct {
 
 	err error
 
-	// diagnostics receives per-send recordings (per-PVAT kinematics, send latency);
-	// nil disables them, since every StreamDiagnostics method is nil-safe.
 	diagnostics *StreamDiagnostics
 }
 
@@ -42,7 +40,6 @@ func newArmStream(ctx context.Context, a arm.Arm, diagnostics *StreamDiagnostics
 		diagnostics: diagnostics,
 	}
 
-	// Recorded synchronously, so it always precedes anything the caller records next.
 	s.diagnostics.recordEvent(diagEventStreamOpen, "")
 	go func() {
 		err := s.arm.MoveThroughJointPositionsStreamed(ctx, s.batchesCh, s.responsesCh, nil)
@@ -50,8 +47,6 @@ func newArmStream(ctx context.Context, a arm.Arm, diagnostics *StreamDiagnostics
 		if err != nil && !errors.Is(err, context.Canceled) {
 			s.diagnostics.recordEvent(diagEventStreamDied, err.Error())
 		}
-		// Recorded before moveThroughJointPositionsStreamedReturned closes, so the event is
-		// in the recording by the time close() returns.
 		s.diagnostics.recordEvent(diagEventStreamClose, "")
 		s.err = err
 		close(s.responsesCh)

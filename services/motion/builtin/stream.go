@@ -58,9 +58,6 @@ type stream struct {
 	// safe to read after done is closed.
 	err error
 
-	// diagnostics is the session's flight recorder: buffer occupancies, call timings,
-	// per-extend outcomes, and per-PVAT kinematics, for diagnosing pacing/buffering issues.
-	// Exposed via stream_status.
 	diagnostics *streaming.StreamDiagnostics
 }
 
@@ -196,8 +193,6 @@ func (ms *builtIn) streamFlush(ctx context.Context) (map[string]any, error) {
 		return map[string]any{streamKeyRunning: true}, nil
 	}
 
-	// The flush response never includes the diagnostics -- it's a completion acknowledgment,
-	// not a place callers fetch diagnostics from; fetch them via stream_status instead.
 	status := map[string]any{streamKeyRunning: false}
 	if s.err != nil {
 		status[streamKeyError] = s.err.Error()
@@ -232,10 +227,6 @@ func (ms *builtIn) streamAbort(ctx context.Context) map[string]any {
 	return status
 }
 
-// streamStatus reports the active session's state. includeDiagnostics controls whether the
-// (potentially large) diagnostics snapshot -- the session's most recent minute of pipeline
-// history -- is attached: a caller polling repeatedly just to watch "running"/"error" doesn't
-// need to re-fetch and re-serialize the whole window on every call; pass false for those polls.
 func (ms *builtIn) streamStatus(includeDiagnostics bool) map[string]any {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
@@ -302,9 +293,6 @@ func (ms *builtIn) handleStreamCommand(
 	return nil, false, nil
 }
 
-// parseIncludeDiagnostics reports whether a stream_status request opted out of the diagnostics
-// snapshot via {"diagnostics": false}. Defaults to true (the original, unconditional behavior)
-// for any other input, including the common `DoStreamStatus: true` case.
 func parseIncludeDiagnostics(req interface{}) bool {
 	m, ok := req.(map[string]interface{})
 	if !ok {

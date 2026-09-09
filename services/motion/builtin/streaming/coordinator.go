@@ -32,10 +32,6 @@ import (
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
 // executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
-//
-// diagnostics, if non-nil, is the session's flight recorder — it accumulates buffer
-// occupancies, timings, per-extend outcomes, and kinematics over the session's lifetime;
-// snapshot it via StreamDiagnostics.Snapshot.
 func Run(
 	ctx context.Context,
 	a arm.Arm,
@@ -154,8 +150,6 @@ func Run(
 
 func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
 	estimatedRunway := s.currentEstimatedRunwayInArm()
-	// armQ occupancy is the estimated arm-side buffer in ms (len) against the
-	// target runway (cap).
 	s.diagnostics.record(diagChanArmPending, diagOpDequeue,
 		int(estimatedRunway.Milliseconds()), int(targetRunway.Milliseconds()))
 	deficit := targetRunway - estimatedRunway
