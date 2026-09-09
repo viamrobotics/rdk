@@ -22,7 +22,7 @@ func TestStreamDiagnosticsNilSafe(t *testing.T) {
 func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	diagnostics := NewStreamDiagnostics()
 	diagnostics.record(diagChanPlanQ, diagOpEnqueue, 3, 10)
-	diagnostics.recordEvent(diagEventSessionOpen, "")
+	diagnostics.recordEvent(diagEventTrajexSessionOpen, "")
 	diagnostics.recordTiming(diagTimingExtend, 5*time.Millisecond)
 	// Two joints: the second carries the larger |velocity|, so DegPerSec must pick it up rather
 	// than just reporting the first/last joint.
@@ -40,7 +40,7 @@ func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	test.That(t, out.Samples[0].Cap, test.ShouldEqual, 10)
 
 	test.That(t, len(out.Events), test.ShouldEqual, 1)
-	test.That(t, out.Events[0].Kind, test.ShouldEqual, diagEventSessionOpen)
+	test.That(t, out.Events[0].Kind, test.ShouldEqual, diagEventTrajexSessionOpen)
 
 	test.That(t, len(out.Timings), test.ShouldEqual, 1)
 	test.That(t, out.Timings[0].Kind, test.ShouldEqual, diagTimingExtend)

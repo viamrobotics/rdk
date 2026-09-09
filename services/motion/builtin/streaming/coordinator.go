@@ -69,10 +69,10 @@ func Run(
 	if err := ts.startSession(seed); err != nil {
 		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}
-	diagnostics.recordEvent(diagEventSessionOpen, "")
+	diagnostics.recordEvent(diagEventTrajexSessionOpen, "")
 	defer func() {
 		ts.close()
-		diagnostics.recordEvent(diagEventSessionClose, "")
+		diagnostics.recordEvent(diagEventTrajexSessionClose, "")
 	}()
 
 	targetRunway := time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond
