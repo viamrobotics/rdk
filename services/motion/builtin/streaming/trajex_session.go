@@ -125,8 +125,6 @@ func (s *trajexSession) trajexRunway() time.Duration {
 	return s.sess.TotalRemainingDuration()
 }
 
-func (s *trajexSession) generationCount() int64 { return s.sess.GenerationCount() }
-
 // lastExtendBranch reports the most recent Extend's disposition as a trace label, its
 // signed branch margin (divergence point minus sampling watermark) in ms, and whether
 // that margin exists (a locked-out stage builds no candidate, so it has none).

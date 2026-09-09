@@ -120,7 +120,6 @@ func Run(
 			extendStart := time.Now()
 			extended, err := ts.addJointPositionsToSession(ctx, jp.Positions)
 			diagnostics.recordTiming(diagTimingExtend, time.Since(extendStart))
-			diagnostics.record(diagChanTrajexGen, diagOpDequeue, int(ts.generationCount()), 0)
 			diagnostics.record(diagChanTrajexRunway, diagOpEnqueue, int(ts.trajexRunway().Milliseconds()), 0)
 			if extended {
 				disposition, marginMS, hasMargin := ts.lastExtendBranch()

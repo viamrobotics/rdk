@@ -15,7 +15,6 @@ import (
 const (
 	diagChanPlanQ        = "jointPositionsCh" // stream_push producer -> trajex session (jpCh)
 	diagChanArmPending   = "armQ"             // currentEstimatedRunwayInArm (ms) vs targetRunway (ms)
-	diagChanTrajexGen    = "trajex-gen"       // generation_count after each Extend (len); cap unused
 	diagChanTrajexRunway = "trajex-runway"    // trajexRunway() estimate in ms (len) after each Extend/sampleAtLeast; cap unused
 	diagOpEnqueue        = "enq"
 	diagOpDequeue        = "deq"
