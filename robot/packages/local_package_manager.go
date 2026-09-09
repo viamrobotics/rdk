@@ -110,7 +110,8 @@ func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string)
 	if info, statErr := os.Stat(path); statErr == nil && info.Mode().IsRegular() {
 		required = uint64(info.Size()) + diskusage.MinFreeBytes
 	}
-	if _, err := checkDiskSpace(m.logger, dstPath, fmt.Sprintf("local package %q", filepath.Base(path)), required); err != nil {
+	if _, err := diskusage.CheckDiskSpace(m.logger, dstPath, fmt.Sprintf("local package %q", filepath.Base(path)),
+		required, diskSpaceBlockingEnabled()); err != nil {
 		return "", "", err
 	}
 

@@ -31,65 +31,21 @@ const partialsDirName = "part"
 // cleanup partial downloads that were started this long ago
 const maxPartialAge = 72 * time.Hour
 
-// enoughFreeSpace reports whether the volume holding path has at least minBytes
-// available. It is a package var so tests can inject a low-space result without
-// having to actually fill a disk.
-var enoughFreeSpace = diskusage.EnoughFreeSpace
-
-// errInsufficientDiskSpace is returned by checkDiskSpace when blocking is on and the volume is
-// low. Callers use errors.Is to tell a disk-space refusal from other failures (e.g. a corrupt
-// archive) and surface an accurate message.
-var errInsufficientDiskSpace = errors.New("not enough free disk space")
-
-// isTransientDiskSpaceError reports whether err is a low-space failure that should be retried
-// rather than marked syncStatusFailed. Two paths reach here: blocking mode refuses the op up front
-// with errInsufficientDiskSpace, and log-only mode proceeds past the warning but then the write
-// genuinely exhausts the disk (a raw syscall.ENOSPC wrapped by os/io). Both are the same transient
-// condition, so treat them alike so the next sync retries once space frees.
-func isTransientDiskSpaceError(err error) bool {
-	return errors.Is(err, errInsufficientDiskSpace) || errors.Is(err, syscall.ENOSPC)
-}
-
-// diskSpaceBlockingEnabled reports whether low-space conditions should refuse the operation
-// (download, local copy, or unpack). Default (unset) is false: low-space is logged but the
-// operation proceeds (log-only). See rutils.ViamEnableDiskSpaceBlockEnvVar.
+// diskSpaceBlockingEnabled reports whether viam-server should refuse an operation (download,
+// local copy, or unpack) when space is low. Default (unset) is false: low space is logged but the
+// operation proceeds (log-only). CheckDiskSpace takes this as an argument so each caller sets its
+// own policy; viam-server's comes from the environment.
 func diskSpaceBlockingEnabled() bool {
 	return rutils.GetenvBool(rutils.ViamEnableDiskSpaceBlockEnvVar, false)
 }
 
-// checkDiskSpace checks whether the volume holding path has required bytes free. It returns
-// low=true whenever space is low. When blocking is enabled via ViamEnableDiskSpaceBlockEnvVar it
-// returns an error refusing the op (the caller logs it, so checkDiskSpace stays quiet to avoid
-// double-logging the same reason every cycle); otherwise it logs a warning and returns nil so the
-// op proceeds (log-only). A failed check is logged and treated as "proceed" so a broken statfs
-// never blocks installs. desc names the op in logs/errors; extraFields extend the warning.
-func checkDiskSpace(logger logging.Logger, path, desc string, required uint64, extraFields ...any) (low bool, err error) {
-	enough, available, err := enoughFreeSpace(path, required)
-	if err != nil {
-		logger.Warnw("could not check free disk space; proceeding",
-			append([]any{"desc", desc, "path", path, "error", err}, extraFields...)...)
-		return false, nil
-	}
-	if enough {
-		return false, nil
-	}
-	if !diskSpaceBlockingEnabled() {
-		// Log-only: the op proceeds and returns no error, so this warning is the only signal
-		// that space is low.
-		logger.Warnw("not enough free disk space",
-			append([]any{
-				"desc", desc, "path", path,
-				"available", rutils.FormatBytes(available),
-				"required", rutils.FormatBytes(required),
-				"blocking", false,
-			}, extraFields...)...)
-		return true, nil
-	}
-	// Blocking: don't warn here — the returned error carries the same detail and is logged by the
-	// caller (cloud_package_manager.go and local_package_manager.go both log the install error),
-	// so warning too would double-log the same reason every sync cycle.
-	return true, fmt.Errorf("%w for %s: %s available, %s required",
-		errInsufficientDiskSpace, desc, rutils.FormatBytes(available), rutils.FormatBytes(required))
+// isTransientDiskSpaceError reports whether err is a low-space failure that should be retried
+// rather than marked syncStatusFailed. Two paths reach here: blocking mode refuses the op up front
+// with diskusage.ErrInsufficientDiskSpace, and log-only mode proceeds past the warning but then the write
+// genuinely exhausts the disk (a raw syscall.ENOSPC wrapped by os/io). Both are the same transient
+// condition, so treat them alike so the next sync retries once space frees.
+func isTransientDiskSpaceError(err error) bool {
+	return errors.Is(err, diskusage.ErrInsufficientDiskSpace) || errors.Is(err, syscall.ENOSPC)
 }
 
 // create a partials folder for this URL and return a destination path for the file.
@@ -333,7 +289,7 @@ func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir stri
 			if !loggedLowSpace && bytesSinceDiskCheck >= unpackDiskCheckInterval {
 				bytesSinceDiskCheck = 0
 				required := diskusage.MinFreeBytes + uint64(header.Size)
-				low, err := checkDiskSpace(logger, toDir, "unpacking package", required)
+				low, err := diskusage.CheckDiskSpace(logger, toDir, "unpacking package", required, diskSpaceBlockingEnabled())
 				if err != nil {
 					return err
 				}
