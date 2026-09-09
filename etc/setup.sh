@@ -137,7 +137,7 @@ do_mise(){
 		mise self-update -y
 	fi
 	
-	# Some tools like canon that are now managed my mise were previously
+	# Some tools like canon that are now managed by mise were previously
 	# installed with brew or the system package manager, so engineers are used to
 	# having them available in their PATH. Fully activate mise shell integration
 	# as part of the viam dev environment so that workflow stays the same.
