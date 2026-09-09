@@ -128,39 +128,20 @@ func findReaderAndDriver(
 	return reader, driver, path, nil
 }
 
-// pathsWithName returns the path of every registered video device whose driver Name matches name
-func pathsWithName(name string) map[string]struct{} {
-	drivers := driver.GetManager().Query(getVideoFilter(labelFilter(name, false, true)))
-	paths := make(map[string]struct{}, len(drivers))
-	for _, d := range drivers {
-		paths[strings.Split(d.Info().Label, mediadevicescamera.LabelSeparator)[0]] = struct{}{}
-	}
-	return paths
-}
+// findReaderAndDriverByName finds a video device whose driver Name matches the given name. The driver Name is the OS-reported device name
+func findReaderAndDriverByName(
+	conf *WebcamConfig,
+	name string,
+	logger logging.Logger,
+) (video.Reader, driver.Driver, string, error) {
+	constraints := makeConstraints(conf, logger)
 
-// isPathRegistered reports whether a video device with the given path is already registered
-func isPathRegistered(path string) bool {
-	drivers := driver.GetManager().Query(getVideoFilter(labelFilter(filepath.Base(path), true, false)))
-	return len(drivers) > 0
-}
-
-// findNewPathByName returns the path of the single registered video device whose driver Name matches name and whose
-// path is not in knownPaths
-func findNewPathByName(name string, knownPaths map[string]struct{}) (string, error) {
-	var candidates []string
-	for path := range pathsWithName(name) {
-		if _, known := knownPaths[path]; !known {
-			candidates = append(candidates, path)
-		}
+	reader, driver, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
+	if err != nil {
+		return nil, nil, "", err
 	}
-	switch len(candidates) {
-	case 0:
-		return "", errors.Errorf("no new device with name '%s'", name)
-	case 1:
-		return candidates[0], nil
-	default:
-		return "", errors.Errorf("multiple new devices share name '%s'", name)
-	}
+	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
+	return reader, driver, labels[0], nil
 }
 
 // getReaderAndDriver attempts to find a device (not a screen) matching the given filter.
@@ -286,7 +267,7 @@ func getVideoFilter(specific driver.FilterFn) driver.FilterFn {
 func selectBestDriver(
 	baseFilter driver.FilterFn,
 	filter driver.FilterFn,
-	target string,
+	label string,
 	constraints mediadevices.MediaTrackConstraints,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
@@ -308,8 +289,8 @@ func selectBestDriver(
 
 	driverProperties := queryDriverProperties(filter, logger)
 	if len(driverProperties) == 0 {
-		msg := fmt.Sprintf("no queryable drivers for video path: '%s'", target)
-		if target != "" {
+		msg := fmt.Sprintf("no queryable drivers for video path: '%s'", label)
+		if label != "" {
 			msg += "; check if the device is available or already in use (busy)"
 		}
 		return nil, prop.Media{}, errors.New(msg)
