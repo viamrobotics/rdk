@@ -128,15 +128,26 @@ func findReaderAndDriver(
 	return reader, driver, path, nil
 }
 
-// findReaderAndDriverByName finds a video device whose driver Name matches the given name. The driver Name is the OS-reported device name
+// findReaderAndDriverByName finds a video device whose driver Name matches the given name. The driver Name is the OS-reported device name.
+//
+// It only proceeds when exactly one registered device has that Name. Identical cameras share a Name and cannot be
+// told apart by it, so rather than guess (and risk attaching to the wrong device or stealing another webcam's
+// device), the fallback is refused until the ambiguity is gone.
 func findReaderAndDriverByName(
 	conf *WebcamConfig,
 	name string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
+	nameFilter := labelFilter(name, false, true)
+	matches := driver.GetManager().Query(getVideoFilter(nameFilter))
+	if len(matches) != 1 {
+		return nil, nil, "", errors.Errorf(
+			"cannot reconnect by name: expected exactly one device named '%s', found %d", name, len(matches))
+	}
+
 	constraints := makeConstraints(conf, logger)
 
-	reader, driver, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
+	reader, driver, err := getReaderAndDriver(nameFilter, name, constraints, logger)
 	if err != nil {
 		return nil, nil, "", err
 	}
