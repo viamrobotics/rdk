@@ -99,7 +99,11 @@ type webcam struct {
 	targetPath string
 	// targetName is the OS-reported name of the driver behind targetPath
 	targetName string
-	conf       WebcamConfig
+	// sawOtherSameName is set once another registered device has shared targetName while this camera was
+	// connected. Identical cameras cannot be told apart by Name, so once set the name-based reconnect fallback
+	// is disabled for the life of this instance rather than risk attaching to the wrong device.
+	sawOtherSameName bool
+	conf             WebcamConfig
 
 	closed       bool // set by Close method
 	disconnected bool // set by monitor worker
@@ -230,6 +234,8 @@ func (c *webcam) startMonitorWorker() {
 				c.mu.Lock()
 				logger := c.logger
 				driver := c.driver
+				targetName := c.targetName
+				sawOtherSameName := c.sawOtherSameName
 				c.mu.Unlock()
 
 				ok, err := isCameraConnected(driver)
@@ -238,6 +244,11 @@ func (c *webcam) startMonitorWorker() {
 					continue
 				}
 				if ok {
+					if runtime.GOOS == "darwin" && !sawOtherSameName && targetName != "" && countDevicesWithName(targetName) > 1 {
+						c.mu.Lock()
+						c.sawOtherSameName = true
+						c.mu.Unlock()
+					}
 					continue
 				}
 
@@ -260,6 +271,7 @@ func (c *webcam) startMonitorWorker() {
 						conf := c.conf
 						targetPath := c.targetPath
 						targetName := c.targetName
+						sawOtherSameName := c.sawOtherSameName
 
 						c.driver = nil
 						c.reader = nil
@@ -285,7 +297,7 @@ func (c *webcam) startMonitorWorker() {
 						reconnectedByName := false
 
 						// On darwin, label changes when webcam port is switched so fall back to device name
-						if err != nil && targetName != "" && runtime.GOOS == "darwin" {
+						if err != nil && targetName != "" && runtime.GOOS == "darwin" && !sawOtherSameName {
 							c.logger.Debugw("failed to reconnect camera by path; retrying by name",
 								"error", err, "name", targetName)
 							reader, driver, label, err = findReaderAndDriverByName(&conf, targetName, c.logger)

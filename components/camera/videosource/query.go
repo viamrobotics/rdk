@@ -135,21 +135,25 @@ func findReaderAndDriverByName(
 	name string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
-	nameFilter := labelFilter(name, false, true)
-	matches := driver.GetManager().Query(getVideoFilter(nameFilter))
-	if len(matches) != 1 {
+	if countDevicesWithName(name) != 1 {
 		return nil, nil, "", errors.Errorf(
 			"cannot reconnect by name: multiple webcams with identical hardware names")
 	}
 
 	constraints := makeConstraints(conf, logger)
 
-	reader, driver, err := getReaderAndDriver(nameFilter, name, constraints, logger)
+	reader, driver, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
 	if err != nil {
 		return nil, nil, "", err
 	}
 	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
 	return reader, driver, labels[0], nil
+}
+
+// countDevicesWithName returns how many registered video devices have the given driver Name.
+// It only scans the in-memory driver registry and performs no device I/O.
+func countDevicesWithName(name string) int {
+	return len(driver.GetManager().Query(getVideoFilter(labelFilter(name, false, true))))
 }
 
 // getReaderAndDriver attempts to find a device (not a screen) matching the given filter.
