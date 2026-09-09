@@ -38,9 +38,9 @@ const (
 
 // Timing kinds — per-call durations recorded alongside the occupancy samples.
 const (
-	diagTimingExtend    = "trajex-extend" // one trajexSession.addJointPositionsToSession (Extend) call
-	diagTimingSendPoint = "send-point"    // one armStream.send call (one sampled batch to the arm RPC)
-	diagTimingTrajSent  = "traj-sent"     // trajectory duration (ms) delivered in one sendPVATs call
+	diagDurationExtend    = "trajex-extend" // one trajexSession.addJointPositionsToSession (Extend) call
+	diagDurationSendPoint = "send-point"    // one armStream.send call (one sampled batch to the arm RPC)
+	diagDurationTrajSent  = "traj-sent"     // trajectory duration (ms) delivered in one sendPVATs call
 )
 
 // DiagnosticsSample is one occupancy reading captured at an enqueue or dequeue of a pipeline channel,
@@ -63,7 +63,7 @@ type DiagnosticsEvent struct {
 // DiagnosticsTiming is one measured call duration.
 type DiagnosticsTiming struct {
 	TMs  float64 `json:"t_ms"` // milliseconds since the recording started
-	Kind string  `json:"kind"` // diagTimingExtend, diagTimingSendPoint, or diagTimingTrajSent
+	Kind string  `json:"kind"` // diagDurationExtend, diagDurationSendPoint, or diagDurationTrajSent
 	Ms   float64 `json:"ms"`   // the measured duration in milliseconds
 }
 

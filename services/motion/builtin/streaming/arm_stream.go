@@ -86,7 +86,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		return fmt.Errorf("arm streaming RPC ended before batch could be sent: %w", s.err)
 	case s.batchesCh <- batch:
 	}
-	s.diagnostics.recordTiming(diagTimingSendPoint, time.Since(sendStart))
+	s.diagnostics.recordTiming(diagDurationSendPoint, time.Since(sendStart))
 
 	s.timeInTrajectoryClockOfLastSentPVAT = batch[len(batch)-1].Time
 	if s.timeFirstBatchWasSent.IsZero() {

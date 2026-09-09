@@ -119,7 +119,7 @@ func Run(
 			// Add the new joint positions to the trajex session.
 			extendStart := time.Now()
 			extended, err := ts.addJointPositionsToSession(ctx, jp.Positions)
-			diagnostics.recordTiming(diagTimingExtend, time.Since(extendStart))
+			diagnostics.recordTiming(diagDurationExtend, time.Since(extendStart))
 			diagnostics.record(diagChanTrajexRunway, diagOpEnqueue, int(ts.trajexRunway().Milliseconds()), 0)
 			if extended {
 				disposition, marginMS, hasMargin := ts.lastExtendBranch()
@@ -166,6 +166,6 @@ func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway t
 	if err := s.send(ctx, pvats); err != nil {
 		return err
 	}
-	s.diagnostics.recordTiming(diagTimingTrajSent, deficit)
+	s.diagnostics.recordTiming(diagDurationTrajSent, deficit)
 	return nil
 }

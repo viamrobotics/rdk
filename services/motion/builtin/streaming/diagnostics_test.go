@@ -14,7 +14,7 @@ func TestDiagnosticsNilSafe(t *testing.T) {
 	var diagnostics *Diagnostics
 	diagnostics.record(diagChanArmPending, diagOpDequeue, 1, 2)
 	diagnostics.recordEvent(diagEventStreamOpen, "")
-	diagnostics.recordTiming(diagTimingSendPoint, time.Millisecond)
+	diagnostics.recordTiming(diagDurationSendPoint, time.Millisecond)
 	diagnostics.recordKinematics([]float64{0.1}, []float64{0.2}, []float64{0.3})
 	test.That(t, diagnostics.Snapshot(), test.ShouldResemble, DiagnosticsOutput{})
 }
@@ -23,7 +23,7 @@ func TestDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	diagnostics := NewDiagnostics()
 	diagnostics.record(diagChanPlanQ, diagOpEnqueue, 3, 10)
 	diagnostics.recordEvent(diagEventTrajexSessionOpen, "")
-	diagnostics.recordTiming(diagTimingExtend, 5*time.Millisecond)
+	diagnostics.recordTiming(diagDurationExtend, 5*time.Millisecond)
 	// Two joints: the second carries the larger |velocity|, so DegPerSec must pick it up rather
 	// than just reporting the first/last joint.
 	diagnostics.recordKinematics(
@@ -43,7 +43,7 @@ func TestDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	test.That(t, out.Events[0].Kind, test.ShouldEqual, diagEventTrajexSessionOpen)
 
 	test.That(t, len(out.Timings), test.ShouldEqual, 1)
-	test.That(t, out.Timings[0].Kind, test.ShouldEqual, diagTimingExtend)
+	test.That(t, out.Timings[0].Kind, test.ShouldEqual, diagDurationExtend)
 	test.That(t, out.Timings[0].Ms, test.ShouldAlmostEqual, 5.0, 0.5)
 
 	test.That(t, len(out.Kinematics), test.ShouldEqual, 1)
