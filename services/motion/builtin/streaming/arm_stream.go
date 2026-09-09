@@ -2,6 +2,7 @@ package streaming
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -43,6 +44,10 @@ func newArmStream(ctx context.Context, a arm.Arm, diagnostics *StreamDiagnostics
 
 	go func() {
 		err := s.arm.MoveThroughJointPositionsStreamed(ctx, s.batchesCh, s.responsesCh, nil)
+		// Cancellation is the session shutting the RPC down on purpose, not the stream dying.
+		if err != nil && !errors.Is(err, context.Canceled) {
+			s.diagnostics.recordEvent(diagEventStreamDied, err.Error())
+		}
 		s.err = err
 		close(s.responsesCh)
 		close(s.moveThroughJointPositionsStreamedReturned)
@@ -76,10 +81,8 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 	sendStart := time.Now()
 	select {
 	case <-ctx.Done():
-		s.diagnostics.recordEvent(diagEventStreamDied, "")
 		return ctx.Err()
 	case <-s.moveThroughJointPositionsStreamedReturned:
-		s.diagnostics.recordEvent(diagEventStreamDied, "")
 		return fmt.Errorf("arm streaming RPC ended before batch could be sent: %w", s.err)
 	case s.batchesCh <- batch:
 	}

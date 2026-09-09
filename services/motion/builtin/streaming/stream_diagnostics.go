@@ -34,7 +34,7 @@ const (
 	diagEventSessionClose = "trajex-session-close" // the trajex session closed (shutdown)
 	diagEventStreamOpen   = "stream-open"          // the arm stream RPC opened
 	diagEventStreamClose  = "stream-close"         // the arm stream RPC closed
-	diagEventStreamDied   = "stream-died"          // the arm stream ended unexpectedly (send failed)
+	diagEventStreamDied   = "stream-died"          // the arm stream RPC returned an unexpected error (the label carries it)
 )
 
 // Timing kinds — per-call durations recorded alongside the occupancy trace.
