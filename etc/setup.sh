@@ -27,9 +27,6 @@ do_piOS(){
 
 	# Install Gostream dependencies
 	sudo apt-get install -y --no-install-recommends libopus-dev libx11-dev libxext-dev libopusfile-dev
-
-	# Install backports
-	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports
 	EOS
 
 	if [ $? -ne 0 ]; then
