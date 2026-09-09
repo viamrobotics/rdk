@@ -137,7 +137,7 @@ func (ms *builtIn) streamStart(
 		jpCh:        make(chan streaming.JointPositionsChItem),
 		cancel:      cancel,
 		done:        make(chan struct{}),
-		diagnostics: streaming.NewStreamDiagnostics(),
+		diagnostics: streaming.NewDiagnostics(),
 	}
 
 	go func() {

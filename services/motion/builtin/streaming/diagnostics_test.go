@@ -20,7 +20,7 @@ func TestStreamDiagnosticsNilSafe(t *testing.T) {
 }
 
 func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
-	diagnostics := NewStreamDiagnostics()
+	diagnostics := NewDiagnostics()
 	diagnostics.record(diagChanPlanQ, diagOpEnqueue, 3, 10)
 	diagnostics.recordEvent(diagEventTrajexSessionOpen, "")
 	diagnostics.recordTiming(diagTimingExtend, 5*time.Millisecond)
@@ -65,7 +65,7 @@ func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
 }
 
 func TestStreamDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
-	diagnostics := NewStreamDiagnostics()
+	diagnostics := NewDiagnostics()
 
 	// Inject entries well older than the window directly, then record fresh ones: the
 	// record path must prune everything that has aged out of the window.

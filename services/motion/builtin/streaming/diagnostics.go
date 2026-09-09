@@ -119,8 +119,8 @@ type StreamDiagnostics struct {
 	kinematics []DiagnosticsKinematics
 }
 
-// NewStreamDiagnostics returns an empty recorder whose clock starts now.
-func NewStreamDiagnostics() *StreamDiagnostics {
+// NewDiagnostics returns an empty recorder whose clock starts now.
+func NewDiagnostics() *StreamDiagnostics {
 	return &StreamDiagnostics{start: time.Now(), windowMs: diagnosticsWindowMs}
 }
 

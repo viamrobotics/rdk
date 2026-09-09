@@ -29,7 +29,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	jpCh := make(chan JointPositionsChItem)
 
 	start := time.Now()
-	diagnostics := NewStreamDiagnostics()
+	diagnostics := NewDiagnostics()
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diagnostics)
