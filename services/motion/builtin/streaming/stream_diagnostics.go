@@ -70,13 +70,15 @@ type DiagnosticsTiming struct {
 
 // DiagnosticsVelocity is the arm's speed and configuration at one PVAT, taken from the trajex output.
 // DegPerSec collapses JointDegPerSec to a single number for the existing aggregate chart;
-// JointDegPerSec/JointPositionsDeg carry the full per-joint state so a fault right before a
-// trajectory rejection can be attributed to a specific joint instead of just "some joint, somewhere".
+// JointDegPerSec/JointPositionsDeg/JointAccelDegPerSec2 carry the full per-joint state so a fault
+// right before a trajectory rejection can be attributed to a specific joint instead of just
+// "some joint, somewhere".
 type DiagnosticsVelocity struct {
-	TMs               float64   `json:"t_ms"`                // milliseconds since the recording started
-	DegPerSec         float64   `json:"deg_per_sec"`         // max |joint velocity| across all joints for this PVAT
-	JointDegPerSec    []float64 `json:"joint_deg_per_sec"`   // per-joint velocity, deg/s, arm DoF order
-	JointPositionsDeg []float64 `json:"joint_positions_deg"` // per-joint position, deg, arm DoF order
+	TMs                  float64   `json:"t_ms"`                     // milliseconds since the recording started
+	DegPerSec            float64   `json:"deg_per_sec"`              // max |joint velocity| across all joints for this PVAT
+	JointDegPerSec       []float64 `json:"joint_deg_per_sec"`        // per-joint velocity, deg/s, arm DoF order
+	JointPositionsDeg    []float64 `json:"joint_positions_deg"`      // per-joint position, deg, arm DoF order
+	JointAccelDegPerSec2 []float64 `json:"joint_accel_deg_per_sec2"` // per-joint acceleration, deg/s^2, arm DoF order
 }
 
 // StreamDiagnosticsOutput is the snapshot shape returned to callers: occupancy samples, event
@@ -187,7 +189,7 @@ func (t *StreamDiagnostics) recordTiming(kind string, d time.Duration) {
 
 // recordVelocity appends one arm-speed/configuration reading, converting the trajex output's
 // radians to degrees. Safe to call on a nil recorder (no-op) and concurrently.
-func (t *StreamDiagnostics) recordVelocity(positionsRad, velocitiesRadPerSec []float64) {
+func (t *StreamDiagnostics) recordVelocity(positionsRad, velocitiesRadPerSec, accelerationsRadPerSec2 []float64) {
 	if t == nil {
 		return
 	}
@@ -203,14 +205,19 @@ func (t *StreamDiagnostics) recordVelocity(positionsRad, velocitiesRadPerSec []f
 	for i, p := range positionsRad {
 		jointPositionsDeg[i] = utils.RadToDeg(p)
 	}
+	jointAccelDegPerSec2 := make([]float64, len(accelerationsRadPerSec2))
+	for i, a := range accelerationsRadPerSec2 {
+		jointAccelDegPerSec2[i] = utils.RadToDeg(a)
+	}
 
 	tMs := float64(time.Since(t.start).Microseconds()) / 1000.0
 	t.mu.Lock()
 	t.velocities = append(t.velocities, DiagnosticsVelocity{
-		TMs:               tMs,
-		DegPerSec:         maxAbs,
-		JointDegPerSec:    jointDegPerSec,
-		JointPositionsDeg: jointPositionsDeg,
+		TMs:                  tMs,
+		DegPerSec:            maxAbs,
+		JointDegPerSec:       jointDegPerSec,
+		JointPositionsDeg:    jointPositionsDeg,
+		JointAccelDegPerSec2: jointAccelDegPerSec2,
 	})
 	t.pruneLocked(tMs)
 	t.mu.Unlock()

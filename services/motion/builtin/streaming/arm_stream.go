@@ -62,7 +62,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 
 	batch := make([]arm.TrajectoryPoint, 0, len(pvats))
 	for _, p := range pvats {
-		s.diagnostics.recordVelocity(p.positions, p.velocities)
+		s.diagnostics.recordVelocity(p.positions, p.velocities, p.accelerations)
 		batch = append(batch, arm.TrajectoryPoint{
 			Time:      p.time,
 			Positions: append([]referenceframe.Input(nil), p.positions...),

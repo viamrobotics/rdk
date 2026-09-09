@@ -15,7 +15,7 @@ func TestStreamDiagnosticsNilSafe(t *testing.T) {
 	diagnostics.record(diagChanArmPending, diagOpDequeue, 1, 2)
 	diagnostics.recordEvent(diagEventStreamOpen, "")
 	diagnostics.recordTiming(diagTimingSendPoint, time.Millisecond)
-	diagnostics.recordVelocity([]float64{0.1}, []float64{0.2})
+	diagnostics.recordVelocity([]float64{0.1}, []float64{0.2}, []float64{0.3})
 	test.That(t, diagnostics.Snapshot(), test.ShouldResemble, StreamDiagnosticsOutput{})
 }
 
@@ -29,6 +29,7 @@ func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	diagnostics.recordVelocity(
 		[]float64{utils.DegToRad(10), utils.DegToRad(-20)},
 		[]float64{utils.DegToRad(15), utils.DegToRad(-42)},
+		[]float64{utils.DegToRad(30), utils.DegToRad(-90)},
 	)
 
 	out := diagnostics.Snapshot()
@@ -54,6 +55,9 @@ func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	test.That(t, len(v.JointPositionsDeg), test.ShouldEqual, 2)
 	test.That(t, v.JointPositionsDeg[0], test.ShouldAlmostEqual, 10.0, 1e-9)
 	test.That(t, v.JointPositionsDeg[1], test.ShouldAlmostEqual, -20.0, 1e-9)
+	test.That(t, len(v.JointAccelDegPerSec2), test.ShouldEqual, 2)
+	test.That(t, v.JointAccelDegPerSec2[0], test.ShouldAlmostEqual, 30.0, 1e-9)
+	test.That(t, v.JointAccelDegPerSec2[1], test.ShouldAlmostEqual, -90.0, 1e-9)
 
 	// Snapshot returns a copy: further recording must not mutate the earlier snapshot.
 	diagnostics.record(diagChanPlanQ, diagOpDequeue, 0, 10)
@@ -74,7 +78,7 @@ func TestStreamDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
 	diagnostics.record("fresh", diagOpEnqueue, 1, 2)
 	diagnostics.recordEvent("fresh", "")
 	diagnostics.recordTiming("fresh", time.Millisecond)
-	diagnostics.recordVelocity([]float64{0}, []float64{1})
+	diagnostics.recordVelocity([]float64{0}, []float64{1}, []float64{2})
 
 	out := diagnostics.Snapshot()
 	test.That(t, len(out.Samples), test.ShouldEqual, 1)
