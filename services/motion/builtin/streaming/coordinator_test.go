@@ -29,10 +29,10 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	jpCh := make(chan JointPositionsChItem)
 
 	start := time.Now()
-	trace := NewStreamDiagnostics()
+	diagnostics := NewStreamDiagnostics()
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, trace)
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diagnostics)
 	}()
 
 	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.05, -0.05}}
@@ -73,10 +73,10 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 		test.That(t, v, test.ShouldAlmostEqual, 0, 0.05)
 	}
 
-	// The trace carries one extend-disposition sample per pushed target, the first of
+	// The diagnostics carry one extend-disposition sample per pushed target, the first of
 	// them the session's first build (which has no branch margin).
 	var extendSamples []DiagnosticsSample
-	for _, sample := range trace.Snapshot().Samples {
+	for _, sample := range diagnostics.Snapshot().Samples {
 		if sample.Ch == diagChanExtendBranch {
 			extendSamples = append(extendSamples, sample)
 		}

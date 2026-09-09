@@ -27,7 +27,7 @@ const (
 	diagChanExtendBranch = "trajex-extend"
 )
 
-// Event kinds — point-in-time lifecycle markers overlaid on the occupancy trace.
+// Event kinds — point-in-time lifecycle markers overlaid on the occupancy samples.
 const (
 	diagEventTrajexSessionOpen  = "trajex-session-open"  // the trajex (totg) session opened
 	diagEventTrajexSessionClose = "trajex-session-close" // the trajex session closed (shutdown)
@@ -36,7 +36,7 @@ const (
 	diagEventStreamDied         = "stream-died"          // the arm stream RPC returned an unexpected error (the label carries it)
 )
 
-// Timing kinds — per-call durations recorded alongside the occupancy trace.
+// Timing kinds — per-call durations recorded alongside the occupancy samples.
 const (
 	diagTimingExtend    = "trajex-extend" // one trajexSession.addJointPositionsToSession (Extend) call
 	diagTimingSendPoint = "send-point"    // one armStream.send call (one sampled batch to the arm RPC)

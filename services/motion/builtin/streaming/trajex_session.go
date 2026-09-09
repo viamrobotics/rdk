@@ -125,7 +125,7 @@ func (s *trajexSession) trajexRunway() time.Duration {
 	return s.sess.TotalRemainingDuration()
 }
 
-// lastExtendBranch reports the most recent Extend's disposition as a trace label, its
+// lastExtendBranch reports the most recent Extend's disposition as a diagnostics label, its
 // signed branch margin (divergence point minus sampling watermark) in ms, and whether
 // that margin exists (a locked-out stage builds no candidate, so it has none).
 func (s *trajexSession) lastExtendBranch() (string, int, bool) {

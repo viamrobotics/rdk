@@ -91,7 +91,7 @@ func TestStreamDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
 
 	// Snapshot alone also prunes: entries recorded now age out once the wall clock has
 	// moved a window past them, even with no further records. Simulate by backdating the
-	// trace's start so everything recorded above is now older than the window.
+	// recorder's start so everything recorded above is now older than the window.
 	diagnostics.start = diagnostics.start.Add(-2 * diagnosticsWindowMs * time.Millisecond)
 	out = diagnostics.Snapshot()
 	test.That(t, len(out.Samples), test.ShouldEqual, 0)
