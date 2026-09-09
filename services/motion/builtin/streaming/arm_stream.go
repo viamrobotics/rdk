@@ -24,8 +24,8 @@ type armStream struct {
 
 	err error
 
-	// diagnostics receives per-send recordings (velocities, send latency, cumulative
-	// PVAT count); nil disables them, since every StreamDiagnostics method is nil-safe.
+	// diagnostics receives per-send recordings (per-PVAT kinematics, send latency);
+	// nil disables them, since every StreamDiagnostics method is nil-safe.
 	diagnostics *StreamDiagnostics
 }
 
@@ -62,7 +62,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 
 	batch := make([]arm.TrajectoryPoint, 0, len(pvats))
 	for _, p := range pvats {
-		s.diagnostics.recordVelocity(p.positions, p.velocities, p.accelerations)
+		s.diagnostics.recordKinematics(p.positions, p.velocities, p.accelerations)
 		batch = append(batch, arm.TrajectoryPoint{
 			Time:      p.time,
 			Positions: append([]referenceframe.Input(nil), p.positions...),

@@ -187,9 +187,10 @@ func (t *StreamDiagnostics) recordTiming(kind string, d time.Duration) {
 	t.mu.Unlock()
 }
 
-// recordVelocity appends one arm-speed/configuration reading, converting the trajex output's
-// radians to degrees. Safe to call on a nil recorder (no-op) and concurrently.
-func (t *StreamDiagnostics) recordVelocity(positionsRad, velocitiesRadPerSec, accelerationsRadPerSec2 []float64) {
+// recordKinematics appends one PVAT's full kinematic state (positions, velocities,
+// accelerations), converting the trajex output's radians to degrees. Safe to call on a nil
+// recorder (no-op) and concurrently.
+func (t *StreamDiagnostics) recordKinematics(positionsRad, velocitiesRadPerSec, accelerationsRadPerSec2 []float64) {
 	if t == nil {
 		return
 	}

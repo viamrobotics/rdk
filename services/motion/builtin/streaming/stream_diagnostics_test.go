@@ -15,7 +15,7 @@ func TestStreamDiagnosticsNilSafe(t *testing.T) {
 	diagnostics.record(diagChanArmPending, diagOpDequeue, 1, 2)
 	diagnostics.recordEvent(diagEventStreamOpen, "")
 	diagnostics.recordTiming(diagTimingSendPoint, time.Millisecond)
-	diagnostics.recordVelocity([]float64{0.1}, []float64{0.2}, []float64{0.3})
+	diagnostics.recordKinematics([]float64{0.1}, []float64{0.2}, []float64{0.3})
 	test.That(t, diagnostics.Snapshot(), test.ShouldResemble, StreamDiagnosticsOutput{})
 }
 
@@ -26,7 +26,7 @@ func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	diagnostics.recordTiming(diagTimingExtend, 5*time.Millisecond)
 	// Two joints: the second carries the larger |velocity|, so DegPerSec must pick it up rather
 	// than just reporting the first/last joint.
-	diagnostics.recordVelocity(
+	diagnostics.recordKinematics(
 		[]float64{utils.DegToRad(10), utils.DegToRad(-20)},
 		[]float64{utils.DegToRad(15), utils.DegToRad(-42)},
 		[]float64{utils.DegToRad(30), utils.DegToRad(-90)},
@@ -78,7 +78,7 @@ func TestStreamDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
 	diagnostics.record("fresh", diagOpEnqueue, 1, 2)
 	diagnostics.recordEvent("fresh", "")
 	diagnostics.recordTiming("fresh", time.Millisecond)
-	diagnostics.recordVelocity([]float64{0}, []float64{1}, []float64{2})
+	diagnostics.recordKinematics([]float64{0}, []float64{1}, []float64{2})
 
 	out := diagnostics.Snapshot()
 	test.That(t, len(out.Samples), test.ShouldEqual, 1)
