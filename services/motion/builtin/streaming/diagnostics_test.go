@@ -48,7 +48,7 @@ func TestDiagnosticsRecordsAndSnapshots(t *testing.T) {
 
 	test.That(t, len(out.Kinematics), test.ShouldEqual, 1)
 	v := out.Kinematics[0]
-	test.That(t, v.DegPerSec, test.ShouldAlmostEqual, 42.0, 1e-9)
+	test.That(t, v.MaxJointDegPerSec, test.ShouldAlmostEqual, 42.0, 1e-9)
 	test.That(t, len(v.JointDegPerSec), test.ShouldEqual, 2)
 	test.That(t, v.JointDegPerSec[0], test.ShouldAlmostEqual, 15.0, 1e-9)
 	test.That(t, v.JointDegPerSec[1], test.ShouldAlmostEqual, -42.0, 1e-9)

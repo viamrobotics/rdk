@@ -68,13 +68,13 @@ type DiagnosticsTiming struct {
 }
 
 // DiagnosticsKinematics is the arm's kinematic state at one PVAT, taken from the trajex output.
-// DegPerSec collapses JointDegPerSec to a single number for the existing aggregate chart;
+// MaxJointDegPerSec collapses JointDegPerSec to a single number for the existing aggregate chart;
 // JointDegPerSec/JointPositionsDeg/JointAccelDegPerSec2 carry the full per-joint state so a fault
 // right before a trajectory rejection can be attributed to a specific joint instead of just
 // "some joint, somewhere".
 type DiagnosticsKinematics struct {
 	TMs                  float64   `json:"t_ms"`                     // milliseconds since the recording started
-	DegPerSec            float64   `json:"deg_per_sec"`              // max |joint velocity| across all joints for this PVAT
+	MaxJointDegPerSec    float64   `json:"max_joint_deg_per_sec"`    // max |joint velocity| across all joints for this PVAT
 	JointDegPerSec       []float64 `json:"joint_deg_per_sec"`        // per-joint velocity, deg/s, arm DoF order
 	JointPositionsDeg    []float64 `json:"joint_positions_deg"`      // per-joint position, deg, arm DoF order
 	JointAccelDegPerSec2 []float64 `json:"joint_accel_deg_per_sec2"` // per-joint acceleration, deg/s^2, arm DoF order
@@ -214,7 +214,7 @@ func (t *Diagnostics) recordKinematics(positionsRad, velocitiesRadPerSec, accele
 	t.mu.Lock()
 	t.kinematics = append(t.kinematics, DiagnosticsKinematics{
 		TMs:                  tMs,
-		DegPerSec:            maxAbs,
+		MaxJointDegPerSec:    maxAbs,
 		JointDegPerSec:       jointDegPerSec,
 		JointPositionsDeg:    jointPositionsDeg,
 		JointAccelDegPerSec2: jointAccelDegPerSec2,
