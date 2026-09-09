@@ -19,7 +19,7 @@ func Run(
 	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
-	diagnostics *StreamDiagnostics,
+	diagnostics *Diagnostics,
 ) error {
 	return errors.New("arm streaming requires a cgo build with trajex support (build tag viam_rdk_cgo_have_cxx20_rt)")
 }

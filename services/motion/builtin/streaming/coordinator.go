@@ -38,7 +38,7 @@ func Run(
 	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
-	diagnostics *StreamDiagnostics,
+	diagnostics *Diagnostics,
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err

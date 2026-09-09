@@ -25,11 +25,11 @@ type armStream struct {
 
 	err error
 
-	diagnostics *StreamDiagnostics
+	diagnostics *Diagnostics
 }
 
 // newArmStream constructs an armStream and starts its RPC stream to the arm.
-func newArmStream(ctx context.Context, a arm.Arm, diagnostics *StreamDiagnostics) *armStream {
+func newArmStream(ctx context.Context, a arm.Arm, diagnostics *Diagnostics) *armStream {
 	s := &armStream{
 		arm:         a,
 		batchesCh:   make(chan []arm.TrajectoryPoint),

@@ -369,7 +369,7 @@ func (ms *builtIn) PlanHistory(
 //	  response: {
 //	               "running": true,
 //	               "arm": "myArm",                      // present once a session has started
-//	               "diagnostics": {...},                // StreamDiagnosticsOutput; omitted when
+//	               "diagnostics": {...},                // DiagnosticsOutput; omitted when
 //	                                                     // diagnostics:false was requested
 //	               "error": "..."                       // present only once the session has
 //	                                                     // finished with an error

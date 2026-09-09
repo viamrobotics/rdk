@@ -80,11 +80,11 @@ type DiagnosticsKinematics struct {
 	JointAccelDegPerSec2 []float64 `json:"joint_accel_deg_per_sec2"` // per-joint acceleration, deg/s^2, arm DoF order
 }
 
-// StreamDiagnosticsOutput is the snapshot shape returned to callers: occupancy samples, event
+// DiagnosticsOutput is the snapshot shape returned to callers: occupancy samples, event
 // markers, timings, and kinematics recorded so far for one streaming session. StartUnixMs
 // is the wall-clock time the recorder's clock started, so consumers can render the relative
 // t_ms values as timestamps.
-type StreamDiagnosticsOutput struct {
+type DiagnosticsOutput struct {
 	StartUnixMs float64                 `json:"start_unix_ms"`
 	Samples     []DiagnosticsSample     `json:"samples"`
 	Events      []DiagnosticsEvent      `json:"events"`
@@ -92,12 +92,12 @@ type StreamDiagnosticsOutput struct {
 	Kinematics  []DiagnosticsKinematics `json:"kinematics"`
 }
 
-// diagnosticsWindowMs is how much history a StreamDiagnostics retains: entries older than this
+// diagnosticsWindowMs is how much history a Diagnostics retains: entries older than this
 // (relative to the newest activity) are dropped, so a long-running session's recording stays
 // bounded instead of growing without limit.
 const diagnosticsWindowMs = 60_000
 
-// StreamDiagnostics is a flight recorder for one arm-streaming session: queue-occupancy
+// Diagnostics is a flight recorder for one arm-streaming session: queue-occupancy
 // samples, call timings, per-extend outcomes, per-PVAT kinematics, and lifecycle events. Rather
 // than sampling on a timer, the executor records at each enqueue/dequeue, so the recording
 // captures every change point of the pipeline's buffers. Recording happens from the
@@ -107,9 +107,9 @@ const diagnosticsWindowMs = 60_000
 // Only the most recent windowMs of history is retained (and returned by Snapshot); each record
 // prunes entries that have aged out, so memory stays bounded for arbitrarily long sessions.
 //
-// A nil *StreamDiagnostics is valid: every method is a nil-safe no-op, so tracing can be disabled by
+// A nil *Diagnostics is valid: every method is a nil-safe no-op, so tracing can be disabled by
 // simply not providing one.
-type StreamDiagnostics struct {
+type Diagnostics struct {
 	mu         sync.Mutex
 	start      time.Time
 	windowMs   float64
@@ -120,8 +120,8 @@ type StreamDiagnostics struct {
 }
 
 // NewDiagnostics returns an empty recorder whose clock starts now.
-func NewDiagnostics() *StreamDiagnostics {
-	return &StreamDiagnostics{start: time.Now(), windowMs: diagnosticsWindowMs}
+func NewDiagnostics() *Diagnostics {
+	return &Diagnostics{start: time.Now(), windowMs: diagnosticsWindowMs}
 }
 
 // pruneBefore drops the aged prefix of a time-ordered slice by reslicing, which costs only
@@ -136,7 +136,7 @@ func pruneBefore[T any](items []T, tMs func(T) float64, cutoffMs float64) []T {
 }
 
 // pruneLocked drops every entry older than the window behind nowMs. Callers hold t.mu.
-func (t *StreamDiagnostics) pruneLocked(nowMs float64) {
+func (t *Diagnostics) pruneLocked(nowMs float64) {
 	cutoff := nowMs - t.windowMs
 	t.samples = pruneBefore(t.samples, func(s DiagnosticsSample) float64 { return s.TMs }, cutoff)
 	t.events = pruneBefore(t.events, func(e DiagnosticsEvent) float64 { return e.TMs }, cutoff)
@@ -146,7 +146,7 @@ func (t *StreamDiagnostics) pruneLocked(nowMs float64) {
 
 // record appends one occupancy sample. Safe to call on a nil recorder (no-op) so call sites need
 // no guard, and safe to call concurrently.
-func (t *StreamDiagnostics) record(ch, op string, length, capacity int) {
+func (t *Diagnostics) record(ch, op string, length, capacity int) {
 	if t == nil {
 		return
 	}
@@ -158,7 +158,7 @@ func (t *StreamDiagnostics) record(ch, op string, length, capacity int) {
 }
 
 // recordEvent appends one lifecycle marker. Safe to call on a nil recorder (no-op) and concurrently.
-func (t *StreamDiagnostics) recordEvent(kind, label string) {
+func (t *Diagnostics) recordEvent(kind, label string) {
 	if t == nil {
 		return
 	}
@@ -170,7 +170,7 @@ func (t *StreamDiagnostics) recordEvent(kind, label string) {
 }
 
 // recordTiming appends one measured call duration. Safe to call on a nil recorder (no-op) and concurrently.
-func (t *StreamDiagnostics) recordTiming(kind string, d time.Duration) {
+func (t *Diagnostics) recordTiming(kind string, d time.Duration) {
 	if t == nil {
 		return
 	}
@@ -189,7 +189,7 @@ func (t *StreamDiagnostics) recordTiming(kind string, d time.Duration) {
 // recordKinematics appends one PVAT's full kinematic state (positions, velocities,
 // accelerations), converting the trajex output's radians to degrees. Safe to call on a nil
 // recorder (no-op) and concurrently.
-func (t *StreamDiagnostics) recordKinematics(positionsRad, velocitiesRadPerSec, accelerationsRadPerSec2 []float64) {
+func (t *Diagnostics) recordKinematics(positionsRad, velocitiesRadPerSec, accelerationsRadPerSec2 []float64) {
 	if t == nil {
 		return
 	}
@@ -225,9 +225,9 @@ func (t *StreamDiagnostics) recordKinematics(positionsRad, velocitiesRadPerSec, 
 
 // Snapshot returns a copy of the samples, events, timings, and kinematics recorded so far.
 // Safe to call on a nil recorder (returns the zero value).
-func (t *StreamDiagnostics) Snapshot() StreamDiagnosticsOutput {
+func (t *Diagnostics) Snapshot() DiagnosticsOutput {
 	if t == nil {
-		return StreamDiagnosticsOutput{}
+		return DiagnosticsOutput{}
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -242,7 +242,7 @@ func (t *StreamDiagnostics) Snapshot() StreamDiagnosticsOutput {
 	copy(timings, t.timings)
 	kinematics := make([]DiagnosticsKinematics, len(t.kinematics))
 	copy(kinematics, t.kinematics)
-	return StreamDiagnosticsOutput{
+	return DiagnosticsOutput{
 		StartUnixMs: float64(t.start.UnixMilli()),
 		Samples:     samples,
 		Events:      events,

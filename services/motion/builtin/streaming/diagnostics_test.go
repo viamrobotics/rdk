@@ -10,16 +10,16 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func TestStreamDiagnosticsNilSafe(t *testing.T) {
-	var diagnostics *StreamDiagnostics
+func TestDiagnosticsNilSafe(t *testing.T) {
+	var diagnostics *Diagnostics
 	diagnostics.record(diagChanArmPending, diagOpDequeue, 1, 2)
 	diagnostics.recordEvent(diagEventStreamOpen, "")
 	diagnostics.recordTiming(diagTimingSendPoint, time.Millisecond)
 	diagnostics.recordKinematics([]float64{0.1}, []float64{0.2}, []float64{0.3})
-	test.That(t, diagnostics.Snapshot(), test.ShouldResemble, StreamDiagnosticsOutput{})
+	test.That(t, diagnostics.Snapshot(), test.ShouldResemble, DiagnosticsOutput{})
 }
 
-func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
+func TestDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	diagnostics := NewDiagnostics()
 	diagnostics.record(diagChanPlanQ, diagOpEnqueue, 3, 10)
 	diagnostics.recordEvent(diagEventTrajexSessionOpen, "")
@@ -64,7 +64,7 @@ func TestStreamDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	test.That(t, len(out.Samples), test.ShouldEqual, 1)
 }
 
-func TestStreamDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
+func TestDiagnosticsRetainsOnlyTheWindow(t *testing.T) {
 	diagnostics := NewDiagnostics()
 
 	// Inject entries well older than the window directly, then record fresh ones: the

@@ -58,7 +58,7 @@ type stream struct {
 	// safe to read after done is closed.
 	err error
 
-	diagnostics *streaming.StreamDiagnostics
+	diagnostics *streaming.Diagnostics
 }
 
 func (s *stream) finished() bool {
