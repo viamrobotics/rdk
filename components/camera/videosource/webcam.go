@@ -318,6 +318,11 @@ func (c *webcam) startMonitorWorker() {
 					}
 
 					c.mu.Lock()
+					// The camera may have gone idle during the probe; reconnecting then would leak a driver on wake.
+					if c.idleState != stateStreaming {
+						c.mu.Unlock()
+						continue
+					}
 					c.disconnected = true
 					c.mu.Unlock()
 
