@@ -470,21 +470,9 @@ func TestModuleGetPlatformsForModule(t *testing.T) {
 	test.That(t, platforms, test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
 }
 
-// testChdir is os.Chdir scoped to a test.
-// Necessary because Getwd() fails if run on a deleted path.
-func testChdir(t *testing.T, dest string) {
-	t.Helper()
-	orig, err := os.Getwd()
-	test.That(t, err, test.ShouldBeNil)
-	//nolint: usetesting
-	os.Chdir(dest)
-	//nolint: usetesting
-	t.Cleanup(func() { os.Chdir(orig) })
-}
-
 func TestLocalBuild(t *testing.T) {
 	testDir := t.TempDir()
-	testChdir(t, testDir)
+	t.Chdir(testDir)
 
 	setupScriptCmd, setupFile, setupContent := "./setup.sh", "setup.sh", "echo setup step msg"
 	buildCmd, buildFile, buildContent := "make build", "Makefile", "make build:\n\techo build step msg"

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/jpeg"
 	"sync"
 	"time"
 
@@ -429,7 +430,13 @@ func (c *webcam) readFrame() {
 	if err != nil {
 		c.buffer.release = nil
 		c.buffer.frame = nil
-		c.logger.Errorw("error reading frame", "error", err)
+
+		var jpegErr jpeg.FormatError
+		if errors.As(err, &jpegErr) {
+			c.logger.Debugw("dropped corrupt frame (usually benign, investigate only if continuous)", "error", err)
+		} else {
+			c.logger.Errorw("error reading frame", "error", err)
+		}
 		return
 	}
 	c.buffer.frame = img
