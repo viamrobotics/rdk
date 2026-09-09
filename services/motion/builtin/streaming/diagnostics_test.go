@@ -52,12 +52,12 @@ func TestDiagnosticsRecordsAndSnapshots(t *testing.T) {
 	test.That(t, len(v.JointDegPerSec), test.ShouldEqual, 2)
 	test.That(t, v.JointDegPerSec[0], test.ShouldAlmostEqual, 15.0, 1e-9)
 	test.That(t, v.JointDegPerSec[1], test.ShouldAlmostEqual, -42.0, 1e-9)
-	test.That(t, len(v.JointPositionsDeg), test.ShouldEqual, 2)
-	test.That(t, v.JointPositionsDeg[0], test.ShouldAlmostEqual, 10.0, 1e-9)
-	test.That(t, v.JointPositionsDeg[1], test.ShouldAlmostEqual, -20.0, 1e-9)
-	test.That(t, len(v.JointAccelDegPerSec2), test.ShouldEqual, 2)
-	test.That(t, v.JointAccelDegPerSec2[0], test.ShouldAlmostEqual, 30.0, 1e-9)
-	test.That(t, v.JointAccelDegPerSec2[1], test.ShouldAlmostEqual, -90.0, 1e-9)
+	test.That(t, len(v.JointDeg), test.ShouldEqual, 2)
+	test.That(t, v.JointDeg[0], test.ShouldAlmostEqual, 10.0, 1e-9)
+	test.That(t, v.JointDeg[1], test.ShouldAlmostEqual, -20.0, 1e-9)
+	test.That(t, len(v.JointDegPerSec2), test.ShouldEqual, 2)
+	test.That(t, v.JointDegPerSec2[0], test.ShouldAlmostEqual, 30.0, 1e-9)
+	test.That(t, v.JointDegPerSec2[1], test.ShouldAlmostEqual, -90.0, 1e-9)
 
 	// Snapshot returns a copy: further recording must not mutate the earlier snapshot.
 	diagnostics.record(diagChanPlanQ, diagOpDequeue, 0, 10)
