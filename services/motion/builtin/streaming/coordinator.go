@@ -52,10 +52,7 @@ func Run(
 	ctx, cancel := context.WithCancel(ctx)
 	// Start the arm RPC stream.
 	as := newArmStream(ctx, a, diagnostics)
-	diagnostics.recordEvent(diagEventStreamOpen, "")
 	defer func() {
-		// Record the stream close on both the error and success paths.
-		defer diagnostics.recordEvent(diagEventStreamClose, "")
 		if err != nil {
 			// On error, cancel first so that the RPC gets interrupted.
 			// as.close() will typically return a cancellation error (due to the

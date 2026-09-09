@@ -42,12 +42,17 @@ func newArmStream(ctx context.Context, a arm.Arm, diagnostics *StreamDiagnostics
 		diagnostics: diagnostics,
 	}
 
+	// Recorded synchronously, so it always precedes anything the caller records next.
+	s.diagnostics.recordEvent(diagEventStreamOpen, "")
 	go func() {
 		err := s.arm.MoveThroughJointPositionsStreamed(ctx, s.batchesCh, s.responsesCh, nil)
 		// Cancellation is the session shutting the RPC down on purpose, not the stream dying.
 		if err != nil && !errors.Is(err, context.Canceled) {
 			s.diagnostics.recordEvent(diagEventStreamDied, err.Error())
 		}
+		// Recorded before moveThroughJointPositionsStreamedReturned closes, so the event is
+		// in the recording by the time close() returns.
+		s.diagnostics.recordEvent(diagEventStreamClose, "")
 		s.err = err
 		close(s.responsesCh)
 		close(s.moveThroughJointPositionsStreamedReturned)
