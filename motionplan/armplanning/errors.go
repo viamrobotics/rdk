@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -20,6 +21,34 @@ var (
 
 	errIKConstraint = "all IK solutions failed constraints. Failures: "
 )
+
+// newImmovableGoalError is returned when a goal is unsatisfiable by construction rather than
+// merely hard: no DoF moves the frame being moved, and planning only reconfigures that frame
+// and its ancestors.
+func newImmovableGoalError(fs *referenceframe.FrameSystem, moveFrameName, goalFrameName string) error {
+	return fmt.Errorf(
+		"cannot move frame %q relative to %q: no DoF moves %q, so planning cannot reposition it. %q is rigidly "+
+			"attached to the world frame through: %s. Check that the frame being moved is one which some DoF "+
+			"actually moves, such as an arm or a frame mounted on one",
+		moveFrameName, goalFrameName, moveFrameName, moveFrameName, chainToWorldDescription(fs, moveFrameName))
+}
+
+// chainToWorldDescription renders a frame's parentage as "frame -> parent -> ... -> world".
+func chainToWorldDescription(fs *referenceframe.FrameSystem, frameName string) string {
+	frame := fs.Frame(frameName)
+	if frame == nil {
+		return frameName
+	}
+	chain, err := fs.TracebackFrame(frame)
+	if err != nil {
+		return frameName
+	}
+	names := make([]string, 0, len(chain))
+	for _, f := range chain {
+		names = append(names, f.Name())
+	}
+	return strings.Join(names, " -> ")
+}
 
 // NewAlgAndConstraintMismatchErr is returned when an incompatible planning_alg is specified and there are contraints.
 func NewAlgAndConstraintMismatchErr(planAlg string) error {
