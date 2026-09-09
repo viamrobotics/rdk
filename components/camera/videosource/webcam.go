@@ -248,6 +248,7 @@ func (c *webcam) startMonitorWorker() {
 						c.mu.Lock()
 						c.sawOtherSameName = true
 						c.mu.Unlock()
+						logger.Warnw("another device shares this camera's hardware name; reconnecting by name is disabled", "name", targetName)
 					}
 					continue
 				}
