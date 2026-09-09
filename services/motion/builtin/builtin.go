@@ -365,8 +365,7 @@ func (ms *builtIn) PlanHistory(
 //	  request:  {"stream_status": true}                 // or {"stream_status": {"diagnostics": false}}
 //	                                                      // for a cheap poll that skips the
 //	                                                      // (potentially large) diagnostics
-//	                                                      // snapshot, which holds the session's
-//	                                                      // most recent 60s of pipeline history
+//	                                                      // snapshot
 //	  response: {
 //	               "running": true,
 //	               "arm": "myArm",                      // present once a session has started
@@ -375,8 +374,6 @@ func (ms *builtIn) PlanHistory(
 //	               "error": "..."                       // present only once the session has
 //	                                                     // finished with an error
 //	             }
-//
-// The flush and abort responses never include the diagnostics; fetch them via DoStreamStatus.
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
