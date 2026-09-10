@@ -23,7 +23,7 @@ static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 static-release-win:
 	rm -f bin/static/viam-server-windows.exe
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags no_cgo $(LDFLAGS) -o bin/static/viam-server-windows.exe ./web/cmd/server
-	mise x -- upx --best --lzma bin/static/viam-server-windows.exe
+	upx --best --lzma bin/static/viam-server-windows.exe
 	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe
 
 	rm -rf etc/packaging/static/deploy/
