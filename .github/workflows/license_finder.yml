@@ -36,4 +36,4 @@ jobs:
 
     - name: Run license finder
       run: |
-        sudo -Hu testbot bash -lc 'make license-check'
+        make license-check
