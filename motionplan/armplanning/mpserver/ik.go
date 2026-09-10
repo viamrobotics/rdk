@@ -1,3 +1,4 @@
+// nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (
@@ -34,15 +35,16 @@ type IKInspectCell struct {
 	CheckPathOK    bool
 	CheckPathError error
 
-	// LastGoodInputs is the last interpolated configuration along the start→solution path before
-	// CheckPathError's problem was hit. Only set when CheckPathOK is false.
-	LastGoodInputs *referenceframe.LinearInputs
+	// CheckPathFeedback carries diagnostics from the CheckPath call, including the last
+	// configuration along the interpolated path that still satisfied all constraints. Only
+	// meaningful when CheckPathOK is false.
+	CheckPathFeedback armplanning.PathFeedback
 }
 
 //nolint:revive
 type IKInspectTable struct {
-	Rows       [][]IKInspectCell
-	SeedLabels []string
+	SeedResults [][]IKInspectCell
+	SeedLabels  []string
 }
 
 //nolint:revive
@@ -101,10 +103,10 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 			wg.Done()
 		}()
 
-		rowIdx := len(ret.Rows)
-		ret.Rows = append(ret.Rows, make([]IKInspectCell, 0, 10))
-		cells := &ret.Rows[rowIdx]
-		for len(ret.Rows[rowIdx]) < 10 {
+		rowIdx := len(ret.SeedResults)
+		ret.SeedResults = append(ret.SeedResults, make([]IKInspectCell, 0, numSolutions))
+		cells := &ret.SeedResults[rowIdx]
+		for len(ret.SeedResults[rowIdx]) < numSolutions {
 			select {
 			case <-ctxWithCancel.Done():
 				// Solver error
@@ -131,13 +133,13 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 				*cells = append(*cells, IKInspectCell{
 					Cost: pc.ConfigurationDistanceFunc(stepArc) +
 						armplanning.NeutralBias(linearSchema.GetLimits(), solution.Configuration),
-					Exact:          solution.Exact,
-					Inputs:         inputs,
-					Valid:          finalStateErr == nil,
-					StateError:     finalStateErr,
-					CheckPathOK:    pathError == nil,
-					CheckPathError: pathError,
-					LastGoodInputs: pathFeedback.LastGoodInputs,
+					Exact:             solution.Exact,
+					Inputs:            inputs,
+					Valid:             finalStateErr == nil,
+					StateError:        finalStateErr,
+					CheckPathOK:       pathError == nil,
+					CheckPathError:    pathError,
+					CheckPathFeedback: pathFeedback,
 				})
 			}
 		}

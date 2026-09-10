@@ -243,6 +243,7 @@ func (psc *PlanSegmentContext) CheckPath(
 			IsObstacleCollision: strings.Contains(err.Error(), motionplan.ObstacleConstraintDescription) ||
 				strings.Contains(err.Error(), motionplan.RobotCollisionConstraintDescription),
 		}
+
 		// validSegment is nil when the very first state of the segment fails.
 		if validSegment != nil {
 			fb.LastGoodInputs = validSegment.EndConfiguration
