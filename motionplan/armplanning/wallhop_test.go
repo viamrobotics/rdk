@@ -18,7 +18,15 @@ import (
 // blocked by a wall large enough that the nudge cannot skirt it; the cheap
 // ladder (roadmap et al.) must solve it without falling back to a cBiRRT
 // search.
+//
+// The assertion is about the cheap ladder being sufficient, so it pins the
+// sequential ordering. Under the default racing order the searches always run
+// too, and whichever finishes first is credited - which says nothing about
+// whether the ladder could have solved the scene alone.
 func TestWallHopWithoutSearch(t *testing.T) {
+	defer func(prev bool) { roadmapRacesSearch = prev }(roadmapRacesSearch)
+	roadmapRacesSearch = false
+
 	logger := logging.NewTestLogger(t)
 	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "arm")
 	test.That(t, err, test.ShouldBeNil)
