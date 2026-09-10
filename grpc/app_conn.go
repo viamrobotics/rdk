@@ -8,9 +8,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/grpchelpers"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/connectivity"
@@ -135,25 +137,7 @@ func jwtCacheWrite(partID, host, jwt string) error {
 		return err
 	}
 
-	// atomic write - this duplicates the atomic write in goutils so we don't
-	// have to pull goutils.artifact and all its dependencies into grpc
-	tmpFile, err := os.CreateTemp(cacheDir, "*.jwt.tmp")
-	if err != nil {
-		return err
-	}
-	_, err = tmpFile.WriteString(jwt)
-	if err != nil {
-		return errors.Join(err, tmpFile.Close(), os.Remove(tmpFile.Name()))
-	}
-	err = tmpFile.Close()
-	if err != nil {
-		return errors.Join(err, os.Remove(tmpFile.Name()))
-	}
-	err = os.Rename(tmpFile.Name(), jwtPath)
-	if err != nil {
-		return errors.Join(err, os.Remove(tmpFile.Name()))
-	}
-	return nil
+	return artifact.AtomicStore(jwtPath, strings.NewReader(jwt), "*.jwt.tmp")
 }
 
 func jwtCacheRead(partID, host string) (string, error) {
