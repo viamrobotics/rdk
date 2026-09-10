@@ -37,9 +37,11 @@ func fakeReader() video.Reader {
 }
 
 // fakeOpener stands in for findReaderAndDriver. Each call blocks on gate (if set), then fails if
-// fail is set, otherwise hands back a fresh reader and the shared driver.
+// fail is set, otherwise hands back a counting reader and the shared driver. The reader's Nth frame
+// (1-based) is N pixels wide so tests can tell how many frames were consumed before one was buffered.
 type fakeOpener struct {
 	opens  atomic.Int32
+	reads  atomic.Int32
 	fail   atomic.Bool
 	gate   chan struct{}
 	driver *fakeDriver
@@ -53,7 +55,11 @@ func (o *fakeOpener) open(*WebcamConfig, string, logging.Logger) (video.Reader, 
 	if o.fail.Load() {
 		return nil, nil, "", errors.New("camera busy")
 	}
-	return fakeReader(), o.driver, "fake", nil
+	reader := video.ReaderFunc(func() (image.Image, func(), error) {
+		n := int(o.reads.Add(1))
+		return image.NewRGBA(image.Rect(0, 0, n, 1)), func() {}, nil
+	})
+	return reader, o.driver, "fake", nil
 }
 
 const testIdleTimeoutMs = 100
@@ -116,6 +122,21 @@ func TestWebcamIdleTimeout(t *testing.T) {
 		test.That(t, second.closes.Load(), test.ShouldEqual, int32(1))
 		_, _, err = c.Images(ctx, nil, nil)
 		test.That(t, errors.Is(err, errClosed), test.ShouldBeTrue)
+	})
+
+	t.Run("discards warmup frames after wake", func(t *testing.T) {
+		opener := &fakeOpener{driver: &fakeDriver{}}
+		c := newFakeWebcam(t, testIdleTimeoutMs, &fakeDriver{}, opener)
+		waitIdle(t, c)
+
+		imgs, _, err := c.Images(ctx, nil, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, imgs, test.ShouldHaveLength, 1)
+		img, err := imgs[0].Image(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		// The buffer worker may have read further by now, so only assert the discarded frames never surfaced.
+		test.That(t, img.Bounds().Dx(), test.ShouldBeGreaterThan, defaultWakeDiscardFrames)
+		test.That(t, opener.reads.Load(), test.ShouldBeGreaterThanOrEqualTo, int32(defaultWakeDiscardFrames+1))
 	})
 
 	t.Run("concurrent callers share one reopen", func(t *testing.T) {

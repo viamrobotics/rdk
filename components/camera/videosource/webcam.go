@@ -40,6 +40,9 @@ const (
 	resWarnInterval  = 10 * time.Minute
 	// defaultWakeTimeout bounds how long Images waits for an idle camera to reopen and deliver a frame.
 	defaultWakeTimeout = 15 * time.Second
+	// defaultWakeDiscardFrames is how many frames wake drops after reopening; the sensor's auto-exposure
+	// needs a few frames to settle, and a one-off GetImage caller should not receive a washed-out one.
+	defaultWakeDiscardFrames = 3
 )
 
 // openCameraFunc opens the camera described by the config; findReaderAndDriver in production.
@@ -125,13 +128,14 @@ type webcam struct {
 	// idleTimeout > 0: buffer worker closes the camera after idleTimeout without an Images call and
 	// reopens it when Images signals wakeCh. readyCh is non-nil whenever idleState != stateStreaming
 	// and is closed once the reopen attempt finishes, successfully or not.
-	idleTimeout time.Duration
-	wakeTimeout time.Duration
-	lastAccess  time.Time
-	idleState   idleState
-	wakeCh      chan struct{}
-	readyCh     chan struct{}
-	openCamera  openCameraFunc
+	idleTimeout       time.Duration
+	wakeTimeout       time.Duration
+	wakeDiscardFrames int
+	lastAccess        time.Time
+	idleState         idleState
+	wakeCh            chan struct{}
+	readyCh           chan struct{}
+	openCamera        openCameraFunc
 
 	logger          logging.Logger
 	buffer          *webcamBuffer
@@ -207,20 +211,21 @@ func newWebcam(
 		conf.FrameRate = defaultFrameRate
 	}
 	c := &webcam{
-		Named:       name.AsNamed(),
-		workers:     goutils.NewBackgroundStoppableWorkers(),
-		cameraModel: camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParameters, conf.DistortionParameters),
-		reader:      reader,
-		driver:      driver,
-		targetPath:  targetPath,
-		conf:        conf,
-		idleTimeout: time.Duration(conf.IdleTimeoutMs) * time.Millisecond,
-		wakeTimeout: defaultWakeTimeout,
-		lastAccess:  time.Now(),
-		wakeCh:      make(chan struct{}, 1),
-		openCamera:  openCamera,
-		logger:      logger,
-		buffer:      newWebcamBuffer(),
+		Named:             name.AsNamed(),
+		workers:           goutils.NewBackgroundStoppableWorkers(),
+		cameraModel:       camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParameters, conf.DistortionParameters),
+		reader:            reader,
+		driver:            driver,
+		targetPath:        targetPath,
+		conf:              conf,
+		idleTimeout:       time.Duration(conf.IdleTimeoutMs) * time.Millisecond,
+		wakeTimeout:       defaultWakeTimeout,
+		wakeDiscardFrames: defaultWakeDiscardFrames,
+		lastAccess:        time.Now(),
+		wakeCh:            make(chan struct{}, 1),
+		openCamera:        openCamera,
+		logger:            logger,
+		buffer:            newWebcamBuffer(),
 	}
 	c.startMonitorWorker()
 	c.startBufferWorker()
@@ -462,8 +467,23 @@ func (c *webcam) goIdle() {
 	}
 }
 
-// wake reopens an idle camera, reads a first frame, and releases Images callers blocked on readyCh.
-// On failure the camera is marked disconnected and the monitor worker takes over reconnection.
+// discardFrames reads and drops up to n frames so auto-exposure can settle after a reopen. Stops at the
+// first read error and leaves it for readFrame to surface. Must be called without mu held.
+func (c *webcam) discardFrames(reader video.Reader, n int) {
+	for i := 0; i < n; i++ {
+		_, release, err := reader.Read()
+		if err != nil {
+			return
+		}
+		if release != nil {
+			release()
+		}
+	}
+}
+
+// wake reopens an idle camera, drops the first few frames, reads one into the buffer, and releases
+// Images callers blocked on readyCh. On failure the camera is marked disconnected and the monitor
+// worker takes over reconnection.
 func (c *webcam) wake() {
 	c.mu.Lock()
 	if c.idleState != stateIdle {
@@ -490,9 +510,11 @@ func (c *webcam) wake() {
 	}
 	c.attachLocked(reader, driver)
 	c.lastAccess = time.Now()
+	discard := c.wakeDiscardFrames
 	c.mu.Unlock()
 
-	logger.Debug("camera reopened after idle")
+	logger.Debugw("camera reopened after idle", "discard_frames", discard)
+	c.discardFrames(reader, discard)
 	c.readFrame()
 
 	c.mu.Lock()
