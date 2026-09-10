@@ -30,19 +30,19 @@ jobs:
         # images (antique-validate keeps that path green).
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-focal:amd64
             platform: linux/amd64
             target: static-release
             sign_cmd_arg: ''
             build_tags_arg: 'GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt'
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/rdk-focal:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-focal:arm64
             platform: linux/arm64
             target: static-release
             sign_cmd_arg: ''
             build_tags_arg: 'GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt'
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-focal:amd64
             platform: linux/amd64
             target: static-release-win
             sign_cmd_arg: 'SIGN_CMD=/tmp/sign-binary.sh'
@@ -206,10 +206,10 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            image: ghcr.io/viamrobotics/antique2:amd64
             platform: linux/amd64
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/antique2:arm64-cache
+            image: ghcr.io/viamrobotics/antique2:arm64
             platform: linux/arm64
     runs-on: ${{ matrix.arch }}
     container:
