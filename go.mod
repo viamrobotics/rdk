@@ -386,3 +386,5 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 )
+
+replace github.com/viam-modules/trajex/go => ../trajex/go

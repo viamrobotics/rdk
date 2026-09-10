@@ -23,9 +23,12 @@ import (
 // estimate of how much runway the arm has buffered on its side, and only samples out of
 // trajex enough to keep that runway topped up to the user-configured TargetRunwayInArmMs.
 //
-// Trajex, however, does not provide any backpressure to the client: If the client sends
+// Trajex itself does not provide any backpressure to the client: If the client sends
 // joint positions faster than the arm executes them as per the trajectory output by trajex,
-// trajectory simply accumulates inside the trajex session.
+// trajectory simply accumulates inside the trajex session. When opts.MaxTrajexRunwayMs is
+// positive, `Run` provides that backpressure instead: it stops receiving from jpCh while
+// the trajectory buffered inside trajex exceeds that cap, so the pusher stays blocked in
+// its channel send until sampling drains the runway back under the cap.
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
 // executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
@@ -35,6 +38,7 @@ func Run(
 	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
+	diagnostics *Diagnostics,
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err
@@ -43,7 +47,7 @@ func Run(
 	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
 	// Start the arm RPC stream.
-	as := newArmStream(ctx, a)
+	as := newArmStream(ctx, a, diagnostics)
 	defer func() {
 		if err != nil {
 			// On error, cancel first so that the RPC gets interrupted.
@@ -65,21 +69,35 @@ func Run(
 	if err := ts.startSession(seed); err != nil {
 		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}
-	defer ts.close()
+	diagnostics.recordEvent(diagEventTrajexSessionOpen, "")
+	defer func() {
+		ts.close()
+		diagnostics.recordEvent(diagEventTrajexSessionClose, "")
+	}()
 
 	targetRunway := time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond
+	maxTrajexRunway := time.Duration(opts.MaxTrajexRunwayMs) * time.Millisecond
 
 	sendToArmTicker := time.NewTicker(time.Duration(opts.SendToArmIntervalMs) * time.Millisecond)
 	defer sendToArmTicker.Stop()
 
 	for {
+		// While the trajectory buffered inside trajex is over the cap, receive from a nil
+		// channel instead of jpCh so no new target can be accepted; the ticker case still
+		// samples trajectory out toward the arm, and the gate reopens once that drains the
+		// runway under the cap. Ending the session (ctx cancellation here, flush or abort
+		// on the pusher's side) unblocks a gated push through the existing paths.
+		gatedJpCh := jpCh
+		if maxTrajexRunway > 0 && ts.trajexRunway() >= maxTrajexRunway {
+			gatedJpCh = nil
+		}
 		select {
 		// Cancel was called.
 		case <-ctx.Done():
 			return ctx.Err()
 
 		// A new set of joint positions is available.
-		case jp, ok := <-jpCh:
+		case jp, ok := <-gatedJpCh:
 			if !ok {
 				// jpCh closed: no more targets can arrive, so nothing can pivot the remaining
 				// trajectory. Send all of it to the arm now, in targetRunway-sized batches.
@@ -96,9 +114,22 @@ func Run(
 					}
 				}
 			}
+			diagnostics.record(diagChanPlanQ, diagOpDequeue, len(jpCh), cap(jpCh))
 
 			// Add the new joint positions to the trajex session.
-			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
+			extendStart := time.Now()
+			extended, err := ts.addJointPositionsToSession(ctx, jp.Positions)
+			diagnostics.recordTiming(diagDurationExtend, time.Since(extendStart))
+			diagnostics.record(diagChanTrajexRunway, diagOpEnqueue, int(ts.trajexRunway().Milliseconds()), 0)
+			if extended {
+				disposition, marginMS, hasMargin := ts.lastExtendBranch()
+				marginValid := 0
+				if hasMargin {
+					marginValid = 1
+				}
+				diagnostics.record(diagChanExtendBranch, disposition, marginMS, marginValid)
+			}
+			if err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 
@@ -117,7 +148,10 @@ func Run(
 }
 
 func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
-	deficit := targetRunway - s.currentEstimatedRunwayInArm()
+	estimatedRunway := s.currentEstimatedRunwayInArm()
+	s.diagnostics.record(diagChanArmPending, diagOpDequeue,
+		int(estimatedRunway.Milliseconds()), int(targetRunway.Milliseconds()))
+	deficit := targetRunway - estimatedRunway
 	if deficit <= 0 {
 		return nil
 	}
@@ -128,5 +162,10 @@ func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway t
 	if len(pvats) == 0 {
 		return nil
 	}
-	return s.send(ctx, pvats)
+	s.diagnostics.record(diagChanTrajexRunway, diagOpDequeue, int(ts.trajexRunway().Milliseconds()), 0)
+	if err := s.send(ctx, pvats); err != nil {
+		return err
+	}
+	s.diagnostics.recordTiming(diagDurationTrajSent, deficit)
+	return nil
 }

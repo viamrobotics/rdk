@@ -120,6 +120,45 @@ func TestDoCommandsHappyPath(t *testing.T) {
 	test.That(t, streams >= 1, test.ShouldBeTrue)
 }
 
+// TestDoCommandArmStreamingStatusDiagnosticsOptOut checks that stream_status includes the diagnostics
+// snapshot by default (bare true, or the key present with no value), but omits it when the
+// caller explicitly opts out via {"diagnostics": false} -- the cheap-poll path a client should use
+// while it only cares about "running"/"error", saving it from re-fetching and re-serializing
+// the whole accumulated diagnostics window on every poll.
+func TestDoCommandArmStreamingStatusDiagnosticsOptOut(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	ctx := context.Background()
+
+	_, err := ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// default (bare true): diagnostics included
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	test.That(t, err, test.ShouldBeNil)
+	_, hasDiagnostics := resp["diagnostics"]
+	test.That(t, hasDiagnostics, test.ShouldBeTrue)
+
+	// explicit opt-in: diagnostics included
+	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"diagnostics": true}})
+	test.That(t, err, test.ShouldBeNil)
+	_, hasDiagnostics = resp["diagnostics"]
+	test.That(t, hasDiagnostics, test.ShouldBeTrue)
+
+	// explicit opt-out: diagnostics omitted, but running/arm are still reported
+	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"diagnostics": false}})
+	test.That(t, err, test.ShouldBeNil)
+	_, hasDiagnostics = resp["diagnostics"]
+	test.That(t, hasDiagnostics, test.ShouldBeFalse)
+	test.That(t, resp["running"], test.ShouldEqual, true)
+	test.That(t, resp["arm"], test.ShouldEqual, "arm")
+
+	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestDoCommandsUsedIncorrectly(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	ctx := context.Background()

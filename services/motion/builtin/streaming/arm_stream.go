@@ -2,6 +2,7 @@ package streaming
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -23,20 +24,30 @@ type armStream struct {
 	moveThroughJointPositionsStreamedReturned chan struct{}
 
 	err error
+
+	diagnostics *Diagnostics
 }
 
 // newArmStream constructs an armStream and starts its RPC stream to the arm.
-func newArmStream(ctx context.Context, a arm.Arm) *armStream {
+func newArmStream(ctx context.Context, a arm.Arm, diagnostics *Diagnostics) *armStream {
 	s := &armStream{
 		arm:         a,
 		batchesCh:   make(chan []arm.TrajectoryPoint),
 		responsesCh: make(chan arm.Response),
 
 		moveThroughJointPositionsStreamedReturned: make(chan struct{}),
+
+		diagnostics: diagnostics,
 	}
 
+	s.diagnostics.recordEvent(diagEventStreamOpen, "")
 	go func() {
 		err := s.arm.MoveThroughJointPositionsStreamed(ctx, s.batchesCh, s.responsesCh, nil)
+		// Cancellation is the session shutting the RPC down on purpose, not the stream dying.
+		if err != nil && !errors.Is(err, context.Canceled) {
+			s.diagnostics.recordEvent(diagEventStreamDied, err.Error())
+		}
+		s.diagnostics.recordEvent(diagEventStreamClose, "")
 		s.err = err
 		close(s.responsesCh)
 		close(s.moveThroughJointPositionsStreamedReturned)
@@ -56,6 +67,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 
 	batch := make([]arm.TrajectoryPoint, 0, len(pvats))
 	for _, p := range pvats {
+		s.diagnostics.recordKinematics(p.positions, p.velocities, p.accelerations)
 		batch = append(batch, arm.TrajectoryPoint{
 			Time:      p.time,
 			Positions: append([]referenceframe.Input(nil), p.positions...),
@@ -66,6 +78,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		})
 	}
 
+	sendStart := time.Now()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -73,6 +86,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		return fmt.Errorf("arm streaming RPC ended before batch could be sent: %w", s.err)
 	case s.batchesCh <- batch:
 	}
+	s.diagnostics.recordTiming(diagDurationSendPoint, time.Since(sendStart))
 
 	s.timeInTrajectoryClockOfLastSentPVAT = batch[len(batch)-1].Time
 	if s.timeFirstBatchWasSent.IsZero() {
