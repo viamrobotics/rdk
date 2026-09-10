@@ -1362,6 +1362,310 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 	})
 }
 
+func TestMachinesPartConfigAction(t *testing.T) {
+	partID := "test-part-id"
+	partName := "test-part"
+
+	currentConf, err := structpb.NewStruct(map[string]any{"components": []any{}, "marker": "current"})
+	test.That(t, err, test.ShouldBeNil)
+	oldConf, err := structpb.NewStruct(map[string]any{"components": []any{}, "marker": "old"})
+	test.That(t, err, test.ShouldBeNil)
+
+	getRobotPartFunc := func(ctx context.Context, in *apppb.GetRobotPartRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartResponse, error) {
+		test.That(t, in.Id, test.ShouldEqual, partID)
+		return &apppb.GetRobotPartResponse{
+			Part: &apppb.RobotPart{Id: partID, Name: partName, RobotConfig: currentConf},
+		}, nil
+	}
+
+	// A single edit at editTime: its Old is the config that was live *before* editTime.
+	editTime := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	var lastHistReq *apppb.GetRobotPartHistoryRequest
+	getRobotPartHistoryFunc := func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartHistoryResponse, error) {
+		lastHistReq = in
+		return &apppb.GetRobotPartHistoryResponse{
+			History: []*apppb.RobotPartHistoryEntry{
+				{Part: partID, When: timestamppb.New(editTime), Old: &apppb.RobotPart{Id: partID, RobotConfig: oldConf}},
+			},
+		}, nil
+	}
+
+	// ListOrganizations errors so robotPart falls back to a direct ID lookup via GetRobotPartFunc,
+	// mirroring TestMachinesPartHistoryAction.
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		return nil, errors.New("not used in this test")
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc:   listOrganizationsFunc,
+		GetRobotPartFunc:        getRobotPartFunc,
+		GetRobotPartHistoryFunc: getRobotPartHistoryFunc,
+	}
+
+	t.Run("current config prints to stdout", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx, machinesPartConfigArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "current"`)
+	})
+
+	t.Run("--at before the edit resolves forward to the config that was live then", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "2026-01-15T09:00:00Z"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		// The edit is after `at`, so its Old config is what applied at `at`.
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "old"`)
+		test.That(t, lastHistReq.Start.AsTime().Equal(time.Date(2026, 1, 15, 9, 0, 0, 0, time.UTC)), test.ShouldBeTrue)
+	})
+
+	t.Run("--at after the last edit falls back to the current config", func(t *testing.T) {
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "2026-01-15T18:00:00Z"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "current"`)
+	})
+
+	t.Run("unparseable --at errors", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "yesterday"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "could not parse time string")
+	})
+
+	t.Run("--at picks the earliest edit after the timestamp from a newest-first list", func(t *testing.T) {
+		// Three edits, returned newest-first as the server sorts them. `at` predates all of them,
+		// so the config live at `at` is the Old of the oldest edit (the last entry in the list).
+		e3 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+		e2 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+		e1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		conf := func(marker string) *structpb.Struct {
+			s, cerr := structpb.NewStruct(map[string]any{"marker": marker})
+			test.That(t, cerr, test.ShouldBeNil)
+			return s
+		}
+		multiAsc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartHistoryResponse, error) {
+				return &apppb.GetRobotPartHistoryResponse{
+					History: []*apppb.RobotPartHistoryEntry{
+						{Part: partID, When: timestamppb.New(e3), Old: &apppb.RobotPart{RobotConfig: conf("before-e3")}},
+						{Part: partID, When: timestamppb.New(e2), Old: &apppb.RobotPart{RobotConfig: conf("before-e2")}},
+						{Part: partID, When: timestamppb.New(e1), Old: &apppb.RobotPart{RobotConfig: conf("before-e1")}},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, _ := setup(multiAsc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "2025-12-01T00:00:00Z"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "before-e1"`)
+	})
+}
+
+func TestFragmentActions(t *testing.T) {
+	fragmentID := "test-fragment-id"
+	fragmentName := "test-fragment"
+	orgID := "11111111-1111-1111-1111-111111111111"
+	orgName := "test-org"
+
+	fragConf, err := structpb.NewStruct(map[string]any{"components": []any{}, "marker": "frag"})
+	test.That(t, err, test.ShouldBeNil)
+
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		return &apppb.ListOrganizationsResponse{
+			Organizations: []*apppb.Organization{{Id: orgID, Name: orgName}},
+		}, nil
+	}
+
+	t.Run("list prints a table of fragments for an org", func(t *testing.T) {
+		var lastReq *apppb.ListFragmentsRequest
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			ListFragmentsFunc: func(ctx context.Context, in *apppb.ListFragmentsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.ListFragmentsResponse, error) {
+				lastReq = in
+				return &apppb.ListFragmentsResponse{
+					Fragments: []*apppb.Fragment{
+						{Id: fragmentID, Name: fragmentName, Revision: "rev-1", LastUpdated: timestamppb.New(time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))},
+						// A fragment that has never been updated comes back as the zero time.
+						{Id: "second-id", Name: "never-updated", Revision: "rev-9"},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentListAction(context.Background(), cCtx, fragmentListArgs{Organization: orgName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, lastReq.OrganizationId, test.ShouldEqual, orgID)
+		joined := strings.Join(out.messages, "")
+		test.That(t, joined, test.ShouldContainSubstring, "ID")
+		test.That(t, joined, test.ShouldContainSubstring, "NAME")
+		test.That(t, joined, test.ShouldContainSubstring, "REVISION")
+		test.That(t, joined, test.ShouldContainSubstring, fragmentID)
+		test.That(t, joined, test.ShouldContainSubstring, "rev-1")
+		test.That(t, joined, test.ShouldContainSubstring, "2026-01-15T10:00:00Z")
+		// The zero-time fragment renders as unknown, not year 0001.
+		test.That(t, joined, test.ShouldContainSubstring, "<unknown>")
+		test.That(t, joined, test.ShouldNotContainSubstring, "0001")
+	})
+
+	t.Run("list with no --organization falls back to the default org", func(t *testing.T) {
+		var lastReq *apppb.ListFragmentsRequest
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			ListFragmentsFunc: func(ctx context.Context, in *apppb.ListFragmentsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.ListFragmentsResponse, error) {
+				lastReq = in
+				return &apppb.ListFragmentsResponse{
+					Fragments: []*apppb.Fragment{{Id: fragmentID, Name: fragmentName, Revision: "rev-1"}},
+				}, nil
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentListAction(context.Background(), cCtx, fragmentListArgs{})
+		test.That(t, err, test.ShouldBeNil)
+		// With no org specified, the first organization is used.
+		test.That(t, lastReq.OrganizationId, test.ShouldEqual, orgID)
+	})
+
+	t.Run("get prints the fragment config and forwards the version", func(t *testing.T) {
+		var lastReq *apppb.GetFragmentRequest
+		asc := &inject.AppServiceClient{
+			GetFragmentFunc: func(ctx context.Context, in *apppb.GetFragmentRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentResponse, error) {
+				lastReq = in
+				return &apppb.GetFragmentResponse{
+					Fragment: &apppb.Fragment{Id: fragmentID, Name: fragmentName, Fragment: fragConf},
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentGetAction(context.Background(), cCtx,
+			fragmentGetArgs{Fragment: fragmentID, Version: "rev-2"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, lastReq.Id, test.ShouldEqual, fragmentID)
+		test.That(t, lastReq.Version, test.ShouldNotBeNil)
+		test.That(t, *lastReq.Version, test.ShouldEqual, "rev-2")
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "frag"`)
+	})
+
+	t.Run("get omits an unset version", func(t *testing.T) {
+		var lastReq *apppb.GetFragmentRequest
+		asc := &inject.AppServiceClient{
+			GetFragmentFunc: func(ctx context.Context, in *apppb.GetFragmentRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentResponse, error) {
+				lastReq = in
+				return &apppb.GetFragmentResponse{
+					Fragment: &apppb.Fragment{Id: fragmentID, Fragment: fragConf},
+				}, nil
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentGetAction(context.Background(), cCtx, fragmentGetArgs{Fragment: fragmentID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, lastReq.Version, test.ShouldBeNil)
+	})
+
+	t.Run("history lists revisions as a table without a redundant counter", func(t *testing.T) {
+		ts := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+		asc := &inject.AppServiceClient{
+			GetFragmentHistoryFunc: func(ctx context.Context, in *apppb.GetFragmentHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentHistoryResponse, error) {
+				test.That(t, in.Id, test.ShouldEqual, fragmentID)
+				return &apppb.GetFragmentHistoryResponse{
+					History: []*apppb.FragmentHistoryEntry{
+						{Revision: "3", EditedOn: timestamppb.New(ts), EditedBy: &apppb.AuthenticatorInfo{Value: "alice@viam.com"}},
+						{Revision: "2", EditedOn: timestamppb.New(ts.Add(-time.Hour)), EditedBy: &apppb.AuthenticatorInfo{Value: "bob@viam.com"}},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentHistoryAction(context.Background(), cCtx, fragmentHistoryArgs{Fragment: fragmentID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		joined := strings.Join(out.messages, "")
+		test.That(t, joined, test.ShouldContainSubstring, "REVISION")
+		test.That(t, joined, test.ShouldContainSubstring, "EDITED BY")
+		test.That(t, joined, test.ShouldContainSubstring, "alice@viam.com")
+		test.That(t, joined, test.ShouldContainSubstring, "2026-01-15T10:00:00Z")
+		// The confusing "[1] revision 3" counter is gone; the revision number stands on its own.
+		test.That(t, joined, test.ShouldNotContainSubstring, "[1]")
+	})
+
+	t.Run("history --count caps rows and warns on stderr", func(t *testing.T) {
+		ts := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+		asc := &inject.AppServiceClient{
+			GetFragmentHistoryFunc: func(ctx context.Context, in *apppb.GetFragmentHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentHistoryResponse, error) {
+				return &apppb.GetFragmentHistoryResponse{
+					History: []*apppb.FragmentHistoryEntry{
+						{Revision: "3", EditedOn: timestamppb.New(ts)},
+						{Revision: "2", EditedOn: timestamppb.New(ts.Add(-time.Hour))},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentHistoryAction(context.Background(), cCtx, fragmentHistoryArgs{Fragment: fragmentID, Count: 1})
+		test.That(t, err, test.ShouldBeNil)
+		// tabwriter turns the column tabs into spaces on Flush, so assert on the rendered row count
+		// rather than a tab-delimited substring: header + exactly one data row means --count capped it.
+		lines := strings.Split(strings.TrimRight(strings.Join(out.messages, ""), "\n"), "\n")
+		test.That(t, len(lines), test.ShouldEqual, 2)
+		test.That(t, lines[0], test.ShouldContainSubstring, "REVISION")
+		test.That(t, lines[1], test.ShouldContainSubstring, "3")
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "stopped at --count=1")
+	})
+
+	t.Run("history reports an empty fragment", func(t *testing.T) {
+		asc := &inject.AppServiceClient{
+			GetFragmentHistoryFunc: func(ctx context.Context, in *apppb.GetFragmentHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentHistoryResponse, error) {
+				return &apppb.GetFragmentHistoryResponse{}, nil
+			},
+		}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentHistoryAction(context.Background(), cCtx, fragmentHistoryArgs{Fragment: fragmentID})
+		test.That(t, err, test.ShouldBeNil)
+		joined := strings.Join(out.messages, "")
+		test.That(t, joined, test.ShouldContainSubstring, "no history found")
+		// With no rows the table has no header.
+		test.That(t, joined, test.ShouldNotContainSubstring, "REVISION")
+	})
+}
+
 // TestMachinesPartHistoryCountDefault pins the flag default: without one, printing every revision
 // of a frequently-edited part takes minutes and buries anything useful.
 func TestMachinesPartHistoryCountDefault(t *testing.T) {

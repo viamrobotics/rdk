@@ -186,14 +186,8 @@ func computeTriangleAABB(t *Triangle) (r3.Vector, r3.Vector) {
 }
 
 func expandAABB(minPt, maxPt, pt r3.Vector) (r3.Vector, r3.Vector) {
-	newMinPt, newMaxPt := r3.Vector{}, r3.Vector{}
-	newMinPt.X = math.Min(minPt.X, pt.X)
-	newMinPt.Y = math.Min(minPt.Y, pt.Y)
-	newMinPt.Z = math.Min(minPt.Z, pt.Z)
-	newMaxPt.X = math.Max(maxPt.X, pt.X)
-	newMaxPt.Y = math.Max(maxPt.Y, pt.Y)
-	newMaxPt.Z = math.Max(maxPt.Z, pt.Z)
-	return newMinPt, newMaxPt
+	return r3.Vector{X: min(minPt.X, pt.X), Y: min(minPt.Y, pt.Y), Z: min(minPt.Z, pt.Z)},
+		r3.Vector{X: max(maxPt.X, pt.X), Y: max(maxPt.Y, pt.Y), Z: max(maxPt.Z, pt.Z)}
 }
 
 // rotatedAABBExtents computes world-space AABB extents using Arvo's abs(R) * extents.
@@ -296,9 +290,9 @@ func aabbOverlap(min1, max1, min2, max2 r3.Vector) bool {
 
 // aabbDistance computes the minimum distance between two non-overlapping AABBs.
 func aabbDistance(min1, max1, min2, max2 r3.Vector) float64 {
-	dx := math.Max(0, math.Max(min1.X-max2.X, min2.X-max1.X))
-	dy := math.Max(0, math.Max(min1.Y-max2.Y, min2.Y-max1.Y))
-	dz := math.Max(0, math.Max(min1.Z-max2.Z, min2.Z-max1.Z))
+	dx := max(0, max(min1.X-max2.X, min2.X-max1.X))
+	dy := max(0, max(min1.Y-max2.Y, min2.Y-max1.Y))
+	dz := max(0, max(min1.Z-max2.Z, min2.Z-max1.Z))
 	return math.Sqrt(dx*dx + dy*dy + dz*dz)
 }
 
@@ -592,9 +586,9 @@ func triangleLeafCollide(
 			// distance check when the triangles' AABBs are already separated by
 			// more than minDist and more than the collision buffer — neither
 			// the collision verdict nor the minDist return can improve.
-			dx := math.Max(0, math.Max(t1MinV.X-t2Max[i].X, t2Min[i].X-t1MaxV.X))
-			dy := math.Max(0, math.Max(t1MinV.Y-t2Max[i].Y, t2Min[i].Y-t1MaxV.Y))
-			dz := math.Max(0, math.Max(t1MinV.Z-t2Max[i].Z, t2Min[i].Z-t1MaxV.Z))
+			dx := max(0, max(t1MinV.X-t2Max[i].X, t2Min[i].X-t1MaxV.X))
+			dy := max(0, max(t1MinV.Y-t2Max[i].Y, t2Min[i].Y-t1MaxV.Y))
+			dz := max(0, max(t1MinV.Z-t2Max[i].Z, t2Min[i].Z-t1MaxV.Z))
 			lbN2 := dx*dx + dy*dy + dz*dz
 			if lbN2 > bufferN2 && lbN2 >= minDist {
 				continue
@@ -623,13 +617,13 @@ func triangleLeafCollide(
 // triAABB returns the 3-point AABB of a triangle in whatever space its points are in.
 func triAABB(t *Triangle) (r3.Vector, r3.Vector) {
 	return r3.Vector{
-			X: math.Min(math.Min(t.p0.X, t.p1.X), t.p2.X),
-			Y: math.Min(math.Min(t.p0.Y, t.p1.Y), t.p2.Y),
-			Z: math.Min(math.Min(t.p0.Z, t.p1.Z), t.p2.Z),
+			X: min(min(t.p0.X, t.p1.X), t.p2.X),
+			Y: min(min(t.p0.Y, t.p1.Y), t.p2.Y),
+			Z: min(min(t.p0.Z, t.p1.Z), t.p2.Z),
 		}, r3.Vector{
-			X: math.Max(math.Max(t.p0.X, t.p1.X), t.p2.X),
-			Y: math.Max(math.Max(t.p0.Y, t.p1.Y), t.p2.Y),
-			Z: math.Max(math.Max(t.p0.Z, t.p1.Z), t.p2.Z),
+			X: max(max(t.p0.X, t.p1.X), t.p2.X),
+			Y: max(max(t.p0.Y, t.p1.Y), t.p2.Y),
+			Z: max(max(t.p0.Z, t.p1.Z), t.p2.Z),
 		}
 }
 
