@@ -107,7 +107,7 @@ require (
 	go.uber.org/zap v1.28.0
 	go.viam.com/api v0.1.579
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.10.1
+	go.viam.com/utils v0.12.1
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.41.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -166,6 +166,7 @@ require (
 	connectrpc.com/connect v1.20.0 // indirect
 	connectrpc.com/otelconnect v0.9.0 // indirect
 	contrib.go.opencensus.io/exporter/jaeger v0.2.1 // indirect
+	contrib.go.opencensus.io/exporter/ocagent v0.7.0 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	git.sr.ht/~sbinet/gg v0.6.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.33.0 // indirect
