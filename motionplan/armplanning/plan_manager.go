@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -137,6 +138,18 @@ func (pm *planManager) planToDirectJoints(
 	goalPoses, err := goal.ComputePoses(ctx, pm.pc.fs)
 	if err != nil {
 		return nil, err
+	}
+	// A full joint configuration also includes frames already at their target.
+	// Only changed joints should seed the primary motion chains; the planner can
+	// still move other frames if needed for collision avoidance.
+	movingGoals := referenceframe.FrameSystemPoses{}
+	for name, pose := range goalPoses {
+		if !slices.Equal(fullConfig.Get(name), start.Get(name)) {
+			movingGoals[name] = pose
+		}
+	}
+	if len(movingGoals) > 0 {
+		goalPoses = movingGoals
 	}
 
 	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
