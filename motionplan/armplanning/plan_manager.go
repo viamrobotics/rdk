@@ -294,6 +294,31 @@ func (pm *planManager) planSingleGoal(
 		}
 	}
 
+	// A goal that reorients further than the orientation tolerance forces the
+	// search to thread a tube crossing (the band is a tube around the direct
+	// reorientation path); surface the numbers so a slow or failing search on
+	// such a request is explainable from the log.
+	if c := pm.request.Constraints; c != nil && len(c.OrientationConstraint) > 0 {
+		tol := math.Inf(1)
+		for _, oc := range c.OrientationConstraint {
+			if oc.OrientationToleranceDegs > 0 {
+				tol = min(tol, oc.OrientationToleranceDegs)
+			}
+		}
+		maxReorient := 0.0
+		for f, g := range psc.goal {
+			if s, ok := psc.startPoses[f]; ok {
+				maxReorient = max(maxReorient, motionplan.OrientDist(s.Pose().Orientation(), g.Pose().Orientation()))
+			}
+		}
+		if maxReorient > tol {
+			pm.logger.Infof("goal requires %0.1f deg of reorientation under a %0.0f deg orientation constraint; "+
+				"the search must stay within a %0.0f deg tube around the direct reorientation path, which can "+
+				"slow planning. Consider relaxing the tolerance if the path need not track the reorientation closely.",
+				maxReorient, tol, tol)
+		}
+	}
+
 	rawSteps, err := pm.raceCBiRRT(ctx, psc, planSeed.maps, allowRelaunch)
 	if err != nil {
 		return nil, err
