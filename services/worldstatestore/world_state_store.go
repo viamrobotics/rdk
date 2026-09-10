@@ -101,7 +101,14 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 //	if err != nil {
 //		logger.Fatal(err)
 //	}
-//	for change := range changes {
+//	for {
+//		change, err := changes.Next()
+//		if err == io.EOF {
+//			break
+//		}
+//		if err != nil {
+//			logger.Fatal(err)
+//		}
 //		fmt.Printf("Change: %v\n", change)
 //	}
 //
