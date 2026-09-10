@@ -88,9 +88,10 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: Clean
+    - name: Clean and Fix Permissions
       run: |
-        make clean-all
+        chown -R testbot:testbot .
+        sudo -Hu testbot bash -lc 'make clean-all'
 
     - name: Authorize signing (windows)
       if: matrix.target == 'static-release-win'
@@ -138,12 +139,12 @@ jobs:
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
       run: |
-        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -159,12 +160,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Set Date and Channel
       id: build_date
@@ -256,13 +257,14 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: Clean
+    - name: Clean and Fix Permissions
       run: |
-        make clean-all
+        chown -R testbot:testbot .
+        sudo -Hu testbot bash -lc 'make clean-all'
 
     - name: Build
       run: |
-        make BUILD_CHANNEL="antique-validate" static-release
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="antique-validate" static-release'
 
   mac:
     name: Build MacOS
