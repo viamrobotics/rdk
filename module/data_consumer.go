@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"os"
+	"sync"
 	"time"
 
 	"go.viam.com/rdk/app"
@@ -23,10 +24,14 @@ type queryBackend interface {
 
 // ResourceDataConsumer can be added as an anonymous struct member to a resource to enable historical module data queries.
 type ResourceDataConsumer struct {
+	mu         sync.Mutex
 	dataClient queryBackend
 }
 
 func (r *ResourceDataConsumer) setDataClient(ctx context.Context) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.dataClient != nil {
 		return nil
 	}
@@ -40,7 +45,7 @@ func (r *ResourceDataConsumer) setDataClient(ctx context.Context) error {
 }
 
 // QueryTabularDataForResource will return historical data for a resource.
-func (r ResourceDataConsumer) QueryTabularDataForResource(
+func (r *ResourceDataConsumer) QueryTabularDataForResource(
 	ctx context.Context, resourceName string, opts *QueryTabularDataOptions,
 ) ([]map[string]any, error) {
 	err := r.setDataClient(ctx)
