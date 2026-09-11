@@ -12,16 +12,17 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func runTestOptions() StreamOptions {
-	return StreamOptions{
-		TargetRunwayInArmMs:  50,
-		SendToArmIntervalMs:  10,
-		VelLimitDegPerSec:    90,
-		AccelLimitDegPerSec2: 90,
-	}
+	opts := NewDefaultOptions()
+	opts.TargetRunwayInArmMs = 50
+	opts.SendToArmIntervalMs = 10
+	opts.VelLimitDegPerSec = 90
+	opts.AccelLimitDegPerSec2 = 90
+	return opts
 }
 
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
@@ -29,9 +30,10 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	jpCh := make(chan JointPositionsChItem)
 
 	start := time.Now()
+	diag := diagnostics.New(time.Duration(runTestOptions().DiagnosticsWindowMs) * time.Millisecond)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0})
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diag)
 	}()
 
 	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.05, -0.05}}
@@ -71,6 +73,18 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	for _, v := range lastVelocities {
 		test.That(t, v, test.ShouldAlmostEqual, 0, 0.05)
 	}
+
+	snap := diag.LastWindowDetails()
+	test.That(t, len(snap.JointPositionTargetReceived), test.ShouldEqual, 2)
+	test.That(t, len(snap.ArmStreamOpen), test.ShouldEqual, 1)
+	test.That(t, len(snap.TrajexSessionOpen), test.ShouldEqual, 1)
+	test.That(t, len(snap.TrajexSessionClose), test.ShouldEqual, 1)
+	test.That(t, len(snap.ArmStreamClose), test.ShouldEqual, 1)
+	test.That(t, snap.ArmStreamOpen[0].TimestampMs, test.ShouldBeLessThanOrEqualTo, snap.TrajexSessionOpen[0].TimestampMs)
+	test.That(t, snap.TrajexSessionOpen[0].TimestampMs, test.ShouldBeLessThanOrEqualTo, snap.TrajexSessionClose[0].TimestampMs)
+	test.That(t, snap.TrajexSessionClose[0].TimestampMs, test.ShouldBeLessThanOrEqualTo, snap.ArmStreamClose[0].TimestampMs)
+	test.That(t, len(snap.SampledPVATs), test.ShouldBeGreaterThan, 0)
+	test.That(t, snap.ArmStreamOpen[0].TimestampMs, test.ShouldBeGreaterThan, 1e12)
 }
 
 func TestRunEndsContextCanceled(t *testing.T) {
@@ -81,7 +95,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 		}()
 
 		// The send on jpCh returning proves Run is in its loop; then cancel.
@@ -107,7 +121,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 		}()
 
 		// Let the flush finish and the wait begin, then cancel.
@@ -142,7 +156,7 @@ func TestRunEndsOnArmError(t *testing.T) {
 	jpCh := make(chan JointPositionsChItem)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0})
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, nil)
 	}()
 
 	// One target is enough trajectory for several sends; the first is accepted, the

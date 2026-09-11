@@ -8,6 +8,7 @@ import (
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
 // Run is the fallback for builds without trajex (windows, no_cgo, or missing the
@@ -19,6 +20,7 @@ func Run(
 	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
+	diagnostics *diagnostics.SingleSessionDiagnostics,
 ) error {
 	return errors.New("arm streaming requires a cgo build with trajex support (build tag viam_rdk_cgo_have_cxx20_rt)")
 }
