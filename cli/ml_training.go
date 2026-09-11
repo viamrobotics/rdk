@@ -151,10 +151,9 @@ type prettyPrintContainer struct {
 	EndOfLife   string `json:",omitempty"`
 	Description string
 	Framework   string `json:",omitempty"`
-	URI         string `json:",omitempty"`
-	OrgID       string
-	Role        string 
-	CreatedOn   string `json:",omitempty"`
+	URI         string 
+	CreatedOn   string
+	Visibility  string
 } 
 
 // MLListContainers is the corresponding action for 'train containers'.
@@ -174,18 +173,10 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
-			OrgID:	     v.OrgIDd,
-			Role: 		 v.Role.String(),
-		}
-		if v.Role == 1 {
-			// viam container
-			container.Framework = v.Framework
-			container.EndOfLife = v.Eol.String()
-		} else if v.Role == 2 {
-			// custom container
-			container.CreatedOn = v.CreatedOn
-		} else {
-			return errors.New("Container rule is unspecified")
+			Visibility:  v.Visibility.String(),
+			Framework: v.Framework,
+			EndOfLife: v.Eol.String(),
+			CreatedOn: v.CreatedOn.String(),
 		}
 		
 		if args.IncludeURIs {
