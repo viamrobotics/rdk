@@ -33,7 +33,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -2417,9 +2416,13 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
 	}()
 
-	sourcePort, err := goutils.TryReserveRandomPort()
+	// Bind the source listener here and hand it to serveTunnel (which closes it once ctx is
+	// done). Reserving a port with TryReserveRandomPort and letting the tunnel bind it later
+	// leaves a window for another server to claim the port; the test would then silently
+	// talk to that server instead of the tunnel (RSDK-14479).
+	sourcePort, sourceListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
+	sourceListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(sourcePort))
 
 	logger := logging.NewTestLogger(t)
 	ctx, ctxCancel := context.WithCancel(context.Background())
@@ -2482,18 +2485,14 @@ func TestTunnelE2ECLI(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		tunnelTraffic(ctx, cCtx, rc, sourcePort, destPort)
+		test.That(t, serveTunnel(ctx, cCtx, rc, sourceListener, destPort), test.ShouldBeNil)
 	}()
 
-	// Write `tunnelMsg` to CLI tunneler over TCP from this test process. Retry until
-	// tunnelTraffic's listener is bound.
-	var conn net.Conn
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		var dialErr error
-		//nolint: noctx
-		conn, dialErr = net.Dial("tcp", sourceListenerAddr)
-		test.That(tb, dialErr, test.ShouldBeNil)
-	})
+	// Write `tunnelMsg` to CLI tunneler over TCP from this test process. The listener is
+	// already bound, so no dial retry is needed.
+	//nolint: noctx
+	conn, err := net.Dial("tcp", sourceListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
@@ -2514,6 +2513,29 @@ func TestTunnelE2ECLI(t *testing.T) {
 	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
+}
+
+func TestTunnelTrafficLocalPortInUse(t *testing.T) {
+	t.Parallel()
+	// A local port that something else already owns must surface as an error instead of
+	// leaving the caller tunneling traffic into whatever is listening there (RSDK-14479).
+	//
+	// Listen on "localhost" explicitly so the address matches what tunnelTraffic binds
+	// (net.Listen("tcp", "localhost:PORT")). Using ReserveRandomPort (which binds to
+	// 0.0.0.0) does not conflict on dual-stack macOS/Windows where localhost resolves
+	// to the IPv6 loopback.
+	li, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, li.Close(), test.ShouldBeNil)
+	}()
+	port := li.Addr().(*net.TCPAddr).Port
+
+	//nolint:dogsled
+	cCtx, _, _, _ := setup(nil, nil, nil, nil, "token")
+	err = tunnelTraffic(context.Background(), cCtx, nil, port, port)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "failed to create listener")
 }
 
 // fakeTunnelLister is a tunnelLister test double. Before `reloadAfter` ListTunnels
