@@ -15,6 +15,9 @@ import (
 
 var (
 	cudaRegex = regexp.MustCompile(`Cuda compilation tools, release (\d+)\.`)
+	// l4tCoreVersionRegex captures the L4T major from the nvidia-l4t-core package version,
+	// e.g. "36.4.4-20250616085344" -> "36".
+	l4tCoreVersionRegex = regexp.MustCompile(`^(\d+)\.`)
 	// l4tReleaseRegex captures the L4T (Jetson Linux) major release from the first line of
 	// /etc/nv_tegra_release, e.g. "# R36 (release), REVISION: 4.4, ..." -> "36".
 	l4tReleaseRegex    = regexp.MustCompile(`# R(\d+) `)
@@ -48,34 +51,66 @@ func readGPUTags(ctx context.Context, logger logging.Logger, tags []string) []st
 			logger.Error("error parsing `nvcc --version` output. Cuda-specific modules may not load")
 		}
 	}
-	tags = readJetpackTag(logger, tags)
+	tags = readJetpackTag(ctx, logger, tags)
 	return tags
 }
 
 // readJetpackTag adds a `jetpack:<major>` tag derived from the installed L4T (Jetson Linux)
-// release, if this is a Jetson.
-func readJetpackTag(logger logging.Logger, tags []string) []string {
-	body, err := os.ReadFile("/etc/nv_tegra_release")
-	if err != nil {
-		if !os.IsNotExist(err) {
-			logger.Errorw("can't read /etc/nv_tegra_release, jetpack modules may not load", "err", err)
-		}
-		// not a Jetson (file absent), or unreadable: no jetpack tag.
+// release, if this is a Jetson. NVIDIA recommends reading the version from the installed
+// nvidia-l4t-core package (this is what the jetson-inference install scripts do), so we try that
+// first and fall back to /etc/nv_tegra_release, which the L4T BSP writes, when the package query
+// is unavailable.
+func readJetpackTag(ctx context.Context, logger logging.Logger, tags []string) []string {
+	l4tMajor := l4tMajorFromCorePackage(ctx)
+	if l4tMajor == "" {
+		l4tMajor = l4tMajorFromReleaseFile(logger)
+	}
+	if l4tMajor == "" {
+		// not a Jetson, or couldn't determine the release: no jetpack tag.
 		return tags
 	}
-	match := l4tReleaseRegex.FindSubmatch(body)
-	if match == nil {
-		logger.Warnw("could not parse L4T release from /etc/nv_tegra_release; jetpack tag not set",
-			"contents", string(body))
-		return tags
-	}
-	l4tMajor := string(match[1])
 	jetpack, ok := l4tToJetpack[l4tMajor]
 	if !ok {
 		logger.Warnw("unrecognized L4T major release; jetpack tag not set", "l4t_major", l4tMajor)
 		return tags
 	}
 	return append(tags, "jetpack:"+jetpack)
+}
+
+// l4tMajorFromCorePackage returns the installed L4T major version from the nvidia-l4t-core dpkg
+// package (e.g. "36" from "36.4.4-20250616085344"), or "" if it can't be determined.
+func l4tMajorFromCorePackage(ctx context.Context) string {
+	if _, err := exec.LookPath("dpkg-query"); err != nil {
+		return ""
+	}
+	out, err := exec.CommandContext(ctx, "dpkg-query", "--showformat=${Version}", "--show", "nvidia-l4t-core").Output()
+	if err != nil {
+		// a non-zero exit usually means the package isn't installed (i.e. not a Jetson).
+		return ""
+	}
+	if match := l4tCoreVersionRegex.FindSubmatch(out); match != nil {
+		return string(match[1])
+	}
+	return ""
+}
+
+// l4tMajorFromReleaseFile returns the L4T major version from /etc/nv_tegra_release (e.g. "36"
+// from "# R36 (release), ..."), or "" if the file is missing or unparseable.
+func l4tMajorFromReleaseFile(logger logging.Logger) string {
+	body, err := os.ReadFile("/etc/nv_tegra_release")
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Errorw("can't read /etc/nv_tegra_release, jetpack modules may not load", "err", err)
+		}
+		// not a Jetson (file absent), or unreadable.
+		return ""
+	}
+	if match := l4tReleaseRegex.FindSubmatch(body); match != nil {
+		return string(match[1])
+	}
+	logger.Warnw("could not parse L4T release from /etc/nv_tegra_release; jetpack tag not set",
+		"contents", string(body))
+	return ""
 }
 
 type piModel struct {

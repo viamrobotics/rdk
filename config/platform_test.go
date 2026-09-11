@@ -76,6 +76,27 @@ Build cuda_11.5.r11.5/compiler.30672275_0
 		test.That(t, l4tReleaseRegex.FindSubmatch([]byte("not an nv_tegra_release file\n")), test.ShouldBeNil)
 	})
 
+	t.Run("l4t-core-package", func(t *testing.T) {
+		// The primary source: `dpkg-query --showformat='${Version}' --show nvidia-l4t-core`. The
+		// L4T major is the leading component of the package version and maps to the JetPack major.
+		// This sample is verbatim from a JetPack 6 Jetson Orin Nano.
+		match := l4tCoreVersionRegex.FindSubmatch([]byte("36.4.3-20250107174145"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "6")
+
+		match = l4tCoreVersionRegex.FindSubmatch([]byte("35.4.1-20230801124926"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "5")
+
+		match = l4tCoreVersionRegex.FindSubmatch([]byte("32.7.1-20220219090432"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "4")
+
+		// Empty output (package not installed / not a Jetson) must not match.
+		test.That(t, l4tCoreVersionRegex.FindSubmatch([]byte("")), test.ShouldBeNil)
+		test.That(t, l4tCoreVersionRegex.FindSubmatch([]byte("dpkg-query: no packages found matching nvidia-l4t-core")), test.ShouldBeNil)
+	})
+
 	t.Run("pi", func(t *testing.T) {
 		type Pair struct {
 			a string
