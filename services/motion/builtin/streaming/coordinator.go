@@ -11,6 +11,7 @@ import (
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
 // Run executes a streaming session through one trajex session and one arm stream RPC.
@@ -35,6 +36,7 @@ func Run(
 	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
+	diagnostics *diagnostics.SingleSessionDiagnostics,
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err
@@ -43,7 +45,7 @@ func Run(
 	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
 	// Start the arm RPC stream.
-	as := newArmStream(ctx, a)
+	as := newArmStream(ctx, a, diagnostics)
 	defer func() {
 		if err != nil {
 			// On error, cancel first so that the RPC gets interrupted.
@@ -61,7 +63,7 @@ func Run(
 	}()
 
 	// Start the trajex session.
-	ts := &trajexSession{opts: opts}
+	ts := &trajexSession{opts: opts, diagnostics: diagnostics}
 	if err := ts.startSession(seed); err != nil {
 		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}
@@ -96,12 +98,14 @@ func Run(
 					}
 				}
 			}
+			diagnostics.RecordReceivedJointPositionTargetEvent()
 
 			// Add the new joint positions to the trajex session.
 			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 
+			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
 			// Top up in case we missed the last tick.
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
@@ -109,6 +113,7 @@ func Run(
 
 		// Time to check whether the arm's runway needs topping up.
 		case <-sendToArmTicker.C:
+			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
 			}

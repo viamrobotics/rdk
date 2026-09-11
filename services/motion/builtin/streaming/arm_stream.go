@@ -7,6 +7,7 @@ import (
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
 type armStream struct {
@@ -23,20 +24,26 @@ type armStream struct {
 	moveThroughJointPositionsStreamedReturned chan struct{}
 
 	err error
+
+	diagnostics *diagnostics.SingleSessionDiagnostics
 }
 
 // newArmStream constructs an armStream and starts its RPC stream to the arm.
-func newArmStream(ctx context.Context, a arm.Arm) *armStream {
+func newArmStream(ctx context.Context, a arm.Arm, diagnostics *diagnostics.SingleSessionDiagnostics) *armStream {
 	s := &armStream{
 		arm:         a,
 		batchesCh:   make(chan []arm.TrajectoryPoint),
 		responsesCh: make(chan arm.Response),
 
 		moveThroughJointPositionsStreamedReturned: make(chan struct{}),
+
+		diagnostics: diagnostics,
 	}
 
+	s.diagnostics.RecordArmStreamOpenEvent()
 	go func() {
 		err := s.arm.MoveThroughJointPositionsStreamed(ctx, s.batchesCh, s.responsesCh, nil)
+		s.diagnostics.RecordArmStreamCloseEvent()
 		s.err = err
 		close(s.responsesCh)
 		close(s.moveThroughJointPositionsStreamedReturned)
@@ -66,6 +73,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		})
 	}
 
+	sendStart := time.Now()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -73,6 +81,7 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		return fmt.Errorf("arm streaming RPC ended before batch could be sent: %w", s.err)
 	case s.batchesCh <- batch:
 	}
+	s.diagnostics.RecordSendToArmLatency(sendStart, time.Since(sendStart))
 
 	s.timeInTrajectoryClockOfLastSentPVAT = batch[len(batch)-1].Time
 	if s.timeFirstBatchWasSent.IsZero() {
