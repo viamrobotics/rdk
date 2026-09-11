@@ -5,7 +5,9 @@
 # workflow. Keeping it in the repo means a PR that adds a package is validated
 # by that PR's own run, with no separate workflow_dispatch.
 #
-# Comments and blank lines are stripped before the list is used.
+# Comments, blank lines and surrounding whitespace are stripped before use. An
+# entry that no longer matches a real package fails the Windows job, so delete
+# the line here in the same change that removes or renames the package.
 #
 # When every package passes, drop this file and the filter that reads it.
 
