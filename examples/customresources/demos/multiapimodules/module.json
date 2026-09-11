@@ -1,0 +1,32 @@
+{
+	"modules": [
+		{
+			"name": "ComboModule",
+			"executable_path": "combomodule/run.sh",
+			"log_level": "debug"
+		},
+		{
+			"name": "ComboUserModule",
+			"executable_path": "combousermodule/run.sh",
+			"log_level": "debug"
+		}
+	],
+	"components": [
+		{
+			"name": "combodev1",
+			"api": "acme:component:gizmo",
+			"model": "acme:demo:combodevice"
+		},
+		{
+			"name": "user1",
+			"api": "rdk:component:generic",
+			"model": "acme:demo:combouser",
+			"attributes": {
+				"combo": "combodev1"
+			}
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}

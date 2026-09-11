@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -464,6 +465,24 @@ func (m *module) registerResourceModels(mgr *Manager) {
 		default:
 			m.logger.Errorw("Invalid module type", "API type", api.API.Type)
 		}
+	}
+
+	// A model advertised by this module under more than one API is a composite (multi-API) model.
+	// Record its API set (sorted for a deterministic canonical API) so viam-server treats one config
+	// entry as a single instance reachable/advertised under each of its APIs, and can resolve an
+	// `api`-less config from the model. The per-API constructors above are the module proxies.
+	apisByModel := map[resource.Model][]resource.API{}
+	for api, models := range m.handles {
+		for _, model := range models {
+			apisByModel[model] = append(apisByModel[model], api.API)
+		}
+	}
+	for model, apis := range apisByModel {
+		if len(apis) < 2 {
+			continue
+		}
+		sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+		resource.RegisterMultiAPISet(model, apis)
 	}
 }
 

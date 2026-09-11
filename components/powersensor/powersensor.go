@@ -120,6 +120,11 @@ func FromProvider(provider resource.Provider, name string) (PowerSensor, error) 
 	return resource.FromProvider[PowerSensor](provider, Named(name))
 }
 
+// FromResource extracts this API from a resource that may be a multi-API (composite) resource.
+func FromResource(res resource.Resource) (PowerSensor, error) {
+	return resource.FromResourceForAPI[PowerSensor](res, API)
+}
+
 // NamesFromRobot is a helper for getting all PowerSensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)

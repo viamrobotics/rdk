@@ -72,6 +72,12 @@ func FromProvider(provider resource.Provider, name string) (Sensor, error) {
 	return resource.FromProvider[Sensor](provider, Named(name))
 }
 
+// FromResource extracts a Sensor from a resource that may be a multi-API (composite) resource. Works
+// whether res is a plain sensor client or a composite that serves the sensor API alongside others.
+func FromResource(res resource.Resource) (Sensor, error) {
+	return resource.FromResourceForAPI[Sensor](res, API)
+}
+
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)

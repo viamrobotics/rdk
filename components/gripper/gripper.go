@@ -116,6 +116,11 @@ func FromProvider(provider resource.Provider, name string) (Gripper, error) {
 	return resource.FromProvider[Gripper](provider, Named(name))
 }
 
+// FromResource extracts this API from a resource that may be a multi-API (composite) resource.
+func FromResource(res resource.Resource) (Gripper, error) {
+	return resource.FromResourceForAPI[Gripper](res, API)
+}
+
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)

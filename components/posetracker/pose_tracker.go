@@ -69,3 +69,8 @@ func FromDependencies(deps resource.Dependencies, name string) (PoseTracker, err
 func FromProvider(provider resource.Provider, name string) (PoseTracker, error) {
 	return resource.FromProvider[PoseTracker](provider, Named(name))
 }
+
+// FromResource extracts this API from a resource that may be a multi-API (composite) resource.
+func FromResource(res resource.Resource) (PoseTracker, error) {
+	return resource.FromResourceForAPI[PoseTracker](res, API)
+}

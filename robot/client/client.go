@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -671,16 +672,22 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 		activeResources[name] = true
 	}
 
+	// A composite (multi-API) resource is cached under each of its API names, so close each distinct
+	// client only once even when several names map to it.
+	closed := make(map[resource.Resource]bool)
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
-		if !activeResources[resourceName] {
+		if activeResources[resourceName] {
+			continue
+		}
+		if !closed[client] {
+			closed[client] = true
 			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName.String())
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
-				continue
 			}
-			delete(rc.resourceClients, resourceName)
 		}
+		delete(rc.resourceClients, resourceName)
 	}
 
 	return nil
@@ -845,6 +852,14 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 	if val, ok := rc.remoteNameMap[name]; ok {
 		name = val
 	}
+	// An API-less name (from resource.SimpleName) identifies a resource by its simple name alone;
+	// resolve it to a concrete (api, name) advertised under that bare name so the rest of the lookup
+	// — cache, known-name check, and composite assembly — proceeds unchanged.
+	if name.API == (resource.API{}) {
+		if resolved, ok := rc.resolveBareName(name); ok {
+			name = resolved
+		}
+	}
 	if client, ok := rc.resourceClients[name]; ok {
 		rc.mu.RUnlock()
 		return client, nil
@@ -853,6 +868,12 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
+	// Re-resolve under the write lock in case the resource list changed after the read lock.
+	if name.API == (resource.API{}) {
+		if resolved, ok := rc.resolveBareName(name); ok {
+			name = resolved
+		}
+	}
 	// another check, this one with a stricter lock
 	if client, ok := rc.resourceClients[name]; ok {
 		return client, nil
@@ -865,14 +886,60 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 			if err != nil {
 				return nil, err
 			}
-			rc.resourceClients[name] = resourceClient
+			rc.cacheResourceClient(name, resourceClient)
 			return resourceClient, nil
 		}
 	}
 	return nil, resource.NewNotFoundError(name)
 }
 
+// cacheResourceClient stores a freshly built client in the cache. A composite (multi-API) resource
+// is one object; cache it under every one of its API names so a lookup by any API — or the api-less
+// bare name, which resolves to one of them — returns the one handle and its sub-clients instead of
+// re-dialing per API. rc.mu must be held.
+func (rc *RobotClient) cacheResourceClient(name resource.Name, client resource.Resource) {
+	rc.resourceClients[name] = client
+	if mar, ok := client.(resource.MultiAPIResource); ok {
+		for _, api := range mar.APIs() {
+			rc.resourceClients[resource.NewName(api, name.Name).PrependRemote(name.Remote)] = client
+		}
+	}
+}
+
+// resolveBareName maps an API-less name to a concrete (api, name) for one of the APIs advertised
+// under its bare name — a representative the composite path in createClient then expands into the
+// full multi-API handle. Returns false when no resource is advertised under that bare name. rc.mu
+// must be held.
+func (rc *RobotClient) resolveBareName(name resource.Name) (resource.Name, bool) {
+	apis := rc.apisSharingName(name)
+	if len(apis) == 0 {
+		return resource.Name{}, false
+	}
+	return resource.NewName(apis[0], name.Name).PrependRemote(name.Remote), true
+}
+
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
+	// A multi-API (composite) resource is advertised as several resource names that share a bare
+	// name but differ by API. Assemble one composite object holding a sub-client per API, so
+	// ResourceByName / the dependencies map hand back a single handle. Callers reach a specific API
+	// off it via that API package's FromResource / FromProvider helper. (Relies on machine-wide name
+	// uniqueness so a shared bare name is guaranteed to be one instance.)
+	if apis := rc.apisSharingName(name); len(apis) > 1 {
+		byAPI := make(map[resource.API]resource.Resource, len(apis))
+		for _, api := range apis {
+			sub, err := rc.createSingleClient(resource.NewName(api, name.Name).PrependRemote(name.Remote))
+			if err != nil {
+				return nil, err
+			}
+			byAPI[api] = sub
+		}
+		return resource.NewMultiAPIResource(resource.NewName(apis[0], name.Name).PrependRemote(name.Remote), apis, byAPI), nil
+	}
+	return rc.createSingleClient(name)
+}
+
+// createSingleClient builds the typed client for exactly one (api, name).
+func (rc *RobotClient) createSingleClient(name resource.Name) (resource.Resource, error) {
 	apiInfo, ok := resource.LookupGenericAPIRegistration(name.API)
 	if !ok || apiInfo.RPCClient == nil {
 		return grpc.NewForeignResource(name, rc.getClientConn()), nil
@@ -890,6 +957,21 @@ func (rc *RobotClient) resourcesCallCtx(ctx context.Context) (context.Context, c
 		return ctx, func() {}
 	}
 	return contextutils.ContextWithTimeoutIfNoDeadline(ctx, rc.resourcesTimeout)
+}
+
+// apisSharingName returns, sorted, every API advertised under name's bare name and remote. A single
+// element means an ordinary single-API resource; more than one means a composite. rc.mu must be held.
+func (rc *RobotClient) apisSharingName(name resource.Name) []resource.API {
+	var apis []resource.API
+	seen := make(map[resource.API]bool)
+	for _, known := range rc.resourceNames {
+		if known.Name == name.Name && known.Remote == name.Remote && !seen[known.API] {
+			seen[known.API] = true
+			apis = append(apis, known.API)
+		}
+	}
+	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+	return apis
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {

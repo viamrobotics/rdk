@@ -15,6 +15,16 @@ type Name struct {
 	Name   string
 }
 
+// SimpleName constructs a Name identified by its simple name alone, with no API — the same
+// "name without an API" that FindBySimpleName resolves. Passed to a robot's ResourceByName it
+// resolves to the single resource of that name, which for a multi-API (composite) resource is the
+// one instance serving every API it enumerates. Any remote prefix in name is parsed as it is by
+// NewName. Relies on machine-wide resource name uniqueness so a simple name identifies exactly one
+// resource. (The bare "Named" identifier is taken by the embeddable Named interface.)
+func SimpleName(name string) Name {
+	return NewName(API{}, name)
+}
+
 // NewName creates a new resource Name.
 func NewName(api API, name string) Name {
 	r := strings.Split(name, ":")
