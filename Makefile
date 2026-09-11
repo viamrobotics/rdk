@@ -153,9 +153,17 @@ bin/static/viam-server-$(GOARCH): $(GO_FILES) Makefile go.mod go.sum
 full-static: bin/static/viam-server-$(GOARCH)
 
 # should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
+#
+# CGO_ENABLED=1 here (unlike full-static above) so components/camera/register/register_windows.go
+# can pull in the mediadevices-based webcam driver. -tags no_cgo is still passed so every other
+# cgo-gated feature (graphviz, nlopt, x264 streaming, etc.) keeps using its existing no_cgo stub
+#
+# using zig to cross-compile
+WINDOWS_CC ?= zig cc -target x86_64-windows-gnu
+WINDOWS_CXX ?= zig c++ -target x86_64-windows-gnu
 bin/windows/viam-server-amd64.exe: $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
+	CGO_ENABLED=1 CC=$(WINDOWS_CC) CXX=$(WINDOWS_CXX) GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
 
 .PHONY: windows
 windows: bin/windows/viam-server-amd64.exe
