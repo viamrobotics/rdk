@@ -2,8 +2,12 @@ package grpc
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 
 	"go.viam.com/utils"
@@ -12,6 +16,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/logging"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/rdk/web/networkcheck"
 )
@@ -67,7 +72,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	}
 
 	// lock not necessary here because call is blocking
-	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
+	appConn.conn, err = authedDialDirectGRPC(ctxWithTimeout, partID, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
 		appConn.watchState(grpcURL.Host, logger)
 		return appConn, nil
@@ -94,7 +99,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 			}
 
 			ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, false, partID, logger)
-			conn, err := rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
+			conn, err := authedDialDirectGRPC(ctxWithTimeout, partID, grpcURL.Host, logger, dialOpts...)
 			ctxWithTimeoutCancel()
 			if err != nil {
 				logger.Debugw("error while dialing app. Could not establish global, unified connection", "error", err)
@@ -112,6 +117,110 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	})
 
 	return appConn, nil
+}
+
+func jwtInfo(partID, host string) (string, string) {
+	cacheDir := filepath.Join(rutils.ViamDotDir, "grpc")
+	jwtFilename := base64.RawURLEncoding.EncodeToString([]byte(partID + "_" + host))
+	jwtPath := filepath.Join(cacheDir, jwtFilename+".jwt")
+
+	return cacheDir, jwtPath
+}
+
+func jwtCacheWrite(partID, host, jwt string) error {
+	cacheDir, jwtPath := jwtInfo(partID, host)
+
+	err := os.MkdirAll(cacheDir, 0o700)
+	if err != nil {
+		return err
+	}
+
+	// atomic write - this duplicates the atomic write in goutils so we don't
+	// have to pull goutils.artifact and all its dependencies into grpc
+	tmpFile, err := os.CreateTemp(cacheDir, "*.jwt.tmp")
+	if err != nil {
+		return err
+	}
+	_, err = tmpFile.WriteString(jwt)
+	if err != nil {
+		return errors.Join(err, tmpFile.Close(), os.Remove(tmpFile.Name()))
+	}
+	err = tmpFile.Close()
+	if err != nil {
+		return errors.Join(err, os.Remove(tmpFile.Name()))
+	}
+	err = os.Rename(tmpFile.Name(), jwtPath)
+	if err != nil {
+		return errors.Join(err, os.Remove(tmpFile.Name()))
+	}
+	return nil
+}
+
+func jwtCacheRead(partID, host string) (string, error) {
+	_, jwtPath := jwtInfo(partID, host)
+
+	// we need to write the JWT provided by app to disk
+	//nolint:gosec
+	jwtData, err := os.ReadFile(jwtPath)
+	if err != nil {
+		return "", err
+	}
+	return string(jwtData), nil
+}
+
+func redialWithCachedJwt(ctx context.Context, conn rpc.ClientConn, partID, host string,
+	logger utils.ZapCompatibleLogger, dialOpts ...rpc.DialOption,
+) rpc.ClientConn {
+	cachedJwt, cacheErr := jwtCacheRead(partID, host)
+	if cacheErr != nil {
+		logger.Warnw("could not read JWT from cache", "error", cacheErr)
+		// the connection is still valid, so return it
+		return conn
+	}
+	// attempt to dial again with the cached credentials
+	newConn, newErr := rpc.DialDirectGRPC(ctx, host, logger, append(dialOpts, rpc.WithStaticAuthenticationMaterial(cachedJwt))...)
+	if newErr != nil {
+		logger.Warnw(fmt.Sprintf("could not dial %s with cached JWT", host), "error", newErr)
+		return conn
+	}
+	// the new connection with the cached token succeeded, so return it and close the old one
+	err := conn.Close()
+	if err != nil {
+		logger.Warnw(fmt.Sprintf("could not close old connection with %s", host), "error", err)
+	}
+	return newConn
+}
+
+// authedDialDirectGRPC calls rpc.DialDirectGRPC while also explicitly authenticating the connection and caching the
+// JWT (provided by app) on disk. If the normal auth path fails, we attempt to auth with the cached JWT
+func authedDialDirectGRPC(ctx context.Context,
+	partID, host string,
+	logger utils.ZapCompatibleLogger,
+	dialOpts ...rpc.DialOption,
+) (rpc.ClientConn, error) {
+	conn, err := rpc.DialDirectGRPC(ctx, host, logger, dialOpts...)
+	if err != nil {
+		return conn, err
+	}
+	authenticator, ok := conn.(rpc.ClientConnAuthenticator)
+	if !ok {
+		logger.Warnw("connection cannot be authenticated: robot did not supply cloud credentials", "connection", fmt.Sprintf("%T", conn))
+		return conn, nil
+	}
+	freshJwt, authErr := authenticator.Authenticate(ctx)
+	if authErr != nil {
+		logger.Warnw(fmt.Sprintf("authenticating connection with %s failed, attempting to dial again with cached JWT", host), "error", authErr)
+		return redialWithCachedJwt(ctx, conn, partID, host, logger, dialOpts...), nil
+	}
+	if freshJwt == "" {
+		logger.Warnf("auth succeeded but the JWT from %s was empty, not updating cache", host)
+	} else {
+		cacheErr := jwtCacheWrite(partID, host, freshJwt)
+		if cacheErr != nil {
+			logger.Warnw("could not write to JWT cache", "error", cacheErr)
+		}
+	}
+	return conn, nil
 }
 
 // watchState starts a background worker that subscribes to connectivity state changes on
