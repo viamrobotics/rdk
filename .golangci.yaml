@@ -27,7 +27,7 @@ linters:
     - gocritic
     - goheader
     - gomoddirectives
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     - gosec
     - gosmopolitan
@@ -76,6 +76,7 @@ linters:
         - fieldalignment
         - shadow
         - composites
+        - inline
       enable-all: true
     lll:
       line-length: 140
@@ -153,7 +154,8 @@ formatters:
         - default
         - prefix(go.viam.com/rdk)
     gofumpt:
-      extra-rules: true
+      extra:
+        group-params: true
   exclusions:
     generated: lax
     paths:
