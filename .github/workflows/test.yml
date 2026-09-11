@@ -393,7 +393,8 @@ jobs:
       run: |
         # Start from the full package list and apply the same SKIP_* filters as
         # every other platform, so skip logic stays consistent as coverage grows.
-        TEST_TARGET=$(go list ./...)
+        ALL_PACKAGES=$(go list ./...)
+        TEST_TARGET="$ALL_PACKAGES"
 
         if [[ -n "$SKIP_ROBOT_IMPL" ]]; then
           echo "SKIP_ROBOT_IMPL set; excluding go.viam.com/rdk/robot/impl"
@@ -408,12 +409,20 @@ jobs:
           TEST_TARGET=$(echo "$TEST_TARGET" | grep -vE '^go\.viam\.com/rdk/(module|module/modmanager|examples/customresources/demos/.*/moduletest)$')
         fi
 
-        # Intersect with the packages known to pass on Windows. The list lives in
-        # etc/windows_test_packages.txt, which is read from the PR's own checkout --
-        # unlike this workflow, which always runs main's copy -- so a PR that adds a
-        # package there is validated by that same PR, with no separate dispatch.
-        WINDOWS_PACKAGES=$(grep -vE '^[[:space:]]*(#|$)' etc/windows_test_packages.txt)
-        TEST_TARGET=$(echo "$TEST_TARGET" | grep -xF -f <(echo "$WINDOWS_PACKAGES"))
+        # Intersect with the packages known to pass on Windows (see etc/windows_test_packages.txt).
+        # tr guards against a CRLF checkout, which would otherwise match nothing at all.
+        WINDOWS_PACKAGES=$(tr -d '\r' < etc/windows_test_packages.txt | awk 'NF && $1 !~ /^#/ {print $1}')
+
+        # Validate against the unfiltered list, not TEST_TARGET, so a SKIP_* exclusion
+        # is not mistaken for a stale entry.
+        UNKNOWN_PACKAGES=$(echo "$WINDOWS_PACKAGES" | grep -xvF "$ALL_PACKAGES" || true)
+        if [[ -n "$UNKNOWN_PACKAGES" ]]; then
+          echo "etc/windows_test_packages.txt lists packages that no longer exist:" 1>&2
+          echo "$UNKNOWN_PACKAGES" 1>&2
+          exit 1
+        fi
+
+        TEST_TARGET=$(echo "$TEST_TARGET" | grep -xF "$WINDOWS_PACKAGES")
 
         echo "Running Windows tests: $(echo "$TEST_TARGET" | wc -l) packages"
         go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $TEST_TARGET
