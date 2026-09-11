@@ -249,6 +249,7 @@ func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
 
 func binaryMetadataToProto(binaryMetadata *BinaryMetadata) *pb.BinaryMetadata {
 	return &pb.BinaryMetadata{
+		//nolint:staticcheck
 		Id:              binaryMetadata.ID,
 		BinaryDataId:    binaryMetadata.BinaryDataID,
 		CaptureMetadata: captureMetadataToProto(binaryMetadata.CaptureMetadata),

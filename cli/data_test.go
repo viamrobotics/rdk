@@ -23,6 +23,7 @@ import (
 
 func TestFilenameForDownload(t *testing.T) {
 	const expectedUTC = "1970-01-01T00_00_00Z"
+	//nolint:staticcheck
 	noFilename := filenameForDownload(&datapb.BinaryMetadata{Id: "my-id"})
 	test.That(t, noFilename, test.ShouldEqual, expectedUTC+"_my-id")
 
@@ -56,6 +57,7 @@ func TestDownloadBinarySkipsExisting(t *testing.T) {
 	// newMeta returns a fresh metadata object per call, matching real gRPC
 	// unmarshaling (downloadBinary mutates metadata.FileName in place).
 	newMeta := func(id string) *datapb.BinaryMetadata {
+		//nolint:staticcheck
 		return &datapb.BinaryMetadata{Id: id, FileName: fileNames[id], FileExt: ".jpg"}
 	}
 
