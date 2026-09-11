@@ -46,7 +46,7 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 	test.That(t, len(out.JointPositionTargetReceived), test.ShouldEqual, 1)
 
 	test.That(t, len(out.ArmRunway), test.ShouldEqual, 1)
-	test.That(t, out.ArmRunway[0].SizeMs, test.ShouldAlmostEqual, 40.0, 1e-9)
+	test.That(t, out.ArmRunway[0].SizeMs, test.ShouldEqual, 40.0)
 
 	test.That(t, len(out.TrajexSessionOpen), test.ShouldEqual, 1)
 	test.That(t, len(out.TrajexSessionClose), test.ShouldEqual, 1)
@@ -54,13 +54,13 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 	test.That(t, len(out.ArmStreamClose), test.ShouldEqual, 1)
 
 	test.That(t, len(out.TrajexExtendLatency), test.ShouldEqual, 1)
-	test.That(t, out.TrajexExtendLatency[0].DurationMs, test.ShouldAlmostEqual, 5.0, 0.5)
+	test.That(t, out.TrajexExtendLatency[0].DurationMs, test.ShouldEqual, 5.0)
 	test.That(t, len(out.SendToArmLatency), test.ShouldEqual, 1)
-	test.That(t, out.SendToArmLatency[0].DurationMs, test.ShouldAlmostEqual, 2.0, 0.5)
+	test.That(t, out.SendToArmLatency[0].DurationMs, test.ShouldEqual, 2.0)
 
 	test.That(t, len(out.SampledPVATs), test.ShouldEqual, 1)
 	v := out.SampledPVATs[0]
-	test.That(t, v.TrajectoryTimeMs, test.ShouldAlmostEqual, 1500.0, 1e-9)
+	test.That(t, v.TrajectoryTimeMs, test.ShouldEqual, 1500.0)
 	test.That(t, v.TimestampMs, test.ShouldBeGreaterThan, 1e12)
 	test.That(t, len(v.JointDegPerSec), test.ShouldEqual, 2)
 	test.That(t, v.JointDegPerSec[0], test.ShouldAlmostEqual, 15.0, 1e-9)
@@ -143,16 +143,16 @@ func TestStats(t *testing.T) {
 	test.That(t, stats.DurationMs, test.ShouldBeGreaterThan, 999.0)
 
 	test.That(t, stats.JointPositionTargetsReceived, test.ShouldEqual, 3)
-	test.That(t, stats.SendToArmLatencyMaxMs, test.ShouldAlmostEqual, 20.0, 1e-9)
+	test.That(t, stats.SendToArmLatencyMaxMs, test.ShouldEqual, 20.0)
 	// Histogram quantiles land on power-of-two bucket bounds, clamped to the true max.
-	test.That(t, stats.SendToArmLatencyP50Ms, test.ShouldAlmostEqual, 2.0, 1e-9)
-	test.That(t, stats.SendToArmLatencyP99Ms, test.ShouldAlmostEqual, 20.0, 1e-9)
+	test.That(t, stats.SendToArmLatencyP50Ms, test.ShouldEqual, 2.0)
+	test.That(t, stats.SendToArmLatencyP99Ms, test.ShouldEqual, 20.0)
 
-	test.That(t, stats.TrajexExtendLatencyMaxMs, test.ShouldAlmostEqual, 4.0, 1e-9)
-	test.That(t, stats.TrajexExtendLatencyP50Ms, test.ShouldAlmostEqual, 4.0, 1e-9)
+	test.That(t, stats.TrajexExtendLatencyMaxMs, test.ShouldEqual, 4.0)
+	test.That(t, stats.TrajexExtendLatencyP50Ms, test.ShouldEqual, 4.0)
 
-	test.That(t, stats.ArmRunwayMinMs, test.ShouldAlmostEqual, -5.0, 1e-9)
-	test.That(t, stats.ArmRunwayMaxMs, test.ShouldAlmostEqual, 40.0, 1e-9)
+	test.That(t, stats.ArmRunwayMinMs, test.ShouldEqual, -5.0)
+	test.That(t, stats.ArmRunwayMaxMs, test.ShouldEqual, 40.0)
 	test.That(t, stats.MaxJointDegPerSec, test.ShouldAlmostEqual, 80.0, 1e-9)
 	test.That(t, stats.MaxJointDegPerSec2, test.ShouldAlmostEqual, 100.0, 1e-9)
 
