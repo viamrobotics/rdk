@@ -38,33 +38,63 @@ Build cuda_11.5.r11.5/compiler.30672275_0
 		test.That(t, string(match[1]), test.ShouldResemble, "11")
 	})
 
-	t.Run("apt-cache", func(t *testing.T) {
-		jp5 := `Package: nvidia-jetpack
-Version: 5.1.1-b56
-Architecture: arm64
-Maintainer: NVIDIA Corporation
-Installed-Size: 194
-Depends: nvidia-jetpack-runtime (= 5.1.1-b56), nvidia-jetpack-dev (= 5.1.1-b56)
-Homepage: http://developer.nvidia.com/jetson
-Priority: standard
-Section: metapackages`
-		match := aptCacheVersionRegex.FindSubmatch([]byte(jp5))
+	t.Run("l4t-release", func(t *testing.T) {
+		// The L4T major is parsed from the first line of /etc/nv_tegra_release and mapped to
+		// the JetPack major. This sample is verbatim from a JetPack 6 Jetson Orin Nano.
+		jp6 := "# R36 (release), REVISION: 4.4, GCID: 41062509, BOARD: generic, EABI: aarch64, DATE: Mon Jun 16 16:07:13 UTC 2025\n" +
+			"# KERNEL_VARIANT: oot\nTARGET_USERSPACE_LIB_DIR=nvidia\n"
+		match := l4tReleaseRegex.FindSubmatch([]byte(jp6))
 		test.That(t, match, test.ShouldNotBeNil)
-		test.That(t, string(match[1]), test.ShouldResemble, "5")
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "6")
 
-		jp6 := `Package: nvidia-jetpack
-Source: nvidia-jetpack (6.1)
-Version: 6.1+b123
-Architecture: arm64
-Maintainer: NVIDIA Corporation
-Installed-Size: 194
-Depends: nvidia-jetpack-runtime (= 6.1+b123), nvidia-jetpack-dev (= 6.1+b123)
-Homepage: http://developer.nvidia.com/jetson
-Priority: standard
-Section: metapackages`
-		match = aptCacheVersionRegex.FindSubmatch([]byte(jp6))
+		// JetPack 5 (L4T R35) and JetPack 4 (L4T R32).
+		match = l4tReleaseRegex.FindSubmatch([]byte("# R35 (release), REVISION: 4.1, GCID: 12345, BOARD: generic\n"))
 		test.That(t, match, test.ShouldNotBeNil)
-		test.That(t, string(match[1]), test.ShouldResemble, "6")
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "5")
+
+		match = l4tReleaseRegex.FindSubmatch([]byte("# R32 (release), REVISION: 7.1\n"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "4")
+
+		// JetPack 7 spans two L4T majors: R38 (JetPack 7.0/7.1) and R39 (JetPack 7.2).
+		match = l4tReleaseRegex.FindSubmatch([]byte("# R38 (release), REVISION: 2.0, GCID: 67890, BOARD: generic\n"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "7")
+
+		match = l4tReleaseRegex.FindSubmatch([]byte("# R39 (release), REVISION: 2.1, GCID: 13579, BOARD: generic\n"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "7")
+
+		// A future/unknown L4T major parses but has no mapping (so no tag is emitted).
+		match = l4tReleaseRegex.FindSubmatch([]byte("# R40 (release), REVISION: 0.0\n"))
+		test.That(t, match, test.ShouldNotBeNil)
+		_, ok := l4tToJetpack[string(match[1])]
+		test.That(t, ok, test.ShouldBeFalse)
+
+		// Non-Jetson / unparseable contents must not match.
+		test.That(t, l4tReleaseRegex.FindSubmatch([]byte("")), test.ShouldBeNil)
+		test.That(t, l4tReleaseRegex.FindSubmatch([]byte("not an nv_tegra_release file\n")), test.ShouldBeNil)
+	})
+
+	t.Run("l4t-core-package", func(t *testing.T) {
+		// The primary source: `dpkg-query --showformat='${Version}' --show nvidia-l4t-core`. The
+		// L4T major is the leading component of the package version and maps to the JetPack major.
+		// This sample is verbatim from a JetPack 6 Jetson Orin Nano.
+		match := l4tCoreVersionRegex.FindSubmatch([]byte("36.4.3-20250107174145"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "6")
+
+		match = l4tCoreVersionRegex.FindSubmatch([]byte("35.4.1-20230801124926"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "5")
+
+		match = l4tCoreVersionRegex.FindSubmatch([]byte("32.7.1-20220219090432"))
+		test.That(t, match, test.ShouldNotBeNil)
+		test.That(t, l4tToJetpack[string(match[1])], test.ShouldEqual, "4")
+
+		// Empty output (package not installed / not a Jetson) must not match.
+		test.That(t, l4tCoreVersionRegex.FindSubmatch([]byte("")), test.ShouldBeNil)
+		test.That(t, l4tCoreVersionRegex.FindSubmatch([]byte("dpkg-query: no packages found matching nvidia-l4t-core")), test.ShouldBeNil)
 	})
 
 	t.Run("pi", func(t *testing.T) {
