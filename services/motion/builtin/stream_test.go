@@ -120,6 +120,54 @@ func TestDoCommandsHappyPath(t *testing.T) {
 	test.That(t, streams >= 1, test.ShouldBeTrue)
 }
 
+// TestDoCommandArmStreamingStatusDiagnosticsOptIn checks that stream_status omits the
+// (potentially large) last window details unless the caller opts in via
+// {"last_window_details": true}.
+func TestDoCommandArmStreamingStatusDiagnosticsOptIn(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	ctx := context.Background()
+
+	opts := streamTestOptions()
+	_, err := ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamStart: map[string]interface{}{"arm": "arm", "options": opts},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": true}})
+	test.That(t, err, test.ShouldBeNil)
+	_, hasDetails := resp["last_window_details"]
+	test.That(t, hasDetails, test.ShouldBeTrue)
+	test.That(t, resp["running"], test.ShouldEqual, true)
+
+	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// TestDoCommandArmStreamingDiagnosticsDisabled checks that diagnostics_window_ms: 0 starts a
+// session with no diagnostics, so opting in to last_window_details yields nothing.
+func TestDoCommandArmStreamingDiagnosticsDisabled(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	ctx := context.Background()
+
+	opts := streamTestOptions()
+	opts["diagnostics_window_ms"] = 0
+	_, err := ms.DoCommand(ctx, map[string]interface{}{
+		DoStreamStart: map[string]interface{}{"arm": "arm", "options": opts},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": true}})
+	test.That(t, err, test.ShouldBeNil)
+	_, hasDetails := resp["last_window_details"]
+	test.That(t, hasDetails, test.ShouldBeFalse)
+	test.That(t, resp["running"], test.ShouldEqual, true)
+
+	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestDoCommandsUsedIncorrectly(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	ctx := context.Background()

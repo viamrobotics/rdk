@@ -13,7 +13,13 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	test.That(t, valid.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
 	test.That(t, valid.VelLimitDegPerSec, test.ShouldEqual, defaultVelLimitDegPerSec)
 	test.That(t, valid.AccelLimitDegPerSec2, test.ShouldEqual, defaultAccelLimitDegPerSec2)
+	test.That(t, valid.DiagnosticsWindowMs, test.ShouldEqual, defaultDiagnosticsWindowMs)
 	test.That(t, valid.Validate(), test.ShouldBeNil)
+
+	// A zero diagnostics window is valid: it disables diagnostics.
+	disabled := valid
+	disabled.DiagnosticsWindowMs = 0
+	test.That(t, disabled.Validate(), test.ShouldBeNil)
 
 	// The zero value does not validate.
 	test.That(t, (&StreamOptions{}).Validate(), test.ShouldNotBeNil)
@@ -32,6 +38,7 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 		{"negative vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = -1 }},
 		{"zero accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = 0 }},
 		{"negative accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = -1 }},
+		{"negative diagnostics window", func(o *StreamOptions) { o.DiagnosticsWindowMs = -1 }},
 	} {
 		bad := valid
 		tc.mutate(&bad)
