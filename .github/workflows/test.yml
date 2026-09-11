@@ -408,20 +408,12 @@ jobs:
           TEST_TARGET=$(echo "$TEST_TARGET" | grep -vE '^go\.viam\.com/rdk/(module|module/modmanager|examples/customresources/demos/.*/moduletest)$')
         fi
 
-        # Intersect with the set of packages known to pass on Windows.
-        # As Windows compatibility improves, add packages here. When all packages
-        # pass, this filter can be removed entirely.
-        WORKING_WINDOWS_TESTS=(
-          go.viam.com/rdk/web/server
-          go.viam.com/rdk/module
-          go.viam.com/rdk/logging
-          go.viam.com/rdk/cli
-          go.viam.com/rdk/services/shell
-          go.viam.com/rdk/services/shell/builtin
-          go.viam.com/rdk/services/shell/testutils
-        )
-        WINDOWS_PATTERN=$(IFS='|'; echo "${WORKING_WINDOWS_TESTS[*]}")
-        TEST_TARGET=$(echo "$TEST_TARGET" | grep -E "^(${WINDOWS_PATTERN})$")
+        # Intersect with the packages known to pass on Windows. The list lives in
+        # etc/windows_test_packages.txt, which is read from the PR's own checkout --
+        # unlike this workflow, which always runs main's copy -- so a PR that adds a
+        # package there is validated by that same PR, with no separate dispatch.
+        WINDOWS_PACKAGES=$(grep -vE '^[[:space:]]*(#|$)' etc/windows_test_packages.txt)
+        TEST_TARGET=$(echo "$TEST_TARGET" | grep -xF -f <(echo "$WINDOWS_PACKAGES"))
 
         echo "Running Windows tests: $(echo "$TEST_TARGET" | wc -l) packages"
         go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $TEST_TARGET
