@@ -5,28 +5,15 @@ package sys
 import (
 	"time"
 
-	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/process"
 )
-
-var machineBootTimeSecsSinceEpoch float64
-
-func init() {
-	bootTime, err := host.BootTime()
-	if err != nil {
-		machineBootTimeSecsSinceEpoch = 0
-	} else {
-		machineBootTimeSecsSinceEpoch = float64(bootTime)
-	}
-}
 
 // UsageStatser can be used to get system metrics for a process.
 type UsageStatser struct {
 	proc *process.Process
 }
 
-// NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
-// just leave this one
+// newSysUsageStatser will return a `UsageStatser` for the given process id.
 func newSysUsageStatser(pid int) (*UsageStatser, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
