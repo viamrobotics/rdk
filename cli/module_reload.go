@@ -53,7 +53,8 @@ func configureModule(
 			return err
 		}
 		cfgJSON, needsRestart, err = mutateModuleConfig(
-			cmd, cfgJSON, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS, remoteDest)
+			cmd, cfgJSON, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS, remoteDest,
+		)
 		if err != nil {
 			return err
 		}

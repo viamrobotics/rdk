@@ -47,7 +47,8 @@ func TestWallHopWithoutSearch(t *testing.T) {
 	wallCenter := midPose.Point()
 	wallCenter.Z -= 100
 	obstacle, err := spatialmath.NewBox(
-		spatialmath.NewPoseFromPoint(wallCenter), r3.Vector{X: 350, Y: 350, Z: 500}, "bigwall")
+		spatialmath.NewPoseFromPoint(wallCenter), r3.Vector{X: 350, Y: 350, Z: 500}, "bigwall",
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	plan, meta, err := PlanMotion(context.Background(), logger, &PlanRequest{

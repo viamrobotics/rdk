@@ -190,7 +190,8 @@ func TestNew(t *testing.T) {
 		_, err := New(
 			ctx,
 			resource.Dependencies{},
-			resource.Config{ConvertedAttributes: &Config{}}, datasync.NoOpCloudClientConstructor, logger)
+			resource.Config{ConvertedAttributes: &Config{}}, datasync.NoOpCloudClientConstructor, logger,
+		)
 		errExp := errors.New("Resource missing from dependencies. " +
 			"Resource: " + cloud.InternalServiceName.String())
 		test.That(t, err, test.ShouldBeError, errExp)

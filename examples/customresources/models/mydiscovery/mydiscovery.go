@@ -25,7 +25,8 @@ func init() {
 			logger logging.Logger,
 		) (discovery.Service, error) {
 			return newDiscovery(conf.ResourceName(), logger), nil
-		}})
+		}},
+	)
 }
 
 func newDiscovery(name resource.Name, logger logging.Logger) discovery.Service {

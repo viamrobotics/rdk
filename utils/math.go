@@ -53,7 +53,7 @@ func AntiCWDeg(deg float64) float64 {
 // ModAngDeg returns the given angle modulus 360 and resolves
 // any negativity.
 func ModAngDeg(ang float64) float64 {
-	return math.Mod(math.Mod((ang), 360)+360, 360)
+	return math.Mod(math.Mod(ang, 360)+360, 360)
 }
 
 // Median returns the median value of the given values. If there

@@ -173,14 +173,16 @@ func TestUndistortDepthMap(t *testing.T) {
 
 	// wrong size error
 	dmWrong, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath("transform/align-test-1615761793.png"))
+		context.Background(), artifact.MustPath("transform/align-test-1615761793.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = pinhole.UndistortDepthMap(dmWrong)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 
 	// correct undistortion
 	img, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath("rimage/board2_gray.png"))
+		context.Background(), artifact.MustPath("rimage/board2_gray.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	corrected, err := pinhole.UndistortDepthMap(img)
 	test.That(t, err, test.ShouldBeNil)

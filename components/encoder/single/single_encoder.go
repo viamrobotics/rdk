@@ -51,7 +51,8 @@ func init() {
 		singleModel,
 		resource.Registration[encoder.Encoder, *Config]{
 			Constructor: NewSingleEncoder,
-		})
+		},
+	)
 }
 
 // DirectionAware lets you ask what direction something is moving. Only used for Encoder for now, unclear future.

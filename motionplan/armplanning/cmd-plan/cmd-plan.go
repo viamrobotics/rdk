@@ -398,7 +398,8 @@ func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.
 
 	if r.opts.pseudolinearLine > 0 || r.opts.pseudolinearOrientation > 0 {
 		req.Constraints.AddPseudolinearConstraint(
-			motionplan.PseudolinearConstraint{r.opts.pseudolinearLine, r.opts.pseudolinearOrientation})
+			motionplan.PseudolinearConstraint{r.opts.pseudolinearLine, r.opts.pseudolinearOrientation},
+		)
 	}
 
 	if r.opts.seed >= 0 {
@@ -848,7 +849,8 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 					StartConfiguration: plan.Trajectory()[idx-1].ToLinearInputs(),
 					EndConfiguration:   plan.Trajectory()[idx].ToLinearInputs(),
 					FS:                 req.FrameSystem,
-				}, 2)
+				}, 2,
+			)
 			if err != nil {
 				return err
 			}
@@ -896,7 +898,9 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 			poseInWorldFrame := poseValue.Transform(
 				referenceframe.NewPoseInFrame(
 					req.FrameSystem.World().Name(),
-					spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+					spatialmath.NewZeroPose(),
+				),
+			).(*referenceframe.PoseInFrame)
 			goalPoses = append(goalPoses, poseInWorldFrame.Pose())
 		}
 	}
@@ -1037,7 +1041,9 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					poseInWorldFrame := poseValue.Transform(
 						referenceframe.NewPoseInFrame(
 							req.FrameSystem.World().Name(),
-							spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+							spatialmath.NewZeroPose(),
+						),
+					).(*referenceframe.PoseInFrame)
 					sphere, err := spatialmath.NewSphere(poseInWorldFrame.Pose(), 10, fmt.Sprintf("goal-%d-%v", gi, pi))
 					if err != nil {
 						return err

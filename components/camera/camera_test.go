@@ -41,7 +41,8 @@ type simpleSource struct {
 
 func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath(s.filePath+".dat.gz"))
+		context.Background(), artifact.MustPath(s.filePath+".dat.gz"),
+	)
 	return img, func() {}, err
 }
 
@@ -55,7 +56,8 @@ type simpleSourceWithPCD struct {
 
 func (s *simpleSourceWithPCD) Read(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath(s.filePath+".dat.gz"))
+		context.Background(), artifact.MustPath(s.filePath+".dat.gz"),
+	)
 	return img, func() {}, err
 }
 
@@ -136,7 +138,7 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	props, err = cam2.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, *(props.IntrinsicParams), test.ShouldResemble, *intrinsics1)
+	test.That(t, *props.IntrinsicParams, test.ShouldResemble, *intrinsics1)
 
 	// camera with camera parameters inherited  from other camera
 	cam2props, err := cam2.Properties(context.Background())
@@ -150,7 +152,7 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	cam3props, err := cam3.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, *(cam3props.IntrinsicParams), test.ShouldResemble, *(cam2props.IntrinsicParams))
+	test.That(t, *cam3props.IntrinsicParams, test.ShouldResemble, *cam2props.IntrinsicParams)
 
 	// camera with different camera parameters, will not inherit
 	cam4, err := camera.NewVideoSourceFromReader(
@@ -163,7 +165,7 @@ func TestNewCamera(t *testing.T) {
 	cam4props, err := cam4.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cam4props.IntrinsicParams, test.ShouldNotBeNil)
-	test.That(t, *(cam4props.IntrinsicParams), test.ShouldNotResemble, *(cam2props.IntrinsicParams))
+	test.That(t, *cam4props.IntrinsicParams, test.ShouldNotResemble, *cam2props.IntrinsicParams)
 }
 
 type cloudSource struct {

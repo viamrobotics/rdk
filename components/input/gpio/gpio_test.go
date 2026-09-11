@@ -336,7 +336,7 @@ func TestGPIOInput(t *testing.T) {
 		defer teardown(t, s)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			state, err := (s.dev).Events(s.ctx, map[string]interface{}{})
+			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, state["ButtonNorth"].Value, test.ShouldEqual, 0)
 			test.That(tb, state["ButtonNorth"].Event, test.ShouldEqual, input.Connect)

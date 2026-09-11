@@ -26,7 +26,8 @@ func TestCrop(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	dm, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
+		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	// test depth source
@@ -201,7 +202,8 @@ func TestResizeColor(t *testing.T) {
 
 func TestResizeDepth(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
+		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	am := utils.AttributeMap{
@@ -414,7 +416,8 @@ func TestRotateColorSource(t *testing.T) {
 
 func TestRotateDepthSource(t *testing.T) {
 	pc, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
+		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
@@ -626,7 +629,8 @@ func BenchmarkColorRotate(b *testing.B) {
 
 func BenchmarkDepthRotate(b *testing.B) {
 	img, err := rimage.NewDepthMapFromFile(
-		context.Background(), artifact.MustPath("rimage/board1.dat.gz"))
+		context.Background(), artifact.MustPath("rimage/board1.dat.gz"),
+	)
 	test.That(b, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: img}, prop.Video{})

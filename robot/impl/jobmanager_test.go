@@ -195,7 +195,8 @@ func TestJobManagerHistory(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return injectSensor, nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		sensor.API,
 		fakeSensorModelPanic,
@@ -206,7 +207,8 @@ func TestJobManagerHistory(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return injectSensorPanic, nil
-		}})
+		}},
+	)
 
 	// test GetReadings success, DoCommand fail
 	cfg := &config.Config{
@@ -504,7 +506,8 @@ func TestJobManagerConfigChanges(t *testing.T) {
 				return dummyArm2, nil
 			}
 			return dummyArm3, nil
-		}})
+		}},
+	)
 
 	defer func() {
 		resource.Deregister(arm.API, model)
@@ -632,7 +635,8 @@ func TestJobManagerRemote(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return dummySensor, nil
-		}})
+		}},
+	)
 
 	defer func() {
 		resource.Deregister(sensor.API, model)
@@ -729,7 +733,8 @@ func TestJobManagerRemoteWithPrefix(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return dummySensor, nil
-		}})
+		}},
+	)
 
 	defer func() {
 		resource.Deregister(sensor.API, model)
@@ -825,7 +830,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (arm.Arm, error) {
 			return dummyArm, nil
-		}})
+		}},
+	)
 
 	// audioin
 	dummyAudioIn := inject.NewAudioIn("audioin")
@@ -842,7 +848,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (audioin.AudioIn, error) {
 			return dummyAudioIn, nil
-		}})
+		}},
+	)
 
 	// audioout
 	dummyAudioOut := inject.NewAudioOut("audioout")
@@ -859,7 +866,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (audioout.AudioOut, error) {
 			return dummyAudioOut, nil
-		}})
+		}},
+	)
 
 	// base
 	dummyBase := inject.NewBase("base")
@@ -876,7 +884,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (base.Base, error) {
 			return dummyBase, nil
-		}})
+		}},
+	)
 
 	// board
 	dummyBoard := inject.NewBoard("board")
@@ -897,7 +906,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (board.Board, error) {
 			return dummyBoard, nil
-		}})
+		}},
+	)
 
 	// button
 	dummyButton := inject.NewButton("button")
@@ -917,7 +927,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (button.Button, error) {
 			return dummyButton, nil
-		}})
+		}},
+	)
 	// camera
 	dummyCamera := inject.NewCamera("camera")
 	dummyCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -933,7 +944,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (camera.Camera, error) {
 			return dummyCamera, nil
-		}})
+		}},
+	)
 	// encoder
 	dummyEncoder := inject.NewEncoder("encoder")
 	dummyEncoder.PropertiesFunc = func(ctx context.Context,
@@ -951,7 +963,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (encoder.Encoder, error) {
 			return dummyEncoder, nil
-		}})
+		}},
+	)
 	// gantry
 	dummyGantry := inject.NewGantry("gantry")
 	dummyGantry.HomeFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
@@ -967,7 +980,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (gantry.Gantry, error) {
 			return dummyGantry, nil
-		}})
+		}},
+	)
 	// generic
 	genericCounter := 0
 	dummyGeneric := inject.NewGenericComponent("generic")
@@ -987,7 +1001,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (generic.Resource, error) {
 			return dummyGeneric, nil
-		}})
+		}},
+	)
 	// gripper
 	dummyGripper := inject.NewGripper("gripper")
 	dummyGripper.GrabFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
@@ -1003,7 +1018,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (gripper.Gripper, error) {
 			return dummyGripper, nil
-		}})
+		}},
+	)
 	// inputcontroller
 	dummyInputController := inject.NewInputController("my_input")
 	dummyInputController.EventsFunc = func(ctx context.Context,
@@ -1023,7 +1039,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (input.Controller, error) {
 			return dummyInputController, nil
-		}})
+		}},
+	)
 	// motor
 	dummyMotor := inject.NewMotor("motor")
 	dummyMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]any) error {
@@ -1039,7 +1056,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (motor.Motor, error) {
 			return dummyMotor, nil
-		}})
+		}},
+	)
 	// movementsensor
 	dummyMovementSensor := inject.NewMovementSensor("move_sensor")
 	dummyMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
@@ -1055,7 +1073,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (movementsensor.MovementSensor, error) {
 			return dummyMovementSensor, nil
-		}})
+		}},
+	)
 	// posetracker
 	dummyPoseTracker := inject.NewPoseTracker("pose")
 	dummyPoseTracker.PosesFunc = func(ctx context.Context,
@@ -1074,7 +1093,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (posetracker.PoseTracker, error) {
 			return dummyPoseTracker, nil
-		}})
+		}},
+	)
 	// powersensor
 	dummyPowerSensor := inject.NewPowerSensor("power_sensor")
 	dummyPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
@@ -1090,7 +1110,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (powersensor.PowerSensor, error) {
 			return dummyPowerSensor, nil
-		}})
+		}},
+	)
 	// sensor
 	dummySensor := inject.NewSensor("sensor")
 	dummySensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
@@ -1108,7 +1129,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return dummySensor, nil
-		}})
+		}},
+	)
 	// servo
 	dummyServo := inject.NewServo("servo")
 	dummyServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
@@ -1124,7 +1146,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (servo.Servo, error) {
 			return dummyServo, nil
-		}})
+		}},
+	)
 	// switch
 	dummySwitch := inject.NewSwitch("switch")
 	dummySwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
@@ -1143,7 +1166,8 @@ func TestJobManagerComponents(t *testing.T) {
 			logger logging.Logger,
 		) (sw.Switch, error) {
 			return dummySwitch, nil
-		}})
+		}},
+	)
 
 	// create the actual config and fill it
 	cfg := &config.Config{
@@ -1460,7 +1484,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (datamanager.Service, error) {
 			return dummyDataManager, nil
-		}})
+		}},
+	)
 
 	// discovery
 	dummyDiscovery := inject.NewDiscoveryService("discovery")
@@ -1484,7 +1509,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (discovery.Service, error) {
 			return dummyDiscovery, nil
-		}})
+		}},
+	)
 
 	// generic
 	var genericCounter int
@@ -1505,7 +1531,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (genSvc.Service, error) {
 			return dummyGeneric, nil
-		}})
+		}},
+	)
 	// ml_model
 	dummyML := inject.NewMLModelService("ml_model")
 	dummyML.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
@@ -1521,7 +1548,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (mlmodel.Service, error) {
 			return dummyML, nil
-		}})
+		}},
+	)
 	// motion
 	dummyMotion := injectmotion.NewMotionService("motion")
 	dummyMotion.ListPlanStatusesFunc = func(ctx context.Context, req motion.ListPlanStatusesReq) ([]motion.PlanStatusWithID, error) {
@@ -1537,7 +1565,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (motion.Service, error) {
 			return dummyMotion, nil
-		}})
+		}},
+	)
 	// navigation
 	dummyNav := inject.NewNavigationService("navigation")
 	dummyNav.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
@@ -1553,7 +1582,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (navigation.Service, error) {
 			return dummyNav, nil
-		}})
+		}},
+	)
 	// shell
 	var shellCounter int
 	dummyShell := inject.NewShellService("shell")
@@ -1573,7 +1603,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (shell.Service, error) {
 			return dummyShell, nil
-		}})
+		}},
+	)
 	// slam
 	dummySlam := inject.NewSLAMService("slam")
 	dummySlam.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
@@ -1591,7 +1622,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (slam.Service, error) {
 			return dummySlam, nil
-		}})
+		}},
+	)
 	// vision
 	dummyVision := inject.NewVisionService("vision")
 	dummyVision.GetPropertiesFunc = func(ctx context.Context, extra map[string]any) (*vision.Properties, error) {
@@ -1611,7 +1643,8 @@ func TestJobManagerServices(t *testing.T) {
 			logger logging.Logger,
 		) (vision.Service, error) {
 			return dummyVision, nil
-		}})
+		}},
+	)
 	cfg := &config.Config{
 		Services: []resource.Config{
 			{
@@ -1848,7 +1881,8 @@ func TestJobManagerErrors(t *testing.T) {
 			logger logging.Logger,
 		) (arm.Arm, error) {
 			return dummyArm, nil
-		}})
+		}},
+	)
 
 	newConf := config.Config{
 		Components: []resource.Config{

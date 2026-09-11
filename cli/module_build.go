@@ -107,7 +107,8 @@ func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
 	// github url but missing owner/repo: the cloud build will definitely fail, so hard-fail early
 	if len(parts) < 2 || parts[1] == "" {
 		return "", "", false, fmt.Errorf(
-			"meta.json url %q is missing the repo path (expected https://github.com/<owner>/<repo>)", repoURL)
+			"meta.json url %q is missing the repo path (expected https://github.com/<owner>/<repo>)", repoURL,
+		)
 	}
 	return parts[0], strings.TrimSuffix(parts[1], ".git"), true, nil
 }
@@ -1101,7 +1102,8 @@ func (c *viamClient) moduleBuildStartFromSource(
 	}
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return "", errors.New(
-			"your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
+			"your meta.json cannot have an empty build step. See 'viam module build --help' for more information",
+		)
 	}
 
 	moduleID, err := parseModuleID(manifest.ModuleID)
@@ -1782,7 +1784,8 @@ func reloadModuleActionInner(
 	}
 	var newPart *apppb.RobotPart
 	newPart, needsRestart, err = configureModule(
-		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest)
+		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest,
+	)
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {

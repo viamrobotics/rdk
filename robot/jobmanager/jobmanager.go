@@ -261,7 +261,8 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 			grpcurl.Format("json"),
 			descSource,
 			bytes.NewBuffer(argumentBytes),
-			options)
+			options,
+		)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "could not create parser and formatter for grpc requests", "error", err.Error())
 			return err

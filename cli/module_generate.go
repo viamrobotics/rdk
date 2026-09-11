@@ -1385,7 +1385,7 @@ func runGoWithRetry(dir string, args ...string) ([]byte, error) {
 	var out []byte
 	var err error
 	for attempt := 1; ; attempt++ {
-		//nolint: noctx
+		//nolint: gosec,noctx
 		cmd := exec.Command(golang, args...)
 		cmd.Dir = dir
 		out, err = cmd.CombinedOutput()
@@ -1512,7 +1512,7 @@ func createPythonVenv(pythonCmd, venvName string) error {
 	const maxAttempts = 3
 	var err error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		//nolint: noctx
+		//nolint: gosec,noctx
 		cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr

@@ -25,7 +25,8 @@ func init() {
 		incrModel,
 		resource.Registration[encoder.Encoder, *Config]{
 			Constructor: NewIncrementalEncoder,
-		})
+		},
+	)
 }
 
 // Encoder keeps track of a motor position using a rotary incremental encoder.

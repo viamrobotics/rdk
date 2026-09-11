@@ -42,7 +42,8 @@ func (e RequestLimitExceededError) Error() string {
 		"exceeded the shared concurrent-request limit of %v on resource %v. This limit is shared "+
 			"across all clients/modules (your client has %v in-flight requests). Check the viam-server "+
 			`logs for 'Request limit exceeded' to find the offending client. See %v for troubleshooting steps`,
-		e.limit, e.resource, e.numInFlightRequestsForClient, ReqLimitExceededURL)
+		e.limit, e.resource, e.numInFlightRequestsForClient, ReqLimitExceededURL,
+	)
 }
 
 // GRPCStatus allows this error to be converted to a [status.Status].
@@ -460,7 +461,8 @@ func (rc *RequestCounter) UnaryInterceptor(
 				requestCounterKey,
 				time.Since(start),
 				respSize,
-				err != nil)
+				err != nil,
+			)
 		}()
 	}
 
@@ -512,7 +514,8 @@ func (rc *RequestCounter) ensureCounterForResourceForPC(
 			&inFlightAndRejectedRequests{
 				&atomic.Int64{},
 				&atomic.Int64{},
-			})
+			},
+		)
 	}
 
 	switch cn {

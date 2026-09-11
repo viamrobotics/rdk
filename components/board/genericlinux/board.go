@@ -40,7 +40,8 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 			) (board.Board, error) {
 				return NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logger)
 			},
-		})
+		},
+	)
 }
 
 // NewBoard is the constructor for a Board.
@@ -255,7 +256,8 @@ func findNewDigIntConfig(
 		logger.Debugf(
 			"Keeping digital interrupt on pin %s even though it's not explicitly mentioned "+
 				"in the new board config",
-			interrupt.config.Pin)
+			interrupt.config.Pin,
+		)
 		return &interrupt.config
 	}
 	return nil

@@ -102,7 +102,8 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 	// errors from here do not contain non-breaking spaces.
 	if err != nil {
 		ascii := strings.ReplaceAll(
-			err.Error(), " " /* non-breaking space */, " " /* normal space */)
+			err.Error(), " " /* non-breaking space */, " ", /* normal space */
+		)
 		err = errors.New(ascii)
 	}
 	return vv, err

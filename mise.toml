@@ -1,7 +1,7 @@
 min_version = '2026.8.16'
 
 [tools]
-golangci-lint = "2.9.0"
+golangci-lint = "2.13.2"
 
 [tasks.lint-go]
 alias = "lint"

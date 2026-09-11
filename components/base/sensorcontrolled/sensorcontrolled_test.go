@@ -73,7 +73,7 @@ func createDependencies(t *testing.T) resource.Dependencies {
 }
 
 func addBaseDependency(deps resource.Dependencies) resource.Dependencies {
-	deps[base.Named(("test_base"))] = &inject.Base{
+	deps[base.Named("test_base")] = &inject.Base{
 		DoFunc: testutils.EchoFunc,
 		MoveStraightFunc: func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 			return nil
@@ -438,7 +438,7 @@ func TestSensorBaseDoCommand(t *testing.T) {
 	expectedPID := control.PIDConfig{P: 0.1, I: 2.0, D: 0.0}
 	sb.tunedVals = &[]control.PIDConfig{expectedPID, {}}
 	expectedeMap := make(map[string]interface{})
-	expectedeMap["get_tuned_pid"] = (expectedPID.String())
+	expectedeMap["get_tuned_pid"] = expectedPID.String()
 
 	req := make(map[string]interface{})
 	req["get_tuned_pid"] = true

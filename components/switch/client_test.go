@@ -79,7 +79,8 @@ func TestClient(t *testing.T) {
 			toggleswitch.Named(testSwitchName):     injectSwitch,
 			toggleswitch.Named(failSwitchName):     injectSwitch2,
 			toggleswitch.Named(mismatchSwitchName): injectSwitch3,
-		})
+		},
+	)
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[toggleswitch.Switch](toggleswitch.API)
 	test.That(t, err, test.ShouldBeNil)

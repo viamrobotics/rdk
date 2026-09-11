@@ -162,7 +162,8 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig, logger logging.Logg
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logger.Warnw(
-				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
+				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err,
+			)
 		}
 		logConfig = &resource.LogConfig{Level: level}
 	}
@@ -253,7 +254,8 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig, logger logging.Logger) 
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logger.Warnw(
-				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
+				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err,
+			)
 		}
 		logConfig = &resource.LogConfig{Level: level}
 	}
@@ -791,7 +793,7 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 	return &pb.CloudConfig{
 		Id:                cloud.ID,
 		Secret:            cloud.Secret,
-		LocationSecret:    cloud.LocationSecret,
+		LocationSecret:    cloud.LocationSecret, //nolint:staticcheck // RSDK-14540
 		LocationSecrets:   locationSecrets,
 		ManagedBy:         cloud.ManagedBy,
 		Fqdn:              cloud.FQDN,
