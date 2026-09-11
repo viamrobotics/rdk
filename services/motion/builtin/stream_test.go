@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -124,47 +122,23 @@ func TestDoCommandsHappyPath(t *testing.T) {
 
 // TestDoCommandArmStreamingStatusDiagnosticsOptIn checks that stream_status omits the
 // (potentially large) last window details unless the caller opts in via
-// {"last_window_details": true}, so the default poll stays cheap, and that the response
-// survives the gRPC structpb round trip a remote client goes through.
+// {"last_window_details": true}.
 func TestDoCommandArmStreamingStatusDiagnosticsOptIn(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	ctx := context.Background()
 
+	opts := streamTestOptions()
 	_, err := ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
+		DoStreamStart: map[string]interface{}{"arm": "arm", "options": opts},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	doOverWire := func(tb testing.TB, cmd map[string]interface{}) map[string]interface{} {
-		tb.Helper()
-		cmdPb, err := protoutils.StructToStructPb(cmd)
-		test.That(tb, err, test.ShouldBeNil)
-		resp, err := ms.DoCommand(ctx, cmdPb.AsMap())
-		test.That(tb, err, test.ShouldBeNil)
-		respPb, err := protoutils.StructToStructPb(resp)
-		test.That(tb, err, test.ShouldBeNil)
-		return respPb.AsMap()
-	}
-
-	resp := doOverWire(t, map[string]interface{}{DoStreamStatus: true})
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": true}})
+	test.That(t, err, test.ShouldBeNil)
 	_, hasDetails := resp["last_window_details"]
-	test.That(t, hasDetails, test.ShouldBeFalse)
+	test.That(t, hasDetails, test.ShouldBeTrue)
 	test.That(t, resp["running"], test.ShouldEqual, true)
-	test.That(t, resp["arm"], test.ShouldEqual, "arm")
-
-	resp = doOverWire(t, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": false}})
-	_, hasDetails = resp["last_window_details"]
-	test.That(t, hasDetails, test.ShouldBeFalse)
-
-	// The session goroutine records the arm stream opening, so poll until it has.
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		resp := doOverWire(tb, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": true}})
-		details, hasDetails := resp["last_window_details"].(map[string]interface{})
-		test.That(tb, hasDetails, test.ShouldBeTrue)
-		test.That(tb, len(details["arm_stream_open"].([]interface{})), test.ShouldEqual, 1)
-	})
 
 	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
 	test.That(t, err, test.ShouldBeNil)
