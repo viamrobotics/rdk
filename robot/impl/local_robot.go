@@ -615,22 +615,26 @@ func newWithResources(
 	defer r.reconfigurationLock.Unlock()
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
-		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel),
+	); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		framesystem.InternalServiceName,
-		resource.NewConfiguredGraphNode(resource.Config{}, r.frameSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.frameSvc, builtinModel),
+	); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		r.packageManager.Name(),
-		resource.NewConfiguredGraphNode(resource.Config{}, r.packageManager, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.packageManager, builtinModel),
+	); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		r.cloudConnSvc.Name(),
-		resource.NewConfiguredGraphNode(resource.Config{}, r.cloudConnSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.cloudConnSvc, builtinModel),
+	); err != nil {
 		return nil, err
 	}
 
@@ -1473,7 +1477,8 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 				default: // > 1
 					logger.Warnw(
 						"`Geometries` returned more than one geometry, but the LinkInFrame does not support that."+
-							"Keeping the first one.", "Size", len(resGeometries))
+							"Keeping the first one.", "Size", len(resGeometries),
+					)
 					fallthrough
 				case 1:
 					geom := resGeometries[0]

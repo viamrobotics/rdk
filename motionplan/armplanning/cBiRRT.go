@@ -234,9 +234,11 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	for i := 0; i < maxExtendIter; i++ {
 		configDistMetric := mp.pc.ConfigurationDistanceFunc
 		dist := configDistMetric(
-			&motionplan.SegmentFS{StartConfiguration: near.inputs, EndConfiguration: target.inputs})
+			&motionplan.SegmentFS{StartConfiguration: near.inputs, EndConfiguration: target.inputs},
+		)
 		oldDist := configDistMetric(
-			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: target.inputs})
+			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: target.inputs},
+		)
 
 		switch {
 		case dist < mp.pc.planOpts.InputIdentDist:
@@ -256,7 +258,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		}
 
 		nearDist := mp.pc.ConfigurationDistanceFunc(
-			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear})
+			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear},
+		)
 
 		if nearDist < math.Pow(mp.pc.planOpts.InputIdentDist, 3) {
 			if !doubled {

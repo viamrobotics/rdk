@@ -105,7 +105,8 @@ func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error 
 	var closestPastResultsErr error
 	if isPullRequest {
 		closestPastResults, closestPastResultsErr = findClosestMergeBaseResults(
-			ctx, coll, branchName, gitSHA, baseRef, baseSha)
+			ctx, coll, branchName, gitSHA, baseRef, baseSha,
+		)
 	}
 
 	createdAt := time.Now()
@@ -301,7 +302,8 @@ func generateMarkdownOutput(
 		"**Summary** | **%.0f%%** (%d / %d)",
 		results.summary.LineCoveragePct,
 		results.summary.LinesCovered,
-		results.summary.LinesTotal))
+		results.summary.LinesTotal,
+	))
 	if canDelta {
 		builder.WriteString(fmt.Sprintf(" | %s", getDelta(results.summary, closestPastResults.results.summary)))
 	}
@@ -630,7 +632,8 @@ func findClosestMergeBaseResults(
 		if i != 0 {
 			mergeBaseErr = fmt.Errorf(
 				"merge base coverage results not available, comparing against closest %s~%d=(%s) instead",
-				possibleMergeBaseRoot, i, mergeBase)
+				possibleMergeBaseRoot, i, mergeBase,
+			)
 		}
 		break
 	}
@@ -642,7 +645,8 @@ func findClosestMergeBaseResults(
 			mergeBase = baseSha
 			mergeBaseErr = fmt.Errorf(
 				"merge base coverage results not available, using HEAD(%s)=%s as no other closest candidate was found",
-				baseRef, baseSha)
+				baseRef, baseSha,
+			)
 		} else {
 			return nil, errors.New("failed to find any suitable merge base to compare against")
 		}

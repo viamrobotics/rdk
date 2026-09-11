@@ -125,7 +125,8 @@ func (inputs *ModuleInputs) CheckResourceAndSetType() error {
 	}
 	if inputs.ResourceSubtype == "generic" {
 		return errors.New(
-			"resource subtype 'generic' cannot be differentiated; please specify either 'generic-service' or 'generic-component'")
+			"resource subtype 'generic' cannot be differentiated; please specify either 'generic-service' or 'generic-component'",
+		)
 	}
 	for _, resource := range Resources {
 		splitResource := strings.Split(resource, " ")

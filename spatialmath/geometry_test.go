@@ -131,7 +131,7 @@ func TestBoxVsBoxCollision(t *testing.T) {
 		{
 			"coincident edges near contact",
 			[2]Geometry{
-				makeTestBox((NewZeroOrientation()), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2, 4.01, 0}, r3.Vector{2, 6, 2}),
 			},
 			0.01,

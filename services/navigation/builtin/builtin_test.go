@@ -1420,7 +1420,7 @@ func TestStartWaypoint(t *testing.T) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
-			executionID := executionIDs[(counter.Inc())]
+			executionID := executionIDs[counter.Inc()]
 			s.Lock()
 			defer s.Unlock()
 			if s.mogrs == nil {
@@ -1556,7 +1556,7 @@ func TestStartWaypoint(t *testing.T) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
-			executionID := executionIDs[(counter.Inc())]
+			executionID := executionIDs[counter.Inc()]
 			s.Lock()
 			defer s.Unlock()
 			if s.mogrs == nil {

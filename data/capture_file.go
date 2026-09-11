@@ -116,7 +116,8 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 // NewCaptureFile creates a new *CaptureFile with the specified md in the specified directory.
 func NewCaptureFile(dir string, md *v1.DataCaptureMetadata) (*CaptureFile, error) {
 	fileName := CaptureFilePathWithReplacedReservedChars(
-		filepath.Join(dir, getFileTimestampName()) + InProgressCaptureFileExt)
+		filepath.Join(dir, getFileTimestampName()) + InProgressCaptureFileExt,
+	)
 	//nolint:gosec
 	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {

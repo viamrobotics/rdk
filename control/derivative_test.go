@@ -108,7 +108,7 @@ func TestDerivativeNext(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
-				-math.Sin((time.Duration(i * tenMs).Seconds())), 0.01)
+				-math.Sin(time.Duration(i*tenMs).Seconds()), 0.01)
 		}
 	}
 	cfg = BlockConfig{
@@ -127,7 +127,7 @@ func TestDerivativeNext(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
-				math.Cos((time.Duration(i * tenMs).Seconds())), 0.01)
+				math.Cos(time.Duration(i*tenMs).Seconds()), 0.01)
 		}
 	}
 	cfg = BlockConfig{
@@ -142,7 +142,7 @@ func TestDerivativeNext(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sin = nil
 	for i := int64(0); i < iter; i++ {
-		sin = append(sin, math.Sin(2*math.Pi*(time.Duration(i*tenMs).Seconds())))
+		sin = append(sin, math.Sin(2*math.Pi*time.Duration(i*tenMs).Seconds()))
 	}
 	for i := int64(0); i < iter; i++ {
 		sig.SetSignalValueAt(0, sin[i])
@@ -150,7 +150,7 @@ func TestDerivativeNext(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		if i > 5 {
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual,
-				2*math.Pi*math.Cos(2*math.Pi*(time.Duration(i*tenMs).Seconds())), 0.01)
+				2*math.Pi*math.Cos(2*math.Pi*time.Duration(i*tenMs).Seconds()), 0.01)
 		}
 	}
 }

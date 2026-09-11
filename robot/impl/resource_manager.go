@@ -604,7 +604,8 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 				manager.logger.Errorw(
 					"remote proto service name clashes with another of the same API",
 					"existing", svcName.GetFullyQualifiedName(),
-					"remote", remoteType.Desc.GetFullyQualifiedName())
+					"remote", remoteType.Desc.GetFullyQualifiedName(),
+				)
 			}
 			continue
 		}
@@ -814,7 +815,8 @@ func (manager *resourceManager) completeConfig(
 				defer timeoutCancel()
 
 				stopSlowLogger := rutils.SlowLogger(
-					ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
+					ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger,
+				)
 
 				lr.reconfigureWorkers.Add(1)
 				goutils.PanicCapturingGo(func() {
@@ -848,7 +850,8 @@ func (manager *resourceManager) completeConfig(
 						gNode.LogAndSetLastError(
 							fmt.Errorf("resource config validation error: %w", err),
 							"resource", conf.ResourceName(),
-							"model", conf.Model)
+							"model", conf.Model,
+						)
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
@@ -857,7 +860,8 @@ func (manager *resourceManager) completeConfig(
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),
-								"model", conf.Model)
+								"model", conf.Model,
+							)
 							return
 						}
 
@@ -905,7 +909,8 @@ func (manager *resourceManager) completeConfig(
 							gNode.LogAndSetLastError(
 								fmt.Errorf("resource build error: %v", err.Error()),
 								"resource", conf.ResourceName(),
-								"model", conf.Model)
+								"model", conf.Model,
+							)
 							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "fail",
 								"resource", resName.String(),
@@ -923,7 +928,8 @@ func (manager *resourceManager) completeConfig(
 						// updating the graph to be safe.
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 							manager.logger.CErrorw(
-								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err(),
+							)
 							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "fail",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
@@ -1022,13 +1028,15 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 				// Validate the remote config
 				if _, _, err := remConf.Validate(""); err != nil {
 					gNode.LogAndSetLastError(
-						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
+						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name,
+					)
 					return
 				}
 				rr, err := manager.processRemote(ctx, *remConf, gNode)
 				if err != nil {
 					gNode.LogAndSetLastError(
-						fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
+						fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name,
+					)
 					return
 				}
 				manager.addRemote(ctx, rr, gNode, *remConf)
@@ -1532,7 +1540,8 @@ func (manager *resourceManager) markRemoved(
 	// resource is served by a different module, this allows the chain of dependencies to be rebuilt.
 	resourcesToCloseBeforeComplete = append(
 		resourcesToCloseBeforeComplete,
-		manager.markResourcesRemoved(closedModularResourceNames, addNames, false)...)
+		manager.markResourcesRemoved(closedModularResourceNames, addNames, false)...,
+	)
 
 	// Only rebuild modular resources that are not marked for removal.
 	var resourcesToRebuild []resource.Name

@@ -71,6 +71,15 @@ linters:
       excludes:
         - G104
         - G115
+        # Rules introduced after gosec 2.25, not yet triaged.
+        - G117
+        - G118
+        - G122
+        - G124
+        - G703
+        - G704
+        - G705
+        - G710
     govet:
       disable:
         - fieldalignment
@@ -142,6 +151,7 @@ linters:
           - lll
         path: /doc.go$
 issues:
+  max-issues-per-linter: 0
   max-same-issues: 0
 formatters:
   enable:
@@ -154,8 +164,7 @@ formatters:
         - default
         - prefix(go.viam.com/rdk)
     gofumpt:
-      extra:
-        group-params: true
+      extra-rules: true
   exclusions:
     generated: lax
     paths:

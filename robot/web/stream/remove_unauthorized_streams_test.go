@@ -26,7 +26,8 @@ func TestRemoveUnauthorizedStreams(t *testing.T) {
 	// we can later assert whether the track was detached.
 	addTrack := func(streamID string) *webrtc.RTPSender {
 		track, err := webrtc.NewTrackLocalStaticSample(
-			webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264}, "video", streamID)
+			webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264}, "video", streamID,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		sender, err := pc.AddTrack(track)
 		test.That(t, err, test.ShouldBeNil)

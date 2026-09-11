@@ -3151,7 +3151,8 @@ Example changing multiple fields:
     --config '{"schedule":"0 0 * * *","method":"DoCommand","command":{"action":"reset"}}'`,
 							UsageText: createUsageText(
 								"machines part update-job",
-								[]string{generalFlagPart, generalFlagName, generalFlagConfig}, true, false),
+								[]string{generalFlagPart, generalFlagName, generalFlagConfig}, true, false,
+							),
 							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagName,
@@ -3248,7 +3249,8 @@ Copy multiple files from the machine to a local destination with recursion and k
 								"machines part cp",
 								[]string{generalFlagPart},
 								true, false,
-								"<source i.e. [machine:]files>... <target i.e. [machine:]files>"),
+								"<source i.e. [machine:]files>... <target i.e. [machine:]files>",
+							),
 							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.BoolFlag{
 									Name:    cpFlagRecursive,
@@ -3282,7 +3284,8 @@ Note: There is no progress meter while copying is in progress.
 								"machines part get-ftdc",
 								[]string{generalFlagPart},
 								true, false,
-								"[target]"),
+								"[target]",
+							),
 							Flags: lo.Flatten([][]cli.Flag{
 								commonPartFlags,
 								commonPathFlags,

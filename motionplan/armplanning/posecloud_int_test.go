@@ -23,20 +23,23 @@ func TestPoseCloudPlanning(t *testing.T) {
 
 	fs := referenceframe.NewEmptyFrameSystem("huh")
 	lite6, err := referenceframe.ParseModelJSONFile(
-		utils.ResolveFile("components/arm/kinematics/lite6.json"), "lite6")
+		utils.ResolveFile("components/arm/kinematics/lite6.json"), "lite6",
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(lite6, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	gripperOffset, err := referenceframe.NewStaticFrame(
-		"gripper_offset", spatialmath.NewPoseFromPoint(r3.Vector{Z: 40}))
+		"gripper_offset", spatialmath.NewPoseFromPoint(r3.Vector{Z: 40}),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(gripperOffset, lite6)
 	test.That(t, err, test.ShouldBeNil)
 
 	gripper, err := referenceframe.ParseModelJSONFile(
-		utils.ResolveFile("referenceframe/testfiles/test_gripper.json"), "gripper")
+		utils.ResolveFile("referenceframe/testfiles/test_gripper.json"), "gripper",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(gripper, gripperOffset)
 	test.That(t, err, test.ShouldBeNil)
@@ -45,14 +48,16 @@ func TestPoseCloudPlanning(t *testing.T) {
 		spatialmath.NewPose(
 			r3.Vector{X: 400, Y: -150, Z: 60},
 			&spatialmath.OrientationVectorDegrees{OX: -.2, OY: 0.3, OZ: 0.6},
-		), r3.Vector{X: 20, Y: 60, Z: 100}, "glass")
+		), r3.Vector{X: 20, Y: 60, Z: 100}, "glass",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	glassFrame, err := referenceframe.NewStaticFrameWithGeometry(
 		"glass", spatialmath.NewPose(
 			r3.Vector{X: 400, Y: -150, Z: 60},
 			&spatialmath.OrientationVectorDegrees{OX: -.2, OY: 0.3, OZ: 0.6},
 		),
-		glassGeometry)
+		glassGeometry,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(glassFrame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -79,7 +84,9 @@ func TestPoseCloudPlanning(t *testing.T) {
 			NewPlanState(referenceframe.FrameSystemPoses{
 				"gripper": referenceframe.NewPoseInFrame(
 					"glass", spatialmath.NewPoseFromOrientation(
-						&spatialmath.EulerAngles{Roll: math.Pi, Yaw: math.Pi / 2})),
+						&spatialmath.EulerAngles{Roll: math.Pi, Yaw: math.Pi / 2},
+					),
+				),
 			}, nil),
 		},
 		StartState: NewPlanState(nil, referenceframe.FrameSystemInputs{
@@ -104,7 +111,8 @@ func TestPoseCloudPlanning(t *testing.T) {
 			NewPlanState(referenceframe.FrameSystemPoses{
 				"gripper": referenceframe.NewPoseInFrameWithGoalCloud(
 					"glass", spatialmath.NewPoseFromOrientation(
-						&spatialmath.EulerAngles{Roll: math.Pi, Yaw: math.Pi / 2}),
+						&spatialmath.EulerAngles{Roll: math.Pi, Yaw: math.Pi / 2},
+					),
 					&referenceframe.PoseCloud{
 						X: 10, Y: 10, Z: 40, OX: 1.0, OY: 1.0, Theta: 45,
 					},

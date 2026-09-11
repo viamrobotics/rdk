@@ -516,7 +516,8 @@ func TestCollisionDistance(t *testing.T) {
 
 		collisions, minDist, err := checkCollisionsHinted(
 			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, nil,
-			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t))
+			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t),
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
@@ -531,7 +532,8 @@ func TestCollisionDistance(t *testing.T) {
 		ignoreList := []Collision{{"box1", "box2"}}
 		collisions, minDist, err := checkCollisionsHinted(
 			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, makeAllowedCollisionsLookup(ignoreList),
-			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t))
+			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t),
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
@@ -670,7 +672,8 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 		fs, movingRobotGeometries,
 		map[string]bool{model.Name(): true},
 		staticRobotGeometries, worldGeometries.Geometries(),
-		nil, defaultCollisionBufferMM, nil, logging.NewTestLogger(b))
+		nil, defaultCollisionBufferMM, nil, logging.NewTestLogger(b),
+	)
 	test.That(b, err, test.ShouldBeNil)
 
 	// Walk a short trajectory that stays in collision throughout — simulates

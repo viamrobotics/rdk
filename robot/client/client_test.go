@@ -306,7 +306,8 @@ func TestUnimplementedRPCSubtypes(t *testing.T) {
 		ctx2,
 		&pb.RobotService_ServiceDesc,
 		&unimplementedService,
-		pb.RegisterRobotServiceHandlerFromEndpoint)
+		pb.RegisterRobotServiceHandlerFromEndpoint,
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	go func() {
@@ -504,7 +505,8 @@ func TestStatusClient(t *testing.T) {
 	gServer1.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc1, logger))
 
 	inputControllerSvc2, err := resource.NewAPIResourceCollection(
-		input.API, map[resource.Name]input.Controller{input.Named("inputController1"): injectInputDev})
+		input.API, map[resource.Name]input.Controller{input.Named("inputController1"): injectInputDev},
+	)
 	test.That(t, err, test.ShouldBeNil)
 	gServer2.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc2, logger))
 

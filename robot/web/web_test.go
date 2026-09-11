@@ -1826,7 +1826,8 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				close(callBlocking)
 				<-blockCall
 				return pos, nil
-			}))
+			}),
+		)
 		defer injectRobot.Close(ctx)
 		svc := New(injectRobot, logger)
 		defer svc.Stop()
@@ -1934,7 +1935,8 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				close(callBlocking)
 				<-blockCall
 				return pos, nil
-			}))
+			}),
+		)
 		defer injectRobot.Close(ctx)
 		svc := New(injectRobot, logger)
 		defer svc.Stop()

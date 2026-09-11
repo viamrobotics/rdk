@@ -63,7 +63,8 @@ func init() {
 		movementsensor.API, model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
 			Constructor: newMergedModel,
-		})
+		},
+	)
 }
 
 func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (
@@ -149,42 +150,48 @@ func (m *merged) reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 	m.ori, err = firstGoodSensorWithProperties(
 		deps, newConf.Orientation, m.logger,
-		&movementsensor.Properties{OrientationSupported: true}, "orientation")
+		&movementsensor.Properties{OrientationSupported: true}, "orientation",
+	)
 	if err != nil {
 		return err
 	}
 
 	m.pos, err = firstGoodSensorWithProperties(
 		deps, newConf.Position, m.logger,
-		&movementsensor.Properties{PositionSupported: true}, "position")
+		&movementsensor.Properties{PositionSupported: true}, "position",
+	)
 	if err != nil {
 		return err
 	}
 
 	m.compass, err = firstGoodSensorWithProperties(
 		deps, newConf.CompassHeading, m.logger,
-		&movementsensor.Properties{CompassHeadingSupported: true}, "compass_heading")
+		&movementsensor.Properties{CompassHeadingSupported: true}, "compass_heading",
+	)
 	if err != nil {
 		return err
 	}
 
 	m.linVel, err = firstGoodSensorWithProperties(
 		deps, newConf.LinearVelocity, m.logger,
-		&movementsensor.Properties{LinearVelocitySupported: true}, "linear_velocity")
+		&movementsensor.Properties{LinearVelocitySupported: true}, "linear_velocity",
+	)
 	if err != nil {
 		return err
 	}
 
 	m.angVel, err = firstGoodSensorWithProperties(
 		deps, newConf.AngularVelocity, m.logger,
-		&movementsensor.Properties{AngularVelocitySupported: true}, "angular_velocity")
+		&movementsensor.Properties{AngularVelocitySupported: true}, "angular_velocity",
+	)
 	if err != nil {
 		return err
 	}
 
 	m.linAcc, err = firstGoodSensorWithProperties(
 		deps, newConf.LinearAcceleration, m.logger,
-		&movementsensor.Properties{LinearAccelerationSupported: true}, "linear_acceleration")
+		&movementsensor.Properties{LinearAccelerationSupported: true}, "linear_acceleration",
+	)
 	if err != nil {
 		return err
 	}

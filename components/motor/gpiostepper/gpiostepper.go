@@ -368,7 +368,8 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 		return errors.Errorf(
 			"if you want to set the power, set 'stepper_delay_usec' in the motor config at "+
 				"the minimum time delay between pulses for your stepper motor (%s)",
-			m.Name().Name)
+			m.Name().Name,
+		)
 	}
 
 	m.opMgr.CancelRunning(ctx)

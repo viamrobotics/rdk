@@ -62,7 +62,8 @@ func TestSegmentPlaneWRTGround(t *testing.T) {
 	// get depth map
 	d, err := rimage.NewDepthMapFromFile(
 		context.Background(),
-		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
@@ -115,7 +116,8 @@ func TestSegmentPlane(t *testing.T) {
 	// get depth map
 	d, err := rimage.NewDepthMapFromFile(
 		context.Background(),
-		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
@@ -151,7 +153,8 @@ func TestDepthMapToPointCloud(t *testing.T) {
 
 	d, err := rimage.NewDepthMapFromFile(
 		context.Background(),
-		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
@@ -172,7 +175,8 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	d, err := rimage.NewDepthMapFromFile(
 		context.Background(),
-		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	h, w := rgb.Height(), rgb.Width()
 
@@ -215,7 +219,8 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 
 	d, err := rimage.NewDepthMapFromFile(
 		context.Background(),
-		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"),
+	)
 	test.That(b, err, test.ShouldBeNil)
 
 	// Pixel to Meter

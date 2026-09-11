@@ -358,7 +358,8 @@ func UploadModuleAction(ctx context.Context, cmd *cli.Command, args uploadModule
 		if err := validateModuleFile(ctx, client, cmd, moduleID, tarballPath, versionArg, platformArg, moduleUploadPath); err != nil {
 			return fmt.Errorf(
 				"error validating module: %w. For more details, please visit: https://docs.viam.com/cli/reference/#module ",
-				err)
+				err,
+			)
 		}
 	}
 
@@ -627,13 +628,15 @@ func validateModuleFile(
 			if info.IsDir() {
 				return errors.Errorf(
 					"the module archive contains a directory at the entrypoint %q instead of an executable file",
-					entrypoint)
+					entrypoint,
+				)
 			}
 
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
 					"the module archive contains a file at the entrypoint %q, but that file is not marked as executable",
-					entrypoint)
+					entrypoint,
+				)
 			}
 			// executable file at entrypoint. validation succeeded.
 			// continue looping to find symlinks

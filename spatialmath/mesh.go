@@ -865,7 +865,8 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 	}
 
 	collides, dist, witness, err := bvhCollidesWithBVHTracked(
-		m.ensureBVH(), other.ensureBVH(), m.ensurePoseCache(), other.ensurePoseCache(), collisionBufferMM)
+		m.ensureBVH(), other.ensureBVH(), m.ensurePoseCache(), other.ensurePoseCache(), collisionBufferMM,
+	)
 	if err != nil {
 		return false, 0, err
 	}

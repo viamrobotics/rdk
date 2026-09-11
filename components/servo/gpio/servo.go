@@ -191,7 +191,8 @@ func (s *servoGPIO) reconfigure(ctx context.Context, deps resource.Dependencies,
 	if newConf.Frequency != nil {
 		if *newConf.Frequency > maxFreqHz || *newConf.Frequency < minFreqHz {
 			return errors.Errorf(
-				"PWM frequencies should not be above %dHz or below %dHz, have %dHz", maxFreqHz, minFreqHz, newConf.Frequency)
+				"PWM frequencies should not be above %dHz or below %dHz, have %dHz", maxFreqHz, minFreqHz, newConf.Frequency,
+			)
 		}
 
 		s.frequency = *newConf.Frequency

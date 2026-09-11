@@ -37,7 +37,8 @@ func MLInferenceInferAction(ctx context.Context, cmd *cli.Command, args mlInfere
 	_, err = client.mlRunInference(
 		ctx,
 		args.OrgID, args.BinaryDataID,
-		args.ModelOrgID, args.ModelName, args.ModelVersion)
+		args.ModelOrgID, args.ModelName, args.ModelVersion,
+	)
 	if err != nil {
 		return err
 	}

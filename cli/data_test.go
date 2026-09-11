@@ -339,7 +339,8 @@ func TestDataSourceTypeToProto(t *testing.T) {
 		_, err := dataSourceTypeToProto(pipelineSinkDataSourceType, pipelineDataSourceTypes)
 		test.That(t, err, test.ShouldBeError, fmt.Errorf(
 			"invalid data source type: %q. Supported values: %v",
-			pipelineSinkDataSourceType, pipelineDataSourceTypes))
+			pipelineSinkDataSourceType, pipelineDataSourceTypes,
+		))
 	})
 
 	t.Run("rejects unknown and empty names", func(t *testing.T) {
@@ -347,7 +348,8 @@ func TestDataSourceTypeToProto(t *testing.T) {
 			_, err := dataSourceTypeToProto(name, tabularDataByMQLDataSourceTypes)
 			test.That(t, err, test.ShouldBeError, fmt.Errorf(
 				"invalid data source type: %q. Supported values: %v",
-				name, tabularDataByMQLDataSourceTypes))
+				name, tabularDataByMQLDataSourceTypes,
+			))
 		}
 	})
 }

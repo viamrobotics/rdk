@@ -410,14 +410,16 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 				"panic", fmt.Sprintf("%v", p),
 				"stack", debug.Stack())
 			return status.Errorf(codes.Internal, "%v", p)
-		}))))
+		}),
+	)))
 	streamInterceptors = append(streamInterceptors, grpc_recovery.StreamServerInterceptor(grpc_recovery.WithRecoveryHandler(
 		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
 			svc.logger.Errorw("panicked while calling stream server method for module request",
 				"panic", fmt.Sprintf("%v", p),
 				"stack", debug.Stack())
 			return status.Errorf(codes.Internal, "%v", p)
-		}))))
+		}),
+	)))
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
@@ -1131,7 +1133,8 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		if err := stream.RecvMsg(secondMsg); err == nil {
 			return errors.Errorf(
 				"method %q is a server-streaming RPC, but request data contained more than 1 message",
-				methodDesc.GetFullyQualifiedName())
+				methodDesc.GetFullyQualifiedName(),
+			)
 		} else if !errors.Is(err, io.EOF) {
 			return err
 		}

@@ -13,7 +13,8 @@ var ErrMimicSourceNotFound = errors.New("mimic joint references non-existent sou
 
 // ErrMimicWithLimits is returned when a mimic joint specifies its own limits.
 var ErrMimicWithLimits = errors.New(
-	"mimic joint must not specify min/max or velocity/acceleration limits; limits are determined by the source joint")
+	"mimic joint must not specify min/max or velocity/acceleration limits; limits are determined by the source joint",
+)
 
 // ErrCircularMimicReference is returned when mimic joint references form a cycle.
 var ErrCircularMimicReference = errors.New("circular mimic joint reference detected")

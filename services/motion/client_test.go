@@ -113,7 +113,8 @@ func TestClient(t *testing.T) {
 				receivedTransforms[tf.Name()] = tf
 			}
 			return referenceframe.NewPoseInFrame(
-				destinationFrame+componentName, spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})), nil
+				destinationFrame+componentName, spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}),
+			), nil
 		}
 
 		// Move

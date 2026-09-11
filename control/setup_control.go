@@ -236,7 +236,8 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 	}
 	if p.Options.PositionControlUsingTrapz && p.Options.SensorFeedback2DVelocityControl {
 		p.logger.Warn(
-			"PositionControlUsingTrapz and SensorFeedback2DVelocityControl are not yet supported in the same control loop")
+			"PositionControlUsingTrapz and SensorFeedback2DVelocityControl are not yet supported in the same control loop",
+		)
 	}
 
 	p.basicControlConfig(componentName, pidVals[0], controllableType)

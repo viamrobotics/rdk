@@ -2380,7 +2380,8 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	if !ok || !validType {
 		return fmt.Errorf(
 			"trigger event type must be one of: part_online, part_offline, "+
-				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw)
+				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw,
+		)
 	}
 
 	// warn about unknown event keys
@@ -4007,7 +4008,8 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 	if args.Component != "" {
 		// Connect to the robot to get resource information
 		dialCtx, fqdn, rpcOpts, err := viamClient.prepareDial(
-			ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+			ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug,
+		)
 		if err != nil {
 			return err
 		}
@@ -5431,7 +5433,8 @@ func newViamClientInner(ctx context.Context, cmd *cli.Command, disableBrowserOpe
 		warningf(
 			cmd.Root().ErrWriter,
 			"you are trying to log into localhost with a TLS connection."+
-				" This will likely result in a hang; please try logging in to http localhost instead")
+				" This will likely result in a hang; please try logging in to http localhost instead",
+		)
 	}
 
 	if err = conf.checkUpdate(cmd); err != nil {
@@ -5948,7 +5951,8 @@ func (c *viamClient) runRobotPartCommand(
 			grpcurl.Format("json"),
 			descSource,
 			strings.NewReader(data),
-			options)
+			options,
+		)
 		if err != nil {
 			return false, err
 		}

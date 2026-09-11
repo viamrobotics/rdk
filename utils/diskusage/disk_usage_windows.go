@@ -44,7 +44,8 @@ func newWindowsDiskUsage(volumePath string) (*windowsDiskUsage, error) {
 		uintptr(unsafe.Pointer(utf16Ptr)),
 		uintptr(unsafe.Pointer(&du.freeBytes)),
 		uintptr(unsafe.Pointer(&du.totalBytes)),
-		uintptr(unsafe.Pointer(&du.availBytes)))
+		uintptr(unsafe.Pointer(&du.availBytes)),
+	)
 	if r1 == 0 {
 		return nil, fmt.Errorf("GetDiskFreeSpaceExW failed for %q: %w", volumePath, callErr)
 	}
