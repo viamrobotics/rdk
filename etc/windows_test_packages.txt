@@ -1,0 +1,18 @@
+# Packages whose tests are known to pass on Windows, one import path per line.
+#
+# This list lives here rather than in .github/workflows/test.yml because the
+# Windows job checks out the PR's own commit but runs main's copy of the
+# workflow. Keeping it in the repo means a PR that adds a package is validated
+# by that PR's own run, with no separate workflow_dispatch.
+#
+# Comments and blank lines are stripped before the list is used.
+#
+# When every package passes, drop this file and the filter that reads it.
+
+go.viam.com/rdk/web/server
+go.viam.com/rdk/module
+go.viam.com/rdk/logging
+go.viam.com/rdk/cli
+go.viam.com/rdk/services/shell
+go.viam.com/rdk/services/shell/builtin
+go.viam.com/rdk/services/shell/testutils
