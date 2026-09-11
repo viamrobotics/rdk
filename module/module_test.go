@@ -512,7 +512,7 @@ func TestAttributeConversion(t *testing.T) {
 			Model: modelWithReconfigure.String(),
 		}
 
-		return &testHarness{
+		th := &testHarness{
 			m:                    m,
 			mockConf:             mockConf,
 			mockReconfigConf:     mockReconfigConf,
@@ -523,13 +523,15 @@ func TestAttributeConversion(t *testing.T) {
 			reconfigDeps1:        &reconfigDeps1,
 			reconfigDeps2:        &reconfigDeps2,
 			modelWithReconfigure: modelWithReconfigure,
-		}, func() {
+		}
+		teardown := func() {
 			resource.Deregister(shell.API, model)
 			resource.Deregister(shell.API, modelWithReconfigure)
 			test.That(t, conn.Close(), test.ShouldBeNil)
 			m.Close(ctx)
 			test.That(t, myRobot.Close(ctx), test.ShouldBeNil)
 		}
+		return th, teardown
 	}
 
 	t.Run("non-reconfigurable creation", func(t *testing.T) {

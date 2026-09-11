@@ -5791,7 +5791,7 @@ func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr
 	for {
 		resp, err := c.client.GetRobotPartLogs(ctx, &apppb.GetRobotPartLogsRequest{
 			Id:         part.Id,
-			ErrorsOnly: errorsOnly,
+			ErrorsOnly: errorsOnly, //nolint:staticcheck // RSDK-14539
 			PageToken:  &pageToken,
 			Start:      start,
 			End:        end,

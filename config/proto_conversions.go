@@ -793,7 +793,7 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 	return &pb.CloudConfig{
 		Id:                cloud.ID,
 		Secret:            cloud.Secret,
-		LocationSecret:    cloud.LocationSecret,
+		LocationSecret:    cloud.LocationSecret, //nolint:staticcheck // RSDK-14540
 		LocationSecrets:   locationSecrets,
 		ManagedBy:         cloud.ManagedBy,
 		Fqdn:              cloud.FQDN,

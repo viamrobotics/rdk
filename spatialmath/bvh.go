@@ -616,15 +616,17 @@ func triangleLeafCollide(
 
 // triAABB returns the 3-point AABB of a triangle in whatever space its points are in.
 func triAABB(t *Triangle) (r3.Vector, r3.Vector) {
-	return r3.Vector{
+	lo := r3.Vector{
 		X: min(min(t.p0.X, t.p1.X), t.p2.X),
 		Y: min(min(t.p0.Y, t.p1.Y), t.p2.Y),
 		Z: min(min(t.p0.Z, t.p1.Z), t.p2.Z),
-	}, r3.Vector{
+	}
+	hi := r3.Vector{
 		X: max(max(t.p0.X, t.p1.X), t.p2.X),
 		Y: max(max(t.p0.Y, t.p1.Y), t.p2.Y),
 		Z: max(max(t.p0.Z, t.p1.Z), t.p2.Z),
 	}
+	return lo, hi
 }
 
 // bvhDistanceFromBVH computes the minimum distance between two BVH trees.

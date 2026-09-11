@@ -150,16 +150,6 @@ linters:
       - linters:
           - lll
         path: /doc.go$
-      # RSDK-14539: reads GetRobotPartLogsRequest.ErrorsOnly.
-      - linters:
-          - staticcheck
-        text: SA1019
-        path: ^cli/client\.go$
-      # RSDK-14540: read CloudConfig.LocationSecret and ReadyRequest.ParentAddress.
-      - linters:
-          - staticcheck
-        text: SA1019
-        path: ^(config/proto_conversions|module/modmanager/module)\.go$
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
