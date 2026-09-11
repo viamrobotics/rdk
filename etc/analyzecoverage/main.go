@@ -590,7 +590,7 @@ func findClosestMergeBaseResults(
 	}
 
 	// look back for results
-	//nolint: noctx
+	//nolint: gosec,noctx
 	cmd := exec.Command("git", "merge-base", branchSha, baseSha)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

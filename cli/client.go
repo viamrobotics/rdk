@@ -5185,6 +5185,7 @@ func installedDebVersion() (*semver.Version, error) {
 
 // dpkgQueryOwnerFunc runs `dpkg -S <path>`; overridable in tests.
 var dpkgQueryOwnerFunc = func(path string) (string, error) {
+	//nolint:gosec
 	out, err := exec.Command("dpkg", "-S", path).Output()
 	return string(out), err
 }

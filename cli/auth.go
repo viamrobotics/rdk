@@ -867,19 +867,27 @@ func (a *authFlow) loadOIDiscoveryEndpoint(ctx context.Context) (*openIDDiscover
 	return &resp, nil
 }
 
-func openbrowser(url string) error {
-	var err error
+func openbrowser(rawURL string) error {
+	// The OS openers below hand any scheme to its registered handler, so a non-web
+	// scheme here would launch an arbitrary local application.
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return errors.Wrap(err, "cannot open malformed URL")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return errors.Errorf("refusing to open URL with scheme %q", parsed.Scheme)
+	}
 
 	switch runtime.GOOS {
 	case "linux":
-		//nolint: noctx
-		err = exec.Command("xdg-open", url).Start()
+		//nolint: gosec,noctx
+		err = exec.Command("xdg-open", rawURL).Start()
 	case osWindows:
-		//nolint: noctx
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		//nolint: gosec,noctx
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", rawURL).Start()
 	case "darwin":
-		//nolint: noctx
-		err = exec.Command("open", url).Start()
+		//nolint: gosec,noctx
+		err = exec.Command("open", rawURL).Start()
 	default:
 		err = errors.New("unsupported platform")
 	}
