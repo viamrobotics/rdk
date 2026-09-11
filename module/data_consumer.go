@@ -24,6 +24,9 @@ type queryBackend interface {
 
 // ResourceDataConsumer can be added as an anonymous struct member to a resource to enable historical module data queries.
 type ResourceDataConsumer struct {
+	// mu guards the lazy initialization of dataClient. This is embedded in
+	// resources, whose methods the RDK may call concurrently, so the nil check
+	// and the assignment in setDataClient have to happen under one lock.
 	mu         sync.Mutex
 	dataClient queryBackend
 }
