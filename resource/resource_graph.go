@@ -163,6 +163,12 @@ func (s graphStorage) Copy() graphStorage {
 func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	val := s.simpleNameCache[simpleNameKey{name, api}]
 	if val == nil {
+		// The requested api may be a co-equal API of a composite whose single node is cached under a
+		// different (canonical) api. Resolve it from the node's model, which is only known once the
+		// node is configured — hence at read time here rather than when the cache is written.
+		if node, ok := s.compositeNodeForAPI(name, api); ok {
+			return node, nil
+		}
 		return nil, &NodeNotFoundError{name, api}
 	}
 	if val.local != nil {
@@ -181,6 +187,23 @@ func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, 
 		API:     api,
 		Remotes: slices.Collect(maps.Keys(val.remote)),
 	}
+}
+
+// compositeNodeForAPI finds a node cached under the given simple name whose model serves api as one
+// of its co-equal APIs (a composite). This lets any of a composite's APIs resolve to its single
+// node, which is stored under only its canonical API. Returns the local node if one matches.
+func (s graphStorage) compositeNodeForAPI(name string, api API) (*GraphNode, bool) {
+	for key, val := range s.simpleNameCache {
+		if key.name != name || val.local == nil {
+			continue
+		}
+		for _, served := range APIsForModel(val.local.ResourceModel()) {
+			if served == api {
+				return val.local, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (s graphStorage) All() iter.Seq2[Name, *GraphNode] {
