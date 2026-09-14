@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
@@ -150,4 +151,47 @@ func TestCompositeResourceOverClient(t *testing.T) {
 	r2, err := s2.Readings(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r2["reading"], test.ShouldEqual, 7)
+}
+
+func TestModularCompositeResource(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule")
+
+	model := resource.NewModel("acme", "demo", "combosensor")
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{Name: "combo-mod", ExePath: modPath},
+		},
+		Components: []resource.Config{
+			{Name: "combo", API: sensor.API, Model: model, Composite: true},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// 1) bare-name composite handle; AsType extracts the sensor sub-client; the call round-trips to
+	// the module process.
+	res, err := r.ResourceByName(resource.SimpleName("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	s, err := resource.AsType[sensor.Sensor](res)
+	test.That(t, err, test.ShouldBeNil)
+	readings, err := s.Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings["reading"], test.ShouldEqual, 7)
+
+	// 2) reachable under its other API too (one instance in the module, served under both)
+	byGeneric, err := r.ResourceByName(resource.NewName(generic.API, "combo"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, byGeneric, test.ShouldNotBeNil)
+
+	// 3) advertised as N same-named ResourceNames
+	var apis []resource.API
+	for _, n := range r.ResourceNames() {
+		if n.Name == "combo" {
+			apis = append(apis, n.API)
+		}
+	}
+	test.That(t, apis, test.ShouldContain, sensor.API)
+	test.That(t, apis, test.ShouldContain, generic.API)
 }

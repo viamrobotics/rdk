@@ -101,3 +101,4 @@ web/cmd/server/*.core
 # Claude Code
 .claude/worktrees
 .claude/settings.local.json
+/combomodule
