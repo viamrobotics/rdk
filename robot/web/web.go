@@ -110,7 +110,13 @@ type resourceGetterForAPI struct {
 }
 
 func (r resourceGetterForAPI) Resource(name string) (resource.Resource, error) {
-	return r.robot.FindBySimpleNameAndAPI(name, r.api)
+	res, err := r.robot.FindBySimpleNameAndAPI(name, r.api)
+	if err != nil {
+		return nil, err
+	}
+	// A composite resolves to one handle serving several APIs; forward to the sub-resource for the
+	// API this getter serves (a no-op for ordinary resources).
+	return resource.SubresourceForAPI(res, r.api), nil
 }
 
 type webService struct {
@@ -1001,7 +1007,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 
 	// We expect each message to contain a "name" argument which will allow us to route
 	// the message towards the correct destination.
-	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.API)
+	res, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.API)
 	if err != nil {
 		svc.logger.Errorw("unable to route foreign message", "error", err)
 		return err
@@ -1017,7 +1023,14 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		firstMsg.SetFieldByName("name", fqName.PopRemote().ShortName())
 	}
 
-	foreignRes, ok := resource.(*grpc.ForeignResource)
+	// A composite resolves to one handle serving several APIs; forward to the sub-resource for this
+	// custom API before asserting it is a foreign RPC resource.
+	if mar, ok := res.(resource.MultiAPIResource); ok {
+		if sub, ok := mar.ResourceForAPI(subType.API); ok {
+			res = sub
+		}
+	}
+	foreignRes, ok := res.(*grpc.ForeignResource)
 	if !ok {
 		svc.logger.Errorf("expected resource to be a foreign RPC resource but was %T", foreignRes)
 		return grpc.UnimplementedError

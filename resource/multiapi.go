@@ -111,6 +111,13 @@ func subresourceForAPI(res Resource, api API) Resource {
 	return res
 }
 
+// SubresourceForAPI unwraps a composite to the sub-resource serving api (or returns res unchanged if
+// res is not a composite that serves api). Exported for the web/gRPC layer, which resolves resources
+// by API and must forward each call to a composite's per-API sub-resource.
+func SubresourceForAPI(res Resource, api API) Resource {
+	return subresourceForAPI(res, api)
+}
+
 // APIsOf returns the set of APIs a resource handle serves. For a composite (multi-API) resource it
 // returns every API it serves, in a stable order; for an ordinary resource it returns the single API
 // of its Name. It lets a consumer discover a handle's capabilities without a MultiAPIResource type
