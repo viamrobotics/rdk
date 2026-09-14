@@ -199,6 +199,10 @@ type AssociatedConfigRegistration[AssocT AssociatedConfig] struct {
 var (
 	registryMu                    sync.RWMutex
 	registry                      = map[APIModel]Registration[Resource, ConfigValidator]{}
+	// multiAPIByModel records, for models that serve more than one co-equal API (composites), the
+	// full set of APIs they serve. It is the single source of truth every layer consults to expand a
+	// composite model into its APIs. Guarded by registryMu.
+	multiAPIByModel = map[Model][]API{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
 	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
 )
@@ -308,6 +312,63 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	reg.api = api
 	reg.configType = zeroT
 	registry[apiModel] = makeGenericResourceRegistration(reg)
+}
+
+// RegisterMultiAPI registers one model that serves a set of one or more co-equal APIs. The single
+// constructor is registered under every API (so LookupRegistration finds it for any of them), and
+// the API set is recorded for models serving more than one. With a single API it behaves exactly
+// like RegisterComponent/RegisterService and records no multi-API set.
+func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, model Model, reg Registration[ResourceT, ConfigT]) {
+	if len(apis) == 0 {
+		panic(errors.Errorf("RegisterMultiAPI requires at least one api for model: %q", model))
+	}
+	for _, api := range apis {
+		Register(api, model, reg)
+	}
+	RegisterMultiAPISet(model, apis)
+}
+
+// RegisterMultiAPISet records the set of APIs a composite model serves without registering
+// constructors — used by modular composites whose per-API constructors are the module proxies. It
+// is a no-op for models serving fewer than two APIs.
+func RegisterMultiAPISet(model Model, apis []API) {
+	if len(apis) < 2 {
+		return
+	}
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	multiAPIByModel[model] = append([]API(nil), apis...)
+}
+
+// APIsForModel returns the set of co-equal APIs a composite model serves, or nil for an ordinary
+// single-API model. The returned slice is shared and must not be mutated.
+func APIsForModel(model Model) []API {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	return multiAPIByModel[model]
+}
+
+// APIModelsFor expands a model into one APIModel per API it was registered under, so a module's
+// main() can serve all of a composite's APIs without re-listing them, e.g.
+// module.ModularMain(resource.APIModelsFor(Model)...). For a composite it returns one entry per
+// co-equal API; for an ordinary model it returns the single {api, model} pair found in the registry.
+func APIModelsFor(model Model) []APIModel {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	if apis := multiAPIByModel[model]; len(apis) > 0 {
+		models := make([]APIModel, 0, len(apis))
+		for _, api := range apis {
+			models = append(models, APIModel{API: api, Model: model})
+		}
+		return models
+	}
+	var models []APIModel
+	for am := range registry {
+		if am.Model == model {
+			models = append(models, APIModel{API: am.API, Model: model})
+		}
+	}
+	return models
 }
 
 // makeGenericResourceRegistration allows a registration to be generic and ensures all input/output types
