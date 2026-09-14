@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sample: [1, 2, 3, 4, 5, 6, 7, 8]
+        sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
 
     steps:
       # actions/checkout@v4
@@ -25,6 +25,7 @@ jobs:
         run: |
           uname -a
           lscpu | grep -iE 'op-mode|model name|vendor|architecture' || true
+          echo "CPUINFO $(lscpu | grep -i 'model name' | tr -s ' ') | $(lscpu | grep -i 'op-mode' | tr -s ' ')" 
           ip -br addr || true
           ip -d link show || true
           sysctl net.ipv4.igmp_max_memberships net.ipv4.igmp_max_msf 2>/dev/null || true
@@ -35,7 +36,7 @@ jobs:
         run: |
           command -v go >/dev/null || { echo 'PROBE label=host-native VERDICT=no_toolchain'; exit 0; }
           mkdir -p /tmp/probe && cp etc/mcastprobe/main.go /tmp/probe/
-          cd /tmp/probe && (go mod init probe >/dev/null 2>&1 || true) && go run . host-native 200 16
+          cd /tmp/probe && (go mod init probe >/dev/null 2>&1 || true) && go run . host-native 100 16
 
       # docker/login-action@v3
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -58,7 +59,7 @@ jobs:
               --platform "$platform" \
               -v "$PWD":/rdk \
               "$image" \
-              sudo -Hu testbot bash -lc "mkdir -p /tmp/probe && cp /rdk/etc/mcastprobe/main.go /tmp/probe/ && cd /tmp/probe && (go mod init probe >/dev/null 2>&1 || true) && go run . $label 200 16" \
+              sudo -Hu testbot bash -lc "mkdir -p /tmp/probe && cp /rdk/etc/mcastprobe/main.go /tmp/probe/ && cd /tmp/probe && (go mod init probe >/dev/null 2>&1 || true) && go run . $label 100 16" \
               || echo "PROBE label=$label VERDICT=run_failed"
             echo "::endgroup::"
           }
