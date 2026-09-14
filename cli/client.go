@@ -5132,7 +5132,7 @@ func tryBrewUpgrade() (bool, error) {
 	//nolint: noctx
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {
-		return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+		return false, errors.Errorf("failed to upgrade CLI via brew: %v\n%s", err, strings.TrimSpace(string(out)))
 	}
 	if strings.Contains(string(out), "already installed") {
 		return false, nil
