@@ -418,6 +418,19 @@ func Deregister(api API, model Model) {
 	defer registryMu.Unlock()
 	apiModel := APIModel{api, model}
 	delete(registry, apiModel)
+	// If this model is no longer registered under any API, drop its recorded composite API set.
+	if _, still := multiAPIByModel[model]; still {
+		anyLeft := false
+		for am := range registry {
+			if am.Model == model {
+				anyLeft = true
+				break
+			}
+		}
+		if !anyLeft {
+			delete(multiAPIByModel, model)
+		}
+	}
 }
 
 // LookupRegistration looks up a creator by the given api and model. nil is returned if
