@@ -1,0 +1,68 @@
+name: mDNS Multicast Probe
+
+on:
+  push:
+    branches: [probe/rsdk-14553-multicast]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Multicast probe (sample ${{ matrix.sample }})
+    runs-on: ubuntu-arm-16-core
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        sample: [1, 2, 3, 4, 5, 6, 7, 8]
+
+    steps:
+      # actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Host context
+        run: |
+          uname -a
+          lscpu | grep -iE 'op-mode|model name|vendor|architecture' || true
+          ip -br addr || true
+          ip -d link show || true
+          sysctl net.ipv4.igmp_max_memberships net.ipv4.igmp_max_msf 2>/dev/null || true
+          cat /proc/net/igmp || true
+          ls /proc/sys/fs/binfmt_misc/ || true
+
+      - name: Probe on the runner host
+        run: |
+          command -v go >/dev/null || { echo 'PROBE label=host-native VERDICT=no_toolchain'; exit 0; }
+          mkdir -p /tmp/probe && cp etc/mcastprobe/main.go /tmp/probe/
+          cd /tmp/probe && (go mod init probe >/dev/null 2>&1 || true) && go run . host-native 200 16
+
+      # docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          username: viambuild
+          password: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
+      # docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
+      # docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Probe inside containers
+        run: |
+          set -u
+          chmod -R a+rwx . # temporary fix for arm runners
+          probe() {
+            label="$1"; platform="$2"; image="$3"; shift 3
+            echo "::group::$label"
+            docker run --rm "$@" \
+              --platform "$platform" \
+              -v "$PWD":/rdk \
+              "$image" \
+              sudo -Hu testbot bash -lc "mkdir -p /tmp/probe && cp /rdk/etc/mcastprobe/main.go /tmp/probe/ && cd /tmp/probe && (go mod init probe >/dev/null 2>&1 || true) && go run . $label 200 16" \
+              || echo "PROBE label=$label VERDICT=run_failed"
+            echo "::endgroup::"
+          }
+          probe armhf-bridge linux/arm/v7 ghcr.io/viamrobotics/rdk-devenv:armhf-cache
+          probe armhf-host   linux/arm/v7 ghcr.io/viamrobotics/rdk-devenv:armhf-cache --network host
+          probe arm64-bridge linux/arm64  ghcr.io/viamrobotics/rdk-devenv:arm64
+          probe arm64-host   linux/arm64  ghcr.io/viamrobotics/rdk-devenv:arm64 --network host
