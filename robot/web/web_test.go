@@ -462,7 +462,7 @@ func TestWebWithAuth(t *testing.T) {
 }
 
 func TestWebWithTLSAuth(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := New(injectRobot, logger)
@@ -504,6 +504,13 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
+
+	// Dialing options.FQDN below only resolves while the server is advertised over mDNS, which
+	// it cannot be on hosts that fail to join a multicast group (RSDK-14553).
+	mdnsRegistered := robottestutils.ServerRegisteredMDNS(logs)
+	if !mdnsRegistered {
+		t.Log("mDNS registration failed on this host; skipping the dials that resolve the FQDN over mDNS")
+	}
 
 	clientTLSConfig := options.Network.TLSConfig.Clone()
 	clientTLSConfig.Certificates = nil
@@ -559,19 +566,21 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS
-	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
-		rpc.WithDialDebug(),
-		rpc.WithTLSConfig(clientTLSConfig),
-	)
-	test.That(t, err, test.ShouldBeNil)
+	if mdnsRegistered {
+		conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
+			rpc.WithDialDebug(),
+			rpc.WithTLSConfig(clientTLSConfig),
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
+		arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
-	test.That(t, conn.Close(), test.ShouldBeNil)
+		arm1Position, err = arm1.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, arm1Position, test.ShouldResemble, pos)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}
 
 	// use signaling creds
 	conn, err = rgrpc.Dial(context.Background(), addr, logger,
@@ -596,33 +605,35 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS while signaling present
-	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
-		rpc.WithDialDebug(),
-		rpc.WithTLSConfig(clientTLSConfig),
-		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
-			SignalingServerAddress: addr,
-			SignalingAuthEntity:    options.FQDN,
-			SignalingCreds: rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotLocationSecret,
-				Payload: locationSecret + "bad",
-			},
-		}),
-		rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
-			RemoveAuthCredentials: true,
-		}),
-	)
-	test.That(t, err, test.ShouldBeNil)
+	if mdnsRegistered {
+		conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
+			rpc.WithDialDebug(),
+			rpc.WithTLSConfig(clientTLSConfig),
+			rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
+				SignalingServerAddress: addr,
+				SignalingAuthEntity:    options.FQDN,
+				SignalingCreds: rpc.Credentials{
+					Type:    rutils.CredentialsTypeRobotLocationSecret,
+					Payload: locationSecret + "bad",
+				},
+			}),
+			rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
+				RemoveAuthCredentials: true,
+			}),
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
+		arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
+		arm1Position, err = arm1.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, arm1Position, test.ShouldResemble, pos)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}
 
 	err = svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebWithBadAuthHandlers(t *testing.T) {
