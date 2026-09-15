@@ -2,11 +2,14 @@ package streaming
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"sync"
 	"time"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -25,7 +28,7 @@ func newFakeStreamingArm(dof int, velRadPerSec, accelRadPerSec2 float64) (*injec
 	rec := &fakeStreamRecorder{}
 	inj := inject.NewArm("test-arm")
 	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testModel(dof, velRadPerSec, accelRadPerSec2)
+		return testKinematics(dof, velRadPerSec, accelRadPerSec2)
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
@@ -66,4 +69,36 @@ func newFakeStreamingArm(dof int, velRadPerSec, accelRadPerSec2 float64) (*injec
 		}
 	}
 	return inj, rec
+}
+
+func testKinematics(dof int, velRadPerSec, accelRadPerSec2 float64) (referenceframe.Model, error) {
+	limit := referenceframe.Limit{
+		Min:             -math.Pi,
+		Max:             math.Pi,
+		MaxVelocity:     floatPtr(velRadPerSec),
+		MaxAcceleration: floatPtr(accelRadPerSec2),
+	}
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	parent := fs.World()
+	var last referenceframe.Frame
+	for i := range dof {
+		f, err := referenceframe.NewRotationalFrame(fmt.Sprintf("j%d", i), spatialmath.R4AA{RZ: 1}, limit)
+		if err != nil {
+			return nil, err
+		}
+		if err := fs.AddFrame(f, parent); err != nil {
+			return nil, err
+		}
+		parent = f
+		last = f
+	}
+	if last == nil {
+		return referenceframe.NewSimpleModel("test"), nil
+	}
+	return referenceframe.NewModel("test", fs, last.Name())
+}
+
+func floatPtr(v float64) *float64 {
+	return &v
 }
