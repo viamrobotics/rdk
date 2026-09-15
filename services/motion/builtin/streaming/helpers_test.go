@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -20,9 +21,16 @@ func (r *fakeStreamRecorder) get() [][]arm.TrajectoryPoint {
 	return r.batches
 }
 
-func newFakeStreamingArm() (*inject.Arm, *fakeStreamRecorder) {
+// newFakeStreamingArm builds a fake arm whose Kinematics(ctx) reports dof joints, each limited to
+// velDegPerSec/accelDegPerSec2, for use with Run (which queries them via
+// referenceframe.TrajectoryLimits). Tests that exercise armStream directly rather than through
+// Run don't need these to be accurate; any values will do.
+func newFakeStreamingArm(dof int, velDegPerSec, accelDegPerSec2 float64) (*inject.Arm, *fakeStreamRecorder) {
 	rec := &fakeStreamRecorder{}
 	inj := inject.NewArm("test-arm")
+	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return testModel(dof, velDegPerSec, accelDegPerSec2)
+	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,
