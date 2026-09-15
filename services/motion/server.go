@@ -187,10 +187,6 @@ func (server *serviceServer) StreamArmJointPositions(stream pb.MotionService_Str
 	if err != nil {
 		return err
 	}
-	streamer, ok := svc.(ArmJointPositionStreamer)
-	if !ok {
-		return status.Errorf(codes.Unimplemented, "motion service %q does not support StreamArmJointPositions", first.GetName())
-	}
 
 	armName := init.GetComponentName()
 	if armName == "" {
@@ -245,7 +241,7 @@ func (server *serviceServer) StreamArmJointPositions(stream pb.MotionService_Str
 		}
 	})
 
-	implErr := streamer.StreamArmJointPositions(ctx, armName, opts, targets, extra)
+	implErr := svc.StreamArmJointPositions(ctx, armName, opts, targets, extra)
 
 	// By now the impl has returned. It may not have drained targets, since it can finish or fault
 	// mid-stream, which leaves the recv goroutine parked on `targets <- out` with nobody reading.

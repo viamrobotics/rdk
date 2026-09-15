@@ -397,6 +397,19 @@ type Service interface {
 	// It returns a result if the execution is active or has changed state in the last 24 hours and the machine has not reinitialized.
 	// Plans never change; replans always create new plans and replans share the ExecutionID of the previously executing plan.
 	PlanHistory(ctx context.Context, req PlanHistoryReq) ([]PlanWithStatus, error)
+
+	// StreamArmJointPositions derives and paces a trajectory to armName from the targets it
+	// receives on targets, according to opts. It blocks until targets is closed and the derived
+	// trajectory has finished executing on the arm, or until ctx is canceled, whichever comes
+	// first. Only one call may be in flight for a given armName at a time; a concurrent call for
+	// the same arm returns an error immediately.
+	StreamArmJointPositions(
+		ctx context.Context,
+		armName string,
+		opts StreamOptions,
+		targets <-chan []referenceframe.Input,
+		extra map[string]interface{},
+	) error
 }
 
 // StreamOptions tunes a StreamArmJointPositions session: how the implementation samples and
@@ -418,26 +431,6 @@ type StreamOptions struct {
 	// DiagnosticsWindowMs is the size (in ms) of the rolling window used to compute session
 	// diagnostics.
 	DiagnosticsWindowMs *int32
-}
-
-// ArmJointPositionStreamer is implemented by motion.Service implementations that support
-// streaming joint-position targets to an arm via the StreamArmJointPositions RPC. It is
-// deliberately not part of the base Service interface: today only the builtin implementation
-// supports it, and callers should type-assert for it (e.g. `svc.(motion.ArmJointPositionStreamer)`)
-// rather than expect every Service implementation to.
-type ArmJointPositionStreamer interface {
-	// StreamArmJointPositions derives and paces a trajectory to armName from the targets it
-	// receives on targets, according to opts. It blocks until targets is closed and the derived
-	// trajectory has finished executing on the arm, or until ctx is canceled, whichever comes
-	// first. Only one call may be in flight for a given armName at a time; a concurrent call for
-	// the same arm returns an error immediately.
-	StreamArmJointPositions(
-		ctx context.Context,
-		armName string,
-		opts StreamOptions,
-		targets <-chan []referenceframe.Input,
-		extra map[string]interface{},
-	) error
 }
 
 // ObstacleDetectorName pairs a vision service name with a camera name.

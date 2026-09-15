@@ -140,10 +140,6 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
 }
 
-// builtIn additionally implements motion.ArmJointPositionStreamer, which is not part of the
-// base motion.Service interface (see that type's doc comment).
-var _ motion.ArmJointPositionStreamer = (*builtIn)(nil)
-
 type builtIn struct {
 	resource.Named
 	conf            *Config
