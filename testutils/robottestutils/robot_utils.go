@@ -185,22 +185,6 @@ func processAlreadyGone(err error) bool {
 	return errors.As(err, &errno) && (errno == syscall.ESRCH || errno == syscall.EPERM)
 }
 
-// mdnsSetupFailedMsg is the warning goutils logs for every mDNS record an rpc server fails to
-// register. The server keeps serving with mDNS disabled when this happens.
-const mdnsSetupFailedMsg = "mDNS setup failed"
-
-// ServerRegisteredMDNS reports whether the rpc server started with the given observed logger
-// registered its mDNS records. Registration fails on hosts that cannot join a multicast group,
-// such as the emulated 32-bit container CI runs its tests in, and a machine that is not
-// advertised over mDNS cannot be reached by its FQDN. Tests that dial an FQDN should skip those
-// dials when this returns false, or they block until the dial deadline.
-//
-// Call this only after the web service has started: goutils registers its records while
-// constructing the rpc server, so nothing has been logged before that.
-func ServerRegisteredMDNS(logs *observer.ObservedLogs) bool {
-	return logs.FilterMessageSnippet(mdnsSetupFailedMsg).Len() == 0
-}
-
 // WaitForServing will scan the logs in the `observer` input until seeing a "serving" or "error
 // serving web" message. For added accuracy, it also checks that the port a test is expecting to
 // start a server on matches the one in the log message.

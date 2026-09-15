@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -462,7 +463,7 @@ func TestWebWithAuth(t *testing.T) {
 }
 
 func TestWebWithTLSAuth(t *testing.T) {
-	logger, logs := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := New(injectRobot, logger)
@@ -505,12 +506,10 @@ func TestWebWithTLSAuth(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Dialing options.FQDN below only resolves while the server is advertised over mDNS, which
-	// it cannot be on hosts that fail to join a multicast group (RSDK-14553).
-	mdnsRegistered := robottestutils.ServerRegisteredMDNS(logs)
-	if !mdnsRegistered {
-		t.Log("mDNS registration failed on this host; skipping the dials that resolve the FQDN over mDNS")
-	}
+	// Dialing options.FQDN resolves over mDNS, which is unreliable under QEMU on the emulated
+	// 32-bit armhf CI runner (RSDK-14553). Skip those dials only on that arch so we don't mask
+	// real mDNS bugs on other platforms.
+	mdnsSupported := runtime.GOARCH != "arm"
 
 	clientTLSConfig := options.Network.TLSConfig.Clone()
 	clientTLSConfig.Certificates = nil
@@ -566,7 +565,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS
-	if mdnsRegistered {
+	if mdnsSupported {
 		conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
 			rpc.WithDialDebug(),
 			rpc.WithTLSConfig(clientTLSConfig),
@@ -605,7 +604,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS while signaling present
-	if mdnsRegistered {
+	if mdnsSupported {
 		conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
 			rpc.WithDialDebug(),
 			rpc.WithTLSConfig(clientTLSConfig),
