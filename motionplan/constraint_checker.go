@@ -15,9 +15,8 @@ import (
 
 // short descriptions of constraints used in error messages.
 const (
-	linearConstraintDescription      = "linear constraint"
-	orientationConstraintDescription = "orientation constraint"
-	planarConstraintDescription      = "planar constraint"
+	linearConstraintDescription = "linear constraint"
+	planarConstraintDescription = "planar constraint"
 
 	// collision constraint descriptions used in error messages.
 	boundingRegionConstraintDescription = "bounding region constraint"
@@ -228,8 +227,8 @@ func (c *ConstraintChecker) addTopoConstraints(
 }
 
 func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error { //nolint: revive
-	return fmt.Errorf("%s %s violated dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
-		prefix, orientationConstraintDescription, dist, max,
+	return fmt.Errorf("%s %w dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
+		prefix, ErrOrientationConstraintViolated, dist, max,
 		from, to, curr)
 }
 
