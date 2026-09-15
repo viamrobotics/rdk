@@ -753,7 +753,7 @@ func modelName(module *modulegen.ModuleInputs) string {
 	if resourceName == "generic" {
 		resourceName = resourceName + "_" + strings.Fields(module.Resource)[1]
 	}
-	return resourceName
+	return "my_" + resourceName
 }
 
 // sharedInputs holds fields common to both module and app generation.
@@ -949,7 +949,7 @@ func promptAddModelInputs(module *modulegen.ModuleInputs) error {
 func wrapResolveOrg(ctx context.Context, cmd *cli.Command, c *viamClient, newModule *modulegen.ModuleInputs) error {
 	// If we're not registering on app, we don't need to resolve the org
 	if !newModule.RegisterOnApp {
-		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
 		cleanNamespace := nonAlphanumericRegex.ReplaceAllString(newModule.Namespace, "")
 		newModule.Namespace = cleanNamespace
 		newModule.OrgID = newModule.Namespace
