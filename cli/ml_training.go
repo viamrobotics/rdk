@@ -207,7 +207,7 @@ func MLDeleteContainer(ctx context.Context, cmd *cli.Command, args mlDeleteConta
 	if err != nil {
 		return err
 	}
-	_, err = client.mlTrainingClient.DeleteContainer(context.Background(), &mltrainingpb.DeleteContainerRequest{
+	_, err = client.mlTrainingClient.DeleteCustomTrainingContainer(context.Background(), &mltrainingpb.DeleteCustomTrainingContainerRequest{
 		OrganizationId: args.OrgID,
 		Key:            args.Key,
 	})
