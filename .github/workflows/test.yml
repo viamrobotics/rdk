@@ -383,10 +383,19 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
+
+    - name: Setup Zig Compiler
+      uses: mlugg/setup-zig@v2.2.1
+      with:
+        version: 0.16.0
+
     - name: test
       shell: bash
       env:
         GOFLAGS: "-tags=no_cgo"
+        CGO_ENABLED: "1"
+        CC: "zig cc"
+        CXX: "zig c++"
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
@@ -416,6 +425,7 @@ jobs:
           go.viam.com/rdk/module
           go.viam.com/rdk/logging
           go.viam.com/rdk/cli
+          go.viam.com/rdk/components/camera/videosource
         )
         WINDOWS_PATTERN=$(IFS='|'; echo "${WORKING_WINDOWS_TESTS[*]}")
         TEST_TARGET=$(echo "$TEST_TARGET" | grep -E "^(${WINDOWS_PATTERN})$")
