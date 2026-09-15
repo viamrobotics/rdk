@@ -440,12 +440,17 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
-	decoder := json.NewDecoder(f)
+	return RequestFromReader(f)
+}
+
+func RequestFromReader(reader io.Reader) (*PlanRequest, motionplan.Plan, error) {
+	decoder := json.NewDecoder(reader)
 
 	// We first decode the file into a raw json structure. This is because we have best effort
 	// support for reading different versions of request files. The current version of the
 	// `PlanRequest` object may not map perfectly to some historical serialization.
 	var raw json.RawMessage
+	var err error
 	if err = decoder.Decode(&raw); err != nil {
 		return nil, nil, err
 	}
