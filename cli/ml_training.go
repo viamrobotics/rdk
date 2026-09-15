@@ -190,6 +190,34 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	return nil
 }
 
+type mlDeleteContainerArgs struct {
+	OrgID string
+	Key   string
+}
+
+// MLDeleteContainer is the corresponding action for 'train containers delete'.
+func MLDeleteContainer(ctx context.Context, cmd *cli.Command, args mlDeleteContainerArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to delete a custom training container")
+	}
+	if args.Key == "" {
+		return errors.New("must provide the key of the container to delete")
+	}
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	_, err = client.mlTrainingClient.DeleteContainer(context.Background(), &mltrainingpb.DeleteContainerRequest{
+		OrganizationId: args.OrgID,
+		Key:            args.Key,
+	})
+	if err != nil {
+		return err
+	}
+	printf(cmd.Root().Writer, "Deleted container %q", args.Key)
+	return nil
+}
+
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
 func MLSubmitTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitTrainingJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
