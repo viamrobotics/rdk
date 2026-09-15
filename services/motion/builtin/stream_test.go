@@ -18,19 +18,19 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 )
 
 // testKinematicsModel builds a dof-joint revolute model whose every joint shares the same
-// velocity/acceleration limits (given in deg/s and deg/s^2 for readability), so that an injected
-// arm's Kinematics(ctx) has bounded referenceframe.TrajectoryLimits for streaming.Run to use.
-func testKinematicsModel(t *testing.T, dof int, velDegPerSec, accelDegPerSec2 float64) referenceframe.Model {
+// velocity/acceleration limits (in rad/s and rad/s^2, matching referenceframe.Limit's own
+// units), so that an injected arm's Kinematics(ctx) has bounded referenceframe.TrajectoryLimits
+// for streaming.Run to use.
+func testKinematicsModel(t *testing.T, dof int, velRadPerSec, accelRadPerSec2 float64) referenceframe.Model {
 	t.Helper()
 	limit := referenceframe.Limit{
 		Min:             -math.Pi,
 		Max:             math.Pi,
-		MaxVelocity:     floatPtr(utils.DegToRad(velDegPerSec)),
-		MaxAcceleration: floatPtr(utils.DegToRad(accelDegPerSec2)),
+		MaxVelocity:     floatPtr(velRadPerSec),
+		MaxAcceleration: floatPtr(accelRadPerSec2),
 	}
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
@@ -64,7 +64,7 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int))
 		return make([]referenceframe.Input, 6), nil
 	}
 	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testKinematicsModel(t, 6, 30, 60), nil
+		return testKinematicsModel(t, 6, math.Pi/6, math.Pi/3), nil
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
@@ -256,7 +256,7 @@ func TestDoCommandStreamAbort(t *testing.T) {
 		return make([]referenceframe.Input, 6), nil
 	}
 	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testKinematicsModel(t, 6, 30, 60), nil
+		return testKinematicsModel(t, 6, math.Pi/6, math.Pi/3), nil
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,

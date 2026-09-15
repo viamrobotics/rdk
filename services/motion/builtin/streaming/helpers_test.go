@@ -21,11 +21,11 @@ func (r *fakeStreamRecorder) get() [][]arm.TrajectoryPoint {
 	return r.batches
 }
 
-func newFakeStreamingArm(dof int, velDegPerSec, accelDegPerSec2 float64) (*inject.Arm, *fakeStreamRecorder) {
+func newFakeStreamingArm(dof int, velRadPerSec, accelRadPerSec2 float64) (*inject.Arm, *fakeStreamRecorder) {
 	rec := &fakeStreamRecorder{}
 	inj := inject.NewArm("test-arm")
 	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testModel(dof, velDegPerSec, accelDegPerSec2)
+		return testModel(dof, velRadPerSec, accelRadPerSec2)
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,

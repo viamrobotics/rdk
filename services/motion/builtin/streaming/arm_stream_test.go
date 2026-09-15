@@ -19,7 +19,7 @@ func testPVAT(trajectoryTime time.Duration) pvat {
 }
 
 func TestArmStreamSend(t *testing.T) {
-	inj, rec := newFakeStreamingArm(2, 90, 90)
+	inj, rec := newFakeStreamingArm(2, math.Pi/2, math.Pi/2)
 	ctx := context.Background()
 	s := newArmStream(ctx, inj, nil)
 
@@ -61,7 +61,7 @@ func TestArmStreamSend(t *testing.T) {
 // TestArmStreamCurrentEstimatedRunwayInArm checks that currentEstimatedRunwayInArm returns 0
 // before the first batch is sent, and afterward decreases as (real) time elapses.
 func TestArmStreamCurrentEstimatedRunwayInArm(t *testing.T) {
-	inj, _ := newFakeStreamingArm(1, 90, 90)
+	inj, _ := newFakeStreamingArm(1, math.Pi/2, math.Pi/2)
 	ctx := context.Background()
 	s := newArmStream(ctx, inj, nil)
 	defer s.close()

@@ -4,28 +4,28 @@ package streaming
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/utils"
 )
 
 func testStreamOptions() StreamOptions {
 	return NewDefaultOptions()
 }
 
-// testTrajectoryLimits returns per-joint velocity/acceleration limits (90 deg/s, 90 deg/s^2,
-// converted to rad/s and rad/s^2) for dof joints, matching what startSession now requires
-// directly instead of reading from StreamOptions.
+// testTrajectoryLimits returns per-joint velocity/acceleration limits (pi/2 rad/s, pi/2 rad/s^2)
+// for dof joints, matching what startSession now requires directly instead of reading from
+// StreamOptions.
 func testTrajectoryLimits(dof int) (vel, accel []float64) {
 	vel = make([]float64, dof)
 	accel = make([]float64, dof)
 	for i := range dof {
-		vel[i] = utils.DegToRad(90)
-		accel[i] = utils.DegToRad(90)
+		vel[i] = math.Pi / 2
+		accel[i] = math.Pi / 2
 	}
 	return vel, accel
 }

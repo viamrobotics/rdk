@@ -6,19 +6,19 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // testModel builds a dof-joint revolute model whose every joint shares the same
-// velocity/acceleration limits (given in deg/s and deg/s^2 for readability), so that
-// referenceframe.TrajectoryLimits(model.DoF()) returns bounded per-joint limits. It exists so
-// tests can give an injected arm's KinematicsFunc something for streaming.Run to query.
-func testModel(dof int, velDegPerSec, accelDegPerSec2 float64) (referenceframe.Model, error) {
+// velocity/acceleration limits (in rad/s and rad/s^2, matching referenceframe.Limit's own
+// units), so that referenceframe.TrajectoryLimits(model.DoF()) returns bounded per-joint limits.
+// It exists so tests can give an injected arm's KinematicsFunc something for streaming.Run to
+// query.
+func testModel(dof int, velRadPerSec, accelRadPerSec2 float64) (referenceframe.Model, error) {
 	limit := referenceframe.Limit{
 		Min:             -math.Pi,
 		Max:             math.Pi,
-		MaxVelocity:     floatPtr(utils.DegToRad(velDegPerSec)),
-		MaxAcceleration: floatPtr(utils.DegToRad(accelDegPerSec2)),
+		MaxVelocity:     floatPtr(velRadPerSec),
+		MaxAcceleration: floatPtr(accelRadPerSec2),
 	}
 
 	fs := referenceframe.NewEmptyFrameSystem("test")

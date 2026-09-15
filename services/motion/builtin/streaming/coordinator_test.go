@@ -5,6 +5,7 @@ package streaming
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func runTestOptions() StreamOptions {
 }
 
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
-	inj, rec := newFakeStreamingArm(2, 90, 90)
+	inj, rec := newFakeStreamingArm(2, math.Pi/2, math.Pi/2)
 	jpCh := make(chan JointPositionsChItem)
 
 	start := time.Now()
@@ -44,8 +45,8 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 		t.Fatal("Run did not finish after jpCh was closed")
 	}
 
-	// A 0.1 rad move at 90 deg/s / 90 deg/s^2 limits (from runTestOptions()) is roughly
-	// 500ms; assert that it was at least 250ms.
+	// A 0.1 rad move at the pi/2 rad/s and pi/2 rad/s^2 limits set on the fake arm's
+	// kinematics (below) is roughly 500ms; assert that it was at least 250ms.
 	test.That(t, time.Since(start), test.ShouldBeGreaterThan, 250*time.Millisecond)
 
 	var lastPositions []referenceframe.Input
@@ -86,7 +87,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 
 func TestRunEndsContextCanceled(t *testing.T) {
 	t.Run("while streaming", func(t *testing.T) {
-		inj, _ := newFakeStreamingArm(1, 90, 90)
+		inj, _ := newFakeStreamingArm(1, math.Pi/2, math.Pi/2)
 		jpCh := make(chan JointPositionsChItem)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -108,7 +109,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 	})
 
 	t.Run("during post-flush wait", func(t *testing.T) {
-		inj, _ := newFakeStreamingArm(1, 90, 90)
+		inj, _ := newFakeStreamingArm(1, math.Pi/2, math.Pi/2)
 		jpCh := make(chan JointPositionsChItem, 1)
 		// A 1.5 rad move is several seconds of trajectory, so the 100ms sleep below
 		// lands well inside the post-flush wait.
@@ -138,7 +139,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 // the arm's error surfaces in Run's returned error, without the caller closing jpCh.
 func TestRunEndsOnArmError(t *testing.T) {
 	armErr := errors.New("arm rejected the trajectory")
-	inj, _ := newFakeStreamingArm(1, 90, 90)
+	inj, _ := newFakeStreamingArm(1, math.Pi/2, math.Pi/2)
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,
