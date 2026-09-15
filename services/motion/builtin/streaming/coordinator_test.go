@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func runTestOptions() StreamOptions {
@@ -139,10 +138,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 // the arm's error surfaces in Run's returned error, without the caller closing jpCh.
 func TestRunEndsOnArmError(t *testing.T) {
 	armErr := errors.New("arm rejected the trajectory")
-	inj := inject.NewArm("test-arm")
-	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testModel(1, 90, 90)
-	}
+	inj, _ := newFakeStreamingArm(1, 90, 90)
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,
