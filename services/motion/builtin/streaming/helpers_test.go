@@ -75,8 +75,8 @@ func testKinematics(dof int, velRadPerSec, accelRadPerSec2 float64) (referencefr
 	limit := referenceframe.Limit{
 		Min:             -math.Pi,
 		Max:             math.Pi,
-		MaxVelocity:     floatPtr(velRadPerSec),
-		MaxAcceleration: floatPtr(accelRadPerSec2),
+		MaxVelocity:     &velRadPerSec,
+		MaxAcceleration: &accelRadPerSec2,
 	}
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
@@ -97,8 +97,4 @@ func testKinematics(dof int, velRadPerSec, accelRadPerSec2 float64) (referencefr
 		return referenceframe.NewSimpleModel("test"), nil
 	}
 	return referenceframe.NewModel("test", fs, last.Name())
-}
-
-func floatPtr(v float64) *float64 {
-	return &v
 }
