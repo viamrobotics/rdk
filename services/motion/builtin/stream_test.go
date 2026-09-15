@@ -4,6 +4,7 @@ package builtin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -156,6 +157,47 @@ func TestStreamArmJointPositionsHappyPath(t *testing.T) {
 	points, streams := counts()
 	test.That(t, points > 0, test.ShouldBeTrue)
 	test.That(t, streams >= 1, test.ShouldBeTrue)
+}
+
+// TestStreamArmJointPositionsVelAccelOverride checks that explicit VelLimitDegPerSec/
+// AccelLimitDegPerSec2 reach streaming.Run and bypass the kinematics requirement entirely: the
+// injected arm's Kinematics(ctx) errors, so the session only succeeds if both overrides took
+// effect.
+func TestStreamArmJointPositionsVelAccelOverride(t *testing.T) {
+	inj := inject.NewArm("arm")
+	inj.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
+		return make([]referenceframe.Input, 1), nil
+	}
+	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errors.New("kinematics should not be queried when both limits are overridden")
+	}
+	inj.MoveThroughJointPositionsStreamedFunc = func(
+		ctx context.Context,
+		batches <-chan []arm.TrajectoryPoint,
+		responses chan<- arm.Response,
+		extra map[string]interface{},
+	) error {
+		for range batches {
+		}
+		return nil
+	}
+	ms := &builtIn{
+		logger:     logging.NewTestLogger(t),
+		components: map[string]resource.Resource{"arm": inj},
+	}
+
+	opts := streamTestOptions()
+	vel, accel := 90.0, 45.0
+	opts.VelLimitDegPerSec = &vel
+	opts.AccelLimitDegPerSec2 = &accel
+
+	errCh := runStream(context.Background(), ms, "arm", opts, [][]referenceframe.Input{{0.1}})
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(10 * time.Second):
+		t.Fatal("StreamArmJointPositions never returned")
+	}
 }
 
 // TestStreamArmJointPositionsStatusDiagnosticsOptIn checks that stream_status omits the
