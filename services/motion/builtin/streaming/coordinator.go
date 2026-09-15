@@ -43,11 +43,11 @@ func Run(
 		return err
 	}
 
-	model, err := a.Kinematics(ctx)
+	kinematics, err := a.Kinematics(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get kinematics for arm streaming: %w", err)
 	}
-	velLimits, accelLimits, ok := referenceframe.TrajectoryLimits(model.DoF())
+	velLimits, accelLimits, ok := referenceframe.TrajectoryLimits(kinematics.DoF())
 	if !ok {
 		return errors.New("arm streaming requires the arm's kinematics to declare " +
 			"max_velocity and max_acceleration for every joint")
