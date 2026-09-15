@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"fmt"
 	"iter"
+	"strings"
 
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -299,7 +300,11 @@ func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) 
 			//
 			// Ignoring this error could however manifest as a bug where the caller does not pass in
 			// all of the joint positions for the `StartState`.
-			continue
+			if strings.Contains(err.Error(), "array length does not match frame DoF") {
+				continue
+			} else {
+				return nil, err
+			}
 		}
 		computedPoses[frameName] = NewPoseInFrame(World, &spatial.DualQuaternion{Number: dq})
 	}
