@@ -849,7 +849,12 @@ function renderIKCell(file, cell) {
     }
   } else if (cell.inputs) {
     const inputsArg = JSON.stringify(cell.inputs);
-    inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>Render</button>';
+    const label = cls === 'cell-yellow' ? 'Render (final position)' : 'Render';
+    inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>' + label + '</button>';
+  }
+  if (cls === 'cell-yellow' && cell.last_good_inputs) {
+    const lastGoodArg = JSON.stringify(cell.last_good_inputs);
+    inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + lastGoodArg + ')\'>Render (last good configuration)</button>';
   }
   return '<td class="' + cls + '" title="' + escHtml(tip.join('\n')) + '">' + inner + '</td>';
 }
@@ -981,6 +986,8 @@ type ikInspectCellResult struct {
 	StateError     string              `json:"state_error,omitempty"`
 	CheckPathOK    bool                `json:"check_path_ok"`
 	CheckPathError string              `json:"check_path_error,omitempty"`
+	// LastGoodInputs is the last configuration along the interpolated path to Inputs that still
+	// satisfied all constraints. Only present when CheckPathOK is false.
 	LastGoodInputs map[string][]string `json:"last_good_inputs,omitempty"`
 }
 
@@ -1762,8 +1769,8 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 			return
 		}
 
-		out := ikInspectRunResult{Seeds: make([][]ikInspectCellResult, len(result.Rows)), SeedLabels: result.SeedLabels}
-		for seedIdx, cells := range result.Rows {
+		out := ikInspectRunResult{Seeds: make([][]ikInspectCellResult, len(result.SeedResults)), SeedLabels: result.SeedLabels}
+		for seedIdx, cells := range result.SeedResults {
 			rows := make([]ikInspectCellResult, len(cells))
 			for cellIdx, cell := range cells {
 				row := ikInspectCellResult{
@@ -1781,8 +1788,8 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 				if cell.CheckPathError != nil {
 					row.CheckPathError = cell.CheckPathError.Error()
 				}
-				if cell.LastGoodInputs != nil {
-					row.LastGoodInputs = linearInputsToStrings(cell.LastGoodInputs)
+				if cell.CheckPathFeedback.LastGoodInputs != nil {
+					row.LastGoodInputs = linearInputsToStrings(cell.CheckPathFeedback.LastGoodInputs)
 				}
 				rows[cellIdx] = row
 			}
