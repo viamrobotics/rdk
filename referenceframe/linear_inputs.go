@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"fmt"
 	"iter"
+	"strings"
 
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -292,6 +293,17 @@ func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) 
 	for _, frameName := range fs.FrameNames() {
 		dq, err := fk.get(frameName)
 		if err != nil {
+			// RSDK-14556: NewIncorrectDoFError is created when calling `ComputePoses` on a
+			// `GoalState` that specifies goal configurations for some resources, but not
+			// others. When transforming goal configurations to goal poses, we should allow the user
+			// to omit frames that do not need to move.
+			//
+			// Ignoring this error could however manifest as a bug where the caller does not pass in
+			// all of the joint positions for the `StartState`.
+			if strings.Contains(err.Error(), "array length does not match frame DoF") {
+				continue
+			}
+
 			return nil, err
 		}
 		computedPoses[frameName] = NewPoseInFrame(World, &spatial.DualQuaternion{Number: dq})
