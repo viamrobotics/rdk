@@ -20,8 +20,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func testKinematics(t *testing.T, dof int, velRadPerSec, accelRadPerSec2 float64) referenceframe.Model {
-	t.Helper()
+func testKinematics(dof int, velRadPerSec, accelRadPerSec2 float64) (referenceframe.Model, error) {
 	limit := referenceframe.Limit{
 		Min:             -math.Pi,
 		Max:             math.Pi,
@@ -34,14 +33,16 @@ func testKinematics(t *testing.T, dof int, velRadPerSec, accelRadPerSec2 float64
 	var last referenceframe.Frame
 	for i := range dof {
 		f, err := referenceframe.NewRotationalFrame(fmt.Sprintf("j%d", i), spatialmath.R4AA{RZ: 1}, limit)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fs.AddFrame(f, parent), test.ShouldBeNil)
+		if err != nil {
+			return nil, err
+		}
+		if err := fs.AddFrame(f, parent); err != nil {
+			return nil, err
+		}
 		parent = f
 		last = f
 	}
-	model, err := referenceframe.NewModel("test", fs, last.Name())
-	test.That(t, err, test.ShouldBeNil)
-	return model
+	return referenceframe.NewModel("test", fs, last.Name())
 }
 
 // newStreamTestService builds a minimal builtIn wired to a single injected arm
@@ -56,7 +57,7 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int))
 		return make([]referenceframe.Input, 6), nil
 	}
 	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testKinematics(t, 6, math.Pi/6, math.Pi/3), nil
+		return testKinematics(6, math.Pi/6, math.Pi/3)
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
@@ -248,7 +249,7 @@ func TestDoCommandStreamAbort(t *testing.T) {
 		return make([]referenceframe.Input, 6), nil
 	}
 	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testKinematics(t, 6, math.Pi/6, math.Pi/3), nil
+		return testKinematics(6, math.Pi/6, math.Pi/3)
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
