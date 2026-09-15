@@ -4480,9 +4480,15 @@ func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.Ro
 	//nolint: noctx
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
-		return fmt.Errorf("failed to create listener %w", err)
+		return fmt.Errorf("failed to create listener: %w", err)
 	}
 	infof(cmd.Root().Writer, "tunneling connections from local port %v to destination port %v on machine part...", local, dest)
+	return serveTunnel(ctx, cmd, robotClient, li, dest)
+}
+
+// serveTunnel tunnels every connection accepted on li to dest on the machine part. It
+// takes ownership of li and closes it once ctx is done.
+func serveTunnel(ctx context.Context, cmd *cli.Command, robotClient *client.RobotClient, li net.Listener, dest int) error {
 	go func() {
 		// Once the context has errored, close the listener so the loop below will exit from
 		// `Accept`ing new connections.
@@ -4516,7 +4522,7 @@ func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.Ro
 	wg.Wait()
 
 	// nilerr is needed because Go wants us to return the ctx.Err() from the loop above, but
-	// any ctx.Err() from that loop should just halt tunnelTraffic without error.
+	// any ctx.Err() from that loop should just halt serveTunnel without error.
 	return nil //nolint:nilerr
 }
 
