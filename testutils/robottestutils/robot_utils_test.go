@@ -38,4 +38,3 @@ func TestProcessAlreadyGone(t *testing.T) {
 		})
 	}
 }
-
