@@ -214,6 +214,12 @@ func TestCloudManagedWithAuth(t *testing.T) {
 }
 
 func testCloudConnectionAuth(t *testing.T, logger logging.Logger, conf *config.Cloud, shouldAuth bool) {
+	// NewAppConn caches auth tokens under ViamDotDir; isolate it per subtest so tokens neither
+	// pollute the real home dir nor leak a cached token from one case into another.
+	origViamDotDir := utils.ViamDotDir
+	utils.ViamDotDir = t.TempDir()
+	defer func() { utils.ViamDotDir = origViamDotDir }()
+
 	cloudCreds := conf.GetCloudCredsDialOpt()
 	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, conf.ID, cloudCreds, logger)
 	test.That(t, err, test.ShouldBeNil)
