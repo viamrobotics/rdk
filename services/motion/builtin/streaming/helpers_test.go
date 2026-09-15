@@ -93,8 +93,5 @@ func testKinematics(dof int, velRadPerSec, accelRadPerSec2 float64) (referencefr
 		parent = f
 		last = f
 	}
-	if last == nil {
-		return referenceframe.NewSimpleModel("test"), nil
-	}
 	return referenceframe.NewModel("test", fs, last.Name())
 }
