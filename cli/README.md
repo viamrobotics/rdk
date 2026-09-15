@@ -10,6 +10,7 @@ Enter `viam login` and follow instructions to authenticate.
 
 With brew (macOS & linux amd64):
 ```sh
+brew trust viamrobotics/brews
 brew tap viamrobotics/brews
 brew install viam
 ```

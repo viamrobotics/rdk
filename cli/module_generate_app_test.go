@@ -26,7 +26,7 @@ func TestAppTemplateCompiles(t *testing.T) {
 	globalArgs := *gArgs
 
 	testDir := t.TempDir()
-	testChdir(t, testDir)
+	t.Chdir(testDir)
 	appPath := filepath.Join(testDir, testData.ModuleName)
 
 	// Generate the app

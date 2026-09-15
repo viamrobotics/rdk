@@ -93,6 +93,10 @@ func TestPoseCloudPlanning(t *testing.T) {
 	// glass and lite6:wrist_link geometries: 90.09% }
 	test.That(t, errors.As(err, &ikErr), test.ShouldBeTrue)
 
+	// By using a larger defaultTimeout, IK will get more time than the typical one second.
+	relaxedOpts := NewBasicPlannerOptions()
+	relaxedOpts.Timeout = defaultTimeout + 1
+
 	// Plan for the same goal with a big leeway. IK finds a solution here due to the relaxed goal.
 	plan, _, err := PlanMotion(ctx, logger.Sublogger("cloud-planning-works"), &PlanRequest{
 		FrameSystem: fs,
@@ -111,10 +115,7 @@ func TestPoseCloudPlanning(t *testing.T) {
 			"lite6":   []referenceframe.Input{0, 0, 0, 0, 0, 0},
 			"gripper": []referenceframe.Input{25, 25},
 		}),
-		PlannerOptions: &PlannerOptions{
-			// By using a larger defaultTimeout, IK will get more time than the typical one second.
-			Timeout: defaultTimeout + 1,
-		},
+		PlannerOptions: relaxedOpts,
 	})
 	test.That(t, err, test.ShouldBeNil)
 

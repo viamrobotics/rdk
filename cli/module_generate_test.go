@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -27,13 +28,14 @@ import (
 
 func TestAddModel(t *testing.T) {
 	// NOTE: do not mark this top-level test t.Parallel(). Some subtests call
-	// testChdir, which mutates the process-wide CWD. Marking a subtest
+	// t.Chdir, which mutates the process-wide CWD. Marking a subtest
 	// non-parallel only serializes it against its siblings; if this parent ran
 	// in parallel with TestAddApp (which also chdirs), their CWD mutations would
-	// race, breaking relative-path lookups (meta.json) and, on Windows, breaking
-	// t.TempDir() cleanup ("the process cannot access the file because it is
-	// being used by another process"). Keeping the parent sequential serializes
-	// all CWD-mutating tests against each other.
+	// race, breaking relative-path lookups (meta.json, .viam-gen-info) and, on
+	// Windows, breaking t.TempDir() cleanup ("the process cannot access the file
+	// because it is being used by another process"). Keeping the parent
+	// sequential serializes all CWD-mutating tests against each other; t.Chdir
+	// enforces that by panicking if this test or any ancestor is parallel.
 	baseModule := modulegen.ModuleInputs{
 		ModuleName:            "my-module",
 		Visibility:            moduleVisibilityPrivate,
@@ -416,10 +418,10 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
 	})
 
 	t.Run("AddModelAction dry run", func(t *testing.T) {
-		// No t.Parallel(): calls testChdir which mutates process-wide CWD,
+		// No t.Parallel(): calls t.Chdir which mutates process-wide CWD,
 		// which races with parallel subtests that call go install / use relative paths.
 		dir := t.TempDir()
-		testChdir(t, dir)
+		t.Chdir(dir)
 
 		// Write .viam-gen-info so the action can read module context
 		data, err := json.Marshal(baseModule)
@@ -449,12 +451,19 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
 		err = AddModelAction(context.Background(), cCtx, args)
 		// dry-run returns nil without touching files
 		test.That(t, err, test.ShouldBeNil)
+		result, err := loadManifest(defaultManifestFilename)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(result.Models), test.ShouldEqual, 0)
+		_, err = os.Stat("second_model.go")
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+		_, err = os.Stat("my-org_my-module_second-model.md")
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 	})
 }
 
 func TestGenerateModuleAction(t *testing.T) {
-	// No t.Parallel(): subtests use relative paths that depend on CWD (set by testChdir),
-	// so this test must run sequentially to avoid races with TestAddModel's testChdir calls.
+	// No t.Parallel(): subtests use relative paths that depend on CWD (set by t.Chdir),
+	// so this test must run sequentially to avoid races with TestAddModel's t.Chdir calls.
 	testModule := modulegen.ModuleInputs{
 		ModuleName:       "my-module",
 		Visibility:       moduleVisibilityPrivate,
@@ -485,7 +494,7 @@ func TestGenerateModuleAction(t *testing.T) {
 	globalArgs := *gArgs
 
 	testDir := t.TempDir()
-	testChdir(t, testDir)
+	t.Chdir(testDir)
 	modulePath := filepath.Join(testDir, testModule.ModuleName)
 
 	t.Run("test setting up module directory", func(t *testing.T) {
@@ -842,9 +851,35 @@ func TestCreatePythonVenv(t *testing.T) {
 	})
 }
 
+func TestErrorWithCommandStderr(t *testing.T) {
+	t.Run("surfaces the stderr captured by (*exec.Cmd).Output", func(t *testing.T) {
+		t.Parallel()
+		exitErr := &exec.ExitError{
+			ProcessState: &os.ProcessState{},
+			Stderr:       []byte("\nCould not install requirements to generate python stubs:\nERROR: no matching distribution\n"),
+		}
+		err := errorWithCommandStderr(exitErr)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "Could not install requirements to generate python stubs")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "ERROR: no matching distribution")
+	})
+
+	t.Run("returns the original error when the command produced no stderr", func(t *testing.T) {
+		t.Parallel()
+		exitErr := &exec.ExitError{ProcessState: &os.ProcessState{}}
+		test.That(t, errorWithCommandStderr(exitErr), test.ShouldEqual, exitErr)
+	})
+
+	t.Run("returns the original error when the command never ran", func(t *testing.T) {
+		t.Parallel()
+		base := errors.New("exec: \"python3\": executable file not found in $PATH")
+		test.That(t, errorWithCommandStderr(base), test.ShouldEqual, base)
+	})
+}
+
 func TestAddApp(t *testing.T) {
 	// NOTE: do not mark this top-level test t.Parallel(). Some subtests call
-	// testChdir, which mutates the process-wide CWD, and would race with the
+	// t.Chdir, which mutates the process-wide CWD, and would race with the
 	// CWD-mutating subtests in TestAddModel if both parents ran in parallel.
 	// See the note on TestAddModel for details.
 
@@ -1024,9 +1059,9 @@ func main() {
 	})
 
 	t.Run("AddAppAction dry run", func(t *testing.T) {
-		// No t.Parallel(): calls testChdir which mutates process-wide CWD.
+		// No t.Parallel(): calls t.Chdir which mutates process-wide CWD.
 		dir := t.TempDir()
-		testChdir(t, dir)
+		t.Chdir(dir)
 
 		data, err := json.Marshal(baseGenInfo)
 		test.That(t, err, test.ShouldBeNil)
@@ -1061,7 +1096,7 @@ func main() {
 		test.That(t, os.WriteFile(filepath.Join(dir, ".viam-gen-info"), data, 0o600), test.ShouldBeNil)
 
 		// Temporarily point CWD so readViamGenInfo(".")  resolves correctly.
-		// We can't use testChdir here (parallel), so call readViamGenInfo directly.
+		// We can't use t.Chdir here (parallel), so call readViamGenInfo directly.
 		info, err := readViamGenInfo(dir)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Language, test.ShouldEqual, "python")
@@ -1075,9 +1110,9 @@ func main() {
 	})
 
 	t.Run("AddAppAction rejects duplicate app name", func(t *testing.T) {
-		// No t.Parallel(): calls testChdir which mutates process-wide CWD.
+		// No t.Parallel(): calls t.Chdir which mutates process-wide CWD.
 		dir := t.TempDir()
-		testChdir(t, dir)
+		t.Chdir(dir)
 
 		data, err := json.Marshal(baseGenInfo)
 		test.That(t, err, test.ShouldBeNil)

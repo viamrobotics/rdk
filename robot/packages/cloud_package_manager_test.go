@@ -405,18 +405,18 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		t.Setenv(rutils.ViamEnableDiskSpaceBlockEnvVar, "true")
-		orig := enoughFreeSpace
+		orig := diskusage.EnoughFreeSpaceFunc
 		// Report low only for the unpack step, identified by its target dir: the download pre-filter
 		// checks the ".download" archive path, while unpackFile extracts into a "*.tmp" dir. Keying
 		// on the call site (rather than the byte count each guard happens to pass) keeps this from
 		// breaking if the guards' required-bytes math changes.
-		enoughFreeSpace = func(path string, _ uint64) (bool, uint64, error) {
+		diskusage.EnoughFreeSpaceFunc = func(path string, _ uint64) (bool, uint64, error) {
 			if strings.Contains(path, ".tmp") {
 				return false, 5, nil // unpack guard: report low
 			}
 			return true, 1 << 40, nil // download pre-filter: plenty
 		}
-		t.Cleanup(func() { enoughFreeSpace = orig })
+		t.Cleanup(func() { diskusage.EnoughFreeSpaceFunc = orig })
 
 		input := config.PackageConfig{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"}
 		fakeServer.StorePackage(input)
@@ -434,7 +434,7 @@ func TestCloud(t *testing.T) {
 		test.That(t, statusFile.Status, test.ShouldNotEqual, syncStatusFailed)
 
 		// Restore free space and sync the same version again: it should re-download and succeed.
-		enoughFreeSpace = orig
+		diskusage.EnoughFreeSpaceFunc = orig
 		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
@@ -732,13 +732,13 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		// Refused before any file is written, and the pre-filter sizes the requirement as
 		// Content-Length plus the MinFreeBytes floor.
 		t.Setenv(rutils.ViamEnableDiskSpaceBlockEnvVar, "true")
-		orig := enoughFreeSpace
+		orig := diskusage.EnoughFreeSpaceFunc
 		var gotRequired uint64
-		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+		diskusage.EnoughFreeSpaceFunc = func(_ string, minBytes uint64) (bool, uint64, error) {
 			gotRequired = minBytes
 			return false, 5, nil
 		}
-		t.Cleanup(func() { enoughFreeSpace = orig })
+		t.Cleanup(func() { diskusage.EnoughFreeSpaceFunc = orig })
 
 		dest := filepath.Join(packagesDir, "download-lowspace")
 		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace", dest, "download-lowspace")
@@ -757,13 +757,13 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		// assert the requirement without exercising resume, and confirm the partial is left intact for
 		// a later retry.
 		t.Setenv(rutils.ViamEnableDiskSpaceBlockEnvVar, "true")
-		orig := enoughFreeSpace
+		orig := diskusage.EnoughFreeSpaceFunc
 		var gotRequired uint64
-		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+		diskusage.EnoughFreeSpaceFunc = func(_ string, minBytes uint64) (bool, uint64, error) {
 			gotRequired = minBytes
 			return false, 5, nil
 		}
-		t.Cleanup(func() { enoughFreeSpace = orig })
+		t.Cleanup(func() { diskusage.EnoughFreeSpaceFunc = orig })
 
 		dest := filepath.Join(packagesDir, "download-partial")
 		const partial = 7
@@ -783,11 +783,11 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 
 	t.Run("proceeds when low on space but blocking is disabled (log-only default)", func(t *testing.T) {
 		// With blocking disabled (the default), low space is logged but the download proceeds.
-		orig := enoughFreeSpace
-		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+		orig := diskusage.EnoughFreeSpaceFunc
+		diskusage.EnoughFreeSpaceFunc = func(_ string, minBytes uint64) (bool, uint64, error) {
 			return false, 5, nil
 		}
-		t.Cleanup(func() { enoughFreeSpace = orig })
+		t.Cleanup(func() { diskusage.EnoughFreeSpaceFunc = orig })
 
 		dest := filepath.Join(packagesDir, "download-lowspace-logonly")
 		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace-logonly", dest, "download-lowspace-logonly")

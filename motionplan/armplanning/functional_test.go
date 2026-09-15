@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sort"
 	"testing"
@@ -466,6 +467,59 @@ func TestArmOOBSolve(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
 	} else {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "too far")
+	}
+}
+
+func TestImmovableGoalFrame(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fs := makeTestFS(t)
+
+	// A fixture bolted to world: nothing in its parent chain has any degrees of freedom, so no
+	// configuration of the arms changes where it sits.
+	fixture, err := frame.NewStaticFrame("fixture", spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 300, Z: 0}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(fixture, fs.World()), test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 400, Y: 300, Z: 100})
+	_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
+		FrameSystem:    fs,
+		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"fixture": frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:     &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
+		PlannerOptions: NewBasicPlannerOptions(),
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `cannot move frame "fixture" relative to "world"`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `no DoF moves "fixture"`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "fixture -> world")
+
+	// A static frame is only immovable if its whole chain is: one hanging off an arm is fine. The
+	// mobility that counts is the moved frame's own - a goal stated relative to a frame the arm
+	// carries does not make a world-bolted frame reachable.
+	tool, err := frame.NewStaticFrame("tool", spatialmath.NewPoseFromPoint(r3.Vector{Z: 50}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(tool, fs.Frame("xArmVgripper")), test.ShouldBeNil)
+
+	for _, tc := range []struct {
+		moveFrame, goalParent string
+		immovable             bool
+	}{
+		{"tool", frame.World, false},
+		{"xArm6", frame.World, false},
+		{"fixture", "tool", true},
+	} {
+		chains, err := motionChainsFromPlanState(fs, frame.FrameSystemPoses{
+			tc.moveFrame: frame.NewPoseInFrame(tc.goalParent, goal),
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		immovableErr := chains.immovableGoalError()
+		if !tc.immovable {
+			test.That(t, immovableErr, test.ShouldBeNil)
+			continue
+		}
+		test.That(t, immovableErr, test.ShouldNotBeNil)
+		test.That(t, immovableErr.Error(), test.ShouldContainSubstring,
+			fmt.Sprintf("cannot move frame %q relative to %q", tc.moveFrame, tc.goalParent))
 	}
 }
 

@@ -1751,6 +1751,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 	r.configRevisionMu.Unlock()
 
+	// Apply user_permissions changes to the running web service early: it revokes
+	// exactly the streams and invocations of users whose permissions changed, is
+	// independent of the resource graph, and is high-priority enough that it should
+	// still take effect even if a later step (module/package sync, diffing) aborts this
+	// reconfigure. It no-ops when permissions are unchanged.
+	r.webSvc.UpdateUserPermissions(newConfig.Auth.UserPermissions)
+
 	var allErrs error
 
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because

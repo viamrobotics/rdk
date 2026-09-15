@@ -323,7 +323,8 @@ func (ms *builtIn) PlanHistory(
 //	                 "target_runway_in_arm_ms": 100,
 //	                 "send_to_arm_interval_ms": 10,
 //	                 "vel_limit_deg_per_sec": 10,
-//	                 "accel_limit_deg_per_sec2": 10
+//	                 "accel_limit_deg_per_sec2": 10,
+//	                 "diagnostics_window_ms": 60000     // 0 disables diagnostics
 //	               }
 //	             }}
 //	  response: {"ok": 1}
@@ -358,10 +359,16 @@ func (ms *builtIn) PlanHistory(
 //	             }
 //
 //	DoStreamStatus: reports the current session's state.
-//	  request:  {"stream_status": true}
+//	  request:  {"stream_status": true}                 // or {"stream_status": {"last_window_details": true}}
+//	                                                      // to also include the (potentially
+//	                                                      // large) last window details
 //	  response: {
 //	               "running": true,
 //	               "arm": "myArm",                      // present once a session has started
+//	               "options": {...},                    // the session's StreamOptions
+//	               "last_window_details": {...},        // diagnostics.SingleSessionLastWindowDetails;
+//	                                                     // present only when last_window_details:true
+//	                                                     // was requested and diagnostics are enabled
 //	               "error": "..."                       // present only once the session has
 //	                                                     // finished with an error
 //	             }

@@ -74,6 +74,7 @@ const (
 	generalFlagMethod            = "method"
 	generalFlagDestination       = "destination"
 	generalFlagVersion           = "version"
+	generalFlagAt                = "at"
 	generalFlagCount             = "count"
 	generalFlagPath              = "path"
 	generalFlagType              = "type"
@@ -2915,6 +2916,20 @@ Note: There is no progress meter while copying is in progress.
 							Action: createActionCommandWithT[machinesPartHistoryArgs](machinesPartHistoryAction),
 						},
 						{
+							Name:      "config",
+							Usage:     "print a machine part's config JSON to stdout",
+							UsageText: createUsageText("machines part config", []string{generalFlagPart}, true, false),
+							Flags: append(commonPartFlags,
+								&cli.StringFlag{
+									Name: generalFlagAt,
+									Usage: "ISO-8601 timestamp in RFC3339 format to fetch the config that was in effect at that " +
+										"time (e.g., 2025-01-15T14:00:00Z)",
+									DefaultText: "current config",
+								},
+							),
+							Action: createActionCommandWithT[machinesPartConfigArgs](machinesPartConfigAction),
+						},
+						{
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "display part logs",
@@ -3410,6 +3425,66 @@ Example trigger for conditional_logs_ingested:
 							Action:    createActionCommandWithT[machinesPartDeleteTriggerArgs](machinesPartDeleteTriggerAction),
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:            "fragment",
+			Aliases:         []string{"fragments"},
+			Usage:           "work with fragments",
+			UsageText:       createUsageText("fragment", nil, false, true),
+			HideHelpCommand: true,
+			Commands: []*cli.Command{
+				{
+					Name:      "list",
+					Usage:     "list fragments for an organization",
+					UsageText: createUsageText("fragment list", nil, true, false),
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "default-org value if set, else the first organization alphabetically",
+							},
+						},
+					},
+					Action: createActionCommandWithT[fragmentListArgs](fragmentListAction),
+				},
+				{
+					Name:      "get",
+					Usage:     "print a fragment's config JSON to stdout",
+					UsageText: createUsageText("fragment get", []string{generalFlagFragment}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagFragment,
+							Required: true,
+							Usage:    "fragment ID to fetch",
+						},
+						&cli.StringFlag{
+							Name:        generalFlagVersion,
+							Usage:       "fragment revision or tag to fetch",
+							DefaultText: "latest",
+						},
+					},
+					Action: createActionCommandWithT[fragmentGetArgs](fragmentGetAction),
+				},
+				{
+					Name:      "history",
+					Usage:     "display revision history for a fragment",
+					UsageText: createUsageText("fragment history", []string{generalFlagFragment}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagFragment,
+							Required: true,
+							Usage:    "fragment ID whose history to display",
+						},
+						&cli.IntFlag{
+							Name:  generalFlagCount,
+							Value: defaultHistoryCount,
+							Usage: "maximum number of history entries to list, or 0 for every entry",
+						},
+					},
+					Action: createActionCommandWithT[fragmentHistoryArgs](fragmentHistoryAction),
 				},
 			},
 		},

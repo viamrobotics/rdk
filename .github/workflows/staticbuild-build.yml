@@ -294,8 +294,10 @@ jobs:
     - name: Install dependencies
       run: |
         brew update
-        brew tap viamrobotics/brews
+        # `brew trust` must precede `brew tap`: since Homebrew 7.0, `brew tap` of an
+        # untrusted third-party tap hard-fails ("invalid syntax in tap!"), aborting the step.
         brew trust viamrobotics/brews
+        brew tap viamrobotics/brews
         brew install nlopt-static
         brew install x264
 

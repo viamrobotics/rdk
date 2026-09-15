@@ -254,19 +254,21 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		prevReachable = rNode.IsReachable()
 	}
 
-	// The connection to the remote is broken. In this case, we mark each resource node
-	// on this remote as disconnected but do not report any other changes.
-	if newResources == nil {
-		err := manager.resources.MarkReachability(remoteName, false)
-		if err != nil {
-			logger.Error(
-				"unable to mark remote resources as unreachable",
-				"error", err,
-			)
+	// markRemoteUnreachable marks the remote and all of its resources unreachable and, on the
+	// reachable->unreachable transition, emits a disconnect activity event.
+	markRemoteUnreachable := func() {
+		if err := manager.resources.MarkReachability(remoteName, false); err != nil {
+			logger.Error("unable to mark remote resources as unreachable", "error", err)
 		}
 		if prevReachable {
 			manager.logger.Activity("remote", "disconnect", "remote", remoteName.Name)
 		}
+	}
+
+	// The connection to the remote is broken, so we can't inventory its resources. Mark each resource node
+	// on this remote as disconnected and return that nothing changed.
+	if newResources == nil {
+		markRemoteUnreachable()
 		return false
 	}
 
@@ -297,6 +299,15 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		resLogger := logger.WithFields("resource", remoteResName)
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
 		if err != nil {
+			// The connection may have dropped between ResourceNames() above and this call. If so
+			// the remote's resources aren't gone, the fetch just failed, so we don't actually want
+			// to remove them. That would cause local resources that optionally depend on them to
+			// be rebuilt with the dependency missing. Handle it exactly like the up-front disconnect
+			// above. Any other error causes the resource to not be added, or removed if existing.
+			if remoteRobot, ok := rr.(robot.RemoteRobot); ok && !remoteRobot.Connected() {
+				markRemoteUnreachable()
+				return anythingChanged
+			}
 			if errors.Is(err, client.ErrMissingClientRegistration) {
 				resLogger.CDebugw(ctx, "couldn't obtain remote resource interface",
 					"reason", err)
