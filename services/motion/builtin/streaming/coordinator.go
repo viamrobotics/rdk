@@ -4,6 +4,7 @@ package streaming
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -42,6 +43,16 @@ func Run(
 		return err
 	}
 
+	model, err := a.Kinematics(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get kinematics for arm streaming: %w", err)
+	}
+	velLimits, accelLimits, ok := referenceframe.TrajectoryLimits(model.DoF())
+	if !ok {
+		return errors.New("arm streaming requires the arm's kinematics to declare " +
+			"max_velocity and max_acceleration for every joint")
+	}
+
 	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
 	// Start the arm RPC stream.
@@ -64,7 +75,7 @@ func Run(
 
 	// Start the trajex session.
 	ts := &trajexSession{opts: opts, diagnostics: diagnostics}
-	if err := ts.startSession(seed); err != nil {
+	if err := ts.startSession(seed, velLimits, accelLimits); err != nil {
 		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}
 	defer ts.close()

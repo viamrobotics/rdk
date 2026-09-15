@@ -4,6 +4,8 @@ package builtin
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -14,8 +16,41 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
+
+// testKinematicsModel builds a dof-joint revolute model whose every joint shares the same
+// velocity/acceleration limits (given in deg/s and deg/s^2 for readability), so that an injected
+// arm's Kinematics(ctx) has bounded referenceframe.TrajectoryLimits for streaming.Run to use.
+func testKinematicsModel(t *testing.T, dof int, velDegPerSec, accelDegPerSec2 float64) referenceframe.Model {
+	t.Helper()
+	limit := referenceframe.Limit{
+		Min:             -math.Pi,
+		Max:             math.Pi,
+		MaxVelocity:     floatPtr(utils.DegToRad(velDegPerSec)),
+		MaxAcceleration: floatPtr(utils.DegToRad(accelDegPerSec2)),
+	}
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	parent := fs.World()
+	var last referenceframe.Frame
+	for i := range dof {
+		f, err := referenceframe.NewRotationalFrame(fmt.Sprintf("j%d", i), spatialmath.R4AA{RZ: 1}, limit)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fs.AddFrame(f, parent), test.ShouldBeNil)
+		parent = f
+		last = f
+	}
+	model, err := referenceframe.NewModel("test", fs, last.Name())
+	test.That(t, err, test.ShouldBeNil)
+	return model
+}
+
+func floatPtr(v float64) *float64 {
+	return &v
+}
 
 // newStreamTestService builds a minimal builtIn wired to a single injected arm
 // that records the trajectory points it receives over the streamed RPC.
@@ -27,6 +62,9 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int))
 	inj := inject.NewArm("arm")
 	inj.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		return make([]referenceframe.Input, 6), nil
+	}
+	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return testKinematicsModel(t, 6, 30, 60), nil
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
@@ -58,10 +96,8 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int))
 
 func streamTestOptions() map[string]interface{} {
 	return map[string]interface{}{
-		"target_runway_in_arm_ms":  50,
-		"send_to_arm_interval_ms":  10,
-		"vel_limit_deg_per_sec":    30,
-		"accel_limit_deg_per_sec2": 60,
+		"target_runway_in_arm_ms": 50,
+		"send_to_arm_interval_ms": 10,
 	}
 }
 
@@ -218,6 +254,9 @@ func TestDoCommandStreamAbort(t *testing.T) {
 	inj := inject.NewArm("arm")
 	inj.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		return make([]referenceframe.Input, 6), nil
+	}
+	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return testKinematicsModel(t, 6, 30, 60), nil
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,

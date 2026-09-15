@@ -10,13 +10,24 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/utils"
 )
 
 func testStreamOptions() StreamOptions {
-	opts := NewDefaultOptions()
-	opts.VelLimitDegPerSec = 90
-	opts.AccelLimitDegPerSec2 = 90
-	return opts
+	return NewDefaultOptions()
+}
+
+// testTrajectoryLimits returns per-joint velocity/acceleration limits (90 deg/s, 90 deg/s^2,
+// converted to rad/s and rad/s^2) for dof joints, matching what startSession now requires
+// directly instead of reading from StreamOptions.
+func testTrajectoryLimits(dof int) (vel, accel []float64) {
+	vel = make([]float64, dof)
+	accel = make([]float64, dof)
+	for i := range dof {
+		vel[i] = utils.DegToRad(90)
+		accel[i] = utils.DegToRad(90)
+	}
+	return vel, accel
 }
 
 // sampleHorizon is far longer than any trajectory these tests plan, so sampling with it
@@ -40,7 +51,8 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 	target := []referenceframe.Input{0.5, -0.3}
 
 	s := &trajexSession{opts: testStreamOptions()}
-	test.That(t, s.startSession(seed), test.ShouldBeNil)
+	vel, accel := testTrajectoryLimits(len(seed))
+	test.That(t, s.startSession(seed, vel, accel), test.ShouldBeNil)
 	defer s.close()
 
 	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
@@ -69,7 +81,8 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	seed := []referenceframe.Input{0.2, 0.4}
 
 	s := &trajexSession{opts: testStreamOptions()}
-	test.That(t, s.startSession(seed), test.ShouldBeNil)
+	vel, accel := testTrajectoryLimits(len(seed))
+	test.That(t, s.startSession(seed, vel, accel), test.ShouldBeNil)
 	defer s.close()
 
 	nearlyIdentical := []referenceframe.Input{0.2 + 1e-6, 0.4 - 1e-6}
@@ -90,7 +103,8 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 	target := []referenceframe.Input{0.5, 0.5}
 
 	s := &trajexSession{opts: testStreamOptions()}
-	test.That(t, s.startSession(seed), test.ShouldBeNil)
+	vel, accel := testTrajectoryLimits(len(seed))
+	test.That(t, s.startSession(seed, vel, accel), test.ShouldBeNil)
 	defer s.close()
 
 	test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)

@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -31,25 +30,31 @@ type trajexSession struct {
 	lastJointPositions []referenceframe.Input
 }
 
-func (s *trajexSession) startSession(startJointPositions []referenceframe.Input) error {
+// startSession begins a trajex session for an arm with dof joints, starting at
+// startJointPositions. velLimitsRadsPerSec and accelLimitsRadsPerSec2 are the arm's own per-joint
+// kinematic limits (see referenceframe.TrajectoryLimits), one entry per joint, in the same order
+// as startJointPositions.
+func (s *trajexSession) startSession(
+	startJointPositions []referenceframe.Input,
+	velLimitsRadsPerSec, accelLimitsRadsPerSec2 []float64,
+) error {
+	dof := len(startJointPositions)
+	if len(velLimitsRadsPerSec) != dof || len(accelLimitsRadsPerSec2) != dof {
+		return fmt.Errorf("velocity/acceleration limits have %d/%d entries, but the arm has %d joints",
+			len(velLimitsRadsPerSec), len(accelLimitsRadsPerSec2), dof)
+	}
+
 	trajexOpts, err := trajex.NewTensorMap()
 	if err != nil {
 		return err
 	}
 	defer trajexOpts.Close()
 
-	dof := len(startJointPositions)
-	vel := make([]float64, dof)
-	accel := make([]float64, dof)
-	for i := range dof {
-		vel[i] = utils.DegToRad(s.opts.VelLimitDegPerSec)
-		accel[i] = utils.DegToRad(s.opts.AccelLimitDegPerSec2)
-	}
 	dofShape := []uint64{uint64(dof)}
-	if err := trajexOpts.InsertFloat64s(totgstream.KeyVelocityLimitsRadsPerSec, dofShape, vel); err != nil {
+	if err := trajexOpts.InsertFloat64s(totgstream.KeyVelocityLimitsRadsPerSec, dofShape, velLimitsRadsPerSec); err != nil {
 		return err
 	}
-	if err := trajexOpts.InsertFloat64s(totgstream.KeyAccelerationLimitsRadsPerSec2, dofShape, accel); err != nil {
+	if err := trajexOpts.InsertFloat64s(totgstream.KeyAccelerationLimitsRadsPerSec2, dofShape, accelLimitsRadsPerSec2); err != nil {
 		return err
 	}
 	if err := trajexOpts.InsertScalarFloat64(totgstream.KeyPathToleranceDeltaRads, trajexPathToleranceRads); err != nil {

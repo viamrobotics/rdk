@@ -322,10 +322,9 @@ func (ms *builtIn) PlanHistory(
 //	               "options": {                        // optional; shown values are defaults
 //	                 "target_runway_in_arm_ms": 100,
 //	                 "send_to_arm_interval_ms": 10,
-//	                 "vel_limit_deg_per_sec": 10,
-//	                 "accel_limit_deg_per_sec2": 10,
 //	                 "diagnostics_window_ms": 60000     // 0 disables diagnostics
-//	               }
+//	               }                                    // velocity/acceleration limits come from
+//	                                                     // the arm's own kinematics, not here
 //	             }}
 //	  response: {"ok": 1}
 //

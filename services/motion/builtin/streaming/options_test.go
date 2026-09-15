@@ -11,8 +11,6 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	valid := NewDefaultOptions()
 	test.That(t, valid.TargetRunwayInArmMs, test.ShouldEqual, defaultTargetRunwayInArmMs)
 	test.That(t, valid.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
-	test.That(t, valid.VelLimitDegPerSec, test.ShouldEqual, defaultVelLimitDegPerSec)
-	test.That(t, valid.AccelLimitDegPerSec2, test.ShouldEqual, defaultAccelLimitDegPerSec2)
 	test.That(t, valid.DiagnosticsWindowMs, test.ShouldEqual, defaultDiagnosticsWindowMs)
 	test.That(t, valid.Validate(), test.ShouldBeNil)
 
@@ -34,10 +32,6 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 		{"zero send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = 0 }},
 		{"negative send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = -1 }},
 		{"send interval not less than runway", func(o *StreamOptions) { o.SendToArmIntervalMs = o.TargetRunwayInArmMs }},
-		{"zero vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = 0 }},
-		{"negative vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = -1 }},
-		{"zero accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = 0 }},
-		{"negative accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = -1 }},
 		{"negative diagnostics window", func(o *StreamOptions) { o.DiagnosticsWindowMs = -1 }},
 	} {
 		bad := valid

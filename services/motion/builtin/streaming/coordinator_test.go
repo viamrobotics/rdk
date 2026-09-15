@@ -20,13 +20,20 @@ func runTestOptions() StreamOptions {
 	opts := NewDefaultOptions()
 	opts.TargetRunwayInArmMs = 50
 	opts.SendToArmIntervalMs = 10
-	opts.VelLimitDegPerSec = 90
-	opts.AccelLimitDegPerSec2 = 90
 	return opts
+}
+
+// setTestKinematics gives inj a Kinematics(ctx) that reports dof joints, each limited to
+// velDegPerSec/accelDegPerSec2, matching the limits runTestOptions() used to carry directly.
+func setTestKinematics(inj *inject.Arm, dof int, velDegPerSec, accelDegPerSec2 float64) {
+	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return testModel(dof, velDegPerSec, accelDegPerSec2)
+	}
 }
 
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	inj, rec := newFakeStreamingArm()
+	setTestKinematics(inj, 2, 90, 90)
 	jpCh := make(chan JointPositionsChItem)
 
 	start := time.Now()
@@ -90,6 +97,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 func TestRunEndsContextCanceled(t *testing.T) {
 	t.Run("while streaming", func(t *testing.T) {
 		inj, _ := newFakeStreamingArm()
+		setTestKinematics(inj, 1, 90, 90)
 		jpCh := make(chan JointPositionsChItem)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -112,6 +120,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 
 	t.Run("during post-flush wait", func(t *testing.T) {
 		inj, _ := newFakeStreamingArm()
+		setTestKinematics(inj, 1, 90, 90)
 		jpCh := make(chan JointPositionsChItem, 1)
 		// A 1.5 rad move is several seconds of trajectory, so the 100ms sleep below
 		// lands well inside the post-flush wait.
@@ -142,6 +151,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 func TestRunEndsOnArmError(t *testing.T) {
 	armErr := errors.New("arm rejected the trajectory")
 	inj := inject.NewArm("test-arm")
+	setTestKinematics(inj, 1, 90, 90)
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,
