@@ -244,7 +244,8 @@ func checkLinearConstraint(frame string, linConstraint LinearConstraint, from, t
 	if orientTol > 0 {
 		dist := min(
 			OrientDist(from.Orientation(), currPose.Orientation()),
-			OrientDist(to.Orientation(), currPose.Orientation()))
+			OrientDist(to.Orientation(), currPose.Orientation()),
+		)
 		if dist > orientTol {
 			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
 		}
@@ -268,7 +269,8 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 		orientTol *= OrientDist(from.Orientation(), to.Orientation())
 		dist := min(
 			OrientDist(from.Orientation(), currPose.Orientation()),
-			OrientDist(to.Orientation(), currPose.Orientation()))
+			OrientDist(to.Orientation(), currPose.Orientation()),
+		)
 		if dist > orientTol {
 			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
 		}
@@ -630,7 +632,8 @@ func NewCollisionConstraintFS(
 			return 0, err
 		}
 		collisions, minDist, err := checkCollisionsHinted(
-			geoms, static, staticPre, allowed, collisionBufferMM, false, pairHint, logger)
+			geoms, static, staticPre, allowed, collisionBufferMM, false, pairHint, logger,
+		)
 		return finish(collisions, math.Min(minDist, sdfMin), err)
 	}
 
@@ -690,7 +693,8 @@ func NewCollisionConstraintFS(
 			return 0, err
 		}
 		collisions, minDist, err := checkCollisionsHinted(
-			geoms, geoms, nil, allowed, collisionBufferMM, false, pairHint, logger)
+			geoms, geoms, nil, allowed, collisionBufferMM, false, pairHint, logger,
+		)
 		return finish(collisions, math.Min(minDist, selfMin), err)
 	}
 
@@ -763,7 +767,8 @@ func NewCollisionConstraintFS(
 			staticPreToUse = nil
 		}
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, staticPreToUse, allowed, collisionBufferMM, false, pairHint, logger)
+			internalGeoms, staticToCheck, staticPreToUse, allowed, collisionBufferMM, false, pairHint, logger,
+		)
 		minDist = math.Min(minDist, sdfMin)
 		if err != nil {
 			return minDist, err
@@ -789,7 +794,8 @@ func computeInitialCollisionsToIgnore(
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
 	initialCollisions, _, err := checkCollisionsHinted(
-		group1, group2, nil, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
+		group1, group2, nil, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger,
+	)
 	if err != nil {
 		return nil, err
 	}

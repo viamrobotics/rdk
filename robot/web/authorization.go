@@ -100,7 +100,8 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 		case config.UserTypeDefault:
 			if ra.defaultPerms != nil {
 				ra.logger.Error(
-					"multiple user_permissions entries for default user; fully restricting default user until collision is fixed")
+					"multiple user_permissions entries for default user; fully restricting default user until collision is fixed",
+				)
 				// An empty permSet fully restricts.
 				ra.defaultPerms = permSet{}
 				continue
@@ -115,7 +116,8 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 		if _, seen := ra.identityPerms[key]; seen {
 			ra.logger.Errorw(
 				"multiple user_permissions entries for user; fully restricting user until collision is fixed",
-				"type", user.Type, "id", user.ID)
+				"type", user.Type, "id", user.ID,
+			)
 			// An empty permSet fully restricts.
 			ra.identityPerms[key] = permSet{}
 			continue

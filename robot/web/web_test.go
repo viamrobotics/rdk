@@ -1836,7 +1836,8 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				close(callBlocking)
 				<-blockCall
 				return pos, nil
-			}))
+			}),
+		)
 		defer injectRobot.Close(ctx)
 		svc := New(injectRobot, logger)
 		defer svc.Stop()
@@ -1944,7 +1945,8 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				close(callBlocking)
 				<-blockCall
 				return pos, nil
-			}))
+			}),
+		)
 		defer injectRobot.Close(ctx)
 		svc := New(injectRobot, logger)
 		defer svc.Stop()
@@ -2114,7 +2116,7 @@ func TestHandleRestartStatus(t *testing.T) {
 
 	t.Run("allows localhost requests", func(t *testing.T) {
 		restartAllowedCalls = 0
-		req := httptest.NewRequest(http.MethodGet, "/restart_status", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/restart_status", nil)
 		req.RemoteAddr = "127.0.0.1:56789"
 		rec := httptest.NewRecorder()
 
@@ -2134,7 +2136,7 @@ func TestHandleRestartStatus(t *testing.T) {
 
 	t.Run("rejects non-local requests", func(t *testing.T) {
 		restartAllowedCalls = 0
-		req := httptest.NewRequest(http.MethodGet, "/restart_status", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/restart_status", nil)
 		req.RemoteAddr = "203.0.113.5:45678"
 		rec := httptest.NewRecorder()
 

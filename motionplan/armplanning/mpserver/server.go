@@ -1285,7 +1285,9 @@ func computeGoalPoseMap(req *armplanning.PlanRequest, goalIdx int) (map[string]p
 		poseInWorldFrame := poseValue.Transform(
 			referenceframe.NewPoseInFrame(
 				req.FrameSystem.World().Name(),
-				spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+				spatialmath.NewZeroPose(),
+			),
+		).(*referenceframe.PoseInFrame)
 		result[frameName] = poseInFrameToComponents(poseInWorldFrame)
 	}
 	return result, nil
@@ -1400,7 +1402,9 @@ func collectGoalPoses(req *armplanning.PlanRequest) ([]spatialmath.Pose, error) 
 			poseInWorldFrame := poseValue.Transform(
 				referenceframe.NewPoseInFrame(
 					req.FrameSystem.World().Name(),
-					spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+					spatialmath.NewZeroPose(),
+				),
+			).(*referenceframe.PoseInFrame)
 			goalPoses = append(goalPoses, poseInWorldFrame.Pose())
 		}
 	}
@@ -1526,7 +1530,8 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 					StartConfiguration: steps[idx-1],
 					EndConfiguration:   step,
 					FS:                 req.FrameSystem,
-				}, 2)
+				}, 2,
+			)
 			if err != nil {
 				return err
 			}

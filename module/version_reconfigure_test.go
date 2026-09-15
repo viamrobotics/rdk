@@ -64,7 +64,8 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 
 	// Assert that there were no validation or component building errors
 	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+		"Modular config validation error found in resource: generic1",
+	).Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Read the config, swap to the v2 build, and overwrite the config, triggering a
@@ -129,7 +130,8 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 
 	// Assert that there were no validation or component building errors
 	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+		"Modular config validation error found in resource: generic1",
+	).Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Swap in the v3 build. Version 3 requires `generic1` to have a `motor` in its
@@ -202,7 +204,8 @@ func TestVersionBumpWithNewImplicitDepsWithoutConfigChange(t *testing.T) {
 
 	// Assert that there were no validation or component building errors
 	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+		"Modular config validation error found in resource: generic1",
+	).Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Swap in the v3 build. Version 3 requires `generic1` to have a `motor` in its
@@ -215,7 +218,8 @@ func TestVersionBumpWithNewImplicitDepsWithoutConfigChange(t *testing.T) {
 
 	// Assert that there were no validation or component building errors
 	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+		"Modular config validation error found in resource: generic1",
+	).Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }
 
@@ -259,7 +263,8 @@ func TestVersionBumpWithLessImplicitDepsWithoutConfigChange(t *testing.T) {
 
 	// Assert that there were no validation or component building errors
 	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+		"Modular config validation error found in resource: generic1",
+	).Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Swap in the v1 build and remove `motor1`. Version 1 does not require `generic1` to have a `motor` in its
@@ -277,6 +282,7 @@ func TestVersionBumpWithLessImplicitDepsWithoutConfigChange(t *testing.T) {
 
 	// Assert that there were no validation or component building errors
 	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+		"Modular config validation error found in resource: generic1",
+	).Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }

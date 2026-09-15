@@ -242,7 +242,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		confs = newConfs
 		mgr.logger.CWarnw(
 			ctx, "Running in an untrusted environment; will only add some modules", "modules",
-			confs)
+			confs,
+		)
 	}
 
 	var (
@@ -373,7 +374,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	}
 
 	cleanup := rutils.SlowLogger(
-		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mod.logger)
+		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mod.logger,
+	)
 	defer cleanup()
 
 	var moduleRestartCtx context.Context
@@ -502,7 +504,8 @@ func (mgr *Manager) closeModule(mod *module, reason string) error {
 	}
 
 	cleanup := rutils.SlowLogger(
-		context.Background(), "Waiting for module to complete shutdown", "module", mod.cfg.Name, mod.logger)
+		context.Background(), "Waiting for module to complete shutdown", "module", mod.cfg.Name, mod.logger,
+	)
 	defer cleanup()
 
 	// Remove all resources associated with the module. Only allow 20s across all removals.
@@ -996,7 +999,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	// executable we were given for initial module addition.
 
 	cleanup := rutils.SlowLogger(
-		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger)
+		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger,
+	)
 	defer cleanup()
 
 	// There is a potential race here where the process starts but then crashes,

@@ -320,7 +320,8 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 				StartConfiguration: nodes[j],
 				EndConfiguration:   nodes[j+1],
 				FS:                 cfg.FS,
-			}, cfg.Options.Resolution, true)
+			}, cfg.Options.Resolution, true,
+		)
 		test.That(t, err, test.ShouldBeNil)
 	}
 }
@@ -626,7 +627,8 @@ func TestMultiArmSolve(t *testing.T) {
 	test.That(t,
 		spatialmath.PoseAlmostCoincidentEps(
 			solvedPose.(*frame.PoseInFrame).Pose(),
-			goals["xArmVgripper"].Pose(), 0.1),
+			goals["xArmVgripper"].Pose(), 0.1,
+		),
 		test.ShouldBeTrue)
 }
 

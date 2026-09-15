@@ -45,7 +45,8 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	resource.RegisterComponent(
 		generic.API,
 		helperModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper})
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper},
+	)
 	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
 	if err != nil {
 		return err
@@ -54,7 +55,8 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	resource.RegisterComponent(
 		motor.API,
 		testMotorModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor})
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor},
+	)
 	err = myMod.AddModelFromRegistry(ctx, motor.API, testMotorModel)
 	if err != nil {
 		return err
@@ -63,7 +65,8 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	resource.RegisterComponent(
 		sensor.API,
 		testSensorDependentModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSensorDependent})
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSensorDependent},
+	)
 	err = myMod.AddModelFromRegistry(ctx, sensor.API, testSensorDependentModel)
 	if err != nil {
 		return err

@@ -132,7 +132,8 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 
 		req.ObstaclesInWorldFrame = referenceframe.NewGeometriesInFrame(
-			req.ObstaclesInWorldFrame.Parent(), pcdGeometries)
+			req.ObstaclesInWorldFrame.Parent(), pcdGeometries,
+		)
 	}
 
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.

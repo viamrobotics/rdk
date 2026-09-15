@@ -87,7 +87,8 @@ func init() {
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
 				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
-		})
+		},
+	)
 }
 
 // builtIn initializes and orchestrates data capture and data sync based on the config.
@@ -431,7 +432,8 @@ func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource
 	if err != nil {
 		logger.Errorw(
 			"unable to initialize capture control sensor; controls will not apply until fixed or removed from config",
-			"error", err.Error())
+			"error", err.Error(),
+		)
 		return nil, ""
 	}
 	if cfg.Key == "" {
@@ -507,7 +509,8 @@ func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.
 	if err != nil {
 		// see sync.Config for how this affects whether or not scheduled sync will run
 		logger.Errorw(
-			"unable to initialize selective syncer; will not schedule sync at all until fixed or removed from config", "error", err.Error())
+			"unable to initialize selective syncer; will not schedule sync at all until fixed or removed from config", "error", err.Error(),
+		)
 		return nil, true
 	}
 	return syncSensor, true

@@ -77,7 +77,8 @@ func TestTraceGetRemote(t *testing.T) {
 		})
 
 		cCtx, viamClient, _, _ := setupWithRunningPart(
-			t, asc, nil, nil, testPartFlags, "token", partFqdn)
+			t, asc, nil, nil, testPartFlags, "token", partFqdn,
+		)
 		test.That(t,
 			viamClient.tracesGetRemoteAction(context.Background(), cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
 			test.ShouldNotBeNil)
@@ -111,7 +112,8 @@ func TestTraceGetRemote(t *testing.T) {
 			output := t.TempDir()
 
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, testFlags, "token", partFqdn)
+				t, asc, nil, nil, testFlags, "token", partFqdn,
+			)
 			test.That(t,
 				viamClient.tracesGetRemoteAction(context.Background(), cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, false, true, logger),
 				test.ShouldBeNil)
@@ -125,7 +127,8 @@ func TestTraceGetRemote(t *testing.T) {
 			output := t.TempDir()
 
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, testFlags, "token", partFqdn)
+				t, asc, nil, nil, testFlags, "token", partFqdn,
+			)
 			test.That(t,
 				viamClient.tracesGetRemoteAction(context.Background(), cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
 				test.ShouldBeNil)
@@ -146,7 +149,8 @@ func TestTraceGetRemote(t *testing.T) {
 
 			defaultTracesPath = originalTracePath
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, testFlags, "token", partFqdn)
+				t, asc, nil, nil, testFlags, "token", partFqdn,
+			)
 			flagArgs := parseStructFromCtx[traceGetRemoteArgs](cCtx)
 
 			// checking default traces path -> not found

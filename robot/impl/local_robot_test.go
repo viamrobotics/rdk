@@ -781,7 +781,8 @@ func TestStopAll(t *testing.T) {
 				return dummyArm1, nil
 			}
 			return dummyArm2, nil
-		}})
+		}},
+	)
 
 	armConfig := fmt.Sprintf(`{
 		"components": [
@@ -883,7 +884,8 @@ func TestStopAllDoesNotCancelOwnContext(t *testing.T) {
 			logger logging.Logger,
 		) (arm.Arm, error) {
 			return dummyArm, nil
-		}})
+		}},
+	)
 	defer resource.Deregister(arm.API, model)
 
 	armConfig := fmt.Sprintf(`{
@@ -937,7 +939,8 @@ func TestNewTeardown(t *testing.T) {
 					return nil
 				},
 			}, nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		gripper.API,
 		model,
@@ -948,7 +951,8 @@ func TestNewTeardown(t *testing.T) {
 			logger logging.Logger,
 		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
-		}})
+		}},
+	)
 
 	defer func() {
 		resource.Deregister(board.API, model)
@@ -5251,7 +5255,8 @@ func TestMaintenanceConfig(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newValidSensor(), nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		sensor.API,
 		modelErrorSensor,
@@ -5262,7 +5267,8 @@ func TestMaintenanceConfig(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newInvalidSensor(), nil
-		}})
+		}},
+	)
 	defer func() {
 		resource.Deregister(sensor.API, model)
 		resource.Deregister(sensor.API, modelErrorSensor)
@@ -5461,7 +5467,8 @@ func TestMaintenanceConfigLogs(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newValidSensor(), nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		sensor.API,
 		modelErrorSensor,
@@ -5472,7 +5479,8 @@ func TestMaintenanceConfigLogs(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newErrorSensor(), nil
-		}})
+		}},
+	)
 	defer func() {
 		resource.Deregister(sensor.API, model)
 		resource.Deregister(sensor.API, modelErrorSensor)
@@ -5682,7 +5690,8 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	node := resource.NewConfiguredGraphNode(
 		resource.Config{
 			ConvertedAttributes: &configRemote,
-		}, nil, builtinModel)
+		}, nil, builtinModel,
+	)
 	// Set node to [NodeStateUnhealthy]
 	node.LogAndSetLastError(errors.New("Its so bad plz help"))
 	localRobot.manager.resources.AddNode(remoteName, node)
@@ -5773,7 +5782,8 @@ func TestModuleNamePassing(t *testing.T) {
 		) (sensor.Sensor, error) {
 			// Be lazy -- just return an a singleton object.
 			return callbackSensor, nil
-		}})
+		}},
+	)
 
 	const moduleName = "fancy_module_name"
 	localRobot := setupLocalRobot(t, ctx, &config.Config{
@@ -5862,7 +5872,8 @@ func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
 					panic("oh no")
 				},
 			}, nil
-		}})
+		}},
+	)
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")

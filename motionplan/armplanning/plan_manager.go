@@ -256,7 +256,8 @@ func (pm *planManager) planSingleGoal(
 		// the configured distance metric plus a neutral-pose bias, so it is
 		// not a joint angle and cannot back the threshold or the message.
 		reconfigL2 := math.Sqrt(flatL2Sq(
-			psc.start.GetLinearizedInputs(), planSeed.maps.optNode.inputs.GetLinearizedInputs()))
+			psc.start.GetLinearizedInputs(), planSeed.maps.optNode.inputs.GetLinearizedInputs(),
+		))
 		const reconfigWallRad = 1.5
 		if eeDelta >= 0 && eeDelta < 50 && lc <= 50 && reconfigL2 > reconfigWallRad {
 			pm.logger.Warnf("goal is %0.1fmm of end-effector motion but the nearest valid goal configuration is "+

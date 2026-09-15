@@ -35,7 +35,8 @@ func setupVideoService(t *testing.T, injectVideo *inject.Video) (net.Listener, f
 	test.That(t, err, test.ShouldBeNil)
 
 	videoSvc, err := resource.NewAPIResourceCollection(
-		video.API, map[resource.Name]video.Service{video.Named(testVideoName): injectVideo})
+		video.API, map[resource.Name]video.Service{video.Named(testVideoName): injectVideo},
+	)
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[video.Service](video.API)
 	test.That(t, err, test.ShouldBeNil)

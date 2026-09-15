@@ -1509,7 +1509,8 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 	// one of these will be true due to a clash
 	test.That(t,
 		cmp.Equal(
-			apisM[api2].AsProto(), cameraDesc.AsProto(), protocmp.Transform()) ||
+			apisM[api2].AsProto(), cameraDesc.AsProto(), protocmp.Transform(),
+		) ||
 			cmp.Equal(apisM[api2].AsProto(), gripperDesc.AsProto(), protocmp.Transform()),
 		test.ShouldBeTrue)
 }

@@ -81,7 +81,8 @@ func TestClient(t *testing.T) {
 
 	gripperSvc, err := resource.NewAPIResourceCollection(
 		gripper.API,
-		map[resource.Name]gripper.Gripper{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2})
+		map[resource.Name]gripper.Gripper{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2},
+	)
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[gripper.Gripper](gripper.API)
 	test.That(t, err, test.ShouldBeNil)

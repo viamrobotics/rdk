@@ -67,7 +67,8 @@ func TestWarp2(t *testing.T) {
 			{size, 0},
 			{0, size},
 			{size, size},
-		})
+		},
+	)
 
 	out := WarpImage(img, m, image.Point{size, size})
 
@@ -93,7 +94,8 @@ func BenchmarkWarp(b *testing.B) {
 			{size, 0},
 			{0, size},
 			{size, size},
-		})
+		},
+	)
 
 	b.ResetTimer()
 

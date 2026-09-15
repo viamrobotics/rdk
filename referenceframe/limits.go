@@ -9,7 +9,8 @@ import (
 
 // ErrURDFLimitsUnsupported is returned when limits are set on a URDF-backed kinematics document.
 var ErrURDFLimitsUnsupported = fmt.Errorf(
-	"cannot set joint limits on a URDF document; see RSDK-14232")
+	"cannot set joint limits on a URDF document; see RSDK-14232",
+)
 
 // JointLimits is a partial update to one joint's limits. A nil field leaves that limit as it is,
 // so a caller who knows only how fast a joint may move can say that without restating where it
@@ -96,7 +97,8 @@ func SetJointLimits(cfg *ModelConfigJSON, limits map[string]JointLimits) (*Model
 	if cfg.KinParamType == "DH" {
 		return nil, fmt.Errorf(
 			"cannot set joint limits on model %q: DH kinematics describe joints as parameters rather "+
-				"than as joints with limits", cfg.Name)
+				"than as joints with limits", cfg.Name,
+		)
 	}
 
 	// Joints is the only field we write, so it is the only one that needs its own copy. Clearing

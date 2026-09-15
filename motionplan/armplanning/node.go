@@ -685,7 +685,8 @@ solutionLoop:
 			if !ok {
 				logger.Debugf(
 					"Stopping because input channel is closed. Best score: %v With problem: %v",
-					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem)
+					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem,
+				)
 				// No longer using the generated solutions. Cancel the workers.
 				cancel()
 				break solutionLoop

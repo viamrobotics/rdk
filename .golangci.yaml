@@ -27,7 +27,7 @@ linters:
     - gocritic
     - goheader
     - gomoddirectives
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     - gosec
     - gosmopolitan
@@ -71,11 +71,21 @@ linters:
       excludes:
         - G104
         - G115
+        # Rules introduced after gosec 2.25, not yet triaged.
+        - G117
+        - G118
+        - G122
+        - G124
+        - G703
+        - G704
+        - G705
+        - G710
     govet:
       disable:
         - fieldalignment
         - shadow
         - composites
+        - inline
       enable-all: true
     lll:
       line-length: 140
@@ -141,6 +151,7 @@ linters:
           - lll
         path: /doc.go$
 issues:
+  max-issues-per-linter: 0
   max-same-issues: 0
 formatters:
   enable:

@@ -81,7 +81,8 @@ func newEncodedMotor(
 
 	// TODO DOCS-1524: link to docs that explain control parameters
 	em.logger.Warn(
-		"recommended: for more accurate motor control, configure 'control_parameters' in the motor config")
+		"recommended: for more accurate motor control, configure 'control_parameters' in the motor config",
+	)
 
 	if em.rampRate < 0 {
 		return nil, fmt.Errorf("ramp rate can not be a negative number but is %v", em.rampRate)
@@ -185,7 +186,8 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 			m.logger.Warnf(
 				"%v motor running at too low an rpm [%v] for stable motion:"+
 					"trying to run at %v rpm, check if stalled or try increasing the motor's rpm",
-				m.Name().Name, currentRPM, goalRPM)
+				m.Name().Name, currentRPM, goalRPM,
+			)
 			zeroRPMTracker = 0
 		}
 
