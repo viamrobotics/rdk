@@ -19,6 +19,7 @@ import (
 	_ "go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/posetracker"
 	_ "go.viam.com/rdk/components/powersensor"
+	_ "go.viam.com/rdk/components/ptz"
 	_ "go.viam.com/rdk/components/sensor"
 	_ "go.viam.com/rdk/components/servo"
 	_ "go.viam.com/rdk/components/switch"
