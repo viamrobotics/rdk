@@ -21,10 +21,6 @@ func (r *fakeStreamRecorder) get() [][]arm.TrajectoryPoint {
 	return r.batches
 }
 
-// newFakeStreamingArm builds a fake arm whose Kinematics(ctx) reports dof joints, each limited to
-// velDegPerSec/accelDegPerSec2, for use with Run (which queries them via
-// referenceframe.TrajectoryLimits). Tests that exercise armStream directly rather than through
-// Run don't need these to be accurate; any values will do.
 func newFakeStreamingArm(dof int, velDegPerSec, accelDegPerSec2 float64) (*inject.Arm, *fakeStreamRecorder) {
 	rec := &fakeStreamRecorder{}
 	inj := inject.NewArm("test-arm")
