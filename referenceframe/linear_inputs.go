@@ -302,9 +302,9 @@ func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) 
 			// all of the joint positions for the `StartState`.
 			if strings.Contains(err.Error(), "array length does not match frame DoF") {
 				continue
-			} else {
-				return nil, err
 			}
+
+			return nil, err
 		}
 		computedPoses[frameName] = NewPoseInFrame(World, &spatial.DualQuaternion{Number: dq})
 	}
