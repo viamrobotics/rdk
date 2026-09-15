@@ -161,8 +161,8 @@ func redialWithCachedJwt(ctx context.Context, conn rpc.ClientConn, partID, host 
 		// the connection is still valid, so return it
 		return conn
 	}
-	// attempt to dial again with the cached credentials
-	newConn, newErr := rpc.DialDirectGRPC(ctx, host, logger, append(dialOpts, rpc.WithStaticAuthenticationMaterial(cachedJwt))...)
+	// attempt to dial again with the cached jwt
+	newConn, newErr := rpc.DialDirectGRPC(ctx, host, logger, append(dialOpts, rpc.WithInitialAccessToken(cachedJwt))...)
 	if newErr != nil {
 		logger.Warnw(fmt.Sprintf("could not dial %s with cached JWT", host), "error", newErr)
 		return conn
@@ -176,12 +176,22 @@ func redialWithCachedJwt(ctx context.Context, conn rpc.ClientConn, partID, host 
 }
 
 // authedDialDirectGRPC calls rpc.DialDirectGRPC while also explicitly authenticating the connection and caching the
-// JWT (provided by app) on disk. If the normal auth path fails, we attempt to auth with the cached JWT
+// resulting JWT (provided by app) on disk, via an rpc handler. If the normal auth path fails, we attempt to auth
+// with the cached JWT.
 func authedDialDirectGRPC(ctx context.Context,
 	partID, host string,
 	logger utils.ZapCompatibleLogger,
 	dialOpts ...rpc.DialOption,
 ) (rpc.ClientConn, error) {
+	dialOpts = append(dialOpts, rpc.WithAccessTokenHandler(func(freshJwt string) {
+		if freshJwt == "" {
+			logger.Warnf("auth succeeded but the JWT from %s was empty, not updating cache", host)
+			return
+		}
+		if cacheErr := jwtCacheWrite(partID, host, freshJwt); cacheErr != nil {
+			logger.Warnw("could not write to JWT cache", "error", cacheErr)
+		}
+	}))
 	conn, err := rpc.DialDirectGRPC(ctx, host, logger, dialOpts...)
 	if err != nil {
 		return conn, err
@@ -191,18 +201,9 @@ func authedDialDirectGRPC(ctx context.Context,
 		logger.Warnw("connection cannot be authenticated: robot did not supply cloud credentials", "connection", fmt.Sprintf("%T", conn))
 		return conn, nil
 	}
-	freshJwt, authErr := authenticator.Authenticate(ctx)
-	if authErr != nil {
+	if _, authErr := authenticator.Authenticate(ctx); authErr != nil {
 		logger.Warnw(fmt.Sprintf("authenticating connection with %s failed, attempting to dial again with cached JWT", host), "error", authErr)
 		return redialWithCachedJwt(ctx, conn, partID, host, logger, dialOpts...), nil
-	}
-	if freshJwt == "" {
-		logger.Warnf("auth succeeded but the JWT from %s was empty, not updating cache", host)
-	} else {
-		cacheErr := jwtCacheWrite(partID, host, freshJwt)
-		if cacheErr != nil {
-			logger.Warnw("could not write to JWT cache", "error", cacheErr)
-		}
 	}
 	return conn, nil
 }
