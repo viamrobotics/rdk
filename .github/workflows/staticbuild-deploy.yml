@@ -19,6 +19,9 @@ jobs:
   static_deploy:
     name: Static Deploy
     runs-on: ubuntu-latest
+    env:
+      BINARIES: gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
+      MANIFESTS: gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
 
     steps:
     - name: Check out code
@@ -35,12 +38,11 @@ jobs:
     # Captured before any move, because the moves are what empty these prefixes.
     - name: List Manifests To Publish
       id: staged_manifests
-      env:
-        MANIFESTS: gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
       run: |
+        set -euo pipefail
         names=$(gsutil ls "$MANIFESTS/*" | sed 's|.*/||' | tr '\n' ' ')
-        # The pipeline hides a failed ls, and an empty list would send every
-        # staged binary to the release path. Stop before anything moves.
+        # An empty list would send every staged binary to the release path.
+        # Stop before anything moves.
         if [ -z "${names// /}" ]; then
           echo "no manifests were staged for this run" >&2
           exit 1
@@ -50,28 +52,37 @@ jobs:
     - name: Publish Static Binary
       env:
         NAMES: ${{ steps.staged_manifests.outputs.names }}
-        BINARIES: gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
-        MANIFESTS: gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
+        RELEASE_TYPE: ${{ inputs.release_type }}
       run: |
+        set -euo pipefail
         # A versioned binary lands where its own manifest says, so the two
         # cannot disagree about the prerelease path.
         read -ra staged <<<"$NAMES"
         for name in "${staged[@]}"; do
-          dest=$(gsutil cat "$MANIFESTS/$name" | jq -r '."upload-path"')
+          dest=$(gsutil cat "$MANIFESTS/$name" | jq -r '."upload-path" // empty')
+          if [ -z "$dest" ]; then
+            echo "$name names no upload-path" >&2
+            exit 1
+          fi
           gsutil mv "$BINARIES/${name%.json}" "gs://$dest"
         done
 
-        # Channel aliases (latest, stable) carry no manifest and publish under
-        # their fixed name at the release path.
-        aliases=$(gsutil ls "$BINARIES/*" 2>/dev/null || true)
-        if [ -n "$aliases" ]; then
-          gsutil mv "$BINARIES/*" "gs://packages.viam.com/apps/viam-server/"
+        # Channel aliases carry no manifest and publish under their fixed name
+        # at the release path. Only these two channels stage one.
+        case "$RELEASE_TYPE" in
+          stable | latest)
+            gsutil mv "$BINARIES/viam-server-$RELEASE_TYPE-*" "gs://packages.viam.com/apps/viam-server/"
+            ;;
+        esac
+
+        # An orphan, whose manifest never staged, stays here rather than
+        # reaching the release path under a name nothing published.
+        if leftover=$(gsutil ls "$BINARIES/*" 2>/dev/null); then
+          echo "::warning::left staged, no manifest and no channel alias: ${leftover//$'\n'/ }"
         fi
 
     - name: Publish Subsystem Metadata
       id: publish_manifests
-      env:
-        MANIFESTS: gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}
       run: |
         gsutil mv "$MANIFESTS/*" "gs://packages.viam.com/apps/viam-subsystems/"
 
