@@ -34,7 +34,8 @@ func IKHandler(planRequest *armplanning.PlanRequest, numSolutions int) ([]*IKSee
 		ctx, logger, planRequest,
 		planRequest.StartState.Configuration(),
 		planRequest.Goals[0].Poses(),
-		numSolutions)
+		numSolutions,
+	)
 	if err != nil {
 		return nil, err
 	}
