@@ -63,10 +63,9 @@ const (
 	DoTeleopStop   = "teleop_stop"
 	DoTeleopStatus = "teleop_status"
 
-	DoStreamStart  = "stream_start"
-	DoStreamPush   = "stream_push"
-	DoStreamFlush  = "stream_flush"
-	DoStreamAbort  = "stream_abort"
+	// DoStreamStatus polls the state of an arm-streaming session started via the
+	// StreamArmJointPositions RPC. It remains a DoCommand for now; it may become a proper API
+	// method later.
 	DoStreamStatus = "stream_status"
 )
 
@@ -141,6 +140,10 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
 }
 
+// builtIn additionally implements motion.ArmJointPositionStreamer, which is not part of the
+// base motion.Service interface (see that type's doc comment).
+var _ motion.ArmJointPositionStreamer = (*builtIn)(nil)
+
 type builtIn struct {
 	resource.Named
 	conf            *Config
@@ -156,9 +159,10 @@ type builtIn struct {
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
 
-	// Arm-streaming session. Protected by streamMu (separate from mu to simplify lock ordering).
+	// Arm-streaming sessions, one per arm at a time, keyed by arm name. Protected by streamMu
+	// (separate from mu to simplify lock ordering).
 	streamMu sync.RWMutex
-	stream   *stream
+	streams  map[string]*activeStream
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -236,7 +240,7 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	}
 	ms.teleopMu.Unlock()
 
-	ms.streamAbort(ctx)
+	ms.abortStreams(ctx)
 
 	return nil
 }
@@ -309,59 +313,17 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 //
-// Streaming commands:
+// Streaming:
 //
-// An arm-streaming session is started with DoStreamStart, fed joint-position targets with
-// DoStreamPush, and ended with either DoStreamFlush (drain what's queued, then stop) or
-// DoStreamAbort (stop immediately). DoStreamStatus can be used to poll the session state at
-// any point.
+// Arm-streaming sessions are started via the StreamArmJointPositions RPC (see
+// motion.ArmJointPositionStreamer), one session per arm at a time. DoStreamStatus polls a
+// session's state at any point, given the arm's name; it remains a DoCommand for now and may
+// become a proper API method later.
 //
-//	DoStreamStart: starts a session on a named arm. Fails if a session is already running.
-//	  request:  {"stream_start": {
-//	               "arm": "myArm",
-//	               "options": {                        // optional; shown values are defaults
-//	                 "target_runway_in_arm_ms": 100,
-//	                 "send_to_arm_interval_ms": 10,
-//	                 "vel_limit_deg_per_sec": 0,        // 0 falls back to the arm's kinematics
-//	                 "accel_limit_deg_per_sec2": 0,     // 0 falls back to the arm's kinematics
-//	                 "diagnostics_window_ms": 60000     // 0 disables diagnostics
-//	               }
-//	             }}
-//	  response: {"ok": 1}
-//
-//	DoStreamPush: appends joint-position targets to the running session.
-//	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
-//	  response: {"ok": 1}
-//
-//	DoStreamFlush: stops accepting new targets and drains what's already queued to the arm; the
-//	session ends once that finishes. Blocks until the arm has (by the runway estimate) finished
-//	executing the drained trajectory, or ctx expires, whichever comes first.
-//	  request:  {"stream_flush": true}
-//	  response: {
-//	               "running": false,                   // true if ctx expired before the drain
-//	                                                     // finished; the session keeps draining
-//	                                                     // on its own -- repeat DoStreamFlush or
-//	                                                     // poll DoStreamStatus
-//	               "error": "..."                      // present only if the session ended
-//	                                                     // with an error
-//	             }
-//
-//	DoStreamAbort: signals the session to cancel, dropping any buffered trajectory that hasn't
-//	reached the arm. Waits until the session finishes tearing down or ctx expires, whichever comes first.
-//	  request:  {"stream_abort": true}
-//	  response: {
-//	               "running": false,                   // true if ctx expired before teardown
-//	                                                     // finished; the session is still
-//	                                                     // tearing down on its own -- repeat
-//	                                                     // DoStreamAbort or poll DoStreamStatus
-//	               "error": "..."                      // present only if the session ended
-//	                                                     // with an error
-//	             }
-//
-//	DoStreamStatus: reports the current session's state.
-//	  request:  {"stream_status": true}                 // or {"stream_status": {"last_window_details": true}}
-//	                                                      // to also include the (potentially
-//	                                                      // large) last window details
+//	DoStreamStatus: reports the named arm's current session state, if any.
+//	  request:  {"stream_status": {"arm": "myArm"}}     // or add "last_window_details": true to
+//	                                                      // also include the (potentially large)
+//	                                                      // last window details
 //	  response: {
 //	               "running": true,
 //	               "arm": "myArm",                      // present once a session has started
