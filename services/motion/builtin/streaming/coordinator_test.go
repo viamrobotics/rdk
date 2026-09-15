@@ -5,6 +5,7 @@ package streaming
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -20,13 +22,59 @@ func runTestOptions() StreamOptions {
 	opts := NewDefaultOptions()
 	opts.TargetRunwayInArmMs = 50
 	opts.SendToArmIntervalMs = 10
-	opts.VelLimitDegPerSec = 90
-	opts.AccelLimitDegPerSec2 = 90
 	return opts
 }
 
+func TestResolveTrajectoryLimits(t *testing.T) {
+	t.Run("both set bypasses kinematics", func(t *testing.T) {
+		inj := inject.NewArm("test-arm")
+		inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			return nil, errors.New("kinematics should not be queried when both limits are set")
+		}
+		opts := runTestOptions()
+		opts.VelLimitDegPerSec = 90
+		opts.AccelLimitDegPerSec2 = 45
+
+		vel, accel, err := resolveTrajectoryLimits(context.Background(), inj, opts, 2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vel, test.ShouldResemble, []float64{math.Pi / 2, math.Pi / 2})
+		test.That(t, accel, test.ShouldResemble, []float64{math.Pi / 4, math.Pi / 4})
+	})
+
+	t.Run("partial override falls back to kinematics only for the unset field", func(t *testing.T) {
+		inj, _ := newFakeStreamingArm(2, math.Pi/3, math.Pi/6)
+		opts := runTestOptions()
+		opts.VelLimitDegPerSec = 90 // overrides the arm's pi/3; accel is left unset
+
+		vel, accel, err := resolveTrajectoryLimits(context.Background(), inj, opts, 2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vel, test.ShouldResemble, []float64{math.Pi / 2, math.Pi / 2})
+		test.That(t, accel, test.ShouldResemble, []float64{math.Pi / 6, math.Pi / 6})
+	})
+
+	t.Run("unbounded kinematics errors unless both limits are overridden", func(t *testing.T) {
+		unboundedLimit := referenceframe.Limit{Min: -math.Pi, Max: math.Pi}
+		inj := inject.NewArm("test-arm")
+		inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			fs := referenceframe.NewEmptyFrameSystem("test")
+			f, err := referenceframe.NewRotationalFrame("j0", spatialmath.R4AA{RZ: 1}, unboundedLimit)
+			if err != nil {
+				return nil, err
+			}
+			if err := fs.AddFrame(f, fs.World()); err != nil {
+				return nil, err
+			}
+			return referenceframe.NewModel("test", fs, "j0")
+		}
+
+		_, _, err := resolveTrajectoryLimits(context.Background(), inj, runTestOptions(), 1)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "requires the arm's kinematics to declare")
+	})
+}
+
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
-	inj, rec := newFakeStreamingArm()
+	inj, rec := newFakeStreamingArm(2, math.Pi/2, math.Pi/2)
 	jpCh := make(chan JointPositionsChItem)
 
 	start := time.Now()
@@ -47,8 +95,8 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 		t.Fatal("Run did not finish after jpCh was closed")
 	}
 
-	// A 0.1 rad move at 90 deg/s / 90 deg/s^2 limits (from runTestOptions()) is roughly
-	// 500ms; assert that it was at least 250ms.
+	// A 0.1 rad move at the pi/2 rad/s and pi/2 rad/s^2 limits set on the fake arm's
+	// kinematics (below) is roughly 500ms; assert that it was at least 250ms.
 	test.That(t, time.Since(start), test.ShouldBeGreaterThan, 250*time.Millisecond)
 
 	var lastPositions []referenceframe.Input
@@ -89,7 +137,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 
 func TestRunEndsContextCanceled(t *testing.T) {
 	t.Run("while streaming", func(t *testing.T) {
-		inj, _ := newFakeStreamingArm()
+		inj, _ := newFakeStreamingArm(1, math.Pi/2, math.Pi/2)
 		jpCh := make(chan JointPositionsChItem)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -111,7 +159,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 	})
 
 	t.Run("during post-flush wait", func(t *testing.T) {
-		inj, _ := newFakeStreamingArm()
+		inj, _ := newFakeStreamingArm(1, math.Pi/2, math.Pi/2)
 		jpCh := make(chan JointPositionsChItem, 1)
 		// A 1.5 rad move is several seconds of trajectory, so the 100ms sleep below
 		// lands well inside the post-flush wait.
@@ -141,7 +189,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 // the arm's error surfaces in Run's returned error, without the caller closing jpCh.
 func TestRunEndsOnArmError(t *testing.T) {
 	armErr := errors.New("arm rejected the trajectory")
-	inj := inject.NewArm("test-arm")
+	inj, _ := newFakeStreamingArm(1, math.Pi/2, math.Pi/2)
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,

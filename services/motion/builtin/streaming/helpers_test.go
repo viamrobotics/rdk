@@ -2,10 +2,14 @@ package streaming
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"sync"
 	"time"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -20,9 +24,12 @@ func (r *fakeStreamRecorder) get() [][]arm.TrajectoryPoint {
 	return r.batches
 }
 
-func newFakeStreamingArm() (*inject.Arm, *fakeStreamRecorder) {
+func newFakeStreamingArm(dof int, velRadPerSec, accelRadPerSec2 float64) (*inject.Arm, *fakeStreamRecorder) {
 	rec := &fakeStreamRecorder{}
 	inj := inject.NewArm("test-arm")
+	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return testKinematics(dof, velRadPerSec, accelRadPerSec2)
+	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,
@@ -62,4 +69,29 @@ func newFakeStreamingArm() (*inject.Arm, *fakeStreamRecorder) {
 		}
 	}
 	return inj, rec
+}
+
+func testKinematics(dof int, velRadPerSec, accelRadPerSec2 float64) (referenceframe.Model, error) {
+	limit := referenceframe.Limit{
+		Min:             -math.Pi,
+		Max:             math.Pi,
+		MaxVelocity:     &velRadPerSec,
+		MaxAcceleration: &accelRadPerSec2,
+	}
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	parent := fs.World()
+	var last referenceframe.Frame
+	for i := range dof {
+		f, err := referenceframe.NewRotationalFrame(fmt.Sprintf("j%d", i), spatialmath.R4AA{RZ: 1}, limit)
+		if err != nil {
+			return nil, err
+		}
+		if err := fs.AddFrame(f, parent); err != nil {
+			return nil, err
+		}
+		parent = f
+		last = f
+	}
+	return referenceframe.NewModel("test", fs, last.Name())
 }

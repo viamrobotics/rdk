@@ -10,11 +10,9 @@ import (
 )
 
 const (
-	defaultTargetRunwayInArmMs  = 100
-	defaultSendToArmIntervalMs  = 10
-	defaultVelLimitDegPerSec    = 10.0
-	defaultAccelLimitDegPerSec2 = 10.0
-	defaultDiagnosticsWindowMs  = 60_000
+	defaultTargetRunwayInArmMs = 100
+	defaultSendToArmIntervalMs = 10
+	defaultDiagnosticsWindowMs = 60_000
 )
 
 // JointPositionsChItem is one joint-space waypoint.
@@ -34,9 +32,9 @@ type StreamOptions struct {
 	// TODO: Replace this with querying the arm's properties API.
 	SendToArmIntervalMs int `json:"send_to_arm_interval_ms"`
 
-	// VelLimitDegPerSec / AccelLimitDegPerSec2 are the per-joint limits the trajex
-	// session is built with.
-	// TODO: Replace these with querying the arm's properties API.
+	// VelLimitDegPerSec / AccelLimitDegPerSec2 are per-joint limits the trajex session is built
+	// with, applied uniformly to every joint. 0 (the default) means unset: Run falls back to the
+	// arm's own kinematics-declared per-joint limits instead of a fixed value.
 	VelLimitDegPerSec    float64 `json:"vel_limit_deg_per_sec"`
 	AccelLimitDegPerSec2 float64 `json:"accel_limit_deg_per_sec2"`
 
@@ -56,11 +54,11 @@ func (o *StreamOptions) Validate() error {
 	if o.SendToArmIntervalMs >= o.TargetRunwayInArmMs {
 		return errors.New("streaming: send_to_arm_interval_ms must be less than target_runway_in_arm_ms")
 	}
-	if o.VelLimitDegPerSec <= 0 {
-		return errors.New("streaming: vel_limit_deg_per_sec must be positive")
+	if o.VelLimitDegPerSec < 0 {
+		return errors.New("streaming: vel_limit_deg_per_sec cannot be negative (0 falls back to the arm's kinematics)")
 	}
-	if o.AccelLimitDegPerSec2 <= 0 {
-		return errors.New("streaming: accel_limit_deg_per_sec2 must be positive")
+	if o.AccelLimitDegPerSec2 < 0 {
+		return errors.New("streaming: accel_limit_deg_per_sec2 cannot be negative (0 falls back to the arm's kinematics)")
 	}
 	if o.DiagnosticsWindowMs < 0 {
 		return errors.New("streaming: diagnostics_window_ms must be non-negative (0 disables diagnostics)")
@@ -72,11 +70,9 @@ func (o *StreamOptions) Validate() error {
 // Callers overriding individual fields should start from this and then set them.
 func NewDefaultOptions() StreamOptions {
 	return StreamOptions{
-		TargetRunwayInArmMs:  defaultTargetRunwayInArmMs,
-		SendToArmIntervalMs:  defaultSendToArmIntervalMs,
-		VelLimitDegPerSec:    defaultVelLimitDegPerSec,
-		AccelLimitDegPerSec2: defaultAccelLimitDegPerSec2,
-		DiagnosticsWindowMs:  defaultDiagnosticsWindowMs,
+		TargetRunwayInArmMs: defaultTargetRunwayInArmMs,
+		SendToArmIntervalMs: defaultSendToArmIntervalMs,
+		DiagnosticsWindowMs: defaultDiagnosticsWindowMs,
 	}
 }
 
