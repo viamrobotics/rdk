@@ -12,6 +12,9 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	test.That(t, valid.TargetRunwayInArmMs, test.ShouldEqual, defaultTargetRunwayInArmMs)
 	test.That(t, valid.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
 	test.That(t, valid.DiagnosticsWindowMs, test.ShouldEqual, defaultDiagnosticsWindowMs)
+	// Unset by default: Run falls back to the arm's own kinematics for these.
+	test.That(t, valid.VelLimitDegPerSec, test.ShouldEqual, 0)
+	test.That(t, valid.AccelLimitDegPerSec2, test.ShouldEqual, 0)
 	test.That(t, valid.Validate(), test.ShouldBeNil)
 
 	// A zero diagnostics window is valid: it disables diagnostics.
@@ -32,6 +35,8 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 		{"zero send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = 0 }},
 		{"negative send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = -1 }},
 		{"send interval not less than runway", func(o *StreamOptions) { o.SendToArmIntervalMs = o.TargetRunwayInArmMs }},
+		{"negative vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = -1 }},
+		{"negative accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = -1 }},
 		{"negative diagnostics window", func(o *StreamOptions) { o.DiagnosticsWindowMs = -1 }},
 	} {
 		bad := valid

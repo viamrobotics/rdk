@@ -32,6 +32,12 @@ type StreamOptions struct {
 	// TODO: Replace this with querying the arm's properties API.
 	SendToArmIntervalMs int `json:"send_to_arm_interval_ms"`
 
+	// VelLimitDegPerSec / AccelLimitDegPerSec2 are per-joint limits the trajex session is built
+	// with, applied uniformly to every joint. 0 (the default) means unset: Run falls back to the
+	// arm's own kinematics-declared per-joint limits instead of a fixed value.
+	VelLimitDegPerSec    float64 `json:"vel_limit_deg_per_sec"`
+	AccelLimitDegPerSec2 float64 `json:"accel_limit_deg_per_sec2"`
+
 	// DiagnosticsWindowMs is how much full-detail diagnostics history the session retains;
 	// 0 disables diagnostics for the session.
 	DiagnosticsWindowMs int `json:"diagnostics_window_ms"`
@@ -47,6 +53,12 @@ func (o *StreamOptions) Validate() error {
 	}
 	if o.SendToArmIntervalMs >= o.TargetRunwayInArmMs {
 		return errors.New("streaming: send_to_arm_interval_ms must be less than target_runway_in_arm_ms")
+	}
+	if o.VelLimitDegPerSec < 0 {
+		return errors.New("streaming: vel_limit_deg_per_sec cannot be negative (0 falls back to the arm's kinematics)")
+	}
+	if o.AccelLimitDegPerSec2 < 0 {
+		return errors.New("streaming: accel_limit_deg_per_sec2 cannot be negative (0 falls back to the arm's kinematics)")
 	}
 	if o.DiagnosticsWindowMs < 0 {
 		return errors.New("streaming: diagnostics_window_ms must be non-negative (0 disables diagnostics)")

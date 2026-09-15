@@ -13,6 +13,7 @@ import (
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
+	"go.viam.com/rdk/utils"
 )
 
 // Run executes a streaming session through one trajex session and one arm stream RPC.
@@ -43,14 +44,9 @@ func Run(
 		return err
 	}
 
-	kinematics, err := a.Kinematics(ctx)
+	velLimits, accelLimits, err := resolveTrajectoryLimits(ctx, a, opts, len(seed))
 	if err != nil {
-		return fmt.Errorf("failed to get kinematics for arm streaming: %w", err)
-	}
-	velLimits, accelLimits, ok := referenceframe.TrajectoryLimits(kinematics.DoF())
-	if !ok {
-		return errors.New("arm streaming requires the arm's kinematics to declare " +
-			"max_velocity and max_acceleration for every joint")
+		return err
 	}
 
 	// Derive a cancelable ctx so error returns can end the arm RPC.
@@ -130,6 +126,45 @@ func Run(
 			}
 		}
 	}
+}
+
+// resolveTrajectoryLimits returns the per-joint velocity/acceleration limits Run paces the
+// derived trajectory against: opts.VelLimitDegPerSec/AccelLimitDegPerSec2, applied uniformly to
+// every joint, when the caller set them; falling back independently, for whichever of the two
+// was left unset (0), to the arm's own kinematics-declared per-joint limits.
+func resolveTrajectoryLimits(ctx context.Context, a arm.Arm, opts StreamOptions, dof int) (vel, accel []float64, err error) {
+	if opts.VelLimitDegPerSec > 0 && opts.AccelLimitDegPerSec2 > 0 {
+		return uniformLimits(dof, opts.VelLimitDegPerSec), uniformLimits(dof, opts.AccelLimitDegPerSec2), nil
+	}
+
+	kinematics, err := a.Kinematics(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get kinematics for arm streaming: %w", err)
+	}
+	kinVel, kinAccel, ok := referenceframe.TrajectoryLimits(kinematics.DoF())
+	if !ok {
+		return nil, nil, errors.New("arm streaming requires the arm's kinematics to declare " +
+			"max_velocity and max_acceleration for every joint, unless vel_limit_deg_per_sec " +
+			"and accel_limit_deg_per_sec2 are both set")
+	}
+
+	vel, accel = kinVel, kinAccel
+	if opts.VelLimitDegPerSec > 0 {
+		vel = uniformLimits(dof, opts.VelLimitDegPerSec)
+	}
+	if opts.AccelLimitDegPerSec2 > 0 {
+		accel = uniformLimits(dof, opts.AccelLimitDegPerSec2)
+	}
+	return vel, accel, nil
+}
+
+func uniformLimits(dof int, limitDegPerSec float64) []float64 {
+	limit := utils.DegToRad(limitDegPerSec)
+	out := make([]float64, dof)
+	for i := range out {
+		out[i] = limit
+	}
+	return out
 }
 
 func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {

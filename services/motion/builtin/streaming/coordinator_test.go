@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func runTestOptions() StreamOptions {
@@ -21,6 +23,54 @@ func runTestOptions() StreamOptions {
 	opts.TargetRunwayInArmMs = 50
 	opts.SendToArmIntervalMs = 10
 	return opts
+}
+
+func TestResolveTrajectoryLimits(t *testing.T) {
+	t.Run("both set bypasses kinematics", func(t *testing.T) {
+		inj := inject.NewArm("test-arm")
+		inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			return nil, errors.New("kinematics should not be queried when both limits are set")
+		}
+		opts := runTestOptions()
+		opts.VelLimitDegPerSec = 90
+		opts.AccelLimitDegPerSec2 = 45
+
+		vel, accel, err := resolveTrajectoryLimits(context.Background(), inj, opts, 2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vel, test.ShouldResemble, []float64{math.Pi / 2, math.Pi / 2})
+		test.That(t, accel, test.ShouldResemble, []float64{math.Pi / 4, math.Pi / 4})
+	})
+
+	t.Run("partial override falls back to kinematics only for the unset field", func(t *testing.T) {
+		inj, _ := newFakeStreamingArm(2, math.Pi/3, math.Pi/6)
+		opts := runTestOptions()
+		opts.VelLimitDegPerSec = 90 // overrides the arm's pi/3; accel is left unset
+
+		vel, accel, err := resolveTrajectoryLimits(context.Background(), inj, opts, 2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vel, test.ShouldResemble, []float64{math.Pi / 2, math.Pi / 2})
+		test.That(t, accel, test.ShouldResemble, []float64{math.Pi / 6, math.Pi / 6})
+	})
+
+	t.Run("unbounded kinematics errors unless both limits are overridden", func(t *testing.T) {
+		unboundedLimit := referenceframe.Limit{Min: -math.Pi, Max: math.Pi}
+		inj := inject.NewArm("test-arm")
+		inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			fs := referenceframe.NewEmptyFrameSystem("test")
+			f, err := referenceframe.NewRotationalFrame("j0", spatialmath.R4AA{RZ: 1}, unboundedLimit)
+			if err != nil {
+				return nil, err
+			}
+			if err := fs.AddFrame(f, fs.World()); err != nil {
+				return nil, err
+			}
+			return referenceframe.NewModel("test", fs, "j0")
+		}
+
+		_, _, err := resolveTrajectoryLimits(context.Background(), inj, runTestOptions(), 1)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "requires the arm's kinematics to declare")
+	})
 }
 
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
