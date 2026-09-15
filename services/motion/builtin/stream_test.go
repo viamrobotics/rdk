@@ -20,17 +20,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-// testKinematicsModel builds a dof-joint revolute model whose every joint shares the same
-// velocity/acceleration limits (in rad/s and rad/s^2, matching referenceframe.Limit's own
-// units), so that an injected arm's Kinematics(ctx) has bounded referenceframe.TrajectoryLimits
-// for streaming.Run to use.
-func testKinematicsModel(t *testing.T, dof int, velRadPerSec, accelRadPerSec2 float64) referenceframe.Model {
+func testKinematics(t *testing.T, dof int, velRadPerSec, accelRadPerSec2 float64) referenceframe.Model {
 	t.Helper()
 	limit := referenceframe.Limit{
 		Min:             -math.Pi,
 		Max:             math.Pi,
-		MaxVelocity:     floatPtr(velRadPerSec),
-		MaxAcceleration: floatPtr(accelRadPerSec2),
+		MaxVelocity:     &velRadPerSec,
+		MaxAcceleration: &accelRadPerSec2,
 	}
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
@@ -48,10 +44,6 @@ func testKinematicsModel(t *testing.T, dof int, velRadPerSec, accelRadPerSec2 fl
 	return model
 }
 
-func floatPtr(v float64) *float64 {
-	return &v
-}
-
 // newStreamTestService builds a minimal builtIn wired to a single injected arm
 // that records the trajectory points it receives over the streamed RPC.
 func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int)) {
@@ -64,7 +56,7 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int))
 		return make([]referenceframe.Input, 6), nil
 	}
 	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testKinematicsModel(t, 6, math.Pi/6, math.Pi/3), nil
+		return testKinematics(t, 6, math.Pi/6, math.Pi/3), nil
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
@@ -256,7 +248,7 @@ func TestDoCommandStreamAbort(t *testing.T) {
 		return make([]referenceframe.Input, 6), nil
 	}
 	inj.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return testKinematicsModel(t, 6, math.Pi/6, math.Pi/3), nil
+		return testKinematics(t, 6, math.Pi/6, math.Pi/3), nil
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
