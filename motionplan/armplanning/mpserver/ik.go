@@ -1,4 +1,4 @@
-// nolint // This is a self-contained program. Most lint errors do not help find bugs.
+//nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (

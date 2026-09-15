@@ -443,6 +443,8 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 	return RequestFromReader(f)
 }
 
+// RequestFromReader is the same as ReadRequestAndResponseFromFile but takes a generic `io.Reader`
+// as input.
 func RequestFromReader(reader io.Reader) (*PlanRequest, motionplan.Plan, error) {
 	decoder := json.NewDecoder(reader)
 

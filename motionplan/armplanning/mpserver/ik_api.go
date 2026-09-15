@@ -7,6 +7,7 @@ import (
 	"go.viam.com/rdk/motionplan/armplanning"
 )
 
+// Solution contains information regarding an nlopt IK solution.
 type Solution struct {
 	Cost               float64               `json:"cost"`
 	Configuration      map[string][]float64  `json:"configuration"`
@@ -17,11 +18,14 @@ type Solution struct {
 	LastGoodInputs     *map[string][]float64 `json:"last_good_inputs,omitempty"`
 }
 
+// IKSeedResult ties together a "seed" or scenario for IK solutions and a sampling of solutions
+// generated from that seed.
 type IKSeedResult struct {
 	Seed      string     `json:"seed"`
 	Solutions []Solution `json:"solutions"`
 }
 
+// IKHandler generates a table of solutions for an input plan request.
 func IKHandler(planRequest *armplanning.PlanRequest, numSolutions int) ([]*IKSeedResult, error) {
 	ctx := context.Background()
 	logger := logging.NewBlankLogger("ik-handler")
