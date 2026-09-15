@@ -111,13 +111,19 @@ jobs:
       env:
         GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
       run: |
+        set -euo pipefail
         apt-get update
         apt-get install -y openjdk-17-jre-headless jq
         curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
         # Fetch cert via Secret Manager REST; avoids another action dependency
         curl -fsSL -H "Authorization: Bearer $GCP_ACCESS_TOKEN" \
           "https://secretmanager.googleapis.com/v1/projects/385154741571/secrets/ev-code-signing-public-key/versions/latest:access" \
-          | jq -r '.payload.data' | base64 -d > /tmp/cert.pem
+          | jq -r '.payload.data // empty' | base64 -d > /tmp/cert.pem
+        # jsign reports an unusable certfile as a keystore error, far from here.
+        if [ ! -s /tmp/cert.pem ]; then
+          echo "secret did not decode to a certificate" >&2
+          exit 1
+        fi
         printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
         cat > /tmp/sign-binary.sh <<'EOF'
         #!/bin/bash
