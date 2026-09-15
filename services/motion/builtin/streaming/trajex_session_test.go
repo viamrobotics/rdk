@@ -13,10 +13,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-func testStreamOptions() StreamOptions {
-	return NewDefaultOptions()
-}
-
 func testTrajectoryLimits(dof int) (vel, accel []float64) {
 	vel = make([]float64, dof)
 	accel = make([]float64, dof)
@@ -47,7 +43,7 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 	seed := []referenceframe.Input{0, 0}
 	target := []referenceframe.Input{0.5, -0.3}
 
-	s := &trajexSession{opts: testStreamOptions()}
+	s := &trajexSession{opts: NewDefaultOptions()}
 	vel, accel := testTrajectoryLimits(len(seed))
 	test.That(t, s.startSession(seed, vel, accel), test.ShouldBeNil)
 	defer s.close()
@@ -77,7 +73,7 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	ctx := context.Background()
 	seed := []referenceframe.Input{0.2, 0.4}
 
-	s := &trajexSession{opts: testStreamOptions()}
+	s := &trajexSession{opts: NewDefaultOptions()}
 	vel, accel := testTrajectoryLimits(len(seed))
 	test.That(t, s.startSession(seed, vel, accel), test.ShouldBeNil)
 	defer s.close()
@@ -99,7 +95,7 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 	seed := []referenceframe.Input{0, 0}
 	target := []referenceframe.Input{0.5, 0.5}
 
-	s := &trajexSession{opts: testStreamOptions()}
+	s := &trajexSession{opts: NewDefaultOptions()}
 	vel, accel := testTrajectoryLimits(len(seed))
 	test.That(t, s.startSession(seed, vel, accel), test.ShouldBeNil)
 	defer s.close()
