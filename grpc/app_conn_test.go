@@ -139,8 +139,9 @@ func robotSecretDialOpts(entity, secret string) []rpc.DialOption {
 	}
 }
 
-// TestAuthedDialDirectGRPC covers the two behaviors that matter: a successful auth caches a token,
-// and — with minting broken — a later dial recovers by presenting that cached token.
+// TestAuthedDialDirectGRPC covers the three behaviors that matter: a successful auth caches a token,
+// with minting broken a later dial recovers by presenting that cached token, and a rejected cached
+// token costs one failed RPC before the fallback connection re-authenticates and refreshes the cache.
 func TestAuthedDialDirectGRPC(t *testing.T) {
 	redirectViamDotDir(t)
 
@@ -183,11 +184,33 @@ func TestAuthedDialDirectGRPC(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetMessage(), test.ShouldEqual, "recovered")
 	test.That(t, conn2.Close(), test.ShouldBeNil)
+
+	// --- rejected cache: with minting broken, the fallback conn is seeded with a bad token. Once minting
+	// returns, the first RPC fails, the next one re-authenticates, and the cache is refreshed ---
+	cached, err := jwtCacheRead(partID, addr)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jwtCacheWrite(partID, addr, cached+"garbage"), test.ShouldBeNil)
+	conn3, err := authedDialDirectGRPC(ctx, partID, addr, logger, dialOpts...)
+	test.That(t, err, test.ShouldBeNil)
+	handler.broken.Store(false)
+
+	_, echoErr := echopb.NewEchoServiceClient(conn3).Echo(ctx, &echopb.EchoRequest{Message: "stale"})
+	test.That(t, status.Code(echoErr), test.ShouldEqual, codes.Unauthenticated)
+
+	resp, err = echopb.NewEchoServiceClient(conn3).Echo(ctx, &echopb.EchoRequest{Message: "healed"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.GetMessage(), test.ShouldEqual, "healed")
+	test.That(t, conn3.Close(), test.ShouldBeNil)
+
+	refreshed, err := jwtCacheRead(partID, addr)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, refreshed, test.ShouldNotBeEmpty)
+	test.That(t, refreshed, test.ShouldNotEqual, cached+"garbage")
 }
 
 // TestAuthedDialDirectGRPCNoCacheOnBrokenAuth verifies the degraded no-cache path: when minting is
 // down and nothing was cached, the dial does not error or panic — it returns the (unauthenticated)
-// connection so the caller's retry loop keeps trying, and RPCs over it simply fail.
+// connection, RPCs over it fail, and it authenticates as soon as minting returns.
 func TestAuthedDialDirectGRPCNoCacheOnBrokenAuth(t *testing.T) {
 	redirectViamDotDir(t)
 
@@ -205,5 +228,11 @@ func TestAuthedDialDirectGRPCNoCacheOnBrokenAuth(t *testing.T) {
 	// no cached token + broken minting: the connection is unauthenticated, so the RPC fails.
 	_, echoErr := echopb.NewEchoServiceClient(conn).Echo(ctx, &echopb.EchoRequest{Message: "hi"})
 	test.That(t, echoErr, test.ShouldNotBeNil)
+
+	// minting returns: the same connection authenticates on the next RPC.
+	handler.broken.Store(false)
+	resp, err := echopb.NewEchoServiceClient(conn).Echo(ctx, &echopb.EchoRequest{Message: "back"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.GetMessage(), test.ShouldEqual, "back")
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
