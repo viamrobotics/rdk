@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -858,6 +859,29 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 		return client, nil
 	}
 
+	// A bare (API-less) name resolves to the one resource of that name. When that name is advertised
+	// under several APIs it is a composite: assemble one MultiAPIResource over per-API sub-clients
+	// (which are cached and lifecycle-managed individually). The wrapper itself is built on demand.
+	if name.API == (resource.API{}) {
+		apis := rc.apisSharingNameLocked(name)
+		if len(apis) == 0 {
+			return nil, resource.NewNotFoundError(name)
+		}
+		byAPI := make(map[resource.API]resource.Resource, len(apis))
+		for _, api := range apis {
+			sub, err := rc.getOrCreateClientLocked(resource.Name{API: api, Remote: name.Remote, Name: name.Name})
+			if err != nil {
+				return nil, err
+			}
+			byAPI[api] = sub
+		}
+		if len(apis) == 1 {
+			return byAPI[apis[0]], nil
+		}
+		return resource.NewMultiAPIResource(
+			resource.Name{API: apis[0], Remote: name.Remote, Name: name.Name}, apis, byAPI), nil
+	}
+
 	// finally, before adding a new resource, make sure this name exists and is known
 	for _, knownName := range rc.resourceNames {
 		if name == knownName {
@@ -890,6 +914,36 @@ func (rc *RobotClient) resourcesCallCtx(ctx context.Context) (context.Context, c
 		return ctx, func() {}
 	}
 	return contextutils.ContextWithTimeoutIfNoDeadline(ctx, rc.resourcesTimeout)
+}
+
+// apisSharingNameLocked returns every distinct API advertised under the given bare name (and
+// remote), sorted for a deterministic canonical API. More than one means the name is a composite.
+// Callers must hold rc.mu.
+func (rc *RobotClient) apisSharingNameLocked(name resource.Name) []resource.API {
+	seen := map[resource.API]bool{}
+	var apis []resource.API
+	for _, known := range rc.resourceNames {
+		if known.Name == name.Name && known.Remote == name.Remote && !seen[known.API] {
+			seen[known.API] = true
+			apis = append(apis, known.API)
+		}
+	}
+	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+	return apis
+}
+
+// getOrCreateClientLocked returns the cached per-API client for name, creating and caching it if
+// absent. Callers must hold rc.mu.
+func (rc *RobotClient) getOrCreateClientLocked(name resource.Name) (resource.Resource, error) {
+	if client, ok := rc.resourceClients[name]; ok {
+		return client, nil
+	}
+	client, err := rc.createClient(name)
+	if err != nil {
+		return nil, err
+	}
+	rc.resourceClients[name] = client
+	return client, nil
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {

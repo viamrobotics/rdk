@@ -226,7 +226,20 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 // FindBySimpleNameAndAPI. ResourceByName is only called internally for some dependency
 // calculation and session code.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
+	if name.API == (resource.API{}) {
+		return r.resourceBySimpleName(name.Name)
+	}
 	return r.FindBySimpleNameAndAPI(name.Name, name.API)
+}
+
+// resourceBySimpleName resolves a bare (API-less) name to its single resource — for a composite, the
+// one handle serving every API, from which a consumer extracts a specific API with resource.AsType.
+func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error) {
+	resolved, err := r.manager.resources.FindBySimpleName(name)
+	if err != nil {
+		return nil, err
+	}
+	return r.FindBySimpleNameAndAPI(resolved.Name, resolved.API)
 }
 
 // RemoteNames returns the names of all known remote robots.
