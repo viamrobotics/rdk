@@ -17,9 +17,6 @@ func testStreamOptions() StreamOptions {
 	return NewDefaultOptions()
 }
 
-// testTrajectoryLimits returns per-joint velocity/acceleration limits (pi/2 rad/s, pi/2 rad/s^2)
-// for dof joints, matching what startSession now requires directly instead of reading from
-// StreamOptions.
 func testTrajectoryLimits(dof int) (vel, accel []float64) {
 	vel = make([]float64, dof)
 	accel = make([]float64, dof)
