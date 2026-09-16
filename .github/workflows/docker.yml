@@ -6,7 +6,7 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 6 * * *' # Once a day at 6AM UTC (1AM/EST, 2AM/EDT)
+    - cron: '23 6 * * *' # Once a day at 06:23 UTC (1:23AM/EST, 2:23AM/EDT)
   workflow_dispatch:
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk

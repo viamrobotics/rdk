@@ -7,8 +7,8 @@
 name: run-htmltest
 on:
   schedule:
-    # 10am UTC on Mondays
-    - cron: "0 10 * * 1"
+    # 10:47 UTC on Mondays
+    - cron: "47 10 * * 1"
 jobs:
   htmltest:
     runs-on: ubuntu-large

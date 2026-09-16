@@ -6,7 +6,7 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 7 15 * *' # once a month (15th) at 7AM UTC (2AM/EST, 3AM/EDT)
+    - cron: '37 7 15 * *' # once a month (15th) at 07:37 UTC (2:37AM/EST, 3:37AM/EDT)
   workflow_dispatch:
 
 jobs:
