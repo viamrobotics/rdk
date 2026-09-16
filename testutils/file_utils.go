@@ -74,9 +74,7 @@ func BuildViamServer(tb testing.TB) string {
 			"-o", serverPath,
 			"./web/cmd/server",
 		)
-		// CGO_ENABLED=1 so components/camera/register/register_webcam_cgo.go (gated on the builtin
-		// "cgo" tag) can pull in the webcam driver; -tags no_cgo above still makes every other
-		// cgo-gated feature keep its no_cgo stub
+		// -tags no_cgo above still makes it so you can gate specific cgo dependencies
 		builder.Env = append(os.Environ(), "CGO_ENABLED=1", "CC=zig cc", "CXX=zig c++")
 	}
 	// set Dir to root of repo
