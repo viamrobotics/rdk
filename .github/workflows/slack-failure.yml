@@ -5,6 +5,12 @@ name: Slack Failure Notification
 
 on:
   workflow_call:
+    inputs:
+      channel:
+        description: 'Slack channel to post to'
+        required: false
+        default: '#team-devops'
+        type: string
     secrets:
       SLACK_WEBHOOK_URL:
         required: true
@@ -22,5 +28,5 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          channel: '#team-devops'
+          channel: ${{ inputs.channel }}
           name: 'Workflow Status'
