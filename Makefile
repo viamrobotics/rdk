@@ -163,7 +163,7 @@ windows: bin/windows/viam-server-amd64.exe
 
 $(BIN_OUTPUT_PATH)/viam-server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static
 	cp $< $@
-	mise x -- upx --best --lzma $@
+	mise x $(MISE_EXEC_ARGS) -- upx --best --lzma $@
 
 .PHONY: server-static-compressed
 server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
