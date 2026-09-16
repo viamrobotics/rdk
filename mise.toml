@@ -21,6 +21,7 @@ lazy_bins = ['canon']
 version = "7.2.1"
 lazy = true
 lazy_bins = ['license_finder']
+depends = 'ruby'
 
 [tasks.lint-go]
 alias = "lint"
