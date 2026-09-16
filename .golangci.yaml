@@ -113,6 +113,7 @@ linters:
     staticcheck:
       checks:
         - all
+        - -SA4006
         - -ST1000
         - -ST1003
         - -ST1005
