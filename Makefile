@@ -154,9 +154,8 @@ full-static: bin/static/viam-server-$(GOARCH)
 
 # should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
 #
-# CGO_ENABLED=1 here (unlike full-static above) so components/camera/register/register_webcam_cgo.go
-# can pull in the mediadevices-based webcam driver. -tags no_cgo is still passed so every other
-# cgo-gated feature (graphviz, nlopt, x264 streaming, etc.) keeps using its existing no_cgo stub
+# CGO_ENABLED=1 here
+# tags no_cgo is still passed so you can still gate specific cgo dependencies (graphviz, nlopt, x264 streaming, etc.)
 #
 # using zig to cross-compile
 WINDOWS_CC ?= zig cc -target x86_64-windows-gnu
