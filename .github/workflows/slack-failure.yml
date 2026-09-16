@@ -17,7 +17,6 @@ on:
 
 jobs:
   notify:
-    name: Post Workflow Status To Slack
     runs-on: ubuntu-latest
     permissions:
       actions: read
