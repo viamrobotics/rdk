@@ -13,13 +13,14 @@ sudo -Hu testbot bash -lc '
   curl https://mise.run | sh
   ~/.local/bin/mise trust -y
   ~/.local/bin/mise install upx
+  ~/.local/bin/mise settings set auto_install false
 '
 
 # bind-mount is owned by another uid; allow git without chowning (breaks cleanup).
 git config --system --add safe.directory '*'
 cd "$repo_root"
 
-sudo -Hu testbot bash -lc "make MISE_EXEC_ARGS='--no-deps' BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=armv7l VERSION_SUFFIX=+focal static-release"
+sudo -Hu testbot bash -lc "make BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=armv7l VERSION_SUFFIX=+focal static-release"
 
 sudo -Hu testbot bash -lc '
   set -euo pipefail
