@@ -9,8 +9,9 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 # many other build tools but those are all baked into the image for now, so
 # only install upx to save time and bandwidth.
 sudo -Hu testbot bash -lc '
-  export MISE_INSTALL_ARCH=armv7
-  curl https://mise.run | sh
+  mkdir -p ~/.local/bin
+  curl -fsSL https://github.com/jdx/mise/releases/download/v2026.9.9/mise-v2026.9.9-linux-armv7.tar.xz | tar -C /tmp -xJ
+  cp /tmp/mise/bin/mise ~/.local/bin/mise
   ~/.local/bin/mise trust -y
   ~/.local/bin/mise install upx
   ~/.local/bin/mise settings set auto_install false
