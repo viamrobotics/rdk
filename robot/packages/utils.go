@@ -170,8 +170,14 @@ func installPackage(
 	if runtime.GOOS == "windows" {
 		if _, err := os.Stat(renameDest); err == nil {
 			logger.Debug("package rename destination exists, deleting")
+			// Windows never renames onto an existing directory, so if this removal fails the
+			// os.Rename below is guaranteed to fail too — and its "Access is denied" is a
+			// misleading symptom, not the cause. Don't log the real reason as ignorable and fall
+			// through into that; surface it as the failure with an explanation of what's holding
+			// the directory open.
 			if err := os.RemoveAll(renameDest); err != nil {
-				logger.Warnf("ignoring error from removing rename dest %s", err)
+				utils.UncheckedError(cleanup(packagesDir, p))
+				return describeReplaceFailure(renameDest, err)
 			}
 		}
 	}
@@ -196,6 +202,39 @@ func installPackage(
 	}
 
 	return nil
+}
+
+// describeReplaceFailure turns a failed removal of an existing module package directory into an
+// actionable error. os.RemoveAll deletes children first and only reports the bare directory path
+// once every child is gone and just the directory itself is stuck — which on Windows means the
+// directory is a live process's current working directory (a directory that is cannot be deleted
+// or renamed). That surfaces later as a misleading "Access is denied" from os.Rename, read by
+// everyone as a permissions problem. Instead we name the holding process when the Restart Manager
+// can tell us (in-process, no Sysinternals, works under LocalSystem), say whether the stuck path
+// is a directory or a file, and note that it's sticky: localModuleVersions is in-memory only, so a
+// restart resets the reload version to 0.0.0 and lands back on this same leftover directory every
+// time until the holder exits.
+func describeReplaceFailure(path string, cause error) error {
+	kind := "path"
+	if info, statErr := os.Stat(path); statErr == nil {
+		if info.IsDir() {
+			kind = "directory"
+		} else {
+			kind = "file"
+		}
+	}
+
+	msg := fmt.Sprintf("cannot replace module package %s %s", kind, path)
+	if holder := describePathHolder(path); holder != "" {
+		msg += fmt.Sprintf(": the %s is held open by %s, likely as its working directory. "+
+			"This is not a permissions problem and will recur on every restart until that process exits",
+			kind, holder)
+	} else {
+		msg += fmt.Sprintf(": the %s is held open by another process (the holder could not be identified). "+
+			"On Windows this is typically a process using it as its working directory, not a permissions "+
+			"problem, and will recur on every restart until that process exits", kind)
+	}
+	return errw.Wrap(cause, msg)
 }
 
 func cleanup(packagesDir string, p config.PackageConfig) error {
