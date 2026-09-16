@@ -7,7 +7,9 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 # The build depends on mise to manage upx. Technically it also manages go and
 # many other build tools but those are all baked into the image for now, so
-# only install upx to save time and bandwidth.
+# only install upx to save time and bandwidth. Also need to disable
+# auto_install so an errant `mise x` or similar doesn't try to install
+# golangci-lint, which doesn't provide a build for this architecture.
 sudo -Hu testbot bash -lc '
   mkdir -p ~/.local/bin
   curl -fsSL https://github.com/jdx/mise/releases/download/v2026.9.9/mise-v2026.9.9-linux-armv7.tar.xz | tar -C /tmp -xJ
