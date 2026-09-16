@@ -8,8 +8,8 @@ endif
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 BUILD_CHANNEL ?= local
-# Include mise in path.
-export PATH := $(HOME)/.local/bin:$(PATH)
+# Include mise and its shims in path.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):${PATH}"
 
@@ -33,6 +33,7 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 	mise install -y
+	mise reshim
 
 build: build-go
 
@@ -83,6 +84,8 @@ deb-cli-upload:
 	done
 
 tool-install:
+	mise install -y
+	mise reshim
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
@@ -163,7 +166,7 @@ windows: bin/windows/viam-server-amd64.exe
 
 $(BIN_OUTPUT_PATH)/viam-server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static
 	cp $< $@
-	mise x $(MISE_EXEC_ARGS) -- upx --best --lzma $@
+	upx --best --lzma $@
 
 .PHONY: server-static-compressed
 server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
