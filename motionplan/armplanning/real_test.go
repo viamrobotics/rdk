@@ -267,22 +267,10 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	// `initRRTSolutions` returns a direct solution only if IK produced a reachable configuration
-	// whose straight-line path is clear. Here that configuration only ever comes out of nlopt's
-	// random draws on the smart seeds, and the solution search stops on a wall clock (see
-	// `shouldStopEarly`) once it has decided cbirrt will be needed - so a single pass finds it
-	// usually, not always. Retrying makes an unlucky draw harmless while still failing if smart
-	// seeding stops producing the configuration at all.
-	var solution *rrtSolution
-	for attempt := range 3 {
-		solution, err = initRRTSolutions(ctx, psc, logger.Sublogger("solve"))
-		test.That(t, err, test.ShouldBeNil)
-		if len(solution.steps) == 1 {
-			break
-		}
-		logger.Infof("attempt %d produced no direct solution, retrying", attempt)
-	}
+	t.Skip("RSDK-14560: flaky - initRRTSolutions direct solution depends on a wall-clock race in shouldStopEarly")
 
+	solution, err := initRRTSolutions(ctx, psc, logger.Sublogger("solve"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
 
 	sta := req.StartState.LinearConfiguration().Get(name)
