@@ -5,6 +5,10 @@ set -euxo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
+# bind-mount is owned by another uid; allow git without chowning (breaks cleanup).
+git config --system --add safe.directory '*'
+cd "$repo_root"
+
 # The build depends on mise to manage upx. Technically it also manages go and
 # many other build tools but those are all baked into the image for now, so
 # only install upx to save time and bandwidth. Also need to disable
@@ -18,10 +22,6 @@ sudo -Hu testbot bash -lc '
   ~/.local/bin/mise install upx
   ~/.local/bin/mise settings set auto_install false
 '
-
-# bind-mount is owned by another uid; allow git without chowning (breaks cleanup).
-git config --system --add safe.directory '*'
-cd "$repo_root"
 
 sudo -Hu testbot bash -lc "make BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=armv7l VERSION_SUFFIX=+focal static-release"
 
