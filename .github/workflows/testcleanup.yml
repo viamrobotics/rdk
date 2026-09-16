@@ -26,3 +26,12 @@ jobs:
     - name: Remove Failed Test Binaries
       run: |
         gsutil -m rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*" || true
+
+  slack-workflow-status:
+    name: Post Workflow Status To Slack
+    needs: [clean_binaries]
+    if: failure()
+    permissions:
+      actions: read
+    uses: ./.github/workflows/slack-failure.yml
+    secrets: inherit

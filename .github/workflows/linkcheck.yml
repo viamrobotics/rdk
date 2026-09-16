@@ -70,3 +70,12 @@ jobs:
       - name: Log created Jira issue
         if: failure()
         run: echo "Issue ${{ steps.create.outputs.issue }} was created"
+
+  slack-workflow-status:
+    name: Post Workflow Status To Slack
+    needs: [htmltest]
+    if: failure()
+    permissions:
+      actions: read
+    uses: ./.github/workflows/slack-failure.yml
+    secrets: inherit

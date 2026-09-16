@@ -168,3 +168,13 @@ jobs:
         channel: ${{ steps.meta.outputs.channel }}
         arch: armv7l
         gcp-credentials: ${{ secrets.GCP_CREDENTIALS }}
+
+  slack-workflow-status:
+    name: Post Workflow Status To Slack
+    needs: [focal-static, focal-static-armhf]
+    # PR and dispatch runs report to whoever started them; only the nightly needs a channel.
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      actions: read
+    uses: ./.github/workflows/slack-failure.yml
+    secrets: inherit
