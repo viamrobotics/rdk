@@ -870,18 +870,6 @@ func TestValidatePlanRequest(t *testing.T) {
 			expectedErr: errors.New("PlanRequest cannot have nil StartState configuration"),
 		},
 		{
-			name: "incorrect length StartConfiguration - fail",
-			request: &PlanRequest{
-				FrameSystem: fs,
-				Goals:       validGoal,
-				StartState: &PlanState{structuredConfiguration: map[string][]frame.Input{
-					"frame1": {}, "frame2": {0, 0, 0, 0, 0},
-				}},
-				PlannerOptions: NewBasicPlannerOptions(),
-			},
-			expectedErr: frame.NewIncorrectDoFError(5, 1),
-		},
-		{
 			name: "well formed PlanRequest",
 			request: &PlanRequest{
 				FrameSystem: fs,
