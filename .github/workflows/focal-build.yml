@@ -93,6 +93,7 @@ jobs:
         make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} UNAME_M=${{ matrix.uname_m }} VERSION_SUFFIX=+focal GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt static-release
 
     - name: Boot smoke test
+      shell: bash
       run: |
         set -euo pipefail
         bin=$(find etc/packaging/static/deploy -type f -name "viam-server-*" | head -1)
