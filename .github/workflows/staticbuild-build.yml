@@ -96,20 +96,6 @@ jobs:
       # sudo -Hu testbot's secure_path misses the runner tool dir
       run: ln -sf "$(command -v upx)" /usr/local/bin/upx
 
-      # these are just for testing, remove before merging as Zig will be installed in the focal container itself
-    - name: Install Zig (windows)
-      # rdk-focal ships no windows cross-compiler; the cgo webcam driver needs one
-      # mlugg/setup-zig@v2.2.1
-      if: matrix.target == 'static-release-win'
-      uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
-      with:
-        version: 0.16.0
-
-    - name: Link zig into /usr/local/bin (windows)
-      # sudo -Hu testbot's secure_path misses the runner tool dir
-      if: matrix.target == 'static-release-win'
-      run: ln -sf "$(command -v zig)" /usr/local/bin/zig
-
     - name: Authorize signing (windows)
       if: matrix.target == 'static-release-win'
       id: signing-auth
