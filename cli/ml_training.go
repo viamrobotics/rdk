@@ -153,6 +153,7 @@ type prettyPrintContainer struct {
 	Description string
 	Framework   string `json:",omitempty"`
 	URI         string 
+	ID          string
 	CreatedOn   string
 	Visibility  string
 } 
@@ -178,6 +179,7 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 			Framework: v.Framework,
 			EndOfLife: v.Eol.String(),
 			CreatedOn: v.CreatedOn.String(),
+			ID:        v.Id,
 		}
 		
 		if args.IncludeURIs {
