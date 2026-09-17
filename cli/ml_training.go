@@ -195,7 +195,9 @@ type mlDeleteContainerArgs struct {
 	Key   string
 }
 
-// MLDeleteContainer is the corresponding action for 'train containers delete'.
+// MLDeleteContainer is the corresponding action for 'train containers delete'. The delete RPC takes
+// an opaque container ID rather than an org/key pair, so this resolves the given key to its ID via
+// ListSupportedContainers first.
 func MLDeleteContainer(ctx context.Context, cmd *cli.Command, args mlDeleteContainerArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to delete a custom training container")
@@ -207,9 +209,20 @@ func MLDeleteContainer(ctx context.Context, cmd *cli.Command, args mlDeleteConta
 	if err != nil {
 		return err
 	}
+
+	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
+		context.Background(), &mltrainingpb.ListSupportedContainersRequest{OrganizationId: args.OrgID},
+	)
+	if err != nil {
+		return err
+	}
+	container, ok := supportedContainers.GetContainerMap()[args.Key]
+	if !ok {
+		return fmt.Errorf("no container with key %q found for org %q", args.Key, args.OrgID)
+	}
+
 	_, err = client.mlTrainingClient.DeleteCustomTrainingContainer(context.Background(), &mltrainingpb.DeleteCustomTrainingContainerRequest{
-		OrganizationId: args.OrgID,
-		Key:            args.Key,
+		Id: container.GetId(),
 	})
 	if err != nil {
 		return err
