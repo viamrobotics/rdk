@@ -2258,6 +2258,29 @@ Note: There is no progress meter while copying is in progress.
 							},
 							Action: createActionCommandWithT[mlListContainersArgs](MLListContainers),
 						},
+						{
+							Name:      "register",
+							Usage:     "registers a custom container for custom training",
+							UsageText: createUsageText("train containers register", nil, false, false),
+							Flags: []cli.Flag{
+								&cli.BoolFlag{
+									Name:  "organization_id",
+									Usage: "Organization ID of the container",
+									Required: true,
+								},
+								&cli.BoolFlag{
+									Name:  "image",
+									Usage: "Docker image URI of the container",
+									Required: true,
+								},
+								&cli.BoolFlag{
+									Name:  "description",
+									Usage: "Defaults to image name if not provided",
+									Required: false,
+								},
+							},
+							Action: createActionCommandWithT[registerCustomContainersArgs](RegisterCustomContainer),
+						},
 					},
 				},
 				{

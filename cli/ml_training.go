@@ -164,7 +164,8 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		return err
 	}
 	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+		context.Background(), &mltrainingpb.ListSupportedContainersRequest{},
+	)
 	if err != nil {
 		return err
 	}
@@ -174,20 +175,9 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
-			OrgID:	     v.OrgIDd,
-			Role: 		 v.Role.String(),
+			Framework:   v.Framework,
+			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
 		}
-		if v.Role == 1 {
-			// viam container
-			container.Framework = v.Framework
-			container.EndOfLife = v.Eol.String()
-		} else if v.Role == 2 {
-			// custom container
-			container.CreatedOn = v.CreatedOn
-		} else {
-			return errors.New("Container rule is unspecified")
-		}
-		
 		if args.IncludeURIs {
 			container.URI = v.Uri
 		}
@@ -201,16 +191,26 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	return nil
 }
 
-type RegisterCustomContainerArgs struct {
-
+type registerCustomContainersArgs struct {
+	OrganizationID string 
+	ImageURI string
+	Description string
 }
 
-func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args mlListContainersArgs) error {
+func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registerCustomContainersArgs) (error) {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	// TOD: look at code for registering other things (such as training scripts) as a reference
+
+	resp, err := client.mlTrainingClient.
+	RegisterCustomTrainingContainer(ctx, &mltrainingpb.
+		RegisterCustomTrainingContainerRequest{OrganizationId: args.OrganizationID, ImageUri: args.ImageURI, Description: args.Description})
+	
+	if (err != nil) {
+		print("Container successfully registered. Its ID is ", resp.Id)
+	}
+	return err
 }
 
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
