@@ -135,8 +135,8 @@ func (ms *builtIn) streamStart(
 	}
 
 	var diag *diagnostics.SingleSessionDiagnostics
-	if opts.DiagnosticsWindowMs > 0 {
-		diag = diagnostics.New(time.Duration(opts.DiagnosticsWindowMs) * time.Millisecond)
+	if opts.DiagnosticsWindowSecs > 0 {
+		diag = diagnostics.New(time.Duration(opts.DiagnosticsWindowSecs) * time.Second)
 	}
 
 	streamCtx, cancel := context.WithCancel(context.Background())

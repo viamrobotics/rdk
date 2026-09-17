@@ -149,7 +149,7 @@ func TestDoCommandArmStreamingStatusDiagnosticsOptIn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// TestDoCommandArmStreamingDiagnosticsDisabled checks that diagnostics_window_ms: 0 starts a
+// TestDoCommandArmStreamingDiagnosticsDisabled checks that diagnostics_window_secs: 0 starts a
 // session with no diagnostics, so opting in to last_window_details yields nothing.
 func TestDoCommandArmStreamingDiagnosticsDisabled(t *testing.T) {
 	ms, _ := newStreamTestService(t)
@@ -157,7 +157,7 @@ func TestDoCommandArmStreamingDiagnosticsDisabled(t *testing.T) {
 	ctx := context.Background()
 
 	opts := streamTestOptions()
-	opts["diagnostics_window_ms"] = 0
+	opts["diagnostics_window_secs"] = 0
 	_, err := ms.DoCommand(ctx, map[string]interface{}{
 		DoStreamStart: map[string]interface{}{"arm": "arm", "options": opts},
 	})
