@@ -141,6 +141,10 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
+	// Remove actuator frames where there was an explicit configuration goal, but the actuator was
+	// already in that configuration. We treat that frame as "pinned". This results in the motion
+	// chains omitting the "pinned" acuator. Hiding those degrees of freedom when dropping into
+	// cbirrt.
 	for goalFrame := range goalPoses {
 		goalConfig, exists := goal.structuredConfiguration[goalFrame]
 		if exists && slices.Equal(goalConfig, start.Get(goalFrame)) {
