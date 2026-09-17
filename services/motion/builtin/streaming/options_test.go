@@ -16,7 +16,7 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	test.That(t, valid.DiagnosticsWindowSecs, test.ShouldEqual, defaultDiagnosticsWindowSecs)
 	test.That(t, valid.Validate(), test.ShouldBeNil)
 
-	// A zero diagnostics window is valid: it disables diagnostics.
+	// A zero diagnostics window is valid: it disables window-detail retention only.
 	disabled := valid
 	disabled.DiagnosticsWindowSecs = 0
 	test.That(t, disabled.Validate(), test.ShouldBeNil)

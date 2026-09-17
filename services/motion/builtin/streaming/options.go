@@ -41,7 +41,8 @@ type StreamOptions struct {
 	AccelLimitDegPerSec2 float64 `json:"accel_limit_deg_per_sec2"`
 
 	// DiagnosticsWindowSecs is how much full-detail diagnostics history the session retains;
-	// 0 disables diagnostics for the session.
+	// 0 disables retention of that history, though whole-run diagnostic stats are still
+	// collected regardless.
 	DiagnosticsWindowSecs int `json:"diagnostics_window_secs"`
 }
 
@@ -63,7 +64,7 @@ func (o *StreamOptions) Validate() error {
 		return errors.New("streaming: accel_limit_deg_per_sec2 must be positive")
 	}
 	if o.DiagnosticsWindowSecs < 0 {
-		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables diagnostics)")
+		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")
 	}
 	return nil
 }

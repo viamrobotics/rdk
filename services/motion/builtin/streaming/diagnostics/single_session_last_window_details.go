@@ -61,53 +61,84 @@ type singleSessionLastWindowDetails struct {
 	SingleSessionLastWindowDetails
 }
 
+func (d *singleSessionLastWindowDetails) enabled() bool {
+	return d.windowMs > 0
+}
+
 func (d *singleSessionLastWindowDetails) recordArmRunway(ms float64) {
+	if !d.enabled() {
+		return
+	}
 	now := unixMillisFloat(time.Now())
 	d.ArmRunway = append(d.ArmRunway, BufferSize{TimestampMs: now, SizeMs: ms})
 	d.pruneBefore(now - d.windowMs)
 }
 
 func (d *singleSessionLastWindowDetails) recordTrajexExtendLatency(startTimestampMs, ms float64) {
+	if !d.enabled() {
+		return
+	}
 	d.TrajexExtendLatency = append(d.TrajexExtendLatency, Latency{TimestampMs: startTimestampMs, DurationMs: ms})
 	d.pruneBefore(unixMillisFloat(time.Now()) - d.windowMs)
 }
 
 func (d *singleSessionLastWindowDetails) recordSendToArmLatency(startTimestampMs, ms float64) {
+	if !d.enabled() {
+		return
+	}
 	d.SendToArmLatency = append(d.SendToArmLatency, Latency{TimestampMs: startTimestampMs, DurationMs: ms})
 	d.pruneBefore(unixMillisFloat(time.Now()) - d.windowMs)
 }
 
 func (d *singleSessionLastWindowDetails) recordTrajexSessionOpenEvent() {
+	if !d.enabled() {
+		return
+	}
 	now := unixMillisFloat(time.Now())
 	d.TrajexSessionOpen = append(d.TrajexSessionOpen, Event{TimestampMs: now})
 	d.pruneBefore(now - d.windowMs)
 }
 
 func (d *singleSessionLastWindowDetails) recordTrajexSessionCloseEvent() {
+	if !d.enabled() {
+		return
+	}
 	now := unixMillisFloat(time.Now())
 	d.TrajexSessionClose = append(d.TrajexSessionClose, Event{TimestampMs: now})
 	d.pruneBefore(now - d.windowMs)
 }
 
 func (d *singleSessionLastWindowDetails) recordArmStreamOpenEvent() {
+	if !d.enabled() {
+		return
+	}
 	now := unixMillisFloat(time.Now())
 	d.ArmStreamOpen = append(d.ArmStreamOpen, Event{TimestampMs: now})
 	d.pruneBefore(now - d.windowMs)
 }
 
 func (d *singleSessionLastWindowDetails) recordArmStreamCloseEvent() {
+	if !d.enabled() {
+		return
+	}
 	now := unixMillisFloat(time.Now())
 	d.ArmStreamClose = append(d.ArmStreamClose, Event{TimestampMs: now})
 	d.pruneBefore(now - d.windowMs)
 }
 
 func (d *singleSessionLastWindowDetails) recordJointPositionTargetReceivedEvent() {
+	if !d.enabled() {
+		return
+	}
 	now := unixMillisFloat(time.Now())
 	d.JointPositionTargetReceived = append(d.JointPositionTargetReceived, Event{TimestampMs: now})
 	d.pruneBefore(now - d.windowMs)
 }
 
 func (d *singleSessionLastWindowDetails) recordSampledPVAT(sampled PVAT) {
+	if !d.enabled() {
+		return
+	}
 	now := unixMillisFloat(time.Now())
 	sampled.TimestampMs = now
 	d.SampledPVATs = append(d.SampledPVATs, sampled)

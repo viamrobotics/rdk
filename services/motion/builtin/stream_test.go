@@ -149,8 +149,9 @@ func TestDoCommandArmStreamingStatusDiagnosticsOptIn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// TestDoCommandArmStreamingDiagnosticsDisabled checks that diagnostics_window_secs: 0 starts a
-// session with no diagnostics, so opting in to last_window_details yields nothing.
+// TestDoCommandArmStreamingDiagnosticsDisabled checks that diagnostics_window_secs: 0 disables
+// retention of last_window_details, so requesting it errors rather than silently coming back
+// empty.
 func TestDoCommandArmStreamingDiagnosticsDisabled(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
@@ -163,10 +164,11 @@ func TestDoCommandArmStreamingDiagnosticsDisabled(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": true}})
+	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": true}})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
 	test.That(t, err, test.ShouldBeNil)
-	_, hasDetails := resp["last_window_details"]
-	test.That(t, hasDetails, test.ShouldBeFalse)
 	test.That(t, resp["running"], test.ShouldEqual, true)
 
 	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})

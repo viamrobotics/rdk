@@ -31,9 +31,6 @@ func New(window time.Duration) *SingleSessionDiagnostics {
 
 // RecordReceivedJointPositionTargetEvent records the arrival of one joint position target.
 func (t *SingleSessionDiagnostics) RecordReceivedJointPositionTargetEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordJointPositionTargetReceivedEvent()
 	t.stats.recordJointPositionTargetReceived()
@@ -42,9 +39,6 @@ func (t *SingleSessionDiagnostics) RecordReceivedJointPositionTargetEvent() {
 
 // RecordArmRunway records one reading of the estimated arm-side runway.
 func (t *SingleSessionDiagnostics) RecordArmRunway(runway time.Duration) {
-	if t == nil {
-		return
-	}
 	ms := float64(runway.Microseconds()) / 1000.0
 	t.mu.Lock()
 	t.details.recordArmRunway(ms)
@@ -54,9 +48,6 @@ func (t *SingleSessionDiagnostics) RecordArmRunway(runway time.Duration) {
 
 // RecordTrajexSessionOpenEvent records the trajex session opening.
 func (t *SingleSessionDiagnostics) RecordTrajexSessionOpenEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordTrajexSessionOpenEvent()
 	t.mu.Unlock()
@@ -64,9 +55,6 @@ func (t *SingleSessionDiagnostics) RecordTrajexSessionOpenEvent() {
 
 // RecordTrajexSessionCloseEvent records the trajex session closing.
 func (t *SingleSessionDiagnostics) RecordTrajexSessionCloseEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordTrajexSessionCloseEvent()
 	t.mu.Unlock()
@@ -74,9 +62,6 @@ func (t *SingleSessionDiagnostics) RecordTrajexSessionCloseEvent() {
 
 // RecordArmStreamOpenEvent records the arm stream RPC opening.
 func (t *SingleSessionDiagnostics) RecordArmStreamOpenEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordArmStreamOpenEvent()
 	t.mu.Unlock()
@@ -84,9 +69,6 @@ func (t *SingleSessionDiagnostics) RecordArmStreamOpenEvent() {
 
 // RecordArmStreamCloseEvent records the arm stream RPC closing.
 func (t *SingleSessionDiagnostics) RecordArmStreamCloseEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordArmStreamCloseEvent()
 	t.mu.Unlock()
@@ -94,9 +76,6 @@ func (t *SingleSessionDiagnostics) RecordArmStreamCloseEvent() {
 
 // RecordTrajexExtendLatency records the duration of one trajex Extend call that began at start.
 func (t *SingleSessionDiagnostics) RecordTrajexExtendLatency(start time.Time, d time.Duration) {
-	if t == nil {
-		return
-	}
 	ms := float64(d.Microseconds()) / 1000.0
 	t.mu.Lock()
 	t.details.recordTrajexExtendLatency(unixMillisFloat(start), ms)
@@ -106,9 +85,6 @@ func (t *SingleSessionDiagnostics) RecordTrajexExtendLatency(start time.Time, d 
 
 // RecordSendToArmLatency records the duration of one batch send to the arm RPC that began at start.
 func (t *SingleSessionDiagnostics) RecordSendToArmLatency(start time.Time, d time.Duration) {
-	if t == nil {
-		return
-	}
 	ms := float64(d.Microseconds()) / 1000.0
 	t.mu.Lock()
 	t.details.recordSendToArmLatency(unixMillisFloat(start), ms)
@@ -121,9 +97,6 @@ func (t *SingleSessionDiagnostics) RecordSampledPVAT(
 	positionsRad, velocitiesRadPerSec, accelerationsRadPerSec2 []float64,
 	trajectoryTime time.Duration,
 ) {
-	if t == nil {
-		return
-	}
 	// Converted from radians to degrees because the vel/accel limits are prescribed in
 	// degrees, so the recorded values read directly against them.
 	jointDeg := make([]float64, len(positionsRad))
@@ -153,9 +126,6 @@ func (t *SingleSessionDiagnostics) RecordSampledPVAT(
 
 // LastWindowDetails returns a copy of the retained window.
 func (t *SingleSessionDiagnostics) LastWindowDetails() SingleSessionLastWindowDetails {
-	if t == nil {
-		return SingleSessionLastWindowDetails{}
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.details.pruneBefore(unixMillisFloat(time.Now()) - t.details.windowMs)
@@ -175,9 +145,6 @@ func (t *SingleSessionDiagnostics) LastWindowDetails() SingleSessionLastWindowDe
 
 // Stats returns the session's whole-run aggregates.
 func (t *SingleSessionDiagnostics) Stats() SingleSessionStats {
-	if t == nil {
-		return SingleSessionStats{}
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return SingleSessionStats{
