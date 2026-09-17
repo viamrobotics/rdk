@@ -96,6 +96,9 @@ nextFrame:
 
 		// We succeeded in straight-line interpolating `frameToModify`. Walk over the `acc`umulated
 		// modifications and write them back into the input `steps`.
+		//
+		// We must do this before running another experiment. As changing the path of one arm may
+		// result in less smoothing available for the next.
 		for accIdx, accStep := range acc {
 			stepTargetIdx := start + accIdx + 1
 			steps[stepTargetIdx].Put(frameToModify, accStep)
