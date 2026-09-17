@@ -79,9 +79,6 @@ func TestSmoothMultiArms(t *testing.T) {
 	idle, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "idle")
 	test.That(t, err, test.ShouldBeNil)
 
-	mount, err := referenceframe.NewStaticFrame("idle-mount", spatialmath.NewPoseFromPoint(r3.Vector{X: 2000}))
-	test.That(t, err, test.ShouldBeNil)
-
 	req.StartState = NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": startJoints})
 	req.Goals = []*PlanState{NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": goalJoints})}
 
@@ -93,11 +90,16 @@ func TestSmoothMultiArms(t *testing.T) {
 	traj := plan.Trajectory()
 	test.That(t, len(traj), test.ShouldBeGreaterThanOrEqualTo, 3)
 
-	// Alter the framesystem to include a new arm.
-	err = fs.AddFrame(mount, fs.World())
+	// Create a frame for mounting the idle frame that's far from the original arm. Such that they
+	// are obviously isolated.
+	idleMount, err := referenceframe.NewStaticFrame("idle-mount", spatialmath.NewPoseFromPoint(r3.Vector{X: 2000}))
 	test.That(t, err, test.ShouldBeNil)
 
-	err = fs.AddFrame(idle, mount)
+	// Alter the framesystem to include a new arm.
+	err = fs.AddFrame(idleMount, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	err = fs.AddFrame(idle, idleMount)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Also rebuild the plan request and contexts to include this arm's start/end states.
@@ -146,6 +148,8 @@ func TestSmoothMultiArms(t *testing.T) {
 			test.That(t, step.Get("idle"), test.ShouldResemble, unnecessaryStep)
 		}
 	}
+
+	logger.Info("To smooth:", smoothingFails)
 
 	// Rename the variable for legitibility -- the function modifies in place.
 	smoothingSucceeds := smoothingFails
