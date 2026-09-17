@@ -3,6 +3,7 @@ package mpserver
 import (
 	"context"
 	"errors"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -41,6 +42,10 @@ type IKInspectCell struct {
 	CheckPathFeedback armplanning.PathFeedback
 }
 
+// limitSeedPoint bounds random restarts on joints with infinite limits. Mirrors
+// ik.defaultLimitSeedPoint, which is unexported.
+const limitSeedPoint = 999
+
 //nolint:revive
 type IKInspectTable struct {
 	SeedResults [][]IKInspectCell
@@ -71,8 +76,6 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		return nil, err
 	}
 
-	//nolint: gosec
-	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
 	ikMinimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))
 
 	sss, err := armplanning.NewSolutionSolvingState(ctx, psc, logger)
@@ -80,57 +83,55 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		return nil, err
 	}
 
+	//nolint: gosec
+	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
+	errs := make([]error, len(sss.LinearSeeds))
+
 	var ret IKInspectTable
 	ret.SeedLabels = sss.SeedDescriptions
 	ret.SeedResults = make([][]IKInspectCell, len(sss.LinearSeeds))
-	seedErrs := make([]error, len(sss.LinearSeeds))
-
-	// Each goroutine owns one index of SeedResults and seedErrs, so neither needs a lock.
-	var wg sync.WaitGroup
+	wg := sync.WaitGroup{}
 	for seedIdx, seed := range sss.LinearSeeds {
-		seeds := [][]float64{seed}
-		limits := [][]referenceframe.Limit{sss.SeedLimits[seedIdx]}
-		seedInt := randSeed.Int()
+		limits := sss.SeedLimits[seedIdx]
+		solver, err := ik.CreateNloptSolver(logger, -1, true, true, time.Second)
+		if err != nil {
+			errs[seedIdx] = err
+			break
+		}
+		// Drawn here so restart streams follow seed order rather than goroutine scheduling, and so
+		// no two goroutines share a *rand.Rand.
+		//nolint: gosec
+		seedRand := rand.New(rand.NewSource(int64(randSeed.Int())))
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			// A solver per seed: a NloptIK's *rand.Rand is single-goroutine within a NloptIK.
-			solver, err := ik.CreateNloptSolver(logger, -1, true, true, time.Second)
-			if err != nil {
-				seedErrs[seedIdx] = err
-				return
-			}
+			// SolveOnce has no internal budget the way Solve does, so a seed that cannot reach the
+			// goal would retry forever.
+			seedCtx, cancel := context.WithTimeout(ctx, time.Second)
+			defer cancel()
 
-			retChan := make(chan *ik.Solution, numSolutions)
-			ctxWithCancel, cancel := context.WithCancel(ctx)
-			go func() {
-				defer close(retChan)
-				//nolint: errcheck
-				_, _, _ = solver.Solve(ctxWithCancel, retChan, nil,
-					seeds, limits, ikMinimizingFunc, seedInt)
-			}()
-
-			defer func() {
-				cancel()
-				for range retChan {
-				}
-			}()
+			// SolveOnce optimizes from exactly the configuration it is handed, so the random
+			// restarts Solve does internally have to happen here: the seed first, then random
+			// configurations. Without them every attempt re-derives the same solution.
+			attempt := seed
 
 			cells := make([]IKInspectCell, 0, numSolutions)
-			for len(cells) < numSolutions {
-				solution, ok := <-retChan
-				if !ok {
+			for len(cells) < numSolutions && seedCtx.Err() == nil {
+				solution, err := solver.SolveOnce(seedCtx, ikMinimizingFunc, attempt, limits)
+				attempt = randomConfiguration(seedRand, limits)
+				if err != nil {
+					// An attempt that misses the goal threshold is ordinary rather than fatal;
+					// Solve would simply have retried from the next random seed.
+					continue
+				}
+
+				inputs, err := linearSchema.FloatsToInputs(solution)
+				if err != nil {
+					errs[seedIdx] = err
 					break
 				}
-
-				inputs, err := linearSchema.FloatsToInputs(solution.Configuration)
-				if err != nil {
-					seedErrs[seedIdx] = err
-					return
-				}
-
 				_, finalStateErr := psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 					Configuration: inputs,
 					FS:            req.FrameSystem,
@@ -146,8 +147,10 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 				}
 				cells = append(cells, IKInspectCell{
 					Cost: pc.ConfigurationDistanceFunc(stepArc) +
-						armplanning.NeutralBias(linearSchema.GetLimits(), solution.Configuration),
-					Exact:             solution.Exact,
+						armplanning.NeutralBias(linearSchema.GetLimits(), solution),
+					// The solver is built with exact=true, so SolveOnce only returns
+					// configurations that already met the goal threshold.
+					Exact:             true,
 					Inputs:            inputs,
 					Valid:             finalStateErr == nil,
 					StateError:        finalStateErr,
@@ -157,19 +160,36 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 				})
 			}
 
-			// The solver stopped before producing numSolutions; keep the table rectangular.
 			for len(cells) < numSolutions {
 				cells = append(cells, IKInspectCell{Cost: -1.0})
 			}
-
 			ret.SeedResults[seedIdx] = cells
 		}()
 	}
+
 	wg.Wait()
 
-	if err := errors.Join(seedErrs...); err != nil {
+	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
 
 	return &ret, nil
+}
+
+// randomConfiguration samples uniformly within limits, mirroring the restart sampling Solve does
+// internally via ik.generateRandomPositions (unexported). Infinite bounds collapse to a finite
+// window so sampling stays meaningful.
+func randomConfiguration(randSeed *rand.Rand, limits []referenceframe.Limit) []float64 {
+	pos := make([]float64, len(limits))
+	for i, limit := range limits {
+		lower, upper := limit.Min, limit.Max
+		if math.IsInf(lower, -1) {
+			lower = -limitSeedPoint
+		}
+		if math.IsInf(upper, 1) {
+			upper = limitSeedPoint
+		}
+		pos[i] = randSeed.Float64()*math.Abs(upper-lower) + lower
+	}
+	return pos
 }
