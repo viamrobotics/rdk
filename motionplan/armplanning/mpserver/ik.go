@@ -3,7 +3,6 @@ package mpserver
 import (
 	"context"
 	"math/rand"
-	"sync"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -78,7 +77,6 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
 	ikMinimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))
-	retChan := make(chan *ik.Solution, 10)
 
 	sss, err := armplanning.NewSolutionSolvingState(ctx, psc, logger)
 	if err != nil {
@@ -88,29 +86,37 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 	var ret IKInspectTable
 	ret.SeedLabels = sss.SeedDescriptions
 	for seedIdx, seed := range sss.LinearSeeds {
+		retChan := make(chan *ik.Solution, numSolutions)
+		seedInt := randSeed.Int()
+
 		seeds := [][]float64{seed}
 		limits := [][]referenceframe.Limit{sss.SeedLimits[seedIdx]}
 
 		ctxWithCancel, cancel := context.WithCancel(ctx)
-		wg := sync.WaitGroup{}
-		wg.Add(1)
 		go func() {
+			defer close(retChan)
 			//nolint: errcheck
 			_, _, _ = solver.Solve(ctxWithCancel, retChan, nil,
-				seeds, limits, ikMinimizingFunc, randSeed.Int())
-			cancel()
-			wg.Done()
+				seeds, limits, ikMinimizingFunc, seedInt)
 		}()
 
-		rowIdx := len(ret.SeedResults)
-		ret.SeedResults = append(ret.SeedResults, make([]IKInspectCell, 0, numSolutions))
-		cells := &ret.SeedResults[rowIdx]
-		for len(ret.SeedResults[rowIdx]) < numSolutions {
-			select {
-			case <-ctxWithCancel.Done():
-				// Solver error
-				*cells = append(*cells, IKInspectCell{Cost: -1.0})
-			case solution := <-retChan:
+		cells, err := func() ([]IKInspectCell, error) {
+			// The next seed reuses `solver`, whose *rand.Rand is single-goroutine within a
+			// NloptIK, so this goroutine has to be joined before the loop moves on. Draining to
+			// the close is the join: the solver closes retChan once Solve has returned.
+			defer func() {
+				cancel()
+				for range retChan {
+				}
+			}()
+
+			cells := make([]IKInspectCell, 0, numSolutions)
+			for len(cells) < numSolutions {
+				solution, ok := <-retChan
+				if !ok {
+					break
+				}
+
 				inputs, err := linearSchema.FloatsToInputs(solution.Configuration)
 				if err != nil {
 					return nil, err
@@ -129,7 +135,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 					EndConfiguration:   inputs,
 					FS:                 req.FrameSystem,
 				}
-				*cells = append(*cells, IKInspectCell{
+				cells = append(cells, IKInspectCell{
 					Cost: pc.ConfigurationDistanceFunc(stepArc) +
 						armplanning.NeutralBias(linearSchema.GetLimits(), solution.Configuration),
 					Exact:             solution.Exact,
@@ -141,8 +147,18 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 					CheckPathFeedback: pathFeedback,
 				})
 			}
+
+			// The solver stopped before producing numSolutions; keep the table rectangular.
+			for len(cells) < numSolutions {
+				cells = append(cells, IKInspectCell{Cost: -1.0})
+			}
+			return cells, nil
+		}()
+		if err != nil {
+			return nil, err
 		}
-		cancel()
+
+		ret.SeedResults = append(ret.SeedResults, cells)
 	}
 
 	return &ret, nil
