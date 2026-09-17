@@ -324,7 +324,7 @@ func (ms *builtIn) PlanHistory(
 //	                 "send_to_arm_interval_ms": 10,
 //	                 "vel_limit_deg_per_sec": 10,
 //	                 "accel_limit_deg_per_sec2": 10,
-//	                 "diagnostics_window_ms": 60000     // 0 disables diagnostics
+//	                 "diagnostics_window_secs": 60       // 0 disables diagnostics
 //	               }
 //	             }}
 //	  response: {"ok": 1}
