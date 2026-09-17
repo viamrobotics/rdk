@@ -133,6 +133,7 @@ const (
 	mlTrainingFlagURL              = "url"
 	mlTrainingFlagContainerVersion = "container-version"
 	mlTrainingFlagIncludeURIs      = "include-uris"
+	mlRegisterContainersImageURI   = "uri"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2263,20 +2264,19 @@ Note: There is no progress meter while copying is in progress.
 							Usage:     "registers a custom container for custom training",
 							UsageText: createUsageText("train containers register", nil, false, false),
 							Flags: []cli.Flag{
-								&cli.BoolFlag{
-									Name:  "organization_id",
-									Usage: "Organization ID of the container",
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Usage:    "organization ID that will own the container",
 									Required: true,
 								},
-								&cli.BoolFlag{
-									Name:  "image",
-									Usage: "Docker image URI of the container",
+								&cli.StringFlag{
+									Name:     mlRegisterContainersImageURI,
+									Usage:    "docker image URI of the container",
 									Required: true,
 								},
-								&cli.BoolFlag{
-									Name:  "description",
-									Usage: "Defaults to image name if not provided",
-									Required: false,
+								&cli.StringFlag{
+									Name:  mlTrainingFlagDescription,
+									Usage: "defaults to the image URI if not provided",
 								},
 							},
 							Action: createActionCommandWithT[registerCustomContainersArgs](RegisterCustomContainer),

@@ -152,10 +152,8 @@ type prettyPrintContainer struct {
 	Description string
 	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
-	OrgID       string
-	Role        string 
 	CreatedOn   string `json:",omitempty"`
-} 
+}
 
 // MLListContainers is the corresponding action for 'train containers'.
 func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContainersArgs) error {
@@ -192,25 +190,35 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 }
 
 type registerCustomContainersArgs struct {
-	OrganizationID string 
-	ImageURI string
+	OrgID       string
+	ImageURI    string
 	Description string
 }
 
-func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registerCustomContainersArgs) (error) {
+// RegisterCustomContainer is the corresponding action for 'train containers register'.
+func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registerCustomContainersArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.mlTrainingClient.
-	RegisterCustomTrainingContainer(ctx, &mltrainingpb.
-		RegisterCustomTrainingContainerRequest{OrganizationId: args.OrganizationID, ImageUri: args.ImageURI, Description: args.Description})
-	
-	if (err != nil) {
-		print("Container successfully registered. Its ID is ", resp.Id)
+	description := args.Description
+	if description == "" {
+		description = args.ImageURI
 	}
-	return err
+
+	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
+		&mltrainingpb.RegisterCustomTrainingContainerRequest{
+			OrganizationId: args.OrgID,
+			ImageUri:       args.ImageURI,
+			Description:    description,
+		})
+	if err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "Container successfully registered. Its ID is %s", resp.Id)
+	return nil
 }
 
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
