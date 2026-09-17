@@ -137,7 +137,9 @@ func TestSmoothMultiArms(t *testing.T) {
 		trajAsLinearInputs[trajIdx] = fsi.ToLinearInputs()
 	}
 
+	logger.Info("OrigTraj:", trajAsLinearInputs)
 	smoothingFails := smoothPathSimple(ctx, psc, trajAsLinearInputs)
+	logger.Info("Incomplete smooth:", smoothingFails)
 	for stepIdx, step := range smoothingFails {
 		// The above call may have removed some waypoints as the moving arm did not need
 		// them. However, the idle arm will continue to go through its existing unnecessary
@@ -148,8 +150,6 @@ func TestSmoothMultiArms(t *testing.T) {
 			test.That(t, step.Get("idle"), test.ShouldResemble, unnecessaryStep)
 		}
 	}
-
-	logger.Info("To smooth:", smoothingFails)
 
 	// Rename the variable for legitibility -- the function modifies in place.
 	smoothingSucceeds := smoothingFails
