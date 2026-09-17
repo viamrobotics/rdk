@@ -1,0 +1,78 @@
+name: Windows Native Spike
+
+# THROWAWAY -- DELETE THIS FILE, NEVER MERGE TO MAIN.
+#
+# Answers two questions that decide whether the Windows release build should
+# move off the Zig cross-compile and onto a native Windows runner:
+#   1. Does viam-server build natively on Windows with the MSYS2 toolchain?
+#   2. Can --dump-resources run against the real binary? If so the
+#      viam_windows_resource_dump build tag can be deleted, because the
+#      manifest would come from the shipped artifact rather than a Linux
+#      stand-in.
+#
+# Deliberately stops at build + dump. Adding signing or GCS uploads would make
+# this the real migration instead of a spike.
+on:
+  push:
+    branches: [ 'ggottlob/windows-native-spike' ]
+
+permissions:
+  contents: read
+
+jobs:
+  spike:
+    name: Native Windows build + resource dump
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Windows runners ship MSYS2 but leave mingw64 off PATH.
+      - name: Add MSYS2 mingw64 to PATH
+        shell: bash
+        run: echo "C:\msys64\mingw64\bin" >> $GITHUB_PATH
+
+      # Fails loudly here rather than inside the build if the image moved things.
+      - name: Show toolchain
+        shell: bash
+        run: |
+          which gcc g++
+          gcc --version
+          g++ --version
+          go version
+
+      - name: Build viam-server natively
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+          CC: gcc
+          CXX: g++
+          # mingw links libstdc++/libgcc dynamically by default, which would
+          # leave the .exe needing DLLs absent from a stock Windows machine.
+          CGO_LDFLAGS: "-static -static-libgcc -static-libstdc++"
+        run: |
+          go build -tags no_cgo -o viam-server.exe ./web/cmd/server
+          ls -la viam-server.exe
+
+      # The point of the spike: enumerate models from the real binary instead
+      # of from a Linux build impersonating it. grep is the assertion -- if the
+      # webcam is missing it exits non-zero and the job goes red.
+      - name: Dump resources from the real binary
+        shell: bash
+        run: |
+          ./viam-server.exe --dump-resources win-resources.json
+          echo "--- webcam registration ---"
+          grep -o '"model": "[^"]*webcam"' win-resources.json
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-spike
+          path: |
+            viam-server.exe
+            win-resources.json
