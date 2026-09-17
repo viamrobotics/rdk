@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -138,6 +139,13 @@ func (pm *planManager) planToDirectJoints(
 	goalPoses, err := goal.ComputePoses(ctx, pm.pc.fs)
 	if err != nil {
 		return nil, err
+	}
+
+	for goalFrame := range goalPoses {
+		goalConfig, exists := goal.structuredConfiguration[goalFrame]
+		if exists && slices.Equal(goalConfig, start.Get(goalFrame)) {
+			delete(goalPoses, goalFrame)
+		}
 	}
 
 	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
