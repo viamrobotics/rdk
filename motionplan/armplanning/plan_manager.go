@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -138,6 +139,17 @@ func (pm *planManager) planToDirectJoints(
 	goalPoses, err := goal.ComputePoses(ctx, pm.pc.fs)
 	if err != nil {
 		return nil, err
+	}
+
+	// Remove actuator frames where there was an explicit configuration goal, but the actuator was
+	// already in that configuration. We treat that frame as "pinned". This results in the motion
+	// chains omitting the "pinned" acuator. Hiding those degrees of freedom when dropping into
+	// cbirrt.
+	for goalFrame := range goalPoses {
+		goalConfig, exists := goal.structuredConfiguration[goalFrame]
+		if exists && slices.Equal(goalConfig, start.Get(goalFrame)) {
+			delete(goalPoses, goalFrame)
+		}
 	}
 
 	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
