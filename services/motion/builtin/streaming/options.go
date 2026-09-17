@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 
-	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 )
 
 const (
@@ -16,12 +16,6 @@ const (
 	defaultAccelLimitDegPerSec2  = 10.0
 	defaultDiagnosticsWindowSecs = 60
 )
-
-// JointPositionsChItem is one joint-space waypoint.
-type JointPositionsChItem struct {
-	// Positions are the target joint positions for this waypoint.
-	Positions []referenceframe.Input
-}
 
 // StreamOptions tunes the streaming executor.
 type StreamOptions struct {
@@ -67,6 +61,27 @@ func (o *StreamOptions) Validate() error {
 		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")
 	}
 	return nil
+}
+
+// From populates o from opts, starting at NewDefaultOptions() and overriding whichever fields
+// opts sets; a nil field selects the default instead.
+func (o *StreamOptions) From(opts motion.StreamOptions) {
+	*o = NewDefaultOptions()
+	if opts.TargetRunwayInArmMs != nil {
+		o.TargetRunwayInArmMs = int(*opts.TargetRunwayInArmMs)
+	}
+	if opts.SendToArmIntervalMs != nil {
+		o.SendToArmIntervalMs = int(*opts.SendToArmIntervalMs)
+	}
+	if opts.VelLimitDegPerSec != nil {
+		o.VelLimitDegPerSec = *opts.VelLimitDegPerSec
+	}
+	if opts.AccelLimitDegPerSec2 != nil {
+		o.AccelLimitDegPerSec2 = *opts.AccelLimitDegPerSec2
+	}
+	if opts.DiagnosticsWindowMs != nil {
+		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowMs) / 1000
+	}
 }
 
 // NewDefaultOptions returns StreamOptions with every field set to its default.

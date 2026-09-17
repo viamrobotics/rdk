@@ -34,7 +34,7 @@ func Run(
 	ctx context.Context,
 	a arm.Arm,
 	opts StreamOptions,
-	jpCh <-chan JointPositionsChItem,
+	jpCh <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diagnostics *diagnostics.SingleSessionDiagnostics,
 ) (err error) {
@@ -101,7 +101,7 @@ func Run(
 			diagnostics.RecordReceivedJointPositionTargetEvent()
 
 			// Add the new joint positions to the trajex session.
-			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
+			if err := ts.addJointPositionsToSession(ctx, jp); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 

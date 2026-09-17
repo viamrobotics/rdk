@@ -2,10 +2,15 @@ package motion
 
 import (
 	"context"
+	"errors"
+	"io"
+	"sync"
 
 	"github.com/google/uuid"
+	armpb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	pb "go.viam.com/api/service/motion/v1"
+	goutils "go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
@@ -189,6 +194,102 @@ func (c *client) PlanHistory(
 		return nil, err
 	}
 	return append([]PlanWithStatus{pws}, statusHistory...), nil
+}
+
+// StreamArmJointPositions implements motion.Service over the StreamArmJointPositions bidi RPC.
+func (c *client) StreamArmJointPositions(
+	ctx context.Context,
+	armName string,
+	opts StreamOptions,
+	targets <-chan []referenceframe.Input,
+	extra map[string]interface{},
+) error {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
+	// We open the stream under a context we can cancel, so one cancel() both tears the gRPC
+	// stream down and tells the send goroutine to quit. We lean on that when the recv loop
+	// finishes: without it, the send goroutine could sit forever waiting on a caller who never
+	// closes targets.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := c.client.StreamArmJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.Send(&pb.StreamArmJointPositionsRequest{
+		Name: c.name,
+		Message: &pb.StreamArmJointPositionsRequest_Init_{
+			Init: &pb.StreamArmJointPositionsRequest_Init{
+				ComponentName: armName,
+				Options:       streamOptionsToProto(opts),
+				Extra:         ext,
+			},
+		},
+	}); err != nil {
+		return err
+	}
+
+	// Feed the caller's targets onto the wire, one Targets message per waypoint. Batching several
+	// waypoints per wire message is a wire-efficiency optimization that can be added later if
+	// needed; this keeps the translation simple for now.
+	var sendErr error
+	var sendOnce sync.Once
+	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
+	sendDone := make(chan struct{})
+	goutils.PanicCapturingGo(func() {
+		defer close(sendDone)
+		for {
+			select {
+			case <-ctx.Done():
+				setSendErr(ctx.Err())
+				return
+			case t, ok := <-targets:
+				if !ok {
+					if err := stream.CloseSend(); err != nil {
+						setSendErr(err)
+					}
+					return
+				}
+				if err := stream.Send(&pb.StreamArmJointPositionsRequest{
+					Message: &pb.StreamArmJointPositionsRequest_Targets_{
+						Targets: &pb.StreamArmJointPositionsRequest_Targets{
+							Positions: []*armpb.JointPositions{jointPositionsToProto(t)},
+						},
+					},
+				}); err != nil {
+					setSendErr(err)
+					return
+				}
+			}
+		}
+	})
+
+	// Back on the calling goroutine, read the response stream to completion. The responses carry
+	// no data; we read only to learn the RPC's terminal status, which arrives on the next Recv()
+	// after the server ends the stream.
+	var recvErr error
+	for {
+		if _, err := stream.Recv(); err != nil {
+			if !errors.Is(err, io.EOF) {
+				recvErr = err
+			}
+			break
+		}
+	}
+	// Tear the stream down and wake the send goroutine, which may still be parked waiting on
+	// targets.
+	cancel()
+	<-sendDone
+
+	if recvErr != nil {
+		return recvErr
+	}
+	return sendErr
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
