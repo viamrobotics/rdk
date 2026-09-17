@@ -191,43 +191,26 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 }
 
 type mlDeleteContainerArgs struct {
-	OrgID string
-	Key   string
+	ID string
 }
 
-// MLDeleteContainer is the corresponding action for 'train containers delete'. The delete RPC takes
-// an opaque container ID rather than an org/key pair, so this resolves the given key to its ID via
-// ListSupportedContainers first.
+// MLDeleteContainer is the corresponding action for 'train containers delete'.
 func MLDeleteContainer(ctx context.Context, cmd *cli.Command, args mlDeleteContainerArgs) error {
-	if args.OrgID == "" {
-		return errors.New("must provide an organization ID to delete a custom training container")
-	}
-	if args.Key == "" {
-		return errors.New("must provide the key of the container to delete")
+	if args.ID == "" {
+		return errors.New("must provide the ID of the container to delete")
 	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{OrganizationId: args.OrgID},
-	)
-	if err != nil {
-		return err
-	}
-	container, ok := supportedContainers.GetContainerMap()[args.Key]
-	if !ok {
-		return fmt.Errorf("no container with key %q found for org %q", args.Key, args.OrgID)
-	}
-
 	_, err = client.mlTrainingClient.DeleteCustomTrainingContainer(context.Background(), &mltrainingpb.DeleteCustomTrainingContainerRequest{
-		Id: container.GetId(),
+		Id: args.ID,
 	})
 	if err != nil {
 		return err
 	}
-	printf(cmd.Root().Writer, "Deleted container %q", args.Key)
+	printf(cmd.Root().Writer, "Deleted container %q", args.ID)
 	return nil
 }
 
