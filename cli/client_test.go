@@ -2539,6 +2539,7 @@ func TestTunnelTrafficLocalPortInUse(t *testing.T) {
 	// (net.Listen("tcp", "localhost:PORT")). Using ReserveRandomPort (which binds to
 	// 0.0.0.0) does not conflict on dual-stack macOS/Windows where localhost resolves
 	// to the IPv6 loopback.
+	//nolint:noctx
 	li, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
