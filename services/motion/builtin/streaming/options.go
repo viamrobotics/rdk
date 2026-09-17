@@ -79,8 +79,8 @@ func (o *StreamOptions) From(opts motion.StreamOptions) {
 	if opts.AccelLimitDegPerSec2 != nil {
 		o.AccelLimitDegPerSec2 = *opts.AccelLimitDegPerSec2
 	}
-	if opts.DiagnosticsWindowMs != nil {
-		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowMs) / 1000
+	if opts.DiagnosticsWindowSecs != nil {
+		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowSecs)
 	}
 }
 

@@ -154,8 +154,8 @@ func TestStreamArmJointPositionsStatusDiagnosticsOptIn(t *testing.T) {
 	defer cancel()
 
 	opts := streamTestOptions()
-	diagWindow := int32(60_000)
-	opts.DiagnosticsWindowMs = &diagWindow
+	diagWindow := int32(60)
+	opts.DiagnosticsWindowSecs = &diagWindow
 	targets := make(chan []referenceframe.Input)
 	errCh := make(chan error, 1)
 	go func() { errCh <- ms.StreamArmJointPositions(ctx, "arm", opts, targets, nil) }()
@@ -190,7 +190,7 @@ func TestStreamArmJointPositionsDiagnosticsDisabled(t *testing.T) {
 
 	opts := streamTestOptions()
 	diagWindow := int32(0)
-	opts.DiagnosticsWindowMs = &diagWindow
+	opts.DiagnosticsWindowSecs = &diagWindow
 	targets := make(chan []referenceframe.Input)
 	errCh := make(chan error, 1)
 	go func() { errCh <- ms.StreamArmJointPositions(ctx, "arm", opts, targets, nil) }()

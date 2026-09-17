@@ -429,9 +429,10 @@ type StreamOptions struct {
 	// AccelLimitDegPerSec2 is the acceleration limit, in degrees/sec^2, applied to every joint.
 	// If unset, the implementation applies its own default.
 	AccelLimitDegPerSec2 *float64
-	// DiagnosticsWindowMs is the size (in ms) of the rolling window used to compute session
-	// diagnostics.
-	DiagnosticsWindowMs *int32
+	// DiagnosticsWindowSecs is the size (in seconds) of the rolling window used to compute
+	// session diagnostics. A non-positive value disables retention of that window's detail;
+	// whole-run diagnostic stats are still collected regardless.
+	DiagnosticsWindowSecs *int32
 }
 
 // ObstacleDetectorName pairs a vision service name with a camera name.

@@ -410,11 +410,11 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 // straight across: both sides use a nil pointer to mean "use the implementation's default."
 func streamOptionsToProto(o StreamOptions) *pb.StreamOptions {
 	return &pb.StreamOptions{
-		TargetRunwayInArmMs:  o.TargetRunwayInArmMs,
-		SendToArmIntervalMs:  o.SendToArmIntervalMs,
-		VelLimitDegPerSec:    o.VelLimitDegPerSec,
-		AccelLimitDegPerSec2: o.AccelLimitDegPerSec2,
-		DiagnosticsWindowMs:  o.DiagnosticsWindowMs,
+		TargetRunwayInArmMs:   o.TargetRunwayInArmMs,
+		SendToArmIntervalMs:   o.SendToArmIntervalMs,
+		VelLimitDegPerSec:     o.VelLimitDegPerSec,
+		AccelLimitDegPerSec2:  o.AccelLimitDegPerSec2,
+		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
 	}
 }
 
@@ -424,11 +424,11 @@ func streamOptionsFromProto(o *pb.StreamOptions) StreamOptions {
 		return StreamOptions{}
 	}
 	return StreamOptions{
-		TargetRunwayInArmMs:  o.TargetRunwayInArmMs,
-		SendToArmIntervalMs:  o.SendToArmIntervalMs,
-		VelLimitDegPerSec:    o.VelLimitDegPerSec,
-		AccelLimitDegPerSec2: o.AccelLimitDegPerSec2,
-		DiagnosticsWindowMs:  o.DiagnosticsWindowMs,
+		TargetRunwayInArmMs:   o.TargetRunwayInArmMs,
+		SendToArmIntervalMs:   o.SendToArmIntervalMs,
+		VelLimitDegPerSec:     o.VelLimitDegPerSec,
+		AccelLimitDegPerSec2:  o.AccelLimitDegPerSec2,
+		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
 	}
 }
 
