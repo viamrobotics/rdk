@@ -2,7 +2,9 @@ package mpserver
 
 import (
 	"context"
+	"errors"
 	"math/rand"
+	"sync"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -69,11 +71,6 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		return nil, err
 	}
 
-	solver, err := ik.CreateNloptSolver(logger, -1, true, true, time.Second)
-	if err != nil {
-		return nil, err
-	}
-
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
 	ikMinimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))
@@ -85,25 +82,36 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 
 	var ret IKInspectTable
 	ret.SeedLabels = sss.SeedDescriptions
-	for seedIdx, seed := range sss.LinearSeeds {
-		retChan := make(chan *ik.Solution, numSolutions)
-		seedInt := randSeed.Int()
+	ret.SeedResults = make([][]IKInspectCell, len(sss.LinearSeeds))
+	seedErrs := make([]error, len(sss.LinearSeeds))
 
+	// Each goroutine owns one index of SeedResults and seedErrs, so neither needs a lock.
+	var wg sync.WaitGroup
+	for seedIdx, seed := range sss.LinearSeeds {
 		seeds := [][]float64{seed}
 		limits := [][]referenceframe.Limit{sss.SeedLimits[seedIdx]}
+		seedInt := randSeed.Int()
 
-		ctxWithCancel, cancel := context.WithCancel(ctx)
+		wg.Add(1)
 		go func() {
-			defer close(retChan)
-			//nolint: errcheck
-			_, _, _ = solver.Solve(ctxWithCancel, retChan, nil,
-				seeds, limits, ikMinimizingFunc, seedInt)
-		}()
+			defer wg.Done()
 
-		cells, err := func() ([]IKInspectCell, error) {
-			// The next seed reuses `solver`, whose *rand.Rand is single-goroutine within a
-			// NloptIK, so this goroutine has to be joined before the loop moves on. Draining to
-			// the close is the join: the solver closes retChan once Solve has returned.
+			// A solver per seed: a NloptIK's *rand.Rand is single-goroutine within a NloptIK.
+			solver, err := ik.CreateNloptSolver(logger, -1, true, true, time.Second)
+			if err != nil {
+				seedErrs[seedIdx] = err
+				return
+			}
+
+			retChan := make(chan *ik.Solution, numSolutions)
+			ctxWithCancel, cancel := context.WithCancel(ctx)
+			go func() {
+				defer close(retChan)
+				//nolint: errcheck
+				_, _, _ = solver.Solve(ctxWithCancel, retChan, nil,
+					seeds, limits, ikMinimizingFunc, seedInt)
+			}()
+
 			defer func() {
 				cancel()
 				for range retChan {
@@ -119,7 +127,8 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 
 				inputs, err := linearSchema.FloatsToInputs(solution.Configuration)
 				if err != nil {
-					return nil, err
+					seedErrs[seedIdx] = err
+					return
 				}
 
 				_, finalStateErr := psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
@@ -152,13 +161,14 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 			for len(cells) < numSolutions {
 				cells = append(cells, IKInspectCell{Cost: -1.0})
 			}
-			return cells, nil
-		}()
-		if err != nil {
-			return nil, err
-		}
 
-		ret.SeedResults = append(ret.SeedResults, cells)
+			ret.SeedResults[seedIdx] = cells
+		}()
+	}
+	wg.Wait()
+
+	if err := errors.Join(seedErrs...); err != nil {
+		return nil, err
 	}
 
 	return &ret, nil
