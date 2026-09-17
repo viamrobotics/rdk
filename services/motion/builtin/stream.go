@@ -134,10 +134,7 @@ func (ms *builtIn) streamStart(
 		return fmt.Errorf("failed to read seed joint positions from %q: %w", armName, err)
 	}
 
-	var diag *diagnostics.SingleSessionDiagnostics
-	if opts.DiagnosticsWindowSecs > 0 {
-		diag = diagnostics.New(time.Duration(opts.DiagnosticsWindowSecs) * time.Second)
-	}
+	diag := diagnostics.New(time.Duration(opts.DiagnosticsWindowSecs) * time.Second)
 
 	streamCtx, cancel := context.WithCancel(context.Background())
 	s := &stream{
@@ -156,9 +153,7 @@ func (ms *builtIn) streamStart(
 		if err != nil {
 			s.logger.CWarnf(streamCtx, "arm streaming session ended with error: %v", err)
 		}
-		if s.diagnostics != nil {
-			s.logger.Infow("arm streaming session stats", "options", s.opts, "stats", s.diagnostics.Stats())
-		}
+		s.logger.Infow("arm streaming session stats", "options", s.opts, "stats", s.diagnostics.Stats())
 		close(s.done)
 	}()
 
@@ -240,11 +235,18 @@ func (ms *builtIn) streamAbort(ctx context.Context) map[string]any {
 	return status
 }
 
-func (ms *builtIn) streamStatus(includeLastWindowDetails bool) map[string]any {
+func (ms *builtIn) streamStatus(includeLastWindowDetails bool) (map[string]any, error) {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 	if ms.stream == nil {
-		return map[string]any{streamKeyRunning: false}
+		return map[string]any{streamKeyRunning: false}, nil
+	}
+
+	if includeLastWindowDetails && ms.stream.opts.DiagnosticsWindowSecs <= 0 {
+		return nil, fmt.Errorf(
+			"%s was requested but diagnostics_window_secs is not positive, so it is not being retained",
+			streamKeyLastWindowDetails,
+		)
 	}
 
 	finished := ms.stream.finished()
@@ -253,13 +255,13 @@ func (ms *builtIn) streamStatus(includeLastWindowDetails bool) map[string]any {
 		streamKeyArm:     ms.stream.armName,
 		streamKeyOptions: ms.stream.opts,
 	}
-	if includeLastWindowDetails && ms.stream.diagnostics != nil {
+	if includeLastWindowDetails {
 		status[streamKeyLastWindowDetails] = ms.stream.diagnostics.LastWindowDetails()
 	}
 	if finished && ms.stream.err != nil {
 		status[streamKeyError] = ms.stream.err.Error()
 	}
-	return status
+	return status, nil
 }
 
 func (ms *builtIn) handleStreamCommand(
@@ -301,7 +303,8 @@ func (ms *builtIn) handleStreamCommand(
 	}
 
 	if req, ok := cmd[DoStreamStatus]; ok {
-		return ms.streamStatus(parseIncludeLastWindowDetails(req)), true, nil
+		status, err := ms.streamStatus(parseIncludeLastWindowDetails(req))
+		return status, true, err
 	}
 
 	return nil, false, nil
