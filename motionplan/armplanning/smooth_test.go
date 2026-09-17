@@ -121,7 +121,7 @@ func TestSmoothMultiArms(t *testing.T) {
 	// unsmoothed motion that can benefit from smoothing.
 	unnecessaryStep := make([]referenceframe.Input, len(startJoints))
 	test.That(t, unnecessaryStep, test.ShouldNotResemble, startJoints)
-	for trajIdx, _ := range traj {
+	for trajIdx := range traj {
 		if trajIdx == 0 || trajIdx+1 == len(traj) {
 			// Declare that the idle arm starts and ends at the same position.
 			traj[trajIdx]["idle"] = startJoints
