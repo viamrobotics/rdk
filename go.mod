@@ -7,10 +7,6 @@ go 1.25.10
 // We fork this bc the stock version of this library is over 20mb.
 replace github.com/hashicorp/go-getter => github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a
 
-// TEMPORARY, local-dev only: points at the unreleased StreamArmJointPositions RPC.
-// Must be removed (and go.mod's go.viam.com/api version bumped) once api is tagged.
-replace go.viam.com/api => /Users/esha.maharishi/Documents/code/api
-
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.1
@@ -109,7 +105,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.28.0
-	go.viam.com/api v0.1.579
+	go.viam.com/api v0.1.581-0.20260917194612-271aacee6afc
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.12.2
 	goji.io v2.0.2+incompatible
