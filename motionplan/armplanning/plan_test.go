@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"testing"
-	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -22,6 +21,8 @@ import (
 )
 
 func TestJointGoalDetour(t *testing.T) {
+	ctx := context.Background()
+
 	fs, startJoints, goalJoints, req := nudgeBlockedScene(t)
 	idle, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "idle")
 	test.That(t, err, test.ShouldBeNil)
@@ -38,8 +39,6 @@ func TestJointGoalDetour(t *testing.T) {
 	req.StartState = NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": startJoints, "idle": startJoints})
 	req.Goals = []*PlanState{NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": goalJoints})}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
 	_, _, err = PlanMotion(ctx, logging.NewTestLogger(t), req)
 	test.That(t, err, test.ShouldBeNil)
 
