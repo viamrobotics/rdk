@@ -42,6 +42,21 @@ func TestJointGoalDetour(t *testing.T) {
 	defer cancel()
 	_, _, err = PlanMotion(ctx, logging.NewTestLogger(t), req)
 	test.That(t, err, test.ShouldBeNil)
+
+	req.StartState = NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": startJoints, "idle": startJoints})
+	req.Goals = []*PlanState{NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": goalJoints, "idle": startJoints})}
+
+	plan, _, err := PlanMotion(ctx, logging.NewTestLogger(t), req)
+	test.That(t, err, test.ShouldBeNil)
+
+	trajectory := plan.Trajectory()
+	test.That(t, len(trajectory), test.ShouldBeGreaterThanOrEqualTo, 3)
+
+	for _, step := range trajectory {
+		test.That(t, step["idle"], test.ShouldResemble, startJoints)
+	}
+
+	test.That(t, trajectory[len(trajectory)-1]["arm"], test.ShouldResemble, goalJoints)
 }
 
 func TestEvaluateTrajectory(t *testing.T) {

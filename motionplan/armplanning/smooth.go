@@ -32,6 +32,77 @@ func simpleSmoothStep(ctx context.Context, psc *PlanSegmentContext, steps []*ref
 	return steps
 }
 
+func smoothMultiArms(
+	ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs,
+) {
+	if len(psc.pc.movableFrames) == 1 {
+		return
+	}
+
+	start := 0
+	end := len(steps) - 1
+
+nextFrame:
+	for _, frameToModify := range psc.pc.movableFrames {
+		// For each frame run an experiment. We'll change the steps for the current `frameToModify`
+		// while leaving the rest as they are. We'll change each `frameToModify` to do a
+		// straight-line interpolation between the start and end step. To smooth out unnecessary 0
+		// -> 2 -> 1 movements. Or more critically, 0 -> 1 -> 0.
+		//
+		// These can arise when falling down to cbirrt to solve for one arm while a different arm
+		// didn't need cbirrt.
+		frameToModifyStartInps := steps[start].Get(frameToModify)
+		frameToModifyEndInps := steps[end].Get(frameToModify)
+		stepSize := make([]referenceframe.Input, len(frameToModifyStartInps))
+		for frameDoFIdx := range stepSize {
+			diff := (frameToModifyEndInps[frameDoFIdx] - frameToModifyStartInps[frameDoFIdx])
+			numSteps := float64(end - start)
+			stepSize[frameDoFIdx] = diff / numSteps
+		}
+
+		// `prev` keeps track of the "start" of the arm for each movement element in the `steps` trajectory.
+		prev := steps[start]
+
+		// `acc`umulate new candidates into a container. If the whole candidate path succeeds, this
+		// is used to craft the new trajectory.
+		acc := make([][]referenceframe.Input, 0, end-start-1)
+		for timeIdx := 1; timeIdx < len(steps); timeIdx++ {
+			tmpStep := steps[timeIdx].Copy()
+			for frameName := range tmpStep.Keys() {
+				if frameName != frameToModify {
+					continue
+				}
+
+				// `inpsAtStep` is a window over the underlying linear inputs. Assigning to this
+				// will modify our copy in place.
+				inpsAtStep := tmpStep.Get(frameName)
+				for jointIdx, startVal := range frameToModifyStartInps {
+					// The position of `jointIdx` at time `timeIdx` is the initial position plus the
+					// number of steps (time units) we've taken.
+					inpsAtStep[jointIdx] = startVal + (float64(timeIdx) * stepSize[jointIdx])
+				}
+				acc = append(acc, inpsAtStep)
+			}
+
+			err := psc.CheckPath(ctx, prev, tmpStep, true, nil)
+			if err != nil {
+				// Doing a straight-line interpolation for `frameToModify` failed. Leave this arm's
+				// path alone and try the next one.
+				continue nextFrame
+			}
+
+			prev = tmpStep
+		}
+
+		// We succeeded in straight-line interpolating `frameToModify`. Walk over the `acc`umulated
+		// modifications and write them back into the input `steps`.
+		for accIdx, accStep := range acc {
+			stepTargetIdx := start + accIdx + 1
+			steps[stepTargetIdx].Put(frameToModify, accStep)
+		}
+	}
+}
+
 // smoothProbeBudget caps the total number of coarse shortcut probes one
 // smoothing invocation may spend. Smoothing has diminishing returns - the
 // close-obstacle sweep afterwards validates whatever shape remains - and an
@@ -152,6 +223,12 @@ func smoothPath(
 	defer span.End()
 
 	compact = smoothPathSimple(ctx, psc, steps)
+	// The above smoothing does smaller straight-line interpolations for all inputs at once. In the
+	// case of multiple arms we can sometimes smooth one arm but not the other. This follow-up call
+	// handles a narrow branch of egregious cases.
+	//
+	// `compact` is modified in place.
+	smoothMultiArms(ctx, psc, compact)
 
 	if psc.pc.request.myTestOptions.doNotCloseObstacles {
 		return compact, compact, nil
