@@ -23,17 +23,72 @@ func ModelToProto(m Model) (*commonpb.KinematicModel, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("model %q has no configuration to convert", m.Name())
 	}
-	return ModelConfigToProto(cfg)
-}
-
-// ModelFromProto builds a model from the typed KinematicModel message. An empty name keeps the
-// name carried in the message.
-func ModelFromProto(pb *commonpb.KinematicModel, name string) (Model, error) {
-	cfg, err := ModelConfigFromProto(pb)
+	pb, err := ModelConfigToProto(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return cfg.ParseConfig(name)
+	// the parts of the model a v1 configuration cannot hold live on the SimpleModel itself
+	if sm, ok := m.(*SimpleModel); ok {
+		for _, joint := range pb.Joints {
+			if ul, ok := sm.userLimits[joint.GetId()]; ok {
+				joint.UserLimits = jointLimitsToProto(ul)
+			}
+		}
+		for _, link := range pb.Links {
+			if visual, ok := sm.visual[link.GetId()]; ok && len(visual) > 0 {
+				link.Visual = make([]*commonpb.Geometry, 0, len(visual))
+				for _, g := range visual {
+					if cloned, ok := proto.Clone(g).(*commonpb.Geometry); ok {
+						link.Visual = append(link.Visual, cloned)
+					}
+				}
+			}
+		}
+		pb.Properties = sm.KinematicProperties()
+		pb.Generation = sm.generation
+	}
+	return pb, nil
+}
+
+// ModelFromProto builds a model from the typed KinematicModel message. An empty name keeps the
+// name carried in the message. User limits, visual geometries, properties and the generation
+// counter are restored onto the model after the frames are built.
+func ModelFromProto(pb *commonpb.KinematicModel, name string) (Model, error) {
+	cfg, extras, err := modelConfigFromProto(pb)
+	if err != nil {
+		return nil, err
+	}
+	model, err := cfg.ParseConfig(name)
+	if err != nil {
+		return nil, err
+	}
+	sm, ok := model.(*SimpleModel)
+	if !ok {
+		return model, nil
+	}
+	if len(extras.userLimits) > 0 {
+		if err := sm.SetUserLimits(extras.userLimits); err != nil {
+			return nil, err
+		}
+	}
+	for link, visual := range extras.visual {
+		if err := sm.SetVisualGeometries(link, visual); err != nil {
+			return nil, err
+		}
+	}
+	sm.SetKinematicProperties(pb.GetProperties())
+	sm.SetGeneration(pb.GetGeneration())
+	return sm, nil
+}
+
+// typedExtras is what the message carries that a v1 configuration cannot.
+type typedExtras struct {
+	userLimits map[string]JointLimits
+	visual     map[string][]*commonpb.Geometry
+}
+
+func (e *typedExtras) empty() bool {
+	return len(e.userLimits) == 0 && len(e.visual) == 0
 }
 
 // ModelConfigToProto converts an SVA model configuration into the typed message. DH
@@ -70,31 +125,56 @@ func ModelConfigToProto(cfg *ModelConfigJSON) (*commonpb.KinematicModel, error) 
 // ModelConfigFromProto converts the typed message back into an SVA model configuration. The v1
 // configuration is narrower than the message, so a link with more than one collision geometry,
 // any visual geometry, user limits, or an unbounded position limit is an error rather than a
-// silent drop.
+// silent drop. ModelFromProto is the way to keep those parts.
 func ModelConfigFromProto(pb *commonpb.KinematicModel) (*ModelConfigJSON, error) {
+	cfg, extras, err := modelConfigFromProto(pb)
+	if err != nil {
+		return nil, err
+	}
+	if !extras.empty() {
+		for id := range extras.userLimits {
+			return nil, fmt.Errorf("joint %q: user limits cannot be carried by a v1 model config", id)
+		}
+		for link, visual := range extras.visual {
+			return nil, fmt.Errorf("link %q: %d visual geometries cannot be carried by a v1 model config", link, len(visual))
+		}
+	}
+	return cfg, nil
+}
+
+// modelConfigFromProto does the conversion and hands back separately whatever the v1 config
+// could not hold, so the caller decides whether that is an error or something to restore.
+func modelConfigFromProto(pb *commonpb.KinematicModel) (*ModelConfigJSON, *typedExtras, error) {
 	if pb == nil {
-		return nil, errors.New("cannot convert a nil kinematic model")
+		return nil, nil, errors.New("cannot convert a nil kinematic model")
 	}
 	cfg := &ModelConfigJSON{
 		Name:         pb.GetName(),
 		KinParamType: "SVA",
 		OutputFrames: pb.GetOutputFrames(),
 	}
+	extras := &typedExtras{userLimits: map[string]JointLimits{}, visual: map[string][]*commonpb.Geometry{}}
 	for _, link := range pb.GetLinks() {
 		lc, err := linkConfigFromProto(link)
 		if err != nil {
-			return nil, errors.Wrapf(err, "link %q", link.GetId())
+			return nil, nil, errors.Wrapf(err, "link %q", link.GetId())
 		}
 		cfg.Links = append(cfg.Links, *lc)
+		if len(link.GetVisual()) > 0 {
+			extras.visual[link.GetId()] = link.GetVisual()
+		}
 	}
 	for _, joint := range pb.GetJoints() {
 		jc, err := jointConfigFromProto(joint)
 		if err != nil {
-			return nil, errors.Wrapf(err, "joint %q", joint.GetId())
+			return nil, nil, errors.Wrapf(err, "joint %q", joint.GetId())
 		}
 		cfg.Joints = append(cfg.Joints, *jc)
+		if joint.GetUserLimits() != nil {
+			extras.userLimits[joint.GetId()] = jointLimitsFromProto(joint.GetUserLimits())
+		}
 	}
-	return cfg, nil
+	return cfg, extras, nil
 }
 
 func linkConfigToProto(link *LinkConfig) (*commonpb.KinematicLink, error) {
@@ -124,9 +204,6 @@ func linkConfigFromProto(link *commonpb.KinematicLink) (*LinkConfig, error) {
 			return nil, err
 		}
 		lc.Orientation = oc
-	}
-	if n := len(link.GetVisual()); n > 0 {
-		return nil, fmt.Errorf("%d visual geometries cannot be carried by a v1 model config", n)
 	}
 	switch n := len(link.GetCollision()); n {
 	case 0:
@@ -197,9 +274,6 @@ func jointConfigFromProto(joint *commonpb.KinematicJoint) (*JointConfig, error) 
 		return nil, NewUnsupportedJointTypeError(joint.GetType().String())
 	default:
 		return nil, NewUnsupportedJointTypeError(joint.GetType().String())
-	}
-	if joint.GetUserLimits() != nil {
-		return nil, errors.New("user limits cannot be carried by a v1 model config")
 	}
 	if mimic := joint.GetMimic(); mimic != nil {
 		jc.Mimic = &MimicConfig{

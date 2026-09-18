@@ -291,3 +291,86 @@ func TestModelConfigFromProtoRefusesWhatV1CannotCarry(t *testing.T) {
 		})
 	}
 }
+
+// User limits narrow the effective DoF, refuse to widen, and ride the message both ways alongside
+// visual geometry, properties and the generation counter.
+func TestSimpleModelTypedOverlay(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	sm, ok := model.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+	hardware := sm.DoF()
+
+	// waist is revolute with hardware -359..359 degrees and no velocity limit in the file
+	speed, accel := 90.0, 500.0
+	lock := 10.0
+	err = sm.SetUserLimits(map[string]JointLimits{
+		"waist":    {MaxVelocity: &speed, MaxAcceleration: &accel},
+		"shoulder": {Min: &lock, Max: &lock},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	effective := sm.DoF()
+	test.That(t, effective[0].Min, test.ShouldAlmostEqual, hardware[0].Min)
+	test.That(t, *effective[0].MaxVelocity, test.ShouldAlmostEqual, utils.DegToRad(speed))
+	test.That(t, *effective[0].MaxAcceleration, test.ShouldAlmostEqual, utils.DegToRad(accel))
+	test.That(t, effective[1].Min, test.ShouldAlmostEqual, utils.DegToRad(lock))
+	test.That(t, effective[1].Max, test.ShouldAlmostEqual, utils.DegToRad(lock))
+	test.That(t, effective[2], test.ShouldResemble, hardware[2])
+
+	// a second call replaces rather than narrows further
+	test.That(t, sm.SetUserLimits(map[string]JointLimits{"waist": {MaxVelocity: &speed}}), test.ShouldBeNil)
+	test.That(t, sm.DoF()[1], test.ShouldResemble, hardware[1])
+
+	// widening the hardware range is an error, as is an unknown joint
+	wide := 400.0
+	err = sm.SetUserLimits(map[string]JointLimits{"waist": {Max: &wide}})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "above the hardware max")
+	err = sm.SetUserLimits(map[string]JointLimits{"nope": {}})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// the rest of the overlay
+	glb := &commonpb.Geometry{GeometryType: &commonpb.Geometry_Mesh{Mesh: &commonpb.Mesh{
+		ContentType: "glb", Mesh: []byte("not really a glb"), SourcePath: "3d_models/xArm6/base.glb",
+	}}}
+	test.That(t, sm.SetVisualGeometries("base", []*commonpb.Geometry{glb}), test.ShouldBeNil)
+	test.That(t, sm.SetVisualGeometries("no_such_link", []*commonpb.Geometry{glb}), test.ShouldNotBeNil)
+	hz := 100.0
+	sm.SetKinematicProperties(&commonpb.KinematicProperties{TrajectorySamplingFreqHz: &hz})
+	sm.SetGeneration(7)
+
+	// everything survives the message and comes back onto a fresh model
+	pb, err := ModelToProto(sm)
+	test.That(t, err, test.ShouldBeNil)
+	var waist *commonpb.KinematicJoint
+	for _, j := range pb.GetJoints() {
+		if j.GetId() == "waist" {
+			waist = j
+		}
+	}
+	test.That(t, waist.GetUserLimits().GetMaxVelocity(), test.ShouldEqual, speed)
+	test.That(t, waist.GetUserLimits().Min, test.ShouldBeNil)
+	test.That(t, waist.GetHardwareLimits().GetMin(), test.ShouldEqual, -359)
+	test.That(t, pb.GetLinks()[0].GetVisual()[0].GetMesh().GetSourcePath(), test.ShouldEqual, "3d_models/xArm6/base.glb")
+	test.That(t, pb.GetProperties().GetTrajectorySamplingFreqHz(), test.ShouldEqual, hz)
+	test.That(t, pb.GetGeneration(), test.ShouldEqual, 7)
+
+	restored, err := ModelFromProto(pb, "")
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, sm, restored)
+	rsm, ok := restored.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, *rsm.UserLimits()["waist"].MaxVelocity, test.ShouldEqual, speed)
+	test.That(t, rsm.Generation(), test.ShouldEqual, 7)
+	test.That(t, rsm.KinematicProperties().GetTrajectorySamplingFreqHz(), test.ShouldEqual, hz)
+
+	// and the visual role can be left out of a response while collision stays
+	resp := KinematicModelToProtobufForRequest(sm, &commonpb.GetKinematicsRequest{ExcludeVisualMeshes: true})
+	test.That(t, len(resp.GetModel().GetLinks()[0].GetVisual()[0].GetMesh().GetMesh()), test.ShouldEqual, 0)
+	test.That(t, resp.GetModel().GetLinks()[0].GetVisual()[0].GetMesh().GetSourcePath(), test.ShouldEqual, "3d_models/xArm6/base.glb")
+
+	// the v1 config path still refuses what it cannot carry
+	_, err = ModelConfigFromProto(pb)
+	test.That(t, err, test.ShouldNotBeNil)
+}

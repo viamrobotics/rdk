@@ -240,6 +240,15 @@ type SimpleModel struct {
 	// mimicMappings maps frame name to its mimic mapping. A mimic frame derives
 	// its input from a source frame rather than consuming a slot in the flat input vector.
 	mimicMappings map[string]*mimicMapping
+
+	// The parts of the typed kinematic model that a v1 configuration has no place for. They are
+	// set through the SetUserLimits, SetVisualGeometries, SetKinematicProperties and
+	// SetGeneration methods and carried by ModelToProto. userLimits is keyed by joint id and
+	// holds document units, visual is keyed by link id.
+	userLimits map[string]JointLimits
+	visual     map[string][]*commonpb.Geometry
+	properties *commonpb.KinematicProperties
+	generation uint64
 }
 
 // NewSimpleModel constructs a new empty model with no kinematics.
