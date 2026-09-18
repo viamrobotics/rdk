@@ -83,15 +83,18 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
-	if runtime.GOOS == "linux" || runtime.GOOS == "windows" {
-		// Windows Initialize() only appends registrations, so clear the stale snapshot first
-		// Same behavior as already implemented in find_webcams
+	switch runtime.GOOS {
+	case "linux":
+		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
+		// So we can call Initialize() only once, and call discover() as many times as we need.
+		mediadevicescamera.Initialize()
+	case "windows":
+		// Windows Initialize() only appends registrations, so clear the stale snapshot first or
+		// every call leaks a duplicate driver entry per attached camera.
 		manager := driver.GetManager()
 		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
 			manager.Delete(d.ID())
 		}
-		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
-		// So we can call Initialize() only once, and call discover() as many times as we need.
 		mediadevicescamera.Initialize()
 	}
 
