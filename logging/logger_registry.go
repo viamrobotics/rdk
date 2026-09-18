@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"sync"
 	"sync/atomic"
+	"testing"
 )
 
 // activityLoggerSuffix is the reserved final name segment for activity loggers. Each
@@ -24,6 +25,14 @@ type Registry struct {
 	// DeduplicateLogs controls whether to deduplicate logs. Slightly odd to store this on
 	// the registry but preferable to having a global atomic.
 	DeduplicateLogs atomic.Bool
+
+	// SuppressActivity drops Activity events instead of emitting them. Activity ignores
+	// log levels by design, so this is the only way to quiet it. Stored here rather than
+	// per-logger because every logger in a tree shares one activity logger. Defaults on
+	// under test, where activity events from incidental reconfigures, remote connects and
+	// module starts are just noise; clear it, or call NewObservedActivityLogger, in tests
+	// that care about activity events.
+	SuppressActivity atomic.Bool
 }
 
 func newRegistry() *Registry {
@@ -31,6 +40,7 @@ func newRegistry() *Registry {
 		loggers: make(map[string]Logger),
 	}
 	applyMotionRegistryOptions(ret)
+	ret.SuppressActivity.Store(testing.Testing())
 
 	return ret
 }
