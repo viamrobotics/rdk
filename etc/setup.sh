@@ -131,6 +131,11 @@ do_mise(){
 	mise trust -y
 	mise settings set auto_update=true
 	mise settings set auto_update_check_duration=7d
+	# Mise sets a per-version GOBIN by default, which breaks some tooling + tests
+	# that assume `go install` will place binaries in `~/go/bin`. Turn this off
+	# for now and deal with `go install` commands from different go binaries
+	# overwriting each other if and when it causes a problem.
+	mise settings set go.set_gobin false
 }
 
 do_brew(){
