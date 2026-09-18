@@ -190,7 +190,11 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	return finalSteps.steps, nil
+	// extractPath always includes the start node as steps[0] (it walks the
+	// startMap parent chain to its root). The caller's trajectory already
+	// ends at that same configuration, so drop it here to avoid a duplicate
+	// waypoint.
+	return finalSteps.steps[1:], nil
 }
 
 func (pm *planManager) planSingleGoal(
