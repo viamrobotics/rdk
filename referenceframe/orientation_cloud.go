@@ -24,11 +24,12 @@ const cloudEpsilon = 0.001
 // A cloud of {OX: 0.17, OY: 0.17, OZ: 0.015, Theta: 180} admits any spin about the reference Z axis
 // while keeping that axis within ~10 degrees of the reference - a cup that must stay upright.
 //
-// Theta inherits the orientation vector's convention, which is gimbal-locked at the pole: a small
-// lean of the Z axis toward X reads as a theta near 0, but the same lean toward Y reads as a theta
-// near 90 degrees. A Theta leeway below 180 combined with a nonzero tilt leeway therefore admits
-// leans in some directions and not others; bound the tilt alone, or the spin alone, unless that
-// is intended.
+// Theta inherits the orientation vector's convention, which is gimbal-locked at the pole: once the
+// Z axis leans by more than a fraction of a degree, theta reads as the azimuth of that lean (0
+// toward +X, ∓90 toward ±Y, 180 toward -X) plus any spin, whatever the lean's size. A Theta leeway
+// below 180 combined with a nonzero tilt leeway therefore admits a lean toward some directions and
+// rejects the same lean toward others; bound the tilt alone (Theta: 180) or the spin alone (zero
+// tilt leeways) unless that is intended.
 type OrientationCloud struct {
 	// OX, OY and OZ are unitless leeways on the components of the unit orientation vector, each
 	// accepting the range [-Value, +Value] around the reference (whose own vector is (0, 0, 1),
@@ -65,10 +66,10 @@ func orientationBetweenLocal(reference, candidate spatialmath.Orientation) *spat
 // InscribedAngleDegs returns a rotation angle, in degrees, such that every orientation within that
 // angle of the reference lies in the cloud: the radius of a ball of orientations inscribed in it.
 func (oc *OrientationCloud) InscribedAngleDegs() float64 {
-	// Theta is gimbal-locked at the pole (see OrientationCloud): an arbitrarily small roll of the
-	// reference reads as a 90 degree theta, so no ball fits inside a cloud that bounds theta at
-	// all. Otherwise a rotation by angle a tilts the Z axis by at most a, and the tilt leeways
-	// convert directly to the angles they subtend.
+	// Theta is gimbal-locked at the pole (see OrientationCloud): past a fraction of a degree of
+	// lean, theta reads as the lean's azimuth, so a lean toward -X of any size reads as 180 and
+	// no ball fits inside a cloud that bounds theta at all. Otherwise a rotation by angle a tilts
+	// the Z axis by at most a, and the tilt leeways convert directly to the angles they subtend.
 	if oc.Theta < 180 {
 		return 0
 	}

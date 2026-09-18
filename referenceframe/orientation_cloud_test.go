@@ -89,8 +89,12 @@ func TestOrientationCloudInscribedAngle(t *testing.T) {
 	test.That(t, (&OrientationCloud{OX: 1, OY: 1, OZ: 0.5, Theta: 180}).InscribedAngleDegs(), test.ShouldAlmostEqual, 60, 1e-9)
 	test.That(t, (&OrientationCloud{Theta: 180}).InscribedAngleDegs(), test.ShouldEqual, 0)
 	test.That(t, (&OrientationCloud{}).InscribedAngleDegs(), test.ShouldEqual, 0)
-	// Any bound on theta rules out a ball: a small roll already reads as a 90 degree theta.
-	test.That(t, (&OrientationCloud{OX: 1, OY: 1, OZ: 2, Theta: 100}).InscribedAngleDegs(), test.ShouldEqual, 0)
+	// Any bound on theta rules out a ball: past the pole, theta reads as the azimuth of the lean,
+	// so a small lean toward -X already reads as 180 degrees and a small roll as 90.
+	test.That(t, (&OrientationCloud{OX: 1, OY: 1, OZ: 2, Theta: 179}).InscribedAngleDegs(), test.ShouldEqual, 0)
+	leanBack := &spatialmath.R4AA{Theta: utils.DegToRad(2), RX: 0, RY: -1, RZ: 0}
+	test.That(t, (&OrientationCloud{OX: 1, OY: 1, OZ: 2, Theta: 179}).OrientationInCloud(spatialmath.NewZeroOrientation(), leanBack),
+		test.ShouldBeFalse)
 	rolled := &spatialmath.EulerAngles{Roll: utils.DegToRad(2)}
 	test.That(t, (&OrientationCloud{OX: 1, OY: 1, OZ: 2, Theta: 89}).OrientationInCloud(spatialmath.NewZeroOrientation(), rolled),
 		test.ShouldBeFalse)
