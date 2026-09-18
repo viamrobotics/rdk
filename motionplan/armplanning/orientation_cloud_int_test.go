@@ -38,10 +38,14 @@ func TestOrientationCloudPlanning(t *testing.T) {
 		spatialmath.NewPose(startPose.Point().Add(r3.Vector{X: -60, Y: 160, Z: 40}), startPose.Orientation()),
 		spatialmath.NewPoseFromOrientation(&spatialmath.EulerAngles{Yaw: utils.DegToRad(150)}),
 	)
-	cup := &referenceframe.OrientationCloud{OX: 0.17, OY: 0.17, OZ: 0.015, Theta: 180}
+	cup := motionplan.OrientationCloudConstraint{
+		OrientationCloud: referenceframe.OrientationCloud{OX: 0.17, OY: 0.17, OZ: 0.015, Theta: 180},
+	}
 
 	constraints := motionplan.NewEmptyConstraints()
-	constraints.AddOrientationConstraint(motionplan.OrientationConstraint{OrientationCloud: cup})
+	constraints.AddOrientationCloudConstraint(cup)
+	// Retreat keypoints get the cloud's inscribed angle as orientation slack.
+	test.That(t, midOrientationSlackDegs(constraints), test.ShouldAlmostEqual, cup.InscribedAngleDegs(), 1e-9)
 
 	plan, _, err := PlanMotion(ctx, logger, &PlanRequest{
 		FrameSystem: fs,

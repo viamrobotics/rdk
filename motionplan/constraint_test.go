@@ -109,64 +109,40 @@ func TestOrientationConstraintDistance(t *testing.T) {
 	test.That(t, oc.Score(from, to, rotZ(170)), test.ShouldAlmostEqual, 20, 1e-4)
 }
 
-func TestOrientationConstraintCloud(t *testing.T) {
+func TestOrientationCloudConstraint(t *testing.T) {
 	zero := spatial.NewZeroOrientation()
 	spin := func(degs float64) spatial.Orientation { return &spatial.EulerAngles{Yaw: utils.DegToRad(degs)} }
 	tilt := func(degs float64) spatial.Orientation { return &spatial.EulerAngles{Pitch: utils.DegToRad(degs)} }
 	// An upright cup: ~10 degrees of lean, any spin.
-	cup := &referenceframe.OrientationCloud{OX: 0.17, OY: 0.17, OZ: 0.015, Theta: 180}
-
-	cloudOnly := OrientationConstraint{OrientationCloud: cup}
-	arcOnly := OrientationConstraint{OrientationToleranceDegs: 30}
-	both := OrientationConstraint{OrientationToleranceDegs: 30, OrientationCloud: cup}
+	cup := OrientationCloudConstraint{OrientationCloud: referenceframe.OrientationCloud{OX: 0.17, OY: 0.17, OZ: 0.015, Theta: 180}}
+	arc := OrientationConstraint{OrientationToleranceDegs: 30}
 
 	// Start and goal are both upright, spun 120 degrees apart, so the arc between them is a
 	// pure spin. Overshooting that spin by 90 degrees leaves the arc's tube but not the cloud;
 	// leaning 20 degrees does the reverse at the start end, where it is well inside the tube.
 	from, to := zero, spin(120)
-	test.That(t, cloudOnly.Score(from, to, spin(60)), test.ShouldEqual, 0)
-	test.That(t, cloudOnly.Score(from, to, spin(-90)), test.ShouldEqual, 0)
-	test.That(t, arcOnly.Score(from, to, spin(-90)), test.ShouldAlmostEqual, 60, 1e-4)
-	test.That(t, cloudOnly.Score(from, to, tilt(20)), test.ShouldBeGreaterThan, 0)
-	test.That(t, arcOnly.Score(from, to, tilt(20)), test.ShouldEqual, 0)
-
-	// With both set, each check applies.
-	test.That(t, both.Score(from, to, spin(-90)), test.ShouldAlmostEqual, 60, 1e-4)
-	test.That(t, both.Score(from, to, tilt(20)), test.ShouldAlmostEqual, cloudOnly.Score(from, to, tilt(20)), 1e-9)
-	test.That(t, both.Score(from, to, tilt(5)), test.ShouldEqual, 0)
-
-	// A cloud without a tolerance skips the arc check; without a cloud, a zero tolerance pins
-	// the path to the arc.
-	test.That(t, cloudOnly.Score(from, to, spin(-90)), test.ShouldEqual, 0)
-	test.That(t, (&OrientationConstraint{}).Score(from, to, spin(-90)), test.ShouldAlmostEqual, 90, 1e-4)
-
-	// The eval form agrees with the direct form.
-	for _, c := range []OrientationConstraint{cloudOnly, arcOnly, both} {
-		eval := NewOrientationConstraintEval(c, from, to)
-		for _, o := range []spatial.Orientation{zero, spin(60), spin(-90), tilt(5), tilt(20)} {
-			test.That(t, eval.Score(o), test.ShouldAlmostEqual, c.Score(from, to, o), 1e-9)
-		}
-	}
+	test.That(t, cup.Excess(to, spin(60)), test.ShouldEqual, 0)
+	test.That(t, cup.Excess(to, spin(-90)), test.ShouldEqual, 0)
+	test.That(t, arc.Score(from, to, spin(-90)), test.ShouldAlmostEqual, 60, 1e-4)
+	test.That(t, cup.Excess(to, tilt(20)), test.ShouldBeGreaterThan, 0)
+	test.That(t, arc.Score(from, to, tilt(20)), test.ShouldEqual, 0)
 
 	// The state check reports cloud violations under the shared sentinel.
-	eval := NewOrientationConstraintEval(cloudOnly, from, to)
-	test.That(t, checkOrientationConstraintEval("f", eval, spatial.NewPoseFromOrientation(spin(-90))), test.ShouldBeNil)
-	err := checkOrientationConstraintEval("f", eval, spatial.NewPoseFromOrientation(tilt(20)))
+	fromPose, toPose := spatial.NewPoseFromOrientation(from), spatial.NewPoseFromOrientation(to)
+	err := checkOrientationCloudConstraint("f", cup, fromPose, toPose, spatial.NewPoseFromOrientation(spin(-90)))
+	test.That(t, err, test.ShouldBeNil)
+	err = checkOrientationCloudConstraint("f", cup, fromPose, toPose, spatial.NewPoseFromOrientation(tilt(20)))
 	test.That(t, errors.Is(err, ErrOrientationConstraintViolated), test.ShouldBeTrue)
 
-	// Goal slack: the arc tolerance, the cloud's inscribed angle, or the smaller of the two.
-	inscribed := utils.RadToDeg(math.Asin(0.17))
-	test.That(t, cloudOnly.GoalSlackDegs(), test.ShouldAlmostEqual, inscribed, 1e-9)
-	test.That(t, arcOnly.GoalSlackDegs(), test.ShouldEqual, 30)
-	test.That(t, both.GoalSlackDegs(), test.ShouldAlmostEqual, inscribed, 1e-9)
-	test.That(t, (&OrientationConstraint{}).GoalSlackDegs(), test.ShouldEqual, 0)
-
-	// JSON is the only wire format that carries the cloud today.
+	// JSON is the only wire format that carries the cloud constraint today; the cloud's fields
+	// flatten into the constraint object.
 	c := NewEmptyConstraints()
-	c.AddOrientationConstraint(both)
-	c.AddOrientationConstraint(arcOnly)
+	c.AddOrientationCloudConstraint(cup)
+	c.AddOrientationConstraint(arc)
 	data, err := json.Marshal(c)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(data), test.ShouldContainSubstring,
+		`"orientation_cloud_constraints":[{"ox":0.17,"oy":0.17,"oz":0.015,"theta":180}]`)
 	var back Constraints
 	test.That(t, json.Unmarshal(data, &back), test.ShouldBeNil)
 	test.That(t, back, test.ShouldResemble, *c)

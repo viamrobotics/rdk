@@ -20,19 +20,21 @@ var ErrOrientationConstraintViolated = errors.New("orientation constraint violat
 // Constraints is a struct to store the constraints imposed upon a robot
 // It serves as a convenenient RDK wrapper for the protobuf object.
 type Constraints struct {
-	LinearConstraint       []LinearConstraint       `json:"linear_constraints"`
-	PseudolinearConstraint []PseudolinearConstraint `json:"pseudolinear_constraints"`
-	OrientationConstraint  []OrientationConstraint  `json:"orientation_constraints"`
-	CollisionSpecification []CollisionSpecification `json:"collision_specifications"`
+	LinearConstraint           []LinearConstraint           `json:"linear_constraints"`
+	PseudolinearConstraint     []PseudolinearConstraint     `json:"pseudolinear_constraints"`
+	OrientationConstraint      []OrientationConstraint      `json:"orientation_constraints"`
+	OrientationCloudConstraint []OrientationCloudConstraint `json:"orientation_cloud_constraints"`
+	CollisionSpecification     []CollisionSpecification     `json:"collision_specifications"`
 }
 
 // NewEmptyConstraints creates a new, empty Constraints object.
 func NewEmptyConstraints() *Constraints {
 	return &Constraints{
-		LinearConstraint:       make([]LinearConstraint, 0),
-		PseudolinearConstraint: make([]PseudolinearConstraint, 0),
-		OrientationConstraint:  make([]OrientationConstraint, 0),
-		CollisionSpecification: make([]CollisionSpecification, 0),
+		LinearConstraint:           make([]LinearConstraint, 0),
+		PseudolinearConstraint:     make([]PseudolinearConstraint, 0),
+		OrientationConstraint:      make([]OrientationConstraint, 0),
+		OrientationCloudConstraint: make([]OrientationCloudConstraint, 0),
+		CollisionSpecification:     make([]CollisionSpecification, 0),
 	}
 }
 
@@ -44,10 +46,11 @@ func NewConstraints(
 	collSpecifications []CollisionSpecification,
 ) *Constraints {
 	return &Constraints{
-		LinearConstraint:       linConstraints,
-		PseudolinearConstraint: pseudoConstraints,
-		OrientationConstraint:  orientConstraints,
-		CollisionSpecification: collSpecifications,
+		LinearConstraint:           linConstraints,
+		PseudolinearConstraint:     pseudoConstraints,
+		OrientationConstraint:      orientConstraints,
+		OrientationCloudConstraint: make([]OrientationCloudConstraint, 0), // no proto counterpart yet; see ConstraintsFromProtobuf
+		CollisionSpecification:     collSpecifications,
 	}
 }
 
@@ -67,49 +70,19 @@ type PseudolinearConstraint struct {
 }
 
 // OrientationConstraint specifies that the components being moved will not deviate orientation
-// beyond some threshold. The threshold can be expressed two ways, and both apply when both are set:
-//
-//   - OrientationToleranceDegs bounds the angular distance from the direct (geodesic) reorientation
-//     between the start and goal orientations, so the path stays within a tube around that arc.
-//   - OrientationCloud bounds the per-axis deviation from the goal orientation itself, independent
-//     of the start and of the arc: a cup that must stay upright however it is spun, for instance,
-//     regardless of how its start and goal orientations relate.
+// beyond some threshold from the direct reorientation between their start and goal. See
+// OrientationCloudConstraint for a bound around the goal orientation alone.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
-	OrientationCloud         *referenceframe.OrientationCloud `json:",omitempty"`
-}
-
-// arcConstrained reports whether the geodesic-arc check applies. Without a
-// cloud it always does - a zero tolerance pins the path to the arc - while a
-// cloud stands alone unless a positive tolerance is set alongside it.
-func (oc *OrientationConstraint) arcConstrained() bool {
-	return oc.OrientationCloud == nil || oc.OrientationToleranceDegs > 0
 }
 
 // Score computes a score which is how close we are to valid in degrees
 func (oc *OrientationConstraint) Score(from, to, now spatialmath.Orientation) float64 {
-	score := 0.0
-	if oc.arcConstrained() {
-		score += max(0, oc.Distance(from, to, now)-oc.OrientationToleranceDegs)
+	d := oc.Distance(from, to, now)
+	if d <= 0 {
+		return 0
 	}
-	if oc.OrientationCloud != nil {
-		score += oc.OrientationCloud.Excess(to, now)
-	}
-	return score
-}
-
-// GoalSlackDegs returns a rotation away from the goal orientation within which
-// the constraint is guaranteed to hold at the goal end of the path: the arc
-// tolerance, the cloud's inscribed angle, or the smaller of the two.
-func (oc *OrientationConstraint) GoalSlackDegs() float64 {
-	slack := math.Inf(1)
-	if oc.arcConstrained() {
-		slack = min(slack, oc.OrientationToleranceDegs)
-	}
-	if oc.OrientationCloud != nil {
-		slack = min(slack, oc.OrientationCloud.InscribedAngleDegs())
-	}
-	return max(0, slack)
+	return max(0, d-oc.OrientationToleranceDegs)
 }
 
 // Distance measures, in degrees, how far `now` strays from the direct
@@ -206,14 +179,21 @@ func (e *OrientationConstraintEval) Distance(now spatialmath.Orientation) float6
 
 // Score mirrors OrientationConstraint.Score.
 func (e *OrientationConstraintEval) Score(now spatialmath.Orientation) float64 {
-	score := 0.0
-	if e.oc.arcConstrained() {
-		score += max(0, e.Distance(now)-e.oc.OrientationToleranceDegs)
+	d := e.Distance(now)
+	if d <= 0 {
+		return 0
 	}
-	if e.oc.OrientationCloud != nil {
-		score += e.oc.OrientationCloud.Excess(e.to, now)
-	}
-	return score
+	return max(0, d-e.oc.OrientationToleranceDegs)
+}
+
+// OrientationCloudConstraint specifies that the components being moved stay within a per-axis
+// cloud of their goal orientation at every state along the path. Unlike OrientationConstraint it
+// is independent of the start orientation and of the direct reorientation between start and
+// goal - a cup that must stay upright however it is spun, for instance. The cloud is evaluated in
+// the goal's parent frame, and the start orientation must itself lie within it for a path to
+// exist.
+type OrientationCloudConstraint struct {
+	referenceframe.OrientationCloud
 }
 
 // CollisionSpecificationAllowedFrameCollisions is used to define frames that are allowed to collide.
@@ -240,6 +220,11 @@ func (c *Constraints) AddPseudolinearConstraint(plinConstraint PseudolinearConst
 // AddOrientationConstraint appends a OrientationConstraint to a Constraints object.
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
+}
+
+// AddOrientationCloudConstraint appends an OrientationCloudConstraint to a Constraints object.
+func (c *Constraints) AddOrientationCloudConstraint(cloudConstraint OrientationCloudConstraint) {
+	c.OrientationCloudConstraint = append(c.OrientationCloudConstraint, cloudConstraint)
 }
 
 // AddCollisionSpecification appends a CollisionSpecification to a Constraints object.

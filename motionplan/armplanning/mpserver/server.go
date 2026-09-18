@@ -1028,7 +1028,7 @@ func stringsToLinearInputs(data map[string][]string) (*referenceframe.LinearInpu
 // ---- helpers ----
 
 func buildDetailConstraints(c *motionplan.Constraints) *detailConstraints {
-	if c == nil || (len(c.LinearConstraint) == 0 && len(c.OrientationConstraint) == 0) {
+	if c == nil || (len(c.LinearConstraint) == 0 && len(c.OrientationConstraint) == 0 && len(c.OrientationCloudConstraint) == 0) {
 		return nil
 	}
 	dc := &detailConstraints{}
@@ -1037,14 +1037,11 @@ func buildDetailConstraints(c *motionplan.Constraints) *detailConstraints {
 			lc.LineToleranceMm, lc.OrientationToleranceDegs))
 	}
 	for _, oc := range c.OrientationConstraint {
-		desc := fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs)
-		if cl := oc.OrientationCloud; cl != nil {
-			desc = fmt.Sprintf("goal orientation cloud ox %.4g, oy %.4g, oz %.4g, theta %.4g°", cl.OX, cl.OY, cl.OZ, cl.Theta)
-			if oc.OrientationToleranceDegs > 0 {
-				desc += fmt.Sprintf(" + orientation tolerance %.4g°", oc.OrientationToleranceDegs)
-			}
-		}
-		dc.Orientation = append(dc.Orientation, desc)
+		dc.Orientation = append(dc.Orientation, fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs))
+	}
+	for _, cc := range c.OrientationCloudConstraint {
+		dc.Orientation = append(dc.Orientation, fmt.Sprintf("goal orientation cloud ox %.4g, oy %.4g, oz %.4g, theta %.4g°",
+			cc.OX, cc.OY, cc.OZ, cc.Theta))
 	}
 	return dc
 }

@@ -152,7 +152,8 @@ func (c *ConstraintChecker) addTopoConstraints(
 ) error {
 	if len(constraints.LinearConstraint) == 0 &&
 		len(constraints.PseudolinearConstraint) == 0 &&
-		len(constraints.OrientationConstraint) == 0 {
+		len(constraints.OrientationConstraint) == 0 &&
+		len(constraints.OrientationCloudConstraint) == 0 {
 		return nil
 	}
 
@@ -214,6 +215,13 @@ func (c *ConstraintChecker) addTopoConstraints(
 
 			for _, eval := range orientationEvals[frame] {
 				err := checkOrientationConstraintEval(frame, eval, currPose)
+				if err != nil {
+					return err
+				}
+			}
+
+			for _, cc := range constraints.OrientationCloudConstraint {
+				err := checkOrientationCloudConstraint(frame, cc, from, to, currPose)
 				if err != nil {
 					return err
 				}
@@ -280,18 +288,20 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 }
 
 func checkOrientationConstraintEval(frame string, e *OrientationConstraintEval, currPose spatialmath.Pose) error {
-	curr := currPose.Orientation()
-	if e.oc.arcConstrained() {
-		dist := e.Distance(curr)
-		if dist > e.oc.OrientationToleranceDegs {
-			return orientationError(frame, e.from, e.to, curr, dist, e.oc.OrientationToleranceDegs)
-		}
-	}
-	if cloud := e.oc.OrientationCloud; cloud != nil && !cloud.OrientationInCloud(e.to, curr) {
-		return fmt.Errorf("%s %w outside cloud %+v of goal by %0.5f deg from: %v to: %v currPose: %v",
-			frame, ErrOrientationConstraintViolated, *cloud, cloud.Excess(e.to, curr), e.from, e.to, curr)
+	dist := e.Distance(currPose.Orientation())
+	if dist > e.oc.OrientationToleranceDegs {
+		return orientationError(frame, e.from, e.to, currPose.Orientation(), dist, e.oc.OrientationToleranceDegs)
 	}
 	return nil
+}
+
+func checkOrientationCloudConstraint(frame string, cc OrientationCloudConstraint, from, to, currPose spatialmath.Pose) error {
+	goal, curr := to.Orientation(), currPose.Orientation()
+	if cc.OrientationInCloud(goal, curr) {
+		return nil
+	}
+	return fmt.Errorf("%s %w outside cloud %+v of goal by %0.5f deg from: %v to: %v currPose: %v",
+		frame, ErrOrientationConstraintViolated, cc.OrientationCloud, cc.Excess(goal, curr), from.Orientation(), goal, curr)
 }
 
 // CheckStateFSConstraints will check a given input against all FS state constraints.

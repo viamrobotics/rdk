@@ -185,7 +185,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 
 	t.Run("orientation", func(t *testing.T) {
 		req.Constraints.OrientationConstraint = append(req.Constraints.OrientationConstraint,
-			motionplan.OrientationConstraint{OrientationToleranceDegs: 60})
+			motionplan.OrientationConstraint{60})
 
 		plan, _, err := PlanMotion(context.Background(), logger, req)
 		test.That(t, err, test.ShouldBeNil)

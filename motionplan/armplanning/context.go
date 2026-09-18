@@ -253,24 +253,27 @@ func (psc *PlanSegmentContext) CheckPath(
 }
 
 // topoProjectionMetric returns a metric scoring how far a configuration's
-// orientations stray beyond the request's orientation-constraint band, used to
-// gradient-descend configurations back onto the constraint manifold. Returns
-// nil when the request carries no orientation constraints.
+// orientations stray beyond the request's orientation constraints (the arc
+// band and any goal clouds), used to gradient-descend configurations back
+// onto the constraint manifold. Returns nil when the request carries none.
 func (psc *PlanSegmentContext) topoProjectionMetric() motionplan.StateFSMetric {
-	if psc.pc.request.Constraints == nil || len(psc.pc.request.Constraints.OrientationConstraint) == 0 {
+	c := psc.pc.request.Constraints
+	if c == nil || (len(c.OrientationConstraint) == 0 && len(c.OrientationCloudConstraint) == 0) {
 		return nil
 	}
 	// Precompute per-frame evaluators - the endpoint orientation conversions
 	// are fixed for the plan and this metric runs once per IK gradient sample.
 	evals := map[string][]*motionplan.OrientationConstraintEval{}
+	goalOrientations := map[string]spatialmath.Orientation{}
 	for f, g := range psc.goal {
 		s := psc.startPoses[f]
 		if g.Parent() != referenceframe.World || s.Parent() != referenceframe.World {
 			panic(fmt.Errorf("mismatch frame %v %v", g.Parent(), s.Parent()))
 		}
-		for _, c := range psc.pc.request.Constraints.OrientationConstraint {
+		goalOrientations[f] = g.Pose().Orientation()
+		for _, oc := range c.OrientationConstraint {
 			evals[f] = append(evals[f],
-				motionplan.NewOrientationConstraintEval(c, s.Pose().Orientation(), g.Pose().Orientation()))
+				motionplan.NewOrientationConstraintEval(oc, s.Pose().Orientation(), goalOrientations[f]))
 		}
 	}
 
@@ -288,6 +291,9 @@ func (psc *PlanSegmentContext) topoProjectionMetric() motionplan.StateFSMetric {
 			o := dq.Orientation()
 			for _, e := range evals[f] {
 				score += e.Score(o)
+			}
+			for _, cc := range c.OrientationCloudConstraint {
+				score += cc.Excess(goalOrientations[f], o)
 			}
 		}
 		return score
