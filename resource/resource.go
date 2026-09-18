@@ -102,6 +102,7 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 	if err != nil {
 		return zero, DependencyNotFoundError(name)
 	}
+	res = subresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
@@ -116,6 +117,7 @@ func FromProvider[T Resource](provider Provider, name Name) (T, error) {
 	if err != nil {
 		return zero, err
 	}
+	res = subresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
@@ -309,14 +311,24 @@ func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 
-// AsType attempts to get a more specific interface from the resource.
+// AsType attempts to get a more specific interface from the resource. For a composite (multi-API)
+// resource that does not itself satisfy T, it returns the first sub-resource that does, so a consumer
+// can extract a typed client for any API the composite serves.
 func AsType[T Resource](from Resource) (T, error) {
-	res, ok := from.(T)
-	if !ok {
-		var zero T
-		return zero, TypeError[T](from)
+	if res, ok := from.(T); ok {
+		return res, nil
 	}
-	return res, nil
+	if mar, ok := from.(MultiAPIResource); ok {
+		for _, api := range mar.APIs() {
+			if sub, found := mar.ResourceForAPI(api); found {
+				if res, ok := sub.(T); ok {
+					return res, nil
+				}
+			}
+		}
+	}
+	var zero T
+	return zero, TypeError[T](from)
 }
 
 type closeOnlyResource struct {

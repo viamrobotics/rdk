@@ -507,11 +507,34 @@ func (manager *resourceManager) AllNonCollidingResourceNames() []resource.Name {
 // - Resources that are remote and have the same full name as another resource (name collision).
 // Remotes resources' Name field will be automatically prefixed.
 func (manager *resourceManager) ResourceNames() []resource.Name {
-	return manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
+	return manager.expandCompositeNames(manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
 		return k.API != client.RemoteAPI &&
 			k.API.Type.Namespace != resource.APINamespaceRDKInternal &&
 			gNode.HasResource()
-	})
+	}))
+}
+
+// expandCompositeNames replaces each composite name with one Name per co-equal API it serves, so a
+// composite is advertised on the wire as N same-named ResourceName messages (one per API). This is
+// what lets a client detect and assemble a composite. Non-composites pass through unchanged.
+func (manager *resourceManager) expandCompositeNames(names []resource.Name) []resource.Name {
+	var out []resource.Name
+	for _, n := range names {
+		node, ok := manager.resources.Node(n)
+		if !ok {
+			out = append(out, n)
+			continue
+		}
+		apis := resource.APIsForModel(node.ResourceModel())
+		if len(apis) < 2 {
+			out = append(out, n)
+			continue
+		}
+		for _, api := range apis {
+			out = append(out, resource.Name{API: api, Remote: n.Remote, Name: n.Name})
+		}
+	}
+	return out
 }
 
 // reachableResourceNames returns the names of all resources in the manager, excluding the following types of resources:

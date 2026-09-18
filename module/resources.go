@@ -362,6 +362,25 @@ func (m *Module) addResource(
 		return multierr.Combine(err, res.Close(ctx))
 	}
 
+	// A composite serves several co-equal APIs from this one instance. Register the same instance in
+	// each of its other APIs' collections (under that API's name) so every per-API subtype service
+	// resolves to it — one identity, one lifecycle, reachable under every API.
+	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+		base := conf.ResourceName()
+		for _, api := range apis {
+			if api == conf.API {
+				continue
+			}
+			other, ok := m.collections[api]
+			if !ok {
+				return multierr.Combine(fmt.Errorf("module cannot service composite api: %s", api), res.Close(ctx))
+			}
+			if err := other.Add(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, res); err != nil {
+				return multierr.Combine(err, res.Close(ctx))
+			}
+		}
+	}
+
 	m.resLoggers[res] = resLogger
 	// add the video stream resources upon creation
 	if p, ok := res.(rtppassthrough.Source); ok {
@@ -520,6 +539,16 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 		}
 	}
 
+	// A composite instance lives in one collection per co-equal API; remove it from each. Names are
+	// machine-wide unique, so removing this bare name from every other collection is safe (a no-op
+	// where it is absent). registerMu is held here.
+	for api, c := range m.collections {
+		if api == resName.API {
+			continue
+		}
+		_ = c.Remove(resource.Name{API: api, Remote: resName.Remote, Name: resName.Name})
+	}
+
 	return coll.Remove(resName)
 }
 
@@ -581,6 +610,26 @@ func (m *Module) rebuildResource(
 
 	if err := coll.ReplaceOne(conf.ResourceName(), newRes); err != nil {
 		return nil, multierr.Combine(err, newRes.Close(ctx))
+	}
+
+	// Composite: a rebuilt instance must replace the old one in every co-equal API's collection so
+	// all APIs continue to resolve to the one new instance. (In-place reconfigure needs no such
+	// fan-out — the shared instance pointer is already visible in every collection.)
+	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+		base := conf.ResourceName()
+		m.registerMu.Lock()
+		for _, api := range apis {
+			if api == conf.API {
+				continue
+			}
+			if other, ok := m.collections[api]; ok {
+				if err := other.ReplaceOne(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, newRes); err != nil {
+					m.registerMu.Unlock()
+					return nil, multierr.Combine(err, newRes.Close(ctx))
+				}
+			}
+		}
+		m.registerMu.Unlock()
 	}
 
 	m.registerMu.Lock()

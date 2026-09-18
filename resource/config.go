@@ -19,6 +19,7 @@ type Config struct {
 	Name             string
 	API              API
 	Model            Model
+	Composite        bool
 	Frame            *referenceframe.LinkConfig
 	DependsOn        []string
 	LogConfiguration *LogConfig
@@ -59,6 +60,7 @@ type configData struct {
 	Name                      string                     `json:"name"`
 	API                       API                        `json:"api"`
 	Model                     Model                      `json:"model"`
+	Composite                 bool                       `json:"composite,omitempty"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
 	LogConfiguration          *LogConfig                 `json:"log_configuration,omitempty"`
@@ -80,6 +82,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 		conf.Name = confData.Name
 		conf.API = confData.API
 		conf.Model = confData.Model
+		conf.Composite = confData.Composite
 		conf.Frame = confData.Frame
 		conf.DependsOn = confData.DependsOn
 		conf.LogConfiguration = confData.LogConfiguration
@@ -273,6 +276,14 @@ func (conf *Config) Validate(path, defaultAPIType string) ([]string, []string, e
 // stored (JSON/Proto/Database) and will fix them up to the builtin values they
 // are intended for.
 func (conf *Config) AdjustPartialNames(defaultAPIType string) {
+	// A composite config entry may omit its api; resolve the canonical api from the model's
+	// registered API set (if known) before filling partial-name defaults. Naming any one of a
+	// composite's APIs also works, since the node is reachable under all of them.
+	if conf.API == (API{}) {
+		if apis := APIsForModel(conf.Model); len(apis) > 0 {
+			conf.API = apis[0]
+		}
+	}
 	if conf.API.Type.Namespace == "" {
 		conf.API.Type.Namespace = APINamespaceRDK
 	}
