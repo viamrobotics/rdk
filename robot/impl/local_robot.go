@@ -191,8 +191,34 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 // FindBySimpleNameAndAPI. All incoming gRPC requests related to a resource go through
 // FindBySimpleNameAndAPI. ResourceByName is only called internally for some dependency
 // calculation and session code.
+//
+// A bare (API-less) name resolves to the one resource of that name via resourceBySimpleName. This
+// is the api-less SimpleName path used by resource.NamedFromProvider, and for a composite it returns
+// the single handle serving every API. An api-specific lookup still routes to FindBySimpleNameAndAPI
+// and returns the raw instance, so in-process capability detection is unaffected.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
+	if name.API == (resource.API{}) {
+		return r.resourceBySimpleName(name.Name)
+	}
 	return r.FindBySimpleNameAndAPI(name.Name, name.API)
+}
+
+// resourceBySimpleName resolves a bare (API-less) name to its single resource. A composite is one
+// node reachable under several co-equal APIs, so FindBySimpleName dedups it to a single match and
+// this returns the one handle serving every API. A genuine same-name collision across distinct
+// resources returns several matches and is an error.
+func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error) {
+	matches := r.manager.resources.FindBySimpleName(name)
+	switch len(matches) {
+	case 0:
+		return nil, resource.NewNotFoundError(resource.SimpleName(name))
+	case 1:
+		return r.FindBySimpleNameAndAPI(matches[0].Name, matches[0].API)
+	default:
+		return nil, errors.Errorf(
+			"multiple resources share the simple name %q across distinct APIs (%s); look it up by its fully qualified name instead",
+			name, resource.NamesToStrings(matches))
+	}
 }
 
 // RemoteNames returns the names of all known remote robots.
@@ -766,6 +792,15 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
 		allDeps[prefixedName] = res
+		// A composite dependency serves several co-equal APIs from one identity; key it under each of
+		// its API names so a dependent can resolve it (via resource.FromDependencies/FromProvider,
+		// which unwrap to the sub-resource for the requested API) by whichever API it expects.
+		for _, api := range r.coequalAPIsOf(prefixedName, res) {
+			aliased := resource.Name{API: api, Remote: prefixedName.Remote, Name: prefixedName.Name}
+			if _, ok := allDeps[aliased]; !ok {
+				allDeps[aliased] = res
+			}
+		}
 	}
 	nodeConf := gNode.Config()
 	weakDeps, weakSnap := r.getWeakDependenciesAndSnapshot(rName, nodeConf.API, nodeConf.Model)
@@ -790,6 +825,22 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 	}
 
 	return allDeps, weakAndOptionalDepsSnapshot, nil
+}
+
+// coequalAPIsOf returns every API a composite dependency serves, or nil for an ordinary resource.
+// A modular composite is stored as a resource.MultiAPIResource, so APIsOf reports its full set; a
+// builtin composite is stored as its raw multi-API instance, whose set is recovered from the backing
+// graph node's model.
+func (r *localRobot) coequalAPIsOf(name resource.Name, res resource.Resource) []resource.API {
+	if apis := resource.APIsOf(res); len(apis) > 1 {
+		return apis
+	}
+	if node, err := r.manager.resources.FindBySimpleNameAndAPI(name.Name, name.API); err == nil {
+		if apis := resource.APIsForModel(node.ResourceModel()); len(apis) > 1 {
+			return apis
+		}
+	}
+	return nil
 }
 
 func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []resource.Matcher {

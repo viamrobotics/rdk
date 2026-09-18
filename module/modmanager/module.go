@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -461,6 +462,23 @@ func (m *module) registerResourceModels(mgr *Manager) {
 		default:
 			m.logger.Errorw("Invalid module type", "API type", api.API.Type)
 		}
+	}
+
+	// Record composite models — those this module advertises under more than one API — so every layer
+	// (graph, manager, client) can expand the model into its full co-equal API set. Sorting yields a
+	// deterministic canonical API (apis[0]).
+	apisByModel := map[resource.Model][]resource.API{}
+	for api, models := range m.handles {
+		for _, model := range models {
+			apisByModel[model] = append(apisByModel[model], api.API)
+		}
+	}
+	for model, apis := range apisByModel {
+		if len(apis) < 2 {
+			continue
+		}
+		sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+		resource.RegisterMultiAPISet(model, apis)
 	}
 }
 
