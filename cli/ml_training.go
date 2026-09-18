@@ -143,6 +143,7 @@ type mlSubmitTrainingJobArgs struct {
 }
 
 type mlListContainersArgs struct {
+	OrgID       string
 	IncludeURIs bool
 }
 
@@ -152,7 +153,9 @@ type prettyPrintContainer struct {
 	Description string
 	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
-	CreatedOn   string `json:",omitempty"`
+	ID          string
+	CreatedOn   string
+	Visibility  string
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
@@ -173,8 +176,11 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
+			Visibility:  v.Visibility.String(),
 			Framework:   v.Framework,
-			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+			EndOfLife:   v.Eol.String(),
+			CreatedOn:   v.CreatedOn.String(),
+			ID:          v.Id,
 		}
 		if args.IncludeURIs {
 			container.URI = v.Uri
