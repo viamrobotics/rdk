@@ -88,6 +88,8 @@ func TestActivityLoggerInheritsAppenders(t *testing.T) {
 	// A lazily created activity logger inherits the emitting logger's appenders, like a
 	// Sublogger, so events reach the tree's sinks without any setup call.
 	logger, registry := NewLoggerWithRegistry("rdk")
+	// Assert on production emission semantics rather than the test-mode default.
+	registry.SuppressActivity.Store(false)
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	registry.AddAppenderToAll(observerCore)
 
@@ -102,6 +104,8 @@ func TestActivityLoggerReceivesLaterAppenders(t *testing.T) {
 	// Once created, the activity logger is registered, so appenders added to the whole
 	// tree afterward reach it exactly once.
 	logger, registry := NewLoggerWithRegistry("rdk")
+	// Assert on production emission semantics rather than the test-mode default.
+	registry.SuppressActivity.Store(false)
 	logger.Activity("reconfigure", "start")
 
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
@@ -113,6 +117,33 @@ func TestActivityLoggerReceivesLaterAppenders(t *testing.T) {
 
 func TestActivityNoSinks(t *testing.T) {
 	// An activity logger with no appenders must drop events without error.
-	logger := NewLogger("test")
+	logger, registry := NewLoggerWithRegistry("test")
+	registry.SuppressActivity.Store(false)
+	// The constructor supplies a stdout appender that the activity logger would inherit.
+	// Drop it so this reaches the empty-sink path rather than printing.
+	//nolint:forcetypeassert
+	logger.(*impl).appenders = nil
+
 	logger.Activity("reconfigure", "start")
+}
+
+func TestActivitySuppressedInTests(t *testing.T) {
+	// Registries created under test suppress activity by default, so the event never
+	// reaches the logger's appenders.
+	logger, observedLogs := NewObservedTestLogger(t)
+	logger.Activity("reconfigure", "start")
+	test.That(t, observedLogs.Len(), test.ShouldEqual, 0)
+
+	// Normal logging is unaffected.
+	logger.Info("still logged")
+	test.That(t, observedLogs.Len(), test.ShouldEqual, 1)
+}
+
+func TestObservedActivityLoggerOptsBackIn(t *testing.T) {
+	// Asking to observe activity re-enables it despite the test-mode default.
+	logger, _ := NewObservedTestLogger(t)
+	activityLogs := NewObservedActivityLogger(t, logger)
+
+	logger.Activity("reconfigure", "start")
+	test.That(t, activityLogs.Len(), test.ShouldEqual, 1)
 }

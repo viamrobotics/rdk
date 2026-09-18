@@ -185,12 +185,15 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 
 // NewObservedActivityLogger attaches an in-memory observer to the activity logger that
 // the given logger's Activity events emit through, returning the observed activity
-// events. logger must be a registry-backed logger created by this package.
+// events. It clears the registry's SuppressActivity, which is set by default under test.
+// logger must be a registry-backed logger created by this package.
 func NewObservedActivityLogger(tb testing.TB, logger Logger) *observer.ObservedLogs {
 	imp, ok := logger.(*impl)
 	if !ok {
 		tb.Fatalf("logger of type %T is not registry-backed", logger)
 	}
+	imp.registry.SuppressActivity.Store(false)
+
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	imp.activityLogger().AddAppender(observerCore)
 	return observedLogs

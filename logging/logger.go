@@ -24,10 +24,11 @@ type Logger interface {
 	WithFields(args ...interface{}) Logger
 
 	// Activity emits an activity event through this logger's activity logger
-	// (<root>.activity). It always emits regardless of any configured level and is
-	// never deduplicated. activity names what the event is about (e.g. "reconfigure",
-	// "module", "remote"); event is the transition verb (e.g. "start", "complete",
-	// "fail", "connect"). Callers must not set "activity" or "event" in keysAndValues.
+	// (<root>.activity). It ignores any configured level and is never deduplicated, but
+	// is dropped when the registry has SuppressActivity set, which is the default under
+	// test. activity names what the event is about (e.g. "reconfigure", "module",
+	// "remote"); event is the transition verb (e.g. "start", "complete", "fail",
+	// "connect"). Callers must not set "activity" or "event" in keysAndValues.
 	Activity(activity, event string, keysAndValues ...any)
 
 	CDebug(ctx context.Context, args ...interface{})
