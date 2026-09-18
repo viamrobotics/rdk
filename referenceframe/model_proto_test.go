@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"math/rand"
+	"os"
 	"strings"
 	"testing"
 
@@ -63,32 +64,148 @@ func TestModelProtoRoundTrip(t *testing.T) {
 
 			restored, err := ModelFromProto(fromJSON, original.Name())
 			test.That(t, err, test.ShouldBeNil)
-
-			test.That(t, limitsAlmostEqual(original.DoF(), restored.DoF(), 1e-9), test.ShouldBeTrue)
-
-			rng := rand.New(rand.NewSource(1))
-			for i := 0; i < 25; i++ {
-				inputs := RandomFrameInputs(original, rng)
-
-				wantPose, err := original.Transform(inputs)
-				test.That(t, err, test.ShouldBeNil)
-				gotPose, err := restored.Transform(inputs)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, spatial.PoseAlmostEqualEps(wantPose, gotPose, 1e-6), test.ShouldBeTrue)
-
-				wantGeoms, err := original.Geometries(inputs)
-				test.That(t, err, test.ShouldBeNil)
-				gotGeoms, err := restored.Geometries(inputs)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, len(gotGeoms.Geometries()), test.ShouldEqual, len(wantGeoms.Geometries()))
-				for j, want := range wantGeoms.Geometries() {
-					got := gotGeoms.Geometries()[j]
-					test.That(t, got.Label(), test.ShouldEqual, want.Label())
-					test.That(t, spatial.PoseAlmostEqualEps(want.Pose(), got.Pose(), 1e-6), test.ShouldBeTrue)
-				}
-			}
+			assertSameKinematics(t, original, restored)
 		})
 	}
+}
+
+// assertSameKinematics compares two models by behaviour, limits, forward kinematics and geometry
+// at random inputs, so a test survives renaming a field.
+func assertSameKinematics(t *testing.T, want, got Model) {
+	t.Helper()
+	test.That(t, limitsAlmostEqual(want.DoF(), got.DoF(), 1e-9), test.ShouldBeTrue)
+
+	rng := rand.New(rand.NewSource(1))
+	for i := 0; i < 25; i++ {
+		inputs := RandomFrameInputs(want, rng)
+
+		wantPose, err := want.Transform(inputs)
+		test.That(t, err, test.ShouldBeNil)
+		gotPose, err := got.Transform(inputs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostEqualEps(wantPose, gotPose, 1e-6), test.ShouldBeTrue)
+
+		wantGeoms, err := want.Geometries(inputs)
+		test.That(t, err, test.ShouldBeNil)
+		gotGeoms, err := got.Geometries(inputs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(gotGeoms.Geometries()), test.ShouldEqual, len(wantGeoms.Geometries()))
+		for j, wantGeom := range wantGeoms.Geometries() {
+			gotGeom := gotGeoms.Geometries()[j]
+			// labels carry the model name as a prefix, and the two sides may have been given
+			// different names, so compare the part that describes the geometry
+			test.That(t, strings.TrimPrefix(gotGeom.Label(), got.Name()+":"), test.ShouldEqual,
+				strings.TrimPrefix(wantGeom.Label(), want.Name()+":"))
+			test.That(t, spatial.PoseAlmostEqualEps(wantGeom.Pose(), gotGeom.Pose(), 1e-6), test.ShouldBeTrue)
+		}
+	}
+}
+
+// The response carries both encodings during the deprecation window. A new client reads the typed
+// model, an old client reads the bytes it always read, and either alone is enough.
+func TestKinematicsResponseCarriesTypedModel(t *testing.T) {
+	original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	resp := KinematicModelToProtobuf(original)
+	test.That(t, resp.GetModel(), test.ShouldNotBeNil)
+	test.That(t, resp.GetFormat(), test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+	test.That(t, len(resp.GetKinematicsData()), test.ShouldBeGreaterThan, 0)
+
+	both, err := KinematicModelFromProtobuf("ur5e", resp)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, original, both)
+
+	typedOnly, ok := proto.Clone(resp).(*commonpb.GetKinematicsResponse)
+	test.That(t, ok, test.ShouldBeTrue)
+	typedOnly.KinematicsData = nil
+	typedOnly.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
+	fromTyped, err := KinematicModelFromProtobuf("ur5e", typedOnly)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, original, fromTyped)
+
+	bytesOnly, ok := proto.Clone(resp).(*commonpb.GetKinematicsResponse)
+	test.That(t, ok, test.ShouldBeTrue)
+	bytesOnly.Model = nil
+	fromBytes, err := KinematicModelFromProtobuf("ur5e", bytesOnly)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, original, fromBytes)
+}
+
+// The exclude flags blank the bytes of one role and leave source_path in place. The deprecated bytes
+// fields are untouched, since a client old enough to read them cannot have set a flag.
+func TestKinematicsRequestFlagsStripMeshBytes(t *testing.T) {
+	ply, err := os.ReadFile(utils.ResolveFile("referenceframe/testfiles/test_simple.ply"))
+	test.That(t, err, test.ShouldBeNil)
+	cfg := &ModelConfigJSON{
+		Name: "meshy",
+		Links: []LinkConfig{
+			{ID: "base", Parent: World},
+			{ID: "tip", Parent: "j", Geometry: &spatial.GeometryConfig{
+				Type: spatial.MeshType, MeshData: ply, MeshContentType: "ply", MeshFilePath: "meshes/tip.ply",
+			}},
+		},
+		Joints: []JointConfig{
+			{ID: "j", Type: RevoluteJoint, Parent: "base", Axis: spatial.AxisConfig{Z: 1}, Min: -90, Max: 90},
+		},
+	}
+	model, err := cfg.ParseConfig("meshy")
+	test.That(t, err, test.ShouldBeNil)
+
+	tipMesh := func(resp *commonpb.GetKinematicsResponse) *commonpb.Mesh {
+		for _, link := range resp.GetModel().GetLinks() {
+			if link.GetId() == "tip" {
+				return link.GetCollision()[0].GetMesh()
+			}
+		}
+		t.Fatal("tip link missing")
+		return nil
+	}
+
+	full := KinematicModelToProtobufForRequest(model, &commonpb.GetKinematicsRequest{})
+	test.That(t, len(tipMesh(full).GetMesh()), test.ShouldBeGreaterThan, 0)
+
+	stripped := KinematicModelToProtobufForRequest(model, &commonpb.GetKinematicsRequest{ExcludeCollisionMeshes: true})
+	test.That(t, len(tipMesh(stripped).GetMesh()), test.ShouldEqual, 0)
+	test.That(t, tipMesh(stripped).GetSourcePath(), test.ShouldEqual, "meshes/tip.ply")
+	test.That(t, tipMesh(stripped).GetContentType(), test.ShouldEqual, "ply")
+	test.That(t, stripped.GetKinematicsData(), test.ShouldResemble, full.GetKinematicsData())
+
+	// visual is never populated from a v1 config, so exercise that role on the message directly
+	pb := &commonpb.KinematicModel{Links: []*commonpb.KinematicLink{{
+		Id:        "l",
+		Collision: []*commonpb.Geometry{{GeometryType: &commonpb.Geometry_Mesh{Mesh: &commonpb.Mesh{Mesh: []byte("c"), SourcePath: "c.stl"}}}},
+		Visual:    []*commonpb.Geometry{{GeometryType: &commonpb.Geometry_Mesh{Mesh: &commonpb.Mesh{Mesh: []byte("v"), SourcePath: "v.glb"}}}},
+	}}}
+	stripMeshBytes(pb, false, true)
+	test.That(t, pb.Links[0].Collision[0].GetMesh().GetMesh(), test.ShouldResemble, []byte("c"))
+	test.That(t, len(pb.Links[0].Visual[0].GetMesh().GetMesh()), test.ShouldEqual, 0)
+	test.That(t, pb.Links[0].Visual[0].GetMesh().GetSourcePath(), test.ShouldEqual, "v.glb")
+}
+
+// FrameSystemConfig carries the typed model beside the deprecated Struct, and a reader prefers the
+// model but still understands a Struct from an older remote.
+func TestFrameSystemPartCarriesTypedModel(t *testing.T) {
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	part := &FrameSystemPart{
+		FrameConfig: NewLinkInFrame(World, spatial.NewZeroPose(), "arm", nil),
+		ModelFrame:  arm,
+	}
+
+	fsc, err := part.ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsc.GetModel(), test.ShouldNotBeNil)
+	test.That(t, len(fsc.GetKinematics().AsMap()), test.ShouldBeGreaterThan, 0)
+
+	fromTyped, err := ProtobufToFrameSystemPart(fsc)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, arm, fromTyped.ModelFrame)
+
+	fsc.Model = nil
+	fromStruct, err := ProtobufToFrameSystemPart(fsc)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, arm, fromStruct.ModelFrame)
 }
 
 // A typo in a v2 file must fail at parse. This is most of what proto JSON buys over the v1 parser,

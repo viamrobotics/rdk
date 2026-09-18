@@ -28,6 +28,10 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	if resp == nil {
 		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
 	}
+	// a typed model wins over the deprecated bytes whenever a server sent one
+	if resp.GetModel() != nil {
+		return ModelFromProto(resp.GetModel(), name)
+	}
 	format := resp.GetFormat()
 	data := resp.GetKinematicsData()
 
@@ -56,15 +60,78 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	}
 }
 
-// KinematicModelToProtobuf converts a model into a protobuf message version of that model.
+// KinematicModelToProtobuf converts a model into a protobuf message version of that model, with no
+// request flags applied. Servers answering a GetKinematics call should use
+// KinematicModelToProtobufForRequest so the caller's mesh flags are honoured.
 func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
+	return KinematicModelToProtobufForRequest(model, nil)
+}
+
+// KinematicModelToProtobufForRequest fills the typed model and, for the length of the deprecation
+// window, the file bytes that older clients still read. The request's exclude flags strip the mesh
+// bytes of that role from the typed model only, since a client old enough to read the bytes fields
+// cannot have set them. A model that cannot be expressed as a message yet, one built in code with
+// no configuration or a DH model, travels as bytes alone, which is what it did before.
+func KinematicModelToProtobufForRequest(model Model, req *commonpb.GetKinematicsRequest) *commonpb.GetKinematicsResponse {
+	resp := legacyKinematicsResponse(model)
+	if model == nil {
+		return resp
+	}
+	pb, err := ModelToProto(model)
+	if err != nil {
+		return resp
+	}
+	stripMeshBytes(pb, req.GetExcludeCollisionMeshes(), req.GetExcludeVisualMeshes())
+	resp.Model = pb
+	return resp
+}
+
+// stripMeshBytes blanks the mesh bytes of the chosen roles and leaves source_path in place, so a
+// client that later wants the bytes knows which mesh to ask for.
+func stripMeshBytes(pb *commonpb.KinematicModel, collision, visual bool) {
+	if !collision && !visual {
+		return
+	}
+	blank := func(geometries []*commonpb.Geometry) {
+		for _, g := range geometries {
+			if m := g.GetMesh(); m != nil {
+				m.Mesh = nil
+			}
+		}
+	}
+	for _, link := range pb.GetLinks() {
+		if collision {
+			blank(link.GetCollision())
+		}
+		if visual {
+			blank(link.GetVisual())
+		}
+	}
+	if collision {
+		for _, joint := range pb.GetJoints() {
+			if g := joint.GetGeometry(); g != nil {
+				blank([]*commonpb.Geometry{g})
+			}
+		}
+	}
+}
+
+// legacyKinematicsResponse is the bytes only response GetKinematics returned before the typed
+// model existed. It replays the file the model was parsed from, which is why anything set on the
+// in-memory model alone never used to leave the process.
+func legacyKinematicsResponse(model Model) *commonpb.GetKinematicsResponse {
 	if model == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
 	}
 
 	cfg := model.ModelConfig()
-	if cfg == nil || cfg.OriginalFile == nil {
+	if cfg == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
+	}
+	if cfg.OriginalFile == nil {
+		// a model that came from the typed message, or was built from a config in code, has no
+		// file to replay, so we write one for the clients that still read bytes
+		return synthesizedKinematicsResponse(cfg)
 	}
 	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
 	switch cfg.OriginalFile.Extension {
@@ -78,6 +145,23 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
 	}
 	return resp
+}
+
+// synthesizedKinematicsResponse marshals a config that never had a file into v1 SVA bytes, so a
+// client that predates the typed model still gets something it can parse. Configs with no links
+// and no joints stay UNSPECIFIED, which is what an empty model always sent.
+func synthesizedKinematicsResponse(cfg *ModelConfigJSON) *commonpb.GetKinematicsResponse {
+	if len(cfg.Links) == 0 && len(cfg.Joints) == 0 && len(cfg.DHParams) == 0 {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
+	}
+	return &commonpb.GetKinematicsResponse{
+		Format:         commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA,
+		KinematicsData: data,
+	}
 }
 
 // extractMeshMapFromModelConfig extracts mesh data from link geometries in a model config.
