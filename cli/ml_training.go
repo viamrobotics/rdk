@@ -193,7 +193,7 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 
 type registerCustomContainersArgs struct {
 	OrgID       string
-	ImageURI    string
+	URI         string
 	Description string
 }
 
@@ -206,13 +206,13 @@ func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registe
 
 	description := args.Description
 	if description == "" {
-		description = args.ImageURI
+		description = args.URI
 	}
 
 	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
 		&mltrainingpb.RegisterCustomTrainingContainerRequest{
 			OrganizationId: args.OrgID,
-			ImageUri:       args.ImageURI,
+			ImageUri:       args.URI,
 			Description:    description,
 		})
 	if err != nil {
