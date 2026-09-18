@@ -445,7 +445,8 @@ func (m *Module) cascadeRebuildDependentsOf(ctx context.Context, newResName reso
 			m.logger.Warnw(
 				"detected mutual-optional dependency cycle: one of these resources will always hold a closed handle to the other "+
 					"after reconstruction. Remove the optional dependency from one side to break the cycle.",
-				"resource", newResName.String(), "dependent", args.conf.Name)
+				"resource", newResName.String(), "dependent", args.conf.Name,
+			)
 			newDependents = append(newDependents, args)
 			continue
 		}
@@ -470,7 +471,8 @@ func (m *Module) cascadeRebuildDependentsOf(ctx context.Context, newResName reso
 
 func (m *Module) removeResource(ctx context.Context, resName resource.Name) error {
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
-		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", resName), m.logger)
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", resName), m.logger,
+	)
 	defer func() {
 		slowWatcherCancel()
 		<-slowWatcher

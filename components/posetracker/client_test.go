@@ -104,7 +104,8 @@ func TestClient(t *testing.T) {
 
 	t.Run("client tests for working pose tracker", func(t *testing.T) {
 		bodyToPoseInFrame, err := workingPTClient.Poses(
-			context.Background(), []string{zeroPoseBody, nonZeroPoseBody}, map[string]interface{}{"foo": "Poses"})
+			context.Background(), []string{zeroPoseBody, nonZeroPoseBody}, map[string]interface{}{"foo": "Poses"},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Poses"})
 

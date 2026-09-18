@@ -54,7 +54,7 @@ func stream(ctx context.Context, b *testing.B, s VideoStream) {
 const SecondNs = 1000000000.0 // second in nanoseconds
 
 func incrementAverage(avgOld, valNew, sizeNew float64) float64 {
-	avgNew := (avgOld) + (valNew-avgOld)/sizeNew
+	avgNew := avgOld + (valNew-avgOld)/sizeNew
 	return avgNew
 }
 

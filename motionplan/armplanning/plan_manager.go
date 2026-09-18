@@ -2,7 +2,11 @@ package armplanning
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"math/rand"
+	"slices"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -11,6 +15,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // planManager is intended to be the single entry point to motion planners.
@@ -136,6 +141,17 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
+	// Remove actuator frames where there was an explicit configuration goal, but the actuator was
+	// already in that configuration. We treat that frame as "pinned". This results in the motion
+	// chains omitting the "pinned" acuator. Hiding those degrees of freedom when dropping into
+	// cbirrt.
+	for goalFrame := range goalPoses {
+		goalConfig, exists := goal.structuredConfiguration[goalFrame]
+		if exists && slices.Equal(goalConfig, start.Get(goalFrame)) {
+			delete(goalPoses, goalFrame)
+		}
+	}
+
 	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
@@ -169,12 +185,16 @@ func (pm *planManager) planToDirectJoints(
 	if err != nil {
 		return nil, err
 	}
-	finalSteps.steps, err = smoothPath(ctx, psc, finalSteps.steps)
+	finalSteps.steps, _, err = smoothPath(ctx, psc, finalSteps.steps)
 	if err != nil {
 		return nil, err
 	}
 
-	return finalSteps.steps, nil
+	// extractPath always includes the start node as steps[0] (it walks the
+	// startMap parent chain to its root). The caller's trajectory already
+	// ends at that same configuration, so drop it here to avoid a duplicate
+	// waypoint.
+	return finalSteps.steps[1:], nil
 }
 
 func (pm *planManager) planSingleGoal(
@@ -204,6 +224,7 @@ func (pm *planManager) planSingleGoal(
 
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
+		pm.harvestPlan(psc, append([]*referenceframe.LinearInputs{psc.start}, planSeed.steps...), pm.logger)
 		return planSeed.steps, nil
 	}
 
@@ -217,32 +238,117 @@ func (pm *planManager) planSingleGoal(
 	// straight-line path with small nudges off whatever it grazes — the common
 	// case for barely-blocked paths.
 	if nudged := tryNudgedStraightLine(ctx, psc, planSeed.maps.goalMap, pm.pc.randseed, pm.logger.Sublogger("nudge")); nudged != nil {
-		steps, err := smoothPath(ctx, psc, nudged)
+		steps, compact, err := smoothPath(ctx, psc, nudged)
 		if err == nil {
 			pm.logger.Debugf("solved with nudged straight line: %d -> %d waypoints", len(nudged), len(steps))
 			pm.pc.planMeta.GoalsNudgeSolved++
+			pm.harvestPlan(psc, compact, pm.logger)
 			return steps, nil
 		}
 		pm.logger.Debugf("nudged path failed to smooth, falling back to cbirrt: %v", err)
 	}
 
-	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
+	// Roadmap: reusable configuration-space graph with per-scene lazily
+	// validated edges - including workspace bridge edges between joint
+	// families. First query in a scene pays edge validation; later queries in
+	// the same scene reuse the verdicts.
+	goalRoots := make([]*node, 0, len(planSeed.maps.goalMap))
+	for n, parent := range planSeed.maps.goalMap {
+		if parent == nil {
+			goalRoots = append(goalRoots, n)
+		}
+	}
+	// Reconfiguration-vs-constraint detection: when every reachable goal
+	// configuration is a large joint-space move while the end effector barely
+	// moves AND a linear constraint pins the path to a narrow tube, the
+	// reconfiguration swing almost certainly cannot stay inside the tube.
+	// Search still gets one full racing round (the heuristic is not a proof),
+	// but relaunching draws against a wall like that only burns the budget -
+	// and the warning tells the caller what to actually fix.
+	allowRelaunch := true
+	if lc := tightestLinearConstraintMM(pm.request.Constraints); lc > 0 && planSeed.maps.optNode != nil {
+		eeDelta := maxGoalTranslationMM(psc)
+		// True joint-space L2 in radians, computed directly: optNode.cost is
+		// the configured distance metric plus a neutral-pose bias, so it is
+		// not a joint angle and cannot back the threshold or the message.
+		reconfigL2 := math.Sqrt(flatL2Sq(
+			psc.start.GetLinearizedInputs(), planSeed.maps.optNode.inputs.GetLinearizedInputs(),
+		))
+		const reconfigWallRad = 1.5
+		if eeDelta >= 0 && eeDelta < 50 && lc <= 50 && reconfigL2 > reconfigWallRad {
+			pm.logger.Warnf("goal is %0.1fmm of end-effector motion but the nearest valid goal configuration is "+
+				"%0.2f rad (joint-space L2) away; a linear constraint of %0.0fmm likely cannot accommodate that "+
+				"reconfiguration. Planning one search round only. Consider relaxing the constraint for this step "+
+				"or approaching in a different joint configuration.",
+				eeDelta, reconfigL2, lc)
+			allowRelaunch = false
+		}
+	}
+
+	if !roadmapRacesSearch {
+		// Previous ordering, kept behind the flag: the roadmap gets first
+		// refusal and the searches only start if it has nothing.
+		if path := pm.tryRoadmap(ctx, psc, goalRoots, pm.logger.Sublogger("roadmap")); path != nil {
+			if steps, done, ferr := pm.finishRoadmapPath(ctx, psc, path); done {
+				return steps, ferr
+			}
+		}
+		goalRoots = nil
+	}
+
+	// A goal that reorients further than the orientation tolerance forces the
+	// search to thread a tube crossing (the band is a tube around the direct
+	// reorientation path); surface the numbers so a slow or failing search on
+	// such a request is explainable from the log.
+	if c := pm.request.Constraints; c != nil && len(c.OrientationConstraint) > 0 {
+		tol := math.Inf(1)
+		for _, oc := range c.OrientationConstraint {
+			if oc.OrientationToleranceDegs > 0 {
+				tol = min(tol, oc.OrientationToleranceDegs)
+			}
+		}
+		maxReorient := 0.0
+		for f, g := range psc.goal {
+			if s, ok := psc.startPoses[f]; ok {
+				maxReorient = max(maxReorient, motionplan.OrientDist(s.Pose().Orientation(), g.Pose().Orientation()))
+			}
+		}
+		if maxReorient > tol {
+			pm.logger.Infof("goal requires %0.1f deg of reorientation under a %0.0f deg orientation constraint; "+
+				"the search must stay within a %0.0f deg tube around the direct reorientation path, which can "+
+				"slow planning. Consider relaxing the tolerance if the path need not track the reorientation closely.",
+				maxReorient, tol, tol)
+		}
+	}
+
+	rawSteps, viaRoadmap, err := pm.raceCBiRRT(ctx, psc, planSeed.maps, goalRoots, allowRelaunch)
 	if err != nil {
 		return nil, err
 	}
 
-	finalSteps, err := pathPlanner.rrtRunner(ctx, planSeed.maps)
-	if err != nil {
-		return nil, err
+	if viaRoadmap {
+		steps, done, ferr := pm.finishRoadmapPath(ctx, psc, rawSteps)
+		if done {
+			return steps, ferr
+		}
+		// The roadmap won the race but its path will not smooth. The searches
+		// were cancelled when it won, so re-race without it rather than fail a
+		// plan the searches were still working on.
+		pm.logger.Debug("roadmap path failed to smooth, re-racing searches only")
+		rawSteps, _, err = pm.raceCBiRRT(ctx, psc, planSeed.maps, nil, allowRelaunch)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	finalSteps.steps, err = smoothPath(ctx, psc, finalSteps.steps)
+	steps, compact, err := smoothPath(ctx, psc, rawSteps)
 	if err != nil {
 		return nil, err
 	}
 
 	pm.pc.planMeta.GoalsCBIRRTSolved++
-	return finalSteps.steps, nil
+	pm.harvestPlan(psc, compact, pm.logger)
+	return steps, nil
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
@@ -364,6 +470,14 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 		}
 	}
 
+	// Near-duplicate goal solutions (IK polishing the same joint family from
+	// several seeds) add no reachability but multiply the work of everything
+	// downstream - nudge target attempts, the roadmap's multi-goal A* edge
+	// validations, cBiRRT goal trees. goalNodes is cost-sorted, so keeping
+	// the first of each cluster keeps the best.
+	const goalRootDedupSq = 0.25 // squared L2 rad; IK near-dupes are far under, families far over
+	const maxGoalRoots = 16
+	kept := make([][]float64, 0, maxGoalRoots)
 	for _, solution := range goalNodes {
 		if solution.cost > reasonableCost {
 			// if it's this bad, we don't want for cbirrt or going straight
@@ -376,9 +490,284 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 			rrt.steps = []*referenceframe.LinearInputs{solution.inputs}
 			return rrt, nil
 		}
+		if len(kept) >= maxGoalRoots {
+			break
+		}
+		flat := solution.inputs.GetLinearizedInputs()
+		dup := false
+		for _, k := range kept {
+			if flatL2Sq(k, flat) < goalRootDedupSq {
+				dup = true
+				break
+			}
+		}
+		if dup {
+			continue
+		}
+		kept = append(kept, flat)
 		rrt.maps.goalMap[&node{inputs: solution.inputs, cost: solution.cost}] = nil
 	}
 	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
 
 	return rrt, nil
+}
+
+// cbirrtRaceAttempts is how many independently-seeded cBiRRT searches run
+// concurrently when the search phase is reached. Constrained searches have
+// heavy-tailed run-to-run variance (samples on one captured scene span 18s to
+// 139s under identical inputs); racing takes roughly the minimum of that
+// distribution and turns the tail into the exception instead of the ruin of a
+// plan. The searches share the plan's collision caches (concurrent-safe, and
+// one racer's discoveries speed up the others) but use private RNG streams
+// and tree maps.
+var cbirrtRaceAttempts = utils.GetenvInt("CBIRRT_RACE_ATTEMPTS", 4)
+
+// roadmapRacesSearch controls whether the roadmap runs as a racer alongside the
+// cBiRRT searches (the default) or is consulted first, with the searches as its
+// fallback (the previous behavior). Racing bounds the roadmap's cost by the
+// search's own wall time; the sequential order lets it win outright but makes a
+// plan pay its full edge validation before any search starts.
+var roadmapRacesSearch = utils.GetenvBool("ROADMAP_RACE_SEARCH", true)
+
+// roadmapAttemptID marks the roadmap's slot in the race. It is negative so it
+// can never collide with a cBiRRT attempt index, including relaunches.
+const roadmapAttemptID = -1
+
+// errRoadmapNoPath reports that the roadmap query returned no path. It is a
+// normal outcome, not a planning failure, so it must never be the error the
+// race reports when the cBiRRT attempts also failed for real reasons.
+var errRoadmapNoPath = errors.New("roadmap found no path")
+
+// maxTotalAttempts caps how many search attempts (initial racers plus
+// relaunches) one raceCBiRRT call may spawn over its lifetime - a backstop
+// against tight failure loops, not a budget. Also sizes the results channel
+// so senders can never block.
+const maxTotalAttempts = 64
+
+// cloneRRTMaps gives one racing attempt its own tree maps. Nodes are shared
+// (they are never mutated after insertion); only the map structure - tree
+// membership and parentage - must be private per attempt.
+func cloneRRTMaps(maps *rrtMaps) *rrtMaps {
+	c := &rrtMaps{
+		startMap: make(rrtMap, len(maps.startMap)),
+		goalMap:  make(rrtMap, len(maps.goalMap)),
+		optNode:  maps.optNode,
+	}
+	for k, v := range maps.startMap {
+		c.startMap[k] = v
+	}
+	for k, v := range maps.goalMap {
+		c.goalMap[k] = v
+	}
+	return c
+}
+
+// raceCBiRRT runs cbirrtRaceAttempts independent cBiRRT searches concurrently
+// and returns the first solution found, cancelling the rest.
+// finishRoadmapPath post-processes a path the roadmap produced. done is false
+// when the path could not be smoothed, in which case the caller must fall back
+// to the searches.
+func (pm *planManager) finishRoadmapPath(
+	ctx context.Context,
+	psc *PlanSegmentContext,
+	path []*referenceframe.LinearInputs,
+) ([]*referenceframe.LinearInputs, bool, error) {
+	rm := getRoadmap(psc, pm.logger)
+	sceneKey := uint64(0)
+	if rm != nil {
+		sceneKey = pm.roadmapSceneKey(psc, rm)
+		// Replayed corridor in an unchanged scene: the smoothed and
+		// close-obstacle-expanded trajectory is deterministic and was
+		// validated when first computed - skip recomputing it.
+		if cached := rm.cachedSmoothed(psc, sceneKey, path); cached != nil {
+			pm.logger.Debugf("solved via roadmap (cached smooth): %d waypoints", len(cached))
+			pm.pc.planMeta.GoalsRoadmapSolved++
+			return cached, true, nil
+		}
+	}
+	smoothed, compact, err := smoothPath(ctx, psc, path)
+	if err != nil {
+		pm.logger.Debugf("roadmap path failed to smooth: %v", err)
+		return nil, false, nil
+	}
+	pm.logger.Debugf("solved via roadmap: %d -> %d waypoints", len(path), len(smoothed))
+	pm.pc.planMeta.GoalsRoadmapSolved++
+	if rm != nil {
+		rm.storeSmoothed(sceneKey, path, smoothed)
+	}
+	pm.harvestPlan(psc, compact, pm.logger)
+	return smoothed, true, nil
+}
+
+// raceCBiRRT races the lazy roadmap against cbirrtRaceAttempts independent
+// cBiRRT searches and returns the first path any of them produces, cancelling
+// the rest. The second return reports whether the roadmap won, because a
+// roadmap path is post-processed differently by the caller.
+//
+// Racing the roadmap rather than consulting it first is what bounds its cost.
+// Its edge validation is cheap on a scene whose verdicts are already cached
+// and very expensive on a cold one - on captured scenes the query has run 16x
+// longer than the search it exists to replace. Racing takes the minimum of the
+// two instead of betting the plan on the roadmap being in its good case, so
+// the win is kept where it is real without having to predict which case this
+// plan is in.
+func (pm *planManager) raceCBiRRT(
+	ctx context.Context,
+	psc *PlanSegmentContext,
+	maps *rrtMaps,
+	goalRoots []*node,
+	allowRelaunch bool,
+) ([]*referenceframe.LinearInputs, bool, error) {
+	attempts := max(1, cbirrtRaceAttempts)
+
+	raceCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	type raceResult struct {
+		steps      []*referenceframe.LinearInputs
+		err        error
+		attempt    int
+		viaRoadmap bool
+	}
+	// Buffered to the lifetime attempt cap so no sender can ever block: once
+	// a winner returns, the remaining in-flight attempts each deposit their
+	// result and exit regardless of readers. (In-flight concurrency is still
+	// bounded by `attempts` - relaunches only follow a consumed result - but
+	// sizing the buffer to the cap makes the no-blocked-sender property
+	// unconditional rather than an invariant of the reader loop.)
+	results := make(chan raceResult, maxTotalAttempts+1)
+
+	// Seed the goal retreat corridors once on the master maps; every attempt's
+	// clone inherits them, so restarts don't repeat the corridor IK.
+	if seeder, err := newCBiRRTMotionPlanner(raceCtx, pm.pc, psc, pm.logger.Sublogger("corridors")); err == nil {
+		seeder.seedGoalRetreatCorridors(raceCtx, maps)
+	}
+	// NOTE: pruning goal roots without corridors was tried here and reverted:
+	// corridor presence is not connectability, and on the captured hard scene
+	// it sometimes removed every root the search could actually reach,
+	// converting a solvable plan into a timeout. The corridor-aiming already
+	// biases racers toward corridor-bearing roots without excluding the rest.
+
+	launch := func(a int) {
+		go func(a int) {
+			logger := pm.logger.Sublogger(fmt.Sprintf("cbirrt%d", a))
+			planner, err := newCBiRRTMotionPlanner(raceCtx, pm.pc, psc, logger)
+			if err != nil {
+				results <- raceResult{nil, err, a, false}
+				return
+			}
+			// Each attempt is a continuous full-budget search (restart-CHOPPING
+			// - truncating attempts below the full iteration budget - was tried
+			// and hurt: the trees are the asset, and successful searches
+			// historically need several hundred iterations). Diversity comes
+			// from the attempts' distinct RNG streams.
+			//nolint:gosec
+			planner.rnd = rand.New(rand.NewSource(int64(pm.pc.planOpts.RandomSeed) + int64(a)*7919))
+			sol, err := planner.rrtRunner(raceCtx, cloneRRTMaps(maps))
+			if err != nil {
+				results <- raceResult{nil, err, a, false}
+				return
+			}
+			results <- raceResult{sol.steps, nil, a, false}
+		}(a)
+	}
+	for a := 0; a < attempts; a++ {
+		launch(a)
+	}
+
+	// The roadmap runs as one more racer. It shares psc (and so the plan's
+	// collision caches) with the searches exactly as they share it with each
+	// other, and it only reads the roadmap structure, so no extra
+	// synchronization is needed here. Cancelling raceCtx on a winner stops its
+	// A* between edge validations.
+	racingRoadmap := roadmapRacesSearch && len(goalRoots) > 0
+	if racingRoadmap {
+		go func() {
+			path := pm.tryRoadmap(raceCtx, psc, goalRoots, pm.logger.Sublogger("roadmap"))
+			if path == nil {
+				results <- raceResult{nil, errRoadmapNoPath, roadmapAttemptID, true}
+				return
+			}
+			results <- raceResult{path, nil, roadmapAttemptID, true}
+		}()
+	}
+
+	// Search time is heavy-tailed: a full-budget attempt that exhausts its
+	// iterations was simply a bad draw, and with request budget remaining the
+	// slot is worth relaunching with a fresh stream and fresh tree clones.
+	// Fresh trees also keep the linear nearest-neighbor scan fast - letting
+	// one tree grow without bound makes each extend progressively slower.
+	// Before this, racers could exhaust 5000 iterations in 20s of a 300s
+	// request and fail the plan with 280s unused. maxTotalAttempts is a
+	// backstop against tight failure loops, not a budget.
+	totalLaunched := attempts
+	var firstErr error
+	inFlight := attempts
+	if racingRoadmap {
+		inFlight++
+	}
+	for inFlight > 0 {
+		r := <-results
+		inFlight--
+		if r.err == nil {
+			if r.viaRoadmap {
+				pm.logger.Debugf("race: roadmap finished first (%d waypoints)", len(r.steps))
+			} else {
+				pm.logger.Debugf("cbirrt race: attempt %d finished first (%d raw nodes)", r.attempt, len(r.steps))
+			}
+			return r.steps, r.viaRoadmap, nil
+		}
+		// A roadmap miss is an ordinary outcome: it neither earns a relaunch
+		// (there is nothing to redraw - the query is deterministic for the
+		// scene) nor counts as the failure to report.
+		if r.viaRoadmap {
+			pm.logger.Debugf("race: roadmap found no path; leaving it to the searches")
+			continue
+		}
+		if allowRelaunch && raceCtx.Err() == nil && totalLaunched < maxTotalAttempts {
+			pm.logger.Debugf("cbirrt race: attempt %d exhausted (%v); relaunching as attempt %d", r.attempt, r.err, totalLaunched)
+			launch(totalLaunched)
+			totalLaunched++
+			inFlight++
+			continue
+		}
+		// Context cancellation of the losers is expected once someone wins;
+		// remember only the first real failure.
+		if firstErr == nil {
+			firstErr = r.err
+		}
+	}
+	return nil, false, firstErr
+}
+
+// tightestLinearConstraintMM returns the smallest line tolerance among the
+// request's linear constraints, or 0 when none are set.
+func tightestLinearConstraintMM(c *motionplan.Constraints) float64 {
+	if c == nil {
+		return 0
+	}
+	out := 0.0
+	for _, lc := range c.LinearConstraint {
+		if lc.LineToleranceMm > 0 && (out == 0 || lc.LineToleranceMm < out) {
+			out = lc.LineToleranceMm
+		}
+	}
+	return out
+}
+
+// maxGoalTranslationMM returns the largest straight-line translation any goal
+// frame must cover for this segment, or -1 when it cannot be computed.
+func maxGoalTranslationMM(psc *PlanSegmentContext) float64 {
+	out := -1.0
+	for f, gp := range psc.goal {
+		sp, ok := psc.startPoses[f]
+		if !ok {
+			return -1
+		}
+		d := gp.Pose().Point().Sub(sp.Pose().Point()).Norm()
+		if d > out {
+			out = d
+		}
+	}
+	return out
 }

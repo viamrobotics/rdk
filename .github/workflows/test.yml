@@ -236,11 +236,11 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-16-core
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-arm-16-core
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64
             platform: linux/arm64
             platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
@@ -286,6 +286,10 @@ jobs:
         if: needs.check-changes.outputs.skip_module == 'true'
         run: echo "SKIP_MODULE=true" >> $GITHUB_ENV
 
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
       - name: Run go unit tests
         env:
           # The devenv images have the C++ runtime the prebuilt trajex archives
@@ -320,6 +324,8 @@ jobs:
     container:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
+    env:
+      MISE_GO_SET_GOROOT: false
     steps:
       - uses: actions/checkout@v5
         with:
@@ -329,9 +335,25 @@ jobs:
       - name: Install toolchain
         uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+
+      # Use this action just to save and restore the golangci-lint cache. The
+      # binary is actually installed by mise in the previous step and executed
+      # as part of a make/mise target in the following step. The weird looking
+      # combination of `install-only` and `install-mode` does still let the
+      # caching parts of the action run. We should probably verify if that's
+      # still the case if we ever change this version because there's a good
+      # chance the current behavior was not intentional on the part of the
+      # authors.
+      - name: golangci-lint
+        # golangci/golangci-lint-action@9.3.0
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+        with:
+          install-mode: 'none' # already installed by mise
+          install-only: true
+          cache-invalidation-interval: 1 # days
 
       - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
         run: |
@@ -394,6 +416,9 @@ jobs:
           go.viam.com/rdk/module
           go.viam.com/rdk/logging
           go.viam.com/rdk/cli
+          go.viam.com/rdk/services/shell
+          go.viam.com/rdk/services/shell/builtin
+          go.viam.com/rdk/services/shell/testutils
         )
         WINDOWS_PATTERN=$(IFS='|'; echo "${WORKING_WINDOWS_TESTS[*]}")
         TEST_TARGET=$(echo "$TEST_TARGET" | grep -E "^(${WINDOWS_PATTERN})$")
@@ -425,8 +450,10 @@ jobs:
     - name: Install dependencies
       run: |
         brew update
-        brew tap viamrobotics/brews
+        # `brew trust` must precede `brew tap`: since Homebrew 7.0, `brew tap` of an
+        # untrusted third-party tap hard-fails ("invalid syntax in tap!"), aborting the step.
         brew trust viamrobotics/brews
+        brew tap viamrobotics/brews
         brew install nlopt-static
         brew install x264
         # While it's not a requirement to actually run the viam-server binary, ffmpeg is

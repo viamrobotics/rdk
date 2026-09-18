@@ -389,7 +389,8 @@ func (p *pidTuner) computeCohenCoonsGains(stepPwr float64) error {
 	if tau == 0 || tauD == 0 || K == 0 {
 		return errors.Errorf(
 			"PID auto-tuning could not characterize the step response using method %s (tau %v, deadtime %v, gain %v)",
-			p.tuneMethod, tau, tauD, K)
+			p.tuneMethod, tau, tauD, K,
+		)
 	}
 	r := tauD / tau
 	if p.tuneMethod == tuneMethodCohenCoonsPID {
@@ -426,7 +427,7 @@ func (p *pidTuner) pidTunerStep(pv float64, logger logging.Logger) (float64, boo
 		return p.out, false
 	case step:
 		p.vF = l2*math.Pow(pv-p.xF, 2.0) + (1-l1)*p.vF
-		p.dF = l3*(math.Pow(pv-p.pPv, 2.0)) + (1-l3)*p.dF
+		p.dF = l3*math.Pow(pv-p.pPv, 2.0) + (1-l3)*p.dF
 		p.xF = l1*pv + (1-l1)*p.xF
 		r := (2 - l1) * p.vF / p.dF
 		p.pPv = pv

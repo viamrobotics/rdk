@@ -2,6 +2,7 @@ package inject
 
 import (
 	"context"
+	"time"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
@@ -38,6 +39,9 @@ type Arm struct {
 	GoToInputsFunc     func(ctx context.Context, inputSteps ...[]referenceframe.Input) error
 	GeometriesFunc     func(ctx context.Context) ([]spatialmath.Geometry, error)
 	StatusFunc         func(ctx context.Context) (map[string]interface{}, error)
+	PropertiesFunc     func(ctx context.Context, extra map[string]interface{}) (arm.Properties, error)
+	SetManualModeFunc  func(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error
+	ManualModeFunc     func(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
 
 // NewArm returns a new injected arm.
@@ -178,6 +182,30 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 		return a.Arm.Geometries(ctx, extra)
 	}
 	return a.GeometriesFunc(ctx)
+}
+
+// Properties calls the injected Properties or the real version.
+func (a *Arm) Properties(ctx context.Context, extra map[string]interface{}) (arm.Properties, error) {
+	if a.PropertiesFunc == nil {
+		return a.Arm.Properties(ctx, extra)
+	}
+	return a.PropertiesFunc(ctx, extra)
+}
+
+// SetManualMode calls the injected SetManualMode or the real version.
+func (a *Arm) SetManualMode(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error {
+	if a.SetManualModeFunc == nil {
+		return a.Arm.SetManualMode(ctx, manualMode, enabledFor, extra)
+	}
+	return a.SetManualModeFunc(ctx, manualMode, enabledFor, extra)
+}
+
+// ManualMode calls the injected ManualMode or the real version.
+func (a *Arm) ManualMode(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	if a.ManualModeFunc == nil {
+		return a.Arm.ManualMode(ctx, extra)
+	}
+	return a.ManualModeFunc(ctx, extra)
 }
 
 // Status calls the injected Status or the real version.

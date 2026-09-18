@@ -46,7 +46,8 @@ func TestSessionsMixedClients(t *testing.T) {
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
-		})
+		},
+	)
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -139,7 +140,8 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
-		})
+		},
+	)
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -246,7 +248,8 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
-		})
+		},
+	)
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -374,7 +377,8 @@ func TestSessionsWithRemote(t *testing.T) {
 					) (motor.Motor, error) {
 						return &dummyMotor1, nil
 					},
-				})
+				},
+			)
 
 			ctx := context.Background()
 

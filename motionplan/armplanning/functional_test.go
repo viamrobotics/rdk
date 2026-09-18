@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sort"
 	"testing"
@@ -319,7 +320,8 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 				StartConfiguration: nodes[j],
 				EndConfiguration:   nodes[j+1],
 				FS:                 cfg.FS,
-			}, cfg.Options.Resolution, true)
+			}, cfg.Options.Resolution, true,
+		)
 		test.That(t, err, test.ShouldBeNil)
 	}
 }
@@ -469,6 +471,59 @@ func TestArmOOBSolve(t *testing.T) {
 	}
 }
 
+func TestImmovableGoalFrame(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fs := makeTestFS(t)
+
+	// A fixture bolted to world: nothing in its parent chain has any degrees of freedom, so no
+	// configuration of the arms changes where it sits.
+	fixture, err := frame.NewStaticFrame("fixture", spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 300, Z: 0}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(fixture, fs.World()), test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 400, Y: 300, Z: 100})
+	_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
+		FrameSystem:    fs,
+		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"fixture": frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:     &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
+		PlannerOptions: NewBasicPlannerOptions(),
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `cannot move frame "fixture" relative to "world"`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `no DoF moves "fixture"`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "fixture -> world")
+
+	// A static frame is only immovable if its whole chain is: one hanging off an arm is fine. The
+	// mobility that counts is the moved frame's own - a goal stated relative to a frame the arm
+	// carries does not make a world-bolted frame reachable.
+	tool, err := frame.NewStaticFrame("tool", spatialmath.NewPoseFromPoint(r3.Vector{Z: 50}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(tool, fs.Frame("xArmVgripper")), test.ShouldBeNil)
+
+	for _, tc := range []struct {
+		moveFrame, goalParent string
+		immovable             bool
+	}{
+		{"tool", frame.World, false},
+		{"xArm6", frame.World, false},
+		{"fixture", "tool", true},
+	} {
+		chains, err := motionChainsFromPlanState(fs, frame.FrameSystemPoses{
+			tc.moveFrame: frame.NewPoseInFrame(tc.goalParent, goal),
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		immovableErr := chains.immovableGoalError()
+		if !tc.immovable {
+			test.That(t, immovableErr, test.ShouldBeNil)
+			continue
+		}
+		test.That(t, immovableErr, test.ShouldNotBeNil)
+		test.That(t, immovableErr.Error(), test.ShouldContainSubstring,
+			fmt.Sprintf("cannot move frame %q relative to %q", tc.moveFrame, tc.goalParent))
+	}
+}
+
 func TestArmObstacleSolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -572,7 +627,8 @@ func TestMultiArmSolve(t *testing.T) {
 	test.That(t,
 		spatialmath.PoseAlmostCoincidentEps(
 			solvedPose.(*frame.PoseInFrame).Pose(),
-			goals["xArmVgripper"].Pose(), 0.1),
+			goals["xArmVgripper"].Pose(), 0.1,
+		),
 		test.ShouldBeTrue)
 }
 
@@ -814,18 +870,6 @@ func TestValidatePlanRequest(t *testing.T) {
 				StartState:  &PlanState{},
 			},
 			expectedErr: errors.New("PlanRequest cannot have nil StartState configuration"),
-		},
-		{
-			name: "incorrect length StartConfiguration - fail",
-			request: &PlanRequest{
-				FrameSystem: fs,
-				Goals:       validGoal,
-				StartState: &PlanState{structuredConfiguration: map[string][]frame.Input{
-					"frame1": {}, "frame2": {0, 0, 0, 0, 0},
-				}},
-				PlannerOptions: NewBasicPlannerOptions(),
-			},
-			expectedErr: frame.NewIncorrectDoFError(5, 1),
 		},
 		{
 			name: "well formed PlanRequest",

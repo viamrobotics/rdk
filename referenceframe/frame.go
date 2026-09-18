@@ -267,8 +267,9 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 		}
 
 		frameSpan := u - l
-		minVal := math.Max(l, reference[i]-restrictionPercent*frameSpan/2)
-		maxVal := math.Min(u, reference[i]+restrictionPercent*frameSpan/2)
+		// The DoF length check above bounds i against reference, which gosec does not follow.
+		minVal := math.Max(l, reference[i]-restrictionPercent*frameSpan/2) //nolint:gosec
+		maxVal := math.Min(u, reference[i]+restrictionPercent*frameSpan/2) //nolint:gosec
 		samplingSpan := maxVal - minVal
 		pos = append(pos, samplingSpan*rSeed.Float64()+minVal)
 	}

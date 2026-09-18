@@ -604,7 +604,8 @@ func TestLoggingDeduplication(t *testing.T) {
 		assertLogMatches(t, notStdout,
 			fmt.Sprintf(
 				`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message	{"%s":"bar","key":"value"}`,
-				ignoredLogFieldKey))
+				ignoredLogFieldKey,
+			))
 	}
 	loggerWith.Info(identicalMsg) // not output due to being noisy; emits suppression notice
 	assertLogMatches(t, notStdout,

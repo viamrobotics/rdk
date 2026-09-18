@@ -781,7 +781,8 @@ func TestStopAll(t *testing.T) {
 				return dummyArm1, nil
 			}
 			return dummyArm2, nil
-		}})
+		}},
+	)
 
 	armConfig := fmt.Sprintf(`{
 		"components": [
@@ -883,7 +884,8 @@ func TestStopAllDoesNotCancelOwnContext(t *testing.T) {
 			logger logging.Logger,
 		) (arm.Arm, error) {
 			return dummyArm, nil
-		}})
+		}},
+	)
 	defer resource.Deregister(arm.API, model)
 
 	armConfig := fmt.Sprintf(`{
@@ -937,7 +939,8 @@ func TestNewTeardown(t *testing.T) {
 					return nil
 				},
 			}, nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		gripper.API,
 		model,
@@ -948,7 +951,8 @@ func TestNewTeardown(t *testing.T) {
 			logger logging.Logger,
 		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
-		}})
+		}},
+	)
 
 	defer func() {
 		resource.Deregister(board.API, model)
@@ -1870,7 +1874,7 @@ func TestConfigMethod(t *testing.T) {
 				ImplicitDependsOn:   []string{"foo:builtin:data_manager"},
 			},
 			{
-				Name:  "builtin",
+				Name:  "nav1",
 				API:   navigation.API,
 				Model: resource.DefaultServiceModel,
 			},
@@ -1969,13 +1973,15 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:                "fake2",
+				// Distinct from the data_manager service names above: resource names must be
+				// unique across the machine regardless of type.
+				Name:                "fakeArm1",
 				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
 			{
-				Name:                "fake3",
+				Name:                "fakeArm2",
 				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
@@ -3998,7 +4004,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("frame_system"),
-					Name: "builtin",
+					Name: "$frame_system",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4008,7 +4014,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-					Name: "builtin",
+					Name: "$cloud_connection",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4018,7 +4024,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-					Name: "builtin",
+					Name: "$packagemanager",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -4028,7 +4034,7 @@ func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 			NodeStatus: resource.NodeStatus{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-					Name: "builtin",
+					Name: "$web",
 				},
 				State: resource.NodeStateReady,
 			},
@@ -5249,7 +5255,8 @@ func TestMaintenanceConfig(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newValidSensor(), nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		sensor.API,
 		modelErrorSensor,
@@ -5260,7 +5267,8 @@ func TestMaintenanceConfig(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newInvalidSensor(), nil
-		}})
+		}},
+	)
 	defer func() {
 		resource.Deregister(sensor.API, model)
 		resource.Deregister(sensor.API, modelErrorSensor)
@@ -5459,7 +5467,8 @@ func TestMaintenanceConfigLogs(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newValidSensor(), nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		sensor.API,
 		modelErrorSensor,
@@ -5470,7 +5479,8 @@ func TestMaintenanceConfigLogs(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newErrorSensor(), nil
-		}})
+		}},
+	)
 	defer func() {
 		resource.Deregister(sensor.API, model)
 		resource.Deregister(sensor.API, modelErrorSensor)
@@ -5680,7 +5690,8 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	node := resource.NewConfiguredGraphNode(
 		resource.Config{
 			ConvertedAttributes: &configRemote,
-		}, nil, builtinModel)
+		}, nil, builtinModel,
+	)
 	// Set node to [NodeStateUnhealthy]
 	node.LogAndSetLastError(errors.New("Its so bad plz help"))
 	localRobot.manager.resources.AddNode(remoteName, node)
@@ -5771,7 +5782,8 @@ func TestModuleNamePassing(t *testing.T) {
 		) (sensor.Sensor, error) {
 			// Be lazy -- just return an a singleton object.
 			return callbackSensor, nil
-		}})
+		}},
+	)
 
 	const moduleName = "fancy_module_name"
 	localRobot := setupLocalRobot(t, ctx, &config.Config{
@@ -5860,7 +5872,8 @@ func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
 					panic("oh no")
 				},
 			}, nil
-		}})
+		}},
+	)
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
@@ -6156,5 +6169,46 @@ func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
 	reader, err := r.ResourceByName(readerName)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = reader.(sensor.Sensor).Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestUserPermissionsHotReconfiguration(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
+
+	// Without user_permissions, an unauthenticated client is unrestricted.
+	rc := robottestutils.NewRobotClient(t, logger, addr, time.Second)
+	_, err := rc.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Reconfiguring with user_permissions applies to the EXISTING connection: no web
+	// service restart, no disconnect, but the unauthenticated client is now fully
+	// restricted (beyond the exempt connection plumbing).
+	r.Reconfigure(ctx, &config.Config{
+		Auth: config.AuthConfig{
+			UserPermissions: []config.UserPermission{
+				{
+					User: config.User{Type: config.UserTypeAPIKeyID, ID: "some-key-id"},
+					Permissions: []config.Permission{
+						{
+							Resources:      []string{"_machine"},
+							AllowedMethods: []string{"/viam.robot.v1.RobotService/GetMachineStatus"},
+						},
+					},
+				},
+			},
+		},
+	})
+	_, err = rc.MachineStatus(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "PermissionDenied")
+
+	// Reconfiguring back to no user_permissions restores access on the same connection.
+	r.Reconfigure(ctx, &config.Config{})
+	_, err = rc.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }

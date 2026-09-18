@@ -102,7 +102,7 @@ func writeToLASFile(cloud PointCloud, fn string) (err error) {
 			Y: pos.Y,
 			Z: pos.Z,
 			BitField: lidario.PointBitField{
-				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
+				Value: 1 | (1 << 3) | (0 << 6) | (0 << 7),
 			},
 			ClassBitField: lidario.ClassificationBitField{
 				Value: 0,

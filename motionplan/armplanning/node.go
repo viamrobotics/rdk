@@ -56,8 +56,9 @@ type PathFeedback struct {
 	// IsObstacleCollision is true if the path collided with an obstacle.
 	IsObstacleCollision bool
 
-	// LastGoodInputs is the configuration of the last interepolated position before hitting a
-	// problem.
+	// LastGoodInputs is the configuration of the last interpolated position before hitting a
+	// problem. When the start configuration itself violates a constraint, this is set to the
+	// start configuration (i.e. we assume the start is valid).
 	LastGoodInputs *referenceframe.LinearInputs
 }
 
@@ -70,6 +71,7 @@ type node struct {
 	inputs *referenceframe.LinearInputs
 	// cost of moving from seed to this inputs
 	cost float64
+
 	// checkPathError is nil when the straight-line path to this node meets all constraints.
 	checkPath bool
 
@@ -234,6 +236,22 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 		sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0])
 		sss.SeedLimits = append(sss.SeedLimits, ik.ComputeAdjustLimits(sss.LinearSeeds[0], sss.SeedLimits[0], .05))
 		sss.SeedDescriptions = append(sss.SeedDescriptions, "start · tight (5%)")
+	}
+
+	// Goal-adjacent configurations remembered by the roadmap (harvested from
+	// earlier successful plans) seed IK with each known-good joint family, so
+	// the family nearest the start is reliably among the ranked solutions
+	// rather than depending on nlopt's random draws. Only for far goals (same
+	// bar as smart seeds): family choice is irrelevant for near goals, and
+	// the per-call overhead multiplies across the subgoals of waypoint
+	// ladders.
+	if sss.goodCost > 1 {
+		for i, s := range roadmapGoalSeeds(psc, 4) {
+			si := s.GetLinearizedInputs()
+			sss.LinearSeeds = append(sss.LinearSeeds, si)
+			sss.SeedLimits = append(sss.SeedLimits, ik.ComputeAdjustLimits(si, sss.SeedLimits[0], .1))
+			sss.SeedDescriptions = append(sss.SeedDescriptions, fmt.Sprintf("roadmap goal-adjacent %d", i))
+		}
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
@@ -667,7 +685,8 @@ solutionLoop:
 			if !ok {
 				logger.Debugf(
 					"Stopping because input channel is closed. Best score: %v With problem: %v",
-					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem)
+					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem,
+				)
 				// No longer using the generated solutions. Cancel the workers.
 				cancel()
 				break solutionLoop
@@ -689,6 +708,11 @@ solutionLoop:
 	solvingState.flushFailuresToMeta()
 
 	if len(solvingState.solutions) == 0 {
+		// A goal whose frame no DoF moves is unsatisfiable by construction, not merely hard.
+		if err := psc.motionChains.immovableGoalError(); err != nil {
+			return nil, err
+		}
+
 		if solvingState.fatal != nil {
 			return nil, solvingState.fatal
 		}

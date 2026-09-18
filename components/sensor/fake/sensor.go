@@ -21,7 +21,8 @@ func init() {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newSensor(conf.ResourceName(), logger), nil
-		}})
+		}},
+	)
 }
 
 func newSensor(name resource.Name, logger logging.Logger) sensor.Sensor {

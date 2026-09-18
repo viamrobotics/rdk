@@ -80,6 +80,9 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.PlannerOptions == nil {
 		req.PlannerOptions = NewBasicPlannerOptions()
 	}
+	if req.PlannerOptions.CollisionBufferMM <= 0 {
+		return errors.New("collision_buffer_mm has to be positive")
+	}
 
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.structuredConfiguration) > 0 {
@@ -129,7 +132,8 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 
 		req.ObstaclesInWorldFrame = referenceframe.NewGeometriesInFrame(
-			req.ObstaclesInWorldFrame.Parent(), pcdGeometries)
+			req.ObstaclesInWorldFrame.Parent(), pcdGeometries,
+		)
 	}
 
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
@@ -243,6 +247,10 @@ type PlanMeta struct {
 	// GoalsNudgeSolved is the number of waypoints solved by repairing the
 	// straight-line path with small nudges around obstacles, skipping CBIRRT.
 	GoalsNudgeSolved int
+
+	// GoalsRoadmapSolved is the number of waypoints solved through the lazy
+	// roadmap, skipping CBIRRT.
+	GoalsRoadmapSolved int
 
 	// SubgoalsPerGoal will have size of `GoalsProcessed`. If there are no linear/orientation
 	// constraints, we do not create any additional subgoals/waypoints. SubgoalsPerGoal in that case
@@ -436,12 +444,19 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
-	decoder := json.NewDecoder(f)
+	return RequestFromReader(f)
+}
+
+// RequestFromReader is the same as ReadRequestAndResponseFromFile but takes a generic `io.Reader`
+// as input.
+func RequestFromReader(reader io.Reader) (*PlanRequest, motionplan.Plan, error) {
+	decoder := json.NewDecoder(reader)
 
 	// We first decode the file into a raw json structure. This is because we have best effort
 	// support for reading different versions of request files. The current version of the
 	// `PlanRequest` object may not map perfectly to some historical serialization.
 	var raw json.RawMessage
+	var err error
 	if err = decoder.Decode(&raw); err != nil {
 		return nil, nil, err
 	}
@@ -454,11 +469,17 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 	// We've removed world state from the plan request object. Instead forcing callers to merge
 	// world state transforms into the `FrameSystem` member itself. And world state obstacles are
 	// now passed in directly.
-	req := &PlanRequest{}
+	//
+	// PlannerOptions is pre-seeded with defaults so a saved options object that omits a field
+	// merges into the default rather than the type's zero value. A request captured before a
+	// field existed (or with the key stripped) must replay with the same effective options
+	// production would use - most acutely collision_buffer_mm, where a decoded 0 flips collision
+	// verdicts and can turn a milliseconds plan into a timeout.
+	req := &PlanRequest{PlannerOptions: NewBasicPlannerOptions()}
 	if _, hasWorldState := probe["world_state"]; hasWorldState {
 		// Legacy format, parse as a `PlanRequestWithWorldState` and have that "upgrade" to a modern
 		// `PlanRequest`.
-		legacy := &PlanRequestWithWorldState{}
+		legacy := &PlanRequestWithWorldState{PlannerOptions: NewBasicPlannerOptions()}
 		if err = json.Unmarshal(raw, legacy); err != nil {
 			return nil, nil, err
 		}

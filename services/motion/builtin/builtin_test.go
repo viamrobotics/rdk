@@ -631,7 +631,8 @@ func TestWritePlanRequest(t *testing.T) {
 		"",
 		// No planTag here.
 		"",
-		nil)
+		nil,
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	planDirEntries, err = os.ReadDir(planDir)
@@ -666,7 +667,8 @@ func TestWritePlanRequest(t *testing.T) {
 		"1234-abc-56-no-78",
 		// No planTag here.
 		"",
-		nil)
+		nil,
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	planDirEntries, err = os.ReadDir(planDir)
@@ -703,7 +705,8 @@ func TestWritePlanRequest(t *testing.T) {
 		time.Now(),
 		"",
 		"custom-test-tag", // Custom plan tag
-		nil)
+		nil,
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	planDirEntries, err = os.ReadDir(planDir)
@@ -732,7 +735,8 @@ func TestWritePlanRequest(t *testing.T) {
 		time.Now(),
 		"1234-abc-56-no-78",
 		"",
-		errors.New("planning failed"))
+		errors.New("planning failed"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	planDirEntries, err = os.ReadDir(planDir)
@@ -767,7 +771,8 @@ func TestWritePlanRequest(t *testing.T) {
 		time.Now(),
 		"",
 		"",
-		errors.New("planning failed"))
+		errors.New("planning failed"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	planDirEntries, err = os.ReadDir(planDir)

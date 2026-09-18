@@ -20,7 +20,8 @@ func init() {
 			logger logging.Logger,
 		) (resource.Resource, error) {
 			return newGeneric(conf.ResourceName(), logger), nil
-		}})
+		}},
+	)
 }
 
 func newGeneric(name resource.Name, logger logging.Logger) resource.Resource {

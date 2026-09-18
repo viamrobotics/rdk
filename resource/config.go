@@ -133,7 +133,8 @@ func NativeConfig[T any](conf Config) (T, error) {
 	if err != nil {
 		err = fmt.Errorf(
 			"incorrect config type: NativeConfig %w. Make sure the config type registered to the "+
-				"resource matches the one passed into NativeConfig", err)
+				"resource matches the one passed into NativeConfig", err,
+		)
 	}
 	return val, err
 }
@@ -287,9 +288,15 @@ func (conf *Config) AdjustPartialNames(defaultAPIType string) {
 	}
 
 	if conf.API.IsService() {
-		// If services do not have names use the name builtin
+		// An unnamed service defaults to the reserved "builtin" only if it is a registered default
+		// service; every other unnamed service is named after its subtype. This keeps unnamed services
+		// machine-wide unique.
 		if conf.Name == "" {
-			conf.Name = DefaultServiceName
+			if isDefaultServiceAPI(conf.API) {
+				conf.Name = DefaultServiceName
+			} else {
+				conf.Name = conf.API.SubtypeName
+			}
 		}
 		if conf.Model.Name == "" {
 			conf.Model = DefaultServiceModel
@@ -322,6 +329,16 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, []string, e
 	// this effectively checks reserved characters and the rest for namespace and type
 	if err := conf.API.Validate(); err != nil {
 		return nil, nil, err
+	}
+
+	// "builtin" is reserved for the builtin default services (the only resources allowed to hold
+	// it). Rejecting it here keeps it from ever colliding with another resource under machine-wide
+	// name uniqueness.
+	if conf.Name == DefaultServiceName && !IsDefaultService(conf.Name, conf.API) {
+		return nil, nil, NewConfigValidationError(path, errors.Errorf(
+			"name %q is reserved for built-in default services and cannot be used by a %q resource",
+			DefaultServiceName, conf.API,
+		))
 	}
 	if conf.ConvertedAttributes != nil {
 		var err error

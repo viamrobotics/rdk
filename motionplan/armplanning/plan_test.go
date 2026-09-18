@@ -1,6 +1,7 @@
 package armplanning
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -18,6 +19,44 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
+
+func TestJointGoalDetour(t *testing.T) {
+	ctx := context.Background()
+
+	fs, startJoints, goalJoints, req := nudgeBlockedScene(t)
+	idle, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "idle")
+	test.That(t, err, test.ShouldBeNil)
+
+	mount, err := referenceframe.NewStaticFrame("idle-mount", spatialmath.NewPoseFromPoint(r3.Vector{X: 2000}))
+	test.That(t, err, test.ShouldBeNil)
+
+	err = fs.AddFrame(mount, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	err = fs.AddFrame(idle, mount)
+	test.That(t, err, test.ShouldBeNil)
+
+	req.StartState = NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": startJoints, "idle": startJoints})
+	req.Goals = []*PlanState{NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": goalJoints})}
+
+	_, _, err = PlanMotion(ctx, logging.NewTestLogger(t), req)
+	test.That(t, err, test.ShouldBeNil)
+
+	req.StartState = NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": startJoints, "idle": startJoints})
+	req.Goals = []*PlanState{NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": goalJoints, "idle": startJoints})}
+
+	plan, _, err := PlanMotion(ctx, logging.NewTestLogger(t), req)
+	test.That(t, err, test.ShouldBeNil)
+
+	trajectory := plan.Trajectory()
+	test.That(t, len(trajectory), test.ShouldBeGreaterThanOrEqualTo, 3)
+
+	for _, step := range trajectory {
+		test.That(t, step["idle"], test.ShouldResemble, startJoints)
+	}
+
+	test.That(t, trajectory[len(trajectory)-1]["arm"], test.ShouldResemble, goalJoints)
+}
 
 func TestEvaluateTrajectory(t *testing.T) {
 	plan := motionplan.Trajectory{

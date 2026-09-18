@@ -67,13 +67,44 @@ func TestConstraintConstructors(t *testing.T) {
 	test.That(t, c, test.ShouldResemble, pbToRDKConstraint)
 }
 
-func TestOrientationConstraintHelpers(t *testing.T) {
-	test.That(t, between(1, 5, 3), test.ShouldBeTrue)
-	test.That(t, between(1, 5, 0), test.ShouldBeFalse)
-	test.That(t, between(1, 5, 6), test.ShouldBeFalse)
-	test.That(t, between(5, 1, 3), test.ShouldBeTrue)
-	test.That(t, between(5, 1, 0), test.ShouldBeFalse)
-	test.That(t, between(5, 1, 6), test.ShouldBeFalse)
+func TestOrientationConstraintDistance(t *testing.T) {
+	oc := OrientationConstraint{OrientationToleranceDegs: 30}
+	zero := spatial.NewZeroOrientation()
+	rotZ := func(degs float64) spatial.Orientation {
+		return &spatial.EulerAngles{Yaw: utils.DegToRad(degs)}
+	}
+
+	// Degenerate arc (from == to): plain angular distance to the endpoint.
+	test.That(t, oc.Distance(zero, zero, zero), test.ShouldAlmostEqual, 0, 1e-5)
+	test.That(t, oc.Distance(zero, zero, rotZ(40)), test.ShouldAlmostEqual, 40, 1e-4)
+
+	// Points on the arc score zero, including endpoints and beyond-tolerance
+	// midpoints - the band is a connected tube around the whole reorientation.
+	from, to := zero, rotZ(120)
+	test.That(t, oc.Distance(from, to, from), test.ShouldAlmostEqual, 0, 1e-5)
+	test.That(t, oc.Distance(from, to, to), test.ShouldAlmostEqual, 0, 1e-5)
+	test.That(t, oc.Distance(from, to, rotZ(60)), test.ShouldAlmostEqual, 0, 1e-5)
+	test.That(t, oc.Distance(from, to, rotZ(100)), test.ShouldAlmostEqual, 0, 1e-5)
+
+	// Off-arc: distance is to the nearest arc point, not the nearest endpoint.
+	// Overshooting the arc past `to` measures from `to`.
+	test.That(t, oc.Distance(from, to, rotZ(150)), test.ShouldAlmostEqual, 30, 1e-4)
+	test.That(t, oc.Distance(from, to, rotZ(-25)), test.ShouldAlmostEqual, 25, 1e-4)
+	// Deviation orthogonal to the arc's rotation axis.
+	pitch45 := &spatial.EulerAngles{Pitch: utils.DegToRad(45)}
+	dist := oc.Distance(from, to, pitch45)
+	test.That(t, dist, test.ShouldBeGreaterThan, 0)
+	test.That(t, dist, test.ShouldBeLessThanOrEqualTo, 45+1e-6)
+
+	// The eval form agrees with the direct form.
+	eval := NewOrientationConstraintEval(oc, from, to)
+	for _, o := range []spatial.Orientation{zero, rotZ(60), rotZ(150), pitch45} {
+		test.That(t, eval.Distance(o), test.ShouldAlmostEqual, oc.Distance(from, to, o), 1e-9)
+	}
+
+	// Score subtracts the tolerance.
+	test.That(t, oc.Score(from, to, rotZ(150)), test.ShouldAlmostEqual, 0, 1e-5)
+	test.That(t, oc.Score(from, to, rotZ(170)), test.ShouldAlmostEqual, 20, 1e-4)
 }
 
 func TestConstraintPath(t *testing.T) {
@@ -500,7 +531,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewZeroPose())
 		geom2.SetLabel("box2")
 
-		collisions, _, err := checkCollisionsHinted([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil,
+		collisions, _, err := checkCollisionsHinted([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, nil,
 			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldNotBeEmpty)
@@ -515,7 +546,8 @@ func TestCollisionDistance(t *testing.T) {
 		geom2.SetLabel("box2")
 
 		collisions, minDist, err := checkCollisionsHinted(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t),
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, nil,
+			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t),
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
@@ -530,7 +562,7 @@ func TestCollisionDistance(t *testing.T) {
 
 		ignoreList := []Collision{{"box1", "box2"}}
 		collisions, minDist, err := checkCollisionsHinted(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, makeAllowedCollisionsLookup(ignoreList),
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, makeAllowedCollisionsLookup(ignoreList),
 			defaultCollisionBufferMM, false, nil, logging.NewTestLogger(t),
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -671,7 +703,8 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 		fs, movingRobotGeometries,
 		map[string]bool{model.Name(): true},
 		staticRobotGeometries, worldGeometries.Geometries(),
-		nil, defaultCollisionBufferMM, nil, logging.NewTestLogger(b))
+		nil, defaultCollisionBufferMM, nil, logging.NewTestLogger(b),
+	)
 	test.That(b, err, test.ShouldBeNil)
 
 	// Walk a short trajectory that stays in collision throughout — simulates

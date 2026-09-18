@@ -74,6 +74,7 @@ const (
 	generalFlagMethod            = "method"
 	generalFlagDestination       = "destination"
 	generalFlagVersion           = "version"
+	generalFlagAt                = "at"
 	generalFlagCount             = "count"
 	generalFlagPath              = "path"
 	generalFlagType              = "type"
@@ -539,12 +540,12 @@ var app = &cli.Command{
 	Commands: []*cli.Command{
 		{
 			Name:      "defaults",
-			Usage:     "Set or clear default argument values",
+			Usage:     "set or clear default argument values",
 			UsageText: createUsageText("defaults", nil, false, false),
 			Commands: []*cli.Command{
 				{
 					Name:  "set-org",
-					Usage: "Set default organization argument",
+					Usage: "set default organization argument",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
 							//nolint:nolintlint // obnoxiously the nolint syntax differs for custom rules
@@ -559,12 +560,12 @@ var app = &cli.Command{
 				},
 				{
 					Name:   "clear-org",
-					Usage:  "Clear default organization argument",
+					Usage:  "clear default organization argument",
 					Action: createActionCommandWithT(defaultsClearOrgAction),
 				},
 				{
 					Name:  "set-location",
-					Usage: "Set default location argument",
+					Usage: "set default location argument",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
 							//nolint:nolintlint // obnoxiously the nolint syntax differs for custom rules
@@ -579,19 +580,19 @@ var app = &cli.Command{
 				},
 				{
 					Name:   "clear-location",
-					Usage:  "Clear default location argument",
+					Usage:  "clear default location argument",
 					Action: createActionCommandWithT(defaultsClearLocationAction),
 				},
 			},
 		},
 		{
 			Name:      "traces",
-			Usage:     "Work with viam-server traces",
+			Usage:     "work with viam-server traces",
 			UsageText: createUsageText("traces", nil, false, true),
 			Commands: []*cli.Command{
 				{
 					Name:      "import-local",
-					Usage:     "Import traces from a local viam server trace file to an OTLP endpoint.",
+					Usage:     "import traces from a local viam server trace file to an OTLP endpoint.",
 					UsageText: createUsageText("traces import-local", nil, true, false, "<path>"),
 					ArgsUsage: "<traces file>",
 					Flags:     commonOtlpFlags,
@@ -604,7 +605,7 @@ In order to use the import-remote command, the machine must have a valid shell t
 Organization and location are required flags if using name (rather than ID) for the part.
 Note: There is no progress meter while copying is in progress.
 `,
-					Usage:     "Import traces from a remote viam machine to an OTLP endpoint.",
+					Usage:     "import traces from a remote viam machine to an OTLP endpoint.",
 					UsageText: createUsageText("traces import-remote", []string{generalFlagPart}, true, false),
 					Flags: lo.Flatten([][]cli.Flag{
 						commonOtlpFlags,
@@ -615,14 +616,14 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:      "print-local",
-					Usage:     "Print traces in a local file to the console",
+					Usage:     "print traces in a local file to the console",
 					UsageText: createUsageText("traces print-local", nil, true, false, "<path>"),
 					ArgsUsage: "<traces file>",
 					Action:    createActionCommandWithT(tracePrintLocalAction),
 				},
 				{
 					Name:      "print-remote",
-					Usage:     "Print traces from a remote viam machine to the console",
+					Usage:     "print traces from a remote viam machine to the console",
 					UsageText: createUsageText("traces print-remote", []string{generalFlagPart}, true, false),
 					Description: `
 In order to use the print-remote command, the machine must have a valid shell type service.
@@ -637,7 +638,7 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:      "get-remote",
-					Usage:     "Download traces from a viam machine and save them to disk",
+					Usage:     "download traces from a viam machine and save them to disk",
 					UsageText: createUsageText("traces get-remote", []string{generalFlagPart}, true, false, "[target]"),
 					ArgsUsage: "[target]",
 					Description: `
@@ -2556,7 +2557,7 @@ Note: There is no progress meter while copying is in progress.
 			Commands: []*cli.Command{
 				{
 					Name:      "create",
-					Usage:     "Create a new machine",
+					Usage:     "create a new machine",
 					UsageText: createUsageText("machines create", []string{generalFlagName, generalFlagLocation}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -2581,7 +2582,7 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:      "delete",
-					Usage:     "Delete a machine. Passing location and organization is unnecessary but speeds up the process",
+					Usage:     "delete a machine. Passing location and organization is unnecessary but speeds up the process",
 					UsageText: createUsageText("machines delete", []string{generalFlagMachine}, true, false),
 					Flags: []cli.Flag{
 						&AliasStringFlag{
@@ -2608,7 +2609,7 @@ Note: There is no progress meter while copying is in progress.
 				},
 				{
 					Name:      "update",
-					Usage:     "Move a machine from one location to another and/or rename the machine",
+					Usage:     "move a machine from one location to another and/or rename the machine",
 					UsageText: createUsageText("machines move", []string{}, true, false),
 					Flags: []cli.Flag{
 						&AliasStringFlag{
@@ -2944,6 +2945,20 @@ Note: There is no progress meter while copying is in progress.
 							Action: createActionCommandWithT[machinesPartHistoryArgs](machinesPartHistoryAction),
 						},
 						{
+							Name:      "config",
+							Usage:     "print a machine part's config JSON to stdout",
+							UsageText: createUsageText("machines part config", []string{generalFlagPart}, true, false),
+							Flags: append(commonPartFlags,
+								&cli.StringFlag{
+									Name: generalFlagAt,
+									Usage: "ISO-8601 timestamp in RFC3339 format to fetch the config that was in effect at that " +
+										"time (e.g., 2025-01-15T14:00:00Z)",
+									DefaultText: "current config",
+								},
+							),
+							Action: createActionCommandWithT[machinesPartConfigArgs](machinesPartConfigAction),
+						},
+						{
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "display part logs",
@@ -3165,7 +3180,8 @@ Example changing multiple fields:
     --config '{"schedule":"0 0 * * *","method":"DoCommand","command":{"action":"reset"}}'`,
 							UsageText: createUsageText(
 								"machines part update-job",
-								[]string{generalFlagPart, generalFlagName, generalFlagConfig}, true, false),
+								[]string{generalFlagPart, generalFlagName, generalFlagConfig}, true, false,
+							),
 							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagName,
@@ -3262,7 +3278,8 @@ Copy multiple files from the machine to a local destination with recursion and k
 								"machines part cp",
 								[]string{generalFlagPart},
 								true, false,
-								"<source i.e. [machine:]files>... <target i.e. [machine:]files>"),
+								"<source i.e. [machine:]files>... <target i.e. [machine:]files>",
+							),
 							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.BoolFlag{
 									Name:    cpFlagRecursive,
@@ -3296,7 +3313,8 @@ Note: There is no progress meter while copying is in progress.
 								"machines part get-ftdc",
 								[]string{generalFlagPart},
 								true, false,
-								"[target]"),
+								"[target]",
+							),
 							Flags: lo.Flatten([][]cli.Flag{
 								commonPartFlags,
 								commonPathFlags,
@@ -3439,6 +3457,66 @@ Example trigger for conditional_logs_ingested:
 							Action:    createActionCommandWithT[machinesPartDeleteTriggerArgs](machinesPartDeleteTriggerAction),
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:            "fragment",
+			Aliases:         []string{"fragments"},
+			Usage:           "work with fragments",
+			UsageText:       createUsageText("fragment", nil, false, true),
+			HideHelpCommand: true,
+			Commands: []*cli.Command{
+				{
+					Name:      "list",
+					Usage:     "list fragments for an organization",
+					UsageText: createUsageText("fragment list", nil, true, false),
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagOrganization,
+								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								DefaultText: "default-org value if set, else the first organization alphabetically",
+							},
+						},
+					},
+					Action: createActionCommandWithT[fragmentListArgs](fragmentListAction),
+				},
+				{
+					Name:      "get",
+					Usage:     "print a fragment's config JSON to stdout",
+					UsageText: createUsageText("fragment get", []string{generalFlagFragment}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagFragment,
+							Required: true,
+							Usage:    "fragment ID to fetch",
+						},
+						&cli.StringFlag{
+							Name:        generalFlagVersion,
+							Usage:       "fragment revision or tag to fetch",
+							DefaultText: "latest",
+						},
+					},
+					Action: createActionCommandWithT[fragmentGetArgs](fragmentGetAction),
+				},
+				{
+					Name:      "history",
+					Usage:     "display revision history for a fragment",
+					UsageText: createUsageText("fragment history", []string{generalFlagFragment}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagFragment,
+							Required: true,
+							Usage:    "fragment ID whose history to display",
+						},
+						&cli.IntFlag{
+							Name:  generalFlagCount,
+							Value: defaultHistoryCount,
+							Usage: "maximum number of history entries to list, or 0 for every entry",
+						},
+					},
+					Action: createActionCommandWithT[fragmentHistoryArgs](fragmentHistoryAction),
 				},
 			},
 		},
@@ -3640,7 +3718,7 @@ Examples:
 			Commands: []*cli.Command{
 				{
 					Name: "local-app-testing",
-					Usage: "Test your viam application locally. This will stand up a local proxy at http://localhost:8012 to simulate " +
+					Usage: "test your viam application locally. This will stand up a local proxy at http://localhost:8012 to simulate " +
 						"the Viam app server. If testing a single-machine app you MUST provide the machine-id parameter, " +
 						"omit it to test a multi-machine app.",
 					UsageText: createUsageText("module local-app-testing",
@@ -3653,7 +3731,7 @@ Examples:
 						},
 						&cli.StringFlag{
 							Name: "machine-id",
-							Usage: "For single-machine Viam apps: machine ID of the machine you want to test with, you can get it at " +
+							Usage: "for single-machine Viam apps: machine ID of the machine you want to test with, you can get it at " +
 								"https://app.viam.com/fleet/machines",
 							Required: false,
 						},
@@ -4129,7 +4207,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:      moduleBuildFlagCloudConfig,
-							Usage:     "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
+							Usage:     "provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value:     "/etc/viam.json",
 							TakesFile: true,
 						},
@@ -4205,13 +4283,13 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:      moduleBuildFlagCloudConfig,
-							Usage:     "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
+							Usage:     "provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value:     "/etc/viam.json",
 							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:        generalFlagModelName,
-							Usage:       "If passed, creates a resource in the part config with the given model triple",
+							Usage:       "if passed, creates a resource in the part config with the given model triple",
 							DefaultText: "Don't create a new resource",
 						},
 						&cli.StringFlag{
@@ -4221,7 +4299,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        generalFlagResourceName,
-							Usage:       "Use with model-name to name the newly added resource",
+							Usage:       "use with model-name to name the newly added resource",
 							DefaultText: "resource type with a unique numerical suffix",
 						},
 					},
@@ -4260,13 +4338,13 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:      moduleBuildFlagCloudConfig,
-							Usage:     "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
+							Usage:     "provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value:     "/etc/viam.json",
 							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:        generalFlagModelName,
-							Usage:       "If passed, creates a resource in the part config with the given model triple",
+							Usage:       "if passed, creates a resource in the part config with the given model triple",
 							DefaultText: "Don't create a new resource",
 						},
 						&cli.StringFlag{
@@ -4276,18 +4354,18 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        generalFlagResourceName,
-							Usage:       "Use with model-name to name the newly added resource",
+							Usage:       "use with model-name to name the newly added resource",
 							DefaultText: "resource type with a unique numerical suffix",
 						},
 						&cli.StringFlag{
 							Name:        generalFlagPath,
-							Usage:       "The path to the root of the module's git repo to build",
+							Usage:       "the path to the root of the module's git repo to build",
 							DefaultText: ".",
 							TakesFile:   true,
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagAnnotation,
-							Usage: "Annotation to describe the purpose of the reload build",
+							Usage: "annotation to describe the purpose of the reload build",
 						},
 						&cli.StringFlag{
 							Name:  moduleBuildFlagBuilder,

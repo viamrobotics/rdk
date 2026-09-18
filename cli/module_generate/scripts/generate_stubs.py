@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from importlib import import_module
 from typing import List, Set, Union
 
@@ -298,15 +299,33 @@ class {3}({4}, EasyResource):
     return resource_file
 
 
+def install_requirements(packages: List[str], attempts: int = 3) -> None:
+    """Install the packages this script imports.
+
+    PyPI drops requests often enough that a single failed install regularly
+    fails module generation, so retry with a backoff and, when the last attempt
+    fails, raise with pip's own output instead of a bare exit status.
+    """
+    for attempt in range(1, attempts + 1):
+        res = subprocess.run(
+            [sys.executable, "-m", "pip", "install"] + packages,
+            capture_output=True,
+            text=True,
+        )
+        if res.returncode == 0:
+            return
+        if attempt == attempts:
+            output = res.stderr.strip() or res.stdout.strip()
+            raise Exception(
+                "Could not install requirements to generate python stubs:\n" + output
+            )
+        time.sleep(attempt * 2)
+
+
 if __name__ == "__main__":
     packages = ["viam-sdk", "typing-extensions", "ruff", "python-slugify"]
     if sys.argv[2] == "mlmodel":
         packages.append("numpy")
-    install_res = subprocess.run(
-        [sys.executable, "-m", "pip", "install"] + packages,
-        capture_output=True,
-    )
-    if install_res.returncode != 0:
-        raise Exception("Could not install requirements to generate python stubs")
+    install_requirements(packages)
     result = main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     print(result)

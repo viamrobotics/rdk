@@ -32,12 +32,36 @@ func TestFixPeerPath(t *testing.T) {
 	realTempDir, err := os.Getwd()
 	test.That(t, err, test.ShouldBeNil)
 
-	fixed, err := fixPeerPath("/one/two/three", false, true)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fixed, test.ShouldEqual, "/one/two/three")
-
 	homeDir, err := os.UserHomeDir()
 	test.That(t, err, test.ShouldBeNil)
+
+	// a unix-style absolute path has no volume, so Windows treats it as relative and
+	// resolves it under HOME rather than leaving it alone
+	wantUnixAbs := "/one/two/three"
+	if runtime.GOOS == "windows" {
+		wantUnixAbs = filepath.Join(homeDir, "one/two/three")
+	}
+	fixed, err := fixPeerPath("/one/two/three", false, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fixed, test.ShouldEqual, wantUnixAbs)
+
+	if runtime.GOOS == "windows" {
+		// a drive-qualified path is already absolute, so a caller can always name a
+		// drive explicitly rather than relying on the resolution above
+		fixed, err = fixPeerPath(`C:\one\two\three`, false, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fixed, test.ShouldEqual, `C:\one\two\three`)
+
+		// as is a UNC path
+		fixed, err = fixPeerPath(`\\server\share\one`, false, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fixed, test.ShouldEqual, `\\server\share\one`)
+
+		// the backslash form of a volume-less path resolves like the slash form
+		fixed, err = fixPeerPath(`\one\two\three`, false, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fixed, test.ShouldEqual, wantUnixAbs)
+	}
 
 	fixed, err = fixPeerPath("one/two/three", false, true)
 	test.That(t, err, test.ShouldBeNil)
