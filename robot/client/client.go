@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -783,18 +784,91 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 		return client, nil
 	}
 
-	// finally, before adding a new resource, make sure this name exists and is known
-	for _, knownName := range rc.resourceNames {
-		if name == knownName {
-			resourceClient, err := rc.createClient(name)
-			if err != nil {
-				return nil, err
+	// Resolve the APIs advertised under this bare name (ignoring the queried API). Exactly one is an
+	// ordinary resource; more than one is a composite — one identity advertised under several
+	// co-equal APIs.
+	apis := rc.apisSharingNameLocked(name)
+	switch {
+	case len(apis) == 0:
+		return nil, resource.NewNotFoundError(name)
+	case len(apis) > 1:
+		// A composite. A specific-API lookup returns that API's sub-client so typed helpers keep
+		// working; an api-less lookup returns the one resource.MultiAPIResource handle over all
+		// sub-clients, which resource.AsType/FromProvider unwrap to the sub-client for a requested API.
+		if name.API != (resource.API{}) {
+			if !apisContain(apis, name.API) {
+				return nil, resource.NewNotFoundError(name)
 			}
-			rc.resourceClients[name] = resourceClient
-			return resourceClient, nil
+			return rc.getOrCreateClientLocked(name)
+		}
+		return rc.newCompositeLocked(name, apis)
+	default:
+		// Exactly one API is advertised under this name.
+		if name.API == (resource.API{}) {
+			return rc.getOrCreateClientLocked(resource.Name{API: apis[0], Remote: name.Remote, Name: name.Name})
+		}
+		if name.API != apis[0] {
+			return nil, resource.NewNotFoundError(name)
+		}
+		return rc.getOrCreateClientLocked(name)
+	}
+}
+
+// apisSharingNameLocked returns every distinct API advertised under the given bare name (and remote),
+// sorted for a deterministic canonical API (apis[0]). More than one means the name is a composite.
+// Callers must hold rc.mu.
+func (rc *RobotClient) apisSharingNameLocked(name resource.Name) []resource.API {
+	seen := map[resource.API]bool{}
+	var apis []resource.API
+	for _, known := range rc.resourceNames {
+		if known.Name == name.Name && known.Remote == name.Remote && !seen[known.API] {
+			seen[known.API] = true
+			apis = append(apis, known.API)
 		}
 	}
-	return nil, resource.NewNotFoundError(name)
+	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+	return apis
+}
+
+func apisContain(apis []resource.API, api resource.API) bool {
+	for _, a := range apis {
+		if a == api {
+			return true
+		}
+	}
+	return false
+}
+
+// getOrCreateClientLocked returns the cached per-API client for name, creating and caching it if
+// absent. Callers must hold rc.mu.
+func (rc *RobotClient) getOrCreateClientLocked(name resource.Name) (resource.Resource, error) {
+	if client, ok := rc.resourceClients[name]; ok {
+		return client, nil
+	}
+	client, err := rc.createClient(name)
+	if err != nil {
+		return nil, err
+	}
+	rc.resourceClients[name] = client
+	return client, nil
+}
+
+// newCompositeLocked assembles one resource.MultiAPIResource over the per-API sub-clients for a bare
+// composite name. Each sub-client is created (typed where the API is known, else a
+// grpc.NewForeignResource passthrough for a custom API) and cached under its own API name so it is
+// created and closed once by updateResourceClients; the composite wrapper is a thin view over those
+// cached sub-clients. Callers must hold rc.mu.
+func (rc *RobotClient) newCompositeLocked(name resource.Name, apis []resource.API) (resource.Resource, error) {
+	byAPI := make(map[resource.API]resource.Resource, len(apis))
+	for _, api := range apis {
+		sub, err := rc.getOrCreateClientLocked(resource.Name{API: api, Remote: name.Remote, Name: name.Name})
+		if err != nil {
+			return nil, err
+		}
+		byAPI[api] = sub
+	}
+	return resource.NewMultiAPIResource(
+		resource.Name{API: apis[0], Remote: name.Remote, Name: name.Name}, apis, byAPI), nil
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {

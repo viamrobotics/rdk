@@ -565,6 +565,30 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
+	// A composite serves several co-equal APIs from this one module resource. Build one sub-client per
+	// API on the module's shared connection, route every API name to this module, and wrap them in a
+	// single resource.MultiAPIResource. The canonical API (apis[0]) names the composite.
+	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+		base := conf.ResourceName()
+		byAPI := make(map[resource.API]resource.Resource, len(apis))
+		for _, api := range apis {
+			subName := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+			mgr.rMap.Store(subName, mod)
+			apiInfo, ok := resource.LookupGenericAPIRegistration(api)
+			if !ok || apiInfo.RPCClient == nil {
+				byAPI[api] = rdkgrpc.NewForeignResource(subName, &mod.sharedConn)
+				continue
+			}
+			client, err := apiInfo.RPCClient(ctx, &mod.sharedConn, "", subName, mgr.logger)
+			if err != nil {
+				return nil, err
+			}
+			byAPI[api] = client
+		}
+		return resource.NewMultiAPIResource(
+			resource.Name{API: apis[0], Remote: base.Remote, Name: base.Name}, apis, byAPI), nil
+	}
+
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mod.logger.CWarnw(ctx, "No built-in grpc client for modular resource", "resource", conf.ResourceName())
@@ -657,6 +681,14 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
 
 	mgr.rMap.Delete(name)
+	// A composite is routed under each of its co-equal API names; drop every one so no stale route to
+	// this module lingers. The module process removes the one instance from all of its collections in
+	// response to the single RemoveResource call below.
+	if ar, ok := mod.resources[name]; ok {
+		for _, api := range resource.APIsForModel(ar.conf.Model) {
+			mgr.rMap.Delete(resource.Name{API: api, Remote: name.Remote, Name: name.Name})
+		}
+	}
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil && !errors.Is(err, rdkgrpc.ErrNotConnected) {
