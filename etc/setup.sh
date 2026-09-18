@@ -32,7 +32,6 @@ do_piOS(){
 	fi
 
 	do_mise
-	check_gcloud_auth
 }
 
 do_linux(){
@@ -76,7 +75,6 @@ do_linux(){
 	do_brew
 	do_mise
 	mod_profiles
-	check_gcloud_auth
 }
 
 do_darwin(){
@@ -102,7 +100,6 @@ do_darwin(){
 	do_brew
 	do_mise
 	mod_profiles
-	check_gcloud_auth
 }
 
 mod_profiles(){
@@ -111,18 +108,7 @@ mod_profiles(){
 	test -f ~/.bashrc && ( grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc )
 	test -f ~/.zprofile && ( grep -q viamdevrc ~/.zprofile || echo "source ~/.viamdevrc" >> ~/.zprofile )
 	test -f ~/.zshrc && ( grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc )
-}
-
-# This workaround is for https://viam.atlassian.net/browse/RSDK-526, without the application default credential file our tests will
-# create goroutines that get leaked and fail. Once https://github.com/googleapis/google-cloud-go/issues/5430 is fixed we can remove this.
-check_gcloud_auth(){
-	APP_CREDENTIALS_DIR="$HOME/.config/gcloud"
-	mkdir -p $APP_CREDENTIALS_DIR
-	APP_CREDENTIALS_FILE="$APP_CREDENTIALS_DIR/application_default_credentials.json"
-	if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
-		echo "Missing gcloud application default credentials, this can cause goroutines to leak if not configured. Creating with empty config at $APP_CREDENTIALS_FILE"
-		echo '{"client_id":"XXXX","client_secret":"XXXX","refresh_token":"XXXX","type":"authorized_user"}' > $APP_CREDENTIALS_FILE
-	fi
+	return 0
 }
 
 do_mise(){
