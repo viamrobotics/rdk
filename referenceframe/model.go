@@ -3,8 +3,11 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/encoding/protojson"
 	"math"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/golang/geo/r3"
@@ -21,6 +24,13 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfigJSON
+}
+
+// isSVAv2 reports whether the bytes parse as the strict proto JSON of KinematicModel. A v1 file
+// never does, since it carries fields such as kinematic_param_type and translation that the
+// message does not have.
+func isSVAv2(data []byte) bool {
+	return protojson.Unmarshal(data, &commonpb.KinematicModel{}) == nil
 }
 
 // KinematicModelFromProtobuf returns a model from a protobuf message representing it.
@@ -208,7 +218,16 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	case strings.HasSuffix(modelPath, ".urdf"):
 		return ParseModelXMLFile(modelPath, name, nil)
 	case strings.HasSuffix(modelPath, ".json"):
-		return ParseModelJSONFile(modelPath, name)
+		// an SVA v2 file is proto JSON and parses strictly; anything else is treated as v1
+		//nolint:gosec
+		data, err := os.ReadFile(modelPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to read json file")
+		}
+		if isSVAv2(data) {
+			return UnmarshalModelV2(data, filepath.Dir(modelPath), name)
+		}
+		return UnmarshalModelJSON(data, name)
 	default:
 		return nil, errors.New("only files with .json and .urdf file extensions are supported")
 	}

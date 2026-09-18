@@ -106,6 +106,21 @@ func (m *SimpleModel) SetVisualGeometries(link string, geometries []*commonpb.Ge
 	return nil
 }
 
+// VisualGeometries returns copies of the visual geometries set on a link, or nil when it has none.
+func (m *SimpleModel) VisualGeometries(link string) []*commonpb.Geometry {
+	visual := m.visual[link]
+	if len(visual) == 0 {
+		return nil
+	}
+	out := make([]*commonpb.Geometry, 0, len(visual))
+	for _, g := range visual {
+		if cloned, ok := proto.Clone(g).(*commonpb.Geometry); ok {
+			out = append(out, cloned)
+		}
+	}
+	return out
+}
+
 // SetKinematicProperties records the component level properties, such as the trajectory
 // sampling frequency, that describe the component as a whole rather than any joint.
 func (m *SimpleModel) SetKinematicProperties(p *commonpb.KinematicProperties) {
