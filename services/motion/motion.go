@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -398,6 +399,39 @@ type Service interface {
 	// It returns a result if the execution is active or has changed state in the last 24 hours and the machine has not reinitialized.
 	// Plans never change; replans always create new plans and replans share the ExecutionID of the previously executing plan.
 	PlanHistory(ctx context.Context, req PlanHistoryReq) ([]PlanWithStatus, error)
+
+	// StreamArmJointPositions derives and paces a trajectory to armName from the targets it
+	// receives on targets, according to opts. It blocks until targets is closed and the derived
+	// trajectory has finished executing on the arm, or until ctx is canceled, whichever comes
+	// first. Only one call may be in flight for a given armName at a time; a concurrent call for
+	// the same arm returns an error immediately.
+	StreamArmJointPositions(
+		ctx context.Context,
+		armName string,
+		opts StreamOptions,
+		targets <-chan []referenceframe.Input,
+		extra map[string]interface{},
+	) error
+}
+
+// StreamOptions tunes a StreamArmJointPositions session: how the implementation samples and
+// paces the trajectory it derives from targets, not any single target. A nil field selects the
+// implementation's own default for it.
+type StreamOptions struct {
+	// TargetRunwayInArmMs is how much trajectory (in ms) the implementation tries to keep
+	// buffered on the arm's side.
+	TargetRunwayInArmMs *int32
+	// SendToArmIntervalMs is how often (in ms) the implementation checks whether the arm's
+	// buffered runway needs topping up.
+	SendToArmIntervalMs *int32
+	// DiagnosticsWindowSecs is the size (in seconds) of the rolling window used to compute
+	// session diagnostics. A non-positive value disables retention of that window's detail;
+	// whole-run diagnostic stats are still collected regardless.
+	DiagnosticsWindowSecs *int32
+	// MoveOptions carries kinematic limits for the session's trajectory, in the same shape as a
+	// single move's MoveOptions. If nil, or if a field within it is unset, the implementation
+	// applies its own default for that field.
+	MoveOptions *arm.MoveOptions
 }
 
 // ObstacleDetectorName pairs a vision service name with a camera name.
