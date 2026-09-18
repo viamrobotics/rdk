@@ -90,6 +90,8 @@ func TestSmoothMultiArms(t *testing.T) {
 	traj := plan.Trajectory()
 	test.That(t, len(traj), test.ShouldBeGreaterThanOrEqualTo, 3)
 
+	logger.Info("OrigTrajOnlyArm:", traj)
+
 	// Create a frame for mounting the idle frame that's far from the original arm. Such that they
 	// are obviously isolated.
 	idleMount, err := referenceframe.NewStaticFrame("idle-mount", spatialmath.NewPoseFromPoint(r3.Vector{X: 2000}))
