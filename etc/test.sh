@@ -46,10 +46,9 @@ if [[ "$1" == "race" ]]; then
 	LOGFILE="--jsonfile json.log"
 fi
 
-FORMAT='standard-verbose'
+FORMAT="${FORMAT:-standard-verbose}"
 if test -n "$GITHUB_RUN_ID"; then
 	FORMAT='github-actions'
-    FORMAT='standard-quiet'
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
