@@ -163,6 +163,12 @@ func (s graphStorage) Copy() graphStorage {
 func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	val := s.simpleNameCache[simpleNameKey{name, api}]
 	if val == nil {
+		// The requested api may be a co-equal API of a composite whose single node is cached under a
+		// different (canonical) api. Resolve it from the node's model, which is only known once the
+		// node is configured — hence at read time here rather than when the cache is written.
+		if node, ok := s.compositeNodeForAPI(name, api); ok {
+			return node, nil
+		}
 		return nil, &NodeNotFoundError{name, api}
 	}
 	if val.local != nil {
@@ -181,6 +187,24 @@ func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, 
 		API:     api,
 		Remotes: slices.Collect(maps.Keys(val.remote)),
 	}
+}
+
+// compositeNodeForAPI finds the local node cached under the given simple name whose model serves api
+// as one of its co-equal APIs (a composite). This lets any of a composite's APIs resolve to its
+// single node, which is stored under only its canonical API. Because names are machine-wide unique,
+// at most one local node carries a given simple name.
+func (s graphStorage) compositeNodeForAPI(name string, api API) (*GraphNode, bool) {
+	for key, val := range s.simpleNameCache {
+		if key.name != name || val.local == nil {
+			continue
+		}
+		for _, served := range APIsForModel(val.local.ResourceModel()) {
+			if served == api {
+				return val.local, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (s graphStorage) All() iter.Seq2[Name, *GraphNode] {
@@ -532,6 +556,32 @@ func (g *Graph) CollidingNames() []Name {
 	return colliding
 }
 
+// ExpandCompositeNames replaces each composite name with one Name per co-equal API it serves, so a
+// composite (stored as one node under its canonical API) is advertised as N same-named ResourceName
+// messages, one per API. This is what lets a client detect and assemble a composite. Non-composite
+// names, and names with no backing node, pass through unchanged.
+func (g *Graph) ExpandCompositeNames(names []Name) []Name {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	var out []Name
+	for _, n := range names {
+		node, ok := g.nodes.Get(n)
+		if !ok {
+			out = append(out, n)
+			continue
+		}
+		apis := APIsForModel(node.ResourceModel())
+		if len(apis) < 2 {
+			out = append(out, n)
+			continue
+		}
+		for _, api := range apis {
+			out = append(out, Name{API: api, Remote: n.Remote, Name: n.Name})
+		}
+	}
+	return out
+}
+
 // ReachableNames returns the all resource graph names, excluding remote resources that are unreached.
 func (g *Graph) ReachableNames() []Name {
 	g.mu.RLock()
@@ -637,6 +687,10 @@ func (g *Graph) FindAllBySimpleName(name string) []Name {
 // Callers must hold g.mu.
 func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	var result []Name
+	// A composite is one node reachable under several co-equal APIs; if it is ever cached under more
+	// than one of them, the same *GraphNode must count as a single match, not a name collision.
+	// Genuinely distinct nodes that share a simple name back different *GraphNodes and still collide.
+	seenLocal := map[*GraphNode]bool{}
 	for key, val := range g.nodes.simpleNameCache {
 		if key.api.Type.Namespace == APINamespaceRDKInternal {
 			continue
@@ -645,6 +699,10 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 			continue
 		}
 		if val.local != nil {
+			if seenLocal[val.local] {
+				continue
+			}
+			seenLocal[val.local] = true
 			result = append(result, Name{API: key.api, Name: name})
 			continue
 		}
