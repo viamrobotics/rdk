@@ -1254,6 +1254,65 @@ func TestFindBySimpleNameAndAPI(t *testing.T) {
 	test.That(t, err, test.ShouldResemble, fooPrefixedNotFoundError)
 }
 
+func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
+	// Verifies machine-wide name uniqueness in SimpleNamesWhere: a bare name claimed by more than
+	// one advertised resource across APIs is hidden (a local resource wins over remotes). Only nodes
+	// that are neither a component nor a service bypass grouping and are always emitted.
+	logger := logging.NewTestLogger(t)
+
+	compA := APINamespace("namespace").WithComponentType("aapi")
+	svcB := APINamespace("namespace").WithServiceType("bapi")
+	internalA := APINamespaceRDKInternal.WithServiceType("iapi")
+	internalB := APINamespaceRDKInternal.WithServiceType("japi")
+	// An API that is neither a component nor a service (e.g. a remote-machine connection node).
+	nonResource := NewAPI("namespace", "remote", "capi")
+
+	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
+	all := func(Name, *GraphNode) bool { return true }
+
+	g := NewGraph(logger)
+
+	// Single local resource: advertised.
+	g.AddNode(Name{API: compA, Name: "solo"}, newNode())
+	// A local component and a local service sharing a name: both hidden.
+	g.AddNode(Name{API: compA, Name: "dupLocal"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "dupLocal"}, newNode())
+	// Local + remote sharing a name across APIs: local wins, remote hidden.
+	g.AddNode(Name{API: compA, Name: "localWins"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "localWins", Remote: "r1"}, newNode())
+	// Two remotes sharing a name across APIs, no local: both hidden.
+	g.AddNode(Name{API: compA, Name: "dupRemote", Remote: "r1"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "dupRemote", Remote: "r2"}, newNode())
+	// rdk-internal services are NOT exempt: two sharing a name collapse like any other resource.
+	g.AddNode(Name{API: internalA, Name: "shared"}, newNode())
+	g.AddNode(Name{API: internalB, Name: "shared"}, newNode())
+	// Resources sharing "builtin" across APIs are not exempt either, so all are hidden.
+	g.AddNode(Name{API: compA, Name: DefaultServiceName}, newNode())
+	g.AddNode(Name{API: svcB, Name: DefaultServiceName}, newNode())
+	// A node that is neither a component nor a service (e.g. a remote-machine connection) bypasses
+	// grouping and is emitted directly.
+	g.AddNode(Name{API: nonResource, Name: "connection"}, newNode())
+
+	got := g.SimpleNamesWhere(all)
+
+	expected := []Name{
+		{API: compA, Name: "solo"},
+		{API: compA, Name: "localWins"},
+		{API: nonResource, Name: "connection"},
+	}
+	test.That(t, len(got), test.ShouldEqual, len(expected))
+	for _, e := range expected {
+		test.That(t, got, test.ShouldContain, e)
+	}
+	// None of the collapsed names are advertised.
+	for _, n := range got {
+		test.That(t, n.Name, test.ShouldNotEqual, "dupLocal")
+		test.That(t, n.Name, test.ShouldNotEqual, "dupRemote")
+		test.That(t, n.Name, test.ShouldNotEqual, "shared")
+		test.That(t, n.Name, test.ShouldNotEqual, DefaultServiceName)
+	}
+}
+
 func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) string {
 	if len(expected) != 1 {
 		panic("takes exactly one argument")
@@ -1278,6 +1337,59 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 		}
 	}
 	return ""
+}
+
+func TestFindBySimpleName(t *testing.T) {
+	// FindBySimpleName resolves a simple name to the single owner under machine-wide name
+	// uniqueness (a local wins over same-named remotes; a MultipleMatchingNamesError if there are
+	// multiple locals or no local with multiple remotes; a NodeNotFoundError if nothing matches).
+	// FindAllBySimpleName returns every match unresolved.
+	logger := logging.NewTestLogger(t)
+
+	compA := APINamespace("namespace").WithComponentType("aapi")
+	svcB := APINamespace("namespace").WithServiceType("bapi")
+	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
+
+	g := NewGraph(logger)
+	// One local: resolves to it.
+	g.AddNode(Name{API: compA, Name: "solo"}, newNode())
+	// Local + remote sharing a name across APIs: local wins.
+	g.AddNode(Name{API: compA, Name: "localWins"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "localWins", Remote: "r1"}, newNode())
+	// A single remote with no local: resolves to the remote.
+	g.AddNode(Name{API: compA, Name: "remoteOnly", Remote: "r1"}, newNode())
+	// Two remotes across APIs with no local: unavailable.
+	g.AddNode(Name{API: compA, Name: "dupRemote", Remote: "r1"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "dupRemote", Remote: "r2"}, newNode())
+	// Two locals across APIs: unavailable.
+	g.AddNode(Name{API: compA, Name: "dupLocal"}, newNode())
+	g.AddNode(Name{API: svcB, Name: "dupLocal"}, newNode())
+
+	// Single-owner resolution.
+	resolved, err := g.FindBySimpleName("solo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldResemble, Name{API: compA, Name: "solo"})
+	resolved, err = g.FindBySimpleName("localWins")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldResemble, Name{API: compA, Name: "localWins"})
+	resolved, err = g.FindBySimpleName("remoteOnly")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldResemble, Name{API: compA, Name: "remoteOnly", Remote: "r1"})
+
+	// Ambiguous names return a MultipleMatchingNamesError carrying every match.
+	_, err = g.FindBySimpleName("dupRemote")
+	test.That(t, IsMultipleMatchingNamesError(err), test.ShouldBeTrue)
+	_, err = g.FindBySimpleName("dupLocal")
+	test.That(t, IsMultipleMatchingNamesError(err), test.ShouldBeTrue)
+	// A name with no match returns a NodeNotFoundError.
+	_, err = g.FindBySimpleName("nonexistent")
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+
+	// FindAllBySimpleName returns every match without resolution.
+	test.That(t, g.FindAllBySimpleName("localWins"), test.ShouldHaveLength, 2)
+	test.That(t, g.FindAllBySimpleName("dupRemote"), test.ShouldHaveLength, 2)
+	test.That(t, g.FindAllBySimpleName("solo"), test.ShouldHaveLength, 1)
+	test.That(t, g.FindAllBySimpleName("nonexistent"), test.ShouldHaveLength, 0)
 }
 
 // TestResolveDependenciesSkipsDependencyMarkedForRemoval verifies that ResolveDependencies does

@@ -753,7 +753,7 @@ func modelName(module *modulegen.ModuleInputs) string {
 	if resourceName == "generic" {
 		resourceName = resourceName + "_" + strings.Fields(module.Resource)[1]
 	}
-	return resourceName
+	return "my_" + resourceName
 }
 
 // sharedInputs holds fields common to both module and app generation.
@@ -949,7 +949,7 @@ func promptAddModelInputs(module *modulegen.ModuleInputs) error {
 func wrapResolveOrg(ctx context.Context, cmd *cli.Command, c *viamClient, newModule *modulegen.ModuleInputs) error {
 	// If we're not registering on app, we don't need to resolve the org
 	if !newModule.RegisterOnApp {
-		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
 		cleanNamespace := nonAlphanumericRegex.ReplaceAllString(newModule.Namespace, "")
 		newModule.Namespace = cleanNamespace
 		newModule.OrgID = newModule.Namespace
@@ -1335,15 +1335,65 @@ func generateGolangStubs(module modulegen.ModuleInputs) error {
 
 	// run go mod tidy
 	if module.Language == golang {
-		//nolint: noctx
-		tidyCmd := exec.Command("go", "mod", "tidy")
-		tidyCmd.Dir = module.ModuleName
-		if err := tidyCmd.Run(); err != nil {
-			return fmt.Errorf("failed to run go mod tidy: %w", err)
+		if out, err := runGoWithRetry(module.ModuleName, "mod", "tidy"); err != nil {
+			return fmt.Errorf("failed to run go mod tidy: %w\n%s", err, out)
 		}
 	}
 
 	return nil
+}
+
+// goFetchAttempts bounds how many times runGoWithRetry re-runs a `go` subcommand that
+// failed while talking to the module proxy or checksum database.
+const goFetchAttempts = 3
+
+// goFetchRetryDelay is the base backoff between attempts; attempt N waits N times this.
+const goFetchRetryDelay = 2 * time.Second
+
+// transientGoFetchMarkers are substrings the Go toolchain emits when proxy.golang.org or
+// sum.golang.org drops a request mid-flight. They say nothing about the module being
+// fetched, so the same command usually succeeds on a retry. Errors that describe the
+// module itself -- a bad version, a missing package, a checksum mismatch -- are absent
+// here on purpose, so a genuinely broken dependency still fails on the first attempt.
+var transientGoFetchMarkers = []string{
+	"INTERNAL_ERROR; received from peer",
+	"connection reset by peer",
+	"unexpected EOF",
+	"TLS handshake timeout",
+	"i/o timeout",
+	"502 Bad Gateway",
+	"503 Service Unavailable",
+	"504 Gateway Timeout",
+}
+
+// transientGoFetchFailure reports whether combined `go` output looks like a retryable
+// module-fetch failure rather than a real problem with the module graph.
+func transientGoFetchFailure(output []byte) bool {
+	out := string(output)
+	for _, marker := range transientGoFetchMarkers {
+		if strings.Contains(out, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// runGoWithRetry runs a `go` subcommand in dir, retrying transient module-proxy and
+// checksum-database failures. It returns the combined output of the final attempt so
+// callers can surface the toolchain's own diagnostics.
+func runGoWithRetry(dir string, args ...string) ([]byte, error) {
+	var out []byte
+	var err error
+	for attempt := 1; ; attempt++ {
+		//nolint: gosec,noctx
+		cmd := exec.Command(golang, args...)
+		cmd.Dir = dir
+		out, err = cmd.CombinedOutput()
+		if err == nil || attempt == goFetchAttempts || !transientGoFetchFailure(out) {
+			return out, err
+		}
+		time.Sleep(time.Duration(attempt) * goFetchRetryDelay)
+	}
 }
 
 // run goimports to remove unused imports and add necessary imports.
@@ -1362,10 +1412,8 @@ func runGoImports(moduleFile *os.File) error {
 	goImportsPath := filepath.Join(goPath, "bin", goImportsName)
 	if _, err := os.Stat(goImportsPath); os.IsNotExist(err) {
 		// installing goimports
-		//nolint: noctx
-		installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
-		if err := installCmd.Run(); err != nil {
-			return fmt.Errorf("failed to install goimports: %w", err)
+		if out, err := runGoWithRetry("", "install", "golang.org/x/tools/cmd/goimports@latest"); err != nil {
+			return fmt.Errorf("failed to install goimports: %w\n%s", err, out)
 		}
 	}
 
@@ -1464,7 +1512,7 @@ func createPythonVenv(pythonCmd, venvName string) error {
 	const maxAttempts = 3
 	var err error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		//nolint: noctx
+		//nolint: gosec,noctx
 		cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
@@ -1483,6 +1531,17 @@ func createPythonVenv(pythonCmd, venvName string) error {
 func errorWithStderr(err error, stderr string) error {
 	if trimmed := strings.TrimSpace(stderr); trimmed != "" {
 		return errors.Errorf("%s: %s", err, trimmed)
+	}
+	return err
+}
+
+// errorWithCommandStderr augments the error of a command run with (*exec.Cmd).Output with
+// the stderr that Output captured, so a failing subprocess reports why it failed rather
+// than only "exit status 1".
+func errorWithCommandStderr(err error) error {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return errorWithStderr(err, string(exitErr.Stderr))
 	}
 	return err
 }
@@ -1512,7 +1571,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
+		return errors.Wrap(errorWithCommandStderr(err), "cannot generate python stubs -- generator script encountered an error")
 	}
 
 	resourcePath := filepath.Join(module.ModuleName, "src", "models", fmt.Sprintf("%s.py", module.ModelSnake))
@@ -1873,11 +1932,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := stubCmd.Output()
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-			return fmt.Errorf("generator script encountered an error:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
-		}
-		return errors.Wrap(err, "generator script encountered an error")
+		return errors.Wrap(errorWithCommandStderr(err), "generator script encountered an error")
 	}
 
 	resourcePath := filepath.Join("src", "models", fmt.Sprintf("%s.py", module.ModelSnake))

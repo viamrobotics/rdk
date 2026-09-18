@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -505,6 +506,11 @@ func TestWebWithTLSAuth(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Dialing options.FQDN resolves over mDNS, which is unreliable under QEMU on the emulated
+	// 32-bit armhf CI runner (RSDK-14553). Skip those dials only on that arch so we don't mask
+	// real mDNS bugs on other platforms.
+	mdnsSupported := runtime.GOARCH != "arm"
+
 	clientTLSConfig := options.Network.TLSConfig.Clone()
 	clientTLSConfig.Certificates = nil
 	clientTLSConfig.ServerName = "somename"
@@ -559,19 +565,21 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS
-	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
-		rpc.WithDialDebug(),
-		rpc.WithTLSConfig(clientTLSConfig),
-	)
-	test.That(t, err, test.ShouldBeNil)
+	if mdnsSupported {
+		conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
+			rpc.WithDialDebug(),
+			rpc.WithTLSConfig(clientTLSConfig),
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
+		arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
-	test.That(t, conn.Close(), test.ShouldBeNil)
+		arm1Position, err = arm1.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, arm1Position, test.ShouldResemble, pos)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}
 
 	// use signaling creds
 	conn, err = rgrpc.Dial(context.Background(), addr, logger,
@@ -596,33 +604,35 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// use cert with mDNS while signaling present
-	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
-		rpc.WithDialDebug(),
-		rpc.WithTLSConfig(clientTLSConfig),
-		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
-			SignalingServerAddress: addr,
-			SignalingAuthEntity:    options.FQDN,
-			SignalingCreds: rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotLocationSecret,
-				Payload: locationSecret + "bad",
-			},
-		}),
-		rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
-			RemoveAuthCredentials: true,
-		}),
-	)
-	test.That(t, err, test.ShouldBeNil)
+	if mdnsSupported {
+		conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
+			rpc.WithDialDebug(),
+			rpc.WithTLSConfig(clientTLSConfig),
+			rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
+				SignalingServerAddress: addr,
+				SignalingAuthEntity:    options.FQDN,
+				SignalingCreds: rpc.Credentials{
+					Type:    rutils.CredentialsTypeRobotLocationSecret,
+					Payload: locationSecret + "bad",
+				},
+			}),
+			rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
+				RemoveAuthCredentials: true,
+			}),
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
+		arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
+		arm1Position, err = arm1.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, arm1Position, test.ShouldResemble, pos)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}
 
 	err = svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func TestWebWithBadAuthHandlers(t *testing.T) {
@@ -1826,7 +1836,8 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				close(callBlocking)
 				<-blockCall
 				return pos, nil
-			}))
+			}),
+		)
 		defer injectRobot.Close(ctx)
 		svc := New(injectRobot, logger)
 		defer svc.Stop()
@@ -1934,7 +1945,8 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				close(callBlocking)
 				<-blockCall
 				return pos, nil
-			}))
+			}),
+		)
 		defer injectRobot.Close(ctx)
 		svc := New(injectRobot, logger)
 		defer svc.Stop()
@@ -2104,7 +2116,7 @@ func TestHandleRestartStatus(t *testing.T) {
 
 	t.Run("allows localhost requests", func(t *testing.T) {
 		restartAllowedCalls = 0
-		req := httptest.NewRequest(http.MethodGet, "/restart_status", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/restart_status", nil)
 		req.RemoteAddr = "127.0.0.1:56789"
 		rec := httptest.NewRecorder()
 
@@ -2124,7 +2136,7 @@ func TestHandleRestartStatus(t *testing.T) {
 
 	t.Run("rejects non-local requests", func(t *testing.T) {
 		restartAllowedCalls = 0
-		req := httptest.NewRequest(http.MethodGet, "/restart_status", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/restart_status", nil)
 		req.RemoteAddr = "203.0.113.5:45678"
 		rec := httptest.NewRecorder()
 

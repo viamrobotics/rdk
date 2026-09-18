@@ -116,6 +116,11 @@ type meshState struct {
 	// is *negCacheEntry which carries the original key components so we can
 	// verify on lookup — hash collisions are rare but treated as cache misses
 	// (the cached entry is overwritten by the next BVH walk anyway).
+	//
+	// The buffer is deliberately NOT part of the key: an entry stores the
+	// measured separation, so one entry serves every buffer. Reuse is gated at
+	// lookup on that separation exceeding the querying buffer — a pair cleared
+	// at 1e-8 is still a collision at 3mm, and must re-walk.
 	negCache sync.Map // uint64 -> *negCacheEntry
 
 	// distAnchors generalizes negCache from "same world poses" to "nearby
@@ -608,15 +613,23 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		}
 		return m.collidesWithGeometryAnchored(g, collisionBufferMM)
 	case *Triangle:
-		// Wrap in a Mesh so we get the negative-cache short-circuit in
-		// collidesWithMesh — RRT smoothing re-checks the same triangle at the
-		// same pose, and the geometry-BVH path has no negCache. The wrap is
-		// cheap now that NewMesh defers PLY serialization (ensurePLYBytes).
-		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		return m.collidesWithMesh(triMesh, collisionBufferMM)
+		// Wrap in a (stateless) Mesh to reuse the mesh-vs-mesh BVH path; see
+		// wrapTriangle for why the wrapper deliberately carries no cache state.
+		return m.collidesWithMesh(wrapTriangle(other), collisionBufferMM)
 	default:
 		return true, math.Inf(1), newCollisionTypeUnsupportedError(m, g)
 	}
+}
+
+// wrapTriangle wraps a standalone *Triangle for the mesh-vs-mesh path.
+// Deliberately STATELESS (nil meshState): standalone triangles are usually
+// per-configuration transients, so a fresh meshState per wrapper both churned
+// allocation and - worse - permanently leaked entries into the other mesh's
+// state-identity-keyed caches (witnesses, distance anchors, negCache), whose
+// sync.Maps only ever grow. A nil state disables those caches for the
+// wrapper, which every consumer already guards for.
+func wrapTriangle(t *Triangle) *Mesh {
+	return &Mesh{pose: NewZeroPose(), triangles: []*Triangle{t}}
 }
 
 // EncompassedBy returns whether this mesh is completely contained within another geometry.
@@ -669,8 +682,7 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	case *sphere:
 		return m.distanceFromSphere(other), nil
 	case *Triangle:
-		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		return m.distanceFromMesh(triMesh)
+		return m.distanceFromMesh(wrapTriangle(other))
 	case *Mesh:
 		return m.distanceFromMesh(other)
 	case *Cylinder:
@@ -840,13 +852,21 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 		if v, ok := m.state.negCache.Load(negKey); ok {
 			e := v.(*negCacheEntry)
 			if negCacheEntryMatches(e, other.state, m.pose, other.pose) {
-				return false, math.Sqrt(e.minDistSq), nil
+				// The entry records the measured separation, not a verdict: only a
+				// separation strictly greater than the *current* buffer proves no
+				// collision. An entry stored under a smaller buffer says nothing
+				// about a larger one, so fall through to the walk rather than reuse
+				// it. Mirrors the distAnchors gate above.
+				if d := math.Sqrt(e.minDistSq); d > collisionBufferMM {
+					return false, d, nil
+				}
 			}
 		}
 	}
 
 	collides, dist, witness, err := bvhCollidesWithBVHTracked(
-		m.ensureBVH(), other.ensureBVH(), m.ensurePoseCache(), other.ensurePoseCache(), collisionBufferMM)
+		m.ensureBVH(), other.ensureBVH(), m.ensurePoseCache(), other.ensurePoseCache(), collisionBufferMM,
+	)
 	if err != nil {
 		return false, 0, err
 	}

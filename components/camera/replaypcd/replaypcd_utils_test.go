@@ -76,7 +76,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 		binaryData := datapb.BinaryData{
 			Binary: data,
 			Metadata: &datapb.BinaryMetadata{
-				Id:            fmt.Sprintf(datasetDirectory, newFileNum),
+				BinaryDataId:  fmt.Sprintf(datasetDirectory, newFileNum),
 				TimeRequested: timeReq,
 				TimeReceived:  timeRec,
 				CaptureMetadata: &datapb.CaptureMetadata{
@@ -102,7 +102,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 
 			binaryData := datapb.BinaryData{
 				Metadata: &datapb.BinaryMetadata{
-					Id:            fmt.Sprintf(datasetDirectory, newFileNum+i),
+					BinaryDataId:  fmt.Sprintf(datasetDirectory, newFileNum+i),
 					TimeRequested: timeReq,
 					TimeReceived:  timeRec,
 					CaptureMetadata: &datapb.CaptureMetadata{

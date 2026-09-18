@@ -33,7 +33,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -1362,6 +1361,310 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 	})
 }
 
+func TestMachinesPartConfigAction(t *testing.T) {
+	partID := "test-part-id"
+	partName := "test-part"
+
+	currentConf, err := structpb.NewStruct(map[string]any{"components": []any{}, "marker": "current"})
+	test.That(t, err, test.ShouldBeNil)
+	oldConf, err := structpb.NewStruct(map[string]any{"components": []any{}, "marker": "old"})
+	test.That(t, err, test.ShouldBeNil)
+
+	getRobotPartFunc := func(ctx context.Context, in *apppb.GetRobotPartRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartResponse, error) {
+		test.That(t, in.Id, test.ShouldEqual, partID)
+		return &apppb.GetRobotPartResponse{
+			Part: &apppb.RobotPart{Id: partID, Name: partName, RobotConfig: currentConf},
+		}, nil
+	}
+
+	// A single edit at editTime: its Old is the config that was live *before* editTime.
+	editTime := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+	var lastHistReq *apppb.GetRobotPartHistoryRequest
+	getRobotPartHistoryFunc := func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartHistoryResponse, error) {
+		lastHistReq = in
+		return &apppb.GetRobotPartHistoryResponse{
+			History: []*apppb.RobotPartHistoryEntry{
+				{Part: partID, When: timestamppb.New(editTime), Old: &apppb.RobotPart{Id: partID, RobotConfig: oldConf}},
+			},
+		}, nil
+	}
+
+	// ListOrganizations errors so robotPart falls back to a direct ID lookup via GetRobotPartFunc,
+	// mirroring TestMachinesPartHistoryAction.
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		return nil, errors.New("not used in this test")
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc:   listOrganizationsFunc,
+		GetRobotPartFunc:        getRobotPartFunc,
+		GetRobotPartHistoryFunc: getRobotPartHistoryFunc,
+	}
+
+	t.Run("current config prints to stdout", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx, machinesPartConfigArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "current"`)
+	})
+
+	t.Run("--at before the edit resolves forward to the config that was live then", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "2026-01-15T09:00:00Z"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		// The edit is after `at`, so its Old config is what applied at `at`.
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "old"`)
+		test.That(t, lastHistReq.Start.AsTime().Equal(time.Date(2026, 1, 15, 9, 0, 0, 0, time.UTC)), test.ShouldBeTrue)
+	})
+
+	t.Run("--at after the last edit falls back to the current config", func(t *testing.T) {
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "2026-01-15T18:00:00Z"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "current"`)
+	})
+
+	t.Run("unparseable --at errors", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "yesterday"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "could not parse time string")
+	})
+
+	t.Run("--at picks the earliest edit after the timestamp from a newest-first list", func(t *testing.T) {
+		// Three edits, returned newest-first as the server sorts them. `at` predates all of them,
+		// so the config live at `at` is the Old of the oldest edit (the last entry in the list).
+		e3 := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+		e2 := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+		e1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		conf := func(marker string) *structpb.Struct {
+			s, cerr := structpb.NewStruct(map[string]any{"marker": marker})
+			test.That(t, cerr, test.ShouldBeNil)
+			return s
+		}
+		multiAsc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartHistoryResponse, error) {
+				return &apppb.GetRobotPartHistoryResponse{
+					History: []*apppb.RobotPartHistoryEntry{
+						{Part: partID, When: timestamppb.New(e3), Old: &apppb.RobotPart{RobotConfig: conf("before-e3")}},
+						{Part: partID, When: timestamppb.New(e2), Old: &apppb.RobotPart{RobotConfig: conf("before-e2")}},
+						{Part: partID, When: timestamppb.New(e1), Old: &apppb.RobotPart{RobotConfig: conf("before-e1")}},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, _ := setup(multiAsc, nil, nil, nil, "token")
+		err := ac.machinesPartConfigAction(context.Background(), cCtx,
+			machinesPartConfigArgs{Part: partID, At: "2025-12-01T00:00:00Z"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "before-e1"`)
+	})
+}
+
+func TestFragmentActions(t *testing.T) {
+	fragmentID := "test-fragment-id"
+	fragmentName := "test-fragment"
+	orgID := "11111111-1111-1111-1111-111111111111"
+	orgName := "test-org"
+
+	fragConf, err := structpb.NewStruct(map[string]any{"components": []any{}, "marker": "frag"})
+	test.That(t, err, test.ShouldBeNil)
+
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		return &apppb.ListOrganizationsResponse{
+			Organizations: []*apppb.Organization{{Id: orgID, Name: orgName}},
+		}, nil
+	}
+
+	t.Run("list prints a table of fragments for an org", func(t *testing.T) {
+		var lastReq *apppb.ListFragmentsRequest
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			ListFragmentsFunc: func(ctx context.Context, in *apppb.ListFragmentsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.ListFragmentsResponse, error) {
+				lastReq = in
+				return &apppb.ListFragmentsResponse{
+					Fragments: []*apppb.Fragment{
+						{Id: fragmentID, Name: fragmentName, Revision: "rev-1", LastUpdated: timestamppb.New(time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC))},
+						// A fragment that has never been updated comes back as the zero time.
+						{Id: "second-id", Name: "never-updated", Revision: "rev-9"},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentListAction(context.Background(), cCtx, fragmentListArgs{Organization: orgName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, lastReq.OrganizationId, test.ShouldEqual, orgID)
+		joined := strings.Join(out.messages, "")
+		test.That(t, joined, test.ShouldContainSubstring, "ID")
+		test.That(t, joined, test.ShouldContainSubstring, "NAME")
+		test.That(t, joined, test.ShouldContainSubstring, "REVISION")
+		test.That(t, joined, test.ShouldContainSubstring, fragmentID)
+		test.That(t, joined, test.ShouldContainSubstring, "rev-1")
+		test.That(t, joined, test.ShouldContainSubstring, "2026-01-15T10:00:00Z")
+		// The zero-time fragment renders as unknown, not year 0001.
+		test.That(t, joined, test.ShouldContainSubstring, "<unknown>")
+		test.That(t, joined, test.ShouldNotContainSubstring, "0001")
+	})
+
+	t.Run("list with no --organization falls back to the default org", func(t *testing.T) {
+		var lastReq *apppb.ListFragmentsRequest
+		asc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			ListFragmentsFunc: func(ctx context.Context, in *apppb.ListFragmentsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.ListFragmentsResponse, error) {
+				lastReq = in
+				return &apppb.ListFragmentsResponse{
+					Fragments: []*apppb.Fragment{{Id: fragmentID, Name: fragmentName, Revision: "rev-1"}},
+				}, nil
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentListAction(context.Background(), cCtx, fragmentListArgs{})
+		test.That(t, err, test.ShouldBeNil)
+		// With no org specified, the first organization is used.
+		test.That(t, lastReq.OrganizationId, test.ShouldEqual, orgID)
+	})
+
+	t.Run("get prints the fragment config and forwards the version", func(t *testing.T) {
+		var lastReq *apppb.GetFragmentRequest
+		asc := &inject.AppServiceClient{
+			GetFragmentFunc: func(ctx context.Context, in *apppb.GetFragmentRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentResponse, error) {
+				lastReq = in
+				return &apppb.GetFragmentResponse{
+					Fragment: &apppb.Fragment{Id: fragmentID, Name: fragmentName, Fragment: fragConf},
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentGetAction(context.Background(), cCtx,
+			fragmentGetArgs{Fragment: fragmentID, Version: "rev-2"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, lastReq.Id, test.ShouldEqual, fragmentID)
+		test.That(t, lastReq.Version, test.ShouldNotBeNil)
+		test.That(t, *lastReq.Version, test.ShouldEqual, "rev-2")
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, `"marker": "frag"`)
+	})
+
+	t.Run("get omits an unset version", func(t *testing.T) {
+		var lastReq *apppb.GetFragmentRequest
+		asc := &inject.AppServiceClient{
+			GetFragmentFunc: func(ctx context.Context, in *apppb.GetFragmentRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentResponse, error) {
+				lastReq = in
+				return &apppb.GetFragmentResponse{
+					Fragment: &apppb.Fragment{Id: fragmentID, Fragment: fragConf},
+				}, nil
+			},
+		}
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentGetAction(context.Background(), cCtx, fragmentGetArgs{Fragment: fragmentID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, lastReq.Version, test.ShouldBeNil)
+	})
+
+	t.Run("history lists revisions as a table without a redundant counter", func(t *testing.T) {
+		ts := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+		asc := &inject.AppServiceClient{
+			GetFragmentHistoryFunc: func(ctx context.Context, in *apppb.GetFragmentHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentHistoryResponse, error) {
+				test.That(t, in.Id, test.ShouldEqual, fragmentID)
+				return &apppb.GetFragmentHistoryResponse{
+					History: []*apppb.FragmentHistoryEntry{
+						{Revision: "3", EditedOn: timestamppb.New(ts), EditedBy: &apppb.AuthenticatorInfo{Value: "alice@viam.com"}},
+						{Revision: "2", EditedOn: timestamppb.New(ts.Add(-time.Hour)), EditedBy: &apppb.AuthenticatorInfo{Value: "bob@viam.com"}},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentHistoryAction(context.Background(), cCtx, fragmentHistoryArgs{Fragment: fragmentID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		joined := strings.Join(out.messages, "")
+		test.That(t, joined, test.ShouldContainSubstring, "REVISION")
+		test.That(t, joined, test.ShouldContainSubstring, "EDITED BY")
+		test.That(t, joined, test.ShouldContainSubstring, "alice@viam.com")
+		test.That(t, joined, test.ShouldContainSubstring, "2026-01-15T10:00:00Z")
+		// The confusing "[1] revision 3" counter is gone; the revision number stands on its own.
+		test.That(t, joined, test.ShouldNotContainSubstring, "[1]")
+	})
+
+	t.Run("history --count caps rows and warns on stderr", func(t *testing.T) {
+		ts := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+		asc := &inject.AppServiceClient{
+			GetFragmentHistoryFunc: func(ctx context.Context, in *apppb.GetFragmentHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentHistoryResponse, error) {
+				return &apppb.GetFragmentHistoryResponse{
+					History: []*apppb.FragmentHistoryEntry{
+						{Revision: "3", EditedOn: timestamppb.New(ts)},
+						{Revision: "2", EditedOn: timestamppb.New(ts.Add(-time.Hour))},
+					},
+				}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentHistoryAction(context.Background(), cCtx, fragmentHistoryArgs{Fragment: fragmentID, Count: 1})
+		test.That(t, err, test.ShouldBeNil)
+		// tabwriter turns the column tabs into spaces on Flush, so assert on the rendered row count
+		// rather than a tab-delimited substring: header + exactly one data row means --count capped it.
+		lines := strings.Split(strings.TrimRight(strings.Join(out.messages, ""), "\n"), "\n")
+		test.That(t, len(lines), test.ShouldEqual, 2)
+		test.That(t, lines[0], test.ShouldContainSubstring, "REVISION")
+		test.That(t, lines[1], test.ShouldContainSubstring, "3")
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "stopped at --count=1")
+	})
+
+	t.Run("history reports an empty fragment", func(t *testing.T) {
+		asc := &inject.AppServiceClient{
+			GetFragmentHistoryFunc: func(ctx context.Context, in *apppb.GetFragmentHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentHistoryResponse, error) {
+				return &apppb.GetFragmentHistoryResponse{}, nil
+			},
+		}
+		cCtx, ac, out, _ := setup(asc, nil, nil, nil, "token")
+		err := ac.fragmentHistoryAction(context.Background(), cCtx, fragmentHistoryArgs{Fragment: fragmentID})
+		test.That(t, err, test.ShouldBeNil)
+		joined := strings.Join(out.messages, "")
+		test.That(t, joined, test.ShouldContainSubstring, "no history found")
+		// With no rows the table has no header.
+		test.That(t, joined, test.ShouldNotContainSubstring, "REVISION")
+	})
+}
+
 // TestMachinesPartHistoryCountDefault pins the flag default: without one, printing every revision
 // of a frequently-edited part takes minutes and buries anything useful.
 func TestMachinesPartHistoryCountDefault(t *testing.T) {
@@ -1477,7 +1780,8 @@ func TestShellFileCopy(t *testing.T) {
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), tempDir}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 				test.ShouldBeNil)
@@ -1489,16 +1793,12 @@ func TestShellFileCopy(t *testing.T) {
 
 		t.Run("single file relative", func(t *testing.T) {
 			tempDir := t.TempDir()
-			cwd, err := os.Getwd()
-			test.That(t, err, test.ShouldBeNil)
-			//nolint: usetesting
-			t.Cleanup(func() { os.Chdir(cwd) })
-			//nolint: usetesting
-			test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
+			t.Chdir(tempDir)
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 				test.ShouldBeNil)
@@ -1515,7 +1815,8 @@ func TestShellFileCopy(t *testing.T) {
 
 			t.Log("without recursion set")
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+			)
 			err := viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
 			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
@@ -1526,7 +1827,8 @@ func TestShellFileCopy(t *testing.T) {
 			maps.Copy(partFlagsCopy, partFlags)
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ = setupWithRunningPart(
-				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 				test.ShouldBeNil)
@@ -1545,7 +1847,8 @@ func TestShellFileCopy(t *testing.T) {
 			maps.Copy(partFlagsCopy, partFlags)
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 				test.ShouldBeNil)
@@ -1581,7 +1884,8 @@ func TestShellFileCopy(t *testing.T) {
 					partFlagsCopy["recursive"] = true
 					partFlagsCopy["preserve"] = preserve
 					cCtx, viamClient, _, _ := setupWithRunningPart(
-						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...,
+					)
 					test.That(t,
 						viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 						test.ShouldBeNil)
@@ -1609,7 +1913,8 @@ func TestShellFileCopy(t *testing.T) {
 
 			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 				test.ShouldBeNil)
@@ -1627,7 +1932,8 @@ func TestShellFileCopy(t *testing.T) {
 			defer os.Remove(randomPath)
 			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", randomName)}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 				test.ShouldBeNil)
@@ -1644,7 +1950,8 @@ func TestShellFileCopy(t *testing.T) {
 
 			t.Log("without recursion set")
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+			)
 			err := viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
 			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
@@ -1655,7 +1962,8 @@ func TestShellFileCopy(t *testing.T) {
 			maps.Copy(partFlagsCopy, partFlags)
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ = setupWithRunningPart(
-				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 				test.ShouldBeNil)
@@ -1674,7 +1982,8 @@ func TestShellFileCopy(t *testing.T) {
 			maps.Copy(partFlagsCopy, partFlags)
 			partFlagsCopy["recursive"] = true
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 				test.ShouldBeNil)
@@ -1710,7 +2019,8 @@ func TestShellFileCopy(t *testing.T) {
 					partFlagsCopy["recursive"] = true
 					partFlagsCopy["preserve"] = preserve
 					cCtx, viamClient, _, _ := setupWithRunningPart(
-						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...,
+					)
 					test.That(t,
 						viamClient.machinesPartCopyFilesAction(context.Background(), cCtx, parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger),
 						test.ShouldBeNil)
@@ -1799,7 +2109,8 @@ func TestShellGetFTDC(t *testing.T) {
 
 		args := []string{tempDir}
 		cCtx, viamClient, _, _ := setupWithRunningPart(
-			t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+		)
 		test.That(t,
 			viamClient.machinesPartGetFTDCAction(context.Background(), cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
 			test.ShouldNotBeNil)
@@ -1833,7 +2144,8 @@ func TestShellGetFTDC(t *testing.T) {
 				targetPath = "."
 			}
 			cCtx, viamClient, _, _ := setupWithRunningPart(
-				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+			)
 			test.That(t,
 				viamClient.machinesPartGetFTDCAction(context.Background(), cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
 				test.ShouldBeNil)
@@ -1847,16 +2159,7 @@ func TestShellGetFTDC(t *testing.T) {
 		}
 
 		t.Run("download to cwd", func(t *testing.T) {
-			tempDir := t.TempDir()
-			originalWd, err := os.Getwd()
-			test.That(t, err, test.ShouldBeNil)
-			//nolint: usetesting
-			err = os.Chdir(tempDir)
-			test.That(t, err, test.ShouldBeNil)
-			t.Cleanup(func() {
-				//nolint: usetesting
-				os.Chdir(originalWd)
-			})
+			t.Chdir(t.TempDir())
 
 			testDownload(t, "")
 		})
@@ -1888,7 +2191,8 @@ func TestShellGetFTDC(t *testing.T) {
 
 		targetPath := t.TempDir()
 		cCtx, viamClient, _, _ := setupWithRunningPart(
-			t, asc, nil, nil, partFlags, "token", partFqdn, targetPath)
+			t, asc, nil, nil, partFlags, "token", partFqdn, targetPath,
+		)
 		test.That(t,
 			viamClient.machinesPartGetFTDCAction(context.Background(), cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
 			test.ShouldBeNil)
@@ -2127,9 +2431,13 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
 	}()
 
-	sourcePort, err := goutils.TryReserveRandomPort()
+	// Bind the source listener here and hand it to serveTunnel (which closes it once ctx is
+	// done). Reserving a port with TryReserveRandomPort and letting the tunnel bind it later
+	// leaves a window for another server to claim the port; the test would then silently
+	// talk to that server instead of the tunnel (RSDK-14479).
+	sourcePort, sourceListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
+	sourceListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(sourcePort))
 
 	logger := logging.NewTestLogger(t)
 	ctx, ctxCancel := context.WithCancel(context.Background())
@@ -2192,18 +2500,14 @@ func TestTunnelE2ECLI(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		tunnelTraffic(ctx, cCtx, rc, sourcePort, destPort)
+		test.That(t, serveTunnel(ctx, cCtx, rc, sourceListener, destPort), test.ShouldBeNil)
 	}()
 
-	// Write `tunnelMsg` to CLI tunneler over TCP from this test process. Retry until
-	// tunnelTraffic's listener is bound.
-	var conn net.Conn
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		var dialErr error
-		//nolint: noctx
-		conn, dialErr = net.Dial("tcp", sourceListenerAddr)
-		test.That(tb, dialErr, test.ShouldBeNil)
-	})
+	// Write `tunnelMsg` to CLI tunneler over TCP from this test process. The listener is
+	// already bound, so no dial retry is needed.
+	//nolint: noctx
+	conn, err := net.Dial("tcp", sourceListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
@@ -2224,6 +2528,30 @@ func TestTunnelE2ECLI(t *testing.T) {
 	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
+}
+
+func TestTunnelTrafficLocalPortInUse(t *testing.T) {
+	t.Parallel()
+	// A local port that something else already owns must surface as an error instead of
+	// leaving the caller tunneling traffic into whatever is listening there (RSDK-14479).
+	//
+	// Listen on "localhost" explicitly so the address matches what tunnelTraffic binds
+	// (net.Listen("tcp", "localhost:PORT")). Using ReserveRandomPort (which binds to
+	// 0.0.0.0) does not conflict on dual-stack macOS/Windows where localhost resolves
+	// to the IPv6 loopback.
+	//nolint:noctx
+	li, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, li.Close(), test.ShouldBeNil)
+	}()
+	port := li.Addr().(*net.TCPAddr).Port
+
+	//nolint:dogsled
+	cCtx, _, _, _ := setup(nil, nil, nil, nil, "token")
+	err = tunnelTraffic(context.Background(), cCtx, nil, port, port)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "failed to create listener")
 }
 
 // fakeTunnelLister is a tunnelLister test double. Before `reloadAfter` ListTunnels

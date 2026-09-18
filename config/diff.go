@@ -429,7 +429,11 @@ func diffNetworkingCfg(left, right *Config) bool {
 	if diffNetwork(left.Network, right.Network) {
 		return true
 	}
-	if !reflect.DeepEqual(left.Auth, right.Auth) {
+	// UserPermissions changes are applied to a running web service during robot
+	// reconfiguration and do not require a web service (network) restart.
+	leftAuth, rightAuth := left.Auth, right.Auth
+	leftAuth.UserPermissions, rightAuth.UserPermissions = nil, nil
+	if !reflect.DeepEqual(leftAuth, rightAuth) {
 		return true
 	}
 

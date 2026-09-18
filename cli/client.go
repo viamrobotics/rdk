@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/tabwriter"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -2379,7 +2380,8 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	if !ok || !validType {
 		return fmt.Errorf(
 			"trigger event type must be one of: part_online, part_offline, "+
-				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw)
+				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw,
+		)
 	}
 
 	// warn about unknown event keys
@@ -3266,6 +3268,118 @@ func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Com
 	return nil
 }
 
+type machinesPartConfigArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+	At           string
+}
+
+// marshalConfigJSON renders a config struct as indented JSON. Going through AsMap means
+// encoding/json sorts object keys alphabetically, so the output is deterministic and diffs
+// cleanly between two snapshots regardless of how the fields were ordered on the server.
+func marshalConfigJSON(config *structpb.Struct) (string, error) {
+	b, err := json.MarshalIndent(config.AsMap(), "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// machinesPartConfigAction is the corresponding action for 'machines part config'.
+func machinesPartConfigAction(ctx context.Context, cmd *cli.Command, args machinesPartConfigArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return client.machinesPartConfigAction(ctx, cmd, args)
+}
+
+func (c *viamClient) machinesPartConfigAction(ctx context.Context, cmd *cli.Command, args machinesPartConfigArgs) error {
+	at, err := parseTimeString(args.At)
+	if err != nil {
+		return err
+	}
+
+	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return errors.Wrap(err, "could not get machine part")
+	}
+
+	config := part.GetRobotConfig()
+	if at != nil {
+		config, err = c.robotPartConfigAt(ctx, part.Id, at.AsTime())
+		if err != nil {
+			return err
+		}
+	}
+
+	if config == nil {
+		return errors.New("no configuration found for machine part")
+	}
+	out, err := marshalConfigJSON(config)
+	if err != nil {
+		return err
+	}
+	// The config JSON is the only thing on stdout so `viam machines part config ... > file.json`
+	// captures a clean file; any human-facing notes go to stderr via warningf.
+	printf(cmd.Root().Writer, "%s", out)
+	return nil
+}
+
+// robotPartConfigAt returns the machine config that was in effect at time `at`. History entries
+// store the config as it was *before* each edit (Old), so the config live at `at` is the Old of
+// the earliest edit made strictly after `at`. If no edit happened after `at`, `at` is at or after
+// the most recent change and the current config applies.
+//
+// GetRobotPartHistory returns entries newest-first (the server sorts by edit time descending), so
+// with Start bounding the query to edits at/after `at`, the earliest edit after `at` is simply the
+// last entry we see — we page to the end and keep the most recent assignment.
+func (c *viamClient) robotPartConfigAt(ctx context.Context, partID string, at time.Time) (*structpb.Struct, error) {
+	startTime := timestamppb.New(at)
+	pageLimit := int64(historyFetchPageSize)
+	var pageToken string
+	var earliestAfter *apppb.RobotPartHistoryEntry
+	for {
+		resp, err := c.client.GetRobotPartHistory(ctx, &apppb.GetRobotPartHistoryRequest{
+			Id:        partID,
+			Start:     startTime,
+			PageLimit: &pageLimit,
+			PageToken: &pageToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(resp.History) == 0 {
+			break
+		}
+		// Entries arrive newest-first, so the last one still after `at` (the oldest edit after
+		// `at`) is the boundary we want; keep overwriting and the final value wins.
+		for _, entry := range resp.History {
+			if entry.When != nil && entry.When.AsTime().After(at) {
+				earliestAfter = entry
+			}
+		}
+		if pageToken = resp.NextPageToken; pageToken == "" {
+			break
+		}
+	}
+
+	if earliestAfter == nil {
+		resp, err := c.getRobotPart(ctx, partID)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get machine part")
+		}
+		return resp.Part.GetRobotConfig(), nil
+	}
+	if earliestAfter.Old == nil || earliestAfter.Old.GetRobotConfig() == nil {
+		return nil, errors.Errorf("configuration change at %s has no recorded config to return",
+			earliestAfter.When.AsTime().Format(time.RFC3339))
+	}
+	return earliestAfter.Old.GetRobotConfig(), nil
+}
+
 type robotsPartAddFragmentArgs struct {
 	Organization string
 	Location     string
@@ -3496,6 +3610,184 @@ func RobotsPartRemoveFragmentAction(ctx context.Context, cmd *cli.Command, args 
 	return nil
 }
 
+type fragmentListArgs struct {
+	Organization string
+}
+
+// fragmentListAction is the corresponding action for 'fragment list'.
+func fragmentListAction(ctx context.Context, cmd *cli.Command, args fragmentListArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return client.fragmentListAction(ctx, cmd, args)
+}
+
+func (c *viamClient) fragmentListAction(ctx context.Context, cmd *cli.Command, args fragmentListArgs) error {
+	// An empty --organization falls back to the default (or first) org, so the flag stays optional
+	// and configured default-org values are respected.
+	if err := c.selectOrganization(ctx, args.Organization); err != nil {
+		return err
+	}
+	org := c.selectedOrg
+
+	resp, err := c.client.ListFragments(ctx, &apppb.ListFragmentsRequest{OrganizationId: org.Id})
+	if err != nil {
+		return err
+	}
+
+	if len(resp.Fragments) == 0 {
+		warningf(cmd.Root().ErrWriter, "no fragments found for organization %s", org.Name)
+		return nil
+	}
+
+	// table format rules: minwidth, tabwidth, padding int, padchar byte, flags uint
+	w := tabwriter.NewWriter(cmd.Root().Writer, 5, 4, 1, ' ', 0)
+	tableFormat := "%s\t%s\t%s\t%s\n"
+	fmt.Fprintf(w, tableFormat, "ID", "NAME", "REVISION", "UPDATED") //nolint:errcheck
+	for _, f := range resp.Fragments {
+		fmt.Fprintf(w, tableFormat, f.Id, f.Name, orUnknown(f.Revision), formatTimestamp(f.LastUpdated)) //nolint:errcheck
+	}
+	//nolint:errcheck
+	w.Flush()
+	return nil
+}
+
+// formatTimestamp renders a proto timestamp as RFC3339, guarding against both a nil and a
+// zero-value timestamp (fragments that have never been updated come back as the zero time,
+// which would otherwise print as "0001-01-01T00:00:00Z").
+func formatTimestamp(ts *timestamppb.Timestamp) string {
+	if ts == nil || ts.AsTime().IsZero() {
+		return "<unknown>"
+	}
+	return ts.AsTime().Format(time.RFC3339)
+}
+
+// orUnknown renders empty string values as the same "<unknown>" placeholder used by
+// formatTimestamp, so blank table cells read consistently.
+func orUnknown(s string) string {
+	if s == "" {
+		return "<unknown>"
+	}
+	return s
+}
+
+type fragmentGetArgs struct {
+	Fragment string
+	Version  string
+}
+
+// fragmentGetAction is the corresponding action for 'fragment get'.
+func fragmentGetAction(ctx context.Context, cmd *cli.Command, args fragmentGetArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return client.fragmentGetAction(ctx, cmd, args)
+}
+
+func (c *viamClient) fragmentGetAction(ctx context.Context, cmd *cli.Command, args fragmentGetArgs) error {
+	req := apppb.GetFragmentRequest{Id: args.Fragment}
+	if args.Version != "" {
+		req.Version = &args.Version
+	}
+	resp, err := c.client.GetFragment(ctx, &req)
+	if err != nil {
+		return err
+	}
+	if resp.Fragment == nil || resp.Fragment.GetFragment() == nil {
+		return errors.New("fragment has no configuration")
+	}
+	out, err := marshalConfigJSON(resp.Fragment.GetFragment())
+	if err != nil {
+		return err
+	}
+	// JSON only on stdout so the output redirects cleanly into a file for diffing.
+	printf(cmd.Root().Writer, "%s", out)
+	return nil
+}
+
+type fragmentHistoryArgs struct {
+	Fragment string
+	Count    int
+}
+
+// fragmentHistoryAction is the corresponding action for 'fragment history'.
+func fragmentHistoryAction(ctx context.Context, cmd *cli.Command, args fragmentHistoryArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return client.fragmentHistoryAction(ctx, cmd, args)
+}
+
+func (c *viamClient) fragmentHistoryAction(ctx context.Context, cmd *cli.Command, args fragmentHistoryArgs) error {
+	if args.Count < 0 {
+		return errors.Errorf("%q cannot be negative", generalFlagCount)
+	}
+
+	// table format rules: minwidth, tabwidth, padding int, padchar byte, flags uint
+	w := tabwriter.NewWriter(cmd.Root().Writer, 5, 4, 1, ' ', 0)
+	tableFormat := "%s\t%s\t%s\n"
+
+	pageLimit := int64(historyFetchPageSize)
+	var pageToken string
+	listed := 0
+	truncated := false
+	for {
+		resp, err := c.client.GetFragmentHistory(ctx, &apppb.GetFragmentHistoryRequest{
+			Id:        args.Fragment,
+			PageLimit: &pageLimit,
+			PageToken: &pageToken,
+		})
+		if err != nil {
+			return err
+		}
+
+		// An empty page ends the walk even if a token came back, mirroring machinesPartHistoryAction
+		// so a server that keeps handing out tokens can't spin this loop forever.
+		if len(resp.History) == 0 {
+			break
+		}
+
+		for _, entry := range resp.History {
+			if listed == 0 {
+				// The revision number is the natural ordinal, so there's no separate counter column.
+				fmt.Fprintf(w, tableFormat, "REVISION", "EDITED ON", "EDITED BY") //nolint:errcheck
+			}
+			editedBy := "<unknown>"
+			if entry.EditedBy != nil && entry.EditedBy.Value != "" {
+				editedBy = entry.EditedBy.Value
+			}
+			fmt.Fprintf(w, tableFormat, entry.Revision, formatTimestamp(entry.EditedOn), editedBy) //nolint:errcheck
+			listed++
+
+			if args.Count > 0 && listed == args.Count {
+				truncated = true
+				break
+			}
+		}
+
+		if truncated {
+			break
+		}
+		if pageToken = resp.NextPageToken; pageToken == "" {
+			break
+		}
+	}
+	//nolint:errcheck
+	w.Flush()
+
+	if listed == 0 {
+		printf(cmd.Root().Writer, "no history found for fragment %s", args.Fragment)
+		return nil
+	}
+	if truncated {
+		warningf(cmd.Root().ErrWriter, "stopped at --%s=%d; raise it to see more", generalFlagCount, args.Count)
+	}
+	return nil
+}
+
 type robotsPartLogsArgs struct {
 	Organization string
 	Location     string
@@ -3716,7 +4008,8 @@ func MachinesPartRunAction(ctx context.Context, cmd *cli.Command, args machinesP
 	if args.Component != "" {
 		// Connect to the robot to get resource information
 		dialCtx, fqdn, rpcOpts, err := viamClient.prepareDial(
-			ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+			ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug,
+		)
 		if err != nil {
 			return err
 		}
@@ -4189,9 +4482,15 @@ func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.Ro
 	//nolint: noctx
 	li, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(local)))
 	if err != nil {
-		return fmt.Errorf("failed to create listener %w", err)
+		return fmt.Errorf("failed to create listener: %w", err)
 	}
 	infof(cmd.Root().Writer, "tunneling connections from local port %v to destination port %v on machine part...", local, dest)
+	return serveTunnel(ctx, cmd, robotClient, li, dest)
+}
+
+// serveTunnel tunnels every connection accepted on li to dest on the machine part. It
+// takes ownership of li and closes it once ctx is done.
+func serveTunnel(ctx context.Context, cmd *cli.Command, robotClient *client.RobotClient, li net.Listener, dest int) error {
 	go func() {
 		// Once the context has errored, close the listener so the loop below will exit from
 		// `Accept`ing new connections.
@@ -4225,7 +4524,7 @@ func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.Ro
 	wg.Wait()
 
 	// nilerr is needed because Go wants us to return the ctx.Err() from the loop above, but
-	// any ctx.Err() from that loop should just halt tunnelTraffic without error.
+	// any ctx.Err() from that loop should just halt serveTunnel without error.
 	return nil //nolint:nilerr
 }
 
@@ -4841,7 +5140,7 @@ func tryBrewUpgrade() (bool, error) {
 	//nolint: noctx
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {
-		return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+		return false, errors.Errorf("failed to upgrade CLI via brew: %v\n%s", err, strings.TrimSpace(string(out)))
 	}
 	if strings.Contains(string(out), "already installed") {
 		return false, nil
@@ -4892,6 +5191,7 @@ func installedDebVersion() (*semver.Version, error) {
 
 // dpkgQueryOwnerFunc runs `dpkg -S <path>`; overridable in tests.
 var dpkgQueryOwnerFunc = func(path string) (string, error) {
+	//nolint:gosec
 	out, err := exec.Command("dpkg", "-S", path).Output()
 	return string(out), err
 }
@@ -5140,7 +5440,8 @@ func newViamClientInner(ctx context.Context, cmd *cli.Command, disableBrowserOpe
 		warningf(
 			cmd.Root().ErrWriter,
 			"you are trying to log into localhost with a TLS connection."+
-				" This will likely result in a hang; please try logging in to http localhost instead")
+				" This will likely result in a hang; please try logging in to http localhost instead",
+		)
 	}
 
 	if err = conf.checkUpdate(cmd); err != nil {
@@ -5496,7 +5797,7 @@ func (c *viamClient) robotPartLogs(ctx context.Context, orgStr, locStr, robotStr
 	for {
 		resp, err := c.client.GetRobotPartLogs(ctx, &apppb.GetRobotPartLogsRequest{
 			Id:         part.Id,
-			ErrorsOnly: errorsOnly,
+			ErrorsOnly: errorsOnly, //nolint:staticcheck // RSDK-14539
 			PageToken:  &pageToken,
 			Start:      start,
 			End:        end,
@@ -5657,7 +5958,8 @@ func (c *viamClient) runRobotPartCommand(
 			grpcurl.Format("json"),
 			descSource,
 			strings.NewReader(data),
-			options)
+			options,
+		)
 		if err != nil {
 			return false, err
 		}

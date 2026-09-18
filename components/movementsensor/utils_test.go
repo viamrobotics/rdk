@@ -96,7 +96,7 @@ func TestPositionLogic(t *testing.T) {
 func TestPMTKFunctions(t *testing.T) {
 	var (
 		expectedValue    = ([]uint8{36, 80, 77, 84, 75, 50, 50, 48, 44, 49, 48, 48, 48, 42, 31})
-		testValue        = ([]byte("PMTK220,1000"))
+		testValue        = []byte("PMTK220,1000")
 		expectedChecksum = 31
 	)
 	test.That(t, PMTKChecksum(testValue), test.ShouldEqual, expectedChecksum)

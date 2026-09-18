@@ -55,7 +55,8 @@ func CompareImages(img1, img2 image.Image) (int, image.Image, error) {
 				resultImg.Set(
 					bounds1.Min.X+x,
 					bounds1.Min.Y+y,
-					color.RGBA{R: 255, A: 255})
+					color.RGBA{R: 255, A: 255},
+				)
 			}
 		}
 	}

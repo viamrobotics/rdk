@@ -49,17 +49,10 @@ jobs:
     needs:
       - test
       - staticbuild-deploy
-    runs-on: ubuntu-latest
     permissions:
       actions: 'read'
-    steps:
-      - name: Slack Workflow Notification
-        uses: Gamesight/slack-workflow-status@master
-        with:
-          repo_token: ${{secrets.GITHUB_TOKEN}}
-          slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
-          channel: '#team-devops'
-          name: 'Workflow Status'
+    uses: ./.github/workflows/slack-failure.yml
+    secrets: inherit
 
   extract-rc-version:
     runs-on: ubuntu-latest

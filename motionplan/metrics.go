@@ -49,6 +49,14 @@ type StateFS struct {
 	geometries       map[string]*referenceframe.GeometriesInFrame
 	movingGeometries map[string]*referenceframe.GeometriesInFrame
 	poses            referenceframe.FrameSystemPoses
+
+	// coverSet caches the state's world-space sphere covers (see
+	// cover_state.go); partialGeoms caches per-frame materialized geometries
+	// for the exact-check fallback. Both are shared across the checker's
+	// three collision constraints. coverSet is `any` to keep this file free
+	// of the cover machinery's internals.
+	coverSet     any
+	partialGeoms map[string]*referenceframe.GeometriesInFrame
 }
 
 // Geometries get Geometries and cache
@@ -91,6 +99,30 @@ func OrientDist(o1, o2 spatial.Orientation) float64 {
 // WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
 func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 	return WeightedSquaredNormDistanceWithOptions(start, end, 1.0, orientationDistanceScaling)
+}
+
+// WeightedSquaredNormDistanceWithTolerance is WeightedSquaredNormDistanceWithOptions
+// with a free orientation band: rotation within toleranceRads of the target
+// contributes nothing, and only the excess beyond the band is penalized. Used
+// when solving for intermediate keypoints whose orientation only needs to stay
+// within a constraint band (or does not matter at all).
+func WeightedSquaredNormDistanceWithTolerance(start, end spatial.Pose, cartesianScale, orientScale, toleranceRads float64) float64 {
+	orientDelta := 0.0
+	if orientScale > 0 && toleranceRads < math.Pi {
+		theta := spatial.QuatToR3AA(spatial.QuatBetween(
+			start.Orientation(),
+			end.Orientation(),
+		)).Norm()
+		theta = math.Max(0, theta-toleranceRads) * orientScale
+		orientDelta = theta * theta
+	}
+
+	ptDelta := 0.0
+	if cartesianScale > 0 {
+		ptDelta = end.Point().Mul(cartesianScale).Sub(start.Point().Mul(cartesianScale)).Norm2()
+	}
+
+	return ptDelta + orientDelta
 }
 
 // WeightedSquaredNormDistanceWithOptions is a distance function between two poses to be used for gradient descent.

@@ -86,7 +86,8 @@ func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
 		Model,
-		resource.Registration[movementsensor.MovementSensor, *Config]{Constructor: newWheeledOdometry})
+		resource.Registration[movementsensor.MovementSensor, *Config]{Constructor: newWheeledOdometry},
+	)
 }
 
 // Validate ensures all parts of the config are valid.

@@ -69,7 +69,8 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+	)
 	if err != nil {
 		return err
 	}
@@ -124,7 +125,8 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+	)
 	if err != nil {
 		return err
 	}
@@ -229,7 +231,8 @@ func MLSubmitTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitTra
 	}
 	trainingJobID, err := client.mlSubmitTrainingJob(
 		args.DatasetID, args.ModelOrgID, args.ModelName, args.ModelVersion, args.ModelType,
-		args.ModelFramework, args.ModelLabels)
+		args.ModelFramework, args.ModelLabels,
+	)
 	if err != nil {
 		return err
 	}
@@ -405,7 +408,8 @@ func DataCancelTrainingJob(ctx context.Context, cmd *cli.Command, args dataCance
 // dataCancelTrainingJob cancels a training job with the given ID.
 func (c *viamClient) dataCancelTrainingJob(trainingJobID string) error {
 	if _, err := c.mlTrainingClient.CancelTrainingJob(
-		context.Background(), &mltrainingpb.CancelTrainingJobRequest{Id: trainingJobID}); err != nil {
+		context.Background(), &mltrainingpb.CancelTrainingJobRequest{Id: trainingJobID},
+	); err != nil {
 		return err
 	}
 	return nil

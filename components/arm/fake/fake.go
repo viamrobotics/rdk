@@ -4,6 +4,7 @@ package fake
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -11,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/components/arm/kinematics"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -298,4 +300,22 @@ func (a *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	return models, nil
+}
+
+// Properties returns which optional features the fake arm supports.
+func (a *Arm) Properties(ctx context.Context, extra map[string]interface{}) (arm.Properties, error) {
+	return arm.Properties{
+		SupportManualMode:        false,
+		SupportCartesianCommands: true,
+	}, nil
+}
+
+// SetManualMode is unsupported for a fake arm.
+func (a *Arm) SetManualMode(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
+// ManualMode is unsupported for a fake arm.
+func (a *Arm) ManualMode(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	return false, grpc.UnimplementedError
 }
