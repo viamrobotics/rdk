@@ -110,6 +110,10 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 		return toRet
 	}
 
+	// TODO: OrientationCloudConstraint has no counterpart in go.viam.com/api's motion.v1.Constraints
+	// yet, so it cannot cross the wire in either direction. Until the proto gains an
+	// `orientation_cloud_constraint` field it is only reachable through the Go API and JSON plan
+	// requests.
 	return NewConstraints(
 		linConstraintFromProto(pbConstraint.LinearConstraint),
 		plinConstraintFromProto(pbConstraint.PseudolinearConstraint),
@@ -180,6 +184,8 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 		return toRet
 	}
 
+	// TODO: OrientationCloudConstraint is dropped here (no proto field yet, see ConstraintsFromProtobuf),
+	// so a request that relied on it arrives with its orientation unconstrained.
 	return &motionpb.Constraints{
 		LinearConstraint:       convertLinConstraintToProto(c.LinearConstraint),
 		PseudolinearConstraint: convertPseudoLinConstraintToProto(c.PseudolinearConstraint),

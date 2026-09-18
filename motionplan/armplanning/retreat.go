@@ -22,9 +22,10 @@ const (
 
 // midOrientationSlackDegs returns how much an intermediate keypoint's
 // orientation may deviate from its nominal target. With orientation
-// constraints, the constraint band (the keypoint must satisfy it anyway, and
-// the state check enforces that); with path-shape constraints, none; with no
-// constraints at all, unlimited - a stepping stone's orientation is irrelevant.
+// constraints, the constraint band or the goal cloud's inscribed angle (the
+// keypoint must satisfy them anyway, and the state check enforces that); with
+// path-shape constraints, none; with no constraints at all, unlimited - a
+// stepping stone's orientation is irrelevant.
 func midOrientationSlackDegs(c *motionplan.Constraints) float64 {
 	if c == nil {
 		return 360
@@ -32,12 +33,12 @@ func midOrientationSlackDegs(c *motionplan.Constraints) float64 {
 	if len(c.LinearConstraint) > 0 || len(c.PseudolinearConstraint) > 0 {
 		return 0
 	}
-	if len(c.OrientationConstraint) == 0 {
-		return 360
-	}
-	slack := c.OrientationConstraint[0].OrientationToleranceDegs
-	for _, oc := range c.OrientationConstraint[1:] {
+	slack := 360.0
+	for _, oc := range c.OrientationConstraint {
 		slack = min(slack, oc.OrientationToleranceDegs)
+	}
+	for _, cc := range c.OrientationCloudConstraint {
+		slack = min(slack, cc.InscribedAngleDegs())
 	}
 	return max(0, slack)
 }

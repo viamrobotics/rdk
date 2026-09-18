@@ -6,6 +6,7 @@ import (
 
 	"gonum.org/v1/gonum/num/quat"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -19,19 +20,21 @@ var ErrOrientationConstraintViolated = errors.New("orientation constraint violat
 // Constraints is a struct to store the constraints imposed upon a robot
 // It serves as a convenenient RDK wrapper for the protobuf object.
 type Constraints struct {
-	LinearConstraint       []LinearConstraint       `json:"linear_constraints"`
-	PseudolinearConstraint []PseudolinearConstraint `json:"pseudolinear_constraints"`
-	OrientationConstraint  []OrientationConstraint  `json:"orientation_constraints"`
-	CollisionSpecification []CollisionSpecification `json:"collision_specifications"`
+	LinearConstraint           []LinearConstraint           `json:"linear_constraints"`
+	PseudolinearConstraint     []PseudolinearConstraint     `json:"pseudolinear_constraints"`
+	OrientationConstraint      []OrientationConstraint      `json:"orientation_constraints"`
+	OrientationCloudConstraint []OrientationCloudConstraint `json:"orientation_cloud_constraints"`
+	CollisionSpecification     []CollisionSpecification     `json:"collision_specifications"`
 }
 
 // NewEmptyConstraints creates a new, empty Constraints object.
 func NewEmptyConstraints() *Constraints {
 	return &Constraints{
-		LinearConstraint:       make([]LinearConstraint, 0),
-		PseudolinearConstraint: make([]PseudolinearConstraint, 0),
-		OrientationConstraint:  make([]OrientationConstraint, 0),
-		CollisionSpecification: make([]CollisionSpecification, 0),
+		LinearConstraint:           make([]LinearConstraint, 0),
+		PseudolinearConstraint:     make([]PseudolinearConstraint, 0),
+		OrientationConstraint:      make([]OrientationConstraint, 0),
+		OrientationCloudConstraint: make([]OrientationCloudConstraint, 0),
+		CollisionSpecification:     make([]CollisionSpecification, 0),
 	}
 }
 
@@ -43,10 +46,11 @@ func NewConstraints(
 	collSpecifications []CollisionSpecification,
 ) *Constraints {
 	return &Constraints{
-		LinearConstraint:       linConstraints,
-		PseudolinearConstraint: pseudoConstraints,
-		OrientationConstraint:  orientConstraints,
-		CollisionSpecification: collSpecifications,
+		LinearConstraint:           linConstraints,
+		PseudolinearConstraint:     pseudoConstraints,
+		OrientationConstraint:      orientConstraints,
+		OrientationCloudConstraint: make([]OrientationCloudConstraint, 0), // no proto counterpart yet; see ConstraintsFromProtobuf
+		CollisionSpecification:     collSpecifications,
 	}
 }
 
@@ -65,7 +69,9 @@ type PseudolinearConstraint struct {
 	OrientationToleranceFactor float64
 }
 
-// OrientationConstraint specifies that the components being moved will not deviate orientation beyond some threshold.
+// OrientationConstraint specifies that the components being moved will not deviate orientation
+// beyond some threshold from the direct reorientation between their start and goal. See
+// OrientationCloudConstraint for a bound around the goal orientation alone.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
 }
@@ -180,6 +186,16 @@ func (e *OrientationConstraintEval) Score(now spatialmath.Orientation) float64 {
 	return max(0, d-e.oc.OrientationToleranceDegs)
 }
 
+// OrientationCloudConstraint specifies that the components being moved stay within a per-axis
+// cloud of their goal orientation at every state along the path. Unlike OrientationConstraint it
+// is independent of the start orientation and of the direct reorientation between start and
+// goal - a cup that must stay upright however it is spun, for instance. The cloud is evaluated in
+// the goal's parent frame, and the start orientation must itself lie within it for a path to
+// exist.
+type OrientationCloudConstraint struct {
+	referenceframe.OrientationCloud
+}
+
 // CollisionSpecificationAllowedFrameCollisions is used to define frames that are allowed to collide.
 type CollisionSpecificationAllowedFrameCollisions struct {
 	Frame1, Frame2 string
@@ -204,6 +220,11 @@ func (c *Constraints) AddPseudolinearConstraint(plinConstraint PseudolinearConst
 // AddOrientationConstraint appends a OrientationConstraint to a Constraints object.
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
+}
+
+// AddOrientationCloudConstraint appends an OrientationCloudConstraint to a Constraints object.
+func (c *Constraints) AddOrientationCloudConstraint(cloudConstraint OrientationCloudConstraint) {
+	c.OrientationCloudConstraint = append(c.OrientationCloudConstraint, cloudConstraint)
 }
 
 // AddCollisionSpecification appends a CollisionSpecification to a Constraints object.

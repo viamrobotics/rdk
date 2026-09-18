@@ -75,40 +75,25 @@ type PoseCloud struct {
 	Theta float64 `json:"theta"`
 }
 
+// OrientationCloud returns the orientation leeways of this cloud as a standalone OrientationCloud.
+func (pc *PoseCloud) OrientationCloud() OrientationCloud {
+	return OrientationCloud{OX: pc.OX, OY: pc.OY, OZ: pc.OZ, Theta: pc.Theta}
+}
+
 // PoseInCloud returns true if the `candidatePose` is within this cloud of the `goalPose`.
 func (pc *PoseCloud) PoseInCloud(goalPose, candidatePose spatialmath.Pose) bool {
-	// Default distance below which two distances are considered equal. Copied from `ik` package to
-	// avoid package cycles. This is only necessary for the default leeway of `0` to not dismiss
-	// every candidate.
-	const defaultEpsilon = 0.001
-
 	between := spatialmath.PoseBetween(goalPose, candidatePose)
-	if math.Abs(between.Point().X) > pc.X+defaultEpsilon {
+	if math.Abs(between.Point().X) > pc.X+cloudEpsilon {
 		return false
 	}
-	if math.Abs(between.Point().Y) > pc.Y+defaultEpsilon {
+	if math.Abs(between.Point().Y) > pc.Y+cloudEpsilon {
 		return false
 	}
-	if math.Abs(between.Point().Z) > pc.Z+defaultEpsilon {
+	if math.Abs(between.Point().Z) > pc.Z+cloudEpsilon {
 		return false
 	}
-
-	betweenOrientation := between.Orientation().OrientationVectorDegrees()
-	if math.Abs(betweenOrientation.OX) > pc.OX+defaultEpsilon {
-		return false
-	}
-	if math.Abs(betweenOrientation.OY) > pc.OY+defaultEpsilon {
-		return false
-	}
-	if math.Abs(1-betweenOrientation.OZ) > pc.OZ+defaultEpsilon {
-		return false
-	}
-
-	if math.Abs(betweenOrientation.Theta) > pc.Theta+defaultEpsilon {
-		return false
-	}
-
-	return true
+	oc := pc.OrientationCloud()
+	return oc.inCloud(between.Orientation().OrientationVectorDegrees())
 }
 
 // ToProto turns this to proto.

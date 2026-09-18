@@ -2,6 +2,8 @@ package motionplan
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -105,6 +107,45 @@ func TestOrientationConstraintDistance(t *testing.T) {
 	// Score subtracts the tolerance.
 	test.That(t, oc.Score(from, to, rotZ(150)), test.ShouldAlmostEqual, 0, 1e-5)
 	test.That(t, oc.Score(from, to, rotZ(170)), test.ShouldAlmostEqual, 20, 1e-4)
+}
+
+func TestOrientationCloudConstraint(t *testing.T) {
+	zero := spatial.NewZeroOrientation()
+	spin := func(degs float64) spatial.Orientation { return &spatial.EulerAngles{Yaw: utils.DegToRad(degs)} }
+	tilt := func(degs float64) spatial.Orientation { return &spatial.EulerAngles{Pitch: utils.DegToRad(degs)} }
+	// An upright cup: ~10 degrees of lean, any spin.
+	cup := OrientationCloudConstraint{OrientationCloud: referenceframe.OrientationCloud{OX: 0.17, OY: 0.17, OZ: 0.015, Theta: 180}}
+	arc := OrientationConstraint{OrientationToleranceDegs: 30}
+
+	// Start and goal are both upright, spun 120 degrees apart, so the arc between them is a
+	// pure spin. Overshooting that spin by 90 degrees leaves the arc's tube but not the cloud;
+	// leaning 20 degrees does the reverse at the start end, where it is well inside the tube.
+	from, to := zero, spin(120)
+	test.That(t, cup.Excess(to, spin(60)), test.ShouldEqual, 0)
+	test.That(t, cup.Excess(to, spin(-90)), test.ShouldEqual, 0)
+	test.That(t, arc.Score(from, to, spin(-90)), test.ShouldAlmostEqual, 60, 1e-4)
+	test.That(t, cup.Excess(to, tilt(20)), test.ShouldBeGreaterThan, 0)
+	test.That(t, arc.Score(from, to, tilt(20)), test.ShouldEqual, 0)
+
+	// The state check reports cloud violations under the shared sentinel.
+	fromPose, toPose := spatial.NewPoseFromOrientation(from), spatial.NewPoseFromOrientation(to)
+	err := checkOrientationCloudConstraint("f", cup, fromPose, toPose, spatial.NewPoseFromOrientation(spin(-90)))
+	test.That(t, err, test.ShouldBeNil)
+	err = checkOrientationCloudConstraint("f", cup, fromPose, toPose, spatial.NewPoseFromOrientation(tilt(20)))
+	test.That(t, errors.Is(err, ErrOrientationConstraintViolated), test.ShouldBeTrue)
+
+	// JSON is the only wire format that carries the cloud constraint today; the cloud's fields
+	// flatten into the constraint object.
+	c := NewEmptyConstraints()
+	c.AddOrientationCloudConstraint(cup)
+	c.AddOrientationConstraint(arc)
+	data, err := json.Marshal(c)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(data), test.ShouldContainSubstring,
+		`"orientation_cloud_constraints":[{"ox":0.17,"oy":0.17,"oz":0.015,"theta":180}]`)
+	var back Constraints
+	test.That(t, json.Unmarshal(data, &back), test.ShouldBeNil)
+	test.That(t, back, test.ShouldResemble, *c)
 }
 
 func TestConstraintPath(t *testing.T) {
