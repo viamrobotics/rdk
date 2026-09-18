@@ -90,6 +90,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 	for seedIdx, seed := range sss.LinearSeeds {
 		seeds := [][]float64{seed}
 		limits := [][]referenceframe.Limit{sss.SeedLimits[seedIdx]}
+		randInt := randSeed.Int()
 
 		ctxWithCancel, cancel := context.WithCancel(ctx)
 		wg := sync.WaitGroup{}
@@ -97,7 +98,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		go func() {
 			//nolint: errcheck
 			_, _, _ = solver.Solve(ctxWithCancel, retChan, nil,
-				seeds, limits, ikMinimizingFunc, randSeed.Int())
+				seeds, limits, ikMinimizingFunc, randInt)
 			cancel()
 			wg.Done()
 		}()
@@ -143,6 +144,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 			}
 		}
 		cancel()
+		wg.Wait()
 	}
 
 	return &ret, nil
