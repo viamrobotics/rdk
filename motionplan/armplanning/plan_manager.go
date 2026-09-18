@@ -140,6 +140,18 @@ func (pm *planManager) planToDirectJoints(
 	if err != nil {
 		return nil, err
 	}
+	// A full joint configuration also includes frames already at their target.
+	// Only changed joints should seed the primary motion chains; the planner can
+	// still move other frames if needed for collision avoidance.
+	movingGoals := referenceframe.FrameSystemPoses{}
+	for name, pose := range goalPoses {
+		if !slices.Equal(fullConfig.Get(name), start.Get(name)) {
+			movingGoals[name] = pose
+		}
+	}
+	if len(movingGoals) > 0 {
+		goalPoses = movingGoals
+	}
 
 	// Remove actuator frames where there was an explicit configuration goal, but the actuator was
 	// already in that configuration. We treat that frame as "pinned". This results in the motion
