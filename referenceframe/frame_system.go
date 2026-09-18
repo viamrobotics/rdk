@@ -1264,10 +1264,18 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &pb.FrameSystemConfig{
+	fsc := &pb.FrameSystemConfig{
 		Frame:      linkFrame,
 		Kinematics: kinematics,
-	}, nil
+	}
+	// the typed model rides beside the deprecated Struct for the length of the deprecation
+	// window; a model that cannot be expressed as a message yet travels as the Struct alone
+	if part.ModelFrame != nil {
+		if typed, err := ModelToProto(part.ModelFrame); err == nil {
+			fsc.Model = typed
+		}
+	}
+	return fsc, nil
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
@@ -1278,6 +1286,16 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	}
 	part := &FrameSystemPart{
 		FrameConfig: frameConfig,
+	}
+
+	// a typed model wins over the deprecated Struct whenever a server sent one
+	if fsc.GetModel() != nil {
+		modelFrame, err := ModelFromProto(fsc.GetModel(), frameConfig.Name())
+		if err != nil {
+			return nil, err
+		}
+		part.ModelFrame = modelFrame
+		return part, nil
 	}
 
 	if len(fsc.Kinematics.AsMap()) > 0 {

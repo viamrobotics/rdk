@@ -414,7 +414,7 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.KinematicModelToProtobuf(model), nil
+	return referenceframe.KinematicModelToProtobufForRequest(model, req), nil
 }
 
 // DoCommand receives arbitrary commands.
