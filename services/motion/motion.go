@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -423,16 +424,14 @@ type StreamOptions struct {
 	// SendToArmIntervalMs is how often (in ms) the implementation checks whether the arm's
 	// buffered runway needs topping up.
 	SendToArmIntervalMs *int32
-	// VelLimitDegPerSec is the velocity limit, in degrees/sec, applied to every joint. If unset,
-	// the implementation applies its own default.
-	VelLimitDegPerSec *float64
-	// AccelLimitDegPerSec2 is the acceleration limit, in degrees/sec^2, applied to every joint.
-	// If unset, the implementation applies its own default.
-	AccelLimitDegPerSec2 *float64
 	// DiagnosticsWindowSecs is the size (in seconds) of the rolling window used to compute
 	// session diagnostics. A non-positive value disables retention of that window's detail;
 	// whole-run diagnostic stats are still collected regardless.
 	DiagnosticsWindowSecs *int32
+	// MoveOptions carries kinematic limits for the session's trajectory, in the same shape as a
+	// single move's MoveOptions. If nil, or if a field within it is unset, the implementation
+	// applies its own default for that field.
+	MoveOptions *arm.MoveOptions
 }
 
 // ObstacleDetectorName pairs a vision service name with a camera name.

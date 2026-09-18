@@ -7,6 +7,7 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -73,14 +74,18 @@ func (o *StreamOptions) From(opts motion.StreamOptions) {
 	if opts.SendToArmIntervalMs != nil {
 		o.SendToArmIntervalMs = int(*opts.SendToArmIntervalMs)
 	}
-	if opts.VelLimitDegPerSec != nil {
-		o.VelLimitDegPerSec = *opts.VelLimitDegPerSec
-	}
-	if opts.AccelLimitDegPerSec2 != nil {
-		o.AccelLimitDegPerSec2 = *opts.AccelLimitDegPerSec2
-	}
 	if opts.DiagnosticsWindowSecs != nil {
 		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowSecs)
+	}
+	// Per-joint limits (MoveOptions.MaxVelRadsJoints/MaxAccRadsJoints) aren't supported yet;
+	// only the uniform scalar limits are applied.
+	if opts.MoveOptions != nil {
+		if opts.MoveOptions.MaxVelRads > 0 {
+			o.VelLimitDegPerSec = utils.RadToDeg(opts.MoveOptions.MaxVelRads)
+		}
+		if opts.MoveOptions.MaxAccRads > 0 {
+			o.AccelLimitDegPerSec2 = utils.RadToDeg(opts.MoveOptions.MaxAccRads)
+		}
 	}
 }
 

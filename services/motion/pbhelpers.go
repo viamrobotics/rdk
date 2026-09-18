@@ -11,6 +11,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -409,13 +410,15 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 // streamOptionsToProto converts a StreamOptions to a pb.StreamOptions. Fields are copied
 // straight across: both sides use a nil pointer to mean "use the implementation's default."
 func streamOptionsToProto(o StreamOptions) *pb.StreamOptions {
-	return &pb.StreamOptions{
+	streamOpts := &pb.StreamOptions{
 		TargetRunwayInArmMs:   o.TargetRunwayInArmMs,
 		SendToArmIntervalMs:   o.SendToArmIntervalMs,
-		VelLimitDegPerSec:     o.VelLimitDegPerSec,
-		AccelLimitDegPerSec2:  o.AccelLimitDegPerSec2,
 		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
 	}
+	if o.MoveOptions != nil {
+		streamOpts.MoveOptions = o.MoveOptions.ToProto()
+	}
+	return streamOpts
 }
 
 // streamOptionsFromProto is the inverse of streamOptionsToProto.
@@ -426,9 +429,8 @@ func streamOptionsFromProto(o *pb.StreamOptions) StreamOptions {
 	return StreamOptions{
 		TargetRunwayInArmMs:   o.TargetRunwayInArmMs,
 		SendToArmIntervalMs:   o.SendToArmIntervalMs,
-		VelLimitDegPerSec:     o.VelLimitDegPerSec,
-		AccelLimitDegPerSec2:  o.AccelLimitDegPerSec2,
 		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
+		MoveOptions:           arm.MoveOptionsFromProto(o.MoveOptions),
 	}
 }
 
