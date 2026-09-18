@@ -5,13 +5,10 @@ else
 	BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 endif
 
-TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
-
 BUILD_CHANNEL ?= local
+
 # Include mise in path.
 export PATH := $(HOME)/.local/bin:$(PATH)
-
-PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
@@ -83,34 +80,29 @@ deb-cli-upload:
 	done
 
 tool-install:
-	GOBIN=`pwd`/$(TOOL_BIN) go install \
-		github.com/AlekSi/gocov-xml \
-		github.com/axw/gocov/gocov \
-		gotest.tools/gotestsum \
-		github.com/rhysd/actionlint/cmd/actionlint \
-		golang.org/x/tools/cmd/stringer
+	mise install -y
 
 lint: lint-go actionlint
 
 actionlint:
-	PATH=$(PATH_WITH_TOOLS) actionlint
+	mise x -- actionlint
 
 generate-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) go generate ./...
+	mise x -- go generate ./...
 
 lint-go:
 	mise run lint-go
 
 cover-only: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
+	mise x -- ./etc/test.sh cover
 
 cover: test-go cover-only
 
 test-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh race
+	mise x -- ./etc/test.sh race
 
 test-go-no-race: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
+	mise x -- ./etc/test.sh
 
 # CGO is only supported on amd64/arm64; elsewhere build pure-Go with the no_cgo tag.
 # GO_BUILD_TAGS_EXTRA (comma-separated) lets callers inject additional build tags that augment --
@@ -163,7 +155,7 @@ windows: bin/windows/viam-server-amd64.exe
 
 $(BIN_OUTPUT_PATH)/viam-server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static
 	cp $< $@
-	upx --best --lzma $@
+	mise x -- upx --best --lzma $@
 
 .PHONY: server-static-compressed
 server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
@@ -172,8 +164,11 @@ clean-all:
 	git clean -fxd
 
 license-check:
-	license_finder version
-	license_finder
+	# Only need this install command because `mise run` isn't smart enough to
+	# install ruby before trying to install the gem, but `mise install` is. Remove
+	# this if this is fixed upstream.
+	mise install ruby gem:license_finder
+	mise run license-check
 
 FFMPEG_ROOT ?= etc/FFmpeg
 $(FFMPEG_ROOT):
