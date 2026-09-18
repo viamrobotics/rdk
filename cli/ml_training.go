@@ -165,7 +165,7 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		return err
 	}
 	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{},
+		context.Background(), &mltrainingpb.ListSupportedContainersRequest{OrganizationId: args.OrgID},
 	)
 	if err != nil {
 		return err
