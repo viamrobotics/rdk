@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"container/list"
+	"math"
 	"sort"
 
 	"github.com/golang/geo/r3"
@@ -146,19 +147,31 @@ func (vg *VoxelGrid) LabelNonPlanarVoxels(unlabeledVoxels []VoxelCoords, dTh flo
 	for _, k := range unlabeledVoxels {
 		vox := vg.Voxels[k]
 		vox.PointLabels = make([]int, len(vox.Points))
-		nbVoxels := vg.GetAdjacentVoxels(vox)
-		plane := vox.GetPlane()
+		// Collect the labelled neighbours' planes once per voxel: GetPlane allocates, and the loop
+		// below visits every neighbour for every point. Neighbours whose normal is too short to define
+		// an orientation are dropped, because Distance reports 0 for them and they would win every
+		// comparison.
+		type neighborPlane struct {
+			label int
+			plane Plane
+		}
+		var nbPlanes []neighborPlane
+		for _, nb := range vg.GetAdjacentVoxels(vox) {
+			voxNb := vg.Voxels[nb]
+			if voxNb.Label > 0 && voxNb.Normal.Norm() > minPlaneNormalNorm {
+				nbPlanes = append(nbPlanes, neighborPlane{label: voxNb.Label, plane: voxNb.GetPlane()})
+			}
+		}
 		for i, pt := range vox.Positions() {
-			dMin := 100000.0
+			dMin := math.Inf(1)
 			outLabel := 0
-			for _, nb := range nbVoxels {
-				voxNb := vg.Voxels[nb]
-				if voxNb.Label > 0 {
-					d := plane.Distance(pt)
-					if d < dMin {
-						dMin = d
-						outLabel = voxNb.Label
-					}
+			for _, nb := range nbPlanes {
+				// The distance is to the neighbour's plane. Measuring against this voxel's own plane
+				// gives a value that does not vary with the neighbour, so the nearest one is never
+				// found -- and this voxel is unlabelled precisely because its own plane is not usable.
+				if d := nb.plane.Distance(pt); d < dMin {
+					dMin = d
+					outLabel = nb.label
 				}
 			}
 			if dMin < dTh {
