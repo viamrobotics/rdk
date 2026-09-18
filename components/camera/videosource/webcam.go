@@ -96,7 +96,8 @@ func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 	if c.IdleTimeoutMs < 0 {
 		return nil, nil, fmt.Errorf(
 			"got illegal negative idle timeout (%d) field set for webcam camera",
-			c.IdleTimeoutMs)
+			c.IdleTimeoutMs,
+		)
 	}
 
 	return []string{}, nil, nil
