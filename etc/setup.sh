@@ -24,9 +24,6 @@ do_piOS(){
 
 	# Install most things
 	apt-get update && apt-get install -y build-essential libnlopt-dev libx264-dev
-
-	# Install Gostream dependencies
-	sudo apt-get install -y --no-install-recommends libopus-dev libx11-dev libxext-dev libopusfile-dev
 	EOS
 
 	if [ $? -ne 0 ]; then
@@ -166,9 +163,6 @@ do_brew(){
 	brew "pkg-config"
 	brew "viamrobotics/brews/nlopt-static"
 	brew "x264", args: ["build-from-source"]
-	brew "ffmpeg"
-	brew "opus"
-	brew "opusfile"
 	EOS
 
 	if [ $? -ne 0 ]; then
