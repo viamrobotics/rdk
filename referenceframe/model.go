@@ -78,20 +78,25 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 }
 
 // KinematicModelToProtobufForRequest fills the typed model and, for the length of the deprecation
-// window, the file bytes that older clients still read. The request's exclude flags strip the mesh
-// bytes of that role from the typed model only, since a client old enough to read the bytes fields
-// cannot have set them. A model that cannot be expressed as a message yet, one built in code with
-// no configuration or a DH model, travels as bytes alone, which is what it did before.
+// window, the file bytes that older clients still read. A client that sets either exclude flag
+// knows about the typed model, so it gets that alone, with the mesh bytes of the excluded role
+// blanked; sending it the bytes field too would hand back the very meshes it asked to leave out,
+// inlined as base64. A model that cannot be expressed as a message yet, one built in code with no
+// configuration or a DH model, travels as bytes alone, which is what it did before.
 func KinematicModelToProtobufForRequest(model Model, req *commonpb.GetKinematicsRequest) *commonpb.GetKinematicsResponse {
-	resp := legacyKinematicsResponse(model)
 	if model == nil {
-		return resp
+		return legacyKinematicsResponse(nil)
 	}
 	pb, err := ModelToProto(model)
 	if err != nil {
-		return resp
+		return legacyKinematicsResponse(model)
 	}
+	typedAware := req.GetExcludeCollisionMeshes() || req.GetExcludeVisualMeshes()
 	stripMeshBytes(pb, req.GetExcludeCollisionMeshes(), req.GetExcludeVisualMeshes())
+	if typedAware {
+		return &commonpb.GetKinematicsResponse{Model: pb}
+	}
+	resp := legacyKinematicsResponse(model)
 	resp.Model = pb
 	return resp
 }

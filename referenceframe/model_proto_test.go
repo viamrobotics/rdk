@@ -169,7 +169,10 @@ func TestKinematicsRequestFlagsStripMeshBytes(t *testing.T) {
 	test.That(t, len(tipMesh(stripped).GetMesh()), test.ShouldEqual, 0)
 	test.That(t, tipMesh(stripped).GetSourcePath(), test.ShouldEqual, "meshes/tip.ply")
 	test.That(t, tipMesh(stripped).GetContentType(), test.ShouldEqual, "ply")
-	test.That(t, stripped.GetKinematicsData(), test.ShouldResemble, full.GetKinematicsData())
+	// a client that set a flag knows about the typed model, so it is spared the legacy bytes, which
+	// would otherwise carry the excluded mesh right back inline
+	test.That(t, len(stripped.GetKinematicsData()), test.ShouldEqual, 0)
+	test.That(t, len(full.GetKinematicsData()), test.ShouldBeGreaterThan, 0)
 
 	// visual is never populated from a v1 config, so exercise that role on the message directly
 	pb := &commonpb.KinematicModel{Links: []*commonpb.KinematicLink{{
