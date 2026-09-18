@@ -18,7 +18,7 @@ import (
 
 func runTestOptions() StreamOptions {
 	opts := NewDefaultOptions()
-	opts.TargetRunwayInArmMs = 50
+	opts.ArmSideTargetRunwayMs = 50
 	opts.SendToArmIntervalMs = 10
 	opts.VelLimitDegPerSec = 90
 	opts.AccelLimitDegPerSec2 = 90

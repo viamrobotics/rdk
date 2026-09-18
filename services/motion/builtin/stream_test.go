@@ -61,8 +61,8 @@ func streamTestOptions() motion.StreamOptions {
 	runway := int32(50)
 	interval := int32(10)
 	return motion.StreamOptions{
-		TargetRunwayInArmMs: &runway,
-		SendToArmIntervalMs: &interval,
+		ArmSideTargetRunwayMs: &runway,
+		SendToArmIntervalMs:   &interval,
 	}
 }
 

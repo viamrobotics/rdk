@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultTargetRunwayInArmMs   = 100
+	defaultArmSideTargetRunwayMs = 100
 	defaultSendToArmIntervalMs   = 10
 	defaultVelLimitDegPerSec     = 10.0
 	defaultAccelLimitDegPerSec2  = 10.0
@@ -20,9 +20,9 @@ const (
 
 // StreamOptions tunes the streaming executor.
 type StreamOptions struct {
-	// TargetRunwayInArmMs is the duration of pvat points that we aim to keep
+	// ArmSideTargetRunwayMs is the duration of pvat points that we aim to keep
 	// buffered inside the arm resource.
-	TargetRunwayInArmMs int `json:"target_runway_in_arm_ms"`
+	ArmSideTargetRunwayMs int `json:"arm_side_target_runway_ms"`
 
 	// SendToArmIntervalMs is the interval at which batches of pvat points are
 	// sent to the arm resource.
@@ -43,14 +43,14 @@ type StreamOptions struct {
 
 // Validate returns an error if any StreamOptions field is invalid.
 func (o *StreamOptions) Validate() error {
-	if o.TargetRunwayInArmMs <= 0 {
-		return errors.New("streaming: target_runway_in_arm_ms must be positive")
+	if o.ArmSideTargetRunwayMs <= 0 {
+		return errors.New("streaming: arm_side_target_runway_ms must be positive")
 	}
 	if o.SendToArmIntervalMs <= 0 {
 		return errors.New("streaming: send_to_arm_interval_ms must be positive")
 	}
-	if o.SendToArmIntervalMs >= o.TargetRunwayInArmMs {
-		return errors.New("streaming: send_to_arm_interval_ms must be less than target_runway_in_arm_ms")
+	if o.SendToArmIntervalMs >= o.ArmSideTargetRunwayMs {
+		return errors.New("streaming: send_to_arm_interval_ms must be less than arm_side_target_runway_ms")
 	}
 	if o.VelLimitDegPerSec <= 0 {
 		return errors.New("streaming: vel_limit_deg_per_sec must be positive")
@@ -68,8 +68,8 @@ func (o *StreamOptions) Validate() error {
 // opts sets; a nil field selects the default instead.
 func (o *StreamOptions) From(opts motion.StreamOptions) {
 	*o = NewDefaultOptions()
-	if opts.TargetRunwayInArmMs != nil {
-		o.TargetRunwayInArmMs = int(*opts.TargetRunwayInArmMs)
+	if opts.ArmSideTargetRunwayMs != nil {
+		o.ArmSideTargetRunwayMs = int(*opts.ArmSideTargetRunwayMs)
 	}
 	if opts.SendToArmIntervalMs != nil {
 		o.SendToArmIntervalMs = int(*opts.SendToArmIntervalMs)
@@ -93,7 +93,7 @@ func (o *StreamOptions) From(opts motion.StreamOptions) {
 // Callers overriding individual fields should start from this and then set them.
 func NewDefaultOptions() StreamOptions {
 	return StreamOptions{
-		TargetRunwayInArmMs:   defaultTargetRunwayInArmMs,
+		ArmSideTargetRunwayMs: defaultArmSideTargetRunwayMs,
 		SendToArmIntervalMs:   defaultSendToArmIntervalMs,
 		VelLimitDegPerSec:     defaultVelLimitDegPerSec,
 		AccelLimitDegPerSec2:  defaultAccelLimitDegPerSec2,

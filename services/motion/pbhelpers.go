@@ -411,7 +411,7 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 // straight across: both sides use a nil pointer to mean "use the implementation's default."
 func streamOptionsToProto(o StreamOptions) *pb.StreamOptions {
 	streamOpts := &pb.StreamOptions{
-		TargetRunwayInArmMs:   o.TargetRunwayInArmMs,
+		ArmSideTargetRunwayMs: o.ArmSideTargetRunwayMs,
 		SendToArmIntervalMs:   o.SendToArmIntervalMs,
 		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
 	}
@@ -427,7 +427,7 @@ func streamOptionsFromProto(o *pb.StreamOptions) StreamOptions {
 		return StreamOptions{}
 	}
 	return StreamOptions{
-		TargetRunwayInArmMs:   o.TargetRunwayInArmMs,
+		ArmSideTargetRunwayMs: o.ArmSideTargetRunwayMs,
 		SendToArmIntervalMs:   o.SendToArmIntervalMs,
 		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
 		MoveOptions:           arm.MoveOptionsFromProto(o.MoveOptions),

@@ -418,9 +418,9 @@ type Service interface {
 // paces the trajectory it derives from targets, not any single target. A nil field selects the
 // implementation's own default for it.
 type StreamOptions struct {
-	// TargetRunwayInArmMs is how much trajectory (in ms) the implementation tries to keep
+	// ArmSideTargetRunwayMs is how much trajectory (in ms) the implementation tries to keep
 	// buffered on the arm's side.
-	TargetRunwayInArmMs *int32
+	ArmSideTargetRunwayMs *int32
 	// SendToArmIntervalMs is how often (in ms) the implementation checks whether the arm's
 	// buffered runway needs topping up.
 	SendToArmIntervalMs *int32
