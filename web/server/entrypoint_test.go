@@ -117,6 +117,10 @@ func TestEntrypoint(t *testing.T) {
 		numReg := 53
 		if cgoBuiltinsExcluded() {
 			numReg = 45
+			// Windows is now built with cgo enabled (only webcam)
+			if runtime.GOOS == "windows" {
+				numReg = 46
+			}
 		}
 		test.That(t, registrations, test.ShouldHaveLength, numReg)
 
