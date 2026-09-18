@@ -123,7 +123,8 @@ func TestUniqueCollisions(t *testing.T) {
 
 	zeroGeoms := internalGeometries.Geometries()
 	zeroPositionCollisions, _, err := checkCollisionsHinted(
-		zeroGeoms, zeroGeoms, nil, nil, defaultCollisionBufferMM, true, nil, logging.NewTestLogger(t))
+		zeroGeoms, zeroGeoms, nil, nil, defaultCollisionBufferMM, true, nil, logging.NewTestLogger(t),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
@@ -198,7 +199,8 @@ func TestCollisionMinDistance(t *testing.T) {
 	geom2.SetLabel("box2")
 
 	collisions, minDist, err := checkCollisionsHinted(
-		[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, nil, defaultCollisionBufferMM, true, nil, logging.NewTestLogger(t))
+		[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, nil, defaultCollisionBufferMM, true, nil, logging.NewTestLogger(t),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 0)
 	test.That(t, minDist, test.ShouldBeGreaterThan, 8.0)

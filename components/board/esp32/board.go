@@ -50,7 +50,8 @@ func init() {
 		espModel,
 		resource.Registration[board.Board, *Config]{
 			Constructor: newEsp32Board,
-		})
+		},
+	)
 }
 
 // Validate for esp32 will always return an unsupported error.

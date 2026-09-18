@@ -195,6 +195,42 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 	}
 }
 
+// SolveOnce runs a single synchronous gradient descent from seed and returns
+// the resulting configuration, clamped to limits. Unlike Solve via DoSolve
+// there is no goroutine, channel, or random-restart loop: this is the path
+// for callers that need one cheap projection per call at high frequency
+// (constrained-planner orientation projection runs this ~1000x/sec, where a
+// goroutine per call measurably dominated planning time in thread wakeups).
+func (ik *NloptIK) SolveOnce(ctx context.Context, minFunc CostFunc,
+	seed []float64, limits []referenceframe.Limit,
+) ([]float64, error) {
+	iterations := 0
+	ss, err := ik.newSeedState(ctx, 0, minFunc, seed, limits, &iterations)
+	if err != nil {
+		return nil, err
+	}
+	defer ss.opt.Destroy()
+
+	solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
+	if nloptErr != nil {
+		// "nlopt: FAILURE" just *happens* sometimes in nonlinear randomized
+		// problems (see Solve); treat it as no solution rather than an error.
+		if nloptErr.Error() != "nlopt: FAILURE" {
+			return nil, nloptErr
+		}
+		return nil, errors.New("unable to solve for position")
+	}
+	if ik.exact && result >= defaultGoalThreshold {
+		return nil, errors.New("unable to solve for position")
+	}
+	// clamp back to the real limits - the zero-range nudge in newSeedState
+	// (and general fp drift) can leave solutions epsilon outside them
+	for i, l := range limits {
+		solutionRaw[i] = min(max(solutionRaw[i], l.Min), l.Max)
+	}
+	return solutionRaw, nil
+}
+
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,

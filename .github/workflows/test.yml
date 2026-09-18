@@ -416,6 +416,9 @@ jobs:
           go.viam.com/rdk/module
           go.viam.com/rdk/logging
           go.viam.com/rdk/cli
+          go.viam.com/rdk/services/shell
+          go.viam.com/rdk/services/shell/builtin
+          go.viam.com/rdk/services/shell/testutils
         )
         WINDOWS_PATTERN=$(IFS='|'; echo "${WORKING_WINDOWS_TESTS[*]}")
         TEST_TARGET=$(echo "$TEST_TARGET" | grep -E "^(${WINDOWS_PATTERN})$")
@@ -447,8 +450,10 @@ jobs:
     - name: Install dependencies
       run: |
         brew update
-        brew tap viamrobotics/brews
+        # `brew trust` must precede `brew tap`: since Homebrew 7.0, `brew tap` of an
+        # untrusted third-party tap hard-fails ("invalid syntax in tap!"), aborting the step.
         brew trust viamrobotics/brews
+        brew tap viamrobotics/brews
         brew install nlopt-static
         brew install x264
         # While it's not a requirement to actually run the viam-server binary, ffmpeg is

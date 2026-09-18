@@ -32,7 +32,7 @@ func (b *encoderToRPM) Next(ctx context.Context, x []*Signal, dt time.Duration) 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	currEncCount := int(x[0].GetSignalValueAt(0))
-	b.y[0].SetSignalValueAt(0, (float64(currEncCount-b.prevEncCount)/float64(b.ticksPerRevolution))*60.0/(dt.Seconds()))
+	b.y[0].SetSignalValueAt(0, (float64(currEncCount-b.prevEncCount)/float64(b.ticksPerRevolution))*60.0/dt.Seconds())
 	b.prevEncCount = currEncCount
 	return b.y, true
 }

@@ -138,7 +138,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	}
 
 	req := &pb.ReadyRequest{
-		ParentAddress:    legacyParentAddr,
+		ParentAddress:    legacyParentAddr, //nolint:staticcheck // RSDK-14540
 		RawParentAddress: parentAddr,
 	}
 
@@ -246,7 +246,8 @@ func (m *module) startProcess(
 		// append a random alpha string to the module name while creating a socket address to avoid conflicts
 		// with old versions of the module.
 		if m.addr, err = modlib.CreateSocketAddress(
-			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
+			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5)),
+		); err != nil {
 			return err
 		}
 	}

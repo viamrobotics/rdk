@@ -132,7 +132,8 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 
 		req.ObstaclesInWorldFrame = referenceframe.NewGeometriesInFrame(
-			req.ObstaclesInWorldFrame.Parent(), pcdGeometries)
+			req.ObstaclesInWorldFrame.Parent(), pcdGeometries,
+		)
 	}
 
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
@@ -443,12 +444,19 @@ func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.P
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
-	decoder := json.NewDecoder(f)
+	return RequestFromReader(f)
+}
+
+// RequestFromReader is the same as ReadRequestAndResponseFromFile but takes a generic `io.Reader`
+// as input.
+func RequestFromReader(reader io.Reader) (*PlanRequest, motionplan.Plan, error) {
+	decoder := json.NewDecoder(reader)
 
 	// We first decode the file into a raw json structure. This is because we have best effort
 	// support for reading different versions of request files. The current version of the
 	// `PlanRequest` object may not map perfectly to some historical serialization.
 	var raw json.RawMessage
+	var err error
 	if err = decoder.Decode(&raw); err != nil {
 		return nil, nil, err
 	}

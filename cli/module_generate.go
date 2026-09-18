@@ -753,7 +753,7 @@ func modelName(module *modulegen.ModuleInputs) string {
 	if resourceName == "generic" {
 		resourceName = resourceName + "_" + strings.Fields(module.Resource)[1]
 	}
-	return resourceName
+	return "my_" + resourceName
 }
 
 // sharedInputs holds fields common to both module and app generation.
@@ -949,7 +949,7 @@ func promptAddModelInputs(module *modulegen.ModuleInputs) error {
 func wrapResolveOrg(ctx context.Context, cmd *cli.Command, c *viamClient, newModule *modulegen.ModuleInputs) error {
 	// If we're not registering on app, we don't need to resolve the org
 	if !newModule.RegisterOnApp {
-		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
 		cleanNamespace := nonAlphanumericRegex.ReplaceAllString(newModule.Namespace, "")
 		newModule.Namespace = cleanNamespace
 		newModule.OrgID = newModule.Namespace
@@ -1385,7 +1385,7 @@ func runGoWithRetry(dir string, args ...string) ([]byte, error) {
 	var out []byte
 	var err error
 	for attempt := 1; ; attempt++ {
-		//nolint: noctx
+		//nolint: gosec,noctx
 		cmd := exec.Command(golang, args...)
 		cmd.Dir = dir
 		out, err = cmd.CombinedOutput()
@@ -1512,7 +1512,7 @@ func createPythonVenv(pythonCmd, venvName string) error {
 	const maxAttempts = 3
 	var err error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		//nolint: noctx
+		//nolint: gosec,noctx
 		cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
@@ -1531,6 +1531,17 @@ func createPythonVenv(pythonCmd, venvName string) error {
 func errorWithStderr(err error, stderr string) error {
 	if trimmed := strings.TrimSpace(stderr); trimmed != "" {
 		return errors.Errorf("%s: %s", err, trimmed)
+	}
+	return err
+}
+
+// errorWithCommandStderr augments the error of a command run with (*exec.Cmd).Output with
+// the stderr that Output captured, so a failing subprocess reports why it failed rather
+// than only "exit status 1".
+func errorWithCommandStderr(err error) error {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return errorWithStderr(err, string(exitErr.Stderr))
 	}
 	return err
 }
@@ -1560,7 +1571,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
+		return errors.Wrap(errorWithCommandStderr(err), "cannot generate python stubs -- generator script encountered an error")
 	}
 
 	resourcePath := filepath.Join(module.ModuleName, "src", "models", fmt.Sprintf("%s.py", module.ModelSnake))
@@ -1921,11 +1932,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := stubCmd.Output()
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
-			return fmt.Errorf("generator script encountered an error:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
-		}
-		return errors.Wrap(err, "generator script encountered an error")
+		return errors.Wrap(errorWithCommandStderr(err), "generator script encountered an error")
 	}
 
 	resourcePath := filepath.Join("src", "models", fmt.Sprintf("%s.py", module.ModelSnake))

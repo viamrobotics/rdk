@@ -144,6 +144,9 @@ func TestSetCaptureConfig(t *testing.T) {
 		expectedCollectorCount int
 		// expectedTags, when non-nil, asserts every remaining collector has these tags.
 		expectedTags []string
+		// expectedComponentName, when non-empty, asserts Config.Name.ShortName() for every collector,
+		// which is what buildCollector uses as the ComponentName written to captured data file metadata.
+		expectedComponentName string
 	}{
 		// --- machine config path: defaults present, sensor either matches or doesn't override. ---
 		{
@@ -253,6 +256,18 @@ func TestSetCaptureConfig(t *testing.T) {
 			},
 			expectedCollectorCount: 0,
 		},
+		{
+			name:           "auto-enabled remote resource uses bare component name",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog: map[string]resource.Resource{
+				"fake-1": &fakeResource{name: resource.NewName(fakeAPI, "fake-1").PrependRemote("r2")},
+			},
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1.0), nil),
+			},
+			expectedCollectorCount: 1,
+			expectedComponentName:  "fake-1",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			registerFakeCollector()
@@ -284,6 +299,11 @@ func TestSetCaptureConfig(t *testing.T) {
 			if tc.expectedTags != nil {
 				for _, cac := range c.collectors {
 					test.That(t, cac.Config.Tags, test.ShouldResemble, tc.expectedTags)
+				}
+			}
+			if tc.expectedComponentName != "" {
+				for _, cac := range c.collectors {
+					test.That(t, cac.Config.Name.ShortName(), test.ShouldEqual, tc.expectedComponentName)
 				}
 			}
 		})

@@ -81,7 +81,8 @@ func maybeDeleteExcessFiles(
 		deleteEveryNth,
 		diskUsageThreshold,
 		captureDirThreshold,
-		logger)
+		logger,
+	)
 	duration := clock.Since(start)
 	syncStats.filesDeletedToFreeSpace.Add(int64(count))
 
@@ -110,7 +111,8 @@ func deleteExcessFiles(
 		captureDir,
 		diskUsageThreshold,
 		captureDirToFSThreshold,
-		logger)
+		logger,
+	)
 	if err != nil {
 		return 0, errors.Wrap(err, "error checking file system stats")
 	}

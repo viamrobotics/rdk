@@ -82,7 +82,8 @@ func (n Name) PrependRemote(remoteName string) Name {
 	return newRemoteName(
 		remoteName,
 		n.API,
-		n.Name)
+		n.Name,
+	)
 }
 
 // PopRemote pop the first remote from a Name (if any) and returns the new Name.
@@ -94,7 +95,8 @@ func (n Name) PopRemote() Name {
 	return newRemoteName(
 		strings.Join(remotes[1:], ":"),
 		n.API,
-		n.Name)
+		n.Name,
+	)
 }
 
 // ContainsRemoteNames return true if the resource is a remote resource.

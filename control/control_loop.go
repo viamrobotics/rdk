@@ -61,7 +61,7 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 	if l.cfg.Frequency == 0.0 || l.cfg.Frequency > 200 {
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
 	}
-	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
+	l.dt = time.Duration(float64(time.Second) * (1.0 / l.cfg.Frequency))
 	for _, bcfg := range cfg.Blocks {
 		blk, err := l.createBlock(bcfg, logger)
 		if err != nil {

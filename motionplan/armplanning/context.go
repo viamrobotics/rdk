@@ -8,7 +8,6 @@ import (
 	"math"
 	"math/rand"
 	"strings"
-	"sync/atomic"
 
 	"go.viam.com/utils/trace"
 
@@ -243,6 +242,7 @@ func (psc *PlanSegmentContext) CheckPath(
 			IsObstacleCollision: strings.Contains(err.Error(), motionplan.ObstacleConstraintDescription) ||
 				strings.Contains(err.Error(), motionplan.RobotCollisionConstraintDescription),
 		}
+
 		// validSegment is nil when the very first state of the segment fails.
 		if validSegment != nil {
 			fb.LastGoodInputs = validSegment.EndConfiguration
@@ -305,14 +305,16 @@ func (psc *PlanSegmentContext) projectToOrientationBand(
 	cfg *referenceframe.LinearInputs,
 ) *referenceframe.LinearInputs {
 	linearSeed := cfg.GetLinearizedInputs()
-	var totalAttempts atomic.Int32
-	solutions, _, err := ik.DoSolve(ctx, solver, &totalAttempts,
+	// SolveOnce, not DoSolve: this runs on nearly every constrained-extend
+	// step, and DoSolve's goroutine-per-call was a measurable fraction of
+	// whole-plan CPU in scheduler wakeups.
+	solution, err := solver.SolveOnce(ctx,
 		psc.pc.LinearizeFSMetric(metric),
-		[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, psc.pc.lis.GetLimits(), .05)})
-	if err != nil || len(solutions) == 0 {
+		linearSeed, ik.ComputeAdjustLimits(linearSeed, psc.pc.lis.GetLimits(), .05))
+	if err != nil {
 		return nil
 	}
-	out, err := psc.pc.lis.FloatsToInputs(solutions[0])
+	out, err := psc.pc.lis.FloatsToInputs(solution)
 	if err != nil {
 		return nil
 	}

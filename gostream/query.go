@@ -378,7 +378,8 @@ func selectBestDriver(
 		logger.Debugw(
 			"considering driver",
 			"label", d.Info().Label,
-			"priority", priority)
+			"priority", priority,
+		)
 		for _, p := range props {
 			fitnessDist, ok := constraints.MediaConstraints.FitnessDistance(p)
 			if !ok {
@@ -391,7 +392,8 @@ func selectBestDriver(
 				"label", d.Info().Label,
 				"props", p,
 				"distance", fitnessDist,
-				"distance_with_priority", fitnessDistWithPriority)
+				"distance_with_priority", fitnessDistWithPriority,
+			)
 			if fitnessDistWithPriority < minFitnessDist {
 				minFitnessDist = fitnessDistWithPriority
 				bestDriver = d

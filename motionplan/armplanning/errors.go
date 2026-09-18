@@ -30,7 +30,8 @@ func newImmovableGoalError(fs *referenceframe.FrameSystem, moveFrameName, goalFr
 		"cannot move frame %q relative to %q: no DoF moves %q, so planning cannot reposition it. %q is rigidly "+
 			"attached to the world frame through: %s. Check that the frame being moved is one which some DoF "+
 			"actually moves, such as an arm or a frame mounted on one",
-		moveFrameName, goalFrameName, moveFrameName, moveFrameName, chainToWorldDescription(fs, moveFrameName))
+		moveFrameName, goalFrameName, moveFrameName, moveFrameName, chainToWorldDescription(fs, moveFrameName),
+	)
 }
 
 // chainToWorldDescription renders a frame's parentage as "frame -> parent -> ... -> world".

@@ -28,7 +28,8 @@ func setupAudioInService(t *testing.T, injectAudioIn *inject.AudioIn) (net.Liste
 	test.That(t, err, test.ShouldBeNil)
 
 	audioInSvc, err := resource.NewAPIResourceCollection(
-		audioin.API, map[resource.Name]audioin.AudioIn{audioin.Named(testAudioInName): injectAudioIn})
+		audioin.API, map[resource.Name]audioin.AudioIn{audioin.Named(testAudioInName): injectAudioIn},
+	)
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[audioin.AudioIn](audioin.API)
 	test.That(t, err, test.ShouldBeNil)

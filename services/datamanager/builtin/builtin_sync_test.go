@@ -625,7 +625,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 							}
 							closeFn()
 							uploadCount.Add(1)
-							return &v1.FileUploadResponse{FileId: "some file id"}, nil
+							return &v1.FileUploadResponse{BinaryDataId: "some binary data id"}, nil
 						},
 					}, nil
 				},

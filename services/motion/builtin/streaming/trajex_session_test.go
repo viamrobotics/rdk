@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
 func testStreamOptions() StreamOptions {
@@ -39,7 +40,7 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 	seed := []referenceframe.Input{0, 0}
 	target := []referenceframe.Input{0.5, -0.3}
 
-	s := &trajexSession{opts: testStreamOptions()}
+	s := &trajexSession{opts: testStreamOptions(), diagnostics: diagnostics.New(0)}
 	test.That(t, s.startSession(seed), test.ShouldBeNil)
 	defer s.close()
 
@@ -68,7 +69,7 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	ctx := context.Background()
 	seed := []referenceframe.Input{0.2, 0.4}
 
-	s := &trajexSession{opts: testStreamOptions()}
+	s := &trajexSession{opts: testStreamOptions(), diagnostics: diagnostics.New(0)}
 	test.That(t, s.startSession(seed), test.ShouldBeNil)
 	defer s.close()
 
@@ -89,7 +90,7 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 	seed := []referenceframe.Input{0, 0}
 	target := []referenceframe.Input{0.5, 0.5}
 
-	s := &trajexSession{opts: testStreamOptions()}
+	s := &trajexSession{opts: testStreamOptions(), diagnostics: diagnostics.New(0)}
 	test.That(t, s.startSession(seed), test.ShouldBeNil)
 	defer s.close()
 

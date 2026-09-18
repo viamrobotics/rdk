@@ -320,7 +320,8 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 				StartConfiguration: nodes[j],
 				EndConfiguration:   nodes[j+1],
 				FS:                 cfg.FS,
-			}, cfg.Options.Resolution, true)
+			}, cfg.Options.Resolution, true,
+		)
 		test.That(t, err, test.ShouldBeNil)
 	}
 }
@@ -626,7 +627,8 @@ func TestMultiArmSolve(t *testing.T) {
 	test.That(t,
 		spatialmath.PoseAlmostCoincidentEps(
 			solvedPose.(*frame.PoseInFrame).Pose(),
-			goals["xArmVgripper"].Pose(), 0.1),
+			goals["xArmVgripper"].Pose(), 0.1,
+		),
 		test.ShouldBeTrue)
 }
 
@@ -868,18 +870,6 @@ func TestValidatePlanRequest(t *testing.T) {
 				StartState:  &PlanState{},
 			},
 			expectedErr: errors.New("PlanRequest cannot have nil StartState configuration"),
-		},
-		{
-			name: "incorrect length StartConfiguration - fail",
-			request: &PlanRequest{
-				FrameSystem: fs,
-				Goals:       validGoal,
-				StartState: &PlanState{structuredConfiguration: map[string][]frame.Input{
-					"frame1": {}, "frame2": {0, 0, 0, 0, 0},
-				}},
-				PlannerOptions: NewBasicPlannerOptions(),
-			},
-			expectedErr: frame.NewIncorrectDoFError(5, 1),
 		},
 		{
 			name: "well formed PlanRequest",

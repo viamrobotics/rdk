@@ -3,70 +3,13 @@ package streaming
 import (
 	"context"
 	"math"
-	"sync"
 	"testing"
 	"time"
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
-
-type fakeStreamRecorder struct {
-	mu      sync.Mutex
-	batches [][]arm.TrajectoryPoint
-}
-
-func (r *fakeStreamRecorder) get() [][]arm.TrajectoryPoint {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.batches
-}
-
-func newFakeStreamingArm() (*inject.Arm, *fakeStreamRecorder) {
-	rec := &fakeStreamRecorder{}
-	inj := inject.NewArm("test-arm")
-	inj.MoveThroughJointPositionsStreamedFunc = func(
-		ctx context.Context,
-		batches <-chan []arm.TrajectoryPoint,
-		responses chan<- arm.Response,
-		extra map[string]interface{},
-	) error {
-		// Honor the interface contract: return only once the trajectory is done, not
-		// when the input stream closes. Playback is simulated against a wall clock
-		// anchored at the first batch; after the input stream closes, wait out
-		// whatever trajectory time remains (or bail on ctx cancellation, like a real
-		// driver interrupting a move).
-		var started time.Time
-		var lastPointTime time.Duration
-		for batch := range batches {
-			if started.IsZero() {
-				started = time.Now()
-			}
-			rec.mu.Lock()
-			rec.batches = append(rec.batches, batch)
-			rec.mu.Unlock()
-			if len(batch) > 0 {
-				lastPointTime = batch[len(batch)-1].Time
-			}
-		}
-		if started.IsZero() {
-			return nil
-		}
-		remaining := lastPointTime - time.Since(started)
-		if remaining <= 0 {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(remaining):
-			return nil
-		}
-	}
-	return inj, rec
-}
 
 func testPVAT(trajectoryTime time.Duration) pvat {
 	return pvat{
@@ -80,7 +23,7 @@ func testPVAT(trajectoryTime time.Duration) pvat {
 func TestArmStreamSend(t *testing.T) {
 	inj, rec := newFakeStreamingArm()
 	ctx := context.Background()
-	s := newArmStream(ctx, inj)
+	s := newArmStream(ctx, inj, diagnostics.New(0))
 
 	// Empty PVAT list: nothing sent, wall clock not anchored.
 	test.That(t, s.send(ctx, nil), test.ShouldBeNil)
@@ -122,7 +65,7 @@ func TestArmStreamSend(t *testing.T) {
 func TestArmStreamCurrentEstimatedRunwayInArm(t *testing.T) {
 	inj, _ := newFakeStreamingArm()
 	ctx := context.Background()
-	s := newArmStream(ctx, inj)
+	s := newArmStream(ctx, inj, diagnostics.New(0))
 	defer s.close()
 
 	test.That(t, s.currentEstimatedRunwayInArm(), test.ShouldEqual, time.Duration(0))

@@ -2782,7 +2782,8 @@ func (c *AppClient) CreateKey(
 	var authorizations []*pb.Authorization
 	for _, keyAuthorization := range keyAuthorizations {
 		authorization := createAuthorization(
-			orgID, "", "api-key", keyAuthorization.role, keyAuthorization.resourceType, keyAuthorization.resourceID)
+			orgID, "", "api-key", keyAuthorization.role, keyAuthorization.resourceType, keyAuthorization.resourceID,
+		)
 		authorizations = append(authorizations, authorization)
 	}
 

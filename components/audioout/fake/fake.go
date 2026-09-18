@@ -17,7 +17,8 @@ func init() {
 	resource.RegisterComponent(
 		audioout.API,
 		resource.DefaultModelFamily.WithModel("fake"),
-		resource.Registration[audioout.AudioOut, resource.NoNativeConfig]{Constructor: NewAudioOut})
+		resource.Registration[audioout.AudioOut, resource.NoNativeConfig]{Constructor: NewAudioOut},
+	)
 }
 
 // AudioOut is a fake AudioOut that simulates audio playback.
