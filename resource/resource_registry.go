@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 
@@ -197,8 +198,13 @@ type AssociatedConfigRegistration[AssocT AssociatedConfig] struct {
 
 // all registries.
 var (
-	registryMu                    sync.RWMutex
-	registry                      = map[APIModel]Registration[Resource, ConfigValidator]{}
+	registryMu sync.RWMutex
+	registry   = map[APIModel]Registration[Resource, ConfigValidator]{}
+	// multiAPIByModel records, for models that serve more than one co-equal API (composites), the
+	// full set of APIs they serve. It is the single source of truth every layer consults to expand a
+	// composite model into its APIs. The stored slice is kept sorted by API string so that the first
+	// entry is a deterministic canonical API. Guarded by registryMu.
+	multiAPIByModel               = map[Model][]API{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
 	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
 )
@@ -310,6 +316,68 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	registry[apiModel] = makeGenericResourceRegistration(reg)
 }
 
+// RegisterMultiAPI registers one model that serves a set of one or more co-equal APIs. The single
+// constructor is registered under every API (so LookupRegistration finds it for any of them), and
+// the API set is recorded for models serving more than one. With a single API it behaves exactly
+// like RegisterComponent/RegisterService and records no multi-API set. It panics on an empty API
+// list.
+func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, model Model, reg Registration[ResourceT, ConfigT]) {
+	if len(apis) == 0 {
+		panic(errors.Errorf("RegisterMultiAPI requires at least one api for model: %q", model))
+	}
+	for _, api := range apis {
+		Register(api, model, reg)
+	}
+	RegisterMultiAPISet(model, apis)
+}
+
+// RegisterMultiAPISet records the set of co-equal APIs a composite model serves without registering
+// constructors — used by modular composites whose per-API constructors are the module proxies. The
+// recorded set is sorted by API string so that the first entry is a deterministic canonical API. It
+// is a no-op for models serving fewer than two APIs.
+func RegisterMultiAPISet(model Model, apis []API) {
+	if len(apis) < 2 {
+		return
+	}
+	sorted := append([]API(nil), apis...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].String() < sorted[j].String() })
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	multiAPIByModel[model] = sorted
+}
+
+// APIsForModel returns the set of co-equal APIs a composite model serves, sorted by API string, or
+// nil for an ordinary single-API model. The returned slice is shared and must not be mutated.
+func APIsForModel(model Model) []API {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	return multiAPIByModel[model]
+}
+
+// ExpandModel expands a model into one APIModel per API it was registered under, so a module's
+// main() can serve all of a composite's APIs without re-listing them, e.g.
+// module.ModularMain(resource.ExpandModel(Model)...). For a composite it returns one entry per
+// co-equal API (sorted by API string); for an ordinary model it returns the single {api, model}
+// pair found in the registry, and nil for an unregistered model.
+func ExpandModel(model Model) []APIModel {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	if apis := multiAPIByModel[model]; len(apis) > 0 {
+		models := make([]APIModel, 0, len(apis))
+		for _, api := range apis {
+			models = append(models, APIModel{API: api, Model: model})
+		}
+		return models
+	}
+	var models []APIModel
+	for am := range registry {
+		if am.Model == model {
+			models = append(models, APIModel{API: am.API, Model: model})
+		}
+	}
+	return models
+}
+
 // makeGenericResourceRegistration allows a registration to be generic and ensures all input/output types
 // are actually T's.
 func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator](
@@ -357,6 +425,19 @@ func Deregister(api API, model Model) {
 	defer registryMu.Unlock()
 	apiModel := APIModel{api, model}
 	delete(registry, apiModel)
+	// If this model is no longer registered under any API, drop its recorded composite API set.
+	if _, recorded := multiAPIByModel[model]; recorded {
+		anyLeft := false
+		for am := range registry {
+			if am.Model == model {
+				anyLeft = true
+				break
+			}
+		}
+		if !anyLeft {
+			delete(multiAPIByModel, model)
+		}
+	}
 }
 
 // LookupRegistration looks up a creator by the given api and model. nil is returned if
