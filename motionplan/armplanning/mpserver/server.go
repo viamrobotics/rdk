@@ -1037,7 +1037,14 @@ func buildDetailConstraints(c *motionplan.Constraints) *detailConstraints {
 			lc.LineToleranceMm, lc.OrientationToleranceDegs))
 	}
 	for _, oc := range c.OrientationConstraint {
-		dc.Orientation = append(dc.Orientation, fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs))
+		desc := fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs)
+		if cl := oc.OrientationCloud; cl != nil {
+			desc = fmt.Sprintf("goal orientation cloud ox %.4g, oy %.4g, oz %.4g, theta %.4g°", cl.OX, cl.OY, cl.OZ, cl.Theta)
+			if oc.OrientationToleranceDegs > 0 {
+				desc += fmt.Sprintf(" + orientation tolerance %.4g°", oc.OrientationToleranceDegs)
+			}
+		}
+		dc.Orientation = append(dc.Orientation, desc)
 	}
 	return dc
 }

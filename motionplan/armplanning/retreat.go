@@ -35,11 +35,11 @@ func midOrientationSlackDegs(c *motionplan.Constraints) float64 {
 	if len(c.OrientationConstraint) == 0 {
 		return 360
 	}
-	slack := c.OrientationConstraint[0].OrientationToleranceDegs
+	slack := c.OrientationConstraint[0].GoalSlackDegs()
 	for _, oc := range c.OrientationConstraint[1:] {
-		slack = min(slack, oc.OrientationToleranceDegs)
+		slack = min(slack, oc.GoalSlackDegs())
 	}
-	return max(0, slack)
+	return slack
 }
 
 // retreatChain jogs the end effector of `frame` straight up from `from` in

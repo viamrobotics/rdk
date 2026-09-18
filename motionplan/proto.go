@@ -85,6 +85,10 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 			if orientConstraint.OrientationToleranceDegs != nil {
 				orientTol = float64(*orientConstraint.OrientationToleranceDegs)
 			}
+			// TODO: OrientationConstraint.OrientationCloud has no counterpart in
+			// go.viam.com/api's motion.v1.OrientationConstraint yet, so it cannot cross the
+			// wire in either direction. Until the proto gains an `orientation_cloud` field, the
+			// cloud is only reachable through the Go API and JSON plan requests.
 			toRet = append(toRet, OrientationConstraint{
 				OrientationToleranceDegs: orientTol,
 			})
@@ -154,6 +158,9 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	convertOrientConstraintToProto := func(orientConstraints []OrientationConstraint) []*motionpb.OrientationConstraint {
 		toRet := make([]*motionpb.OrientationConstraint, 0)
 		for _, orientConstraint := range orientConstraints {
+			// TODO: OrientationCloud is dropped here (no proto field yet, see
+			// ConstraintsFromProtobuf), which leaves a bare zero tolerance: a strict arc
+			// constraint rather than the cloud that was asked for.
 			orientationTolerance := float32(orientConstraint.OrientationToleranceDegs)
 			toRet = append(toRet, &motionpb.OrientationConstraint{
 				OrientationToleranceDegs: &orientationTolerance,

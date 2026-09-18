@@ -6,6 +6,7 @@ import (
 
 	"gonum.org/v1/gonum/num/quat"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -65,18 +66,50 @@ type PseudolinearConstraint struct {
 	OrientationToleranceFactor float64
 }
 
-// OrientationConstraint specifies that the components being moved will not deviate orientation beyond some threshold.
+// OrientationConstraint specifies that the components being moved will not deviate orientation
+// beyond some threshold. The threshold can be expressed two ways, and both apply when both are set:
+//
+//   - OrientationToleranceDegs bounds the angular distance from the direct (geodesic) reorientation
+//     between the start and goal orientations, so the path stays within a tube around that arc.
+//   - OrientationCloud bounds the per-axis deviation from the goal orientation itself, independent
+//     of the start and of the arc: a cup that must stay upright however it is spun, for instance,
+//     regardless of how its start and goal orientations relate.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
+	OrientationCloud         *referenceframe.OrientationCloud `json:",omitempty"`
+}
+
+// arcConstrained reports whether the geodesic-arc check applies. Without a
+// cloud it always does - a zero tolerance pins the path to the arc - while a
+// cloud stands alone unless a positive tolerance is set alongside it.
+func (oc *OrientationConstraint) arcConstrained() bool {
+	return oc.OrientationCloud == nil || oc.OrientationToleranceDegs > 0
 }
 
 // Score computes a score which is how close we are to valid in degrees
 func (oc *OrientationConstraint) Score(from, to, now spatialmath.Orientation) float64 {
-	d := oc.Distance(from, to, now)
-	if d <= 0 {
-		return 0
+	score := 0.0
+	if oc.arcConstrained() {
+		score += max(0, oc.Distance(from, to, now)-oc.OrientationToleranceDegs)
 	}
-	return max(0, d-oc.OrientationToleranceDegs)
+	if oc.OrientationCloud != nil {
+		score += oc.OrientationCloud.Excess(to, now)
+	}
+	return score
+}
+
+// GoalSlackDegs returns a rotation away from the goal orientation within which
+// the constraint is guaranteed to hold at the goal end of the path: the arc
+// tolerance, the cloud's inscribed angle, or the smaller of the two.
+func (oc *OrientationConstraint) GoalSlackDegs() float64 {
+	slack := math.Inf(1)
+	if oc.arcConstrained() {
+		slack = min(slack, oc.OrientationToleranceDegs)
+	}
+	if oc.OrientationCloud != nil {
+		slack = min(slack, oc.OrientationCloud.InscribedAngleDegs())
+	}
+	return max(0, slack)
 }
 
 // Distance measures, in degrees, how far `now` strays from the direct
@@ -173,11 +206,14 @@ func (e *OrientationConstraintEval) Distance(now spatialmath.Orientation) float6
 
 // Score mirrors OrientationConstraint.Score.
 func (e *OrientationConstraintEval) Score(now spatialmath.Orientation) float64 {
-	d := e.Distance(now)
-	if d <= 0 {
-		return 0
+	score := 0.0
+	if e.oc.arcConstrained() {
+		score += max(0, e.Distance(now)-e.oc.OrientationToleranceDegs)
 	}
-	return max(0, d-e.oc.OrientationToleranceDegs)
+	if e.oc.OrientationCloud != nil {
+		score += e.oc.OrientationCloud.Excess(e.to, now)
+	}
+	return score
 }
 
 // CollisionSpecificationAllowedFrameCollisions is used to define frames that are allowed to collide.
