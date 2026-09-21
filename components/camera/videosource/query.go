@@ -109,6 +109,14 @@ func findReaderAndDriver(
 				manager.Delete(d.ID())
 			}
 		}
+
+		// Inventory what survived. A duplicate entry, or one whose status disagrees
+		// with whether its adapter is really open, is the difference between picking
+		// the free camera and failing on a busy one.
+		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+			logger.Infow("registered video driver after refresh",
+				"name", d.Info().Name, "label", d.Info().Label, "status", d.Status())
+		}
 	}
 
 	constraints := makeConstraints(conf, logger)
