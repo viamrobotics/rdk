@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 
+	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/spatialmath"
@@ -68,6 +69,14 @@ type PseudolinearConstraint struct {
 // OrientationConstraint specifies that the components being moved will not deviate orientation beyond some threshold.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
+
+	// IgnoreTheta scores only the angle between orientation vectors, dropping
+	// rotation about the frame's own pointing axis. Set it for payloads
+	// symmetric about that axis, which spill when tipped but not when spun.
+	//
+	// motionpb.OrientationConstraint has no equivalent field, so this cannot be
+	// set over gRPC and is dropped by ToProtobuf.
+	IgnoreTheta bool
 }
 
 // Score computes a score which is how close we are to valid in degrees
@@ -87,8 +96,14 @@ func (oc *OrientationConstraint) Score(from, to, now spatialmath.Orientation) fl
 // min-distance-to-either-endpoint rule whose feasible set split into two
 // disconnected balls whenever the endpoints were more than twice the
 // tolerance apart, making such reorientations unplannable.)
+//
+// With IgnoreTheta set the same measurement runs on orientation vectors alone:
+// the angle from now's vector to the nearest vector traced along that arc.
 func (oc *OrientationConstraint) Distance(from, to, now spatialmath.Orientation) float64 {
 	arc := newOrientationArc(from, to)
+	if oc.IgnoreTheta {
+		return arc.axisDistanceDegs(now)
+	}
 	return arc.distanceDegs(now)
 }
 
@@ -101,6 +116,26 @@ type orientationArc struct {
 	from  spatialmath.Orientation
 
 	cosOmega, sinOmega float64 // arc-invariant terms of the per-query dot product
+
+	// The same arc seen through the orientation vector alone, for theta-agnostic
+	// scoring: the vector starts at v0 and rotates rigidly by sweep radians
+	// about the world-frame axis. sweep is 0 only when the endpoints are equal;
+	// when they differ by a rotation about the vector itself, axis parallels v0
+	// and the trace collapses onto that point.
+	v0, axis r3.Vector
+	sweep    float64
+}
+
+// orientationVector returns q's orientation vector: the frame's local +Z axis
+// expressed in the parent frame. Going through the quaternion normalizes and
+// skips QuatToOV's theta derivation, which this scoring exists to discard.
+func orientationVector(q quat.Number) r3.Vector {
+	v := quat.Mul(quat.Mul(q, quat.Number{Kmag: 1}), quat.Conj(q))
+	return r3.Vector{X: v.Imag, Y: v.Jmag, Z: v.Kmag}
+}
+
+func clampUnit(x float64) float64 {
+	return max(-1, min(1, x))
 }
 
 func quatDot(a, b quat.Number) float64 {
@@ -116,7 +151,7 @@ func newOrientationArc(from, to spatialmath.Orientation) orientationArc {
 		qt = quat.Scale(-1, qt)
 		d = -d
 	}
-	arc := orientationArc{qf: qf, from: from}
+	arc := orientationArc{qf: qf, from: from, v0: orientationVector(qf)}
 	// Residual of qt orthogonal to qf; its norm is sin(omega).
 	r := quat.Sub(qt, quat.Scale(d, qf))
 	rn := math.Sqrt(quatDot(r, r))
@@ -126,6 +161,12 @@ func newOrientationArc(from, to spatialmath.Orientation) orientationArc {
 	arc.u = quat.Scale(1/rn, r)
 	arc.omega = math.Acos(min(d, 1))
 	arc.cosOmega, arc.sinOmega = math.Cos(arc.omega), math.Sin(arc.omega)
+	// The world-frame rotation from -> to carries the orientation vector rigidly,
+	// so the vector traces a circle about that rotation's axis. The axis has
+	// norm sin(omega) == rn, so the guard above makes this Normalize safe.
+	qw := quat.Mul(qt, quat.Conj(qf))
+	arc.axis = r3.Vector{X: qw.Imag, Y: qw.Jmag, Z: qw.Kmag}.Normalize()
+	arc.sweep = 2 * arc.omega
 	return arc
 }
 
@@ -159,10 +200,32 @@ func (a *orientationArc) distanceDegs(now spatialmath.Orientation) float64 {
 	return utils.RadToDeg(2 * math.Acos(min(best, 1)))
 }
 
+// axisDistanceDegs returns the angular distance in degrees from now's
+// orientation vector to the nearest orientation vector traced along the arc.
+func (a *orientationArc) axisDistanceDegs(now spatialmath.Orientation) float64 {
+	p := orientationVector(now.Quaternion())
+	if a.sweep == 0 {
+		return utils.RadToDeg(math.Acos(clampUnit(p.Dot(a.v0))))
+	}
+	// By Rodrigues, v(t) = rot(axis, t) v0 for t in [0, sweep], so
+	// dot(p, v(t)) = x*cos(t) + y*sin(t) + c, largest where the arc comes
+	// nearest p.
+	c := p.Dot(a.axis) * a.axis.Dot(a.v0)
+	x := p.Dot(a.v0) - c
+	y := p.Dot(a.axis.Cross(a.v0))
+	best := max(x+c, x*math.Cos(a.sweep)+y*math.Sin(a.sweep)+c)
+	// sweep is at most pi (the endpoints were sign-aligned onto the short arc)
+	// and Atan2 returns (-pi, pi], so the interior peak needs no wrap check.
+	if phi := math.Atan2(y, x); phi > 0 && phi < a.sweep {
+		best = math.Hypot(x, y) + c
+	}
+	return utils.RadToDeg(math.Acos(clampUnit(best)))
+}
+
 // OrientationConstraintEval evaluates one OrientationConstraint against fixed
 // start and goal orientations. The endpoints never change during a plan, so
-// the geodesic-arc basis is precomputed once, leaving two dot products per
-// check.
+// the geodesic-arc basis is precomputed once, leaving a couple of dot products
+// per check.
 type OrientationConstraintEval struct {
 	oc       OrientationConstraint
 	from, to spatialmath.Orientation
@@ -179,6 +242,9 @@ func NewOrientationConstraintEval(oc OrientationConstraint, from, to spatialmath
 
 // Distance is OrientationConstraint.Distance with the arc precomputation amortized.
 func (e *OrientationConstraintEval) Distance(now spatialmath.Orientation) float64 {
+	if e.oc.IgnoreTheta {
+		return e.arc.axisDistanceDegs(now)
+	}
 	return e.arc.distanceDegs(now)
 }
 
