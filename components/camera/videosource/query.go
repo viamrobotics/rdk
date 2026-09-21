@@ -89,13 +89,26 @@ func findReaderAndDriver(
 		// So we can call Initialize() only once, and call discover() as many times as we need.
 		mediadevicescamera.Initialize()
 	case "windows":
-		// Windows Initialize() only appends registrations, so clear the stale snapshot first or
-		// every call leaks a duplicate driver entry per attached camera.
+		// Delete drivers that are StateClosed, and note which drivers are held
 		manager := driver.GetManager()
+		held := map[string]struct{}{}
 		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
-			manager.Delete(d.ID())
+			if d.Status() == driver.StateClosed {
+				manager.Delete(d.ID())
+			} else {
+				held[d.Info().Label] = struct{}{}
+			}
 		}
+
+		// Calling Initialize() creates new driver entries for every connected webcam (even ones already held)
 		mediadevicescamera.Initialize()
+
+		// Delete already held webcams to avoid duplication
+		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+			if _, ok := held[d.Info().Label]; ok && d.Status() == driver.StateClosed {
+				manager.Delete(d.ID())
+			}
+		}
 	}
 
 	constraints := makeConstraints(conf, logger)
