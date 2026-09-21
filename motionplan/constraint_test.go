@@ -92,7 +92,7 @@ func TestOrientationArcDistanceBruteForce(t *testing.T) {
 
 	for i := 0; i < 200; i++ {
 		from, to, now := randOrient(), randOrient(), randOrient()
-		arc := newOrientationArc(from, to)
+		arc := newOrientationArc(from, to, false)
 		got := arc.distanceDegs(now)
 		want := brute(from, to, now)
 		// The closed form takes the true minimum, so it can only sit at or
@@ -772,7 +772,7 @@ func BenchmarkOrientationArcDistance(b *testing.B) {
 	from := spatial.NewZeroOrientation()
 	to := spatial.Orientation(&spatial.EulerAngles{Pitch: 1.0, Yaw: 0.4})
 	now := spatial.NewPoseFromOrientation(&spatial.EulerAngles{Roll: 0.3, Pitch: 0.7, Yaw: 1.1}).Orientation()
-	arc := newOrientationArc(from, to)
+	arc := newOrientationArc(from, to, false)
 	var dist float64
 	for i := 0; i < b.N; i++ {
 		dist = arc.distanceDegs(now)

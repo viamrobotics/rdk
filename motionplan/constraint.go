@@ -100,7 +100,7 @@ func (oc *OrientationConstraint) Score(from, to, now spatialmath.Orientation) fl
 // With IgnoreTheta set the same measurement runs on orientation vectors alone:
 // the angle from now's vector to the nearest vector traced along that arc.
 func (oc *OrientationConstraint) Distance(from, to, now spatialmath.Orientation) float64 {
-	arc := newOrientationArc(from, to)
+	arc := newOrientationArc(from, to, oc.IgnoreTheta)
 	if oc.IgnoreTheta {
 		return arc.axisDistanceDegs(now)
 	}
@@ -121,9 +121,12 @@ type orientationArc struct {
 	// scoring: the vector starts at v0 and rotates rigidly by sweep radians
 	// about the world-frame axis. sweep is 0 only when the endpoints are equal;
 	// when they differ by a rotation about the vector itself, axis parallels v0
-	// and the trace collapses onto that point.
-	v0, axis r3.Vector
-	sweep    float64
+	// and the trace collapses onto that point. The rest are terms of the
+	// per-check dot product that depend on the arc alone.
+	v0, axis, axisCrossV0 r3.Vector
+	axisDotV0             float64
+	sweep                 float64
+	cosSweep, sinSweep    float64
 }
 
 // orientationVector returns q's orientation vector: the frame's local +Z axis
@@ -142,7 +145,11 @@ func quatDot(a, b quat.Number) float64 {
 	return a.Real*b.Real + a.Imag*b.Imag + a.Jmag*b.Jmag + a.Kmag*b.Kmag
 }
 
-func newOrientationArc(from, to spatialmath.Orientation) orientationArc {
+// newOrientationArc precomputes whichever basis the scoring mode needs: the
+// geodesic's quaternion basis, or - when axisOnly - the orientation-vector
+// trace. The two modes share no per-check terms, so building both would waste
+// half the work.
+func newOrientationArc(from, to spatialmath.Orientation, axisOnly bool) orientationArc {
 	qf := from.Quaternion()
 	qt := to.Quaternion()
 	// q and -q are the same orientation; align signs to take the short arc.
@@ -151,22 +158,31 @@ func newOrientationArc(from, to spatialmath.Orientation) orientationArc {
 		qt = quat.Scale(-1, qt)
 		d = -d
 	}
-	arc := orientationArc{qf: qf, from: from, v0: orientationVector(qf)}
+	arc := orientationArc{qf: qf, from: from}
+	if axisOnly {
+		arc.v0 = orientationVector(qf)
+	}
 	// Residual of qt orthogonal to qf; its norm is sin(omega).
 	r := quat.Sub(qt, quat.Scale(d, qf))
 	rn := math.Sqrt(quatDot(r, r))
 	if rn < 1e-9 {
 		return arc // from == to: the arc is a point
 	}
-	arc.u = quat.Scale(1/rn, r)
 	arc.omega = math.Acos(min(d, 1))
-	arc.cosOmega, arc.sinOmega = math.Cos(arc.omega), math.Sin(arc.omega)
+	if !axisOnly {
+		arc.u = quat.Scale(1/rn, r)
+		arc.cosOmega, arc.sinOmega = math.Cos(arc.omega), math.Sin(arc.omega)
+		return arc
+	}
 	// The world-frame rotation from -> to carries the orientation vector rigidly,
 	// so the vector traces a circle about that rotation's axis. The axis has
 	// norm sin(omega) == rn, so the guard above makes this Normalize safe.
 	qw := quat.Mul(qt, quat.Conj(qf))
 	arc.axis = r3.Vector{X: qw.Imag, Y: qw.Jmag, Z: qw.Kmag}.Normalize()
 	arc.sweep = 2 * arc.omega
+	arc.axisDotV0 = arc.axis.Dot(arc.v0)
+	arc.axisCrossV0 = arc.axis.Cross(arc.v0)
+	arc.cosSweep, arc.sinSweep = math.Cos(arc.sweep), math.Sin(arc.sweep)
 	return arc
 }
 
@@ -210,14 +226,18 @@ func (a *orientationArc) axisDistanceDegs(now spatialmath.Orientation) float64 {
 	// By Rodrigues, v(t) = rot(axis, t) v0 for t in [0, sweep], so
 	// dot(p, v(t)) = x*cos(t) + y*sin(t) + c, largest where the arc comes
 	// nearest p.
-	c := p.Dot(a.axis) * a.axis.Dot(a.v0)
+	c := p.Dot(a.axis) * a.axisDotV0
 	x := p.Dot(a.v0) - c
-	y := p.Dot(a.axis.Cross(a.v0))
-	best := max(x+c, x*math.Cos(a.sweep)+y*math.Sin(a.sweep)+c)
-	// sweep is at most pi (the endpoints were sign-aligned onto the short arc)
-	// and Atan2 returns (-pi, pi], so the interior peak needs no wrap check.
-	if phi := math.Atan2(y, x); phi > 0 && phi < a.sweep {
-		best = math.Hypot(x, y) + c
+	y := p.Dot(a.axisCrossV0)
+	best := max(x+c, x*a.cosSweep+y*a.sinSweep+c)
+	// The unconstrained peak sits at atan2(y, x), which falls inside (0, sweep)
+	// exactly when y > 0 and x > cos(sweep)*hypot(x, y) - cos is monotonic over
+	// the (0, pi] that sweep spans. Testing it that way keeps an atan2 off the
+	// per-check path, and no wrap-around case survives it.
+	if y > 0 {
+		if r := math.Sqrt(x*x + y*y); x > a.cosSweep*r {
+			best = r + c
+		}
 	}
 	return utils.RadToDeg(math.Acos(clampUnit(best)))
 }
@@ -236,7 +256,7 @@ type OrientationConstraintEval struct {
 func NewOrientationConstraintEval(oc OrientationConstraint, from, to spatialmath.Orientation) *OrientationConstraintEval {
 	return &OrientationConstraintEval{
 		oc: oc, from: from, to: to,
-		arc: newOrientationArc(from, to),
+		arc: newOrientationArc(from, to, oc.IgnoreTheta),
 	}
 }
 
