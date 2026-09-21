@@ -405,7 +405,8 @@ func queryDriverProperties(
 		if isAvailable {
 			err := d.Open()
 			if err != nil {
-				logger.Infow("error trying to open driver for querying", "error", err)
+				logger.Infow("error trying to open driver for querying",
+					"error", err, "name", d.Info().Name, "label", d.Info().Label, "status", status)
 				// Skip this driver if we failed to open because we can't get the properties
 				continue
 			}

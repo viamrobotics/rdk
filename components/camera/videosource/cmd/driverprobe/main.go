@@ -28,9 +28,17 @@ import (
 func main() {
 	wait := flag.Duration("wait", 5*time.Second, "how long to wait for a device's first frame")
 	concurrent := flag.Bool("concurrent", false, "hold every device open at once instead of probing one at a time")
+	initCount := flag.Int("init", 1, "call Initialize() this many times, reporting the driver count after each")
 	flag.Parse()
 
-	mediadevicescamera.Initialize()
+	// Initialize() only appends registrations, so repeating it shows how many stale
+	// duplicate entries accumulate per attached camera.
+	for i := 0; i < *initCount; i++ {
+		mediadevicescamera.Initialize()
+		fmt.Printf("after Initialize() #%d: %d registered video drivers\n",
+			i+1, len(driver.GetManager().Query(driver.FilterVideoRecorder())))
+	}
+	fmt.Println()
 
 	drivers := driver.GetManager().Query(driver.FilterVideoRecorder())
 	fmt.Printf("registered video drivers: %d\n\n", len(drivers))
