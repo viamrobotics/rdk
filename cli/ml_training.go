@@ -199,6 +199,10 @@ type registerCustomContainersArgs struct {
 
 // RegisterCustomContainer is the corresponding action for 'train containers register'.
 func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registerCustomContainersArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
+	}
+
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
