@@ -181,7 +181,7 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 			Visibility:  v.Visibility.String(),
 			Framework: v.Framework,
 			EndOfLife: v.Eol.AsTime().String(),
-			CreatedOn: v.CreatedOn.String(),
+			CreatedOn: v.CreatedOn.AsTime().String(),
 			ID:        v.Id,
 		}
 		if args.IncludeURIs {
