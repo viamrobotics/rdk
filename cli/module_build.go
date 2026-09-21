@@ -283,9 +283,6 @@ func (c *viamClient) moduleBuildStartForRepo(
 }
 
 func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Command, args moduleBuildStartArgs) (string, error) {
-	if !isInteractive() {
-		args.NoProgress = true
-	}
 	if args.FromSource {
 		return c.moduleBuildStartFromSource(ctx, cmd, args)
 	}
@@ -1479,9 +1476,6 @@ func reloadModuleAction(ctx context.Context, cmd *cli.Command, args reloadModule
 		logger = logging.NewDebugLogger("cli")
 	}
 
-	if !isInteractive() {
-		args.NoProgress = true
-	}
 	return reloadModuleActionInner(ctx, cmd, vc, args, logger, cloudBuild)
 }
 
