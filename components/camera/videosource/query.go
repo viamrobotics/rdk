@@ -76,6 +76,25 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 	}
 }
 
+// refreshDriverRegistry re-scans attached cameras so a lookup sees the current device set.
+// Tests replace it with a no-op so fake drivers registered in the manager survive lookups.
+var refreshDriverRegistry = func() {
+	switch runtime.GOOS {
+	case "linux":
+		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
+		// So we can call Initialize() only once, and call discover() as many times as we need.
+		mediadevicescamera.Initialize()
+	case "windows":
+		// Windows Initialize() only appends registrations, so clear the stale snapshot first or
+		// every call leaks a duplicate driver entry per attached camera.
+		manager := driver.GetManager()
+		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+			manager.Delete(d.ID())
+		}
+		mediadevicescamera.Initialize()
+	}
+}
+
 // findReaderAndDriver finds a video device and returns an image reader and the driver instance,
 // as well as the path to the driver.
 func findReaderAndDriver(
@@ -83,11 +102,7 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
-	if runtime.GOOS == "linux" {
-		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
-		// So we can call Initialize() only once, and call discover() as many times as we need.
-		mediadevicescamera.Initialize()
-	}
+	refreshDriverRegistry()
 
 	constraints := makeConstraints(conf, logger)
 

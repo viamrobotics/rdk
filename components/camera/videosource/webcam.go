@@ -40,6 +40,10 @@ const (
 	resWarnInterval  = 10 * time.Minute
 )
 
+// startObserver is a hook for tests: the darwin observer removes every registered driver that is
+// not a live AVFoundation device, which would delete fake drivers.
+var startObserver = startCameraObserver
+
 func init() {
 	resource.RegisterComponent(
 		camera.API,
@@ -143,7 +147,7 @@ func NewWebcam(
 	// AVFoundation's threading requirements. startCameraObserver is idempotent and safely
 	// starts the observer for this component.
 	// See web/cmd/server/observer_darwin.go for details on threading.
-	startCameraObserver(logger)
+	startObserver(logger)
 
 	c := &webcam{
 		Named:   conf.ResourceName().AsNamed(),
