@@ -152,7 +152,7 @@ type prettyPrintContainer struct {
 	EndOfLife   string `json:",omitempty"`
 	Description string
 	Framework   string `json:",omitempty"`
-	URI         string 
+	URI         string `json:",omitempty"`
 	ID          string
 	CreatedOn   string
 	Visibility  string
