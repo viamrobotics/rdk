@@ -34,9 +34,6 @@ static-release-win:
 		cp bin/static/viam-server-windows.exe etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-windows-${UNAME_M}.exe; \
 	fi
 
-	# note: GOOS=windows would break this on a linux runner
-	CGO_ENABLED=0 go run -tags no_cgo ./web/cmd/server --dump-resources win-resources.json
-
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/
 	go run ./etc/subsystem_manifest \
@@ -44,7 +41,6 @@ static-release-win:
 		--upload-path packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
 		--version ${BUILD_CHANNEL} \
 		--arch ${UNAME_M} \
-		--resources-json win-resources.json \
 		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M}.json
 
 static-release-macos:

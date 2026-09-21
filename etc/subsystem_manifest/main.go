@@ -9,10 +9,8 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 
-	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 )
 
@@ -23,29 +21,17 @@ const (
 	linuxArm32v7 = "linux/arm32v7"
 )
 
-type dumpedResourceRegistration struct {
-	API             string             `json:"api"`
-	Model           string             `json:"model"`
-	AttributeSchema *jsonschema.Schema `json:"attribute_schema,omitempty"`
-}
-
-type viamServerMetadata struct {
-	ResourceRegistrations []dumpedResourceRegistration `json:"resource_registrations"`
-}
-
 type substemManifest struct {
-	Subsystem  string              `json:"subsystem"`
-	Version    string              `json:"version"`
-	Platform   string              `json:"platform"`
-	UploadPath string              `json:"upload-path"`
-	Sha256     string              `json:"sha256"`
-	Metadata   *viamServerMetadata `json:"metadata,omitempty"`
+	Subsystem  string `json:"subsystem"`
+	Version    string `json:"version"`
+	Platform   string `json:"platform"`
+	UploadPath string `json:"upload-path"`
+	Sha256     string `json:"sha256"`
 }
 
 func main() {
 	subsystem := flag.String("subsystem", viamServer, "subsystem type") // default to viam-server
 	binaryPath := flag.String("binary-path", "", "path to subsystem binary")
-	resourcesJSON := flag.String("resources-json", "", "optional pre-dumped resource json")
 	uploadPath := flag.String("upload-path", "", "path where this binary will be stored in gcs")
 	outputPath := flag.String("output-path", "", "path where this manifest json file will be written")
 	version := flag.String("version", "", "version")
@@ -63,13 +49,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to calculate binary sha: %v", err)
 	}
-	var metadata *viamServerMetadata
-	if *subsystem == viamServer {
-		metadata, err = getViamServerMetadata(*binaryPath, *resourcesJSON)
-		if err != nil {
-			log.Fatalf("failed to get viam-server metadata: %v", err)
-		}
-	}
 	platform, err := osArchToViamPlatform(*arch)
 	if err != nil {
 		log.Fatalf("failed to get platform: %v", err)
@@ -81,7 +60,6 @@ func main() {
 		Platform:   platform,
 		UploadPath: *uploadPath,
 		Sha256:     binarySha,
-		Metadata:   metadata,
 	}
 
 	// marshall and output the manifest to the provided output-path
@@ -93,42 +71,6 @@ func main() {
 	if err := os.WriteFile(*outputPath, jsonResult, 0o600); err != nil {
 		log.Fatalf("failed to write result %v", err)
 	}
-}
-
-// `path` is the path to the binary.
-// `resourcesOutputFileName` is an optional pre-dumped resource json.
-// note: we pre-dump for the windows build so that we are not bound to a windows runner. (we can cross-compile,
-// but we can't run the cross-compiled artifact).
-func getViamServerMetadata(path, resourcesOutputFileName string) (*viamServerMetadata, error) {
-	if resourcesOutputFileName == "" {
-		resourcesOutputFile, err := os.CreateTemp("", "resources-")
-		if err != nil {
-			return nil, err
-		}
-		resourcesOutputFileName = resourcesOutputFile.Name()
-		//nolint:errcheck
-		defer os.Remove(resourcesOutputFileName)
-
-		//nolint: gosec,noctx
-		command := exec.Command(path, "--dump-resources", resourcesOutputFileName)
-		if err := command.Run(); err != nil {
-			return nil, err
-		}
-	}
-	//nolint:gosec
-	resourcesBytes, err := os.ReadFile(resourcesOutputFileName)
-	if err != nil {
-		return nil, err
-	}
-	// We could pass the file through as an interface{} instead of unmarshalling
-	// and re-marshalling, but this reduces the odds of drift between viam-server and this script
-	dumpedResourceRegistrations := []dumpedResourceRegistration{}
-	if err := json.Unmarshal(resourcesBytes, &dumpedResourceRegistrations); err != nil {
-		return nil, err
-	}
-	return &viamServerMetadata{
-		ResourceRegistrations: dumpedResourceRegistrations,
-	}, nil
 }
 
 func sha256sum(path string) (string, error) {
