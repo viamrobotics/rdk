@@ -4192,7 +4192,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Description: `Example invocations:
 
 	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
-	# and configure or restart it.
+	# and configure or restart it. Python modules skip the build and recursively copy source instead.
 	viam module reload-local --part-id UUID
 
 	# Reload from an already-built module, without performing a new local build.
@@ -4207,6 +4207,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	viam module reload-local --model-name acme:module-name:mybase --name my-resource
 
 	# Build and configure a module running on your local machine without shipping a tarball.
+	# Python modules exec workdir run.sh.
 	viam module reload-local --local
 
 	# Upload an already-built tarball without requiring build.path in meta.json.
@@ -4273,6 +4274,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:       "use with model-name to name the newly added resource",
 							DefaultText: "resource type with a unique numerical suffix",
 						},
+						&cli.StringFlag{
+							Name:  moduleFlagLanguage,
+							Usage: formatAcceptedValues("module language; Python copies source and skips PyInstaller", "python", "golang", "cpp"),
+						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleLocalAction),
 				},
@@ -4283,7 +4288,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Description: `Example invocations:
 
 	# A full reload command. This will build your module in the cloud, and the machine will
-	# download the package directly.
+	# download the package directly. Python modules skip cloud build and copy source onto the
+	# machine via the shell service instead.
 	viam module reload --part-id UUID
 
 	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
@@ -4342,6 +4348,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleBuildFlagBuilder,
 							Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
 							Value: "default",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagLanguage,
+							Usage: formatAcceptedValues("module language; Python copies source and skips cloud build", "python", "golang", "cpp"),
 						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),

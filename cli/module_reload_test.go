@@ -552,6 +552,14 @@ func TestMutateModuleConfig(t *testing.T) {
 		assertInsertedModule(t, cfg, 0, remoteReloadPath)
 	})
 
+	t.Run("remote_dest_wins_over_local_entrypoint", func(t *testing.T) {
+		pythonRunSh := "/opt/viam/packages-local/viam-labs_test-module/run.sh"
+		cfg := cfgWithModules(t, []map[string]any{})
+		cfg, _, err := mutateModuleConfig(c, cfg, manifest, true, false, testUser, "", testReloadUnixTS, pythonRunSh)
+		test.That(t, err, test.ShouldBeNil)
+		assertInsertedModule(t, cfg, 0, pythonRunSh)
+	})
+
 	t.Run("remote_no_dest_assumes_legacy_home", func(t *testing.T) {
 		// cloud reload passes no destination; the legacy ~/.viam path is used only to
 		// compare against a stale reload_path, never stored (reload_path is deleted).
@@ -688,7 +696,86 @@ func TestReloadWithMissingBuildSection(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "required for 'reload' and 'reload-local' commands")
 	})
 
-	t.Run("reload-local with empty build command", func(t *testing.T) {
+	t.Run("python reload-local --local skips build and uses run.sh", func(t *testing.T) {
+		stubModuleReloadWait(t)
+		dir := t.TempDir()
+		manifestPath := createTestManifest(t, filepath.Join(dir, "meta.json"), map[string]any{
+			"build":    nil,
+			"language": "python",
+		})
+		writeFile(t, filepath.Join(dir, "run.sh"), "#!/bin/sh\nexec uv run python src/main.py \"$@\"\n")
+		writeFile(t, filepath.Join(dir, "src", "main.py"), "print('ok')\n")
+		writeFile(t, filepath.Join(dir, "requirements.txt"), "viam-sdk\n")
+
+		confStruct, err := structpb.NewStruct(map[string]any{
+			"modules": []any{},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		userInfo, err := structpb.NewStruct(map[string]any{
+			"version":  "0.90.0",
+			"platform": "linux/amd64",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		updateCount := 0
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, userInfo, &updateCount),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:        manifestPath,
+				generalFlagPartID:     "part-123",
+				moduleFlagLocal:       true,
+				generalFlagNoProgress: true,
+			},
+			"token",
+		)
+
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, updateCount, test.ShouldEqual, 1)
+	})
+
+	t.Run("python reload (cloud) skips StartReloadBuild and empty-build error", func(t *testing.T) {
+		dir := t.TempDir()
+		manifestPath := createTestManifest(t, filepath.Join(dir, "meta.json"), map[string]any{
+			"build":    nil,
+			"language": "python",
+		})
+		writeFile(t, filepath.Join(dir, "src", "main.py"), "print('ok')\n")
+		writeFile(t, filepath.Join(dir, "requirements.txt"), "viam-sdk\n")
+
+		confStruct, err := structpb.NewStruct(map[string]any{
+			"modules": []any{},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		userInfo, err := structpb.NewStruct(map[string]any{
+			"version":  "0.90.0",
+			"platform": "linux/amd64",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, userInfo, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:        manifestPath,
+				generalFlagPartID:     "part-123",
+				generalFlagNoProgress: true,
+			},
+			"token",
+		)
+
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, true)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "empty build step")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "run.sh")
+	})
+
+	t.Run("golang still requires a build step", func(t *testing.T) {
 		// Create manifest with build section but empty build command
 		manifestPath := createTestManifest(t, "", map[string]any{
 			"build": map[string]any{
