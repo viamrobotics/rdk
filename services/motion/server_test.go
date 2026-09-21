@@ -188,13 +188,15 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		geometries1, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 0, Z: 0}),
 			boxDims,
-			"wall")
+			"wall",
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		geometries2, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 70, Z: 0}),
 			boxDims,
-			"other wall")
+			"other wall",
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		geometries3, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "sphere")

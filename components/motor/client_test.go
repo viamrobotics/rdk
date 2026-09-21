@@ -162,7 +162,8 @@ func TestClient(t *testing.T) {
 
 		isOn, powerPct, err := workingMotorClient.IsPowered(
 			context.Background(),
-			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
+			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}},
+		)
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldEqual, 42.0)
 		test.That(t, err, test.ShouldBeNil)

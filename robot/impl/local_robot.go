@@ -615,22 +615,26 @@ func newWithResources(
 	defer r.reconfigurationLock.Unlock()
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
-		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel),
+	); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		framesystem.InternalServiceName,
-		resource.NewConfiguredGraphNode(resource.Config{}, r.frameSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.frameSvc, builtinModel),
+	); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		r.packageManager.Name(),
-		resource.NewConfiguredGraphNode(resource.Config{}, r.packageManager, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.packageManager, builtinModel),
+	); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		r.cloudConnSvc.Name(),
-		resource.NewConfiguredGraphNode(resource.Config{}, r.cloudConnSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.cloudConnSvc, builtinModel),
+	); err != nil {
 		return nil, err
 	}
 
@@ -871,32 +875,32 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 		// Not checking whether the resource actually exists because that is done later in the function.
 		resolvedOptionalDepName, err := resource.NewFromString(optionalDepNameString)
 		if err != nil {
-			matchingResourceNames := r.manager.resources.FindBySimpleName(optionalDepNameString)
-			switch len(matchingResourceNames) {
-			case 0:
-				r.logger.Infow(
-					"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
-					"dependency", optionalDepNameString,
-					"resource", conf.ResourceName().String(),
-				)
-				continue
-			case 1:
-				if matchingResourceNames[0].String() == conf.ResourceName().String() {
-					r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
-					continue
+			resolved, findErr := r.manager.resources.FindBySimpleName(optionalDepNameString)
+			if findErr != nil {
+				var multiErr *resource.MultipleMatchingNamesError
+				if stderrors.As(findErr, &multiErr) {
+					r.logger.Errorw(
+						"Cannot resolve optional dependency for resource due to multiple matching names",
+						"resource", conf.ResourceName().String(),
+						"conflicts", resource.NamesToStrings(multiErr.Matches),
+					)
+				} else {
+					r.logger.Infow(
+						"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
+						"dependency", optionalDepNameString,
+						"resource", conf.ResourceName().String(),
+					)
 				}
-			default:
-				r.logger.Errorw(
-					"Cannot resolve optional dependency for resource due to multiple matching names",
-					"resource", conf.ResourceName().String(),
-					"conflicts", resource.NamesToStrings(matchingResourceNames),
-				)
+				continue
+			}
+			if resolved.String() == conf.ResourceName().String() {
+				r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
 				continue
 			}
 			// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
 			// Pop the remote name off since callers won't be expecting it when accessing it in the resource
 			// dependency map in a resource constructor.
-			resolvedOptionalDepName = matchingResourceNames[0].PopRemote()
+			resolvedOptionalDepName = resolved.PopRemote()
 			resolvedOptionalDepName.Name = optionalDepNameString
 		}
 
@@ -1473,7 +1477,8 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 				default: // > 1
 					logger.Warnw(
 						"`Geometries` returned more than one geometry, but the LinkInFrame does not support that."+
-							"Keeping the first one.", "Size", len(resGeometries))
+							"Keeping the first one.", "Size", len(resGeometries),
+					)
 					fallthrough
 				case 1:
 					geom := resGeometries[0]
@@ -1750,6 +1755,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		LastUpdated: time.Now(),
 	}
 	r.configRevisionMu.Unlock()
+
+	// Apply user_permissions changes to the running web service early: it revokes
+	// exactly the streams and invocations of users whose permissions changed, is
+	// independent of the resource graph, and is high-priority enough that it should
+	// still take effect even if a later step (module/package sync, diffing) aborts this
+	// reconfigure. It no-ops when permissions are unchanged.
+	r.webSvc.UpdateUserPermissions(newConfig.Auth.UserPermissions)
 
 	var allErrs error
 

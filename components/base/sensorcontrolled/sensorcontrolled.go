@@ -96,7 +96,8 @@ func init() {
 	resource.RegisterComponent(
 		base.API,
 		model,
-		resource.Registration[base.Base, *Config]{Constructor: createSensorBase})
+		resource.Registration[base.Base, *Config]{Constructor: createSensorBase},
+	)
 }
 
 func createSensorBase(

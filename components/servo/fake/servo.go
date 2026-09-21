@@ -22,7 +22,8 @@ func init() {
 					logger: logger,
 				}, nil
 			},
-		})
+		},
+	)
 }
 
 // A Servo allows setting and reading a single angle.

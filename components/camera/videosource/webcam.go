@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/jpeg"
 	"sync"
 	"time"
 
@@ -45,7 +46,8 @@ func init() {
 		ModelWebcam,
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
-		})
+		},
+	)
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
@@ -64,12 +66,14 @@ func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 	if c.Width < 0 || c.Height < 0 {
 		return nil, nil, fmt.Errorf(
 			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
-			c.Width, c.Height)
+			c.Width, c.Height,
+		)
 	}
 	if c.FrameRate < 0 {
 		return nil, nil, fmt.Errorf(
 			"got illegal negative frame rate (%.2f) field set for webcam camera",
-			c.FrameRate)
+			c.FrameRate,
+		)
 	}
 
 	return []string{}, nil, nil
@@ -352,7 +356,14 @@ func (c *webcam) startBufferWorker() {
 				if err != nil {
 					c.buffer.release = nil
 					c.buffer.frame = nil
-					c.logger.Errorw("error reading frame", "error", err)
+
+					var jpegErr jpeg.FormatError
+					if errors.As(err, &jpegErr) {
+						c.logger.Debugw("dropped corrupt frame (usually benign, investigate only if continuous)", "error", err)
+					} else {
+						c.logger.Errorw("error reading frame", "error", err)
+					}
+
 					c.mu.Unlock()
 					continue
 				}
@@ -385,7 +396,8 @@ func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{})
 				c.lastResWarnTime = time.Now()
 				c.logger.Warnf(
 					"requested width and height (%dx%d) do not match actual webcam resolution (%dx%d); using actual resolution",
-					c.conf.Width, c.conf.Height, img.Bounds().Dx(), img.Bounds().Dy())
+					c.conf.Width, c.conf.Height, img.Bounds().Dx(), img.Bounds().Dy(),
+				)
 			}
 		}
 	}

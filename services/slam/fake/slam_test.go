@@ -31,7 +31,8 @@ func TestFakeSLAMPosition(t *testing.T) {
 	// were causing tests to pass on M1 mac but fail on ci.
 	expectedPose := spatialmath.NewPose(
 		r3.Vector{X: 5.921536787524187, Y: 13.296696037491639, Z: 0.0000000000000},
-		&spatialmath.Quaternion{Real: 0.9999997195238413, Imag: 0, Jmag: 0, Kmag: 0.0007489674483818071})
+		&spatialmath.Quaternion{Real: 0.9999997195238413, Imag: 0, Jmag: 0, Kmag: 0.0007489674483818071},
+	)
 	test.That(t, spatialmath.PoseAlmostEqual(p, expectedPose), test.ShouldBeTrue)
 
 	p2, err := slamSvc.Position(context.Background())

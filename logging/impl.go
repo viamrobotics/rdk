@@ -368,7 +368,8 @@ func (imp *impl) Write(entry *LogEntry) {
 				suppressedEntry := *entry
 				suppressedEntry.Message = fmt.Sprintf(
 					"Message logged %d times; suppressing for rest of window (%v): %s",
-					noisyMessageCountThreshold, noisyMessageWindowDuration, entry.Message)
+					noisyMessageCountThreshold, noisyMessageWindowDuration, entry.Message,
+				)
 
 				imp.testHelper()
 				for _, appender := range imp.getAppenders() {

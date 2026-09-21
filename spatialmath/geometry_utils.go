@@ -29,7 +29,7 @@ func DistToLineSegment(pt1, pt2, query r3.Vector) float64 {
 	if bv.Dot(ab) >= 0.0 { // Point is advanced past the end of the segment, so perpendicular distance is not viable.
 		return bv.Norm()
 	}
-	return (ab.Cross(av)).Norm() / ab.Norm()
+	return ab.Cross(av).Norm() / ab.Norm()
 }
 
 // ClosestPointSegmentPoint takes a line segment defined by pt1 and pt2, plus some query point, and returns the point on the line segment

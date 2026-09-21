@@ -78,6 +78,24 @@ func (mC *motionChains) geometries(
 	return movingRobotGeometries, staticRobotGeometries, movingFrameNames
 }
 
+// immovableGoalError returns a descriptive error if any goal is unsatisfiable no matter the
+// configuration, because no DoF moves the frame being solved for.
+func (mC *motionChains) immovableGoalError() error {
+	for _, chain := range mC.inner {
+		solveFrame := mC.fs.Frame(chain.solveFrameName)
+		if solveFrame == nil {
+			continue
+		}
+		// NOTE: The goal frame's own mobility is deliberately not considered. Only the solve frame and
+		// its ancestors are granted explicit permission to change configuration, so a solve frame with no
+		// DoF above it stays put however the goal's reference frame is moved.
+		if !frameCanMove(mC.fs, solveFrame) {
+			return newImmovableGoalError(mC.fs, chain.solveFrameName, chain.goalFrameName)
+		}
+	}
+	return nil
+}
+
 func (mC *motionChains) framesFilteredByMovingAndNonmoving() (moving, nonmoving []string) {
 	movingMap := map[string]referenceframe.Frame{}
 	for _, chain := range mC.inner {

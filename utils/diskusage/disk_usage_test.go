@@ -1,10 +1,14 @@
 package diskusage
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestEnoughFreeSpace(t *testing.T) {
@@ -105,4 +109,36 @@ func TestDiskUsage(t *testing.T) {
 			test.That(t, tc.du.String(), test.ShouldResemble, tc.exp)
 		}
 	})
+}
+
+func TestCheckDiskSpace(t *testing.T) {
+	// Cover the one path the robot/packages guard tests don't: a probe that errors must proceed
+	// even with blocking on, so a broken statfs never refuses an install.
+	orig := EnoughFreeSpaceFunc
+	EnoughFreeSpaceFunc = func(string, uint64) (bool, uint64, error) {
+		return false, 0, errors.New("statfs failed")
+	}
+	t.Cleanup(func() { EnoughFreeSpaceFunc = orig })
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	low, err := CheckDiskSpace(logger, t.TempDir(), "test op", 1<<20, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, low, test.ShouldBeFalse)
+	test.That(t, logs.FilterMessage("could not check free disk space; proceeding").Len(), test.ShouldEqual, 1)
+}
+
+func TestNearestExistingDir(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "a-file")
+	test.That(t, os.WriteFile(file, []byte("x"), 0o600), test.ShouldBeNil)
+
+	// A file resolves to its parent. Statfs reads the whole volume either way, so Linux would
+	// accept the file path, but Windows GetDiskFreeSpaceExW rejects it.
+	test.That(t, nearestExistingDir(file), test.ShouldEqual, dir)
+	// An existing directory is already the answer, so don't climb to its parent.
+	test.That(t, nearestExistingDir(dir), test.ShouldEqual, dir)
+	// A path that does not exist yet resolves to its nearest existing ancestor.
+	test.That(t, nearestExistingDir(filepath.Join(dir, "no", "such", "path")), test.ShouldEqual, dir)
+	// No ancestor exists: return path unchanged and let the caller's Statfs surface the error.
+	test.That(t, nearestExistingDir(""), test.ShouldEqual, "")
 }

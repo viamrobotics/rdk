@@ -726,7 +726,7 @@ func TestRunning(t *testing.T) {
 
 		// Very high RPM should be clamped by minDelay
 		freq = s.rpmToFreqHz(100000)
-		test.That(t, freq, test.ShouldEqual, uint(math.Round(1.0/(30e-6))))
+		test.That(t, freq, test.ShouldEqual, uint(math.Round(1.0/30e-6)))
 
 		// Very low RPM clamps to 1 Hz
 		freq = s.rpmToFreqHz(0.001)

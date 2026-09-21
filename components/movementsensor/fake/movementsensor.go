@@ -24,7 +24,8 @@ func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
 		model,
-		resource.Registration[movementsensor.MovementSensor, *Config]{Constructor: NewMovementSensor})
+		resource.Registration[movementsensor.MovementSensor, *Config]{Constructor: NewMovementSensor},
+	)
 }
 
 // NewMovementSensor makes a new fake movement sensor.

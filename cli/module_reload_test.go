@@ -598,6 +598,20 @@ func TestMutateModuleConfig(t *testing.T) {
 	})
 }
 
+func TestConfiguredModuleName(t *testing.T) {
+	partWithConfig := func(cfg string) *apppb.RobotPart {
+		return &apppb.RobotPart{RobotConfigJson: &cfg}
+	}
+
+	legacy := `{"modules":[{"name":"viam_mymod_from_reload","module_id":"viam:mymod","type":"registry"}]}`
+	test.That(t, configuredModuleName(partWithConfig(legacy), "viam:mymod"), test.ShouldEqual, "viam_mymod_from_reload")
+
+	current := `{"modules":[{"name":"viam_mymod","module_id":"viam:mymod","type":"registry"}]}`
+	test.That(t, configuredModuleName(partWithConfig(current), "viam:mymod"), test.ShouldEqual, "viam_mymod")
+
+	test.That(t, configuredModuleName(partWithConfig(`{}`), "viam:mymod"), test.ShouldEqual, "viam_mymod")
+}
+
 func TestReloadWithMissingBuildSection(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 

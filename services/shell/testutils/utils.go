@@ -5,14 +5,12 @@ package shelltestutils
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"go.viam.com/test"
-	"go.viam.com/utils"
 )
 
 // DirectoryContentsEqual checks if the directory contents on the left and right are equal,
@@ -20,8 +18,10 @@ import (
 //
 //nolint:gosec // for testing
 func DirectoryContentsEqual(leftRoot, rightRoot string) error {
-	traverseAndGather := func(root string) (map[string]*os.File, error) {
-		files := map[string]*os.File{}
+	// Gather paths, not open handles: nothing stays open past this call, which matters
+	// on Windows where an open handle blocks the caller's t.TempDir cleanup.
+	traverseAndGather := func(root string) (map[string]string, error) {
+		files := map[string]string{}
 
 		var traverseAndGatherInner func(relDir, currentDir string) error
 		traverseAndGatherInner = func(relDir, currentDir string) error {
@@ -33,11 +33,8 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 			for _, entry := range entries {
 				entryPath := filepath.Join(currentDir, entry.Name())
 				relPath := filepath.Join(relDir, entry.Name())
-				file, err := os.Open(entryPath)
-				if err != nil {
-					return err
-				}
-				info, err := file.Stat()
+				// Stat, not Lstat, so a symlinked directory is traversed like a real one.
+				info, err := os.Stat(entryPath)
 				if err != nil {
 					return err
 				}
@@ -46,7 +43,7 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 						return err
 					}
 				}
-				files[relPath] = file
+				files[relPath] = entryPath
 			}
 			return nil
 		}
@@ -55,23 +52,15 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 		}
 		return files, nil
 	}
-	closeFiles := func(files map[string]*os.File) {
-		for _, file := range files {
-			utils.UncheckedError(file.Close())
-		}
-	}
 
 	leftFiles, err := traverseAndGather(leftRoot)
 	if err != nil {
 		return err
 	}
-	defer closeFiles(leftFiles)
-
 	rightFiles, err := traverseAndGather(rightRoot)
 	if err != nil {
 		return err
 	}
-	defer closeFiles(rightFiles)
 
 	if len(leftFiles) != len(rightFiles) {
 		return fmt.Errorf(
@@ -80,40 +69,40 @@ func DirectoryContentsEqual(leftRoot, rightRoot string) error {
 			rightRoot, len(rightFiles),
 		)
 	}
-	for leftFilePath, leftFile := range leftFiles {
-		rightFile, ok := rightFiles[leftFilePath]
+	for relPath, leftPath := range leftFiles {
+		rightPath, ok := rightFiles[relPath]
 		if !ok {
-			return fmt.Errorf("right does not have %q", leftFilePath)
+			return fmt.Errorf("right does not have %q", relPath)
 		}
-		delete(rightFiles, leftFilePath)
+		delete(rightFiles, relPath)
 
-		if filepath.Base(leftFile.Name()) != filepath.Base(rightFile.Name()) {
-			panic(fmt.Errorf("unexpected mismatched name %q, %q", leftFile.Name(), rightFile.Name()))
+		if filepath.Base(leftPath) != filepath.Base(rightPath) {
+			panic(fmt.Errorf("unexpected mismatched name %q, %q", leftPath, rightPath))
 		}
-		leftInfo, err := leftFile.Stat()
+		leftInfo, err := os.Stat(leftPath)
 		if err != nil {
 			return err
 		}
-		rightInfo, err := rightFile.Stat()
+		rightInfo, err := os.Stat(rightPath)
 		if err != nil {
 			return err
 		}
 		if leftInfo.IsDir() != rightInfo.IsDir() {
-			return fmt.Errorf("%q directory/file mismatch", leftFilePath)
+			return fmt.Errorf("%q directory/file mismatch", relPath)
 		}
 		if leftInfo.IsDir() {
 			continue
 		}
-		leftRd, err := io.ReadAll(leftFile)
+		leftRd, err := os.ReadFile(leftPath)
 		if err != nil {
 			return err
 		}
-		rightRd, err := io.ReadAll(rightFile)
+		rightRd, err := os.ReadFile(rightPath)
 		if err != nil {
 			return err
 		}
 		if !bytes.Equal(leftRd, rightRd) {
-			return fmt.Errorf("%q contents not equal", leftFilePath)
+			return fmt.Errorf("%q contents not equal", relPath)
 		}
 	}
 	if len(rightFiles) != 0 {

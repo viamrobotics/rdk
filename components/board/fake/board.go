@@ -72,7 +72,8 @@ func init() {
 			) (board.Board, error) {
 				return NewBoard(ctx, cfg, logger)
 			},
-		})
+		},
+	)
 }
 
 // NewBoard returns a new fake board.

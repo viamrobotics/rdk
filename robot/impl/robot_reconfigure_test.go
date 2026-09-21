@@ -100,7 +100,8 @@ func TestRobotReconfigure(t *testing.T) {
 					childValues: make(map[string]int),
 				}, nil
 			},
-		})
+		},
+	)
 
 	resetComponentFailureState := func() {
 		reconfigurableTrue = true
@@ -122,7 +123,8 @@ func TestRobotReconfigure(t *testing.T) {
 				}
 				return &mockFake2{Named: conf.ResourceName().AsNamed()}, nil
 			},
-		})
+		},
+	)
 
 	mockWithDepModel := registerMockComponent(t, resource.Registration[resource.Resource, *mockWithDepConfig]{
 		Constructor: func(
@@ -729,10 +731,12 @@ func TestRobotReconfigure(t *testing.T) {
 				rdktestutils.ConcatResourceNames(
 					motorNames,
 					resource.DefaultServices(),
-					[]resource.Name{mockNamed("mock1")}),
+					[]resource.Name{mockNamed("mock1")},
+				),
 				rdktestutils.ConcatResourceNames(
 					armNames,
-					[]resource.Name{mockNamed("mock2"), mockNamed("mock3")}),
+					[]resource.Name{mockNamed("mock2"), mockNamed("mock3")},
+				),
 				baseNames,
 				boardNames,
 			},
@@ -975,7 +979,8 @@ func TestRobotReconfigure(t *testing.T) {
 			[][]resource.Name{
 				rdktestutils.ConcatResourceNames(
 					motorNames,
-					resource.DefaultServices()),
+					resource.DefaultServices(),
+				),
 				armNames,
 				baseNames,
 				boardNames,
@@ -3543,7 +3548,8 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 					<-ctx.Done()
 					return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 				},
-			})
+			},
+		)
 
 		th.cfg = &config.Config{
 			Components: []resource.Config{
@@ -3621,7 +3627,8 @@ func TestResourceConstructCtxDone(t *testing.T) {
 					}
 					return th.mf, nil
 				},
-			})
+			},
+		)
 		mock1Cfg := resource.Config{
 			Name:  "one",
 			Model: model1,

@@ -373,7 +373,7 @@ func (c *collector) logCaptureErrs() {
 			if errors.As(err, &failedToReadError) {
 				c.logger.Warn(err)
 			} else {
-				c.logger.Error((err))
+				c.logger.Error(err)
 			}
 			c.lastLoggedErrors[err.Error()] = now
 		}

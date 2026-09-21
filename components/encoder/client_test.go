@@ -112,7 +112,8 @@ func TestClient(t *testing.T) {
 		pos, positionType, err := workingEncoderClient.Position(
 			context.Background(),
 			encoder.PositionTypeUnspecified,
-			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
+			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 		test.That(t, positionType, test.ShouldEqual, pb.PositionType_POSITION_TYPE_UNSPECIFIED)

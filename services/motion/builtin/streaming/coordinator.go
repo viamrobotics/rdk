@@ -11,12 +11,12 @@ import (
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
 // Run executes a streaming session through one trajex session and one arm stream RPC.
 // If jpCh is closed, it samples everything out of the trajex session and sends it to the
-// arm, then waits for the arm to have finished executing before returning, including for the
-// runway estimate to reach zero.
+// arm, then waits for the arm to have finished executing before returning.
 //
 // --- An important note on backpressure --
 //
@@ -36,6 +36,7 @@ func Run(
 	opts StreamOptions,
 	jpCh <-chan JointPositionsChItem,
 	seed []referenceframe.Input,
+	diagnostics *diagnostics.SingleSessionDiagnostics,
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err
@@ -44,7 +45,7 @@ func Run(
 	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
 	// Start the arm RPC stream.
-	as := newArmStream(ctx, a)
+	as := newArmStream(ctx, a, diagnostics)
 	defer func() {
 		if err != nil {
 			// On error, cancel first so that the RPC gets interrupted.
@@ -56,12 +57,13 @@ func Run(
 			return
 		}
 		// On success, close first to signal that the RPC can finish.
+		// This blocks until the arm reports that it has completed executing the stream.
 		err = as.close()
 		cancel()
 	}()
 
 	// Start the trajex session.
-	ts := &trajexSession{opts: opts}
+	ts := &trajexSession{opts: opts, diagnostics: diagnostics}
 	if err := ts.startSession(seed); err != nil {
 		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}
@@ -89,46 +91,47 @@ func Run(
 						return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 					}
 					if len(pvats) == 0 {
-						return waitOutRunway(ctx, as)
+						return nil
 					}
 					if err := as.send(ctx, pvats); err != nil {
 						return err
 					}
 				}
 			}
+			diagnostics.RecordReceivedJointPositionTargetEvent()
 
 			// Add the new joint positions to the trajex session.
 			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 
+			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
+			// Top up in case we missed the last tick.
+			if err := as.topUp(ctx, ts, targetRunway); err != nil {
+				return err
+			}
+
 		// Time to check whether the arm's runway needs topping up.
 		case <-sendToArmTicker.C:
-			// Sample out of trajex only the deficit needed to top up the arm's runway.
-			deficit := targetRunway - as.currentEstimatedRunwayInArm()
-			if deficit <= 0 {
-				continue
-			}
-			pvats, err := ts.sampleAtLeast(ctx, deficit)
-			if err != nil {
-				return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
-			}
-			if len(pvats) == 0 {
-				// No trajectory yet, or what we have received so far has been sampled through.
-				continue
-			}
-			if err := as.send(ctx, pvats); err != nil {
+			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
+			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func waitOutRunway(ctx context.Context, as *armStream) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(as.currentEstimatedRunwayInArm()):
+func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
+	deficit := targetRunway - s.currentEstimatedRunwayInArm()
+	if deficit <= 0 {
 		return nil
 	}
+	pvats, err := ts.sampleAtLeast(ctx, deficit)
+	if err != nil {
+		return fmt.Errorf("sample (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+	}
+	if len(pvats) == 0 {
+		return nil
+	}
+	return s.send(ctx, pvats)
 }

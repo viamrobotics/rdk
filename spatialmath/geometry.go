@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -55,6 +56,35 @@ type Geometry interface {
 	json.Marshaler
 }
 
+// GeometrySetHash fingerprints a geometry set by label, pose, and shape (via
+// Geometry.Hash, which folds in type-specific dimensions - a cache keyed on
+// this hash must not serve a stale entry to a same-named, same-posed geometry
+// whose size changed). The per-geometry hashes are combined commutatively
+// because callers assemble the set from map iteration - the same set must hash
+// identically regardless of geometry order.
+func GeometrySetHash(geoms []Geometry) uint64 {
+	const fnvPrime = 0x100000001b3
+	total := uint64(len(geoms))
+	for _, g := range geoms {
+		h := uint64(0xcbf29ce484222325)
+		mix := func(v uint64) {
+			h ^= v
+			h *= fnvPrime
+		}
+		for _, ch := range g.Label() {
+			mix(uint64(ch))
+		}
+		pt := g.Pose().Point()
+		q := g.Pose().Orientation().Quaternion()
+		for _, f := range [7]float64{pt.X, pt.Y, pt.Z, q.Real, q.Imag, q.Jmag, q.Kmag} {
+			mix(math.Float64bits(f))
+		}
+		mix(uint64(g.Hash()))
+		total += h
+	}
+	return total
+}
+
 // GeometryType defines what geometry representations are known.
 type GeometryType string
 
@@ -83,6 +113,12 @@ type GeometryConfig struct {
 
 	// parameter used for defining a capsule's length
 	L float64 `json:"l"`
+
+	// Capped controls whether a cylinder's flat end caps are included. Nil (the
+	// default, and the value for every non-cylinder geometry) means capped/solid;
+	// an explicit false produces an open tube. A pointer so that an absent field
+	// round-trips as a solid cylinder, matching pre-existing configs.
+	Capped *bool `json:"capped,omitempty"`
 
 	// parameters used for defining a mesh
 	MeshData        []byte `json:"mesh_data,omitempty"`         // Binary mesh file data
@@ -120,6 +156,12 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.R = gType.radius
 		config.L = gType.height
 		config.Label = gType.label
+		// Only emit "capped" for the non-default (open) case, so solid cylinders
+		// round-trip byte-identically to pre-existing configs.
+		if !gType.capped {
+			open := false
+			config.Capped = &open
+		}
 	case *point:
 		config.Type = PointType
 		config.Label = gType.label
@@ -161,7 +203,11 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	case CapsuleType:
 		return NewCapsule(offset, config.R, config.L, config.Label)
 	case CylinderType:
-		return NewCylinder(offset, config.R, config.L, config.Label)
+		capped := true
+		if config.Capped != nil {
+			capped = *config.Capped
+		}
+		return NewCylinderWithCapped(offset, config.R, config.L, capped, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
 	case MeshType:

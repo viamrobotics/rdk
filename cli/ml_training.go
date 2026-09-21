@@ -69,7 +69,8 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+	)
 	if err != nil {
 		return err
 	}
@@ -124,7 +125,8 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+	)
 	if err != nil {
 		return err
 	}
@@ -165,7 +167,8 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		return err
 	}
 	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+		context.Background(), &mltrainingpb.ListSupportedContainersRequest{},
+	)
 	if err != nil {
 		return err
 	}
@@ -181,7 +184,6 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 			CreatedOn: v.CreatedOn.String(),
 			ID:        v.Id,
 		}
-		
 		if args.IncludeURIs {
 			container.URI = v.Uri
 		}
@@ -195,6 +197,42 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	return nil
 }
 
+type registerCustomContainersArgs struct {
+	OrgID       string
+	URI         string
+	Description string
+}
+
+// RegisterCustomContainer is the corresponding action for 'train containers register'.
+func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registerCustomContainersArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
+	}
+
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	description := args.Description
+	if description == "" {
+		description = args.URI
+	}
+
+	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
+		&mltrainingpb.RegisterCustomTrainingContainerRequest{
+			OrganizationId: args.OrgID,
+			ImageUri:       args.URI,
+			Description:    description,
+		})
+	if err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "Container successfully registered. Its ID is %s", resp.Id)
+	return nil
+}
+
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
 func MLSubmitTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitTrainingJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
@@ -203,7 +241,8 @@ func MLSubmitTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitTra
 	}
 	trainingJobID, err := client.mlSubmitTrainingJob(
 		args.DatasetID, args.ModelOrgID, args.ModelName, args.ModelVersion, args.ModelType,
-		args.ModelFramework, args.ModelLabels)
+		args.ModelFramework, args.ModelLabels,
+	)
 	if err != nil {
 		return err
 	}
@@ -379,7 +418,8 @@ func DataCancelTrainingJob(ctx context.Context, cmd *cli.Command, args dataCance
 // dataCancelTrainingJob cancels a training job with the given ID.
 func (c *viamClient) dataCancelTrainingJob(trainingJobID string) error {
 	if _, err := c.mlTrainingClient.CancelTrainingJob(
-		context.Background(), &mltrainingpb.CancelTrainingJobRequest{Id: trainingJobID}); err != nil {
+		context.Background(), &mltrainingpb.CancelTrainingJobRequest{Id: trainingJobID},
+	); err != nil {
 		return err
 	}
 	return nil

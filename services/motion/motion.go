@@ -114,7 +114,8 @@ func (r MoveOnMapReq) String() string {
 		r.Destination,
 		r.MotionCfg,
 		r.Obstacles,
-		r.Extra)
+		r.Extra,
+	)
 }
 
 // StopPlanReq describes the request to StopPlan().
