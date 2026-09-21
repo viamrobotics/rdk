@@ -4245,6 +4245,9 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
+	if !isInteractive() {
+		flagArgs.NoProgress = true
+	}
 	pm := NewProgressManager([]*Step{
 		{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
 	}, WithProgressOutput(!flagArgs.NoProgress))
@@ -4838,6 +4841,9 @@ type updateArgs struct {
 
 // UpdateCLIAction updates the CLI to the latest version.
 func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) error {
+	if !isInteractive() {
+		args.NoProgress = true
+	}
 	pm := NewProgressManager([]*Step{
 		{ID: "check", Message: "Checking for updates", IndentLevel: 0},
 		{ID: "update", Message: "Updating...", IndentLevel: 0},
