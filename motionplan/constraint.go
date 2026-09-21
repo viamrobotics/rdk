@@ -187,11 +187,9 @@ func (e *OrientationConstraintEval) Score(now spatialmath.Orientation) float64 {
 }
 
 // OrientationCloudConstraint specifies that the components being moved stay within a per-axis
-// cloud of their goal orientation at every state along the path. Unlike OrientationConstraint it
-// is independent of the start orientation and of the direct reorientation between start and
-// goal - a cup that must stay upright however it is spun, for instance. The cloud is evaluated in
-// the goal's parent frame, and the start orientation must itself lie within it for a path to
-// exist.
+// cloud of their goal orientation at every state along the path, regardless of the start
+// orientation or the direct reorientation between start and goal - a cup that must stay upright
+// however it is spun. The cloud is evaluated in the goal's parent frame; the start must lie in it.
 type OrientationCloudConstraint struct {
 	referenceframe.OrientationCloud
 }
