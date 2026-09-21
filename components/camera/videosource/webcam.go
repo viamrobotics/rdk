@@ -42,7 +42,7 @@ const (
 	defaultWakeTimeout = 15 * time.Second
 	// idleStaleFrames is how many frames wake drops before buffering one. The mediadevices drivers hold
 	// frames captured at pause time (two v4l2 mmap buffers, one AVFoundation channel slot) until read.
-	idleStaleFrames = 2
+	idleStaleFrames = 3
 )
 
 // openCameraFunc opens the camera described by the config; findReaderAndDriver in production.
