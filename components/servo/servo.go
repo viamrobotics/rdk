@@ -87,6 +87,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the servo sub-resource of a composite, for resource.Compose.
+func AsSub(r Servo) resource.Sub { return resource.AsSub[Servo](API, r) }
+
 // Deprecated: FromRobot is a helper for getting the named servo from the given Robot.
 // Use FromProvider instead.
 //
