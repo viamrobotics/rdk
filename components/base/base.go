@@ -43,6 +43,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the base sub-resource of a composite, for resource.Compose. The Base parameter
+// type gives a compile-time check that r satisfies the base API at the call site.
+func AsSub(r Base) resource.Sub { return resource.AsSub[Base](API, r) }
+
 // A Base represents a physical base of a robot.
 // For more information, see the [base component docs].
 //
