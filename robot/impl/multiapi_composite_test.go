@@ -518,6 +518,96 @@ func TestModularCompositeCustomAPI(t *testing.T) {
 	test.That(t, msProps.PositionSupported, test.ShouldBeTrue)
 }
 
+// TestModularCompositeCustomAPIUnderBuiltinAPI is the regression test for the ResourceRPCAPIs
+// composite-expansion fix. It is identical to TestModularCompositeCustomAPI EXCEPT the composite is
+// declared under a BUILTIN API (camera) rather than the custom gizmo API. The composite still serves
+// the custom gizmo API co-equally, but its canonical graph node is now the camera one. Before the
+// fix, ResourceRPCAPIs iterated only the raw graph names, so it emitted a descriptor for the
+// canonical (camera) API alone and never advertised the co-equal gizmo API; a gizmo call then failed
+// in the client with Unimplemented in TypeAndMethodDescFromMethod, before web.go's
+// foreignServiceHandler composite-unwrap could ever fire. With the fix, ResourceRPCAPIs expands the
+// composite so every co-equal API surfaces its RPC descriptor regardless of the declared API, and the
+// gizmo call routes correctly. The server runs as a separate process whose binary does not import
+// gizmoapi, so gizmo is reachable only via the foreign path.
+func TestModularCompositeCustomAPIUnderBuiltinAPI(t *testing.T) {
+	logger, logObserver := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule")
+	model := resource.NewModel("acme", "demo", "combodevice")
+
+	var port int
+	var success bool
+	for portTryNum := 0; portTryNum < 10; portTryNum++ {
+		p, err := goutils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
+		port = p
+
+		cfg := &config.Config{
+			Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
+			Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+				BindAddress: fmt.Sprintf("localhost:%d", port),
+			}},
+			Components: []resource.Config{
+				// Declared under the BUILTIN camera API: the composite's canonical graph node is the
+				// camera one, NOT the gizmo one. This is the case the fix targets — the co-equal gizmo
+				// API must still be advertised (via ResourceRPCAPIs expansion) so the foreign gizmo call
+				// can route through foreignServiceHandler.
+				{Name: "combo", API: camera.API, Model: model, Composite: true},
+			},
+		}
+		cfgFilename, err := robottestutils.MakeTempConfig(t, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
+		err = server.Start(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		if success = robottestutils.WaitForServing(logObserver, port); success {
+			defer func() { test.That(t, server.Stop(), test.ShouldBeNil) }()
+			break
+		}
+		logger.Infow("port in use, restarting on a new port", "port", port)
+		server.Stop()
+	}
+	test.That(t, success, test.ShouldBeTrue)
+
+	rc := connectToSeparateServer(t, ctx, port, logger)
+	defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
+
+	// Custom gizmo API over a composite DECLARED UNDER camera: before the fix this failed with
+	// Unimplemented because ResourceRPCAPIs never advertised the gizmo descriptor for a camera-declared
+	// composite. DoOne("combo") returns true and DoOne("nope") returns false, proving the call reached
+	// the gizmo facade of the composite in the module via foreignServiceHandler's unwrap path.
+	res, err := rc.ResourceByName(gizmoapi.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	giz, err := resource.AsType[gizmoapi.Gizmo](res)
+	test.That(t, err, test.ShouldBeNil)
+
+	ok, err := giz.DoOne(ctx, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	ok, err = giz.DoOne(ctx, "nope")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	// The two colliding builtin APIs still route to their own facades over the same composite.
+	cam, err := camera.FromRobot(rc, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	camProps, err := cam.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, camProps.FrameRate, test.ShouldEqual, 30)
+	test.That(t, camProps.SupportsPCD, test.ShouldBeTrue)
+
+	ms, err := movementsensor.FromRobot(rc, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	msProps, err := ms.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, msProps.AngularVelocitySupported, test.ShouldBeTrue)
+	test.That(t, msProps.PositionSupported, test.ShouldBeTrue)
+}
+
 // collideDevice is a builtin, in-process COLLIDING composite: one shared device serving camera.Camera
 // and movementsensor.MovementSensor, whose Properties methods collide by name with different return
 // types. Every non-colliding method and all lifecycle state (the close counter) live here; the two
