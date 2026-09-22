@@ -2,8 +2,9 @@ package resource
 
 import (
 	"context"
+	"sort"
 
-	"go.uber.org/multierr"
+	"github.com/pkg/errors"
 )
 
 // MultiAPIResource is a resource that serves more than one co-equal API from a single identity — a
@@ -38,6 +39,43 @@ type compositeResource struct {
 // Every api in apis must have an entry in byAPI.
 func NewMultiAPIResource(name Name, apis []API, byAPI map[API]Resource) MultiAPIResource {
 	return &compositeResource{name: name, apis: append([]API(nil), apis...), byAPI: byAPI}
+}
+
+// Sub is a sub-resource tagged with the API it serves within a composite. It is the input to Compose:
+// each Sub pairs one API with the (facade) implementation that carries that API's methods.
+type Sub struct {
+	API API
+	Res Resource
+}
+
+// AsSub tags res as the sub-resource serving api, checking at compile time that res satisfies the API
+// interface T. Authors write AsSub[someAPIInterface](theAPI, impl); the type parameter is what forces
+// impl to implement someAPIInterface, so a facade wired to the wrong API fails to compile rather than
+// at runtime. Per-API packages wrap this with sugar (e.g. camera.AsSub) in a later change; this
+// generic form lives here because resource cannot import component packages.
+func AsSub[T Resource](api API, res T) Sub {
+	return Sub{API: api, Res: res}
+}
+
+// Compose assembles a composite MultiAPIResource from per-API sub-resources. The served APIs are
+// sorted by API string (matching RegisterMultiAPISet) so the first is a deterministic canonical API
+// that DoCommand, Status, and Close route to. It errors if no subs are given or if two subs share an
+// API. Compose is the ergonomic, type-checked front door to NewMultiAPIResource (pair it with AsSub).
+func Compose(name Name, subs ...Sub) (MultiAPIResource, error) {
+	if len(subs) == 0 {
+		return nil, errors.New("Compose requires at least one sub-resource")
+	}
+	apis := make([]API, 0, len(subs))
+	byAPI := make(map[API]Resource, len(subs))
+	for _, sub := range subs {
+		if _, dup := byAPI[sub.API]; dup {
+			return nil, errors.Errorf("Compose given duplicate sub-resources for api: %q", sub.API)
+		}
+		byAPI[sub.API] = sub.Res
+		apis = append(apis, sub.API)
+	}
+	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+	return NewMultiAPIResource(name, apis, byAPI), nil
 }
 
 func (c *compositeResource) Name() Name { return c.name }
@@ -78,20 +116,15 @@ func (c *compositeResource) Status(ctx context.Context) (map[string]interface{},
 	return map[string]interface{}{}, nil
 }
 
-// Close closes each distinct sub-resource once. Sub-resources may share an underlying object, so a
-// resource is closed at most once even when several APIs map to it.
+// Close closes the composite once, via its canonical (first-declared) sub-resource — mirroring how
+// DoCommand and Status route. A composite is one device with one lifecycle: its per-API facades embed
+// one shared underlying impl and must not hold independent closeable state, so closing the canonical
+// sub tears the whole composite down and closing every facade would double-close that shared impl.
 func (c *compositeResource) Close(ctx context.Context) error {
-	seen := make(map[Resource]bool, len(c.byAPI))
-	var errs error
-	for _, api := range c.apis {
-		sub, ok := c.byAPI[api]
-		if !ok || seen[sub] {
-			continue
-		}
-		seen[sub] = true
-		errs = multierr.Combine(errs, sub.Close(ctx))
+	if sub, ok := c.canonicalSub(); ok {
+		return sub.Close(ctx)
 	}
-	return errs
+	return nil
 }
 
 // subresourceForAPI unwraps a composite to the sub-resource serving api. If res is not a composite
