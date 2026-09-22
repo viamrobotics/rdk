@@ -168,6 +168,11 @@ func TestMonitorReconnectsByNameWhenPathChanges(t *testing.T) {
 	unplug(fakeA, a)
 	waitForDisconnect(t, c)
 
+	// A different camera appears while disconnected; it must not be picked up by the name fallback.
+	registerFakeCamera(t, "rdk-test-replug-decoy", "rdk-test-replug-other-cam", true)
+	time.Sleep(monitorSettleTime)
+	test.That(t, snapshot(c).disconnected, test.ShouldBeTrue)
+
 	// The same camera comes back under a new UID, as happens when it is plugged into a different port.
 	registerFakeCamera(t, "rdk-test-replug-a2", "rdk-test-replug-cam", true)
 	waitForReconnect(t, c, "rdk-test-replug-a2")
