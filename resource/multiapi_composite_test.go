@@ -307,7 +307,8 @@ func TestCompositeCloseOnce(t *testing.T) {
 	test.That(t, composite.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, c.closes, test.ShouldEqual, 1)
 
-	// distinct sub-resources are each closed exactly once
+	// a composite is one lifecycle: Close routes only to the canonical (apis[0]) sub, so a
+	// non-canonical sub value is never independently closed.
 	cam := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
 	sens := &combo{Named: NewName(testSensAPI, "dev").AsNamed()}
 	composite2 := NewMultiAPIResource(
@@ -317,7 +318,7 @@ func TestCompositeCloseOnce(t *testing.T) {
 	)
 	test.That(t, composite2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, cam.closes, test.ShouldEqual, 1)
-	test.That(t, sens.closes, test.ShouldEqual, 1)
+	test.That(t, sens.closes, test.ShouldEqual, 0)
 }
 
 func TestNewMultiAPIResourceDefensiveCopy(t *testing.T) {
@@ -362,6 +363,130 @@ func TestSimpleName(t *testing.T) {
 	test.That(t, n.Name, test.ShouldEqual, "combo")
 	test.That(t, n.API, test.ShouldResemble, API{})
 	test.That(t, n.Remote, test.ShouldEqual, "")
+}
+
+// Two co-equal APIs whose method sets collide by name: both declare Properties, with different
+// signatures. propcam sorts before propimu, so propCamAPI is the canonical (sorted-first) API.
+var (
+	propCamAPI = APINamespaceRDK.WithComponentType("propcam")
+	propIMUAPI = APINamespaceRDK.WithComponentType("propimu")
+)
+
+// CamProps and IMUProps are the deliberately different return types of the two colliding Properties
+// methods, so a single Go type cannot carry both.
+type (
+	CamProps struct{ Width int }
+	IMUProps struct{ AngularRateHz float64 }
+)
+
+type propCam interface {
+	Resource
+	Properties(context.Context) (CamProps, error)
+}
+
+type propIMU interface {
+	Resource
+	Properties(context.Context, map[string]interface{}) (*IMUProps, error)
+}
+
+// comboProps is one shared-state device serving both propCam and propIMU. Its two Properties methods
+// collide by name with incompatible signatures, so neither can live on comboProps directly; each is
+// carried by a thin per-API facade embedding *comboProps. All lifecycle state (here, a close counter)
+// lives on the one shared comboProps, never on a facade.
+type comboProps struct {
+	Named
+	AlwaysRebuild
+	closes int
+}
+
+func (c *comboProps) DoCommand(context.Context, map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{"ok": true}, nil
+}
+
+func (c *comboProps) Status(context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
+func (c *comboProps) Close(context.Context) error {
+	c.closes++
+	return nil
+}
+
+type camFacade struct{ *comboProps }
+
+func (f camFacade) Properties(context.Context) (CamProps, error) { return CamProps{Width: 640}, nil }
+
+type imuFacade struct{ *comboProps }
+
+func (f imuFacade) Properties(context.Context, map[string]interface{}) (*IMUProps, error) {
+	return &IMUProps{AngularRateHz: 100}, nil
+}
+
+func TestComposeFacadesCollidingMethods(t *testing.T) {
+	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
+	composite, err := Compose(
+		NewName(propCamAPI, "dev"),
+		AsSub[propCam](propCamAPI, camFacade{c}),
+		AsSub[propIMU](propIMUAPI, imuFacade{c}),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// each co-equal API resolves to its own facade
+	camSub, ok := composite.ResourceForAPI(propCamAPI)
+	test.That(t, ok, test.ShouldBeTrue)
+	_, isCam := camSub.(camFacade)
+	test.That(t, isCam, test.ShouldBeTrue)
+	imuSub, ok := composite.ResourceForAPI(propIMUAPI)
+	test.That(t, ok, test.ShouldBeTrue)
+	_, isIMU := imuSub.(imuFacade)
+	test.That(t, isIMU, test.ShouldBeTrue)
+
+	// AsType extracts each colliding interface, and each one's own Properties runs and returns its
+	// own type.
+	cam, err := AsType[propCam](composite)
+	test.That(t, err, test.ShouldBeNil)
+	cp, err := cam.Properties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cp.Width, test.ShouldEqual, 640)
+
+	imu, err := AsType[propIMU](composite)
+	test.That(t, err, test.ShouldBeNil)
+	ip, err := imu.Properties(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ip.AngularRateHz, test.ShouldEqual, 100)
+
+	// APIsOf reports both served APIs, sorted with the canonical (propcam) first
+	test.That(t, APIsOf(composite), test.ShouldResemble, []API{propCamAPI, propIMUAPI})
+}
+
+func TestComposeErrors(t *testing.T) {
+	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
+
+	// no subs is an error
+	_, err := Compose(NewName(propCamAPI, "dev"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// two subs sharing an API is an error
+	_, err = Compose(
+		NewName(propCamAPI, "dev"),
+		AsSub[propCam](propCamAPI, camFacade{c}),
+		AsSub[propCam](propCamAPI, camFacade{c}),
+	)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestComposeCloseOnceAcrossFacades(t *testing.T) {
+	// camFacade{c} and imuFacade{c} are distinct sub values both delegating to the one shared c;
+	// Close must fire the shared Close exactly once, not once per facade.
+	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
+	composite, err := Compose(
+		NewName(propCamAPI, "dev"),
+		AsSub[propCam](propCamAPI, camFacade{c}),
+		AsSub[propIMU](propIMUAPI, imuFacade{c}),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, composite.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, c.closes, test.ShouldEqual, 1)
 }
 
 func TestConfigCompositeRoundTrip(t *testing.T) {
