@@ -203,22 +203,48 @@ func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, erro
 	return r.FindBySimpleNameAndAPI(name.Name, name.API)
 }
 
-// resourceBySimpleName resolves a bare (API-less) name to its single resource. A composite is one
-// node reachable under several co-equal APIs, so FindBySimpleName dedups it to a single match and
-// this returns the one handle serving every API. A genuine same-name collision across distinct
-// resources returns several matches and is an error.
+// resourceBySimpleName resolves a bare (API-less) name to its single resource. A composite is served
+// under several co-equal APIs but is one identity, so FindBySimpleName dedups it (local or remote) to
+// a single match and this returns the one handle serving every API. A genuine same-name collision
+// across distinct resources returns several matches and is an error.
 func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error) {
 	matches := r.manager.resources.FindBySimpleName(name)
 	switch len(matches) {
 	case 0:
 		return nil, resource.NewNotFoundError(resource.SimpleName(name))
 	case 1:
-		return r.FindBySimpleNameAndAPI(matches[0].Name, matches[0].API)
+		return r.resolveSimpleNameMatch(name, matches[0])
 	default:
 		return nil, errors.Errorf(
 			"multiple resources share the simple name %q across distinct APIs (%s); look it up by its fully qualified name instead",
 			name, resource.NamesToStrings(matches))
 	}
+}
+
+// resolveSimpleNameMatch turns the single simple-name match into a resource handle. A LOCAL composite
+// already lives in one resource.MultiAPIResource graph node, so a direct lookup returns the whole
+// handle. A REMOTE composite instead lives as one per-API sub-client node per co-equal API (the main
+// robot proxies each API separately), so assemble a resource.MultiAPIResource view over those
+// sub-clients -- mirroring the robot client's newCompositeLocked -- so an api-less lookup yields one
+// handle whose resource.APIsOf reports every API and resource.AsType unwraps to any API's sub-client.
+func (r *localRobot) resolveSimpleNameMatch(name string, match resource.Name) (resource.Resource, error) {
+	if match.Remote == "" {
+		return r.FindBySimpleNameAndAPI(match.Name, match.API)
+	}
+	apis := r.manager.resources.APIsForRemoteResource(name, match.Remote)
+	if len(apis) <= 1 {
+		return r.FindBySimpleNameAndAPI(match.Name, match.API)
+	}
+	byAPI := make(map[resource.API]resource.Resource, len(apis))
+	for _, api := range apis {
+		sub, err := r.FindBySimpleNameAndAPI(match.Name, api)
+		if err != nil {
+			return nil, err
+		}
+		byAPI[api] = sub
+	}
+	return resource.NewMultiAPIResource(
+		resource.Name{API: apis[0], Remote: match.Remote, Name: match.Name}, apis, byAPI), nil
 }
 
 // RemoteNames returns the names of all known remote robots.

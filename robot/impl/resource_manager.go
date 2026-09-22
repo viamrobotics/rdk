@@ -304,20 +304,25 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if !nodeAlreadyExists {
-			// Check for a full resource name collision and log an error if there is one.
+			// Check for a resource name collision across ALL APIs and log an error if there is one. A
+			// composite living on this remote is advertised as several same-named resources that differ
+			// only by API; those are one composite (names are unique per remote), not a collision, so
+			// matches from THIS remote are ignored. A genuine collision -- a local resource, or a
+			// resource on a DIFFERENT remote, sharing this simple name -- is still reported. The
+			// cross-API scan (rather than a single-API lookup) is what catches a bare-name collision that
+			// spans two different APIs, which machine-wide name uniqueness forbids.
 			prefixedSimpleName := prefix + resName.Name
-			_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
-			switch {
-			case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
-				// A collision could be indicated by a non-nil graph node (a single pre-existing
-				// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
-				// pre-existing remote resources with the same name).
+			var conflicts []resource.Name
+			for _, match := range manager.resources.FindBySimpleName(prefixedSimpleName) {
+				if match.Remote == remoteName.Name {
+					continue
+				}
+				conflicts = append(conflicts, match)
+			}
+			if len(conflicts) > 0 {
 				manager.logger.Errorw("Found resource name collision when querying remote, please rename this resource or use a remote prefix",
-					"name", prefixedSimpleName, "api", resName.API, "remote", remoteName.Name)
-			case resource.IsNodeNotFoundError(err):
-				// No resources with the given simple name + API exists yet.
-			default:
-				manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
+					"name", prefixedSimpleName, "api", resName.API, "remote", remoteName.Name,
+					"conflicts_with", resource.NamesToStrings(conflicts))
 			}
 
 			// Configure a new graph node with the gRPC client to this remote resource.
