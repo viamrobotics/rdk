@@ -157,7 +157,6 @@ do_brew(){
 	brew "pkg-config"
 	brew "viamrobotics/brews/nlopt-static"
 	brew "x264", args: ["build-from-source"]
-	brew "ffmpeg"
 	EOS
 
 	if [ $? -ne 0 ]; then
