@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -41,6 +42,13 @@ type comboSensor struct {
 
 func (c *comboSensor) Readings(context.Context, map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{"reading": 7}, nil
+}
+
+// DoCommand echoes cmd["ping"] back under "echo". It gives the composite's non-sensor (generic)
+// facade a method with an observable result, so a call can be proven to route to the correct per-API
+// facade of the one composite (rather than to Readings).
+func (c *comboSensor) DoCommand(_ context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{"echo": cmd["ping"]}, nil
 }
 
 func (c *comboSensor) Close(context.Context) error {
@@ -266,9 +274,11 @@ func TestCompositeResourceOverClient(t *testing.T) {
 }
 
 // TestCompositeRemoteResource asserts a composite on a remote is reachable under each of its APIs
-// through the main robot.
+// through the main robot: the N same-named remote resources that differ only by API are recognized
+// as ONE composite (no spurious name-collision), each API's method call routes correctly, and an
+// api-less lookup assembles a single handle whose APIsOf reports every API.
 func TestCompositeRemoteResource(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 	model := registerComboModel(t, "composite-sensor-remote", nil)
 
@@ -286,7 +296,8 @@ func TestCompositeRemoteResource(t *testing.T) {
 	}
 	main := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
 
-	// Reachable under both co-equal APIs through the main robot's remote.
+	// Reachable under both co-equal APIs through the main robot's remote, and a method call routes to
+	// the correct per-API facade of the one remote composite.
 	bySensor, err := main.ResourceByName(sensor.Named("rem:combo"))
 	test.That(t, err, test.ShouldBeNil)
 	s, err := resource.AsType[sensor.Sensor](bySensor)
@@ -298,6 +309,112 @@ func TestCompositeRemoteResource(t *testing.T) {
 	byGeneric, err := main.ResourceByName(resource.NewName(generic.API, "rem:combo"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, byGeneric, test.ShouldNotBeNil)
+	// The generic-API facade's DoCommand round-trips through the remote to the one composite instance.
+	echoed, err := byGeneric.DoCommand(ctx, map[string]interface{}{"ping": "pong"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, echoed["echo"], test.ShouldEqual, "pong")
+
+	// An api-less lookup resolves the remote composite to ONE handle serving every API (assembled over
+	// the per-API remote sub-clients), not a name collision.
+	composite, err := main.ResourceByName(resource.SimpleName("rem:combo"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resource.APIsOf(composite), test.ShouldContain, sensor.API)
+	test.That(t, resource.APIsOf(composite), test.ShouldContain, generic.API)
+	// The single handle still unwraps to a working per-API sub-client.
+	cs, err := resource.AsType[sensor.Sensor](composite)
+	test.That(t, err, test.ShouldBeNil)
+	cReadings, err := cs.Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cReadings["reading"], test.ShouldEqual, 7)
+
+	// The composite's own per-API names must NOT be flagged as a name collision anywhere.
+	test.That(t, logs.FilterMessageSnippet("resource name collision").Len(), test.ShouldEqual, 0)
+}
+
+// TestCompositeRemoteResourceCollisions asserts that making the remote name check composite-aware did
+// NOT weaken genuine collision detection. A local resource and a remote resource that share a bare
+// name still collide -- even across DIFFERENT APIs, the case a single-API check would have missed --
+// and two different (unprefixed) remotes exposing the same bare name collide as well.
+func TestCompositeRemoteResourceCollisions(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	// Plain single-API models (NOT composites).
+	sensorModel := resource.NewModel("acme", "test", "collide-remote-sensor")
+	resource.RegisterComponent(sensor.API, sensorModel,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (sensor.Sensor, error) {
+				return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
+	defer resource.Deregister(sensor.API, sensorModel)
+
+	genericModel := resource.NewModel("acme", "test", "collide-remote-generic")
+	resource.RegisterComponent(generic.API, genericModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
+	defer resource.Deregister(generic.API, genericModel)
+
+	// Remote 1: a generic "gizmo" (will collide cross-API with the main robot's local sensor "gizmo")
+	// and a sensor "widget" (will collide same-API with remote 2's sensor "widget").
+	remote1Cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "gizmo", API: generic.API, Model: genericModel},
+			{Name: "widget", API: sensor.API, Model: sensorModel},
+		},
+	}
+	remote1 := setupLocalRobot(t, ctx, remote1Cfg, logger.Sublogger("remote1"))
+	opts1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote1.StartWeb(ctx, opts1), test.ShouldBeNil)
+
+	remote2Cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "widget", API: sensor.API, Model: sensorModel},
+		},
+	}
+	remote2 := setupLocalRobot(t, ctx, remote2Cfg, logger.Sublogger("remote2"))
+	opts2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote2.StartWeb(ctx, opts2), test.ShouldBeNil)
+
+	// Main: a local sensor "gizmo" (collides cross-API with remote1's generic gizmo), and two
+	// UNPREFIXED remotes both exposing sensor "widget" (collide with each other).
+	mainCfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "gizmo", API: sensor.API, Model: sensorModel},
+		},
+		Remotes: []config.Remote{
+			{Name: "r1", Address: addr1},
+			{Name: "r2", Address: addr2},
+		},
+	}
+	main := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
+
+	// Both genuine collisions are reported: the cross-API local-vs-remote "gizmo" (missed by a
+	// per-API check) and the same-API remote-vs-remote "widget".
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("Found resource name collision when querying remote").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 2)
+	})
+
+	// The local resource still wins a fully qualified lookup of its own name+API...
+	localGizmo, err := main.ResourceByName(sensor.Named("gizmo"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, localGizmo, test.ShouldNotBeNil)
+	// ...and the remote resource is still reachable under its own remote-qualified name+API.
+	remoteGizmo, err := main.ResourceByName(resource.NewName(generic.API, "r1:gizmo"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, remoteGizmo, test.ShouldNotBeNil)
+	// But an api-less lookup of the colliding bare name has no single owner (a local AND a remote of a
+	// different API claim it), so it is an error -- name uniqueness is preserved.
+	_, err = main.ResourceByName(resource.SimpleName("gizmo"))
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 // TestModularCompositeResource exercises the rebuilt combomodule: a COLLIDING composite serving
