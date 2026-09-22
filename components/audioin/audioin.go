@@ -45,6 +45,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the audio input sub-resource of a composite, for resource.Compose. The AudioIn parameter
+// type gives a compile-time check that r satisfies the audio input API at the call site.
+func AsSub(r AudioIn) resource.Sub { return resource.AsSub[AudioIn](API, r) }
+
 // AudioChunk defines a chunk of audio data.
 type AudioChunk struct {
 	AudioData                 []byte

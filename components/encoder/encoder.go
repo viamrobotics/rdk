@@ -125,6 +125,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the encoder sub-resource of a composite, for resource.Compose. The Encoder parameter
+// type gives a compile-time check that r satisfies the encoder API at the call site.
+func AsSub(r Encoder) resource.Sub { return resource.AsSub[Encoder](API, r) }
+
 // Deprecated: FromDependencies is a helper for getting the named encoder from a collection of
 // dependencies. Use FromProvider instead.
 //

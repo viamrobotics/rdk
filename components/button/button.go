@@ -39,6 +39,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the button sub-resource of a composite, for resource.Compose. The Button parameter
+// type gives a compile-time check that r satisfies the button API at the call site.
+func AsSub(r Button) resource.Sub { return resource.AsSub[Button](API, r) }
+
 // A Button represents a physical button.
 // For more information, see the [Button component docs].
 //
