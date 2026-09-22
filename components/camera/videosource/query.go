@@ -137,7 +137,8 @@ func findReaderAndDriverByName(
 ) (video.Reader, driver.Driver, string, error) {
 	if countDevicesWithName(name) != 1 {
 		return nil, nil, "", errors.Errorf(
-			"cannot reconnect by name: multiple webcams with identical hardware names")
+			"cannot reconnect by name: multiple webcams with identical hardware names",
+		)
 	}
 
 	constraints := makeConstraints(conf, logger)

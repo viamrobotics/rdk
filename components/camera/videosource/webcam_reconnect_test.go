@@ -17,7 +17,6 @@ import (
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
-	goutils "go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/camera"
@@ -86,33 +85,22 @@ func registerFakeCamera(t *testing.T, label, name string, available bool) (*fake
 // happen would have happened.
 const monitorSettleTime = 1500 * time.Millisecond
 
-// newTestWebcam opens the given registered driver and wires it into a webcam with only the monitor worker
-// running. It bypasses NewWebcam because that starts the AVFoundation observer, which is not available in a
-// test process and is not what these tests exercise.
-func newTestWebcam(t *testing.T, d driver.Driver) *webcam {
+// newTestWebcam opens the given registered driver and wires it into a webcam. It bypasses NewWebcam because
+// that starts the AVFoundation observer, which is not available in a test process and is not what these tests
+// exercise.
+func newTestWebcam(t *testing.T, d driver.Driver, idleTimeoutMs int) *webcam {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
 	label := d.Info().Label
-	conf := WebcamConfig{Path: label, FrameRate: defaultFrameRate}
+	conf := WebcamConfig{Path: label, FrameRate: defaultFrameRate, IdleTimeoutMs: idleTimeoutMs}
 
 	reader, opened, err := getReaderAndDriver(labelFilter(label, true, false), label, makeConstraints(&conf, logger), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := &webcam{
-		Named:      resource.NewName(camera.API, "test-webcam").AsNamed(),
-		logger:     logger,
-		workers:    goutils.NewBackgroundStoppableWorkers(),
-		buffer:     newWebcamBuffer(),
-		reader:     reader,
-		driver:     opened,
-		targetPath: label,
-		targetName: d.Info().Name,
-		conf:       conf,
-	}
+	c := newWebcam(resource.NewName(camera.API, "test-webcam"), conf, label, reader, opened, findReaderAndDriver, logger)
 	t.Cleanup(func() {
 		test.That(t, c.Close(context.Background()), test.ShouldBeNil)
 	})
-	c.startMonitorWorker()
 	return c
 }
 
@@ -163,7 +151,7 @@ func waitForReconnect(t *testing.T, c *webcam, wantLabel string) {
 
 func TestMonitorReconnectsByNameWhenPathChanges(t *testing.T) {
 	fakeA, a := registerFakeCamera(t, "rdk-test-replug-a", "rdk-test-replug-cam", true)
-	c := newTestWebcam(t, a)
+	c := newTestWebcam(t, a, 0)
 
 	unplug(fakeA, a)
 	waitForDisconnect(t, c)
@@ -178,10 +166,28 @@ func TestMonitorReconnectsByNameWhenPathChanges(t *testing.T) {
 	waitForReconnect(t, c, "rdk-test-replug-a2")
 }
 
+func TestMonitorReconnectsByNameWhilePaused(t *testing.T) {
+	fakeA, a := registerFakeCamera(t, "rdk-test-idle-a", "rdk-test-idle-cam", true)
+	c := newTestWebcam(t, a, testIdleTimeoutMs)
+	waitIdle(t, c)
+
+	unplug(fakeA, a)
+	waitForDisconnect(t, c)
+
+	registerFakeCamera(t, "rdk-test-idle-a2", "rdk-test-idle-cam", true)
+	waitForReconnect(t, c, "rdk-test-idle-a2")
+	// Reconnecting does not resume reads; the next Images call must wake the camera on the new driver.
+	test.That(t, idleStateOf(c), test.ShouldEqual, stateIdle)
+
+	waitFrame(t, c)
+	test.That(t, idleStateOf(c), test.ShouldEqual, stateStreaming)
+	test.That(t, snapshot(c).driverLabel, test.ShouldEqual, "rdk-test-idle-a2")
+}
+
 func TestMonitorSkipsNameFallbackAfterSeeingDuplicate(t *testing.T) {
 	fakeA, a := registerFakeCamera(t, "rdk-test-dup-a", "rdk-test-dup-cam", true)
 	_, b := registerFakeCamera(t, "rdk-test-dup-b", "rdk-test-dup-cam", true)
-	c := newTestWebcam(t, a)
+	c := newTestWebcam(t, a, 0)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		test.That(tb, snapshot(c).sawOtherSameName, test.ShouldBeTrue)
@@ -205,7 +211,7 @@ func TestMonitorSkipsNameFallbackAfterSeeingDuplicate(t *testing.T) {
 
 func TestMonitorRefusesNameFallbackWhenMultipleAppear(t *testing.T) {
 	fakeA, a := registerFakeCamera(t, "rdk-test-multi-a", "rdk-test-multi-cam", true)
-	c := newTestWebcam(t, a)
+	c := newTestWebcam(t, a, 0)
 
 	unplug(fakeA, a)
 	waitForDisconnect(t, c)
