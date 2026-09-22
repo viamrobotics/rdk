@@ -714,6 +714,11 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	// than one of them, the same *GraphNode must count as a single match, not a name collision.
 	// Genuinely distinct nodes that share a simple name back different *GraphNodes and still collide.
 	seenLocal := map[*GraphNode]bool{}
+	// A remote guarantees its own resource names are unique, so several same-named resources from ONE
+	// remote that differ only by API are one composite (mirroring the local dedup above and the
+	// client-side "APIs sharing a bare name = one composite" inference), not a name collision. Collapse
+	// them to a single match; resources on different remotes stay distinct and still collide.
+	seenRemote := map[string]bool{}
 	for key, val := range g.nodes.simpleNameCache {
 		if key.api.Type.Namespace == APINamespaceRDKInternal {
 			continue
@@ -730,6 +735,10 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 			continue
 		}
 		for remote, node := range val.remote {
+			if seenRemote[remote] {
+				continue
+			}
+			seenRemote[remote] = true
 			result = append(result, Name{
 				API:    key.api,
 				Name:   strings.Replace(name, node.prefix, "", 1),
@@ -738,6 +747,29 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 		}
 	}
 	return result
+}
+
+// APIsForRemoteResource returns every API under which a resource of the given simple name is
+// advertised by the given remote, sorted by API string for a deterministic canonical API (apis[0]).
+// A remote guarantees its own names are unique, so more than one API means those same-named
+// resources are one composite living on that remote (the same inference [Graph.FindBySimpleName]
+// and the robot client make). The name should include any remote prefix; remote is the resource's
+// immediate remote (a match's Name.Remote). It lets the robot assemble a remote composite into one
+// handle serving all its APIs.
+func (g *Graph) APIsForRemoteResource(name, remote string) []API {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	var apis []API
+	for key, val := range g.nodes.simpleNameCache {
+		if key.name != name || !(key.api.IsComponent() || key.api.IsService()) {
+			continue
+		}
+		if _, ok := val.remote[remote]; ok {
+			apis = append(apis, key.api)
+		}
+	}
+	slices.SortFunc(apis, func(a, b API) int { return strings.Compare(a.String(), b.String()) })
+	return apis
 }
 
 // GetAllChildrenOf returns all direct children of a node.

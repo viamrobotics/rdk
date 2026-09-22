@@ -355,9 +355,21 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			// Log if this remote resource's name collides with any existing resource. On collision
 			// the remote stays in the graph but is hidden from the machine's resource list. One
 			// FindAllBySimpleName scan spans all APIs, so it catches both same-API and cross-API
-			// collisions; enumerate every conflicting resource.
+			// collisions (a bare-name collision spanning two different APIs is exactly what
+			// machine-wide name uniqueness forbids). A composite living on this remote is advertised
+			// as several same-named resources that differ only by API; those are one composite (names
+			// are unique per remote), not a collision, so matches from THIS remote are skipped. A
+			// genuine collision -- a local resource, or a resource on a DIFFERENT remote, sharing this
+			// simple name -- is still reported.
 			prefixedSimpleName := prefix + resName.Name
-			if conflicts := manager.resources.FindAllBySimpleName(prefixedSimpleName); len(conflicts) > 0 {
+			var conflicts []resource.Name
+			for _, match := range manager.resources.FindAllBySimpleName(prefixedSimpleName) {
+				if match.Remote == remoteName.Name {
+					continue
+				}
+				conflicts = append(conflicts, match)
+			}
+			if len(conflicts) > 0 {
 				manager.logger.Errorw(logMsgRemoteNameCollision,
 					"name", prefixedSimpleName, "api", resName.API,
 					"conflicts_with", resource.NamesToStrings(conflicts), "remote", remoteName.Name)
