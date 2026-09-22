@@ -15,9 +15,9 @@ X264_COMMIT=b35605ace3ddf7c1a5d67a2eb553f034aef41d55
 
 deb_arch="$(dpkg --print-architecture)"
 case "$deb_arch" in
-    amd64) go_arch=amd64 ;;
-    arm64) go_arch=arm64 ;;
-    armhf) go_arch=armv6l ;;
+    amd64) go_arch=amd64; zig_arch=x86_64 ;;
+    arm64) go_arch=arm64; zig_arch=aarch64 ;;
+    armhf) go_arch=armv6l; zig_arch=arm ;;
     *) echo "unsupported arch" >&2; exit 1 ;;
 esac
 
@@ -82,12 +82,10 @@ curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${go_arch}.tar.gz" \
 ln -s /usr/local/go/bin/go /usr/local/bin/go
 go version
 
-# Zig, same treatment as Go: tarball into /usr/local plus a /usr/local/bin
-# Zig is the cross-compiler for the Windows release build, which only runs on amd64
-if [ "$deb_arch" = amd64 ]; then
-    curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" \
-        | tar -C /usr/local -xJ
-    mv "/usr/local/zig-x86_64-linux-${ZIG_VERSION}" /usr/local/zig
-    ln -s /usr/local/zig/zig /usr/local/bin/zig
-    zig version
-fi
+# Zig, same treatment as Go: tarball into /usr/local plus a /usr/local/bin symlink.
+# Zig is the cross-compiler for the Windows release build
+curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${zig_arch}-linux-${ZIG_VERSION}.tar.xz" \
+    | tar -C /usr/local -xJ
+mv "/usr/local/zig-${zig_arch}-linux-${ZIG_VERSION}" /usr/local/zig
+ln -s /usr/local/zig/zig /usr/local/bin/zig
+zig version
