@@ -364,16 +364,21 @@ func (m *Module) addResource(
 	}
 
 	// If adding the resource name to the collection fails, close the resource and return an error.
-	if err := coll.Add(conf.ResourceName(), res); err != nil {
+	// A facade-authored composite serves each API through its own sub-resource, so register the
+	// sub-resource for conf.API (resource.SubresourceForAPI is a no-op for a resource that natively
+	// implements every declared API).
+	if err := coll.Add(conf.ResourceName(), resource.SubresourceForAPI(res, conf.API)); err != nil {
 		return multierr.Combine(err, res.Close(ctx))
 	}
 
-	// A composite serves several co-equal APIs from this one instance. Register the SAME instance in
-	// each of its other APIs' collections (under that API's name) so every per-API subtype service
-	// resolves to it — one identity, one lifecycle, reachable under every API (construct-once
-	// fan-out). Each collection's Add type-checks the instance against that API's interface (via
-	// resource.AsType), so this doubles as startup validation that the constructed resource actually
-	// implements every declared API's methods; a misdeclared model fails fast here.
+	// A composite serves several co-equal APIs from one identity. Register each API's SUB-RESOURCE
+	// (the facade carrying that API's methods) in that API's collection, under the composite's name,
+	// so every per-API subtype service resolves to the correctly-typed facade — one identity, one
+	// lifecycle, reachable under every API (construct-once fan-out). resource.SubresourceForAPI
+	// unwraps the composite to the sub-resource for api; each collection's Add then type-checks it
+	// against that API's interface, so this doubles as startup validation that the constructed
+	// resource actually implements every declared API's methods, and a misdeclared model fails fast
+	// here.
 	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
 		base := conf.ResourceName()
 		for _, api := range apis {
@@ -385,7 +390,8 @@ func (m *Module) addResource(
 				return multierr.Combine(
 					fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model), res.Close(ctx))
 			}
-			if err := other.Add(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, res); err != nil {
+			sub := resource.SubresourceForAPI(res, api)
+			if err := other.Add(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, sub); err != nil {
 				return multierr.Combine(
 					fmt.Errorf("composite model %q does not implement declared api %q: %w", conf.Model, api, err),
 					res.Close(ctx))
@@ -637,13 +643,14 @@ func (m *Module) rebuildResourceWithVisited(
 		return nil, err
 	}
 
-	if err := coll.ReplaceOne(conf.ResourceName(), newRes); err != nil {
+	if err := coll.ReplaceOne(conf.ResourceName(), resource.SubresourceForAPI(newRes, conf.API)); err != nil {
 		return nil, multierr.Combine(err, newRes.Close(ctx))
 	}
 
 	// Composite: the rebuilt instance must replace the old one in every co-equal API's collection so
-	// all APIs keep resolving to the one new instance. Each ReplaceOne re-validates that the rebuilt
-	// instance still implements that API's interface.
+	// all APIs keep resolving to the one new instance. Register each API's SUB-RESOURCE (its facade)
+	// via resource.SubresourceForAPI; each ReplaceOne re-validates that the rebuilt sub-resource still
+	// implements that API's interface.
 	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
 		base := conf.ResourceName()
 		m.registerMu.Lock()
@@ -657,7 +664,8 @@ func (m *Module) rebuildResourceWithVisited(
 				return nil, multierr.Combine(
 					fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model), newRes.Close(ctx))
 			}
-			if err := other.ReplaceOne(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, newRes); err != nil {
+			sub := resource.SubresourceForAPI(newRes, api)
+			if err := other.ReplaceOne(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, sub); err != nil {
 				m.registerMu.Unlock()
 				return nil, multierr.Combine(
 					fmt.Errorf("composite model %q does not implement declared api %q: %w", conf.Model, api, err),
