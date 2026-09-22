@@ -5,19 +5,24 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
+	gizmoapi "go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -319,16 +324,24 @@ func TestModularCompositeResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = resource.AsType[movementsensor.MovementSensor](res)
 	test.That(t, err, test.ShouldBeNil)
+	_, err = resource.AsType[gizmoapi.Gizmo](res)
+	test.That(t, err, test.ShouldBeNil)
 
-	// The modular composite handle is a resource.MultiAPIResource, so APIsOf reports its full set.
+	// The modular composite handle is a resource.MultiAPIResource, so APIsOf reports its full set —
+	// the two colliding builtin APIs plus the custom gizmo API.
 	apisOf := resource.APIsOf(res)
 	test.That(t, apisOf, test.ShouldContain, camera.API)
 	test.That(t, apisOf, test.ShouldContain, movementsensor.API)
+	test.That(t, apisOf, test.ShouldContain, gizmoapi.API)
 
-	// 2) reachable under its other builtin API too (one instance in the module, served under both).
+	// 2) reachable under its other APIs too (one instance in the module, served under all of them).
 	byMS, err := r.ResourceByName(movementsensor.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, byMS, test.ShouldNotBeNil)
+
+	byGiz, err := r.ResourceByName(gizmoapi.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, byGiz, test.ShouldNotBeNil)
 
 	// 3) advertised as N same-named ResourceNames.
 	var apis []resource.API
@@ -339,6 +352,7 @@ func TestModularCompositeResource(t *testing.T) {
 	}
 	test.That(t, apis, test.ShouldContain, camera.API)
 	test.That(t, apis, test.ShouldContain, movementsensor.API)
+	test.That(t, apis, test.ShouldContain, gizmoapi.API)
 }
 
 // TestModularCompositeCollidingMethods is the modular end-to-end counterpart of the builtin colliding
@@ -369,6 +383,126 @@ func TestModularCompositeCollidingMethods(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
 
+	cam, err := camera.FromRobot(rc, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	camProps, err := cam.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, camProps.FrameRate, test.ShouldEqual, 30)
+	test.That(t, camProps.SupportsPCD, test.ShouldBeTrue)
+
+	ms, err := movementsensor.FromRobot(rc, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	msProps, err := ms.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, msProps.AngularVelocitySupported, test.ShouldBeTrue)
+	test.That(t, msProps.PositionSupported, test.ShouldBeTrue)
+}
+
+// connectToSeparateServer dials a robot client to a viam-server running in a separate process,
+// retrying until the server is dialable. It mirrors the module integration tests' connect helper
+// (force direct gRPC, sessions disabled — modules do not yet support sessions).
+func connectToSeparateServer(t *testing.T, ctx context.Context, port int, logger logging.Logger) robot.Robot {
+	t.Helper()
+	connectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	for {
+		dialCtx, dialCancel := context.WithTimeout(ctx, 2*time.Second)
+		rc, err := client.New(dialCtx, fmt.Sprintf("localhost:%d", port), logger,
+			client.WithDialOptions(rpc.WithForceDirectGRPC()),
+			client.WithDisableSessions(),
+		)
+		dialCancel()
+		if err == nil {
+			return rc
+		}
+		select {
+		case <-connectCtx.Done():
+			t.Fatalf("could not connect to separate-process server: %v", err)
+			return nil
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+// TestModularCompositeCustomAPI exercises the CUSTOM (module-defined) gizmo API of the composite over
+// a client whose server has NO typed gizmo subtype server. The server runs as a separate viam-server
+// process, whose binary does not import the example gizmoapi package, so gizmo is not a registered
+// API there — a gizmo method call cannot be dispatched to a typed subtype server and instead falls to
+// web.go's foreignServiceHandler, which unwraps the composite (a resource.MultiAPIResource) to its
+// gizmo foreign sub-resource before proxying the call to the module. That composite-unwrap branch of
+// foreignServiceHandler is the code under test; a correct DoOne result proves it fired (there is no
+// other route for gizmo). camera and movement_sensor ARE compiled into the server binary, so their
+// colliding Properties calls route through their typed subtype servers and must still land on the
+// correct per-API facade of the one composite.
+func TestModularCompositeCustomAPI(t *testing.T) {
+	logger, logObserver := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	// Precompile the combomodule so the separate-process server only needs to exec it.
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule")
+	model := resource.NewModel("acme", "demo", "combodevice")
+
+	var port int
+	var success bool
+	for portTryNum := 0; portTryNum < 10; portTryNum++ {
+		p, err := goutils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
+		port = p
+
+		cfg := &config.Config{
+			Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
+			Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
+				BindAddress: fmt.Sprintf("localhost:%d", port),
+			}},
+			Components: []resource.Config{
+				// Declared under the custom gizmo API so the composite's canonical graph node is the
+				// gizmo one: the server surfaces a foreign API's reflect descriptor (needed to route a
+				// foreign method) only for a composite's stored node, so declaring under gizmo is what
+				// makes GizmoService reachable through foreignServiceHandler here. camera and
+				// movement_sensor are typed builtin APIs served by their own subtype servers, so they
+				// resolve to the same composite regardless of which API it is declared under.
+				{Name: "combo", API: gizmoapi.API, Model: model, Composite: true},
+			},
+		}
+		cfgFilename, err := robottestutils.MakeTempConfig(t, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
+		err = server.Start(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		if success = robottestutils.WaitForServing(logObserver, port); success {
+			defer func() { test.That(t, server.Stop(), test.ShouldBeNil) }()
+			break
+		}
+		logger.Infow("port in use, restarting on a new port", "port", port)
+		server.Stop()
+	}
+	test.That(t, success, test.ShouldBeTrue)
+
+	rc := connectToSeparateServer(t, ctx, port, logger)
+	defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
+
+	// Custom gizmo API: no typed gizmo server exists on the parent, so this call routes through
+	// foreignServiceHandler's composite-unwrap path. DoOne("combo") returns true (the facade's
+	// wantArg) and DoOne("nope") returns false — proving the call reaches the gizmo facade of the
+	// composite in the module and not some other API's sub-resource.
+	res, err := rc.ResourceByName(gizmoapi.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	giz, err := resource.AsType[gizmoapi.Gizmo](res)
+	test.That(t, err, test.ShouldBeNil)
+
+	ok, err := giz.DoOne(ctx, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	ok, err = giz.DoOne(ctx, "nope")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	// The two colliding builtin APIs still route to their own facades over the same composite: camera
+	// Properties (FrameRate 30) and movement_sensor Properties (a different return type, distinguished
+	// by AngularVelocitySupported) must not cross-wire.
 	cam, err := camera.FromRobot(rc, "combo")
 	test.That(t, err, test.ShouldBeNil)
 	camProps, err := cam.Properties(ctx)
