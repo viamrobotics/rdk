@@ -51,6 +51,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the gantry sub-resource of a composite, for resource.Compose. The Gantry parameter
+// type gives a compile-time check that r satisfies the gantry API at the call site.
+func AsSub(r Gantry) resource.Sub { return resource.AsSub[Gantry](API, r) }
+
 // Gantry is used for controlling gantries of N axis.
 // For more information, see the [gantry component docs].
 //

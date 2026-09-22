@@ -58,6 +58,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the power sensor sub-resource of a composite, for resource.Compose. The PowerSensor parameter
+// type gives a compile-time check that r satisfies the power sensor API at the call site.
+func AsSub(r PowerSensor) resource.Sub { return resource.AsSub[PowerSensor](API, r) }
+
 // A PowerSensor reports information about voltage, current and power.
 // For more information, see the [power sensor component docs].
 //

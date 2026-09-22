@@ -54,6 +54,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the board sub-resource of a composite, for resource.Compose. The Board parameter
+// type gives a compile-time check that r satisfies the board API at the call site.
+func AsSub(r Board) resource.Sub { return resource.AsSub[Board](API, r) }
+
 // A Board represents a physical general purpose board that contains various
 // components such as analogs, and digital interrupts.
 // For more information, see the [board component docs].
