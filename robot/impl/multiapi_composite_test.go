@@ -417,6 +417,141 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
+// TestCompositeRemoteResourceWithPrefix is TestCompositeRemoteResource with a non-empty remote
+// Prefix. A remote resource is cached under its PREFIXED simple name (the remote's prefix + bare
+// name), so the composite "combo" behind a remote configured with Prefix "p_" lives on the main robot
+// under the name "p_combo". An api-less lookup must therefore be made under the PREFIXED name, and it
+// must still assemble the per-API sub-clients into ONE handle -- the earlier code looked the
+// sub-clients up under the prefix-stripped name and so failed to resolve a prefixed remote composite.
+// The prefixed per-API lookups already worked; this asserts the api-less assembly, per-API method
+// routing, and that the composite is not mistaken for a name collision.
+func TestCompositeRemoteResourceWithPrefix(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+	model := registerComboModel(t, "composite-sensor-remote-prefix", nil)
+
+	remoteCfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "combo", API: sensor.API, Model: model, Composite: true},
+		},
+	}
+	remote := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, options), test.ShouldBeNil)
+
+	// The remote is mounted with a non-empty prefix, so its "combo" is named "p_combo" on main.
+	mainCfg := &config.Config{
+		Remotes: []config.Remote{{Name: "rem", Address: addr, Prefix: "p_"}},
+	}
+	main := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
+
+	// Per-API prefixed lookups resolve and each API's method routes to the correct facade of the one
+	// remote composite.
+	bySensor, err := main.ResourceByName(sensor.Named("rem:p_combo"))
+	test.That(t, err, test.ShouldBeNil)
+	s, err := resource.AsType[sensor.Sensor](bySensor)
+	test.That(t, err, test.ShouldBeNil)
+	readings, err := s.Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings["reading"], test.ShouldEqual, 7)
+
+	byGeneric, err := main.ResourceByName(resource.NewName(generic.API, "rem:p_combo"))
+	test.That(t, err, test.ShouldBeNil)
+	echoed, err := byGeneric.DoCommand(ctx, map[string]interface{}{"ping": "pong"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, echoed["echo"], test.ShouldEqual, "pong")
+
+	// An api-less lookup under the PREFIXED name resolves the prefixed remote composite to ONE handle
+	// serving every API (assembled over the per-API remote sub-clients). Both the remote-qualified and
+	// the bare prefixed forms work; the remote qualifier is only a routing hint and is not required.
+	for _, simpleName := range []string{"rem:p_combo", "p_combo"} {
+		composite, err := main.ResourceByName(resource.SimpleName(simpleName))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resource.APIsOf(composite), test.ShouldContain, sensor.API)
+		test.That(t, resource.APIsOf(composite), test.ShouldContain, generic.API)
+		cs, err := resource.AsType[sensor.Sensor](composite)
+		test.That(t, err, test.ShouldBeNil)
+		cReadings, err := cs.Readings(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cReadings["reading"], test.ShouldEqual, 7)
+	}
+
+	// The prefixed composite's own per-API names must NOT be flagged as a name collision.
+	test.That(t, logs.FilterMessageSnippet("resource name collision").Len(), test.ShouldEqual, 0)
+}
+
+// TestCompositeRemoteResourceNested asserts a composite reached through a CHAIN of remotes (main ->
+// mid -> leaf) still resolves to one composite. The main robot's graph flattens a remote chain to the
+// IMMEDIATE remote hop (updateRemoteResourceNames rewrites each remote resource's Remote to the direct
+// remote it was reached through), so a composite behind >1 hop lands on main under the immediate
+// remote just like a direct-remote composite: its per-API sibling names share that one Remote and so
+// collapse to a single composite, and the same-remote collision exemption (match.Remote ==
+// remoteName.Name) already covers it. This is the multi-hop composite the harness can express; the
+// remote chain beyond the immediate hop is not represented on main.
+func TestCompositeRemoteResourceNested(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+	model := registerComboModel(t, "composite-sensor-remote-nested", nil)
+
+	// Leaf robot actually hosts the composite.
+	leafCfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "combo", API: sensor.API, Model: model, Composite: true},
+		},
+	}
+	leaf := setupLocalRobot(t, ctx, leafCfg, logger.Sublogger("leaf"))
+	leafOpts, _, leafAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, leaf.StartWeb(ctx, leafOpts), test.ShouldBeNil)
+
+	// Middle robot remotes the leaf; it exposes the composite as "leafrem:combo".
+	midCfg := &config.Config{
+		Remotes: []config.Remote{{Name: "leafrem", Address: leafAddr}},
+	}
+	mid := setupLocalRobot(t, ctx, midCfg, logger.Sublogger("mid"))
+	midOpts, _, midAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, mid.StartWeb(ctx, midOpts), test.ShouldBeNil)
+
+	// Main remotes the middle robot, so the composite is reached through two hops (midrem -> leafrem).
+	mainCfg := &config.Config{
+		Remotes: []config.Remote{{Name: "midrem", Address: midAddr}},
+	}
+	main := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
+
+	// Reachable under both co-equal APIs through the two-hop remote, and a method call routes to the
+	// correct per-API facade of the one composite living two hops away.
+	bySensor, err := main.ResourceByName(sensor.Named("midrem:combo"))
+	test.That(t, err, test.ShouldBeNil)
+	s, err := resource.AsType[sensor.Sensor](bySensor)
+	test.That(t, err, test.ShouldBeNil)
+	readings, err := s.Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings["reading"], test.ShouldEqual, 7)
+
+	byGeneric, err := main.ResourceByName(resource.NewName(generic.API, "midrem:combo"))
+	test.That(t, err, test.ShouldBeNil)
+	echoed, err := byGeneric.DoCommand(ctx, map[string]interface{}{"ping": "pong"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, echoed["echo"], test.ShouldEqual, "pong")
+
+	// An api-less lookup resolves the two-hop remote composite to ONE handle serving every API. The
+	// bare name, the immediate-remote-qualified form, and the full-chain form all resolve (the remote
+	// qualifier is only a routing hint; resolution keys off the bare name).
+	for _, simpleName := range []string{"combo", "midrem:combo", "midrem:leafrem:combo"} {
+		composite, err := main.ResourceByName(resource.SimpleName(simpleName))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resource.APIsOf(composite), test.ShouldContain, sensor.API)
+		test.That(t, resource.APIsOf(composite), test.ShouldContain, generic.API)
+		cs, err := resource.AsType[sensor.Sensor](composite)
+		test.That(t, err, test.ShouldBeNil)
+		cReadings, err := cs.Readings(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cReadings["reading"], test.ShouldEqual, 7)
+	}
+
+	// The nested composite's own per-API names must NOT be flagged as a name collision anywhere.
+	test.That(t, logs.FilterMessageSnippet("resource name collision").Len(), test.ShouldEqual, 0)
+}
+
 // TestModularCompositeResource exercises the rebuilt combomodule: a COLLIDING composite serving
 // camera.Camera + movementsensor.MovementSensor (both declare Properties, with different return
 // types) from one module identity. camera sorts before movement_sensor, so camera is canonical.

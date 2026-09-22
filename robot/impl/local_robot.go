@@ -251,13 +251,19 @@ func (r *localRobot) resolveSimpleNameMatch(name string, match resource.Name) (r
 		}
 		return res, nil
 	}
+	// A remote resource is cached under its PREFIXED simple name (a remote node's prefix + Name), and
+	// the api-less query `name` still carries that prefix, whereas FindBySimpleName has stripped the
+	// prefix off match.Name. So the graph lookups here must use `name`, not match.Name -- otherwise a
+	// remote behind a non-empty remote Prefix (composite or single-API) never resolves. For a remote
+	// reached through a chain of remotes the immediate remote already flattens match.Remote to one hop,
+	// so this same assembly collapses a nested composite's per-API sub-clients into one handle too.
 	apis := r.manager.resources.APIsForRemoteResource(name, match.Remote)
 	if len(apis) <= 1 {
-		return r.FindBySimpleNameAndAPI(match.Name, match.API)
+		return r.FindBySimpleNameAndAPI(name, match.API)
 	}
 	byAPI := make(map[resource.API]resource.Resource, len(apis))
 	for _, api := range apis {
-		sub, err := r.FindBySimpleNameAndAPI(match.Name, api)
+		sub, err := r.FindBySimpleNameAndAPI(name, api)
 		if err != nil {
 			return nil, err
 		}
