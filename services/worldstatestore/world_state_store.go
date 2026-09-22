@@ -42,6 +42,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags s as the world state store sub-resource of a composite, for resource.Compose. The Service parameter
+// type gives a compile-time check that s satisfies the world state store API at the call site.
+func AsSub(s Service) resource.Sub { return resource.AsSub[Service](API, s) }
+
 // Deprecated: FromRobot is a helper for getting the named world state store service from the given Robot.
 // Use FromProvider instead.
 //

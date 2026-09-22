@@ -41,6 +41,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the pose tracker sub-resource of a composite, for resource.Compose. The PoseTracker parameter
+// type gives a compile-time check that r satisfies the pose tracker API at the call site.
+func AsSub(r PoseTracker) resource.Sub { return resource.AsSub[PoseTracker](API, r) }
+
 // A PoseTracker represents a robot component that can observe bodies in an
 // environment and provide their respective poses in space. These poses are
 // given in the context of the PoseTracker's frame of reference.

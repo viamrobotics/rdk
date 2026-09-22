@@ -19,6 +19,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags s as the summation sub-resource of a composite, for resource.Compose. The Summation parameter
+// type gives a compile-time check that s satisfies the summation API at the call site.
+func AsSub(s Summation) resource.Sub { return resource.AsSub[Summation](API, s) }
+
 // FromProvider is a helper for getting the named Summation
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Summation, error) {
