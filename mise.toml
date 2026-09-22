@@ -41,9 +41,3 @@ golangci-lint fmt{% if env.CI %} -v{% endif %}{% if usage.dry_run %} --diff{% en
 ./etc/lint_register_apis.sh || result=$?
 exit ${result:-0}
 '''
-
-[tasks.license-check]
-run = [
-	'license_finder version',
-	'license_finder',
-]
