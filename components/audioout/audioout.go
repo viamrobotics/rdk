@@ -36,6 +36,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the audio output sub-resource of a composite, for resource.Compose.
+func AsSub(r AudioOut) resource.Sub { return resource.AsSub[AudioOut](API, r) }
+
 // An AudioOut is a resource that can output audio.
 type AudioOut interface {
 	resource.Resource
