@@ -61,52 +61,28 @@ func stringifyPacketLossResults(results []*PacketLossResult) string {
 	return sb.String()
 }
 
-func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, verbose bool) {
-	var anyLoss bool
-	for _, r := range results {
-		if r.ErrorString != nil || r.LossPercent() > 0 {
-			anyLoss = true
-			break
-		}
-	}
-
-	// If the router has 100% packet loss but the ISP target is reachable, note that the
-	// gateway is still routing traffic correctly — many routers drop ICMP ping by default.
-	var routerFullLoss, ispReachable, ispHighLoss, ispFullLoss bool
-	for _, r := range results {
-		if r.Description == gatewayResultDescription && r.LossPercent() == 100 && r.ErrorString == nil {
-			routerFullLoss = true
-		}
-		if r.Description != gatewayResultDescription {
-			if r.LossPercent() == 0 {
-				ispReachable = true
-			}
-			if r.LossPercent() > 50 && r.LossPercent() < 100 {
-				ispHighLoss = true
-			}
-			if r.LossPercent() == 100 || r.ErrorString != nil {
-				ispFullLoss = true
-			}
-		}
-	}
-
+func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, s PacketLossSummary, verbose bool) {
 	msg := "packet loss tests complete"
 	keysAndValues := []any{"packet_loss_tests", stringifyPacketLossResults(results)}
-	if routerFullLoss && ispReachable {
+
+	switch {
+	case s.RouterIgnoresPing:
 		keysAndValues = append(keysAndValues,
 			"note", "gateway is not responding to ICMP ping, but internet connectivity appears normal; many routers block ping by default",
 		)
-	}
-	if ispHighLoss {
+	case s.InternetStatus == FamilyDown || s.InternetStatus == FamilyUnknown:
 		keysAndValues = append(keysAndValues,
-			"note", "ISP target (1.1.1.1) has high packet loss; internet connectivity may be spotty",
+			"note", "ISP target ("+ispProbeTarget+") is unreachable; internet connectivity may be down",
+		)
+	case s.ISPLossPct != nil && *s.ISPLossPct > ispHighLossThreshold:
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target ("+ispProbeTarget+") has high packet loss; internet connectivity may be spotty",
 		)
 	}
-	if ispFullLoss {
-		keysAndValues = append(keysAndValues,
-			"note", "ISP target (1.1.1.1) is unreachable; internet connectivity may be down",
-		)
-	}
+
+	anyLoss := (s.ISPLossPct != nil && *s.ISPLossPct > 0) ||
+		(s.RouterLossPct != nil && *s.RouterLossPct > 0)
+
 	if anyLoss {
 		logger.Warnw(msg, keysAndValues...)
 	} else if verbose {
@@ -245,48 +221,24 @@ func stringifyDNSResults(dnsResults []*DNSResult) string {
 func logDNSResults(
 	logger logging.Logger,
 	dnsResults []*DNSResult,
+	s DNSSummary,
 	resolvConfContents string,
 	systemdResolvedConfContents string,
 	verbose bool,
 ) {
-	var successfulConnectionTests, totalConnectionTests int
-	var successfulResolutionTests, totalResolutionTests int
-	var slowResolutions []string
-
-	for _, dr := range dnsResults {
-		switch dr.TestType {
-		case ConnectionDNSTestType:
-			totalConnectionTests++
-			if dr.ErrorString == nil {
-				successfulConnectionTests++
-			}
-		case ResolutionDNSTestType:
-			totalResolutionTests++
-			if dr.ErrorString == nil {
-				successfulResolutionTests++
-				// Flag slow DNS resolutions (>1s).
-				if dr.ResolutionTimeMS != nil && *dr.ResolutionTimeMS > 1000 {
-					if dr.Hostname != nil /* should be non-nil */ {
-						slowResolutions = append(slowResolutions, *dr.Hostname)
-					}
-				}
-			}
-		default:
-			logger.Warnf("Unknown DNS test type; cannot handle %s", dr.TestType)
-		}
+	if unknown := len(dnsResults) - (s.ConnectionsTotal + s.ResolutionsTotal); unknown > 0 {
+		logger.Warnf("Skipped %d DNS result(s) with an unknown test type", unknown)
 	}
-
 	systemMsg := fmt.Sprintf(
 		"%d/%d dns connection and %d/%d dns resolution tests succeeded",
-		successfulConnectionTests,
-		totalConnectionTests,
-		successfulResolutionTests,
-		totalResolutionTests,
+		s.ConnectionsOK,
+		s.ConnectionsTotal,
+		s.ResolutionsOK,
+		s.ResolutionsTotal,
 	)
 	keysAndValues := []any{"dns_tests", stringifyDNSResults(dnsResults)}
 
-	if successfulConnectionTests < totalConnectionTests ||
-		successfulResolutionTests < totalResolutionTests {
+	if s.ConnectionsOK < s.ConnectionsTotal || s.ResolutionsOK < s.ResolutionsTotal {
 		logger.Warnw(systemMsg, keysAndValues...)
 		// Only log `/etc/resolv.conf` and `/etc/systemd/resolved.conf` contents in the event
 		// of a DNS test failure.
@@ -300,11 +252,10 @@ func logDNSResults(
 		logger.Infow(systemMsg, keysAndValues...)
 	}
 
-	// Warn about slow DNS resolutions
-	if len(slowResolutions) > 0 {
+	if len(s.SlowHostnames) > 0 {
 		logger.Warnw(
-			"Slow DNS resolutions detected (>1000ms)",
-			"slow_hostnames", strings.Join(slowResolutions, ", "),
+			fmt.Sprintf("Slow DNS resolutions detected (>%dms)", slowResolutionThresholdMS),
+			"slow_hostnames", strings.Join(s.SlowHostnames, ", "),
 		)
 	}
 }
@@ -345,51 +296,28 @@ func stringifySTUNResponses(stunResponses []*STUNResponse) string {
 func logSTUNResults(
 	logger logging.Logger,
 	stunResponses []*STUNResponse,
+	s STUNSummary,
 	udpSourceAddress,
 	network string,
+	verbose bool,
 ) {
-	// Use lastBindResponseAddr to track whether the received address from STUN servers is
-	// "unstable." Any changes in port, in particular, between different STUN server's bind
-	// responses indicates that we may be behind an endpoint-dependent-mapping NAT device
-	// ("hard" NAT). Changes in port are expected for TCP tests, so do not log any warning
-	// for them.
-	var expectedBindResponseAddr string
-	var unstableBindResponseAddr bool
-
-	var successfulStunResponses int
-	for _, sr := range stunResponses {
-		if sr.ErrorString == nil {
-			successfulStunResponses++
-		}
-
-		if sr.BindResponseAddr != nil {
-			if expectedBindResponseAddr == "" {
-				// Take first bind response address as "expected"; all others should match when
-				// behind an endpoint-independent-mapping NAT device.
-				expectedBindResponseAddr = *sr.BindResponseAddr
-			} else if expectedBindResponseAddr != *sr.BindResponseAddr {
-				unstableBindResponseAddr = true
-			}
-		}
-	}
-
 	msg := fmt.Sprintf(
 		"%d/%d %v STUN tests succeeded",
-		successfulStunResponses,
-		len(stunResponses),
+		s.SuccessCount,
+		s.Total,
 		network,
 	)
 	keysAndValues := []any{fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses)}
 	if network == "udp" {
 		keysAndValues = append(keysAndValues, "udp_source_address", udpSourceAddress)
 	}
-	if successfulStunResponses < len(stunResponses) {
+	if s.SuccessCount < s.Total {
 		logger.Warnw(msg, keysAndValues...)
-	} else {
+	} else if verbose {
 		logger.Infow(msg, keysAndValues...)
 	}
 
-	if unstableBindResponseAddr && network != "tcp" /* do not warn about instability for TCP tests */ {
+	if s.HardNAT {
 		logger.Warn(
 			"udp STUN tests indicate this machine is behind a 'hard' NAT device; STUN may not work as expected",
 		)
