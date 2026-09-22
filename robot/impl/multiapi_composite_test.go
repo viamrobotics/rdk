@@ -15,12 +15,15 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	gizmoapi "go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -774,4 +777,201 @@ func TestCompositeCollidingMethodsBuiltin(t *testing.T) {
 	// Teardown closes the single shared impl exactly once, though it is advertised under both APIs.
 	r.Reconfigure(ctx, &config.Config{})
 	test.That(t, closeCount.Load(), test.ShouldEqual, 1)
+}
+
+// stopKinDevice is a builtin, in-process facade composite's shared impl serving gripper.Gripper and
+// servo.Servo. Both APIs are resource.Actuators, and gripper is additionally resource.Shaped and
+// framesystem.InputEnabled. All lifecycle/actuator state lives here; the per-API facades below embed
+// one *stopKinDevice, so both facades' Stop route to this one Stop and increment the shared counter.
+// Because it is assembled via resource.Compose it is stored as a resource.MultiAPIResource wrapper —
+// the wrapper implements none of these concrete interfaces, which is exactly the in-process gap the
+// specific-API unwrap closes (a raw single-struct builtin implements them natively and dodges it).
+type stopKinDevice struct {
+	resource.Named
+	resource.AlwaysRebuild
+	stopCount  *atomic.Int32
+	closeCount *atomic.Int32
+}
+
+func (d *stopKinDevice) Close(context.Context) error {
+	if d.closeCount != nil {
+		d.closeCount.Add(1)
+	}
+	return nil
+}
+
+func (d *stopKinDevice) Stop(context.Context, map[string]interface{}) error {
+	if d.stopCount != nil {
+		d.stopCount.Add(1)
+	}
+	return nil
+}
+
+func (d *stopKinDevice) IsMoving(context.Context) (bool, error) { return false, nil }
+
+func (d *stopKinDevice) Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return nil, nil
+}
+
+func (d *stopKinDevice) Kinematics(context.Context) (referenceframe.Model, error) {
+	return referenceframe.NewSimpleModel("combo"), nil
+}
+
+func (d *stopKinDevice) CurrentInputs(context.Context) ([]referenceframe.Input, error) {
+	return nil, nil
+}
+
+func (d *stopKinDevice) GoToInputs(context.Context, ...[]referenceframe.Input) error { return nil }
+
+type gripperFacade struct{ *stopKinDevice }
+
+func (f gripperFacade) Open(context.Context, map[string]interface{}) error { return nil }
+
+func (f gripperFacade) Grab(context.Context, map[string]interface{}) (bool, error) { return false, nil }
+
+func (f gripperFacade) IsHoldingSomething(
+	context.Context, map[string]interface{},
+) (gripper.HoldingStatus, error) {
+	return gripper.HoldingStatus{}, nil
+}
+
+type servoFacade struct{ *stopKinDevice }
+
+func (f servoFacade) Move(context.Context, uint32, map[string]interface{}) error { return nil }
+
+func (f servoFacade) Position(context.Context, map[string]interface{}) (uint32, error) { return 0, nil }
+
+// registerStopKinModel registers a builtin gripper+servo colliding composite whose constructor
+// assembles the two facades over one shared *stopKinDevice via resource.Compose (so it is stored as a
+// resource.MultiAPIResource wrapper). gripper sorts before servo, so gripper is the canonical API.
+func registerStopKinModel(t *testing.T, name string, stopCount, closeCount *atomic.Int32) resource.Model {
+	t.Helper()
+	model := resource.NewModel("acme", "test", name)
+	resource.RegisterMultiAPI(
+		[]resource.API{gripper.API, servo.API}, model,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				d := &stopKinDevice{Named: conf.ResourceName().AsNamed(), stopCount: stopCount, closeCount: closeCount}
+				return resource.Compose(
+					conf.ResourceName(),
+					gripper.AsSub(gripperFacade{d}),
+					servo.AsSub(servoFacade{d}),
+				)
+			},
+		},
+	)
+	t.Cleanup(func() {
+		resource.Deregister(gripper.API, model)
+		resource.Deregister(servo.API, model)
+	})
+	return model
+}
+
+// TestModularCompositeInProcessTypedLookup is the core regression test for the in-process gap: a
+// facade composite stored as a resource.MultiAPIResource wrapper, fetched by a SPECIFIC API through
+// the LOCAL (in-process) robot, must yield the concrete typed sub-resource — the wrapper implements
+// none of the API interfaces, so before the specific-API unwrap every <component>.FromRobot(localRobot,
+// name) TypeErrored. The api-less handle still resolves to the full composite.
+func TestModularCompositeInProcessTypedLookup(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerStopKinModel(t, "inproc-typed", nil, nil)
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "combo", API: gripper.API, Model: model, Composite: true},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// In-process fetch by each specific API returns a working typed client (TypeErrored before the fix).
+	g, err := gripper.FromRobot(r, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g.Open(ctx, nil), test.ShouldBeNil)
+
+	s, err := servo.FromRobot(r, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = s.Position(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// A specific-API ResourceByName returns the concrete sub (passes a bare type assertion), while the
+	// api-less handle stays the composite serving every API.
+	byGripper, err := r.ResourceByName(gripper.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	_, isGripper := byGripper.(gripper.Gripper)
+	test.That(t, isGripper, test.ShouldBeTrue)
+
+	one, err := r.ResourceByName(resource.SimpleName("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	apisOf := resource.APIsOf(one)
+	test.That(t, apisOf, test.ShouldContain, gripper.API)
+	test.That(t, apisOf, test.ShouldContain, servo.API)
+}
+
+// TestCompositeStopAllInProcess proves the safety fix: StopAll actually stops a modular/facade
+// composite (before the unwrap the composite wrapper is not a resource.Actuator, so emergency-stop
+// silently skipped it), and the StopAll dedup stops the one underlying instance exactly once even
+// though the composite is advertised under two actuator APIs.
+func TestCompositeStopAllInProcess(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	var stopCount atomic.Int32
+	model := registerStopKinModel(t, "inproc-stopall", &stopCount, nil)
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "combo", API: gripper.API, Model: model, Composite: true},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// The composite is advertised under both gripper and servo (both actuators).
+	var advertised []resource.API
+	for _, n := range r.ResourceNames() {
+		if n.Name == "combo" {
+			advertised = append(advertised, n.API)
+		}
+	}
+	test.That(t, advertised, test.ShouldContain, gripper.API)
+	test.That(t, advertised, test.ShouldContain, servo.API)
+
+	test.That(t, r.StopAll(ctx, nil), test.ShouldBeNil)
+	// Stopped AT ALL (safety) and exactly ONCE (dedup), not once per advertised API.
+	test.That(t, stopCount.Load(), test.ShouldEqual, 1)
+}
+
+// TestCompositeInFrameSystem proves a kinematic composite (gripper canonical API) is included in the
+// frame system. Before the unwrap the composite wrapper failed the framesystem.InputEnabled type
+// assertion and was omitted; after it, the concrete gripper sub is InputEnabled and is included.
+func TestCompositeInFrameSystem(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerStopKinModel(t, "inproc-fs", nil, nil)
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:      "combo",
+				API:       gripper.API,
+				Model:     model,
+				Composite: true,
+				Frame:     &referenceframe.LinkConfig{Parent: referenceframe.World},
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	fsCfg, err := r.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	var found bool
+	for _, part := range fsCfg.Parts {
+		if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
+			found = true
+			// Included via the InputEnabled (kinematic) path, so it carries a model.
+			test.That(t, part.ModelFrame, test.ShouldNotBeNil)
+		}
+	}
+	test.That(t, found, test.ShouldBeTrue)
 }
