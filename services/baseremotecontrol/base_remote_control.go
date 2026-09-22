@@ -24,6 +24,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags s as the base remote control sub-resource of a composite, for resource.Compose.
+func AsSub(s Service) resource.Sub { return resource.AsSub[Service](API, s) }
+
 // Deprecated: FromRobot is a helper for getting the named base remote control service from the given Robot.
 // Use FromProvider instead.
 //
