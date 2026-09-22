@@ -51,8 +51,11 @@ do_linux(){
 	elif pacman --version > /dev/null 2>&1; then
 		# Arch
 		INSTALL_CMD="pacman -Sy --needed --noconfirm base-devel procps-ng curl git which"
+	elif dnf5 --version > /dev/null 2>&1; then
+		# New Fedora/Redhat
+		INSTALL_CMD="dnf5 -y install procps-ng curl git which libstdc++-static && dnf5 group install -y development-tools"
 	elif yum --version > /dev/null 2>&1; then
-		# Fedora/Redhat
+		# Old Fedora/Redhat
 		INSTALL_CMD="yum -y install procps-ng curl git which libstdc++-static && yum -y groupinstall 'Development Tools'"
 	fi
 
