@@ -45,6 +45,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the audio input sub-resource of a composite, for resource.Compose.
+func AsSub(r AudioIn) resource.Sub { return resource.AsSub[AudioIn](API, r) }
+
 // AudioChunk defines a chunk of audio data.
 type AudioChunk struct {
 	AudioData                 []byte
