@@ -494,7 +494,10 @@ func (manager *resourceManager) ResourceRPCAPIs() []resource.RPCAPI {
 	resourceAPIs := resource.RegisteredAPIs()
 
 	types := map[resource.API]*desc.ServiceDescriptor{}
-	for _, k := range manager.resources.Names() {
+	// A composite is stored as one node under its canonical API; ExpandCompositeNames yields one
+	// same-named Name per co-equal API it serves so every served API surfaces its RPC descriptor,
+	// regardless of which API the composite is declared under.
+	for _, k := range manager.resources.ExpandCompositeNames(manager.resources.Names()) {
 		if k.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			continue
 		}
