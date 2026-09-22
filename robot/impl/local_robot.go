@@ -175,6 +175,13 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 // through the resourceGetterForAPI for _all_ incoming gRPC requests related to a
 // resource. A nil resource and an error is returned in the case of no resource found, or
 // multiple matching remote resources found.
+//
+// This is a specific-API lookup, so a composite node is unwrapped to the sub-resource serving api
+// (resource.SubresourceForAPI). That sub is the concrete typed instance for that API, so an
+// in-process consumer that fetches by a concrete API and type-asserts (arm.FromRobot, StopAll's
+// resource.Actuator check, the frame system's framesystem.InputEnabled/resource.Shaped checks) sees
+// the real capabilities instead of the composite wrapper, which implements none of them. For a
+// non-composite, SubresourceForAPI is a no-op. The api-less handle is served by resourceBySimpleName.
 func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
 	n, err := r.manager.resources.FindBySimpleNameAndAPI(name, api)
 	if err != nil {
@@ -184,7 +191,7 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 	if err != nil {
 		return nil, resource.NewNotAvailableError(resource.NewName(api, name), err)
 	}
-	return res, nil
+	return resource.SubresourceForAPI(res, api), nil
 }
 
 // ResourceByName returns a resource by name. It now re-routes all calls to
@@ -194,8 +201,9 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 //
 // A bare (API-less) name resolves to the one resource of that name via resourceBySimpleName. This
 // is the api-less SimpleName path used by resource.NamedFromProvider, and for a composite it returns
-// the single handle serving every API. An api-specific lookup still routes to FindBySimpleNameAndAPI
-// and returns the raw instance, so in-process capability detection is unaffected.
+// the single handle serving every API. An api-specific lookup routes to FindBySimpleNameAndAPI,
+// which unwraps a composite to the concrete sub-resource serving that API so in-process capability
+// detection works on the real instance.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if name.API == (resource.API{}) {
 		return r.resourceBySimpleName(name.Name)
@@ -206,14 +214,23 @@ func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, erro
 // resourceBySimpleName resolves a bare (API-less) name to its single resource. A composite is one
 // node reachable under several co-equal APIs, so FindBySimpleName dedups it to a single match and
 // this returns the one handle serving every API. A genuine same-name collision across distinct
-// resources returns several matches and is an error.
+// resources returns several matches and is an error. Unlike FindBySimpleNameAndAPI this resolves the
+// raw node without unwrapping, so a composite is returned as its full multi-API handle.
 func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error) {
 	matches := r.manager.resources.FindBySimpleName(name)
 	switch len(matches) {
 	case 0:
 		return nil, resource.NewNotFoundError(resource.SimpleName(name))
 	case 1:
-		return r.FindBySimpleNameAndAPI(matches[0].Name, matches[0].API)
+		n, err := r.manager.resources.FindBySimpleNameAndAPI(matches[0].Name, matches[0].API)
+		if err != nil {
+			return nil, err
+		}
+		res, err := n.Resource()
+		if err != nil {
+			return nil, resource.NewNotAvailableError(matches[0], err)
+		}
+		return res, nil
 	default:
 		return nil, errors.Errorf(
 			"multiple resources share the simple name %q across distinct APIs (%s); look it up by its fully qualified name instead",
@@ -311,19 +328,34 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 		op.Cancel()
 	}
 
-	// Stop all stoppable resources
+	// Stop all stoppable resources. ResourceNames expands a composite into one name per co-equal API,
+	// all backed by one underlying instance; the specific-API lookup unwraps each to that API's sub, so
+	// without deduping we would call Stop on the one device N times. Track the raw (pre-unwrap) node
+	// resource — one stable handle per composite — and stop each underlying instance at most once.
 	resourceErrs := make(map[string]error)
+	stopped := make(map[resource.Resource]bool)
 	for _, name := range r.ResourceNames() {
-		res, err := r.ResourceByName(name)
+		node, err := r.manager.resources.FindBySimpleNameAndAPI(name.Name, name.API)
 		if err != nil {
 			resourceErrs[name.Name] = err
 			continue
 		}
+		raw, err := node.Resource()
+		if err != nil {
+			resourceErrs[name.Name] = err
+			continue
+		}
+		if stopped[raw] {
+			continue
+		}
 
-		if actuator, ok := res.(resource.Actuator); ok {
-			if err := actuator.Stop(ctx, extra[name]); err != nil {
-				resourceErrs[name.Name] = err
-			}
+		actuator, ok := resource.SubresourceForAPI(raw, name.API).(resource.Actuator)
+		if !ok {
+			continue
+		}
+		stopped[raw] = true
+		if err := actuator.Stop(ctx, extra[name]); err != nil {
+			resourceErrs[name.Name] = err
 		}
 	}
 
