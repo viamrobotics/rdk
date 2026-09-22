@@ -4,6 +4,10 @@ min_version = '2026.8.16'
 go = "1.25"
 golangci-lint = "2.13.2"
 
+[tools.ffmpeg]
+version = "9.0.2"
+lazy = true
+
 [tools.ruby]
 version = "4.0.6"
 lazy = true
