@@ -106,6 +106,9 @@ do_darwin(){
 }
 
 mod_profiles(){
+	if [[ "$VIAM_MOD_PROFILES" == "0" || "$VIAM_MOD_PROFILES" == "false" ]]; then
+		return
+	fi
 	# Add dev environment variables to shells
 	test -f ~/.bash_profile && ( grep -q viamdevrc ~/.bash_profile || echo "source ~/.viamdevrc" >> ~/.bash_profile )
 	test -f ~/.bashrc && ( grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc )
