@@ -511,7 +511,7 @@ func (c *viamClient) ensureLoggedInInner(ctx context.Context) error {
 	}
 
 	conn, err := rpc.DialDirectGRPC(
-		ctx,
+		rpc.ContextWithDialer(ctx, newAppDialer(c.baseURL.Host)),
 		c.baseURL.Host,
 		nil,
 		rpcOpts...,
@@ -615,7 +615,9 @@ func (c *viamClient) prepareDialInner(
 	partFqdn string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
-	rpcDialer := rpc.NewCachedDialer()
+	// the external auth connection to app is dialed through this dialer and then idles for as
+	// long as the machine connection lives.
+	rpcDialer := newAppDialer(c.baseURL.Host)
 	defer func() {
 		utils.UncheckedError(rpcDialer.Close())
 	}()
