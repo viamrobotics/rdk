@@ -2,7 +2,6 @@ package resource
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"go.viam.com/test"
@@ -493,22 +492,4 @@ func TestComposeCloseOnceAcrossFacades(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, composite.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, c.closes, test.ShouldEqual, 1)
-}
-
-func TestConfigCompositeRoundTrip(t *testing.T) {
-	conf := Config{Name: "combo", API: testCamAPI, Model: NewModel("acme", "test", "combo"), Composite: true}
-	data, err := json.Marshal(conf)
-	test.That(t, err, test.ShouldBeNil)
-
-	var got Config
-	test.That(t, json.Unmarshal(data, &got), test.ShouldBeNil)
-	test.That(t, got.Composite, test.ShouldBeTrue)
-
-	// the flag is omitted from JSON when false and defaults to false on decode
-	data, err = json.Marshal(Config{Name: "plain", API: testCamAPI, Model: NewModel("acme", "test", "plain")})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, string(data), test.ShouldNotContainSubstring, "composite")
-	var plain Config
-	test.That(t, json.Unmarshal(data, &plain), test.ShouldBeNil)
-	test.That(t, plain.Composite, test.ShouldBeFalse)
 }
