@@ -466,7 +466,6 @@ func (c *webcam) readFrame() {
 
 	c.mu.Lock()
 	if c.closed {
-		// Close shuts the driver down underneath an in-flight Read, so this result is expected and discarded.
 		c.mu.Unlock()
 		if err == nil && release != nil {
 			release()
@@ -669,8 +668,7 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.mu.Unlock()
 
 	// The driver must be closed before stopping workers: the buffer worker may be blocked in
-	// reader.Read(), and some drivers (e.g. mediadevices on Windows) only unblock it when the
-	// driver is closed, so stopping workers first deadlocks when no frames are arriving.
+	// reader.Read() (Windows in particular), so stopping workers first deadlocks when no frames are arriving.
 	driverErr := closeCamera(oldDriver, oldRelease)
 
 	c.workers.Stop()
