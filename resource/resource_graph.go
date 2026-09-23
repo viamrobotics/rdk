@@ -499,8 +499,16 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 		chosen := cands[0]
 		if len(cands) > 1 {
 			var localCands []candidate
+			seenLocalNode := map[*GraphNode]bool{}
 			for _, c := range cands {
 				if c.name.Remote == "" {
+					// A local composite may (defensively) be cached under more than one API but is one
+					// node; count it once so it is not mistaken for a multi-claimant collision and hidden
+					// here, mirroring namesMatchingSimpleName's seenLocal dedup so the two stay consistent.
+					if seenLocalNode[c.node] {
+						continue
+					}
+					seenLocalNode[c.node] = true
 					localCands = append(localCands, c)
 				}
 			}
@@ -716,9 +724,12 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	seenLocal := map[*GraphNode]bool{}
 	// A remote guarantees its own resource names are unique, so several same-named resources from ONE
 	// remote that differ only by API are one composite (mirroring the local dedup above and the
-	// client-side "APIs sharing a bare name = one composite" inference), not a name collision. Collapse
-	// them to a single match; resources on different remotes stay distinct and still collide.
-	seenRemote := map[string]bool{}
+	// client-side "APIs sharing a bare name = one composite" inference), not a name collision. Collect
+	// each remote's candidate names so the remote collapses to a SINGLE, DETERMINISTIC match: its
+	// sorted-first (canonical) API. Emitting at first map-iteration instead would make the resolved API
+	// vary run-to-run (Go randomizes map order), which flips a remote composite's resolved name across
+	// reconfigures. Resources on different remotes stay distinct and still collide.
+	remoteCands := map[string][]Name{}
 	for key, val := range g.nodes.simpleNameCache {
 		if key.api.Type.Namespace == APINamespaceRDKInternal {
 			continue
@@ -735,16 +746,21 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 			continue
 		}
 		for remote, node := range val.remote {
-			if seenRemote[remote] {
-				continue
-			}
-			seenRemote[remote] = true
-			result = append(result, Name{
+			remoteCands[remote] = append(remoteCands[remote], Name{
 				API:    key.api,
 				Name:   strings.Replace(name, node.prefix, "", 1),
 				Remote: remote,
 			})
 		}
+	}
+	for _, cands := range remoteCands {
+		canonical := cands[0]
+		for _, c := range cands[1:] {
+			if c.API.String() < canonical.API.String() {
+				canonical = c
+			}
+		}
+		result = append(result, canonical)
 	}
 	return result
 }

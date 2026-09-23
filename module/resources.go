@@ -381,21 +381,31 @@ func (m *Module) addResource(
 	// here.
 	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
 		base := conf.ResourceName()
+		// Track the collections this composite has been added to so any failure aborts cleanly: undo
+		// every add before closing res, leaving no collection pointing at a resource we are about to
+		// close. conf.API's collection (added just above) is the first tracked entry.
+		added := []resource.Name{conf.ResourceName()}
+		abort := func(cause error) error {
+			for _, n := range added {
+				if c, ok := m.collections[n.API]; ok {
+					cause = multierr.Combine(cause, c.Remove(n))
+				}
+			}
+			return multierr.Combine(cause, res.Close(ctx))
+		}
 		for _, api := range apis {
 			if api == conf.API {
 				continue
 			}
 			other, ok := m.collections[api]
 			if !ok {
-				return multierr.Combine(
-					fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model), res.Close(ctx))
+				return abort(fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model))
 			}
-			sub := resource.SubresourceForAPI(res, api)
-			if err := other.Add(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, sub); err != nil {
-				return multierr.Combine(
-					fmt.Errorf("composite model %q does not implement declared api %q: %w", conf.Model, api, err),
-					res.Close(ctx))
+			subName := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+			if err := other.Add(subName, resource.SubresourceForAPI(res, api)); err != nil {
+				return abort(fmt.Errorf("composite model %q does not implement declared api %q: %w", conf.Model, api, err))
 			}
+			added = append(added, subName)
 		}
 	}
 
@@ -644,6 +654,25 @@ func (m *Module) rebuildResource(
 		return nil, err
 	}
 
+	// For a composite, verify the module can service every co-equal API BEFORE replacing anything, so a
+	// missing-API abort leaves all collections on the old instance rather than some on the new and some
+	// on the old (or on a resource we then close). A ReplaceOne type-check below cannot fail for a
+	// rebuilt same-model instance — its implemented API set is fixed by its Go type and already passed
+	// this check at addResource — so once the collections exist the fan-out is effectively
+	// all-or-nothing.
+	apis := resource.APIsForModel(conf.Model)
+	if len(apis) > 1 {
+		m.registerMu.Lock()
+		for _, api := range apis {
+			if _, ok := m.collections[api]; !ok {
+				m.registerMu.Unlock()
+				return nil, multierr.Combine(
+					fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model), newRes.Close(ctx))
+			}
+		}
+		m.registerMu.Unlock()
+	}
+
 	if err := coll.ReplaceOne(conf.ResourceName(), resource.SubresourceForAPI(newRes, conf.API)); err != nil {
 		return nil, multierr.Combine(err, newRes.Close(ctx))
 	}
@@ -652,19 +681,14 @@ func (m *Module) rebuildResource(
 	// all APIs keep resolving to the one new instance. Register each API's SUB-RESOURCE (its facade)
 	// via resource.SubresourceForAPI; each ReplaceOne re-validates that the rebuilt sub-resource still
 	// implements that API's interface.
-	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+	if len(apis) > 1 {
 		base := conf.ResourceName()
 		m.registerMu.Lock()
 		for _, api := range apis {
 			if api == conf.API {
 				continue
 			}
-			other, ok := m.collections[api]
-			if !ok {
-				m.registerMu.Unlock()
-				return nil, multierr.Combine(
-					fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model), newRes.Close(ctx))
-			}
+			other := m.collections[api]
 			sub := resource.SubresourceForAPI(newRes, api)
 			if err := other.ReplaceOne(resource.Name{API: api, Remote: base.Remote, Name: base.Name}, sub); err != nil {
 				m.registerMu.Unlock()
