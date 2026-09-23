@@ -10,6 +10,10 @@ import (
 // gatewayResultDescription is the Description value set on a PacketLossResult for the router probe.
 const gatewayResultDescription = "router"
 
+// ispHighLossThreshold is the loss level above which internet connectivity is
+// described as spotty rather than merely lossy.
+const ispHighLossThreshold = 50
+
 // PacketLossResult holds the results of a packet loss probe to a specific host.
 type PacketLossResult struct {
 	// Target is the IP address being probed.

@@ -3,12 +3,8 @@ package networkcheck
 import "go.viam.com/rdk/logging"
 
 // slowResolutionThresholdMS is the point above which a successful DNS
-// resolution is still counted as degraded.
+// resolution is counted as degraded.
 const slowResolutionThresholdMS = 1000
-
-// ispHighLossThreshold is the loss level above which internet connectivity is
-// described as spotty rather than merely lossy.
-const ispHighLossThreshold = 50
 
 // netcheckVersion is the schema version of the network-health log line. Bump it
 // when fields are added, removed, or change meaning so consumers can gate on it.
@@ -197,7 +193,7 @@ func summarizePacketLoss(results []*PacketLossResult) PacketLossSummary {
 	}
 
 	// A gateway that drops ICMP while the ISP target replies is healthy, not
-	// degraded: traffic to 1.1.1.1 routes through the gateway, so an ISP reply
+	// degraded: traffic to the ISP target routes through the gateway, so an ISP reply
 	// proves it forwards fine. Many routers block ping by default.
 	s.RouterIgnoresPing = s.RouterLossPct != nil && s.ISPLossPct != nil &&
 		*s.RouterLossPct == 100 && *s.ISPLossPct == 0 && !routerErrored
