@@ -24,6 +24,14 @@ type SingleSessionStats struct {
 
 	MaxJointDegPerSec  float64 `json:"max_joint_deg_per_sec"`
 	MaxJointDegPerSec2 float64 `json:"max_joint_deg_per_sec2"`
+
+	// TrajexExtendsByKind counts Extend calls by how the session handled the batch, keyed by
+	// TrajexExtend.Kind. Every stage is a point where the arm came to rest mid-stream.
+	TrajexExtendsByKind map[string]int64 `json:"trajex_extends_by_kind"`
+	// TrajexBranchSlackMinMs is the tightest branch slack over every Extend that compared a
+	// candidate against the active trajectory: how close the session came to having to stage,
+	// or, once negative, by how much it missed. Absent until such an Extend has happened.
+	TrajexBranchSlackMinMs *float64 `json:"trajex_branch_slack_min_ms,omitempty"`
 }
 
 // singleSessionStats is the whole-session accumulators backing Stats(); never pruned.
@@ -31,6 +39,8 @@ type singleSessionStats struct {
 	targetsReceived    int64
 	armRunway          extremes
 	extendLatency      durationStats
+	extendsByKind      map[string]int64
+	branchSlack        extremes
 	sendLatency        durationStats
 	maxJointDegPerSec  float64
 	maxJointDegPerSec2 float64
@@ -44,8 +54,23 @@ func (s *singleSessionStats) recordArmRunway(ms float64) {
 	s.armRunway.record(ms)
 }
 
-func (s *singleSessionStats) recordTrajexExtendLatency(ms float64) {
-	s.extendLatency.record(ms)
+func (s *singleSessionStats) recordTrajexExtend(e TrajexExtend) {
+	s.extendLatency.record(e.DurationMs)
+	if s.extendsByKind == nil {
+		s.extendsByKind = map[string]int64{}
+	}
+	s.extendsByKind[e.Kind]++
+	if e.BranchSlackMs != nil {
+		s.branchSlack.record(*e.BranchSlackMs)
+	}
+}
+
+func (s *singleSessionStats) branchSlackMin() *float64 {
+	if s.branchSlack.count == 0 {
+		return nil
+	}
+	minMs := s.branchSlack.minMs
+	return &minMs
 }
 
 func (s *singleSessionStats) recordSendToArmLatency(ms float64) {
