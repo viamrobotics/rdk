@@ -20,7 +20,8 @@ type MoveOptions struct {
 	MaxTCPSpeedMPerSec *float64
 }
 
-func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
+// MoveOptionsFromProto converts a pb.MoveOptions to a MoveOptions.
+func MoveOptionsFromProto(protobuf *pb.MoveOptions) *MoveOptions {
 	if protobuf == nil {
 		return nil
 	}
@@ -55,7 +56,8 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 	return opts
 }
 
-func (opts *MoveOptions) toProtobuf() *pb.MoveOptions {
+// ToProto converts a MoveOptions to a pb.MoveOptions.
+func (opts *MoveOptions) ToProto() *pb.MoveOptions {
 	vel := utils.RadToDeg(opts.MaxVelRads)
 	acc := utils.RadToDeg(opts.MaxAccRads)
 	pbOpts := &pb.MoveOptions{

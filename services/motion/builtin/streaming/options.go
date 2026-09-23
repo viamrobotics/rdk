@@ -6,28 +6,23 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 
-	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/utils"
 )
 
 const (
-	defaultTargetRunwayInArmMs   = 100
+	defaultArmSideTargetRunwayMs = 100
 	defaultSendToArmIntervalMs   = 10
 	defaultVelLimitDegPerSec     = 10.0
 	defaultAccelLimitDegPerSec2  = 10.0
 	defaultDiagnosticsWindowSecs = 60
 )
 
-// JointPositionsChItem is one joint-space waypoint.
-type JointPositionsChItem struct {
-	// Positions are the target joint positions for this waypoint.
-	Positions []referenceframe.Input
-}
-
 // StreamOptions tunes the streaming executor.
 type StreamOptions struct {
-	// TargetRunwayInArmMs is the duration of pvat points that we aim to keep
+	// ArmSideTargetRunwayMs is the duration of pvat points that we aim to keep
 	// buffered inside the arm resource.
-	TargetRunwayInArmMs int `json:"target_runway_in_arm_ms"`
+	ArmSideTargetRunwayMs int `json:"arm_side_target_runway_ms"`
 
 	// SendToArmIntervalMs is the interval at which batches of pvat points are
 	// sent to the arm resource.
@@ -48,14 +43,14 @@ type StreamOptions struct {
 
 // Validate returns an error if any StreamOptions field is invalid.
 func (o *StreamOptions) Validate() error {
-	if o.TargetRunwayInArmMs <= 0 {
-		return errors.New("streaming: target_runway_in_arm_ms must be positive")
+	if o.ArmSideTargetRunwayMs <= 0 {
+		return errors.New("streaming: arm_side_target_runway_ms must be positive")
 	}
 	if o.SendToArmIntervalMs <= 0 {
 		return errors.New("streaming: send_to_arm_interval_ms must be positive")
 	}
-	if o.SendToArmIntervalMs >= o.TargetRunwayInArmMs {
-		return errors.New("streaming: send_to_arm_interval_ms must be less than target_runway_in_arm_ms")
+	if o.SendToArmIntervalMs >= o.ArmSideTargetRunwayMs {
+		return errors.New("streaming: send_to_arm_interval_ms must be less than arm_side_target_runway_ms")
 	}
 	if o.VelLimitDegPerSec <= 0 {
 		return errors.New("streaming: vel_limit_deg_per_sec must be positive")
@@ -69,11 +64,36 @@ func (o *StreamOptions) Validate() error {
 	return nil
 }
 
+// From populates o from opts, starting at NewDefaultOptions() and overriding whichever fields
+// opts sets; a nil field selects the default instead.
+func (o *StreamOptions) From(opts motion.StreamOptions) {
+	*o = NewDefaultOptions()
+	if opts.ArmSideTargetRunwayMs != nil {
+		o.ArmSideTargetRunwayMs = int(*opts.ArmSideTargetRunwayMs)
+	}
+	if opts.SendToArmIntervalMs != nil {
+		o.SendToArmIntervalMs = int(*opts.SendToArmIntervalMs)
+	}
+	if opts.DiagnosticsWindowSecs != nil {
+		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowSecs)
+	}
+	// Per-joint limits (MoveOptions.MaxVelRadsJoints/MaxAccRadsJoints) aren't supported yet;
+	// only the uniform scalar limits are applied.
+	if opts.MoveOptions != nil {
+		if opts.MoveOptions.MaxVelRads > 0 {
+			o.VelLimitDegPerSec = utils.RadToDeg(opts.MoveOptions.MaxVelRads)
+		}
+		if opts.MoveOptions.MaxAccRads > 0 {
+			o.AccelLimitDegPerSec2 = utils.RadToDeg(opts.MoveOptions.MaxAccRads)
+		}
+	}
+}
+
 // NewDefaultOptions returns StreamOptions with every field set to its default.
 // Callers overriding individual fields should start from this and then set them.
 func NewDefaultOptions() StreamOptions {
 	return StreamOptions{
-		TargetRunwayInArmMs:   defaultTargetRunwayInArmMs,
+		ArmSideTargetRunwayMs: defaultArmSideTargetRunwayMs,
 		SendToArmIntervalMs:   defaultSendToArmIntervalMs,
 		VelLimitDegPerSec:     defaultVelLimitDegPerSec,
 		AccelLimitDegPerSec2:  defaultAccelLimitDegPerSec2,

@@ -9,7 +9,7 @@ import (
 
 func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	valid := NewDefaultOptions()
-	test.That(t, valid.TargetRunwayInArmMs, test.ShouldEqual, defaultTargetRunwayInArmMs)
+	test.That(t, valid.ArmSideTargetRunwayMs, test.ShouldEqual, defaultArmSideTargetRunwayMs)
 	test.That(t, valid.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
 	test.That(t, valid.VelLimitDegPerSec, test.ShouldEqual, defaultVelLimitDegPerSec)
 	test.That(t, valid.AccelLimitDegPerSec2, test.ShouldEqual, defaultAccelLimitDegPerSec2)
@@ -29,11 +29,11 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 		name   string
 		mutate func(*StreamOptions)
 	}{
-		{"zero runway", func(o *StreamOptions) { o.TargetRunwayInArmMs = 0 }},
-		{"negative runway", func(o *StreamOptions) { o.TargetRunwayInArmMs = -1 }},
+		{"zero runway", func(o *StreamOptions) { o.ArmSideTargetRunwayMs = 0 }},
+		{"negative runway", func(o *StreamOptions) { o.ArmSideTargetRunwayMs = -1 }},
 		{"zero send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = 0 }},
 		{"negative send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = -1 }},
-		{"send interval not less than runway", func(o *StreamOptions) { o.SendToArmIntervalMs = o.TargetRunwayInArmMs }},
+		{"send interval not less than runway", func(o *StreamOptions) { o.SendToArmIntervalMs = o.ArmSideTargetRunwayMs }},
 		{"zero vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = 0 }},
 		{"negative vel limit", func(o *StreamOptions) { o.VelLimitDegPerSec = -1 }},
 		{"zero accel limit", func(o *StreamOptions) { o.AccelLimitDegPerSec2 = 0 }},

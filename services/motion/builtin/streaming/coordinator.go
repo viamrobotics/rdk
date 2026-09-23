@@ -22,7 +22,7 @@ import (
 //
 // The arm provides backpressure to sampling out of trajex in that `Run` maintains an
 // estimate of how much runway the arm has buffered on its side, and only samples out of
-// trajex enough to keep that runway topped up to the user-configured TargetRunwayInArmMs.
+// trajex enough to keep that runway topped up to the user-configured ArmSideTargetRunwayMs.
 //
 // Trajex, however, does not provide any backpressure to the client: If the client sends
 // joint positions faster than the arm executes them as per the trajectory output by trajex,
@@ -34,7 +34,7 @@ func Run(
 	ctx context.Context,
 	a arm.Arm,
 	opts StreamOptions,
-	jpCh <-chan JointPositionsChItem,
+	jpCh <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diagnostics *diagnostics.SingleSessionDiagnostics,
 ) (err error) {
@@ -69,7 +69,7 @@ func Run(
 	}
 	defer ts.close()
 
-	targetRunway := time.Duration(opts.TargetRunwayInArmMs) * time.Millisecond
+	targetRunway := time.Duration(opts.ArmSideTargetRunwayMs) * time.Millisecond
 
 	sendToArmTicker := time.NewTicker(time.Duration(opts.SendToArmIntervalMs) * time.Millisecond)
 	defer sendToArmTicker.Stop()
@@ -101,7 +101,7 @@ func Run(
 			diagnostics.RecordReceivedJointPositionTargetEvent()
 
 			// Add the new joint positions to the trajex session.
-			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
+			if err := ts.addJointPositionsToSession(ctx, jp); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 

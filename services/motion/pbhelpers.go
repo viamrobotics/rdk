@@ -7,9 +7,11 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -403,4 +405,43 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 	}
 
 	return req, nil
+}
+
+// streamOptionsToProto converts a StreamOptions to a pb.StreamOptions. Fields are copied
+// straight across: both sides use a nil pointer to mean "use the implementation's default."
+func streamOptionsToProto(o StreamOptions) *pb.StreamOptions {
+	streamOpts := &pb.StreamOptions{
+		ArmSideTargetRunwayMs: o.ArmSideTargetRunwayMs,
+		SendToArmIntervalMs:   o.SendToArmIntervalMs,
+		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
+	}
+	if o.MoveOptions != nil {
+		streamOpts.MoveOptions = o.MoveOptions.ToProto()
+	}
+	return streamOpts
+}
+
+// streamOptionsFromProto is the inverse of streamOptionsToProto.
+func streamOptionsFromProto(o *pb.StreamOptions) StreamOptions {
+	if o == nil {
+		return StreamOptions{}
+	}
+	return StreamOptions{
+		ArmSideTargetRunwayMs: o.ArmSideTargetRunwayMs,
+		SendToArmIntervalMs:   o.SendToArmIntervalMs,
+		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
+		MoveOptions:           arm.MoveOptionsFromProto(o.MoveOptions),
+	}
+}
+
+// jointPositionsFromProto converts a wire JointPositions to the Go-native representation used
+// by StreamArmJointPositions. Values are copied straight across with no unit conversion, matching
+// the pre-streaming DoCommand-based API this replaces.
+func jointPositionsFromProto(jp *armpb.JointPositions) []referenceframe.Input {
+	return jp.GetValues()
+}
+
+// jointPositionsToProto is the inverse of jointPositionsFromProto.
+func jointPositionsToProto(positions []referenceframe.Input) *armpb.JointPositions {
+	return &armpb.JointPositions{Values: positions}
 }
