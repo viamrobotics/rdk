@@ -5,6 +5,7 @@ package streaming
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -16,13 +17,14 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testVelLimitRadPerSec    = math.Pi / 2 // 90 deg/s
+	testAccelLimitRadPerSec2 = math.Pi / 2 // 90 deg/s^2
+)
+
 func runTestOptions() StreamOptions {
-	opts := NewDefaultOptions()
-	opts.TargetRunwayInArmMs = 50
-	opts.SendToArmIntervalMs = 10
-	opts.VelLimitDegPerSec = 90
-	opts.AccelLimitDegPerSec2 = 90
-	return opts
+	runway, interval := int32(50), int32(10)
+	return NewStreamOptions(&runway, &interval, nil, &arm.MoveOptions{MaxVelRads: testVelLimitRadPerSec, MaxAccRads: testAccelLimitRadPerSec2})
 }
 
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
