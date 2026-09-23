@@ -25,8 +25,10 @@ type MultiAPIResource interface {
 
 // compositeResource is the default MultiAPIResource: one identity holding a typed sub-resource per
 // API. On the robot/in-process side the sub-resources may all be the same underlying instance; the
-// client builds one per advertised API on a shared connection. Composites always rebuild, never
-// reconfigure in place (they are reassembled from their sub-resources), hence AlwaysRebuild.
+// robot client builds one sub-client per advertised API on a shared connection. In that client case
+// the sub-clients are owned and closed by the robot client's resource-client lifecycle, not by this
+// wrapper — the composite is a non-owning view over them (see Close). Composites always rebuild,
+// never reconfigure in place (they are reassembled from their sub-resources), hence AlwaysRebuild.
 type compositeResource struct {
 	AlwaysRebuild
 	name  Name
@@ -35,10 +37,24 @@ type compositeResource struct {
 }
 
 // NewMultiAPIResource assembles a composite from a name and a per-API set of sub-resources. apis
-// gives the stable order; the first entry is the canonical API that DoCommand and Status route to.
-// Every api in apis must have an entry in byAPI.
+// gives the stable order; the first entry is the canonical API that DoCommand, Status, and Close
+// route to. Every api in apis must have an entry in byAPI; violating that is a programmer error and
+// panics, so the canonical route is always resolvable (callers should build byAPI to cover apis, as
+// Compose and the robot client do). Both apis and byAPI are copied, so the caller may reuse or mutate
+// them afterward without affecting the composite.
 func NewMultiAPIResource(name Name, apis []API, byAPI map[API]Resource) MultiAPIResource {
-	return &compositeResource{name: name, apis: append([]API(nil), apis...), byAPI: byAPI}
+	if len(apis) == 0 {
+		panic("NewMultiAPIResource requires at least one api")
+	}
+	subs := make(map[API]Resource, len(apis))
+	for _, api := range apis {
+		sub, ok := byAPI[api]
+		if !ok {
+			panic(errors.Errorf("NewMultiAPIResource: no sub-resource for api: %q", api))
+		}
+		subs[api] = sub
+	}
+	return &compositeResource{name: name, apis: append([]API(nil), apis...), byAPI: subs}
 }
 
 // Sub is a sub-resource tagged with the API it serves within a composite. It is the input to Compose:
@@ -87,44 +103,34 @@ func (c *compositeResource) ResourceForAPI(api API) (Resource, bool) {
 	return sub, ok
 }
 
-// canonicalSub returns the sub-resource for the canonical (first-declared) API, and whether one
-// exists.
-func (c *compositeResource) canonicalSub() (Resource, bool) {
-	if len(c.apis) == 0 {
-		return nil, false
-	}
-	sub, ok := c.byAPI[c.apis[0]]
-	return sub, ok
+// canonicalSub returns the sub-resource for the canonical (first-declared) API. NewMultiAPIResource
+// validates at construction that the canonical API has a byAPI entry, so this is always non-nil for a
+// composite built through the constructor.
+func (c *compositeResource) canonicalSub() Resource {
+	return c.byAPI[c.apis[0]]
 }
 
 // DoCommand routes a bare command to the canonical (first-declared) sub-resource. On the server
 // every API of a composite resolves to one instance with one DoCommand, so the canonical route is
 // representative; access a specific API via AsType to target its sub-resource directly.
 func (c *compositeResource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	if sub, ok := c.canonicalSub(); ok {
-		return sub.DoCommand(ctx, cmd)
-	}
-	return nil, ErrDoUnimplemented
+	return c.canonicalSub().DoCommand(ctx, cmd)
 }
 
 // Status routes to the canonical (first-declared) sub-resource. As with DoCommand, all APIs of a
 // composite resolve to one instance on the server, so the canonical route reports the same status.
 func (c *compositeResource) Status(ctx context.Context) (map[string]interface{}, error) {
-	if sub, ok := c.canonicalSub(); ok {
-		return sub.Status(ctx)
-	}
-	return map[string]interface{}{}, nil
+	return c.canonicalSub().Status(ctx)
 }
 
 // Close closes the composite once, via its canonical (first-declared) sub-resource — mirroring how
-// DoCommand and Status route. A composite is one device with one lifecycle: its per-API facades embed
-// one shared underlying impl and must not hold independent closeable state, so closing the canonical
-// sub tears the whole composite down and closing every facade would double-close that shared impl.
+// DoCommand and Status route. A composite is one device with one lifecycle. On the authoring/server
+// side its per-API facades embed one shared underlying impl, so closing every facade would
+// double-close that impl; the single canonical Close tears the whole device down exactly once. On
+// the client side the per-API sub-clients are owned and closed by the robot client's resource-client
+// lifecycle, and this wrapper is a non-owning view that is not the close target there.
 func (c *compositeResource) Close(ctx context.Context) error {
-	if sub, ok := c.canonicalSub(); ok {
-		return sub.Close(ctx)
-	}
-	return nil
+	return c.canonicalSub().Close(ctx)
 }
 
 // subresourceForAPI unwraps a composite to the sub-resource serving api. If res is not a composite
