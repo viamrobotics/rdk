@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pion/mediadevices"
@@ -77,8 +76,6 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 	}
 }
 
-var driverRefreshMu sync.Mutex
-
 // findReaderAndDriver finds a video device and returns an image reader and the driver instance,
 // as well as the path to the driver.
 func findReaderAndDriver(
@@ -88,8 +85,6 @@ func findReaderAndDriver(
 ) (video.Reader, driver.Driver, string, error) {
 	// The driver manager locks each of its own operations but not a sequence of them, so without
 	// this every concurrent webcam can observe the registry mid-refresh
-	driverRefreshMu.Lock()
-	defer driverRefreshMu.Unlock()
 
 	switch runtime.GOOS {
 	case "linux":
