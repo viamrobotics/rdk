@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -65,6 +66,39 @@ func TestConstraintConstructors(t *testing.T) {
 	pbConstraint = c.ToProtobuf()
 	pbToRDKConstraint = ConstraintsFromProtobuf(pbConstraint)
 	test.That(t, c, test.ShouldResemble, pbToRDKConstraint)
+}
+
+// TestOrientationArcDistanceBruteForce pins distanceDegs to its definition -
+// the smallest angular distance from now to any orientation on the slerp arc -
+// by sampling that arc densely with spatialmath.Interpolate and OrientDist,
+// which share no code with the closed form.
+func TestOrientationArcDistanceBruteForce(t *testing.T) {
+	const steps = 4000
+	rng := rand.New(rand.NewSource(11))
+	randOrient := func() spatial.Orientation {
+		q := quat.Number{Real: rng.NormFloat64(), Imag: rng.NormFloat64(), Jmag: rng.NormFloat64(), Kmag: rng.NormFloat64()}
+		n := math.Sqrt(quatDot(q, q))
+		return (*spatial.Quaternion)(&quat.Number{Real: q.Real / n, Imag: q.Imag / n, Jmag: q.Jmag / n, Kmag: q.Kmag / n})
+	}
+	brute := func(from, to, now spatial.Orientation) float64 {
+		fp, tp := spatial.NewPoseFromOrientation(from), spatial.NewPoseFromOrientation(to)
+		best := math.Inf(1)
+		for i := 0; i <= steps; i++ {
+			best = math.Min(best, OrientDist(spatial.Interpolate(fp, tp, float64(i)/steps).Orientation(), now))
+		}
+		return best
+	}
+
+	for i := 0; i < 200; i++ {
+		from, to, now := randOrient(), randOrient(), randOrient()
+		arc := newOrientationArc(from, to)
+		got := arc.distanceDegs(now)
+		want := brute(from, to, now)
+		// The closed form takes the true minimum, so it can only sit at or
+		// below the sampled one; the sampling grid bounds the gap.
+		test.That(t, got, test.ShouldBeLessThanOrEqualTo, want+1e-6)
+		test.That(t, want-got, test.ShouldBeLessThan, 0.05)
+	}
 }
 
 func TestOrientationConstraintDistance(t *testing.T) {
@@ -569,6 +603,18 @@ func TestCollisionDistance(t *testing.T) {
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
 	})
+}
+
+func BenchmarkOrientationArcDistance(b *testing.B) {
+	from := spatial.NewZeroOrientation()
+	to := spatial.Orientation(&spatial.EulerAngles{Pitch: 1.0, Yaw: 0.4})
+	now := spatial.NewPoseFromOrientation(&spatial.EulerAngles{Roll: 0.3, Pitch: 0.7, Yaw: 1.1}).Orientation()
+	arc := newOrientationArc(from, to)
+	var dist float64
+	for i := 0; i < b.N; i++ {
+		dist = arc.distanceDegs(now)
+	}
+	_ = dist
 }
 
 func BenchmarkCollisionConstraints(b *testing.B) {

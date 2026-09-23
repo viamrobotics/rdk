@@ -7,8 +7,8 @@
 name: run-htmltest
 on:
   schedule:
-    # 10am UTC on Mondays
-    - cron: "0 10 * * 1"
+    # 10:47 UTC on Mondays
+    - cron: "47 10 * * 1"
 jobs:
   htmltest:
     runs-on: ubuntu-large
@@ -70,3 +70,12 @@ jobs:
       - name: Log created Jira issue
         if: failure()
         run: echo "Issue ${{ steps.create.outputs.issue }} was created"
+
+  slack-workflow-status:
+    name: Post Workflow Status To Slack
+    needs: [htmltest]
+    if: failure()
+    permissions:
+      actions: read
+    uses: ./.github/workflows/slack-failure.yml
+    secrets: inherit

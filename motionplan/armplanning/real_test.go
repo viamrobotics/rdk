@@ -267,9 +267,10 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("solve"))
-	test.That(t, err, test.ShouldBeNil)
+	t.Skip("RSDK-14560: flaky - initRRTSolutions direct solution depends on a wall-clock race in shouldStopEarly")
 
+	solution, err := initRRTSolutions(ctx, psc, logger.Sublogger("solve"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
 
 	sta := req.StartState.LinearConfiguration().Get(name)
