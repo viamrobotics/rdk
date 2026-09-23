@@ -16,13 +16,9 @@ import (
 
 // A Config describes the configuration of a resource.
 type Config struct {
-	Name  string
-	API   API
-	Model Model
-	// Composite advises that this entry configures a model serving several co-equal APIs from one
-	// identity. It is informational: the authoritative API set is the model's registration (see
-	// APIsForModel), and the entry's API names any one of the composite's co-equal APIs.
-	Composite        bool
+	Name             string
+	API              API
+	Model            Model
 	Frame            *referenceframe.LinkConfig
 	DependsOn        []string
 	LogConfiguration *LogConfig
@@ -63,7 +59,6 @@ type configData struct {
 	Name                      string                     `json:"name"`
 	API                       API                        `json:"api"`
 	Model                     Model                      `json:"model"`
-	Composite                 bool                       `json:"composite,omitempty"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
 	LogConfiguration          *LogConfig                 `json:"log_configuration,omitempty"`
@@ -85,7 +80,6 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 		conf.Name = confData.Name
 		conf.API = confData.API
 		conf.Model = confData.Model
-		conf.Composite = confData.Composite
 		conf.Frame = confData.Frame
 		conf.DependsOn = confData.DependsOn
 		conf.LogConfiguration = confData.LogConfiguration
@@ -116,7 +110,6 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 		Name:                      conf.Name,
 		API:                       conf.API,
 		Model:                     conf.Model,
-		Composite:                 conf.Composite,
 		Frame:                     conf.Frame,
 		DependsOn:                 conf.DependsOn,
 		LogConfiguration:          conf.LogConfiguration,
