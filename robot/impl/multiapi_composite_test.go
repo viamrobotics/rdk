@@ -88,7 +88,7 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 
 	cfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: sensor.API, Model: model, Composite: true},
+			{Name: "combo", API: sensor.API, Model: model},
 		},
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
@@ -216,7 +216,7 @@ func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 
 	cfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: sensor.API, Model: comboModel, Composite: true},
+			{Name: "combo", API: sensor.API, Model: comboModel},
 			{Name: "consumer", API: generic.API, Model: consumerModel, DependsOn: []string{"combo"}},
 		},
 	}
@@ -234,7 +234,7 @@ func TestCompositeResourceOverClient(t *testing.T) {
 
 	cfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: sensor.API, Model: model, Composite: true},
+			{Name: "combo", API: sensor.API, Model: model},
 		},
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
@@ -287,7 +287,7 @@ func TestCompositeRemoteResource(t *testing.T) {
 
 	remoteCfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: sensor.API, Model: model, Composite: true},
+			{Name: "combo", API: sensor.API, Model: model},
 		},
 	}
 	remote := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
@@ -438,7 +438,7 @@ func TestCompositeRemoteResourceWithPrefix(t *testing.T) {
 
 	remoteCfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: sensor.API, Model: model, Composite: true},
+			{Name: "combo", API: sensor.API, Model: model},
 		},
 	}
 	remote := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
@@ -502,7 +502,7 @@ func TestCompositeRemoteResourceNested(t *testing.T) {
 	// Leaf robot actually hosts the composite.
 	leafCfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: sensor.API, Model: model, Composite: true},
+			{Name: "combo", API: sensor.API, Model: model},
 		},
 	}
 	leaf := setupLocalRobot(t, ctx, leafCfg, logger.Sublogger("leaf"))
@@ -573,7 +573,7 @@ func TestModularCompositeResource(t *testing.T) {
 			{Name: "combo-mod", ExePath: modPath},
 		},
 		Components: []resource.Config{
-			{Name: "combo", API: camera.API, Model: model, Composite: true},
+			{Name: "combo", API: camera.API, Model: model},
 		},
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
@@ -646,7 +646,7 @@ func TestModularCompositeCollidingMethods(t *testing.T) {
 			{Name: "combo-mod", ExePath: modPath},
 		},
 		Components: []resource.Config{
-			{Name: "combo", API: camera.API, Model: model, Composite: true},
+			{Name: "combo", API: camera.API, Model: model},
 		},
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
@@ -736,7 +736,7 @@ func TestModularCompositeCustomAPI(t *testing.T) {
 				// makes GizmoService reachable through foreignServiceHandler here. camera and
 				// movement_sensor are typed builtin APIs served by their own subtype servers, so they
 				// resolve to the same composite regardless of which API it is declared under.
-				{Name: "combo", API: gizmoapi.API, Model: model, Composite: true},
+				{Name: "combo", API: gizmoapi.API, Model: model},
 			},
 		}
 		cfgFilename, err := robottestutils.MakeTempConfig(t, cfg, logger)
@@ -828,7 +828,7 @@ func TestModularCompositeCustomAPIUnderBuiltinAPI(t *testing.T) {
 				// camera one, NOT the gizmo one. This is the case the fix targets — the co-equal gizmo
 				// API must still be advertised (via ResourceRPCAPIs expansion) so the foreign gizmo call
 				// can route through foreignServiceHandler.
-				{Name: "combo", API: camera.API, Model: model, Composite: true},
+				{Name: "combo", API: camera.API, Model: model},
 			},
 		}
 		cfgFilename, err := robottestutils.MakeTempConfig(t, cfg, logger)
@@ -1002,7 +1002,7 @@ func TestCompositeCollidingMethodsBuiltin(t *testing.T) {
 
 	cfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: camera.API, Model: model, Composite: true},
+			{Name: "combo", API: camera.API, Model: model},
 		},
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
@@ -1153,7 +1153,7 @@ func TestModularCompositeInProcessTypedLookup(t *testing.T) {
 
 	cfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: gripper.API, Model: model, Composite: true},
+			{Name: "combo", API: gripper.API, Model: model},
 		},
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
@@ -1194,7 +1194,7 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 
 	cfg := &config.Config{
 		Components: []resource.Config{
-			{Name: "combo", API: gripper.API, Model: model, Composite: true},
+			{Name: "combo", API: gripper.API, Model: model},
 		},
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
@@ -1225,11 +1225,10 @@ func TestCompositeInFrameSystem(t *testing.T) {
 	cfg := &config.Config{
 		Components: []resource.Config{
 			{
-				Name:      "combo",
-				API:       gripper.API,
-				Model:     model,
-				Composite: true,
-				Frame:     &referenceframe.LinkConfig{Parent: referenceframe.World},
+				Name:  "combo",
+				API:   gripper.API,
+				Model: model,
+				Frame: &referenceframe.LinkConfig{Parent: referenceframe.World},
 			},
 		},
 	}
