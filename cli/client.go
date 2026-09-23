@@ -6275,7 +6275,10 @@ func (c *viamClient) retryableCopy(
 			time.Sleep(time.Duration(attempt-1) * copyRetryBaseDelay)
 		}
 
-		// If we had a previous failure, create a nested step for this retry
+		// If we had a previous failure, register a nested step for this retry.
+		// Steps are not Start'd (no spinner) because pterm's spinner has an
+		// internal data race between its animation goroutine and Stop; Fail
+		// and Complete still print correctly via the static pterm output path.
 		var attemptStepID string
 		if hadPreviousFailure {
 			attemptStepID = fmt.Sprintf("Attempt-%d", attempt)
@@ -6283,15 +6286,12 @@ func (c *viamClient) retryableCopy(
 				ID:           attemptStepID,
 				Message:      fmt.Sprintf("Attempt %d/%d...", attempt, maxCopyAttempts),
 				CompletedMsg: fmt.Sprintf("Attempt %d succeeded", attempt),
-				Status:       StepPending,
-				IndentLevel:  2, // Nested under "copy" which is at level 1
+				Status:       StepRunning,
+				IndentLevel:  2,
+				startTime:    time.Now(),
 			}
 			pm.steps = append(pm.steps, attemptStep)
 			pm.stepMap[attemptStepID] = attemptStep
-
-			if err := pm.Start(attemptStepID); err != nil {
-				return attempt, err
-			}
 		}
 
 		copyErr = copyFunc()
@@ -6347,7 +6347,10 @@ func (c *viamClient) retryableCopy(
 
 		// Create a step for this failed attempt (so it shows in the output)
 		if attemptStepID == "" {
-			// First attempt - create its step retroactively
+			// First attempt - create its step retroactively without starting a
+			// spinner; the step is about to be failed immediately and pterm's
+			// spinner has an internal data race between its animation goroutine
+			// and Stop.
 			attemptStepID = "Attempt-1"
 			attemptStep := &Step{
 				ID:           attemptStepID,
@@ -6358,9 +6361,6 @@ func (c *viamClient) retryableCopy(
 			}
 			pm.steps = append(pm.steps, attemptStep)
 			pm.stepMap[attemptStepID] = attemptStep
-			if err := pm.Start(attemptStepID); err != nil {
-				return attempt, err
-			}
 		}
 
 		// Mark this attempt as failed (this will print the error on next line)
