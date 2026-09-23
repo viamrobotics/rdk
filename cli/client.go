@@ -809,6 +809,9 @@ func (c *viamClient) lookupMachineByName(ctx context.Context, name, locStr, orgS
 		req := apppb.GetRobotRequest{Id: name}
 		resp, err := c.client.GetRobot(ctx, &req)
 		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return nil, fmt.Errorf("unable to find robot with ID %s", name)
+			}
 			return nil, err
 		}
 		return resp.Robot, nil
@@ -945,12 +948,11 @@ func DeleteMachineAction(ctx context.Context, cmd *cli.Command, args deleteMachi
 	}
 
 	robot, err := client.lookupMachineByName(ctx, args.Machine, args.Location, args.Organization)
-	robotID := robot.Id
 	if err != nil {
 		return err
 	}
 
-	req := apppb.DeleteRobotRequest{Id: robotID}
+	req := apppb.DeleteRobotRequest{Id: robot.Id}
 	if _, err = client.client.DeleteRobot(ctx, &req); err != nil {
 		return err
 	}
