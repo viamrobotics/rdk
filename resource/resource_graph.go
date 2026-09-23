@@ -82,6 +82,62 @@ type graphNodes map[Name]*GraphNode
 type graphStorage struct {
 	nodes           graphNodes
 	simpleNameCache simpleNameCache
+	// compositeByAPI maps a composite's non-configured co-equal (simpleName, api) keys to its one node.
+	// A composite is stored in simpleNameCache under only its single canonical api, so
+	// this index lets its other co-equal APIs resolve directly in FindBySimpleNameAndAPI without a scan.
+	// It is maintained alongside simpleNameCache; keys include the node prefix, so remote composites
+	// (which carry a prefix) resolve the same way local ones do.
+	compositeByAPI map[simpleNameKey]*GraphNode
+}
+
+// compositeAPIsForNode returns the co-equal API set the node's composite serves, or nil if it is not a
+// composite. Both the compositeByAPI index (resolution) and ExpandCompositeNames (advertisement) read a
+// node's API set through here, so the APIs that resolve for a composite can never drift from the APIs it
+// is advertised under.
+func compositeAPIsForNode(node *GraphNode) []API {
+	// The built MultiAPIResource's own API set is authoritative for any composite once built. Fall back
+	// to the configured model for a configured-but-unbuilt local composite: its instance doesn't exist
+	// yet, but its model is known. A remote composite never needs the fallback — its client exists as
+	// soon as the node does, and its model is "unknown" anyway, so it always uses the instance path.
+	if res, err := node.UnsafeResource(); err == nil {
+		if mar, ok := res.(MultiAPIResource); ok {
+			return mar.APIs()
+		}
+	}
+	return APIsForModel(node.Config().Model)
+}
+
+// indexCompositeAPIs records a composite node under each of its non-configured
+// co-equal API keys in compositeByAPI, so any of its APIs resolves directly. No-op for an
+// ordinary (single-API) resource.
+func (s graphStorage) indexCompositeAPIs(name Name, node *GraphNode) {
+	apis := compositeAPIsForNode(node)
+	if len(apis) < 2 {
+		return
+	}
+	for _, api := range apis {
+		if api != name.API {
+			s.compositeByAPI[simpleNameKey{node.prefix + name.Name, api}] = node
+		}
+	}
+}
+
+// dropCompositeIndex removes every compositeByAPI entry pointing at node. Scanning by value (the index
+// is composite-only and small) makes removal correct regardless of any model change since the entries
+// were written; used on delete and on re-index in UpdateSimpleName.
+func (s graphStorage) dropCompositeIndex(node *GraphNode) {
+	for k, v := range s.compositeByAPI {
+		if v == node {
+			delete(s.compositeByAPI, k)
+		}
+	}
+}
+
+// reindexCompositeAPIs rewrites node's compositeByAPI entries from its current configured model,
+// dropping any stale ones first. The caller must hold the graph lock.
+func (s graphStorage) reindexCompositeAPIs(name Name, node *GraphNode) {
+	s.dropCompositeIndex(node)
+	s.indexCompositeAPIs(name, node)
 }
 
 func (s graphStorage) Get(name Name) (*GraphNode, bool) {
@@ -108,12 +164,20 @@ func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
 	} else {
 		val.remote[name.Remote] = node
 	}
+	s.indexCompositeAPIs(name, node)
 }
 
 func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *GraphNode) {
 	if prevPrefix == node.prefix {
+		// The prefix is unchanged, so setSimpleNameCache below is not reached; reindex here instead.
+		// The model, and thus the co-equal API set, may have only just become known (addNode's replace
+		// path turns an uninitialized placeholder into its configured node via this method).
+		s.reindexCompositeAPIs(name, node)
 		return
 	}
+	// The prefix changed: drop the stale composite index; setSimpleNameCache re-indexes under
+	// the new prefix below.
+	s.dropCompositeIndex(node)
 	prevSimpleName := simpleNameKey{prevPrefix + name.Name, name.API}
 
 	prevVal := s.simpleNameCache[prevSimpleName]
@@ -125,6 +189,7 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 		}
 	}
 
+	// setSimpleNameCache re-adds the primary entry under the new prefix.
 	s.setSimpleNameCache(name, node)
 }
 
@@ -134,6 +199,7 @@ func (s graphStorage) Delete(name Name) {
 	if node == nil {
 		return
 	}
+	s.dropCompositeIndex(node)
 	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
 	existing := s.simpleNameCache[simpleName]
 	if existing == nil {
@@ -150,6 +216,7 @@ func (s graphStorage) Copy() graphStorage {
 	out := graphStorage{
 		nodes:           maps.Clone(s.nodes),
 		simpleNameCache: simpleNameCache{},
+		compositeByAPI:  maps.Clone(s.compositeByAPI),
 	}
 	for k, v := range s.simpleNameCache {
 		out.simpleNameCache[k] = &simpleNameVal{
@@ -162,13 +229,15 @@ func (s graphStorage) Copy() graphStorage {
 
 func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	val := s.simpleNameCache[simpleNameKey{name, api}]
-	if val == nil {
-		// The requested api may be a co-equal API of a composite whose single node is cached under a
-		// different (canonical) api. Resolve it from the node's model, which is only known once the
-		// node is configured — hence at read time here rather than when the cache is written.
-		if node, ok := s.compositeNodeForAPI(name, api); ok {
+	if val == nil || val.local == nil {
+		// compositeByAPI resolves a composite's non-canonical co-equal API. Consult it whenever there is
+		// no directly-configured local entry under this api, so a local composite's co-equal API still
+		// wins its name over a same-named remote.
+		if node, ok := s.compositeByAPI[simpleNameKey{name, api}]; ok {
 			return node, nil
 		}
+	}
+	if val == nil {
 		return nil, &NodeNotFoundError{name, api}
 	}
 	if val.local != nil {
@@ -187,24 +256,6 @@ func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, 
 		API:     api,
 		Remotes: slices.Collect(maps.Keys(val.remote)),
 	}
-}
-
-// compositeNodeForAPI finds the local node cached under the given simple name whose model serves api
-// as one of its co-equal APIs (a composite). This lets any of a composite's APIs resolve to its
-// single node, which is stored under only its canonical API. Because names are machine-wide unique,
-// at most one local node carries a given simple name.
-func (s graphStorage) compositeNodeForAPI(name string, api API) (*GraphNode, bool) {
-	for key, val := range s.simpleNameCache {
-		if key.name != name || val.local == nil {
-			continue
-		}
-		for _, served := range APIsForModel(val.local.ResourceModel()) {
-			if served == api {
-				return val.local, true
-			}
-		}
-	}
-	return nil, false
 }
 
 func (s graphStorage) All() iter.Seq2[Name, *GraphNode] {
@@ -262,6 +313,7 @@ func NewGraph(logger logging.Logger) *Graph {
 		nodes: graphStorage{
 			nodes:           graphNodes{},
 			simpleNameCache: simpleNameCache{},
+			compositeByAPI:  map[simpleNameKey]*GraphNode{},
 		},
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
@@ -570,7 +622,7 @@ func (g *Graph) ExpandCompositeNames(names []Name) []Name {
 			out = append(out, n)
 			continue
 		}
-		apis := APIsForModel(node.ResourceModel())
+		apis := compositeAPIsForNode(node)
 		if len(apis) < 2 {
 			out = append(out, n)
 			continue
@@ -687,10 +739,11 @@ func (g *Graph) FindAllBySimpleName(name string) []Name {
 // Callers must hold g.mu.
 func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	var result []Name
-	// A composite is one node reachable under several co-equal APIs; if it is ever cached under more
-	// than one of them, the same *GraphNode must count as a single match, not a name collision.
-	// Genuinely distinct nodes that share a simple name back different *GraphNodes and still collide.
-	seenLocal := map[*GraphNode]bool{}
+	// Skip nodes marked for removal. When a remote resource's advertised API under a name changes (a
+	// composite's canonical API flips, a composite <-> single-API transition, or a resource swapping its
+	// API), the old node is marked for removal but lingers under the same remote+name as the new node
+	// until a later sweep. Excluding it leaves the live node the sole match, not a same-remote collision;
+	// a name shared across different remotes stays a collision.
 	for key, val := range g.nodes.simpleNameCache {
 		if key.api.Type.Namespace == APINamespaceRDKInternal {
 			continue
@@ -698,15 +751,14 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 		if name != key.name || !(key.api.IsComponent() || key.api.IsService()) {
 			continue
 		}
-		if val.local != nil {
-			if seenLocal[val.local] {
-				continue
-			}
-			seenLocal[val.local] = true
+		if val.local != nil && !val.local.MarkedForRemoval() {
 			result = append(result, Name{API: key.api, Name: name})
 			continue
 		}
 		for remote, node := range val.remote {
+			if node.MarkedForRemoval() {
+				continue
+			}
 			result = append(result, Name{
 				API:    key.api,
 				Name:   strings.Replace(name, node.prefix, "", 1),
