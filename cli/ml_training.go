@@ -199,12 +199,16 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 
 type registerCustomContainersArgs struct {
 	OrgID       string
-	ImageURI    string
+	URI         string
 	Description string
 }
 
 // RegisterCustomContainer is the corresponding action for 'train containers register'.
 func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registerCustomContainersArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
+	}
+
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
@@ -212,13 +216,13 @@ func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registe
 
 	description := args.Description
 	if description == "" {
-		description = args.ImageURI
+		description = args.URI
 	}
 
 	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
 		&mltrainingpb.RegisterCustomTrainingContainerRequest{
 			OrganizationId: args.OrgID,
-			ImageUri:       args.ImageURI,
+			ImageUri:       args.URI,
 			Description:    description,
 		})
 	if err != nil {

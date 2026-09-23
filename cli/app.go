@@ -2269,12 +2269,12 @@ Note: There is no progress meter while copying is in progress.
 						{
 							Name:      "register",
 							Usage:     "registers a custom container for custom training",
-							UsageText: createUsageText("train containers register", nil, false, false),
+							UsageText: createUsageText("train containers register", []string{mlRegisterContainersImageURI}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Usage:    "organization ID that will own the container",
-									Required: true,
+									Name:        generalFlagOrgID,
+									Usage:       "organization ID that will own the container",
+									DefaultText: "the default org set with `viam defaults set-org`",
 								},
 								&cli.StringFlag{
 									Name:     mlRegisterContainersImageURI,
