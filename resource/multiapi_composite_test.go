@@ -186,6 +186,39 @@ func TestCompositeNodeForAPIResolvesEachCoEqualAPI(t *testing.T) {
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 }
 
+func TestCompositeCoequalIndexMaintenance(t *testing.T) {
+	// The co-equal index that lets a non-configured API resolve to a composite's one node must be kept
+	// in sync as the node is re-prefixed and deleted, or a co-equal lookup would resolve a stale/dead
+	// node (or fail after a prefix change).
+	model := NewModel("acme", "test", "graphidx")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	canonical := NewName(testCamAPI, "dev")
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: canonical.AsNamed()}, model)
+	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
+
+	// prefix change moves the co-equal index entry with the node: it resolves under the new prefixed
+	// simple name and no longer under the old bare name.
+	g.UpdateNodePrefix(canonical, "pfx.")
+	got, err := g.FindBySimpleNameAndAPI("pfx.dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+
+	// deleting the composite drops BOTH its canonical simpleNameCache entry and its co-equal index
+	// entry, so neither api resolves afterward.
+	g.nodes.Delete(canonical)
+	_, err = g.FindBySimpleNameAndAPI("pfx.dev", testCamAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	_, err = g.FindBySimpleNameAndAPI("pfx.dev", testSensAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	test.That(t, g.nodes.compositeByAPI, test.ShouldBeEmpty)
+}
+
 func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
 	model := NewModel("acme", "test", "graphcombo2")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())

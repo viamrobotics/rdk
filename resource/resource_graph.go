@@ -82,6 +82,43 @@ type graphNodes map[Name]*GraphNode
 type graphStorage struct {
 	nodes           graphNodes
 	simpleNameCache simpleNameCache
+	// compositeByAPI maps a LOCAL composite's non-configured co-equal (simpleName, api) keys to its one
+	// node. A composite is stored in simpleNameCache under only the single api it is configured with, so
+	// this index lets its other co-equal APIs resolve directly in FindBySimpleNameAndAPI without a scan
+	// or a read-time model lookup. It is maintained alongside simpleNameCache. Remote composites are
+	// advertised as separate per-API nodes, each cached directly, so they never appear here.
+	compositeByAPI map[simpleNameKey]*GraphNode
+}
+
+// indexCompositeAPIs records a local composite node under each of its non-configured co-equal API
+// keys in compositeByAPI, so any of its APIs resolves directly. The co-equal set comes from the node's
+// configured model, which is known by the time the node is cached. No-op for a remote node or an
+// ordinary (single-API) resource.
+func (s graphStorage) indexCompositeAPIs(name Name, node *GraphNode) {
+	if name.Remote != "" {
+		return
+	}
+	apis := APIsForModel(node.Config().Model)
+	if len(apis) < 2 {
+		return
+	}
+	simpleName := node.prefix + name.Name
+	for _, api := range apis {
+		if api != name.API {
+			s.compositeByAPI[simpleNameKey{simpleName, api}] = node
+		}
+	}
+}
+
+// dropCompositeIndex removes every compositeByAPI entry pointing at node. Scanning the (composite-only,
+// small) index makes removal correct regardless of any model or prefix change since the entries were
+// written; used on delete and prefix change.
+func (s graphStorage) dropCompositeIndex(node *GraphNode) {
+	for k, v := range s.compositeByAPI {
+		if v == node {
+			delete(s.compositeByAPI, k)
+		}
+	}
 }
 
 func (s graphStorage) Get(name Name) (*GraphNode, bool) {
@@ -108,6 +145,7 @@ func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
 	} else {
 		val.remote[name.Remote] = node
 	}
+	s.indexCompositeAPIs(name, node)
 }
 
 func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *GraphNode) {
@@ -125,6 +163,9 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 		}
 	}
 
+	// Drop the node's co-equal index entries (keyed by the old prefix); setSimpleNameCache re-adds them
+	// under the new prefix.
+	s.dropCompositeIndex(node)
 	s.setSimpleNameCache(name, node)
 }
 
@@ -134,6 +175,7 @@ func (s graphStorage) Delete(name Name) {
 	if node == nil {
 		return
 	}
+	s.dropCompositeIndex(node)
 	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
 	existing := s.simpleNameCache[simpleName]
 	if existing == nil {
@@ -150,6 +192,7 @@ func (s graphStorage) Copy() graphStorage {
 	out := graphStorage{
 		nodes:           maps.Clone(s.nodes),
 		simpleNameCache: simpleNameCache{},
+		compositeByAPI:  maps.Clone(s.compositeByAPI),
 	}
 	for k, v := range s.simpleNameCache {
 		out.simpleNameCache[k] = &simpleNameVal{
@@ -163,10 +206,10 @@ func (s graphStorage) Copy() graphStorage {
 func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	val := s.simpleNameCache[simpleNameKey{name, api}]
 	if val == nil {
-		// The requested api may be a co-equal API of a composite whose single node is cached under a
-		// different (canonical) api. Resolve it from the node's model, which is only known once the
-		// node is configured — hence at read time here rather than when the cache is written.
-		if node, ok := s.compositeNodeForAPI(name, api); ok {
+		// Not cached under this exact api. It may be a co-equal API of a local composite, whose one
+		// node is cached in simpleNameCache under only its configured api; compositeByAPI maps its other
+		// co-equal APIs to it directly (O(1), maintained at write time).
+		if node, ok := s.compositeByAPI[simpleNameKey{name, api}]; ok {
 			return node, nil
 		}
 		return nil, &NodeNotFoundError{name, api}
@@ -187,32 +230,6 @@ func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, 
 		API:     api,
 		Remotes: slices.Collect(maps.Keys(val.remote)),
 	}
-}
-
-// compositeNodeForAPI finds the local node cached under the given simple name whose model serves api
-// as one of its co-equal APIs (a composite). This lets any of a composite's APIs resolve to its
-// single node, which is stored under only its canonical API. Because names are machine-wide unique,
-// at most one local node carries a given simple name.
-//
-// Cost: this walks the whole simpleNameCache, and it runs on every FindBySimpleNameAndAPI *miss*
-// (the path all incoming gRPC resource requests take). We accept the O(n) miss cost because misses
-// are not steady-state hot — a request for an existing resource is a cache hit; misses are startup /
-// reconfiguration (not-yet-configured nodes) and absent-resource client retries. A read-time scan is
-// what lets us key off the node's model, which is unknown when the cache is written (see the caller).
-// If misses ever get hot, index composites (the model is known at SwapResource, which also bumps the
-// logical clock — a clock-versioned index could be rebuilt once per graph mutation instead).
-func (s graphStorage) compositeNodeForAPI(name string, api API) (*GraphNode, bool) {
-	for key, val := range s.simpleNameCache {
-		if key.name != name || val.local == nil {
-			continue
-		}
-		for _, served := range APIsForModel(val.local.ResourceModel()) {
-			if served == api {
-				return val.local, true
-			}
-		}
-	}
-	return nil, false
 }
 
 func (s graphStorage) All() iter.Seq2[Name, *GraphNode] {
@@ -270,6 +287,7 @@ func NewGraph(logger logging.Logger) *Graph {
 		nodes: graphStorage{
 			nodes:           graphNodes{},
 			simpleNameCache: simpleNameCache{},
+			compositeByAPI:  map[simpleNameKey]*GraphNode{},
 		},
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
