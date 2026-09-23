@@ -498,18 +498,41 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	for _, cands := range byName {
 		chosen := cands[0]
 		if len(cands) > 1 {
-			// A local resource wins over remotes claiming the same name. If there is not
-			// exactly one local claimant (e.g. remote resources collide), the name is hidden.
 			var localCands []candidate
 			for _, c := range cands {
 				if c.name.Remote == "" {
 					localCands = append(localCands, c)
 				}
 			}
-			if len(localCands) != 1 {
+			// A remote composite is proxied as one sub-client node per co-equal API, so several of its
+			// per-API sibling names (same remote, one identity — a remote guarantees its own names are
+			// unique) land in the same group. That is not a collision: detect it as "no local claimant
+			// and every candidate served by the same remote".
+			remoteComposite := len(localCands) == 0 && cands[0].name.Remote != ""
+			for _, c := range cands {
+				if c.name.Remote != cands[0].name.Remote {
+					remoteComposite = false
+					break
+				}
+			}
+			switch {
+			case len(localCands) == 1:
+				// A local resource wins its simple name over same-named remotes, which are hidden.
+				chosen = localCands[0]
+			case remoteComposite:
+				// Surface each per-API sibling so the composite stays visible and detectable (via the
+				// client-side "APIs sharing a bare name = one composite" inference) under every API. A
+				// local composite never reaches this branch: it is stored as one canonical node, so it
+				// groups as a single candidate and ExpandCompositeNames re-expands it downstream.
+				for _, c := range cands {
+					emit(c)
+				}
+				continue
+			default:
+				// More than one local claimant, or same-named resources spread across DIFFERENT
+				// remotes: a genuine machine-wide name collision. Hide the name.
 				continue
 			}
-			chosen = localCands[0]
 		}
 		emit(chosen)
 	}
