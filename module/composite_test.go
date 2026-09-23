@@ -2,8 +2,12 @@ package module
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
+	appv1 "go.viam.com/api/app/v1"
+	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/generic"
@@ -112,4 +116,51 @@ func TestCompositeStartupValidation(t *testing.T) {
 		err := assertCompositeImplementsAPIs(res, []resource.API{sensor.API, generic.API})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+}
+
+// TestCompositeAddResourceRollback asserts that when a composite fails to implement one of its
+// declared APIs, addResource rolls the composite back out of every collection it already reached
+// before closing the resource — so no collection is left pointing at a failed resource.
+func TestCompositeAddResourceRollback(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	model := resource.NewModel("acme", "test", "rollback-combo")
+	// genericOnly implements generic.Resource but NOT sensor.Sensor (no Readings), so the fan-out to
+	// the sensor collection fails after the generic collection has already been populated.
+	resource.RegisterMultiAPI([]resource.API{generic.API, sensor.API}, model,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				return &genericOnly{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
+	defer resource.Deregister(generic.API, model)
+	defer resource.Deregister(sensor.API, model)
+
+	//nolint:usetesting
+	test.That(t, os.Setenv(NoModuleParentEnvVar, "true"), test.ShouldBeNil)
+	defer func() { test.That(t, os.Unsetenv(NoModuleParentEnvVar), test.ShouldBeNil) }()
+
+	m, err := NewModule(ctx, filepath.Join(t.TempDir(), "rollback.sock"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer m.Close(ctx)
+	_, err = m.Ready(ctx, &pb.ReadyRequest{})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Register both API collections for the composite model.
+	test.That(t, m.AddModelFromRegistry(ctx, generic.API, model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, sensor.API, model), test.ShouldBeNil)
+
+	// AddResource under the generic API: the generic collection Add succeeds, then the sensor fan-out
+	// fails the type-check and the whole add must abort.
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{
+		Config: &appv1.ComponentConfig{Name: "combo", Api: generic.API.String(), Model: model.String()},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Rollback: the generic collection (populated before the failure) must not retain the resource.
+	_, err = m.collections[generic.API].Resource("combo")
+	test.That(t, err, test.ShouldNotBeNil)
 }
