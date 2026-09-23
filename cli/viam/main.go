@@ -8,7 +8,7 @@ import (
 	"go.viam.com/rdk/cli"
 )
 
-func main() {
+func main() { // test
 	app := cli.NewApp(os.Stdout, os.Stderr)
 	if err := app.Run(context.Background(), os.Args); err != nil {
 		cli.Errorf(app.ErrWriter, err.Error())

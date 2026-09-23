@@ -145,15 +145,19 @@ type mlSubmitTrainingJobArgs struct {
 }
 
 type mlListContainersArgs struct {
+	OrgID       string
 	IncludeURIs bool
 }
 
 type prettyPrintContainer struct {
 	Name        string
-	EndOfLife   string
+	EndOfLife   string `json:",omitempty"`
 	Description string
-	Framework   string
+	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
+	ID          string
+	CreatedOn   string
+	Visibility  string
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
@@ -162,20 +166,23 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	if err != nil {
 		return err
 	}
-	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{},
+	supportedContainers, err := client.mlTrainingClient.ListContainers(
+		context.Background(), &mltrainingpb.ListContainersRequest{OrganizationId: args.OrgID},
 	)
 	if err != nil {
 		return err
 	}
 
 	var returnContainers []prettyPrintContainer
-	for _, v := range supportedContainers.ContainerMap {
+	for _, v := range supportedContainers.Containers {
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
+			Visibility:  v.Visibility.String(),
 			Framework:   v.Framework,
-			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+			EndOfLife:   v.Eol.AsTime().String(),
+			CreatedOn:   v.CreatedOn.AsTime().String(),
+			ID:          v.Id,
 		}
 		if args.IncludeURIs {
 			container.URI = v.Uri
@@ -187,6 +194,42 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		return err
 	}
 	printf(cmd.Root().Writer, "%s", b)
+	return nil
+}
+
+type registerCustomContainersArgs struct {
+	OrgID       string
+	URI         string
+	Description string
+}
+
+// RegisterCustomContainer is the corresponding action for 'train containers register'.
+func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registerCustomContainersArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
+	}
+
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	description := args.Description
+	if description == "" {
+		description = args.URI
+	}
+
+	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
+		&mltrainingpb.RegisterCustomTrainingContainerRequest{
+			OrganizationId: args.OrgID,
+			ImageUri:       args.URI,
+			Description:    description,
+		})
+	if err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "Container successfully registered. Its ID is %s", resp.Id)
 	return nil
 }
 
@@ -744,6 +787,7 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 	defer os.Remove(tmpScript)
 
 	// Get container image name
+	// TODO: change this to get URI with ID instead (probably in later PR)
 	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
 	if err != nil {
 		return err
@@ -976,6 +1020,9 @@ func isValidArgumentKey(key string) bool {
 
 // getContainerImageURI returns the full container image URI based on the version.
 func getContainerImageURI(c *viamClient, version string) (string, error) {
+	// TODO: ask how we should replace this function when we use a list instead of a map
+	// because this file does rely on the key function of a map
+	// do we just use a for loop to iterate over the containers response? might make sense only if we have org ID
 	res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to list supported containers")
