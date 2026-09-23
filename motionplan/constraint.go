@@ -130,8 +130,8 @@ type orientationArc struct {
 }
 
 // orientationVector returns q's orientation vector: the frame's local +Z axis
-// expressed in the parent frame. Going through the quaternion normalizes and
-// skips QuatToOV's theta derivation, which this scoring exists to discard.
+// expressed in the parent frame.
+// This is more efficient than using QuatToOV since we skip the computation of theta
 func orientationVector(q quat.Number) r3.Vector {
 	v := quat.Mul(quat.Mul(q, quat.Number{Kmag: 1}), quat.Conj(q))
 	return r3.Vector{X: v.Imag, Y: v.Jmag, Z: v.Kmag}
@@ -147,8 +147,7 @@ func quatDot(a, b quat.Number) float64 {
 
 // newOrientationArc precomputes whichever basis the scoring mode needs: the
 // geodesic's quaternion basis, or - when axisOnly - the orientation-vector
-// trace. The two modes share no per-check terms, so building both would waste
-// half the work.
+// trace.
 func newOrientationArc(from, to spatialmath.Orientation, axisOnly bool) orientationArc {
 	qf := from.Quaternion()
 	qt := to.Quaternion()
@@ -225,15 +224,15 @@ func (a *orientationArc) axisDistanceDegs(now spatialmath.Orientation) float64 {
 	}
 	// By Rodrigues, v(t) = rot(axis, t) v0 for t in [0, sweep], so
 	// dot(p, v(t)) = x*cos(t) + y*sin(t) + c, largest where the arc comes
-	// nearest p.
+	// nearest p. Take the better endpoint first, then the interior peak if it
+	// falls in range.
 	c := p.Dot(a.axis) * a.axisDotV0
 	x := p.Dot(a.v0) - c
 	y := p.Dot(a.axisCrossV0)
 	best := max(x+c, x*a.cosSweep+y*a.sinSweep+c)
-	// The unconstrained peak sits at atan2(y, x), which falls inside (0, sweep)
-	// exactly when y > 0 and x > cos(sweep)*hypot(x, y) - cos is monotonic over
-	// the (0, pi] that sweep spans. Testing it that way keeps an atan2 off the
-	// per-check path, and no wrap-around case survives it.
+	// That peak is at atan2(y, x), and lies inside (0, sweep) exactly when
+	// y > 0 and x > cos(sweep)*r, because cos is monotonic over the (0, pi]
+	// that sweep spans - cheaper than an Atan2 per check.
 	if y > 0 {
 		if r := math.Sqrt(x*x + y*y); x > a.cosSweep*r {
 			best = r + c
