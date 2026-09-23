@@ -23,14 +23,9 @@ type MultiAPIResource interface {
 	APIs() []API
 }
 
-// compositeResource is the default MultiAPIResource: one identity holding a typed sub-resource per
-// API. On the robot/in-process side the sub-resources may all be the same underlying instance; the
-// robot client builds one sub-client per advertised API on a shared connection. In that client case
-// the sub-clients are owned and closed by the robot client's resource-client lifecycle, not by this
-// wrapper — the composite is a non-owning view over them (see Close). Composites always rebuild,
-// never reconfigure in place (they are reassembled from their sub-resources), hence AlwaysRebuild.
+// compositeResource is the default MultiAPIResource: one name and a typed sub-resource per API it
+// serves — apis in canonical-first order, byAPI mapping each API to its sub-resource.
 type compositeResource struct {
-	AlwaysRebuild
 	name  Name
 	apis  []API
 	byAPI map[API]Resource
@@ -67,8 +62,8 @@ type Sub struct {
 // AsSub tags res as the sub-resource serving api, checking at compile time that res satisfies the API
 // interface T. Authors write AsSub[someAPIInterface](theAPI, impl); the type parameter is what forces
 // impl to implement someAPIInterface, so a facade wired to the wrong API fails to compile rather than
-// at runtime. Per-API packages wrap this with sugar (e.g. camera.AsSub) in a later change; this
-// generic form lives here because resource cannot import component packages.
+// at runtime. Per-API packages provide sugar wrappers (e.g. camera.AsSub) that authors typically use;
+// this generic form lives here because the resource package cannot import the component packages.
 func AsSub[T Resource](api API, res T) Sub {
 	return Sub{API: api, Res: res}
 }
@@ -124,49 +119,10 @@ func (c *compositeResource) Status(ctx context.Context) (map[string]interface{},
 }
 
 // Close closes the composite once, via its canonical (first-declared) sub-resource — mirroring how
-// DoCommand and Status route. A composite is one device with one lifecycle. On the authoring/server
-// side its per-API facades embed one shared underlying impl, so closing every facade would
-// double-close that impl; the single canonical Close tears the whole device down exactly once. On
-// the client side the per-API sub-clients are owned and closed by the robot client's resource-client
-// lifecycle, and this wrapper is a non-owning view that is not the close target there.
+// DoCommand and Status route. A composite is one device with one lifecycle, so Close does not close
+// each API's sub-resource in turn: they are either one shared underlying impl (closing each would
+// double-close it) or per-API views whose lifetime its creator owns, so a single canonical Close is
+// the correct once-only teardown.
 func (c *compositeResource) Close(ctx context.Context) error {
 	return c.canonicalSub().Close(ctx)
-}
-
-// subresourceForAPI unwraps a composite to the sub-resource serving api. If res is not a composite
-// (or does not serve api) it is returned unchanged. This is the general, open-world access path used
-// by AsType, FromDependencies, and FromProvider.
-func subresourceForAPI(res Resource, api API) Resource {
-	if mar, ok := res.(MultiAPIResource); ok {
-		if sub, ok := mar.ResourceForAPI(api); ok {
-			return sub
-		}
-	}
-	return res
-}
-
-// SubresourceForAPI unwraps a composite to the sub-resource serving api (or returns res unchanged if
-// res is not a composite that serves api). Exported for the web/gRPC layer, which resolves resources
-// by API and must forward each call to a composite's per-API sub-resource.
-func SubresourceForAPI(res Resource, api API) Resource {
-	return subresourceForAPI(res, api)
-}
-
-// APIsOf returns the set of APIs a resource handle serves. For a composite (multi-API) resource it
-// returns every API it serves, in a stable order; for an ordinary resource it returns the single API
-// of its Name. It lets a consumer discover a handle's capabilities without a MultiAPIResource type
-// assertion or trial-and-error AsType, and is the runtime counterpart to APIsForModel (which answers
-// the same question from a model, before construction).
-func APIsOf(res Resource) []API {
-	if mar, ok := res.(MultiAPIResource); ok {
-		return mar.APIs()
-	}
-	return []API{res.Name().API}
-}
-
-// NamedFromProvider resolves a bare (API-less) resource name to its single resource via any Provider,
-// superseding lookups that require a fully-qualified Name+API. For a composite it returns the one
-// handle serving every API; extract a specific API from it with AsType.
-func NamedFromProvider(provider Provider, name string) (Resource, error) {
-	return provider.GetResource(SimpleName(name))
 }
