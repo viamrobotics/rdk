@@ -82,6 +82,61 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 	test.That(t, len(pvats), test.ShouldEqual, 0)
 }
 
+// TestTrajexSessionRunwayGate covers the two ways a session can be over the runway cap:
+// unsampled active trajectory, which RemainingActiveDuration reports directly, and staged
+// batches, which it cannot see and which the staging flag covers until the rebase absorbs
+// them. Without the flag, the gate would reopen while the active trajectory drained even as
+// staged backlog kept growing, which is the field failure this exists to prevent.
+func TestTrajexSessionRunwayGate(t *testing.T) {
+	ctx := context.Background()
+	opts := testStreamOptions()
+	opts.VelLimitDegPerSec = 10 // slow, so trajectories are long relative to sampling noise
+	runwayCap := 200 * time.Millisecond
+
+	s := &trajexSession{opts: opts, diagnostics: diagnostics.New(0)}
+	test.That(t, s.startSession([]referenceframe.Input{0}), test.ShouldBeNil)
+	defer s.close()
+	test.That(t, s.sess.RemainingActiveDuration(), test.ShouldEqual, time.Duration(0))
+	test.That(t, s.trajexRunwayAtLeast(runwayCap), test.ShouldBeFalse)
+
+	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of backlog, none of it sampled.
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.35}), test.ShouldBeNil)
+	test.That(t, s.staging, test.ShouldBeFalse)
+	test.That(t, s.sess.RemainingActiveDuration(), test.ShouldBeGreaterThan, 1500*time.Millisecond)
+	test.That(t, s.trajexRunwayAtLeast(runwayCap), test.ShouldBeTrue)
+
+	// Sampling shrinks the remainder and reopens the gate once it is under the cap.
+	_, err := s.sampleAtLeast(ctx, s.sess.RemainingActiveDuration()-100*time.Millisecond)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.sess.RemainingActiveDuration(), test.ShouldBeLessThan, runwayCap)
+	test.That(t, s.trajexRunwayAtLeast(runwayCap), test.ShouldBeFalse)
+
+	// Drain the active trajectory entirely, then extend: the branch necessarily falls at or
+	// behind the watermark, so the batch is staged. The active remainder reads zero even
+	// though ~2s of motion is now queued; only the staging flag keeps the gate closed.
+	_, err = s.sampleAtLeast(ctx, sampleHorizon)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0}), test.ShouldBeNil)
+	test.That(t, s.staging, test.ShouldBeTrue)
+	test.That(t, s.sess.RemainingActiveDuration(), test.ShouldBeLessThan, time.Millisecond)
+	test.That(t, s.trajexRunwayAtLeast(runwayCap), test.ShouldBeTrue)
+
+	// The next sample fires the rebase: the staged motion becomes the active trajectory, the
+	// flag clears, and the remainder is visible to the gate again.
+	pvats, err := s.sampleAtLeast(ctx, 10*time.Millisecond)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(pvats), test.ShouldBeGreaterThan, 0)
+	test.That(t, s.staging, test.ShouldBeFalse)
+	test.That(t, s.sess.RemainingActiveDuration(), test.ShouldBeGreaterThan, 1500*time.Millisecond)
+	test.That(t, s.trajexRunwayAtLeast(runwayCap), test.ShouldBeTrue)
+
+	// Draining the rebased trajectory takes it back to zero and under the cap.
+	_, err = s.sampleAtLeast(ctx, sampleHorizon)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.sess.RemainingActiveDuration(), test.ShouldBeLessThan, 20*time.Millisecond)
+	test.That(t, s.trajexRunwayAtLeast(runwayCap), test.ShouldBeFalse)
+}
+
 // TestTrajexSessionSampleHorizon checks that sampleAtLeast advances the watermark by only
 // (approximately) the requested horizon per call rather than sampling the full trajectory, and
 // that consecutive calls continue from where the previous one left off.

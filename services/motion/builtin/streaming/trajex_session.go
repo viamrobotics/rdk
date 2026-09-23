@@ -29,6 +29,12 @@ type trajexSession struct {
 	sess               *totgstream.Session
 	dof                int
 	lastJointPositions []referenceframe.Input
+
+	// staging is set when Extend stages a batch instead of installing a trajectory, and
+	// cleared once sampling observes the rebase that absorbed it (the generation count
+	// moves; nothing else can move it while batches are staged).
+	staging           bool
+	stagingGeneration int64
 }
 
 func (s *trajexSession) startSession(startJointPositions []referenceframe.Input) error {
@@ -94,10 +100,17 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 		return err
 	}
 	extendStart := time.Now()
-	err = s.sess.Extend(ctx, waypoints)
+	res, err := s.sess.Extend(ctx, waypoints)
 	s.diagnostics.RecordTrajexExtendLatency(extendStart, time.Since(extendStart))
 	if err != nil {
 		return err
+	}
+	switch res.Kind {
+	case totgstream.ExtendStagedBranchSampled, totgstream.ExtendStagedUnsamplable, totgstream.ExtendStagedAgain:
+		if !s.staging {
+			s.staging = true
+			s.stagingGeneration = s.sess.GenerationCount()
+		}
 	}
 	s.lastJointPositions = nextJointPositions
 	return nil
@@ -122,7 +135,17 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 	for _, p := range pvats {
 		s.diagnostics.RecordSampledPVAT(p.positions, p.velocities, p.accelerations, p.time)
 	}
+	if s.staging && s.sess.GenerationCount() != s.stagingGeneration {
+		s.staging = false
+	}
 	return pvats, nil
+}
+
+func (s *trajexSession) trajexRunwayAtLeast(limit time.Duration) bool {
+	// Staged batches have no trajectory yet, so RemainingActiveDuration cannot see the motion
+	// they hold and drains toward zero while backlog is still growing. Treat the session as
+	// over any limit until the rebase absorbs them.
+	return s.staging || s.sess.RemainingActiveDuration() >= limit
 }
 
 func (s *trajexSession) close() {
