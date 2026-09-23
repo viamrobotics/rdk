@@ -158,7 +158,7 @@ type prettyPrintContainer struct {
 	ID          string
 	CreatedOn   string
 	Visibility  string
-} 
+}
 
 // MLListContainers is the corresponding action for 'train containers'.
 func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContainersArgs) error {
@@ -179,10 +179,10 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 			Name:        v.Key,
 			Description: v.Description,
 			Visibility:  v.Visibility.String(),
-			Framework: v.Framework,
-			EndOfLife: v.Eol.AsTime().String(),
-			CreatedOn: v.CreatedOn.AsTime().String(),
-			ID:        v.Id,
+			Framework:   v.Framework,
+			EndOfLife:   v.Eol.AsTime().String(),
+			CreatedOn:   v.CreatedOn.AsTime().String(),
+			ID:          v.Id,
 		}
 		if args.IncludeURIs {
 			container.URI = v.Uri
