@@ -91,12 +91,12 @@ func findReaderAndDriver(
 	case "windows":
 		// Delete drivers that are StateClosed, and note which drivers are held
 		manager := driver.GetManager()
-		held := map[string]struct{}{}
+		held := map[string]string{}
 		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
 			if d.Status() == driver.StateClosed {
 				manager.Delete(d.ID())
 			} else {
-				held[d.Info().Label] = struct{}{}
+				held[d.Info().Label] = d.ID()
 			}
 		}
 
@@ -105,7 +105,7 @@ func findReaderAndDriver(
 
 		// Delete already held webcams to avoid duplication
 		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
-			if _, ok := held[d.Info().Label]; ok && d.Status() == driver.StateClosed {
+			if heldID, ok := held[d.Info().Label]; ok && d.ID() != heldID && d.Status() == driver.StateClosed {
 				manager.Delete(d.ID())
 			}
 		}
