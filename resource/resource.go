@@ -102,7 +102,7 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 	if err != nil {
 		return zero, DependencyNotFoundError(name)
 	}
-	res = subresourceForAPI(res, name.API)
+	res = SubresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
@@ -117,7 +117,7 @@ func FromProvider[T Resource](provider Provider, name Name) (T, error) {
 	if err != nil {
 		return zero, err
 	}
-	res = subresourceForAPI(res, name.API)
+	res = SubresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)

@@ -133,23 +133,17 @@ func (c *compositeResource) Close(ctx context.Context) error {
 	return c.canonicalSub().Close(ctx)
 }
 
-// subresourceForAPI unwraps a composite to the sub-resource serving api. If res is not a composite
+// SubresourceForAPI unwraps a composite to the sub-resource serving api. If res is not a composite
 // (or does not serve api) it is returned unchanged. This is the general, open-world access path used
-// by AsType, FromDependencies, and FromProvider.
-func subresourceForAPI(res Resource, api API) Resource {
+// by FromDependencies, FromProvider, and the web/gRPC layer, which resolves resources by API and must
+// forward each call to a composite's per-API sub-resource.
+func SubresourceForAPI(res Resource, api API) Resource {
 	if mar, ok := res.(MultiAPIResource); ok {
 		if sub, ok := mar.ResourceForAPI(api); ok {
 			return sub
 		}
 	}
 	return res
-}
-
-// SubresourceForAPI unwraps a composite to the sub-resource serving api (or returns res unchanged if
-// res is not a composite that serves api). Exported for the web/gRPC layer, which resolves resources
-// by API and must forward each call to a composite's per-API sub-resource.
-func SubresourceForAPI(res Resource, api API) Resource {
-	return subresourceForAPI(res, api)
 }
 
 // APIsOf returns the set of APIs a resource handle serves. For a composite (multi-API) resource it

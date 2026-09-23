@@ -272,10 +272,10 @@ func TestCompositeExtractionAndAPIsOf(t *testing.T) {
 	_, err = AsType[testMotor](composite)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// subresourceForAPI unwraps to the sub-resource for a served API and passes through otherwise
-	test.That(t, subresourceForAPI(composite, testSensAPI), test.ShouldEqual, c)
-	test.That(t, subresourceForAPI(composite, testMotorAPI), test.ShouldEqual, composite)
-	test.That(t, subresourceForAPI(c, testSensAPI), test.ShouldEqual, c)
+	// SubresourceForAPI unwraps to the sub-resource for a served API and passes through otherwise
+	test.That(t, SubresourceForAPI(composite, testSensAPI), test.ShouldEqual, c)
+	test.That(t, SubresourceForAPI(composite, testMotorAPI), test.ShouldEqual, composite)
+	test.That(t, SubresourceForAPI(c, testSensAPI), test.ShouldEqual, c)
 	test.That(t, SubresourceForAPI(composite, testCamAPI), test.ShouldEqual, c)
 }
 
