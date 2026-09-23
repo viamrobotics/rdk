@@ -248,7 +248,7 @@ jobs:
         # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
         allow-unsafe-pr-checkout: true
 
-    - uses: actions/setup-go@v7
+    - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
 
