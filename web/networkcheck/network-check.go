@@ -65,7 +65,6 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRun
 		logHealth(healthLogger, snapshot)
 	}
 
-	// startup run of network checks
 	runCycle(true /* verbose to log successes */)
 
 	if continueRunningTests {
