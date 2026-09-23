@@ -178,11 +178,14 @@ func TestCompositeSimpleNameCollisionErrors(t *testing.T) {
 	_, err := r.ResourceByName(resource.SimpleName("dup"))
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// A fully qualified lookup still resolves each one.
+	// Under machine-wide name uniqueness (#6350) a genuine collision is not merely hidden from an
+	// api-less lookup: both colliding resources are torn down (CollidingNames) and stay unreachable —
+	// even by a fully qualified name+API lookup — until the config is fixed. The composite dedup does
+	// not exempt them, since they are distinct resources (different *GraphNodes), not one composite.
 	_, err = r.ResourceByName(sensor.Named("dup"))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 	_, err = r.ResourceByName(resource.NewName(generic.API, "dup"))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 // TestCompositeDependencyResolvesAllAPIs asserts that a second resource depending on a composite can
