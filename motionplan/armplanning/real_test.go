@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -267,14 +268,52 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Skip("RSDK-14560: flaky - initRRTSolutions direct solution depends on a wall-clock race in shouldStopEarly")
-
-	solution, err := initRRTSolutions(ctx, psc, logger.Sublogger("solve"))
+	// The solution search initRRTSolutions runs is bounded by wall clock - an IK
+	// time budget plus `shouldStopEarly` - so on a slow or busy runner it can end
+	// before the straight-line reachable solution turns up, and asserting that it
+	// found one races (RSDK-14560). Run the same seeds, IK, constraint and path
+	// checks on a single goroutine with a budget in nlopt evaluations rather than
+	// seconds (a zero maxTime opts out of the time-based extension), which makes
+	// the solution set a function of the scene alone.
+	sss, err := NewSolutionSolvingState(ctx, psc, logger.Sublogger("solve"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(solution.steps), test.ShouldEqual, 1)
+
+	// Buys ~4500 IK attempts on this scene, an order of magnitude more than the
+	// ~400 the straight-line reachable solution needs to show up.
+	const ikEvaluations = 50000
+	solver, err := ik.CreateNloptSolver(logger.Sublogger("ik"), ikEvaluations, true, true, 0)
+	test.That(t, err, test.ShouldBeNil)
+
+	minFunc := pc.LinearizeFSMetric(pc.planOpts.GetGoalMetric(psc.goal))
+	solutions := make(chan *ik.Solution, defaultNumThreads)
+	var solveErr error
+	go func() {
+		defer close(solutions)
+		// Fixed rseed so nlopt's random restarts are reproducible too.
+		_, _, solveErr = solver.Solve(ctx, solutions, &sss.totalIkAttempts, sss.LinearSeeds, sss.SeedLimits, minFunc, 1)
+	}()
+	for solution := range solutions {
+		sss.process(ctx, solution)
+	}
+	test.That(t, solveErr, test.ShouldBeNil)
+	test.That(t, len(sss.solutions), test.ShouldBeGreaterThan, 0)
+
+	// The bar initRRTSolutions uses to return a direct, single-step plan: the
+	// cheapest solution whose straight-line path from the start is clear, so long
+	// as it costs no more than defaultOptimalityMultiple times the best solution.
+	sort.Slice(sss.solutions, func(i, j int) bool { return sss.solutions[i].cost < sss.solutions[j].cost })
+	reasonableCost := max(.01, sss.solutions[0].cost) * defaultOptimalityMultiple
+	var direct *node
+	for _, solution := range sss.solutions {
+		logger.Infof("solution cost: %0.2f checkPath: %v", solution.cost, solution.checkPath)
+		if direct == nil && solution.checkPath && solution.cost <= reasonableCost {
+			direct = solution
+		}
+	}
+	test.That(t, direct, test.ShouldNotBeNil)
 
 	sta := req.StartState.LinearConfiguration().Get(name)
-	res := solution.steps[0].Get(name)
+	res := direct.inputs.Get(name)
 	lim := req.FrameSystem.Frame(name).DoF()
 
 	p, err := req.FrameSystem.Frame(name).Transform(res)
