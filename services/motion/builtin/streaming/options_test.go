@@ -33,12 +33,18 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	test.That(t, valid.MoveOptions.MaxVelRads, test.ShouldEqual, defaultVelLimitRadPerSec)
 	test.That(t, valid.MoveOptions.MaxAccRads, test.ShouldEqual, defaultAccelLimitRadPerSec2)
 	test.That(t, valid.DiagnosticsWindowSecs, test.ShouldEqual, defaultDiagnosticsWindowSecs)
+	test.That(t, valid.MaxTrajexRunwayMs, test.ShouldEqual, 0)
 	test.That(t, valid.Validate(), test.ShouldBeNil)
 
 	// A zero diagnostics window is valid: it disables window-detail retention only.
 	disabled := valid
 	disabled.DiagnosticsWindowSecs = 0
 	test.That(t, disabled.Validate(), test.ShouldBeNil)
+
+	// Backpressure is opt-in; a positive cap also validates.
+	withCap := valid
+	withCap.MaxTrajexRunwayMs = 200
+	test.That(t, withCap.Validate(), test.ShouldBeNil)
 
 	// The zero value does not validate.
 	test.That(t, (&StreamOptions{}).Validate(), test.ShouldNotBeNil)
@@ -70,6 +76,7 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 		{"negative entry in per-joint accel limits", func(o *StreamOptions) { o.MoveOptions.MaxAccRadsJoints = []float64{1, -1} }},
 		{"unsupported tcp speed limit", func(o *StreamOptions) { tcp := 0.1; o.MoveOptions.MaxTCPSpeedMPerSec = &tcp }},
 		{"negative diagnostics window", func(o *StreamOptions) { o.DiagnosticsWindowSecs = -1 }},
+		{"negative max trajex runway", func(o *StreamOptions) { o.MaxTrajexRunwayMs = -1 }},
 	} {
 		bad := valid
 		tc.mutate(&bad)
