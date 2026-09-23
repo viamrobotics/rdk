@@ -88,7 +88,8 @@ func (oc *OrientationConstraint) Score(from, to, now spatialmath.Orientation) fl
 // disconnected balls whenever the endpoints were more than twice the
 // tolerance apart, making such reorientations unplannable.)
 func (oc *OrientationConstraint) Distance(from, to, now spatialmath.Orientation) float64 {
-	return newOrientationArc(from, to).distanceDegs(now)
+	arc := newOrientationArc(from, to)
+	return arc.distanceDegs(now)
 }
 
 // orientationArc is the geodesic arc between two orientations, precomputed as
@@ -98,6 +99,8 @@ type orientationArc struct {
 	qf, u quat.Number // qf: arc start; u: unit vector orthogonal to qf in the arc plane
 	omega float64     // arc angle in quaternion space (half the rotation angle), radians
 	from  spatialmath.Orientation
+
+	cosOmega, sinOmega float64 // arc-invariant terms of the per-query dot product
 }
 
 func quatDot(a, b quat.Number) float64 {
@@ -122,12 +125,14 @@ func newOrientationArc(from, to spatialmath.Orientation) orientationArc {
 	}
 	arc.u = quat.Scale(1/rn, r)
 	arc.omega = math.Acos(min(d, 1))
+	arc.cosOmega, arc.sinOmega = math.Cos(arc.omega), math.Sin(arc.omega)
 	return arc
 }
 
 // distanceDegs returns the angular distance in degrees from now to the
-// nearest orientation on the arc.
-func (a orientationArc) distanceDegs(now spatialmath.Orientation) float64 {
+// nearest orientation on the arc. Pointer receiver: this runs inside the IK
+// gradient loop, where copying the arc per call is not worth it.
+func (a *orientationArc) distanceDegs(now spatialmath.Orientation) float64 {
 	if a.omega == 0 {
 		return OrientDist(a.from, now)
 	}
@@ -137,12 +142,18 @@ func (a orientationArc) distanceDegs(now spatialmath.Orientation) float64 {
 	// The arc is q(t) = qf*cos(t) + u*sin(t), t in [0, omega], so
 	// dot(qn, q(t)) = x*cos(t) + y*sin(t) = R*cos(t - phi). The angular
 	// distance to q(t) is 2*acos(|dot|); maximize |dot| over the arc.
-	best := max(math.Abs(x), math.Abs(x*math.Cos(a.omega)+y*math.Sin(a.omega)))
-	phi := math.Atan2(y, x)
-	for _, peak := range []float64{phi, phi + math.Pi, phi - math.Pi} {
-		if peak > 0 && peak < a.omega {
-			best = math.Hypot(x, y)
-			break
+	best := max(math.Abs(x), math.Abs(x*a.cosOmega+y*a.sinOmega))
+	// |dot| peaks wherever t equals phi modulo pi. Folding (x, y) into the
+	// right half plane turns that mod-pi test into a sign check plus a cosine
+	// comparison, which holds because omega never exceeds pi/2 and cos is
+	// monotonic there - cheaper than an Atan2 and a Hypot per query.
+	xa, ya := x, y
+	if xa < 0 {
+		xa, ya = -xa, -ya
+	}
+	if ya > 0 {
+		if r := math.Sqrt(x*x + y*y); xa > a.cosOmega*r {
+			best = r
 		}
 	}
 	return utils.RadToDeg(2 * math.Acos(min(best, 1)))
