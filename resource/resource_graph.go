@@ -193,6 +193,14 @@ func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, 
 // as one of its co-equal APIs (a composite). This lets any of a composite's APIs resolve to its
 // single node, which is stored under only its canonical API. Because names are machine-wide unique,
 // at most one local node carries a given simple name.
+//
+// Cost: this walks the whole simpleNameCache, and it runs on every FindBySimpleNameAndAPI *miss*
+// (the path all incoming gRPC resource requests take). We accept the O(n) miss cost because misses
+// are not steady-state hot — a request for an existing resource is a cache hit; misses are startup /
+// reconfiguration (not-yet-configured nodes) and absent-resource client retries. A read-time scan is
+// what lets us key off the node's model, which is unknown when the cache is written (see the caller).
+// If misses ever get hot, index composites (the model is known at SwapResource, which also bumps the
+// logical clock — a clock-versioned index could be rebuilt once per graph mutation instead).
 func (s graphStorage) compositeNodeForAPI(name string, api API) (*GraphNode, bool) {
 	for key, val := range s.simpleNameCache {
 		if key.name != name || val.local == nil {
@@ -508,6 +516,14 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 			// per-API sibling names (same remote, one identity — a remote guarantees its own names are
 			// unique) land in the same group. That is not a collision: detect it as "no local claimant
 			// and every candidate served by the same remote".
+			//
+			// CAVEAT (version skew): this rests entirely on the remote enforcing machine-wide name
+			// uniqueness. A remote running a viam-server from before name-uniqueness landed can advertise
+			// two genuinely distinct resources under one bare name (different APIs, same remote), which
+			// this heuristic then misreads as a composite and surfaces both — the client would try to
+			// assemble them into one composite handle. We accept this because same-remote bare-name
+			// collisions cannot occur against a current remote; revisit if we must interoperate with such
+			// remotes (e.g. gate on a remote capability/version bit rather than trusting the remote).
 			remoteComposite := len(localCands) == 0 && cands[0].name.Remote != ""
 			for _, c := range cands {
 				if c.name.Remote != cands[0].name.Remote {
