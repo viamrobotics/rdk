@@ -85,7 +85,7 @@ func Run(
 		// runway under the cap. Ending the session (ctx cancellation here, flush or abort
 		// on the pusher's side) unblocks a gated push through the existing paths.
 		gatedJpCh := jpCh
-		if maxTrajexRunway > 0 && ts.trajexRunwayAtLeast(maxTrajexRunway) {
+		if maxTrajexRunway > 0 && ts.trajexRunway() >= maxTrajexRunway {
 			gatedJpCh = nil
 		}
 		select {
