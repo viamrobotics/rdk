@@ -201,17 +201,23 @@ func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
 		Config{Name: "combo", API: testCamAPI, Model: model},
 		&combo{Named: comboName.AsNamed()}, model)
 	test.That(t, g.AddNode(comboName, comboNode), test.ShouldBeNil)
-	test.That(t, g.FindBySimpleName("combo"), test.ShouldHaveLength, 1)
+	// The resolver returns the one owner with no error, and the all-matches scan returns a single match.
+	_, err := g.FindBySimpleName("combo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g.FindAllBySimpleName("combo"), test.ShouldHaveLength, 1)
 
 	// two genuinely distinct nodes sharing a simple name back different graph nodes and still
-	// collide (two matches) — name-uniqueness detection must not regress.
+	// collide — name-uniqueness detection must not regress: the resolver returns a
+	// MultipleMatchingNamesError and the all-matches scan returns two matches.
 	camDup := NewName(testCamAPI, "dup")
 	sensDup := NewName(testSensAPI, "dup")
 	test.That(t, g.AddNode(camDup, NewConfiguredGraphNode(
 		Config{Name: "dup", API: testCamAPI}, &combo{Named: camDup.AsNamed()}, Model{})), test.ShouldBeNil)
 	test.That(t, g.AddNode(sensDup, NewConfiguredGraphNode(
 		Config{Name: "dup", API: testSensAPI}, &combo{Named: sensDup.AsNamed()}, Model{})), test.ShouldBeNil)
-	test.That(t, g.FindBySimpleName("dup"), test.ShouldHaveLength, 2)
+	_, err = g.FindBySimpleName("dup")
+	test.That(t, IsMultipleMatchingNamesError(err), test.ShouldBeTrue)
+	test.That(t, g.FindAllBySimpleName("dup"), test.ShouldHaveLength, 2)
 }
 
 func TestExpandCompositeNames(t *testing.T) {
