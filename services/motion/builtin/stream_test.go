@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -56,64 +57,94 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int))
 	}
 }
 
-func streamTestOptions() map[string]interface{} {
-	return map[string]interface{}{
-		"arm_side_target_runway_ms": 50,
-		"send_to_arm_interval_ms":   10,
-		"move_options": map[string]interface{}{
-			"max_vel_degs_per_sec":  30,
-			"max_acc_degs_per_sec2": 60,
-		},
+func streamTestOptions() motion.TempStreamOptions {
+	runway, interval := int32(50), int32(10)
+	return motion.TempStreamOptions{
+		ArmSideTargetRunwayMs: &runway,
+		SendToArmIntervalMs:   &interval,
 	}
 }
 
-func TestDoCommandsHappyPath(t *testing.T) {
+// ignoredResponses returns a responses channel whose acknowledgments are discarded in the
+// background until the test ends, for calls whose acknowledgments are not under test.
+func ignoredResponses(t *testing.T) chan motion.TempStreamResponse {
+	t.Helper()
+	responses := make(chan motion.TempStreamResponse)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range responses {
+		}
+	}()
+	t.Cleanup(func() {
+		close(responses)
+		<-done
+	})
+	return responses
+}
+
+// waitForSession polls until the named arm's session is registered, or fails the test after a
+// generous deadline.
+func waitForSession(t *testing.T, ms *builtIn, armName string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		ms.streamMu.RLock()
+		_, ok := ms.streams[armName]
+		ms.streamMu.RUnlock()
+		if ok {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("session for %q never registered", armName)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestTempStreamArmJointPositionsHappyPath(t *testing.T) {
 	ms, counts := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	ctx := context.Background()
 
 	// status before start shows that no session is running
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["running"], test.ShouldEqual, false)
+	test.That(t, resp, test.ShouldBeEmpty)
 
 	// start
-	resp, err = ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["ok"], test.ShouldEqual, 1)
+	targets := make(chan []referenceframe.Input)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), targets, ignoredResponses(t), nil)
+	}()
+	waitForSession(t, ms, "arm")
 
 	// push a ramp on joint 0
 	for i := 1; i <= 6; i++ {
-		resp, err = ms.DoCommand(ctx, map[string]interface{}{
-			DoStreamPush: []interface{}{[]interface{}{float64(i) * 0.02, 0.0, 0.0, 0.0, 0.0, 0.0}},
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["ok"], test.ShouldEqual, 1)
+		targets <- []referenceframe.Input{float64(i) * 0.02, 0, 0, 0, 0, 0}
 	}
 
 	// status: running
-	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["running"], test.ShouldEqual, true)
-	test.That(t, resp["arm"], test.ShouldEqual, "arm")
+	test.That(t, resp, test.ShouldNotBeEmpty)
 
-	// flush blocks until the drain completes. The deadline is a backstop: if it fired
-	// first, flush would report running=true and the assertions below would fail,
-	// turning a hung drain into a test failure rather than a stuck test.
-	flushCtx, flushCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer flushCancel()
-	resp, err = ms.DoCommand(flushCtx, map[string]interface{}{DoStreamFlush: true})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["running"], test.ShouldEqual, false)
-	_, hasErr := resp["error"]
-	test.That(t, hasErr, test.ShouldBeFalse)
+	// flush: closing targets drains what's queued, and the call returns once the drain completes.
+	// The deadline is a backstop that turns a hung drain into a test failure rather than a stuck
+	// test.
+	close(targets)
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(10 * time.Second):
+		t.Fatal("TempStreamArmJointPositions never returned")
+	}
 
 	// status agrees the session has ended
-	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["running"], test.ShouldEqual, false)
+	test.That(t, resp, test.ShouldBeEmpty)
 
 	// The session did not end vacuously: trajectory points reached the arm over a
 	// stream RPC.
@@ -122,130 +153,108 @@ func TestDoCommandsHappyPath(t *testing.T) {
 	test.That(t, streams >= 1, test.ShouldBeTrue)
 }
 
-// TestDoCommandArmStreamingStatusDiagnosticsOptIn checks that stream_status omits the
-// (potentially large) last window details unless the caller opts in via
-// {"last_window_details": true}.
-func TestDoCommandArmStreamingStatusDiagnosticsOptIn(t *testing.T) {
+// TestTempStreamArmJointPositionsStatusReturnsDetails checks that stream_status carries a
+// running session's last window details whenever a positive diagnostics window retains them.
+//
+//nolint:dupl
+func TestTempStreamArmJointPositionsStatusReturnsDetails(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	opts := streamTestOptions()
-	_, err := ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": opts},
-	})
-	test.That(t, err, test.ShouldBeNil)
+	diagWindow := int32(60)
+	opts.DiagnosticsWindowSecs = &diagWindow
+	targets := make(chan []referenceframe.Input)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(ctx, "arm", opts, targets, ignoredResponses(t), nil)
+	}()
+	waitForSession(t, ms, "arm")
 
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["diagnostics_window_secs"], test.ShouldEqual, 60)
 	_, hasDetails := resp["last_window_details"]
-	test.That(t, hasDetails, test.ShouldBeFalse)
-	test.That(t, resp["running"], test.ShouldEqual, true)
-
-	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": true}})
-	test.That(t, err, test.ShouldBeNil)
-	_, hasDetails = resp["last_window_details"]
 	test.That(t, hasDetails, test.ShouldBeTrue)
 
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
-	test.That(t, err, test.ShouldBeNil)
+	// abort
+	cancel()
+	<-errCh
 }
 
-// TestDoCommandArmStreamingDiagnosticsDisabled checks that diagnostics_window_secs: 0 disables
-// retention of last_window_details, so requesting it errors rather than silently coming back
-// empty.
-func TestDoCommandArmStreamingDiagnosticsDisabled(t *testing.T) {
+// TestTempStreamArmJointPositionsDiagnosticsDisabled checks that diagnostics_window_secs: 0
+// disables retention of last_window_details.
+//
+//nolint:dupl
+func TestTempStreamArmJointPositionsDiagnosticsDisabled(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	opts := streamTestOptions()
-	opts["diagnostics_window_secs"] = 0
-	_, err := ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": opts},
-	})
-	test.That(t, err, test.ShouldBeNil)
+	diagWindow := int32(0)
+	opts.DiagnosticsWindowSecs = &diagWindow
+	targets := make(chan []referenceframe.Input)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(ctx, "arm", opts, targets, ignoredResponses(t), nil)
+	}()
+	waitForSession(t, ms, "arm")
 
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"last_window_details": true}})
-	test.That(t, err, test.ShouldNotBeNil)
-
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["running"], test.ShouldEqual, true)
+	test.That(t, resp["diagnostics_window_secs"], test.ShouldEqual, 0)
+	_, hasDetails := resp["last_window_details"]
+	test.That(t, hasDetails, test.ShouldBeFalse)
 
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
-	test.That(t, err, test.ShouldBeNil)
+	// abort
+	cancel()
+	<-errCh
 }
 
-func TestParseDoCommandStreamOptions(t *testing.T) {
-	wire, err := parseDoCommandStreamOptions(map[string]interface{}{
-		"arm_side_target_runway_ms": 80,
-		"send_to_arm_interval_ms":   20,
-		"diagnostics_window_secs":   0,
-		"move_options": map[string]interface{}{
-			"max_vel_degs_per_sec":         90,
-			"max_acc_degs_per_sec2_joints": []interface{}{90, 180},
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, *wire.ArmSideTargetRunwayMs, test.ShouldEqual, int32(80))
-	test.That(t, *wire.SendToArmIntervalMs, test.ShouldEqual, int32(20))
-	test.That(t, *wire.DiagnosticsWindowSecs, test.ShouldEqual, int32(0))
-	test.That(t, wire.MoveOptions.GetMaxVelDegsPerSec(), test.ShouldEqual, 90.0)
-	test.That(t, wire.MoveOptions.GetMaxAccDegsPerSec2Joints(), test.ShouldResemble, []float64{90, 180})
-	// Keys left out are unset, not zero, so NewStreamOptions can tell them apart from an explicit 0.
-	test.That(t, wire.MoveOptions.MaxAccDegsPerSec2, test.ShouldBeNil)
-
-	// No options object at all decodes as everything unset.
-	wire, err = parseDoCommandStreamOptions(nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, wire, test.ShouldResemble, doCommandStreamOptions{})
-
-	// Unknown keys are an error at either level.
-	_, err = parseDoCommandStreamOptions(map[string]interface{}{"not_a_stream_option": 30})
-	test.That(t, err, test.ShouldNotBeNil)
-	_, err = parseDoCommandStreamOptions(map[string]interface{}{"move_options": map[string]interface{}{"not_a_move_option": 1}})
-	test.That(t, err, test.ShouldNotBeNil)
-}
-
-func TestDoCommandsUsedIncorrectly(t *testing.T) {
+func TestTempStreamArmJointPositionsUsedIncorrectly(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	ctx := context.Background()
 
-	// push before start
-	_, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamPush: []interface{}{[]interface{}{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}})
-	test.That(t, err, test.ShouldNotBeNil)
+	targets := make(chan []referenceframe.Input)
+	close(targets)
 
 	// start referencing an unknown arm
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStart: map[string]interface{}{"arm": "nope"}})
+	err := ms.TempStreamArmJointPositions(ctx, "nope", streamTestOptions(), targets, ignoredResponses(t), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// start missing an arm name
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStart: map[string]interface{}{"options": streamTestOptions()}})
+	err = ms.TempStreamArmJointPositions(ctx, "", streamTestOptions(), targets, ignoredResponses(t), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// start with invalid options fails synchronously rather than spawning a dead session
-	_, err = ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{
-			"arm":     "arm",
-			"options": map[string]interface{}{"send_to_arm_interval_ms": -5},
-		},
-	})
+	badOpts := streamTestOptions()
+	negativeInterval := int32(-5)
+	badOpts.SendToArmIntervalMs = &negativeInterval
+	err = ms.TempStreamArmJointPositions(ctx, "arm", badOpts, targets, ignoredResponses(t), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid streaming options")
 
 	// starting again while running should error
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["ok"], test.ShouldEqual, 1)
-	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStart: map[string]interface{}{"arm": "arm"}})
+	running := make(chan []referenceframe.Input)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), running, ignoredResponses(t), nil)
+	}()
+	waitForSession(t, ms, "arm")
+	err = ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), targets, ignoredResponses(t), nil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "already running")
+
+	close(running)
+	<-errCh
 }
 
-func TestDoCommandStreamAbort(t *testing.T) {
+func TestTempStreamArmJointPositionsAbort(t *testing.T) {
 	var rpcStarted sync.Once
 	rpcStartedCh := make(chan struct{})
 	releaseRPC := make(chan struct{})
@@ -276,15 +285,16 @@ func TestDoCommandStreamAbort(t *testing.T) {
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	ctx := context.Background()
 
-	_, err := ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
-	})
-	test.That(t, err, test.ShouldBeNil)
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	targets := make(chan []referenceframe.Input)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(runCtx, "arm", streamTestOptions(), targets, ignoredResponses(t), nil)
+	}()
+	waitForSession(t, ms, "arm")
 
-	_, err = ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamPush: []interface{}{[]interface{}{0.2, 0.0, 0.0, 0.0, 0.0, 0.0}},
-	})
-	test.That(t, err, test.ShouldBeNil)
+	targets <- []referenceframe.Input{0.2, 0, 0, 0, 0, 0}
 
 	// Wait for the arm RPC to be open (and parked on releaseRPC) before aborting.
 	select {
@@ -293,32 +303,28 @@ func TestDoCommandStreamAbort(t *testing.T) {
 		t.Fatal("arm RPC never started")
 	}
 
-	// Abort with an already-expired context: teardown is blocked on the arm RPC,
-	// so the session stays registered and reports running.
-	expiredCtx, cancel := context.WithCancel(ctx)
+	// Abort by canceling the caller's ctx. Teardown is blocked on the arm RPC, so the session
+	// stays registered and status still reports it.
 	cancel()
-	status := ms.streamAbort(expiredCtx)
-	test.That(t, status["running"], test.ShouldEqual, true)
-
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["running"], test.ShouldEqual, true)
+	test.That(t, resp, test.ShouldNotBeEmpty)
 
-	// A new startStream should fail because the previous session is still running.
-	_, err = ms.DoCommand(expiredCtx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
-	})
+	// A new session should fail because the previous one is still running.
+	blockedTargets := make(chan []referenceframe.Input)
+	close(blockedTargets)
+	err = ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), blockedTargets, ignoredResponses(t), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "still shutting down")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "already running")
 
 	// Let the RPC (and therefore teardown) finish. Once status reports the
 	// session ended, a new session can start.
 	close(releaseRPC)
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: true})
+		resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 		test.That(t, err, test.ShouldBeNil)
-		if resp["running"] == false {
+		if len(resp) == 0 {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -326,87 +332,9 @@ func TestDoCommandStreamAbort(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	_, err = ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
-	})
+	test.That(t, <-errCh, test.ShouldNotBeNil)
+	newTargets := make(chan []referenceframe.Input)
+	close(newTargets)
+	err = ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), newTargets, ignoredResponses(t), nil)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestDoCommandSequentialCommandsEnforcement(t *testing.T) {
-	ms, _ := newStreamTestService(t)
-	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
-	ctx := context.Background()
-
-	_, err := ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamPush: []interface{}{[]interface{}{0.02, 0.0, 0.0, 0.0, 0.0, 0.0}},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	// A push while another operation holds the protocol lock is rejected, not queued.
-	ms.streamMu.RLock()
-	s := ms.stream
-	ms.streamMu.RUnlock()
-	s.opMu.Lock()
-	_, err = ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamPush: []interface{}{[]interface{}{0.04, 0.0, 0.0, 0.0, 0.0, 0.0}},
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "overlapping stream operations")
-	s.opMu.Unlock()
-
-	// Flush, then push: rejected with a clear error rather than blocking until session end.
-	flushCtx, flushCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer flushCancel()
-	_, err = ms.DoCommand(flushCtx, map[string]interface{}{DoStreamFlush: true})
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamPush: []interface{}{[]interface{}{0.06, 0.0, 0.0, 0.0, 0.0, 0.0}},
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "flushing")
-}
-
-func TestDoCommandStreamPushBatch(t *testing.T) {
-	ms, counts := newStreamTestService(t)
-	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
-	ctx := context.Background()
-
-	_, err := ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamStart: map[string]interface{}{"arm": "arm", "options": streamTestOptions()},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	// push a batch of two waypoints at once
-	resp, err := ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamPush: []interface{}{
-			[]interface{}{0.02, 0.0, 0.0, 0.0, 0.0, 0.0},
-			[]interface{}{0.04, 0.0, 0.0, 0.0, 0.0, 0.0},
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp["ok"], test.ShouldEqual, 1)
-
-	// keep pushing
-	_, err = ms.DoCommand(ctx, map[string]interface{}{
-		DoStreamPush: []interface{}{[]interface{}{0.06, 0.0, 0.0, 0.0, 0.0, 0.0}},
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	// Wait until the arm has received at least one trajectory point.
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		if points, _ := counts(); points > 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("arm never received trajectory points")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
 }

@@ -11,11 +11,14 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
 func testStreamOptions() StreamOptions {
-	return NewStreamOptions(nil, nil, nil, &arm.MoveOptions{MaxVelRads: testVelLimitRadPerSec, MaxAccRads: testAccelLimitRadPerSec2})
+	return NewStreamOptions(motion.TempStreamOptions{
+		MoveOptions: &arm.MoveOptions{MaxVelRads: testVelLimitRadPerSec, MaxAccRads: testAccelLimitRadPerSec2},
+	})
 }
 
 // sampleHorizon is far longer than any trajectory these tests plan, so sampling with it
