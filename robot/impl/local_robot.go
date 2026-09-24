@@ -1115,14 +1115,29 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
-		for _, matcher := range weakDepMatchers {
-			if matcher.IsMatch(res) {
-				// Pop the remote name off since callers won't be expecting it when accessing it in the resource
-				// dependency map in a resource constructor.
-				popped := n.PopRemote()
-				deps[popped] = res
-				snapshot[popped] = node.UpdatedAt()
-				break
+		// A composite serves several co-equal APIs from one identity. Test the weak-dep matchers against
+		// EACH served API, storing a match as that API's UNWRAPPED sub-resource under that API's name.
+		// Otherwise a composite whose matched API is not its canonical one is silently dropped (the
+		// Subtype/Type matchers read Name().API, which for a local composite is only the canonical API),
+		// and a consumer would receive the composite wrapper — which implements none of the sub-API
+		// interfaces — instead of the typed sub. For an ordinary resource this is just n.API and a no-op
+		// unwrap.
+		apis := r.coequalAPIsOf(n, res)
+		if apis == nil {
+			apis = []resource.API{n.API}
+		}
+		for _, api := range apis {
+			sub := resource.SubresourceForAPI(res, api)
+			apiName := resource.Name{API: api, Remote: n.Remote, Name: n.Name}
+			for _, matcher := range weakDepMatchers {
+				if matcher.IsMatch(sub) {
+					// Pop the remote name off since callers won't be expecting it when accessing it in the
+					// resource dependency map in a resource constructor.
+					popped := apiName.PopRemote()
+					deps[popped] = sub
+					snapshot[popped] = node.UpdatedAt()
+					break
+				}
 			}
 		}
 	}
