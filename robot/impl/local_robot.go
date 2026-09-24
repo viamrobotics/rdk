@@ -2436,6 +2436,19 @@ func (r *localRobot) packageManagerForModule(mod config.Module) (packages.Manage
 	return r.packageManager, packages.PackageName(mod.Name)
 }
 
+// findRemoteMetadataByName returns the cloud metadata of any entry in remoteMdMap sharing name's
+// simple name and remote (ignoring API). A remote composite reports one metadata entry (under its
+// canonical API) but is proxied here as one node per co-equal API; its per-API siblings are one
+// identity, so any of them maps to that single metadata.
+func findRemoteMetadataByName(remoteMdMap map[resource.Name]cloud.Metadata, name resource.Name) (cloud.Metadata, bool) {
+	for remoteName, md := range remoteMdMap {
+		if remoteName.Name == name.Name && remoteName.Remote == name.Remote {
+			return md, true
+		}
+	}
+	return cloud.Metadata{}, false
+}
+
 // MachineStatus returns the current status of the robot.
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
@@ -2454,6 +2467,15 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 
 		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
 		if rMd, ok := remoteMdMap[resourceStatus.Name]; ok {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
+			continue
+		}
+
+		// A remote composite is proxied as one node per co-equal API, but the remote reports it once
+		// (under its own canonical API), so only that API's node matches the exact key above. Fall back
+		// to any metadata entry sharing this resource's name and remote — the composite's per-API
+		// siblings are one identity with one cloud metadata.
+		if rMd, ok := findRemoteMetadataByName(remoteMdMap, resourceStatus.Name); ok {
 			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
 			continue
 		}
