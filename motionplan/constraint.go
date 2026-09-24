@@ -73,9 +73,6 @@ type OrientationConstraint struct {
 	// IgnoreTheta scores only the angle between orientation vectors, dropping
 	// rotation about the frame's own pointing axis. Set it for payloads
 	// symmetric about that axis, which spill when tipped but not when spun.
-	//
-	// motionpb.OrientationConstraint has no equivalent field, so this cannot be
-	// set over gRPC and is dropped by ToProtobuf.
 	IgnoreTheta bool
 }
 

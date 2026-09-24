@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
+	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
 
@@ -73,6 +74,32 @@ func TestConstraintConstructors(t *testing.T) {
 // the smallest angular distance from now to any orientation on the slerp arc -
 // by sampling that arc densely with spatialmath.Interpolate and OrientDist,
 // which share no code with the closed form.
+// TestOrientationConstraintProtoRoundTrip covers IgnoreTheta in both states.
+// The constructor test above only ever round-trips the zero value, which would
+// pass even if the flag were dropped by the conversion.
+func TestOrientationConstraintProtoRoundTrip(t *testing.T) {
+	for _, ignoreTheta := range []bool{false, true} {
+		c := NewEmptyConstraints()
+		c.AddOrientationConstraint(OrientationConstraint{OrientationToleranceDegs: 15, IgnoreTheta: ignoreTheta})
+
+		pb := c.ToProtobuf()
+		test.That(t, pb.OrientationConstraint[0].GetIgnoreTheta(), test.ShouldEqual, ignoreTheta)
+
+		back := ConstraintsFromProtobuf(pb)
+		test.That(t, back.OrientationConstraint[0].IgnoreTheta, test.ShouldEqual, ignoreTheta)
+		test.That(t, back, test.ShouldResemble, c)
+	}
+
+	// A message from a peer that predates the field leaves it unset, which must
+	// read as the theta-aware default rather than erroring.
+	tol := float32(15)
+	back := ConstraintsFromProtobuf(&motionpb.Constraints{
+		OrientationConstraint: []*motionpb.OrientationConstraint{{OrientationToleranceDegs: &tol}},
+	})
+	test.That(t, back.OrientationConstraint[0].IgnoreTheta, test.ShouldBeFalse)
+	test.That(t, back.OrientationConstraint[0].OrientationToleranceDegs, test.ShouldEqual, 15)
+}
+
 func TestOrientationArcDistanceBruteForce(t *testing.T) {
 	const steps = 4000
 	rng := rand.New(rand.NewSource(11))

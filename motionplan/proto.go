@@ -77,9 +77,7 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 		return toRet
 	}
 
-	// iterate through all motionpb.OrientationConstraint and convert to RDK form.
-	// The proto has no counterpart to OrientationConstraint.IgnoreTheta, so that
-	// flag cannot cross gRPC in either direction.
+	// iterate through all motionpb.OrientationConstraint and convert to RDK form
 	orientConstraintFromProto := func(orientConstraints []*motionpb.OrientationConstraint) []OrientationConstraint {
 		toRet := make([]OrientationConstraint, 0, len(orientConstraints))
 		for _, orientConstraint := range orientConstraints {
@@ -89,6 +87,7 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 			}
 			toRet = append(toRet, OrientationConstraint{
 				OrientationToleranceDegs: orientTol,
+				IgnoreTheta:              orientConstraint.GetIgnoreTheta(),
 			})
 		}
 		return toRet
@@ -157,8 +156,10 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 		toRet := make([]*motionpb.OrientationConstraint, 0)
 		for _, orientConstraint := range orientConstraints {
 			orientationTolerance := float32(orientConstraint.OrientationToleranceDegs)
+			ignoreTheta := orientConstraint.IgnoreTheta
 			toRet = append(toRet, &motionpb.OrientationConstraint{
 				OrientationToleranceDegs: &orientationTolerance,
+				IgnoreTheta:              &ignoreTheta,
 			})
 		}
 		return toRet
