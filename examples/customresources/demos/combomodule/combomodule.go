@@ -64,12 +64,10 @@ func newComboDevice(
 }
 
 // comboDevice holds the shared state and every NON-colliding method of both APIs. resource.Named
-// supplies Name/DoCommand/Status; AlwaysRebuild supplies Reconfigure; TriviallyCloseable supplies
-// Close. It deliberately has no Properties method — that is the colliding method, carried by the
-// facades below.
+// supplies Name/DoCommand/Status and TriviallyCloseable supplies Close. It deliberately has no
+// Properties method — that is the colliding method, carried by the facades below.
 type comboDevice struct {
 	resource.Named
-	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 }
 
@@ -146,7 +144,7 @@ func (f imuFacade) Properties(context.Context, map[string]interface{}) (*movemen
 // gizmoFacade carries the custom acme:component:gizmo API's methods. Gizmo's method names do not
 // collide with camera's or movement_sensor's, but it rides on a facade like the others so the module
 // fans a correctly-typed per-API sub-resource out for every API. It embeds the shared *comboDevice
-// for Name/DoCommand/Reconfigure/Close, so gizmoFacade satisfies gizmoapi.Gizmo.
+// for Name/DoCommand/Close, so gizmoFacade satisfies gizmoapi.Gizmo.
 type gizmoFacade struct{ *comboDevice }
 
 func (f gizmoFacade) DoOne(_ context.Context, arg1 string) (bool, error) {
