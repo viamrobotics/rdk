@@ -90,7 +90,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	cons := motionplan.NewEmptyConstraints()
-	cons.OrientationConstraint = append(cons.OrientationConstraint, motionplan.OrientationConstraint{1})
+	cons.OrientationConstraint = append(cons.OrientationConstraint, motionplan.OrientationConstraint{OrientationToleranceDegs: 1})
 
 	start := &PlanState{structuredConfiguration: map[string][]frame.Input{model.Name(): home7}}
 	goalPoses := frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
