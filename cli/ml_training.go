@@ -1020,9 +1020,6 @@ func isValidArgumentKey(key string) bool {
 
 // getContainerImageURI returns the full container image URI based on the version.
 func getContainerImageURI(c *viamClient, version string) (string, error) {
-	// TODO: ask how we should replace this function when we use a list instead of a map
-	// because this file does rely on the key function of a map
-	// do we just use a for loop to iterate over the containers response? might make sense only if we have org ID
 	res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to list supported containers")
