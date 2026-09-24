@@ -392,6 +392,83 @@ func TestNewMultiAPIResourceDefensiveCopy(t *testing.T) {
 	test.That(t, composite.APIs(), test.ShouldResemble, []API{testCamAPI, testSensAPI})
 }
 
+func TestNewMultiAPIResourceValidates(t *testing.T) {
+	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
+
+	// no apis is a programmer error and panics.
+	test.That(t, func() {
+		NewMultiAPIResource(NewName(testCamAPI, "dev"), nil, map[API]Resource{})
+	}, test.ShouldPanic)
+
+	// an api with no byAPI entry panics, so the canonical route is always resolvable.
+	test.That(t, func() {
+		NewMultiAPIResource(NewName(testCamAPI, "dev"), []API{testCamAPI, testSensAPI}, map[API]Resource{testCamAPI: c})
+	}, test.ShouldPanic)
+}
+
+func TestNewMultiAPIResourceCopiesByAPI(t *testing.T) {
+	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
+	byAPI := map[API]Resource{testCamAPI: c, testSensAPI: c}
+	composite := NewMultiAPIResource(NewName(testCamAPI, "dev"), []API{testCamAPI, testSensAPI}, byAPI)
+
+	// mutating the caller's map after construction must not rewire the composite's routing.
+	other := &combo{Named: NewName(testMotorAPI, "other").AsNamed()}
+	byAPI[testCamAPI] = other
+	got, ok := composite.ResourceForAPI(testCamAPI)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, got, test.ShouldEqual, c)
+}
+
+func TestNamedFromProvider(t *testing.T) {
+	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
+	composite := NewMultiAPIResource(
+		NewName(testCamAPI, "combo"),
+		[]API{testCamAPI, testSensAPI},
+		map[API]Resource{testCamAPI: c, testSensAPI: c},
+	)
+	// The provider is keyed by the bare (API-less) SimpleName, as NamedFromProvider looks it up.
+	provider := fakeProvider{byName: map[Name]Resource{SimpleName("combo"): composite}}
+
+	res, err := NamedFromProvider(provider, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldEqual, composite)
+
+	_, err = NamedFromProvider(provider, "nope")
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
+	// SimpleNamesWhere surfaces every per-API sibling of a remote composite (same remote, one identity)
+	// so a client can detect and assemble it, but still hides a genuine machine-wide collision.
+	g := NewGraph(logging.NewTestLogger(t))
+	newNode := func(n Name) *GraphNode {
+		return NewConfiguredGraphNode(Config{Name: n.Name, API: n.API}, &combo{Named: n.AsNamed()}, Model{})
+	}
+	add := func(n Name) { test.That(t, g.AddNode(n, newNode(n)), test.ShouldBeNil) }
+
+	// A remote composite: two co-equal APIs from the SAME remote under one name -> both surfaced.
+	add(Name{API: testCamAPI, Name: "combo", Remote: "r1"})
+	add(Name{API: testSensAPI, Name: "combo", Remote: "r1"})
+	// A genuine collision: same name across DIFFERENT remotes -> hidden.
+	add(Name{API: testCamAPI, Name: "dup", Remote: "r1"})
+	add(Name{API: testSensAPI, Name: "dup", Remote: "r2"})
+	// An ordinary single remote resource -> surfaced.
+	add(Name{API: testCamAPI, Name: "solo", Remote: "r1"})
+
+	got := g.SimpleNamesWhere(func(Name, *GraphNode) bool { return true })
+	test.That(t, got, test.ShouldContain, Name{API: testCamAPI, Name: "combo", Remote: "r1"})
+	test.That(t, got, test.ShouldContain, Name{API: testSensAPI, Name: "combo", Remote: "r1"})
+	test.That(t, got, test.ShouldContain, Name{API: testCamAPI, Name: "solo", Remote: "r1"})
+
+	byName := map[string]int{}
+	for _, n := range got {
+		byName[n.Name]++
+	}
+	test.That(t, byName["combo"], test.ShouldEqual, 2) // both composite siblings
+	test.That(t, byName["dup"], test.ShouldEqual, 0)   // collision hidden
+	test.That(t, byName["solo"], test.ShouldEqual, 1)
+}
+
 func TestFromProviderUnwrapsComposite(t *testing.T) {
 	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
 	composite := NewMultiAPIResource(
