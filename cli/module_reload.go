@@ -39,6 +39,9 @@ func configureModule(
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
+	if err := vc.redialApp(ctx); err != nil {
+		return part, false, err
+	}
 	args, err := getGlobalArgs(cmd)
 	if err != nil {
 		return part, false, err
