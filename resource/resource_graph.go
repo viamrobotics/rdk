@@ -531,8 +531,16 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 		chosen := cands[0]
 		if len(cands) > 1 {
 			var localCands []candidate
+			seenLocalNode := map[*GraphNode]bool{}
 			for _, c := range cands {
 				if c.name.Remote == "" {
+					// A local composite may (defensively) be cached under more than one API but is one
+					// node; count it once so it is not mistaken for a multi-claimant collision and hidden
+					// here, mirroring namesMatchingSimpleName's seenLocal dedup so the two stay consistent.
+					if seenLocalNode[c.node] {
+						continue
+					}
+					seenLocalNode[c.node] = true
 					localCands = append(localCands, c)
 				}
 			}
@@ -754,6 +762,14 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	// than one of them, the same *GraphNode must count as a single match, not a name collision.
 	// Genuinely distinct nodes that share a simple name back different *GraphNodes and still collide.
 	seenLocal := map[*GraphNode]bool{}
+	// A remote guarantees its own resource names are unique, so several same-named resources from ONE
+	// remote that differ only by API are one composite (mirroring the local dedup above and the
+	// client-side "APIs sharing a bare name = one composite" inference), not a name collision. Collect
+	// each remote's candidate names so the remote collapses to a SINGLE, DETERMINISTIC match: its
+	// sorted-first (canonical) API. Emitting at first map-iteration instead would make the resolved API
+	// vary run-to-run (Go randomizes map order), which flips a remote composite's resolved name across
+	// reconfigures. Resources on different remotes stay distinct and still collide.
+	remoteCands := map[string][]Name{}
 	for key, val := range g.nodes.simpleNameCache {
 		if key.api.Type.Namespace == APINamespaceRDKInternal {
 			continue
@@ -770,14 +786,46 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 			continue
 		}
 		for remote, node := range val.remote {
-			result = append(result, Name{
+			remoteCands[remote] = append(remoteCands[remote], Name{
 				API:    key.api,
 				Name:   strings.Replace(name, node.prefix, "", 1),
 				Remote: remote,
 			})
 		}
 	}
+	for _, cands := range remoteCands {
+		canonical := cands[0]
+		for _, c := range cands[1:] {
+			if c.API.String() < canonical.API.String() {
+				canonical = c
+			}
+		}
+		result = append(result, canonical)
+	}
 	return result
+}
+
+// APIsForRemoteResource returns every API under which a resource of the given simple name is
+// advertised by the given remote, sorted by API string for a deterministic canonical API (apis[0]).
+// A remote guarantees its own names are unique, so more than one API means those same-named
+// resources are one composite living on that remote (the same inference [Graph.FindBySimpleName]
+// and the robot client make). The name should include any remote prefix; remote is the resource's
+// immediate remote (a match's Name.Remote). It lets the robot assemble a remote composite into one
+// handle serving all its APIs.
+func (g *Graph) APIsForRemoteResource(name, remote string) []API {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	var apis []API
+	for key, val := range g.nodes.simpleNameCache {
+		if key.name != name || !(key.api.IsComponent() || key.api.IsService()) {
+			continue
+		}
+		if _, ok := val.remote[remote]; ok {
+			apis = append(apis, key.api)
+		}
+	}
+	slices.SortFunc(apis, func(a, b API) int { return strings.Compare(a.String(), b.String()) })
+	return apis
 }
 
 // GetAllChildrenOf returns all direct children of a node.
