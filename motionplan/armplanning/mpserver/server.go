@@ -1126,7 +1126,11 @@ func buildDetailConstraints(c *motionplan.Constraints) *detailConstraints {
 			lc.LineToleranceMm, lc.OrientationToleranceDegs))
 	}
 	for _, oc := range c.OrientationConstraint {
-		dc.Orientation = append(dc.Orientation, fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs))
+		desc := fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs)
+		if oc.IgnoreTheta {
+			desc += ", ignoring theta"
+		}
+		dc.Orientation = append(dc.Orientation, desc)
 	}
 	return dc
 }

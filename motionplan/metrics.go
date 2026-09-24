@@ -96,6 +96,12 @@ func OrientDist(o1, o2 spatial.Orientation) float64 {
 	return math.Abs(utils.RadToDeg(spatial.QuatToR4AA(spatial.QuatBetween(o1, o2)).Theta))
 }
 
+// OrientVecDist returns the angle in degrees between two orientations'
+// orientation vectors - each frame's local +Z expressed in its parent.
+func OrientVecDist(o1, o2 spatial.Orientation) float64 {
+	return utils.RadToDeg(math.Acos(clampUnit(orientationVector(o1.Quaternion()).Dot(orientationVector(o2.Quaternion())))))
+}
+
 // WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
 func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 	return WeightedSquaredNormDistanceWithOptions(start, end, 1.0, orientationDistanceScaling)
