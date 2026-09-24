@@ -517,6 +517,7 @@ func (c *viamClient) ensureLoggedInInner(ctx context.Context) error {
 // setAppClients points the app service clients at conn.
 func (c *viamClient) setAppClients(conn rpc.ClientConn) {
 	c.conn = conn
+	c.dialedApp = true
 	c.client = apppb.NewAppServiceClient(conn)
 	c.dataClient = datapb.NewDataServiceClient(conn)
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
@@ -605,14 +606,14 @@ func (c *viamClient) closeAppConn() {
 	}
 	utils.UncheckedError(c.conn.Close())
 	c.conn = nil
-	c.appConnClosed = true
 }
 
 // redialApp reconnects to app and rebuilds the service clients on the new connection. Call it at
 // the top of anything that talks to app and can be reached after a machine dial; it is a no-op
-// unless closeAppConn actually closed a connection.
+// unless closeAppConn actually closed a connection: a client whose service clients were injected
+// rather than dialed has no connection to rebuild.
 func (c *viamClient) redialApp(ctx context.Context) error {
-	if !c.appConnClosed {
+	if c.conn != nil || !c.dialedApp {
 		return nil
 	}
 	conn, err := c.dialApp(ctx)
@@ -620,7 +621,6 @@ func (c *viamClient) redialApp(ctx context.Context) error {
 		return err
 	}
 	c.setAppClients(conn)
-	c.appConnClosed = false
 	return nil
 }
 

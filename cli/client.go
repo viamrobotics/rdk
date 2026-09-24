@@ -151,7 +151,7 @@ type viamClient struct {
 	c                   *cli.Command
 	conf                *Config
 	conn                rpc.ClientConn
-	appConnClosed       bool
+	dialedApp           bool
 	client              apppb.AppServiceClient
 	dataClient          datapb.DataServiceClient
 	packageClient       packagepb.PackageServiceClient
