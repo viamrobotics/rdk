@@ -29,7 +29,7 @@ jobs:
             // membership API returns 404 for them. Only honored for same-repo
             // branch PRs (never forks), so an external fork can never use a bot
             // sender to bypass the membership check.
-            const trustedBots = ["viam-ci-org-reader[bot]"];
+            const trustedBots = ["viam-ci-org-reader[bot]", "dependabot[bot]", "viam-overwatch[bot]"];
             const pr = context.payload.pull_request;
             // Optional chaining keeps this fail-closed: if the head fork repo
             // was deleted, pr.head.repo is null and isFork becomes true, which
