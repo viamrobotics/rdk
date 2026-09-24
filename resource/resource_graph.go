@@ -149,6 +149,13 @@ func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
 }
 
 func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *GraphNode) {
+	// Refresh the composite index up front, keyed by the node's current prefix. This path is also how
+	// an uninitialized placeholder becomes its configured node (addNode's replace path), so the node's
+	// model — and thus its co-equal API set — may have only just become known and must be indexed even
+	// when the prefix (and therefore the primary cache key) is unchanged.
+	s.dropCompositeIndex(node)
+	s.indexCompositeAPIs(name, node)
+
 	if prevPrefix == node.prefix {
 		return
 	}
@@ -163,9 +170,8 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 		}
 	}
 
-	// Drop the node's co-equal index entries (keyed by the old prefix); setSimpleNameCache re-adds them
-	// under the new prefix.
-	s.dropCompositeIndex(node)
+	// setSimpleNameCache re-adds the primary entry under the new prefix (and re-runs indexCompositeAPIs,
+	// idempotently with the refresh above).
 	s.setSimpleNameCache(name, node)
 }
 

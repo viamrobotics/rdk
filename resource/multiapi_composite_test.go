@@ -219,6 +219,29 @@ func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 	test.That(t, g.nodes.compositeByAPI, test.ShouldBeEmpty)
 }
 
+func TestCompositeIndexViaPlaceholderReplace(t *testing.T) {
+	// A composite depended on before it is configured is first added as an uninitialized placeholder,
+	// then replaced by its configured node (addNode's replace path). The co-equal index must be
+	// populated there too — the model only becomes known at replace — or the composite would resolve
+	// under its configured API but 404 under its other co-equal APIs.
+	model := NewModel("acme", "test", "phcombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	compName := NewName(testCamAPI, "dev")
+	test.That(t, g.AddNode(compName, NewUninitializedNode()), test.ShouldBeNil)
+
+	configured := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: compName.AsNamed()}, model)
+	test.That(t, g.AddNode(compName, configured), test.ShouldBeNil)
+
+	_, err := g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
 	model := NewModel("acme", "test", "graphcombo2")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
