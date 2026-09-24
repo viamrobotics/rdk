@@ -333,6 +333,12 @@ func (m *Module) addResource(
 		return fmt.Errorf("invariant: no constructor for %q", conf.Model)
 	}
 
+	// A model served under more than one API must be declared a composite via
+	// resource.RegisterMultiAPI; reject it otherwise.
+	if err := validateCompositeDeclaration(conf.Model); err != nil {
+		return err
+	}
+
 	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
 		return err
@@ -358,8 +364,47 @@ func (m *Module) addResource(
 	}
 
 	// If adding the resource name to the collection fails, close the resource and return an error.
-	if err := coll.Add(conf.ResourceName(), res); err != nil {
+	// A facade-authored composite serves each API through its own sub-resource, so register the
+	// sub-resource for conf.API (resource.SubresourceForAPI is a no-op for a resource that natively
+	// implements every declared API).
+	if err := coll.Add(conf.ResourceName(), resource.SubresourceForAPI(res, conf.API)); err != nil {
 		return multierr.Combine(err, res.Close(ctx))
+	}
+
+	// Register each API's sub-resource (the facade carrying that API's methods) in that API's
+	// collection, under the composite's name, so every per-API subtype service resolves to the
+	// correctly-typed facade, one identity, one lifecycle, reachable under every API. Each collection's
+	// Add then type-checks it against that API's interface, so this doubles as startup validation that
+	// the constructed resource actually implements every declared API's methods, and a misdeclared
+	// model fails fast here.
+	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+		base := conf.ResourceName()
+		// Track the collections this composite has been added to so any failure aborts cleanly: undo
+		// every add before closing res, leaving no collection pointing at a resource we are about to
+		// close. conf.API's collection (added just above) is the first tracked entry.
+		added := []resource.Name{conf.ResourceName()}
+		abort := func(cause error) error {
+			for _, n := range added {
+				if c, ok := m.collections[n.API]; ok {
+					cause = multierr.Combine(cause, c.Remove(n))
+				}
+			}
+			return multierr.Combine(cause, res.Close(ctx))
+		}
+		for _, api := range apis {
+			if api == conf.API {
+				continue
+			}
+			other, ok := m.collections[api]
+			if !ok {
+				return abort(fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model))
+			}
+			subName := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+			if err := other.Add(subName, resource.SubresourceForAPI(res, api)); err != nil {
+				return abort(fmt.Errorf("composite model %q does not implement declared api %q: %w", conf.Model, api, err))
+			}
+			added = append(added, subName)
+		}
 	}
 
 	m.resLoggers[res] = resLogger
@@ -520,7 +565,35 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 		}
 	}
 
+	// A composite instance lives in one collection per co-equal API; remove it from each. Names are
+	// machine-wide unique, so removing this bare name from every other collection is safe (a no-op
+	// where it is absent).
+	for api, c := range m.collections {
+		if api == resName.API {
+			continue
+		}
+		if err := c.Remove(resource.Name{API: api, Remote: resName.Remote, Name: resName.Name}); err != nil {
+			m.logger.CDebugw(ctx, "removing composite instance from a co-equal API collection where it is absent",
+				"api", api, "resource", resName.Name, "err", err)
+		}
+	}
+
 	return coll.Remove(resName)
+}
+
+// validateCompositeDeclaration rejects a model served under more than one API that was not declared a
+// composite via resource.RegisterMultiAPI. The check leans on two lookups that differ on purpose:
+// ExpandModel returns every API the model is registered under; APIsForModel returns only a declared
+// composite's co-equal set. Registered under many but declared under fewer than two means the model is
+// reused across APIs without being a composite, so its extra APIs would wire to nothing.
+func validateCompositeDeclaration(model resource.Model) error {
+	if len(resource.ExpandModel(model)) > 1 && len(resource.APIsForModel(model)) < 2 {
+		return fmt.Errorf(
+			"model %q is registered under multiple APIs but was not declared as a composite; "+
+				"serve one model under several co-equal APIs with resource.RegisterMultiAPI", model,
+		)
+	}
+	return nil
 }
 
 // rebuildResource will rebuild resource and, if successful, return the new resource
@@ -579,8 +652,47 @@ func (m *Module) rebuildResource(
 		return nil, err
 	}
 
-	if err := coll.ReplaceOne(conf.ResourceName(), newRes); err != nil {
+	// For a composite, verify the module can service every co-equal API BEFORE replacing anything, so a
+	// missing-API abort leaves all collections on the old instance rather than some on the new and some
+	// on the old (or on a resource we then close). A ReplaceOne type-check below cannot fail for a
+	// rebuilt same-model instance — its implemented API set is fixed by its Go type and already passed
+	// this check at addResource — so once the collections exist the fan-out is effectively
+	// all-or-nothing.
+	apis := resource.APIsForModel(conf.Model)
+	if len(apis) > 1 {
+		m.registerMu.Lock()
+		for _, api := range apis {
+			if _, ok := m.collections[api]; !ok {
+				m.registerMu.Unlock()
+				return nil, multierr.Combine(
+					fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model), newRes.Close(ctx),
+				)
+			}
+		}
+		m.registerMu.Unlock()
+	}
+
+	if err := coll.ReplaceOne(conf.ResourceName(), resource.SubresourceForAPI(newRes, conf.API)); err != nil {
 		return nil, multierr.Combine(err, newRes.Close(ctx))
+	}
+
+	// Composite: replace the old instance in every other co-equal API's collection with that API's
+	// sub-resource (its facade), so all APIs keep resolving to the one new instance. The pre-check
+	// above confirmed every collection exists, and the rebuilt instance is the same Go type that
+	// already passed the implements-every-API check at addResource, so these ReplaceOne calls cannot
+	// fail (the same invariant the pre-check relies on).
+	if len(apis) > 1 {
+		base := conf.ResourceName()
+		m.registerMu.Lock()
+		for _, api := range apis {
+			if api == conf.API {
+				continue
+			}
+			name := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+			//nolint:errcheck // cannot fail per the invariant above (collection exists, same-type instance).
+			m.collections[api].ReplaceOne(name, resource.SubresourceForAPI(newRes, api))
+		}
+		m.registerMu.Unlock()
 	}
 
 	m.registerMu.Lock()
