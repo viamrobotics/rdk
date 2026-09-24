@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
@@ -618,6 +619,117 @@ func TestCompositeInFrameSystem(t *testing.T) {
 		if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
 			found = true
 			// Included via the InputEnabled (kinematic) path, so it carries a model.
+			test.That(t, part.ModelFrame, test.ShouldNotBeNil)
+		}
+	}
+	test.That(t, found, test.ShouldBeTrue)
+}
+
+// buttonGripperDevice backs a builtin composite serving button.Button and gripper.Gripper over one
+// shared instance. Kinematics lives only on the gripper facade below, so the button facade is not
+// framesystem.InputEnabled — the composite's single kinematic sub is its NON-canonical API. button
+// sorts before gripper, so button is the canonical API.
+type buttonGripperDevice struct {
+	resource.Named
+}
+
+func (d *buttonGripperDevice) Close(context.Context) error                        { return nil }
+func (d *buttonGripperDevice) Stop(context.Context, map[string]interface{}) error { return nil }
+func (d *buttonGripperDevice) IsMoving(context.Context) (bool, error)             { return false, nil }
+
+func (d *buttonGripperDevice) Geometries(
+	context.Context, map[string]interface{},
+) ([]spatialmath.Geometry, error) {
+	return nil, nil
+}
+
+// buttonOnlyFacade serves button.Button and is deliberately not kinematic.
+type buttonOnlyFacade struct{ *buttonGripperDevice }
+
+func (f buttonOnlyFacade) Push(context.Context, map[string]interface{}) error { return nil }
+
+// kinGripperFacade serves gripper.Gripper and is the composite's only framesystem.InputEnabled sub.
+type kinGripperFacade struct{ *buttonGripperDevice }
+
+func (f kinGripperFacade) Open(context.Context, map[string]interface{}) error { return nil }
+func (f kinGripperFacade) Grab(context.Context, map[string]interface{}) (bool, error) {
+	return false, nil
+}
+
+func (f kinGripperFacade) IsHoldingSomething(
+	context.Context, map[string]interface{},
+) (gripper.HoldingStatus, error) {
+	return gripper.HoldingStatus{}, nil
+}
+
+func (f kinGripperFacade) Kinematics(context.Context) (referenceframe.Model, error) {
+	return referenceframe.NewSimpleModel("noncanon-kin"), nil
+}
+
+func (f kinGripperFacade) CurrentInputs(context.Context) ([]referenceframe.Input, error) {
+	return nil, nil
+}
+
+func (f kinGripperFacade) GoToInputs(context.Context, ...[]referenceframe.Input) error { return nil }
+
+// registerButtonGripperModel registers a builtin composite serving button.Button (canonical) +
+// gripper.Gripper over one shared instance, with kinematics exposed only on the non-canonical gripper
+// facade.
+func registerButtonGripperModel(t *testing.T, name string) resource.Model {
+	t.Helper()
+	model := resource.NewModel("acme", "test", name)
+	resource.RegisterMultiAPI(
+		[]resource.API{button.API, gripper.API}, model,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				d := &buttonGripperDevice{Named: conf.ResourceName().AsNamed()}
+				return resource.Compose(
+					conf.ResourceName(),
+					button.AsSub(buttonOnlyFacade{d}),
+					gripper.AsSub(kinGripperFacade{d}),
+				)
+			},
+		},
+	)
+	t.Cleanup(func() {
+		resource.Deregister(button.API, model)
+		resource.Deregister(gripper.API, model)
+	})
+	return model
+}
+
+// TestCompositeInFrameSystemNonCanonicalKinematic checks that a composite gets a model frame when its
+// kinematic API is not the one it is configured under. The composite serves button (canonical,
+// non-kinematic) and gripper (non-canonical, kinematic) and is configured under button — an API the
+// frame system does not recognize as kinematic by its subtype. Because kinematics is detected by
+// interface across every API the composite serves, it still contributes a model frame.
+func TestCompositeInFrameSystemNonCanonicalKinematic(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerButtonGripperModel(t, "inproc-fs-noncanon")
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "combo",
+				API:   button.API,
+				Model: model,
+				Frame: &referenceframe.LinkConfig{Parent: referenceframe.World},
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	fsCfg, err := r.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	var found bool
+	for _, part := range fsCfg.Parts {
+		if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
+			found = true
+			// The kinematic sub is the non-canonical gripper API, detected by interface, so the
+			// composite carries a model frame even though it is configured under button.
 			test.That(t, part.ModelFrame, test.ShouldNotBeNil)
 		}
 	}

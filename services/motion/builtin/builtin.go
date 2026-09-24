@@ -206,7 +206,14 @@ func (ms *builtIn) BuiltInReconfigure(
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
+	// A composite is aliased under each of its co-equal API names but is one identity, and each value
+	// may be the composite wrapper (which implements none of the sub-API interfaces). Unwrap to this
+	// API's sub before classifying, or a composite falls through to the component bucket as an opaque
+	// wrapper. Component subs are grouped by short name and resolved below, since a composite may serve
+	// several component APIs under one name.
+	componentsByName := make(map[string][]resource.Resource)
 	for name, dep := range deps {
+		dep := resource.SubresourceForAPI(dep, name.API)
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
@@ -217,7 +224,30 @@ func (ms *builtIn) BuiltInReconfigure(
 		case vision.Service:
 			visionServices[name.Name] = dep
 		default:
-			componentMap[name.Name] = dep
+			componentsByName[name.Name] = append(componentsByName[name.Name], dep)
+		}
+	}
+	for name, subs := range componentsByName {
+		// Motion uses the component map for kinematics (frame system). A composite may serve at most one
+		// kinematic (input-enabled) API: a single physical device is one frame with one CurrentInputs.
+		// Multi-kinematic composites are not supported — log and refuse the resource here rather than
+		// silently pick one. With no kinematic sub, any sub works since it is not used for kinematics.
+		var kinematic []resource.Resource
+		for _, sub := range subs {
+			if _, ok := sub.(framesystem.InputEnabled); ok {
+				kinematic = append(kinematic, sub)
+			}
+		}
+		switch {
+		case len(kinematic) > 1:
+			ms.logger.Errorw(
+				"composite serves multiple kinematic component APIs under one name, which motion does not support; refusing it",
+				"resource", name,
+			)
+		case len(kinematic) == 1:
+			componentMap[name] = kinematic[0]
+		default:
+			componentMap[name] = subs[0]
 		}
 	}
 	ms.movementSensors = movementSensors

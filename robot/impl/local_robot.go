@@ -1491,31 +1491,33 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 		res, resErr := r.ResourceByName(resConfig.ResourceName())
 		isAvailable := resErr == nil
-		resType := resConfig.ResourceName().API.SubtypeName
-		if resType == arm.SubtypeName || resType == gantry.SubtypeName || resType == gripper.SubtypeName {
-			// Components that have multiple degrees of freedom are required to be available and
-			// implement the `Kinematics` method to be used in the frame system.
-			if !isAvailable {
+
+		if !isAvailable {
+			// A resource that isn't available can't report kinematics. Preserve the prior behavior of
+			// omitting a component whose configured API is one with multiple degrees of freedom
+			// (arm/gantry/gripper) rather than adding a static frame that would misrepresent it.
+			resType := resConfig.ResourceName().API.SubtypeName
+			if resType == arm.SubtypeName || resType == gantry.SubtypeName || resType == gripper.SubtypeName {
 				logger.Warnw("InputEnabled component is not available. Omitting from FrameSystem.", "err", resErr)
 				continue
 			}
+		}
 
-			ie, ok := res.(framesystem.InputEnabled)
-			if !ok {
-				logger.Warnw("Resource type expected to have kinematics, but resource was not InputEnabled.",
-					"APISubtype", resType, "ResObjectType", fmt.Sprintf("%T", res))
-				continue
+		// Detect kinematics by interface across every API the resource serves: a composite contributes a
+		// model frame when any co-equal sub is InputEnabled, even if its kinematic API is not the one it's
+		// configured under. This matches how framesystem.BuiltInReconfigure classifies components for
+		// CurrentInputs. `res` above is narrowed to the configured API's sub, so resolve the api-less
+		// handle (the full composite) to see every API it serves.
+		var ie framesystem.InputEnabled
+		isKinematic := false
+		if isAvailable {
+			if handle, err := r.ResourceByName(resource.SimpleName(resConfig.Name)); err == nil {
+				ie, isKinematic = framesystem.KinematicSub(handle)
 			}
-
+		}
+		if isKinematic {
 			model, err := ie.Kinematics(ctx)
 			if err != nil {
-				// Dan: I've introduced a change in behavior here. Before, unavailable/not found
-				// errors, as this code does, would not add an item to the FrameSystem. But errors
-				// from the `Kinematics` call, or a resource that does not implement the
-				// `InputEnabled` interface would be added to the frame system without a model.
-				//
-				// I've chosen to not include the latter to the frame system. It's unclear if that
-				// distinction was meaningful.
 				logger.Warnw("Error getting kinematics for resource.", "err", err)
 				continue
 			}
@@ -1597,7 +1599,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			// it unimplemented. This log implies programmer error within the viam-server. For
 			// example, sensors do not seem to be `Shaped`.
 			logger.Debugw("Resource missing `Geometries` method.",
-				"ResType", resType, "ResObjectType", fmt.Sprintf("%T", res))
+				"ResType", resConfig.ResourceName().API.SubtypeName, "ResObjectType", fmt.Sprintf("%T", res))
 		}
 
 		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
