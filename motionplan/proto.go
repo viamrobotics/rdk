@@ -87,6 +87,7 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 			}
 			toRet = append(toRet, OrientationConstraint{
 				OrientationToleranceDegs: orientTol,
+				IgnoreTheta:              orientConstraint.GetIgnoreTheta(),
 			})
 		}
 		return toRet
@@ -155,8 +156,10 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 		toRet := make([]*motionpb.OrientationConstraint, 0)
 		for _, orientConstraint := range orientConstraints {
 			orientationTolerance := float32(orientConstraint.OrientationToleranceDegs)
+			ignoreTheta := orientConstraint.IgnoreTheta
 			toRet = append(toRet, &motionpb.OrientationConstraint{
 				OrientationToleranceDegs: &orientationTolerance,
+				IgnoreTheta:              &ignoreTheta,
 			})
 		}
 		return toRet

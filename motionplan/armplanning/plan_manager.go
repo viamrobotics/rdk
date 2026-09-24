@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -140,6 +141,17 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
+	// Remove actuator frames where there was an explicit configuration goal, but the actuator was
+	// already in that configuration. We treat that frame as "pinned". This results in the motion
+	// chains omitting the "pinned" acuator. Hiding those degrees of freedom when dropping into
+	// cbirrt.
+	for goalFrame := range goalPoses {
+		goalConfig, exists := goal.structuredConfiguration[goalFrame]
+		if exists && slices.Equal(goalConfig, start.Get(goalFrame)) {
+			delete(goalPoses, goalFrame)
+		}
+	}
+
 	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
@@ -178,7 +190,11 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	return finalSteps.steps, nil
+	// extractPath always includes the start node as steps[0] (it walks the
+	// startMap parent chain to its root). The caller's trajectory already
+	// ends at that same configuration, so drop it here to avoid a duplicate
+	// waypoint.
+	return finalSteps.steps[1:], nil
 }
 
 func (pm *planManager) planSingleGoal(
@@ -286,15 +302,21 @@ func (pm *planManager) planSingleGoal(
 	// such a request is explainable from the log.
 	if c := pm.request.Constraints; c != nil && len(c.OrientationConstraint) > 0 {
 		tol := math.Inf(1)
+		ignoreTheta := false
 		for _, oc := range c.OrientationConstraint {
-			if oc.OrientationToleranceDegs > 0 {
-				tol = min(tol, oc.OrientationToleranceDegs)
+			if oc.OrientationToleranceDegs > 0 && oc.OrientationToleranceDegs < tol {
+				tol = oc.OrientationToleranceDegs
+				ignoreTheta = oc.IgnoreTheta
 			}
+		}
+		reorientDist := motionplan.OrientDist
+		if ignoreTheta {
+			reorientDist = motionplan.OrientVecDist
 		}
 		maxReorient := 0.0
 		for f, g := range psc.goal {
 			if s, ok := psc.startPoses[f]; ok {
-				maxReorient = max(maxReorient, motionplan.OrientDist(s.Pose().Orientation(), g.Pose().Orientation()))
+				maxReorient = max(maxReorient, reorientDist(s.Pose().Orientation(), g.Pose().Orientation()))
 			}
 		}
 		if maxReorient > tol {

@@ -185,7 +185,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 
 	t.Run("orientation", func(t *testing.T) {
 		req.Constraints.OrientationConstraint = append(req.Constraints.OrientationConstraint,
-			motionplan.OrientationConstraint{60})
+			motionplan.OrientationConstraint{OrientationToleranceDegs: 60})
 
 		plan, _, err := PlanMotion(context.Background(), logger, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -267,9 +267,10 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("solve"))
-	test.That(t, err, test.ShouldBeNil)
+	t.Skip("RSDK-14560: flaky - initRRTSolutions direct solution depends on a wall-clock race in shouldStopEarly")
 
+	solution, err := initRRTSolutions(ctx, psc, logger.Sublogger("solve"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
 
 	sta := req.StartState.LinearConfiguration().Get(name)

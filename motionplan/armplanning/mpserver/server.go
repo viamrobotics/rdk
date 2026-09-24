@@ -84,6 +84,9 @@ func beginRender() context.Context {
 
 // ---- templates ----
 
+// indexTmpl renders the plan files as a collapsible directory tree. Every
+// directory is a <details> element, folded unless the browser remembered it as
+// open, so a scan root holding hundreds of plans stays navigable.
 var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 <html>
 <head>
@@ -111,29 +114,115 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
     background-color: #D0EEFF;
     cursor: pointer;
   }
+  .toolbar { margin-bottom: 12px; }
+  details.dir {
+    border: 1px solid #7a9aa8;
+    background-color: #D0EEFF;
+    margin: 4px 0;
+    padding: 2px 6px;
+  }
+  details.dir > summary {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 2px 0;
+  }
+  .count { font-weight: normal; color: #555; }
+  .dir-body { margin: 6px 0 6px 16px; }
+  .empty { color: #555; font-style: italic; }
 </style>
 </head>
 <body>
 <h1>Motion Plan Files</h1>
-<table>
-  <tr><th>File</th><th>Visualize</th><th>Details</th></tr>
-  {{range .}}
-  <tr>
-    <td>{{.}}</td>
-    <td><button onclick="renderStart('{{.}}')">Render State</button></td>
-    <td><a href="/detail?file={{.}}">Details</a></td>
-  </tr>
-  {{end}}
-</table>
+<div class="toolbar">
+  <button onclick="setAll(true)">Expand all</button>
+  <button onclick="setAll(false)">Collapse all</button>
+  <span class="count">{{.TotalFiles}} file(s) under {{.Name}}</span>
+</div>
+{{if and (not .Subdirs) (not .Files)}}<p class="empty">No plan files found.</p>{{end}}
+{{range .Subdirs}}{{template "dir" .}}{{end}}
+{{template "files" .Files}}
 <script>
 function renderStart(file) {
   fetch('/render-start?file=' + encodeURIComponent(file))
     .then(r => { if (!r.ok) r.text().then(msg => alert('Error: ' + msg)); })
     .catch(err => alert('Error: ' + err));
 }
+
+// Open directories are remembered so that returning from a detail page does not
+// re-fold the tree. Absence from the set means folded, which keeps the
+// first-visit default.
+const OPEN_KEY = 'mpserver.openDirs';
+
+function loadOpen() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || '[]'));
+  } catch (err) {
+    return new Set();
+  }
+}
+
+function saveOpen(open) {
+  try {
+    localStorage.setItem(OPEN_KEY, JSON.stringify([...open]));
+  } catch (err) {
+    // Storage may be unavailable; folding still works for this page view.
+  }
+}
+
+function setAll(open) {
+  const paths = new Set();
+  document.querySelectorAll('details.dir').forEach(d => {
+    d.open = open;
+    if (open) {
+      paths.add(d.dataset.path);
+    }
+  });
+  saveOpen(paths);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const open = loadOpen();
+  document.querySelectorAll('details.dir').forEach(d => {
+    d.open = open.has(d.dataset.path);
+    d.addEventListener('toggle', () => {
+      const current = loadOpen();
+      if (d.open) {
+        current.add(d.dataset.path);
+      } else {
+        current.delete(d.dataset.path);
+      }
+      saveOpen(current);
+    });
+  });
+});
 </script>
 </body>
 </html>
+
+{{define "dir"}}
+<details class="dir" data-path="{{.Path}}">
+  <summary>{{.Name}} <span class="count">({{.TotalFiles}})</span></summary>
+  <div class="dir-body">
+    {{range .Subdirs}}{{template "dir" .}}{{end}}
+    {{template "files" .Files}}
+  </div>
+</details>
+{{end}}
+
+{{define "files"}}
+{{if .}}
+<table>
+  <tr><th>File</th><th>Visualize</th><th>Details</th></tr>
+  {{range .}}
+  <tr>
+    <td>{{.Name}}</td>
+    <td><button onclick="renderStart('{{.Path}}')">Render State</button></td>
+    <td><a href="/detail?file={{.Path}}">Details</a></td>
+  </tr>
+  {{end}}
+</table>
+{{end}}
+{{end}}
 `))
 
 //nolint:lll
@@ -1037,7 +1126,11 @@ func buildDetailConstraints(c *motionplan.Constraints) *detailConstraints {
 			lc.LineToleranceMm, lc.OrientationToleranceDegs))
 	}
 	for _, oc := range c.OrientationConstraint {
-		dc.Orientation = append(dc.Orientation, fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs))
+		desc := fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs)
+		if oc.IgnoreTheta {
+			desc += ", ignoring theta"
+		}
+		dc.Orientation = append(dc.Orientation, desc)
 	}
 	return dc
 }
@@ -1058,6 +1151,66 @@ func findPlanFiles(root string) ([]string, error) {
 		return nil
 	})
 	return files, err
+}
+
+// planDirNode is one directory in the index page's plan-file tree.
+type planDirNode struct {
+	// Name is the directory's own name; Path is its path relative to rdkRoot and
+	// doubles as the key the page stores its folded/open state under.
+	Name string
+	Path string
+	// TotalFiles counts plan files in this directory and every directory below it.
+	TotalFiles int
+	Subdirs    []*planDirNode
+	Files      []planFileNode
+}
+
+// planFileNode is one plan file in the index page's tree. Name is the base name
+// shown in the row; Path is relative to rdkRoot and is what the handlers expect.
+type planFileNode struct {
+	Name string
+	Path string
+}
+
+// buildPlanTree groups plan file paths, each relative to rdkRoot as returned by
+// findPlanFiles, into a tree rooted at rootRel (also rdkRoot-relative). Input
+// order is preserved, so the lexical ordering filepath.WalkDir guarantees
+// carries through to the rendered page.
+func buildPlanTree(rootRel string, paths []string) *planDirNode {
+	rootRel = filepath.ToSlash(rootRel)
+	root := &planDirNode{Name: rootRel, Path: rootRel}
+	for _, p := range paths {
+		slashed := filepath.ToSlash(p)
+		parts := strings.Split(strings.TrimPrefix(strings.TrimPrefix(slashed, rootRel), "/"), "/")
+		dir := root
+		for _, name := range parts[:len(parts)-1] {
+			dir = dir.subdir(name)
+		}
+		dir.Files = append(dir.Files, planFileNode{Name: parts[len(parts)-1], Path: p})
+	}
+	root.countFiles()
+	return root
+}
+
+// subdir returns the named child of d, creating it if this is the first path to
+// reach it.
+func (d *planDirNode) subdir(name string) *planDirNode {
+	for _, sub := range d.Subdirs {
+		if sub.Name == name {
+			return sub
+		}
+	}
+	sub := &planDirNode{Name: name, Path: d.Path + "/" + name}
+	d.Subdirs = append(d.Subdirs, sub)
+	return sub
+}
+
+func (d *planDirNode) countFiles() int {
+	d.TotalFiles = len(d.Files)
+	for _, sub := range d.Subdirs {
+		d.TotalFiles += sub.countFiles()
+	}
+	return d.TotalFiles
 }
 
 func buildFrameInfo(fs *referenceframe.FrameSystem) []frameInfo {
@@ -1592,8 +1745,13 @@ func handleIndex(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("scan error: %v", err), http.StatusInternalServerError)
 			return
 		}
+		rootRel, err := filepath.Rel(rdkRoot, planFilesRoot)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("scan error: %v", err), http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := indexTmpl.Execute(w, files); err != nil {
+		if err := indexTmpl.Execute(w, buildPlanTree(rootRel, files)); err != nil {
 			logger.Errorf("rendering index: %v", err)
 		}
 	}

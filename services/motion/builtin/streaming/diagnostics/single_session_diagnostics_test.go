@@ -11,18 +11,6 @@ import (
 
 const testWindowMs = 60_000
 
-func TestDiagnosticsNilSafe(t *testing.T) {
-	var diagnostics *SingleSessionDiagnostics
-	diagnostics.RecordReceivedJointPositionTargetEvent()
-	diagnostics.RecordArmRunway(40 * time.Millisecond)
-	diagnostics.RecordArmStreamOpenEvent()
-	diagnostics.RecordTrajexExtendLatency(time.Now(), time.Millisecond)
-	diagnostics.RecordSendToArmLatency(time.Now(), time.Millisecond)
-	diagnostics.RecordSampledPVAT([]float64{0.1}, []float64{0.2}, []float64{0.3}, 0)
-	test.That(t, diagnostics.LastWindowDetails(), test.ShouldResemble, SingleSessionLastWindowDetails{})
-	test.That(t, diagnostics.Stats(), test.ShouldResemble, SingleSessionStats{})
-}
-
 func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 	diagnostics := New(testWindowMs * time.Millisecond)
 	diagnostics.RecordReceivedJointPositionTargetEvent()
@@ -116,6 +104,27 @@ func TestDiagnosticsRetainOnlyTheWindow(t *testing.T) {
 	test.That(t, len(out.TrajexExtendLatency), test.ShouldEqual, 0)
 	test.That(t, len(out.SendToArmLatency), test.ShouldEqual, 0)
 	test.That(t, len(out.SampledPVATs), test.ShouldEqual, 0)
+}
+
+func TestDiagnosticsZeroWindowDisablesDetailOnly(t *testing.T) {
+	diagnostics := New(0)
+	diagnostics.RecordReceivedJointPositionTargetEvent()
+	diagnostics.RecordArmRunway(40 * time.Millisecond)
+	diagnostics.RecordTrajexSessionOpenEvent()
+	diagnostics.RecordTrajexSessionCloseEvent()
+	diagnostics.RecordArmStreamOpenEvent()
+	diagnostics.RecordArmStreamCloseEvent()
+	diagnostics.RecordTrajexExtendLatency(time.Now(), 5*time.Millisecond)
+	diagnostics.RecordSendToArmLatency(time.Now(), 2*time.Millisecond)
+	diagnostics.RecordSampledPVAT([]float64{0}, []float64{1}, []float64{2}, time.Millisecond)
+
+	test.That(t, diagnostics.LastWindowDetails(), test.ShouldResemble, SingleSessionLastWindowDetails{})
+
+	stats := diagnostics.Stats()
+	test.That(t, stats.JointPositionTargetsReceived, test.ShouldEqual, 1)
+	test.That(t, stats.ArmRunwayMaxMs, test.ShouldEqual, 40.0)
+	test.That(t, stats.TrajexExtendLatencyMaxMs, test.ShouldEqual, 5.0)
+	test.That(t, stats.SendToArmLatencyMaxMs, test.ShouldEqual, 2.0)
 }
 
 func TestStats(t *testing.T) {

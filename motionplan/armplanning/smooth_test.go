@@ -6,10 +6,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 type smoothNodeJSON struct {
@@ -66,6 +69,87 @@ func TestSmoothPlans1(t *testing.T) {
 	// Smoothing reduces 62 waypoints to 3, then addCloseObstacleWaypoints adds 5 more
 	// where the path comes within 5mm of obstacles
 	test.That(t, len(nodes), test.ShouldEqual, 3)
+}
+
+func TestSmoothMultiArms(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	fs, startJoints, goalJoints, req := nudgeBlockedScene(t)
+	idle, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "idle")
+	test.That(t, err, test.ShouldBeNil)
+
+	req.StartState = NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": startJoints})
+	req.Goals = []*PlanState{NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": goalJoints})}
+
+	plan, _, err := PlanMotion(ctx, logger.Sublogger("origPlanning"), req)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The purpose of the "nudgeBlockedScene" is requiring the arm to work around a slight
+	// obstacle. Resulting in an intermediate waypoint that cannot be removed/smoothed.
+	traj := plan.Trajectory()
+	test.That(t, len(traj), test.ShouldBeGreaterThanOrEqualTo, 3)
+
+	logger.Info("OrigTrajOnlyArm:", traj)
+
+	// Create a frame for mounting the idle frame that's far from the original arm. Such that they
+	// are obviously isolated.
+	idleMount, err := referenceframe.NewStaticFrame("idle-mount", spatialmath.NewPoseFromPoint(r3.Vector{X: 2000}))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Alter the framesystem to include a new arm.
+	err = fs.AddFrame(idleMount, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	err = fs.AddFrame(idle, idleMount)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Also rebuild the plan request and contexts to include this arm's start/end states.
+	req.StartState = NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": startJoints, "idle": startJoints})
+	req.Goals = []*PlanState{NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": goalJoints, "idle": startJoints})}
+
+	planMeta := PlanMeta{}
+	pc, err := NewPlanContext(ctx, logger.Sublogger("smoothing"), req, &planMeta)
+	test.That(t, err, test.ShouldBeNil)
+
+	goalsAsPoses, err := req.Goals[0].ComputePoses(ctx, fs)
+	test.That(t, err, test.ShouldBeNil)
+
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), goalsAsPoses)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Fabricte a solution with the real arm solution, and an unnecessary movement for the "idle"
+	// arm.
+	//
+	// Notably, the all-0 value for this is different from the `startJoints` values. Resulting in an
+	// unsmoothed motion that can benefit from smoothing.
+	unnecessaryStep := make([]referenceframe.Input, len(startJoints))
+	test.That(t, unnecessaryStep, test.ShouldNotResemble, startJoints)
+	for trajIdx := range traj {
+		if trajIdx == 0 || trajIdx+1 == len(traj) {
+			// Declare that the idle arm starts and ends at the same position.
+			traj[trajIdx]["idle"] = startJoints
+		} else {
+			traj[trajIdx]["idle"] = unnecessaryStep
+		}
+	}
+
+	trajAsLinearInputs := make([]*referenceframe.LinearInputs, len(traj))
+	for trajIdx, fsi := range traj {
+		trajAsLinearInputs[trajIdx] = fsi.ToLinearInputs()
+	}
+
+	logger.Info("OrigTraj:", trajAsLinearInputs)
+	smoothingFails := smoothPathSimple(ctx, psc, trajAsLinearInputs)
+	logger.Info("Incomplete smooth:", smoothingFails)
+
+	// Rename the variable for legitibility -- the function modifies in place.
+	smoothingSucceeds := smoothingFails
+	// But if we do an arm-aware pass, the idle arm should stay in its start/goal position.
+	smoothMultiArms(ctx, psc, smoothingSucceeds)
+	for _, step := range smoothingSucceeds {
+		test.That(t, step.Get("idle"), test.ShouldResemble, startJoints)
+	}
 }
 
 func BenchmarkSmoothPlans1(b *testing.B) {
