@@ -44,6 +44,22 @@ type InputEnabled interface {
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
+// KinematicSub returns the InputEnabled sub that makes a resource kinematic in the frame system, if
+// any. A plain kinematic component (arm/gantry/gripper) returns itself; a composite returns the one
+// co-equal sub that is InputEnabled, whose API need not be the one the resource is configured under.
+// Detecting kinematics by interface across every API a resource serves — rather than by its
+// configured API's subtype — is what lets a composite contribute a model frame even when it is
+// configured under a non-kinematic API, and keeps this consistent with how BuiltInReconfigure
+// classifies components for CurrentInputs. Non-kinematic resources return (nil, false).
+func KinematicSub(res resource.Resource) (InputEnabled, bool) {
+	for _, api := range resource.APIsOf(res) {
+		if ie, ok := resource.SubresourceForAPI(res, api).(InputEnabled); ok {
+			return ie, true
+		}
+	}
+	return nil, false
+}
+
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
 type Service interface {
 	resource.Resource
@@ -208,12 +224,37 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	components := make(map[string]resource.Resource)
+	// Group deps by short name: a remote composite is surfaced as one per-API sub-client per co-equal
+	// API (same short name), and a composite may serve at most one kinematic (input-enabled) API — one
+	// physical device is one frame with one CurrentInputs. Keep the kinematic sub; refuse a
+	// multi-kinematic composite (not supported) rather than erroring on the duplicate name and taking
+	// the whole frame system down.
+	// A local composite dep is the one multi-API wrapper aliased under each of its API names; unwrap to
+	// this API's sub before grouping (a no-op for an ordinary resource or a remote per-API sub-client),
+	// or the InputEnabled check below sees the wrapper, which implements none of the sub-API interfaces.
+	componentsByName := make(map[string][]resource.Resource)
 	for name, r := range deps {
-		if _, present := components[name.Name]; present {
-			return DuplicateResourceNameError(name.Name)
+		componentsByName[name.Name] = append(componentsByName[name.Name], resource.SubresourceForAPI(r, name.API))
+	}
+	components := make(map[string]resource.Resource)
+	for name, subs := range componentsByName {
+		var kinematic []resource.Resource
+		for _, sub := range subs {
+			if _, ok := sub.(InputEnabled); ok {
+				kinematic = append(kinematic, sub)
+			}
 		}
-		components[name.Name] = r
+		switch {
+		case len(kinematic) > 1:
+			svc.logger.Errorw(
+				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
+				"resource", name,
+			)
+		case len(kinematic) == 1:
+			components[name] = kinematic[0]
+		default:
+			components[name] = subs[0]
+		}
 	}
 	svc.components = components
 
