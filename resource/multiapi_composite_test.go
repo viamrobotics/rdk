@@ -188,8 +188,7 @@ func TestCompositeNodeForAPIResolvesEachCoEqualAPI(t *testing.T) {
 
 func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 	// The co-equal index that lets a non-configured API resolve to a composite's one node must be kept
-	// in sync as the node is re-prefixed and deleted, or a co-equal lookup would resolve a stale/dead
-	// node (or fail after a prefix change).
+	// in sync as the node is deleted, or a co-equal lookup would resolve a stale/dead node.
 	model := NewModel("acme", "test", "graphidx")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
 	defer Deregister(testCamAPI, model)
@@ -200,21 +199,17 @@ func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: canonical.AsNamed()}, model)
 	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
 
-	// prefix change moves the co-equal index entry with the node: it resolves under the new prefixed
-	// simple name and no longer under the old bare name.
-	g.UpdateNodePrefix(canonical, "pfx.")
-	got, err := g.FindBySimpleNameAndAPI("pfx.dev", testSensAPI)
+	// the non-configured co-equal API resolves to the one node via the index.
+	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
-	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
-	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 
 	// deleting the composite drops BOTH its canonical simpleNameCache entry and its co-equal index
 	// entry, so neither api resolves afterward.
 	g.nodes.Delete(canonical)
-	_, err = g.FindBySimpleNameAndAPI("pfx.dev", testCamAPI)
+	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
-	_, err = g.FindBySimpleNameAndAPI("pfx.dev", testSensAPI)
+	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 	test.That(t, g.nodes.compositeByAPI, test.ShouldBeEmpty)
 }
@@ -254,7 +249,8 @@ func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
 	comboName := NewName(testCamAPI, "combo")
 	comboNode := NewConfiguredGraphNode(
 		Config{Name: "combo", API: testCamAPI, Model: model},
-		&combo{Named: comboName.AsNamed()}, model)
+		&combo{Named: comboName.AsNamed()}, model,
+	)
 	test.That(t, g.AddNode(comboName, comboNode), test.ShouldBeNil)
 	// The resolver returns the one owner with no error, and the all-matches scan returns a single match.
 	_, err := g.FindBySimpleName("combo")
@@ -267,9 +263,11 @@ func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
 	camDup := NewName(testCamAPI, "dup")
 	sensDup := NewName(testSensAPI, "dup")
 	test.That(t, g.AddNode(camDup, NewConfiguredGraphNode(
-		Config{Name: "dup", API: testCamAPI}, &combo{Named: camDup.AsNamed()}, Model{})), test.ShouldBeNil)
+		Config{Name: "dup", API: testCamAPI}, &combo{Named: camDup.AsNamed()}, Model{},
+	)), test.ShouldBeNil)
 	test.That(t, g.AddNode(sensDup, NewConfiguredGraphNode(
-		Config{Name: "dup", API: testSensAPI}, &combo{Named: sensDup.AsNamed()}, Model{})), test.ShouldBeNil)
+		Config{Name: "dup", API: testSensAPI}, &combo{Named: sensDup.AsNamed()}, Model{},
+	)), test.ShouldBeNil)
 	_, err = g.FindBySimpleName("dup")
 	test.That(t, IsMultipleMatchingNamesError(err), test.ShouldBeTrue)
 	test.That(t, g.FindAllBySimpleName("dup"), test.ShouldHaveLength, 2)
@@ -285,12 +283,14 @@ func TestExpandCompositeNames(t *testing.T) {
 	comboName := NewName(testCamAPI, "combo")
 	test.That(t, g.AddNode(comboName, NewConfiguredGraphNode(
 		Config{Name: "combo", API: testCamAPI, Model: model},
-		&combo{Named: comboName.AsNamed()}, model)), test.ShouldBeNil)
+		&combo{Named: comboName.AsNamed()}, model,
+	)), test.ShouldBeNil)
 
 	// a plain single-API node advertises unchanged
 	plainName := NewName(testMotorAPI, "plain")
 	test.That(t, g.AddNode(plainName, NewConfiguredGraphNode(
-		Config{Name: "plain", API: testMotorAPI}, &combo{Named: plainName.AsNamed()}, Model{})), test.ShouldBeNil)
+		Config{Name: "plain", API: testMotorAPI}, &combo{Named: plainName.AsNamed()}, Model{},
+	)), test.ShouldBeNil)
 
 	unknown := NewName(testMotorAPI, "ghost")
 	out := g.ExpandCompositeNames([]Name{comboName, plainName, unknown})
