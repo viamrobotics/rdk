@@ -54,6 +54,7 @@ type mlSubmitCustomTrainingJobArgs struct {
 	ScriptName       string
 	Version          string
 	ContainerVersion string
+	ContainerID      string
 	Args             []string
 }
 
@@ -69,7 +70,7 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.ContainerID, args.Args,
 	)
 	if err != nil {
 		return err

@@ -133,6 +133,7 @@ const (
 	mlTrainingFlagDescription      = "description"
 	mlTrainingFlagURL              = "url"
 	mlTrainingFlagContainerVersion = "container-version"
+	mlTrainingFlagContainerID      = "container-id"
 	customContainerOrgID           = "org-id"
 	mlTrainingFlagIncludeURIs      = "include-uris"
 	mlRegisterContainersImageURI   = "uri"
@@ -2399,7 +2400,12 @@ Note: There is no progress meter while copying is in progress.
 											Usage: `ml training container version to use.
 											Must be one of the supported container names found by
 											calling ListSupportedContainers`,
-											Required: true,
+											Required: false,
+										},
+										&cli.StringFlag{
+											Name:     mlTrainingFlagContainerID,
+											Usage:    `ID of the ml training container version to use.`,
+											Required: false,
 										},
 										&cli.StringSliceFlag{
 											Name:  generalFlagArgs,
