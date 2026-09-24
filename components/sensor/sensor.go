@@ -44,6 +44,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags s as the sensor sub-resource of a composite, for resource.Compose. The Sensor parameter
+// type gives a compile-time check that s satisfies the sensor API at the call site.
+func AsSub(s Sensor) resource.Sub { return resource.AsSub[Sensor](API, s) }
+
 // A Sensor represents a general purpose sensors that can give arbitrary readings
 // of some thing that it is sensing.
 type Sensor interface {
