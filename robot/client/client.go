@@ -424,13 +424,13 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 
 	var refreshTime time.Duration
 	if rOpts.refreshEvery == nil {
-		refreshTime = 10 * time.Second
+		refreshTime = 20 * time.Second
 	} else {
 		refreshTime = *rOpts.refreshEvery
 	}
 	var checkConnectedTime time.Duration
 	if rOpts.checkConnectedEvery == nil {
-		checkConnectedTime = 10 * time.Second
+		checkConnectedTime = 20 * time.Second
 	} else {
 		checkConnectedTime = *rOpts.checkConnectedEvery
 	}
