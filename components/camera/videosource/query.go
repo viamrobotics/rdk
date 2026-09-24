@@ -437,13 +437,8 @@ func queryDriverProperties(
 	return m
 }
 
-// driverProperties returns d.Properties(), converting a panic in the underlying driver into an error so
-// one misbehaving device is skipped instead of failing every webcam build and reconnect on the machine.
-//
-// Known trigger: github.com/blackjack/webcam v0.6.1 (via pion/mediadevices) panics in getFrameInterval
-// whenever a device reports V4L2_FRMIVAL_TYPE_STEPWISE, because it binary.Reads into
-// v4l2_frmival_stepwise, whose fields are unexported. This is worked around here rather than fixed
-// upstream because that repository is dormant: no commits since April 2024 and open PRs dating to 2019.
+// driverProperties returns d.Properties(), recovering a driver panic as an error so one bad device is skipped.
+// Known trigger: blackjack/webcam panics on devices that report a stepwise frame interval.
 func driverProperties(d driver.Driver) (props []prop.Media, err error) {
 	defer func() {
 		if r := recover(); r != nil {
