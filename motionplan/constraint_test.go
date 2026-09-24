@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
+	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
 
@@ -72,6 +74,32 @@ func TestConstraintConstructors(t *testing.T) {
 // the smallest angular distance from now to any orientation on the slerp arc -
 // by sampling that arc densely with spatialmath.Interpolate and OrientDist,
 // which share no code with the closed form.
+// TestOrientationConstraintProtoRoundTrip covers IgnoreTheta in both states.
+// The constructor test above only ever round-trips the zero value, which would
+// pass even if the flag were dropped by the conversion.
+func TestOrientationConstraintProtoRoundTrip(t *testing.T) {
+	for _, ignoreTheta := range []bool{false, true} {
+		c := NewEmptyConstraints()
+		c.AddOrientationConstraint(OrientationConstraint{OrientationToleranceDegs: 15, IgnoreTheta: ignoreTheta})
+
+		pb := c.ToProtobuf()
+		test.That(t, pb.OrientationConstraint[0].GetIgnoreTheta(), test.ShouldEqual, ignoreTheta)
+
+		back := ConstraintsFromProtobuf(pb)
+		test.That(t, back.OrientationConstraint[0].IgnoreTheta, test.ShouldEqual, ignoreTheta)
+		test.That(t, back, test.ShouldResemble, c)
+	}
+
+	// A message from a peer that predates the field leaves it unset, which must
+	// read as the theta-aware default rather than erroring.
+	tol := float32(15)
+	back := ConstraintsFromProtobuf(&motionpb.Constraints{
+		OrientationConstraint: []*motionpb.OrientationConstraint{{OrientationToleranceDegs: &tol}},
+	})
+	test.That(t, back.OrientationConstraint[0].IgnoreTheta, test.ShouldBeFalse)
+	test.That(t, back.OrientationConstraint[0].OrientationToleranceDegs, test.ShouldEqual, 15)
+}
+
 func TestOrientationArcDistanceBruteForce(t *testing.T) {
 	const steps = 4000
 	rng := rand.New(rand.NewSource(11))
@@ -91,7 +119,7 @@ func TestOrientationArcDistanceBruteForce(t *testing.T) {
 
 	for i := 0; i < 200; i++ {
 		from, to, now := randOrient(), randOrient(), randOrient()
-		arc := newOrientationArc(from, to)
+		arc := newOrientationArc(from, to, false)
 		got := arc.distanceDegs(now)
 		want := brute(from, to, now)
 		// The closed form takes the true minimum, so it can only sit at or
@@ -139,6 +167,168 @@ func TestOrientationConstraintDistance(t *testing.T) {
 	// Score subtracts the tolerance.
 	test.That(t, oc.Score(from, to, rotZ(150)), test.ShouldAlmostEqual, 0, 1e-5)
 	test.That(t, oc.Score(from, to, rotZ(170)), test.ShouldAlmostEqual, 20, 1e-4)
+}
+
+func TestOrientationConstraintIgnoreTheta(t *testing.T) {
+	oc := OrientationConstraint{OrientationToleranceDegs: 15, IgnoreTheta: true}
+	strict := OrientationConstraint{OrientationToleranceDegs: 15}
+	zero := spatial.NewZeroOrientation()
+	rotZ := func(degs float64) spatial.Orientation {
+		return &spatial.EulerAngles{Yaw: utils.DegToRad(degs)}
+	}
+	pitch := func(degs float64) spatial.Orientation {
+		return &spatial.EulerAngles{Pitch: utils.DegToRad(degs)}
+	}
+	roll := func(degs float64) spatial.Orientation {
+		return &spatial.EulerAngles{Roll: utils.DegToRad(degs)}
+	}
+
+	// Spinning about the orientation vector itself costs nothing, however far
+	// it goes - that is the whole point for a cup or a bucket. The strict form
+	// scores the same motion as a full reorientation.
+	test.That(t, oc.Distance(zero, zero, rotZ(90)), test.ShouldAlmostEqual, 0, 1e-4)
+	test.That(t, oc.Distance(zero, zero, rotZ(170)), test.ShouldAlmostEqual, 0, 1e-4)
+	test.That(t, strict.Distance(zero, zero, rotZ(90)), test.ShouldAlmostEqual, 90, 1e-4)
+
+	// Tipping still costs its full angle.
+	test.That(t, oc.Distance(zero, zero, pitch(45)), test.ShouldAlmostEqual, 45, 1e-4)
+	test.That(t, oc.Distance(zero, zero, roll(20)), test.ShouldAlmostEqual, 20, 1e-4)
+	// ...and tipping combined with a free spin costs only the tip.
+	spunPitch := spatial.Compose(
+		spatial.NewPoseFromOrientation(pitch(30)),
+		spatial.NewPoseFromOrientation(rotZ(120)),
+	).Orientation()
+	test.That(t, oc.Distance(zero, zero, spunPitch), test.ShouldAlmostEqual, 30, 1e-4)
+
+	// A reorientation whose axis is the orientation vector (pure theta change)
+	// leaves the traced path a single point, so the band is a cone about it.
+	from, to := zero, rotZ(150)
+	test.That(t, oc.Distance(from, to, rotZ(75)), test.ShouldAlmostEqual, 0, 1e-4)
+	test.That(t, oc.Distance(from, to, pitch(10)), test.ShouldAlmostEqual, 10, 1e-4)
+
+	// A genuine tilt from start to goal: the orientation vector sweeps +Z -> +X.
+	from, to = zero, pitch(90)
+	// Points along the sweep score zero.
+	for _, degs := range []float64{0, 30, 45, 90} {
+		test.That(t, oc.Distance(from, to, pitch(degs)), test.ShouldAlmostEqual, 0, 1e-4)
+	}
+	// Overshooting past either end measures from that end.
+	test.That(t, oc.Distance(from, to, pitch(120)), test.ShouldAlmostEqual, 30, 1e-4)
+	test.That(t, oc.Distance(from, to, pitch(-20)), test.ShouldAlmostEqual, 20, 1e-4)
+	// Off-sweep deviation: roll takes the vector out of the swept plane, and
+	// the nearest swept point is the start.
+	test.That(t, oc.Distance(from, to, roll(25)), test.ShouldAlmostEqual, 25, 1e-4)
+	// Spinning about the tool axis anywhere along the sweep is still free.
+	midSpun := spatial.Compose(
+		spatial.NewPoseFromOrientation(pitch(45)),
+		spatial.NewPoseFromOrientation(rotZ(80)),
+	).Orientation()
+	test.That(t, oc.Distance(from, to, midSpun), test.ShouldAlmostEqual, 0, 1e-4)
+
+	// The eval form agrees with the direct form and honours the flag.
+	eval := NewOrientationConstraintEval(oc, from, to)
+	for _, o := range []spatial.Orientation{zero, pitch(45), pitch(120), roll(25), midSpun} {
+		test.That(t, eval.Distance(o), test.ShouldAlmostEqual, oc.Distance(from, to, o), 1e-9)
+	}
+
+	// Score subtracts the tolerance, as in the theta-aware form.
+	test.That(t, oc.Score(from, to, roll(10)), test.ShouldAlmostEqual, 0, 1e-4)
+	test.That(t, oc.Score(from, to, roll(25)), test.ShouldAlmostEqual, 10, 1e-4)
+}
+
+// TestOrientationConstraintIgnoreThetaBruteForce cross-checks the closed-form
+// point-to-swept-arc distance against a dense sampling of the same arc, built
+// from spatialmath.Interpolate and spatialmath.QuatToOV so the two derivations
+// share no code.
+func TestOrientationConstraintIgnoreThetaBruteForce(t *testing.T) {
+	const steps = 4000
+	oc := OrientationConstraint{OrientationToleranceDegs: 15, IgnoreTheta: true}
+
+	ovOf := func(o spatial.Orientation) r3.Vector {
+		ov := spatial.QuatToOV(o.Quaternion())
+		return r3.Vector{X: ov.OX, Y: ov.OY, Z: ov.OZ}
+	}
+	brute := func(from, to, now spatial.Orientation) float64 {
+		pn := ovOf(now)
+		fp, tp := spatial.NewPoseFromOrientation(from), spatial.NewPoseFromOrientation(to)
+		best := math.Inf(1)
+		for i := 0; i <= steps; i++ {
+			o := spatial.Interpolate(fp, tp, float64(i)/steps).Orientation()
+			best = math.Min(best, utils.RadToDeg(math.Acos(math.Max(-1, math.Min(1, pn.Dot(ovOf(o)))))))
+		}
+		return best
+	}
+
+	rng := rand.New(rand.NewSource(7))
+	randOrient := func() spatial.Orientation {
+		q := quat.Number{Real: rng.NormFloat64(), Imag: rng.NormFloat64(), Jmag: rng.NormFloat64(), Kmag: rng.NormFloat64()}
+		n := math.Sqrt(quatDot(q, q))
+		return (*spatial.Quaternion)(&quat.Number{Real: q.Real / n, Imag: q.Imag / n, Jmag: q.Jmag / n, Kmag: q.Kmag / n})
+	}
+
+	for i := 0; i < 200; i++ {
+		from, to, now := randOrient(), randOrient(), randOrient()
+		got := oc.Distance(from, to, now)
+		want := brute(from, to, now)
+		// The closed form takes the true minimum, so it can only sit at or
+		// below the sampled one; the sampling grid bounds the gap.
+		test.That(t, got, test.ShouldBeLessThanOrEqualTo, want+1e-6)
+		test.That(t, want-got, test.ShouldBeLessThan, 0.05)
+	}
+}
+
+// TestOrientationConstraintIgnoreThetaChecker drives the flag through the
+// ConstraintChecker on a real arm. On an xArm7 at the zero configuration the
+// tool points straight down; joint 7 spins the tool about that axis while
+// joint 6 tips it, which is exactly the distinction IgnoreTheta draws.
+func TestOrientationConstraintIgnoreThetaChecker(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm7.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(m, fs.World()), test.ShouldBeNil)
+
+	cfg := func(joint int, degs float64) *referenceframe.LinearInputs {
+		in := make([]referenceframe.Input, 7)
+		in[joint] = referenceframe.Input(utils.DegToRad(degs))
+		return referenceframe.FrameSystemInputs{m.Name(): in}.ToLinearInputs()
+	}
+	home := cfg(0, 0)
+	eePose, err := fs.Transform(home, referenceframe.NewZeroPoseInFrame(m.Name()), referenceframe.World)
+	test.That(t, err, test.ShouldBeNil)
+	poses := referenceframe.FrameSystemPoses{m.Name(): eePose.(*referenceframe.PoseInFrame)}
+
+	checkerFor := func(ignoreTheta bool) *ConstraintChecker {
+		constraints := NewEmptyConstraints()
+		constraints.AddOrientationConstraint(OrientationConstraint{OrientationToleranceDegs: 5, IgnoreTheta: ignoreTheta})
+		c, err := NewConstraintChecker(
+			1.0, constraints, poses, poses, fs,
+			[]spatial.Geometry{}, []spatial.Geometry{}, nil, home, nil, logger, nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		return c
+	}
+
+	spun := cfg(6, 90)   // rotates about the tool axis
+	tipped := cfg(5, 20) // tips the tool axis
+
+	_, err = checkerFor(true).CheckStateFSConstraints(ctx, &StateFS{Configuration: spun, FS: fs})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = checkerFor(true).CheckStateFSConstraints(ctx, &StateFS{Configuration: tipped, FS: fs})
+	test.That(t, errors.Is(err, ErrOrientationConstraintViolated), test.ShouldBeTrue)
+
+	// Without the flag the same spin is a 90 degree violation.
+	_, err = checkerFor(false).CheckStateFSConstraints(ctx, &StateFS{Configuration: spun, FS: fs})
+	test.That(t, errors.Is(err, ErrOrientationConstraintViolated), test.ShouldBeTrue)
+}
+
+func TestOrientVecDist(t *testing.T) {
+	zero := spatial.NewZeroOrientation()
+	test.That(t, OrientVecDist(zero, &spatial.EulerAngles{Yaw: math.Pi / 2}), test.ShouldAlmostEqual, 0, 1e-4)
+	test.That(t, OrientVecDist(zero, &spatial.EulerAngles{Pitch: math.Pi / 4}), test.ShouldAlmostEqual, 45, 1e-4)
+	test.That(t, OrientVecDist(zero, &spatial.EulerAngles{Roll: math.Pi}), test.ShouldAlmostEqual, 180, 1e-4)
 }
 
 func TestConstraintPath(t *testing.T) {
@@ -609,7 +799,7 @@ func BenchmarkOrientationArcDistance(b *testing.B) {
 	from := spatial.NewZeroOrientation()
 	to := spatial.Orientation(&spatial.EulerAngles{Pitch: 1.0, Yaw: 0.4})
 	now := spatial.NewPoseFromOrientation(&spatial.EulerAngles{Roll: 0.3, Pitch: 0.7, Yaw: 1.1}).Orientation()
-	arc := newOrientationArc(from, to)
+	arc := newOrientationArc(from, to, false)
 	var dist float64
 	for i := 0; i < b.N; i++ {
 		dist = arc.distanceDegs(now)
