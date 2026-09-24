@@ -7,11 +7,16 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/services/motion"
 )
 
 func TestNewStreamOptionsOverrides(t *testing.T) {
 	runway, window := int32(80), int32(0)
-	opts := NewStreamOptions(&runway, nil, &window, &arm.MoveOptions{MaxAccRads: 2, MaxVelRadsJoints: []float64{1, 2}})
+	opts := NewStreamOptions(motion.TempStreamOptions{
+		ArmSideTargetRunwayMs: &runway,
+		DiagnosticsWindowSecs: &window,
+		MoveOptions:           &arm.MoveOptions{MaxAccRads: 2, MaxVelRadsJoints: []float64{1, 2}},
+	})
 	test.That(t, opts.ArmSideTargetRunwayMs, test.ShouldEqual, 80)
 	test.That(t, opts.DiagnosticsWindowSecs, test.ShouldEqual, 0)
 	test.That(t, opts.MoveOptions.MaxAccRads, test.ShouldEqual, 2.0)
@@ -22,7 +27,7 @@ func TestNewStreamOptionsOverrides(t *testing.T) {
 }
 
 func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
-	valid := NewStreamOptions(nil, nil, nil, nil)
+	valid := NewStreamOptions(motion.TempStreamOptions{})
 	test.That(t, valid.ArmSideTargetRunwayMs, test.ShouldEqual, defaultArmSideTargetRunwayMs)
 	test.That(t, valid.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
 	test.That(t, valid.MoveOptions.MaxVelRads, test.ShouldEqual, defaultVelLimitRadPerSec)
