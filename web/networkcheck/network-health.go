@@ -1,10 +1,20 @@
 package networkcheck
 
-import "go.viam.com/rdk/logging"
+import (
+	"cmp"
+	"slices"
+	"strings"
+
+	"go.viam.com/rdk/logging"
+)
 
 // slowResolutionThresholdMS is the point above which a successful DNS
 // resolution is counted as degraded.
 const slowResolutionThresholdMS = 1000
+
+// maxLoggedSlowHostnames bounds the only variable-length field on the health
+// line, which is emitted every cycle on every machine.
+const maxLoggedSlowHostnames = 2
 
 // netcheckVersion is the schema version of the network-health log line. Bump it
 // when fields are added, removed, or change meaning so consumers can gate on it.
@@ -39,7 +49,8 @@ type DNSSummary struct {
 	ConnectionsOK, ConnectionsTotal int
 	ResolutionsOK, ResolutionsTotal int
 	MaxResolutionMS                 *int64
-	SlowHostnames                   []string
+	// Hostnames that resolved slower than slowResolutionThresholdMS, slowest first.
+	SlowHostnames []string
 }
 
 // STUNSummary condenses a testUDP or testTCP run. HardNAT is only meaningful
@@ -97,8 +108,14 @@ func (s HealthSnapshot) NATType() string {
 	}
 }
 
+type slowResolution struct {
+	hostname string
+	ms       int64
+}
+
 func summarizeDNS(results []*DNSResult) DNSSummary {
 	var s DNSSummary
+	var slow []slowResolution
 	for _, r := range results {
 		switch r.TestType {
 		case ConnectionDNSTestType:
@@ -119,9 +136,18 @@ func summarizeDNS(results []*DNSResult) DNSSummary {
 				s.MaxResolutionMS = r.ResolutionTimeMS
 			}
 			if *r.ResolutionTimeMS > slowResolutionThresholdMS && r.Hostname != nil {
-				s.SlowHostnames = append(s.SlowHostnames, *r.Hostname)
+				slow = append(slow, slowResolution{*r.Hostname, *r.ResolutionTimeMS})
 			}
 		}
+	}
+
+	// Slowest first, so consumers that report or truncate the list keep the
+	// worst offender rather than whichever host happened to be probed first.
+	slices.SortStableFunc(slow, func(a, b slowResolution) int {
+		return cmp.Compare(b.ms, a.ms)
+	})
+	for _, sr := range slow {
+		s.SlowHostnames = append(s.SlowHostnames, sr.hostname)
 	}
 
 	switch {
@@ -250,6 +276,13 @@ func logHealth(logger logging.Logger, s HealthSnapshot) {
 
 	if s.DNS.MaxResolutionMS != nil {
 		keysAndValues = append(keysAndValues, "dns_max_resolve_ms", *s.DNS.MaxResolutionMS)
+	}
+	if len(s.DNS.SlowHostnames) > 0 {
+		hostnames := s.DNS.SlowHostnames
+		if len(hostnames) > maxLoggedSlowHostnames {
+			hostnames = hostnames[:maxLoggedSlowHostnames]
+		}
+		keysAndValues = append(keysAndValues, "dns_slow_hostnames", strings.Join(hostnames, ","))
 	}
 	if s.Loss.ISPLossPct != nil {
 		keysAndValues = append(keysAndValues, "isp_loss_pct", *s.Loss.ISPLossPct)

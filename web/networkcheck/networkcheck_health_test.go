@@ -3,7 +3,10 @@ package networkcheck
 import (
 	"testing"
 
+	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -301,5 +304,46 @@ func TestSummarizeSTUN(t *testing.T) {
 		s := summarizeSTUN(nil, "udp")
 		test.That(t, s.Status, test.ShouldEqual, FamilyUnknown)
 		test.That(t, s.Total, test.ShouldEqual, 0)
+	})
+}
+
+func TestLogHealthSlowHostnames(t *testing.T) {
+	fieldValue := func(logs *observer.ObservedLogs, key string) (any, bool) {
+		entries := logs.All()
+		test.That(t, len(entries), test.ShouldEqual, 1)
+		value, ok := entries[0].ContextMap()[key]
+		return value, ok
+	}
+
+	t.Run("omits the field when nothing was slow", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		logHealth(logger, HealthSnapshot{DNS: DNSSummary{Status: FamilyOK}})
+
+		_, ok := fieldValue(logs, "dns_slow_hostnames")
+		test.That(t, ok, test.ShouldBeFalse)
+	})
+
+	// Covers the cap and the sort together: probe order is not slowness order,
+	// so truncating an unsorted list would drop the worst offender.
+	t.Run("caps the list at the slowest hostnames", func(t *testing.T) {
+		resolve := func(hostname string, ms int64) *DNSResult {
+			return &DNSResult{
+				TestType: ResolutionDNSTestType,
+				Hostname: ptr(hostname), ResolutionTimeMS: ptr(ms),
+			}
+		}
+		// Probe order deliberately differs from slowness order.
+		s := summarizeDNS([]*DNSResult{
+			resolve("fast-ish.com", 1200),
+			resolve("slowest.com", 3100),
+			resolve("middling.com", 2400),
+		})
+
+		logger, logs := logging.NewObservedTestLogger(t)
+		logHealth(logger, HealthSnapshot{DNS: s})
+
+		value, ok := fieldValue(logs, "dns_slow_hostnames")
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, value, test.ShouldEqual, "slowest.com,middling.com")
 	})
 }
