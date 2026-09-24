@@ -208,12 +208,35 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	components := make(map[string]resource.Resource)
+	// Group deps by short name. A remote composite is surfaced as one per-API sub-client per co-equal
+	// API (same short name), and a composite may serve at most one kinematic (input-enabled) API — one
+	// physical device is one frame with one CurrentInputs. Keep the kinematic sub; refuse a
+	// multi-kinematic composite (not supported) rather than erroring on the duplicate name and taking
+	// the whole frame system down. Machine-wide name uniqueness prevents genuine same-short-name
+	// collisions between distinct resources. resource.SubresourceForAPI is a no-op here (the feeder
+	// passes unwrapped subs) but keeps this robust if a caller ever passes a composite wrapper.
+	componentsByName := make(map[string][]resource.Resource)
 	for name, r := range deps {
-		if _, present := components[name.Name]; present {
-			return DuplicateResourceNameError(name.Name)
+		componentsByName[name.Name] = append(componentsByName[name.Name], resource.SubresourceForAPI(r, name.API))
+	}
+	components := make(map[string]resource.Resource)
+	for name, subs := range componentsByName {
+		var kinematic []resource.Resource
+		for _, sub := range subs {
+			if _, ok := sub.(InputEnabled); ok {
+				kinematic = append(kinematic, sub)
+			}
 		}
-		components[name.Name] = r
+		switch {
+		case len(kinematic) > 1:
+			svc.logger.Errorw(
+				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
+				"resource", name)
+		case len(kinematic) == 1:
+			components[name] = kinematic[0]
+		default:
+			components[name] = subs[0]
+		}
 	}
 	svc.components = components
 

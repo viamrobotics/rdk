@@ -355,9 +355,21 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			// Log if this remote resource's name collides with any existing resource. On collision
 			// the remote stays in the graph but is hidden from the machine's resource list. One
 			// FindAllBySimpleName scan spans all APIs, so it catches both same-API and cross-API
-			// collisions; enumerate every conflicting resource.
+			// collisions (a bare-name collision spanning two different APIs is exactly what
+			// machine-wide name uniqueness forbids). A composite living on this remote is advertised
+			// as several same-named resources that differ only by API; those are one composite (names
+			// are unique per remote), not a collision, so matches from THIS remote are skipped. A
+			// genuine collision -- a local resource, or a resource on a DIFFERENT remote, sharing this
+			// simple name -- is still reported.
 			prefixedSimpleName := prefix + resName.Name
-			if conflicts := manager.resources.FindAllBySimpleName(prefixedSimpleName); len(conflicts) > 0 {
+			var conflicts []resource.Name
+			for _, match := range manager.resources.FindAllBySimpleName(prefixedSimpleName) {
+				if match.Remote == remoteName.Name {
+					continue
+				}
+				conflicts = append(conflicts, match)
+			}
+			if len(conflicts) > 0 {
 				manager.logger.Errorw(logMsgRemoteNameCollision,
 					"name", prefixedSimpleName, "api", resName.API,
 					"conflicts_with", resource.NamesToStrings(conflicts), "remote", remoteName.Name)
@@ -507,11 +519,14 @@ func (manager *resourceManager) AllNonCollidingResourceNames() []resource.Name {
 // - Resources that are remote and have the same full name as another resource (name collision).
 // Remotes resources' Name field will be automatically prefixed.
 func (manager *resourceManager) ResourceNames() []resource.Name {
-	return manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
-		return k.API != client.RemoteAPI &&
-			k.API.Type.Namespace != resource.APINamespaceRDKInternal &&
-			gNode.HasResource()
-	})
+	// A composite is stored as one node under its canonical API; ExpandCompositeNames advertises it
+	// as one same-named ResourceName per co-equal API so a client can detect and assemble it.
+	return manager.resources.ExpandCompositeNames(
+		manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
+			return k.API != client.RemoteAPI &&
+				k.API.Type.Namespace != resource.APINamespaceRDKInternal &&
+				gNode.HasResource()
+		}))
 }
 
 // reachableResourceNames returns the names of all resources in the manager, excluding the following types of resources:
@@ -534,7 +549,10 @@ func (manager *resourceManager) ResourceRPCAPIs() []resource.RPCAPI {
 	resourceAPIs := resource.RegisteredAPIs()
 
 	types := map[resource.API]*desc.ServiceDescriptor{}
-	for _, k := range manager.resources.Names() {
+	// A composite is stored as one node under its canonical API; ExpandCompositeNames yields one
+	// same-named Name per co-equal API it serves so every served API surfaces its RPC descriptor,
+	// regardless of which API the composite is declared under.
+	for _, k := range manager.resources.ExpandCompositeNames(manager.resources.Names()) {
 		if k.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			continue
 		}

@@ -323,20 +323,17 @@ func ResourceFromProtoMessage(
 	return res, fqName, nil
 }
 
-// ResourceFromRobot returns a resource from a robot.
+// ResourceFromRobot returns a resource from a robot. It uses resource.AsType so that a composite
+// (multi-API) resource handle is unwrapped to the sub-resource satisfying T. The local robot already
+// unwraps composites on a specific-API lookup, so this is belt-and-suspenders for any caller whose
+// ResourceByName returns the composite handle itself (e.g. an api-less lookup or a future path).
 func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T, error) {
 	var zero T
 	res, err := robot.ResourceByName(name)
 	if err != nil {
 		return zero, err
 	}
-
-	part, ok := res.(T)
-
-	if !ok {
-		return zero, resource.TypeError[T](res)
-	}
-	return part, nil
+	return resource.AsType[T](res)
 }
 
 // MatchesModule returns true if the passed-in module matches its name / ID.
