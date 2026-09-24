@@ -92,6 +92,7 @@ type mlSubmitCustomTrainingJobWithUploadArgs struct {
 	Framework        string
 	ModelType        string
 	ContainerVersion string
+	ContainerID      string
 	Args             []string
 }
 
@@ -126,7 +127,7 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.ContainerID, args.Args,
 	)
 	if err != nil {
 		return err
@@ -284,7 +285,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion, containerVersion string, args []string,
+	modelVersion, containerVersion string, containerID string, args []string,
 ) (string, error) {
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
@@ -304,6 +305,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		ModelName:           modelName,
 		ModelVersion:        modelVersion,
 		ContainerVersion:    containerVersion,
+		ContainerID:         containerID,
 	}
 
 	if len(args) > 0 {
