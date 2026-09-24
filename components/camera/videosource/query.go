@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pion/mediadevices"
@@ -76,6 +77,8 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 	}
 }
 
+var driverRefreshMu sync.Mutex
+
 // findReaderAndDriver finds a video device and returns an image reader and the driver instance,
 // as well as the path to the driver.
 func findReaderAndDriver(
@@ -83,10 +86,34 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
-	if runtime.GOOS == "linux" {
+	// The driver manager locks each of its own operations but not a sequence of them
+	driverRefreshMu.Lock()
+	defer driverRefreshMu.Unlock()
+	switch runtime.GOOS {
+	case "linux":
 		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
 		// So we can call Initialize() only once, and call discover() as many times as we need.
 		mediadevicescamera.Initialize()
+	case "windows":
+		manager := driver.GetManager()
+		held := map[string]string{}
+		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+			if d.Status() == driver.StateClosed {
+				manager.Delete(d.ID())
+			} else {
+				held[d.Info().Label] = d.ID()
+			}
+		}
+
+		// Calling Initialize() creates new driver entries for every connected webcam (even ones already held)
+		mediadevicescamera.Initialize()
+
+		// Delete already held webcams to avoid duplication
+		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+			if heldID, ok := held[d.Info().Label]; ok && d.ID() != heldID && d.Status() == driver.StateClosed {
+				manager.Delete(d.ID())
+			}
+		}
 	}
 
 	constraints := makeConstraints(conf, logger)
