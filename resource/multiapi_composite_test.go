@@ -437,6 +437,77 @@ func TestNamedFromProvider(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
+func TestFromDependenciesUnwrapsComposite(t *testing.T) {
+	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
+	composite := NewMultiAPIResource(
+		NewName(testCamAPI, "dev"),
+		[]API{testCamAPI, testSensAPI},
+		map[API]Resource{testCamAPI: c, testSensAPI: c},
+	)
+	deps := Dependencies{NewName(testSensAPI, "dev"): composite}
+
+	// FromDependencies (the dependency-map unwrap path, distinct from FromProvider) must return the
+	// typed sub-resource for the requested API, not the composite wrapper.
+	sens, err := FromDependencies[testSens](deps, NewName(testSensAPI, "dev"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sens.Read(), test.ShouldEqual, 42)
+}
+
+func TestGraphCloneCoequalIndex(t *testing.T) {
+	// Clone copies the graph via graphStorage.Copy; the co-equal index must come with it, or a
+	// non-configured API stops resolving on the clone (used for reconfigure snapshots).
+	model := NewModel("acme", "test", "clonecombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	canonical := NewName(testCamAPI, "dev")
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: canonical.AsNamed()}, model)
+	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
+
+	clone := g.Clone()
+	got, err := clone.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+}
+
+func TestCompositeIndexWhenConfigAPINotCanonical(t *testing.T) {
+	// The node is stored under its CONFIG api (testsens), which is not the sorted-first api
+	// (testcam < testsens). The index must resolve the other co-equal api regardless — it excludes the
+	// stored api (name.API), not apis[0].
+	model := NewModel("acme", "test", "noncanoncombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	stored := NewName(testSensAPI, "dev")
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testSensAPI, Model: model}, &combo{Named: stored.AsNamed()}, model)
+	test.That(t, g.AddNode(stored, node), test.ShouldBeNil)
+
+	// The stored api resolves directly; the sorted-first api resolves through the index.
+	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+	got, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+}
+
+func TestComposeSortsAPIs(t *testing.T) {
+	// Pass the subs in reverse-sorted API order; Compose must still sort so the canonical (sorted-first)
+	// api is propcam, not whichever was passed first.
+	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
+	composite, err := Compose(
+		NewName(propIMUAPI, "dev"),
+		AsSub[propIMU](propIMUAPI, imuFacade{c}),
+		AsSub[propCam](propCamAPI, camFacade{c}),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, composite.APIs(), test.ShouldResemble, []API{propCamAPI, propIMUAPI})
+}
+
 func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
 	// SimpleNamesWhere surfaces every per-API sibling of a remote composite (same remote, one identity)
 	// so a client can detect and assemble it, but still hides a genuine machine-wide collision.
