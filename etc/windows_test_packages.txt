@@ -59,6 +59,7 @@ go.viam.com/rdk/components/servo/gpio
 go.viam.com/rdk/components/switch
 go.viam.com/rdk/components/switch/fake
 go.viam.com/rdk/control
+go.viam.com/rdk/data
 go.viam.com/rdk/etc/subsystem_manifest
 go.viam.com/rdk/ftdc
 go.viam.com/rdk/ftdc/sys
