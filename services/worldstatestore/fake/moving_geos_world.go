@@ -8,8 +8,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"go.viam.com/rdk/services/worldstatestore"
 )
 
 // MovingGeosWorld is the moving geos world.
@@ -390,19 +388,11 @@ func (w *MovingGeosWorld) removeDynamicBox(name string) {
 	delete(w.worldStateStore.transforms, uuidToRemove)
 	w.worldStateStore.mu.Unlock()
 
-	change := worldstatestore.TransformChange{
-		ChangeType: pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_REMOVED,
-		Transform: &commonpb.Transform{
-			Uuid: transform.Uuid,
-		},
-	}
-
-	select {
-	case w.worldStateStore.changeChan <- change:
-	case <-w.worldStateStore.streamCtx.Done():
-	default:
-		// Channel is full, skip this update
-	}
+	w.worldStateStore.emitTransformChange(
+		&commonpb.Transform{Uuid: transform.Uuid},
+		pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_REMOVED,
+		nil,
+	)
 }
 
 func (w *MovingGeosWorld) updateTransforms() {
