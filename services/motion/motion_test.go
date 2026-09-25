@@ -11,11 +11,13 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -1460,3 +1462,96 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 		Extra: nil,
 	}
 }
+
+func TestTempStreamOptions(t *testing.T) {
+	runway, interval, window := int32(100), int32(10), int32(60)
+	moveOptsPB := &armpb.MoveOptions{MaxVelDegsPerSec: ptr(90.), MaxAccDegsPerSec2: ptr(180.)}
+	moveOpts := arm.MoveOptionsFromProtobuf(moveOptsPB)
+
+	t.Run("tempStreamOptionsFromProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       *pb.TempStreamOptions
+			result      TempStreamOptions
+		}
+		testCases := []testCase{
+			{
+				description: "when passed a nil pointer returns an empty TempStreamOptions struct",
+				input:       nil,
+				result:      TempStreamOptions{},
+			},
+			{
+				description: "when passed an empty struct returns an empty TempStreamOptions struct",
+				input:       &pb.TempStreamOptions{},
+				result:      TempStreamOptions{},
+			},
+			{
+				description: "when passed a full struct returns a full struct",
+				input: &pb.TempStreamOptions{
+					ArmSideTargetRunwayMs: &runway,
+					SendToArmIntervalMs:   &interval,
+					DiagnosticsWindowSecs: &window,
+					MoveOptions:           moveOptsPB,
+				},
+				result: TempStreamOptions{
+					ArmSideTargetRunwayMs: &runway,
+					SendToArmIntervalMs:   &interval,
+					DiagnosticsWindowSecs: &window,
+					MoveOptions:           moveOpts,
+				},
+			},
+		}
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				test.That(t, tempStreamOptionsFromProto(tc.input), test.ShouldResemble, tc.result)
+			})
+		}
+	})
+
+	t.Run("tempStreamOptionsToProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       TempStreamOptions
+			result      *pb.TempStreamOptions
+		}
+		testCases := []testCase{
+			{
+				description: "when passed an empty struct returns an empty proto",
+				input:       TempStreamOptions{},
+				result:      &pb.TempStreamOptions{},
+			},
+			{
+				description: "when passed a full struct returns a full proto",
+				input: TempStreamOptions{
+					ArmSideTargetRunwayMs: &runway,
+					SendToArmIntervalMs:   &interval,
+					DiagnosticsWindowSecs: &window,
+					MoveOptions:           moveOpts,
+				},
+				result: &pb.TempStreamOptions{
+					ArmSideTargetRunwayMs: &runway,
+					SendToArmIntervalMs:   &interval,
+					DiagnosticsWindowSecs: &window,
+					MoveOptions:           moveOpts.ToProtobuf(),
+				},
+			},
+		}
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				test.That(t, tempStreamOptionsToProto(tc.input), test.ShouldResemble, tc.result)
+			})
+		}
+	})
+
+	t.Run("round trip preserves the options", func(t *testing.T) {
+		input := TempStreamOptions{
+			ArmSideTargetRunwayMs: &runway,
+			SendToArmIntervalMs:   &interval,
+			DiagnosticsWindowSecs: &window,
+			MoveOptions:           moveOpts,
+		}
+		test.That(t, tempStreamOptionsFromProto(tempStreamOptionsToProto(input)), test.ShouldResemble, input)
+	})
+}
+
+func ptr[T any](v T) *T { return &v }

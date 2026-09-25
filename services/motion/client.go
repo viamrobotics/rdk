@@ -2,10 +2,14 @@ package motion
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	"github.com/google/uuid"
+	armpb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	pb "go.viam.com/api/service/motion/v1"
+	goutils "go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
@@ -189,6 +193,139 @@ func (c *client) PlanHistory(
 		return nil, err
 	}
 	return append([]PlanWithStatus{pws}, statusHistory...), nil
+}
+
+func (c *client) TempStreamArmJointPositions(
+	ctx context.Context,
+	armName string,
+	opts TempStreamOptions,
+	targets <-chan []referenceframe.Input,
+	responses chan<- TempStreamResponse,
+	extra map[string]interface{},
+) error {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
+	// If the recv goroutine cancels ctx, we want to surface the recv goroutine's error.
+	// If the parent ctx is canceled, we want to surface the parent ctx's error.
+	// This sentinel allows distinguishing which side canceled first.
+	errRecvSideCanceled := errors.New("recv side canceled")
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	// Opens the HTTP/2 stream to the server; does not send any messages yet.
+	stream, err := c.client.TempStreamArmJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+
+	// "Send goroutine": receives targets from the client; stream.Send()'s them to the server.
+	sendResult := make(chan error, 1)
+	goutils.PanicCapturingGo(func() {
+		// Every exit below overwrites err; if none did, the goroutine panicked.
+		err := errors.New("motion streaming client send goroutine panicked")
+		defer func() {
+			if err != nil {
+				cancel(err)
+			}
+			sendResult <- err
+		}()
+
+		// Send the initial Init message.
+		if err = stream.Send(&pb.TempStreamArmJointPositionsRequest{
+			Name: c.name,
+			Message: &pb.TempStreamArmJointPositionsRequest_Init_{
+				Init: &pb.TempStreamArmJointPositionsRequest_Init{
+					ComponentName: armName,
+					Options:       tempStreamOptionsToProto(opts),
+					Extra:         ext,
+				},
+			},
+		}); err != nil {
+			// io.EOF from Send means the stream had already ended.
+			// Do not return an error from this send goroutine; the recv side has the stream's status.
+			if errors.Is(err, io.EOF) {
+				err = nil
+			}
+			return
+		}
+
+		for {
+			select {
+			case t, ok := <-targets:
+				if !ok {
+					// CloseSend always returns nil.
+					// Do not return an error from this send goroutine; the recv side will have the stream's status.
+					//nolint:errcheck
+					stream.CloseSend()
+					err = nil
+					return
+				}
+				if err = stream.Send(&pb.TempStreamArmJointPositionsRequest{
+					Message: &pb.TempStreamArmJointPositionsRequest_Targets_{
+						Targets: &pb.TempStreamArmJointPositionsRequest_Targets{
+							Positions: []*armpb.JointPositions{referenceframe.JointPositionsFromRadians(t)},
+						},
+					},
+				}); err != nil {
+					// io.EOF from Send means the stream had already ended.
+					// Do not return an error from this send goroutine; the recv side has the stream's status.
+					if errors.Is(err, io.EOF) {
+						err = nil
+					}
+					return
+				}
+			case <-ctx.Done():
+				// If the recv side canceled, do not return an error from this send goroutine,
+				// so that the recv side's error gets surfaced.
+				if errors.Is(context.Cause(ctx), errRecvSideCanceled) {
+					err = nil
+					return
+				}
+				err = ctx.Err()
+				return
+			}
+		}
+	})
+
+	// "Recv goroutine": stream.Recv()'s responses from the server and sends them to the client.
+	recvResult := make(chan error, 1)
+	goutils.PanicCapturingGo(func() {
+		err := errors.New("motion streaming client recv goroutine panicked")
+		defer func() {
+			// Every exit of this goroutine means the stream is done, so alert the send goroutine.
+			cancel(errRecvSideCanceled)
+			recvResult <- err
+		}()
+		for {
+			// TempStreamResponse carries no fields yet, so the message itself is not read.
+			if _, err = stream.Recv(); err != nil {
+				// io.EOF from Recv means the stream ended cleanly.
+				if errors.Is(err, io.EOF) {
+					err = nil
+				}
+				return
+			}
+			select {
+			case responses <- TempStreamResponse{}:
+			case <-ctx.Done():
+				err = ctx.Err()
+				return
+			}
+		}
+	})
+
+	// Get the goroutines' ending errors.
+	sendErr := <-sendResult
+	recvErr := <-recvResult
+
+	// Prefer the send error, since it only ends with an error when it is the cause.
+	if sendErr != nil {
+		return sendErr
+	}
+	return recvErr
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

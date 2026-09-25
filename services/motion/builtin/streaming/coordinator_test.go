@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -24,12 +25,16 @@ const (
 
 func runTestOptions() StreamOptions {
 	runway, interval := int32(50), int32(10)
-	return NewStreamOptions(&runway, &interval, nil, &arm.MoveOptions{MaxVelRads: testVelLimitRadPerSec, MaxAccRads: testAccelLimitRadPerSec2})
+	return NewStreamOptions(motion.TempStreamOptions{
+		ArmSideTargetRunwayMs: &runway,
+		SendToArmIntervalMs:   &interval,
+		MoveOptions:           &arm.MoveOptions{MaxVelRads: testVelLimitRadPerSec, MaxAccRads: testAccelLimitRadPerSec2},
+	})
 }
 
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	inj, rec := newFakeStreamingArm()
-	jpCh := make(chan JointPositionsChItem)
+	jpCh := make(chan []referenceframe.Input)
 
 	start := time.Now()
 	diag := diagnostics.New(time.Duration(runTestOptions().DiagnosticsWindowSecs) * time.Second)
@@ -38,8 +43,8 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diag)
 	}()
 
-	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.05, -0.05}}
-	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.1, -0.1}}
+	jpCh <- []referenceframe.Input{0.05, -0.05}
+	jpCh <- []referenceframe.Input{0.1, -0.1}
 	close(jpCh)
 
 	select {
@@ -92,7 +97,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 func TestRunEndsContextCanceled(t *testing.T) {
 	t.Run("while streaming", func(t *testing.T) {
 		inj, _ := newFakeStreamingArm()
-		jpCh := make(chan JointPositionsChItem)
+		jpCh := make(chan []referenceframe.Input)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
@@ -101,7 +106,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		}()
 
 		// The send on jpCh returning proves Run is in its loop; then cancel.
-		jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.1}}
+		jpCh <- []referenceframe.Input{0.1}
 		cancel()
 
 		select {
@@ -114,10 +119,10 @@ func TestRunEndsContextCanceled(t *testing.T) {
 
 	t.Run("during post-flush wait", func(t *testing.T) {
 		inj, _ := newFakeStreamingArm()
-		jpCh := make(chan JointPositionsChItem, 1)
+		jpCh := make(chan []referenceframe.Input, 1)
 		// A 1.5 rad move is several seconds of trajectory, so the 100ms sleep below
 		// lands well inside the post-flush wait.
-		jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{1.5}}
+		jpCh <- []referenceframe.Input{1.5}
 		close(jpCh)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -155,7 +160,7 @@ func TestRunEndsOnArmError(t *testing.T) {
 		return armErr
 	}
 
-	jpCh := make(chan JointPositionsChItem)
+	jpCh := make(chan []referenceframe.Input)
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0))
@@ -163,7 +168,7 @@ func TestRunEndsOnArmError(t *testing.T) {
 
 	// One target is enough trajectory for several sends; the first is accepted, the
 	// RPC dies, and the executor's next send discovers it.
-	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.1}}
+	jpCh <- []referenceframe.Input{0.1}
 
 	select {
 	case err := <-errCh:

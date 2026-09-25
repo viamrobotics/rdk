@@ -63,10 +63,8 @@ const (
 	DoTeleopStop   = "teleop_stop"
 	DoTeleopStatus = "teleop_status"
 
-	DoStreamStart  = "stream_start"
-	DoStreamPush   = "stream_push"
-	DoStreamFlush  = "stream_flush"
-	DoStreamAbort  = "stream_abort"
+	// DoStreamStatus polls the state of an arm-streaming session started via the
+	// TempStreamArmJointPositions RPC.
 	DoStreamStatus = "stream_status"
 )
 
@@ -156,9 +154,10 @@ type builtIn struct {
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
 
-	// Arm-streaming session. Protected by streamMu (separate from mu to simplify lock ordering).
+	// Arm-streaming sessions, one per arm at a time, keyed by arm name. Protected by streamMu
+	// (separate from mu to simplify lock ordering).
 	streamMu sync.RWMutex
-	stream   *stream
+	streams  map[string]*stream
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -236,7 +235,7 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	}
 	ms.teleopMu.Unlock()
 
-	ms.streamAbort(ctx)
+	ms.abortStreams(ctx)
 
 	return nil
 }
@@ -309,70 +308,20 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 //
-// Streaming commands:
+// Streaming:
 //
-// An arm-streaming session is started with DoStreamStart, fed joint-position targets with
-// DoStreamPush, and ended with either DoStreamFlush (drain what's queued, then stop) or
-// DoStreamAbort (stop immediately). DoStreamStatus can be used to poll the session state at
-// any point.
+// Arm-streaming sessions are started via the TempStreamArmJointPositions RPC (see
+// motion.Service), one session per arm at a time. DoStreamStatus returns a running session's
+// diagnostics, given the arm's name.
 //
-//	DoStreamStart: starts a session on a named arm. Fails if a session is already running.
-//	  request:  {"stream_start": {
-//	               "arm": "myArm",
-//	               "options": {                        // optional; shown values are defaults
-//	                 "arm_side_target_runway_ms": 100,
-//	                 "send_to_arm_interval_ms": 10,
-//	                 "move_options": {
-//	                   "max_vel_degs_per_sec": 10,
-//	                   "max_acc_degs_per_sec2": 10
-//	                 },
-//	                 "diagnostics_window_secs": 60       // 0 disables window-detail retention only
-//	               }
-//	             }}
-//	  response: {"ok": 1}
-//
-//	DoStreamPush: appends joint-position targets to the running session.
-//	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
-//	  response: {"ok": 1}
-//
-//	DoStreamFlush: stops accepting new targets and drains what's already queued to the arm; the
-//	session ends once that finishes. Blocks until the arm has (by the runway estimate) finished
-//	executing the drained trajectory, or ctx expires, whichever comes first.
-//	  request:  {"stream_flush": true}
+//	DoStreamStatus: reports the named arm's running session's diagnostics, if any. The response is
+//	empty when no session is running for the arm.
+//	  request:  {"stream_status": {"arm": "myArm"}}
 //	  response: {
-//	               "running": false,                   // true if ctx expired before the drain
-//	                                                     // finished; the session keeps draining
-//	                                                     // on its own -- repeat DoStreamFlush or
-//	                                                     // poll DoStreamStatus
-//	               "error": "..."                      // present only if the session ended
-//	                                                     // with an error
-//	             }
-//
-//	DoStreamAbort: signals the session to cancel, dropping any buffered trajectory that hasn't
-//	reached the arm. Waits until the session finishes tearing down or ctx expires, whichever comes first.
-//	  request:  {"stream_abort": true}
-//	  response: {
-//	               "running": false,                   // true if ctx expired before teardown
-//	                                                     // finished; the session is still
-//	                                                     // tearing down on its own -- repeat
-//	                                                     // DoStreamAbort or poll DoStreamStatus
-//	               "error": "..."                      // present only if the session ended
-//	                                                     // with an error
-//	             }
-//
-//	DoStreamStatus: reports the current session's state.
-//	  request:  {"stream_status": true}                 // or {"stream_status": {"last_window_details": true}}
-//	                                                      // to also include the (potentially
-//	                                                      // large) last window details; errors if
-//	                                                      // details are not being retained
-//	  response: {
-//	               "running": true,
-//	               "arm": "myArm",                      // present once a session has started
-//	               "last_window_details": {...},        // diagnostics.SingleSessionLastWindowDetails;
-//	                                                     // present only when last_window_details:true
-//	                                                     // was requested
-//	               "error": "..."                       // present only once the session has
-//	                                                     // finished with an error
+//	               "diagnostics_window_secs": 60,       // the running session's window; 0 means no
+//	                                                     // details are being retained
+//	               "last_window_details": {...}         // diagnostics.SingleSessionLastWindowDetails;
+//	                                                     // present only when the window is positive
 //	             }
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).

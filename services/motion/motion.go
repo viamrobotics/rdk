@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -398,6 +399,26 @@ type Service interface {
 	// It returns a result if the execution is active or has changed state in the last 24 hours and the machine has not reinitialized.
 	// Plans never change; replans always create new plans and replans share the ExecutionID of the previously executing plan.
 	PlanHistory(ctx context.Context, req PlanHistoryReq) ([]PlanWithStatus, error)
+
+	// TempStreamArmJointPositions derives and paces a trajectory to armName from the targets it
+	// receives on targets, according to opts. It blocks until targets is closed and the derived
+	// trajectory has finished executing on the arm, or until ctx is canceled, whichever comes
+	// first. Only one call may be in flight for a given armName at a time; a concurrent call for
+	// the same arm returns an error immediately.
+	//
+	// The implementation writes a TempStreamResponse to responses for each acknowledgment it wants to send
+	// back, and the framework forwards each onto the wire. The framework, not the implementation,
+	// owns both channels: it writes and closes targets, and it closes responses after the
+	// implementation returns. So an implementation only reads targets and only writes responses,
+	// and must not close either.
+	TempStreamArmJointPositions(
+		ctx context.Context,
+		armName string,
+		opts TempStreamOptions,
+		targets <-chan []referenceframe.Input,
+		responses chan<- TempStreamResponse,
+		extra map[string]interface{},
+	) error
 }
 
 // ObstacleDetectorName pairs a vision service name with a camera name.
@@ -417,6 +438,18 @@ type MotionConfiguration struct {
 	LinearMPerSec         float64
 	AngularDegsPerSec     float64
 }
+
+// TempStreamOptions configures a TempStreamArmJointPositions session.
+type TempStreamOptions struct {
+	ArmSideTargetRunwayMs *int32
+	SendToArmIntervalMs   *int32
+	DiagnosticsWindowSecs *int32
+	MoveOptions           *arm.MoveOptions
+}
+
+// TempStreamResponse is the per-acknowledgment payload an implementation may emit on
+// TempStreamArmJointPositions's responses channel. It carries no fields today.
+type TempStreamResponse struct{}
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = "motion"
