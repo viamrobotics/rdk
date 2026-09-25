@@ -170,8 +170,21 @@ func installPackage(
 	if runtime.GOOS == "windows" {
 		if _, err := os.Stat(renameDest); err == nil {
 			logger.Debug("package rename destination exists, deleting")
+			// Windows can't rename onto an existing directory, so we delete it first. os.RemoveAll
+			// removes children before the directory itself, so a failure naming the bare directory
+			// means the directory is what's stuck — on Windows, typically because it's a live
+			// process's current working directory, which can't be deleted or renamed. Left alone
+			// that resurfaces as a misleading "Access is denied" from the os.Rename below and reads
+			// as a permissions problem. It's also sticky: localModuleVersions is in-memory, so a
+			// restart resets the reload version to 0.0.0 and lands back on this same leftover
+			// directory until the holder exits. Return an explanation instead of falling through.
 			if err := os.RemoveAll(renameDest); err != nil {
-				logger.Warnf("ignoring error from removing rename dest %s", err)
+				utils.UncheckedError(cleanup(packagesDir, p))
+				return errw.Wrapf(err,
+					"cannot replace module package directory %s: it is held open by another process. On "+
+						"Windows this is typically a process using it as its working directory, not a "+
+						"permissions problem, and will recur on every restart until that process exits",
+					renameDest)
 			}
 		}
 	}
