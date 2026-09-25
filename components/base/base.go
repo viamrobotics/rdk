@@ -43,6 +43,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the base sub-resource of a composite, for resource.Compose.
+func AsSub(r Base) resource.Sub { return resource.AsSub[Base](API, r) }
+
 // A Base represents a physical base of a robot.
 // For more information, see the [base component docs].
 //

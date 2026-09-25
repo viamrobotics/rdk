@@ -58,6 +58,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the arm sub-resource of a composite, for resource.Compose.
+func AsSub(r Arm) resource.Sub { return resource.AsSub[Arm](API, r) }
+
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 // For more information, see the [arm component docs].
 //
