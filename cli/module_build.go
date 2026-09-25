@@ -759,6 +759,8 @@ type reloadModuleArgs struct {
 	// File is an optional path to a module tarball to upload (reload-local only).
 	// When set, implies NoBuild and does not require build.path in meta.json.
 	File string
+	// Language is an optional python|golang|cpp override (also accepts go / c++).
+	Language string
 }
 
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
@@ -1505,6 +1507,20 @@ func reloadModuleActionInner(
 	if err != nil {
 		return err
 	}
+	sourceRoot, err := moduleSourceRoot(args)
+	if err != nil {
+		return err
+	}
+	lang, err := resolveModuleLanguage(manifest, args.Language, sourceRoot)
+	if err != nil {
+		return err
+	}
+	pythonSource := isPythonSourceHotReload(lang)
+	pythonLocal := pythonSource && args.Local && args.File == ""
+	pythonRemoteSource := pythonSource && !args.Local && args.File == ""
+	// Python source reload copies the tree onto the machine even for
+	// `viam module reload` (no StartReloadBuild / PyInstaller).
+	useCloudPackage := cloudBuild && !pythonRemoteSource
 	part, err := vc.getRobotPart(ctx, partID)
 	if err != nil {
 		return err
@@ -1558,8 +1574,9 @@ func reloadModuleActionInner(
 
 	// Define all steps upfront (build + reload) with clear parent/child relationships.
 	// Cloud builds skip download/shell/upload since the machine downloads directly from cloud.
+	// Python source copy uses the local-reload steps (shell + recursive upload).
 	var allSteps []*Step
-	if cloudBuild {
+	if useCloudPackage {
 		allSteps = []*Step{
 			{ID: "prepare", Message: "Preparing for build...", CompletedMsg: "Prepared for build", IndentLevel: 0},
 			{ID: "archive", Message: "Creating source code archive...", CompletedMsg: "Source code archive created", IndentLevel: 1},
@@ -1625,6 +1642,14 @@ func reloadModuleActionInner(
 		// Destination and reload_path on the robot use this basename; the upload
 		// source remains the full path in buildPath.
 		manifest.Build.Path = filepath.Base(args.File)
+	case pythonLocal, pythonRemoteSource:
+		// Python source-only: skip setup/build/PyInstaller/StartReloadBuild.
+		if manifest == nil {
+			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, args.Module)
+		}
+		if err := ensurePythonRunSh(sourceRoot); err != nil {
+			return err
+		}
 	case !args.NoBuild:
 		if manifest == nil {
 			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, args.Module)
@@ -1632,7 +1657,7 @@ func reloadModuleActionInner(
 		if manifest.Build == nil || manifest.Build.Build == "" {
 			return errors.New("your meta.json cannot have an empty build step. It is required for 'reload' and 'reload-local' commands")
 		}
-		if !cloudBuild {
+		if !useCloudPackage {
 			err = moduleBuildLocalAction(ctx, cmd, manifest, environment)
 			buildPath = manifest.Build.Path
 		} else {
@@ -1665,29 +1690,42 @@ func reloadModuleActionInner(
 		buildPath = manifest.Build.Path
 	}
 
-	// destination for the module archive on the machine; empty for cloud builds
-	// and local reloads, which don't shell-copy an archive over.
+	// destination written to reload_path; empty for cloud package reloads.
 	var dest string
 
-	// For cloud builds, the machine downloads the package directly from the cloud.
+	// For cloud package builds, the machine downloads from the registry.
 	// Skip the shell copy and go straight to configure.
-	if cloudBuild {
+	if useCloudPackage {
+		if err := pm.Start("reload"); err != nil {
+			return err
+		}
+	} else if pythonLocal {
+		runSh, err := filepath.Abs(pythonRunShPath(sourceRoot))
+		if err != nil {
+			return err
+		}
+		dest = runSh
 		if err := pm.Start("reload"); err != nil {
 			return err
 		}
 	} else if !args.Local {
-		if manifest == nil || manifest.Build == nil || buildPath == "" {
-			return errors.New(
-				"remote reloading requires a meta.json with the 'build.path' field set. " +
-					"try --local if you are testing on the same machine, or pass --file with a tarball.",
-			)
-		}
-		if err := validateReloadableArchive(cmd, buildPath, manifest.FirstRun); err != nil {
-			return err
-		}
-
-		if err := pm.Start("reload"); err != nil {
-			return err
+		if pythonRemoteSource {
+			if err := pm.Start("reload"); err != nil {
+				return err
+			}
+		} else {
+			if manifest == nil || manifest.Build == nil || buildPath == "" {
+				return errors.New(
+					"remote reloading requires a meta.json with the 'build.path' field set. " +
+						"try --local if you are testing on the same machine, or pass --file with a tarball.",
+				)
+			}
+			if err := validateReloadableArchive(cmd, buildPath, manifest.FirstRun); err != nil {
+				return err
+			}
+			if err := pm.Start("reload"); err != nil {
+				return err
+			}
 		}
 		if err := pm.Start("shell"); err != nil {
 			return err
@@ -1725,7 +1763,28 @@ func reloadModuleActionInner(
 				goutils.UncheckedError(closeShellSvc(ctx))
 			}
 		}()
-		dest = reloadingDestination(manifest, vc.machineViamHome(ctx, cmd, shellSvc))
+		viamHome := vc.machineViamHome(ctx, cmd, shellSvc)
+
+		var copyPaths []string
+		var copyDest string
+		allowRecursion := false
+		var stagingCleanup func()
+		if pythonRemoteSource {
+			var stagingDir string
+			stagingDir, stagingCleanup, err = preparePythonSourceStagingDir(vc, sourceRoot, localizedPythonModuleID(manifest))
+			if err != nil {
+				return err
+			}
+			defer stagingCleanup()
+			copyPaths = []string{stagingDir}
+			copyDest = viamHome
+			allowRecursion = true
+			dest = pythonSourceReloadPath(manifest, viamHome)
+		} else {
+			copyPaths = []string{buildPath}
+			copyDest = reloadingDestination(manifest, viamHome)
+			dest = copyDest
+		}
 
 		if err := pm.Start("upload"); err != nil {
 			return err
@@ -1738,10 +1797,10 @@ func reloadModuleActionInner(
 					ctx,
 					shellSvc,
 					closeShellSvc,
-					false, // allowRecursion
+					allowRecursion,
 					false, // preserve
-					[]string{buildPath},
-					dest,
+					copyPaths,
+					copyDest,
 					true, // noProgress
 				)
 			}
@@ -1749,10 +1808,10 @@ func reloadModuleActionInner(
 				ctx,
 				part.Part.Fqdn,
 				globalArgs.Debug,
-				false, // allowRecursion
+				allowRecursion,
 				false, // preserve
-				[]string{buildPath},
-				dest,
+				copyPaths,
+				copyDest,
 				logger,
 				true, // noProgress
 			)
@@ -1784,7 +1843,7 @@ func reloadModuleActionInner(
 	}
 	var newPart *apppb.RobotPart
 	newPart, needsRestart, err = configureModule(
-		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest,
+		ctx, cmd, vc, manifest, part.Part, args.Local, useCloudPackage, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest,
 	)
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`

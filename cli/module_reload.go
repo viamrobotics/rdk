@@ -106,6 +106,9 @@ func mutateModuleConfig(
 	var absEntrypoint string
 	var err error
 	switch {
+	case remoteDest != "":
+		// Caller already resolved reload_path (tarball, Python run.sh, or local run.sh).
+		absEntrypoint = remoteDest
 	case local:
 		// This flag means that viam server is running on the same machine running the CLI
 		// Does not indicate module type (registry vs local)
@@ -113,8 +116,6 @@ func mutateModuleConfig(
 		if err != nil {
 			return "", false, err
 		}
-	case remoteDest != "":
-		absEntrypoint = remoteDest
 	default:
 		// cloud reload: never written to the config (reload_path is deleted below),
 		// only compared against a stale reload_path, so don't consult the machine.
