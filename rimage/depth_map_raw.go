@@ -37,20 +37,26 @@ func _readNext(r io.Reader) (int64, error) {
 
 // ParseRawDepthMap parses a depth map from the given file. It knows
 // how to handle compressed files as well.
-func ParseRawDepthMap(fn string) (*DepthMap, error) {
-	var f io.Reader
-
+func ParseRawDepthMap(fn string) (dm *DepthMap, err error) {
 	//nolint:gosec
-	f, err := os.Open(fn)
+	file, err := os.Open(fn)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = multierr.Combine(err, file.Close())
+	}()
 
+	var f io.Reader = file
 	if filepath.Ext(fn) == ".gz" {
-		f, err = gzip.NewReader(f)
-		if err != nil {
-			return nil, err
+		gzr, gzErr := gzip.NewReader(file)
+		if gzErr != nil {
+			return nil, gzErr
 		}
+		defer func() {
+			err = multierr.Combine(err, gzr.Close())
+		}()
+		f = gzr
 	}
 
 	return ReadDepthMap(bufio.NewReader(f))
