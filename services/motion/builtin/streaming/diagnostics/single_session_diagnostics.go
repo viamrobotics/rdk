@@ -2,6 +2,7 @@
 package diagnostics
 
 import (
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -74,13 +75,31 @@ func (t *SingleSessionDiagnostics) RecordArmStreamCloseEvent() {
 	t.mu.Unlock()
 }
 
-// RecordTrajexExtendLatency records the duration of one trajex Extend call that began at start.
-func (t *SingleSessionDiagnostics) RecordTrajexExtendLatency(start time.Time, d time.Duration) {
-	ms := float64(d.Microseconds()) / 1000.0
+// RecordTrajexExtend records one trajex Extend call that began at start and took d: how the
+// session handled the batch (kind, in trajex's spelling; "error" if the call failed) and, where
+// trajex computed them, the branch slack and the change in the active trajectory's duration.
+func (t *SingleSessionDiagnostics) RecordTrajexExtend(
+	start time.Time, d time.Duration, kind string, branchSlack, deltaActiveDuration *time.Duration,
+) {
+	e := TrajexExtend{
+		TimestampMs:           unixMillisFloat(start),
+		DurationMs:            float64(d.Microseconds()) / 1000.0,
+		Kind:                  kind,
+		BranchSlackMs:         optionalMs(branchSlack),
+		DeltaActiveDurationMs: optionalMs(deltaActiveDuration),
+	}
 	t.mu.Lock()
-	t.details.recordTrajexExtendLatency(unixMillisFloat(start), ms)
-	t.stats.recordTrajexExtendLatency(ms)
+	t.details.recordTrajexExtend(e)
+	t.stats.recordTrajexExtend(e)
 	t.mu.Unlock()
+}
+
+func optionalMs(d *time.Duration) *float64 {
+	if d == nil {
+		return nil
+	}
+	ms := float64(d.Microseconds()) / 1000.0
+	return &ms
 }
 
 // RecordSendToArmLatency records the duration of one batch send to the arm RPC that began at start.
@@ -133,7 +152,7 @@ func (t *SingleSessionDiagnostics) LastWindowDetails() SingleSessionLastWindowDe
 	return SingleSessionLastWindowDetails{
 		JointPositionTargetReceived: slices.Clone(live.JointPositionTargetReceived),
 		ArmRunway:                   slices.Clone(live.ArmRunway),
-		TrajexExtendLatency:         slices.Clone(live.TrajexExtendLatency),
+		TrajexExtends:               slices.Clone(live.TrajexExtends),
 		SendToArmLatency:            slices.Clone(live.SendToArmLatency),
 		TrajexSessionOpen:           slices.Clone(live.TrajexSessionOpen),
 		TrajexSessionClose:          slices.Clone(live.TrajexSessionClose),
@@ -156,6 +175,8 @@ func (t *SingleSessionDiagnostics) Stats() SingleSessionStats {
 		TrajexExtendLatencyP50Ms: t.stats.extendLatency.quantileMs(0.5),
 		TrajexExtendLatencyP99Ms: t.stats.extendLatency.quantileMs(0.99),
 		TrajexExtendLatencyMaxMs: t.stats.extendLatency.maxMs,
+		TrajexExtendsByKind:      maps.Clone(t.stats.extendsByKind),
+		TrajexBranchSlackMinMs:   t.stats.branchSlackMin(),
 		SendToArmLatencyP50Ms:    t.stats.sendLatency.quantileMs(0.5),
 		SendToArmLatencyP99Ms:    t.stats.sendLatency.quantileMs(0.99),
 		SendToArmLatencyMaxMs:    t.stats.sendLatency.maxMs,

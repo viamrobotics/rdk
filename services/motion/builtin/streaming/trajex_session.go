@@ -29,6 +29,16 @@ type trajexSession struct {
 	sess               *totgstream.Session
 	dof                int
 	lastJointPositions []referenceframe.Input
+
+	// stagedEstimate is a velocity-limit lower bound on the trajectory time the batches trajex
+	// has staged (but not yet built a trajectory for) will add once rebased. The session cannot
+	// put a duration on staged motion itself, so RemainingActiveDuration drains toward zero
+	// while staged backlog is still growing; this fills that gap for the runway gate. It is
+	// zeroed once sampling observes the rebase that absorbed the batches (the generation count
+	// moves; nothing else can move it while batches are staged), at which point the new active
+	// trajectory's exact duration takes over the accounting.
+	stagedEstimate   time.Duration
+	stagedGeneration int64
 }
 
 func (s *trajexSession) startSession(startJointPositions []referenceframe.Input) error {
@@ -94,13 +104,33 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 		return err
 	}
 	extendStart := time.Now()
-	err = s.sess.Extend(ctx, waypoints)
-	s.diagnostics.RecordTrajexExtendLatency(extendStart, time.Since(extendStart))
+	res, err := s.sess.Extend(ctx, waypoints)
+	extendLatency := time.Since(extendStart)
 	if err != nil {
+		s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, "error", nil, nil)
 		return err
+	}
+	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, res.DeltaActiveDuration)
+	switch res.Kind {
+	case totgstream.ExtendStagedBranchSampled, totgstream.ExtendStagedUnsamplable, totgstream.ExtendStagedAgain:
+		if s.stagedEstimate == 0 {
+			s.stagedGeneration = s.sess.GenerationCount()
+		}
+		s.stagedEstimate += s.traversalTimeLowerBound(nextJointPositions)
 	}
 	s.lastJointPositions = nextJointPositions
 	return nil
+}
+
+// traversalTimeLowerBound is the time to move each joint from lastJointPositions to next at
+// the velocity limit, ignoring acceleration ramps, so it never exceeds the duration TOTG will
+// actually assign to that segment.
+func (s *trajexSession) traversalTimeLowerBound(next []referenceframe.Input) time.Duration {
+	var maxDeltaRad float64
+	for i := range next {
+		maxDeltaRad = math.Max(maxDeltaRad, math.Abs(float64(next[i]-s.lastJointPositions[i])))
+	}
+	return time.Duration(maxDeltaRad / utils.DegToRad(s.opts.VelLimitDegPerSec) * float64(time.Second))
 }
 
 func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration) ([]pvat, error) {
@@ -122,7 +152,14 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 	for _, p := range pvats {
 		s.diagnostics.RecordSampledPVAT(p.positions, p.velocities, p.accelerations, p.time)
 	}
+	if s.stagedEstimate > 0 && s.sess.GenerationCount() != s.stagedGeneration {
+		s.stagedEstimate = 0
+	}
 	return pvats, nil
+}
+
+func (s *trajexSession) trajexRunway() time.Duration {
+	return s.sess.RemainingActiveDuration() + s.stagedEstimate
 }
 
 func (s *trajexSession) close() {
