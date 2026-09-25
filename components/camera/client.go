@@ -263,6 +263,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	}
 	result.MimeTypes = resp.MimeTypes
 	result.SupportsPCD = resp.SupportsPcd
+	result.DefaultReferenceFrame = resp.DefaultReferenceFrame
 
 	// Check if the optional frame_rate is present and set it if it exists
 	if resp.FrameRate != nil {
