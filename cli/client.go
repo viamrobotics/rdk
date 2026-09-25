@@ -155,6 +155,8 @@ func (c *viamClient) machineViamHome(ctx context.Context, cmd *cli.Command, shel
 type viamClient struct {
 	c                   *cli.Command
 	conf                *Config
+	conn                rpc.ClientConn
+	dialedApp           bool
 	client              apppb.AppServiceClient
 	dataClient          datapb.DataServiceClient
 	packageClient       packagepb.PackageServiceClient
@@ -4570,6 +4572,9 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 		return err
 	}
 
+	// ensureTunnelPortAllowed re-dialed; the tunnel itself wants nothing from app.
+	c.closeAppConn()
+
 	return tunnelTraffic(ctx, cmd, robotClient, args.LocalPort, args.DestinationPort)
 }
 
@@ -4607,6 +4612,10 @@ func (c *viamClient) ensureTunnelPortAllowed(
 	ctx context.Context, cmd *cli.Command, lister tunnelLister, args robotsPartTunnelArgs,
 ) error {
 	dest := args.DestinationPort
+
+	if err := c.redialApp(ctx); err != nil {
+		return err
+	}
 
 	allowed, known := tunnelPortAllowed(ctx, lister, dest)
 	// If we couldn't read the tunnel list (e.g. ListTunnels is unimplemented on an
@@ -5948,6 +5957,7 @@ func (c *viamClient) runRobotPartCommand(
 	defer func() {
 		utils.UncheckedError(conn.Close())
 	}()
+	c.closeAppConn()
 
 	refCtx := metadata.NewOutgoingContext(ctx, nil)
 	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(conn))
@@ -6063,6 +6073,8 @@ func (c *viamClient) connectToRobot(
 	if debug {
 		printf(c.c.Root().Writer, "Establishing connection...")
 	}
+	// everything from here on is machine-side, and can hold the process open for hours.
+	c.closeAppConn()
 	if c.dialOverride != nil {
 		robotClient, err := c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
 		if err != nil {
