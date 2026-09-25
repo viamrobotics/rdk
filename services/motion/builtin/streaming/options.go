@@ -3,17 +3,18 @@ package streaming
 
 import (
 	"errors"
+	"fmt"
+	"math"
 
-	"github.com/go-viper/mapstructure/v2"
-
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 )
 
 const (
-	defaultTargetRunwayInArmMs   = 100
+	defaultArmSideTargetRunwayMs = 100
 	defaultSendToArmIntervalMs   = 10
-	defaultVelLimitDegPerSec     = 10.0
-	defaultAccelLimitDegPerSec2  = 10.0
+	defaultVelLimitRadPerSec     = 10 * math.Pi / 180 // 10 deg/s
+	defaultAccelLimitRadPerSec2  = 10 * math.Pi / 180 // 10 deg/s^2
 	defaultDiagnosticsWindowSecs = 60
 )
 
@@ -25,43 +26,61 @@ type JointPositionsChItem struct {
 
 // StreamOptions tunes the streaming executor.
 type StreamOptions struct {
-	// TargetRunwayInArmMs is the duration of pvat points that we aim to keep
+	// ArmSideTargetRunwayMs is the duration of pvat points that we aim to keep
 	// buffered inside the arm resource.
-	TargetRunwayInArmMs int `json:"target_runway_in_arm_ms"`
+	ArmSideTargetRunwayMs int
 
 	// SendToArmIntervalMs is the interval at which batches of pvat points are
 	// sent to the arm resource.
 	// TODO: Replace this with querying the arm's properties API.
-	SendToArmIntervalMs int `json:"send_to_arm_interval_ms"`
+	SendToArmIntervalMs int
 
-	// VelLimitDegPerSec / AccelLimitDegPerSec2 are the per-joint limits the trajex
-	// session is built with.
-	// TODO: Replace these with querying the arm's properties API.
-	VelLimitDegPerSec    float64 `json:"vel_limit_deg_per_sec"`
-	AccelLimitDegPerSec2 float64 `json:"accel_limit_deg_per_sec2"`
+	// MoveOptions carries the kinematic limits the trajex session is built with.
+	MoveOptions arm.MoveOptions
 
 	// DiagnosticsWindowSecs is how much full-detail diagnostics history the session retains;
 	// 0 disables retention of that history, though whole-run diagnostic stats are still
 	// collected regardless.
-	DiagnosticsWindowSecs int `json:"diagnostics_window_secs"`
+	DiagnosticsWindowSecs int
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
 func (o *StreamOptions) Validate() error {
-	if o.TargetRunwayInArmMs <= 0 {
-		return errors.New("streaming: target_runway_in_arm_ms must be positive")
+	if o.ArmSideTargetRunwayMs <= 0 {
+		return errors.New("streaming: arm_side_target_runway_ms must be positive")
 	}
 	if o.SendToArmIntervalMs <= 0 {
 		return errors.New("streaming: send_to_arm_interval_ms must be positive")
 	}
-	if o.SendToArmIntervalMs >= o.TargetRunwayInArmMs {
-		return errors.New("streaming: send_to_arm_interval_ms must be less than target_runway_in_arm_ms")
+	if o.SendToArmIntervalMs >= o.ArmSideTargetRunwayMs {
+		return errors.New("streaming: send_to_arm_interval_ms must be less than arm_side_target_runway_ms")
 	}
-	if o.VelLimitDegPerSec <= 0 {
-		return errors.New("streaming: vel_limit_deg_per_sec must be positive")
+	validatePositive := func(perJoint []float64, scalar float64, perJointName, scalarName string) error {
+		if len(perJoint) == 0 {
+			if scalar <= 0 {
+				return fmt.Errorf("streaming: move_options.%s must be positive", scalarName)
+			}
+			return nil
+		}
+		for _, v := range perJoint {
+			if v <= 0 {
+				return fmt.Errorf("streaming: move_options.%s entries must all be positive", perJointName)
+			}
+		}
+		return nil
 	}
-	if o.AccelLimitDegPerSec2 <= 0 {
-		return errors.New("streaming: accel_limit_deg_per_sec2 must be positive")
+	if err := validatePositive(
+		o.MoveOptions.MaxVelRadsJoints, o.MoveOptions.MaxVelRads, "max_vel_degs_per_sec_joints", "max_vel_degs_per_sec",
+	); err != nil {
+		return err
+	}
+	if err := validatePositive(
+		o.MoveOptions.MaxAccRadsJoints, o.MoveOptions.MaxAccRads, "max_acc_degs_per_sec2_joints", "max_acc_degs_per_sec2",
+	); err != nil {
+		return err
+	}
+	if o.MoveOptions.MaxTCPSpeedMPerSec != nil {
+		return errors.New("streaming: move_options.max_tcp_speed is not currently supported for arm streaming")
 	}
 	if o.DiagnosticsWindowSecs < 0 {
 		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")
@@ -69,28 +88,37 @@ func (o *StreamOptions) Validate() error {
 	return nil
 }
 
-// NewDefaultOptions returns StreamOptions with every field set to its default.
-// Callers overriding individual fields should start from this and then set them.
-func NewDefaultOptions() StreamOptions {
-	return StreamOptions{
-		TargetRunwayInArmMs:   defaultTargetRunwayInArmMs,
+// NewStreamOptions returns a StreamOptions containing the specified configuration values, or defaults for any values
+// that are passed in as nil.
+func NewStreamOptions(runwayMs, intervalMs, windowSecs *int32, move *arm.MoveOptions) StreamOptions {
+	o := StreamOptions{
+		ArmSideTargetRunwayMs: defaultArmSideTargetRunwayMs,
 		SendToArmIntervalMs:   defaultSendToArmIntervalMs,
-		VelLimitDegPerSec:     defaultVelLimitDegPerSec,
-		AccelLimitDegPerSec2:  defaultAccelLimitDegPerSec2,
+		MoveOptions: arm.MoveOptions{
+			MaxVelRads: defaultVelLimitRadPerSec,
+			MaxAccRads: defaultAccelLimitRadPerSec2,
+		},
 		DiagnosticsWindowSecs: defaultDiagnosticsWindowSecs,
 	}
-}
-
-// ParseStreamOptions decodes raw (e.g. a map[string]interface{} parsed from JSON) into opts,
-// matching fields by their json tag.
-func ParseStreamOptions(raw interface{}, opts *StreamOptions) error {
-	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		TagName:          "json",
-		WeaklyTypedInput: true,
-		Result:           opts,
-	})
-	if err != nil {
-		return err
+	if runwayMs != nil {
+		o.ArmSideTargetRunwayMs = int(*runwayMs)
 	}
-	return dec.Decode(raw)
+	if intervalMs != nil {
+		o.SendToArmIntervalMs = int(*intervalMs)
+	}
+	if windowSecs != nil {
+		o.DiagnosticsWindowSecs = int(*windowSecs)
+	}
+	if move != nil {
+		if move.MaxVelRads > 0 {
+			o.MoveOptions.MaxVelRads = move.MaxVelRads
+		}
+		if move.MaxAccRads > 0 {
+			o.MoveOptions.MaxAccRads = move.MaxAccRads
+		}
+		o.MoveOptions.MaxVelRadsJoints = move.MaxVelRadsJoints
+		o.MoveOptions.MaxAccRadsJoints = move.MaxAccRadsJoints
+		o.MoveOptions.MaxTCPSpeedMPerSec = move.MaxTCPSpeedMPerSec
+	}
+	return o
 }

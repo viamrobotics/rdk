@@ -9,15 +9,13 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
 func testStreamOptions() StreamOptions {
-	opts := NewDefaultOptions()
-	opts.VelLimitDegPerSec = 90
-	opts.AccelLimitDegPerSec2 = 90
-	return opts
+	return NewStreamOptions(nil, nil, nil, &arm.MoveOptions{MaxVelRads: testVelLimitRadPerSec, MaxAccRads: testAccelLimitRadPerSec2})
 }
 
 // sampleHorizon is far longer than any trajectory these tests plan, so sampling with it
@@ -61,6 +59,22 @@ func TestTrajexSessionSamplesTowardTarget(t *testing.T) {
 	for i, p := range last.positions {
 		test.That(t, p, test.ShouldAlmostEqual, float64(target[i]), 1e-2)
 	}
+}
+
+// TestTrajexSessionStartSessionRejectsMismatchedJointLimits checks that startSession errors when
+// MaxVelRadsJoints/MaxAccRadsJoints don't have exactly one entry per joint.
+func TestTrajexSessionStartSessionRejectsMismatchedJointLimits(t *testing.T) {
+	seed := []referenceframe.Input{0, 0}
+
+	opts := testStreamOptions()
+	opts.MoveOptions.MaxVelRadsJoints = []float64{1, 2, 3}
+	s := &trajexSession{opts: opts, diagnostics: diagnostics.New(0)}
+	test.That(t, s.startSession(seed), test.ShouldNotBeNil)
+
+	opts = testStreamOptions()
+	opts.MoveOptions.MaxAccRadsJoints = []float64{1, 2, 3}
+	s = &trajexSession{opts: opts, diagnostics: diagnostics.New(0)}
+	test.That(t, s.startSession(seed), test.ShouldNotBeNil)
 }
 
 // TestTrajexSessionAddJointPositionsDedups checks that extending toward a target within
