@@ -14,7 +14,6 @@ import (
 	"github.com/pion/mediadevices/pkg/driver/availability"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -465,14 +464,6 @@ func (c *webcam) readFrame() {
 	img, release, err := reader.Read()
 
 	c.mu.Lock()
-	if c.closed {
-		// Close shuts the driver down underneath an in-flight Read, so this result is expected and discarded.
-		c.mu.Unlock()
-		if err == nil && release != nil {
-			release()
-		}
-		return
-	}
 	defer c.mu.Unlock()
 	c.buffer.err = err
 	if err != nil {
@@ -659,35 +650,25 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 }
 
 func (c *webcam) Close(ctx context.Context) error {
+	// Stop workers before acquiring mu
+	c.workers.Stop()
+
 	c.mu.Lock()
 	if c.closed {
 		c.mu.Unlock()
 		return fmt.Errorf("webcam already closed: %w", errClosed)
 	}
 	c.closed = true
-	oldDriver, oldRelease := c.detachLocked()
-	c.mu.Unlock()
-
-	// The driver must be closed before stopping workers: the buffer worker may be blocked in
-	// reader.Read(), and some drivers (e.g. mediadevices on Windows) only unblock it when the
-	// driver is closed, so stopping workers first deadlocks when no frames are arriving.
-	driverErr := closeCamera(oldDriver, oldRelease)
-
-	c.workers.Stop()
-
-	c.mu.Lock()
-	// wake closes readyCh when it finishes, so it is only safe to close here once the workers have stopped.
 	if c.readyCh != nil {
 		close(c.readyCh)
 		c.readyCh = nil
 	}
-	// The monitor worker may have reconnected a new driver before it observed the stop.
-	reconnectedDriver, reconnectedRelease := c.detachLocked()
+
+	oldDriver, oldRelease := c.detachLocked()
 	c.mu.Unlock()
 
-	driverErr = multierr.Combine(driverErr, closeCamera(reconnectedDriver, reconnectedRelease))
-	if driverErr != nil {
-		return fmt.Errorf("webcam failed to close (failed to close camera driver): %w", driverErr)
+	if err := closeCamera(oldDriver, oldRelease); err != nil {
+		return fmt.Errorf("webcam failed to close (failed to close camera driver): %w", err)
 	}
 	return nil
 }
