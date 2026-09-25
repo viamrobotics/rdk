@@ -120,8 +120,12 @@ func findReaderAndDriver(
 
 	// Handle specific path
 	if path != "" {
-		resolvedPath, err := filepath.EvalSymlinks(path)
-		if err == nil {
+		// Kept from before symlink resolution: if a by-id symlink disappears, this name is
+		// the only stable handle left on the device. See resolveByIDName.
+		configuredName := filepath.Base(path)
+
+		resolvedPath, symlinkErr := filepath.EvalSymlinks(path)
+		if symlinkErr == nil {
 			path = resolvedPath
 		}
 
@@ -134,9 +138,44 @@ func findReaderAndDriver(
 		}
 
 		reader, driver, err := getReaderAndDriver(labelFilter(searchPath, true, false), searchPath, constraints, logger)
-		if err != nil {
+		if err == nil {
+			return reader, driver, path, nil
+		}
+
+		// The fallback exists only for a missing symlink. Every other failure -- unsupported
+		// constraints, a busy device -- would still resolve through sysfs, so running it would
+		// mask the real error behind a misleading warning and a second open of the camera.
+		if symlinkErr == nil {
 			return nil, nil, "", err
 		}
+
+		// No driver carries the configured name and the symlink it should point through is
+		// gone, which means udev lost the race that creates it, leaving a working device
+		// nothing can look up.
+		device, resolveErr := resolveByIDName(configuredName)
+		if resolveErr != nil {
+			logger.Debugw("by-id fallback did not resolve a device",
+				"configured_path", configuredName, "error", resolveErr)
+			return nil, nil, "", err
+		}
+
+		logger.Warnw(
+			"camera not found under its configured name; its udev by-id symlink is likely missing. "+
+				"Falling back to the device node whose sysfs USB descriptors match that name",
+			"configured_path", configuredName,
+			"resolved_device", device,
+			"lookup_error", err,
+		)
+
+		reader, driver, fallbackErr := getReaderAndDriver(labelFilter(device, true, false), device, constraints, logger)
+		if fallbackErr != nil {
+			return nil, nil, "", fmt.Errorf(
+				"no driver for configured path %q (%w), and its sysfs-matched device node %q also failed: %w",
+				configuredName, err, device, fallbackErr,
+			)
+		}
+		// Returning the configured path rather than the resolved node keeps the camera
+		// looking itself up by name, so it reverts to the normal path once udev recovers.
 		return reader, driver, path, nil
 	}
 
