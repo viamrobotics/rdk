@@ -90,3 +90,66 @@ func TestVoxelPlaneSegmentationCube(t *testing.T) {
 	// Labeling should find 6 planes
 	test.That(t, vg.maxLabel, test.ShouldEqual, 6)
 }
+
+// A point in an unlabelled voxel must take the label of the nearest labelled neighbour's plane.
+// Measuring against the unlabelled voxel's own plane instead yields a distance that does not vary
+// with the neighbour, so the nearest is never found and the label is whichever neighbour the map
+// happened to yield first.
+func TestLabelNonPlanarVoxelsUsesNeighborPlanes(t *testing.T) {
+	pt := r3.Vector{X: 0, Y: 0, Z: 0}
+	planeAt := func(offset float64) (r3.Vector, float64) {
+		// normal +Z with the given offset puts the plane |offset| away from a point on the XY origin
+		return r3.Vector{X: 0, Y: 0, Z: 1}, offset
+	}
+
+	vg := &VoxelGrid{Voxels: map[VoxelCoords]*Voxel{}, voxelSize: 1, lam: 0.1}
+
+	// The unlabelled voxel holds the point. Its own plane is deliberately far away, so relying on it
+	// leaves the point below no threshold at all.
+	target := NewVoxel(VoxelCoords{0, 0, 0})
+	target.Points[pt] = NewBasicData()
+	target.Normal, target.Offset = planeAt(-50)
+	vg.Voxels[target.Key] = target
+
+	// Two labelled neighbours: label 1 is nearer (1mm), label 2 is further (10mm).
+	near := NewVoxel(VoxelCoords{1, 0, 0})
+	near.Label = 1
+	near.Normal, near.Offset = planeAt(-1)
+	vg.Voxels[near.Key] = near
+
+	far := NewVoxel(VoxelCoords{-1, 0, 0})
+	far.Label = 2
+	far.Normal, far.Offset = planeAt(-10)
+	vg.Voxels[far.Key] = far
+
+	vg.LabelNonPlanarVoxels([]VoxelCoords{target.Key}, 5.0)
+
+	test.That(t, len(target.PointLabels), test.ShouldEqual, 1)
+	test.That(t, target.PointLabels[0], test.ShouldEqual, 1)
+}
+
+// A labelled neighbour with no usable normal must not win the nearest-plane comparison just because
+// Distance reports 0 for it.
+func TestLabelNonPlanarVoxelsSkipsDegenerateNeighbors(t *testing.T) {
+	pt := r3.Vector{X: 0, Y: 0, Z: 0}
+	vg := &VoxelGrid{Voxels: map[VoxelCoords]*Voxel{}, voxelSize: 1, lam: 0.1}
+
+	target := NewVoxel(VoxelCoords{0, 0, 0})
+	target.Points[pt] = NewBasicData()
+	// Far own-plane, as in the test above, so this case is not decided by map iteration order.
+	target.Normal, target.Offset = r3.Vector{X: 0, Y: 0, Z: 1}, -50
+	vg.Voxels[target.Key] = target
+
+	degenerate := NewVoxel(VoxelCoords{1, 0, 0})
+	degenerate.Label = 7
+	degenerate.Normal = r3.Vector{} // never estimated
+	vg.Voxels[degenerate.Key] = degenerate
+
+	usable := NewVoxel(VoxelCoords{-1, 0, 0})
+	usable.Label = 3
+	usable.Normal, usable.Offset = r3.Vector{X: 0, Y: 0, Z: 1}, -2
+	vg.Voxels[usable.Key] = usable
+
+	vg.LabelNonPlanarVoxels([]VoxelCoords{target.Key}, 5.0)
+	test.That(t, target.PointLabels[0], test.ShouldEqual, 3)
+}
