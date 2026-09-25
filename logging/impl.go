@@ -156,12 +156,17 @@ func (imp *impl) activityLogger() *impl {
 }
 
 // Activity emits an activity event through this logger's activity logger
-// (<root>.activity). It always emits regardless of any configured level and is never
-// deduplicated. Callers must not set "activity" or "event" in keysAndValues.
+// (<root>.activity). It ignores any configured level and is never deduplicated, but is
+// dropped entirely when the registry has SuppressActivity set, which is the default under
+// test. Callers must not set "activity" or "event" in keysAndValues.
 //
 // The log body lives here rather than in a shared helper so the call depth matches the
 // standard logger methods and getCaller attributes the entry to the Activity call site.
 func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
+	if imp.registry.SuppressActivity.Load() {
+		return
+	}
+
 	al := imp.activityLogger()
 	// Prepend so activity and event lead the rendered fields.
 	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
