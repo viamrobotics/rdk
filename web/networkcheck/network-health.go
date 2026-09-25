@@ -12,14 +12,6 @@ import (
 // resolution is counted as degraded.
 const slowResolutionThresholdMS = 1000
 
-// maxLoggedSlowHostnames bounds the only variable-length field on the health
-// line, which is emitted every cycle on every machine.
-const maxLoggedSlowHostnames = 2
-
-// netcheckVersion is the schema version of the network-health log line. Bump it
-// when fields are added, removed, or change meaning so consumers can gate on it.
-const netcheckVersion = 1
-
 // FamilyStatus is the health of a single family of network checks:
 // DNS, UDP STUN, TCP STUN, or packet loss
 type FamilyStatus string
@@ -250,7 +242,6 @@ func summarizePacketLoss(results []*PacketLossResult) PacketLossSummary {
 // is carried in the verdict field, since the line is a heartbeat, not an event.
 func logHealth(logger logging.Logger, s HealthSnapshot) {
 	keysAndValues := []any{
-		"netcheck_version", netcheckVersion,
 		"verdict", string(s.Verdict()),
 
 		"dns_status", string(s.DNS.Status),
@@ -278,11 +269,7 @@ func logHealth(logger logging.Logger, s HealthSnapshot) {
 		keysAndValues = append(keysAndValues, "dns_max_resolve_ms", *s.DNS.MaxResolutionMS)
 	}
 	if len(s.DNS.SlowHostnames) > 0 {
-		hostnames := s.DNS.SlowHostnames
-		if len(hostnames) > maxLoggedSlowHostnames {
-			hostnames = hostnames[:maxLoggedSlowHostnames]
-		}
-		keysAndValues = append(keysAndValues, "dns_slow_hostnames", strings.Join(hostnames, ","))
+		keysAndValues = append(keysAndValues, "dns_slow_hostnames", strings.Join(s.DNS.SlowHostnames, ","))
 	}
 	if s.Loss.ISPLossPct != nil {
 		keysAndValues = append(keysAndValues, "isp_loss_pct", *s.Loss.ISPLossPct)
