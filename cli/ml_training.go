@@ -145,6 +145,7 @@ type mlSubmitTrainingJobArgs struct {
 }
 
 type mlListContainersArgs struct {
+	OrgID       string
 	IncludeURIs bool
 }
 
@@ -154,7 +155,9 @@ type prettyPrintContainer struct {
 	Description string
 	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
-	CreatedOn   string `json:",omitempty"`
+	ID          string
+	CreatedOn   string
+	Visibility  string
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
@@ -163,20 +166,23 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	if err != nil {
 		return err
 	}
-	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{},
+	supportedContainers, err := client.mlTrainingClient.ListContainers(
+		context.Background(), &mltrainingpb.ListContainersRequest{OrganizationId: args.OrgID},
 	)
 	if err != nil {
 		return err
 	}
 
 	var returnContainers []prettyPrintContainer
-	for _, v := range supportedContainers.ContainerMap {
+	for _, v := range supportedContainers.Containers {
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
+			Visibility:  v.Visibility.String(),
 			Framework:   v.Framework,
-			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+			EndOfLife:   v.Eol.AsTime().String(),
+			CreatedOn:   v.CreatedOn.AsTime().String(),
+			ID:          v.Id,
 		}
 		if args.IncludeURIs {
 			container.URI = v.Uri
@@ -781,6 +787,7 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 	defer os.Remove(tmpScript)
 
 	// Get container image name
+	// TODO: change this to get URI with ID instead (probably in later PR)
 	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
 	if err != nil {
 		return err
