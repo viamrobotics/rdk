@@ -106,7 +106,7 @@ jobs:
         headers: "cache-control: no-cache"
         path: ${{ env.BINS_DIR }}
         glob: viam-server-*
-        destination: ${{ env.BUCKET }}/testing/full-static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/
+        destination: ${{ env.BUCKET }}/testing/full-static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/
         parent: false
 
     - name: URLs to summary
@@ -115,5 +115,5 @@ jobs:
       run: |
         echo "### Staged full-static binaries" >> $GITHUB_STEP_SUMMARY
         for arch in ${{ env.GOARCHES }}; do
-          echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/testing/full-static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
+          echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/testing/full-static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
         done
