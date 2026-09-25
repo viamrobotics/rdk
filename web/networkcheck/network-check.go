@@ -25,9 +25,10 @@ import (
 const udp4Network = "udp4"
 
 // RunNetworkChecks characterizes the network through a series of DNS, UDP STUN, TCP STUN,
-// and packet loss network checks. Can and should be run asynchronously with server startup
-// to avoid blocking. Specifying continueRunningTests as true will run DNS and packet loss
-// checks every 5 minutes in goroutines non-verbosely after this function completes until
+// and packet loss network checks, and logs a consolidated health verdict after each cycle
+// under the "network-health" Sublogger. Can and should be run asynchronously with server
+// startup to avoid blocking. Specifying continueRunningTests as true will re-run every
+// check every 5 minutes in a goroutine non-verbosely after this function completes until
 // context error.
 func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRunningTests bool) {
 	logger := rdkLogger.Sublogger("network-checks")
@@ -37,20 +38,34 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRun
 	}
 
 	logger.Info("Starting network checks")
+	healthLogger := rdkLogger.Sublogger("network-health")
 
 	dnsSublogger := logger.Sublogger("dns")
-	TestDNS(ctx, dnsSublogger, true /* verbose to log successes */)
-
-	if err := testUDP(ctx, logger.Sublogger("udp")); err != nil {
-		logger.Errorw("Error running udp network tests", "error", err)
-	}
-
-	if err := testTCP(ctx, logger.Sublogger("tcp")); err != nil {
-		logger.Errorw("Error running tcp network tests", "error", err)
-	}
-
+	udpSublogger := logger.Sublogger("udp")
+	tcpSublogger := logger.Sublogger("tcp")
 	packetLossSublogger := logger.Sublogger("packet-loss")
-	TestPacketLoss(ctx, packetLossSublogger, true /* verbose to log successes */)
+
+	runCycle := func(verbose bool) {
+		var snapshot HealthSnapshot
+		snapshot.DNS = TestDNS(ctx, dnsSublogger, verbose)
+
+		udp, err := testUDP(ctx, udpSublogger, verbose)
+		if err != nil {
+			logger.Errorw("Error running udp network tests", "error", err)
+		}
+		snapshot.UDP = udp
+
+		tcp, err := testTCP(ctx, tcpSublogger, verbose)
+		if err != nil {
+			logger.Errorw("Error running tcp network tests", "error", err)
+		}
+		snapshot.TCP = tcp
+
+		snapshot.Loss = TestPacketLoss(ctx, packetLossSublogger, verbose)
+		logHealth(healthLogger, snapshot)
+	}
+
+	runCycle(true /* verbose to log successes */)
 
 	if continueRunningTests {
 		go func() {
@@ -58,9 +73,8 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRun
 				select {
 				case <-ctx.Done():
 					return
-				case <-time.After(5 * time.Minute):
-					TestDNS(ctx, dnsSublogger, false /* non-verbose to only log failures */)
-					TestPacketLoss(ctx, packetLossSublogger, false /* non-verbose to only log failures */)
+				case <-time.After(networkCheckInterval):
+					runCycle(false /* non-verbose to only log failures */)
 				}
 			}
 		}()
@@ -68,6 +82,9 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRun
 }
 
 const (
+	// How often the periodic check cycle re-runs after startup.
+	networkCheckInterval = 5 * time.Minute
+
 	// All blocking I/O for all network checks gets 5 seconds before being considered a timeout.
 	timeout = 5 * time.Second
 
@@ -339,7 +356,7 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 // TestPacketLoss measures packet loss to the default gateway (router) and to
 // ispProbeTarget as an indicator of ISP/WAN connectivity. If verbose is true,
 // successful results are logged; otherwise only failures are logged.
-func TestPacketLoss(ctx context.Context, logger logging.Logger, verbose bool) {
+func TestPacketLoss(ctx context.Context, logger logging.Logger, verbose bool) PacketLossSummary {
 	ctx, cancel := context.WithTimeout(ctx, packetLossTestTimeout)
 	defer cancel()
 
@@ -358,14 +375,15 @@ func TestPacketLoss(ctx context.Context, logger logging.Logger, verbose bool) {
 	for _, t := range targets {
 		if ctx.Err() != nil {
 			logger.Info("Shutdown detected; stopping packet loss tests")
-			return
+			return summarizePacketLoss(results)
 		}
 		result := probePacketLoss(ctx, t.ip, packetLossProbeCount)
 		result.Description = t.desc
 		results = append(results, result)
 	}
-
-	logPacketLossResults(logger, results, verbose)
+	s := summarizePacketLoss(results)
+	logPacketLossResults(logger, results, s, verbose)
+	return s
 }
 
 var (
@@ -561,13 +579,13 @@ func getSystemdResolveConfContents() string {
 // system DNS resolver. Should be run at startup, every 5 minutes afterward, and whenever
 // dialing app.viam.com fails. If verbose is true, logs successful and unsuccessful
 // results. Logs only unsuccessful results otherwise.
-func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) {
+func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) DNSSummary {
 	var dnsResults []*DNSResult
 
 	for _, dnsServer := range serverIPSToTestDNS {
 		if ctx.Err() != nil {
 			logger.Info("Shutdown detected; stopping DNS connectivity tests")
-			return
+			return summarizeDNS(dnsResults)
 		}
 
 		result := testDNSServerConnectivity(ctx, dnsServer)
@@ -587,19 +605,21 @@ func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) {
 	for _, hostname := range hostnamesToResolveDNS {
 		if ctx.Err() != nil {
 			logger.Info("Shutdown detected; stopping DNS resolution tests")
-			return
+			return summarizeDNS(dnsResults)
 		}
 
 		dnsResults = append(dnsResults, testDNSResolution(ctx, hostname))
 	}
-
+	s := summarizeDNS(dnsResults)
 	logDNSResults(
 		logger,
 		dnsResults,
+		s,
 		getResolvConfContents(),
 		getSystemdResolveConfContents(),
 		verbose,
 	)
+	return s
 }
 
 // Sends the provided bindRequest to the provided STUN server with the provided packet
@@ -728,14 +748,14 @@ func sendUDPBindRequest(
 }
 
 // Tests NAT over UDP against STUN servers.
-func testUDP(ctx context.Context, logger logging.Logger) error {
+func testUDP(ctx context.Context, logger logging.Logger, verbose bool) (STUNSummary, error) {
 	// Listen on arbitrary UDP port.
 	//nolint: noctx
 	conn, err := net.ListenPacket("udp", "0.0.0.0:0")
 	if err != nil {
 		logger.Warnw("Failed to listen over UDP on a port; UDP traffic may be blocked",
 			"error", err)
-		return nil
+		return STUNSummary{Status: FamilyDown}, nil
 	}
 	sourceAddress := conn.LocalAddr().String()
 
@@ -758,11 +778,11 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 		stun.BindingRequest,
 	}...)
 	if err != nil {
-		return err
+		return STUNSummary{Status: FamilyUnknown}, err
 	}
 	bindRequestRaw, err := bindRequest.MarshalBinary()
 	if err != nil {
-		return err
+		return STUNSummary{Status: FamilyUnknown}, err
 	}
 
 	var stunResponses []*STUNResponse
@@ -770,7 +790,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 	for _, stunServerURLToTest := range stunServerURLsToTestUDP {
 		if ctx.Err() != nil {
 			logger.Info("Shutdown detected; stopping UDP network tests")
-			return nil
+			return summarizeSTUN(stunResponses, "udp"), nil
 		}
 
 		stunResponse := sendUDPBindRequest(
@@ -783,8 +803,9 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 		stunResponses = append(stunResponses, stunResponse)
 	}
 
-	logSTUNResults(logger, stunResponses, sourceAddress, "udp")
-	return nil
+	s := summarizeSTUN(stunResponses, "udp")
+	logSTUNResults(logger, stunResponses, s, sourceAddress, "udp", verbose)
+	return s, nil
 }
 
 func sendTCPBindRequest(
@@ -894,7 +915,7 @@ func sendTCPBindRequest(
 }
 
 // Tests NAT over TCP against STUN servers.
-func testTCP(ctx context.Context, logger logging.Logger) error {
+func testTCP(ctx context.Context, logger logging.Logger, verbose bool) (STUNSummary, error) {
 	// Each TCP test will create their own TCP connection through this `net.Conn` variable.
 	// `net.Conn`s do not function with contexts (only deadlines). If passed-in context
 	// expires (machine is likely shutting down), _or_ tests finish, close the underlying
@@ -921,18 +942,18 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		stun.BindingRequest,
 	}...)
 	if err != nil {
-		return err
+		return STUNSummary{Status: FamilyUnknown}, err
 	}
 	bindRequestRaw, err := bindRequest.MarshalBinary()
 	if err != nil {
-		return err
+		return STUNSummary{Status: FamilyUnknown}, err
 	}
 
 	var stunResponses []*STUNResponse
 	for _, stunServerURLToTest := range stunServerURLsToTestTCP {
 		if ctx.Err() != nil {
 			logger.Info("Shutdown detected; stopping TCP network tests")
-			return nil
+			return summarizeSTUN(stunResponses, "tcp"), nil
 		}
 
 		connMu.Lock()
@@ -966,6 +987,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		connMu.Unlock()
 	}
 
-	logSTUNResults(logger, stunResponses, "" /* no udpSourceAddress */, "tcp")
-	return nil
+	s := summarizeSTUN(stunResponses, "tcp")
+	logSTUNResults(logger, stunResponses, s, "" /* no udpSourceAddress */, "tcp", verbose)
+	return s, nil
 }
