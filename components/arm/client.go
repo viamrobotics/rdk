@@ -225,16 +225,20 @@ func (c *client) MoveThroughJointPositionsStreamed(
 	// Feed the caller's batches onto the wire, one TrajectoryBatch per slice they hand us. That is
 	// how the caller sets the pace on the wire: they choose how much to put in each slice. When they
 	// close the channel we CloseSend, which lets the server's recv loop finish.
-	var sendErr error
-	var sendOnce sync.Once
-	setSendErr := func(e error) { sendOnce.Do(func() { sendErr = e }) }
+	//
+	// sendErr records a Send failure the client itself generated. Per grpc's ClientStream contract,
+	// Send returns such an error directly, whereas io.EOF means the stream ended for another reason
+	// and the status of the stream is what Recv returns; an EOF is therefore not recorded here, and
+	// neither is our own cancellation, which is how the recv loop wakes this goroutine once the
+	// stream is done.
+	//
 	// abort records a deliberate client-side bail-out (a rejected waypoint, or a point we cannot
-	// encode) and tears the RPC down. Unlike setSendErr it cancels: the stream is otherwise healthy,
-	// so nothing else would wake the recv loop and the call would hang. abortErr is written only by
-	// the send goroutine and read after sendDone closes, so it needs no synchronization of its own,
-	// and it takes precedence when reporting so the caller sees the reason, not the cancellation it
-	// triggers.
-	var abortErr error
+	// encode) and tears the RPC down. Unlike a Send failure it cancels: the stream is otherwise
+	// healthy, so nothing else would wake the recv loop and the call would hang.
+	//
+	// Both are written only by the send goroutine and read after sendDone closes, so they need no
+	// synchronization of their own.
+	var sendErr, abortErr error
 	abort := func(e error) { abortErr = e; cancel() }
 	sendDone := make(chan struct{})
 	goutils.PanicCapturingGo(func() {
@@ -242,13 +246,11 @@ func (c *client) MoveThroughJointPositionsStreamed(
 		for {
 			select {
 			case <-ctx.Done():
-				setSendErr(ctx.Err())
 				return
 			case batch, ok := <-batches:
 				if !ok {
-					if err := stream.CloseSend(); err != nil {
-						setSendErr(err)
-					}
+					//nolint:errcheck // CloseSend always returns nil; the stream's status comes from Recv.
+					stream.CloseSend()
 					return
 				}
 				pbPoints := make([]*pb.TrajectoryPoint, 0, len(batch))
@@ -278,7 +280,9 @@ func (c *client) MoveThroughJointPositionsStreamed(
 						},
 					},
 				}); err != nil {
-					setSendErr(err)
+					if !errors.Is(err, io.EOF) {
+						sendErr = err
+					}
 					return
 				}
 			}
@@ -311,14 +315,15 @@ recvLoop:
 	<-sendDone
 
 	// A deliberate client-side refusal wins: it is the actionable error, and the recvErr we would
-	// otherwise report is just the cancellation that refusal triggered.
+	// otherwise report is just the cancellation that refusal triggered. Likewise a client-generated
+	// Send failure: Send aborts the stream, so whatever Recv reported afterwards is a consequence.
 	if abortErr != nil {
 		return abortErr
 	}
-	if recvErr != nil {
-		return recvErr
+	if sendErr != nil {
+		return sendErr
 	}
-	return sendErr
+	return recvErr
 }
 
 func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {

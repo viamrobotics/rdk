@@ -158,6 +158,55 @@ func TestClientStreamed(t *testing.T) {
 		test.That(t, gotBatches[1][1].Time, test.ShouldEqual, 200*time.Millisecond)
 	})
 
+	t.Run("server finishing before the caller closes batches is not an error", func(t *testing.T) {
+		injectArm := &inject.Arm{}
+		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			return nil, errKinematicsUnimplemented
+		}
+		injectArm.MoveThroughJointPositionsStreamedFunc = func(
+			ctx context.Context,
+			batches <-chan []arm.TrajectoryPoint,
+			responses chan<- arm.Response,
+			extra map[string]interface{},
+		) error {
+			// Done without reading a single batch: the client is still feeding when the
+			// stream ends cleanly, so its send side is woken by the client's own cancel.
+			return nil
+		}
+		conn := setupStreamedServer(t, logger, injectArm)
+		client, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(testArmName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		batches := make(chan []arm.TrajectoryPoint)
+		responses := make(chan arm.Response)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- client.MoveThroughJointPositionsStreamed(context.Background(), batches, responses, nil)
+		}()
+		drained := make(chan struct{})
+		go func() {
+			defer close(drained)
+			for range responses {
+			}
+		}()
+
+		// Keep feeding until the call returns, so the send side is still in flight (parked on
+		// batches or inside Send) at the moment the stream ends, rather than already finished.
+		var streamErr error
+	feed:
+		for i := 0; ; i++ {
+			batch := []arm.TrajectoryPoint{{Time: time.Duration(i) * time.Millisecond, Positions: []referenceframe.Input{0, 0}}}
+			select {
+			case batches <- batch:
+			case streamErr = <-errCh:
+				break feed
+			}
+		}
+		close(responses)
+		<-drained
+		test.That(t, streamErr, test.ShouldBeNil)
+	})
+
 	t.Run("impl error becomes terminal status", func(t *testing.T) {
 		injectArm := &inject.Arm{}
 		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
