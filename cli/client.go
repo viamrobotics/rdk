@@ -92,7 +92,12 @@ const legacyViamHomeDir = "~/.viam"
 
 var (
 	errNoShellService = errors.New("shell service is not enabled on this machine part")
-	ftdcPath          = path.Join(shell.ViamHomePrefix, ftdcRelativePath)
+	// errConnectToPart tags a failure to reach a machine part. An offline or unresolvable
+	// host comes back as codes.NotFound, the same code the shell service returns for a
+	// missing path, so callers that treat gRPC codes as verdicts about the copy itself must
+	// check for this first.
+	errConnectToPart = errors.New("could not connect to machine part")
+	ftdcPath         = path.Join(shell.ViamHomePrefix, ftdcRelativePath)
 )
 
 // legacyViamHomePath rewrites a shell.ViamHomePrefix path to the directory the CLI used
@@ -4302,7 +4307,9 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		if errors.Is(err, errNoShellService) {
 			return err
 		}
-		if statusErr := status.Convert(err); statusErr != nil {
+		// A failure to reach the part carries the shell service's codes without being an answer
+		// from it, so it is reported as an exhausted retry rather than a bad copy request.
+		if statusErr := status.Convert(err); statusErr != nil && !errors.Is(err, errConnectToPart) {
 			if statusErr.Code() == codes.InvalidArgument &&
 				statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 				return errDirectoryCopyRequestNoRecursion
@@ -6057,7 +6064,11 @@ func (c *viamClient) connectToRobot(
 		printf(c.c.Root().Writer, "Establishing connection...")
 	}
 	if c.dialOverride != nil {
-		return c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
+		robotClient, err := c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", errConnectToPart, err)
+		}
+		return robotClient, nil
 	}
 	globalArgs, err := getGlobalArgs(c.c)
 	if err != nil {
@@ -6079,7 +6090,7 @@ func (c *viamClient) connectToRobot(
 	clientOpts = append(clientOpts, extraOpts...)
 	robotClient, err := client.New(dialCtx, fqdn, logger, clientOpts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not connect to machine part")
+		return nil, fmt.Errorf("%w: %w", errConnectToPart, err)
 	}
 	return robotClient, nil
 }
@@ -6241,6 +6252,11 @@ func (c *viamClient) startRobotPartShell(
 // maxCopyAttempts is the number of times to retry copying files to a part before giving up.
 const maxCopyAttempts = 6
 
+// copyRetryBaseDelay is the base backoff between copy attempts; the wait before attempt N is
+// N-1 times this. Retrying the instant an attempt fails fires every attempt into the same
+// transient DNS or connection failure and exhausts the budget in under a second.
+var copyRetryBaseDelay = 2 * time.Second
+
 // retryableCopy attempts to copy files to a part using the shell service with retries.
 // It handles progress manager updates for each attempt and provides helpful error messages.
 // The copyFunc parameter allows for mocking in tests.
@@ -6255,7 +6271,14 @@ func (c *viamClient) retryableCopy(
 	var copyErr error
 
 	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
-		// If we had a previous failure, create a nested step for this retry
+		if attempt > 1 {
+			time.Sleep(time.Duration(attempt-1) * copyRetryBaseDelay)
+		}
+
+		// If we had a previous failure, register a nested step for this retry.
+		// Steps are not Start'd (no spinner) because pterm's spinner has an
+		// internal data race between its animation goroutine and Stop; Fail
+		// and Complete still print correctly via the static pterm output path.
 		var attemptStepID string
 		if hadPreviousFailure {
 			attemptStepID = fmt.Sprintf("Attempt-%d", attempt)
@@ -6263,15 +6286,12 @@ func (c *viamClient) retryableCopy(
 				ID:           attemptStepID,
 				Message:      fmt.Sprintf("Attempt %d/%d...", attempt, maxCopyAttempts),
 				CompletedMsg: fmt.Sprintf("Attempt %d succeeded", attempt),
-				Status:       StepPending,
-				IndentLevel:  2, // Nested under "copy" which is at level 1
+				Status:       StepRunning,
+				IndentLevel:  2,
+				startTime:    time.Now(),
 			}
 			pm.steps = append(pm.steps, attemptStep)
 			pm.stepMap[attemptStepID] = attemptStep
-
-			if err := pm.Start(attemptStepID); err != nil {
-				return attempt, err
-			}
 		}
 
 		copyErr = copyFunc()
@@ -6298,7 +6318,10 @@ func (c *viamClient) retryableCopy(
 		}
 
 		// Print special warning for invalid argument, permission denied, and not found errors (in addition to regular error)
-		if s, ok := status.FromError(copyErr); ok {
+		// These codes describe the shell service's answer, so they are only conclusive once we
+		// reached it: a part we never connected to reports being offline as NotFound too, and
+		// that is worth retrying.
+		if s, ok := status.FromError(copyErr); ok && !errors.Is(copyErr, errConnectToPart) {
 			if s.Code() == codes.PermissionDenied {
 				if isFrom {
 					warningf(cmd.Root().ErrWriter, "RDK couldn't read the source files on the machine. "+
@@ -6324,7 +6347,10 @@ func (c *viamClient) retryableCopy(
 
 		// Create a step for this failed attempt (so it shows in the output)
 		if attemptStepID == "" {
-			// First attempt - create its step retroactively
+			// First attempt - create its step retroactively without starting a
+			// spinner; the step is about to be failed immediately and pterm's
+			// spinner has an internal data race between its animation goroutine
+			// and Stop.
 			attemptStepID = "Attempt-1"
 			attemptStep := &Step{
 				ID:           attemptStepID,
@@ -6335,9 +6361,6 @@ func (c *viamClient) retryableCopy(
 			}
 			pm.steps = append(pm.steps, attemptStep)
 			pm.stepMap[attemptStepID] = attemptStep
-			if err := pm.Start(attemptStepID); err != nil {
-				return attempt, err
-			}
 		}
 
 		// Mark this attempt as failed (this will print the error on next line)
