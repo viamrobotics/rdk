@@ -1418,3 +1418,37 @@ func TestResolveDependenciesSkipsDependencyMarkedForRemoval(t *testing.T) {
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 	test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
 }
+
+func TestFindBySimpleNameRemoteCompositeDeterministic(t *testing.T) {
+	// A remote composite is advertised as several same-named resources from ONE remote that differ
+	// only by API. namesMatchingSimpleName must collapse those siblings to a SINGLE match whose API is
+	// the sorted-first (canonical) one — deterministically, not whichever API a randomized map
+	// iteration reaches first — so FindBySimpleName resolves the same owner across reconfigures.
+	logger := logging.NewTestLogger(t)
+	compA := APINamespace("namespace").WithComponentType("aapi")
+	compC := APINamespace("namespace").WithComponentType("capi")
+	svcB := APINamespace("namespace").WithServiceType("bapi")
+	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
+
+	// canonical: "namespace:component:aapi" < "namespace:component:capi" < "namespace:service:bapi".
+	want := Name{API: compA, Name: "combo", Remote: "r1"}
+
+	// Rebuild the graph many times: map iteration order is randomized, so a nondeterministic
+	// implementation would, over enough runs, resolve a non-canonical API.
+	for i := 0; i < 50; i++ {
+		g := NewGraph(logger)
+		test.That(t, g.AddNode(Name{API: svcB, Name: "combo", Remote: "r1"}, newNode()), test.ShouldBeNil)
+		test.That(t, g.AddNode(Name{API: compC, Name: "combo", Remote: "r1"}, newNode()), test.ShouldBeNil)
+		test.That(t, g.AddNode(Name{API: compA, Name: "combo", Remote: "r1"}, newNode()), test.ShouldBeNil)
+
+		// Same-remote siblings collapse to one match, and it is the canonical (sorted-first) API.
+		all := g.FindAllBySimpleName("combo")
+		test.That(t, all, test.ShouldHaveLength, 1)
+		test.That(t, all[0], test.ShouldResemble, want)
+
+		// FindBySimpleName resolves that one canonical owner with no error.
+		resolved, err := g.FindBySimpleName("combo")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resolved, test.ShouldResemble, want)
+	}
+}

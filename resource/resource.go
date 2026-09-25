@@ -102,6 +102,7 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 	if err != nil {
 		return zero, DependencyNotFoundError(name)
 	}
+	res = SubresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
@@ -116,11 +117,19 @@ func FromProvider[T Resource](provider Provider, name Name) (T, error) {
 	if err != nil {
 		return zero, err
 	}
+	res = SubresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
 	}
 	return typedRes, nil
+}
+
+// NamedFromProvider resolves a bare (API-less) resource name to its single resource via any Provider,
+// superseding lookups that require a fully-qualified Name+API. For a composite it returns the one
+// handle serving every API; extract a specific API from it with AsType.
+func NamedFromProvider(provider Provider, name string) (Resource, error) {
+	return provider.GetResource(SimpleName(name))
 }
 
 // GetResource implements Provider for Dependencies by looking up a resource by name.
@@ -309,14 +318,49 @@ func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 
-// AsType attempts to get a more specific interface from the resource.
+// AsType attempts to get a more specific interface from the resource. For a composite (multi-API)
+// resource that does not itself satisfy T, it returns the first sub-resource that does, so a consumer
+// can extract a typed client for any API the composite serves.
 func AsType[T Resource](from Resource) (T, error) {
-	res, ok := from.(T)
-	if !ok {
-		var zero T
-		return zero, TypeError[T](from)
+	if res, ok := from.(T); ok {
+		return res, nil
 	}
-	return res, nil
+	if mar, ok := from.(MultiAPIResource); ok {
+		for _, api := range mar.APIs() {
+			if sub, found := mar.ResourceForAPI(api); found {
+				if res, ok := sub.(T); ok {
+					return res, nil
+				}
+			}
+		}
+	}
+	var zero T
+	return zero, TypeError[T](from)
+}
+
+// SubresourceForAPI unwraps a composite to the sub-resource serving api. If res is not a composite
+// (or does not serve api) it is returned unchanged. This is the general, open-world access path used
+// by FromDependencies, FromProvider, and the web/gRPC layer, which resolves resources by API and must
+// forward each call to a composite's per-API sub-resource.
+func SubresourceForAPI(res Resource, api API) Resource {
+	if mar, ok := res.(MultiAPIResource); ok {
+		if sub, ok := mar.ResourceForAPI(api); ok {
+			return sub
+		}
+	}
+	return res
+}
+
+// APIsOf returns the set of APIs a resource handle serves. For a composite (multi-API) resource it
+// returns every API it serves, in a stable order; for an ordinary resource it returns the single API
+// of its Name. It lets a consumer discover a handle's capabilities without a MultiAPIResource type
+// assertion or trial-and-error AsType, and is the runtime counterpart to APIsForModel (which answers
+// the same question from a model, before construction).
+func APIsOf(res Resource) []API {
+	if mar, ok := res.(MultiAPIResource); ok {
+		return mar.APIs()
+	}
+	return []API{res.Name().API}
 }
 
 type closeOnlyResource struct {
