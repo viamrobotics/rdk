@@ -5,13 +5,23 @@ set -euxo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
-# static-release compresses with upx; the image ships none, install the armv7 build.
-curl -fsSL https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-arm_linux.tar.xz | tar -C /tmp -xJ
-cp /tmp/upx-5.2.0-arm_linux/upx /usr/local/bin/upx
-
 # bind-mount is owned by another uid; allow git without chowning (breaks cleanup).
 git config --system --add safe.directory '*'
 cd "$repo_root"
+
+# The build depends on mise to manage upx. Technically it also manages go and
+# many other build tools but those are all baked into the image for now, so
+# only install upx to save time and bandwidth. Also need to disable
+# auto_install so an errant `mise x` or similar doesn't try to install
+# golangci-lint, which doesn't provide a build for this architecture.
+sudo -Hu testbot bash -lc '
+  mkdir -p ~/.local/bin
+  curl -fsSL https://github.com/jdx/mise/releases/download/v2026.9.9/mise-v2026.9.9-linux-armv7.tar.xz | tar -C /tmp -xJ
+  cp /tmp/mise/bin/mise ~/.local/bin/mise
+  ~/.local/bin/mise trust -y
+  ~/.local/bin/mise install upx
+  ~/.local/bin/mise settings set auto_install false
+'
 
 sudo -Hu testbot bash -lc "make BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=armv7l VERSION_SUFFIX=+focal static-release"
 

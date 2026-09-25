@@ -8,10 +8,10 @@ endif
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 BUILD_CHANNEL ?= local
-# Include mise in path.
-export PATH := $(HOME)/.local/bin:$(PATH)
+# Include mise and its shims in path.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 
-PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
+PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
@@ -33,6 +33,7 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 	mise install -y
+	mise reshim
 
 build: build-go
 
@@ -83,6 +84,7 @@ deb-cli-upload:
 	done
 
 tool-install:
+	command -v mise &>/dev/null && mise install -y && mise reshim || echo 'mise not installed, skipping'
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
