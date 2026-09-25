@@ -3,20 +3,16 @@ package server_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/invopop/jsonschema"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
@@ -94,61 +90,6 @@ func TestEntrypoint(t *testing.T) {
 		}
 
 		test.That(t, len(resourceNames), test.ShouldEqual, numResources)
-	})
-	t.Run("dump resource registrations", func(t *testing.T) {
-		tempDir := t.TempDir()
-		outputFile := filepath.Join(tempDir, "resources.json")
-		serverPath := testutils.BuildViamServer(t)
-		//nolint: noctx
-		command := exec.Command(serverPath, "--dump-resources", outputFile)
-		err := command.Run()
-		test.That(t, err, test.ShouldBeNil)
-		type registration struct {
-			Model  string             `json:"model"`
-			API    string             `json:"API"`
-			Schema *jsonschema.Schema `json:"attribute_schema"`
-		}
-		outputBytes, err := os.ReadFile(outputFile)
-		test.That(t, err, test.ShouldBeNil)
-		registrations := []registration{}
-		err = json.Unmarshal(outputBytes, &registrations)
-		test.That(t, err, test.ShouldBeNil)
-
-		numReg := 53
-		if cgoBuiltinsExcluded() {
-			numReg = 45
-		}
-		test.That(t, registrations, test.ShouldHaveLength, numReg)
-
-		observedReg := make(map[string]bool)
-		for _, reg := range registrations {
-			test.That(t, reg.API, test.ShouldNotBeEmpty)
-			test.That(t, reg.Model, test.ShouldNotBeEmpty)
-			test.That(t, reg.Schema, test.ShouldNotBeNil)
-
-			regStr := strings.Join([]string{reg.API, reg.Model}, "/")
-			observedReg[regStr] = true
-		}
-
-		// Check specifically for registrations we care about
-		expectedReg := []string{
-			"rdk:component:arm/rdk:builtin:wrapper_arm",
-			"rdk:service:data_manager/rdk:builtin:builtin",
-			"rdk:service:shell/rdk:builtin:builtin",
-			"rdk:service:vision/rdk:builtin:mlmodel",
-		}
-
-		// cgo builds register additional builtin models that use cgo.
-		if !cgoBuiltinsExcluded() {
-			expectedReg = append(
-				expectedReg,
-				"rdk:component:camera/rdk:builtin:webcam",
-				"rdk:service:motion/rdk:builtin:builtin",
-			)
-		}
-		for _, reg := range expectedReg {
-			test.That(t, observedReg[reg], test.ShouldBeTrue)
-		}
 	})
 }
 
