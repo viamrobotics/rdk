@@ -323,9 +323,9 @@ func TestLogHealthSlowHostnames(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 	})
 
-	// Covers the cap and the sort together: probe order is not slowness order,
-	// so truncating an unsorted list would drop the worst offender.
-	t.Run("caps the list at the slowest hostnames", func(t *testing.T) {
+	// The panel surfaces the first name and dns_max_resolve_ms is the max, so
+	// probe order would attribute the slowest time to the wrong hostname.
+	t.Run("lists every slow hostname, slowest first", func(t *testing.T) {
 		resolve := func(hostname string, ms int64) *DNSResult {
 			return &DNSResult{
 				TestType: ResolutionDNSTestType,
@@ -344,6 +344,6 @@ func TestLogHealthSlowHostnames(t *testing.T) {
 
 		value, ok := fieldValue(logs, "dns_slow_hostnames")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, value, test.ShouldEqual, "slowest.com,middling.com")
+		test.That(t, value, test.ShouldEqual, "slowest.com,middling.com,fast-ish.com")
 	})
 }

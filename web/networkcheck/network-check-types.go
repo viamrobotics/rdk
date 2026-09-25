@@ -74,9 +74,13 @@ func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, s 
 		keysAndValues = append(keysAndValues,
 			"note", "gateway is not responding to ICMP ping, but internet connectivity appears normal; many routers block ping by default",
 		)
-	case s.InternetStatus == FamilyDown || s.InternetStatus == FamilyUnknown:
+	case s.InternetStatus == FamilyDown:
 		keysAndValues = append(keysAndValues,
 			"note", "ISP target ("+ispProbeTarget+") is unreachable; internet connectivity may be down",
+		)
+	case s.InternetStatus == FamilyUnknown:
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target ("+ispProbeTarget+") could not be measured; internet connectivity is unknown",
 		)
 	case s.ISPLossPct != nil && *s.ISPLossPct > ispHighLossThreshold:
 		keysAndValues = append(keysAndValues,
