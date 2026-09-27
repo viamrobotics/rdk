@@ -1,24 +1,62 @@
 package gripper
 
 import (
+	"context"
+	"time"
+
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"go.viam.com/rdk/data"
 )
 
 type method int64
 
 const (
-	doCommand method = iota
+	isHoldingSomething method = iota
+	doCommand
 	getWorldPose
 )
 
 func (m method) String() string {
 	switch m {
+	case isHoldingSomething:
+		return "IsHoldingSomething"
 	case doCommand:
 		return "DoCommand"
 	case getWorldPose:
 		return "GetWorldPose"
 	}
 	return "Unknown"
+}
+
+// newIsHoldingSomethingCollector returns a collector to register an is holding something method. If one is already registered
+// with the same MethodMetadata it will panic.
+func newIsHoldingSomethingCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	gripper, err := assertGripper(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
+		status, err := gripper.IsHoldingSomething(ctx, data.FromDMExtraMap)
+		if err != nil {
+			if data.IsNoCaptureToStoreError(err) {
+				return res, err
+			}
+			return res, data.NewFailedToReadError(params.ComponentName, isHoldingSomething.String(), err)
+		}
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, struct {
+			IsHoldingSomething bool                   `json:"is_holding_something"`
+			Meta               map[string]interface{} `json:"meta"`
+		}{
+			IsHoldingSomething: status.IsHoldingSomething,
+			Meta:               status.Meta,
+		})
+	})
+	return data.NewCollector(cFunc, params)
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
