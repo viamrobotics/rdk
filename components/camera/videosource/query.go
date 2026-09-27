@@ -415,7 +415,13 @@ func queryDriverProperties(
 				continue
 			}
 			needToClose = append(needToClose, d)
-			m[d] = d.Properties()
+			props, err := driverProperties(d)
+			if err != nil {
+				logger.Warnw("skipping driver whose properties could not be queried",
+					"name", d.Info().Name, "label", d.Info().Label, "error", err)
+				continue
+			}
+			m[d] = props
 		} else {
 			logger.Infow("driver not available", "name", d.Info().Name, "label", d.Info().Label, "status", status)
 		}
@@ -429,4 +435,15 @@ func queryDriverProperties(
 	}
 
 	return m
+}
+
+// driverProperties returns d.Properties(), recovering a driver panic as an error so one bad device is skipped.
+// Known trigger: blackjack/webcam panics on devices that report a stepwise frame interval.
+func driverProperties(d driver.Driver) (props []prop.Media, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic querying driver properties: %v", r)
+		}
+	}()
+	return d.Properties(), nil
 }
