@@ -14,7 +14,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -535,10 +534,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Payload: locationSecret,
 			}
 
-			// Dialing options.LocalFQDN / options.FQDN resolves over mDNS, which is unreliable under
-			// QEMU on the emulated 32-bit armhf CI runner. On that arch, dial the remotes by their
-			// direct address instead so we don't mask real mDNS bugs on other platforms.
-			mdnsSupported := runtime.GOARCH != "arm"
+			// On arches without mDNS (see MDNSAvailable), dial the remotes by their direct address
+			// instead of their FQDN, which would otherwise resolve over mDNS.
+			mdnsSupported := robottestutils.MDNSAvailable()
 
 			var r2 robot.LocalRobot
 			if tc.Managed {
@@ -616,10 +614,9 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	// Dialing options.FQDN resolves over mDNS, which is unreliable under QEMU on the emulated
-	// 32-bit armhf CI runner. On that arch, skip the mDNS-only dial and fall back to the direct
-	// address for the final dial so we don't mask real mDNS bugs on other platforms.
-	mdnsSupported := runtime.GOARCH != "arm"
+	// On arches without mDNS (see MDNSAvailable), skip the mDNS-only dial and fall back to the
+	// direct address for the final dial, rather than resolving options.FQDN over mDNS.
+	mdnsSupported := robottestutils.MDNSAvailable()
 
 	altName := primitive.NewObjectID().Hex()
 	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
