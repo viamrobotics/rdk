@@ -191,14 +191,14 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	return nil
 }
 
-type registerCustomContainersArgs struct {
+type registerContainersArgs struct {
 	OrgID       string
 	URI         string
 	Description string
 }
 
-// RegisterCustomContainer is the corresponding action for 'train containers register'.
-func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registerCustomContainersArgs) error {
+// RegisterContainer is the corresponding action for 'train containers register'.
+func RegisterContainer(ctx context.Context, cmd *cli.Command, args registerContainersArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
 	}
@@ -223,7 +223,7 @@ func RegisterCustomContainer(ctx context.Context, cmd *cli.Command, args registe
 		return err
 	}
 
-	printf(cmd.Root().Writer, "Container successfully registered. Its ID is %s", resp.Id)
+	printf(cmd.Root().Writer, "Container successfully registered. Container ID: %s", resp.Id)
 	return nil
 }
 
