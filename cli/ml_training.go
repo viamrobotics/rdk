@@ -182,9 +182,13 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 			Description: v.Description,
 			Visibility:  v.Visibility.String(),
 			Framework:   v.Framework,
-			EndOfLife:   v.Eol.AsTime().String(),
-			CreatedOn:   v.CreatedOn.AsTime().String(),
 			ID:          v.Id,
+		}
+		if v.Eol != nil && !v.Eol.AsTime().IsZero() {
+			container.EndOfLife = v.Eol.AsTime().Format(time.RFC3339)
+		}
+		if v.CreatedOn != nil && !v.CreatedOn.AsTime().IsZero() {
+			container.CreatedOn = v.CreatedOn.AsTime().Format(time.RFC3339)
 		}
 		if args.IncludeURIs {
 			container.URI = v.Uri
@@ -814,7 +818,7 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 	defer os.Remove(tmpScript)
 
 	// Get container image name
-	// TODO: change this to get URI with ID instead (probably in later PR)
+	// TODO: change this to get URI with ID instead (APP-17653)
 	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
 	if err != nil {
 		return err

@@ -134,7 +134,6 @@ const (
 	mlTrainingFlagURL                 = "url"
 	mlTrainingFlagContainerVersion    = "container-version"
 	mlTrainingFlagContainerID         = "container-id"
-	customContainerOrgID              = "org-id"
 	mlTrainingFlagIncludeURIs         = "include-uris"
 	mlTrainingFlagDeletingContainerID = "id"
 	mlRegisterContainersImageURI      = "uri"
@@ -2261,8 +2260,9 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "show container URIs with the list of containers",
 								},
 								&cli.StringFlag{
-									Name:     customContainerOrgID,
-									Usage:    "the organization from which to list custom containers",
+									Name:     generalFlagOrgID,
+									Aliases:  []string{generalFlagAliasOrg, generalFlagOrganization},
+									Usage:    "the org ID for which to list available containers for custom training jobs",
 									Required: false,
 								},
 							},

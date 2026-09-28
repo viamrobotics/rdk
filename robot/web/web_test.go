@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -506,10 +505,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Dialing options.FQDN resolves over mDNS, which is unreliable under QEMU on the emulated
-	// 32-bit armhf CI runner (RSDK-14553). Skip those dials only on that arch so we don't mask
-	// real mDNS bugs on other platforms.
-	mdnsSupported := runtime.GOARCH != "arm"
+	mdnsSupported := robottestutils.MDNSAvailable()
 
 	clientTLSConfig := options.Network.TLSConfig.Clone()
 	clientTLSConfig.Certificates = nil

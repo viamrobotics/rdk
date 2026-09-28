@@ -222,6 +222,7 @@ jobs:
       volumes:
       # otherwise we get a 'read-only filesystem' error when symlinking over this
       - /tmp/node20:/__e/node20
+      - /tmp/node24:/__e/node24
     timeout-minutes: 15
     permissions:
       contents: read
@@ -231,11 +232,14 @@ jobs:
     steps:
     - name: override nodejs
       # note: the antique image intentionally has an old ubuntu with old GLIBC; github's node requires a newer one.
-      # actions require this /__e/node20/bin/node file, so we override it.
+      # actions require this /__e/nodeXX/bin/node file, so we override it.
+      # github now forces node20 actions onto node24, so both paths need overriding.
       run: |
-        mkdir -p /__e/node20/bin/
-        ln --force --symbolic $(which node) /__e/node20/bin/node
-        /__e/node20/bin/node --version
+        for v in node20 node24; do
+          mkdir -p /__e/$v/bin/
+          ln --force --symbolic $(which node) /__e/$v/bin/node
+          /__e/$v/bin/node --version
+        done
 
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
