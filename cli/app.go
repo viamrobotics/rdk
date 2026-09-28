@@ -126,16 +126,17 @@ const (
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
-	mlTrainingFlagName             = "script-name"
-	mlTrainingFlagFramework        = "framework"
-	mlTrainingFlagDraft            = "draft"
-	mlTrainingFlagVisibility       = "visibility"
-	mlTrainingFlagDescription      = "description"
-	mlTrainingFlagURL              = "url"
-	mlTrainingFlagContainerVersion = "container-version"
-	mlTrainingFlagIncludeURIs      = "include-uris"
-	mlTrainingFlagContainerID      = "id"
-	mlRegisterContainersImageURI   = "uri"
+	mlTrainingFlagName                     = "script-name"
+	mlTrainingFlagFramework                = "framework"
+	mlTrainingFlagDraft                    = "draft"
+	mlTrainingFlagVisibility               = "visibility"
+	mlTrainingFlagDescription              = "description"
+	mlTrainingFlagURL                      = "url"
+	mlTrainingFlagContainerVersion         = "container-version"
+	mlTrainingFlagIncludeURIs              = "include-uris"
+	mlTrainingFlagContainerID              = "id"
+	mlTrainingFlagContainerIDWithContainer = "container-id"
+	mlRegisterContainersImageURI           = "uri"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2416,7 +2417,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: false,
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagContainerID,
+											Name:     mlTrainingFlagContainerIDWithContainer,
 											Usage:    `ID of the ml training container version to use.`,
 											Required: false,
 										},
