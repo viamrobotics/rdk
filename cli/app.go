@@ -126,17 +126,16 @@ const (
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
-	mlTrainingFlagName                = "script-name"
-	mlTrainingFlagFramework           = "framework"
-	mlTrainingFlagDraft               = "draft"
-	mlTrainingFlagVisibility          = "visibility"
-	mlTrainingFlagDescription         = "description"
-	mlTrainingFlagURL                 = "url"
-	mlTrainingFlagContainerVersion    = "container-version"
-	mlTrainingFlagContainerID         = "container-id"
-	mlTrainingFlagIncludeURIs         = "include-uris"
-	mlTrainingFlagDeletingContainerID = "id"
-	mlRegisterContainersImageURI      = "uri"
+	mlTrainingFlagName             = "script-name"
+	mlTrainingFlagFramework        = "framework"
+	mlTrainingFlagDraft            = "draft"
+	mlTrainingFlagVisibility       = "visibility"
+	mlTrainingFlagDescription      = "description"
+	mlTrainingFlagURL              = "url"
+	mlTrainingFlagContainerVersion = "container-version"
+	mlTrainingFlagIncludeURIs      = "include-uris"
+	mlTrainingFlagContainerID      = "id"
+	mlRegisterContainersImageURI   = "uri"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2269,19 +2268,6 @@ Note: There is no progress meter while copying is in progress.
 							Action: createActionCommandWithT[mlListContainersArgs](MLListContainers),
 						},
 						{
-							Name:      "delete",
-							Usage:     "deletes a custom training container",
-							UsageText: createUsageText("train containers delete", []string{mlTrainingFlagContainerID}, false, false),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     mlTrainingFlagDeletingContainerID,
-									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
-									Required: true,
-								},
-							},
-							Action: createActionCommandWithT[mlDeleteContainerArgs](MLDeleteContainer),
-						},
-						{
 							Name:      "register",
 							Usage:     "registers a custom container for custom training",
 							UsageText: createUsageText("train containers register", []string{mlRegisterContainersImageURI}, true, false),
@@ -2302,6 +2288,19 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createActionCommandWithT[registerContainersArgs](RegisterContainer),
+						},
+						{
+							Name:      "delete",
+							Usage:     "deletes a custom training container",
+							UsageText: createUsageText("train containers delete", []string{mlTrainingFlagContainerID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     mlTrainingFlagContainerID,
+									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
+									Required: true,
+								},
+							},
+							Action: createActionCommandWithT[mlDeleteContainerArgs](MLDeleteContainer),
 						},
 					},
 				},
