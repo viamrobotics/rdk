@@ -4,6 +4,7 @@ package streaming
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -108,7 +109,7 @@ func TestTrajexSessionAddJointPositionsDedups(t *testing.T) {
 func TestTrajexSessionRunwayTracksStagedBacklog(t *testing.T) {
 	ctx := context.Background()
 	opts := testStreamOptions()
-	opts.VelLimitDegPerSec = 10 // slow, so trajectories are long relative to sampling noise
+	opts.MoveOptions.MaxVelRads = 10 * math.Pi / 180 // slow, so trajectories are long relative to sampling noise
 
 	s := &trajexSession{opts: opts, diagnostics: diagnostics.New(0)}
 	test.That(t, s.startSession([]referenceframe.Input{0}), test.ShouldBeNil)

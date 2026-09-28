@@ -99,10 +99,10 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 // drains the runway back under it.
 func TestRunBackpressureGatesPushOnTrajexRunway(t *testing.T) {
 	inj, _ := newFakeStreamingArm()
-	jpCh := make(chan JointPositionsChItem)
+	jpCh := make(chan []referenceframe.Input)
 	opts := runTestOptions()
 	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of trajectory, far over the cap.
-	opts.VelLimitDegPerSec = 10
+	opts.MoveOptions.MaxVelRads = 10 * math.Pi / 180
 	opts.MaxTrajexRunwayMs = 200
 
 	errCh := make(chan error, 1)
@@ -111,13 +111,13 @@ func TestRunBackpressureGatesPushOnTrajexRunway(t *testing.T) {
 	}()
 
 	// The first push is accepted immediately: the trajex runway is empty.
-	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.35}}
+	jpCh <- []referenceframe.Input{0.35}
 
 	// The second push must stay blocked until the runway drains to under 200ms of the
 	// ~2s trajectory, which takes execution (wall-clock) time.
 	start := time.Now()
 	select {
-	case jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.36}}:
+	case jpCh <- []referenceframe.Input{0.36}:
 	case <-time.After(15 * time.Second):
 		t.Fatal("gated push was never accepted")
 	}
@@ -136,9 +136,9 @@ func TestRunBackpressureGatesPushOnTrajexRunway(t *testing.T) {
 // must return on cancellation without ever accepting the gated push.
 func TestRunBackpressureUnblocksOnCancel(t *testing.T) {
 	inj, _ := newFakeStreamingArm()
-	jpCh := make(chan JointPositionsChItem)
+	jpCh := make(chan []referenceframe.Input)
 	opts := runTestOptions()
-	opts.VelLimitDegPerSec = 10
+	opts.MoveOptions.MaxVelRads = 10 * math.Pi / 180
 	opts.MaxTrajexRunwayMs = 200
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -148,7 +148,7 @@ func TestRunBackpressureUnblocksOnCancel(t *testing.T) {
 		errCh <- Run(ctx, inj, opts, jpCh, []referenceframe.Input{0}, diagnostics.New(0))
 	}()
 
-	jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.35}}
+	jpCh <- []referenceframe.Input{0.35}
 
 	// Leave a push pending against the closed gate, then cancel.
 	pushAccepted := make(chan struct{})
@@ -156,7 +156,7 @@ func TestRunBackpressureUnblocksOnCancel(t *testing.T) {
 	defer close(testDone)
 	go func() {
 		select {
-		case jpCh <- JointPositionsChItem{Positions: []referenceframe.Input{0.36}}:
+		case jpCh <- []referenceframe.Input{0.36}:
 			close(pushAccepted)
 		case <-testDone:
 		}

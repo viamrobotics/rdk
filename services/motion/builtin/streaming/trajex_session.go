@@ -28,6 +28,7 @@ type trajexSession struct {
 	sess               *totgstream.Session
 	dof                int
 	lastJointPositions []referenceframe.Input
+	velLimitsRadPerSec []float64
 
 	// stagedEstimate is a velocity-limit lower bound on the trajectory time the batches trajex
 	// has staged (but not yet built a trajectory for) will add once rebased. The session cannot
@@ -92,6 +93,7 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 	s.sess = sess
 	s.dof = dof
 	s.lastJointPositions = startJointPositions
+	s.velLimitsRadPerSec = vel
 	s.diagnostics.RecordTrajexSessionOpenEvent()
 	return nil
 }
@@ -140,11 +142,12 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 // the velocity limit, ignoring acceleration ramps, so it never exceeds the duration TOTG will
 // actually assign to that segment.
 func (s *trajexSession) traversalTimeLowerBound(next []referenceframe.Input) time.Duration {
-	var maxDeltaRad float64
+	var maxSecs float64
 	for i := range next {
-		maxDeltaRad = math.Max(maxDeltaRad, math.Abs(float64(next[i]-s.lastJointPositions[i])))
+		deltaRad := math.Abs(float64(next[i] - s.lastJointPositions[i]))
+		maxSecs = math.Max(maxSecs, deltaRad/s.velLimitsRadPerSec[i])
 	}
-	return time.Duration(maxDeltaRad / utils.DegToRad(s.opts.VelLimitDegPerSec) * float64(time.Second))
+	return time.Duration(maxSecs * float64(time.Second))
 }
 
 func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration) ([]pvat, error) {
