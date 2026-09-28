@@ -126,18 +126,18 @@ const (
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
-	mlTrainingFlagName             = "script-name"
-	mlTrainingFlagFramework        = "framework"
-	mlTrainingFlagDraft            = "draft"
-	mlTrainingFlagVisibility       = "visibility"
-	mlTrainingFlagDescription      = "description"
-	mlTrainingFlagURL              = "url"
-	mlTrainingFlagContainerVersion = "container-version"
-	mlTrainingFlagContainerID      = "container-id"
-	customContainerOrgID           = "org-id"
-	mlTrainingFlagIncludeURIs      = "include-uris"
-	mlTrainingFlagDeletingContainerID      = "id"
-	mlRegisterContainersImageURI   = "uri"
+	mlTrainingFlagName                = "script-name"
+	mlTrainingFlagFramework           = "framework"
+	mlTrainingFlagDraft               = "draft"
+	mlTrainingFlagVisibility          = "visibility"
+	mlTrainingFlagDescription         = "description"
+	mlTrainingFlagURL                 = "url"
+	mlTrainingFlagContainerVersion    = "container-version"
+	mlTrainingFlagContainerID         = "container-id"
+	customContainerOrgID              = "org-id"
+	mlTrainingFlagIncludeURIs         = "include-uris"
+	mlTrainingFlagDeletingContainerID = "id"
+	mlRegisterContainersImageURI      = "uri"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2298,10 +2298,10 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.StringFlag{
 									Name:  mlTrainingFlagDescription,
-									Usage: "defaults to the image URI if not provided",
+									Usage: "used as container display name in UI, defaults to the image URI if not provided",
 								},
 							},
-							Action: createActionCommandWithT[registerCustomContainersArgs](RegisterCustomContainer),
+							Action: createActionCommandWithT[registerContainersArgs](RegisterContainer),
 						},
 					},
 				},
