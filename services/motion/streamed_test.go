@@ -8,6 +8,7 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"time"
 
 	armpb "go.viam.com/api/component/arm/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
@@ -178,6 +179,113 @@ func TestClientStreamed(t *testing.T) {
 		test.That(t, gotOpts.MoveOptions.MaxAccRads, test.ShouldAlmostEqual, 2.5)
 	})
 
+	t.Run("server finishing before the caller closes targets is not an error", func(t *testing.T) {
+		injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
+		injectMS.TempStreamArmJointPositionsFunc = func(
+			ctx context.Context,
+			armName string,
+			opts motion.TempStreamOptions,
+			targets <-chan []referenceframe.Input,
+			responses chan<- motion.TempStreamResponse,
+			extra map[string]interface{},
+		) error {
+			// Done without reading a single target: the client is still feeding when the
+			// stream ends cleanly, so its send side is woken by the client's own cancel.
+			return nil
+		}
+		conn := setupStreamedServer(t, logger, injectMS)
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		targets := make(chan []referenceframe.Input)
+		responses := make(chan motion.TempStreamResponse)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- client.TempStreamArmJointPositions(
+				context.Background(), testStreamedArmName, motion.TempStreamOptions{}, targets, responses, nil,
+			)
+		}()
+		drained := make(chan struct{})
+		go func() {
+			defer close(drained)
+			for range responses {
+			}
+		}()
+
+		// Keep feeding until the call returns, so the send side is still in flight (parked on
+		// targets or inside Send) at the moment the stream ends, rather than already finished.
+		var err2 error
+	feed:
+		for i := 0; ; i++ {
+			select {
+			case targets <- []referenceframe.Input{referenceframe.Input(i)}:
+			case err2 = <-errCh:
+				break feed
+			}
+		}
+		close(responses)
+		<-drained
+		test.That(t, err2, test.ShouldBeNil)
+	})
+
+	// With the caller idle (targets open, nothing pushed, no cancel), only the recv side can learn
+	// that the server ended the stream; the send side must be woken by it, and the call must return
+	// the server's outcome promptly rather than hang until the caller acts.
+	for _, tc := range []struct {
+		name    string
+		implErr error
+	}{
+		{"server error reaches an idle caller", errors.New("boom")},
+		{"server finishing cleanly reaches an idle caller", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
+			injectMS.TempStreamArmJointPositionsFunc = func(
+				ctx context.Context,
+				armName string,
+				opts motion.TempStreamOptions,
+				targets <-chan []referenceframe.Input,
+				responses chan<- motion.TempStreamResponse,
+				extra map[string]interface{},
+			) error {
+				return tc.implErr
+			}
+			conn := setupStreamedServer(t, logger, injectMS)
+			client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			targets := make(chan []referenceframe.Input)
+			responses := make(chan motion.TempStreamResponse)
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- client.TempStreamArmJointPositions(
+					context.Background(), testStreamedArmName, motion.TempStreamOptions{}, targets, responses, nil,
+				)
+			}()
+			drained := make(chan struct{})
+			go func() {
+				defer close(drained)
+				for range responses {
+				}
+			}()
+
+			select {
+			case err = <-errCh:
+			case <-time.After(10 * time.Second):
+				t.Fatal("call did not return while the caller was idle")
+			}
+			close(responses)
+			<-drained
+			if tc.implErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.implErr.Error())
+				test.That(t, errors.Is(err, context.Canceled), test.ShouldBeFalse)
+			}
+		})
+	}
+
 	t.Run("impl error becomes terminal status", func(t *testing.T) {
 		injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
 		injectMS.TempStreamArmJointPositionsFunc = func(
@@ -241,7 +349,102 @@ func TestClientStreamed(t *testing.T) {
 		close(targets)
 		close(responses)
 		<-drained
-		test.That(t, err, test.ShouldNotBeNil)
+		// The caller's own cancellation is what surfaces, not the recv side's or a wire status.
+		test.That(t, errors.Is(err, context.Canceled), test.ShouldBeTrue)
+	})
+
+	// The two shapes of abort where the send goroutine cannot be the one to report the parent ctx's
+	// error: it has already exited (targets closed), or it is parked inside stream.Send (where
+	// grpc-go reports cancellation as io.EOF). In both, the recv goroutine must translate the wire's
+	// Canceled status back into the parent ctx's error.
+	blockUntilCanceled := func(started chan struct{}) func(
+		context.Context, string, motion.TempStreamOptions,
+		<-chan []referenceframe.Input, chan<- motion.TempStreamResponse, map[string]interface{},
+	) error {
+		return func(
+			ctx context.Context,
+			armName string,
+			opts motion.TempStreamOptions,
+			targets <-chan []referenceframe.Input,
+			responses chan<- motion.TempStreamResponse,
+			extra map[string]interface{},
+		) error {
+			close(started)
+			<-ctx.Done()
+			return ctx.Err()
+		}
+	}
+
+	t.Run("client cancellation after targets is closed is honored", func(t *testing.T) {
+		started := make(chan struct{})
+		injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
+		injectMS.TempStreamArmJointPositionsFunc = blockUntilCanceled(started)
+		conn := setupStreamedServer(t, logger, injectMS)
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		targets := make(chan []referenceframe.Input)
+		responses := make(chan motion.TempStreamResponse)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- client.TempStreamArmJointPositions(ctx, testStreamedArmName, motion.TempStreamOptions{}, targets, responses, nil)
+		}()
+		drained := make(chan struct{})
+		go func() {
+			for range responses {
+			}
+			close(drained)
+		}()
+
+		<-started
+		// Closing targets makes the send goroutine CloseSend and exit, so only the recv goroutine is
+		// left to observe the cancellation that follows.
+		close(targets)
+		cancel()
+		err = <-errCh
+		close(responses)
+		<-drained
+		test.That(t, errors.Is(err, context.Canceled), test.ShouldBeTrue)
+	})
+
+	t.Run("client cancellation while a send is in flight is honored", func(t *testing.T) {
+		started := make(chan struct{})
+		injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
+		injectMS.TempStreamArmJointPositionsFunc = blockUntilCanceled(started)
+		conn := setupStreamedServer(t, logger, injectMS)
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		targets := make(chan []referenceframe.Input)
+		responses := make(chan motion.TempStreamResponse)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- client.TempStreamArmJointPositions(ctx, testStreamedArmName, motion.TempStreamOptions{}, targets, responses, nil)
+		}()
+		drained := make(chan struct{})
+		go func() {
+			for range responses {
+			}
+			close(drained)
+		}()
+
+		<-started
+		// The blockUntilCanceled impl never reads targets, so after the server's recv goroutine takes
+		// this first target, the server's recv goroutine blocks handing the first target to the impl,
+		// and so stops calling Recv.
+		targets <- []referenceframe.Input{0}
+		// Larger than grpc-go's 16MiB flow-control ceiling, so stream.Send blocks until the server
+		// reads, which it never will. That pins the send goroutine inside Send for the cancellation.
+		targets <- make([]referenceframe.Input, 3<<20)
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+		err = <-errCh
+		close(targets)
+		close(responses)
+		<-drained
+		test.That(t, errors.Is(err, context.Canceled), test.ShouldBeTrue)
 	})
 
 	// Raw-protocol faults must surface to the client as terminal InvalidArgument statuses. These use
@@ -291,9 +494,18 @@ func TestClientStreamed(t *testing.T) {
 			responses chan<- motion.TempStreamResponse,
 			extra map[string]interface{},
 		) error {
-			for range targets {
+			// A fault does not close targets; the impl is told to stop through ctx, as the
+			// contract requires it to honor.
+			for {
+				select {
+				case _, ok := <-targets:
+					if !ok {
+						return nil
+					}
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
-			return nil
 		}
 		conn := setupStreamedServer(t, logger, injectMS)
 		raw := motionpb.NewMotionServiceClient(conn)

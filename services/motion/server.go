@@ -163,18 +163,23 @@ func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest
 	return &pb.GetPlanResponse{CurrentPlanWithStatus: cpws, ReplanHistory: history}, nil
 }
 
-// TempStreamArmJointPositions is the bidi handler for the streamed RPC. It reads the Init message
-// that has to come first, resolves the motion service, and runs the implementation on the handler
-// goroutine. Two helper goroutines bracket that call: one feeds wire batches into the targets
-// channel, the other carries the implementation's responses back out to the client. Whatever the
-// implementation returns becomes the terminal gRPC status.
-func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService_TempStreamArmJointPositionsServer) error {
-	// We run the impl under a context we can cancel ourselves, derived from the stream's. That gives
-	// us a single lever: cancelling it stops the impl and also unblocks the recv goroutine's
-	// `targets <-` send, whether the trigger was a failed Send or the impl simply returning.
-	ctx, cancel := context.WithCancel(stream.Context())
-	defer cancel()
+// TempStreamArmJointPositions serves a gRPC bidi stream, following grpc-go's ServerStream contract
+// (https://pkg.go.dev/google.golang.org/grpc#ServerStream).
+//
+// This handler writes messages to the client via Send, but sets an error status on the call by
+// returning an error. (The client receives both via its Recv.) This handler's recv and send
+// goroutines cancel the context with a cause, so that the handler can return the original cause. An
+// error from either goroutine takes precedence over an error from the impl, because usually the
+// cancel is what made the impl return, so the impl's error is only its echo. In the rare race where
+// the impl finished or failed on its own at the same time, the cause still names something that ended
+// the call.
+func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService_TempStreamArmJointPositionsServer) (retErr error) {
+	ctx, cancel := context.WithCancelCause(stream.Context())
+	defer cancel(nil)
 
+	// Receive the first message, which must be an Init message.
+	// This is done outside the recv goroutine, because the Init message contains
+	// the service whose impl to call and the options with which to call it.
 	first, err := stream.Recv()
 	if err != nil {
 		return err
@@ -187,7 +192,6 @@ func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService
 	if err != nil {
 		return err
 	}
-
 	armName := init.GetComponentName()
 	if armName == "" {
 		return status.Error(codes.InvalidArgument, "Init.component_name is required")
@@ -195,91 +199,86 @@ func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService
 	opts := tempStreamOptionsFromProto(init.GetOptions())
 	extra := init.GetExtra().AsMap()
 
-	targets := make(chan []referenceframe.Input)
-	responses := make(chan TempStreamResponse)
+	targetsCh := make(chan []referenceframe.Input)
+	responsesCh := make(chan TempStreamResponse)
 
-	// When the recv side hits something terminal (a stray message, a stream that breaks), that is
-	// the error the client should see, not whatever the impl returned on its way out. recvErrCh
-	// carries it back. It is buffered and we keep only the first write, so the recv goroutine can
-	// report and move on without blocking here.
-	recvErrCh := make(chan error, 1)
-	setRecvErr := func(err error) {
-		select {
-		case recvErrCh <- err:
-		default:
-		}
-	}
-
-	// A clean end-of-stream (the client closing its send, or us cancelling) closes targets so the
-	// impl knows nothing more is coming. Anything else is a fault the client needs to hear about:
-	// stash it, cancel so the impl stops, and return it in place of whatever the impl says.
+	// "recv goroutine": stream.Recv()'s targets from the client and sends them to the impl.
 	utils.PanicCapturingGo(func() {
-		defer close(targets)
-		for {
-			req, err := stream.Recv()
+		// Every exit below overwrites err; if none did, the goroutine panicked.
+		err := errors.New("motion streaming server recv goroutine panicked")
+		defer func() {
 			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					setRecvErr(err)
-					cancel()
+				cancel(err)
+			}
+		}()
+
+		for {
+			var req *pb.TempStreamArmJointPositionsRequest
+			if req, err = stream.Recv(); err != nil {
+				// io.EOF from Recv means the client closed its send side. Close targetsCh to give the
+				// impl a clean end of input.
+				if errors.Is(err, io.EOF) {
+					err = nil
+					close(targetsCh)
 				}
 				return
 			}
-			batch := req.GetTargets()
-			if batch == nil {
-				setRecvErr(status.Errorf(codes.InvalidArgument, "expected Targets, got %T", req.GetMessage()))
-				cancel()
+			targets := req.GetTargets()
+			if targets == nil {
+				err = status.Errorf(codes.InvalidArgument, "expected Targets, got %T", req.GetMessage())
 				return
 			}
-			for _, jp := range batch.GetPositions() {
+			for _, jps := range targets.GetPositions() {
 				select {
-				case targets <- referenceframe.JointPositionsToRadians(jp):
+				case targetsCh <- referenceframe.JointPositionsToRadians(jps):
 				case <-ctx.Done():
+					// Whoever canceled already set the cause.
+					err = nil
 					return
 				}
 			}
 		}
 	})
 
-	// This goroutine carries the impl's responses out to the client. It stops when the impl is done
-	// (responses closed) or when a Send fails. On a failed Send we cancel, so the impl learns through
-	// ctx.Done() that there is no point continuing.
+	// "send goroutine": receives responses from the impl and stream.Send()'s them to the client.
 	sendDone := make(chan struct{})
 	utils.PanicCapturingGo(func() {
-		defer close(sendDone)
-		for resp := range responses {
+		err := errors.New("motion streaming server send goroutine panicked")
+		defer func() {
+			if err != nil {
+				cancel(err)
+			}
+			close(sendDone)
+		}()
+
+		for resp := range responsesCh {
 			_ = resp // TempStreamResponse carries no fields yet.
-			if err := stream.Send(&pb.TempStreamArmJointPositionsResponse{}); err != nil {
-				cancel()
-				// Keep draining responses until the handler closes it. This is defensiveness against a
-				// bad impl: an impl might write responses and return without ever watching ctx. After a
-				// failed Send, an impl like that would wedge on its next write if we stopped reading,
-				// and never return. Draining keeps it moving until it sees targets close and returns on
-				// its own.
-				for range responses {
-				}
+			if err = stream.Send(&pb.TempStreamArmJointPositionsResponse{}); err != nil {
 				return
 			}
 		}
+		err = nil
 	})
 
-	implErr := svc.TempStreamArmJointPositions(ctx, armName, opts, targets, responses, extra)
+	// Release the send goroutine and wait for it, so that nothing Sends after this handler returns,
+	// then pick the return value. This is deferred so that it also runs if the impl panics: the rpc
+	// server recovers handler panics, and without this the send goroutine would be left blocked on
+	// responsesCh forever. The recv goroutine is not waited for: it may be parked in Recv, which
+	// only the client acting or this handler returning can wake, so it exits on its own after we
+	// return, with its error (if any) already delivered as the cancel cause.
+	var implErr error
+	defer func() {
+		close(responsesCh)
+		<-sendDone
 
-	// By now the impl has returned. It may not have drained targets, since it can finish or fault
-	// mid-stream, which leaves the recv goroutine parked on its `targets <-` send with nobody reading.
-	// Cancelling releases that send so the recv goroutine can exit; closing responses lets the send
-	// goroutine finish, and we wait for it. Order does not matter here: the two calls poke two
-	// different goroutines.
-	cancel()
-	close(responses)
-	<-sendDone
+		if cause := context.Cause(ctx); cause != nil {
+			retErr = cause
+			return
+		}
+		retErr = implErr
+	}()
 
-	// If the recv side recorded a terminal fault, that is the real reason the stream ended, so we
-	// return it ahead of whatever the impl came back with as it unwound.
-	select {
-	case recvErr := <-recvErrCh:
-		return recvErr
-	default:
-	}
+	implErr = svc.TempStreamArmJointPositions(ctx, armName, opts, targetsCh, responsesCh, extra)
 	return implErr
 }
 
