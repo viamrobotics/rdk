@@ -445,6 +445,7 @@ type TempStreamOptions struct {
 	SendToArmIntervalMs   *int32
 	DiagnosticsWindowSecs *int32
 	MoveOptions           *arm.MoveOptions
+	MaxTrajexRunwayMs     *int32
 }
 
 // TempStreamResponse is the per-acknowledgment payload an implementation may emit on

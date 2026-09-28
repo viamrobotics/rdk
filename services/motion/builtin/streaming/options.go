@@ -113,6 +113,9 @@ func NewStreamOptions(opts motion.TempStreamOptions) StreamOptions {
 	if opts.DiagnosticsWindowSecs != nil {
 		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowSecs)
 	}
+	if opts.MaxTrajexRunwayMs != nil {
+		o.MaxTrajexRunwayMs = int(*opts.MaxTrajexRunwayMs)
+	}
 	if move := opts.MoveOptions; move != nil {
 		if move.MaxVelRads > 0 {
 			o.MoveOptions.MaxVelRads = move.MaxVelRads

@@ -11,14 +11,16 @@ import (
 )
 
 func TestNewStreamOptionsOverrides(t *testing.T) {
-	runway, window := int32(80), int32(0)
+	runway, window, runwayCap := int32(80), int32(0), int32(150)
 	opts := NewStreamOptions(motion.TempStreamOptions{
 		ArmSideTargetRunwayMs: &runway,
 		DiagnosticsWindowSecs: &window,
 		MoveOptions:           &arm.MoveOptions{MaxAccRads: 2, MaxVelRadsJoints: []float64{1, 2}},
+		MaxTrajexRunwayMs:     &runwayCap,
 	})
 	test.That(t, opts.ArmSideTargetRunwayMs, test.ShouldEqual, 80)
 	test.That(t, opts.DiagnosticsWindowSecs, test.ShouldEqual, 0)
+	test.That(t, opts.MaxTrajexRunwayMs, test.ShouldEqual, 150)
 	test.That(t, opts.MoveOptions.MaxAccRads, test.ShouldEqual, 2.0)
 	test.That(t, opts.MoveOptions.MaxVelRadsJoints, test.ShouldResemble, []float64{1, 2})
 	// nil arguments and zero scalar limits keep the defaults.

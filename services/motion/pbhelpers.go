@@ -411,6 +411,7 @@ func tempStreamOptionsToProto(o TempStreamOptions) *pb.TempStreamOptions {
 		ArmSideTargetRunwayMs: o.ArmSideTargetRunwayMs,
 		SendToArmIntervalMs:   o.SendToArmIntervalMs,
 		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
+		MaxTrajexRunwayMs:     o.MaxTrajexRunwayMs,
 	}
 	if o.MoveOptions != nil {
 		streamOpts.MoveOptions = o.MoveOptions.ToProtobuf()
@@ -427,5 +428,6 @@ func tempStreamOptionsFromProto(o *pb.TempStreamOptions) TempStreamOptions {
 		SendToArmIntervalMs:   o.SendToArmIntervalMs,
 		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
 		MoveOptions:           arm.MoveOptionsFromProtobuf(o.MoveOptions),
+		MaxTrajexRunwayMs:     o.MaxTrajexRunwayMs,
 	}
 }
