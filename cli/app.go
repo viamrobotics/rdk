@@ -2259,7 +2259,7 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
-									Aliases: []string{generalFlagAliasOrg, generalFlagOrganization},
+									Aliases:  []string{generalFlagAliasOrg, generalFlagOrganization},
 									Usage:    "the org ID for which to list available containers for custom training jobs",
 									Required: false,
 								},
