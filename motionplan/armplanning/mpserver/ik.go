@@ -143,6 +143,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 			}
 		}
 		cancel()
+		wg.Wait()
 	}
 
 	return &ret, nil

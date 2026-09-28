@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	defaultTargetRunwayInArmMs  = 100
-	defaultSendToArmIntervalMs  = 10
-	defaultVelLimitDegPerSec    = 10.0
-	defaultAccelLimitDegPerSec2 = 10.0
-	defaultDiagnosticsWindowMs  = 60_000
+	defaultTargetRunwayInArmMs   = 100
+	defaultSendToArmIntervalMs   = 10
+	defaultVelLimitDegPerSec     = 10.0
+	defaultAccelLimitDegPerSec2  = 10.0
+	defaultDiagnosticsWindowSecs = 60
 )
 
 // JointPositionsChItem is one joint-space waypoint.
@@ -40,9 +40,10 @@ type StreamOptions struct {
 	VelLimitDegPerSec    float64 `json:"vel_limit_deg_per_sec"`
 	AccelLimitDegPerSec2 float64 `json:"accel_limit_deg_per_sec2"`
 
-	// DiagnosticsWindowMs is how much full-detail diagnostics history the session retains;
-	// 0 disables diagnostics for the session.
-	DiagnosticsWindowMs int `json:"diagnostics_window_ms"`
+	// DiagnosticsWindowSecs is how much full-detail diagnostics history the session retains;
+	// 0 disables retention of that history, though whole-run diagnostic stats are still
+	// collected regardless.
+	DiagnosticsWindowSecs int `json:"diagnostics_window_secs"`
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
@@ -62,8 +63,8 @@ func (o *StreamOptions) Validate() error {
 	if o.AccelLimitDegPerSec2 <= 0 {
 		return errors.New("streaming: accel_limit_deg_per_sec2 must be positive")
 	}
-	if o.DiagnosticsWindowMs < 0 {
-		return errors.New("streaming: diagnostics_window_ms must be non-negative (0 disables diagnostics)")
+	if o.DiagnosticsWindowSecs < 0 {
+		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")
 	}
 	return nil
 }
@@ -72,11 +73,11 @@ func (o *StreamOptions) Validate() error {
 // Callers overriding individual fields should start from this and then set them.
 func NewDefaultOptions() StreamOptions {
 	return StreamOptions{
-		TargetRunwayInArmMs:  defaultTargetRunwayInArmMs,
-		SendToArmIntervalMs:  defaultSendToArmIntervalMs,
-		VelLimitDegPerSec:    defaultVelLimitDegPerSec,
-		AccelLimitDegPerSec2: defaultAccelLimitDegPerSec2,
-		DiagnosticsWindowMs:  defaultDiagnosticsWindowMs,
+		TargetRunwayInArmMs:   defaultTargetRunwayInArmMs,
+		SendToArmIntervalMs:   defaultSendToArmIntervalMs,
+		VelLimitDegPerSec:     defaultVelLimitDegPerSec,
+		AccelLimitDegPerSec2:  defaultAccelLimitDegPerSec2,
+		DiagnosticsWindowSecs: defaultDiagnosticsWindowSecs,
 	}
 }
 

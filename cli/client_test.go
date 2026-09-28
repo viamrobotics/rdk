@@ -33,7 +33,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -1775,6 +1774,36 @@ func TestShellFileCopy(t *testing.T) {
 
 	tfs := shelltestutils.SetupTestFileSystem(t)
 
+	t.Run("unreachable part is retried, not blamed on the destination", func(t *testing.T) {
+		originalRetryBaseDelay := copyRetryBaseDelay
+		copyRetryBaseDelay = time.Millisecond
+		defer func() {
+			copyRetryBaseDelay = originalRetryBaseDelay
+		}()
+
+		tempDir := t.TempDir()
+		args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
+		cCtx, viamClient, _, errOut := setupWithRunningPart(
+			t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+		)
+
+		var dials int
+		viamClient.dialOverride = func(
+			ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger,
+		) (*client.RobotClient, error) {
+			dials++
+			return nil, status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again")
+		}
+
+		err := viamClient.machinesPartCopyFilesAction(context.Background(), cCtx,
+			parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			fmt.Sprintf("all %d copy attempts failed", maxCopyAttempts))
+		test.That(t, dials, test.ShouldEqual, maxCopyAttempts)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldNotContainSubstring, "destination path does not exist")
+	})
+
 	t.Run("from", func(t *testing.T) {
 		t.Run("single file", func(t *testing.T) {
 			tempDir := t.TempDir()
@@ -2432,9 +2461,13 @@ func TestTunnelE2ECLI(t *testing.T) {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
 	}()
 
-	sourcePort, err := goutils.TryReserveRandomPort()
+	// Bind the source listener here and hand it to serveTunnel (which closes it once ctx is
+	// done). Reserving a port with TryReserveRandomPort and letting the tunnel bind it later
+	// leaves a window for another server to claim the port; the test would then silently
+	// talk to that server instead of the tunnel (RSDK-14479).
+	sourcePort, sourceListener, err := goutils.ReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
-	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
+	sourceListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(sourcePort))
 
 	logger := logging.NewTestLogger(t)
 	ctx, ctxCancel := context.WithCancel(context.Background())
@@ -2497,18 +2530,14 @@ func TestTunnelE2ECLI(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		tunnelTraffic(ctx, cCtx, rc, sourcePort, destPort)
+		test.That(t, serveTunnel(ctx, cCtx, rc, sourceListener, destPort), test.ShouldBeNil)
 	}()
 
-	// Write `tunnelMsg` to CLI tunneler over TCP from this test process. Retry until
-	// tunnelTraffic's listener is bound.
-	var conn net.Conn
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		var dialErr error
-		//nolint: noctx
-		conn, dialErr = net.Dial("tcp", sourceListenerAddr)
-		test.That(tb, dialErr, test.ShouldBeNil)
-	})
+	// Write `tunnelMsg` to CLI tunneler over TCP from this test process. The listener is
+	// already bound, so no dial retry is needed.
+	//nolint: noctx
+	conn, err := net.Dial("tcp", sourceListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
@@ -2529,6 +2558,30 @@ func TestTunnelE2ECLI(t *testing.T) {
 	test.That(t, stopServer(), test.ShouldBeNil)
 
 	wg.Wait()
+}
+
+func TestTunnelTrafficLocalPortInUse(t *testing.T) {
+	t.Parallel()
+	// A local port that something else already owns must surface as an error instead of
+	// leaving the caller tunneling traffic into whatever is listening there (RSDK-14479).
+	//
+	// Listen on "localhost" explicitly so the address matches what tunnelTraffic binds
+	// (net.Listen("tcp", "localhost:PORT")). Using ReserveRandomPort (which binds to
+	// 0.0.0.0) does not conflict on dual-stack macOS/Windows where localhost resolves
+	// to the IPv6 loopback.
+	//nolint:noctx
+	li, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, li.Close(), test.ShouldBeNil)
+	}()
+	port := li.Addr().(*net.TCPAddr).Port
+
+	//nolint:dogsled
+	cCtx, _, _, _ := setup(nil, nil, nil, nil, "token")
+	err = tunnelTraffic(context.Background(), cCtx, nil, port, port)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "failed to create listener")
 }
 
 // fakeTunnelLister is a tunnelLister test double. Before `reloadAfter` ListTunnels
@@ -2958,6 +3011,12 @@ func TestIsRunningAptBinary(t *testing.T) {
 }
 
 func TestRetryableCopy(t *testing.T) {
+	originalRetryBaseDelay := copyRetryBaseDelay
+	copyRetryBaseDelay = time.Millisecond
+	defer func() {
+		copyRetryBaseDelay = originalRetryBaseDelay
+	}()
+
 	t.Run("SuccessOnFirstAttempt", func(t *testing.T) {
 		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
@@ -3306,6 +3365,121 @@ func TestRetryableCopy(t *testing.T) {
 		errMsg := strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldContainSubstring, "destination path does not exist")
 		test.That(t, errMsg, test.ShouldContainSubstring, `"/some/dir" does not exist or is not a directory`)
+	})
+
+	t.Run("ConnectNotFoundIsRetried", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		// An unreachable part answers with NotFound, the same code the shell service uses for
+		// a path that isn't there.
+		mockCopyFunc := func() error {
+			attemptCount++
+			return fmt.Errorf("%w: %w", errConnectToPart,
+				status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again"))
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "host appears to be offline")
+		test.That(t, attempts, test.ShouldEqual, maxCopyAttempts)
+		test.That(t, attemptCount, test.ShouldEqual, maxCopyAttempts)
+
+		// The user's destination was never in question here
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "destination path does not exist")
+	})
+
+	t.Run("ConnectNotFoundRecoversOnRetry", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			if attemptCount <= 2 {
+				return fmt.Errorf("%w: %w", errConnectToPart,
+					status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again"))
+			}
+			return nil
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attempts, test.ShouldEqual, 3)
+	})
+
+	t.Run("BacksOffBetweenAttempts", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		originalRetryBaseDelay := copyRetryBaseDelay
+		copyRetryBaseDelay = 20 * time.Millisecond
+		defer func() {
+			copyRetryBaseDelay = originalRetryBaseDelay
+		}()
+
+		var attemptTimes []time.Time
+		mockCopyFunc := func() error {
+			attemptTimes = append(attemptTimes, time.Now())
+			return errors.New("transient connection failure")
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptTimes, test.ShouldHaveLength, maxCopyAttempts)
+		// Each retry waits longer than the last, so a burst of attempts can't be spent inside
+		// one transient failure.
+		for i := 1; i < len(attemptTimes); i++ {
+			test.That(t, attemptTimes[i].Sub(attemptTimes[i-1]), test.ShouldBeGreaterThanOrEqualTo,
+				time.Duration(i)*copyRetryBaseDelay)
+		}
 	})
 
 	t.Run("NoShellServiceError", func(t *testing.T) {
