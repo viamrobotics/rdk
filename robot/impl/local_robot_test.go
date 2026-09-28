@@ -534,8 +534,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Payload: locationSecret,
 			}
 
-			// On arches without mDNS (see MDNSAvailable), dial the remotes by their direct address
-			// instead of their FQDN, which would otherwise resolve over mDNS.
 			mdnsSupported := robottestutils.MDNSAvailable()
 
 			var r2 robot.LocalRobot
@@ -614,8 +612,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	// On arches without mDNS (see MDNSAvailable), skip the mDNS-only dial and fall back to the
-	// direct address for the final dial, rather than resolving options.FQDN over mDNS.
 	mdnsSupported := robottestutils.MDNSAvailable()
 
 	altName := primitive.NewObjectID().Hex()
