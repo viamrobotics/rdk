@@ -13,7 +13,6 @@ import (
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
 	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
-	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -56,19 +55,8 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 				constraint.FrameRate = prop.FloatRanged{Min: 0.0, Ideal: 30.0, Max: 140.0}
 			}
 
-			if conf.Format == "" {
-				constraint.FrameFormat = prop.FrameFormatOneOf{
-					frame.FormatI420,
-					frame.FormatI444,
-					frame.FormatYUY2,
-					frame.FormatUYVY,
-					frame.FormatRGBA,
-					frame.FormatMJPEG,
-					frame.FormatNV12,
-					frame.FormatNV21,
-					frame.FormatZ16,
-				}
-			} else {
+			// An unset format is skipped during matching, so any format the driver reports is eligible
+			if conf.Format != "" {
 				constraint.FrameFormat = prop.FrameFormatExact(conf.Format)
 			}
 
