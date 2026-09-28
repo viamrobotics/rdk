@@ -237,6 +237,30 @@ func RegisterContainer(ctx context.Context, cmd *cli.Command, args registerConta
 	return nil
 }
 
+type mlDeleteContainerArgs struct {
+	ID string
+}
+
+// MLDeleteContainer is the corresponding action for 'train containers delete'.
+func MLDeleteContainer(ctx context.Context, cmd *cli.Command, args mlDeleteContainerArgs) error {
+	if args.ID == "" {
+		return errors.New("must provide the ID of the container to delete")
+	}
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.mlTrainingClient.DeleteCustomTrainingContainer(context.Background(), &mltrainingpb.DeleteCustomTrainingContainerRequest{
+		Id: args.ID,
+	})
+	if err != nil {
+		return err
+	}
+	printf(cmd.Root().Writer, "Deleted container %q", args.ID)
+	return nil
+}
+
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
 func MLSubmitTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitTrainingJobArgs) error {
 	client, err := newViamClient(ctx, cmd)
