@@ -534,6 +534,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Payload: locationSecret,
 			}
 
+			mdnsSupported := robottestutils.MDNSAvailable()
+
 			var r2 robot.LocalRobot
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
@@ -551,9 +553,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 				ctx2 := context.Background()
-				remoteConfig.Remotes[0].Address = options.LocalFQDN
-				if tc.EntityName != "" {
-					remoteConfig.Remotes[1].Address = options.FQDN
+				if mdnsSupported {
+					remoteConfig.Remotes[0].Address = options.LocalFQDN
+					if tc.EntityName != "" {
+						remoteConfig.Remotes[1].Address = options.FQDN
+					}
 				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
 			} else {
@@ -566,7 +570,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
 
 				ctx2 := context.Background()
-				remoteConfig.Remotes[0].Address = options.LocalFQDN
+				if mdnsSupported {
+					remoteConfig.Remotes[0].Address = options.LocalFQDN
+				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
 			}
 
@@ -605,6 +611,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	ctx := context.Background()
 
 	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	mdnsSupported := robottestutils.MDNSAvailable()
 
 	altName := primitive.NewObjectID().Hex()
 	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -685,8 +693,10 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 	// use cert with mDNS
-	remoteConfig.Remotes[0].Address = options.FQDN
-	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+	if mdnsSupported {
+		remoteConfig.Remotes[0].Address = options.FQDN
+		test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+	}
 
 	// use signaling creds
 	remoteConfig.Remotes[0].Address = addr
@@ -705,7 +715,9 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		Type:    rutils.CredentialsTypeRobotLocationSecret,
 		Payload: locationSecret + "bad",
 	}
-	remoteConfig.Remotes[0].Address = options.FQDN
+	if mdnsSupported {
+		remoteConfig.Remotes[0].Address = options.FQDN
+	}
 	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
 
 	expected := []resource.Name{
