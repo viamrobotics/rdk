@@ -75,7 +75,11 @@ func BuildViamServer(tb testing.TB) string {
 			"./web/cmd/server",
 		)
 		// -tags no_cgo above still makes it so you can gate specific cgo dependencies
-		builder.Env = append(os.Environ(), "CGO_ENABLED=1", "CC=zig cc", "CXX=zig c++")
+		cgo := "0"
+		if os.Getenv("CGO_ENABLED") == "1" {
+			cgo = "1"
+		}
+		builder.Env = append(os.Environ(), "CGO_ENABLED="+cgo)
 	}
 	// set Dir to root of repo
 	builder.Dir = utils.ResolveFile(".")
