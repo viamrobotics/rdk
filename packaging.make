@@ -22,7 +22,7 @@ static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 
 static-release-win:
 	rm -f bin/static/viam-server-windows.exe
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags no_cgo $(LDFLAGS) -o bin/static/viam-server-windows.exe ./web/cmd/server
+	CGO_ENABLED=1 CC="$(WINDOWS_CC)" CXX="$(WINDOWS_CXX)" GOOS=windows GOARCH=amd64 go build -tags no_cgo $(LDFLAGS) -o bin/static/viam-server-windows.exe ./web/cmd/server
 	upx --best --lzma bin/static/viam-server-windows.exe
 	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe
 
@@ -35,7 +35,10 @@ static-release-win:
 	fi
 
 	# note: GOOS=windows would break this on a linux runner
-	CGO_ENABLED=0 go run -tags no_cgo ./web/cmd/server --dump-resources win-resources.json
+	# viam_windows_resource_dump + CGO_ENABLED=1 make this native run register the same camera
+	# set as the Windows binary above; webcam is otherwise gated on `windows && cgo`, which a
+	# linux run can never satisfy, and the manifest would omit a model the binary ships.
+	CGO_ENABLED=1 go run -tags no_cgo,viam_windows_resource_dump ./web/cmd/server --dump-resources win-resources.json
 
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/
