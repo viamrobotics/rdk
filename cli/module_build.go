@@ -1848,6 +1848,9 @@ func reloadModuleActionInner(
 	}
 
 	if args.ModelName != "" {
+		if err := vc.redialApp(ctx); err != nil {
+			return err
+		}
 		if err := pm.Start("resource"); err != nil {
 			return err
 		}
@@ -2030,6 +2033,9 @@ func restartModule(
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	restartReq, err := resolveTargetModule(cmd, manifest)
 	if err != nil {
+		return err
+	}
+	if err := vc.redialApp(ctx); err != nil {
 		return err
 	}
 	apiRes, err := vc.client.GetRobotAPIKeys(ctx, &apppb.GetRobotAPIKeysRequest{RobotId: part.Robot})
