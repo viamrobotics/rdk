@@ -178,6 +178,7 @@ func (s *serviceServer) GetProperties(
 	}
 
 	result.MimeTypes = props.MimeTypes
+	result.DefaultReferenceFrame = props.DefaultReferenceFrame
 	return result, nil
 }
 

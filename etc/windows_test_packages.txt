@@ -31,6 +31,7 @@ go.viam.com/rdk/components/camera/fake
 go.viam.com/rdk/components/camera/replaypcd
 go.viam.com/rdk/components/camera/rtppassthrough
 go.viam.com/rdk/components/camera/transformpipeline
+go.viam.com/rdk/components/camera/videosource
 go.viam.com/rdk/components/encoder
 go.viam.com/rdk/components/encoder/fake
 go.viam.com/rdk/components/encoder/incremental

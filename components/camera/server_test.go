@@ -84,11 +84,12 @@ func TestServer(t *testing.T) {
 	extrinsics := &camera.ExtrinsicParams{Translation: r3.Vector{X: 1, Y: 2, Z: 3}}
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
-			SupportsPCD:     true,
-			IntrinsicParams: intrinsics,
-			ExtrinsicParams: extrinsics,
-			MimeTypes:       []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeH264},
-			FrameRate:       float32(10.0),
+			SupportsPCD:           true,
+			IntrinsicParams:       intrinsics,
+			ExtrinsicParams:       extrinsics,
+			MimeTypes:             []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeH264},
+			FrameRate:             float32(10.0),
+			DefaultReferenceFrame: testCameraName,
 		}, nil
 	}
 	injectCamera.ImagesFunc = func(
@@ -351,6 +352,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.ExtrinsicParameters.Translation.X, test.ShouldEqual, 1)
 		test.That(t, resp.ExtrinsicParameters.Translation.Y, test.ShouldEqual, 2)
 		test.That(t, resp.ExtrinsicParameters.Translation.Z, test.ShouldEqual, 3)
+		test.That(t, resp.DefaultReferenceFrame, test.ShouldEqual, testCameraName)
 
 		// test property when we don't set frame rate
 		resp2, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: depthCameraName})
