@@ -83,8 +83,13 @@ func TestNATType(t *testing.T) {
 	})
 
 	t.Run("endpoint independent", func(t *testing.T) {
-		s := HealthSnapshot{UDP: STUNSummary{SuccessCount: 7, Total: 7}}
+		s := HealthSnapshot{UDP: STUNSummary{SuccessCount: 7, Total: 7, MappedAddrSamples: 7}}
 		test.That(t, s.NATType(), test.ShouldEqual, "endpoint-independent")
+	})
+
+	t.Run("unknown with a single sample", func(t *testing.T) {
+		s := HealthSnapshot{UDP: STUNSummary{SuccessCount: 1, Total: 7, MappedAddrSamples: 1}}
+		test.That(t, s.NATType(), test.ShouldEqual, "unknown")
 	})
 
 	// Without any successful response there is no mapped address to compare, so
@@ -267,6 +272,7 @@ func TestSummarizeSTUN(t *testing.T) {
 		test.That(t, s.SuccessCount, test.ShouldEqual, 2)
 		test.That(t, s.Total, test.ShouldEqual, 2)
 		test.That(t, s.HardNAT, test.ShouldBeFalse)
+		test.That(t, s.MappedAddrSamples, test.ShouldEqual, 2)
 	})
 
 	t.Run("changing address over udp is hard nat", func(t *testing.T) {

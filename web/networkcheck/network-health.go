@@ -51,6 +51,9 @@ type STUNSummary struct {
 	Status              FamilyStatus
 	SuccessCount, Total int
 	HardNAT             bool
+	// Number of STUN responses carrying mapped address
+	//  Comparing two is the minimum needed to classify the mapping
+	MappedAddrSamples int
 }
 
 // PacketLossSummary condenses a TestPacketLoss run. Pointer fields are nil when
@@ -95,6 +98,8 @@ func (s HealthSnapshot) NATType() string {
 		return "unknown"
 	case s.UDP.HardNAT:
 		return "hard"
+	case s.UDP.MappedAddrSamples < 2:
+		return "unknown"
 	default:
 		return "endpoint-independent"
 	}
@@ -170,6 +175,7 @@ func summarizeSTUN(responses []*STUNResponse, network string) STUNSummary {
 		if r.BindResponseAddr == nil {
 			continue
 		}
+		s.MappedAddrSamples++
 		if expectedBindResponseAddr == "" {
 			expectedBindResponseAddr = *r.BindResponseAddr
 			continue
