@@ -18,3 +18,4 @@ go.viam.com/rdk/cli
 go.viam.com/rdk/services/shell
 go.viam.com/rdk/services/shell/builtin
 go.viam.com/rdk/services/shell/testutils
+go.viam.com/rdk/components/camera/videosource
