@@ -234,9 +234,6 @@ func logDNSResults(
 	systemdResolvedConfContents string,
 	verbose bool,
 ) {
-	if unknown := len(dnsResults) - (s.ConnectionsTotal + s.ResolutionsTotal); unknown > 0 {
-		logger.Warnf("Skipped %d DNS result(s) with an unknown test type", unknown)
-	}
 	systemMsg := fmt.Sprintf(
 		"%d/%d dns connection and %d/%d dns resolution tests succeeded",
 		s.ConnectionsOK,
@@ -245,6 +242,16 @@ func logDNSResults(
 		s.ResolutionsTotal,
 	)
 	keysAndValues := []any{"dns_tests", stringifyDNSResults(dnsResults)}
+
+	// An unknown-type result counts toward neither total, so it never trips the
+	// failure path below; without the details here a non-verbose run would report
+	// a count and nothing else.
+	if unknown := len(dnsResults) - (s.ConnectionsTotal + s.ResolutionsTotal); unknown > 0 {
+		logger.Warnw(
+			fmt.Sprintf("Skipped %d DNS result(s) with an unknown test type", unknown),
+			keysAndValues...,
+		)
+	}
 
 	if s.ConnectionsOK < s.ConnectionsTotal || s.ResolutionsOK < s.ResolutionsTotal {
 		logger.Warnw(systemMsg, keysAndValues...)
