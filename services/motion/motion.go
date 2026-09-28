@@ -248,18 +248,16 @@ type PlanWithStatus struct {
 //
 // MoveOnMap example:
 //
-//	// Assumes a base with the name "my_base" is configured on the machine
-//	myBaseResourceName := base.Named("my_base")
-//	mySLAMServiceResourceName := slam.Named("my_slam_service")
+//	// Assumes a base named "my_base" and a SLAM service named "my_slam_service" are configured on the machine
 //
 //	// Define a destination Pose
 //	myPose := spatialmath.NewPoseFromPoint(r3.Vector{Y: 10})
 //
 //	// Move the base component to the destination pose
 //	executionID, err := motionService.MoveOnMap(context.Background(), motion.MoveOnMapReq{
-//		ComponentName: myBaseResourceName,
+//		ComponentName: "my_base",
 //		Destination:   myPose,
-//		SlamName:      mySLAMServiceResourceName,
+//		SlamName:      "my_slam_service",
 //	})
 //
 //	// MoveOnMap is a non-blocking method and this line can optionally be added to block until the movement is done
@@ -268,7 +266,7 @@ type PlanWithStatus struct {
 //		motionService,
 //		time.Duration(time.Second),
 //		motion.PlanHistoryReq{
-//			ComponentName: myBaseResourceName,
+//			ComponentName: "my_base",
 //			ExecutionID:   executionID,
 //		},
 //	)
@@ -277,19 +275,16 @@ type PlanWithStatus struct {
 //
 // MoveOnGlobe example:
 //
-//	// Assumes a base with the name "myBase" is configured on the machine
-//	// Get the resource names of the base and movement sensor
-//	myBaseResourceName := base.Named("myBase")
-//	myMvmntSensorResourceName := movementsensor.Named("my_movement_sensor")
+//	// Assumes a base named "myBase" and a movement sensor named "my_movement_sensor" are configured on the machine
 //
 //	// Define a destination Point at the GPS coordinates [0, 0]
 //	myDestination := geo.NewPoint(0, 0)
 //
 //	// Move the base component to the designated geographic location, as reported by the movement sensor
 //	executionID, err := motionService.MoveOnGlobe(context.Background(), motion.MoveOnGlobeReq{
-//		ComponentName:      myBaseResourceName,
+//		ComponentName:      "myBase",
 //		Destination:        myDestination,
-//		MovementSensorName: myMvmntSensorResourceName,
+//		MovementSensorName: "my_movement_sensor",
 //	})
 //
 //	// Assumes there is an active MoveOnMap() or MoveonGlobe() in progress for myBase
@@ -299,7 +294,7 @@ type PlanWithStatus struct {
 //		motionService,
 //		time.Duration(time.Second),
 //		motion.PlanHistoryReq{
-//			ComponentName: myBaseResourceName,
+//			ComponentName: "myBase",
 //			ExecutionID:   executionID,
 //		},
 //	)
@@ -309,15 +304,11 @@ type PlanWithStatus struct {
 // StopPlan example:
 //
 //	motionService, err := motion.FromProvider(machine, "builtin")
-//	myBaseResourceName := base.Named("myBase")
 //
-//	myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
-//	myDestination := geo.NewPoint(0, 0)
-//
-//	// Assuming a `MoveOnGlobe()`` started the execution
+//	// Assuming a `MoveOnGlobe()` started the execution
 //	// Stop the base component which was instructed to move by `MoveOnGlobe()` or `MoveOnMap()`
-//	err := motionService.StopPlan(context.Background(), motion.StopPlanReq{
-//	    ComponentName: s.req.ComponentName,
+//	err = motionService.StopPlan(context.Background(), motion.StopPlanReq{
+//		ComponentName: "myBase",
 //	})
 //
 // For more information, see the [StopPlan method docs].
@@ -333,12 +324,9 @@ type PlanWithStatus struct {
 //
 // PlanHistory example:
 //
-//	// Get the resource name of the base component
-//	myBaseResourceName := base.Named("myBase")
-//
 //	// Get the plan history of the base component's most recent execution (e.g., MoveOnGlobe or MoveOnMap call)
 //	planHistory, err := motionService.PlanHistory(context.Background(), motion.PlanHistoryReq{
-//		ComponentName: myBaseResourceName,
+//		ComponentName: "myBase",
 //	})
 //
 // For more information, see the [PlanHistory method docs].
