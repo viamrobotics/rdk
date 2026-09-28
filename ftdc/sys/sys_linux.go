@@ -3,23 +3,16 @@
 package sys
 
 import (
-	"os"
 	"time"
 
 	"github.com/prometheus/procfs"
 )
 
-// On linux, getting the page size is a system call. Cache the page size for the entirety of the
-// program lifetime. As opposed to calling it each time we wish to compute the resident memory a
-// program is using.
-var (
-	osPageSize                    int
-	machineBootTimeSecsSinceEpoch float64
-)
+// machineBootTimeSecsSinceEpoch is cached for the program's lifetime so we can convert a process'
+// boot-relative start time into an absolute one without re-reading /proc/stat on every sample.
+var machineBootTimeSecsSinceEpoch float64
 
 func init() {
-	osPageSize = os.Getpagesize()
-
 	machine, err := procfs.NewDefaultFS()
 	if err != nil {
 		return
@@ -65,6 +58,14 @@ func (sys *UsageStatser) Stats() any {
 		return stats{}
 	}
 
+	// Memory usage comes from /proc/<pid>/status rather than /proc/<pid>/stat. Under qemu-user
+	// (how we run emulated 32-bit armhf) the memory fields of /proc/<pid>/stat are hard-coded to 0,
+	// whereas /proc/<pid>/status is passed through. VmRSS/VmSize are reported in bytes.
+	status, err := sys.proc.NewStatus()
+	if err != nil {
+		return stats{}
+	}
+
 	// relativeStartTimeSecs is the time the program started in seconds since the machine was
 	// booted.
 	relativeStartTimeSecs := float64(stat.Starttime) / float64(userHz)
@@ -77,7 +78,7 @@ func (sys *UsageStatser) Stats() any {
 		UserCPUSecs:     float64(stat.UTime) / float64(userHz),
 		SystemCPUSecs:   float64(stat.STime) / float64(userHz),
 		ElapsedTimeSecs: float64(time.Now().UnixNano())/nanosPerSecond - absoluteStartTimeSecs,
-		VssMB:           float64(stat.VSize) / 1_000_000.0,
-		RssMB:           float64(stat.RSS*osPageSize) / 1_000_000.0,
+		VssMB:           float64(status.VmSize) / 1_000_000.0,
+		RssMB:           float64(status.VmRSS) / 1_000_000.0,
 	}
 }
