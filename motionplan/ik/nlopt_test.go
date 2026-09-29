@@ -130,3 +130,39 @@ func BenchmarkNloptSolve(b *testing.B) {
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
+
+// A seed just above a pinned joint's zero-width window, as a roadmap seed harvested from an earlier
+// plan can be, must be pulled inside the widened bounds. Clamping it defaultGoalThreshold in from
+// the upper bound before widening put it below the lower bound, and nlopt rejected it with
+// INVALID_ARGS. (A seed below the window already landed on the widened upper bound.)
+func TestNloptSeedOutsidePinnedJoint(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	pinned := 0.5
+	target := []float64{pinned, 1, -1, 1, 1, 0}
+	solveFunc := func(_ context.Context, inputs []float64) float64 {
+		total := 0.0
+		for i, v := range inputs {
+			d := v - target[i]
+			total += d * d
+		}
+		return total
+	}
+	limits := append([]referenceframe.Limit{}, m.DoF()...)
+	limits[0] = referenceframe.Limit{Min: pinned, Max: pinned}
+
+	for _, offset := range []float64{1e-9, 1e-3} {
+		seed := append([]float64{}, target...)
+		seed[0] += offset
+
+		// Fewer than 10 iterations runs exactly that many, with no time-based extension.
+		ik, err := CreateNloptSolver(logger, 5, false, true, time.Second)
+		test.That(t, err, test.ShouldBeNil)
+		var totalAttempts atomic.Int32
+		solutions, _, err := DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{limits})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(solutions), test.ShouldBeGreaterThan, 0)
+	}
+}

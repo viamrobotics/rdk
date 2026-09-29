@@ -440,3 +440,45 @@ func TestSmartSeedPallette2(t *testing.T) {
 	}
 	test.That(t, anyContains, test.ShouldBeTrue)
 }
+
+// A joint with no range, such as one pinned by an input_range_override, contributes a single
+// cache sample. Before this was handled its zero jog never advanced, and building the cache grew
+// without bound until the process ran out of memory.
+func TestSmartSeedCacheZeroWidthLimit(t *testing.T) {
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+	logger := logging.NewTestLogger(t)
+
+	cacheSize := func(f referenceframe.Frame) int {
+		t.Helper()
+		ccf, err := newCacheForFrame(f, logger)
+		test.That(t, err, test.ShouldBeNil)
+		return ccf.totalSize
+	}
+	pin := func(m referenceframe.Model, joint int) referenceframe.Model {
+		t.Helper()
+		sm, ok := m.(*referenceframe.SimpleModel)
+		test.That(t, ok, test.ShouldBeTrue)
+		v := (sm.DoF()[joint].Min + sm.DoF()[joint].Max) / 2
+		pinned, err := referenceframe.NewModelWithLimitOverrides(sm, map[string]referenceframe.Limit{
+			sm.MoveableFrameNames()[joint]: {Min: v, Max: v},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		return pinned
+	}
+
+	ur5e, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "ur5e")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cacheSize(ur5e), test.ShouldEqual, totalCacheSizeEstimate(6))
+	// Pinning the base joint collapses its arm6JogRatios[0]+1 samples to one.
+	test.That(t, cacheSize(pin(ur5e, 0)), test.ShouldEqual, totalCacheSizeEstimate(6)/int(1+arm6JogRatios[0]))
+
+	gripper, err := referenceframe.ParseModelJSONFile(
+		utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "gripper")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gripper.DoF(), test.ShouldHaveLength, 1)
+	test.That(t, cacheSize(gripper), test.ShouldEqual, int(defaultDivisor)+1)
+	test.That(t, cacheSize(pin(gripper, 0)), test.ShouldEqual, 1)
+}
