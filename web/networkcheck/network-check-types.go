@@ -10,9 +10,9 @@ import (
 // gatewayResultDescription is the Description value set on a PacketLossResult for the router probe.
 const gatewayResultDescription = "router"
 
-// ispHighLossThreshold is the loss level above which internet connectivity is
-// described as spotty rather than merely lossy.
-const ispHighLossThreshold = 50
+// ispHighLossPctThreshold is the packet loss percentage above which internet
+// connectivity is described as spotty rather than merely lossy.
+const ispHighLossPctThreshold = 50
 
 // PacketLossResult holds the results of a packet loss probe to a specific host.
 type PacketLossResult struct {
@@ -82,7 +82,7 @@ func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, s 
 		keysAndValues = append(keysAndValues,
 			"note", "ISP target ("+ispProbeTarget+") could not be measured; internet connectivity is unknown",
 		)
-	case s.ISPLossPct != nil && *s.ISPLossPct > ispHighLossThreshold:
+	case s.ISPLossPct != nil && *s.ISPLossPct > ispHighLossPctThreshold:
 		keysAndValues = append(keysAndValues,
 			"note", "ISP target ("+ispProbeTarget+") has high packet loss; internet connectivity may be spotty",
 		)
