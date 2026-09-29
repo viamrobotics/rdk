@@ -1656,7 +1656,7 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
 	}
 
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	modCfgs := []config.Module{
 		{
 			Name: "test-module",
@@ -1688,53 +1688,71 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Add a resource -- this is simply to invoke the `kill_module` command.
-	res, err := mgr.AddResource(ctx, resource.Config{
+	resCfg := resource.Config{
 		Name:  "foo",
 		API:   generic.API,
 		Model: resource.NewModel("rdk", "test", "helper2"),
-	}, nil)
+	}
+	res, err := mgr.AddResource(ctx, resCfg, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mgr.IsModularResource(generic.Named("foo")), test.ShouldBeTrue)
 
-	// Kill the module a few times for good measure.
+	// Kill the module a few times for good measure. Remember when the module was last seen coming
+	// back up: FTDC samples that land while a module process is dead report zeroed out stats, so
+	// only readings taken after the final restart are expected to be positive.
+	var lastRestart int64
 	for idx := 0; idx < 3; idx++ {
 		_, _ = res.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 
+		testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 200, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Module resources to be re-added after module restart").Len(),
+				test.ShouldEqual, idx+1)
+		})
+		lastRestart = time.Now().UnixNano()
+
+		// The crash severed the connection this resource was using. Re-add it such that the next
+		// iteration can kill the module again. On a real robot the resource manager does this via
+		// the `handleOrphanedResources` callback.
+		res, err = mgr.AddResource(ctx, resCfg, nil)
+		test.That(t, err, test.ShouldBeNil)
+
 		// FTDC is running in the background with a one second interval. So we sleep for two seconds
-		// and cross our fingers we don't get a poor scheduler execution. The assertions are
-		// intentionally weak to minimize the risk of false positives (a test failure with correct
-		// production code).
+		// such that it takes at least one sample of the restarted module process.
 		time.Sleep(2 * time.Second)
 	}
 
-	mgr.Close(ctx)
+	// Stop FTDC before closing the mod manager. Otherwise FTDC can sample a module process that
+	// mod manager is in the middle of shutting down.
 	opts.FTDC.StopAndJoin(ctx)
+	mgr.Close(ctx)
 
 	datums, _ /*variable lastTimestampRead*/, err := ftdc.Parse(ftdcData)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Info("Num ftdc datums:", len(datums))
 
-	// Keep count of the number of `ElapsedTimeSecs` readings we encounter. It is a testing bug if
-	// we don't see any process FTDC metrics for the module.
-	numModuleElapsedTimeMetricsSeen := 0
+	// Keep count of the `ElapsedTimeSecs` readings taken after the module came back up for the last
+	// time. Those readings must all be positive -- a zero means FTDC was querying the PID of a
+	// process that is no longer running.
+	numReadingsAfterLastRestart := 0
 	for _, datum := range datums {
 		for _, reading := range datum.Readings {
-			if reading.MetricName == "proc.modules.test-module.ElapsedTimeSecs" {
-				logger.Infow("Reading", "timestamp", datum.Time, "elapsedTimeSecs", reading.Value)
-				numModuleElapsedTimeMetricsSeen++
-				// Dan: I don't have a good reason to believe that we can't (legitimately) observe
-				// an `ElapsedTimeSecs` of 0 here. It's more likely we'd see a 0 because we queried
-				// a bad PID.
-				//
-				// If my assumption is wrong and we get a false positive here, we can reevaluate the
-				// options for making a more robust test.
-				test.That(t, reading.Value, test.ShouldBeGreaterThan, 0)
+			if reading.MetricName != "proc.modules.test-module.ElapsedTimeSecs" {
+				continue
 			}
+
+			logger.Infow("Reading", "timestamp", datum.Time, "elapsedTimeSecs", reading.Value)
+			if datum.Time <= lastRestart {
+				continue
+			}
+
+			numReadingsAfterLastRestart++
+			test.That(t, reading.Value, test.ShouldBeGreaterThan, 0)
 		}
 	}
 
-	// Assert that we saw at least one datapoint before considering the test a success.
-	test.That(t, numModuleElapsedTimeMetricsSeen, test.ShouldBeGreaterThan, 0)
+	// It is a testing bug if we don't see any process FTDC metrics for the restarted module.
+	test.That(t, numReadingsAfterLastRestart, test.ShouldBeGreaterThan, 0)
 }
 
 func TestFirstRun(t *testing.T) {
