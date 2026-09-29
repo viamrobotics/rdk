@@ -3517,4 +3517,36 @@ func TestRetryableCopy(t *testing.T) {
 		errMsg := strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldContainSubstring, "does not have the shell service enabled")
 	})
+
+	t.Run("LoggedOutError", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			return fmt.Errorf("token refresh failed — %w", errLoggedOut)
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		// The copy must abort on the first attempt; retrying cannot recover from a logout.
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
+		test.That(t, attempts, test.ShouldEqual, 1)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
+	})
 }

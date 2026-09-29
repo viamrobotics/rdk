@@ -544,9 +544,9 @@ func (c *viamClient) refreshAuthIfExpired(ctx context.Context) (bool, error) {
 		}
 		utils.UncheckedError(c.logout())
 		if errors.Is(err, errTokenExpired) {
-			return false, errors.New("token expired and cannot refresh, logging out. Please log in again")
+			return false, fmt.Errorf("token expired and cannot be refreshed — %w", errLoggedOut)
 		}
-		return false, err
+		return false, fmt.Errorf("token refresh failed — %w", errLoggedOut)
 	}
 	return refreshed.AccessToken != previous.AccessToken, nil
 }

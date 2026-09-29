@@ -389,7 +389,27 @@ func TestRefreshAuthIfExpired(t *testing.T) {
 
 		_, err := ac.refreshAuthIfExpired(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "token expired and cannot refresh")
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "token expired and cannot be refreshed")
+		test.That(t, ac.conf.Auth, test.ShouldBeNil)
+	})
+
+	t.Run("failed refresh logs out and returns errLoggedOut", func(t *testing.T) {
+		useTempCLICache(t)
+
+		// Refresh server returns 500 to simulate a transient (or permanent) server error.
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, `{"error":"server_error","error_description":"internal error"}`, http.StatusInternalServerError)
+		}))
+		t.Cleanup(srv.Close)
+
+		_, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, "token")
+		ac.authFlow = newCLIAuthFlow(io.Discard, true)
+		ac.conf.Auth = expiredToken(srv.URL)
+
+		_, err := ac.refreshAuthIfExpired(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
 		test.That(t, ac.conf.Auth, test.ShouldBeNil)
 	})
 

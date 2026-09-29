@@ -6329,6 +6329,12 @@ func (c *viamClient) retryableCopy(
 			return attempt, copyErr
 		}
 
+		// The CLI was logged out during a token refresh; retrying cannot recover.
+		if errors.Is(copyErr, errLoggedOut) {
+			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+			return attempt, copyErr
+		}
+
 		// Print special warning for invalid argument, permission denied, and not found errors (in addition to regular error)
 		// These codes describe the shell service's answer, so they are only conclusive once we
 		// reached it: a part we never connected to reports being offline as NotFound too, and
