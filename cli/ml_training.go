@@ -203,7 +203,7 @@ func RegisterContainer(ctx context.Context, cmd *cli.Command, args registerConta
 		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
 	}
 	if args.Description == "" {
-		return errors.New ("must provide a description")
+		return errors.New("must provide a description")
 	}
 
 	client, err := newViamClient(ctx, cmd)
