@@ -31,10 +31,6 @@ const partialsDirName = "part"
 // cleanup partial downloads that were started this long ago
 const maxPartialAge = 72 * time.Hour
 
-// ERROR_SHARING_VIOLATION is the Windows error os.RemoveAll returns when the directory is in use by
-// another process. Declared as syscall.Errno so errors.Is matches directly (no string parsing).
-const errWindowsSharingViolation = syscall.Errno(32)
-
 // diskSpaceBlockingEnabled reports whether viam-server should refuse an operation (download,
 // local copy, or unpack) when space is low. Default (unset) is false: low space is logged but the
 // operation proceeds (log-only). CheckDiskSpace takes this as an argument so each caller sets its
@@ -205,6 +201,10 @@ func installPackage(
 
 	return nil
 }
+
+// ERROR_SHARING_VIOLATION is the Windows error os.RemoveAll returns when the directory is in use by
+// another process. Declared as syscall.Errno so errors.Is matches directly (no string parsing).
+const errWindowsSharingViolation = syscall.Errno(32)
 
 // describeReplaceDirError explains why removing the existing package directory at path failed. An
 // ERROR_SHARING_VIOLATION means a process is holding the directory open; any other error stays
