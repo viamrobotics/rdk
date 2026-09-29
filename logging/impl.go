@@ -156,13 +156,19 @@ func (imp *impl) activityLogger() *impl {
 }
 
 // Activity emits an activity event through this logger's activity logger
-// (<root>.activity). It always emits regardless of any configured level and is never
-// deduplicated. Callers must not set "activity" or "event" in keysAndValues.
+// (<root>.activity), at INFO and never deduplicated. The emitting logger's level does not
+// apply; <root>.activity carries its own, so a log pattern matching it is what quiets the
+// feed, and silencing it outright is supported. As for any logger, global debug emits
+// regardless of level. Callers must not set "activity" or "event" in keysAndValues.
 //
 // The log body lives here rather than in a shared helper so the call depth matches the
 // standard logger methods and getCaller attributes the entry to the Activity call site.
 func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
 	al := imp.activityLogger()
+	if !al.shouldLog(INFO) {
+		return
+	}
+
 	// Prepend so activity and event lead the rendered fields.
 	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
 	entry := al.formatw(INFO, emptyTraceKey, "", keysAndValues...)
