@@ -2278,7 +2278,7 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.StringFlag{
 									Name:     mlTrainingFlagDescription,
-									Usage:    "used as container display name in UI, defaults to the image URI if not provided",
+									Usage:    "acts as the container display name",
 									Required: true,
 								},
 							},
