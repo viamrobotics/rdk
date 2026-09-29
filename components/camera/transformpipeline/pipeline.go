@@ -62,7 +62,8 @@ func init() {
 				}
 				return src, nil
 			},
-		})
+		},
+	)
 }
 
 // transformConfig specifies a stream and list of transforms to apply on images/pointclouds coming from a source camera.

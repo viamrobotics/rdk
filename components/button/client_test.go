@@ -49,7 +49,8 @@ func TestClient(t *testing.T) {
 
 	buttonSvc, err := resource.NewAPIResourceCollection(
 		button.API,
-		map[resource.Name]button.Button{button.Named(testButtonName): injectButton, button.Named(failButtonName): injectButton2})
+		map[resource.Name]button.Button{button.Named(testButtonName): injectButton, button.Named(failButtonName): injectButton2},
+	)
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[button.Button](button.API)
 	test.That(t, err, test.ShouldBeNil)

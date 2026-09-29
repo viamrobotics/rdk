@@ -165,7 +165,8 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 				return nil, err
 			}
 			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
-				gifs.Geometries())}, nil
+				gifs.Geometries(),
+			)}, nil
 		}
 		return nil, err
 	}

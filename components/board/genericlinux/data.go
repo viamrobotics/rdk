@@ -116,7 +116,8 @@ func getPwmChipDefs(pinDefs []PinDefinition, logger logging.Logger) (map[string]
 			symlink, err := os.Readlink(filepath.Join(sysfsDir, file.Name()))
 			if err != nil {
 				logger.Errorw(
-					"file is not symlink", "file", file.Name(), "err:", err)
+					"file is not symlink", "file", file.Name(), "err:", err,
+				)
 				continue
 			}
 
@@ -160,7 +161,8 @@ func getBoardMapping(pinDefs []PinDefinition, pwmChipsInfo map[string]pwmChipDat
 				pwmChipInfo = dummyPwmInfo
 			} else {
 				logger.Errorw(
-					"cannot find expected hardware PWM chip, continuing without it", "pin", pinDef.Name)
+					"cannot find expected hardware PWM chip, continuing without it", "pin", pinDef.Name,
+				)
 				pwmChipInfo = dummyPwmInfo
 			}
 		}

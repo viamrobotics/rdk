@@ -74,7 +74,8 @@ func TestSmartSeedCache1(t *testing.T) {
 			start.Get("ur5e"),
 			goal,
 			10,
-			logger)
+			logger,
+		)
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
 		test.That(t, err, test.ShouldBeNil)
 		best := 100000.0

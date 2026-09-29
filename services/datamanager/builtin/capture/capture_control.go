@@ -80,7 +80,7 @@ func (c *Capture) buildEffectiveCollectors(
 
 		// create a fresh data capture config from the resolved resource.
 		result := applyOverride(datamanager.DataCaptureConfig{
-			Name:             res.Name(),
+			Name:             res.Name().PopRemote(),
 			Method:           override.MethodName,
 			CaptureDirectory: c.captureDir,
 			Tags:             c.defaultTags,

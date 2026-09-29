@@ -107,7 +107,8 @@ func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
 	// github url but missing owner/repo: the cloud build will definitely fail, so hard-fail early
 	if len(parts) < 2 || parts[1] == "" {
 		return "", "", false, fmt.Errorf(
-			"meta.json url %q is missing the repo path (expected https://github.com/<owner>/<repo>)", repoURL)
+			"meta.json url %q is missing the repo path (expected https://github.com/<owner>/<repo>)", repoURL,
+		)
 	}
 	return parts[0], strings.TrimSuffix(parts[1], ".git"), true, nil
 }
@@ -1101,7 +1102,8 @@ func (c *viamClient) moduleBuildStartFromSource(
 	}
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return "", errors.New(
-			"your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
+			"your meta.json cannot have an empty build step. See 'viam module build --help' for more information",
+		)
 	}
 
 	moduleID, err := parseModuleID(manifest.ModuleID)
@@ -1782,7 +1784,8 @@ func reloadModuleActionInner(
 	}
 	var newPart *apppb.RobotPart
 	newPart, needsRestart, err = configureModule(
-		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest)
+		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix(), dest,
+	)
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {
@@ -1823,7 +1826,7 @@ func reloadModuleActionInner(
 		if err := pm.Start("wait"); err != nil {
 			return err
 		}
-		moduleName := localizeModuleID(manifest.ModuleID)
+		moduleName := configuredModuleName(part.Part, manifest.ModuleID)
 		modStatus, err := vc.waitForModuleReload(ctx, cmd, part.Part, moduleName, reloadTime, logger)
 		if err != nil {
 			_ = pm.Fail("wait", err)                                 //nolint:errcheck
@@ -1845,6 +1848,9 @@ func reloadModuleActionInner(
 	}
 
 	if args.ModelName != "" {
+		if err := vc.redialApp(ctx); err != nil {
+			return err
+		}
 		if err := pm.Start("resource"); err != nil {
 			return err
 		}
@@ -2027,6 +2033,9 @@ func restartModule(
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	restartReq, err := resolveTargetModule(cmd, manifest)
 	if err != nil {
+		return err
+	}
+	if err := vc.redialApp(ctx); err != nil {
 		return err
 	}
 	apiRes, err := vc.client.GetRobotAPIKeys(ctx, &apppb.GetRobotAPIKeysRequest{RobotId: part.Robot})

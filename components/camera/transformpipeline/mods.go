@@ -73,7 +73,7 @@ func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	case camera.ColorStream, camera.UnspecifiedStream:
 		// imaging.Rotate rotates an image counter-clockwise but our rotate function rotates in the
 		// clockwise direction. The angle is negated here for consistency.
-		return imaging.Rotate(orig, -(rs.angle), color.Black), release, nil
+		return imaging.Rotate(orig, -rs.angle, color.Black), release, nil
 	case camera.DepthStream:
 		dm, err := rimage.ConvertImageToDepthMap(ctx, orig)
 		if err != nil {

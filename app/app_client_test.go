@@ -1593,6 +1593,22 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, expectedRobots)
 	})
 
+	t.Run("ListRobotsForLocations", func(t *testing.T) {
+		expectedRobots := []*Robot{&robot}
+		locationIDs := []string{locationID, parentLocationID}
+		grpcClient.ListRobotsForLocationsFunc = func(
+			ctx context.Context, in *pb.ListRobotsForLocationsRequest, opts ...grpc.CallOption,
+		) (*pb.ListRobotsForLocationsResponse, error) {
+			test.That(t, in.LocationIds, test.ShouldResemble, locationIDs)
+			return &pb.ListRobotsForLocationsResponse{
+				Robots: []*pb.Robot{&pbRobot},
+			}, nil
+		}
+		resp, err := client.ListRobotsForLocations(context.Background(), locationIDs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, expectedRobots)
+	})
+
 	t.Run("NewRobot", func(t *testing.T) {
 		grpcClient.NewRobotFunc = func(
 			ctx context.Context, in *pb.NewRobotRequest, opts ...grpc.CallOption,

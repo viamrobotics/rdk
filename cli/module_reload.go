@@ -39,6 +39,9 @@ func configureModule(
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
+	if err := vc.redialApp(ctx); err != nil {
+		return part, false, err
+	}
 	args, err := getGlobalArgs(cmd)
 	if err != nil {
 		return part, false, err
@@ -53,7 +56,8 @@ func configureModule(
 			return err
 		}
 		cfgJSON, needsRestart, err = mutateModuleConfig(
-			cmd, cfgJSON, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS, remoteDest)
+			cmd, cfgJSON, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS, remoteDest,
+		)
 		if err != nil {
 			return err
 		}
@@ -509,6 +513,22 @@ func newModulePairs(moduleID, entryPoint, reloadUser, reloadTime, annotation str
 // TODO(APP-4019): remove this logic after registry modules can have local ExecPath.
 func localizeModuleID(moduleID string) string {
 	return strings.ReplaceAll(moduleID, ":", "_")
+}
+
+// configuredModuleName returns the config's name for the module entry whose module_id matches,
+// falling back to localizeModuleID. Configs written by older CLIs name reload entries
+// "<namespace>_<moduleName>_from_reload", so the name cannot be derived from the module ID.
+func configuredModuleName(part *apppb.RobotPart, moduleID string) string {
+	if cfgJSON, err := partConfigJSON(part); err == nil {
+		for _, mod := range gjson.Get(cfgJSON, "modules").Array() {
+			if mod.Get("module_id").String() == moduleID {
+				if name := mod.Get("name").String(); name != "" {
+					return name
+				}
+			}
+		}
+	}
+	return localizeModuleID(moduleID)
 }
 
 // reloadUser returns the identity string to stamp on reload configs.

@@ -1984,6 +1984,25 @@ func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot
 	return robots, nil
 }
 
+// ListRobotsForLocations gets the robots across all of the given locations in one call.
+//
+// ListRobotsForLocations example:
+//
+//	robots, err := cloud.ListRobotsForLocations(context.Background(), []string{"ab1c2d3e45", "bc2d3e4f56"})
+func (c *AppClient) ListRobotsForLocations(ctx context.Context, locationIDs []string) ([]*Robot, error) {
+	resp, err := c.client.ListRobotsForLocations(ctx, &pb.ListRobotsForLocationsRequest{
+		LocationIds: locationIDs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var robots []*Robot
+	for _, robot := range resp.Robots {
+		robots = append(robots, robotFromProto(robot))
+	}
+	return robots, nil
+}
+
 // NewRobot creates a new robot and returns its ID.
 //
 // NewRobot example:
@@ -2782,7 +2801,8 @@ func (c *AppClient) CreateKey(
 	var authorizations []*pb.Authorization
 	for _, keyAuthorization := range keyAuthorizations {
 		authorization := createAuthorization(
-			orgID, "", "api-key", keyAuthorization.role, keyAuthorization.resourceType, keyAuthorization.resourceID)
+			orgID, "", "api-key", keyAuthorization.role, keyAuthorization.resourceType, keyAuthorization.resourceID,
+		)
 		authorizations = append(authorizations, authorization)
 	}
 

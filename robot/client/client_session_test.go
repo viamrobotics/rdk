@@ -278,7 +278,8 @@ func TestClientSessionOptions(t *testing.T) {
 						}
 
 						test.That(t, svc.Close(ctx), test.ShouldBeNil)
-					})
+					},
+				)
 			}
 		}
 	}
@@ -492,7 +493,8 @@ func TestClientSessionExpiration(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				test.That(t, svc.Close(ctx), test.ShouldBeNil)
-			})
+			},
+		)
 	}
 }
 
@@ -660,7 +662,8 @@ func TestClientSessionResume(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				test.That(t, svc.Close(ctx), test.ShouldBeNil)
-			})
+			},
+		)
 	}
 }
 

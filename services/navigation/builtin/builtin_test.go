@@ -596,6 +596,11 @@ func TestNavSetUpFromFaultyConfig(t *testing.T) {
 		test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 		myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 		test.That(t, err, test.ShouldBeNil)
+		// Registered rather than deferred so the robot is still closed when an
+		// assertion below fails: a robot left running keeps goroutines that log
+		// through the test logger after the test has completed, which the race
+		// detector reports against whichever test runs next.
+		t.Cleanup(func() { test.That(t, myRobot.Close(ctx), test.ShouldBeNil) })
 		_, err = navigation.FromProvider(myRobot, "test_navigation")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, tc.expectedError)
@@ -1415,7 +1420,7 @@ func TestStartWaypoint(t *testing.T) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
-			executionID := executionIDs[(counter.Inc())]
+			executionID := executionIDs[counter.Inc()]
 			s.Lock()
 			defer s.Unlock()
 			if s.mogrs == nil {
@@ -1551,7 +1556,7 @@ func TestStartWaypoint(t *testing.T) {
 			if err := ctx.Err(); err != nil {
 				return uuid.Nil, err
 			}
-			executionID := executionIDs[(counter.Inc())]
+			executionID := executionIDs[counter.Inc()]
 			s.Lock()
 			defer s.Unlock()
 			if s.mogrs == nil {

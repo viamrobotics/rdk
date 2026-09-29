@@ -169,7 +169,7 @@ func (sb *sensorBase) calcHeadingControl(ctx context.Context, initHeading float6
 	}
 
 	headingErr := initHeading - currHeading
-	headingErrWrapped := headingErr - (math.Floor((headingErr+180.)/(2*180.)))*2*180. // [-180;180)
+	headingErrWrapped := headingErr - math.Floor((headingErr+180.)/(2*180.))*2*180. // [-180;180)
 
 	return headingErrWrapped * headingGain, nil
 }

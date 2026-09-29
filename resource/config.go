@@ -133,7 +133,8 @@ func NativeConfig[T any](conf Config) (T, error) {
 	if err != nil {
 		err = fmt.Errorf(
 			"incorrect config type: NativeConfig %w. Make sure the config type registered to the "+
-				"resource matches the one passed into NativeConfig", err)
+				"resource matches the one passed into NativeConfig", err,
+		)
 	}
 	return val, err
 }
@@ -336,7 +337,8 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, []string, e
 	if conf.Name == DefaultServiceName && !IsDefaultService(conf.Name, conf.API) {
 		return nil, nil, NewConfigValidationError(path, errors.Errorf(
 			"name %q is reserved for built-in default services and cannot be used by a %q resource",
-			DefaultServiceName, conf.API))
+			DefaultServiceName, conf.API,
+		))
 	}
 	if conf.ConvertedAttributes != nil {
 		var err error

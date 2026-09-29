@@ -44,7 +44,8 @@ func NewService(
 ) (Service, error) {
 	if cf == nil && df == nil && s3f == nil {
 		return nil, errors.Errorf(
-			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name)
+			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name,
+		)
 	}
 
 	p := Properties{false, false, false, nil}
@@ -91,7 +92,8 @@ func DeprecatedNewService(
 ) (Service, error) {
 	if cf == nil && df == nil && s3f == nil {
 		return nil, errors.Errorf(
-			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name)
+			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name,
+		)
 	}
 
 	p := Properties{false, false, false, nil}

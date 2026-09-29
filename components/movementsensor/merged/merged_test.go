@@ -141,7 +141,8 @@ func TestValidate(t *testing.T) {
 	// doesn't pass validate
 	conf := setUpCfg(
 		emptySensors, emptySensors /*pos*/, emptySensors, /*compass*/
-		emptySensors /*linvel*/, emptySensors /*angvel*/, emptySensors /*linacc*/)
+		emptySensors /*linvel*/, emptySensors /*angvel*/, emptySensors, /*linacc*/
+	)
 	implicits, _, err := conf.Validate("somepath", movementsensor.API.Type.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, implicits, test.ShouldBeNil)
@@ -149,14 +150,16 @@ func TestValidate(t *testing.T) {
 	// doesn't pass configuration
 	conf = setUpCfg(
 		oriSensors, emptySensors /*pos*/, emptySensors, /*compass*/
-		linvelSensors, emptySensors /*angvel*/, emptySensors /*linacc*/)
+		linvelSensors, emptySensors /*angvel*/, emptySensors, /*linacc*/
+	)
 	implicits, _, err = conf.Validate("somepath", movementsensor.API.Type.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, implicits, test.ShouldResemble, append(oriSensors, linvelSensors...))
 
 	conf = setUpCfg(
 		/*ori*/ emptySensors, emptySensors /*pos*/, emptySensors, /*comapss*/
-		linvelSensors /*linval*/, angvelSensors /*angvel*/, emptySensors /*linacc*/)
+		linvelSensors /*linval*/, angvelSensors /*angvel*/, emptySensors, /*linacc*/
+	)
 	implicits, _, err = conf.Validate("somepath", movementsensor.API.Type.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, implicits, test.ShouldResemble, append(linvelSensors, angvelSensors...))
@@ -169,7 +172,8 @@ func TestCreation(t *testing.T) {
 	// doesn't pass configuration
 	conf := setUpCfg(
 		oriSensors, emptySensors /*pos*/, emptySensors, /*compass*/
-		linvelSensors, emptySensors /*angvel*/, emptySensors /*linacc*/)
+		linvelSensors, emptySensors /*angvel*/, emptySensors, /*linacc*/
+	)
 
 	depmap := map[string]movementsensor.Properties{
 		linvelSensors[0]: emptyProps,                       // empty
@@ -186,7 +190,8 @@ func TestCreation(t *testing.T) {
 	// first time passing configuration with two merged sensors
 	conf = setUpCfg(
 		/*ori*/ emptySensors, emptySensors /*pos*/, emptySensors, /*comapss*/
-		linvelSensors /*linval*/, angvelSensors /*angvel*/, emptySensors /*linacc*/)
+		linvelSensors /*linval*/, angvelSensors /*angvel*/, emptySensors, /*linacc*/
+	)
 
 	depmap = map[string]movementsensor.Properties{
 		linvelSensors[0]: linvelProps,

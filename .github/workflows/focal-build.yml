@@ -16,7 +16,7 @@ on:
         type: choice
         options: [validate, focal]
   schedule:
-    - cron: '0 8 * * *' # daily, after docker.yml (6AM UTC) republishes the image
+    - cron: '0 8 * * *' # daily at 08:00 UTC, after docker.yml republishes the image
   workflow_call:
     inputs:
       release_type:
@@ -168,3 +168,13 @@ jobs:
         channel: ${{ steps.meta.outputs.channel }}
         arch: armv7l
         gcp-credentials: ${{ secrets.GCP_CREDENTIALS }}
+
+  slack-workflow-status:
+    name: Post Workflow Status To Slack
+    needs: [focal-static, focal-static-armhf]
+    # PR and dispatch runs report to whoever started them; only the nightly needs a channel.
+    if: failure() && github.event_name == 'schedule'
+    permissions:
+      actions: read
+    uses: ./.github/workflows/slack-failure.yml
+    secrets: inherit

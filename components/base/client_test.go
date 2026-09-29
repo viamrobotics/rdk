@@ -167,7 +167,8 @@ func TestClient(t *testing.T) {
 				context.Background(),
 				angleDeg,
 				degsPerSec,
-				map[string]interface{}{"foo": "bar"})
+				map[string]interface{}{"foo": "bar"},
+			)
 			test.That(t, err, test.ShouldBeNil)
 			expectedArgs := []interface{}{angleDeg, degsPerSec, expectedExtra}
 			test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)

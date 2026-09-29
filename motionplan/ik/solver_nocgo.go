@@ -38,6 +38,13 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	return 0, nil, errors.New("Cannot solve without cgo")
 }
 
+// SolveOnce refuses to solve problems without cgo.
+func (ik *NloptIK) SolveOnce(ctx context.Context, minFunc CostFunc,
+	seed []float64, limits []referenceframe.Limit,
+) ([]float64, error) {
+	return nil, errors.New("Cannot solve without cgo")
+}
+
 // DoF returns nil. The solver isn't real.
 func (ik *NloptIK) DoF() []referenceframe.Limit {
 	return []referenceframe.Limit{}

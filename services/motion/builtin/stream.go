@@ -5,22 +5,25 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/utils"
 )
 
 // Keys used in arm-streaming DoCommand requests and responses. streamKeyArm
 // names the arm both in DoStreamStart requests and in DoStreamStatus responses.
 const (
-	streamKeyArm     = "arm"
-	streamKeyOptions = "options"
-	streamKeyRunning = "running"
-	streamKeyError   = "error"
-	streamKeyOk      = "ok"
+	streamKeyArm               = "arm"
+	streamKeyOptions           = "options"
+	streamKeyRunning           = "running"
+	streamKeyError             = "error"
+	streamKeyOk                = "ok"
+	streamKeyLastWindowDetails = "last_window_details"
 )
 
 // stream manages a single arm-streaming session across start/push/abort/status
@@ -56,6 +59,10 @@ type stream struct {
 	// err is the error (if any) that caused the session to end. It is only
 	// safe to read after done is closed.
 	err error
+
+	opts streaming.StreamOptions
+
+	diagnostics *diagnostics.SingleSessionDiagnostics
 }
 
 func (s *stream) finished() bool {
@@ -127,21 +134,26 @@ func (ms *builtIn) streamStart(
 		return fmt.Errorf("failed to read seed joint positions from %q: %w", armName, err)
 	}
 
+	diag := diagnostics.New(time.Duration(opts.DiagnosticsWindowSecs) * time.Second)
+
 	streamCtx, cancel := context.WithCancel(context.Background())
 	s := &stream{
-		logger:  ms.logger.Sublogger("arm_streaming"),
-		armName: armName,
-		jpCh:    make(chan streaming.JointPositionsChItem),
-		cancel:  cancel,
-		done:    make(chan struct{}),
+		logger:      ms.logger.Sublogger("arm_streaming"),
+		armName:     armName,
+		jpCh:        make(chan streaming.JointPositionsChItem),
+		cancel:      cancel,
+		done:        make(chan struct{}),
+		opts:        opts,
+		diagnostics: diag,
 	}
 
 	go func() {
-		err := streaming.Run(streamCtx, a, opts, s.jpCh, seed)
+		err := streaming.Run(streamCtx, a, opts, s.jpCh, seed, s.diagnostics)
 		s.err = err
 		if err != nil {
 			s.logger.CWarnf(streamCtx, "arm streaming session ended with error: %v", err)
 		}
+		s.logger.Infow("arm streaming session stats", "options", s.opts, "stats", s.diagnostics.Stats())
 		close(s.done)
 	}()
 
@@ -223,22 +235,33 @@ func (ms *builtIn) streamAbort(ctx context.Context) map[string]any {
 	return status
 }
 
-func (ms *builtIn) streamStatus() map[string]any {
+func (ms *builtIn) streamStatus(includeLastWindowDetails bool) (map[string]any, error) {
 	ms.streamMu.RLock()
 	defer ms.streamMu.RUnlock()
 	if ms.stream == nil {
-		return map[string]any{streamKeyRunning: false}
+		return map[string]any{streamKeyRunning: false}, nil
+	}
+
+	if includeLastWindowDetails && ms.stream.opts.DiagnosticsWindowSecs <= 0 {
+		return nil, fmt.Errorf(
+			"%s was requested but diagnostics_window_secs is not positive, so it is not being retained",
+			streamKeyLastWindowDetails,
+		)
 	}
 
 	finished := ms.stream.finished()
 	status := map[string]any{
 		streamKeyRunning: !finished,
 		streamKeyArm:     ms.stream.armName,
+		streamKeyOptions: ms.stream.opts,
+	}
+	if includeLastWindowDetails {
+		status[streamKeyLastWindowDetails] = ms.stream.diagnostics.LastWindowDetails()
 	}
 	if finished && ms.stream.err != nil {
 		status[streamKeyError] = ms.stream.err.Error()
 	}
-	return status
+	return status, nil
 }
 
 func (ms *builtIn) handleStreamCommand(
@@ -279,11 +302,23 @@ func (ms *builtIn) handleStreamCommand(
 		return ms.streamAbort(ctx), true, nil
 	}
 
-	if _, ok := cmd[DoStreamStatus]; ok {
-		return ms.streamStatus(), true, nil
+	if req, ok := cmd[DoStreamStatus]; ok {
+		status, err := ms.streamStatus(parseIncludeLastWindowDetails(req))
+		return status, true, err
 	}
 
 	return nil, false, nil
+}
+
+// parseIncludeLastWindowDetails reports whether the caller opted in to the (potentially large)
+// last window details; anything other than {"last_window_details": true} is a cheap poll.
+func parseIncludeLastWindowDetails(req interface{}) bool {
+	m, ok := req.(map[string]interface{})
+	if !ok {
+		return false
+	}
+	include, _ := m[streamKeyLastWindowDetails].(bool)
+	return include
 }
 
 func parseStreamStart(req interface{}) (string, streaming.StreamOptions, error) {

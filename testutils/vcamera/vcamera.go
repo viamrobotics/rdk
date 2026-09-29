@@ -143,7 +143,8 @@ func startStream(config *Config, dev device) (<-chan struct{}, error) {
 			"! videoscale "+
 			"! video/x-raw,format=YUY2,width=%d,height=%d "+
 			"! v4l2sink device=/dev/video%s",
-		dev.resolution.Width, dev.resolution.Height, dev.key))
+		dev.resolution.Width, dev.resolution.Height, dev.key,
+	))
 
 	// capture output from stdout
 	stdout, err := cmd.StdoutPipe()

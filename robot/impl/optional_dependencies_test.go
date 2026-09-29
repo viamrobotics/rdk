@@ -184,7 +184,8 @@ func TestOptionalDependencies(t *testing.T) {
 		optionalChildModel,
 		resource.Registration[*optionalChild, *optionalChildConfig]{
 			Constructor: newOptionalChild,
-		})
+		},
+	)
 	defer resource.Deregister(generic.API, optionalChildModel)
 
 	// Reconfigure the robot to have an optional child component, its required motor, and no
@@ -702,7 +703,8 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 		optionalChildModel,
 		resource.Registration[*optionalChild, *optionalChildConfig]{
 			Constructor: newOptionalChild,
-		})
+		},
+	)
 	defer resource.Deregister(generic.API, optionalChildModel)
 
 	// Reconfigure the robot to have an optional child component with a required motor 'm' and an
@@ -1237,7 +1239,8 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		mutualOptionalChildModel,
 		resource.Registration[*mutualOptionalChild, *mutualOptionalChildConfig]{
 			Constructor: newMutualOptionalChild,
-		})
+		},
+	)
 	defer resource.Deregister(generic.API, mutualOptionalChildModel)
 
 	// Reconfigure the robot to have a mutual optional child component that is missing its
@@ -1584,7 +1587,8 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 		optionalChildModel,
 		resource.Registration[*optionalChild, *optionalChildConfig]{
 			Constructor: newOptionalChild,
-		})
+		},
+	)
 	defer resource.Deregister(generic.API, optionalChildModel)
 
 	// Configure the robot with:
@@ -1845,7 +1849,8 @@ func TestOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 		optionalChildModel,
 		resource.Registration[*optionalChild, *optionalChildConfig]{
 			Constructor: newOptionalChild,
-		})
+		},
+	)
 	defer resource.Deregister(generic.API, optionalChildModel)
 
 	// Configure the robot with:

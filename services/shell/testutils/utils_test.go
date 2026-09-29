@@ -1,6 +1,8 @@
 package shelltestutils
 
 import (
+	"errors"
+	"io/fs"
 	"testing"
 
 	"go.viam.com/test"
@@ -11,7 +13,10 @@ func TestDirectoryContentsEqual(t *testing.T) {
 
 	err := DirectoryContentsEqual(tfs.Root, tfs.SingleFileNested)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not a directory")
+	// the errno differs by platform (ENOTDIR on unix, ERROR_PATH_NOT_FOUND on Windows)
+	var pathErr *fs.PathError
+	test.That(t, errors.As(err, &pathErr), test.ShouldBeTrue)
+	test.That(t, pathErr.Path, test.ShouldEqual, tfs.SingleFileNested)
 
 	err = DirectoryContentsEqual(tfs.Root, tfs.InnerDir)
 	test.That(t, err, test.ShouldNotBeNil)

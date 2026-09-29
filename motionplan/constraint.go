@@ -1,8 +1,21 @@
 package motionplan
 
 import (
+	"errors"
+	"math"
+
+	"github.com/golang/geo/r3"
+	"gonum.org/v1/gonum/num/quat"
+
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
+
+// ErrOrientationConstraintViolated tags every orientation-tolerance failure
+// (from both OrientationConstraint and LinearConstraint checks) so callers
+// can tell an orientation violation apart from a collision with errors.Is
+// instead of matching message text.
+var ErrOrientationConstraintViolated = errors.New("orientation constraint violated")
 
 // Constraints is a struct to store the constraints imposed upon a robot
 // It serves as a convenenient RDK wrapper for the protobuf object.
@@ -56,13 +69,11 @@ type PseudolinearConstraint struct {
 // OrientationConstraint specifies that the components being moved will not deviate orientation beyond some threshold.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
-}
 
-func between(a, b, v float64) bool {
-	if a > b {
-		a, b = b, a
-	}
-	return v >= a && v <= b
+	// IgnoreTheta scores only the angle between orientation vectors, dropping
+	// rotation about the frame's own pointing axis. Set it for payloads
+	// symmetric about that axis, which spill when tipped but not when spun.
+	IgnoreTheta bool
 }
 
 // Score computes a score which is how close we are to valid in degrees
@@ -74,52 +85,183 @@ func (oc *OrientationConstraint) Score(from, to, now spatialmath.Orientation) fl
 	return max(0, d-oc.OrientationToleranceDegs)
 }
 
-// Distance apart in degrees
+// Distance measures, in degrees, how far `now` strays from the direct
+// reorientation between `from` and `to`: the angular distance from `now` to
+// the nearest orientation on the geodesic (slerp) arc connecting the
+// endpoints. The feasible band is therefore a connected tube of width
+// OrientationToleranceDegs around the direct path. (This replaced a
+// min-distance-to-either-endpoint rule whose feasible set split into two
+// disconnected balls whenever the endpoints were more than twice the
+// tolerance apart, making such reorientations unplannable.)
+//
+// With IgnoreTheta set the same measurement runs on orientation vectors alone:
+// the angle from now's vector to the nearest vector traced along that arc.
 func (oc *OrientationConstraint) Distance(from, to, now spatialmath.Orientation) float64 {
-	f := from.OrientationVectorDegrees()
-	t := to.OrientationVectorDegrees()
-	n := now.OrientationVectorDegrees()
-
-	if between(f.OX, t.OX, n.OX) &&
-		between(f.OY, t.OY, n.OY) &&
-		between(f.OZ, t.OZ, n.OZ) &&
-		between(f.Theta, t.Theta, n.Theta) {
-		return 0
+	arc := newOrientationArc(from, to, oc.IgnoreTheta)
+	if oc.IgnoreTheta {
+		return arc.axisDistanceDegs(now)
 	}
+	return arc.distanceDegs(now)
+}
 
-	a := OrientDist(from, now)
-	b := OrientDist(to, now)
-	return min(a, b)
+// orientationArc is the geodesic arc between two orientations, precomputed as
+// an orthonormal basis of its plane in quaternion space so point-to-arc
+// distance is a couple of dot products per query.
+type orientationArc struct {
+	qf, u quat.Number // qf: arc start; u: unit vector orthogonal to qf in the arc plane
+	omega float64     // arc angle in quaternion space (half the rotation angle), radians
+	from  spatialmath.Orientation
+
+	cosOmega, sinOmega float64 // arc-invariant terms of the per-query dot product
+
+	// The same arc seen through the orientation vector alone, for theta-agnostic
+	// scoring: the vector starts at v0 and rotates rigidly by sweep radians
+	// about the world-frame axis. sweep is 0 only when the endpoints are equal;
+	// when they differ by a rotation about the vector itself, axis parallels v0
+	// and the trace collapses onto that point. The rest are terms of the
+	// per-check dot product that depend on the arc alone.
+	v0, axis, axisCrossV0 r3.Vector
+	axisDotV0             float64
+	sweep                 float64
+	cosSweep, sinSweep    float64
+}
+
+// orientationVector returns q's orientation vector: the frame's local +Z axis
+// expressed in the parent frame.
+// This is more efficient than using QuatToOV since we skip the computation of theta
+func orientationVector(q quat.Number) r3.Vector {
+	v := quat.Mul(quat.Mul(q, quat.Number{Kmag: 1}), quat.Conj(q))
+	return r3.Vector{X: v.Imag, Y: v.Jmag, Z: v.Kmag}
+}
+
+func clampUnit(x float64) float64 {
+	return max(-1, min(1, x))
+}
+
+func quatDot(a, b quat.Number) float64 {
+	return a.Real*b.Real + a.Imag*b.Imag + a.Jmag*b.Jmag + a.Kmag*b.Kmag
+}
+
+// newOrientationArc precomputes whichever basis the scoring mode needs: the
+// geodesic's quaternion basis, or - when axisOnly - the orientation-vector
+// trace.
+func newOrientationArc(from, to spatialmath.Orientation, axisOnly bool) orientationArc {
+	qf := from.Quaternion()
+	qt := to.Quaternion()
+	// q and -q are the same orientation; align signs to take the short arc.
+	d := quatDot(qf, qt)
+	if d < 0 {
+		qt = quat.Scale(-1, qt)
+		d = -d
+	}
+	arc := orientationArc{qf: qf, from: from}
+	if axisOnly {
+		arc.v0 = orientationVector(qf)
+	}
+	// Residual of qt orthogonal to qf; its norm is sin(omega).
+	r := quat.Sub(qt, quat.Scale(d, qf))
+	rn := math.Sqrt(quatDot(r, r))
+	if rn < 1e-9 {
+		return arc // from == to: the arc is a point
+	}
+	arc.omega = math.Acos(min(d, 1))
+	if !axisOnly {
+		arc.u = quat.Scale(1/rn, r)
+		arc.cosOmega, arc.sinOmega = math.Cos(arc.omega), math.Sin(arc.omega)
+		return arc
+	}
+	// The world-frame rotation from -> to carries the orientation vector rigidly,
+	// so the vector traces a circle about that rotation's axis. The axis has
+	// norm sin(omega) == rn, so the guard above makes this Normalize safe.
+	qw := quat.Mul(qt, quat.Conj(qf))
+	arc.axis = r3.Vector{X: qw.Imag, Y: qw.Jmag, Z: qw.Kmag}.Normalize()
+	arc.sweep = 2 * arc.omega
+	arc.axisDotV0 = arc.axis.Dot(arc.v0)
+	arc.axisCrossV0 = arc.axis.Cross(arc.v0)
+	arc.cosSweep, arc.sinSweep = math.Cos(arc.sweep), math.Sin(arc.sweep)
+	return arc
+}
+
+// distanceDegs returns the angular distance in degrees from now to the
+// nearest orientation on the arc. Pointer receiver: this runs inside the IK
+// gradient loop, where copying the arc per call is not worth it.
+func (a *orientationArc) distanceDegs(now spatialmath.Orientation) float64 {
+	if a.omega == 0 {
+		return OrientDist(a.from, now)
+	}
+	qn := now.Quaternion()
+	x := quatDot(qn, a.qf)
+	y := quatDot(qn, a.u)
+	// The arc is q(t) = qf*cos(t) + u*sin(t), t in [0, omega], so
+	// dot(qn, q(t)) = x*cos(t) + y*sin(t) = R*cos(t - phi). The angular
+	// distance to q(t) is 2*acos(|dot|); maximize |dot| over the arc.
+	best := max(math.Abs(x), math.Abs(x*a.cosOmega+y*a.sinOmega))
+	// |dot| peaks wherever t equals phi modulo pi. Folding (x, y) into the
+	// right half plane turns that mod-pi test into a sign check plus a cosine
+	// comparison, which holds because omega never exceeds pi/2 and cos is
+	// monotonic there - cheaper than an Atan2 and a Hypot per query.
+	xa, ya := x, y
+	if xa < 0 {
+		xa, ya = -xa, -ya
+	}
+	if ya > 0 {
+		if r := math.Sqrt(x*x + y*y); xa > a.cosOmega*r {
+			best = r
+		}
+	}
+	return utils.RadToDeg(2 * math.Acos(min(best, 1)))
+}
+
+// axisDistanceDegs returns the angular distance in degrees from now's
+// orientation vector to the nearest orientation vector traced along the arc.
+func (a *orientationArc) axisDistanceDegs(now spatialmath.Orientation) float64 {
+	p := orientationVector(now.Quaternion())
+	if a.sweep == 0 {
+		return utils.RadToDeg(math.Acos(clampUnit(p.Dot(a.v0))))
+	}
+	// By Rodrigues, v(t) = rot(axis, t) v0 for t in [0, sweep], so
+	// dot(p, v(t)) = x*cos(t) + y*sin(t) + c, largest where the arc comes
+	// nearest p. Take the better endpoint first, then the interior peak if it
+	// falls in range.
+	c := p.Dot(a.axis) * a.axisDotV0
+	x := p.Dot(a.v0) - c
+	y := p.Dot(a.axisCrossV0)
+	best := max(x+c, x*a.cosSweep+y*a.sinSweep+c)
+	// That peak is at atan2(y, x), and lies inside (0, sweep) exactly when
+	// y > 0 and x > cos(sweep)*r, because cos is monotonic over the (0, pi]
+	// that sweep spans - cheaper than an Atan2 per check.
+	if y > 0 {
+		if r := math.Sqrt(x*x + y*y); x > a.cosSweep*r {
+			best = r + c
+		}
+	}
+	return utils.RadToDeg(math.Acos(clampUnit(best)))
 }
 
 // OrientationConstraintEval evaluates one OrientationConstraint against fixed
-// start and goal orientations. The endpoints never change during a plan, but
-// Distance re-derives their orientation-vector forms on every call -
-// precomputing them leaves one conversion (the current orientation) per check.
+// start and goal orientations. The endpoints never change during a plan, so
+// the geodesic-arc basis is precomputed once, leaving a couple of dot products
+// per check.
 type OrientationConstraintEval struct {
-	oc           OrientationConstraint
-	from, to     spatialmath.Orientation
-	fromOV, toOV *spatialmath.OrientationVectorDegrees
+	oc       OrientationConstraint
+	from, to spatialmath.Orientation
+	arc      orientationArc
 }
 
 // NewOrientationConstraintEval precomputes the fixed endpoint conversions.
 func NewOrientationConstraintEval(oc OrientationConstraint, from, to spatialmath.Orientation) *OrientationConstraintEval {
 	return &OrientationConstraintEval{
 		oc: oc, from: from, to: to,
-		fromOV: from.OrientationVectorDegrees(), toOV: to.OrientationVectorDegrees(),
+		arc: newOrientationArc(from, to, oc.IgnoreTheta),
 	}
 }
 
-// Distance is OrientationConstraint.Distance with the endpoint conversions amortized.
+// Distance is OrientationConstraint.Distance with the arc precomputation amortized.
 func (e *OrientationConstraintEval) Distance(now spatialmath.Orientation) float64 {
-	n := now.OrientationVectorDegrees()
-	if between(e.fromOV.OX, e.toOV.OX, n.OX) &&
-		between(e.fromOV.OY, e.toOV.OY, n.OY) &&
-		between(e.fromOV.OZ, e.toOV.OZ, n.OZ) &&
-		between(e.fromOV.Theta, e.toOV.Theta, n.Theta) {
-		return 0
+	if e.oc.IgnoreTheta {
+		return e.arc.axisDistanceDegs(now)
 	}
-	return min(OrientDist(e.from, now), OrientDist(e.to, now))
+	return e.arc.distanceDegs(now)
 }
 
 // Score mirrors OrientationConstraint.Score.

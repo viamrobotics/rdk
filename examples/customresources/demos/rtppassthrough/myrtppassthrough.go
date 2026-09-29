@@ -17,7 +17,8 @@ func main() {
 	resource.RegisterComponent(
 		camera.API,
 		model,
-		resource.Registration[camera.Camera, *fake.Config]{Constructor: newFakeCamera})
+		resource.Registration[camera.Camera, *fake.Config]{Constructor: newFakeCamera},
+	)
 	module.ModularMain(resource.APIModel{camera.API, model})
 }
 

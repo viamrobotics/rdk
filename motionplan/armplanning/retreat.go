@@ -66,7 +66,8 @@ func retreatChain(
 		curPt := curDQ.Point()
 		target := spatialmath.NewPose(
 			r3.Vector{X: curPt.X, Y: curPt.Y, Z: curPt.Z + goalRetreatStepMM},
-			curDQ.Orientation())
+			curDQ.Orientation(),
+		)
 
 		metric := psc.pc.planOpts.GetGoalMetricWithOrientationSlack(referenceframe.FrameSystemPoses{
 			frame: referenceframe.NewPoseInFrame(referenceframe.World, target),

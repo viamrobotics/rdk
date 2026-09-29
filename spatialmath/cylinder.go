@@ -115,6 +115,9 @@ func (c *Cylinder) almostEqual(g Geometry) bool {
 // Transform premultiplies the Cylinder's pose with the given pose and returns
 // a new Cylinder. The mesh's local-frame triangles depend only on radius and
 // height, so they are reused as-is; only the wrapping Mesh's pose changes.
+// Mesh.Transform (rather than NewMesh) keeps the mesh's shared cache state:
+// a fresh state per configuration both defeats the temporal-coherence caches
+// and leaks permanent entries into other meshes' state-keyed cache maps.
 func (c *Cylinder) Transform(toPremultiply Pose) Geometry {
 	newPose := Compose(toPremultiply, c.pose)
 	return &Cylinder{
@@ -123,7 +126,7 @@ func (c *Cylinder) Transform(toPremultiply Pose) Geometry {
 		height: c.height,
 		capped: c.capped,
 		label:  c.label,
-		mesh:   NewMesh(newPose, c.mesh.Triangles(), c.label),
+		mesh:   c.mesh.Transform(toPremultiply).(*Mesh),
 	}
 }
 

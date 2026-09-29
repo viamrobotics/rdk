@@ -27,7 +27,8 @@ func setupAudioOutService(t *testing.T, injectAudioOut *inject.AudioOut) (net.Li
 	test.That(t, err, test.ShouldBeNil)
 
 	audioOutSvc, err := resource.NewAPIResourceCollection(
-		audioout.API, map[resource.Name]audioout.AudioOut{audioout.Named(testAudioOutName): injectAudioOut})
+		audioout.API, map[resource.Name]audioout.AudioOut{audioout.Named(testAudioOutName): injectAudioOut},
+	)
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[audioout.AudioOut](audioout.API)
 	test.That(t, err, test.ShouldBeNil)

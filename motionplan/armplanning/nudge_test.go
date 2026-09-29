@@ -113,7 +113,8 @@ func nudgeBlockedScene(t *testing.T) (fs *referenceframe.FrameSystem, startJoint
 	// A thin post right where the end effector sweeps through mid-path: the
 	// straight line is blocked, but a small nudge goes around it.
 	obstacle, err := spatialmath.NewBox(
-		spatialmath.NewPoseFromPoint(midPose.Point()), r3.Vector{X: 20, Y: 20, Z: 150}, "post")
+		spatialmath.NewPoseFromPoint(midPose.Point()), r3.Vector{X: 20, Y: 20, Z: 150}, "post",
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	req = &PlanRequest{

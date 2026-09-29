@@ -40,6 +40,25 @@ const (
 // repairable with a barely different configuration.
 var nudgeRadiusSchedule = []float64{0.1, 0.2, 0.4, 0.7}
 
+// nudgeRadiusScheduleFor picks the perturbation schedule for this segment.
+// Under a linear constraint the entire repair must stay inside a tube of the
+// constraint's tolerance; on an arm-scale lever the default 0.1-0.7 rad
+// radii move the end effector tens to hundreds of millimeters, so every
+// candidate died on the topological constraint before collision was even
+// consulted - nudge could never repair a constrained segment. Scale the
+// radii so candidate deviation is on the order of the tube radius.
+func nudgeRadiusScheduleFor(psc *PlanSegmentContext) []float64 {
+	lc := tightestLinearConstraintMM(psc.pc.request.Constraints)
+	if lc <= 0 {
+		return nudgeRadiusSchedule
+	}
+	// Conservative effective lever: EE deviation (mm) per radian of joint
+	// motion on an arm-scale chain.
+	const leverMM = 700.0
+	base := lc / leverMM
+	return []float64{base / 4, base / 2, base, base * 2}
+}
+
 // jointDelta is a per-moving-frame joint-space offset.
 type jointDelta map[string][]float64
 
@@ -184,7 +203,7 @@ func nudgeRepair(
 		clearance float64
 	}
 
-	for _, radius := range nudgeRadiusSchedule {
+	for _, radius := range nudgeRadiusScheduleFor(psc) {
 		// Screen candidates with cheap state checks first.
 		candidates := []candidate{}
 		for i := 0; i < nudgeCandidatesPerRadius; i++ {

@@ -74,7 +74,8 @@ func TestUpdateWeakDependents(t *testing.T) {
 				}, nil
 			},
 			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
-		})
+		},
+	)
 	defer resource.Deregister(weakAPI, weakModel)
 
 	// Create a configuration with a single component that has an explicit, unresolved
@@ -311,7 +312,8 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 				}, nil
 			},
 			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
-		})
+		},
+	)
 	defer resource.Deregister(weakAPI, weakModel)
 
 	// Start robot with two components and one resource with weak dependencies
@@ -495,7 +497,8 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 				}, nil
 			},
 			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
-		})
+		},
+	)
 	defer resource.Deregister(weakAPI, weakModel)
 
 	// Start robot with two components (one of which has an explicit dependency on weak dependents)

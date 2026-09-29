@@ -84,6 +84,9 @@ func beginRender() context.Context {
 
 // ---- templates ----
 
+// indexTmpl renders the plan files as a collapsible directory tree. Every
+// directory is a <details> element, folded unless the browser remembered it as
+// open, so a scan root holding hundreds of plans stays navigable.
 var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 <html>
 <head>
@@ -111,29 +114,115 @@ var indexTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
     background-color: #D0EEFF;
     cursor: pointer;
   }
+  .toolbar { margin-bottom: 12px; }
+  details.dir {
+    border: 1px solid #7a9aa8;
+    background-color: #D0EEFF;
+    margin: 4px 0;
+    padding: 2px 6px;
+  }
+  details.dir > summary {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 2px 0;
+  }
+  .count { font-weight: normal; color: #555; }
+  .dir-body { margin: 6px 0 6px 16px; }
+  .empty { color: #555; font-style: italic; }
 </style>
 </head>
 <body>
 <h1>Motion Plan Files</h1>
-<table>
-  <tr><th>File</th><th>Visualize</th><th>Details</th></tr>
-  {{range .}}
-  <tr>
-    <td>{{.}}</td>
-    <td><button onclick="renderStart('{{.}}')">Render State</button></td>
-    <td><a href="/detail?file={{.}}">Details</a></td>
-  </tr>
-  {{end}}
-</table>
+<div class="toolbar">
+  <button onclick="setAll(true)">Expand all</button>
+  <button onclick="setAll(false)">Collapse all</button>
+  <span class="count">{{.TotalFiles}} file(s) under {{.Name}}</span>
+</div>
+{{if and (not .Subdirs) (not .Files)}}<p class="empty">No plan files found.</p>{{end}}
+{{range .Subdirs}}{{template "dir" .}}{{end}}
+{{template "files" .Files}}
 <script>
 function renderStart(file) {
   fetch('/render-start?file=' + encodeURIComponent(file))
     .then(r => { if (!r.ok) r.text().then(msg => alert('Error: ' + msg)); })
     .catch(err => alert('Error: ' + err));
 }
+
+// Open directories are remembered so that returning from a detail page does not
+// re-fold the tree. Absence from the set means folded, which keeps the
+// first-visit default.
+const OPEN_KEY = 'mpserver.openDirs';
+
+function loadOpen() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || '[]'));
+  } catch (err) {
+    return new Set();
+  }
+}
+
+function saveOpen(open) {
+  try {
+    localStorage.setItem(OPEN_KEY, JSON.stringify([...open]));
+  } catch (err) {
+    // Storage may be unavailable; folding still works for this page view.
+  }
+}
+
+function setAll(open) {
+  const paths = new Set();
+  document.querySelectorAll('details.dir').forEach(d => {
+    d.open = open;
+    if (open) {
+      paths.add(d.dataset.path);
+    }
+  });
+  saveOpen(paths);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const open = loadOpen();
+  document.querySelectorAll('details.dir').forEach(d => {
+    d.open = open.has(d.dataset.path);
+    d.addEventListener('toggle', () => {
+      const current = loadOpen();
+      if (d.open) {
+        current.add(d.dataset.path);
+      } else {
+        current.delete(d.dataset.path);
+      }
+      saveOpen(current);
+    });
+  });
+});
 </script>
 </body>
 </html>
+
+{{define "dir"}}
+<details class="dir" data-path="{{.Path}}">
+  <summary>{{.Name}} <span class="count">({{.TotalFiles}})</span></summary>
+  <div class="dir-body">
+    {{range .Subdirs}}{{template "dir" .}}{{end}}
+    {{template "files" .Files}}
+  </div>
+</details>
+{{end}}
+
+{{define "files"}}
+{{if .}}
+<table>
+  <tr><th>File</th><th>Visualize</th><th>Details</th></tr>
+  {{range .}}
+  <tr>
+    <td>{{.Name}}</td>
+    <td><button onclick="renderStart('{{.Path}}')">Render State</button></td>
+    <td><a href="/detail?file={{.Path}}">Details</a></td>
+  </tr>
+  {{end}}
+</table>
+{{end}}
+{{end}}
 `))
 
 //nolint:lll
@@ -193,6 +282,9 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 &nbsp;<label>Seed: <input id="seed" type="number" step="1" value="0" style="width:6ch; padding:4px 8px; border:1px solid black;"></label>
 &nbsp;<button onclick="runPlanning()">Do Motion Planning</button>
 &nbsp;<button onclick="renderState()">Render Start State</button>
+{{if .ExecutedPlanSteps}}
+&nbsp;<button onclick="renderExecutedPlan()">Render Executed Plan ({{.ExecutedPlanSteps}} steps)</button>
+{{end}}
 <div id="result"></div>
 
 <h2>Start Inputs</h2>
@@ -275,6 +367,15 @@ function renderState() {
 }
 
 renderState();
+
+// renderExecutedPlan replays the plan recorded in the file alongside the request — the trajectory
+// that actually ran — instead of one computed now. The button only exists for files that carry
+// one, so a 404 here means the file changed underneath the page.
+function renderExecutedPlan() {
+  fetch('/render-executed-plan?file=' + encodeURIComponent('{{.File}}'))
+    .then(r => { if (!r.ok) r.text().then(msg => alert('Render error: ' + msg)); })
+    .catch(err => alert('Render error: ' + err));
+}
 
 // ---- goal pose editing ----
 
@@ -837,7 +938,12 @@ function renderIKCell(file, cell) {
     }
   } else if (cell.inputs) {
     const inputsArg = JSON.stringify(cell.inputs);
-    inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>Render</button>';
+    const label = cls === 'cell-yellow' ? 'Render (final position)' : 'Render';
+    inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>' + label + '</button>';
+  }
+  if (cls === 'cell-yellow' && cell.last_good_inputs) {
+    const lastGoodArg = JSON.stringify(cell.last_good_inputs);
+    inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + lastGoodArg + ')\'>Render (last good configuration)</button>';
   }
   return '<td class="' + cls + '" title="' + escHtml(tip.join('\n')) + '">' + inner + '</td>';
 }
@@ -909,6 +1015,9 @@ type detailData struct {
 	StartInputs    []frameInputs
 	Goals          []goalDetail
 	Constraints    *detailConstraints // nil when no linear/orientation constraints are present
+	// ExecutedPlanSteps is the trajectory length of the plan recorded in the file alongside the
+	// request, or 0 for a request-only file. It gates the "Render Executed Plan" button.
+	ExecutedPlanSteps int
 }
 
 type ikInspectData struct {
@@ -966,6 +1075,8 @@ type ikInspectCellResult struct {
 	StateError     string              `json:"state_error,omitempty"`
 	CheckPathOK    bool                `json:"check_path_ok"`
 	CheckPathError string              `json:"check_path_error,omitempty"`
+	// LastGoodInputs is the last configuration along the interpolated path to Inputs that still
+	// satisfied all constraints. Only present when CheckPathOK is false.
 	LastGoodInputs map[string][]string `json:"last_good_inputs,omitempty"`
 }
 
@@ -1015,7 +1126,11 @@ func buildDetailConstraints(c *motionplan.Constraints) *detailConstraints {
 			lc.LineToleranceMm, lc.OrientationToleranceDegs))
 	}
 	for _, oc := range c.OrientationConstraint {
-		dc.Orientation = append(dc.Orientation, fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs))
+		desc := fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs)
+		if oc.IgnoreTheta {
+			desc += ", ignoring theta"
+		}
+		dc.Orientation = append(dc.Orientation, desc)
 	}
 	return dc
 }
@@ -1036,6 +1151,66 @@ func findPlanFiles(root string) ([]string, error) {
 		return nil
 	})
 	return files, err
+}
+
+// planDirNode is one directory in the index page's plan-file tree.
+type planDirNode struct {
+	// Name is the directory's own name; Path is its path relative to rdkRoot and
+	// doubles as the key the page stores its folded/open state under.
+	Name string
+	Path string
+	// TotalFiles counts plan files in this directory and every directory below it.
+	TotalFiles int
+	Subdirs    []*planDirNode
+	Files      []planFileNode
+}
+
+// planFileNode is one plan file in the index page's tree. Name is the base name
+// shown in the row; Path is relative to rdkRoot and is what the handlers expect.
+type planFileNode struct {
+	Name string
+	Path string
+}
+
+// buildPlanTree groups plan file paths, each relative to rdkRoot as returned by
+// findPlanFiles, into a tree rooted at rootRel (also rdkRoot-relative). Input
+// order is preserved, so the lexical ordering filepath.WalkDir guarantees
+// carries through to the rendered page.
+func buildPlanTree(rootRel string, paths []string) *planDirNode {
+	rootRel = filepath.ToSlash(rootRel)
+	root := &planDirNode{Name: rootRel, Path: rootRel}
+	for _, p := range paths {
+		slashed := filepath.ToSlash(p)
+		parts := strings.Split(strings.TrimPrefix(strings.TrimPrefix(slashed, rootRel), "/"), "/")
+		dir := root
+		for _, name := range parts[:len(parts)-1] {
+			dir = dir.subdir(name)
+		}
+		dir.Files = append(dir.Files, planFileNode{Name: parts[len(parts)-1], Path: p})
+	}
+	root.countFiles()
+	return root
+}
+
+// subdir returns the named child of d, creating it if this is the first path to
+// reach it.
+func (d *planDirNode) subdir(name string) *planDirNode {
+	for _, sub := range d.Subdirs {
+		if sub.Name == name {
+			return sub
+		}
+	}
+	sub := &planDirNode{Name: name, Path: d.Path + "/" + name}
+	d.Subdirs = append(d.Subdirs, sub)
+	return sub
+}
+
+func (d *planDirNode) countFiles() int {
+	d.TotalFiles = len(d.Files)
+	for _, sub := range d.Subdirs {
+		d.TotalFiles += sub.countFiles()
+	}
+	return d.TotalFiles
 }
 
 func buildFrameInfo(fs *referenceframe.FrameSystem) []frameInfo {
@@ -1263,7 +1438,9 @@ func computeGoalPoseMap(req *armplanning.PlanRequest, goalIdx int) (map[string]p
 		poseInWorldFrame := poseValue.Transform(
 			referenceframe.NewPoseInFrame(
 				req.FrameSystem.World().Name(),
-				spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+				spatialmath.NewZeroPose(),
+			),
+		).(*referenceframe.PoseInFrame)
 		result[frameName] = poseInFrameToComponents(poseInWorldFrame)
 	}
 	return result, nil
@@ -1378,7 +1555,9 @@ func collectGoalPoses(req *armplanning.PlanRequest) ([]spatialmath.Pose, error) 
 			poseInWorldFrame := poseValue.Transform(
 				referenceframe.NewPoseInFrame(
 					req.FrameSystem.World().Name(),
-					spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+					spatialmath.NewZeroPose(),
+				),
+			).(*referenceframe.PoseInFrame)
 			goalPoses = append(goalPoses, poseInWorldFrame.Pose())
 		}
 	}
@@ -1504,7 +1683,8 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 					StartConfiguration: steps[idx-1],
 					EndConfiguration:   step,
 					FS:                 req.FrameSystem,
-				}, 2)
+				}, 2,
+			)
 			if err != nil {
 				return err
 			}
@@ -1533,6 +1713,20 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 	return nil
 }
 
+// executedTrajectory returns the recorded plan's trajectory as visualizer-ready configurations,
+// or nil when the file carried no plan alongside its request.
+func executedTrajectory(plan motionplan.Plan) []*referenceframe.LinearInputs {
+	if plan == nil {
+		return nil
+	}
+	traj := plan.Trajectory()
+	steps := make([]*referenceframe.LinearInputs, len(traj))
+	for idx, step := range traj {
+		steps[idx] = step.ToLinearInputs()
+	}
+	return steps
+}
+
 func planTrajectoryToStrings(plan motionplan.Plan) []map[string][]string {
 	traj := plan.Trajectory()
 	result := make([]map[string][]string, len(traj))
@@ -1551,8 +1745,13 @@ func handleIndex(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("scan error: %v", err), http.StatusInternalServerError)
 			return
 		}
+		rootRel, err := filepath.Rel(rdkRoot, planFilesRoot)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("scan error: %v", err), http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := indexTmpl.Execute(w, files); err != nil {
+		if err := indexTmpl.Execute(w, buildPlanTree(rootRel, files)); err != nil {
 			logger.Errorf("rendering index: %v", err)
 		}
 	}
@@ -1565,10 +1764,14 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, "missing file parameter", http.StatusBadRequest)
 			return
 		}
-		req, err := armplanning.ReadRequestFromFile(filepath.Join(rdkRoot, file))
+		req, executed, err := armplanning.ReadRequestAndResponseFromFile(filepath.Join(rdkRoot, file))
 		if err != nil {
 			http.Error(w, fmt.Sprintf("reading plan file: %v", err), http.StatusInternalServerError)
 			return
+		}
+		executedSteps := 0
+		if executed != nil {
+			executedSteps = len(executed.Trajectory())
 		}
 		overridesParam := r.URL.Query().Get("overrides")
 		overrides, err := decodeOverrides(overridesParam)
@@ -1600,12 +1803,13 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 			}
 		}
 		data := detailData{
-			File:           file,
-			OverridesParam: overridesParam,
-			Frames:         buildFrameInfo(req.FrameSystem),
-			StartInputs:    startConfig,
-			Goals:          goals,
-			Constraints:    buildDetailConstraints(req.Constraints),
+			File:              file,
+			OverridesParam:    overridesParam,
+			Frames:            buildFrameInfo(req.FrameSystem),
+			StartInputs:       startConfig,
+			Goals:             goals,
+			Constraints:       buildDetailConstraints(req.Constraints),
+			ExecutedPlanSteps: executedSteps,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := detailTmpl.Execute(w, data); err != nil {
@@ -1728,8 +1932,8 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 			return
 		}
 
-		out := ikInspectRunResult{Seeds: make([][]ikInspectCellResult, len(result.Rows)), SeedLabels: result.SeedLabels}
-		for seedIdx, cells := range result.Rows {
+		out := ikInspectRunResult{Seeds: make([][]ikInspectCellResult, len(result.SeedResults)), SeedLabels: result.SeedLabels}
+		for seedIdx, cells := range result.SeedResults {
 			rows := make([]ikInspectCellResult, len(cells))
 			for cellIdx, cell := range cells {
 				row := ikInspectCellResult{
@@ -1747,8 +1951,8 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 				if cell.CheckPathError != nil {
 					row.CheckPathError = cell.CheckPathError.Error()
 				}
-				if cell.LastGoodInputs != nil {
-					row.LastGoodInputs = linearInputsToStrings(cell.LastGoodInputs)
+				if cell.CheckPathFeedback.LastGoodInputs != nil {
+					row.LastGoodInputs = linearInputsToStrings(cell.CheckPathFeedback.LastGoodInputs)
 				}
 				rows[cellIdx] = row
 			}
@@ -2073,6 +2277,34 @@ func handleRenderPlan(logger logging.Logger) http.HandlerFunc {
 	}
 }
 
+// handleRenderExecutedPlan replays the plan recorded in the file alongside the request — the
+// trajectory that actually ran — instead of one computed now. Goal-pose overrides are deliberately
+// not applied: the recorded trajectory belongs to the recorded goals, so re-aiming the goals would
+// leave the animation and the goal arrows describing two different motions.
+func handleRenderExecutedPlan(logger logging.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		file := r.URL.Query().Get("file")
+		if file == "" {
+			http.Error(w, "missing file parameter", http.StatusBadRequest)
+			return
+		}
+		req, executed, err := armplanning.ReadRequestAndResponseFromFile(filepath.Join(rdkRoot, file))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("reading plan file: %v", err), http.StatusInternalServerError)
+			return
+		}
+		steps := executedTrajectory(executed)
+		if len(steps) == 0 {
+			http.Error(w, "plan file has no executed plan recorded alongside the request", http.StatusNotFound)
+			return
+		}
+		ctx := beginRender()
+		if err := visualizeLinearTrajectory(ctx, req, steps); err != nil {
+			logger.Warnf("visualization failed (motion-tools server may not be running): %v", err)
+		}
+	}
+}
+
 // handlePlanDownload serves the plan request (with any in-progress overrides applied) as a
 // downloadable JSON file, in the same format ReadRequestFromFile expects back.
 func handlePlanDownload(logger logging.Logger) http.HandlerFunc {
@@ -2183,6 +2415,7 @@ func RunServer() error {
 	http.HandleFunc("/plan/run", handlePlanRun(logger))
 	http.HandleFunc("/plan/download", handlePlanDownload(logger))
 	http.HandleFunc("/render-plan", handleRenderPlan(logger))
+	http.HandleFunc("/render-executed-plan", handleRenderExecutedPlan(logger))
 	http.HandleFunc("/render-start", handleRenderStart(logger))
 	http.HandleFunc("/render-solution", handleRenderSolution(logger))
 	http.HandleFunc("/render-shadows", handleRenderShadows(logger))

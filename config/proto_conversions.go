@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -161,7 +162,8 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig, logger logging.Logg
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logger.Warnw(
-				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
+				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err,
+			)
 		}
 		logConfig = &resource.LogConfig{Level: level}
 	}
@@ -252,7 +254,8 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig, logger logging.Logger) 
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logger.Warnw(
-				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
+				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err,
+			)
 		}
 		logConfig = &resource.LogConfig{Level: level}
 	}
@@ -709,6 +712,7 @@ func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 	proto := pb.AuthConfig{
 		Handlers:        handlers,
 		TlsAuthEntities: auth.TLSAuthEntities,
+		UserPermissions: lo.Map(auth.UserPermissions, userPermissionToProto),
 	}
 
 	if auth.ExternalAuthConfig != nil {
@@ -735,6 +739,7 @@ func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, e
 	auth := AuthConfig{
 		Handlers:        handlers,
 		TLSAuthEntities: proto.GetTlsAuthEntities(),
+		UserPermissions: lo.Map(proto.GetUserPermissions(), userPermissionFromProto),
 	}
 
 	if proto.ExternalAuthConfig != nil {
@@ -744,6 +749,38 @@ func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, e
 	}
 
 	return &auth, nil
+}
+
+// userPermissionToProto converts UserPermission to the proto equivalent.
+func userPermissionToProto(up UserPermission, _ int) *pb.UserPermission {
+	return &pb.UserPermission{
+		User: &pb.User{
+			Type: up.User.Type,
+			Id:   up.User.ID,
+		},
+		Permissions: lo.Map(up.Permissions, func(perm Permission, _ int) *pb.Permission {
+			return &pb.Permission{
+				Resources:      perm.Resources,
+				AllowedMethods: perm.AllowedMethods,
+			}
+		}),
+	}
+}
+
+// userPermissionFromProto creates UserPermission from the proto equivalent.
+func userPermissionFromProto(proto *pb.UserPermission, _ int) UserPermission {
+	return UserPermission{
+		User: User{
+			Type: proto.GetUser().GetType(),
+			ID:   proto.GetUser().GetId(),
+		},
+		Permissions: lo.Map(proto.GetPermissions(), func(perm *pb.Permission, _ int) Permission {
+			return Permission{
+				Resources:      perm.GetResources(),
+				AllowedMethods: perm.GetAllowedMethods(),
+			}
+		}),
+	}
 }
 
 // CloudConfigToProto converts Cloud to the proto equivalent.
@@ -756,7 +793,7 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 	return &pb.CloudConfig{
 		Id:                cloud.ID,
 		Secret:            cloud.Secret,
-		LocationSecret:    cloud.LocationSecret,
+		LocationSecret:    cloud.LocationSecret, //nolint:staticcheck // RSDK-14540
 		LocationSecrets:   locationSecrets,
 		ManagedBy:         cloud.ManagedBy,
 		Fqdn:              cloud.FQDN,

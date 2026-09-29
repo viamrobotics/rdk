@@ -1115,7 +1115,8 @@ func TestMoveOnMapReq(t *testing.T) {
 			validMoveOnMapReq.Destination,
 			validMoveOnMapReq.MotionCfg,
 			validMoveOnMapReq.Obstacles,
-			validMoveOnMapReq.Extra)
+			validMoveOnMapReq.Extra,
+		)
 		test.That(t, validMoveOnMapReq.String(), test.ShouldEqual, s)
 	})
 

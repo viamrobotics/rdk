@@ -227,7 +227,8 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 	}
 	return geo.NewPoint(
 			coordStruct.GetStructValue().GetFields()["latitude"].GetNumberValue(),
-			coordStruct.GetStructValue().GetFields()["longitude"].GetNumberValue()),
+			coordStruct.GetStructValue().GetFields()["longitude"].GetNumberValue(),
+		),
 		altitude.GetNumberValue(), nil
 }
 

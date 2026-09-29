@@ -7,15 +7,17 @@ set -euxo pipefail
 GO_VERSION=1.25.9
 NLOPT_VERSION=2.11.0
 CMAKE_VERSION=4.3.4
+# Zig is the C/C++ cross-compiler for the cgo-enabled Windows build
+ZIG_VERSION=0.16.0
 # x264 stable branch. Built from source: focal's prebuilt libx264.a references
 # __*_finite glibc symbols that fail to resolve when statically linked.
 X264_COMMIT=b35605ace3ddf7c1a5d67a2eb553f034aef41d55
 
 deb_arch="$(dpkg --print-architecture)"
 case "$deb_arch" in
-    amd64) go_arch=amd64 ;;
-    arm64) go_arch=arm64 ;;
-    armhf) go_arch=armv6l ;;
+    amd64) go_arch=amd64; zig_arch=x86_64 ;;
+    arm64) go_arch=arm64; zig_arch=aarch64 ;;
+    armhf) go_arch=armv6l; zig_arch=arm ;;
     *) echo "unsupported arch" >&2; exit 1 ;;
 esac
 
@@ -62,7 +64,8 @@ rm -rf "/tmp/nlopt-${NLOPT_VERSION}" /tmp/nlopt-build
 # x264 into /usr/local: headers + shared + PIC static + pkg-config.
 # armhf targets armv6l (no NEON); drop asm so it doesn't emit NEON and crash there.
 case "$deb_arch" in armhf) x264_asm=--disable-asm ;; *) x264_asm= ;; esac
-curl -fsSL "https://code.videolan.org/videolan/x264/-/archive/${X264_COMMIT}/x264-${X264_COMMIT}.tar.gz" \
+# GitHub mirror: code.videolan.org serves archive URLs a bot-challenge page with HTTP 200.
+curl -fsSL "https://github.com/mirror/x264/archive/${X264_COMMIT}.tar.gz" \
     | tar -C /tmp -xz
 (
     cd "/tmp/x264-${X264_COMMIT}"
@@ -79,3 +82,11 @@ curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${go_arch}.tar.gz" \
     | tar -C /usr/local -xz
 ln -s /usr/local/go/bin/go /usr/local/bin/go
 go version
+
+# Zig, same treatment as Go: tarball into /usr/local plus a /usr/local/bin symlink.
+# Zig is the cross-compiler for the Windows release build
+curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${zig_arch}-linux-${ZIG_VERSION}.tar.xz" \
+    | tar -C /usr/local -xJ
+mv "/usr/local/zig-${zig_arch}-linux-${ZIG_VERSION}" /usr/local/zig
+ln -s /usr/local/zig/zig /usr/local/bin/zig
+zig version

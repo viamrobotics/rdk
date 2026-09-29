@@ -110,7 +110,8 @@ var (
 
 	errPropertiesFailedToInitializeTest = errors.Wrap(
 		errors.Wrap(context.DeadlineExceeded, errPropertiesFailedToInitialize.Error()),
-		errMessageNoDataAvailable)
+		errMessageNoDataAvailable,
+	)
 )
 
 func TestNewReplayMovementSensor(t *testing.T) {

@@ -534,6 +534,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Payload: locationSecret,
 			}
 
+			mdnsSupported := robottestutils.MDNSAvailable()
+
 			var r2 robot.LocalRobot
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
@@ -551,9 +553,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 				ctx2 := context.Background()
-				remoteConfig.Remotes[0].Address = options.LocalFQDN
-				if tc.EntityName != "" {
-					remoteConfig.Remotes[1].Address = options.FQDN
+				if mdnsSupported {
+					remoteConfig.Remotes[0].Address = options.LocalFQDN
+					if tc.EntityName != "" {
+						remoteConfig.Remotes[1].Address = options.FQDN
+					}
 				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
 			} else {
@@ -566,7 +570,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
 
 				ctx2 := context.Background()
-				remoteConfig.Remotes[0].Address = options.LocalFQDN
+				if mdnsSupported {
+					remoteConfig.Remotes[0].Address = options.LocalFQDN
+				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
 			}
 
@@ -605,6 +611,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	ctx := context.Background()
 
 	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	mdnsSupported := robottestutils.MDNSAvailable()
 
 	altName := primitive.NewObjectID().Hex()
 	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -685,8 +693,10 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 	// use cert with mDNS
-	remoteConfig.Remotes[0].Address = options.FQDN
-	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+	if mdnsSupported {
+		remoteConfig.Remotes[0].Address = options.FQDN
+		test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+	}
 
 	// use signaling creds
 	remoteConfig.Remotes[0].Address = addr
@@ -705,7 +715,9 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		Type:    rutils.CredentialsTypeRobotLocationSecret,
 		Payload: locationSecret + "bad",
 	}
-	remoteConfig.Remotes[0].Address = options.FQDN
+	if mdnsSupported {
+		remoteConfig.Remotes[0].Address = options.FQDN
+	}
 	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
 
 	expected := []resource.Name{
@@ -781,7 +793,8 @@ func TestStopAll(t *testing.T) {
 				return dummyArm1, nil
 			}
 			return dummyArm2, nil
-		}})
+		}},
+	)
 
 	armConfig := fmt.Sprintf(`{
 		"components": [
@@ -883,7 +896,8 @@ func TestStopAllDoesNotCancelOwnContext(t *testing.T) {
 			logger logging.Logger,
 		) (arm.Arm, error) {
 			return dummyArm, nil
-		}})
+		}},
+	)
 	defer resource.Deregister(arm.API, model)
 
 	armConfig := fmt.Sprintf(`{
@@ -937,7 +951,8 @@ func TestNewTeardown(t *testing.T) {
 					return nil
 				},
 			}, nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		gripper.API,
 		model,
@@ -948,7 +963,8 @@ func TestNewTeardown(t *testing.T) {
 			logger logging.Logger,
 		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
-		}})
+		}},
+	)
 
 	defer func() {
 		resource.Deregister(board.API, model)
@@ -5251,7 +5267,8 @@ func TestMaintenanceConfig(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newValidSensor(), nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		sensor.API,
 		modelErrorSensor,
@@ -5262,7 +5279,8 @@ func TestMaintenanceConfig(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newInvalidSensor(), nil
-		}})
+		}},
+	)
 	defer func() {
 		resource.Deregister(sensor.API, model)
 		resource.Deregister(sensor.API, modelErrorSensor)
@@ -5461,7 +5479,8 @@ func TestMaintenanceConfigLogs(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newValidSensor(), nil
-		}})
+		}},
+	)
 	resource.RegisterComponent(
 		sensor.API,
 		modelErrorSensor,
@@ -5472,7 +5491,8 @@ func TestMaintenanceConfigLogs(t *testing.T) {
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newErrorSensor(), nil
-		}})
+		}},
+	)
 	defer func() {
 		resource.Deregister(sensor.API, model)
 		resource.Deregister(sensor.API, modelErrorSensor)
@@ -5682,7 +5702,8 @@ func TestRemovingOfflineRemotes(t *testing.T) {
 	node := resource.NewConfiguredGraphNode(
 		resource.Config{
 			ConvertedAttributes: &configRemote,
-		}, nil, builtinModel)
+		}, nil, builtinModel,
+	)
 	// Set node to [NodeStateUnhealthy]
 	node.LogAndSetLastError(errors.New("Its so bad plz help"))
 	localRobot.manager.resources.AddNode(remoteName, node)
@@ -5773,7 +5794,8 @@ func TestModuleNamePassing(t *testing.T) {
 		) (sensor.Sensor, error) {
 			// Be lazy -- just return an a singleton object.
 			return callbackSensor, nil
-		}})
+		}},
+	)
 
 	const moduleName = "fancy_module_name"
 	localRobot := setupLocalRobot(t, ctx, &config.Config{
@@ -5862,7 +5884,8 @@ func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
 					panic("oh no")
 				},
 			}, nil
-		}})
+		}},
+	)
 
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
@@ -6158,5 +6181,46 @@ func TestDependentReconnectsAfterDependencyNodeReadded(t *testing.T) {
 	reader, err := r.ResourceByName(readerName)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = reader.(sensor.Sensor).Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestUserPermissionsHotReconfiguration(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
+
+	// Without user_permissions, an unauthenticated client is unrestricted.
+	rc := robottestutils.NewRobotClient(t, logger, addr, time.Second)
+	_, err := rc.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Reconfiguring with user_permissions applies to the EXISTING connection: no web
+	// service restart, no disconnect, but the unauthenticated client is now fully
+	// restricted (beyond the exempt connection plumbing).
+	r.Reconfigure(ctx, &config.Config{
+		Auth: config.AuthConfig{
+			UserPermissions: []config.UserPermission{
+				{
+					User: config.User{Type: config.UserTypeAPIKeyID, ID: "some-key-id"},
+					Permissions: []config.Permission{
+						{
+							Resources:      []string{"_machine"},
+							AllowedMethods: []string{"/viam.robot.v1.RobotService/GetMachineStatus"},
+						},
+					},
+				},
+			},
+		},
+	})
+	_, err = rc.MachineStatus(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "PermissionDenied")
+
+	// Reconfiguring back to no user_permissions restores access on the same connection.
+	r.Reconfigure(ctx, &config.Config{})
+	_, err = rc.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }

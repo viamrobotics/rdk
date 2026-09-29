@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -49,6 +50,10 @@ const (
 type peerState struct {
 	streamState *state.StreamState
 	senders     []*webrtc.RTPSender
+
+	// authIdentity is the identity of the user that added the stream, used to remove
+	// streams whose users lose AddStream permissions on a user_permissions change.
+	authIdentity rdkgrpc.Identity
 }
 
 // Server implements the gRPC video streaming service.
@@ -102,6 +107,32 @@ func NewServer(
 	}
 	server.startMonitorCameraAvailable()
 	return server
+}
+
+// RemoveUnauthorizedStreams removes all video subscriptions whose subscribing user is
+// not allowed (per the given callback) to add a stream of that name, detaching the
+// video tracks from the subscriber's peer connection.
+func (server *Server) RemoveUnauthorizedStreams(allowed func(id rdkgrpc.Identity, name string) bool) {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	for pc, nameToPeerState := range server.activePeerStreams {
+		// Deleting the current key while ranging over a map is safe in Go: deleted
+		// entries are simply not produced by the remaining iterations.
+		for name, ps := range nameToPeerState {
+			if allowed(ps.authIdentity, name) {
+				continue
+			}
+			server.logger.Warnw("removing active video stream after user_permissions change",
+				"name", name, "peerConn", fmt.Sprintf("%p", pc))
+			for _, sender := range ps.senders {
+				utils.UncheckedError(pc.RemoveTrack(sender))
+			}
+			if err := ps.streamState.Decrement(); err != nil {
+				server.logger.Error(err.Error())
+			}
+			delete(nameToPeerState, name)
+		}
+	}
 }
 
 // StreamAlreadyRegisteredError indicates that a stream has a name that is already registered on
@@ -215,7 +246,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	ps, ok := nameToPeerState[req.Name]
 	// if the active peer stream doesn't have a peerState, add one containing the stream in question
 	if !ok {
-		ps = &peerState{streamState: streamStateToAdd}
+		ps = &peerState{streamState: streamStateToAdd, authIdentity: rdkgrpc.IdentityFromContext(ctx)}
 		nameToPeerState[req.Name] = ps
 	}
 

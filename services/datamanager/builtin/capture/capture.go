@@ -428,7 +428,8 @@ func collectorConfigDescription(
 func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig) string {
 	return data.CaptureFilePathWithReplacedReservedChars(
 		filepath.Join(captureDir, collectorConfig.Name.API.String(),
-			collectorConfig.Name.ShortName(), collectorConfig.Method))
+			collectorConfig.Name.ShortName(), collectorConfig.Method),
+	)
 }
 
 // closeCollectors closes collectors.
@@ -453,7 +454,8 @@ func (c *Capture) closeCollectors() {
 				c.logger.Debugf("closing collector %s", md)
 				tmp.Close()
 				c.logger.Debugf("collector closed %s", md)
-			}, wg.Done)
+			}, wg.Done,
+		)
 	}
 	wg.Wait()
 }

@@ -12,6 +12,7 @@ import (
 	totgstream "github.com/viam-modules/trajex/go/totg/streaming"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/utils"
 )
 
@@ -21,7 +22,8 @@ const (
 )
 
 type trajexSession struct {
-	opts StreamOptions
+	opts        StreamOptions
+	diagnostics *diagnostics.SingleSessionDiagnostics
 
 	// State for the underlying trajex library session, set up by startSession.
 	sess               *totgstream.Session
@@ -66,6 +68,7 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 	s.sess = sess
 	s.dof = dof
 	s.lastJointPositions = startJointPositions
+	s.diagnostics.RecordTrajexSessionOpenEvent()
 	return nil
 }
 
@@ -90,7 +93,10 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 	if err := waypoints.InsertFloat64s(totgstream.KeyWaypointsRads, []uint64{2, uint64(s.dof)}, flat); err != nil {
 		return err
 	}
-	if err := s.sess.Extend(ctx, waypoints); err != nil {
+	extendStart := time.Now()
+	err = s.sess.Extend(ctx, waypoints)
+	s.diagnostics.RecordTrajexExtendLatency(extendStart, time.Since(extendStart))
+	if err != nil {
 		return err
 	}
 	s.lastJointPositions = nextJointPositions
@@ -109,10 +115,20 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 	if err := s.sess.SampleAtLeast(ctx, horizon, out); err != nil {
 		return nil, err
 	}
-	return pvatsFromOutput(out)
+	pvats, err := pvatsFromOutput(out)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range pvats {
+		s.diagnostics.RecordSampledPVAT(p.positions, p.velocities, p.accelerations, p.time)
+	}
+	return pvats, nil
 }
 
-func (s *trajexSession) close() { s.sess.Close() }
+func (s *trajexSession) close() {
+	s.sess.Close()
+	s.diagnostics.RecordTrajexSessionCloseEvent()
+}
 
 func pvatsFromOutput(out *trajex.TensorMap) ([]pvat, error) {
 	view := func(key string) ([]uint64, []float64, error) {

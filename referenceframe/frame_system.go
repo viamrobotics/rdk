@@ -6,6 +6,8 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"sync"
+	"sync/atomic"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -56,6 +58,10 @@ type FrameSystem struct {
 	// through flattenModelIntoFS / cleanupFlattenedComponent.
 	mimicFrames         map[string]*mimicInfo
 	internalToComponent map[string]string
+
+	// fkIdx caches the integer-indexed frame graph for the memoized FK pass;
+	// nil after any frame-graph mutation, rebuilt lazily by fkIndexGet.
+	fkIdx atomic.Pointer[fkIndex]
 }
 
 // flattenedComponent holds metadata for one SimpleModel whose internal frames
@@ -285,6 +291,7 @@ func (sfs *FrameSystem) removeFrameRecursive(frame Frame) {
 
 	delete(sfs.frames, frame.Name())
 	delete(sfs.parents, frame.Name())
+	sfs.fkIdx.Store(nil)
 
 	// Remove all descendents
 	for childName, parentName := range sfs.parents {
@@ -308,6 +315,7 @@ func (sfs *FrameSystem) cleanupFlattenedComponent(componentName string) {
 		delete(sfs.internalToComponent, ns)
 	}
 	delete(sfs.flattened, componentName)
+	sfs.fkIdx.Store(nil)
 }
 
 // Frame returns the Frame which has the provided name. It returns nil if the
@@ -402,6 +410,7 @@ func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 	sfs.frames[frame.Name()] = frame
 	sfs.parents[frame.Name()] = parent.Name()
 	sfs.cachedBFSNames = nil
+	sfs.fkIdx.Store(nil)
 
 	if sm := asFlattenableModel(frame); sm != nil {
 		if err := flattenModelIntoFS(sfs, sm, frame.Name(), parent); err != nil {
@@ -640,6 +649,7 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 			sfs.parents[frameName] = replacementFrame.Name()
 		}
 	}
+	sfs.fkIdx.Store(nil)
 
 	// add replacementFrame to frame system with parent of replaceMe. AddFrame
 	// handles auto-flatten if replacementFrame is (or wraps) a SimpleModel.
@@ -716,6 +726,14 @@ func (sfs *FrameSystem) NewFrameToWorld(li *LinearInputs) *FrameToWorld {
 	return &FrameToWorld{l: newLazyFrameToWorld(sfs, li)}
 }
 
+// Release recycles the memo; optional, but hot callers that are done with a
+// FrameToWorld should call it. The FrameToWorld must not be used afterwards.
+func (f *FrameToWorld) Release() {
+	if f.l != nil {
+		f.l.release()
+	}
+}
+
 // PoseQT returns the frame's world pose as a rotation quaternion and a
 // translation, allocating nothing beyond the memo.
 func (f *FrameToWorld) PoseQT(name string) (quat.Number, r3.Vector, error) {
@@ -749,63 +767,175 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 	return ret, nil
 }
 
+// fkIndex is an immutable integer-indexed snapshot of the frame graph for the
+// memoized FK pass. The per-configuration memo used to be a string-keyed map
+// allocated per FK call; at planner rates (tens of thousands of calls per
+// second) the map churn dominated the allocation profile and its string
+// hashing dominated CPU. The index replaces both: names resolve to ints once
+// per query, memos are flat slices recycled through a pool, and parents are
+// walked by index. Rebuilt lazily after any frame-graph mutation.
+type fkIndex struct {
+	byName map[string]int32
+	frames []Frame
+	// parent holds the parent's index, fkParentNone for a frame with no
+	// recorded parent (it contributes identity, matching composeTransforms),
+	// or fkParentMissing when the recorded parent is absent from the system.
+	parent []int32
+
+	pool sync.Pool // *fkMemo
+}
+
+const (
+	fkParentNone    = int32(-1)
+	fkParentMissing = int32(-2)
+	fkParentWorld   = int32(-3)
+)
+
+// fkMemo is one configuration's memo: done is 0 (unset), 1 (dq valid), or 2
+// (err valid).
+type fkMemo struct {
+	dqs  []dualquat.Number
+	errs []error
+	done []uint8
+}
+
+func (sfs *FrameSystem) fkIndexGet() *fkIndex {
+	if p := sfs.fkIdx.Load(); p != nil {
+		return p
+	}
+	idx := &fkIndex{byName: make(map[string]int32, len(sfs.frames))}
+	for name := range sfs.frames {
+		idx.byName[name] = int32(len(idx.byName))
+	}
+	n := len(idx.byName)
+	idx.frames = make([]Frame, n)
+	idx.parent = make([]int32, n)
+	for name, i := range idx.byName {
+		idx.frames[i] = sfs.frames[name]
+		switch pn := sfs.parents[name]; {
+		case pn == "":
+			idx.parent[i] = fkParentNone
+		default:
+			if pi, ok := idx.byName[pn]; ok {
+				idx.parent[i] = pi
+			} else if pn == World {
+				// World is not stored in the frames map; it contributes
+				// identity but the frame's own transform still applies.
+				idx.parent[i] = fkParentWorld
+			} else {
+				idx.parent[i] = fkParentMissing
+			}
+		}
+	}
+	idx.pool.New = func() any {
+		return &fkMemo{
+			dqs:  make([]dualquat.Number, n),
+			errs: make([]error, n),
+			done: make([]uint8, n),
+		}
+	}
+	// Concurrent builders may race; either snapshot is equally valid.
+	sfs.fkIdx.Store(idx)
+	return idx
+}
+
+func (idx *fkIndex) getMemo() *fkMemo {
+	return idx.pool.Get().(*fkMemo)
+}
+
+func (idx *fkIndex) putMemo(m *fkMemo) {
+	for i, d := range m.done {
+		if d == 2 {
+			m.errs[i] = nil
+		}
+		m.done[i] = 0
+	}
+	idx.pool.Put(m)
+}
+
 // lazyFrameToWorld memoizes frame-to-world transforms for one configuration.
 // composeTransforms re-evaluates every ancestor's local transform per queried
 // frame, which makes whole-frame-system sweeps quadratic in chain depth; this
 // evaluates each frame's local transform at most once across all queries.
 // Errors are memoized per frame so one bad frame doesn't poison its siblings.
 type lazyFrameToWorld struct {
-	sfs  *FrameSystem
-	li   *LinearInputs
-	memo map[string]lazyFrameToWorldEntry
-}
-
-type lazyFrameToWorldEntry struct {
-	dq  dualquat.Number
-	err error
+	sfs *FrameSystem
+	li  *LinearInputs
+	idx *fkIndex
+	m   *fkMemo
 }
 
 func newLazyFrameToWorld(sfs *FrameSystem, li *LinearInputs) *lazyFrameToWorld {
-	return &lazyFrameToWorld{sfs: sfs, li: li, memo: make(map[string]lazyFrameToWorldEntry, len(sfs.frames)+1)}
+	idx := sfs.fkIndexGet()
+	return &lazyFrameToWorld{sfs: sfs, li: li, idx: idx, m: idx.getMemo()}
+}
+
+// release returns the memo to the index's pool; the lazyFrameToWorld must not
+// be used afterwards.
+func (l *lazyFrameToWorld) release() {
+	if l.m != nil {
+		l.idx.putMemo(l.m)
+		l.m = nil
+	}
 }
 
 func (l *lazyFrameToWorld) get(name string) (dualquat.Number, error) {
-	if e, ok := l.memo[name]; ok {
-		return e.dq, e.err
-	}
 	identity := dualquat.Number{Real: quat.Number{Real: 1}}
 	if name == World {
-		l.memo[name] = lazyFrameToWorldEntry{dq: identity}
 		return identity, nil
 	}
-	// Unknown names must error - a missing map entry also reads as "", so the
-	// frame lookup has to come before the no-parent check or a typo would
-	// silently resolve to world.
-	frame := l.sfs.lookupFrame(name)
-	if frame == nil {
-		err := NewFrameMissingError(name)
-		l.memo[name] = lazyFrameToWorldEntry{dq: identity, err: err}
+	// Unknown names must error rather than silently resolve to world.
+	i, ok := l.idx.byName[name]
+	if !ok {
+		return identity, NewFrameMissingError(name)
+	}
+	return l.getIdx(i)
+}
+
+func (l *lazyFrameToWorld) getIdx(i int32) (dualquat.Number, error) {
+	identity := dualquat.Number{Real: quat.Number{Real: 1}}
+	switch l.m.done[i] {
+	case 1:
+		return l.m.dqs[i], nil
+	case 2:
+		return identity, l.m.errs[i]
+	}
+	dq, err := l.computeIdx(i)
+	if err != nil {
+		l.m.done[i] = 2
+		l.m.errs[i] = err
 		return identity, err
 	}
-	// Mirrors composeTransforms: the walk stops at (and excludes) the frame
-	// with no recorded parent.
-	if l.sfs.parents[name] == "" {
-		l.memo[name] = lazyFrameToWorldEntry{dq: identity}
+	l.m.done[i] = 1
+	l.m.dqs[i] = dq
+	return dq, nil
+}
+
+func (l *lazyFrameToWorld) computeIdx(i int32) (dualquat.Number, error) {
+	identity := dualquat.Number{Real: quat.Number{Real: 1}}
+	pi := l.idx.parent[i]
+	switch pi {
+	case fkParentNone:
+		// Mirrors composeTransforms: the walk stops at (and excludes) the
+		// frame with no recorded parent.
 		return identity, nil
+	case fkParentMissing:
+		return identity, NewFrameMissingError(l.sfs.parents[l.idx.frames[i].Name()])
 	}
-	parentDQ, err := l.get(l.sfs.parents[name])
-	if err == nil {
-		var local dualquat.Number
-		local, err = l.sfs.localFrameTransform(frame, l.li)
-		if err == nil {
-			pdq := spatial.DualQuaternion{Number: parentDQ}
-			dq := pdq.Transformation(local)
-			l.memo[name] = lazyFrameToWorldEntry{dq: dq}
-			return dq, nil
+	parentDQ := identity
+	if pi != fkParentWorld {
+		var err error
+		parentDQ, err = l.getIdx(pi)
+		if err != nil {
+			return identity, err
 		}
 	}
-	l.memo[name] = lazyFrameToWorldEntry{dq: identity, err: err}
-	return identity, err
+	local, err := l.sfs.localFrameTransform(l.idx.frames[i], l.li)
+	if err != nil {
+		return identity, err
+	}
+	pdq := spatial.DualQuaternion{Number: parentDQ}
+	return pdq.Transformation(local), nil
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.
@@ -1072,6 +1202,7 @@ func FrameSystemGeometriesForFrames(
 	allGeometries := make(map[string]*GeometriesInFrame, len(allFrameNames))
 	// One memoized FK pass instead of an ancestor walk per frame.
 	fk := newLazyFrameToWorld(fs, linearInputs)
+	defer fk.release()
 	for _, name := range allFrameNames {
 		if wanted != nil && !wanted[name] {
 			continue

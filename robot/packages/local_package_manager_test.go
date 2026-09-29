@@ -108,11 +108,11 @@ func TestLocalManagerUtils(t *testing.T) {
 		size := int64(diskusage.MinFreeBytes) + 4242
 		test.That(t, os.WriteFile(src, make([]byte, size), 0o600), test.ShouldBeNil)
 
-		orig := enoughFreeSpace
-		t.Cleanup(func() { enoughFreeSpace = orig })
+		orig := diskusage.EnoughFreeSpaceFunc
+		t.Cleanup(func() { diskusage.EnoughFreeSpaceFunc = orig })
 
 		var gotRequired uint64
-		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+		diskusage.EnoughFreeSpaceFunc = func(_ string, minBytes uint64) (bool, uint64, error) {
 			gotRequired = minBytes
 			return false, 5, nil
 		}
@@ -142,9 +142,9 @@ func TestLocalManagerUtils(t *testing.T) {
 		// unpackFile checks free space incrementally as it extracts and aborts when low and
 		// blocking is on. The seeded counter fires the check before the first file, so even this
 		// tiny tarball exercises it.
-		orig := enoughFreeSpace
-		t.Cleanup(func() { enoughFreeSpace = orig })
-		enoughFreeSpace = func(_ string, _ uint64) (bool, uint64, error) {
+		orig := diskusage.EnoughFreeSpaceFunc
+		t.Cleanup(func() { diskusage.EnoughFreeSpaceFunc = orig })
+		diskusage.EnoughFreeSpaceFunc = func(_ string, _ uint64) (bool, uint64, error) {
 			return false, 5, nil // always low
 		}
 
@@ -156,7 +156,7 @@ func TestLocalManagerUtils(t *testing.T) {
 			test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
 			// installPackage relies on errors.Is to avoid mislabeling this as a corrupt-archive
 			// "try a different version" failure, so the sentinel must propagate.
-			test.That(t, errors.Is(err, errInsufficientDiskSpace), test.ShouldBeTrue)
+			test.That(t, errors.Is(err, diskusage.ErrInsufficientDiskSpace), test.ShouldBeTrue)
 		})
 
 		t.Run("proceeds when low but blocking disabled (log-only default)", func(t *testing.T) {
@@ -176,7 +176,7 @@ func TestLocalManagerUtils(t *testing.T) {
 			tarPath := writeSingleFileTarGz(t, "big-member", fileSize)
 
 			var gotRequired uint64
-			enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+			diskusage.EnoughFreeSpaceFunc = func(_ string, minBytes uint64) (bool, uint64, error) {
 				gotRequired = minBytes
 				return false, 5, nil
 			}
@@ -184,7 +184,7 @@ func TestLocalManagerUtils(t *testing.T) {
 
 			err := unpackFile(context.Background(), logging.NewTestLogger(t), tarPath, t.TempDir())
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, errors.Is(err, errInsufficientDiskSpace), test.ShouldBeTrue)
+			test.That(t, errors.Is(err, diskusage.ErrInsufficientDiskSpace), test.ShouldBeTrue)
 			test.That(t, gotRequired, test.ShouldEqual, uint64(fileSize)+diskusage.MinFreeBytes)
 		})
 	})

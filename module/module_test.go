@@ -512,24 +512,26 @@ func TestAttributeConversion(t *testing.T) {
 			Model: modelWithReconfigure.String(),
 		}
 
-		return &testHarness{
-				m:                    m,
-				mockConf:             mockConf,
-				mockReconfigConf:     mockReconfigConf,
-				createConf1:          &createConf1,
-				reconfigConf1:        &reconfigConf1,
-				reconfigConf2:        &reconfigConf2,
-				createDeps1:          &createDeps1,
-				reconfigDeps1:        &reconfigDeps1,
-				reconfigDeps2:        &reconfigDeps2,
-				modelWithReconfigure: modelWithReconfigure,
-			}, func() {
-				resource.Deregister(shell.API, model)
-				resource.Deregister(shell.API, modelWithReconfigure)
-				test.That(t, conn.Close(), test.ShouldBeNil)
-				m.Close(ctx)
-				test.That(t, myRobot.Close(ctx), test.ShouldBeNil)
-			}
+		th := &testHarness{
+			m:                    m,
+			mockConf:             mockConf,
+			mockReconfigConf:     mockReconfigConf,
+			createConf1:          &createConf1,
+			reconfigConf1:        &reconfigConf1,
+			reconfigConf2:        &reconfigConf2,
+			createDeps1:          &createDeps1,
+			reconfigDeps1:        &reconfigDeps1,
+			reconfigDeps2:        &reconfigDeps2,
+			modelWithReconfigure: modelWithReconfigure,
+		}
+		teardown := func() {
+			resource.Deregister(shell.API, model)
+			resource.Deregister(shell.API, modelWithReconfigure)
+			test.That(t, conn.Close(), test.ShouldBeNil)
+			m.Close(ctx)
+			test.That(t, myRobot.Close(ctx), test.ShouldBeNil)
+		}
+		return th, teardown
 	}
 
 	t.Run("non-reconfigurable creation", func(t *testing.T) {

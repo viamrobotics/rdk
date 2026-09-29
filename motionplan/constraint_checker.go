@@ -15,9 +15,8 @@ import (
 
 // short descriptions of constraints used in error messages.
 const (
-	linearConstraintDescription      = "linear constraint"
-	orientationConstraintDescription = "orientation constraint"
-	planarConstraintDescription      = "planar constraint"
+	linearConstraintDescription = "linear constraint"
+	planarConstraintDescription = "planar constraint"
 
 	// collision constraint descriptions used in error messages.
 	boundingRegionConstraintDescription = "bounding region constraint"
@@ -50,6 +49,8 @@ type ConstraintChecker struct {
 	collisionConstraints CollisionConstraints
 	topoConstraint       StateFSConstraint
 
+	collisionBufferMM float64
+
 	logger logging.Logger
 }
 
@@ -80,6 +81,7 @@ func NewConstraintChecker(
 		constraints = &Constraints{}
 	}
 	handler := NewEmptyConstraintChecker(logger)
+	handler.collisionBufferMM = collisionBufferMM
 
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
 	if err != nil {
@@ -225,8 +227,8 @@ func (c *ConstraintChecker) addTopoConstraints(
 }
 
 func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error { //nolint: revive
-	return fmt.Errorf("%s %s violated dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
-		prefix, orientationConstraintDescription, dist, max,
+	return fmt.Errorf("%s %w dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
+		prefix, ErrOrientationConstraintViolated, dist, max,
 		from, to, curr)
 }
 
@@ -242,7 +244,8 @@ func checkLinearConstraint(frame string, linConstraint LinearConstraint, from, t
 	if orientTol > 0 {
 		dist := min(
 			OrientDist(from.Orientation(), currPose.Orientation()),
-			OrientDist(to.Orientation(), currPose.Orientation()))
+			OrientDist(to.Orientation(), currPose.Orientation()),
+		)
 		if dist > orientTol {
 			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
 		}
@@ -266,7 +269,8 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 		orientTol *= OrientDist(from.Orientation(), to.Orientation())
 		dist := min(
 			OrientDist(from.Orientation(), currPose.Orientation()),
-			OrientDist(to.Orientation(), currPose.Orientation()))
+			OrientDist(to.Orientation(), currPose.Orientation()),
+		)
 		if dist > orientTol {
 			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
 		}
@@ -289,6 +293,9 @@ func checkOrientationConstraintEval(frame string, e *OrientationConstraintEval, 
 // per plan, and per-call span creation plus exporter wakeups measurably
 // dominated planning time once the checks themselves became cheap.
 func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *StateFS) (float64, error) {
+	// The cover evaluation is shared by the collision constraints below and
+	// recycled once this state check completes.
+	defer releaseCoverSet(state)
 	// Topological constraints (orientation/linear) cost a single FK pass —
 	// orders of magnitude cheaper than the collision sweeps below — so check
 	// them first: constrained planners generate many candidate states that fail
@@ -410,7 +417,18 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 		// constraints (orientation/linear) carry no such guarantee but are
 		// cheap - a single FK pass per state - so evaluate just those on the
 		// skipped states instead of disabling skipping altogether.
-		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
+		//
+		// The cushion keeps this sweep's verdicts consistent with the
+		// full-resolution finalization pass (armplanning's
+		// findCloseObstacleWaypoints), which checks every state within
+		// 10x the collision buffer of an obstacle: skipping must never hop
+		// into that near zone, or a path accepted here can be rejected at
+		// finalization and fail an otherwise-solved plan. The interpolation
+		// step count also bounds only frame-origin and joint deltas, not
+		// distal geometry on a lever arm, so the raw clearance skip could
+		// overshoot through a thin obstacle; the cushion absorbs that too.
+		cushion := math.Max(0.1, 10*c.collisionBufferMM)
+		canSkip := int(min(100, math.Floor((closestObstacle-cushion)/resolution)))
 		if canSkip > 0 && c.topoConstraint != nil {
 			for j := i + 1; j <= i+canSkip && j < end; j++ {
 				topoC := &StateFS{FS: ci.FS, Configuration: interpolatedConfigurations[j]}
@@ -562,6 +580,11 @@ func NewCollisionConstraintFS(
 	}
 	sdfClearThreshold := math.Max(2.0, 2*collisionBufferMM)
 
+	// The static side of every pair check is the same geometry set at the
+	// same poses for the life of this checker; prebuilding its names, allow
+	// flags, and bounding spheres removes that work from every state check.
+	staticPre := prenameGeoms(static, allowed)
+
 	// finish shares the tail of every path: convert a found collision into
 	// the constraint-violated error.
 	finish := func(collisions []Collision, minDist float64, err error) (float64, error) {
@@ -609,7 +632,8 @@ func NewCollisionConstraintFS(
 			return 0, err
 		}
 		collisions, minDist, err := checkCollisionsHinted(
-			geoms, static, allowed, collisionBufferMM, false, pairHint, logger)
+			geoms, static, staticPre, allowed, collisionBufferMM, false, pairHint, logger,
+		)
 		return finish(collisions, math.Min(minDist, sdfMin), err)
 	}
 
@@ -669,7 +693,8 @@ func NewCollisionConstraintFS(
 			return 0, err
 		}
 		collisions, minDist, err := checkCollisionsHinted(
-			geoms, geoms, allowed, collisionBufferMM, false, pairHint, logger)
+			geoms, geoms, nil, allowed, collisionBufferMM, false, pairHint, logger,
+		)
 		return finish(collisions, math.Min(minDist, selfMin), err)
 	}
 
@@ -737,8 +762,13 @@ func NewCollisionConstraintFS(
 			staticToCheck = internalGeoms
 		}
 
+		staticPreToUse := staticPre
+		if isSelfCollision {
+			staticPreToUse = nil
+		}
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, allowed, collisionBufferMM, false, pairHint, logger)
+			internalGeoms, staticToCheck, staticPreToUse, allowed, collisionBufferMM, false, pairHint, logger,
+		)
 		minDist = math.Min(minDist, sdfMin)
 		if err != nil {
 			return minDist, err
@@ -764,7 +794,8 @@ func computeInitialCollisionsToIgnore(
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
 	initialCollisions, _, err := checkCollisionsHinted(
-		group1, group2, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger)
+		group1, group2, nil, makeAllowedCollisionsLookup(collisionSpecifications), collisionBufferMM, true, nil, logger,
+	)
 	if err != nil {
 		return nil, err
 	}

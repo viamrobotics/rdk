@@ -150,8 +150,8 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 		return nil, err
 	}
 
-	if opt.CollisionBufferMM < 0 {
-		return nil, errors.New("collision_buffer_mm can't be negative")
+	if opt.CollisionBufferMM <= 0 {
+		return nil, errors.New("collision_buffer_mm has to be positive")
 	}
 
 	return opt, nil

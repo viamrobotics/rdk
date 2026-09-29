@@ -249,6 +249,7 @@ func captureMetadataToProto(metadata CaptureMetadata) *pb.CaptureMetadata {
 
 func binaryMetadataToProto(binaryMetadata *BinaryMetadata) *pb.BinaryMetadata {
 	return &pb.BinaryMetadata{
+		//nolint:staticcheck
 		Id:              binaryMetadata.ID,
 		BinaryDataId:    binaryMetadata.BinaryDataID,
 		CaptureMetadata: captureMetadataToProto(binaryMetadata.CaptureMetadata),
@@ -533,7 +534,8 @@ func TestDataClient(t *testing.T) {
 		resp, err := client.BinaryDataByFilter(
 			context.Background(), includeBinary, &DataByFilterOptions{
 				&filter, limit, last, dataRequest.SortOrder, countOnly, includeInternalData,
-			})
+			},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.BinaryData[0], test.ShouldResemble, &binaryData)
 		test.That(t, resp.Count, test.ShouldEqual, count)
@@ -787,7 +789,8 @@ func TestDataClient(t *testing.T) {
 		}
 		resp, err := client.AddBoundingBoxToImageByID(
 			context.Background(), binaryDataID, bboxLabel, annotations.Bboxes[0].XMinNormalized,
-			annotations.Bboxes[0].YMinNormalized, annotations.Bboxes[0].XMaxNormalized, annotations.Bboxes[0].YMaxNormalized)
+			annotations.Bboxes[0].YMinNormalized, annotations.Bboxes[0].XMaxNormalized, annotations.Bboxes[0].YMaxNormalized,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, annotations.Bboxes[0].ID)
 	})

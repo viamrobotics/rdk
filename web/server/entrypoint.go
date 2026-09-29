@@ -250,7 +250,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
 			signalingConnLogger := networkingLogger.Sublogger("signaling_connection")
 			signalingConn, err = grpc.NewAppConn(
-				ctx, cloud.SignalingAddress, cloud.ID, cloudCreds, signalingConnLogger)
+				ctx, cloud.SignalingAddress, cloud.ID, cloudCreds, signalingConnLogger,
+			)
 			if err != nil {
 				return err
 			}
@@ -528,7 +529,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// viam-server stack traces by default on app.viam.com.
 	stackTraceLogger := s.rootLogger.Sublogger("stack_traces")
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
-		ctx, hungShutdownDeadline, "server is taking a while to shutdown", stackTraceLogger)
+		ctx, hungShutdownDeadline, "server is taking a while to shutdown", stackTraceLogger,
+	)
 
 	doneServing := make(chan struct{})
 

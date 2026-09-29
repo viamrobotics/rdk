@@ -39,7 +39,9 @@ import (
 )
 
 // cgoBuiltinsExcluded reports whether the built viam-server drops cgo-only
-// builtins. cgo is only enabled on amd64/arm64.
+// builtins. cgo is only enabled on amd64/arm64. Treating windows as optional. it
+// never gets the full set, but a cgo-enabled Windows build does add the webcam
+// driver
 func cgoBuiltinsExcluded() bool {
 	return runtime.GOOS == "windows" || (runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64")
 }
@@ -69,9 +71,7 @@ func TestEntrypoint(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			if success = robottestutils.WaitForServing(logObserver, port); success {
-				defer func() {
-					test.That(t, server.Stop(), test.ShouldBeNil)
-				}()
+				defer robottestutils.StopServerProcess(t, server)
 				break
 			}
 			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
@@ -119,6 +119,10 @@ func TestEntrypoint(t *testing.T) {
 		numReg := 53
 		if cgoBuiltinsExcluded() {
 			numReg = 45
+			// a cgo-enabled Windows build additionally registers the webcam driver
+			if runtime.GOOS == "windows" && os.Getenv("CGO_ENABLED") == "1" {
+				numReg++
+			}
 		}
 		test.That(t, registrations, test.ShouldHaveLength, numReg)
 

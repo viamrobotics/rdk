@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
@@ -419,6 +420,24 @@ func (sa *simulatedArm) Stop(ctx context.Context, extra map[string]any) error {
 	sa.operation.sampleConfigs = nil
 
 	return nil
+}
+
+// Properties returns which optional features the simulated arm supports.
+func (sa *simulatedArm) Properties(ctx context.Context, extra map[string]interface{}) (arm.Properties, error) {
+	return arm.Properties{
+		SupportManualMode:        false,
+		SupportCartesianCommands: true,
+	}, nil
+}
+
+// SetManualMode is unsupported for a simulated arm.
+func (sa *simulatedArm) SetManualMode(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
+// ManualMode is unsupported for a simulated arm.
+func (sa *simulatedArm) ManualMode(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	return false, grpc.UnimplementedError
 }
 
 func (sa *simulatedArm) Close(ctx context.Context) error {

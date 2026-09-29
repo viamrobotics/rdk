@@ -300,41 +300,57 @@ func NewLocalFileReadCopier(
 	allowRecursive bool,
 	relativeToHome bool,
 	copyFactory FileCopyFactory,
-) (FileReadCopier, error) {
+) (_ FileReadCopier, err error) {
 	var filesToCopy []*os.File
 
-	for _, p := range paths {
-		p, err := fixPeerPath(p, false, relativeToHome)
+	// An error return hands the caller no copier to Close, so release whatever we
+	// opened here. A lingering handle blocks deletes and renames of that path on
+	// Windows long after the failed copy.
+	defer func() {
 		if err != nil {
+			for _, f := range filesToCopy {
+				utils.UncheckedError(f.Close())
+			}
+		}
+	}()
+
+	for _, p := range paths {
+		var fixedPath string
+		if fixedPath, err = fixPeerPath(p, false, relativeToHome); err != nil {
 			return nil, err
 		}
 
+		var fileToCopy *os.File
 		//nolint:gosec // this is from an authenticated/authorized connection
-		fileToCopy, err := os.Open(p)
-		if err != nil {
+		if fileToCopy, err = os.Open(fixedPath); err != nil {
 			return nil, err
 		}
+		// track before validating so the cleanup above covers every error path below
+		filesToCopy = append(filesToCopy, fileToCopy)
+
 		if !allowRecursive {
-			fileInfo, err := fileToCopy.Stat()
-			if err != nil {
+			var fileInfo fs.FileInfo
+			if fileInfo, err = fileToCopy.Stat(); err != nil {
 				return nil, err
 			}
 			if fileInfo.IsDir() {
 				details := &errdetails.BadRequest_FieldViolation{
 					Field:       "paths",
-					Description: fmt.Sprintf("local %q is a directory but copy recursion not used", p),
+					Description: fmt.Sprintf("local %q is a directory but copy recursion not used", fixedPath),
 				}
-				s, err := status.New(codes.InvalidArgument, ErrMsgDirectoryCopyRequestNoRecursion).WithDetails(details)
+				var s *status.Status
+				s, err = status.New(codes.InvalidArgument, ErrMsgDirectoryCopyRequestNoRecursion).WithDetails(details)
 				if err != nil {
 					return nil, err
 				}
-				return nil, s.Err()
+				err = s.Err()
+				return nil, err
 			}
 		}
-		filesToCopy = append(filesToCopy, fileToCopy)
 	}
 	if len(filesToCopy) == 0 {
-		return nil, errors.New("no files provided to copy")
+		err = errors.New("no files provided to copy")
+		return nil, err
 	}
 	return &localFileReadCopier{filesToCopy: filesToCopy, copyFactory: copyFactory}, nil
 }
@@ -472,7 +488,8 @@ func fixPeerPath(path string, allowEmpty, relativeToHome bool) (string, error) {
 		case path == ViamHomePrefix || strings.HasPrefix(path, ViamHomePrefix+"/"):
 			path = filepath.Join(rutils.ViamDotDir, strings.TrimPrefix(path, ViamHomePrefix))
 		case strings.HasPrefix(path, "~/"):
-			path = strings.Replace(path, "~", homeDir, 1)
+			// Join rather than a raw substitution so the result keeps native separators
+			path = filepath.Join(homeDir, strings.TrimPrefix(path, "~/"))
 		case path == "":
 			if !allowEmpty {
 				return "", errUnexpectedEmptyPath

@@ -52,7 +52,7 @@ type firSinc struct {
 
 func (f *firSinc) calculateCoefficients() error {
 	wc := 2.0 * f.cutOffFreq / f.smpFreq
-	n1 := (0.5) * (float64(f.order) - 1)
+	n1 := 0.5 * (float64(f.order) - 1)
 	for i := 0; i < f.order; i++ {
 		if float64(i)-n1 == 0 {
 			f.coeffs[i] = wc
@@ -112,7 +112,7 @@ func (f *firWindowedSinc) calculateKernel() error {
 		if i-hs == 0 {
 			f.kernel[i] = math.Pi * wc
 		} else {
-			f.kernel[i] = math.Sin(math.Pi*wc*(float64(i-hs))) / float64(i-hs)
+			f.kernel[i] = math.Sin(math.Pi*wc*float64(i-hs)) / float64(i-hs)
 		}
 		f.kernel[i] *= (0.54 - 0.46*math.Cos(math.Pi*float64(i/f.kernelSize)))
 		acc += f.kernel[i]

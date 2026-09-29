@@ -22,7 +22,8 @@ func init() {
 		model,
 		resource.Registration[powersensor.PowerSensor, *Config]{
 			Constructor: newFakePowerSensorModel,
-		})
+		},
+	)
 }
 
 func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,

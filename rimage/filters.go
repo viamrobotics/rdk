@@ -289,7 +289,7 @@ func savitskyGolayKernel(radius, order int) ([][]float64, error) {
 	for i, y := range yRange {
 		for j, x := range xRange {
 			for k, exp := range exps {
-				A.Set(i*(windowSize)+j, k, math.Pow(float64(x), float64(exp.X))*math.Pow(float64(y), float64(exp.Y)))
+				A.Set(i*windowSize+j, k, math.Pow(float64(x), float64(exp.X))*math.Pow(float64(y), float64(exp.Y)))
 			}
 		}
 	}

@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -139,33 +142,42 @@ func collisionSpecifications(
 // needed here.
 func checkCollisionsHinted(
 	gg, other []spatialmath.Geometry,
+	otherPre []namedGeom,
 	allowed map[[2]string]bool,
 	collisionBufferMM float64,
 	collectAllCollisions bool,
 	hint *atomic.Pointer[[2]string],
 	logger logging.Logger,
 ) ([]Collision, float64, error) {
-	ggMap, err := createUniqueCollisionMap(gg)
-	if err != nil {
-		return nil, math.Inf(-1), err
-	}
-	otherMap, err := createUniqueCollisionMap(other)
-	if err != nil {
-		return nil, math.Inf(-1), err
-	}
-
-	// `seen` dedups pairs only when the same canonical (xName,yName) could be visited
-	// twice during the nested-loop iteration below. That requires a name to appear in
-	// both ggMap and otherMap — i.e. self-collision. For disjoint sets (the obstacle
-	// and robot-vs-robot constraints), every iteration yields a unique canonical pair,
-	// so allocating the map and writing to it on every pair is pure waste. Detect the
-	// disjoint case up front and leave seen nil; skipCollisionCheck handles nil safely.
-	var seen map[[2]string]bool
-	for k := range ggMap {
-		if _, ok := otherMap[k]; ok {
-			seen = make(map[[2]string]bool, len(ggMap)*len(otherMap)/2)
-			break
+	// Self-collision callers pass the identical slice for both sets; that case
+	// iterates the strict upper triangle so each unordered pair is visited
+	// exactly once. Distinct slices are treated as disjoint sets (true for
+	// every production caller); a name present in both merely costs a
+	// redundant symmetric check, never a wrong answer.
+	sameSet := len(gg) == len(other) && len(gg) > 0 && &gg[0] == &other[0]
+	// For large allow lists, one name-set build beats scanning the list per
+	// geometry; for small ones the scan is cheaper than the map.
+	var allowNames map[string]bool
+	if len(allowed) > 16 {
+		allowNames = make(map[string]bool, len(allowed)*2)
+		for k := range allowed {
+			allowNames[k[0]] = true
+			allowNames[k[1]] = true
 		}
+	}
+	ggN := nameGeoms(gg, 0, allowed, allowNames)
+	defer putNamedGeoms(ggN)
+	otherN := ggN
+	switch {
+	case otherPre != nil:
+		// Prebuilt set (the checker's static geometries): names, allow flags,
+		// and bounding spheres computed once at checker construction instead
+		// of once per state check.
+		sameSet = false
+		otherN = otherPre
+	case !sameSet:
+		otherN = nameGeoms(other, len(gg), allowed, allowNames)
+		defer putNamedGeoms(otherN)
 	}
 
 	collisions := []Collision{}
@@ -190,16 +202,15 @@ func checkCollisionsHinted(
 	// slow pairs still surface, without the per-pair clock tax.
 	timeChecks := logger.GetLevel() <= logging.DEBUG
 	var pairCounter atomic.Uint64
-	checkOnePair := func(xName, yName string, xGeometry, yGeometry spatialmath.Geometry) (bool, error) {
+	checkOnePair := func(x, y *namedGeom) (bool, error) {
+		xName, yName, xGeometry, yGeometry := x.name, y.name, x.g, y.g
 		// Bounding-sphere broadphase: most pairs in the moving-vs-static
 		// product are nowhere near each other, and even the cached narrow
 		// phase costs three orders of magnitude more than this gap test.
-		if cx, rx, okx := spatialmath.BoundingSphere(xGeometry); okx {
-			if cy, ry, oky := spatialmath.BoundingSphere(yGeometry); oky {
-				if gap := cx.Sub(cy).Norm() - rx - ry; gap > collisionBufferMM {
-					minDistance = min(minDistance, gap)
-					return false, nil
-				}
+		if x.bok && y.bok {
+			if gap := x.bcenter.Sub(y.bcenter).Norm() - x.brad - y.brad; gap > collisionBufferMM {
+				minDistance = min(minDistance, gap)
+				return false, nil
 			}
 		}
 		var start time.Time
@@ -228,26 +239,42 @@ func checkCollisionsHinted(
 		return false, nil
 	}
 
+	// skipPair mirrors the old skipCollisionCheck: identical names never pair,
+	// and allowed pairs are skipped. Hashing an allowed key is only worth it
+	// when both geometries appear somewhere in the allow list - inAllow is
+	// precomputed per geometry so the common no-allows pair costs two bool
+	// reads instead of a string-pair hash.
+	skipPair := func(x, y *namedGeom) bool {
+		if x.name == y.name {
+			return true
+		}
+		return x.inAllow && y.inAllow && allowed[canonicalPair(x.name, y.name)]
+	}
+
 	// Hint fast path: try the previously-violated pair first.
 	if hint != nil {
 		if h := hint.Load(); h != nil {
-			tryHint := func(xName, yName string) (bool, bool, error) {
-				xGeom, ok := ggMap[xName]
-				if !ok {
-					return false, false, nil
+			findNamed := func(set []namedGeom, name string) *namedGeom {
+				for i := range set {
+					if set[i].name == name {
+						return &set[i]
+					}
 				}
-				yGeom, ok := otherMap[yName]
-				if !ok {
-					return false, false, nil
+				return nil
+			}
+			tryHint := func(xName, yName string) (bool, error) {
+				x := findNamed(ggN, xName)
+				if x == nil {
+					return false, nil
 				}
-				if skipCollisionCheck(allowed, seen, xName, yName) {
-					return false, true, nil
+				y := findNamed(otherN, yName)
+				if y == nil || skipPair(x, y) {
+					return false, nil
 				}
-				stop, err := checkOnePair(xName, yName, xGeom, yGeom)
-				return stop, true, err
+				return checkOnePair(x, y)
 			}
 			for _, pair := range [2][2]string{{h[0], h[1]}, {h[1], h[0]}} {
-				stop, _, err := tryHint(pair[0], pair[1])
+				stop, err := tryHint(pair[0], pair[1])
 				if err != nil {
 					return nil, 0, err
 				}
@@ -258,12 +285,18 @@ func checkCollisionsHinted(
 		}
 	}
 
-	for xName, xGeometry := range ggMap {
-		for yName, yGeometry := range otherMap {
-			if skipCollisionCheck(allowed, seen, xName, yName) {
+	for i := range ggN {
+		x := &ggN[i]
+		yStart := 0
+		if sameSet {
+			yStart = i + 1
+		}
+		for j := yStart; j < len(otherN); j++ {
+			y := &otherN[j]
+			if skipPair(x, y) {
 				continue
 			}
-			stop, err := checkOnePair(xName, yName, xGeometry, yGeometry)
+			stop, err := checkOnePair(x, y)
 			if err != nil {
 				return nil, math.Inf(-1), err
 			}
@@ -274,6 +307,79 @@ func checkCollisionsHinted(
 	}
 
 	return collisions, minDistance, nil
+}
+
+// namedGeom pairs a geometry with its collision name for the pair loop.
+// inAllow records whether the name appears anywhere in the allowed map, so
+// pairs with no possible allowance skip the string-pair hash entirely.
+type namedGeom struct {
+	name    string
+	g       spatialmath.Geometry
+	inAllow bool
+	// Bounding sphere in world coordinates, computed once per geometry per
+	// call: deriving it per pair made pose decomposition (DualQuaternion.Point
+	// under BoundingSphere) the hottest non-GC entry in mesh-heavy scenes.
+	bcenter r3.Vector
+	brad    float64
+	bok     bool
+}
+
+var namedGeomPool = sync.Pool{New: func() any { s := make([]namedGeom, 0, 64); return &s }}
+
+// nameGeoms builds the named slice for one input set. Unnamed geometries get
+// synthetic names; unnamedBase keeps them distinct across the two sets of one
+// call. Return through putNamedGeoms.
+func nameGeoms(geoms []spatialmath.Geometry, unnamedBase int, allowed map[[2]string]bool, allowNames map[string]bool) []namedGeom {
+	out := (*namedGeomPool.Get().(*[]namedGeom))[:0]
+	for _, g := range geoms {
+		label := g.Label()
+		if label == "" {
+			label = unnamedCollisionGeometryPrefix + strconv.Itoa(unnamedBase)
+			unnamedBase++
+		}
+		ng := namedGeom{name: label, g: g}
+		ng.bcenter, ng.brad, ng.bok = spatialmath.BoundingSphere(g)
+		switch {
+		case allowNames != nil:
+			ng.inAllow = allowNames[label]
+		case len(allowed) > 0:
+			for k := range allowed {
+				if k[0] == label || k[1] == label {
+					ng.inAllow = true
+					break
+				}
+			}
+		}
+		out = append(out, ng)
+	}
+	return out
+}
+
+// prenameGeoms builds a long-lived namedGeom slice for a geometry set whose
+// poses never change (the checker's static side). The synthetic-name base for
+// unnamed geometries is far above anything the per-call moving side uses.
+func prenameGeoms(geoms []spatialmath.Geometry, allowed map[[2]string]bool) []namedGeom {
+	var allowNames map[string]bool
+	if len(allowed) > 16 {
+		allowNames = make(map[string]bool, len(allowed)*2)
+		for k := range allowed {
+			allowNames[k[0]] = true
+			allowNames[k[1]] = true
+		}
+	}
+	pooled := nameGeoms(geoms, 1<<20, allowed, allowNames)
+	out := make([]namedGeom, len(pooled))
+	copy(out, pooled)
+	putNamedGeoms(pooled)
+	return out
+}
+
+func putNamedGeoms(s []namedGeom) {
+	for i := range s {
+		s[i].g = nil // don't retain geometries across pool reuse
+	}
+	s = s[:0]
+	namedGeomPool.Put(&s)
 }
 
 func canonicalPair(a, b string) [2]string {
@@ -290,48 +396,4 @@ func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[[2]string]bo
 		ignoreList[canonicalPair(c.name1, c.name2)] = true
 	}
 	return ignoreList
-}
-
-func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialmath.Geometry, error) {
-	unnamedCnt := 0
-	geomMap := make(map[string]spatialmath.Geometry, len(geoms))
-
-	for _, geom := range geoms {
-		label := geom.Label()
-		if label == "" {
-			label = unnamedCollisionGeometryPrefix + strconv.Itoa(unnamedCnt)
-			unnamedCnt++
-		}
-		if _, present := geomMap[label]; present {
-			return nil, referenceframe.NewDuplicateGeometryNameError(label)
-		}
-		geomMap[label] = geom
-	}
-	return geomMap, nil
-}
-
-func skipCollisionCheck(allowed, seen map[[2]string]bool, xName, yName string) bool {
-	// Skip comparing a geometry to itself
-	if xName == yName {
-		return true
-	}
-
-	key := canonicalPair(xName, yName)
-	if allowed[key] {
-		return true
-	}
-	if seen == nil {
-		// Caller determined ggMap and otherMap are disjoint, so (xName,yName)
-		// produces a unique canonical pair on every iteration — dedup unnecessary.
-		return false
-	}
-	if seen[key] {
-		// Already checked this pair in the other order
-		return true
-	}
-
-	// We're going to decide if x->y collides. We will not need to check if y->x collides. Mutate
-	// the ignoreList to (potentially) avoid that reverse computation.
-	seen[key] = true
-	return false
 }

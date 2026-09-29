@@ -56,8 +56,9 @@ type PathFeedback struct {
 	// IsObstacleCollision is true if the path collided with an obstacle.
 	IsObstacleCollision bool
 
-	// LastGoodInputs is the configuration of the last interepolated position before hitting a
-	// problem.
+	// LastGoodInputs is the configuration of the last interpolated position before hitting a
+	// problem. When the start configuration itself violates a constraint, this is set to the
+	// start configuration (i.e. we assume the start is valid).
 	LastGoodInputs *referenceframe.LinearInputs
 }
 
@@ -684,7 +685,8 @@ solutionLoop:
 			if !ok {
 				logger.Debugf(
 					"Stopping because input channel is closed. Best score: %v With problem: %v",
-					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem)
+					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem,
+				)
 				// No longer using the generated solutions. Cancel the workers.
 				cancel()
 				break solutionLoop
@@ -706,6 +708,11 @@ solutionLoop:
 	solvingState.flushFailuresToMeta()
 
 	if len(solvingState.solutions) == 0 {
+		// A goal whose frame no DoF moves is unsatisfiable by construction, not merely hard.
+		if err := psc.motionChains.immovableGoalError(); err != nil {
+			return nil, err
+		}
+
 		if solvingState.fatal != nil {
 			return nil, solvingState.fatal
 		}

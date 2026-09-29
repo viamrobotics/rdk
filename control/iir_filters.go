@@ -29,8 +29,8 @@ func calculateBiquadCoefficient(fc float64, p, n int, rp float64, hp bool) ([]fl
 
 	if rp > 0 {
 		scale := math.Sqrt(math.Pow(100.0/(100.0-rp), 2) - 1)
-		vx := (1.0 / float64(n)) * math.Log((1.0/scale)+math.Sqrt((math.Pow(1.0/scale, 2))+1))
-		kx := (1.0 / float64(n)) * math.Log((1.0/scale)+math.Sqrt((math.Pow(1.0/scale, 2))-1))
+		vx := (1.0 / float64(n)) * math.Log((1.0/scale)+math.Sqrt(math.Pow(1.0/scale, 2)+1))
+		kx := (1.0 / float64(n)) * math.Log((1.0/scale)+math.Sqrt(math.Pow(1.0/scale, 2)-1))
 		kx = (math.Exp(kx) + math.Exp(-kx)) * 0.5
 		realP = realP * ((math.Exp(vx) - math.Exp(-vx)) * 0.5) / kx
 		imagP = imagP * ((math.Exp(vx) + math.Exp(-vx)) * 0.5) / kx
@@ -39,9 +39,9 @@ func calculateBiquadCoefficient(fc float64, p, n int, rp float64, hp bool) ([]fl
 	Wc := math.Pi * fc
 	squaredMod := math.Pow(realP, 2) + math.Pow(imagP, 2)
 	d := 4 - 4*realP*T + squaredMod*math.Pow(T, 2)
-	x0 := (math.Pow(T, 2)) / d
-	x1 := 2 * (math.Pow(T, 2)) / d
-	x2 := (math.Pow(T, 2)) / d
+	x0 := math.Pow(T, 2) / d
+	x1 := 2 * math.Pow(T, 2) / d
+	x2 := math.Pow(T, 2) / d
 	y1 := (8 - 2*squaredMod*math.Pow(T, 2)) / d
 	y2 := (-4 - 4*realP*T - squaredMod*math.Pow(T, 2)) / d
 	var k float64

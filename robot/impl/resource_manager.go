@@ -254,19 +254,21 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		prevReachable = rNode.IsReachable()
 	}
 
-	// The connection to the remote is broken. In this case, we mark each resource node
-	// on this remote as disconnected but do not report any other changes.
-	if newResources == nil {
-		err := manager.resources.MarkReachability(remoteName, false)
-		if err != nil {
-			logger.Error(
-				"unable to mark remote resources as unreachable",
-				"error", err,
-			)
+	// markRemoteUnreachable marks the remote and all of its resources unreachable and, on the
+	// reachable->unreachable transition, emits a disconnect activity event.
+	markRemoteUnreachable := func() {
+		if err := manager.resources.MarkReachability(remoteName, false); err != nil {
+			logger.Error("unable to mark remote resources as unreachable", "error", err)
 		}
 		if prevReachable {
 			manager.logger.Activity("remote", "disconnect", "remote", remoteName.Name)
 		}
+	}
+
+	// The connection to the remote is broken, so we can't inventory its resources. Mark each resource node
+	// on this remote as disconnected and return that nothing changed.
+	if newResources == nil {
+		markRemoteUnreachable()
 		return false
 	}
 
@@ -297,6 +299,15 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		resLogger := logger.WithFields("resource", remoteResName)
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
 		if err != nil {
+			// The connection may have dropped between ResourceNames() above and this call. If so
+			// the remote's resources aren't gone, the fetch just failed, so we don't actually want
+			// to remove them. That would cause local resources that optionally depend on them to
+			// be rebuilt with the dependency missing. Handle it exactly like the up-front disconnect
+			// above. Any other error causes the resource to not be added, or removed if existing.
+			if remoteRobot, ok := rr.(robot.RemoteRobot); ok && !remoteRobot.Connected() {
+				markRemoteUnreachable()
+				return anythingChanged
+			}
 			if errors.Is(err, client.ErrMissingClientRegistration) {
 				resLogger.CDebugw(ctx, "couldn't obtain remote resource interface",
 					"reason", err)
@@ -593,7 +604,8 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 				manager.logger.Errorw(
 					"remote proto service name clashes with another of the same API",
 					"existing", svcName.GetFullyQualifiedName(),
-					"remote", remoteType.Desc.GetFullyQualifiedName())
+					"remote", remoteType.Desc.GetFullyQualifiedName(),
+				)
 			}
 			continue
 		}
@@ -803,7 +815,8 @@ func (manager *resourceManager) completeConfig(
 				defer timeoutCancel()
 
 				stopSlowLogger := rutils.SlowLogger(
-					ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
+					ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger,
+				)
 
 				lr.reconfigureWorkers.Add(1)
 				goutils.PanicCapturingGo(func() {
@@ -837,7 +850,8 @@ func (manager *resourceManager) completeConfig(
 						gNode.LogAndSetLastError(
 							fmt.Errorf("resource config validation error: %w", err),
 							"resource", conf.ResourceName(),
-							"model", conf.Model)
+							"model", conf.Model,
+						)
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
@@ -846,7 +860,8 @@ func (manager *resourceManager) completeConfig(
 							gNode.LogAndSetLastError(
 								fmt.Errorf("modular resource config validation error: %w", err),
 								"resource", conf.ResourceName(),
-								"model", conf.Model)
+								"model", conf.Model,
+							)
 							return
 						}
 
@@ -894,7 +909,8 @@ func (manager *resourceManager) completeConfig(
 							gNode.LogAndSetLastError(
 								fmt.Errorf("resource build error: %v", err.Error()),
 								"resource", conf.ResourceName(),
-								"model", conf.Model)
+								"model", conf.Model,
+							)
 							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "fail",
 								"resource", resName.String(),
@@ -912,7 +928,8 @@ func (manager *resourceManager) completeConfig(
 						// updating the graph to be safe.
 						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 							manager.logger.CErrorw(
-								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err(),
+							)
 							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "fail",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
@@ -1011,13 +1028,15 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 				// Validate the remote config
 				if _, _, err := remConf.Validate(""); err != nil {
 					gNode.LogAndSetLastError(
-						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
+						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name,
+					)
 					return
 				}
 				rr, err := manager.processRemote(ctx, *remConf, gNode)
 				if err != nil {
 					gNode.LogAndSetLastError(
-						fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
+						fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name,
+					)
 					return
 				}
 				manager.addRemote(ctx, rr, gNode, *remConf)
@@ -1521,7 +1540,8 @@ func (manager *resourceManager) markRemoved(
 	// resource is served by a different module, this allows the chain of dependencies to be rebuilt.
 	resourcesToCloseBeforeComplete = append(
 		resourcesToCloseBeforeComplete,
-		manager.markResourcesRemoved(closedModularResourceNames, addNames, false)...)
+		manager.markResourcesRemoved(closedModularResourceNames, addNames, false)...,
+	)
 
 	// Only rebuild modular resources that are not marked for removal.
 	var resourcesToRebuild []resource.Name

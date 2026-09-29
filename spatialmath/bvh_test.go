@@ -560,7 +560,8 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 		)
 
 		collides, _, err := leafCollidesWithLeaf(
-			trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil, math.Inf(1))
+			trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil, math.Inf(1),
+		)
 		test.That(t, collides, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -578,7 +579,8 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 		)
 
 		collides, dist, err := leafCollidesWithLeaf(
-			trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil, math.Inf(1))
+			trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil, math.Inf(1),
+		)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, dist, test.ShouldAlmostEqual, 5, 1e-9)
 		test.That(t, err, test.ShouldBeNil)
@@ -598,7 +600,8 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 
 		// No collision without buffer
 		collides, _, err := leafCollidesWithLeaf(
-			trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil, math.Inf(1))
+			trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil, math.Inf(1),
+		)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldBeNil)
 

@@ -54,9 +54,7 @@ func TestComplexModule(t *testing.T) {
 
 		if robottestutils.WaitForServing(observer, port) {
 			success = true
-			defer func() {
-				test.That(t, server.Stop(), test.ShouldBeNil)
-			}()
+			defer robottestutils.StopServerProcess(t, server)
 			break
 		}
 		server.Stop()
@@ -393,9 +391,7 @@ func TestValidationFailure(t *testing.T) {
 
 		if robottestutils.WaitForServing(logs, port) {
 			success = true
-			defer func() {
-				test.That(t, server.Stop(), test.ShouldBeNil)
-			}()
+			defer robottestutils.StopServerProcess(t, server)
 			break
 		}
 		server.Stop()

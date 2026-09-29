@@ -1,17 +1,19 @@
 package diskusage
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
-// MinFreeBytes is the floor of free space viam-server tries to keep on volumes it writes to
+// MinFreeBytes is the floor of free space callers try to keep on volumes they write to
 // (downloads, local copies, unpacking). Falling below it always logs a warning, and refuses the
-// install only when VIAM_ENABLE_DISK_SPACE_BLOCK is set (otherwise log-only). Also a trigger for
-// the background monitor; see IsLow.
+// operation only when the caller asks CheckDiskSpace to block (otherwise log-only). Also a
+// trigger for the background monitor; see IsLow.
 const MinFreeBytes uint64 = 10 * mb
 
 // MaxUsedFraction is the utilization (0.0-1.0) at or above which the monitor flags a volume as
@@ -53,7 +55,7 @@ func IsLowOnSpace(path string) (usage DiskUsage, low bool, err error) {
 func (du DiskUsage) IsLow() bool {
 	// A zero total size is a pseudo-fs (procfs/sysfs) or garbage statfs result, not a real volume
 	// we can assess — treat it as not-low rather than warning every interval. (Mirrors
-	// checkDiskSpace, which proceeds on an outright statfs error.)
+	// CheckDiskSpace, which proceeds on an outright statfs error.)
 	if du.SizeBytes == 0 {
 		return false
 	}
@@ -69,19 +71,65 @@ func EnoughFreeSpace(path string, minBytes uint64) (enough bool, available uint6
 		return false, 0, err
 	}
 	// Don't refuse an install on a pseudo-fs/garbage (zero total size) result; let ENOSPC be the
-	// backstop, consistent with how checkDiskSpace handles a statfs error.
+	// backstop, consistent with how CheckDiskSpace handles a statfs error.
 	if usage.SizeBytes == 0 {
 		return true, usage.AvailableBytes, nil
 	}
 	return usage.AvailableBytes >= minBytes, usage.AvailableBytes, nil
 }
 
-// nearestExistingDir walks up from path until it finds something that exists,
-// returning that ancestor. If no ancestor exists (e.g. an empty path), it returns
-// path unchanged and lets the subsequent Statfs surface the error.
+// ErrInsufficientDiskSpace is returned by CheckDiskSpace when blocking is on and the volume is
+// low. Callers use errors.Is to tell a disk-space refusal from other failures (e.g. a corrupt
+// archive) and surface an accurate message.
+var ErrInsufficientDiskSpace = errors.New("not enough free disk space")
+
+// EnoughFreeSpaceFunc is the probe CheckDiskSpace uses to measure free space. It is a package
+// var so tests can inject a low-space result without having to actually fill a disk.
+var EnoughFreeSpaceFunc = EnoughFreeSpace
+
+// CheckDiskSpace checks whether the volume holding path has required bytes free. It returns
+// low=true whenever space is low. When blocking is true it returns an error refusing the op (the
+// caller logs it, so CheckDiskSpace stays quiet to avoid double-logging the same reason every
+// cycle); otherwise it logs a warning and returns nil so the op proceeds (log-only). Blocking is
+// the caller's policy: viam-server reads utils.ViamEnableDiskSpaceBlockEnvVar, viam-agent reads
+// its own config. A failed check is logged and treated as "proceed" so a broken statfs never
+// blocks installs. desc names the op in logs/errors; extraFields extend the warning.
+func CheckDiskSpace(logger logging.Logger, path, desc string, required uint64, blocking bool, extraFields ...any) (low bool, err error) {
+	enough, available, err := EnoughFreeSpaceFunc(path, required)
+	if err != nil {
+		logger.Warnw("could not check free disk space; proceeding",
+			append([]any{"desc", desc, "path", path, "error", err}, extraFields...)...)
+		return false, nil
+	}
+	if enough {
+		return false, nil
+	}
+	if !blocking {
+		// Log-only: the op proceeds and returns no error, so this warning is the only signal
+		// that space is low.
+		logger.Warnw("not enough free disk space",
+			append([]any{
+				"desc", desc, "path", path,
+				"available", utils.FormatBytes(available),
+				"required", utils.FormatBytes(required),
+				"blocking", false,
+			}, extraFields...)...)
+		return true, nil
+	}
+	// Blocking: don't warn here — the returned error carries the same detail and is logged by the
+	// caller (cloud_package_manager.go and local_package_manager.go both log the install error),
+	// so warning too would double-log the same reason every sync cycle.
+	return true, fmt.Errorf("%w for %s: %s available, %s required",
+		ErrInsufficientDiskSpace, desc, utils.FormatBytes(available), utils.FormatBytes(required))
+}
+
+// nearestExistingDir walks up from path until it finds an existing directory, returning that
+// ancestor. It skips non-directories because Statfs reads the whole volume either way, and on
+// Windows GetDiskFreeSpaceExW rejects a file path outright. If no ancestor exists (e.g. an empty
+// path), it returns path unchanged and lets the subsequent Statfs surface the error.
 func nearestExistingDir(path string) string {
 	for path != "" {
-		if _, err := os.Stat(path); err == nil {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
 			return path
 		}
 		parent := filepath.Dir(path)

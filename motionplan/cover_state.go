@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"math"
+	"sync"
 
 	"github.com/golang/geo/r3"
 
@@ -124,13 +125,33 @@ type stateCoverSet struct {
 	failed bool
 }
 
+// stateCoverSetPool recycles cover-set evaluations. A planner checks
+// hundreds of thousands of states, and each evaluation used to allocate the
+// set plus one world-sphere slice per geometry; pooled sets reuse those
+// buffers (per-checker shapes are constant, so capacities converge after the
+// first use and the steady state allocates nothing).
+var stateCoverSetPool = sync.Pool{New: func() any { return &stateCoverSet{} }}
+
+// releaseCoverSet returns a state's cover evaluation to the pool. Callers
+// (CheckStateFSConstraints) do this once the state check completes; the state
+// must not use the cover set afterwards.
+func releaseCoverSet(state *StateFS) {
+	if cs, ok := state.coverSet.(*stateCoverSet); ok {
+		state.coverSet = nil
+		cs.failed = false
+		cs.geoms = cs.geoms[:0]
+		stateCoverSetPool.Put(cs)
+	}
+}
+
 // coverSetFor evaluates (and caches on the state) the world-space covers.
 func coverSetFor(state *StateFS, fs *referenceframe.FrameSystem, table *frameCoverTable) *stateCoverSet {
 	if state.coverSet != nil {
 		return state.coverSet.(*stateCoverSet)
 	}
-	cs := &stateCoverSet{}
+	cs := stateCoverSetPool.Get().(*stateCoverSet)
 	fk := fs.NewFrameToWorld(state.Configuration)
+	defer fk.Release()
 	for i := range table.entries {
 		e := &table.entries[i]
 		q, tr, err := fk.PoseQT(e.parentName)
@@ -140,19 +161,27 @@ func coverSetFor(state *StateFS, fs *referenceframe.FrameSystem, table *frameCov
 		}
 		for gi := range e.geoms {
 			gc := &e.geoms[gi]
-			world := make([]spatialmath.SphereBound, len(gc.local))
-			for si, sb := range gc.local {
-				world[si] = spatialmath.SphereBound{Center: spatialmath.TransformPoint(q, tr, sb.Center), R: sb.R}
+			var cw *coveredWorldGeom
+			if len(cs.geoms) < cap(cs.geoms) {
+				cs.geoms = cs.geoms[:len(cs.geoms)+1]
+			} else {
+				cs.geoms = append(cs.geoms, coveredWorldGeom{})
 			}
-			cs.geoms = append(cs.geoms, coveredWorldGeom{
-				frameName: e.frameName,
-				label:     gc.label,
-				world:     world,
-				bound: spatialmath.SphereBound{
-					Center: spatialmath.TransformPoint(q, tr, gc.bound.Center),
-					R:      gc.bound.R,
-				},
-			})
+			cw = &cs.geoms[len(cs.geoms)-1]
+			cw.frameName = e.frameName
+			cw.label = gc.label
+			if cap(cw.world) >= len(gc.local) {
+				cw.world = cw.world[:len(gc.local)]
+			} else {
+				cw.world = make([]spatialmath.SphereBound, len(gc.local))
+			}
+			for si, sb := range gc.local {
+				cw.world[si] = spatialmath.SphereBound{Center: spatialmath.TransformPoint(q, tr, sb.Center), R: sb.R}
+			}
+			cw.bound = spatialmath.SphereBound{
+				Center: spatialmath.TransformPoint(q, tr, gc.bound.Center),
+				R:      gc.bound.R,
+			}
 		}
 	}
 	state.coverSet = cs

@@ -4,11 +4,13 @@ package robottestutils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"regexp"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -24,6 +26,17 @@ import (
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
+
+// MDNSAvailable reports whether mDNS (multicast DNS) can be relied on in this test process.
+//
+// Dialing a server by its FQDN resolves over mDNS, which relies on multicast. That is unreliable
+// under QEMU on the emulated 32-bit armhf CI runner: qemu-user does not implement the multicast
+// socket options mDNS needs, so registration/resolution fails and FQDN dials hang. Tests should
+// gate FQDN/mDNS dials on this and fall back to a direct address on unsupported arches, so we keep
+// coverage without masking real mDNS bugs on other platforms.
+func MDNSAvailable() bool {
+	return runtime.GOARCH != "arm"
+}
 
 // CreateBaseOptionsAndListener creates a new web options with random port as listener.
 func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listener, string) {
@@ -152,6 +165,35 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 	}
 	server := pexec.NewManagedProcess(cfg.processConfig, logger)
 	return server
+}
+
+// StopServerProcess stops a viam-server subprocess started by [ServerAsSeparateProcess] and
+// asserts that it shut down cleanly.
+//
+// Prefer this to asserting on [pexec.ManagedProcess.Stop] directly. If the server has not been
+// reaped a few seconds after its SIGTERM, pexec signals the whole process group to sweep up any
+// orphaned children. A server that exited promptly but has not been reaped yet loses that race,
+// and the sweep then reports on an empty process group rather than on how the shutdown went:
+// Darwin returns EPERM while the exited process is still a zombie, and ESRCH once it has been
+// reaped. Both mean the process is gone, which is what stopping it was for, so treat them as
+// success — as modmanager already does for pexec.ProcessNotExistsError.
+func StopServerProcess(tb testing.TB, server pexec.ManagedProcess) {
+	tb.Helper()
+	if err := server.Stop(); !processAlreadyGone(err) {
+		test.That(tb, err, test.ShouldBeNil)
+	}
+}
+
+// processAlreadyGone reports whether err is pexec saying there was nothing left to signal
+// rather than a genuine failure to stop the process.
+func processAlreadyGone(err error) bool {
+	var notExists *pexec.ProcessNotExistsError
+	if errors.As(err, &notExists) {
+		return true
+	}
+	// pexec wraps the raw errno from its kill(2) on the process group.
+	var errno syscall.Errno
+	return errors.As(err, &errno) && (errno == syscall.ESRCH || errno == syscall.EPERM)
 }
 
 // WaitForServing will scan the logs in the `observer` input until seeing a "serving" or "error

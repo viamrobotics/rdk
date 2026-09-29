@@ -165,7 +165,7 @@ func (wb *wheeledBase) reconfigure(ctx context.Context, deps resource.Dependenci
 					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger)
 				default:
 				}
-				if (curr)[i].Name().String() != (fromConfig)[i] {
+				if curr[i].Name().String() != fromConfig[i] {
 					for _, name := range fromConfig {
 						m, err := motor.FromProvider(deps, name)
 						if err != nil {

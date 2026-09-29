@@ -147,7 +147,8 @@ func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToM
 		CopyFilesSourceTypeFromProto(md.Metadata.SourceType),
 		md.Metadata.Destination,
 		md.Metadata.Preserve,
-		md.Metadata.Extra.AsMap())
+		md.Metadata.Extra.AsMap(),
+	)
 	if err != nil {
 		var pathErr *fs.PathError
 		var errno syscall.Errno
@@ -195,7 +196,8 @@ func (server *serviceServer) CopyFilesFromMachine(srv pb.ShellService_CopyFilesF
 		md.Metadata.AllowRecursion,
 		md.Metadata.Preserve,
 		newCopyFileFromMachineFactory(srv, md.Metadata.Preserve),
-		md.Metadata.Extra.AsMap())
+		md.Metadata.Extra.AsMap(),
+	)
 }
 
 // DoCommand receives arbitrary commands.

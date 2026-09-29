@@ -41,7 +41,8 @@ func newDigitalInterrupt(
 	defer utils.UncheckedErrorFunc(chip.Close)
 
 	line, err := chip.OpenLineWithEvents(
-		uint32(pinMapping.GPIO), gpio.Input, gpio.BothEdges, "viam-interrupt")
+		uint32(pinMapping.GPIO), gpio.Input, gpio.BothEdges, "viam-interrupt",
+	)
 	if err != nil {
 		return nil, err
 	}

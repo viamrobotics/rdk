@@ -73,7 +73,8 @@ func init() {
 			}
 			logger.Infof("new fake world state store with name: %s", newConf.WorldName)
 			return newFakeWorldStateStore(conf.ResourceName(), newConf, logger), nil
-		}})
+		}},
+	)
 }
 
 // ListUUIDs returns all transform UUIDs currently in the store.

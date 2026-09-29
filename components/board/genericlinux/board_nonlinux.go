@@ -29,7 +29,8 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 			) (board.Board, error) {
 				return nil, errors.New("linux boards are not supported on non-linux OSes")
 			},
-		})
+		},
+	)
 }
 
 // GetGPIOBoardMappings attempts to find a compatible GPIOBoardMapping for the given board.

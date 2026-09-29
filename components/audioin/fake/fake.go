@@ -20,7 +20,8 @@ func init() {
 	resource.RegisterComponent(
 		audioin.API,
 		resource.DefaultModelFamily.WithModel("fake"),
-		resource.Registration[audioin.AudioIn, *Config]{Constructor: NewAudioIn})
+		resource.Registration[audioin.AudioIn, *Config]{Constructor: NewAudioIn},
+	)
 }
 
 const (
