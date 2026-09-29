@@ -243,16 +243,6 @@ func logDNSResults(
 	)
 	keysAndValues := []any{"dns_tests", stringifyDNSResults(dnsResults)}
 
-	// An unknown-type result counts toward neither total, so it never trips the
-	// failure path below; without the details here a non-verbose run would report
-	// a count and nothing else.
-	if unknown := len(dnsResults) - (s.ConnectionsTotal + s.ResolutionsTotal); unknown > 0 {
-		logger.Warnw(
-			fmt.Sprintf("Skipped %d DNS result(s) with an unknown test type", unknown),
-			keysAndValues...,
-		)
-	}
-
 	if s.ConnectionsOK < s.ConnectionsTotal || s.ResolutionsOK < s.ResolutionsTotal {
 		logger.Warnw(systemMsg, keysAndValues...)
 		// Only log `/etc/resolv.conf` and `/etc/systemd/resolved.conf` contents in the event
