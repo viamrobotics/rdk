@@ -157,12 +157,12 @@ full-static: bin/static/viam-server-$(GOARCH)
 # CGO_ENABLED=1 here
 # tags no_cgo is still passed so you can still gate specific cgo dependencies (graphviz, nlopt, x264 streaming, etc.)
 #
-# using zig to cross-compile
-WINDOWS_CC ?= zig cc -target x86_64-windows-gnu
-WINDOWS_CXX ?= zig c++ -target x86_64-windows-gnu
+# -extldflags=-static links libstdc++, libgcc, and winpthread into the exe; MinGW-w64 g++ otherwise
+# imports them as DLLs that only exist where MinGW is installed, so the binary wouldn't start elsewhere.
+WINDOWS_LDFLAGS = -ldflags "$(COMMON_LDFLAGS) -extldflags=-static"
 bin/windows/viam-server-amd64.exe: $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)
-	CGO_ENABLED=1 CC="$(WINDOWS_CC)" CXX="$(WINDOWS_CXX)" GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
+	CGO_ENABLED=1 go build -tags no_cgo $(GCFLAGS) $(WINDOWS_LDFLAGS) -o $@ ./web/cmd/server
 
 .PHONY: windows
 windows: bin/windows/viam-server-amd64.exe
