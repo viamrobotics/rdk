@@ -4627,9 +4627,8 @@ NOTES:
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: trainFlagContainerID,
-							Usage: "ID of the ml training container to run. " +
-								"The same container is used when the training script is submitted as a job",
+							Name:     trainFlagContainerID,
+							Usage:    "ID of the ml training container to use",
 							Required: true,
 						},
 						&cli.StringFlag{
