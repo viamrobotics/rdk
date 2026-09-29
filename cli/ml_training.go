@@ -705,6 +705,10 @@ type mlTrainingScriptTestLocalArgs struct {
 
 // MLTrainingScriptTestLocalAction runs training locally in a Docker container.
 func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args mlTrainingScriptTestLocalArgs) error {
+	if args.ContainerID == "" {
+		return errors.Errorf("--%s must not be empty", trainFlagContainerID)
+	}
+
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
