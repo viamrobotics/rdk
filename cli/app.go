@@ -132,7 +132,6 @@ const (
 	mlTrainingFlagVisibility               = "visibility"
 	mlTrainingFlagDescription              = "description"
 	mlTrainingFlagURL                      = "url"
-	mlTrainingFlagContainerVersion         = "container-version"
 	mlTrainingFlagIncludeURIs              = "include-uris"
 	mlTrainingFlagContainerID              = "id"
 	mlTrainingFlagContainerIDWithContainer = "container-id"
@@ -2375,7 +2374,7 @@ Note: There is no progress meter while copying is in progress.
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID,
 											generalFlagModelName, mlTrainingFlagName,
-											generalFlagVersion, mlTrainingFlagContainerVersion,
+											generalFlagVersion, mlTrainingFlagContainerIDWithContainer,
 										},
 										true, false,
 									),
@@ -2410,16 +2409,9 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name: mlTrainingFlagContainerVersion,
-											Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
-											Required: false,
-										},
-										&cli.StringFlag{
 											Name:     mlTrainingFlagContainerIDWithContainer,
-											Usage:    `ID of the ml training container version to use.`,
-											Required: false,
+											Usage:    `ID of the training container version to use.`,
+											Required: true,
 										},
 										&cli.StringSliceFlag{
 											Name:  generalFlagArgs,
@@ -2435,7 +2427,7 @@ Note: There is no progress meter while copying is in progress.
 										[]string{
 											generalFlagOrgID, datasetFlagDatasetID,
 											trainFlagModelOrgID, generalFlagModelName, generalFlagPath,
-											mlTrainingFlagName, mlTrainingFlagContainerVersion,
+											mlTrainingFlagName, mlTrainingFlagContainerIDWithContainer,
 										},
 										true, false,
 									),
@@ -2493,10 +2485,8 @@ Note: There is no progress meter while copying is in progress.
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
 										},
 										&cli.StringFlag{
-											Name: mlTrainingFlagContainerVersion,
-											Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
+											Name:     mlTrainingFlagContainerIDWithContainer,
+											Usage:    `ID of the training container version to use.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
