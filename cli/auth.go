@@ -530,9 +530,8 @@ func (c *viamClient) setAppClients(conn rpc.ClientConn) {
 
 // refreshAuthIfExpired refreshes (and persists) an expired user login, reporting whether new
 // authentication material was obtained. Uses the same helper as (*Config).Token/ConnectToApp so
-// there is a single refresh path; API-key logins return ErrAPIKeyLogin and need no refresh. Only an
-// unrecoverable errTokenExpired logs out - a transient failure returns the error but keeps the
-// cached login so the next command can retry.
+// there is a single refresh path; API-key logins are a no-op. Any refresh error clears cached
+// credentials so the next command prompts for re-authentication rather than replaying a broken token.
 func (c *viamClient) refreshAuthIfExpired(ctx context.Context) (bool, error) {
 	previous, _ := c.conf.Auth.(*token)
 	refreshed, err := c.conf.refreshTokenIfExpired(ctx, c.authFlow)
@@ -540,8 +539,11 @@ func (c *viamClient) refreshAuthIfExpired(ctx context.Context) (bool, error) {
 		if errors.Is(err, ErrAPIKeyLogin) {
 			return false, nil
 		}
+		if globalArgs, gErr := getGlobalArgs(c.c); gErr == nil {
+			debugf(c.c.Root().Writer, globalArgs.Debug, "Token refresh error: %v", err)
+		}
+		utils.UncheckedError(c.logout())
 		if errors.Is(err, errTokenExpired) {
-			utils.UncheckedError(c.logout())
 			return false, errors.New("token expired and cannot refresh, logging out. Please log in again")
 		}
 		return false, err

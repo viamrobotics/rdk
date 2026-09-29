@@ -393,24 +393,6 @@ func TestRefreshAuthIfExpired(t *testing.T) {
 		test.That(t, ac.conf.Auth, test.ShouldBeNil)
 	})
 
-	t.Run("transient refresh error does not log out", func(t *testing.T) {
-		useTempCLICache(t)
-
-		// Token endpoint that always returns a server error.
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, `{"error":"server_error","error_description":"temporary failure"}`, http.StatusInternalServerError)
-		}))
-		t.Cleanup(srv.Close)
-
-		_, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, "token")
-		ac.authFlow = newCLIAuthFlow(io.Discard, true)
-		ac.conf.Auth = expiredToken(srv.URL)
-
-		_, err := ac.refreshAuthIfExpired(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		// Should not have been logged out — token is still present.
-		test.That(t, ac.conf.Auth, test.ShouldNotBeNil)
-	})
 }
 
 func TestPrepareDialRefreshesExpiredToken(t *testing.T) {
