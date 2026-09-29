@@ -162,7 +162,7 @@ full-static: bin/static/viam-server-$(GOARCH)
 WINDOWS_LDFLAGS = -ldflags "$(COMMON_LDFLAGS) -extldflags=-static"
 bin/windows/viam-server-amd64.exe: $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)
-	CGO_ENABLED=1 go build -tags no_cgo $(GCFLAGS) $(WINDOWS_LDFLAGS) -o $@ ./web/cmd/server
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -tags no_cgo $(GCFLAGS) $(WINDOWS_LDFLAGS) -o $@ ./web/cmd/server
 
 .PHONY: windows
 windows: bin/windows/viam-server-amd64.exe

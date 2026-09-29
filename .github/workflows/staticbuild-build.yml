@@ -334,7 +334,7 @@ jobs:
 
     steps:
     - name: Disable CRLF conversion
-      # the runner image defaults core.autocrlf to true, which breaks the Makefile and
+      # the runner image defaults core.autocrlf to true, which breaks the Makefile
       shell: bash
       run: git config --global core.autocrlf false
 
