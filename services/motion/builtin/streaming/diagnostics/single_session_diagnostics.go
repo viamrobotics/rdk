@@ -10,7 +10,12 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// SingleSessionDiagnostics collects the diagnostics of one arm-streaming session.
+// SingleSessionDiagnostics collects the diagnostics of one arm-streaming session. Despite the
+// name, an instance is meant to be reused across consecutive sessions on the same arm resource
+// (see ResetStats and SetWindow): the retained detail window survives a session ending, so a
+// later session's recordings continue appending to it rather than starting over, and entries
+// only ever age out lazily, as a side effect of a later append noticing they're now outside the
+// window (see pruneBefore) — never as a wholesale reset tied to a session boundary.
 type SingleSessionDiagnostics struct {
 	mu    sync.Mutex
 	start time.Time
@@ -28,6 +33,35 @@ func New(window time.Duration) *SingleSessionDiagnostics {
 			windowMs: float64(window.Microseconds()) / 1000.0,
 		},
 	}
+}
+
+// SetWindow changes the retained-detail window. It takes effect lazily: existing entries are
+// pruned against the new window on the next recording or LastWindowDetails call, the same way
+// the window is always enforced, so shrinking it doesn't retroactively rewrite history and
+// growing it doesn't resurrect anything already pruned. Call this when a session reusing
+// diagnostics retained from a previous session configures a different window.
+func (t *SingleSessionDiagnostics) SetWindow(window time.Duration) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.details.windowMs = float64(window.Microseconds()) / 1000.0
+}
+
+// WindowSecs returns the currently configured retained-detail window, in whole seconds.
+func (t *SingleSessionDiagnostics) WindowSecs() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return int(t.details.windowMs / 1000.0)
+}
+
+// ResetStats zeroes the whole-run aggregates Stats() reports and restarts its duration clock,
+// without touching the retained detail window. Call this when a new session begins reusing
+// diagnostics retained from a previous session on the same arm, so Stats() keeps describing only
+// the session that's starting even though the detail window now spans across sessions.
+func (t *SingleSessionDiagnostics) ResetStats() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.start = time.Now()
+	t.stats = singleSessionStats{}
 }
 
 // RecordReceivedJointPositionTargetEvent records the arrival of one joint position target.

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -141,10 +142,11 @@ func TestTempStreamArmJointPositionsHappyPath(t *testing.T) {
 		t.Fatal("TempStreamArmJointPositions never returned")
 	}
 
-	// status agrees the session has ended
+	// status agrees the session has ended, but diagnostics from it are still retained (see
+	// TestTempStreamArmJointPositionsRetainsDiagnosticsAfterSessionEnds)
 	resp, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldBeEmpty)
+	test.That(t, resp["running"], test.ShouldEqual, false)
 
 	// The session did not end vacuously: trajectory points reached the arm over a
 	// stream RPC.
@@ -257,6 +259,83 @@ func TestTempStreamArmJointPositionsDiagnosticsDisabled(t *testing.T) {
 	<-errCh
 }
 
+// TestTempStreamArmJointPositionsRetainsDiagnosticsAfterSessionEnds checks that a finished
+// session's diagnostics remain visible over stream_status: running reports false, but
+// last_window_details still holds what that session recorded, rather than the response going
+// empty the moment the session ends.
+func TestTempStreamArmJointPositionsRetainsDiagnosticsAfterSessionEnds(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	ctx := context.Background()
+
+	opts := streamTestOptions()
+	diagWindow := int32(60)
+	opts.DiagnosticsWindowSecs = &diagWindow
+	targets := make(chan []referenceframe.Input)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(ctx, "arm", opts, targets, ignoredResponses(t), nil)
+	}()
+	waitForSession(t, ms, "arm")
+	targets <- []referenceframe.Input{0.1, 0, 0, 0, 0, 0}
+	close(targets)
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(10 * time.Second):
+		t.Fatal("TempStreamArmJointPositions never returned")
+	}
+
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["running"], test.ShouldEqual, false)
+	test.That(t, resp["diagnostics_window_secs"], test.ShouldEqual, 60)
+	details, ok := resp["last_window_details"].(diagnostics.SingleSessionLastWindowDetails)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(details.JointPositionTargetReceived), test.ShouldEqual, 1)
+}
+
+// TestTempStreamArmJointPositionsSecondSessionAppendsToRetainedWindow checks that a new session
+// on an arm that already streamed continues appending to the same retained window instead of
+// starting over: the first session's recorded events are still present once the second session
+// has recorded its own.
+func TestTempStreamArmJointPositionsSecondSessionAppendsToRetainedWindow(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	ctx := context.Background()
+
+	opts := streamTestOptions()
+	diagWindow := int32(60)
+	opts.DiagnosticsWindowSecs = &diagWindow
+
+	runOneTarget := func() {
+		targets := make(chan []referenceframe.Input)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- ms.TempStreamArmJointPositions(ctx, "arm", opts, targets, ignoredResponses(t), nil)
+		}()
+		waitForSession(t, ms, "arm")
+		targets <- []referenceframe.Input{0.1, 0, 0, 0, 0, 0}
+		close(targets)
+		select {
+		case err := <-errCh:
+			test.That(t, err, test.ShouldBeNil)
+		case <-time.After(10 * time.Second):
+			t.Fatal("TempStreamArmJointPositions never returned")
+		}
+	}
+
+	runOneTarget()
+	runOneTarget()
+
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
+	test.That(t, err, test.ShouldBeNil)
+	details, ok := resp["last_window_details"].(diagnostics.SingleSessionLastWindowDetails)
+	test.That(t, ok, test.ShouldBeTrue)
+	// Both sessions' targets are present: two, not one.
+	test.That(t, len(details.JointPositionTargetReceived), test.ShouldEqual, 2)
+}
+
 func TestTempStreamArmJointPositionsUsedIncorrectly(t *testing.T) {
 	ms, _ := newStreamTestService(t)
 	ctx := context.Background()
@@ -366,7 +445,7 @@ func TestTempStreamArmJointPositionsAbort(t *testing.T) {
 	for {
 		resp, err := ms.DoCommand(ctx, map[string]interface{}{DoStreamStatus: map[string]interface{}{"arm": "arm"}})
 		test.That(t, err, test.ShouldBeNil)
-		if len(resp) == 0 {
+		if resp["running"] == false {
 			break
 		}
 		if time.Now().After(deadline) {

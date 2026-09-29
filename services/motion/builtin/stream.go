@@ -15,12 +15,14 @@ import (
 
 const (
 	streamKeyArm                   = "arm"
+	streamKeyRunning               = "running"
 	streamKeyDiagnosticsWindowSecs = "diagnostics_window_secs"
 	streamKeyLastWindowDetails     = "last_window_details"
 )
 
-// stream records one running TempStreamArmJointPositions session, so that the stream_status
-// DoCommand can report on it while the session's owning RPC call is still blocked running it.
+// stream records one running TempStreamArmJointPositions session, so that stream_status can
+// tell a session is currently running (options and diagnostics are no longer read off it:
+// they live in ms.streamDiagnostics, which outlives the session — see armDiagnostics).
 type stream struct {
 	armName string
 
@@ -32,10 +34,6 @@ type stream struct {
 	// however the session ended. abortStreams uses it to wait for a canceled session to finish
 	// tearing down.
 	done chan struct{}
-
-	opts streaming.StreamOptions
-
-	diagnostics *diagnostics.SingleSessionDiagnostics
 }
 
 func (ms *builtIn) registerStream(armName string, s *stream) error {
@@ -55,6 +53,28 @@ func (ms *builtIn) unregisterStream(armName string) {
 	ms.streamMu.Lock()
 	defer ms.streamMu.Unlock()
 	delete(ms.streams, armName)
+}
+
+// armDiagnostics returns armName's persistent diagnostics, creating them on first use.
+// Diagnostics survive the session that created them (see the streamDiagnostics field and
+// SingleSessionDiagnostics): a later session on the same arm continues appending to the same
+// retained window rather than starting fresh, with the window updated to whatever this session
+// configures. Stats() is reset so it keeps describing only the session that's starting.
+func (ms *builtIn) armDiagnostics(armName string, window time.Duration) *diagnostics.SingleSessionDiagnostics {
+	ms.streamMu.Lock()
+	defer ms.streamMu.Unlock()
+	if ms.streamDiagnostics == nil {
+		ms.streamDiagnostics = make(map[string]*diagnostics.SingleSessionDiagnostics)
+	}
+	diag, ok := ms.streamDiagnostics[armName]
+	if !ok {
+		diag = diagnostics.New(window)
+		ms.streamDiagnostics[armName] = diag
+		return diag
+	}
+	diag.SetWindow(window)
+	diag.ResetStats()
+	return diag
 }
 
 func (ms *builtIn) abortStreams(ctx context.Context) {
@@ -107,7 +127,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		return fmt.Errorf("failed to read seed joint positions from %q: %w", armName, err)
 	}
 
-	diag := diagnostics.New(time.Duration(opts.DiagnosticsWindowSecs) * time.Second)
+	diag := ms.armDiagnostics(armName, time.Duration(opts.DiagnosticsWindowSecs)*time.Second)
 
 	// A cancelable ctx lets Close end the session from another goroutine (via s.cancel), even
 	// though this call otherwise just runs to completion on the caller's own ctx.
@@ -115,11 +135,9 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	defer cancel()
 
 	s := &stream{
-		armName:     armName,
-		cancel:      cancel,
-		done:        make(chan struct{}),
-		opts:        opts,
-		diagnostics: diag,
+		armName: armName,
+		cancel:  cancel,
+		done:    make(chan struct{}),
 	}
 	if err := ms.registerStream(armName, s); err != nil {
 		return err
@@ -137,16 +155,28 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	return err
 }
 
+// streamStatus reports armName's current running state plus whatever diagnostics are
+// retained for it, which may be from a session that already ended: diagnostics persist past
+// the session that recorded them (see the streamDiagnostics field), so a crashed or finished
+// pass's last_window_details remains visible until a later session on the same arm ages it
+// out. An empty result means armName has never streamed at all, as distinct from having
+// streamed and stopped.
 func (ms *builtIn) streamStatus(armName string) map[string]any {
 	ms.streamMu.RLock()
-	s, ok := ms.streams[armName]
+	_, running := ms.streams[armName]
+	diag, hasDiag := ms.streamDiagnostics[armName]
 	ms.streamMu.RUnlock()
-	if !ok {
+	if !running && !hasDiag {
 		return map[string]any{}
 	}
-	status := map[string]any{streamKeyDiagnosticsWindowSecs: s.opts.DiagnosticsWindowSecs}
-	if s.opts.DiagnosticsWindowSecs > 0 {
-		status[streamKeyLastWindowDetails] = s.diagnostics.LastWindowDetails()
+	status := map[string]any{streamKeyRunning: running}
+	windowSecs := 0
+	if hasDiag {
+		windowSecs = diag.WindowSecs()
+	}
+	status[streamKeyDiagnosticsWindowSecs] = windowSecs
+	if windowSecs > 0 {
+		status[streamKeyLastWindowDetails] = diag.LastWindowDetails()
 	}
 	return status
 }

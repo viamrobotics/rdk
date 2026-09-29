@@ -184,3 +184,61 @@ func TestStats(t *testing.T) {
 	stats = diagnostics.Stats()
 	test.That(t, stats.JointPositionTargetsReceived, test.ShouldEqual, 3)
 }
+
+// TestResetStatsKeepsWindowButRestartsStats checks the split ResetStats/SetWindow are meant to
+// draw: Stats() describes only what's recorded since the reset, but the retained detail window
+// is untouched, so a session reusing diagnostics retained from a previous one gets a fresh
+// Stats() view while last_window_details keeps spanning both sessions.
+func TestResetStatsKeepsWindowButRestartsStats(t *testing.T) {
+	d := New(testWindowMs * time.Millisecond)
+	d.RecordReceivedJointPositionTargetEvent()
+	d.RecordSendToArmLatency(time.Now(), 5*time.Millisecond)
+
+	stats := d.Stats()
+	test.That(t, stats.JointPositionTargetsReceived, test.ShouldEqual, 1)
+	test.That(t, stats.SendToArmLatencyMaxMs, test.ShouldEqual, 5.0)
+
+	d.ResetStats()
+	stats = d.Stats()
+	test.That(t, stats.JointPositionTargetsReceived, test.ShouldEqual, 0)
+	test.That(t, stats.SendToArmLatencyMaxMs, test.ShouldEqual, 0.0)
+
+	// The detail window survived the reset untouched.
+	out := d.LastWindowDetails()
+	test.That(t, len(out.JointPositionTargetReceived), test.ShouldEqual, 1)
+	test.That(t, len(out.SendToArmLatency), test.ShouldEqual, 1)
+
+	// A second session's recording is added to the same window, not a fresh one.
+	d.RecordReceivedJointPositionTargetEvent()
+	out = d.LastWindowDetails()
+	test.That(t, len(out.JointPositionTargetReceived), test.ShouldEqual, 2)
+}
+
+// TestSetWindowChangesFutureRetentionOnly checks that SetWindow itself only changes the
+// configured window; enforcing it (pruning against it) still only ever happens as a side
+// effect of a later record or a LastWindowDetails read, exactly as it already does at any
+// fixed window (see pruneBefore) — SetWindow doesn't add a second, separate eviction path.
+func TestSetWindowChangesFutureRetentionOnly(t *testing.T) {
+	d := New(testWindowMs * time.Millisecond)
+	test.That(t, d.WindowSecs(), test.ShouldEqual, testWindowMs/1000)
+
+	d.RecordReceivedJointPositionTargetEvent()
+	test.That(t, len(d.LastWindowDetails().JointPositionTargetReceived), test.ShouldEqual, 1)
+
+	// A zero window means "retain nothing older than now", so it's enforced like any other
+	// width the next time it's checked: reading it here evicts what's already retained,
+	// same as an arbitrarily narrow (but nonzero) window would given enough elapsed time.
+	d.SetWindow(0)
+	test.That(t, d.WindowSecs(), test.ShouldEqual, 0)
+	test.That(t, len(d.LastWindowDetails().JointPositionTargetReceived), test.ShouldEqual, 0)
+
+	// recordX methods additionally skip appending anything at all while the window is <= 0
+	// (see enabled()), rather than appending and immediately pruning it back out.
+	d.RecordReceivedJointPositionTargetEvent()
+	test.That(t, len(d.LastWindowDetails().JointPositionTargetReceived), test.ShouldEqual, 0)
+
+	// Re-enabling resumes retention going forward.
+	d.SetWindow(testWindowMs * time.Millisecond)
+	d.RecordReceivedJointPositionTargetEvent()
+	test.That(t, len(d.LastWindowDetails().JointPositionTargetReceived), test.ShouldEqual, 1)
+}

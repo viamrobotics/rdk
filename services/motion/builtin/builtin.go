@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -158,6 +159,12 @@ type builtIn struct {
 	// (separate from mu to simplify lock ordering).
 	streamMu sync.RWMutex
 	streams  map[string]*stream
+
+	// streamDiagnostics is each arm's diagnostics, keyed by arm name and never deleted:
+	// unlike streams, an entry outlives the session that created it, so stream_status can
+	// still report on a session after it ends, and a later session on the same arm continues
+	// appending to the same retained window rather than starting fresh. Protected by streamMu.
+	streamDiagnostics map[string]*diagnostics.SingleSessionDiagnostics
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -311,17 +318,24 @@ func (ms *builtIn) PlanHistory(
 // Streaming:
 //
 // Arm-streaming sessions are started via the TempStreamArmJointPositions RPC (see
-// motion.Service), one session per arm at a time. DoStreamStatus returns a running session's
-// diagnostics, given the arm's name.
+// motion.Service), one session per arm at a time. DoStreamStatus returns the named arm's
+// current running state plus its diagnostics.
 //
-//	DoStreamStatus: reports the named arm's running session's diagnostics, if any. The response is
-//	empty when no session is running for the arm.
+// Diagnostics persist past the session that recorded them: a later session on the same arm
+// continues appending to the same retained window rather than starting fresh, and an entry only
+// ages out as a side effect of a later one being recorded outside its window, never because a
+// session began or ended. So a finished or aborted session's last_window_details remains visible
+// — with running: false — until a later session's own recording eventually ages it out.
+//
+//	DoStreamStatus: reports the named arm's running state and retained diagnostics. The response
+//	is empty only when the arm has never streamed at all.
 //	  request:  {"stream_status": {"arm": "myArm"}}
 //	  response: {
-//	               "diagnostics_window_secs": 60,       // the running session's window; 0 means no
-//	                                                     // details are being retained
-//	               "last_window_details": {...}         // diagnostics.SingleSessionLastWindowDetails;
-//	                                                     // present only when the window is positive
+//	               "running": true,                     // whether a session is running right now
+//	               "diagnostics_window_secs": 60,        // the retained window; 0 means no
+//	                                                      // details are being retained
+//	               "last_window_details": {...}          // diagnostics.SingleSessionLastWindowDetails;
+//	                                                      // present only when the window is positive
 //	             }
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
