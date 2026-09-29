@@ -40,7 +40,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	diag := diagnostics.New(time.Duration(runTestOptions().DiagnosticsWindowSecs) * time.Second)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diag)
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diag, nil)
 	}()
 
 	jpCh <- []referenceframe.Input{0.05, -0.05}
@@ -107,7 +107,7 @@ func TestRunBackpressureGatesPushOnTrajexRunway(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, opts, jpCh, []referenceframe.Input{0}, diagnostics.New(0))
+		errCh <- Run(context.Background(), inj, opts, jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 	}()
 
 	// The first push is accepted immediately: the trajex runway is empty.
@@ -145,7 +145,7 @@ func TestRunBackpressureUnblocksOnCancel(t *testing.T) {
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(ctx, inj, opts, jpCh, []referenceframe.Input{0}, diagnostics.New(0))
+		errCh <- Run(ctx, inj, opts, jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 	}()
 
 	jpCh <- []referenceframe.Input{0.35}
@@ -186,7 +186,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0))
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 		}()
 
 		// The send on jpCh returning proves Run is in its loop; then cancel.
@@ -212,7 +212,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0))
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 		}()
 
 		// Let the flush finish and the wait begin, then cancel.
@@ -247,7 +247,7 @@ func TestRunEndsOnArmError(t *testing.T) {
 	jpCh := make(chan []referenceframe.Input)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0))
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 	}()
 
 	// One target is enough trajectory for several sends; the first is accepted, the
@@ -259,5 +259,64 @@ func TestRunEndsOnArmError(t *testing.T) {
 		test.That(t, errors.Is(err, armErr), test.ShouldBeTrue)
 	case <-time.After(10 * time.Second):
 		t.Fatal("Run did not return after the arm RPC failed")
+	}
+}
+
+// TestRunAcksEachTargetOncePastTheGate covers the acknowledgment the coordinator sends per
+// target: it arrives only once the target has passed the backpressure gate, so a pusher that
+// waits for it cannot run ahead of execution through the transport's buffering.
+func TestRunAcksEachTargetOncePastTheGate(t *testing.T) {
+	inj, _ := newFakeStreamingArm()
+	jpCh := make(chan []referenceframe.Input)
+	acks := make(chan motion.TempStreamResponse)
+	opts := runTestOptions()
+	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of trajectory, far over the cap.
+	opts.MoveOptions.MaxVelRads = 10 * math.Pi / 180
+	opts.MaxTrajexRunwayMs = 200
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(context.Background(), inj, opts, jpCh, []referenceframe.Input{0}, diagnostics.New(0), acks)
+	}()
+
+	// The first target is accepted and acknowledged immediately.
+	jpCh <- []referenceframe.Input{0.35}
+	select {
+	case <-acks:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no acknowledgment for the first target")
+	}
+
+	// The second target is gated by the ~2s runway. Its acknowledgment must not arrive while
+	// the push is still blocked, and must arrive once the push is accepted.
+	pushed := make(chan struct{})
+	go func() {
+		jpCh <- []referenceframe.Input{0.36}
+		close(pushed)
+	}()
+	select {
+	case <-acks:
+		t.Fatal("acknowledged a target that had not passed the gate")
+	case <-pushed:
+		t.Fatal("gated push was accepted before the runway drained")
+	case <-time.After(300 * time.Millisecond):
+	}
+	select {
+	case <-pushed:
+	case <-time.After(15 * time.Second):
+		t.Fatal("gated push was never accepted")
+	}
+	select {
+	case <-acks:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no acknowledgment for the second target")
+	}
+
+	close(jpCh)
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(15 * time.Second):
+		t.Fatal("Run did not finish after jpCh was closed")
 	}
 }

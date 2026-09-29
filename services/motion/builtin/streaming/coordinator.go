@@ -11,6 +11,7 @@ import (
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
@@ -30,6 +31,12 @@ import (
 // positive, `Run` provides that backpressure instead: it stops receiving from jpCh while
 // the trajectory buffered inside trajex exceeds that cap, so the pusher stays blocked in
 // its channel send until sampling drains the runway back under the cap.
+//
+// That gate only reaches a remote pusher through the RPC's flow control, which buffers many
+// targets before the pusher's send blocks. So when acks is non-nil, `Run` also sends one
+// acknowledgment per target once the target has passed the gate and been added to the
+// trajectory. A pusher that waits for the acknowledgment before sending its next target is
+// paced by execution regardless of what the transport buffers.
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
 // executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
@@ -40,6 +47,7 @@ func Run(
 	jpCh <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diagnostics *diagnostics.SingleSessionDiagnostics,
+	acks chan<- motion.TempStreamResponse,
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err
@@ -116,6 +124,13 @@ func Run(
 			// Add the new joint positions to the trajex session.
 			if err := ts.addJointPositionsToSession(ctx, jp); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+			}
+			if acks != nil {
+				select {
+				case acks <- motion.TempStreamResponse{}:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
 
 			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())

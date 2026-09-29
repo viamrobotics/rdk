@@ -153,6 +153,48 @@ func TestTempStreamArmJointPositionsHappyPath(t *testing.T) {
 	test.That(t, streams >= 1, test.ShouldBeTrue)
 }
 
+// TestTempStreamArmJointPositionsAcksEachTarget checks that the builtin acknowledges every
+// target it admits, one response per target, which is what lets a client pace itself by
+// execution instead of by the transport's buffering.
+func TestTempStreamArmJointPositionsAcksEachTarget(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	ctx := context.Background()
+
+	targets := make(chan []referenceframe.Input)
+	responses := make(chan motion.TempStreamResponse)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), targets, responses, nil)
+	}()
+	waitForSession(t, ms, "arm")
+
+	const n = 6
+	for i := 1; i <= n; i++ {
+		targets <- []referenceframe.Input{float64(i) * 0.02, 0, 0, 0, 0, 0}
+		select {
+		case <-responses:
+		case <-time.After(10 * time.Second):
+			t.Fatalf("no acknowledgment for target %d", i)
+		}
+	}
+
+	close(targets)
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(10 * time.Second):
+		t.Fatal("TempStreamArmJointPositions never returned")
+	}
+	// Nothing was acknowledged beyond the n targets.
+	select {
+	case <-responses:
+		t.Fatal("unexpected acknowledgment after the drain")
+	default:
+	}
+	close(responses)
+}
+
 // TestTempStreamArmJointPositionsStatusReturnsDetails checks that stream_status carries a
 // running session's last window details whenever a positive diagnostics window retains them.
 //
