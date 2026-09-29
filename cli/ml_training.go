@@ -209,9 +209,6 @@ func RegisterContainer(ctx context.Context, cmd *cli.Command, args registerConta
 	}
 
 	description := args.Description
-	if description == "" {
-		description = args.URI
-	}
 
 	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
 		&mltrainingpb.RegisterCustomTrainingContainerRequest{
