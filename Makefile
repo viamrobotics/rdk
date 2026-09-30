@@ -156,9 +156,6 @@ full-static: bin/static/viam-server-$(GOARCH)
 #
 # CGO_ENABLED=1 here
 # tags no_cgo is still passed so you can still gate specific cgo dependencies (graphviz, nlopt, x264 streaming, etc.)
-#
-# -extldflags=-static links libstdc++, libgcc, and winpthread into the exe; MinGW-w64 g++ otherwise
-# imports them as DLLs that only exist where MinGW is installed, so the binary wouldn't start elsewhere.
 WINDOWS_LDFLAGS = -ldflags "$(COMMON_LDFLAGS) -extldflags=-static"
 bin/windows/viam-server-amd64.exe: $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)

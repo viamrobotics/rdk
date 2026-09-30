@@ -36,8 +36,6 @@ static-release-win:
 
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/
-	# binary-path is the .exe (same bytes as the deploy copy) because subsystem_manifest runs it, and
-	# Windows can't resolve an extensionless path like viam-server-pr-123-windows-x86_64.
 	go run ./etc/subsystem_manifest \
 		--binary-path bin/static/viam-server-windows.exe \
 		--upload-path packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
