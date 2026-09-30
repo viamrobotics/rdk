@@ -207,6 +207,11 @@ var (
 	multiAPIByModel               = map[Model][]API{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
 	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
+	// apiByInterfaceType maps each registered API's Go interface type to its API, so AsType can resolve
+	// a composite's sub by the API the requested interface belongs to (rather than returning the first
+	// sub that happens to satisfy it). The base resource.Resource interface is excluded: every resource
+	// satisfies it, and AsType short-circuits it before consulting this map. Guarded by registryMu.
+	apiByInterfaceType = map[reflect.Type]API{}
 )
 
 // DefaultServices returns all servies that will be constructed by default if not
@@ -474,6 +479,18 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 		creator.ReflectRPCServiceDesc = reflectSvcDesc
 	}
 	apiRegistry[api] = makeGenericAPIRegistration(api, creator)
+	if t := reflect.TypeFor[ResourceT](); t != reflect.TypeFor[Resource]() {
+		apiByInterfaceType[t] = api
+	}
+}
+
+// apiForResourceInterface returns the API registered for an exact resource interface type, if one is
+// recorded. AsType uses it to resolve a composite's sub by the API the requested interface belongs to.
+func apiForResourceInterface(t reflect.Type) (API, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	api, ok := apiByInterfaceType[t]
+	return api, ok
 }
 
 // RegisterAPIWithAssociation register a ResourceAPI to its corresponding resource api
@@ -643,6 +660,11 @@ func DeregisterAPI(api API) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	delete(apiRegistry, api)
+	for t, a := range apiByInterfaceType {
+		if a == api {
+			delete(apiByInterfaceType, t)
+		}
+	}
 }
 
 // LookupGenericAPIRegistration looks up a ResourceAPI by the given api. false is returned if
