@@ -533,6 +533,11 @@ func (c *viamClient) setAppClients(conn rpc.ClientConn) {
 // there is a single refresh path; API-key logins are a no-op. Any refresh error clears cached
 // credentials so the next command prompts for re-authentication rather than replaying a broken token.
 func (c *viamClient) refreshAuthIfExpired(ctx context.Context) (bool, error) {
+	// A prior refresh in this process may have logged us out (e.g. a copy retry after a
+	// revoked token). DialOptions dereferences Auth, so report the logout instead of panicking.
+	if c.conf.Auth == nil {
+		return false, errLoggedOut
+	}
 	previous, _ := c.conf.Auth.(*token)
 	refreshed, err := c.conf.refreshTokenIfExpired(ctx, c.authFlow)
 	if err != nil {

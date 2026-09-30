@@ -412,6 +412,21 @@ func TestRefreshAuthIfExpired(t *testing.T) {
 		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
 		test.That(t, ac.conf.Auth, test.ShouldBeNil)
 	})
+
+	t.Run("an already logged-out client reports errLoggedOut and does not panic", func(t *testing.T) {
+		useTempCLICache(t)
+
+		_, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, "token")
+		ac.conf.Auth = nil
+
+		refreshed, err := ac.refreshAuthIfExpired(context.Background())
+		test.That(t, refreshed, test.ShouldBeFalse)
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
+
+		// prepareDialInner builds DialOptions off Auth; with none it must error, not panic.
+		_, _, _, err = ac.prepareDialInner(context.Background(), "part.fqdn", false)
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
+	})
 }
 
 func TestPrepareDialRefreshesExpiredToken(t *testing.T) {
