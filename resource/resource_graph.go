@@ -120,6 +120,13 @@ func (s graphStorage) dropCompositeIndex(node *GraphNode) {
 	}
 }
 
+// reindexCompositeAPIs rewrites node's compositeByAPI entries from its current configured model,
+// dropping any stale ones first. The caller must hold the graph lock.
+func (s graphStorage) reindexCompositeAPIs(name Name, node *GraphNode) {
+	s.dropCompositeIndex(node)
+	s.indexCompositeAPIs(name, node)
+}
+
 func (s graphStorage) Get(name Name) (*GraphNode, bool) {
 	node, ok := s.nodes[name]
 	return node, ok
@@ -152,8 +159,7 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 	// have only just become known: addNode's replace path turns an uninitialized placeholder into its
 	// configured node via this method, and that case hits the early return below without reaching
 	// setSimpleNameCache, which is where indexing otherwise happens.
-	s.dropCompositeIndex(node)
-	s.indexCompositeAPIs(name, node)
+	s.reindexCompositeAPIs(name, node)
 
 	if prevPrefix == node.prefix {
 		return
