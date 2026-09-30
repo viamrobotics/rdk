@@ -195,14 +195,42 @@ func (c *client) PlanHistory(
 	return append([]PlanWithStatus{pws}, statusHistory...), nil
 }
 
-// TempStreamArmJointPositions drives a gRPC bidi stream, following grpc-go's ClientStream contract
-// (https://pkg.go.dev/google.golang.org/grpc#ClientStream).
+// TempStreamArmJointPositions opens a streaming session for the arm against the server.
 //
-// The server's status is the single source of truth for how the call ended, and it reaches the
-// client only through Recv. So the recv goroutine's error is the default result. The exception is
-// an error that happens inside this client when trying to send a message, i.e. a message that
-// fails to marshal or exceeds the max send size. The server never learns of those, so grpc-go
-// returns them directly from Send instead of via Recv, and our send goroutine reports them.
+// The caller owns the targets channel and responses channel; this function does not close
+// them.
+//
+// The caller must keep receiving from the responses channel for the duration of this call:
+// an unread response blocks this call from receiving anything further from the server,
+// including the status that would let it return. The caller must close the responses channel
+// only after this call has returned.
+//
+// The caller should push into the targets channel using a select that also watches for this
+// call's completion: if this call returns without the caller having closed the targets
+// channel, pushes into the targets channel will block forever.
+//
+// The caller can end the session by closing the targets channel or canceling the context.
+//
+// If the caller closes the targets channel (and does not then cancel the context), this call
+// will block until the targets that have already been put into the targets channel have been
+// executed and the arm has stopped, or the session fails:
+// If the return value is nil, the arm has executed all targets and stopped.
+// If the return value is an error:
+// - If the error came from the server, the arm may or may not have executed all targets, but
+// will have stopped.
+// - If the error came from this client, including if the connection failed, the server will
+// stop the arm, but this call will return the error immediately (before guaranteeing that
+// the arm has stopped).
+// Note that the "from the server" and "from the client" error cases are not explicitly
+// distinguishable by the caller, beyond what the status code suggests.
+//
+// If the caller cancels the context at any point, including after closing the targets channel,
+// the server will stop processing the targets and stop the arm. However, this call will return
+// with the context's error immediately (before guaranteeing that the arm has stopped).
+//
+// Starting a new session with TempStreamArmJointPositions while a previous session is still
+// running on the server, including if the previous TempStreamArmJointPositions has returned
+// but the server is still waiting for the arm to stop, will error until the arm has stopped.
 func (c *client) TempStreamArmJointPositions(
 	ctx context.Context,
 	armName string,
@@ -224,6 +252,13 @@ func (c *client) TempStreamArmJointPositions(
 	if err != nil {
 		return err
 	}
+
+	// Per grpc-go's ClientStream contract (https://pkg.go.dev/google.golang.org/grpc#ClientStream),
+	// the server's status is the single source of truth for how the call ended, and it reaches the
+	// client only through Recv. So the recv goroutine's error is the default result. The exception is
+	// an error that happens inside this client when trying to send a message, i.e. a message that
+	// fails to marshal or exceeds the max send size. The server never learns of those, so grpc-go
+	// returns them directly from Send instead of via Recv, and our send goroutine reports them.
 
 	// "send goroutine": receives targets from the client; stream.Send()'s them to the server.
 	sendResult := make(chan error, 1)
