@@ -20,14 +20,20 @@ import (
 
 // newStreamTestService builds a minimal builtIn wired to a single injected arm
 // that records the trajectory points it receives over the streamed RPC.
-func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int)) {
+func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams, stops int)) {
 	t.Helper()
 	var mu sync.Mutex
-	var points, streams int
+	var points, streams, stops int
 
 	inj := inject.NewArm("arm")
 	inj.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		return make([]referenceframe.Input, 6), nil
+	}
+	inj.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		mu.Lock()
+		stops++
+		mu.Unlock()
+		return nil
 	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
@@ -50,10 +56,10 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int))
 		logger:     logging.NewTestLogger(t),
 		components: map[string]resource.Resource{"arm": inj},
 	}
-	return ms, func() (int, int) {
+	return ms, func() (int, int, int) {
 		mu.Lock()
 		defer mu.Unlock()
-		return points, streams
+		return points, streams, stops
 	}
 }
 
@@ -148,7 +154,9 @@ func TestTempStreamArmJointPositionsHappyPath(t *testing.T) {
 
 	// The session did not end vacuously: trajectory points reached the arm over a
 	// stream RPC.
-	points, streams := counts()
+	points, streams, stops := counts()
+	// A clean drain waits for the arm to finish on its own; nothing stops it.
+	test.That(t, stops, test.ShouldEqual, 0)
 	test.That(t, points > 0, test.ShouldBeTrue)
 	test.That(t, streams >= 1, test.ShouldBeTrue)
 }
@@ -263,6 +271,14 @@ func TestTempStreamArmJointPositionsAbort(t *testing.T) {
 	inj.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		return make([]referenceframe.Input, 6), nil
 	}
+	stopCalled := make(chan struct{}, 1)
+	inj.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		select {
+		case stopCalled <- struct{}{}:
+		default:
+		}
+		return nil
+	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,
@@ -333,6 +349,8 @@ func TestTempStreamArmJointPositionsAbort(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	test.That(t, <-errCh, test.ShouldNotBeNil)
+	// An abort stops the arm explicitly, since the cancelled arm RPC does not wait for it.
+	test.That(t, len(stopCalled), test.ShouldEqual, 1)
 	newTargets := make(chan []referenceframe.Input)
 	close(newTargets)
 	err = ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), newTargets, ignoredResponses(t), nil)
