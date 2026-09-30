@@ -953,6 +953,10 @@ func (manager *resourceManager) completeConfig(
 								"error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
+							// An in-place rebuild keeps the same node and does not pass through the graph's
+							// cache-write paths, so refresh the composite co-equal index in case the model's
+							// served API set changed. No-op for ordinary resources.
+							manager.resources.ReindexComposite(resName)
 							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "complete",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
