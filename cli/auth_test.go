@@ -337,6 +337,7 @@ func useTempCLICache(t *testing.T) {
 	// does not embed the (potentially long) test name. On Windows, PlatformMkdirTemp may build
 	// the module socket dir as <ViamDotDir>/tmp/viam-module-*, and the sum must stay under the
 	// 103-character socket-path limit.
+	//nolint:usetesting
 	dir, err := os.MkdirTemp("", "vcc-*")
 	test.That(t, err, test.ShouldBeNil)
 	origViamDotDir := utils.ViamDotDir
