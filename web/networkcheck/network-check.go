@@ -381,7 +381,7 @@ func TestPacketLoss(ctx context.Context, logger logging.Logger, verbose bool) Pa
 		results = append(results, result)
 	}
 	s := summarizePacketLoss(results)
-	logPacketLossResults(logger, results, s, verbose)
+	logPacketLossResults(logger, s, verbose)
 	return s
 }
 
@@ -612,7 +612,6 @@ func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) DNSSummar
 	s := summarizeDNS(dnsResults)
 	logDNSResults(
 		logger,
-		dnsResults,
 		s,
 		getResolvConfContents(),
 		getSystemdResolveConfContents(),
@@ -803,7 +802,7 @@ func testUDP(ctx context.Context, logger logging.Logger, verbose bool) (STUNSumm
 	}
 
 	s := summarizeSTUN(stunResponses, "udp")
-	logSTUNResults(logger, stunResponses, s, sourceAddress, "udp", verbose)
+	logSTUNResults(logger, s, sourceAddress, "udp", verbose)
 	return s, nil
 }
 
@@ -987,6 +986,6 @@ func testTCP(ctx context.Context, logger logging.Logger, verbose bool) (STUNSumm
 	}
 
 	s := summarizeSTUN(stunResponses, "tcp")
-	logSTUNResults(logger, stunResponses, s, "" /* no udpSourceAddress */, "tcp", verbose)
+	logSTUNResults(logger, s, "" /* no udpSourceAddress */, "tcp", verbose)
 	return s, nil
 }
