@@ -622,9 +622,13 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 			byAPI[api] = client
 		}
 		ar.subs = byAPI
-		return resource.NewMultiAPIResource(
-			resource.Name{API: apis[0], Remote: base.Remote, Name: base.Name}, apis, byAPI,
-		), nil
+		// Name the wrapper with the configured resource name, not the canonical API, so it matches the
+		// graph node key and the mod.resources key (both keyed by the configured API). Otherwise
+		// RemoveResource — called with the wrapper's Name() — misses mod.resources when the composite is
+		// configured under a non-canonical API, which leaks the non-canonical sub-clients and leaves a
+		// ghost entry that keeps the module from being torn down. canonicalSub() uses apis[0]
+		// independently, so DoCommand/Status/Close routing is unaffected.
+		return resource.NewMultiAPIResource(base, apis, byAPI), nil
 	}
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
