@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"slices"
 	"testing"
 	"time"
@@ -1010,6 +1011,16 @@ func TestModuleAndResourceRemoval(t *testing.T) {
 }
 
 func TestModuleStatus(t *testing.T) {
+	if runtime.GOARCH == "arm" {
+		// Skipped on qemu-emulated 32-bit arm, where userspace runs several times slower and two
+		// of this test's timing assumptions break down:
+		//   - It sets a 500ms module startup timeout; a healthy module's cold start can exceed
+		//     that under emulation and be wrongly reported unhealthy.
+		//   - It expects a status timestamp to fall between two wall-clock reads taken around an
+		//     async Reconfigure; the update can instead land after the second read.
+		t.Skip(t.Name(), "flaky under qemu-emulated 32-bit arm due to timing-sensitive assertions")
+	}
+
 	ctx := context.Background()
 
 	logger, _ := logging.NewObservedTestLogger(t)
