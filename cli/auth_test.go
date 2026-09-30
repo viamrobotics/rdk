@@ -333,9 +333,18 @@ func expiredToken(tokenURL string) *token {
 // useTempCLICache points the CLI cache at a temp dir.
 func useTempCLICache(t *testing.T) {
 	t.Helper()
+	// Use os.MkdirTemp with a short prefix rather than t.TempDir() so that the resulting path
+	// does not embed the (potentially long) test name. On Windows, PlatformMkdirTemp may build
+	// the module socket dir as <ViamDotDir>/tmp/viam-module-*, and the sum must stay under the
+	// 103-character socket-path limit.
+	dir, err := os.MkdirTemp("", "vcc-*")
+	test.That(t, err, test.ShouldBeNil)
 	origViamDotDir := utils.ViamDotDir
-	utils.ViamDotDir = t.TempDir()
-	t.Cleanup(func() { utils.ViamDotDir = origViamDotDir })
+	utils.ViamDotDir = dir
+	t.Cleanup(func() {
+		utils.ViamDotDir = origViamDotDir
+		_ = os.RemoveAll(dir)
+	})
 }
 
 func TestRefreshAuthIfExpired(t *testing.T) {
