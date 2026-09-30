@@ -50,14 +50,26 @@ type InputEnabled interface {
 // Detecting kinematics by interface across every API a resource serves — rather than by its
 // configured API's subtype — is what lets a composite contribute a model frame even when it is
 // configured under a non-kinematic API, and keeps this consistent with how BuiltInReconfigure
-// classifies components for CurrentInputs. Non-kinematic resources return (nil, false).
+// classifies components for CurrentInputs. Non-kinematic resources return (nil, false). A composite
+// serving more than one InputEnabled API is unsupported and also returns (nil, false), matching how
+// BuiltInReconfigure refuses a multi-kinematic composite, so the model-frame builder never adds a frame
+// that CurrentInputs cannot service.
 func KinematicSub(res resource.Resource) (InputEnabled, bool) {
+	var found InputEnabled
 	for _, api := range resource.APIsOf(res) {
 		if ie, ok := resource.SubresourceForAPI(res, api).(InputEnabled); ok {
-			return ie, true
+			if found != nil {
+				// One device is one frame with one CurrentInputs, so a composite that serves two
+				// kinematic APIs is not supported; refuse it rather than guessing which sub to use.
+				return nil, false
+			}
+			found = ie
 		}
 	}
-	return nil, false
+	if found == nil {
+		return nil, false
+	}
+	return found, true
 }
 
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
