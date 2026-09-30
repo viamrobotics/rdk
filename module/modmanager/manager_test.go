@@ -1936,13 +1936,11 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 }
 
-// TestModularCompositeRemoveClearsAllState builds a modular composite configured under a NON-canonical
-// API and removes it exactly as the resource manager does, by the wrapper's Name(). The combodevice
-// model serves the custom acme gizmo API (canonical, since "acme" sorts before "rdk") plus the builtin
-// camera and movement_sensor APIs, and is configured here under camera. The wrapper must be named with
-// the configured API so RemoveResource finds the module's addedResource; otherwise the non-canonical
-// sub-clients leak, the co-equal routes linger, and a ghost mod.resources entry keeps the module from
-// ever being torn down.
+// TestModularCompositeRemoveClearsAllState verifies that removing a modular composite by its wrapper's
+// Name() (as the resource manager does) fully clears the module manager's state for it: every per-API
+// sub-client is closed, every co-equal route is dropped from rMap, and no addedResource entry lingers,
+// so the module can be torn down. The combodevice composite serves camera, movement_sensor, and the
+// custom gizmo API.
 func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 	// Use TCP sockets so the long test name does not overflow the Unix-socket path limit.
 	t.Setenv(rutils.ViamTCPSocketsEnvVar, "true")
