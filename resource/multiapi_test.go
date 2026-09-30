@@ -68,6 +68,44 @@ func newComboConstructor() Registration[Resource, NoNativeConfig] {
 	}
 }
 
+// superSensT's interface is a SUPERSET of testSens (it also has Snap), so a sub serving superSensT also
+// satisfies testSens. combo implements both (it has Read and Snap).
+type superSensT interface {
+	Resource
+	Read() int
+	Snap() string
+}
+
+func TestAsTypeResolvesExactAPISub(t *testing.T) {
+	// A composite serving a superset API (superSensT, which also satisfies testSens) plus testSens. The
+	// superset API is named to sort FIRST, so a naive first-match scan would return its sub for
+	// AsType[testSens]. Because the API interfaces are registered, AsType must resolve testSens's own sub.
+	superAPI := APINamespaceRDK.WithComponentType("asupersensor") // sorts before ztestsensor
+	baseAPI := APINamespaceRDK.WithComponentType("ztestsensor")
+	RegisterAPI[superSensT](superAPI, APIRegistration[superSensT]{})
+	RegisterAPI[testSens](baseAPI, APIRegistration[testSens]{})
+	defer DeregisterAPI(superAPI)
+	defer DeregisterAPI(baseAPI)
+
+	superSub := &combo{Named: NewName(superAPI, "dev").AsNamed()}
+	baseSub := &combo{Named: NewName(baseAPI, "dev").AsNamed()}
+	composite := NewMultiAPIResource(
+		NewName(superAPI, "dev"), // configured under the canonical (sorted-first) super API
+		[]API{superAPI, baseAPI},
+		map[API]Resource{superAPI: superSub, baseAPI: baseSub},
+	)
+
+	// AsType[testSens] must return testSens's own sub, not the superset sub that also satisfies testSens.
+	got, err := AsType[testSens](composite)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, baseSub)
+
+	// AsType[superSensT] returns the super sub.
+	gotSuper, err := AsType[superSensT](composite)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotSuper, test.ShouldEqual, superSub)
+}
+
 func TestCompositeRoutingToCanonical(t *testing.T) {
 	// distinct sub-resources per API: DoCommand and Status must route to the canonical (apis[0])
 	// sub-resource only, running exactly once and never touching the non-canonical sub.
