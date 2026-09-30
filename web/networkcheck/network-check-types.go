@@ -13,8 +13,15 @@ import (
 const gatewayResultDescription = "router"
 
 // ispHighLossPctThreshold is the packet loss percentage above which internet
-// connectivity is described as spotty rather than merely lossy.
+// connectivity is considered degraded rather than merely lossy. Probes are sent
+// in batches of packetLossProbeCount, so a lower bar would classify a single
+// dropped echo — routine for a distant target — as a degraded network.
 const ispHighLossPctThreshold = 50
+
+// routerLossPctThreshold is the packet loss percentage above which the local
+// network is considered degraded. Stricter than the ISP's: it takes two dropped
+// echoes rather than six, which is enough to ignore a single wifi blip.
+const routerLossPctThreshold = 10
 
 // slowResolutionThresholdMS is the point above which a successful DNS
 // resolution is counted as degraded.
@@ -352,7 +359,7 @@ func summarizePacketLoss(results []*PacketLossResult) PacketLossSummary {
 		s.InternetStatus = FamilyUnknown
 	case *s.ISPLossPct == 100:
 		s.InternetStatus = FamilyDown
-	case *s.ISPLossPct > 0:
+	case *s.ISPLossPct > ispHighLossPctThreshold:
 		s.InternetStatus = FamilyDegraded
 	default:
 		s.InternetStatus = FamilyOK
@@ -361,7 +368,7 @@ func summarizePacketLoss(results []*PacketLossResult) PacketLossSummary {
 	switch {
 	case s.RouterLossPct == nil, routerErrored:
 		s.LocalNetworkStatus = FamilyUnknown
-	case s.RouterIgnoresPing, *s.RouterLossPct == 0:
+	case s.RouterIgnoresPing, *s.RouterLossPct <= routerLossPctThreshold:
 		s.LocalNetworkStatus = FamilyOK
 	default:
 		s.LocalNetworkStatus = FamilyDegraded

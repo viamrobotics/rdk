@@ -143,9 +143,17 @@ func TestSummarizePacketLoss(t *testing.T) {
 		test.That(t, *s.ISPLossPct, test.ShouldEqual, 100.0)
 	})
 
-	t.Run("isp partial loss is degraded", func(t *testing.T) {
-		s := summarizePacketLoss([]*PacketLossResult{router(10, 10), isp(10, 7)})
+	t.Run("isp high loss is degraded", func(t *testing.T) {
+		s := summarizePacketLoss([]*PacketLossResult{router(10, 10), isp(10, 3)})
 		test.That(t, s.InternetStatus, test.ShouldEqual, FamilyDegraded)
+		test.That(t, *s.ISPLossPct, test.ShouldEqual, 70.0)
+	})
+
+	// Each probe is worth 10 points of loss, so a couple of dropped echoes to a
+	// distant target is noise: routers and backbone gear deprioritize ICMP.
+	t.Run("isp loss under the threshold is healthy", func(t *testing.T) {
+		s := summarizePacketLoss([]*PacketLossResult{router(10, 10), isp(10, 7)})
+		test.That(t, s.InternetStatus, test.ShouldEqual, FamilyOK)
 		test.That(t, *s.ISPLossPct, test.ShouldEqual, 30.0)
 	})
 
@@ -153,6 +161,19 @@ func TestSummarizePacketLoss(t *testing.T) {
 		s := summarizePacketLoss([]*PacketLossResult{router(10, 7), isp(10, 10)})
 		test.That(t, s.LocalNetworkStatus, test.ShouldEqual, FamilyDegraded)
 		test.That(t, s.RouterIgnoresPing, test.ShouldBeFalse)
+	})
+
+	// One dropped echo to the gateway is noise on wifi; two is a pattern.
+	t.Run("router loses one probe and stays healthy", func(t *testing.T) {
+		s := summarizePacketLoss([]*PacketLossResult{router(10, 9), isp(10, 10)})
+		test.That(t, s.LocalNetworkStatus, test.ShouldEqual, FamilyOK)
+		test.That(t, *s.RouterLossPct, test.ShouldEqual, 10.0)
+	})
+
+	t.Run("router loses two probes and is degraded", func(t *testing.T) {
+		s := summarizePacketLoss([]*PacketLossResult{router(10, 8), isp(10, 10)})
+		test.That(t, s.LocalNetworkStatus, test.ShouldEqual, FamilyDegraded)
+		test.That(t, *s.RouterLossPct, test.ShouldEqual, 20.0)
 	})
 
 	// "The probe could not run" is not "every packet was lost". Without this
