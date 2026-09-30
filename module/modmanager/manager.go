@@ -1033,10 +1033,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// using an external handler gives us the ability to re-add dependencies in the correct order.
 		orphanedResourceNames := make([]resource.Name, 0, len(mod.resources))
 		orphanedResourceNamesStr := make([]string, 0, len(mod.resources))
-		for resourceName := range mod.resources {
+		for resourceName, ar := range mod.resources {
 			orphanedResourceNames = append(orphanedResourceNames, resourceName)
 			orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
-			// let resource manager re-add instead of manually doing it here.
+			// let resource manager re-add instead of manually doing it here. Drop every co-equal API
+			// route of a composite, not just the configured name, so no stale route to the crashed module
+			// lingers if the resource is not successfully re-added (mirrors RemoveResource).
+			for _, api := range resource.APIsForModel(ar.conf.Model) {
+				mgr.rMap.Delete(resource.Name{API: api, Remote: resourceName.Remote, Name: resourceName.Name})
+			}
 			mgr.rMap.Delete(resourceName)
 			delete(mod.resources, resourceName)
 		}
