@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -735,6 +736,92 @@ func TestCompositeInFrameSystemNonCanonicalKinematic(t *testing.T) {
 			// The kinematic sub is the non-canonical gripper API, detected by interface, so the
 			// composite carries a model frame even though it is configured under button.
 			test.That(t, part.ModelFrame, test.ShouldNotBeNil)
+		}
+	}
+	test.That(t, found, test.ShouldBeTrue)
+}
+
+// geomComposite backs a composite serving button.Button (not Shaped) and sensor.Sensor, where only the
+// sensor facade additionally implements resource.Shaped. It verifies the frame system finds a
+// composite's geometry on a sub whose API is not the one it is configured under.
+type geomComposite struct {
+	resource.Named
+}
+
+func (d *geomComposite) Close(context.Context) error { return nil }
+
+type plainBtnFacade struct{ *geomComposite }
+
+func (f plainBtnFacade) Push(context.Context, map[string]interface{}) error { return nil }
+
+type geomSensorFacade struct{ *geomComposite }
+
+func (f geomSensorFacade) Readings(
+	context.Context, map[string]interface{},
+) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
+func (f geomSensorFacade) Geometries(
+	context.Context, map[string]interface{},
+) ([]spatialmath.Geometry, error) {
+	return []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{}, "combo-geom")}, nil
+}
+
+func registerGeomCompositeModel(t *testing.T, name string) resource.Model {
+	t.Helper()
+	model := resource.NewModel("acme", "test", name)
+	resource.RegisterMultiAPI(
+		[]resource.API{button.API, sensor.API}, model,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				d := &geomComposite{Named: conf.ResourceName().AsNamed()}
+				return resource.Compose(
+					conf.ResourceName(),
+					button.AsSub(plainBtnFacade{d}),
+					sensor.AsSub(geomSensorFacade{d}),
+				)
+			},
+		},
+	)
+	t.Cleanup(func() {
+		resource.Deregister(button.API, model)
+		resource.Deregister(sensor.API, model)
+	})
+	return model
+}
+
+// TestCompositeFrameGeometryFromNonConfigSub checks that a non-kinematic composite's frame picks up a
+// geometry from a resource.Shaped sub whose API is not the one it is configured under. The composite
+// serves button (configured, not Shaped) and sensor (Shaped); with no geometry in the frame config, the
+// frame system must ask the sensor sub for one.
+func TestCompositeFrameGeometryFromNonConfigSub(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerGeomCompositeModel(t, "inproc-fs-geom")
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "combo",
+				API:   button.API,
+				Model: model,
+				Frame: &referenceframe.LinkConfig{Parent: referenceframe.World},
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	fsCfg, err := r.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	var found bool
+	for _, part := range fsCfg.Parts {
+		if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
+			found = true
+			// The geometry came from the sensor sub (Shaped), not the configured button sub.
+			test.That(t, part.FrameConfig.Geometry(), test.ShouldNotBeNil)
 		}
 	}
 	test.That(t, found, test.ShouldBeTrue)
