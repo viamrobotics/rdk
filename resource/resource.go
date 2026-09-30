@@ -318,32 +318,22 @@ func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 
-// AsType attempts to get a more specific interface T from a resource. For a composite (multi-API)
-// resource that does not itself satisfy T, it resolves the sub for the API that T is the registered
-// interface of, so the exact API's sub wins even when several subs satisfy T — e.g. AsType[sensor.Sensor]
-// returns the composite's sensor sub, not a movementsensor/powersensor sub that also has Readings.
-//
-// When T is not a registered API interface (a capability interface such as resource.Actuator or
-// resource.Shaped, or an API interface whose own API the composite does not serve), it falls back to
-// the first sub-resource that satisfies T, in canonical (sorted-API) order. That fallback can be
-// ambiguous when several subs satisfy such a T; if the API is known, resolve by it — SubresourceForAPI
-// (res, api), or the typed FromProvider/FromDependencies helpers.
+// AsType attempts to get a more specific interface T from a resource. If the resource itself satisfies
+// T it is returned. For a composite (multi-API) resource, AsType returns the sub for T's own registered
+// API — and only that API's sub. It never returns a different API's sub that merely also satisfies T,
+// so which sub you get is unambiguous: AsType[sensor.Sensor] on a composite that serves movementsensor
+// but not sensor is a TypeError, not the movementsensor sub. When T is not a registered API interface
+// (a capability interface such as resource.Actuator), or is an API the composite does not serve, AsType
+// returns a TypeError; resolve by the specific API with SubresourceForAPI, or the typed FromProvider/
+// FromDependencies helpers.
 func AsType[T Resource](from Resource) (T, error) {
 	if res, ok := from.(T); ok {
 		return res, nil
 	}
 	if mar, ok := from.(MultiAPIResource); ok {
-		// If T is a registered API interface, resolve that API's sub directly so the exact API wins.
+		// Resolve only the sub for T's own registered API — never a different API's sub that happens to
+		// satisfy T — so the result is never ambiguous.
 		if api, ok := apiForResourceInterface(reflect.TypeFor[T]()); ok {
-			if sub, found := mar.ResourceForAPI(api); found {
-				if res, ok := sub.(T); ok {
-					return res, nil
-				}
-			}
-		}
-		// Fall back to the first sub that satisfies T (capability interfaces, or an API-typed T whose
-		// own API this composite does not serve but another sub still satisfies).
-		for _, api := range mar.APIs() {
 			if sub, found := mar.ResourceForAPI(api); found {
 				if res, ok := sub.(T); ok {
 					return res, nil
