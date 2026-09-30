@@ -319,8 +319,21 @@ func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
 }
 
 // AsType attempts to get a more specific interface from the resource. For a composite (multi-API)
-// resource that does not itself satisfy T, it returns the first sub-resource that does, so a consumer
-// can extract a typed client for any API the composite serves.
+// resource that does not itself satisfy T, it returns the first sub-resource that does, in canonical
+// (sorted-API) order, so a consumer can extract a typed client for any API the composite serves.
+//
+// CAVEAT: when more than one of a composite's sub-resources satisfies T, AsType returns the
+// canonical-first one, which may not be the one the caller meant. That happens when T is a capability
+// interface, or an API interface that is a subset of another served API's interface. Known overlaps:
+//   - resource.Resource / the generic API: satisfied by every sub, so AsType returns the canonical sub.
+//   - sensor.Sensor (i.e. resource.Sensor / Readings): also satisfied by movementsensor.MovementSensor
+//     and powersensor.PowerSensor subs.
+//   - resource.Actuator: arm, base, gantry, gripper, motor, servo.
+//   - resource.Shaped: arm, base, camera, gantry, gripper.
+//   - framesystem.InputEnabled: arm, gantry, gripper.
+//
+// When the API is known, resolve by it instead — SubresourceForAPI(res, api), or the typed
+// FromProvider/FromDependencies helpers — which return the exact sub for that API.
 func AsType[T Resource](from Resource) (T, error) {
 	if res, ok := from.(T); ok {
 		return res, nil
