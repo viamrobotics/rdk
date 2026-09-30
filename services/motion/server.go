@@ -213,8 +213,10 @@ func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService
 		}()
 
 		for {
-			var req *pb.TempStreamArmJointPositionsRequest
-			if req, err = stream.Recv(); err != nil {
+			// A successful Recv must not touch err, so that the panic sentinel survives a panic below.
+			req, recvErr := stream.Recv()
+			if recvErr != nil {
+				err = recvErr
 				// io.EOF from Recv means the client closed its send side. Close targetsCh to give the
 				// impl a clean end of input.
 				if errors.Is(err, io.EOF) {
