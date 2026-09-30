@@ -1506,13 +1506,19 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		// Detect kinematics by interface across every API the resource serves: a composite contributes a
 		// model frame when any co-equal sub is InputEnabled, even if its kinematic API is not the one it's
 		// configured under. This matches how framesystem.BuiltInReconfigure classifies components for
-		// CurrentInputs. `res` above is narrowed to the configured API's sub, so resolve the api-less
-		// handle (the full composite) to see every API it serves.
+		// CurrentInputs. `res` above is narrowed to the configured API's sub, so resolve the raw graph
+		// node by the configured name+API — unambiguous even when the short name is shared by another
+		// resource or a remote — and run detection on node.Resource(), the full composite wrapper (or the
+		// ordinary resource), which KinematicSub unwraps across every served API.
 		var ie framesystem.InputEnabled
 		isKinematic := false
 		if isAvailable {
-			if handle, err := r.ResourceByName(resource.SimpleName(resConfig.Name)); err == nil {
-				ie, isKinematic = framesystem.KinematicSub(handle)
+			if node, err := r.manager.resources.FindBySimpleNameAndAPI(
+				resConfig.Name, resConfig.ResourceName().API,
+			); err == nil {
+				if raw, err := node.Resource(); err == nil {
+					ie, isKinematic = framesystem.KinematicSub(raw)
+				}
 			}
 		}
 		if isKinematic {
