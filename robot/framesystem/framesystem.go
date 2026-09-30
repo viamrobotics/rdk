@@ -72,6 +72,20 @@ func KinematicSub(res resource.Resource) (InputEnabled, bool) {
 	return found, true
 }
 
+// ShapedSub returns the resource.Shaped sub that provides a frame-system geometry, if any: the resource
+// itself for an ordinary component, or (for a composite) the first co-equal sub that implements
+// resource.Shaped. Like KinematicSub, it detects the capability by interface across every API the
+// resource serves, so a composite's geometry can come from a sub whose API is not the one it is
+// configured under. Returns (nil, false) when no sub is Shaped.
+func ShapedSub(res resource.Resource) (resource.Shaped, bool) {
+	for _, api := range resource.APIsOf(res) {
+		if sh, ok := resource.SubresourceForAPI(res, api).(resource.Shaped); ok {
+			return sh, true
+		}
+	}
+	return nil, false
+}
+
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
 type Service interface {
 	resource.Resource
