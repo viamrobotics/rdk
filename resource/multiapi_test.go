@@ -104,6 +104,15 @@ func TestAsTypeResolvesExactAPISub(t *testing.T) {
 	gotSuper, err := AsType[superSensT](composite)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotSuper, test.ShouldEqual, superSub)
+
+	// An API the composite does not serve is a TypeError, even though the subs (combo) would satisfy its
+	// interface (testCam needs only Snap). AsType returns T's own API's sub or nothing — never a
+	// different API's sub that merely satisfies T.
+	camAPI := APINamespaceRDK.WithComponentType("mtestcam")
+	RegisterAPI[testCam](camAPI, APIRegistration[testCam]{})
+	defer DeregisterAPI(camAPI)
+	_, err = AsType[testCam](composite)
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestCompositeRoutingToCanonical(t *testing.T) {
@@ -273,6 +282,12 @@ func (f imuFacade) Properties(context.Context, map[string]interface{}) (*IMUProp
 }
 
 func TestComposeFacadesCollidingMethods(t *testing.T) {
+	// AsType resolves by the requested interface's registered API, as in production; register these.
+	RegisterAPI[propCam](propCamAPI, APIRegistration[propCam]{})
+	RegisterAPI[propIMU](propIMUAPI, APIRegistration[propIMU]{})
+	defer DeregisterAPI(propCamAPI)
+	defer DeregisterAPI(propIMUAPI)
+
 	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
 	composite, err := Compose(
 		NewName(propCamAPI, "dev"),
@@ -416,6 +431,14 @@ func TestDeregisterDropsCompositeSet(t *testing.T) {
 }
 
 func TestCompositeExtractionAndAPIsOf(t *testing.T) {
+	// AsType resolves by the requested interface's registered API, as in production; register these.
+	RegisterAPI[testCam](testCamAPI, APIRegistration[testCam]{})
+	RegisterAPI[testSens](testSensAPI, APIRegistration[testSens]{})
+	RegisterAPI[testMotor](testMotorAPI, APIRegistration[testMotor]{})
+	defer DeregisterAPI(testCamAPI)
+	defer DeregisterAPI(testSensAPI)
+	defer DeregisterAPI(testMotorAPI)
+
 	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
 	composite := NewMultiAPIResource(
 		NewName(testCamAPI, "dev"),
