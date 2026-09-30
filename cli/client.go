@@ -4309,6 +4309,11 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		if errors.Is(err, errNoShellService) {
 			return err
 		}
+		// A logout during refresh is unrecoverable, so surface it rather than the generic
+		// "all attempts failed, try again later" - retrying will not help.
+		if errors.Is(err, errLoggedOut) {
+			return err
+		}
 		// A failure to reach the part carries the shell service's codes without being an answer
 		// from it, so it is reported as an exhausted retry rather than a bad copy request.
 		if statusErr := status.Convert(err); statusErr != nil && !errors.Is(err, errConnectToPart) {

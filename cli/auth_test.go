@@ -412,7 +412,6 @@ func TestRefreshAuthIfExpired(t *testing.T) {
 		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
 		test.That(t, ac.conf.Auth, test.ShouldBeNil)
 	})
-
 }
 
 func TestPrepareDialRefreshesExpiredToken(t *testing.T) {
