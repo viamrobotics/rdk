@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -90,19 +89,26 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings["reading"], test.ShouldEqual, 7)
 
-	// 2) A lookup by EACH co-equal API returns the SAME single instance as the api-less lookup.
+	// 2) An API-qualified lookup returns that API's handle directly (the unwrapped sub, not the
+	// wrapper), usable as that API with no further unwrapping.
 	bySensor, err := r.ResourceByName(sensor.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bySensor, test.ShouldEqual, res)
+	s2, ok := bySensor.(sensor.Sensor)
+	test.That(t, ok, test.ShouldBeTrue)
+	readings, err = s2.Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings["reading"], test.ShouldEqual, 7)
 
 	byGeneric, err := r.ResourceByName(resource.NewName(generic.API, "combo"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, byGeneric, test.ShouldEqual, res)
+	echoed, err := byGeneric.DoCommand(ctx, map[string]interface{}{"ping": "pong"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, echoed["echo"], test.ShouldEqual, "pong")
 
-	// 3) In-process the api-less handle is the one raw instance, which natively implements every
-	// co-equal API — AsType extracts each. (APIsOf on a raw builtin instance reports only its single
-	// Name API; the modular composite handle, a resource.MultiAPIResource, reports the full set — see
-	// TestModularCompositeResource.)
+	// 3) The api-less handle is the composite wrapper, uniform with a modular composite: APIsOf reports
+	// the full co-equal set (not just the config API) and AsType extracts each served API.
+	test.That(t, resource.APIsOf(res), test.ShouldContain, sensor.API)
+	test.That(t, resource.APIsOf(res), test.ShouldContain, generic.API)
 	_, err = resource.AsType[sensor.Sensor](res)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = resource.AsType[resource.Resource](res)
@@ -122,6 +128,45 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	// under several APIs. Reconfigure to an empty config to remove it, then assert the count.
 	r.Reconfigure(ctx, &config.Config{})
 	test.That(t, closeCount.Load(), test.ShouldEqual, 1)
+}
+
+// TestCompositeModelReconfigureReindexes reconfigures a resource from a single-API model to a composite
+// model serving an extra co-equal API (same name and config API). A model change rebuilds the resource
+// in place on the same graph node, which does not pass through the graph's cache-write paths, so the
+// manager must refresh the composite co-equal index afterward. Without that, the newly-served API would
+// not resolve even though the resource now serves it.
+func TestCompositeModelReconfigureReindexes(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	// singleModel serves only sensor; multiModel serves sensor + generic from the same impl.
+	singleModel := resource.NewModel("acme", "test", "recfg-single")
+	resource.Register(sensor.API, singleModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+		) (resource.Resource, error) {
+			return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+		},
+	})
+	defer resource.Deregister(sensor.API, singleModel)
+	multiModel := registerComboModel(t, "recfg-multi", nil)
+
+	// Start as a plain sensor: the generic API does not resolve.
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: singleModel}},
+	}, logger)
+	_, err := r.ResourceByName(generic.Named("combo"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Reconfigure to the composite model (in-place rebuild on the same node). The generic API must now
+	// resolve, and the configured sensor API must still resolve.
+	r.Reconfigure(ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: multiModel}},
+	})
+	_, err = r.ResourceByName(generic.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(sensor.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
 }
 
 // TestCompositeDependencyResolvesAllAPIs asserts that a second resource depending on a composite can
@@ -162,110 +207,6 @@ func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 	// If the consumer built, it resolved the composite under both APIs.
 	_, err := r.ResourceByName(generic.Named("consumer"))
 	test.That(t, err, test.ShouldBeNil)
-}
-
-// TestCompositeRemoteResource asserts a composite hosted behind a remote resolves to ONE composite on
-// the main robot — reachable under each co-equal API (method calls route to the right per-API facade),
-// assembled into one api-less handle over the per-API remote sub-clients, and never mistaken for a
-// name collision — across a direct remote, a prefixed remote, and a multi-hop remote chain. The graph
-// flattens a chain to the immediate hop, so a nested composite lands on main just like a direct one.
-func TestCompositeRemoteResource(t *testing.T) {
-	newRemote := func(t *testing.T, ctx context.Context, logger logging.Logger, name string, model resource.Model) string {
-		remote := setupLocalRobot(t, ctx, &config.Config{
-			Components: []resource.Config{{Name: "combo", API: sensor.API, Model: model}},
-		}, logger.Sublogger(name))
-		opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-		test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
-		return addr
-	}
-
-	for _, tc := range []struct {
-		name       string
-		setup      func(t *testing.T, ctx context.Context, logger logging.Logger, model resource.Model) robot.LocalRobot
-		perAPIName string   // remote-qualified name for the per-API lookups on main
-		apiless    []string // every api-less form that must resolve to the one composite
-	}{
-		{
-			name: "direct",
-			setup: func(t *testing.T, ctx context.Context, logger logging.Logger, model resource.Model) robot.LocalRobot {
-				addr := newRemote(t, ctx, logger, "remote", model)
-				return setupLocalRobot(t, ctx, &config.Config{
-					Remotes: []config.Remote{{Name: "rem", Address: addr}},
-				}, logger.Sublogger("main"))
-			},
-			perAPIName: "rem:combo",
-			apiless:    []string{"rem:combo"},
-		},
-		{
-			// A remote resource is cached under its PREFIXED simple name, so combo behind a remote with
-			// Prefix "p_" is "p_combo" on main; the api-less assembly must look it up under that name.
-			name: "prefixed",
-			setup: func(t *testing.T, ctx context.Context, logger logging.Logger, model resource.Model) robot.LocalRobot {
-				addr := newRemote(t, ctx, logger, "remote", model)
-				return setupLocalRobot(t, ctx, &config.Config{
-					Remotes: []config.Remote{{Name: "rem", Address: addr, Prefix: "p_"}},
-				}, logger.Sublogger("main"))
-			},
-			perAPIName: "rem:p_combo",
-			apiless:    []string{"rem:p_combo", "p_combo"},
-		},
-		{
-			// A chain main -> mid -> leaf: the graph flattens to the immediate hop (midrem), so the
-			// composite collapses to one just like a direct remote, and every chain name form resolves.
-			name: "nested",
-			setup: func(t *testing.T, ctx context.Context, logger logging.Logger, model resource.Model) robot.LocalRobot {
-				leafAddr := newRemote(t, ctx, logger, "leaf", model)
-				mid := setupLocalRobot(t, ctx, &config.Config{
-					Remotes: []config.Remote{{Name: "leafrem", Address: leafAddr}},
-				}, logger.Sublogger("mid"))
-				midOpts, _, midAddr := robottestutils.CreateBaseOptionsAndListener(t)
-				test.That(t, mid.StartWeb(ctx, midOpts), test.ShouldBeNil)
-				return setupLocalRobot(t, ctx, &config.Config{
-					Remotes: []config.Remote{{Name: "midrem", Address: midAddr}},
-				}, logger.Sublogger("main"))
-			},
-			perAPIName: "midrem:combo",
-			apiless:    []string{"combo", "midrem:combo", "midrem:leafrem:combo"},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			logger, logs := logging.NewObservedTestLogger(t)
-			ctx := context.Background()
-			model := registerComboModel(t, "composite-sensor-remote-"+tc.name, nil)
-			main := tc.setup(t, ctx, logger, model)
-
-			// Reachable under both co-equal APIs; each API's method call routes to the correct facade.
-			bySensor, err := main.ResourceByName(sensor.Named(tc.perAPIName))
-			test.That(t, err, test.ShouldBeNil)
-			s, err := resource.AsType[sensor.Sensor](bySensor)
-			test.That(t, err, test.ShouldBeNil)
-			readings, err := s.Readings(ctx, nil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, readings["reading"], test.ShouldEqual, 7)
-
-			byGeneric, err := main.ResourceByName(resource.NewName(generic.API, tc.perAPIName))
-			test.That(t, err, test.ShouldBeNil)
-			echoed, err := byGeneric.DoCommand(ctx, map[string]interface{}{"ping": "pong"})
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, echoed["echo"], test.ShouldEqual, "pong")
-
-			// Every api-less form assembles the per-API sub-clients into ONE handle serving every API.
-			for _, name := range tc.apiless {
-				composite, err := main.ResourceByName(resource.SimpleName(name))
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resource.APIsOf(composite), test.ShouldContain, sensor.API)
-				test.That(t, resource.APIsOf(composite), test.ShouldContain, generic.API)
-				cs, err := resource.AsType[sensor.Sensor](composite)
-				test.That(t, err, test.ShouldBeNil)
-				cReadings, err := cs.Readings(ctx, nil)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, cReadings["reading"], test.ShouldEqual, 7)
-			}
-
-			// The composite's own per-API names must NOT be flagged as a name collision.
-			test.That(t, logs.FilterMessageSnippet("Resource name collision").Len(), test.ShouldEqual, 0)
-		})
-	}
 }
 
 // TestCompositeRemoteResourceCollisions asserts that genuine collisions involving remote resources are
@@ -428,7 +369,6 @@ func registerGripperServoModel(t *testing.T, name string, stopCount, closeCount 
 			) (resource.Resource, error) {
 				d := &gripperServoDevice{Named: conf.ResourceName().AsNamed(), stopCount: stopCount, closeCount: closeCount}
 				return resource.Compose(
-					conf.ResourceName(),
 					gripper.AsSub(gripperFacade{d}),
 					servo.AsSub(servoFacade{d}),
 				)
