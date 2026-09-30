@@ -490,12 +490,9 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 func (g *Graph) ReindexComposite(name Name) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	node, ok := g.nodes.Get(name)
-	if !ok {
-		return
+	if node, ok := g.nodes.Get(name); ok {
+		g.nodes.reindexCompositeAPIs(name, node)
 	}
-	g.nodes.dropCompositeIndex(node)
-	g.nodes.indexCompositeAPIs(name, node)
 }
 
 // Names returns all the resource graph names.
