@@ -605,6 +605,13 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 			}
 			mgr.rMap.Delete(base)
 			delete(mod.resources, base)
+			// The module already constructed the composite (AddResource ran before this loop), so tell it
+			// to tear that down too. Otherwise the module keeps the instance and a retry AddResource for
+			// the same name can fail ("already exists") and stall reconfigure.
+			if _, err := mod.client.RemoveResource(closeCtx, &pb.RemoveResourceRequest{Name: base.String()}); err != nil &&
+				!errors.Is(err, rdkgrpc.ErrNotConnected) {
+				cause = multierr.Combine(cause, err)
+			}
 			return nil, cause
 		}
 		for _, api := range apis {
