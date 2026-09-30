@@ -91,7 +91,10 @@ func Compose(name Name, subs ...Sub) (MultiAPIResource, error) {
 
 func (c *compositeResource) Name() Name { return c.name }
 
-func (c *compositeResource) APIs() []API { return c.apis }
+// APIs returns a copy of the composite's served APIs in canonical-first order. It copies so a caller
+// mutating the result cannot corrupt the composite's internal ordering or DoCommand/Status/Close
+// routing (which key off apis[0]).
+func (c *compositeResource) APIs() []API { return append([]API(nil), c.apis...) }
 
 func (c *compositeResource) ResourceForAPI(api API) (Resource, bool) {
 	sub, ok := c.byAPI[api]
