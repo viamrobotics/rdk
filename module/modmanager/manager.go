@@ -607,7 +607,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 			delete(mod.resources, base)
 			// The module already constructed the composite (AddResource ran before this loop), so tell it
 			// to tear that down too. Otherwise the module keeps the instance and a retry AddResource for
-			// the same name can fail ("already exists") and stall reconfigure.
+			// the same name fails ("already exists") until the module process restarts.
 			if _, err := mod.client.RemoveResource(closeCtx, &pb.RemoveResourceRequest{Name: base.String()}); err != nil &&
 				!errors.Is(err, rdkgrpc.ErrNotConnected) {
 				cause = multierr.Combine(cause, err)
@@ -629,12 +629,6 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 			byAPI[api] = client
 		}
 		ar.subs = byAPI
-		// Name the wrapper with the configured resource name, not the canonical API, so it matches the
-		// graph node key and the mod.resources key (both keyed by the configured API). Otherwise
-		// RemoveResource — called with the wrapper's Name() — misses mod.resources when the composite is
-		// configured under a non-canonical API, which leaks the non-canonical sub-clients and leaves a
-		// ghost entry that keeps the module from being torn down. canonicalSub() uses apis[0]
-		// independently, so DoCommand/Status/Close routing is unaffected.
 		return resource.NewMultiAPIResource(base, apis, byAPI), nil
 	}
 
@@ -1045,7 +1039,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
 			// let resource manager re-add instead of manually doing it here. Drop every co-equal API
 			// route of a composite, not just the configured name, so no stale route to the crashed module
-			// lingers if the resource is not successfully re-added (mirrors RemoveResource).
+			// lingers if the resource is not successfully re-added.
 			for _, api := range resource.APIsForModel(ar.conf.Model) {
 				mgr.rMap.Delete(resource.Name{API: api, Remote: resourceName.Remote, Name: resourceName.Name})
 			}
