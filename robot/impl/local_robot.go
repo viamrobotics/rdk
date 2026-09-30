@@ -1502,11 +1502,10 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		}
 
 		if !isAvailable {
-			// A resource that isn't available can't report kinematics. Preserve the prior behavior of
-			// omitting a component that serves a degrees-of-freedom API (arm/gantry/gripper) rather than
-			// adding a static frame that would misrepresent it. Check the configured API and, for a
-			// composite, every API its model serves, so an unavailable composite whose kinematic API is
-			// not the configured one is still omitted.
+			// An unavailable resource can't report its kinematics. Omit a degrees-of-freedom component
+			// (arm/gantry/gripper) rather than add a static frame that would misrepresent it as rigid,
+			// checking every API the model serves — not just the configured one — so a composite whose
+			// kinematic API isn't the one it's configured under is still omitted.
 			kinematic := isKinematicSubtype(resConfig.ResourceName().API.SubtypeName)
 			for _, api := range resource.APIsForModel(resConfig.Model) {
 				kinematic = kinematic || isKinematicSubtype(api.SubtypeName)
@@ -1519,15 +1518,28 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 		// Detect kinematics by interface across every API the resource serves: a composite contributes a
 		// model frame when any co-equal sub is InputEnabled, even if its kinematic API is not the one it's
-		// configured under. This matches how framesystem.BuiltInReconfigure classifies components.
+		// configured under.
 		var ie framesystem.InputEnabled
 		isKinematic := false
 		if rawRes != nil {
 			ie, isKinematic = framesystem.KinematicSub(rawRes)
 		}
+		if !isKinematic && rawRes != nil && framesystem.MultiKinematic(rawRes) {
+			// A composite serving more than one kinematic API is unsupported. Omit it rather than add a
+			// static frame that would misrepresent a jointed device as rigid.
+			logger.Warnw("Composite serves multiple kinematic APIs; omitting from FrameSystem.", "resource", resConfig.Name)
+			continue
+		}
 		if isKinematic {
 			model, err := ie.Kinematics(ctx)
 			if err != nil {
+				// Dan: I've introduced a change in behavior here. Before, unavailable/not found
+				// errors, as this code does, would not add an item to the FrameSystem. But errors
+				// from the `Kinematics` call, or a resource that does not implement the
+				// `InputEnabled` interface would be added to the frame system without a model.
+				//
+				// I've chosen to not include the latter to the frame system. It's unclear if that
+				// distinction was meaningful.
 				logger.Warnw("Error getting kinematics for resource.", "err", err)
 				continue
 			}

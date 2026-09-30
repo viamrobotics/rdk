@@ -227,7 +227,7 @@ func (ms *builtIn) BuiltInReconfigure(
 		}
 	}
 	for name, subs := range componentsByName {
-		// Motion uses the component map for kinematics (frame system). A composite may serve at most one
+		// Motion uses the component map for kinematics. A composite may serve at most one
 		// kinematic (input-enabled) API: a single physical device is one frame with one CurrentInputs.
 		// Multi-kinematic composites are not supported — log and refuse the resource here rather than
 		// silently pick one. With no kinematic sub, any sub works since it is not used for kinematics.
