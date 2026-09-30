@@ -1774,6 +1774,71 @@ func TestShellFileCopy(t *testing.T) {
 
 	tfs := shelltestutils.SetupTestFileSystem(t)
 
+	t.Run("unreachable part is retried, not blamed on the destination", func(t *testing.T) {
+		originalRetryBaseDelay := copyRetryBaseDelay
+		copyRetryBaseDelay = time.Millisecond
+		defer func() {
+			copyRetryBaseDelay = originalRetryBaseDelay
+		}()
+
+		tempDir := t.TempDir()
+		args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
+		cCtx, viamClient, _, errOut := setupWithRunningPart(
+			t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+		)
+
+		var dials int
+		viamClient.dialOverride = func(
+			ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger,
+		) (*client.RobotClient, error) {
+			dials++
+			return nil, status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again")
+		}
+
+		err := viamClient.machinesPartCopyFilesAction(context.Background(), cCtx,
+			parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			fmt.Sprintf("all %d copy attempts failed", maxCopyAttempts))
+		test.That(t, dials, test.ShouldEqual, maxCopyAttempts)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldNotContainSubstring, "destination path does not exist")
+	})
+
+	t.Run("a logout during refresh is surfaced, not retried or blamed on the copy", func(t *testing.T) {
+		useTempCLICache(t)
+
+		// A refresh that the identity provider rejects logs the CLI out. The copy must abort
+		// and report the logout, not exhaust its retries and return "all N copy attempts failed".
+		refreshSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, `{"error":"invalid_grant","error_description":"refresh token revoked"}`, http.StatusBadRequest)
+		}))
+		t.Cleanup(refreshSrv.Close)
+
+		tempDir := t.TempDir()
+		args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
+		cCtx, viamClient, _, _ := setupWithRunningPart(
+			t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+		)
+		viamClient.authFlow = newCLIAuthFlow(io.Discard, true)
+		viamClient.conf.Auth = expiredToken(refreshSrv.URL)
+
+		var dials int
+		viamClient.dialOverride = func(
+			ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger,
+		) (*client.RobotClient, error) {
+			dials++
+			return nil, errors.New("should not dial after a logout")
+		}
+
+		err := viamClient.machinesPartCopyFilesAction(context.Background(), cCtx,
+			parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "copy attempts failed")
+		// The refresh fails before any machine dial, so the copy is never attempted.
+		test.That(t, dials, test.ShouldEqual, 0)
+	})
+
 	t.Run("from", func(t *testing.T) {
 		t.Run("single file", func(t *testing.T) {
 			tempDir := t.TempDir()
@@ -2981,6 +3046,12 @@ func TestIsRunningAptBinary(t *testing.T) {
 }
 
 func TestRetryableCopy(t *testing.T) {
+	originalRetryBaseDelay := copyRetryBaseDelay
+	copyRetryBaseDelay = time.Millisecond
+	defer func() {
+		copyRetryBaseDelay = originalRetryBaseDelay
+	}()
+
 	t.Run("SuccessOnFirstAttempt", func(t *testing.T) {
 		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
@@ -3331,6 +3402,121 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, errMsg, test.ShouldContainSubstring, `"/some/dir" does not exist or is not a directory`)
 	})
 
+	t.Run("ConnectNotFoundIsRetried", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		// An unreachable part answers with NotFound, the same code the shell service uses for
+		// a path that isn't there.
+		mockCopyFunc := func() error {
+			attemptCount++
+			return fmt.Errorf("%w: %w", errConnectToPart,
+				status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again"))
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "host appears to be offline")
+		test.That(t, attempts, test.ShouldEqual, maxCopyAttempts)
+		test.That(t, attemptCount, test.ShouldEqual, maxCopyAttempts)
+
+		// The user's destination was never in question here
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "destination path does not exist")
+	})
+
+	t.Run("ConnectNotFoundRecoversOnRetry", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			if attemptCount <= 2 {
+				return fmt.Errorf("%w: %w", errConnectToPart,
+					status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again"))
+			}
+			return nil
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attempts, test.ShouldEqual, 3)
+	})
+
+	t.Run("BacksOffBetweenAttempts", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		originalRetryBaseDelay := copyRetryBaseDelay
+		copyRetryBaseDelay = 20 * time.Millisecond
+		defer func() {
+			copyRetryBaseDelay = originalRetryBaseDelay
+		}()
+
+		var attemptTimes []time.Time
+		mockCopyFunc := func() error {
+			attemptTimes = append(attemptTimes, time.Now())
+			return errors.New("transient connection failure")
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptTimes, test.ShouldHaveLength, maxCopyAttempts)
+		// Each retry waits longer than the last, so a burst of attempts can't be spent inside
+		// one transient failure.
+		for i := 1; i < len(attemptTimes); i++ {
+			test.That(t, attemptTimes[i].Sub(attemptTimes[i-1]), test.ShouldBeGreaterThanOrEqualTo,
+				time.Duration(i)*copyRetryBaseDelay)
+		}
+	})
+
 	t.Run("NoShellServiceError", func(t *testing.T) {
 		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
@@ -3365,5 +3551,37 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify shell service specific warning appears
 		errMsg := strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldContainSubstring, "does not have the shell service enabled")
+	})
+
+	t.Run("LoggedOutError", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			return fmt.Errorf("token refresh failed — %w", errLoggedOut)
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		// The copy must abort on the first attempt; retrying cannot recover from a logout.
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
+		test.That(t, attempts, test.ShouldEqual, 1)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
 	})
 }

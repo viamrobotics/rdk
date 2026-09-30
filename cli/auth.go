@@ -488,46 +488,11 @@ func (c *viamClient) ensureLoggedInInner(ctx context.Context) error {
 		return err
 	}
 
-	if c.conf.Auth == nil {
-		return errors.New("not logged in: run the following command to login:\n\tviam login")
-	}
-
-	// Refresh (and persist) an expired user login before dialing. Uses the same
-	// helper as (*Config).Token/ConnectToApp so there is a single refresh path;
-	// API-key logins return ErrAPIKeyLogin and need no refresh.
-	if _, err := c.conf.refreshTokenIfExpired(ctx, c.authFlow); err != nil && !errors.Is(err, ErrAPIKeyLogin) {
-		if errors.Is(err, errTokenExpired) {
-			utils.UncheckedError(c.logout())
-			return errors.New("token expired and cannot refresh, logging out. Please log in again")
-		}
-		debugf(c.c.Root().Writer, globalArgs.Debug, "Token refresh error: %v", err)
-		utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-		return errors.New("error while refreshing token, logging out. Please log in again")
-	}
-
-	rpcOpts, err := c.conf.DialOptions()
+	conn, err := c.dialApp(ctx)
 	if err != nil {
 		return err
 	}
-
-	conn, err := rpc.DialDirectGRPC(
-		ctx,
-		c.baseURL.Host,
-		nil,
-		rpcOpts...,
-	)
-	if err != nil {
-		return err
-	}
-
-	c.client = apppb.NewAppServiceClient(conn)
-	c.dataClient = datapb.NewDataServiceClient(conn)
-	c.packageClient = packagepb.NewPackageServiceClient(conn)
-	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
-	c.datapipelinesClient = datapipelinespb.NewDataPipelinesServiceClient(conn)
-	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
-	c.mlInferenceClient = mlinferencepb.NewMLInferenceServiceClient(conn)
-	c.buildClient = buildpb.NewBuildServiceClient(conn)
+	c.setAppClients(conn)
 
 	// if there's no default org and we're in a profile, there should only be the one org
 	// so we can automatically set that as the default
@@ -547,6 +512,68 @@ func (c *viamClient) ensureLoggedInInner(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// setAppClients points the app service clients at conn.
+func (c *viamClient) setAppClients(conn rpc.ClientConn) {
+	c.conn = conn
+	c.dialedApp = true
+	c.client = apppb.NewAppServiceClient(conn)
+	c.dataClient = datapb.NewDataServiceClient(conn)
+	c.packageClient = packagepb.NewPackageServiceClient(conn)
+	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
+	c.datapipelinesClient = datapipelinespb.NewDataPipelinesServiceClient(conn)
+	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
+	c.mlInferenceClient = mlinferencepb.NewMLInferenceServiceClient(conn)
+	c.buildClient = buildpb.NewBuildServiceClient(conn)
+}
+
+// refreshAuthIfExpired refreshes (and persists) an expired user login, reporting whether new
+// authentication material was obtained. Uses the same helper as (*Config).Token/ConnectToApp so
+// there is a single refresh path; API-key logins are a no-op. Any refresh error clears cached
+// credentials so the next command prompts for re-authentication rather than replaying a broken token.
+func (c *viamClient) refreshAuthIfExpired(ctx context.Context) (bool, error) {
+	// A prior refresh in this process may have logged us out (e.g. a copy retry after a
+	// revoked token). DialOptions dereferences Auth, so report the logout instead of panicking.
+	if c.conf.Auth == nil {
+		return false, errLoggedOut
+	}
+	previous, _ := c.conf.Auth.(*token)
+	refreshed, err := c.conf.refreshTokenIfExpired(ctx, c.authFlow)
+	if err != nil {
+		if errors.Is(err, ErrAPIKeyLogin) {
+			return false, nil
+		}
+		if globalArgs, gErr := getGlobalArgs(c.c); gErr == nil {
+			debugf(c.c.Root().Writer, globalArgs.Debug, "Token refresh error: %v", err)
+		}
+		utils.UncheckedError(c.logout())
+		if errors.Is(err, errTokenExpired) {
+			return false, fmt.Errorf("token expired and cannot be refreshed — %w", errLoggedOut)
+		}
+		return false, fmt.Errorf("token refresh failed — %w", errLoggedOut)
+	}
+	return refreshed.AccessToken != previous.AccessToken, nil
+}
+
+// dialApp refreshes an expired login and dials app. It runs for every connection made, so a
+// re-dial authenticates with current material rather than the material the process started with.
+func (c *viamClient) dialApp(ctx context.Context) (rpc.ClientConn, error) {
+	// a failed refresh below can log out, which clears Auth; DialOptions would panic on it.
+	if c.conf.Auth == nil {
+		return nil, errors.New("not logged in: run the following command to login:\n\tviam login")
+	}
+
+	if _, err := c.refreshAuthIfExpired(ctx); err != nil {
+		return nil, err
+	}
+
+	rpcOpts, err := c.conf.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return rpc.DialDirectGRPC(ctx, c.baseURL.Host, nil, rpcOpts...)
 }
 
 func (c *viamClient) ensureLoggedIn(ctx context.Context) error {
@@ -582,6 +609,35 @@ func (c *viamClient) ensureLoggedIn(ctx context.Context) error {
 	return c.ensureLoggedInInner(ctx)
 }
 
+// closeAppConn closes the connection to app. Call it before work that will not touch app for a
+// while: the connection otherwise sits idle for the length of a machine session, and app answers
+// gRPC's idle keepalive pings with a GOAWAY. Streams open on the connection are torn down. The
+// service clients keep pointing at it, so app work that forgets redialApp gets a closed-connection
+// error rather than a nil panic.
+func (c *viamClient) closeAppConn() {
+	if c.conn == nil {
+		return
+	}
+	utils.UncheckedError(c.conn.Close())
+	c.conn = nil
+}
+
+// redialApp reconnects to app and rebuilds the service clients on the new connection. Call it at
+// the top of anything that talks to app and can be reached after a machine dial; it is a no-op
+// unless closeAppConn actually closed a connection: a client whose service clients were injected
+// rather than dialed has no connection to rebuild.
+func (c *viamClient) redialApp(ctx context.Context) error {
+	if c.conn != nil || !c.dialedApp {
+		return nil
+	}
+	conn, err := c.dialApp(ctx)
+	if err != nil {
+		return err
+	}
+	c.setAppClients(conn)
+	return nil
+}
+
 // logout logs out the client and clears the config.
 func (c *viamClient) logout() error {
 	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
@@ -596,6 +652,9 @@ func (c *viamClient) prepareDial(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
+	if err := c.redialApp(ctx); err != nil {
+		return nil, "", nil, err
+	}
 	if err := c.selectOrganization(ctx, orgStr); err != nil {
 		return nil, "", nil, err
 	}
@@ -615,6 +674,12 @@ func (c *viamClient) prepareDialInner(
 	partFqdn string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
+	// The machine dial below also captures the token as static material, so refresh before
+	// building its options - a retrying or long-running command can outlive the token's TTL.
+	if _, err := c.refreshAuthIfExpired(ctx); err != nil {
+		return nil, "", nil, err
+	}
+
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		utils.UncheckedError(rpcDialer.Close())
@@ -626,7 +691,6 @@ func (c *viamClient) prepareDialInner(
 		return nil, "", nil, err
 	}
 	if t, ok := c.conf.Auth.(*token); ok {
-		rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
 		if t.TokenType == tokenTypeUserOAuthToken {
 			// TODO(RSDK-12818): mDNS connections cannot handle fusion-auth tokens
 			rpcOpts = append(rpcOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: true}))

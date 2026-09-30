@@ -591,6 +591,13 @@ func TestClientProperties(t *testing.T) {
 			},
 		},
 		{
+			name: "with default reference frame",
+			props: camera.Properties{
+				SupportsPCD:           true,
+				DefaultReferenceFrame: "depth_sensor",
+			},
+		},
+		{
 			name: "nil extrinsic params",
 			props: camera.Properties{
 				SupportsPCD:     true,

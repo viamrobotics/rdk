@@ -134,6 +134,7 @@ const (
 	mlTrainingFlagURL              = "url"
 	mlTrainingFlagContainerVersion = "container-version"
 	mlTrainingFlagIncludeURIs      = "include-uris"
+	mlTrainingFlagContainerID      = "id"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2258,6 +2259,19 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createActionCommandWithT[mlListContainersArgs](MLListContainers),
+						},
+						{
+							Name:      "delete",
+							Usage:     "deletes a custom training container",
+							UsageText: createUsageText("train containers delete", []string{mlTrainingFlagContainerID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     mlTrainingFlagContainerID,
+									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
+									Required: true,
+								},
+							},
+							Action: createActionCommandWithT[mlDeleteContainerArgs](MLDeleteContainer),
 						},
 					},
 				},

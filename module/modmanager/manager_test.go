@@ -1655,6 +1655,13 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
 	}
+	if runtime.GOARCH == "arm" {
+		// Flaky under qemu-emulated 32-bit arm: FTDC samples module process stats on a 1s
+		// background interval while the module is repeatedly killed and restarted. Emulated
+		// userspace runs several times slower, widening the window in which the sampler queries a
+		// stale/dead PID and reads ElapsedTimeSecs == 0, failing the ShouldBeGreaterThan assertion.
+		t.Skip(t.Name(), "flaky under qemu-emulated 32-bit arm due to FTDC sampling timing")
+	}
 
 	logger := logging.NewTestLogger(t)
 	modCfgs := []config.Module{
