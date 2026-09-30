@@ -335,8 +335,10 @@ func (c *client) TempStreamArmJointPositions(
 			recvResult <- err
 		}()
 		for {
-			// TempStreamResponse carries no fields yet, so the message itself is not read.
-			if _, err = stream.Recv(); err != nil {
+			// TempStreamResponse carries no fields yet, so the message itself is not read. A
+			// successful Recv must not touch err, so that the panic sentinel survives a panic below.
+			if _, recvErr := stream.Recv(); recvErr != nil {
+				err = recvErr
 				// io.EOF from Recv means the stream ended cleanly.
 				if errors.Is(err, io.EOF) {
 					err = nil
