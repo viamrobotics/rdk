@@ -318,27 +318,31 @@ func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 
-// AsType attempts to get a more specific interface from the resource. For a composite (multi-API)
-// resource that does not itself satisfy T, it returns the first sub-resource that does, in canonical
-// (sorted-API) order, so a consumer can extract a typed client for any API the composite serves.
+// AsType attempts to get a more specific interface T from a resource. For a composite (multi-API)
+// resource that does not itself satisfy T, it resolves the sub for the API that T is the registered
+// interface of, so the exact API's sub wins even when several subs satisfy T — e.g. AsType[sensor.Sensor]
+// returns the composite's sensor sub, not a movementsensor/powersensor sub that also has Readings.
 //
-// CAVEAT: when more than one of a composite's sub-resources satisfies T, AsType returns the
-// canonical-first one, which may not be the one the caller meant. That happens when T is a capability
-// interface, or an API interface that is a subset of another served API's interface. Known overlaps:
-//   - resource.Resource / the generic API: satisfied by every sub, so AsType returns the canonical sub.
-//   - sensor.Sensor (i.e. resource.Sensor / Readings): also satisfied by movementsensor.MovementSensor
-//     and powersensor.PowerSensor subs.
-//   - resource.Actuator: arm, base, gantry, gripper, motor, servo.
-//   - resource.Shaped: arm, base, camera, gantry, gripper.
-//   - framesystem.InputEnabled: arm, gantry, gripper.
-//
-// When the API is known, resolve by it instead — SubresourceForAPI(res, api), or the typed
-// FromProvider/FromDependencies helpers — which return the exact sub for that API.
+// When T is not a registered API interface (a capability interface such as resource.Actuator or
+// resource.Shaped, or an API interface whose own API the composite does not serve), it falls back to
+// the first sub-resource that satisfies T, in canonical (sorted-API) order. That fallback can be
+// ambiguous when several subs satisfy such a T; if the API is known, resolve by it — SubresourceForAPI
+// (res, api), or the typed FromProvider/FromDependencies helpers.
 func AsType[T Resource](from Resource) (T, error) {
 	if res, ok := from.(T); ok {
 		return res, nil
 	}
 	if mar, ok := from.(MultiAPIResource); ok {
+		// If T is a registered API interface, resolve that API's sub directly so the exact API wins.
+		if api, ok := apiForResourceInterface(reflect.TypeFor[T]()); ok {
+			if sub, found := mar.ResourceForAPI(api); found {
+				if res, ok := sub.(T); ok {
+					return res, nil
+				}
+			}
+		}
+		// Fall back to the first sub that satisfies T (capability interfaces, or an API-typed T whose
+		// own API this composite does not serve but another sub still satisfies).
 		for _, api := range mar.APIs() {
 			if sub, found := mar.ResourceForAPI(api); found {
 				if res, ok := sub.(T); ok {
