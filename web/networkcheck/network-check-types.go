@@ -16,6 +16,33 @@ const gatewayResultDescription = "router"
 // connectivity is described as spotty rather than merely lossy.
 const ispHighLossPctThreshold = 50
 
+// slowResolutionThresholdMS is the point above which a successful DNS
+// resolution is counted as degraded.
+const slowResolutionThresholdMS = 1000
+
+// FamilyStatus is the health of a single family of network checks:
+// DNS, UDP STUN, TCP STUN, or packet loss
+type FamilyStatus string
+
+// FamilyStatus values.
+const (
+	FamilyOK       FamilyStatus = "ok"
+	FamilyDegraded FamilyStatus = "degraded"
+	FamilyDown     FamilyStatus = "down"
+	FamilyUnknown  FamilyStatus = "unknown"
+)
+
+// Verdict is the machine-wide rollup of every FamilyStatus. It has no "unknown"
+// member; an unmeasured family does not contribute to the verdict.
+type Verdict string
+
+// Verdict values.
+const (
+	VerdictGood     Verdict = "good"
+	VerdictDegraded Verdict = "degraded"
+	VerdictDown     Verdict = "down"
+)
+
 // PacketLossResult holds the results of a packet loss probe to a specific host.
 type PacketLossResult struct {
 	// Target is the IP address being probed.
@@ -44,60 +71,6 @@ func (r *PacketLossResult) LossPercent() float64 {
 		return 100.0
 	}
 	return float64(r.Sent-r.Received) / float64(r.Sent) * 100.0
-}
-
-func stringifyPacketLossResults(results []*PacketLossResult) string {
-	var sb strings.Builder
-	sb.WriteString("[")
-	for i, r := range results {
-		if i > 0 {
-			sb.WriteString(",")
-		}
-		fmt.Fprintf(&sb, "{target: %s, description: %s, sent: %d, received: %d, loss_pct: %.0f%%",
-			r.Target, r.Description, r.Sent, r.Received, r.LossPercent())
-		if r.AvgRTTMS != nil {
-			fmt.Fprintf(&sb, ", avg_rtt_ms: %d", *r.AvgRTTMS)
-		}
-		if r.ErrorString != nil {
-			fmt.Fprintf(&sb, ", error: %s", *r.ErrorString)
-		}
-		sb.WriteString("}")
-	}
-	sb.WriteString("]")
-	return sb.String()
-}
-
-func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, s PacketLossSummary, verbose bool) {
-	msg := "packet loss tests complete"
-	keysAndValues := []any{"packet_loss_tests", stringifyPacketLossResults(results)}
-
-	switch {
-	case s.RouterIgnoresPing:
-		keysAndValues = append(keysAndValues,
-			"note", "gateway is not responding to ICMP ping, but internet connectivity appears normal; many routers block ping by default",
-		)
-	case s.InternetStatus == FamilyDown:
-		keysAndValues = append(keysAndValues,
-			"note", "ISP target ("+ispProbeTarget+") is unreachable; internet connectivity may be down",
-		)
-	case s.InternetStatus == FamilyUnknown:
-		keysAndValues = append(keysAndValues,
-			"note", "ISP target ("+ispProbeTarget+") could not be measured; internet connectivity is unknown",
-		)
-	case s.ISPLossPct != nil && *s.ISPLossPct > ispHighLossPctThreshold:
-		keysAndValues = append(keysAndValues,
-			"note", "ISP target ("+ispProbeTarget+") has high packet loss; internet connectivity may be spotty",
-		)
-	}
-
-	anyLoss := (s.ISPLossPct != nil && *s.ISPLossPct > 0) ||
-		(s.RouterLossPct != nil && *s.RouterLossPct > 0)
-
-	if anyLoss {
-		logger.Warnw(msg, keysAndValues...)
-	} else if verbose {
-		logger.Infow(msg, keysAndValues...)
-	}
 }
 
 type (
@@ -181,182 +154,6 @@ func (dtt DNSTestType) String() string {
 		return "unknown"
 	}
 }
-
-func stringifyDNSResults(dnsResults []*DNSResult) string {
-	ret := "["
-
-	for i, dr := range dnsResults {
-		comma := ","
-		if i == 0 {
-			comma = ""
-		}
-
-		ret += fmt.Sprintf("%v{test_type: %s", comma, dr.TestType)
-		if dr.ErrorString != nil {
-			ret += fmt.Sprintf(", error_string: %v", *dr.ErrorString)
-		}
-
-		// Connection fields.
-		if dr.DNSServer != nil {
-			ret += fmt.Sprintf(", dns_server: %v", *dr.DNSServer)
-		}
-		if dr.ConnectTimeMS != nil {
-			ret += fmt.Sprintf(", connect_time_ms: %d", *dr.ConnectTimeMS)
-		}
-		if dr.QueryTimeMS != nil {
-			ret += fmt.Sprintf(", query_time_ms: %d", *dr.QueryTimeMS)
-		}
-		if dr.ResponseSize != nil {
-			ret += fmt.Sprintf(", response_size: %d", *dr.ResponseSize)
-		}
-
-		// Resolution fields.
-		if dr.Hostname != nil {
-			ret += fmt.Sprintf(", hostname: %v", *dr.Hostname)
-		}
-		if dr.ResolutionTimeMS != nil {
-			ret += fmt.Sprintf(", resolution_time_ms: %d", *dr.ResolutionTimeMS)
-		}
-		if dr.ResolvedIPs != nil {
-			ret += fmt.Sprintf(", resolved_ips: %v", *dr.ResolvedIPs)
-		}
-
-		ret += "}"
-	}
-
-	return ret + "]"
-}
-
-// Logs DNS test results.
-func logDNSResults(
-	logger logging.Logger,
-	dnsResults []*DNSResult,
-	s DNSSummary,
-	resolvConfContents string,
-	systemdResolvedConfContents string,
-	verbose bool,
-) {
-	systemMsg := fmt.Sprintf(
-		"%d/%d dns connection and %d/%d dns resolution tests succeeded",
-		s.ConnectionsOK,
-		s.ConnectionsTotal,
-		s.ResolutionsOK,
-		s.ResolutionsTotal,
-	)
-	keysAndValues := []any{"dns_tests", stringifyDNSResults(dnsResults)}
-
-	if s.ConnectionsOK < s.ConnectionsTotal || s.ResolutionsOK < s.ResolutionsTotal {
-		logger.Warnw(systemMsg, keysAndValues...)
-		// Only log `/etc/resolv.conf` and `/etc/systemd/resolved.conf` contents in the event
-		// of a DNS test failure.
-		if resolvConfContents != "" {
-			logger.Infof("/etc/resolv.conf contents: %s", resolvConfContents)
-		}
-		if systemdResolvedConfContents != "" {
-			logger.Infof("/etc/systemd/resolved.conf contents: %s", systemdResolvedConfContents)
-		}
-	} else if verbose {
-		logger.Infow(systemMsg, keysAndValues...)
-	}
-
-	if len(s.SlowHostnames) > 0 {
-		logger.Warnw(
-			fmt.Sprintf("Slow DNS resolutions detected (>%dms)", slowResolutionThresholdMS),
-			"slow_hostnames", strings.Join(s.SlowHostnames, ", "),
-		)
-	}
-}
-
-func stringifySTUNResponses(stunResponses []*STUNResponse) string {
-	ret := "["
-
-	for i, sr := range stunResponses {
-		comma := ","
-		if i == 0 {
-			comma = ""
-		}
-
-		ret += fmt.Sprintf("%v{stun_server_url: %v", comma, sr.STUNServerURL)
-		if sr.TCPSourceAddress != nil {
-			ret += fmt.Sprintf(", tcp_source_address: %v", *sr.TCPSourceAddress)
-		}
-		if sr.STUNServerAddr != nil {
-			ret += fmt.Sprintf(", stun_server_addr: %v", *sr.STUNServerAddr)
-		}
-		if sr.BindResponseAddr != nil {
-			ret += fmt.Sprintf(", bind_response_addr: %v", *sr.BindResponseAddr)
-		}
-		if sr.TimeToBindResponseMS != nil {
-			ret += fmt.Sprintf(", time_to_bind_response_ms: %d", *sr.TimeToBindResponseMS)
-		}
-		if sr.ErrorString != nil {
-			ret += fmt.Sprintf(", error_string: %v", *sr.ErrorString)
-		}
-
-		ret += "}"
-	}
-
-	return ret + "]"
-}
-
-// Logs STUN responses and whether the machine appears to be behind a "hard" NAT device.
-func logSTUNResults(
-	logger logging.Logger,
-	stunResponses []*STUNResponse,
-	s STUNSummary,
-	udpSourceAddress,
-	network string,
-	verbose bool,
-) {
-	msg := fmt.Sprintf(
-		"%d/%d %v STUN tests succeeded",
-		s.SuccessCount,
-		s.Total,
-		network,
-	)
-	keysAndValues := []any{fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses)}
-	if network == "udp" {
-		keysAndValues = append(keysAndValues, "udp_source_address", udpSourceAddress)
-	}
-	if s.SuccessCount < s.Total {
-		logger.Warnw(msg, keysAndValues...)
-	} else if verbose {
-		logger.Infow(msg, keysAndValues...)
-	}
-
-	if s.HardNAT {
-		logger.Warn(
-			"udp STUN tests indicate this machine is behind a 'hard' NAT device; STUN may not work as expected",
-		)
-	}
-}
-
-// slowResolutionThresholdMS is the point above which a successful DNS
-// resolution is counted as degraded.
-const slowResolutionThresholdMS = 1000
-
-// FamilyStatus is the health of a single family of network checks:
-// DNS, UDP STUN, TCP STUN, or packet loss
-type FamilyStatus string
-
-// FamilyStatus values.
-const (
-	FamilyOK       FamilyStatus = "ok"
-	FamilyDegraded FamilyStatus = "degraded"
-	FamilyDown     FamilyStatus = "down"
-	FamilyUnknown  FamilyStatus = "unknown"
-)
-
-// Verdict is the machine-wide rollup of every FamilyStatus. It has no "unknown"
-// member; an unmeasured family does not contribute to the verdict.
-type Verdict string
-
-// Verdict values.
-const (
-	VerdictGood     Verdict = "good"
-	VerdictDegraded Verdict = "degraded"
-	VerdictDown     Verdict = "down"
-)
 
 // DNSSummary condenses a TestDNS run.
 type DNSSummary struct {
@@ -565,6 +362,209 @@ func summarizePacketLoss(results []*PacketLossResult) PacketLossSummary {
 		s.LocalNetworkStatus = FamilyDegraded
 	}
 	return s
+}
+
+func stringifyPacketLossResults(results []*PacketLossResult) string {
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i, r := range results {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		fmt.Fprintf(&sb, "{target: %s, description: %s, sent: %d, received: %d, loss_pct: %.0f%%",
+			r.Target, r.Description, r.Sent, r.Received, r.LossPercent())
+		if r.AvgRTTMS != nil {
+			fmt.Fprintf(&sb, ", avg_rtt_ms: %d", *r.AvgRTTMS)
+		}
+		if r.ErrorString != nil {
+			fmt.Fprintf(&sb, ", error: %s", *r.ErrorString)
+		}
+		sb.WriteString("}")
+	}
+	sb.WriteString("]")
+	return sb.String()
+}
+
+func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, s PacketLossSummary, verbose bool) {
+	msg := "packet loss tests complete"
+	keysAndValues := []any{"packet_loss_tests", stringifyPacketLossResults(results)}
+
+	switch {
+	case s.RouterIgnoresPing:
+		keysAndValues = append(keysAndValues,
+			"note", "gateway is not responding to ICMP ping, but internet connectivity appears normal; many routers block ping by default",
+		)
+	case s.InternetStatus == FamilyDown:
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target ("+ispProbeTarget+") is unreachable; internet connectivity may be down",
+		)
+	case s.InternetStatus == FamilyUnknown:
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target ("+ispProbeTarget+") could not be measured; internet connectivity is unknown",
+		)
+	case s.ISPLossPct != nil && *s.ISPLossPct > ispHighLossPctThreshold:
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target ("+ispProbeTarget+") has high packet loss; internet connectivity may be spotty",
+		)
+	}
+
+	anyLoss := (s.ISPLossPct != nil && *s.ISPLossPct > 0) ||
+		(s.RouterLossPct != nil && *s.RouterLossPct > 0)
+
+	if anyLoss {
+		logger.Warnw(msg, keysAndValues...)
+	} else if verbose {
+		logger.Infow(msg, keysAndValues...)
+	}
+}
+
+func stringifyDNSResults(dnsResults []*DNSResult) string {
+	ret := "["
+
+	for i, dr := range dnsResults {
+		comma := ","
+		if i == 0 {
+			comma = ""
+		}
+
+		ret += fmt.Sprintf("%v{test_type: %s", comma, dr.TestType)
+		if dr.ErrorString != nil {
+			ret += fmt.Sprintf(", error_string: %v", *dr.ErrorString)
+		}
+
+		// Connection fields.
+		if dr.DNSServer != nil {
+			ret += fmt.Sprintf(", dns_server: %v", *dr.DNSServer)
+		}
+		if dr.ConnectTimeMS != nil {
+			ret += fmt.Sprintf(", connect_time_ms: %d", *dr.ConnectTimeMS)
+		}
+		if dr.QueryTimeMS != nil {
+			ret += fmt.Sprintf(", query_time_ms: %d", *dr.QueryTimeMS)
+		}
+		if dr.ResponseSize != nil {
+			ret += fmt.Sprintf(", response_size: %d", *dr.ResponseSize)
+		}
+
+		// Resolution fields.
+		if dr.Hostname != nil {
+			ret += fmt.Sprintf(", hostname: %v", *dr.Hostname)
+		}
+		if dr.ResolutionTimeMS != nil {
+			ret += fmt.Sprintf(", resolution_time_ms: %d", *dr.ResolutionTimeMS)
+		}
+		if dr.ResolvedIPs != nil {
+			ret += fmt.Sprintf(", resolved_ips: %v", *dr.ResolvedIPs)
+		}
+
+		ret += "}"
+	}
+
+	return ret + "]"
+}
+
+// Logs DNS test results.
+func logDNSResults(
+	logger logging.Logger,
+	dnsResults []*DNSResult,
+	s DNSSummary,
+	resolvConfContents string,
+	systemdResolvedConfContents string,
+	verbose bool,
+) {
+	systemMsg := fmt.Sprintf(
+		"%d/%d dns connection and %d/%d dns resolution tests succeeded",
+		s.ConnectionsOK,
+		s.ConnectionsTotal,
+		s.ResolutionsOK,
+		s.ResolutionsTotal,
+	)
+	keysAndValues := []any{"dns_tests", stringifyDNSResults(dnsResults)}
+
+	if s.ConnectionsOK < s.ConnectionsTotal || s.ResolutionsOK < s.ResolutionsTotal {
+		logger.Warnw(systemMsg, keysAndValues...)
+		// Only log `/etc/resolv.conf` and `/etc/systemd/resolved.conf` contents in the event
+		// of a DNS test failure.
+		if resolvConfContents != "" {
+			logger.Infof("/etc/resolv.conf contents: %s", resolvConfContents)
+		}
+		if systemdResolvedConfContents != "" {
+			logger.Infof("/etc/systemd/resolved.conf contents: %s", systemdResolvedConfContents)
+		}
+	} else if verbose {
+		logger.Infow(systemMsg, keysAndValues...)
+	}
+
+	if len(s.SlowHostnames) > 0 {
+		logger.Warnw(
+			fmt.Sprintf("Slow DNS resolutions detected (>%dms)", slowResolutionThresholdMS),
+			"slow_hostnames", strings.Join(s.SlowHostnames, ", "),
+		)
+	}
+}
+
+func stringifySTUNResponses(stunResponses []*STUNResponse) string {
+	ret := "["
+
+	for i, sr := range stunResponses {
+		comma := ","
+		if i == 0 {
+			comma = ""
+		}
+
+		ret += fmt.Sprintf("%v{stun_server_url: %v", comma, sr.STUNServerURL)
+		if sr.TCPSourceAddress != nil {
+			ret += fmt.Sprintf(", tcp_source_address: %v", *sr.TCPSourceAddress)
+		}
+		if sr.STUNServerAddr != nil {
+			ret += fmt.Sprintf(", stun_server_addr: %v", *sr.STUNServerAddr)
+		}
+		if sr.BindResponseAddr != nil {
+			ret += fmt.Sprintf(", bind_response_addr: %v", *sr.BindResponseAddr)
+		}
+		if sr.TimeToBindResponseMS != nil {
+			ret += fmt.Sprintf(", time_to_bind_response_ms: %d", *sr.TimeToBindResponseMS)
+		}
+		if sr.ErrorString != nil {
+			ret += fmt.Sprintf(", error_string: %v", *sr.ErrorString)
+		}
+
+		ret += "}"
+	}
+
+	return ret + "]"
+}
+
+// Logs STUN responses and whether the machine appears to be behind a "hard" NAT device.
+func logSTUNResults(
+	logger logging.Logger,
+	stunResponses []*STUNResponse,
+	s STUNSummary,
+	udpSourceAddress,
+	network string,
+	verbose bool,
+) {
+	msg := fmt.Sprintf(
+		"%d/%d %v STUN tests succeeded",
+		s.SuccessCount,
+		s.Total,
+		network,
+	)
+	keysAndValues := []any{fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses)}
+	if network == "udp" {
+		keysAndValues = append(keysAndValues, "udp_source_address", udpSourceAddress)
+	}
+	if s.SuccessCount < s.Total {
+		logger.Warnw(msg, keysAndValues...)
+	} else if verbose {
+		logger.Infow(msg, keysAndValues...)
+	}
+
+	if s.HardNAT {
+		logger.Warn(
+			"udp STUN tests indicate this machine is behind a 'hard' NAT device; STUN may not work as expected",
+		)
+	}
 }
 
 // logHealth emits the consolidated periodic verdict line. Always Info: severity
