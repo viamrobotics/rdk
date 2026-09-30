@@ -132,6 +132,11 @@ func TestNewMultiAPIResourceDefensiveCopy(t *testing.T) {
 	got, ok := composite.ResourceForAPI(testCamAPI)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, got, test.ShouldEqual, c)
+
+	// mutating the slice RETURNED by APIs() must not corrupt the composite either.
+	returned := composite.APIs()
+	returned[0] = testMotorAPI
+	test.That(t, composite.APIs(), test.ShouldResemble, []API{testCamAPI, testSensAPI})
 }
 
 func TestNewMultiAPIResourceValidates(t *testing.T) {
