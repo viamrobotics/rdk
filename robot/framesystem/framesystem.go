@@ -47,13 +47,9 @@ type InputEnabled interface {
 // KinematicSub returns the InputEnabled sub that makes a resource kinematic in the frame system, if
 // any. A plain kinematic component (arm/gantry/gripper) returns itself; a composite returns the one
 // co-equal sub that is InputEnabled, whose API need not be the one the resource is configured under.
-// Detecting kinematics by interface across every API a resource serves — rather than by its
-// configured API's subtype — is what lets a composite contribute a model frame even when it is
-// configured under a non-kinematic API, and keeps this consistent with how BuiltInReconfigure
-// classifies components for CurrentInputs. Non-kinematic resources return (nil, false). A composite
-// serving more than one InputEnabled API is unsupported and also returns (nil, false), matching how
-// BuiltInReconfigure refuses a multi-kinematic composite, so the model-frame builder never adds a frame
-// that CurrentInputs cannot service.
+// Non-kinematic resources return (nil, false). A composite serving more than one InputEnabled API is
+// unsupported and also returns (nil, false), matching how BuiltInReconfigure refuses a multi-kinematic
+// composite, so the model-frame builder never adds a frame that CurrentInputs cannot service.
 func KinematicSub(res resource.Resource) (InputEnabled, bool) {
 	var found InputEnabled
 	for _, api := range resource.APIsOf(res) {
@@ -72,11 +68,26 @@ func KinematicSub(res resource.Resource) (InputEnabled, bool) {
 	return found, true
 }
 
-// ShapedSub returns the resource.Shaped sub that provides a frame-system geometry, if any: the resource
-// itself for an ordinary component, or (for a composite) the first co-equal sub that implements
-// resource.Shaped. Like KinematicSub, it detects the capability by interface across every API the
-// resource serves, so a composite's geometry can come from a sub whose API is not the one it is
-// configured under. Returns (nil, false) when no sub is Shaped.
+// MultiKinematic reports whether a resource serves more than one InputEnabled API. Such a composite is
+// an unsupported multi-kinematic device that the frame system omits rather than models, matching how
+// BuiltInReconfigure drops it.
+func MultiKinematic(res resource.Resource) bool {
+	count := 0
+	for _, api := range resource.APIsOf(res) {
+		if _, ok := resource.SubresourceForAPI(res, api).(InputEnabled); ok {
+			count++
+			if count > 1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ShapedSub returns a resource.Shaped sub that provides a frame-system geometry, if any: the resource
+// itself for an ordinary component, or, for a composite, any co-equal sub that implements
+// resource.Shaped. A composite is one physical device with a single geometry, so returning any Shaped
+// sub is fine. Returns (nil, false) when no sub is Shaped.
 func ShapedSub(res resource.Resource) (resource.Shaped, bool) {
 	for _, api := range resource.APIsOf(res) {
 		if sh, ok := resource.SubresourceForAPI(res, api).(resource.Shaped); ok {
