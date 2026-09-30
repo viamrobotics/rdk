@@ -124,6 +124,45 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, closeCount.Load(), test.ShouldEqual, 1)
 }
 
+// TestCompositeModelReconfigureReindexes reconfigures a resource from a single-API model to a composite
+// model serving an extra co-equal API (same name and config API). A model change rebuilds the resource
+// in place on the same graph node, which does not pass through the graph's cache-write paths, so the
+// manager must refresh the composite co-equal index afterward. Without that, the newly-served API would
+// not resolve even though the resource now serves it.
+func TestCompositeModelReconfigureReindexes(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	// singleModel serves only sensor; multiModel serves sensor + generic from the same impl.
+	singleModel := resource.NewModel("acme", "test", "recfg-single")
+	resource.Register(sensor.API, singleModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+		) (resource.Resource, error) {
+			return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+		},
+	})
+	defer resource.Deregister(sensor.API, singleModel)
+	multiModel := registerComboModel(t, "recfg-multi", nil)
+
+	// Start as a plain sensor: the generic API does not resolve.
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: singleModel}},
+	}, logger)
+	_, err := r.ResourceByName(generic.Named("combo"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Reconfigure to the composite model (in-place rebuild on the same node). The generic API must now
+	// resolve, and the configured sensor API must still resolve.
+	r.Reconfigure(ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: multiModel}},
+	})
+	_, err = r.ResourceByName(generic.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(sensor.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
 // TestCompositeDependencyResolvesAllAPIs asserts that a second resource depending on a composite can
 // resolve it under each of the composite's co-equal API names (the composite dependency is keyed
 // under each API in the dependent's Dependencies).
