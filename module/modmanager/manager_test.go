@@ -30,7 +30,9 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
+	gizmoapi "go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
@@ -1932,4 +1934,52 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	clean, err = rutils.CleanWindowsSocketPath("linux", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+}
+
+// TestModularCompositeRemoveClearsAllState builds a modular composite configured under a NON-canonical
+// API and removes it exactly as the resource manager does, by the wrapper's Name(). The combodevice
+// model serves the custom acme gizmo API (canonical, since "acme" sorts before "rdk") plus the builtin
+// camera and movement_sensor APIs, and is configured here under camera. The wrapper must be named with
+// the configured API so RemoveResource finds the module's addedResource; otherwise the non-canonical
+// sub-clients leak, the co-equal routes linger, and a ghost mod.resources entry keeps the module from
+// ever being torn down.
+func TestModularCompositeRemoveClearsAllState(t *testing.T) {
+	// Use TCP sockets so the long test name does not overflow the Unix-socket path limit.
+	t.Setenv(rutils.ViamTCPSocketsEnvVar, "true")
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	parentAddr := setupSocketWithRobot(t)
+
+	modCfg := config.Module{
+		Name:    "combo-module",
+		ExePath: rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule"),
+	}
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	comboModel := resource.NewModel("acme", "demo", "combodevice")
+	cfgCombo := resource.Config{Name: "combo", API: camera.API, Model: comboModel}
+
+	res, err := mgr.AddResource(ctx, cfgCombo, nil)
+	test.That(t, err, test.ShouldBeNil)
+	// The wrapper carries the CONFIGURED api (camera), matching the graph node and mod.resources keys,
+	// not the canonical (gizmo) api.
+	test.That(t, res.Name().API, test.ShouldResemble, camera.API)
+
+	// Reachable under each co-equal api before removal.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+
+	// Remove exactly as the resource manager does: by the wrapper's Name().
+	test.That(t, mgr.RemoveResource(ctx, res.Name()), test.ShouldBeNil)
+
+	// No ghost addedResource remains (so the module can be torn down), and no co-equal route lingers.
+	mgr.modules.Range(func(_ string, mod *module) bool {
+		test.That(t, mod.resources, test.ShouldBeEmpty)
+		return true
+	})
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeFalse)
 }
