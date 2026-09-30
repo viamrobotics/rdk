@@ -406,10 +406,13 @@ type Service interface {
 	// first. Only one call may be in flight for a given armName at a time; a concurrent call for
 	// the same arm returns an error immediately.
 	//
-	// If ctx is canceled, the implementation must stop the arm and return only once the arm has
-	// stopped; until it returns, a concurrent call for the same arm keeps returning an error.
+	// If ctx is canceled, or the implementation fails on its own, it must stop the arm and return
+	// only once the arm has stopped; until it returns, a concurrent call for the same arm keeps
+	// returning an error.
+	//
 	// The implementation must not return nil before targets is closed: a nil return means every
-	// target was consumed and the trajectory derived from them has finished executing.
+	// target was consumed and the trajectory derived from them has finished executing, leaving the arm at
+	// rest.
 	//
 	// The implementation writes a TempStreamResponse to responses for each acknowledgment it wants to send
 	// back, and the framework forwards each onto the wire. The framework, not the implementation,
