@@ -592,13 +592,16 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 	test.That(t, stopCount.Load(), test.ShouldEqual, 1)
 }
 
-// TestCompositeInFrameSystem checks that a kinematic composite (canonical API gripper) is included in
-// the frame system via its kinematic sub: the gripper sub is framesystem.InputEnabled, so the
-// composite is added to the frame system with a model frame.
-func TestCompositeInFrameSystem(t *testing.T) {
+// TestCompositeInFrameSystemMultiKinematicRefused checks that a composite serving more than one
+// kinematic (InputEnabled) API does not contribute a kinematic model frame, matching how the frame
+// system's BuiltInReconfigure refuses a multi-kinematic composite. The gripper+servo composite exposes
+// Kinematics on both facades over one shared impl, so the model-frame builder must not pick one; it is
+// added as a static frame instead. This keeps getLocalFrameSystemParts consistent with
+// BuiltInReconfigure and avoids a model frame whose inputs CurrentInputs could not service.
+func TestCompositeInFrameSystemMultiKinematicRefused(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	model := registerGripperServoModel(t, "inproc-fs", nil, nil)
+	model := registerGripperServoModel(t, "inproc-fs-multikin", nil, nil)
 
 	cfg := &config.Config{
 		Components: []resource.Config{
@@ -618,8 +621,9 @@ func TestCompositeInFrameSystem(t *testing.T) {
 	for _, part := range fsCfg.Parts {
 		if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
 			found = true
-			// Included via the InputEnabled (kinematic) path, so it carries a model.
-			test.That(t, part.ModelFrame, test.ShouldNotBeNil)
+			// Multi-kinematic: refused as a kinematic frame and added as a static one (no model),
+			// consistent with BuiltInReconfigure dropping it from the CurrentInputs component map.
+			test.That(t, part.ModelFrame, test.ShouldBeNil)
 		}
 	}
 	test.That(t, found, test.ShouldBeTrue)
