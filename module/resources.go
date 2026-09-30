@@ -652,48 +652,43 @@ func (m *Module) rebuildResource(
 		return nil, err
 	}
 
-	// For a composite, verify the module can service every co-equal API BEFORE replacing anything, so a
-	// missing-API abort leaves all collections on the old instance rather than some on the new and some
-	// on the old (or on a resource we then close). A ReplaceOne type-check below cannot fail for a
-	// rebuilt same-model instance — its implemented API set is fixed by its Go type and already passed
-	// this check at addResource — so once the collections exist the fan-out is effectively
-	// all-or-nothing.
+	// Verify the module can service every API this model serves and replace them all under a single
+	// registerMu hold, so a concurrent deregistration cannot remove a collection between the check and
+	// its use (which would nil-panic on m.collections[api].ReplaceOne). A missing collection aborts
+	// before anything is replaced; and the rebuilt instance is the same Go type that passed the
+	// implements-every-API check at addResource, so once the collections exist the ReplaceOne calls
+	// cannot fail (effectively all-or-nothing).
 	apis := resource.APIsForModel(conf.Model)
-	if len(apis) > 1 {
-		m.registerMu.Lock()
-		for _, api := range apis {
-			if _, ok := m.collections[api]; !ok {
-				m.registerMu.Unlock()
-				return nil, multierr.Combine(
-					fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model), newRes.Close(ctx),
-				)
-			}
-		}
+	base := conf.ResourceName()
+	m.registerMu.Lock()
+	primary, ok := m.collections[conf.API]
+	if !ok {
 		m.registerMu.Unlock()
+		return nil, multierr.Combine(fmt.Errorf("no rpc service for %+v", conf), newRes.Close(ctx))
 	}
-
-	if err := coll.ReplaceOne(conf.ResourceName(), resource.SubresourceForAPI(newRes, conf.API)); err != nil {
+	for _, api := range apis {
+		if _, ok := m.collections[api]; !ok {
+			m.registerMu.Unlock()
+			return nil, multierr.Combine(
+				fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model), newRes.Close(ctx),
+			)
+		}
+	}
+	if err := primary.ReplaceOne(base, resource.SubresourceForAPI(newRes, conf.API)); err != nil {
+		m.registerMu.Unlock()
 		return nil, multierr.Combine(err, newRes.Close(ctx))
 	}
-
 	// Composite: replace the old instance in every other co-equal API's collection with that API's
-	// sub-resource (its facade), so all APIs keep resolving to the one new instance. The pre-check
-	// above confirmed every collection exists, and the rebuilt instance is the same Go type that
-	// already passed the implements-every-API check at addResource, so these ReplaceOne calls cannot
-	// fail (the same invariant the pre-check relies on).
-	if len(apis) > 1 {
-		base := conf.ResourceName()
-		m.registerMu.Lock()
-		for _, api := range apis {
-			if api == conf.API {
-				continue
-			}
-			name := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
-			//nolint:errcheck // cannot fail per the invariant above (collection exists, same-type instance).
-			m.collections[api].ReplaceOne(name, resource.SubresourceForAPI(newRes, api))
+	// sub-resource (its facade), so all APIs keep resolving to the one new instance.
+	for _, api := range apis {
+		if api == conf.API {
+			continue
 		}
-		m.registerMu.Unlock()
+		name := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+		//nolint:errcheck // cannot fail per the invariant above (collection exists under this lock, same-type instance).
+		m.collections[api].ReplaceOne(name, resource.SubresourceForAPI(newRes, api))
 	}
+	m.registerMu.Unlock()
 
 	m.registerMu.Lock()
 	// We're modifying internal module maps now. We must not error out at this point without rolling
