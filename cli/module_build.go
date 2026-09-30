@@ -1766,6 +1766,10 @@ func reloadModuleActionInner(
 		if err != nil {
 			_ = pm.Fail("upload", err)                               //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			// A logout during refresh is unrecoverable; surface it rather than suggesting a retry.
+			if errors.Is(err, errLoggedOut) {
+				return err
+			}
 			return fmt.Errorf("all %d copy attempts failed. You can retry the copy later, "+
 				"skipping the build step with: viam module reload --no-build --part-id %s", attemptCount, partID)
 		}
