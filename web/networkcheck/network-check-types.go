@@ -155,7 +155,8 @@ func (dtt DNSTestType) String() string {
 	}
 }
 
-// DNSSummary condenses a TestDNS run.
+// DNSSummary condenses a TestDNS run. The detail logger emits Results; the
+// health line reads only the condensed fields.
 type DNSSummary struct {
 	Status                          FamilyStatus
 	ConnectionsOK, ConnectionsTotal int
@@ -163,10 +164,11 @@ type DNSSummary struct {
 	MaxResolutionMS                 *int64
 	// Hostnames that resolved slower than slowResolutionThresholdMS, slowest first.
 	SlowHostnames []string
+	Results       []*DNSResult
 }
 
 // STUNSummary condenses a testUDP or testTCP run. HardNAT is only meaningful
-// for UDP.
+// for UDP. The detail logger emits Results.
 type STUNSummary struct {
 	Status              FamilyStatus
 	SuccessCount, Total int
@@ -174,15 +176,18 @@ type STUNSummary struct {
 	// Number of STUN responses carrying mapped address
 	//  Comparing two is the minimum needed to classify the mapping
 	MappedAddrSamples int
+	Results           []*STUNResponse
 }
 
 // PacketLossSummary condenses a TestPacketLoss run. Pointer fields are nil when
 // that target was not probed at all, e.g. no default gateway could be found.
+// The detail logger emits Results.
 type PacketLossSummary struct {
 	InternetStatus, LocalNetworkStatus FamilyStatus
 	RouterLossPct, ISPLossPct          *float64
 	RouterRTTMS, ISPRTTMS              *int64
 	RouterIgnoresPing                  bool
+	Results                            []*PacketLossResult
 }
 
 // HealthSnapshot is one complete pass of every network check family.
@@ -231,7 +236,7 @@ type slowResolution struct {
 }
 
 func summarizeDNS(results []*DNSResult) DNSSummary {
-	var s DNSSummary
+	s := DNSSummary{Results: results}
 	var slow []slowResolution
 	for _, r := range results {
 		switch r.TestType {
@@ -285,7 +290,7 @@ func summarizeDNS(results []*DNSResult) DNSSummary {
 }
 
 func summarizeSTUN(responses []*STUNResponse, network string) STUNSummary {
-	s := STUNSummary{Total: len(responses)}
+	s := STUNSummary{Total: len(responses), Results: responses}
 	var expectedBindResponseAddr string
 
 	for _, r := range responses {
@@ -322,7 +327,7 @@ func summarizeSTUN(responses []*STUNResponse, network string) STUNSummary {
 }
 
 func summarizePacketLoss(results []*PacketLossResult) PacketLossSummary {
-	var s PacketLossSummary
+	s := PacketLossSummary{Results: results}
 	var routerErrored, ispErrored bool
 
 	for _, r := range results {
@@ -385,9 +390,9 @@ func stringifyPacketLossResults(results []*PacketLossResult) string {
 	return sb.String()
 }
 
-func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, s PacketLossSummary, verbose bool) {
+func logPacketLossResults(logger logging.Logger, s PacketLossSummary, verbose bool) {
 	msg := "packet loss tests complete"
-	keysAndValues := []any{"packet_loss_tests", stringifyPacketLossResults(results)}
+	keysAndValues := []any{"packet_loss_tests", stringifyPacketLossResults(s.Results)}
 
 	switch {
 	case s.RouterIgnoresPing:
@@ -466,7 +471,6 @@ func stringifyDNSResults(dnsResults []*DNSResult) string {
 // Logs DNS test results.
 func logDNSResults(
 	logger logging.Logger,
-	dnsResults []*DNSResult,
 	s DNSSummary,
 	resolvConfContents string,
 	systemdResolvedConfContents string,
@@ -479,7 +483,7 @@ func logDNSResults(
 		s.ResolutionsOK,
 		s.ResolutionsTotal,
 	)
-	keysAndValues := []any{"dns_tests", stringifyDNSResults(dnsResults)}
+	keysAndValues := []any{"dns_tests", stringifyDNSResults(s.Results)}
 
 	if s.ConnectionsOK < s.ConnectionsTotal || s.ResolutionsOK < s.ResolutionsTotal {
 		logger.Warnw(systemMsg, keysAndValues...)
@@ -538,7 +542,6 @@ func stringifySTUNResponses(stunResponses []*STUNResponse) string {
 // Logs STUN responses and whether the machine appears to be behind a "hard" NAT device.
 func logSTUNResults(
 	logger logging.Logger,
-	stunResponses []*STUNResponse,
 	s STUNSummary,
 	udpSourceAddress,
 	network string,
@@ -550,7 +553,7 @@ func logSTUNResults(
 		s.Total,
 		network,
 	)
-	keysAndValues := []any{fmt.Sprintf("%v_tests", network), stringifySTUNResponses(stunResponses)}
+	keysAndValues := []any{fmt.Sprintf("%v_tests", network), stringifySTUNResponses(s.Results)}
 	if network == "udp" {
 		keysAndValues = append(keysAndValues, "udp_source_address", udpSourceAddress)
 	}
