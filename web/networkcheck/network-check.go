@@ -26,7 +26,7 @@ const udp4Network = "udp4"
 
 // RunNetworkChecks characterizes the network through a series of DNS, UDP STUN, TCP STUN,
 // and packet loss network checks, and logs a consolidated health verdict after each cycle
-// under the "network-health" Sublogger. Can and should be run asynchronously with server
+// under the "network-checks.health" Sublogger. Can and should be run asynchronously with server
 // startup to avoid blocking. Specifying continueRunningTests as true will re-run every
 // check every 5 minutes in a goroutine non-verbosely after this function completes until
 // context error.
@@ -38,8 +38,7 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRun
 	}
 
 	logger.Info("Starting network checks")
-	healthLogger := rdkLogger.Sublogger("network-health")
-
+	healthLogger := logger.Sublogger("health")
 	dnsSublogger := logger.Sublogger("dns")
 	udpSublogger := logger.Sublogger("udp")
 	tcpSublogger := logger.Sublogger("tcp")
