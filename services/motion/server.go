@@ -163,16 +163,35 @@ func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest
 	return &pb.GetPlanResponse{CurrentPlanWithStatus: cpws, ReplanHistory: history}, nil
 }
 
-// TempStreamArmJointPositions serves a gRPC bidi stream, following grpc-go's ServerStream contract
-// (https://pkg.go.dev/google.golang.org/grpc#ServerStream).
+// TempStreamArmJointPositions serves one streaming session for an arm.
 //
-// This handler writes messages to the client via Send, but sets an error status on the call by
-// returning an error. (The client receives both via its Recv.) This handler's recv and send
-// goroutines cancel the context with a cause, so that the handler can return the original cause. An
-// error from either goroutine takes precedence over an error from the impl, because usually the
-// cancel is what made the impl return, so the impl's error is only its echo. In the rare race where
-// the impl finished or failed on its own at the same time, the cause still names something that ended
-// the call.
+// The first message must be Init; it names the motion service to use, the arm, and the session
+// options. Every message after it must be Targets.
+//
+// This handler completes cleanly if the client closes its send side (CloseSend), and none of the
+// errors below occurs. In that case, this handler signals the impl to complete cleanly, then
+// waits for the impl to return; the impl drains all targets to the arm and waits for the arm to
+// finish executing them and come to a stop.
+//
+// The following classes of error can occur:
+//
+// "Invalid Init":
+// The first message is not Init, names a motion service that does not exist, omits the arm's
+// component name, or the stream ends before an Init arrives. The handler returns an error without
+// calling the impl; no arm motion has been commanded, so there is nothing to stop.
+//
+// "Something above the impl causes the stream to abort":
+// This encompasses various errors such as stream.Recv returning an error besides io.EOF (including
+// if the client cancels or the connection is lost) or an unexpected message, or stream.Send returning
+// an error. The handler cancels the impl's context and waits until the impl returns; the impl stops
+// processing the targets, stops the arm, and returns once the arm has stopped.
+//
+// "The impl errors":
+// If the impl fails on its own, the impl stops the arm and waits until the arm has stopped. The
+// handler waits until the impl returns, then returns the impl's error.
+//
+// If more than one of these happen, this handler returns the error detected above the impl,
+// because the impl's own error is usually only its echo.
 func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService_TempStreamArmJointPositionsServer) (retErr error) {
 	ctx, cancel := context.WithCancelCause(stream.Context())
 	defer cancel(nil)
@@ -201,6 +220,15 @@ func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService
 
 	targetsCh := make(chan []referenceframe.Input)
 	responsesCh := make(chan TempStreamResponse)
+
+	// Per grpc-go's ServerStream contract (https://pkg.go.dev/google.golang.org/grpc#ServerStream),
+	// this handler writes messages to the client via Send, but sets an error status on the call by
+	// returning an error. (The client receives both via its Recv.) This handler's recv and send
+	// goroutines cancel the context with a cause, so that the handler can return the original cause. An
+	// error from either goroutine takes precedence over an error from the impl, because usually the
+	// cancel is what made the impl return, so the impl's error is only its echo. In the rare race where
+	// the impl finished or failed on its own at the same time, the cause still names something that ended
+	// the call.
 
 	// "recv goroutine": stream.Recv()'s targets from the client and sends them to the impl.
 	utils.PanicCapturingGo(func() {
