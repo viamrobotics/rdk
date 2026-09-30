@@ -244,24 +244,11 @@ func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error
 	case 0:
 		return nil, resource.NewNotFoundError(resource.SimpleName(name))
 	case 1:
-		return r.resolveSimpleNameMatch(name, matches[0])
-	default:
-		return nil, errors.Errorf(
-			"multiple resources share the simple name %q across distinct APIs (%s); look it up by its fully qualified name instead",
-			name, resource.NamesToStrings(matches),
-		)
-	}
-}
-
-// resolveSimpleNameMatch turns the single simple-name match into a resource handle. A local composite
-// already lives in one resource.MultiAPIResource graph node, so a direct lookup returns the whole
-// handle. A remote composite instead lives as one per-API sub-client node per co-equal API, so
-// assemble a resource.MultiAPIResource view over those sub-clients.
-func (r *localRobot) resolveSimpleNameMatch(name string, match resource.Name) (resource.Resource, error) {
-	if match.Remote == "" {
 		// Resolve the raw graph node (not the localRobot FindBySimpleNameAndAPI, which unwraps a
-		// composite to one API's sub) so the full multi-API handle is returned.
-		n, err := r.manager.resources.FindBySimpleNameAndAPI(match.Name, match.API)
+		// composite to one API's sub) so the full multi-API handle is returned. The lookup uses `name`,
+		// the cached name with a remote's prefix intact.
+		match := matches[0]
+		n, err := r.manager.resources.FindBySimpleNameAndAPI(name, match.API)
 		if err != nil {
 			return nil, err
 		}
@@ -270,24 +257,12 @@ func (r *localRobot) resolveSimpleNameMatch(name string, match resource.Name) (r
 			return nil, resource.NewNotAvailableError(match, err)
 		}
 		return res, nil
+	default:
+		return nil, errors.Errorf(
+			"multiple resources share the simple name %q across distinct APIs (%s); look it up by its fully qualified name instead",
+			name, resource.NamesToStrings(matches),
+		)
 	}
-	// The graph caches a remote resource under its prefixed name, so look it up by `name` (which keeps
-	// the prefix) rather than match.Name (which FindBySimpleName stripped).
-	apis := r.manager.resources.APIsForRemoteResource(name, match.Remote)
-	if len(apis) <= 1 {
-		return r.FindBySimpleNameAndAPI(name, match.API)
-	}
-	byAPI := make(map[resource.API]resource.Resource, len(apis))
-	for _, api := range apis {
-		sub, err := r.FindBySimpleNameAndAPI(name, api)
-		if err != nil {
-			return nil, err
-		}
-		byAPI[api] = sub
-	}
-	return resource.NewMultiAPIResource(
-		resource.Name{API: apis[0], Remote: match.Remote, Name: match.Name}, apis, byAPI,
-	), nil
 }
 
 // RemoteNames returns the names of all known remote robots.
@@ -898,12 +873,14 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 		if err != nil {
 			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		allDeps[prefixedName] = res
-		// A composite dependency serves several co-equal APIs from one identity; key it under each of
-		// its API names so a dependent can resolve it by whichever API it expects.
-		for _, api := range r.coequalAPIsOf(prefixedName, res) {
+		allDeps[prefixedName] = resource.SubresourceForAPI(res, prefixedName.API)
+		// A composite dependency serves several co-equal APIs from one identity; key it under each of its
+		// API names, storing that API's unwrapped sub, so a dependent resolves it by whichever API it
+		// expects and an API-qualified name yields that API's handle directly. Unwrap is a no-op for an
+		// ordinary resource.
+		for _, api := range resource.APIsOf(res) {
 			aliased := resource.Name{API: api, Remote: prefixedName.Remote, Name: prefixedName.Name}
-			allDeps[aliased] = res
+			allDeps[aliased] = resource.SubresourceForAPI(res, api)
 		}
 	}
 	nodeConf := gNode.Config()
@@ -929,22 +906,6 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 	}
 
 	return allDeps, weakAndOptionalDepsSnapshot, nil
-}
-
-// coequalAPIsOf returns every API a composite dependency serves, or nil for an ordinary resource.
-// A modular composite is stored as a resource.MultiAPIResource, so APIsOf reports its full set; a
-// builtin composite is stored as its raw multi-API instance, whose set is recovered from the backing
-// graph node's model.
-func (r *localRobot) coequalAPIsOf(name resource.Name, res resource.Resource) []resource.API {
-	if apis := resource.APIsOf(res); len(apis) > 1 {
-		return apis
-	}
-	if node, err := r.manager.resources.FindBySimpleNameAndAPI(name.Name, name.API); err == nil {
-		if apis := resource.APIsForModel(node.ResourceModel()); len(apis) > 1 {
-			return apis
-		}
-	}
-	return nil
 }
 
 func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []resource.Matcher {
@@ -1094,15 +1055,12 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			continue
 		}
 		// A composite serves several co-equal APIs from one identity, so test the weak-dep matchers
-		// against each served API and store a match as that API's unwrapped sub under that API's name.
-		// Otherwise a composite matched on a non-canonical API is dropped (the Subtype/Type matchers read
-		// Name().API, which is only the canonical API) and the consumer gets the wrapper, not the typed
-		// sub. For an ordinary resource this is n.API and a no-op unwrap.
-		apis := r.coequalAPIsOf(n, res)
-		if apis == nil {
-			apis = []resource.API{n.API}
-		}
-		for _, api := range apis {
+		// against each served API (the Subtype/Type matchers read Name().API, which is only the canonical
+		// API, so a composite matched on a non-canonical API would otherwise be dropped). Store that API's
+		// unwrapped sub under each matched API's name, so an API-qualified name yields that API's handle
+		// directly -- matching explicit deps above and robot resolution. An ordinary resource is a
+		// composite of one: APIsOf returns its single API and the unwrap is a no-op.
+		for _, api := range resource.APIsOf(res) {
 			sub := resource.SubresourceForAPI(res, api)
 			apiName := resource.Name{API: api, Remote: n.Remote, Name: n.Name}
 			for _, matcher := range weakDepMatchers {
@@ -2412,19 +2370,6 @@ func (r *localRobot) packageManagerForModule(mod config.Module) (packages.Manage
 	return r.packageManager, packages.PackageName(mod.Name)
 }
 
-// findRemoteMetadataByName returns the cloud metadata of any entry in remoteMdMap sharing name's
-// simple name and remote (ignoring API). A remote composite reports one metadata entry (under its
-// canonical API) but is proxied here as one node per co-equal API; its per-API siblings are one
-// identity, so any of them maps to that single metadata.
-func findRemoteMetadataByName(remoteMdMap map[resource.Name]cloud.Metadata, name resource.Name) (cloud.Metadata, bool) {
-	for remoteName, md := range remoteMdMap {
-		if remoteName.Name == name.Name && remoteName.Remote == name.Remote {
-			return md, true
-		}
-	}
-	return cloud.Metadata{}, false
-}
-
 // MachineStatus returns the current status of the robot.
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
@@ -2434,6 +2379,7 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
 	// that this robot does not have CloudMetadata to attach to resources.
 	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
+
 	for _, resourceStatus := range r.manager.resources.Status() {
 		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
 		if !resourceStatus.Name.ContainsRemoteNames() && resourceStatus.Name.API != client.RemoteAPI {
@@ -2443,15 +2389,6 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 
 		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
 		if rMd, ok := remoteMdMap[resourceStatus.Name]; ok {
-			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
-			continue
-		}
-
-		// A remote composite is proxied as one node per co-equal API, but the remote reports it once
-		// (under its own canonical API), so only that API's node matches the exact key above. Fall back
-		// to any metadata entry sharing this resource's name and remote — the composite's per-API
-		// siblings are one identity with one cloud metadata.
-		if rMd, ok := findRemoteMetadataByName(remoteMdMap, resourceStatus.Name); ok {
 			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
 			continue
 		}

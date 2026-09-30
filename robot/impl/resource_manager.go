@@ -228,6 +228,34 @@ type internalRemoteRobot interface {
 	robot.Robot
 }
 
+// servedAPIs returns the co-equal API set a node currently serves: its MultiAPIResource's set if it is
+// a composite, else the single fallback API. Used to detect when a remote node's composite membership
+// changed across a refresh.
+func servedAPIs(n *resource.GraphNode, fallback resource.API) []resource.API {
+	if res, err := n.UnsafeResource(); err == nil {
+		if mar, ok := res.(resource.MultiAPIResource); ok {
+			return mar.APIs()
+		}
+	}
+	return []resource.API{fallback}
+}
+
+func sameAPISet(a, b []resource.API) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	set := make(map[resource.API]bool, len(a))
+	for _, x := range a {
+		set[x] = true
+	}
+	for _, y := range b {
+		if !set[y] {
+			return false
+		}
+	}
+	return true
+}
+
 // updateRemoteResourceNames is called when the Remote robot has changed (either connection or disconnection).
 // It will pull the current remote resources and update the resource tree adding or removing nodes accordingly.
 // The recreateAllClients flag will re-add all remote resource nodes if true and only new / uninitialized
@@ -289,15 +317,41 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 	anythingChanged := false
 
+	// Group the remote's advertised names by bare name to detect composites: on a single remote names
+	// are unique, so a bare name under >=2 APIs is one composite (stored as a single node, like a local one).
+	remoteAPIsByName := map[string][]resource.API{}
+	for _, rn := range newResources {
+		if rn.Name == resource.DefaultServiceName {
+			continue
+		}
+		remoteAPIsByName[rn.Name] = append(remoteAPIsByName[rn.Name], rn.API)
+	}
+	for k := range remoteAPIsByName {
+		slices.SortFunc(remoteAPIsByName[k], func(a, b resource.API) int { return strings.Compare(a.String(), b.String()) })
+	}
+
 	for _, resName := range newResources {
 		// Do not store any default remote resources in our resource graph.
 		if resName.Name == resource.DefaultServiceName {
 			continue
 		}
 
+		// Keep a composite as one node under its canonical (sorted-first) API; its other per-API names
+		// resolve to that node through the compositeByAPI index, so skip them here.
+		coequalAPIs := remoteAPIsByName[resName.Name]
+		isComposite := len(coequalAPIs) >= 2
+		if isComposite && resName.API != coequalAPIs[0] {
+			continue
+		}
+
 		remoteResName := resName
 		resLogger := logger.WithFields("resource", remoteResName)
-		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
+		// For a composite, fetch the api-less wrapped MultiAPIResource; otherwise the per-API client.
+		lookup := remoteResName
+		if isComposite {
+			lookup = resource.Name{Name: remoteResName.Name}
+		}
+		res, err := rr.ResourceByName(lookup) // this returns a remote known OR foreign resource client
 		if err != nil {
 			// The connection may have dropped between ResourceNames() above and this call. If so
 			// the remote's resources aren't gone, the fetch just failed, so we don't actually want
@@ -325,13 +379,22 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			manager.resources.UpdateNodePrefix(resName, prefix)
 		}
 
+		// An existing node whose composite membership changed (gained/lost a co-equal API, or
+		// more rarely flipped single<->composite) must be rebuilt even on a ticker pass so the one composite node
+		// reflects the remote's current API set.
+		desiredAPIs := []resource.API{resName.API}
+		if isComposite {
+			desiredAPIs = coequalAPIs
+		}
+		compositeChanged := nodeAlreadyExists && !sameAPISet(servedAPIs(gNode, resName.API), desiredAPIs)
+
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
 			if nodeAlreadyExists && !gNode.IsUninitialized() {
 				// resources that enter this block represent those with names that already exist in the resource graph.
 				// it is possible that we are switching to a new remote with a identical resource name(s), so we may
 				// need to create these resource clients.
-				if !recreateAllClients {
+				if !recreateAllClients && !compositeChanged {
 					// ticker event, likely no changes to remote resources, skip closing and re-adding duplicate name resource clients
 					continue
 				}
@@ -352,12 +415,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if !nodeAlreadyExists {
-			// Log if this remote resource's name collides with any existing resource. On collision
-			// the remote stays in the graph but is hidden from the machine's resource list. One
-			// FindAllBySimpleName scan spans all APIs, so it catches both same-API and cross-API
-			// collisions. A composite living on this remote is advertised as several same-named
-			// resources that differ only by API; those are one composite (names are unique per remote),
-			// not a collision, so matches from THIS remote are skipped.
+			// Log if this remote resource's name collides with a different resource. On collision the
+			// remote stays in the graph but is hidden from the machine's resource list. FindAllBySimpleName
+			// scans all APIs, so it catches same-API and cross-API collisions. Matches from this remote are
+			// skipped: a remote's own names are unique, so a same-name match on the same remote is this
+			// resource itself (a composite matches under each of its co-equal APIs), not a real collision.
 			prefixedSimpleName := prefix + resName.Name
 			var conflicts []resource.Name
 			for _, match := range manager.resources.FindAllBySimpleName(prefixedSimpleName) {
@@ -390,6 +452,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		// The clock advance is what lets a local resource with a weak/optional dependency on this
 		// remote resource be detected as stale by updateWeakAndOptionalDependents.
 		gNode.SwapResource(res, unknownModel, manager.opts.ftdc, true)
+		if compositeChanged {
+			// An in-place swap keeps the same node and bypasses the graph's cache-write paths, so
+			// refresh the composite co-equal index to match the node's new API set.
+			manager.resources.ReindexComposite(resName)
+		}
 
 		err = manager.resources.AddChild(resName, remoteName)
 		if err != nil {
@@ -953,6 +1020,10 @@ func (manager *resourceManager) completeConfig(
 								"error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
+							// An in-place rebuild keeps the same node and does not pass through the graph's
+							// cache-write paths, so refresh the composite co-equal index in case the model's
+							// served API set changed. No-op for ordinary resources.
+							manager.resources.ReindexComposite(resName)
 							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "complete",
 								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
