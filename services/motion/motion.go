@@ -406,6 +406,9 @@ type Service interface {
 	// first. Only one call may be in flight for a given armName at a time; a concurrent call for
 	// the same arm returns an error immediately.
 	//
+	// If ctx is canceled, the implementation must stop the arm and return only once the arm has
+	// stopped; until it returns, a concurrent call for the same arm keeps returning an error.
+	//
 	// The implementation writes a TempStreamResponse to responses for each acknowledgment it wants to send
 	// back, and the framework forwards each onto the wire. The framework, not the implementation,
 	// owns both channels: it writes and closes targets, and it closes responses after the

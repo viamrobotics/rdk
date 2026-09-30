@@ -54,11 +54,18 @@ func Run(
 			// cancel(), as.close() will return that error instead.
 			cancel()
 			err = multierr.Combine(err, as.close())
+
+			// Wait for the arm to stop.
+			err = multierr.Combine(err, a.Stop(context.WithoutCancel(ctx), nil))
 			return
 		}
 		// On success, close first to signal that the RPC can finish.
 		// This blocks until the arm reports that it has completed executing the stream.
 		err = as.close()
+		if err != nil {
+			// Wait for the arm to stop.
+			err = multierr.Combine(err, a.Stop(context.WithoutCancel(ctx), nil))
+		}
 		cancel()
 	}()
 

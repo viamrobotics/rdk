@@ -80,6 +80,8 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	for _, v := range lastVelocities {
 		test.That(t, v, test.ShouldAlmostEqual, 0, 0.05)
 	}
+	// A clean drain waits for the arm to finish on its own; nothing stops it.
+	test.That(t, rec.stopCalls(), test.ShouldEqual, 0)
 
 	snap := diag.LastWindowDetails()
 	test.That(t, len(snap.JointPositionTargetReceived), test.ShouldEqual, 2)
@@ -96,7 +98,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 
 func TestRunEndsContextCanceled(t *testing.T) {
 	t.Run("while streaming", func(t *testing.T) {
-		inj, _ := newFakeStreamingArm()
+		inj, rec := newFakeStreamingArm()
 		jpCh := make(chan []referenceframe.Input)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -115,10 +117,12 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			t.Fatal("Run did not return promptly after cancellation mid-stream")
 		}
+		// An abort stops the arm explicitly, since the cancelled arm RPC does not wait for it.
+		test.That(t, rec.stopCalls(), test.ShouldEqual, 1)
 	})
 
 	t.Run("during post-flush wait", func(t *testing.T) {
-		inj, _ := newFakeStreamingArm()
+		inj, rec := newFakeStreamingArm()
 		jpCh := make(chan []referenceframe.Input, 1)
 		// A 1.5 rad move is several seconds of trajectory, so the 100ms sleep below
 		// lands well inside the post-flush wait.
@@ -141,6 +145,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			t.Fatal("Run did not return promptly after cancellation during the post-flush wait")
 		}
+		test.That(t, rec.stopCalls(), test.ShouldEqual, 1)
 	})
 }
 
@@ -149,6 +154,14 @@ func TestRunEndsContextCanceled(t *testing.T) {
 func TestRunEndsOnArmError(t *testing.T) {
 	armErr := errors.New("arm rejected the trajectory")
 	inj := inject.NewArm("test-arm")
+	stopCalled := make(chan struct{}, 1)
+	inj.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		select {
+		case stopCalled <- struct{}{}:
+		default:
+		}
+		return nil
+	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,
