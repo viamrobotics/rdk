@@ -84,7 +84,7 @@ deb-cli-upload:
 	done
 
 tool-install:
-	command -v mise &>/dev/null && mise install -y && mise reshim || echo 'mise not installed, skipping'
+	command -v mise >/dev/null && mise install -y && mise reshim || echo 'mise not installed, skipping'
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
