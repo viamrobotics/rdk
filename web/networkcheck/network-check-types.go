@@ -337,15 +337,23 @@ func summarizePacketLoss(results []*PacketLossResult) PacketLossSummary {
 	s := PacketLossSummary{Results: results}
 	var routerErrored, ispErrored bool
 
+	// A probe that never sent a packet has no reading to record: LossPercent
+	// returns 100 for zero sent, which would report a machine that cannot open a
+	// raw socket as having lost every packet.
 	for _, r := range results {
 		loss := r.LossPercent()
+		measured := r.ErrorString == nil
 		if r.Description == gatewayResultDescription {
-			s.RouterLossPct, s.RouterRTTMS = &loss, r.AvgRTTMS
-			routerErrored = r.ErrorString != nil
+			routerErrored = !measured
+			if measured {
+				s.RouterLossPct, s.RouterRTTMS = &loss, r.AvgRTTMS
+			}
 			continue
 		}
-		s.ISPLossPct, s.ISPRTTMS = &loss, r.AvgRTTMS
-		ispErrored = r.ErrorString != nil
+		ispErrored = !measured
+		if measured {
+			s.ISPLossPct, s.ISPRTTMS = &loss, r.AvgRTTMS
+		}
 	}
 
 	// A gateway that drops ICMP while the ISP target replies is healthy, not
@@ -604,24 +612,29 @@ func logHealth(logger logging.Logger, s HealthSnapshot) {
 		"router_ignores_ping", s.Loss.RouterIgnoresPing,
 	}
 
-	if s.DNS.MaxResolutionMS != nil {
-		keysAndValues = append(keysAndValues, "dns_max_resolve_ms", *s.DNS.MaxResolutionMS)
-	}
+	slowHostnames := "none"
 	if len(s.DNS.SlowHostnames) > 0 {
-		keysAndValues = append(keysAndValues, "dns_slow_hostnames", strings.Join(s.DNS.SlowHostnames, ","))
-	}
-	if s.Loss.ISPLossPct != nil {
-		keysAndValues = append(keysAndValues, "isp_loss_pct", *s.Loss.ISPLossPct)
-	}
-	if s.Loss.ISPRTTMS != nil {
-		keysAndValues = append(keysAndValues, "isp_rtt_ms", *s.Loss.ISPRTTMS)
-	}
-	if s.Loss.RouterLossPct != nil {
-		keysAndValues = append(keysAndValues, "router_loss_pct", *s.Loss.RouterLossPct)
-	}
-	if s.Loss.RouterRTTMS != nil {
-		keysAndValues = append(keysAndValues, "router_rtt_ms", *s.Loss.RouterRTTMS)
+		slowHostnames = strings.Join(s.DNS.SlowHostnames, ",")
 	}
 
+	keysAndValues = append(keysAndValues,
+		"dns_max_resolve_ms", unknownIfNil(s.DNS.MaxResolutionMS),
+		"dns_slow_hostnames", slowHostnames,
+		"isp_loss_pct", unknownIfNil(s.Loss.ISPLossPct),
+		"isp_rtt_ms", unknownIfNil(s.Loss.ISPRTTMS),
+		"router_loss_pct", unknownIfNil(s.Loss.RouterLossPct),
+		"router_rtt_ms", unknownIfNil(s.Loss.RouterRTTMS),
+	)
+
 	logger.Infow("network health", keysAndValues...)
+}
+
+// unknownIfNil renders a reading that was never taken as "unknown" so every key
+// is present on every line. Only the logged value changes type; the summary
+// field stays a pointer and no status or verdict reads this.
+func unknownIfNil[T any](v *T) any {
+	if v == nil {
+		return "unknown"
+	}
+	return *v
 }

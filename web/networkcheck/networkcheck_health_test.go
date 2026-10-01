@@ -182,6 +182,10 @@ func TestSummarizePacketLoss(t *testing.T) {
 		s := summarizePacketLoss([]*PacketLossResult{router(10, 10), errored("ISP (1.1.1.1)")})
 		test.That(t, s.InternetStatus, test.ShouldEqual, FamilyUnknown)
 		test.That(t, s.LocalNetworkStatus, test.ShouldEqual, FamilyOK)
+		// Zero packets sent is not 100% loss; leaving it nil keeps the logged
+		// reading in step with the status.
+		test.That(t, s.ISPLossPct, test.ShouldBeNil)
+		test.That(t, s.ISPRTTMS, test.ShouldBeNil)
 	})
 
 	t.Run("errored router probe is unknown", func(t *testing.T) {
@@ -189,6 +193,8 @@ func TestSummarizePacketLoss(t *testing.T) {
 		test.That(t, s.LocalNetworkStatus, test.ShouldEqual, FamilyUnknown)
 		test.That(t, s.RouterIgnoresPing, test.ShouldBeFalse)
 		test.That(t, s.InternetStatus, test.ShouldEqual, FamilyOK)
+		test.That(t, s.RouterLossPct, test.ShouldBeNil)
+		test.That(t, s.RouterRTTMS, test.ShouldBeNil)
 	})
 
 	t.Run("both probes errored", func(t *testing.T) {
@@ -334,7 +340,7 @@ func TestSummarizeSTUN(t *testing.T) {
 	})
 }
 
-func TestLogHealthSlowHostnames(t *testing.T) {
+func TestLogHealthFields(t *testing.T) {
 	fieldValue := func(logs *observer.ObservedLogs, key string) (any, bool) {
 		entries := logs.All()
 		test.That(t, len(entries), test.ShouldEqual, 1)
@@ -342,12 +348,40 @@ func TestLogHealthSlowHostnames(t *testing.T) {
 		return value, ok
 	}
 
-	t.Run("omits the field when nothing was slow", func(t *testing.T) {
+	// Every key is present on every line so a consumer never has to tell an
+	// unmeasured reading apart from a viam-server too old to report it.
+	t.Run("reports none when nothing was slow", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 		logHealth(logger, HealthSnapshot{DNS: DNSSummary{Status: FamilyOK}})
 
-		_, ok := fieldValue(logs, "dns_slow_hostnames")
-		test.That(t, ok, test.ShouldBeFalse)
+		value, ok := fieldValue(logs, "dns_slow_hostnames")
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, value, test.ShouldEqual, "none")
+	})
+
+	t.Run("reports unknown for a reading that was never taken", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		logHealth(logger, HealthSnapshot{DNS: DNSSummary{Status: FamilyOK}})
+
+		for _, key := range []string{
+			"dns_max_resolve_ms", "isp_loss_pct", "isp_rtt_ms",
+			"router_loss_pct", "router_rtt_ms",
+		} {
+			value, ok := fieldValue(logs, key)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, value, test.ShouldEqual, "unknown")
+		}
+	})
+
+	t.Run("logs a measured reading as a number", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		logHealth(logger, HealthSnapshot{
+			Loss: PacketLossSummary{ISPRTTMS: ptr(int64(9))},
+		})
+
+		value, ok := fieldValue(logs, "isp_rtt_ms")
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, value, test.ShouldEqual, int64(9))
 	})
 
 	// The panel surfaces the first name and dns_max_resolve_ms is the max, so
