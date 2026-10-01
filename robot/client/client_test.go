@@ -1284,7 +1284,21 @@ func TestClientReconnect(t *testing.T) {
 		return &framesystem.Config{}, nil
 	}
 
+	var actionCount atomic.Int64
+	var interruptAction atomic.Bool
+	var faultAction atomic.Bool
+	var transport atomic.Pointer[grpc.ClientConn]
 	injectArm := &inject.Arm{}
+	injectArm.MoveToPositionFunc = func(context.Context, spatialmath.Pose, map[string]interface{}) error {
+		actionCount.Add(1)
+		if interruptAction.Swap(false) {
+			return transport.Load().Close()
+		}
+		if faultAction.Swap(false) {
+			return status.Error(codes.Canceled, "controller watchdog")
+		}
+		return nil
+	}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pose1, nil
 	}
@@ -1300,6 +1314,13 @@ func TestClientReconnect(t *testing.T) {
 		context.Background(),
 		listener.Addr().String(),
 		logger,
+		WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithUnaryClientInterceptor(func(
+			ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn,
+			invoker grpc.UnaryInvoker, opts ...grpc.CallOption,
+		) error {
+			transport.Store(cc)
+			return invoker(ctx, method, req, reply, cc, opts...)
+		})),
 		WithCheckConnectedEvery(dur),
 		WithReconnectEvery(dur),
 	)
@@ -1318,6 +1339,42 @@ func TestClientReconnect(t *testing.T) {
 
 	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
 
+	t.Run("bound action recovers closed transport", func(t *testing.T) {
+		test.That(t, transport.Load().Close(), test.ShouldBeNil)
+		test.That(t, a.(arm.Arm).MoveToPosition(t.Context(), pose1, nil), test.ShouldBeNil)
+		test.That(t, actionCount.Load(), test.ShouldEqual, 1)
+		_, err := client.MachineStatus(t.Context())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
+	})
+	t.Run("cancelled action does not reconnect or execute", func(t *testing.T) {
+		closedTransport := transport.Load()
+		test.That(t, transport.Load().Close(), test.ShouldBeNil)
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		err := a.(arm.Arm).MoveToPosition(ctx, pose1, nil)
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Canceled)
+		test.That(t, transport.Load(), test.ShouldEqual, closedTransport)
+		test.That(t, actionCount.Load(), test.ShouldEqual, 1)
+		test.That(t, a.(arm.Arm).MoveToPosition(t.Context(), pose1, nil), test.ShouldBeNil)
+		test.That(t, actionCount.Load(), test.ShouldEqual, 2)
+	})
+	t.Run("interrupted action reconnects without replay", func(t *testing.T) {
+		interruptAction.Store(true)
+		err := a.(arm.Arm).MoveToPosition(t.Context(), pose1, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, actionCount.Load(), test.ShouldEqual, 3)
+		test.That(t, a.(arm.Arm).MoveToPosition(t.Context(), pose1, nil), test.ShouldBeNil)
+		test.That(t, actionCount.Load(), test.ShouldEqual, 4)
+	})
+	t.Run("controller fault does not reconnect or replay", func(t *testing.T) {
+		connectedTransport := transport.Load()
+		faultAction.Store(true)
+		err := a.(arm.Arm).MoveToPosition(t.Context(), pose1, nil)
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Canceled)
+		test.That(t, actionCount.Load(), test.ShouldEqual, 5)
+		test.That(t, transport.Load(), test.ShouldEqual, connectedTransport)
+	})
 	gServer.Stop()
 
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
