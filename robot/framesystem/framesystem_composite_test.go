@@ -98,3 +98,37 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	// composite), not just when it is canonical.
 	test.That(t, svc.components["noncanon"], test.ShouldEqual, ncGantry)
 }
+
+// TestKinematicSubIdentity checks that KinematicSub and MultiKinematic distinguish a composite by the
+// identity of its InputEnabled subs, not by how many kinematic APIs it serves. A single struct composed
+// under several kinematic APIs resolves to one shared object under each, so it is one kinematic chain
+// and is kept; per-API facades are distinct objects, so two kinematic ones are the unsupported
+// multi-kinematic case and are refused.
+func TestKinematicSubIdentity(t *testing.T) {
+	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
+	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
+
+	// One struct composed under both kinematic APIs: every API resolves to the same object.
+	shared := &kinematicRes{Named: resource.NewName(armAPI, "shared").AsNamed()}
+	oneChain := resource.NewMultiAPIResource(
+		resource.NewName(armAPI, "shared"),
+		[]resource.API{armAPI, gantryAPI},
+		map[resource.API]resource.Resource{armAPI: shared, gantryAPI: shared},
+	)
+	ie, ok := KinematicSub(oneChain)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ie, test.ShouldEqual, shared)
+	test.That(t, MultiKinematic(oneChain), test.ShouldBeFalse)
+
+	// Two distinct kinematic subs: unsupported multi-kinematic device.
+	kinArm := &kinematicRes{Named: resource.NewName(armAPI, "twochain").AsNamed()}
+	kinGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "twochain").AsNamed()}
+	twoChains := resource.NewMultiAPIResource(
+		resource.NewName(armAPI, "twochain"),
+		[]resource.API{armAPI, gantryAPI},
+		map[resource.API]resource.Resource{armAPI: kinArm, gantryAPI: kinGantry},
+	)
+	_, ok = KinematicSub(twoChains)
+	test.That(t, ok, test.ShouldBeFalse)
+	test.That(t, MultiKinematic(twoChains), test.ShouldBeTrue)
+}

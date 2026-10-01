@@ -47,16 +47,18 @@ type InputEnabled interface {
 // KinematicSub returns the InputEnabled sub that makes a resource kinematic in the frame system, if
 // any. A plain kinematic component (arm/gantry/gripper) returns itself; a composite returns the one
 // co-equal sub that is InputEnabled, whose API need not be the one the resource is configured under.
-// Non-kinematic resources return (nil, false). A composite serving more than one InputEnabled API is
-// unsupported and also returns (nil, false), matching how BuiltInReconfigure refuses a multi-kinematic
-// composite, so the model-frame builder never adds a frame that CurrentInputs cannot service.
+// Non-kinematic resources return (nil, false). A composite backed by two DISTINCT InputEnabled subs is
+// an unsupported multi-kinematic device and also returns (nil, false), matching how BuiltInReconfigure
+// refuses it, so the model-frame builder never adds a frame that CurrentInputs cannot service.
+//
+// Distinctness is by sub identity, not by API count: a single struct authored to serve several kinematic
+// APIs is composed under each of them, so every API resolves to the same object (one CurrentInputs) and
+// is one chain; per-API facades are distinct objects and are the multi-kinematic case.
 func KinematicSub(res resource.Resource) (InputEnabled, bool) {
 	var found InputEnabled
 	for _, api := range resource.APIsOf(res) {
 		if ie, ok := resource.SubresourceForAPI(res, api).(InputEnabled); ok {
-			if found != nil {
-				// One device is one frame with one CurrentInputs, so a composite that serves two
-				// kinematic APIs is not supported; refuse it rather than guessing which sub to use.
+			if found != nil && ie != found {
 				return nil, false
 			}
 			found = ie
@@ -68,17 +70,18 @@ func KinematicSub(res resource.Resource) (InputEnabled, bool) {
 	return found, true
 }
 
-// MultiKinematic reports whether a resource serves more than one InputEnabled API. Such a composite is
-// an unsupported multi-kinematic device that the frame system omits rather than models, matching how
-// BuiltInReconfigure drops it.
+// MultiKinematic reports whether a resource is backed by more than one distinct InputEnabled sub. Such a
+// composite is an unsupported multi-kinematic device that the frame system omits rather than models,
+// matching how BuiltInReconfigure drops it. Several APIs served by one shared object are one chain, not
+// multi-kinematic (see KinematicSub on why distinctness is by identity).
 func MultiKinematic(res resource.Resource) bool {
-	count := 0
+	var first InputEnabled
 	for _, api := range resource.APIsOf(res) {
-		if _, ok := resource.SubresourceForAPI(res, api).(InputEnabled); ok {
-			count++
-			if count > 1 {
+		if ie, ok := resource.SubresourceForAPI(res, api).(InputEnabled); ok {
+			if first != nil && ie != first {
 				return true
 			}
+			first = ie
 		}
 	}
 	return false
