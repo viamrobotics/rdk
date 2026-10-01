@@ -1490,6 +1490,39 @@ func TestCompositeNodeForAPIResolvesEachCoEqualAPI(t *testing.T) {
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 }
 
+func TestLocalCompositeCoequalWinsOverRemote(t *testing.T) {
+	// A local composite serves a co-equal API only via the compositeByAPI index (not simpleNameCache).
+	// If a remote advertises the composite's bare name under one of those co-equal APIs, the remote
+	// lands in simpleNameCache under that (name, api) key. "Local wins over same-named remotes" must
+	// still hold: the co-equal lookup must resolve the LOCAL composite, not the remote.
+	model := NewModel("acme", "test", "coequalwins")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	canonical := NewName(testCamAPI, "dev")
+	localComposite := NewConfiguredGraphNode(
+		Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: canonical.AsNamed()}, model,
+	)
+	test.That(t, g.AddNode(canonical, localComposite), test.ShouldBeNil)
+
+	// A remote advertises a sensor also named "dev" — the composite's co-equal (non-configured) API.
+	remoteSensor := Name{API: testSensAPI, Remote: "r1", Name: "dev"}
+	test.That(t, g.AddNode(remoteSensor, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
+
+	// Resolving the sensor API must return the LOCAL composite, not the same-named remote sensor.
+	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, localComposite)
+
+	// The composite's canonical API still resolves to it directly, and the remote is reachable only
+	// under its own prefixed name once prefixed (unprefixed, local wins).
+	got, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, localComposite)
+}
+
 func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 	// The co-equal index that lets a non-configured API resolve to a composite's one node must be kept
 	// in sync as the node is deleted, or a co-equal lookup would resolve a stale/dead node.
