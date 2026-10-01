@@ -2426,11 +2426,36 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
 	// that this robot does not have CloudMetadata to attach to resources.
 	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
+
+	// A local composite is one graph node and yields a single status row (under its configured API).
+	// A remote composite is proxied as one node per co-equal API, so Status() returns several rows that
+	// share a (remote, name) identity. Emit just one row per remote composite -- under its canonical
+	// (sorted-first) API -- so one physical device reports one status regardless of where it lives.
+	canonicalRemoteAPI := map[resource.Name]resource.API{}
+	for _, resourceStatus := range r.manager.resources.Status() {
+		n := resourceStatus.Name
+		if !n.ContainsRemoteNames() || n.API == client.RemoteAPI {
+			continue
+		}
+		key := resource.Name{Remote: n.Remote, Name: n.Name}
+		if cur, ok := canonicalRemoteAPI[key]; !ok || n.API.String() < cur.String() {
+			canonicalRemoteAPI[key] = n.API
+		}
+	}
+
 	for _, resourceStatus := range r.manager.resources.Status() {
 		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
 		if !resourceStatus.Name.ContainsRemoteNames() && resourceStatus.Name.API != client.RemoteAPI {
 			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
 			continue
+		}
+
+		// Skip a remote composite's non-canonical per-API sibling rows so it reports once (above).
+		if resourceStatus.Name.API != client.RemoteAPI {
+			key := resource.Name{Remote: resourceStatus.Name.Remote, Name: resourceStatus.Name.Name}
+			if canonical, ok := canonicalRemoteAPI[key]; ok && canonical != resourceStatus.Name.API {
+				continue
+			}
 		}
 
 		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
