@@ -87,6 +87,34 @@ func MultiKinematic(res resource.Resource) bool {
 	return false
 }
 
+// DistinctKinematicSubs returns the InputEnabled subs among subs, deduplicated by identity. A single
+// object served under several kinematic APIs appears once per API alias but is one chain, so it
+// collapses to a single entry; genuinely distinct InputEnabled subs (per-API facades) stay separate,
+// and more than one entry is an unsupported multi-kinematic composite. Both frame-system and motion
+// BuiltInReconfigure use this so their multi-kinematic test agrees with KinematicSub/MultiKinematic
+// (identity, not API count) and with the model-frame builder; a count-based test would refuse a
+// single-struct composite the builder models as one chain and break its CurrentInputs.
+func DistinctKinematicSubs(subs []resource.Resource) []resource.Resource {
+	var kinematic []resource.Resource
+	for _, sub := range subs {
+		ie, ok := sub.(InputEnabled)
+		if !ok {
+			continue
+		}
+		duplicate := false
+		for _, seen := range kinematic {
+			if seen.(InputEnabled) == ie {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			kinematic = append(kinematic, sub)
+		}
+	}
+	return kinematic
+}
+
 // ShapedSub returns a resource.Shaped sub that provides a frame-system geometry, if any: the resource
 // itself for an ordinary component, or, for a composite, any co-equal sub that implements
 // resource.Shaped. A composite is one physical device with a single geometry, so returning any Shaped
@@ -278,12 +306,13 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	}
 	components := make(map[string]resource.Resource)
 	for name, subs := range componentsByName {
-		var kinematic []resource.Resource
-		for _, sub := range subs {
-			if _, ok := sub.(InputEnabled); ok {
-				kinematic = append(kinematic, sub)
-			}
-		}
+		// Count DISTINCT kinematic subs by identity, not by API count. A single object served under
+		// several kinematic APIs (a single-struct composite) is composed under each, so it appears once
+		// per alias here but is ONE chain -- this must agree with KinematicSub/MultiKinematic, which the
+		// model-frame builder uses, or a composite the builder models as one chain would be refused here
+		// and leave CurrentInputs unserviceable. Only genuinely distinct InputEnabled subs (per-API
+		// facades) make a composite multi-kinematic, which the frame system does not support.
+		kinematic := DistinctKinematicSubs(subs)
 		switch {
 		case len(kinematic) > 1:
 			svc.logger.Errorw(
