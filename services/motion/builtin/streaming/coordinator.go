@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
+const stopArmTimeout = time.Minute
+
 // Run executes a streaming session through one trajex session and one arm stream RPC.
 // If jpCh is closed, it samples everything out of the trajex session and sends it to the
 // arm, then waits for the arm to have finished executing before returning.
@@ -56,7 +58,7 @@ func Run(
 			err = multierr.Combine(err, as.close())
 
 			// Wait for the arm to stop.
-			err = multierr.Combine(err, a.Stop(context.WithoutCancel(ctx), nil))
+			err = multierr.Combine(err, stopArm(ctx, a))
 			return
 		}
 		// On success, close first to signal that the RPC can finish.
@@ -64,7 +66,7 @@ func Run(
 		err = as.close()
 		if err != nil {
 			// Wait for the arm to stop.
-			err = multierr.Combine(err, a.Stop(context.WithoutCancel(ctx), nil))
+			err = multierr.Combine(err, stopArm(ctx, a))
 		}
 		cancel()
 	}()
@@ -126,6 +128,13 @@ func Run(
 			}
 		}
 	}
+}
+
+// stopArm stops the arm within stopArmTimeout, regardless of whether ctx has been canceled.
+func stopArm(ctx context.Context, a arm.Arm) error {
+	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), stopArmTimeout)
+	defer cancel()
+	return a.Stop(stopCtx, nil)
 }
 
 func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
