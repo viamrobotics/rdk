@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	visionObject "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/detection3d"
 	"go.viam.com/rdk/vision/viscapture"
@@ -195,6 +196,50 @@ func TestBuilderGetDetections3D(t *testing.T) {
 		test.That(t, capt.Detections3D, test.ShouldResemble, detections)
 	})
 
+	t.Run("a detection with no shapes is dropped rather than returned without a geometry", func(t *testing.T) {
+		detections = []*detection3d.Detection{
+			{Transforms: []*referenceframe.LinkInFrame{referenceframe.NewLinkInFrame(testCameraName, at(0), "empty", nil)}},
+			{},
+			mug,
+		}
+		objects, err := svc.GetObjectPointClouds(context.Background(), "", nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(objects), test.ShouldEqual, 1)
+		test.That(t, objects[0].Geometry.Label(), test.ShouldEqual, "body")
+	})
+
+	t.Run("a part's geometry is used when the root has none, composed through the rotated root", func(t *testing.T) {
+		// The root is turned 90 degrees about Z, so the handle 20mm along the root's X lies 20mm along the camera's Y.
+		// Composing child-then-parent instead would put it at X=120.
+		rotatedRoot := spatialmath.NewPose(r3.Vector{X: 100}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
+		detections = []*detection3d.Detection{{Transforms: []*referenceframe.LinkInFrame{
+			referenceframe.NewLinkInFrame(testCameraName, rotatedRoot, "mug", nil),
+			referenceframe.NewLinkInFrame("mug", at(20), "mug/handle", box(2, "handle")),
+		}}}
+		objects, err := svc.GetObjectPointClouds(context.Background(), "", nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, objects[0].Geometry.Label(), test.ShouldEqual, "handle")
+		test.That(t, spatialmath.R3VectorAlmostEqual(objects[0].Geometry.Pose().Point(), r3.Vector{X: 100, Y: 20}, 1e-6), test.ShouldBeTrue)
+	})
+
+	t.Run("a nil detection fails flattening", func(t *testing.T) {
+		detections = []*detection3d.Detection{mug, nil}
+		_, err := svc.GetObjectPointClouds(context.Background(), "", nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "3D detection 1 is nil")
+	})
+
+	t.Run("a repeated transform name fails flattening", func(t *testing.T) {
+		detections = []*detection3d.Detection{{Transforms: []*referenceframe.LinkInFrame{
+			referenceframe.NewLinkInFrame(testCameraName, at(0), "root", nil),
+			referenceframe.NewLinkInFrame("root", at(5), "part", box(1, "")),
+			referenceframe.NewLinkInFrame("root", at(9), "part", box(1, "")),
+		}}}
+		_, err := svc.GetObjectPointClouds(context.Background(), "", nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"part" is used more than once`)
+	})
+
 	t.Run("a transform whose parent is not earlier in the tree fails flattening", func(t *testing.T) {
 		detections = []*detection3d.Detection{{Transforms: []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame(testCameraName, at(0), "root", nil),
@@ -204,4 +249,44 @@ func TestBuilderGetDetections3D(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"missing"`)
 	})
+}
+
+// A segmenter's objects must come back unchanged after FromSegmenter and the legacy flattening, including under rotation,
+// where an inverted Compose order or a missing PoseInverse would move both the geometry and the points.
+func TestBuilderRoundTripsRotatedSegmenterObjects(t *testing.T) {
+	pose := spatialmath.NewPose(r3.Vector{X: 100, Y: 200, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, Theta: 40})
+	original, err := spatialmath.NewBox(pose, r3.Vector{X: 30, Y: 20, Z: 10}, "crate")
+	test.That(t, err, test.ShouldBeNil)
+	wantPoints := []r3.Vector{{X: 100, Y: 200, Z: 300}, {X: 110, Y: 195, Z: 302}, {X: 90, Y: 207, Z: 299}}
+	cloud := pointcloud.NewBasicEmpty()
+	for _, p := range wantPoints {
+		test.That(t, cloud.Set(p, pointcloud.NewBasicData()), test.ShouldBeNil)
+	}
+	segmenter := func(ctx context.Context, src camera.Camera) ([]*visionObject.Object, error) {
+		return []*visionObject.Object{{PointCloud: cloud, Geometry: original}}, nil
+	}
+
+	deps := resource.Dependencies{camera.Named(testCameraName): inject.NewCamera(testCameraName)}
+	svc, err := vision.NewService(vision.Named("seg"), deps, logging.NewTestLogger(t), nil, nil, nil,
+		detection3d.FromSegmenter("seg", segmenter), testCameraName)
+	test.That(t, err, test.ShouldBeNil)
+
+	objects, err := svc.GetObjectPointClouds(context.Background(), "", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(objects), test.ShouldEqual, 1)
+	test.That(t, spatialmath.GeometriesAlmostEqual(objects[0].Geometry, original), test.ShouldBeTrue)
+
+	var gotPoints []r3.Vector
+	objects[0].Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		gotPoints = append(gotPoints, p)
+		return true
+	})
+	test.That(t, len(gotPoints), test.ShouldEqual, len(wantPoints))
+	for _, want := range wantPoints {
+		found := false
+		for _, got := range gotPoints {
+			found = found || spatialmath.R3VectorAlmostEqual(got, want, 1e-6)
+		}
+		test.That(t, found, test.ShouldBeTrue)
+	}
 }

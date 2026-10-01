@@ -254,6 +254,9 @@ func (server *serviceServer) GetDetections3D(
 func detections3DToProto(detections []*detection3d.Detection) ([]*pb.Detection3D, error) {
 	protoDets := make([]*pb.Detection3D, 0, len(detections))
 	for i, det := range detections {
+		if det == nil {
+			return nil, errors.Errorf("3D detection %d is nil", i)
+		}
 		transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(det.Transforms)
 		if err != nil {
 			return nil, errors.Wrapf(err, "3D detection %d", i)

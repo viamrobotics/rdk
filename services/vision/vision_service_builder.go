@@ -294,12 +294,17 @@ func (vm *vizModel) GetDetections3D(
 }
 
 // detectionsToObjects flattens each detection into the GetObjectPointClouds shape, which holds one geometry and one
-// point cloud per object. Every shape in the tree is expressed in the root's parent frame; the first non-point-cloud
-// geometry becomes the object's geometry and all point clouds are merged. GetObjectPointClouds callers such as
-// navigation treat an object's geometry as an obstacle, so a detection with only points gets the points' bounding box.
+// point cloud per object. Every shape in the tree is expressed in the root's parent frame. The object's geometry is the
+// root's non-point-cloud geometry, or if it has none, the first part's in transform order; all point clouds are merged.
+//
+// GetObjectPointClouds callers such as navigation treat an object's geometry as an obstacle and do not check for nil,
+// so a detection with only points gets the points' bounding box and a detection with no shapes at all is dropped.
 func detectionsToObjects(detections []*detection3d.Detection) ([]*viz.Object, error) {
 	objects := make([]*viz.Object, 0, len(detections))
 	for i, det := range detections {
+		if det == nil {
+			return nil, errors.Errorf("3D detection %d is nil", i)
+		}
 		cloud := pointcloud.NewBasicEmpty()
 		var geom spatialmath.Geometry
 		// Parents precede their children, so each transform's pose in the root's parent frame is known when it is reached.
@@ -316,6 +321,10 @@ func detectionsToObjects(detections []*detection3d.Detection) ([]*viz.Object, er
 						i, tf.Name(), tf.Parent())
 				}
 				pose = spatialmath.Compose(parentPose, pose)
+			}
+			// A repeated name would silently re-parent every later child that references it.
+			if _, ok := poses[tf.Name()]; ok {
+				return nil, errors.Errorf("3D detection %d: transform name %q is used more than once", i, tf.Name())
 			}
 			poses[tf.Name()] = pose
 
@@ -337,7 +346,10 @@ func detectionsToObjects(detections []*detection3d.Detection) ([]*viz.Object, er
 			}
 		}
 
-		if geom == nil && cloud.Size() > 0 {
+		if geom == nil && cloud.Size() == 0 {
+			continue
+		}
+		if geom == nil {
 			obj, err := viz.NewObject(cloud)
 			if err != nil {
 				return nil, errors.Wrapf(err, "3D detection %d", i)
