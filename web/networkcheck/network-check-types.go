@@ -337,9 +337,7 @@ func summarizePacketLoss(results []*PacketLossResult) PacketLossSummary {
 	s := PacketLossSummary{Results: results}
 	var routerErrored, ispErrored bool
 
-	// A probe that never sent a packet has no reading to record: LossPercent
-	// returns 100 for zero sent, which would report a machine that cannot open a
-	// raw socket as having lost every packet.
+	// A probe that never sent a packet has no reading to record
 	for _, r := range results {
 		loss := r.LossPercent()
 		measured := r.ErrorString == nil
@@ -588,7 +586,12 @@ func logSTUNResults(
 // logHealth emits the consolidated periodic verdict line. Always Info: severity
 // is carried in the verdict field, since the line is a heartbeat, not an event.
 func logHealth(logger logging.Logger, s HealthSnapshot) {
-	keysAndValues := []any{
+	slowHostnames := "none"
+	if len(s.DNS.SlowHostnames) > 0 {
+		slowHostnames = strings.Join(s.DNS.SlowHostnames, ",")
+	}
+
+	logger.Infow("network health",
 		"verdict", string(s.Verdict()),
 
 		"dns_status", string(s.DNS.Status),
@@ -596,6 +599,8 @@ func logHealth(logger logging.Logger, s HealthSnapshot) {
 		"dns_connections_total", s.DNS.ConnectionsTotal,
 		"dns_resolutions_ok", s.DNS.ResolutionsOK,
 		"dns_resolutions_total", s.DNS.ResolutionsTotal,
+		"dns_max_resolve_ms", unknownIfNil(s.DNS.MaxResolutionMS),
+		"dns_slow_hostnames", slowHostnames,
 
 		"udp_status", string(s.UDP.Status),
 		"udp_stun_ok", s.UDP.SuccessCount,
@@ -608,25 +613,14 @@ func logHealth(logger logging.Logger, s HealthSnapshot) {
 		"nat_type", s.NATType(),
 
 		"internet_status", string(s.Loss.InternetStatus),
-		"local_network_status", string(s.Loss.LocalNetworkStatus),
-		"router_ignores_ping", s.Loss.RouterIgnoresPing,
-	}
-
-	slowHostnames := "none"
-	if len(s.DNS.SlowHostnames) > 0 {
-		slowHostnames = strings.Join(s.DNS.SlowHostnames, ",")
-	}
-
-	keysAndValues = append(keysAndValues,
-		"dns_max_resolve_ms", unknownIfNil(s.DNS.MaxResolutionMS),
-		"dns_slow_hostnames", slowHostnames,
 		"isp_loss_pct", unknownIfNil(s.Loss.ISPLossPct),
 		"isp_rtt_ms", unknownIfNil(s.Loss.ISPRTTMS),
+
+		"local_network_status", string(s.Loss.LocalNetworkStatus),
 		"router_loss_pct", unknownIfNil(s.Loss.RouterLossPct),
 		"router_rtt_ms", unknownIfNil(s.Loss.RouterRTTMS),
+		"router_ignores_ping", s.Loss.RouterIgnoresPing,
 	)
-
-	logger.Infow("network health", keysAndValues...)
 }
 
 // unknownIfNil renders a reading that was never taken as "unknown" so every key
