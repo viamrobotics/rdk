@@ -209,8 +209,10 @@ var (
 	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
 	// apiByInterfaceType maps each registered API's Go interface type to its API, so AsType can resolve
 	// a composite's sub by the API the requested interface belongs to (rather than returning the first
-	// sub that happens to satisfy it). The base resource.Resource interface is excluded: every resource
-	// satisfies it, and AsType short-circuits it before consulting this map. Guarded by registryMu.
+	// sub that happens to satisfy it). Each API must declare its own distinct Go interface type,
+	// otherwise this map would be last-writer-wins and AsType could return the wrong API's sub. The base
+	// resource.Resource interface is excluded: every resource satisfies it, and AsType short-circuits it
+	// before consulting this map. Guarded by registryMu.
 	apiByInterfaceType = map[reflect.Type]API{}
 )
 
