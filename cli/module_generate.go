@@ -92,6 +92,23 @@ type addAppArgs struct {
 	DryRun  bool
 }
 
+// runWithSpinner runs action, which reports progress through the setTitle callback it is
+// handed. The live spinner is a full TUI: when stdin is not a terminal it grabs the console
+// itself (/dev/tty, or CONIN$ on Windows) and starts a read nothing ever answers, which on
+// Windows wedges the process at shutdown. So it is only used on a terminal, and only when
+// debug logging is off, since its redraws garble logged output. Otherwise titles are printed
+// to w and action runs directly.
+func runWithSpinner(w io.Writer, debug bool, action func(setTitle func(string))) error {
+	if debug || !isInteractive() {
+		action(func(title string) { printf(w, "%s", title) })
+		return nil
+	}
+
+	s := spinner.New()
+	s.Action(func() { action(func(title string) { s.Title(title) }) })
+	return s.Run()
+}
+
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
 func GenerateModuleAction(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
 	c, err := newViamClient(ctx, cmd)
@@ -520,7 +537,6 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	}
 	populateAdditionalInfo(newModule)
 
-	var s *spinner.Spinner
 	var fatalError error
 	var registryURL string
 	nonFatalError := false
@@ -530,14 +546,7 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	}
 	globalArgs := *gArgs
 
-	// Avoid the live spinner when emitting debug logs; its redraws conflict with logged output.
-	logTitle := func(msg string) { printf(cmd.Root().Writer, "%s", msg) }
-	if isInteractive() && !globalArgs.Debug {
-		s = spinner.New()
-		logTitle = func(msg string) { s.Title(msg) }
-	}
-
-	action := func() {
+	action := func(logTitle func(string)) {
 		logTitle("Getting latest release...")
 		version, err := getLatestSDKTag(ctx, cmd, newModule.Language, globalArgs)
 		if err != nil {
@@ -588,14 +597,8 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 		}
 	}
 
-	if s != nil {
-		s.Action(action)
-		err := s.Run()
-		if err != nil {
-			return err
-		}
-	} else {
-		action()
+	if err := runWithSpinner(cmd.Root().Writer, globalArgs.Debug, action); err != nil {
+		return err
 	}
 
 	if fatalError != nil {
@@ -696,10 +699,9 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 	}
 	globalArgs := *gArgs
 
-	s := spinner.New()
 	var fatalError error
-	action := func() {
-		s.Title("Generating webapp component file...")
+	action := func(logTitle func(string)) {
+		logTitle("Generating webapp component file...")
 		if err := addGoWebappFile(moduleDir, data); err != nil {
 			fatalError = errors.Wrap(err, "failed to generate webapp.go")
 			return
@@ -709,7 +711,7 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 			return
 		}
 
-		s.Title("Setting up app directories and static files...")
+		logTitle("Setting up app directories and static files...")
 		if err := addAppStaticFiles(moduleDir); err != nil {
 			fatalError = errors.Wrap(err, "failed to set up app files")
 			return
@@ -719,20 +721,15 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 			return
 		}
 
-		s.Title("Updating meta.json...")
+		logTitle("Updating meta.json...")
 		if err := addAppToManifest(filepath.Join(moduleDir, defaultManifestFilename), app, data); err != nil {
 			fatalError = errors.Wrap(err, "failed to update meta.json")
 			return
 		}
 	}
 
-	if globalArgs.Debug {
-		action()
-	} else {
-		s.Action(action)
-		if err := s.Run(); err != nil {
-			return err
-		}
+	if err := runWithSpinner(cmd.Root().Writer, globalArgs.Debug, action); err != nil {
+		return err
 	}
 
 	if fatalError != nil {
@@ -2220,10 +2217,9 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 		}
 	}
 
-	s := spinner.New()
 	var fatalError error
-	action := func() {
-		s.Title(fmt.Sprintf("Generating %s model stubs...", newModel.Language))
+	action := func(logTitle func(string)) {
+		logTitle(fmt.Sprintf("Generating %s model stubs...", newModel.Language))
 		switch newModel.Language {
 		case golang:
 			if err := addGolangModelFile(".", *newModel); err != nil {
@@ -2246,26 +2242,21 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 			}
 		}
 
-		s.Title("Generating model documentation...")
+		logTitle("Generating model documentation...")
 		if err := renderModelDocToDir(".", *newModel); err != nil {
 			fatalError = errors.Wrap(err, "failed to generate model documentation")
 			return
 		}
 
-		s.Title("Updating meta.json...")
+		logTitle("Updating meta.json...")
 		if err := addModelToManifest(defaultManifestFilename, *newModel); err != nil {
 			fatalError = errors.Wrap(err, "failed to update meta.json")
 			return
 		}
 	}
 
-	if globalArgs.Debug {
-		action()
-	} else {
-		s.Action(action)
-		if err := s.Run(); err != nil {
-			return err
-		}
+	if err := runWithSpinner(cmd.Root().Writer, globalArgs.Debug, action); err != nil {
+		return err
 	}
 
 	if fatalError != nil {
@@ -2555,10 +2546,9 @@ func AddAppAction(_ context.Context, cmd *cli.Command, args addAppArgs) error {
 		ConfigName:      "WebappConfig",
 	}
 
-	s := spinner.New()
 	var fatalError error
-	action := func() {
-		s.Title("Generating webapp component file...")
+	action := func(logTitle func(string)) {
+		logTitle("Generating webapp component file...")
 		if err := addGoWebappFile(".", data); err != nil {
 			fatalError = errors.Wrap(err, "failed to generate webapp.go")
 			return
@@ -2568,7 +2558,7 @@ func AddAppAction(_ context.Context, cmd *cli.Command, args addAppArgs) error {
 			return
 		}
 
-		s.Title("Setting up app directories and static files...")
+		logTitle("Setting up app directories and static files...")
 		if err := addAppStaticFiles("."); err != nil {
 			fatalError = errors.Wrap(err, "failed to set up app files")
 			return
@@ -2578,20 +2568,15 @@ func AddAppAction(_ context.Context, cmd *cli.Command, args addAppArgs) error {
 			return
 		}
 
-		s.Title("Updating meta.json...")
+		logTitle("Updating meta.json...")
 		if err := addAppToManifest(defaultManifestFilename, app, data); err != nil {
 			fatalError = errors.Wrap(err, "failed to update meta.json")
 			return
 		}
 	}
 
-	if globalArgs.Debug {
-		action()
-	} else {
-		s.Action(action)
-		if err := s.Run(); err != nil {
-			return err
-		}
+	if err := runWithSpinner(cmd.Root().Writer, globalArgs.Debug, action); err != nil {
+		return err
 	}
 
 	if fatalError != nil {
