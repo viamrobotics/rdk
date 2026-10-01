@@ -310,6 +310,43 @@ func TestCompositeRemoteResource(t *testing.T) {
 	}
 }
 
+// TestCompositeRemoteMachineStatusSingleRow asserts a remote composite reports ONE MachineStatus row,
+// matching a local composite. The remote proxies it as one node per co-equal API, so without deduping
+// it would surface once per API while a local composite surfaces once.
+func TestCompositeRemoteMachineStatusSingleRow(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboModel(t, "composite-sensor-remote-status", nil)
+
+	remote := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: model}},
+	}, logger.Sublogger("remote"))
+	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+	main := setupLocalRobot(t, ctx, &config.Config{
+		Remotes: []config.Remote{{Name: "rem", Address: addr}},
+	}, logger.Sublogger("main"))
+
+	// Sanity: the remote composite is reachable under both co-equal APIs on main (it IS proxied as two
+	// per-API nodes), so a single status row is the result of deduping, not of the composite being absent.
+	_, err := main.ResourceByName(sensor.Named("rem:combo"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = main.ResourceByName(resource.NewName(generic.API, "rem:combo"))
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := main.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	var comboRows []resource.Name
+	for _, rs := range ms.Resources {
+		if rs.Name.Name == "combo" {
+			comboRows = append(comboRows, rs.Name)
+		}
+	}
+	test.That(t, len(comboRows), test.ShouldEqual, 1)
+}
+
 // TestCompositeRemoteResourceCollisions asserts that genuine collisions involving remote resources are
 // detected: a local resource and a remote resource sharing a bare name collide -- even across
 // DIFFERENT APIs -- as do two different (unprefixed) remotes exposing the same bare name.
