@@ -475,8 +475,7 @@ func TestSmartSeedCacheZeroWidthLimit(t *testing.T) {
 	// Pinning the base joint collapses its arm6JogRatios[0]+1 samples to one.
 	test.That(t, cacheSize(pin(ur5e, 0)), test.ShouldEqual, totalCacheSizeEstimate(6)/int(1+arm6JogRatios[0]))
 
-	gripper, err := referenceframe.ParseModelJSONFile(
-		utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "gripper")
+	gripper, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "gripper")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripper.DoF(), test.ShouldHaveLength, 1)
 	test.That(t, cacheSize(gripper), test.ShouldEqual, int(defaultDivisor)+1)
