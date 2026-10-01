@@ -2,16 +2,21 @@ package vision
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/detection3d"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
 	"go.viam.com/rdk/vision/viscapture"
@@ -48,7 +53,7 @@ func NewService(
 		)
 	}
 
-	p := Properties{false, false, false, nil}
+	p := Properties{}
 	if cf != nil {
 		p.ClassificationSupported = true
 	}
@@ -57,6 +62,7 @@ func NewService(
 	}
 	if s3f != nil {
 		p.ObjectPCDsSupported = true
+		p.Detections3DSupported = true
 	}
 	if defaultCamera != "" {
 		p.DefaultCamera = &defaultCamera
@@ -96,7 +102,7 @@ func DeprecatedNewService(
 		)
 	}
 
-	p := Properties{false, false, false, nil}
+	p := Properties{}
 	if cf != nil {
 		p.ClassificationSupported = true
 	}
@@ -105,6 +111,7 @@ func DeprecatedNewService(
 	}
 	if s3f != nil {
 		p.ObjectPCDsSupported = true
+		p.Detections3DSupported = true
 	}
 	if defaultCamera != "" {
 		p.DefaultCamera = &defaultCamera
@@ -267,6 +274,55 @@ func (vm *vizModel) GetObjectPointClouds(
 	return vm.segmenter3DFunc(ctx, cam)
 }
 
+// GetDetections3D returns the 3D segmenter's objects as 3D detections, so services built on a Segmenter support
+// GetDetections3D without changes of their own.
+func (vm *vizModel) GetDetections3D(
+	ctx context.Context,
+	cameraName string,
+	extra map[string]interface{},
+) ([]*detection3d.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections3D::"+vm.Named.Name().String())
+	defer span.End()
+
+	// Resolved here as well as in GetObjectPointClouds because the camera is the root transforms' parent frame.
+	if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
+	objects, err := vm.GetObjectPointClouds(ctx, cameraName, extra)
+	if err != nil {
+		return nil, err
+	}
+	return vm.objectsToDetections3D(cameraName, objects)
+}
+
+// objectsToDetections3D turns each object into a root transform parented to the camera at the object's geometry pose,
+// carrying that geometry recentered on the root, plus a child transform carrying the segmented points in the root frame.
+// Root names are only unique within one response, since segmenters do not track objects across calls.
+func (vm *vizModel) objectsToDetections3D(cameraName string, objects []*viz.Object) ([]*detection3d.Detection, error) {
+	detections := make([]*detection3d.Detection, 0, len(objects))
+	for i, obj := range objects {
+		name := fmt.Sprintf("%s/object-%d", vm.Named.Name().ShortName(), i)
+		rootPose := spatialmath.NewZeroPose()
+		var rootGeom spatialmath.Geometry
+		if obj.Geometry != nil {
+			rootPose = obj.Geometry.Pose()
+			rootGeom = obj.Geometry.Transform(spatialmath.PoseInverse(rootPose))
+		}
+		transforms := []*referenceframe.LinkInFrame{referenceframe.NewLinkInFrame(cameraName, rootPose, name, rootGeom)}
+
+		if obj.PointCloud != nil && obj.PointCloud.Size() > 0 {
+			octree, err := pointcloud.ToBasicOctree(obj.PointCloud, 0)
+			if err != nil {
+				return nil, errors.Wrapf(err, "object %d", i)
+			}
+			points := octree.Transform(spatialmath.PoseInverse(rootPose))
+			transforms = append(transforms, referenceframe.NewLinkInFrame(name, spatialmath.NewZeroPose(), name+"/points", points))
+		}
+		detections = append(detections, &detection3d.Detection{Transforms: transforms})
+	}
+	return detections, nil
+}
+
 // GetProperties returns a Properties object that details the vision capabilities of the model.
 func (vm *vizModel) GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetProperties::"+vm.Named.Name().String())
@@ -327,14 +383,25 @@ func (vm *vizModel) CaptureAllFromCamera(
 		}
 	}
 
+	// Both 3D outputs come from one segmentation so the segmenter runs at most once per capture.
 	var objPCD []*viz.Object
-	if opt.ReturnObject {
+	var dets3D []*detection3d.Detection
+	if opt.ReturnObject || opt.ReturnDetections3D {
 		if !vm.properties.ObjectPCDsSupported {
-			vm.logger.Debugf("object point cloud requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
+			vm.logger.Debugf("3D output requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
 		} else {
-			objPCD, err = vm.GetObjectPointClouds(ctx, cameraName, extra)
+			objects, err := vm.GetObjectPointClouds(ctx, cameraName, extra)
 			if err != nil {
 				return viscapture.VisCapture{}, err
+			}
+			if opt.ReturnObject {
+				objPCD = objects
+			}
+			if opt.ReturnDetections3D {
+				dets3D, err = vm.objectsToDetections3D(cameraName, objects)
+				if err != nil {
+					return viscapture.VisCapture{}, err
+				}
 			}
 		}
 	}
@@ -348,6 +415,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 		Detections:      detections,
 		Classifications: classifications,
 		Objects:         objPCD,
+		Detections3D:    dets3D,
 	}, nil
 }
 
