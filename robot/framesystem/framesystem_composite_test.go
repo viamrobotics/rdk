@@ -132,3 +132,40 @@ func TestKinematicSubIdentity(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, MultiKinematic(twoChains), test.ShouldBeTrue)
 }
+
+// TestBuiltInReconfigureSingleStructMultiKinematic verifies a single struct served under two kinematic
+// APIs is KEPT as one chain by BuiltInReconfigure -- agreeing with KinematicSub/MultiKinematic and the
+// model-frame builder. The composite wrapper is aliased under both API names and unwraps to the SAME
+// object under each, so a count-based guard would see two kinematic subs and wrongly refuse it, leaving
+// its frame modeled but svc.components["combo"] unset and CurrentInputs unserviceable machine-wide.
+func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	svcIface, err := New(ctx, resource.Dependencies{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	svc := svcIface.(*frameSystemService)
+
+	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
+	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
+
+	// One struct serving two kinematic APIs, aliased under each (the single-struct composite shape).
+	shared := &kinematicRes{Named: resource.NewName(armAPI, "combo").AsNamed()}
+	wrapper := resource.NewMultiAPIResource(
+		resource.NewName(armAPI, "combo"),
+		[]resource.API{armAPI, gantryAPI},
+		map[resource.API]resource.Resource{armAPI: shared, gantryAPI: shared},
+	)
+	deps := resource.Dependencies{
+		resource.NewName(armAPI, "combo"):    wrapper,
+		resource.NewName(gantryAPI, "combo"): wrapper,
+	}
+
+	err = svc.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Kept as one kinematic chain (the shared sub), consistent with KinematicSub(wrapper) -- not refused.
+	kin, ok := KinematicSub(wrapper)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, svc.components["combo"], test.ShouldEqual, shared)
+	test.That(t, svc.components["combo"], test.ShouldEqual, kin)
+}
