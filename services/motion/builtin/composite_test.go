@@ -111,7 +111,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 
 // TestBuiltInReconfigureSingleStructMultiKinematic verifies motion keeps a single struct served under
 // two kinematic APIs as one chain in the component map -- consistent with the frame system and
-// KinematicSub -- rather than refusing it as it does a composite backed by two DISTINCT kinematic subs.
+// KinematicClassify -- rather than refusing it as it does a composite backed by two DISTINCT kinematic subs.
 func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	ctx := context.Background()
 	ms := &builtIn{logger: logging.NewTestLogger(t)}
