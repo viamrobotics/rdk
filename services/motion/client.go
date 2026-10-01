@@ -195,6 +195,11 @@ func (c *client) PlanHistory(
 	return append([]PlanWithStatus{pws}, statusHistory...), nil
 }
 
+// ErrStreamEndedBeforeTargetsClosed is exported so tests in package motion_test can errors.Is on it.
+var ErrStreamEndedBeforeTargetsClosed = errors.New(
+	"the motion service impl broke the streaming contract by ending the session before the client closed the targets channel",
+)
+
 // TempStreamArmJointPositions opens a streaming session for the arm against the server.
 //
 // The caller owns the targets channel and responses channel; this function does not close
@@ -262,6 +267,7 @@ func (c *client) TempStreamArmJointPositions(
 
 	// "send goroutine": receives targets from the client; stream.Send()'s them to the server.
 	sendResult := make(chan error, 1)
+	targetsClosed := false
 	goutils.PanicCapturingGo(func() {
 		// Every exit below overwrites err; if none did, the goroutine panicked.
 		err := errors.New("motion streaming client send goroutine panicked")
@@ -295,6 +301,7 @@ func (c *client) TempStreamArmJointPositions(
 			select {
 			case t, ok := <-targets:
 				if !ok {
+					targetsClosed = true
 					// CloseSend always returns nil.
 					// Do not return an error from this send goroutine; the recv side will have the stream's status.
 					//nolint:errcheck
@@ -366,7 +373,13 @@ func (c *client) TempStreamArmJointPositions(
 	if sendErr != nil {
 		return sendErr
 	}
-	return recvErr
+	if recvErr != nil {
+		return recvErr
+	}
+	if !targetsClosed {
+		return ErrStreamEndedBeforeTargetsClosed
+	}
+	return nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
