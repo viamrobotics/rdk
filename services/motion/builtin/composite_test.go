@@ -108,3 +108,30 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	// An ordinary component is unaffected.
 	test.That(t, ms.components["solo"], test.ShouldEqual, solo)
 }
+
+// TestBuiltInReconfigureSingleStructMultiKinematic verifies motion keeps a single struct served under
+// two kinematic APIs as one chain in the component map -- consistent with the frame system and
+// KinematicSub -- rather than refusing it as it does a composite backed by two DISTINCT kinematic subs.
+func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
+	ctx := context.Background()
+	ms := &builtIn{logger: logging.NewTestLogger(t)}
+	conf := resource.Config{ConvertedAttributes: &Config{}}
+
+	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
+	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
+
+	shared := &kinematicComp{Named: resource.NewName(armAPI, "combo").AsNamed()}
+	wrapper := resource.NewMultiAPIResource(
+		resource.NewName(armAPI, "combo"),
+		[]resource.API{armAPI, gantryAPI},
+		map[resource.API]resource.Resource{armAPI: shared, gantryAPI: shared},
+	)
+	deps := resource.Dependencies{
+		resource.NewName(armAPI, "combo"):    wrapper,
+		resource.NewName(gantryAPI, "combo"): wrapper,
+	}
+
+	test.That(t, ms.BuiltInReconfigure(ctx, deps, conf), test.ShouldBeNil)
+	// One shared kinematic object under two APIs is one chain, kept in the component map (not refused).
+	test.That(t, ms.components["combo"], test.ShouldEqual, shared)
+}

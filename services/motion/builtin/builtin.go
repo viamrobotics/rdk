@@ -227,16 +227,14 @@ func (ms *builtIn) BuiltInReconfigure(
 		}
 	}
 	for name, subs := range componentsByName {
-		// Motion uses the component map for kinematics. A composite may serve at most one
-		// kinematic (input-enabled) API: a single physical device is one frame with one CurrentInputs.
-		// Multi-kinematic composites are not supported — log and refuse the resource here rather than
-		// silently pick one. With no kinematic sub, any sub works since it is not used for kinematics.
-		var kinematic []resource.Resource
-		for _, sub := range subs {
-			if _, ok := sub.(framesystem.InputEnabled); ok {
-				kinematic = append(kinematic, sub)
-			}
-		}
+		// Motion uses the component map for kinematics. A composite may serve at most one kinematic
+		// (input-enabled) API: a single physical device is one frame with one CurrentInputs. Count
+		// DISTINCT kinematic subs by identity (via the shared framesystem helper) so a single-struct
+		// composite served under several kinematic APIs stays one chain, agreeing with the frame system
+		// and KinematicSub/MultiKinematic; only genuinely distinct InputEnabled subs make it
+		// multi-kinematic, which is unsupported — log and refuse rather than silently pick one. With no
+		// kinematic sub, any sub works since it is not used for kinematics.
+		kinematic := framesystem.DistinctKinematicSubs(subs)
 		switch {
 		case len(kinematic) > 1:
 			ms.logger.Errorw(
