@@ -320,10 +320,12 @@ func (ms *builtIn) PlanHistory(
 //	  request:  {"stream_start": {
 //	               "arm": "myArm",
 //	               "options": {                        // optional; shown values are defaults
-//	                 "target_runway_in_arm_ms": 100,
+//	                 "arm_side_target_runway_ms": 100,
 //	                 "send_to_arm_interval_ms": 10,
-//	                 "vel_limit_deg_per_sec": 10,
-//	                 "accel_limit_deg_per_sec2": 10,
+//	                 "move_options": {
+//	                   "max_vel_degs_per_sec": 10,
+//	                   "max_acc_degs_per_sec2": 10
+//	                 },
 //	                 "diagnostics_window_secs": 60       // 0 disables window-detail retention only
 //	               }
 //	             }}
@@ -366,7 +368,6 @@ func (ms *builtIn) PlanHistory(
 //	  response: {
 //	               "running": true,
 //	               "arm": "myArm",                      // present once a session has started
-//	               "options": {...},                    // the session's StreamOptions
 //	               "last_window_details": {...},        // diagnostics.SingleSessionLastWindowDetails;
 //	                                                     // present only when last_window_details:true
 //	                                                     // was requested

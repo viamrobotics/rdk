@@ -7,6 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
+	pb "go.viam.com/api/component/arm/v1"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -253,7 +256,6 @@ func (ms *builtIn) streamStatus(includeLastWindowDetails bool) (map[string]any, 
 	status := map[string]any{
 		streamKeyRunning: !finished,
 		streamKeyArm:     ms.stream.armName,
-		streamKeyOptions: ms.stream.opts,
 	}
 	if includeLastWindowDetails {
 		status[streamKeyLastWindowDetails] = ms.stream.diagnostics.LastWindowDetails()
@@ -322,32 +324,56 @@ func parseIncludeLastWindowDetails(req interface{}) bool {
 }
 
 func parseStreamStart(req interface{}) (string, streaming.StreamOptions, error) {
-	// Start from the defaults; any options in the request override them.
-	opts := streaming.NewDefaultOptions()
-
 	m, err := utils.AssertType[map[string]interface{}](req)
 	if err != nil {
-		return "", opts, fmt.Errorf("%s expects an object", DoStreamStart)
+		return "", streaming.StreamOptions{}, fmt.Errorf("%s expects an object", DoStreamStart)
 	}
 
 	armName, _ := m[streamKeyArm].(string)
 	if armName == "" {
-		return "", opts, fmt.Errorf("%s requires a %q field", DoStreamStart, streamKeyArm)
+		return "", streaming.StreamOptions{}, fmt.Errorf("%s requires a %q field", DoStreamStart, streamKeyArm)
 	}
 
-	if rawOpts, ok := m[streamKeyOptions]; ok {
-		if err := streaming.ParseStreamOptions(rawOpts, &opts); err != nil {
-			return "", opts, fmt.Errorf("invalid streaming options: %w", err)
-		}
+	wire, err := parseDoCommandStreamOptions(m[streamKeyOptions])
+	if err != nil {
+		return "", streaming.StreamOptions{}, fmt.Errorf("invalid streaming options: %w", err)
 	}
+	opts := streaming.NewStreamOptions(
+		wire.ArmSideTargetRunwayMs, wire.SendToArmIntervalMs, wire.DiagnosticsWindowSecs,
+		arm.MoveOptionsFromProtobuf(wire.MoveOptions),
+	)
 
 	// Validate here so bad options fail the DoStreamStart synchronously, rather than
 	// spawning a session that is already dead.
 	if err := opts.Validate(); err != nil {
-		return "", opts, fmt.Errorf("invalid streaming options: %w", err)
+		return "", streaming.StreamOptions{}, fmt.Errorf("invalid streaming options: %w", err)
 	}
 
 	return armName, opts, nil
+}
+
+type doCommandStreamOptions struct {
+	ArmSideTargetRunwayMs *int32          `json:"arm_side_target_runway_ms"`
+	SendToArmIntervalMs   *int32          `json:"send_to_arm_interval_ms"`
+	DiagnosticsWindowSecs *int32          `json:"diagnostics_window_secs"`
+	MoveOptions           *pb.MoveOptions `json:"move_options"`
+}
+
+func parseDoCommandStreamOptions(raw any) (doCommandStreamOptions, error) {
+	var wire doCommandStreamOptions
+	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		TagName:          "json",
+		WeaklyTypedInput: true,
+		ErrorUnused:      true,
+		Result:           &wire,
+	})
+	if err != nil {
+		return doCommandStreamOptions{}, err
+	}
+	if err := dec.Decode(raw); err != nil {
+		return doCommandStreamOptions{}, err
+	}
+	return wire, nil
 }
 
 func parseStreamTargets(req interface{}) ([]streaming.JointPositionsChItem, error) {

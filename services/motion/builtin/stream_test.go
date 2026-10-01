@@ -58,10 +58,12 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams int))
 
 func streamTestOptions() map[string]interface{} {
 	return map[string]interface{}{
-		"target_runway_in_arm_ms":  50,
-		"send_to_arm_interval_ms":  10,
-		"vel_limit_deg_per_sec":    30,
-		"accel_limit_deg_per_sec2": 60,
+		"arm_side_target_runway_ms": 50,
+		"send_to_arm_interval_ms":   10,
+		"move_options": map[string]interface{}{
+			"max_vel_degs_per_sec":  30,
+			"max_acc_degs_per_sec2": 60,
+		},
 	}
 }
 
@@ -173,6 +175,37 @@ func TestDoCommandArmStreamingDiagnosticsDisabled(t *testing.T) {
 
 	_, err = ms.DoCommand(ctx, map[string]interface{}{DoStreamAbort: true})
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestParseDoCommandStreamOptions(t *testing.T) {
+	wire, err := parseDoCommandStreamOptions(map[string]interface{}{
+		"arm_side_target_runway_ms": 80,
+		"send_to_arm_interval_ms":   20,
+		"diagnostics_window_secs":   0,
+		"move_options": map[string]interface{}{
+			"max_vel_degs_per_sec":         90,
+			"max_acc_degs_per_sec2_joints": []interface{}{90, 180},
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *wire.ArmSideTargetRunwayMs, test.ShouldEqual, int32(80))
+	test.That(t, *wire.SendToArmIntervalMs, test.ShouldEqual, int32(20))
+	test.That(t, *wire.DiagnosticsWindowSecs, test.ShouldEqual, int32(0))
+	test.That(t, wire.MoveOptions.GetMaxVelDegsPerSec(), test.ShouldEqual, 90.0)
+	test.That(t, wire.MoveOptions.GetMaxAccDegsPerSec2Joints(), test.ShouldResemble, []float64{90, 180})
+	// Keys left out are unset, not zero, so NewStreamOptions can tell them apart from an explicit 0.
+	test.That(t, wire.MoveOptions.MaxAccDegsPerSec2, test.ShouldBeNil)
+
+	// No options object at all decodes as everything unset.
+	wire, err = parseDoCommandStreamOptions(nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, wire, test.ShouldResemble, doCommandStreamOptions{})
+
+	// Unknown keys are an error at either level.
+	_, err = parseDoCommandStreamOptions(map[string]interface{}{"not_a_stream_option": 30})
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = parseDoCommandStreamOptions(map[string]interface{}{"move_options": map[string]interface{}{"not_a_move_option": 1}})
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestDoCommandsUsedIncorrectly(t *testing.T) {

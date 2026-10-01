@@ -163,7 +163,7 @@ func (c *client) MoveThroughJointPositions(
 		Extra:     ext,
 	}
 	if options != nil {
-		req.Options = options.toProtobuf()
+		req.Options = options.ToProtobuf()
 	}
 	_, err = c.client.MoveThroughJointPositions(ctx, req)
 	return err
