@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/detection3d"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/segmentation"
 	"go.viam.com/rdk/vision/viscapture"
 )
 
@@ -24,14 +25,14 @@ import (
 type vizModel struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger         logging.Logger
-	properties     Properties
-	closerFunc     func(ctx context.Context) error // close the underlying model
-	getCamera      func(cameraName string) (camera.Camera, error)
-	classifierFunc classification.Classifier
-	detectorFunc   objectdetection.Detector
-	detector3DFunc detection3d.Detector
-	defaultCamera  string
+	logger          logging.Logger
+	properties      Properties
+	closerFunc      func(ctx context.Context) error // close the underlying model
+	getCamera       func(cameraName string) (camera.Camera, error)
+	classifierFunc  classification.Classifier
+	detectorFunc    objectdetection.Detector
+	segmenter3DFunc detection3d.Segmenter
+	defaultCamera   string
 }
 
 // NewService wraps the vision model in the struct that fulfills the vision service interface.
@@ -42,12 +43,12 @@ func NewService(
 	closer func(ctx context.Context) error,
 	cf classification.Classifier,
 	df objectdetection.Detector,
-	d3f detection3d.Detector,
+	s3f detection3d.Segmenter,
 	defaultCamera string,
 ) (Service, error) {
-	if cf == nil && df == nil && d3f == nil {
+	if cf == nil && df == nil && s3f == nil {
 		return nil, errors.Errorf(
-			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D detector", name,
+			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name,
 		)
 	}
 
@@ -58,7 +59,7 @@ func NewService(
 	if df != nil {
 		p.DetectionSupported = true
 	}
-	if d3f != nil {
+	if s3f != nil {
 		p.ObjectPCDsSupported = true
 		p.Detections3DSupported = true
 	}
@@ -71,15 +72,15 @@ func NewService(
 	}
 
 	return &vizModel{
-		Named:          name.AsNamed(),
-		logger:         logger,
-		properties:     p,
-		closerFunc:     closer,
-		getCamera:      getCamera,
-		classifierFunc: cf,
-		detectorFunc:   df,
-		detector3DFunc: d3f,
-		defaultCamera:  defaultCamera,
+		Named:           name.AsNamed(),
+		logger:          logger,
+		properties:      p,
+		closerFunc:      closer,
+		getCamera:       getCamera,
+		classifierFunc:  cf,
+		detectorFunc:    df,
+		segmenter3DFunc: s3f,
+		defaultCamera:   defaultCamera,
 	}, nil
 }
 
@@ -91,13 +92,17 @@ func DeprecatedNewService(
 	c func(ctx context.Context) error,
 	cf classification.Classifier,
 	df objectdetection.Detector,
-	d3f detection3d.Detector,
+	s3f segmentation.Segmenter,
 	defaultCamera string,
 ) (Service, error) {
-	if cf == nil && df == nil && d3f == nil {
+	if cf == nil && df == nil && s3f == nil {
 		return nil, errors.Errorf(
-			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D detector", name,
+			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name,
 		)
+	}
+	var segmenter3D detection3d.Segmenter
+	if s3f != nil {
+		segmenter3D = detection3d.FromSegmenter(name.ShortName(), s3f)
 	}
 
 	p := Properties{}
@@ -107,7 +112,7 @@ func DeprecatedNewService(
 	if df != nil {
 		p.DetectionSupported = true
 	}
-	if d3f != nil {
+	if s3f != nil {
 		p.ObjectPCDsSupported = true
 		p.Detections3DSupported = true
 	}
@@ -122,15 +127,15 @@ func DeprecatedNewService(
 	}
 
 	return &vizModel{
-		Named:          name.AsNamed(),
-		logger:         logger,
-		properties:     p,
-		closerFunc:     c,
-		getCamera:      getCamera,
-		classifierFunc: cf,
-		detectorFunc:   df,
-		detector3DFunc: d3f,
-		defaultCamera:  defaultCamera,
+		Named:           name.AsNamed(),
+		logger:          logger,
+		properties:      p,
+		closerFunc:      c,
+		getCamera:       getCamera,
+		classifierFunc:  cf,
+		detectorFunc:    df,
+		segmenter3DFunc: segmenter3D,
+		defaultCamera:   defaultCamera,
 	}, nil
 }
 
@@ -248,7 +253,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	return vm.Classifications(ctx, &namedImages[0], n, extra)
 }
 
-// GetObjectPointClouds returns the 3D detections flattened into objects if the model implements a 3D detector.
+// GetObjectPointClouds returns the 3D detections flattened into objects if the model implements a 3D segmenter.
 func (vm *vizModel) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName string,
@@ -264,8 +269,7 @@ func (vm *vizModel) GetObjectPointClouds(
 	return detectionsToObjects(detections)
 }
 
-// GetDetections3D returns the 3D detections of the next capture from the given camera if the model implements a 3D
-// detector.
+// GetDetections3D returns the 3D detections from the given camera if the model implements a 3D segmenter.
 func (vm *vizModel) GetDetections3D(
 	ctx context.Context,
 	cameraName string,
@@ -274,8 +278,8 @@ func (vm *vizModel) GetDetections3D(
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections3D::"+vm.Named.Name().String())
 	defer span.End()
 
-	if vm.detector3DFunc == nil {
-		return nil, errors.Errorf("vision model %q does not implement a 3D detector", vm.Named.Name().String())
+	if vm.segmenter3DFunc == nil {
+		return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.Named.Name().String())
 	}
 	if cameraName == "" && vm.defaultCamera == "" {
 		return nil, errors.New("no camera name provided and no default camera found")
@@ -286,7 +290,7 @@ func (vm *vizModel) GetDetections3D(
 	if err != nil {
 		return nil, err
 	}
-	return vm.detector3DFunc(ctx, cam)
+	return vm.segmenter3DFunc(ctx, cam)
 }
 
 // detectionsToObjects flattens each detection into the GetObjectPointClouds shape, which holds one geometry and one
@@ -406,14 +410,14 @@ func (vm *vizModel) CaptureAllFromCamera(
 		}
 	}
 
-	// Both 3D outputs come from one detector call so the model runs at most once per capture.
+	// Both 3D outputs come from one segmentation so the segmenter runs at most once per capture.
 	var objPCD []*viz.Object
 	var dets3D []*detection3d.Detection
 	if opt.ReturnObject || opt.ReturnDetections3D {
 		if !vm.properties.Detections3DSupported {
-			vm.logger.Debugf("3D output requested in CaptureAll but vision model %q does not implement a 3D detector", vm.Named.Name())
+			vm.logger.Debugf("3D output requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
 		} else {
-			detections, err := vm.detector3DFunc(ctx, cam)
+			detections, err := vm.segmenter3DFunc(ctx, cam)
 			if err != nil {
 				return viscapture.VisCapture{}, err
 			}

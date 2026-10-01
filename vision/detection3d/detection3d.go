@@ -28,10 +28,10 @@ type Detection struct {
 	Metadata        map[string]interface{}
 }
 
-// Detector returns the 3D detections perceived through src.
-type Detector func(ctx context.Context, src camera.Camera) ([]*Detection, error)
+// Segmenter returns the 3D detections perceived through src.
+type Segmenter func(ctx context.Context, src camera.Camera) ([]*Detection, error)
 
-// FromSegmenter adapts a Segmenter whose objects are point cloud clusters in src's frame into a Detector.
+// FromSegmenter adapts a segmentation.Segmenter whose objects are point cloud clusters in src's frame into a Segmenter.
 //
 // Each object becomes a root transform named "<namePrefix>/object-<i>", parented to src at the object's geometry pose
 // and carrying that geometry recentered on the root, plus a "<root>/points" child carrying the cluster's points in the
@@ -39,7 +39,7 @@ type Detector func(ctx context.Context, src camera.Camera) ([]*Detection, error)
 //
 // An object carries one geometry and no confidence scores, so producers that know more, such as an object's parts,
 // its class scores, or a frame other than src's, should build Detections directly instead.
-func FromSegmenter(namePrefix string, seg segmentation.Segmenter) Detector {
+func FromSegmenter(namePrefix string, seg segmentation.Segmenter) Segmenter {
 	return func(ctx context.Context, src camera.Camera) ([]*Detection, error) {
 		objects, err := seg(ctx, src)
 		if err != nil {

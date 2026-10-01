@@ -181,12 +181,12 @@ func registerMLModelVisionService(
 		}
 	}
 
-	detector3DFunc, err := attemptToBuild3DDetector(mlm, inNameMap, outNameMap)
+	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, inNameMap, outNameMap)
 	errList = append(errList, err)
 	if err != nil {
-		logger.CDebugw(ctx, "unable to use ml model as 3D detector", "model", params.ModelName, "error", err)
+		logger.CDebugw(ctx, "unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
 	} else {
-		logger.CInfow(ctx, "model fulfills a vision service 3D detector", "model", params.ModelName)
+		logger.CInfow(ctx, "model fulfills a vision service 3D segmenter", "model", params.ModelName)
 	}
 
 	// If nothing worked, give more info
@@ -221,7 +221,7 @@ func registerMLModelVisionService(
 	}
 
 	// Don't return a close function, because you don't want to close the underlying ML service
-	return vision.DeprecatedNewService(name, r, nil, classifierFunc, detectorFunc, detector3DFunc, params.DefaultCamera)
+	return vision.DeprecatedNewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
 }
 
 func getLabelsFromFile(labelPath string) []string {

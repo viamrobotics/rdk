@@ -131,10 +131,10 @@ func TestBuilderGetDetections3D(t *testing.T) {
 	}}
 	detections := []*detection3d.Detection{mug, pointsOnly}
 
-	detectCalls := 0
+	segmentCalls := 0
 	var gotCamera string
-	detector := func(ctx context.Context, src camera.Camera) ([]*detection3d.Detection, error) {
-		detectCalls++
+	segmenter := func(ctx context.Context, src camera.Camera) ([]*detection3d.Detection, error) {
+		segmentCalls++
 		gotCamera = src.Name().ShortName()
 		return detections, nil
 	}
@@ -146,7 +146,7 @@ func TestBuilderGetDetections3D(t *testing.T) {
 		return []camera.NamedImage{img}, resource.ResponseMetadata{}, err
 	}
 	deps := resource.Dependencies{camera.Named(testCameraName): cam}
-	svc, err := vision.NewService(vision.Named("det"), deps, logging.NewTestLogger(t), nil, nil, nil, detector, testCameraName)
+	svc, err := vision.NewService(vision.Named("seg"), deps, logging.NewTestLogger(t), nil, nil, nil, segmenter, testCameraName)
 	test.That(t, err, test.ShouldBeNil)
 
 	props, err := svc.GetProperties(context.Background(), nil)
@@ -154,7 +154,7 @@ func TestBuilderGetDetections3D(t *testing.T) {
 	test.That(t, props.Detections3DSupported, test.ShouldBeTrue)
 	test.That(t, props.ObjectPCDsSupported, test.ShouldBeTrue)
 
-	t.Run("GetDetections3D forwards the detector's output unchanged", func(t *testing.T) {
+	t.Run("GetDetections3D forwards the segmenter's output unchanged", func(t *testing.T) {
 		got, err := svc.GetDetections3D(context.Background(), "", nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gotCamera, test.ShouldEqual, testCameraName)
@@ -183,14 +183,14 @@ func TestBuilderGetDetections3D(t *testing.T) {
 		test.That(t, spatialmath.R3VectorAlmostEqual(objects[1].Geometry.Pose().Point(), r3.Vector{X: 50}, 1e-6), test.ShouldBeTrue)
 	})
 
-	t.Run("CaptureAll calls the detector once for both 3D outputs", func(t *testing.T) {
-		detectCalls = 0
+	t.Run("CaptureAll segments once for both 3D outputs", func(t *testing.T) {
+		segmentCalls = 0
 		capt, err := svc.CaptureAllFromCamera(context.Background(), "", viscapture.CaptureOptions{
 			ReturnObject:       true,
 			ReturnDetections3D: true,
 		}, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, detectCalls, test.ShouldEqual, 1)
+		test.That(t, segmentCalls, test.ShouldEqual, 1)
 		test.That(t, len(capt.Objects), test.ShouldEqual, 2)
 		test.That(t, capt.Detections3D, test.ShouldResemble, detections)
 	})
