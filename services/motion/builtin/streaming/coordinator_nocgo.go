@@ -18,7 +18,7 @@ func Run(
 	ctx context.Context,
 	a arm.Arm,
 	opts StreamOptions,
-	jpCh <-chan JointPositionsChItem,
+	jpCh <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diagnostics *diagnostics.SingleSessionDiagnostics,
 ) error {

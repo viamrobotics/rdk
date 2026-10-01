@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
+const stopArmTimeout = time.Minute
+
 // Run executes a streaming session through one trajex session and one arm stream RPC.
 // If jpCh is closed, it samples everything out of the trajex session and sends it to the
 // arm, then waits for the arm to have finished executing before returning.
@@ -34,7 +36,7 @@ func Run(
 	ctx context.Context,
 	a arm.Arm,
 	opts StreamOptions,
-	jpCh <-chan JointPositionsChItem,
+	jpCh <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diagnostics *diagnostics.SingleSessionDiagnostics,
 ) (err error) {
@@ -53,12 +55,29 @@ func Run(
 			// cancel()), but if the arm independently errored just before
 			// cancel(), as.close() will return that error instead.
 			cancel()
-			err = multierr.Combine(err, as.close())
+			if closeErr := as.close(); closeErr != nil {
+				err = multierr.Combine(err, fmt.Errorf("failed to close arm stream: %w", closeErr))
+			}
+
+			// Wait for the arm to stop.
+			if stopErr := stopArm(ctx, a); stopErr != nil {
+				err = multierr.Combine(err, fmt.Errorf("failed to stop arm, arm not guaranteed to be stopped: %w", stopErr))
+			} else {
+				err = fmt.Errorf("arm stopped after session error: %w", err)
+			}
 			return
 		}
 		// On success, close first to signal that the RPC can finish.
 		// This blocks until the arm reports that it has completed executing the stream.
-		err = as.close()
+		if closeErr := as.close(); closeErr != nil {
+			err = fmt.Errorf("failed to close arm stream: %w", closeErr)
+			// Wait for the arm to stop.
+			if stopErr := stopArm(ctx, a); stopErr != nil {
+				err = multierr.Combine(err, fmt.Errorf("failed to stop arm, arm not guaranteed to be stopped: %w", stopErr))
+			} else {
+				err = fmt.Errorf("arm stopped after session error: %w", err)
+			}
+		}
 		cancel()
 	}()
 
@@ -101,7 +120,7 @@ func Run(
 			diagnostics.RecordReceivedJointPositionTargetEvent()
 
 			// Add the new joint positions to the trajex session.
-			if err := ts.addJointPositionsToSession(ctx, jp.Positions); err != nil {
+			if err := ts.addJointPositionsToSession(ctx, jp); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 
@@ -119,6 +138,13 @@ func Run(
 			}
 		}
 	}
+}
+
+// stopArm stops the arm within stopArmTimeout, regardless of whether ctx has been canceled.
+func stopArm(ctx context.Context, a arm.Arm) error {
+	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), stopArmTimeout)
+	defer cancel()
+	return a.Stop(stopCtx, nil)
 }
 
 func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {

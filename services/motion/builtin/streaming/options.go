@@ -7,7 +7,7 @@ import (
 	"math"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 )
 
 const (
@@ -17,12 +17,6 @@ const (
 	defaultAccelLimitRadPerSec2  = 10 * math.Pi / 180 // 10 deg/s^2
 	defaultDiagnosticsWindowSecs = 60
 )
-
-// JointPositionsChItem is one joint-space waypoint.
-type JointPositionsChItem struct {
-	// Positions are the target joint positions for this waypoint.
-	Positions []referenceframe.Input
-}
 
 // StreamOptions tunes the streaming executor.
 type StreamOptions struct {
@@ -88,9 +82,9 @@ func (o *StreamOptions) Validate() error {
 	return nil
 }
 
-// NewStreamOptions returns a StreamOptions containing the specified configuration values, or defaults for any values
-// that are passed in as nil.
-func NewStreamOptions(runwayMs, intervalMs, windowSecs *int32, move *arm.MoveOptions) StreamOptions {
+// NewStreamOptions returns a StreamOptions containing the configuration values set in opts, and
+// the defaults for any it leaves unset.
+func NewStreamOptions(opts motion.TempStreamOptions) StreamOptions {
 	o := StreamOptions{
 		ArmSideTargetRunwayMs: defaultArmSideTargetRunwayMs,
 		SendToArmIntervalMs:   defaultSendToArmIntervalMs,
@@ -100,16 +94,16 @@ func NewStreamOptions(runwayMs, intervalMs, windowSecs *int32, move *arm.MoveOpt
 		},
 		DiagnosticsWindowSecs: defaultDiagnosticsWindowSecs,
 	}
-	if runwayMs != nil {
-		o.ArmSideTargetRunwayMs = int(*runwayMs)
+	if opts.ArmSideTargetRunwayMs != nil {
+		o.ArmSideTargetRunwayMs = int(*opts.ArmSideTargetRunwayMs)
 	}
-	if intervalMs != nil {
-		o.SendToArmIntervalMs = int(*intervalMs)
+	if opts.SendToArmIntervalMs != nil {
+		o.SendToArmIntervalMs = int(*opts.SendToArmIntervalMs)
 	}
-	if windowSecs != nil {
-		o.DiagnosticsWindowSecs = int(*windowSecs)
+	if opts.DiagnosticsWindowSecs != nil {
+		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowSecs)
 	}
-	if move != nil {
+	if move := opts.MoveOptions; move != nil {
 		if move.MaxVelRads > 0 {
 			o.MoveOptions.MaxVelRads = move.MaxVelRads
 		}
