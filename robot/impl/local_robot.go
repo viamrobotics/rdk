@@ -901,7 +901,7 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 		allDeps[prefixedName] = res
 		// A composite dependency serves several co-equal APIs from one identity; key it under each of
 		// its API names so a dependent can resolve it by whichever API it expects.
-		for _, api := range r.coequalAPIsOf(prefixedName, res) {
+		for _, api := range r.coequalAPIsOf(res) {
 			aliased := resource.Name{API: api, Remote: prefixedName.Remote, Name: prefixedName.Name}
 			allDeps[aliased] = res
 		}
@@ -932,17 +932,9 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 }
 
 // coequalAPIsOf returns every API a composite dependency serves, or nil for an ordinary resource.
-// A modular composite is stored as a resource.MultiAPIResource, so APIsOf reports its full set; a
-// builtin composite is stored as its raw multi-API instance, whose set is recovered from the backing
-// graph node's model.
-func (r *localRobot) coequalAPIsOf(name resource.Name, res resource.Resource) []resource.API {
+func (r *localRobot) coequalAPIsOf(res resource.Resource) []resource.API {
 	if apis := resource.APIsOf(res); len(apis) > 1 {
 		return apis
-	}
-	if node, err := r.manager.resources.FindBySimpleNameAndAPI(name.Name, name.API); err == nil {
-		if apis := resource.APIsForModel(node.ResourceModel()); len(apis) > 1 {
-			return apis
-		}
 	}
 	return nil
 }
@@ -1098,7 +1090,7 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		// Otherwise a composite matched on a non-canonical API is dropped (the Subtype/Type matchers read
 		// Name().API, which is only the canonical API) and the consumer gets the wrapper, not the typed
 		// sub. For an ordinary resource this is n.API and a no-op unwrap.
-		apis := r.coequalAPIsOf(n, res)
+		apis := r.coequalAPIsOf(res)
 		if apis == nil {
 			apis = []resource.API{n.API}
 		}

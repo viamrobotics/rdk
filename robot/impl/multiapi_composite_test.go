@@ -90,19 +90,22 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings["reading"], test.ShouldEqual, 7)
 
-	// 2) A lookup by EACH co-equal API returns the SAME single instance as the api-less lookup.
+	// 2) A lookup by EACH co-equal API returns that API's sub-resource. A single-struct builtin
+	// composite is one object serving every API, so both lookups return the same instance, and the
+	// api-less handle (the composite wrapper) unwraps to that same instance.
 	bySensor, err := r.ResourceByName(sensor.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bySensor, test.ShouldEqual, res)
-
 	byGeneric, err := r.ResourceByName(resource.NewName(generic.API, "combo"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, byGeneric, test.ShouldEqual, res)
+	test.That(t, bySensor, test.ShouldEqual, byGeneric)
+	unwrapped, err := resource.AsType[sensor.Sensor](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bySensor, test.ShouldEqual, unwrapped)
 
-	// 3) In-process the api-less handle is the one raw instance, which natively implements every
-	// co-equal API — AsType extracts each. (APIsOf on a raw builtin instance reports only its single
-	// Name API; the modular composite handle, a resource.MultiAPIResource, reports the full set — see
-	// TestModularCompositeResource.)
+	// 3) The api-less handle is the composite wrapper, uniform with a modular composite: APIsOf reports
+	// the full co-equal set (not just the config API) and AsType extracts each served API.
+	test.That(t, resource.APIsOf(res), test.ShouldContain, sensor.API)
+	test.That(t, resource.APIsOf(res), test.ShouldContain, generic.API)
 	_, err = resource.AsType[sensor.Sensor](res)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = resource.AsType[resource.Resource](res)
