@@ -179,7 +179,7 @@ func TestClientStreamed(t *testing.T) {
 		test.That(t, gotOpts.MoveOptions.MaxAccRads, test.ShouldAlmostEqual, 2.5)
 	})
 
-	t.Run("server finishing before the caller closes targets is not an error", func(t *testing.T) {
+	t.Run("server breaking its contract by finishing before the caller closes targets is an error", func(t *testing.T) {
 		injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
 		injectMS.TempStreamArmJointPositionsFunc = func(
 			ctx context.Context,
@@ -190,7 +190,7 @@ func TestClientStreamed(t *testing.T) {
 			extra map[string]interface{},
 		) error {
 			// Done without reading a single target: the client is still feeding when the
-			// stream ends cleanly, so its send side is woken by the client's own cancel.
+			// stream ends without error.
 			return nil
 		}
 		conn := setupStreamedServer(t, logger, injectMS)
@@ -225,7 +225,7 @@ func TestClientStreamed(t *testing.T) {
 		}
 		close(responses)
 		<-drained
-		test.That(t, err2, test.ShouldBeNil)
+		test.That(t, errors.Is(err2, motion.ErrStreamEndedBeforeTargetsClosed), test.ShouldBeTrue)
 	})
 
 	// With the caller idle (targets open, nothing pushed, no cancel), only the recv side can learn
@@ -236,7 +236,7 @@ func TestClientStreamed(t *testing.T) {
 		implErr error
 	}{
 		{"server error reaches an idle caller", errors.New("boom")},
-		{"server finishing cleanly reaches an idle caller", nil},
+		{"server breaking its contract by returning cleanly reaches an idle caller", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
@@ -277,7 +277,7 @@ func TestClientStreamed(t *testing.T) {
 			close(responses)
 			<-drained
 			if tc.implErr == nil {
-				test.That(t, err, test.ShouldBeNil)
+				test.That(t, errors.Is(err, motion.ErrStreamEndedBeforeTargetsClosed), test.ShouldBeTrue)
 			} else {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.implErr.Error())
