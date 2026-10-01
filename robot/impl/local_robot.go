@@ -1647,7 +1647,13 @@ func dialRobotClient(
 	logger logging.Logger,
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
-	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...), client.WithRemoteName(config.Name)}
+	rOpts := []client.RobotClientOption{
+		client.WithDialOptions(dialOpts...),
+		client.WithRemoteName(config.Name),
+		// Track the remote's machine state so updateRemoteResourceNames can avoid removing resources
+		// a still-initializing remote has not rebuilt yet.
+		client.WithMachineStateTracking(),
+	}
 
 	if config.ConnectionCheckInterval != 0 {
 		rOpts = append(rOpts, client.WithCheckConnectedEvery(config.ConnectionCheckInterval))
