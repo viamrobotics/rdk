@@ -231,7 +231,7 @@ func (ms *builtIn) BuiltInReconfigure(
 		// (input-enabled) API: a single physical device is one frame with one CurrentInputs. Count
 		// DISTINCT kinematic subs by identity (via the shared framesystem helper) so a single-struct
 		// composite served under several kinematic APIs stays one chain, agreeing with the frame system
-		// and KinematicSub/MultiKinematic; only genuinely distinct InputEnabled subs make it
+		// and KinematicClassify; only genuinely distinct InputEnabled subs make it
 		// multi-kinematic, which is unsupported — log and refuse rather than silently pick one. With no
 		// kinematic sub, any sub works since it is not used for kinematics.
 		kinematic := framesystem.DistinctKinematicSubs(subs)

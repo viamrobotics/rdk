@@ -44,56 +44,51 @@ type InputEnabled interface {
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
-// KinematicSub returns the InputEnabled sub that makes a resource kinematic in the frame system, if
-// any. A plain kinematic component (arm/gantry/gripper) returns itself; a composite returns the one
-// co-equal sub that is InputEnabled, whose API need not be the one the resource is configured under.
-// Non-kinematic resources return (nil, false). A composite backed by two DISTINCT InputEnabled subs is
-// an unsupported multi-kinematic device and also returns (nil, false), matching how BuiltInReconfigure
-// refuses it, so the model-frame builder never adds a frame that CurrentInputs cannot service.
+// KinematicClassify classifies a resource for the frame system by its distinct InputEnabled subs:
+//   - (sub, true, false)  exactly one kinematic chain -- a plain kinematic component (arm/gantry/
+//     gripper), or a composite with one InputEnabled sub whose API need not be the configured one;
+//   - (nil, false, true)  an unsupported multi-kinematic composite (two DISTINCT InputEnabled subs),
+//     which the model-frame builder omits rather than modelling, matching how BuiltInReconfigure drops
+//     it, so no frame is added that CurrentInputs cannot service;
+//   - (nil, false, false) a non-kinematic resource.
 //
-// Distinctness is by sub identity, not by API count: a single struct authored to serve several kinematic
-// APIs is composed under each of them, so every API resolves to the same object (one CurrentInputs) and
-// is one chain; per-API facades are distinct objects and are the multi-kinematic case.
-func KinematicSub(res resource.Resource) (InputEnabled, bool) {
-	var found InputEnabled
-	for _, api := range resource.APIsOf(res) {
-		if ie, ok := resource.SubresourceForAPI(res, api).(InputEnabled); ok {
-			if found != nil && ie != found {
-				return nil, false
-			}
-			found = ie
-		}
+// Distinctness is by sub identity, not API count: a single struct authored to serve several kinematic
+// APIs is composed under each, so every API resolves to the same object (one CurrentInputs) and is one
+// chain; per-API facades are distinct objects and are the multi-kinematic case. Returning all three
+// outcomes in one pass lets the frame-parts builder classify a resource with a single call.
+func KinematicClassify(res resource.Resource) (sub InputEnabled, kinematic, multi bool) {
+	kin := kinematicSubsOf(res)
+	switch len(kin) {
+	case 0:
+		return nil, false, false
+	case 1:
+		ie, _ := kin[0].(InputEnabled)
+		return ie, true, false
+	default:
+		return nil, false, true
 	}
-	if found == nil {
-		return nil, false
-	}
-	return found, true
 }
 
-// MultiKinematic reports whether a resource is backed by more than one distinct InputEnabled sub. Such a
-// composite is an unsupported multi-kinematic device that the frame system omits rather than models,
-// matching how BuiltInReconfigure drops it. Several APIs served by one shared object are one chain, not
-// multi-kinematic (see KinematicSub on why distinctness is by identity).
-func MultiKinematic(res resource.Resource) bool {
-	var first InputEnabled
-	for _, api := range resource.APIsOf(res) {
-		if ie, ok := resource.SubresourceForAPI(res, api).(InputEnabled); ok {
-			if first != nil && ie != first {
-				return true
-			}
-			first = ie
-		}
+// kinematicSubsOf returns res's distinct InputEnabled subs by identity: one entry for a plain kinematic
+// resource or a single-struct composite, more than one for a multi-kinematic composite. KinematicClassify
+// reads through it (and through DistinctKinematicSubs) so every kinematic-distinctness decision -- here
+// and in both BuiltInReconfigure sites -- shares one implementation and cannot drift.
+func kinematicSubsOf(res resource.Resource) []resource.Resource {
+	apis := resource.APIsOf(res)
+	subs := make([]resource.Resource, 0, len(apis))
+	for _, api := range apis {
+		subs = append(subs, resource.SubresourceForAPI(res, api))
 	}
-	return false
+	return DistinctKinematicSubs(subs)
 }
 
 // DistinctKinematicSubs returns the InputEnabled subs among subs, deduplicated by identity. A single
 // object served under several kinematic APIs appears once per API alias but is one chain, so it
 // collapses to a single entry; genuinely distinct InputEnabled subs (per-API facades) stay separate,
 // and more than one entry is an unsupported multi-kinematic composite. Both frame-system and motion
-// BuiltInReconfigure use this so their multi-kinematic test agrees with KinematicSub/MultiKinematic
-// (identity, not API count) and with the model-frame builder; a count-based test would refuse a
-// single-struct composite the builder models as one chain and break its CurrentInputs.
+// BuiltInReconfigure use this so their multi-kinematic test agrees with KinematicClassify (identity,
+// not API count) and with the model-frame builder; a count-based test would refuse a single-struct
+// composite the builder models as one chain and break its CurrentInputs.
 func DistinctKinematicSubs(subs []resource.Resource) []resource.Resource {
 	var kinematic []resource.Resource
 	for _, sub := range subs {
@@ -308,7 +303,7 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	for name, subs := range componentsByName {
 		// Count DISTINCT kinematic subs by identity, not by API count. A single object served under
 		// several kinematic APIs (a single-struct composite) is composed under each, so it appears once
-		// per alias here but is ONE chain -- this must agree with KinematicSub/MultiKinematic, which the
+		// per alias here but is ONE chain -- this must agree with KinematicClassify, which the
 		// model-frame builder uses, or a composite the builder models as one chain would be refused here
 		// and leave CurrentInputs unserviceable. Only genuinely distinct InputEnabled subs (per-API
 		// facades) make a composite multi-kinematic, which the frame system does not support.
