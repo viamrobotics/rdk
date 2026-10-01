@@ -1500,7 +1500,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 		// Resolve the raw graph resource once, unambiguously by the configured name+API: the composite
 		// wrapper or the ordinary resource. `res` above is narrowed to the configured API's sub, whereas
-		// KinematicSub/ShapedSub below unwrap this across every served API, so a composite's kinematic or
+		// KinematicClassify/ShapedSub below unwrap this across every served API, so a composite's kinematic or
 		// geometry-providing sub is found even when it is not the configured API. Resolving by name+API
 		// (rather than the api-less short name) stays correct when a short name is shared. nil when the
 		// resource is unavailable or the node can't be resolved.
@@ -1531,14 +1531,15 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		}
 
 		// Detect kinematics by interface across every API the resource serves: a composite contributes a
-		// model frame when any co-equal sub is InputEnabled, even if its kinematic API is not the one it's
-		// configured under.
+		// model frame when a co-equal sub is InputEnabled, even if its kinematic API is not the one it's
+		// configured under. One classify call distinguishes single-kinematic, multi-kinematic, and
+		// non-kinematic.
 		var ie framesystem.InputEnabled
-		isKinematic := false
+		isKinematic, isMultiKinematic := false, false
 		if rawRes != nil {
-			ie, isKinematic = framesystem.KinematicSub(rawRes)
+			ie, isKinematic, isMultiKinematic = framesystem.KinematicClassify(rawRes)
 		}
-		if !isKinematic && rawRes != nil && framesystem.MultiKinematic(rawRes) {
+		if isMultiKinematic {
 			// A composite serving more than one kinematic API is unsupported. Omit it rather than add a
 			// static frame that would misrepresent a jointed device as rigid.
 			logger.Warnw("Composite serves multiple kinematic APIs; omitting from FrameSystem.", "resource", resConfig.Name)
