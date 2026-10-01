@@ -1497,7 +1497,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			if node, err := r.manager.resources.FindBySimpleNameAndAPI(
 				resConfig.Name, resConfig.ResourceName().API,
 			); err == nil {
-				rawRes, _ = node.Resource()
+				if nodeRes, resErr := node.Resource(); resErr == nil {
+					rawRes = nodeRes
+				}
 			}
 		}
 

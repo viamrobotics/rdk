@@ -497,14 +497,17 @@ func (f gripperFacade) Kinematics(context.Context) (referenceframe.Model, error)
 	return referenceframe.NewSimpleModel("gripper-kin"), nil
 }
 
-func (f gripperFacade) CurrentInputs(context.Context) ([]referenceframe.Input, error) { return nil, nil }
-func (f gripperFacade) GoToInputs(context.Context, ...[]referenceframe.Input) error   { return nil }
+func (f gripperFacade) CurrentInputs(context.Context) ([]referenceframe.Input, error) {
+	return nil, nil
+}
+func (f gripperFacade) GoToInputs(context.Context, ...[]referenceframe.Input) error { return nil }
 
 // servoFacade serves servo.Servo. It is also framesystem.InputEnabled, so a gripper+servo composite is
 // multi-kinematic (two InputEnabled subs).
 type servoFacade struct{ *comboFacadeDevice }
 
-func (f servoFacade) Move(context.Context, uint32, map[string]interface{}) error       { return nil }
+func (f servoFacade) Move(context.Context, uint32, map[string]interface{}) error { return nil }
+
 func (f servoFacade) Position(context.Context, map[string]interface{}) (uint32, error) { return 0, nil }
 
 func (f servoFacade) Kinematics(context.Context) (referenceframe.Model, error) {
