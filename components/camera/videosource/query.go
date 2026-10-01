@@ -46,7 +46,7 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 			if conf.Height > 0 {
 				constraint.Height = prop.IntExact(conf.Height)
 			} else {
-				constraint.Height = prop.IntRanged{Min: minResolutionDimension, Ideal: 360, Max: 2160}
+				constraint.Height = prop.IntRanged{Min: minResolutionDimension, Ideal: 480, Max: 2160}
 			}
 
 			if conf.FrameRate > 0.0 {
