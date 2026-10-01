@@ -2,8 +2,17 @@
 package detection3d
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 // Detection is one perceived object, described as a tree of transforms.
@@ -17,4 +26,47 @@ type Detection struct {
 	Transforms      []*referenceframe.LinkInFrame
 	Classifications classification.Classifications
 	Metadata        map[string]interface{}
+}
+
+// Detector returns the 3D detections perceived through src.
+type Detector func(ctx context.Context, src camera.Camera) ([]*Detection, error)
+
+// FromSegmenter adapts a Segmenter whose objects are point cloud clusters in src's frame into a Detector.
+//
+// Each object becomes a root transform named "<namePrefix>/object-<i>", parented to src at the object's geometry pose
+// and carrying that geometry recentered on the root, plus a "<root>/points" child carrying the cluster's points in the
+// root frame. Root names are only unique within one call, since segmenters do not track objects across calls.
+//
+// An object carries one geometry and no confidence scores, so producers that know more, such as an object's parts,
+// its class scores, or a frame other than src's, should build Detections directly instead.
+func FromSegmenter(namePrefix string, seg segmentation.Segmenter) Detector {
+	return func(ctx context.Context, src camera.Camera) ([]*Detection, error) {
+		objects, err := seg(ctx, src)
+		if err != nil {
+			return nil, err
+		}
+		parent := src.Name().ShortName()
+		detections := make([]*Detection, 0, len(objects))
+		for i, obj := range objects {
+			name := fmt.Sprintf("%s/object-%d", namePrefix, i)
+			rootPose := spatialmath.NewZeroPose()
+			var rootGeom spatialmath.Geometry
+			if obj.Geometry != nil {
+				rootPose = obj.Geometry.Pose()
+				rootGeom = obj.Geometry.Transform(spatialmath.PoseInverse(rootPose))
+			}
+			transforms := []*referenceframe.LinkInFrame{referenceframe.NewLinkInFrame(parent, rootPose, name, rootGeom)}
+
+			if obj.PointCloud != nil && obj.PointCloud.Size() > 0 {
+				octree, err := pointcloud.ToBasicOctree(obj.PointCloud, 0)
+				if err != nil {
+					return nil, errors.Wrapf(err, "object %d", i)
+				}
+				points := octree.Transform(spatialmath.PoseInverse(rootPose))
+				transforms = append(transforms, referenceframe.NewLinkInFrame(name, spatialmath.NewZeroPose(), name+"/points", points))
+			}
+			detections = append(detections, &Detection{Transforms: transforms})
+		}
+		return detections, nil
+	}
 }

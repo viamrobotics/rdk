@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/utils"
 	visionObject "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/detection3d"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/viscapture"
 )
@@ -65,6 +66,7 @@ func TestDefaultCameraSettings(t *testing.T) {
 	var c simpleClassifier
 	var d simpleDetector
 	var s simpleSegmenter
+	detector3D := detection3d.FromSegmenter("testService", s.Segment)
 
 	fakeCamera := &inject.Camera{
 		ImagesFunc: func(
@@ -91,7 +93,7 @@ func TestDefaultCameraSettings(t *testing.T) {
 		return logging.NewTestLogger(t)
 	}
 
-	svc, err := vision.DeprecatedNewService(vision.Named("testService"), &r, nil, c.Classify, d.Detect, s.Segment, testCameraName)
+	svc, err := vision.DeprecatedNewService(vision.Named("testService"), &r, nil, c.Classify, d.Detect, detector3D, testCameraName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
@@ -108,7 +110,7 @@ func TestDefaultCameraSettings(t *testing.T) {
 	// test *FromCamera methods with no default camera or camera name (should throw error)
 	noCameraError := "no camera name provided and no default camera found"
 
-	svc, err = vision.DeprecatedNewService(vision.Named("testService"), &r, nil, c.Classify, d.Detect, s.Segment, "")
+	svc, err = vision.DeprecatedNewService(vision.Named("testService"), &r, nil, c.Classify, d.Detect, detector3D, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
@@ -138,7 +140,7 @@ func TestDefaultCameraSettings(t *testing.T) {
 			return nil, errors.New("camera not found")
 		}
 	}
-	svc, err = vision.DeprecatedNewService(vision.Named("testService"), &r, nil, c.Classify, d.Detect, s.Segment, testCameraName)
+	svc, err = vision.DeprecatedNewService(vision.Named("testService"), &r, nil, c.Classify, d.Detect, detector3D, testCameraName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
