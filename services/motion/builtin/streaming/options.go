@@ -36,6 +36,13 @@ type StreamOptions struct {
 	// 0 disables retention of that history, though whole-run diagnostic stats are still
 	// collected regardless.
 	DiagnosticsWindowSecs int
+
+	// MaxTrajexRunwayMs, when positive, backpressures the pusher: a pushed target is
+	// only accepted while the not-yet-sampled trajectory buffered inside the trajex
+	// session is below this duration, and the push blocks otherwise. 0 (the default)
+	// disables the gate, restoring trajex's native behavior of accepting targets
+	// without bound.
+	MaxTrajexRunwayMs int
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
@@ -79,6 +86,9 @@ func (o *StreamOptions) Validate() error {
 	if o.DiagnosticsWindowSecs < 0 {
 		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")
 	}
+	if o.MaxTrajexRunwayMs < 0 {
+		return errors.New("streaming: max_trajex_runway_ms must be non-negative")
+	}
 	return nil
 }
 
@@ -102,6 +112,9 @@ func NewStreamOptions(opts motion.TempStreamOptions) StreamOptions {
 	}
 	if opts.DiagnosticsWindowSecs != nil {
 		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowSecs)
+	}
+	if opts.MaxTrajexRunwayMs != nil {
+		o.MaxTrajexRunwayMs = int(*opts.MaxTrajexRunwayMs)
 	}
 	if move := opts.MoveOptions; move != nil {
 		if move.MaxVelRads > 0 {

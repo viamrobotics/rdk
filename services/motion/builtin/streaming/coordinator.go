@@ -11,6 +11,7 @@ import (
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
@@ -24,9 +25,18 @@ import (
 // estimate of how much runway the arm has buffered on its side, and only samples out of
 // trajex enough to keep that runway topped up to the user-configured ArmSideTargetRunwayMs.
 //
-// Trajex, however, does not provide any backpressure to the client: If the client sends
+// Trajex itself does not provide any backpressure to the client: If the client sends
 // joint positions faster than the arm executes them as per the trajectory output by trajex,
-// trajectory simply accumulates inside the trajex session.
+// trajectory simply accumulates inside the trajex session. When opts.MaxTrajexRunwayMs is
+// positive, `Run` provides that backpressure instead: it stops receiving from jpCh while
+// the trajectory buffered inside trajex exceeds that cap, so the pusher stays blocked in
+// its channel send until sampling drains the runway back under the cap.
+//
+// That gate only reaches a remote pusher through the RPC's flow control, which buffers many
+// targets before the pusher's send blocks. So when acks is non-nil, `Run` also sends one
+// acknowledgment per target once the target has passed the gate and been added to the
+// trajectory. A pusher that waits for the acknowledgment before sending its next target is
+// paced by execution regardless of what the transport buffers.
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
 // executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
@@ -37,6 +47,7 @@ func Run(
 	jpCh <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diagnostics *diagnostics.SingleSessionDiagnostics,
+	acks chan<- motion.TempStreamResponse,
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err
@@ -77,18 +88,28 @@ func Run(
 	defer ts.close()
 
 	targetRunway := time.Duration(opts.ArmSideTargetRunwayMs) * time.Millisecond
+	maxTrajexRunway := time.Duration(opts.MaxTrajexRunwayMs) * time.Millisecond
 
 	sendToArmTicker := time.NewTicker(time.Duration(opts.SendToArmIntervalMs) * time.Millisecond)
 	defer sendToArmTicker.Stop()
 
 	for {
+		// While the trajectory buffered inside trajex is over the cap, receive from a nil
+		// channel instead of jpCh so no new target can be accepted; the ticker case still
+		// samples trajectory out toward the arm, and the gate reopens once that drains the
+		// runway under the cap. Ending the session (ctx cancellation here, flush or abort
+		// on the pusher's side) unblocks a gated push through the existing paths.
+		gatedJpCh := jpCh
+		if maxTrajexRunway > 0 && ts.trajexRunway() >= maxTrajexRunway {
+			gatedJpCh = nil
+		}
 		select {
 		// Cancel was called.
 		case <-ctx.Done():
 			return ctx.Err()
 
 		// A new set of joint positions is available.
-		case jp, ok := <-jpCh:
+		case jp, ok := <-gatedJpCh:
 			if !ok {
 				// jpCh closed: no more targets can arrive, so nothing can pivot the remaining
 				// trajectory. Send all of it to the arm now, in targetRunway-sized batches.
@@ -110,6 +131,13 @@ func Run(
 			// Add the new joint positions to the trajex session.
 			if err := ts.addJointPositionsToSession(ctx, jp); err != nil {
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
+			}
+			if acks != nil {
+				select {
+				case acks <- motion.TempStreamResponse{}:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
 
 			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())

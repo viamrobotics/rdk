@@ -419,6 +419,12 @@ type Service interface {
 	// owns both channels: it writes and closes targets, and it closes responses after the
 	// implementation returns. So an implementation only reads targets and only writes responses,
 	// and must not close either.
+	//
+	// The builtin implementation acknowledges each target once it has been admitted past its
+	// backpressure gate (see TempStreamOptions.MaxTrajexRunwayMs) and added to the trajectory.
+	// The transport buffers many targets before a blocked server is felt by the sender, so a
+	// client that wants to be paced by execution must wait for each acknowledgment before
+	// sending its next target rather than rely on its send blocking.
 	TempStreamArmJointPositions(
 		ctx context.Context,
 		armName string,
@@ -453,6 +459,7 @@ type TempStreamOptions struct {
 	SendToArmIntervalMs   *int32
 	DiagnosticsWindowSecs *int32
 	MoveOptions           *arm.MoveOptions
+	MaxTrajexRunwayMs     *int32
 }
 
 // TempStreamResponse is the per-acknowledgment payload an implementation may emit on

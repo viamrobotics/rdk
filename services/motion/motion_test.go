@@ -1464,7 +1464,7 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 }
 
 func TestTempStreamOptions(t *testing.T) {
-	runway, interval, window := int32(100), int32(10), int32(60)
+	runway, interval, window, runwayCap := int32(100), int32(10), int32(60), int32(200)
 	moveOptsPB := &armpb.MoveOptions{MaxVelDegsPerSec: ptr(90.), MaxAccDegsPerSec2: ptr(180.)}
 	moveOpts := arm.MoveOptionsFromProtobuf(moveOptsPB)
 
@@ -1492,12 +1492,14 @@ func TestTempStreamOptions(t *testing.T) {
 					SendToArmIntervalMs:   &interval,
 					DiagnosticsWindowSecs: &window,
 					MoveOptions:           moveOptsPB,
+					MaxTrajexRunwayMs:     &runwayCap,
 				},
 				result: TempStreamOptions{
 					ArmSideTargetRunwayMs: &runway,
 					SendToArmIntervalMs:   &interval,
 					DiagnosticsWindowSecs: &window,
 					MoveOptions:           moveOpts,
+					MaxTrajexRunwayMs:     &runwayCap,
 				},
 			},
 		}
@@ -1527,12 +1529,14 @@ func TestTempStreamOptions(t *testing.T) {
 					SendToArmIntervalMs:   &interval,
 					DiagnosticsWindowSecs: &window,
 					MoveOptions:           moveOpts,
+					MaxTrajexRunwayMs:     &runwayCap,
 				},
 				result: &pb.TempStreamOptions{
 					ArmSideTargetRunwayMs: &runway,
 					SendToArmIntervalMs:   &interval,
 					DiagnosticsWindowSecs: &window,
 					MoveOptions:           moveOpts.ToProtobuf(),
+					MaxTrajexRunwayMs:     &runwayCap,
 				},
 			},
 		}
@@ -1549,6 +1553,7 @@ func TestTempStreamOptions(t *testing.T) {
 			SendToArmIntervalMs:   &interval,
 			DiagnosticsWindowSecs: &window,
 			MoveOptions:           moveOpts,
+			MaxTrajexRunwayMs:     &runwayCap,
 		}
 		test.That(t, tempStreamOptionsFromProto(tempStreamOptionsToProto(input)), test.ShouldResemble, input)
 	})

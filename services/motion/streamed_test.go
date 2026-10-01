@@ -145,12 +145,13 @@ func TestClientStreamed(t *testing.T) {
 		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		runway, interval, window := int32(100), int32(10), int32(60)
+		runway, interval, window, runwayCap := int32(100), int32(10), int32(60), int32(200)
 		opts := motion.TempStreamOptions{
 			ArmSideTargetRunwayMs: &runway,
 			SendToArmIntervalMs:   &interval,
 			DiagnosticsWindowSecs: &window,
 			MoveOptions:           &arm.MoveOptions{MaxVelRads: 1.5, MaxAccRads: 2.5},
+			MaxTrajexRunwayMs:     &runwayCap,
 		}
 		waypoints := [][]referenceframe.Input{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}
 		respCount, err := driveStreamed(
@@ -174,6 +175,7 @@ func TestClientStreamed(t *testing.T) {
 		test.That(t, *gotOpts.ArmSideTargetRunwayMs, test.ShouldEqual, runway)
 		test.That(t, *gotOpts.SendToArmIntervalMs, test.ShouldEqual, interval)
 		test.That(t, *gotOpts.DiagnosticsWindowSecs, test.ShouldEqual, window)
+		test.That(t, *gotOpts.MaxTrajexRunwayMs, test.ShouldEqual, runwayCap)
 		test.That(t, gotOpts.MoveOptions, test.ShouldNotBeNil)
 		test.That(t, gotOpts.MoveOptions.MaxVelRads, test.ShouldAlmostEqual, 1.5)
 		test.That(t, gotOpts.MoveOptions.MaxAccRads, test.ShouldAlmostEqual, 2.5)
@@ -558,6 +560,7 @@ func TestClientStreamed(t *testing.T) {
 		test.That(t, gotOpts.SendToArmIntervalMs, test.ShouldBeNil)
 		test.That(t, gotOpts.DiagnosticsWindowSecs, test.ShouldBeNil)
 		test.That(t, gotOpts.MoveOptions, test.ShouldBeNil)
+		test.That(t, gotOpts.MaxTrajexRunwayMs, test.ShouldBeNil)
 	})
 
 	t.Run("server converts wire degrees to radians", func(t *testing.T) {
