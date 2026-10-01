@@ -55,18 +55,28 @@ func Run(
 			// cancel()), but if the arm independently errored just before
 			// cancel(), as.close() will return that error instead.
 			cancel()
-			err = multierr.Combine(err, as.close())
+			if closeErr := as.close(); closeErr != nil {
+				err = multierr.Combine(err, fmt.Errorf("failed to close arm stream: %w", closeErr))
+			}
 
 			// Wait for the arm to stop.
-			err = multierr.Combine(err, stopArm(ctx, a))
+			if stopErr := stopArm(ctx, a); stopErr != nil {
+				err = multierr.Combine(err, fmt.Errorf("failed to stop arm, arm not guaranteed to be stopped: %w", stopErr))
+			} else {
+				err = fmt.Errorf("arm stopped after session error: %w", err)
+			}
 			return
 		}
 		// On success, close first to signal that the RPC can finish.
 		// This blocks until the arm reports that it has completed executing the stream.
-		err = as.close()
-		if err != nil {
+		if closeErr := as.close(); closeErr != nil {
+			err = fmt.Errorf("failed to close arm stream: %w", closeErr)
 			// Wait for the arm to stop.
-			err = multierr.Combine(err, stopArm(ctx, a))
+			if stopErr := stopArm(ctx, a); stopErr != nil {
+				err = multierr.Combine(err, fmt.Errorf("failed to stop arm, arm not guaranteed to be stopped: %w", stopErr))
+			} else {
+				err = fmt.Errorf("arm stopped after session error: %w", err)
+			}
 		}
 		cancel()
 	}()
