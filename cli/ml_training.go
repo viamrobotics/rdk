@@ -150,10 +150,11 @@ type mlListContainersArgs struct {
 
 type prettyPrintContainer struct {
 	Name        string
-	EndOfLife   string
+	EndOfLife   string `json:",omitempty"`
 	Description string
-	Framework   string
+	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
+	CreatedOn   string `json:",omitempty"`
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
@@ -187,6 +188,42 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		return err
 	}
 	printf(cmd.Root().Writer, "%s", b)
+	return nil
+}
+
+type registerContainersArgs struct {
+	OrgID       string
+	URI         string
+	Description string
+}
+
+// RegisterContainer is the corresponding action for 'train containers register'.
+func RegisterContainer(ctx context.Context, cmd *cli.Command, args registerContainersArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
+	}
+	if args.Description == "" {
+		return errors.New("must provide a description")
+	}
+
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	description := args.Description
+
+	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
+		&mltrainingpb.RegisterCustomTrainingContainerRequest{
+			OrganizationId: args.OrgID,
+			ImageUri:       args.URI,
+			Description:    description,
+		})
+	if err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "Container successfully registered. Container ID: %s", resp.Id)
 	return nil
 }
 
