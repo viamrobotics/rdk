@@ -90,6 +90,14 @@ type graphStorage struct {
 	compositeByAPI map[simpleNameKey]*GraphNode
 }
 
+// compositeAPIsForNode returns the co-equal API set the node's composite model serves, or nil if it
+// is not a composite. Both the compositeByAPI index (resolution) and ExpandCompositeNames
+// (advertisement) read a node's API set through here, from the same accessor (the configured model),
+// so the APIs that resolve for a composite can never drift from the APIs it is advertised under.
+func compositeAPIsForNode(node *GraphNode) []API {
+	return APIsForModel(node.Config().Model)
+}
+
 // indexCompositeAPIs records a local composite node under each of its non-configured co-equal API
 // keys in compositeByAPI, so any of its APIs resolves directly. The co-equal set comes from the node's
 // configured model, which is known by the time the node is cached. No-op for a remote node or an
@@ -98,7 +106,7 @@ func (s graphStorage) indexCompositeAPIs(name Name, node *GraphNode) {
 	if name.Remote != "" {
 		return
 	}
-	apis := APIsForModel(node.Config().Model)
+	apis := compositeAPIsForNode(node)
 	if len(apis) < 2 {
 		return
 	}
@@ -215,13 +223,19 @@ func (s graphStorage) Copy() graphStorage {
 
 func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	val := s.simpleNameCache[simpleNameKey{name, api}]
-	if val == nil {
-		// Not cached under this exact api. It may be a co-equal API of a local composite, whose one
-		// node is cached in simpleNameCache under only its configured api; compositeByAPI maps its other
-		// co-equal APIs to it directly (O(1), maintained at write time).
+	// A local composite serves this api as a co-equal (non-configured) API: its one node is cached in
+	// simpleNameCache under only its configured api, and compositeByAPI maps its other co-equal APIs to
+	// it directly (O(1), maintained at write time). A local resource wins its simple name over any
+	// same-named remote, and a local composite's co-equal API is a local claimant too — so consult the
+	// index whenever there is no direct LOCAL entry under this api, even if a remote claims the name.
+	// Otherwise a remote advertising the composite's bare name under one of its co-equal APIs would
+	// shadow the local composite, violating "local wins."
+	if val == nil || val.local == nil {
 		if node, ok := s.compositeByAPI[simpleNameKey{name, api}]; ok {
 			return node, nil
 		}
+	}
+	if val == nil {
 		return nil, &NodeNotFoundError{name, api}
 	}
 	if val.local != nil {
@@ -629,7 +643,7 @@ func (g *Graph) ExpandCompositeNames(names []Name) []Name {
 			out = append(out, n)
 			continue
 		}
-		apis := APIsForModel(node.ResourceModel())
+		apis := compositeAPIsForNode(node)
 		if len(apis) < 2 {
 			out = append(out, n)
 			continue
