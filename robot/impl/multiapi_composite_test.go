@@ -448,7 +448,8 @@ func (f gripperFacade) GoToInputs(context.Context, ...[]referenceframe.Input) er
 // multi-kinematic (two InputEnabled subs).
 type servoFacade struct{ *comboFacadeDevice }
 
-func (f servoFacade) Move(context.Context, uint32, map[string]interface{}) error       { return nil }
+func (f servoFacade) Move(context.Context, uint32, map[string]interface{}) error { return nil }
+
 func (f servoFacade) Position(context.Context, map[string]interface{}) (uint32, error) { return 0, nil }
 
 func (f servoFacade) Kinematics(context.Context) (referenceframe.Model, error) {
