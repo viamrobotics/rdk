@@ -33,6 +33,7 @@ import (
 	"go.viam.com/utils/trace"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
@@ -91,6 +92,8 @@ var (
 	latencyWarningThresholdMs = 1000.0
 )
 
+type connectionMaintenanceKey struct{}
+
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
@@ -117,6 +120,7 @@ type RobotClient struct {
 	client                   pb.RobotServiceClient
 	refClient                *grpcreflect.Client
 	connected                atomic.Bool
+	connectionGeneration     atomic.Uint64
 	rpcSubtypesUnimplemented bool
 	withoutRPCSubtypes       bool
 	resourcesTimeout         time.Duration
@@ -237,12 +241,25 @@ func (rc *RobotClient) handleUnaryDisconnect(
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 
+	generation := rc.connectionGeneration.Load()
+	if cc != nil && cc.GetState() == connectivity.Shutdown && ctx.Err() == nil && ctx.Value(connectionMaintenanceKey{}) == nil {
+		if err := rc.connect(ctx, &generation); err != nil {
+			return err
+		}
+		return rc.conn.Invoke(ctx, method, req, reply, opts...)
+	}
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().CDebugw(ctx, "connection is down, skipping method call", "method", method)
 		return status.Error(codes.Unavailable, err.Error())
 	}
 
 	err := invoker(ctx, method, req, reply, cc, opts...)
+	if err != nil && cc != nil && cc.GetState() == connectivity.Shutdown && ctx.Err() == nil && ctx.Value(connectionMaintenanceKey{}) == nil {
+		// The request may have executed. Repair the connection without replaying it.
+		if reconnectErr := rc.connect(ctx, &generation); reconnectErr != nil {
+			return multierr.Combine(err, reconnectErr)
+		}
+	}
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isDisconnectedError(err) {
@@ -283,12 +300,24 @@ func (rc *RobotClient) handleStreamDisconnect(
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 
+	generation := rc.connectionGeneration.Load()
+	if cc != nil && cc.GetState() == connectivity.Shutdown && ctx.Err() == nil && ctx.Value(connectionMaintenanceKey{}) == nil {
+		if err := rc.connect(ctx, &generation); err != nil {
+			return nil, err
+		}
+		return rc.conn.NewStream(ctx, desc, method, opts...)
+	}
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().CDebugw(ctx, "connection is down, skipping method call", "method", method)
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 
 	cs, err := streamer(ctx, desc, cc, method, opts...)
+	if err != nil && cc != nil && cc.GetState() == connectivity.Shutdown && ctx.Err() == nil && ctx.Value(connectionMaintenanceKey{}) == nil {
+		if reconnectErr := rc.connect(ctx, &generation); reconnectErr != nil {
+			return nil, multierr.Combine(err, reconnectErr)
+		}
+	}
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isDisconnectedError(err) {
@@ -332,6 +361,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		withoutRPCSubtypes:  rOpts.withoutRPCSubtypes,
 		resourcesTimeout:    defaultResourcesTimeout,
 	}
+	rc.client = pb.NewRobotServiceClient(&rc.conn)
 	if rOpts.resourcesTimeout != nil && *rOpts.resourcesTimeout > 0 {
 		rc.resourcesTimeout = *rOpts.resourcesTimeout
 	}
@@ -540,7 +570,15 @@ func (rc *RobotClient) Changed() <-chan bool {
 
 // Connect will close any existing connection and try to reconnect to the remote.
 func (rc *RobotClient) Connect(ctx context.Context) error {
-	if err := rc.connectWithLock(ctx); err != nil {
+	return rc.connect(ctx, nil)
+}
+
+func (rc *RobotClient) connect(ctx context.Context, generation *uint64) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stop := context.AfterFunc(rc.backgroundCtx, cancel)
+	defer stop()
+	if err := rc.connectWithLock(ctx, generation); err != nil {
 		return err
 	}
 	rc.Logger().CInfow(ctx, "successfully (re)connected to remote at address", "address", rc.address)
@@ -568,11 +606,17 @@ func dialUnreachableErr(err error) bool {
 	return true
 }
 
-func (rc *RobotClient) connectWithLock(ctx context.Context) error {
+func (rc *RobotClient) connectWithLock(ctx context.Context, generation *uint64) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
+	if err := rc.backgroundCtx.Err(); err != nil {
+		return context.Cause(rc.backgroundCtx)
+	}
+	if generation != nil && *generation != rc.connectionGeneration.Load() {
+		return nil
+	}
 
-	if err := rc.conn.Close(); err != nil {
+	if err := rc.conn.Close(); err != nil && !errors.Is(err, status.Error(codes.Canceled, "grpc: the client connection is closing")) {
 		return err
 	}
 
@@ -644,12 +688,13 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		return err
 	}
 
-	client := pb.NewRobotServiceClient(conn)
-
+	if err := ctx.Err(); err != nil {
+		return multierr.Combine(err, conn.Close())
+	}
 	refClient := grpcreflect.NewClientV1Alpha(rc.backgroundCtx, reflectpb.NewServerReflectionClient(conn))
 
 	rc.conn.ReplaceConn(conn)
-	rc.client = client
+	rc.connectionGeneration.Add(1)
 	rc.refClient = refClient
 	rc.connected.Store(true)
 	if len(rc.resourceClients) != 0 {
@@ -659,7 +704,11 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	}
 
 	if rc.changeChan != nil {
-		rc.changeChan <- true
+		select {
+		case rc.changeChan <- true:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	return nil
 }
@@ -878,7 +927,8 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 		return grpc.NewForeignResource(name, rc.getClientConn()), nil
 	}
 	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
-	return apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger)
+	return apiInfo.RPCClient(context.WithValue(rc.backgroundCtx, connectionMaintenanceKey{}, true),
+		rc.getClientConn(), rc.remoteName, name, logger)
 }
 
 // resourcesCallCtx bounds one call, so a slow call cannot eat the time the next one needs.
@@ -886,6 +936,8 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 // RSDK-5356: never bound in tests. They run in parallel, and a pause longer than the
 // timeout surfaces context errors out of client.New and remote logic.
 func (rc *RobotClient) resourcesCallCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	// Maintenance runs under mu; let its caller handle disconnects instead of reentering Connect.
+	ctx = context.WithValue(ctx, connectionMaintenanceKey{}, true)
 	if testing.Testing() {
 		return ctx, func() {}
 	}
