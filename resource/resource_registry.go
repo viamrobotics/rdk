@@ -326,6 +326,12 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 // the API set is recorded for models serving more than one. With a single API it behaves exactly
 // like RegisterComponent/RegisterService and records no multi-API set. It panics on an empty API
 // list.
+//
+// For a model serving more than one API the stored constructor is wrapped so that its result is
+// always a MultiAPIResource: a builtin author may return one struct that implements every served API,
+// and the wrapper composes it under each API so every consumer resolves the composite the same way as
+// a Compose-authored one (uniform APIsOf, one unwrap contract). A result that is already a
+// MultiAPIResource (authored via Compose) is left untouched.
 func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, model Model, reg Registration[ResourceT, ConfigT]) {
 	if len(apis) == 0 {
 		panic(errors.Errorf("RegisterMultiAPI requires at least one api for model: %q", model))
@@ -334,6 +340,45 @@ func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, m
 		Register(api, model, reg)
 	}
 	RegisterMultiAPISet(model, apis)
+	if len(apis) < 2 {
+		return
+	}
+	composeSingleStructComposite(model)
+}
+
+// composeSingleStructComposite rewrites the stored constructor for each API of a multi-API model so a
+// single-struct result is composed into a MultiAPIResource aliased under every served API. It runs
+// after Register/RegisterMultiAPISet, reading back the sorted co-equal set recorded by the latter.
+func composeSingleStructComposite(model Model) {
+	sorted := APIsForModel(model)
+	if len(sorted) < 2 {
+		return
+	}
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	for _, api := range sorted {
+		apiModel := APIModel{api, model}
+		stored, ok := registry[apiModel]
+		if !ok || stored.Constructor == nil {
+			continue
+		}
+		inner := stored.Constructor
+		stored.Constructor = func(ctx context.Context, deps Dependencies, conf Config, logger logging.Logger) (Resource, error) {
+			res, err := inner(ctx, deps, conf, logger)
+			if err != nil || res == nil {
+				return res, err
+			}
+			if _, already := res.(MultiAPIResource); already {
+				return res, nil
+			}
+			byAPI := make(map[API]Resource, len(sorted))
+			for _, a := range sorted {
+				byAPI[a] = res
+			}
+			return NewMultiAPIResource(conf.ResourceName(), sorted, byAPI), nil
+		}
+		registry[apiModel] = stored
+	}
 }
 
 // RegisterMultiAPISet records the set of co-equal APIs a composite model serves without registering
