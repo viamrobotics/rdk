@@ -3,8 +3,6 @@ min_version = '2026.8.16'
 [tools]
 go = "1.25"
 golangci-lint = "2.13.2"
-"go:github.com/AlekSi/gocov-xml" = "v1.0.0"
-"go:github.com/axw/gocov/gocov" = "v1.1.0"
 gotestsum = "1.12.2"
 buf = "v1.71.0"
 actionlint = "v1.7.8"
