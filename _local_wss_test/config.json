@@ -1,0 +1,82 @@
+{
+  "components": [
+    {
+      "name": "arm",
+      "namespace": "rdk",
+      "type": "arm",
+      "model": "simulated",
+      "attributes": {
+        "arm-model": "ur5e",
+        "simulate-time": true,
+        "speed": 1.0
+      },
+      "frame": {
+        "parent": "world",
+        "translation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "orientation": {
+          "type": "ov_degrees",
+          "value": {
+            "x": 0,
+            "y": 0,
+            "z": 1,
+            "th": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "table",
+      "namespace": "rdk",
+      "type": "generic",
+      "model": "fake",
+      "attributes": {},
+      "frame": {
+        "parent": "world",
+        "translation": {
+          "x": 0,
+          "y": 0,
+          "z": -5
+        },
+        "orientation": {
+          "type": "ov_degrees",
+          "value": {
+            "x": 0,
+            "y": 0,
+            "z": 1,
+            "th": 0
+          }
+        },
+        "geometry": {
+          "type": "box",
+          "x": 1000,
+          "y": 1000,
+          "z": 10
+        }
+      }
+    }
+  ],
+  "services": [
+    {
+      "name": "worldstate",
+      "namespace": "rdk",
+      "type": "world_state_store",
+      "model": "fake",
+      "attributes": {
+        "input_sensor_type": "depth_camera",
+        "parent_frame": "world"
+      }
+    },
+    {
+      "name": "builtin",
+      "api": "rdk:service:motion",
+      "model": "rdk:builtin:builtin",
+      "attributes": {
+        "world_state_store_service_name": "worldstate"
+      }
+    }
+  ]
+}
