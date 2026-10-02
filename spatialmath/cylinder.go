@@ -200,11 +200,30 @@ func (c *Cylinder) buildMesh() *Mesh {
 	return NewMesh(c.pose, tris, c.label)
 }
 
-// ToProtobuf is not implemented for Cylinder: there is no Cylinder message in
-// commonpb. Any attempt to serialize a Cylinder over gRPC must be intercepted
-// upstream. This panic is intentional and load-bearing.
+// ToProtobuf converts the Cylinder to its protobuf representation.
+//
+// uncapped is the negation of capped, so the proto3 default (false) is the solid
+// cylinder: the overwhelmingly common case, what NewCylinder builds, and what a
+// cylinder means in URDF and SDF.
+//
+// Note this is a defaulting convention, not a safety guarantee. Cylinder
+// collision goes through the tessellated mesh, which is a surface: a point fully
+// inside a "solid" cylinder does not register a collision, where the same point
+// inside a box, sphere or capsule does. Capping therefore adds two zero-thickness
+// cap discs rather than filling the interior, and reading an open tube as solid
+// is not automatically the conservative direction.
 func (c *Cylinder) ToProtobuf() *commonpb.Geometry {
-	panic("Cylinder.ToProtobuf: unimplemented -- no Cylinder message in commonpb")
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(c.pose),
+		GeometryType: &commonpb.Geometry_Cylinder{
+			Cylinder: &commonpb.Cylinder{
+				RadiusMm: c.radius,
+				HeightMm: c.height,
+				Uncapped: !c.capped,
+			},
+		},
+		Label: c.label,
+	}
 }
 
 // asMeshIfCylinder converts g to its mesh form when g is a *Cylinder. Mesh's
