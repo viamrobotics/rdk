@@ -110,7 +110,6 @@ type RobotClient struct {
 	mu                       sync.RWMutex
 	resourceNames            []resource.Name
 	machineState             robot.MachineState
-	trackMachineState        bool
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
 	changeChan               chan bool
@@ -333,7 +332,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		heartbeatCtxCancel:  heartbeatCtxCancel,
 		withoutRPCSubtypes:  rOpts.withoutRPCSubtypes,
 		resourcesTimeout:    defaultResourcesTimeout,
-		trackMachineState:   rOpts.trackMachineState,
 	}
 	if rOpts.resourcesTimeout != nil && *rOpts.resourcesTimeout > 0 {
 		rc.resourcesTimeout = *rOpts.resourcesTimeout
@@ -982,11 +980,10 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	rc.resourceNames = make([]resource.Name, 0, len(names))
 	rc.resourceNames = append(rc.resourceNames, names...)
 	rc.resourceRPCAPIs.Store(&rpcAPIs)
-	// Only parent robots that dial this client as a remote opt into state tracking, and only until
-	// the remote reports running: a running machine does not revert to initializing without
-	// reconnecting (which resets machineState), so once running there is nothing to re-poll. This
-	// keeps the extra GetMachineStatus call off ordinary clients and off the steady-state refresh.
-	if rc.trackMachineState && rc.machineState != robot.StateRunning {
+	// Cache the machine state until the remote reports running: a running machine does not revert to
+	// initializing without reconnecting (which resets machineState), so once running there is nothing
+	// to re-poll, keeping the extra GetMachineStatus call off the steady-state refresh.
+	if rc.machineState != robot.StateRunning {
 		rc.machineState = rc.fetchMachineState(ctx)
 	}
 
@@ -996,10 +993,10 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 }
 
 // fetchMachineState returns the remote's current machine state. A remote running a viam-server too
-// old to implement GetMachineStatus is reported as running, so the parent robot's pre-existing
-// resource-removal behavior is preserved for such remotes. Any other failure is reported as unknown,
-// which the parent treats conservatively (it defers removing the remote's absent resources until the
-// state is known again, rather than tearing down their local dependents).
+// old to implement GetMachineStatus is reported as running, so the parent robot removes its absent
+// resources as it would for any running remote. Any other failure is reported as unknown, which the
+// parent treats conservatively (it defers removing the remote's absent resources until the state is
+// known again, rather than tearing down their local dependents).
 func (rc *RobotClient) fetchMachineState(ctx context.Context) robot.MachineState {
 	// Deliberately not rc.MachineStatus: it also parses every resource and module status and logs
 	// an error for any reported in an unspecified state, which is needless noise when all we want
@@ -1025,8 +1022,7 @@ func (rc *RobotClient) fetchMachineState(ctx context.Context) robot.MachineState
 }
 
 // MachineState returns the remote's last observed machine state, cached by the client's background
-// refresh. It is a non-blocking read (no RPC), so callers such as the parent robot's reconfigure
-// worker can consult it freely.
+// refresh.
 func (rc *RobotClient) MachineState() robot.MachineState {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()

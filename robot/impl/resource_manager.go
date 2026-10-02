@@ -405,7 +405,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 	}
 
-	// A remote that just restarted reconnects as soon as its web server is up -- while it is still
+	// A remote that just restarted reconnects as soon as its web server is up, while it is still
 	// initializing and has only (re)built part of its configured resources. During that window it
 	// advertises a partial resource set, so the absentResources computed above include resources
 	// that are merely not-yet-rebuilt, not genuinely removed. Removing them here would tear down the
@@ -450,9 +450,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 }
 
 // remoteInitializing reports whether a remote is still starting up and so advertises only a partial
-// resource set. The state is read from the client's cache (populated only for remotes dialed with
-// machine-state tracking). Any remote that does not report an initializing state -- one that cannot
-// report state at all, or reports running or unknown -- is not treated as initializing.
+// resource set. The state is read from the client's cache. Any remote that does not report an
+// initializing state -- one that cannot report state at all, or reports running or unknown -- is not
+// treated as initializing.
 func remoteInitializing(rr internalRemoteRobot) bool {
 	reporter, ok := rr.(interface{ MachineState() robot.MachineState })
 	return ok && reporter.MachineState() == robot.StateInitializing
