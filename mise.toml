@@ -15,12 +15,6 @@ lazy = true
 version = "4.0.6"
 lazy = true
 
-[tools.grpcurl]
-version = "v1.8.6"
-# Nothing in this repo actually invokes grpcurl. Probably just here for
-# developer convenience?
-lazy = true
-
 [tools."go:golang.org/x/mobile/cmd/gomobile"]
 version = "0.0.0-20260821190718-4776eadac327"
 lazy = true
