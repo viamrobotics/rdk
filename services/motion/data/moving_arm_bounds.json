@@ -1,0 +1,29 @@
+{
+    "components": [
+        {
+            "name": "pieceArm",
+            "type": "arm",
+            "model": "fake",
+            "attributes": {
+                "arm-model": "ur5e"
+            },
+            "frame": {
+                "parent": "world"
+            }
+        },
+        {
+            "name": "bounds",
+            "type": "generic",
+            "model": "bounds",
+            "attributes": {
+                "x_mm": 1800,
+                "y_mm": 1800,
+                "z_mm": 600,
+                "wall_thickness_mm": 10
+            },
+            "frame": {
+                "parent": "world"
+            }
+        }
+    ]
+}

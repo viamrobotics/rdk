@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/generic/obstacle"
 	"go.viam.com/rdk/components/gripper"
 	fakegripper "go.viam.com/rdk/components/gripper/fake"
 	"go.viam.com/rdk/config"
@@ -568,4 +569,80 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 
 	gripperGeomFromFS := gripperGeomsInFrame.Geometries()[0]
 	test.That(t, gripperGeomFromFS.Label(), test.ShouldEqual, "gripper_origin")
+}
+
+func TestMultiGeometryShapedResourceInFrameSystem(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// A Shaped resource that returns several geometries (here the bounds obstacle, which returns
+	// six walls) must contribute all of them to the frame system, positioned by its frame config,
+	// and labeled after the frame name.
+	boundsConfig := func(name, frameID string) resource.Config {
+		return resource.Config{
+			Name:  name,
+			API:   generic.API,
+			Model: obstacle.BoundsModel,
+			Frame: &referenceframe.LinkConfig{
+				ID:          frameID,
+				Parent:      referenceframe.World,
+				Translation: r3.Vector{X: 100, Y: 200, Z: 300},
+			},
+			ConvertedAttributes: &obstacle.Config{XMm: 400, YMm: 600, ZMm: 800, WallThicknessMm: 10},
+		}
+	}
+	cfg := config.Config{Components: []resource.Config{
+		boundsConfig("bounds", ""),
+		boundsConfig("cage-component", "cage"),
+	}}
+
+	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
+	fss, err := framesystem.FromProvider(robot)
+	test.That(t, err, test.ShouldBeNil)
+	fs, err := framesystem.NewFromService(ctx, fss, nil)
+	test.That(t, err, test.ShouldBeNil)
+	inputs, err := fss.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	allGeometries, err := referenceframe.FrameSystemGeometries(fs, inputs)
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, frameName := range []string{"bounds", "cage"} {
+		t.Run(frameName, func(t *testing.T) {
+			// The frames created from the part carry no geometry of their own; the walls ride
+			// along as hidden internal model frames.
+			origin := fs.Frame(frameName + "_origin")
+			test.That(t, origin, test.ShouldNotBeNil)
+			originGeometries, err := origin.Geometries([]referenceframe.Input{})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, originGeometries.Geometries(), test.ShouldBeEmpty)
+			test.That(t, fs.Frame(frameName), test.ShouldNotBeNil)
+			test.That(t, fs.Frame(frameName+":"+obstacle.LabelXMax), test.ShouldBeNil)
+
+			gif := allGeometries[frameName]
+			test.That(t, gif, test.ShouldNotBeNil)
+			centers := map[string]r3.Vector{}
+			for _, g := range gif.Geometries() {
+				centers[g.Label()] = g.Pose().Point()
+			}
+			test.That(t, centers, test.ShouldResemble, map[string]r3.Vector{
+				frameName + ":" + obstacle.LabelXMax:    {X: 305, Y: 200, Z: 300},
+				frameName + ":" + obstacle.LabelXMin:    {X: -105, Y: 200, Z: 300},
+				frameName + ":" + obstacle.LabelYMax:    {X: 100, Y: 505, Z: 300},
+				frameName + ":" + obstacle.LabelYMin:    {X: 100, Y: -105, Z: 300},
+				frameName + ":" + obstacle.LabelFloor:   {X: 100, Y: 200, Z: -105},
+				frameName + ":" + obstacle.LabelCeiling: {X: 100, Y: 200, Z: 705},
+			})
+		})
+	}
+
+	// The parts, model included, serialize for remote clients.
+	fsCfg, err := robot.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsCfg.Parts, test.ShouldHaveLength, 2)
+	for _, part := range fsCfg.Parts {
+		test.That(t, part.ModelFrame, test.ShouldNotBeNil)
+		pbPart, err := part.ToProtobuf()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pbPart.Kinematics.AsMap()["links"], test.ShouldHaveLength, 6)
+	}
 }

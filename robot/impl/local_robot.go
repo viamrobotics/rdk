@@ -1355,7 +1355,8 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	// one, we'll craft a `FrameSystemPart` containing that information. Furthermore, the
 	// FrameSystemPart may include geometry or model/kinematic information. Kinematics are always
 	// fetched from `InputEnabled` resources. Geometries can be specified in the robot config. If
-	// none exists, we will perform a `Geometries` query on the resource.
+	// none exists, we will perform a `Geometries` query on the resource; a single geometry is
+	// attached to the frame directly and several are wrapped in a zero-DoF model.
 	for _, resConfig := range cfg.Components {
 		if resConfig.Frame == nil { // no Frame means dont include in frame system.
 			continue
@@ -1473,19 +1474,25 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			} else {
 				switch len(resGeometries) {
 				case 0:
-				//nolint: gocritic
-				default: // > 1
-					logger.Warnw(
-						"`Geometries` returned more than one geometry, but the LinkInFrame does not support that."+
-							"Keeping the first one.", "Size", len(resGeometries),
-					)
-					fallthrough
 				case 1:
 					geom := resGeometries[0]
 					// Dan: I feel it's appropriate to re-label the geometry here by concatenating
 					// the resource name with the geometry label. But the FrameSystem construction
 					// is going to copy and re-label the resulting geometry anyways.
 					linkInFrame.SetGeometry(geom)
+				default:
+					// A LinkInFrame holds a single geometry, so several geometries ride along as a
+					// zero-DoF model instead, the same way gripper geometries do. The model is named
+					// after the frame so its geometries are labeled "<frame>:<label>".
+					model, err := referenceframe.NewModelFromGeometries(frameName, resGeometries)
+					if err != nil {
+						logger.Warnw("Failed to build a model from multiple geometries. Keeping the first one.",
+							"Size", len(resGeometries), "err", err)
+						linkInFrame.SetGeometry(resGeometries[0])
+						break
+					}
+					parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: model})
+					continue
 				}
 			}
 		} else {
