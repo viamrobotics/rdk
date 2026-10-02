@@ -2289,10 +2289,10 @@ func TestMachineViamHome(t *testing.T) {
 	t.Run("machine reports its VIAM_HOME", func(t *testing.T) {
 		// the "machine" is in-process, so its shell service reports this process's ViamDotDir
 		cCtx, vc, _, _ := setupWithRunningPart(t, asc, nil, nil, nil, "token", partFqdn)
-		shellSvc, closeClient, err := vc.connectToShellServiceFqdn(context.Background(), partFqdn, false, logger)
+		shellSvc, robotClient, err := vc.connectToShellServiceFqdn(context.Background(), partFqdn, false, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, closeClient(context.Background()), test.ShouldBeNil)
+			test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
 		}()
 		test.That(t, vc.machineViamHome(context.Background(), cCtx, shellSvc),
 			test.ShouldEqual, utils.ViamDotDir)
