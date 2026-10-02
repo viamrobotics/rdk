@@ -24,6 +24,8 @@ var (
 	// Count threshold within `noisyMessageWindowDuration` after which to
 	// consider log messages "noisy.".
 	noisyMessageCountThreshold = 3
+
+	activityLevel = INFO
 )
 
 type (
@@ -140,7 +142,7 @@ func (imp *impl) activityLogger() *impl {
 	}
 	logger := &impl{
 		name:                     name,
-		level:                    NewAtomicLevelAt(INFO),
+		level:                    NewAtomicLevelAt(activityLevel),
 		appenders:                imp.getAppenders(),
 		registry:                 imp.registry,
 		testHelper:               func() {},
@@ -165,13 +167,13 @@ func (imp *impl) activityLogger() *impl {
 // standard logger methods and getCaller attributes the entry to the Activity call site.
 func (imp *impl) Activity(activity, event string, keysAndValues ...any) {
 	al := imp.activityLogger()
-	if !al.shouldLog(INFO) {
+	if !al.shouldLog(activityLevel) {
 		return
 	}
 
 	// Prepend so activity and event lead the rendered fields.
 	keysAndValues = append([]any{"activity", activity, "event", event}, keysAndValues...)
-	entry := al.formatw(INFO, emptyTraceKey, "", keysAndValues...)
+	entry := al.formatw(activityLevel, emptyTraceKey, "", keysAndValues...)
 	al.Write(entry)
 }
 
