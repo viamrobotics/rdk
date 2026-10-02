@@ -1,0 +1,124 @@
+# x264 (shared libs + CLI) and x264-static (static archive only), both built
+# from the same source commit as conda-forge's x264.
+context:
+  so_number: "164"
+  revision: "3095"
+  version: 1!${{ so_number }}.${{ revision }}
+  commit: baee400fa9ced6f5481a728138fed6e867b0ff7f
+  # Shared preamble for both build scripts
+  prep: |
+    cp "$BUILD_PREFIX"/share/gnuconfig/config.* .
+
+    # The tarball has no .git, so replace version.sh (same trick as the conda-forge feedstock)
+    cat > version.sh <<VEOF
+    #!/bin/sh
+    echo "#define X264_REV ${X264_REV}"
+    echo "#define X264_REV_DIFF 0"
+    echo "#define X264_VERSION \" ${X264_VERSION}\""
+    echo "#define X264_POINTVER \"${X264_POINTVER}\""
+    VEOF
+    chmod +x version.sh configure
+
+    if [[ "${target_platform}" == "linux-64" || "${target_platform}" == "osx-64" ]]; then
+        export AS="${BUILD_PREFIX}/bin/nasm"
+    else
+        unset AS || true
+    fi
+
+recipe:
+  name: x264-split
+  version: ${{ version }}
+
+source:
+  url: https://code.videolan.org/videolan/x264/-/archive/${{ commit }}/x264-${{ commit }}.tar.gz
+  sha256: 436a2be54d8bc0cb05dd33ecbbcb7df9c3b57362714fcdaa3a5991189a33319b
+
+build:
+  number: 0
+  skip:
+    - win
+
+outputs:
+  # Shared library, headers, pkg-config file and CLI - drop-in for conda-forge's x264
+  - package:
+      name: x264
+    build:
+      script:
+        env:
+          X264_REV: ${{ revision }}
+          X264_VERSION: r${{ revision }} ${{ commit[:7] }}
+          X264_POINTVER: 0.${{ so_number }}.${{ revision }} ${{ commit[:7] }}
+        content: |
+          #!/bin/bash
+          set -euxo pipefail
+          ${{ prep }}
+          ./configure \
+              --host="$HOST" \
+              --prefix="$PREFIX" \
+              --enable-shared \
+              --disable-static
+
+          make -j"${CPU_COUNT}"
+          # Installs bin/x264, include/, lib/libx264.so*, lib/pkgconfig/x264.pc
+          make install
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - gnuconfig
+        - nasm
+        - make
+        - perl
+      run_exports:
+        - ${{ pin_subpackage('x264', upper_bound='x') }}
+    tests:
+      - script:
+          - x264 --version
+          - test -f $PREFIX/lib/libx264.so.${{ so_number }}
+          - test -f $PREFIX/include/x264.h
+          - test -f $PREFIX/lib/pkgconfig/x264.pc
+          - test ! -f $PREFIX/lib/libx264.a
+
+  # Static archive only; headers etc. come from the exactly-matching x264 output
+  - package:
+      name: x264-static
+    build:
+      script:
+        env:
+          X264_REV: ${{ revision }}
+          X264_VERSION: r${{ revision }} ${{ commit[:7] }}
+          X264_POINTVER: 0.${{ so_number }}.${{ revision }} ${{ commit[:7] }}
+        content: |
+          #!/bin/bash
+          set -euxo pipefail
+          ${{ prep }}
+          ./configure \
+              --host="$HOST" \
+              --prefix="$PREFIX" \
+              --enable-static \
+              --enable-pic \
+              --disable-cli
+
+          make -j"${CPU_COUNT}"
+
+          # Install only the archive; everything else comes from the `x264` output
+          install -d "$PREFIX/lib"
+          install -m 644 libx264.a "$PREFIX/lib/libx264.a"
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - gnuconfig
+        - nasm
+        - make
+        - perl
+      run:
+        - ${{ pin_subpackage('x264', exact=true) }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/libx264.a
+          - test -f $PREFIX/include/x264.h
+
+about:
+  homepage: http://www.videolan.org/developers/x264.html
+  license: GPL-2.0-or-later
+  license_file: COPYING
+  summary: x264 (H.264/MPEG-4 AVC encoder) - shared libraries, headers and CLI; static archive in x264-static

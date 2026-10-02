@@ -1,0 +1,107 @@
+# nlopt (shared library, headers, CMake/pkg-config files) and nlopt-static
+# (static archive only). Version, source and CMake flags follow the
+# conda-forge nlopt-feedstock, minus the Python bindings, which conda-forge
+# builds into the same package and which would add a python run dependency.
+context:
+  version: "2.11.0"
+  so_major: "1"
+  # Same flags as the conda-forge build.sh, plus NLOPT_PYTHON=OFF (see above)
+  cmake_common: >-
+    -DCMAKE_PREFIX_PATH=${PREFIX}
+    -DCMAKE_INSTALL_PREFIX=${PREFIX}
+    -DCMAKE_INSTALL_LIBDIR=lib
+    -DNLOPT_PYTHON=OFF -DNLOPT_GUILE=OFF -DNLOPT_OCTAVE=OFF -DNLOPT_JAVA=OFF
+
+recipe:
+  name: nlopt-split
+  version: ${{ version }}
+
+source:
+  url: https://github.com/stevengj/nlopt/archive/v${{ version }}.tar.gz
+  sha256: 53e552d83e9294d67db37f0f4a23f15933a9ef698485301a18b98b40004cf0de
+
+build:
+  number: 0
+  skip:
+    - win
+
+outputs:
+  # Shared library + headers + cmake/pkg-config + man pages: drop-in for conda-forge's nlopt (C API)
+  - package:
+      name: nlopt
+    build:
+      script:
+        content: |
+          #!/bin/bash
+          set -euxo pipefail
+
+          cmake -LAH ${CMAKE_ARGS} ${{ cmake_common }} \
+            -DBUILD_SHARED_LIBS=ON \
+            -DNLOPT_TESTS=ON \
+            -B build .
+
+          cmake --build build --target install --parallel "${CPU_COUNT}"
+
+          if [[ "${CONDA_BUILD_CROSS_COMPILATION:-0}" != "1" ]]; then
+            ctest --test-dir build --output-on-failure --schedule-random -j"${CPU_COUNT}"
+          fi
+    requirements:
+      build:
+        - cmake
+        - make
+        - ${{ stdlib('c') }}
+        - ${{ compiler('c') }}
+        - ${{ compiler('cxx') }}
+      run_exports:
+        - ${{ pin_subpackage('nlopt', upper_bound='x.x') }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/libnlopt.so.${{ so_major }}
+          - test -f $PREFIX/include/nlopt.h
+          - test -f $PREFIX/include/nlopt.hpp
+          - test -f $PREFIX/lib/pkgconfig/nlopt.pc
+          - test -f $PREFIX/lib/cmake/nlopt/NLoptConfig.cmake
+          - test ! -f $PREFIX/lib/libnlopt.a
+
+  # Static archive only; headers, cmake and pkg-config files come from the exactly-matching nlopt output.
+  # nlopt already sets POSITION_INDEPENDENT_CODE ON on the library target, so the archive is PIC.
+  - package:
+      name: nlopt-static
+    build:
+      script:
+        content: |
+          #!/bin/bash
+          set -euxo pipefail
+
+          cmake -LAH ${CMAKE_ARGS} ${{ cmake_common }} \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DNLOPT_TESTS=OFF \
+            -B build .
+
+          cmake --build build --target nlopt --parallel "${CPU_COUNT}"
+
+          # Install only the archive; everything else comes from the `nlopt` output
+          install -d "$PREFIX/lib"
+          install -m 644 build/libnlopt.a "$PREFIX/lib/libnlopt.a"
+      files:
+        - lib/libnlopt.a
+    requirements:
+      build:
+        - cmake
+        - make
+        - ${{ stdlib('c') }}
+        - ${{ compiler('c') }}
+        - ${{ compiler('cxx') }}
+      run:
+        - ${{ pin_subpackage('nlopt', exact=true) }}
+    tests:
+      - script:
+          - test -f $PREFIX/lib/libnlopt.a
+          - test -f $PREFIX/include/nlopt.h
+
+about:
+  homepage: http://ab-initio.mit.edu/nlopt
+  license: LGPL-2.1-or-later
+  license_file: COPYING
+  summary: nonlinear optimization library (shared library, headers and CMake/pkg-config files; static archive in nlopt-static)
