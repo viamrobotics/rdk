@@ -72,6 +72,9 @@ func NewManager(
 type addedResource struct {
 	conf resource.Config
 	deps []string
+	// subs holds a composite resource's per-API sub-clients (nil for an ordinary resource); addResource
+	// populates it and RemoveResource closes the non-canonical ones.
+	subs map[resource.API]resource.Resource
 }
 
 // moduleMap is a typesafe wrapper for a sync.Map holding string keys and *module values.
@@ -578,7 +581,56 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 
 	mod.resourcesMu.Lock()
 	defer mod.resourcesMu.Unlock()
-	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
+	ar := &addedResource{conf: conf, deps: deps}
+	mod.resources[conf.ResourceName()] = ar
+
+	// A composite serves several co-equal APIs from this one module resource. Build one sub-client per
+	// API on the module's shared connection, route every API name to this module, and wrap them in a
+	// single resource.MultiAPIResource. Retain the sub-clients on ar so RemoveResource can close the
+	// non-canonical ones (the wrapper's Close reaches only the canonical sub). If any sub-client fails
+	// to build, abort cleanly: close the sub-clients created so far and undo the rMap routes and the
+	// mod.resources entry, so a failed composite leaves no stale route to this module.
+	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
+		base := conf.ResourceName()
+		byAPI := make(map[resource.API]resource.Resource, len(apis))
+		abort := func(cause error) (resource.Resource, error) {
+			// Close with a non-cancellable context: the abort is often triggered by ctx expiring
+			// (e.g. the reconfigure timeout), and teardown must still run.
+			closeCtx := context.WithoutCancel(ctx)
+			for _, sub := range byAPI {
+				cause = multierr.Combine(cause, sub.Close(closeCtx))
+			}
+			for _, api := range apis {
+				mgr.rMap.Delete(resource.Name{API: api, Remote: base.Remote, Name: base.Name})
+			}
+			mgr.rMap.Delete(base)
+			delete(mod.resources, base)
+			// The module already constructed the composite (AddResource ran before this loop), so tell it
+			// to tear that down too. Otherwise the module keeps the instance and a retry AddResource for
+			// the same name fails ("already exists") until the module process restarts.
+			if _, err := mod.client.RemoveResource(closeCtx, &pb.RemoveResourceRequest{Name: base.String()}); err != nil &&
+				!errors.Is(err, rdkgrpc.ErrNotConnected) {
+				cause = multierr.Combine(cause, err)
+			}
+			return nil, cause
+		}
+		for _, api := range apis {
+			subName := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+			mgr.rMap.Store(subName, mod)
+			apiInfo, ok := resource.LookupGenericAPIRegistration(api)
+			if !ok || apiInfo.RPCClient == nil {
+				byAPI[api] = rdkgrpc.NewForeignResource(subName, &mod.sharedConn)
+				continue
+			}
+			client, err := apiInfo.RPCClient(ctx, &mod.sharedConn, "", subName, mgr.logger)
+			if err != nil {
+				return abort(err)
+			}
+			byAPI[api] = client
+		}
+		ar.subs = byAPI
+		return resource.NewMultiAPIResource(base, apis, byAPI), nil
+	}
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
@@ -652,17 +704,40 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
 
 	mgr.rMap.Delete(name)
+	// A composite is routed under each of its co-equal API names; drop every one so no stale route to
+	// this module lingers, and close its non-canonical sub-clients. The composite wrapper's Close (run
+	// by the resource manager just before this call) reaches only the canonical (apis[0]) sub, so the
+	// other per-API sub-clients would otherwise leak until the whole module is torn down. The module
+	// process removes the one instance from all of its collections in response to the single
+	// RemoveResource call below.
+	var closeErr error
+	if ar, ok := mod.resources[name]; ok {
+		// Close with a non-cancellable context so teardown runs even if ctx is already expired.
+		closeCtx := context.WithoutCancel(ctx)
+		apis := resource.APIsForModel(ar.conf.Model)
+		for _, api := range apis {
+			mgr.rMap.Delete(resource.Name{API: api, Remote: name.Remote, Name: name.Name})
+		}
+		for i, api := range apis {
+			if i == 0 {
+				continue // canonical sub is closed by the composite wrapper's Close
+			}
+			if sub, ok := ar.subs[api]; ok {
+				closeErr = multierr.Combine(closeErr, sub.Close(closeCtx))
+			}
+		}
+	}
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil && !errors.Is(err, rdkgrpc.ErrNotConnected) {
-		return err
+		return multierr.Combine(closeErr, err)
 	}
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		return multierr.Combine(err, mgr.closeModule(mod, "config_removal"))
+		return multierr.Combine(closeErr, err, mgr.closeModule(mod, "config_removal"))
 	}
-	return nil
+	return closeErr
 }
 
 // ValidateConfig determines whether the given config is valid and returns its implicit
@@ -959,10 +1034,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// using an external handler gives us the ability to re-add dependencies in the correct order.
 		orphanedResourceNames := make([]resource.Name, 0, len(mod.resources))
 		orphanedResourceNamesStr := make([]string, 0, len(mod.resources))
-		for resourceName := range mod.resources {
+		for resourceName, ar := range mod.resources {
 			orphanedResourceNames = append(orphanedResourceNames, resourceName)
 			orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
-			// let resource manager re-add instead of manually doing it here.
+			// let resource manager re-add instead of manually doing it here. Drop every co-equal API
+			// route of a composite, not just the configured name, so no stale route to the crashed module
+			// lingers if the resource is not successfully re-added.
+			for _, api := range resource.APIsForModel(ar.conf.Model) {
+				mgr.rMap.Delete(resource.Name{API: api, Remote: resourceName.Remote, Name: resourceName.Name})
+			}
 			mgr.rMap.Delete(resourceName)
 			delete(mod.resources, resourceName)
 		}
