@@ -4594,7 +4594,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Usage: "test training script locally using Docker",
 					UsageText: createUsageText("training-script test-local", []string{
 						trainFlagDatasetRoot, trainFlagTrainingScriptDirectory,
-						trainFlagDatasetFile, trainFlagContainerVersion, trainFlagModelOutputDirectory,
+						trainFlagDatasetFile, trainFlagContainerID, trainFlagModelOutputDirectory,
 					}, true, false),
 					Description: `Test your training script locally before submitting to the cloud. This runs your training script 
 in a Docker container using the same environment as cloud training.
@@ -4641,10 +4641,8 @@ NOTES:
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: trainFlagContainerVersion,
-							Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
+							Name:     trainFlagContainerID,
+							Usage:    "ID of the ml training container to use",
 							Required: true,
 						},
 						&cli.StringFlag{
