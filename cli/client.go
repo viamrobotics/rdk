@@ -4309,6 +4309,11 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		if errors.Is(err, errNoShellService) {
 			return err
 		}
+		// A logout during refresh is unrecoverable, so surface it rather than the generic
+		// "all attempts failed, try again later" - retrying will not help.
+		if errors.Is(err, errLoggedOut) {
+			return err
+		}
 		// A failure to reach the part carries the shell service's codes without being an answer
 		// from it, so it is reported as an exhausted retry rather than a bad copy request.
 		if statusErr := status.Convert(err); statusErr != nil && !errors.Is(err, errConnectToPart) {
@@ -6325,6 +6330,12 @@ func (c *viamClient) retryableCopy(
 		if errors.Is(copyErr, errNoShellService) {
 			warningf(cmd.Root().ErrWriter, "Copy failed because the machine does not have the shell service enabled. "+
 				"Add the shell service to the machine part's configuration to enable file copying.")
+			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+			return attempt, copyErr
+		}
+
+		// The CLI was logged out during a token refresh; retrying cannot recover.
+		if errors.Is(copyErr, errLoggedOut) {
 			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
 			return attempt, copyErr
 		}

@@ -515,7 +515,8 @@ jobs:
         with:
           username: viambuild
           password: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
-      - uses: docker/setup-qemu-action@v3
+      # docker/setup-qemu-action@v4.4.0
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
       - uses: docker/setup-buildx-action@v3
 
       - name: Run go unit tests
