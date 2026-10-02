@@ -90,17 +90,21 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings["reading"], test.ShouldEqual, 7)
 
-	// 2) A lookup by EACH co-equal API returns that API's sub-resource. A single-struct builtin
-	// composite is one object serving every API, so both lookups return the same instance, and the
-	// api-less handle (the composite wrapper) unwraps to that same instance.
+	// 2) An API-qualified lookup returns that API's handle directly (the unwrapped sub, not the
+	// wrapper), usable as that API with no further unwrapping.
 	bySensor, err := r.ResourceByName(sensor.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
+	s2, ok := bySensor.(sensor.Sensor)
+	test.That(t, ok, test.ShouldBeTrue)
+	readings, err = s2.Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings["reading"], test.ShouldEqual, 7)
+
 	byGeneric, err := r.ResourceByName(resource.NewName(generic.API, "combo"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bySensor, test.ShouldEqual, byGeneric)
-	unwrapped, err := resource.AsType[sensor.Sensor](res)
+	echoed, err := byGeneric.DoCommand(ctx, map[string]interface{}{"ping": "pong"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bySensor, test.ShouldEqual, unwrapped)
+	test.That(t, echoed["echo"], test.ShouldEqual, "pong")
 
 	// 3) The api-less handle is the composite wrapper, uniform with a modular composite: APIsOf reports
 	// the full co-equal set (not just the config API) and AsType extracts each served API.
