@@ -570,6 +570,10 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, ".gitignore"))
 		test.That(t, err, test.ShouldBeNil)
+		if runtime.GOOS != "windows" {
+			_, err = os.Stat(filepath.Join(modulePath, "run.sh"))
+			test.That(t, err, test.ShouldBeNil)
+		}
 	})
 
 	t.Run("test render template", func(t *testing.T) {
@@ -690,6 +694,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = json.Unmarshal(bytes, &manifest)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(manifest.Models), test.ShouldEqual, 0)
+		test.That(t, manifest.Language, test.ShouldEqual, NormalizeModuleLanguage(testModule.Language))
 	})
 
 	t.Run("test generate cpp stubs", func(t *testing.T) {

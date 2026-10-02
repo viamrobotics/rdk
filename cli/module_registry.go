@@ -113,6 +113,9 @@ type ModuleManifest struct {
 	Models       []ModuleComponent `json:"models,omitempty"`
 	Apps         []AppComponent    `json:"applications"`
 	MarkdownLink *string           `json:"markdown_link,omitempty"`
+	// Language is an optional meta.json field: python, golang, or cpp.
+	// Absent on old modules; never required. The CLI also accepts "go" and "c++".
+	Language string `json:"language,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
 	Build *manifestBuildInfo `json:"build,omitempty"`

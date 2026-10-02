@@ -1784,6 +1784,9 @@ func renderManifest(
 			}
 		}
 		manifest.Entrypoint = pythonEntrypoint
+		if lang := NormalizeModuleLanguage(module.Language); lang != "" {
+			manifest.Language = lang
+		}
 	case golang:
 		moduleBinary := module.ModuleName
 		if runtime.GOOS == osWindows {
@@ -1805,6 +1808,9 @@ func renderManifest(
 			}
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", moduleBinary)
+		if lang := NormalizeModuleLanguage(module.Language); lang != "" {
+			manifest.Language = lang
+		}
 	case cpp:
 		manifest.Build = &manifestBuildInfo{
 			Build: "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",
@@ -1812,6 +1818,9 @@ func renderManifest(
 			Arch:  []string{"linux/amd64", "linux/arm64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
+		if lang := NormalizeModuleLanguage(module.Language); lang != "" {
+			manifest.Language = lang
+		}
 	}
 
 	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {
