@@ -898,12 +898,14 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 		if err != nil {
 			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		allDeps[prefixedName] = res
-		// A composite dependency serves several co-equal APIs from one identity; key it under each of
-		// its API names so a dependent can resolve it by whichever API it expects.
+		allDeps[prefixedName] = resource.SubresourceForAPI(res, prefixedName.API)
+		// A composite dependency serves several co-equal APIs from one identity; key it under each of its
+		// API names, storing that API's unwrapped sub, so a dependent resolves it by whichever API it
+		// expects and an API-qualified name yields that API's handle directly. Unwrap is a no-op for an
+		// ordinary resource.
 		for _, api := range r.coequalAPIsOf(res) {
 			aliased := resource.Name{API: api, Remote: prefixedName.Remote, Name: prefixedName.Name}
-			allDeps[aliased] = res
+			allDeps[aliased] = resource.SubresourceForAPI(res, api)
 		}
 	}
 	nodeConf := gNode.Config()
@@ -1087,11 +1089,10 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		}
 		// A composite serves several co-equal APIs from one identity, so test the weak-dep matchers
 		// against each served API (the Subtype/Type matchers read Name().API, which is only the canonical
-		// API, so a composite matched on a non-canonical API would otherwise be dropped). Store the
-		// composite WRAPPER under each matched API's name -- the same shape as explicit deps above -- so
-		// weak and explicit deps are uniform; consumers unwrap via FromDependencies/SubresourceForAPI.
-		// The match test uses the unwrapped sub; for an ordinary resource the match target and the stored
-		// value are both the resource itself (coequalAPIsOf is nil, api is n.API, unwrap is a no-op).
+		// API, so a composite matched on a non-canonical API would otherwise be dropped). Store that API's
+		// unwrapped sub under each matched API's name, so an API-qualified name yields that API's handle
+		// directly -- matching explicit deps above and robot resolution. For an ordinary resource
+		// coequalAPIsOf is nil, api is n.API, and the unwrap is a no-op.
 		apis := r.coequalAPIsOf(res)
 		if apis == nil {
 			apis = []resource.API{n.API}
@@ -1104,7 +1105,7 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 					// Pop the remote name off since callers won't be expecting it when accessing it in the
 					// resource dependency map in a resource constructor.
 					popped := apiName.PopRemote()
-					deps[popped] = res
+					deps[popped] = sub
 					snapshot[popped] = node.UpdatedAt()
 					break
 				}
