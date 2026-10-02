@@ -146,6 +146,12 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.UpdateRobotResponse, error)
 	DeleteRobotFunc func(ctx context.Context, in *apppb.DeleteRobotRequest,
 		opts ...grpc.CallOption) (*apppb.DeleteRobotResponse, error)
+	AddFavoriteMachineFunc func(ctx context.Context, in *apppb.AddFavoriteMachineRequest,
+		opts ...grpc.CallOption) (*apppb.AddFavoriteMachineResponse, error)
+	RemoveFavoriteMachineFunc func(ctx context.Context, in *apppb.RemoveFavoriteMachineRequest,
+		opts ...grpc.CallOption) (*apppb.RemoveFavoriteMachineResponse, error)
+	ListFavoriteMachinesFunc func(ctx context.Context, in *apppb.ListFavoriteMachinesRequest,
+		opts ...grpc.CallOption) (*apppb.ListFavoriteMachinesResponse, error)
 	ListFragmentsFunc func(ctx context.Context, in *apppb.ListFragmentsRequest,
 		opts ...grpc.CallOption) (*apppb.ListFragmentsResponse, error)
 	GetFragmentFunc func(ctx context.Context, in *apppb.GetFragmentRequest,
@@ -897,6 +903,36 @@ func (asc *AppServiceClient) DeleteRobot(
 		return asc.AppServiceClient.DeleteRobot(ctx, in, opts...)
 	}
 	return asc.DeleteRobotFunc(ctx, in, opts...)
+}
+
+// AddFavoriteMachine calls the injected AddFavoriteMachineFunc or the real version.
+func (asc *AppServiceClient) AddFavoriteMachine(
+	ctx context.Context, in *apppb.AddFavoriteMachineRequest, opts ...grpc.CallOption,
+) (*apppb.AddFavoriteMachineResponse, error) {
+	if asc.AddFavoriteMachineFunc == nil {
+		return asc.AppServiceClient.AddFavoriteMachine(ctx, in, opts...)
+	}
+	return asc.AddFavoriteMachineFunc(ctx, in, opts...)
+}
+
+// RemoveFavoriteMachine calls the injected RemoveFavoriteMachineFunc or the real version.
+func (asc *AppServiceClient) RemoveFavoriteMachine(
+	ctx context.Context, in *apppb.RemoveFavoriteMachineRequest, opts ...grpc.CallOption,
+) (*apppb.RemoveFavoriteMachineResponse, error) {
+	if asc.RemoveFavoriteMachineFunc == nil {
+		return asc.AppServiceClient.RemoveFavoriteMachine(ctx, in, opts...)
+	}
+	return asc.RemoveFavoriteMachineFunc(ctx, in, opts...)
+}
+
+// ListFavoriteMachines calls the injected ListFavoriteMachinesFunc or the real version.
+func (asc *AppServiceClient) ListFavoriteMachines(
+	ctx context.Context, in *apppb.ListFavoriteMachinesRequest, opts ...grpc.CallOption,
+) (*apppb.ListFavoriteMachinesResponse, error) {
+	if asc.ListFavoriteMachinesFunc == nil {
+		return asc.AppServiceClient.ListFavoriteMachines(ctx, in, opts...)
+	}
+	return asc.ListFavoriteMachinesFunc(ctx, in, opts...)
 }
 
 // ListFragments calls the injected ListFragmentsFunc or the real version.

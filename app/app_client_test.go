@@ -239,6 +239,16 @@ var (
 		LastAccess: timestamppb.New(*robot.LastAccess),
 		CreatedOn:  timestamppb.New(*robot.CreatedOn),
 	}
+	favoriteMachine = FavoriteMachine{
+		MachineID:      robotID,
+		OrganizationID: organizationID,
+		CreatedOn:      &createdOn,
+	}
+	pbFavoriteMachine = pb.FavoriteMachine{
+		MachineId:      favoriteMachine.MachineID,
+		OrganizationId: favoriteMachine.OrganizationID,
+		CreatedOn:      timestamppb.New(*favoriteMachine.CreatedOn),
+	}
 	roverRentalRobot = RoverRentalRobot{
 		RobotID:         robotID,
 		LocationID:      locationID,
@@ -1649,6 +1659,45 @@ func TestAppClient(t *testing.T) {
 		}
 		err := client.DeleteRobot(context.Background(), robotID)
 		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("AddFavoriteMachine", func(t *testing.T) {
+		grpcClient.AddFavoriteMachineFunc = func(
+			ctx context.Context, in *pb.AddFavoriteMachineRequest, opts ...grpc.CallOption,
+		) (*pb.AddFavoriteMachineResponse, error) {
+			test.That(t, in.MachineId, test.ShouldEqual, robotID)
+			return &pb.AddFavoriteMachineResponse{
+				Favorite: &pbFavoriteMachine,
+			}, nil
+		}
+		resp, err := client.AddFavoriteMachine(context.Background(), robotID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &favoriteMachine)
+	})
+
+	t.Run("RemoveFavoriteMachine", func(t *testing.T) {
+		grpcClient.RemoveFavoriteMachineFunc = func(
+			ctx context.Context, in *pb.RemoveFavoriteMachineRequest, opts ...grpc.CallOption,
+		) (*pb.RemoveFavoriteMachineResponse, error) {
+			test.That(t, in.MachineId, test.ShouldEqual, robotID)
+			return &pb.RemoveFavoriteMachineResponse{}, nil
+		}
+		err := client.RemoveFavoriteMachine(context.Background(), robotID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListFavoriteMachines", func(t *testing.T) {
+		expectedFavorites := []*FavoriteMachine{&favoriteMachine}
+		grpcClient.ListFavoriteMachinesFunc = func(
+			ctx context.Context, in *pb.ListFavoriteMachinesRequest, opts ...grpc.CallOption,
+		) (*pb.ListFavoriteMachinesResponse, error) {
+			return &pb.ListFavoriteMachinesResponse{
+				Favorites: []*pb.FavoriteMachine{&pbFavoriteMachine},
+			}, nil
+		}
+		resp, err := client.ListFavoriteMachines(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, expectedFavorites)
 	})
 
 	t.Run("GetFragment", func(t *testing.T) {
