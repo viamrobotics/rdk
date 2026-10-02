@@ -106,20 +106,24 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	// example, the motion service can override the natural arm limits. And if the arm is starting
 	// outside those application limits, the seeds derived from the current state would be out of
 	// bounds.
-	for idx, seedVal := range ss.seed {
-		if seedVal < ss.lowerBound[idx] {
-			ss.seed[idx] = ss.lowerBound[idx] + defaultGoalThreshold
-		}
-
-		if seedVal > ss.upperBound[idx] {
-			ss.seed[idx] = ss.upperBound[idx] - defaultGoalThreshold
-		}
-	}
-
-	// nlopt returns INVALID_ARGS for zero-range variables - nudge the upper bound by a small epsilon.
+	//
+	// nlopt returns INVALID_ARGS for zero-range variables, and for a seed outside the bounds. So
+	// the bounds are widened first, then the seed is pulled inside them: stepping it
+	// defaultGoalThreshold in from a bound only when the range has room for that, as a pinned
+	// joint's does not.
 	for i := range ss.lowerBound {
 		if ss.lowerBound[i] == ss.upperBound[i] {
 			ss.upperBound[i] += defaultGoalThreshold
+		}
+	}
+	for idx, seedVal := range ss.seed {
+		lb, ub := ss.lowerBound[idx], ss.upperBound[idx]
+		inset := min(defaultGoalThreshold, (ub-lb)/2)
+		if seedVal < lb {
+			ss.seed[idx] = lb + inset
+		}
+		if seedVal > ub {
+			ss.seed[idx] = ub - inset
 		}
 	}
 
