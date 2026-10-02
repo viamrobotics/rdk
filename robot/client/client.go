@@ -110,7 +110,6 @@ type RobotClient struct {
 	mu                       sync.RWMutex
 	resourceNames            []resource.Name
 	machineState             robot.MachineState
-	trackMachineState        bool
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
 	changeChan               chan bool
@@ -333,7 +332,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		heartbeatCtxCancel:  heartbeatCtxCancel,
 		withoutRPCSubtypes:  rOpts.withoutRPCSubtypes,
 		resourcesTimeout:    defaultResourcesTimeout,
-		trackMachineState:   rOpts.trackMachineState,
 	}
 	if rOpts.resourcesTimeout != nil && *rOpts.resourcesTimeout > 0 {
 		rc.resourcesTimeout = *rOpts.resourcesTimeout
@@ -982,11 +980,10 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	rc.resourceNames = make([]resource.Name, 0, len(names))
 	rc.resourceNames = append(rc.resourceNames, names...)
 	rc.resourceRPCAPIs.Store(&rpcAPIs)
-	// Only parent robots that dial this client as a remote opt into state tracking, and only until
-	// the remote reports running: a running machine does not revert to initializing without
-	// reconnecting (which resets machineState), so once running there is nothing to re-poll. This
-	// keeps the extra GetMachineStatus call off ordinary clients and off the steady-state refresh.
-	if rc.trackMachineState && rc.machineState != robot.StateRunning {
+	// Cache the machine state until the remote reports running: a running machine does not revert to
+	// initializing without reconnecting (which resets machineState), so once running there is nothing
+	// to re-poll -- this keeps the extra GetMachineStatus call off the steady-state refresh.
+	if rc.machineState != robot.StateRunning {
 		rc.machineState = rc.fetchMachineState(ctx)
 	}
 

@@ -752,10 +752,9 @@ func TestMachineState(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	// WithDoNotWaitForRunning lets us connect while the machine still reports StateInitializing;
-	// WithMachineStateTracking has the client cache that state.
+	// WithDoNotWaitForRunning lets us connect while the machine still reports StateInitializing.
 	client, err := New(context.Background(), listener.Addr().String(), logger,
-		WithDoNotWaitForRunning(), WithMachineStateTracking())
+		WithDoNotWaitForRunning())
 	test.That(t, err, test.ShouldBeNil)
 	defer func() { test.That(t, client.Close(context.Background()), test.ShouldBeNil) }()
 

@@ -52,10 +52,6 @@ type robotClientOpts struct {
 	// to still-initializing machines.
 	doNotWaitForRunning bool
 
-	// trackMachineState has the client cache the remote's machine state on each refresh. See
-	// WithMachineStateTracking.
-	trackMachineState bool
-
 	// see WithoutRPCSubtypes.
 	withoutRPCSubtypes bool
 
@@ -153,17 +149,6 @@ func WithDialOptions(opts ...rpc.DialOption) RobotClientOption {
 func WithDoNotWaitForRunning() RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.doNotWaitForRunning = true
-	})
-}
-
-// WithMachineStateTracking returns a RobotClientOption that has the client cache the remote's
-// machine state (initializing vs running) on each refresh, exposed via MachineState. A parent robot
-// uses it to tell a resource genuinely removed from a remote apart from one that is merely
-// not-yet-rebuilt on a remote that is still initializing after a restart. It is off by default so
-// ordinary clients do not issue the extra GetMachineStatus call.
-func WithMachineStateTracking() RobotClientOption {
-	return newFuncRobotClientOption(func(o *robotClientOpts) {
-		o.trackMachineState = true
 	})
 }
 

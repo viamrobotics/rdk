@@ -450,9 +450,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 }
 
 // remoteInitializing reports whether a remote is still starting up and so advertises only a partial
-// resource set. The state is read from the client's cache (populated only for remotes dialed with
-// machine-state tracking). Any remote that does not report an initializing state -- one that cannot
-// report state at all, or reports running or unknown -- is not treated as initializing.
+// resource set. The state is read from the client's cache (no RPC). Any remote that does not report an
+// initializing state -- one that cannot report state at all, or reports running or unknown -- is not
+// treated as initializing.
 func remoteInitializing(rr internalRemoteRobot) bool {
 	reporter, ok := rr.(interface{ MachineState() robot.MachineState })
 	return ok && reporter.MachineState() == robot.StateInitializing
