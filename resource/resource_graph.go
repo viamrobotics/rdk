@@ -480,6 +480,21 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 	return g.nodes.FindBySimpleNameAndAPI(name, api)
 }
 
+// ReindexComposite refreshes the compositeByAPI entries for name's node after its model may have
+// changed in place. An in-place rebuild (SwapResource on the existing node) does not pass through Set
+// or UpdateSimpleName, so without this a composite reconfigured to serve a different co-equal API set
+// keeps stale index entries: a newly-served co-equal API would not resolve, and a dropped one would
+// still resolve to this node. It reads the node's current configured model, so callers invoke it after
+// the node's config and resource have been swapped to the new model. No-op for a name with no node,
+// and for an ordinary (single-API) resource.
+func (g *Graph) ReindexComposite(name Name) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if node, ok := g.nodes.Get(name); ok {
+		g.nodes.reindexCompositeAPIs(name, node)
+	}
+}
+
 // Names returns all the resource graph names.
 func (g *Graph) Names() []Name {
 	g.mu.RLock()
