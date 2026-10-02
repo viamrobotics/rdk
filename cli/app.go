@@ -126,16 +126,15 @@ const (
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
-	mlTrainingFlagName                     = "script-name"
-	mlTrainingFlagFramework                = "framework"
-	mlTrainingFlagDraft                    = "draft"
-	mlTrainingFlagVisibility               = "visibility"
-	mlTrainingFlagDescription              = "description"
-	mlTrainingFlagURL                      = "url"
-	mlTrainingFlagIncludeURIs              = "include-uris"
-	mlTrainingFlagContainerID              = "id"
-	mlTrainingFlagContainerIDWithContainer = "container-id"
-	mlRegisterContainersImageURI           = "uri"
+	mlTrainingFlagName           = "script-name"
+	mlTrainingFlagFramework      = "framework"
+	mlTrainingFlagDraft          = "draft"
+	mlTrainingFlagVisibility     = "visibility"
+	mlTrainingFlagDescription    = "description"
+	mlTrainingFlagURL            = "url"
+	mlTrainingFlagIncludeURIs    = "include-uris"
+	mlTrainingFlagContainerID    = "container-id"
+	mlRegisterContainersImageURI = "uri"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2292,10 +2291,10 @@ Note: There is no progress meter while copying is in progress.
 						{
 							Name:      "delete",
 							Usage:     "deletes a custom training container",
-							UsageText: createUsageText("train containers delete", []string{mlTrainingFlagContainerID}, false, false),
+							UsageText: createUsageText("train containers delete", []string{generalFlagID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     mlTrainingFlagContainerID,
+									Name:     generalFlagID,
 									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
 									Required: true,
 								},
@@ -2374,7 +2373,7 @@ Note: There is no progress meter while copying is in progress.
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID,
 											generalFlagModelName, mlTrainingFlagName,
-											generalFlagVersion, mlTrainingFlagContainerIDWithContainer,
+											generalFlagVersion, mlTrainingFlagContainerID,
 										},
 										true, false,
 									),
@@ -2409,8 +2408,8 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagContainerIDWithContainer,
-											Usage:    `ID of the training container version to use.`,
+											Name:     mlTrainingFlagContainerID,
+											Usage:    `ID of the training container version to use. Must be one of the supported container IDs found by calling ListContainers.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
@@ -2427,7 +2426,7 @@ Note: There is no progress meter while copying is in progress.
 										[]string{
 											generalFlagOrgID, datasetFlagDatasetID,
 											trainFlagModelOrgID, generalFlagModelName, generalFlagPath,
-											mlTrainingFlagName, mlTrainingFlagContainerIDWithContainer,
+											mlTrainingFlagName, mlTrainingFlagContainerID,
 										},
 										true, false,
 									),
@@ -2485,8 +2484,8 @@ Note: There is no progress meter while copying is in progress.
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagContainerIDWithContainer,
-											Usage:    `ID of the training container version to use.`,
+											Name:     mlTrainingFlagContainerID,
+											Usage:    `ID of the training container version to use. Must be one of the supported container IDs found by calling ListContainers.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{

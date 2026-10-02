@@ -331,7 +331,6 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		OrganizationId:      orgID,
 		ModelName:           modelName,
 		ModelVersion:        modelVersion,
-		ContainerVersion:    "",
 		ContainerId:         containerID,
 	}
 
