@@ -2363,3 +2363,44 @@ func TestListTunnels(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ttes, test.ShouldResemble, expectedTTEs)
 }
+
+func TestIsDisconnectedError(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		// grpc.ErrClientConnClosing: a call dispatched on a locally-closed ClientConn. This is the
+		// mid-reconnect failure callers saw as a bare Canceled; it must read as a disconnect so the
+		// interceptor remaps it to a retryable Unavailable.
+		{"conn closing", status.Error(codes.Canceled, "grpc: the client connection is closing"), true},
+		{"disconnected", rpc.ErrDisconnected, true},
+		{"closed pipe", io.ErrClosedPipe, true},
+		{"unrelated canceled", status.Error(codes.Canceled, "context canceled"), false},
+		{"nil", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, isDisconnectedError(tc.err), test.ShouldEqual, tc.expected)
+		})
+	}
+}
+
+func TestSignalReconnectCheckCoalesces(t *testing.T) {
+	rc := &RobotClient{reconnectSignal: make(chan struct{}, 1)}
+
+	// A burst of failing calls must collapse into a single pending wakeup; otherwise a sustained
+	// outage would drive one reconnect per failed call. The send is non-blocking, so extra signals
+	// are dropped rather than blocking the caller.
+	for range 100 {
+		rc.signalReconnectCheck()
+	}
+	test.That(t, len(rc.reconnectSignal), test.ShouldEqual, 1)
+
+	<-rc.reconnectSignal
+	test.That(t, len(rc.reconnectSignal), test.ShouldEqual, 0)
+
+	// Safe to call repeatedly with the buffer full and nobody draining - must not block.
+	rc.signalReconnectCheck()
+	rc.signalReconnectCheck()
+	test.That(t, len(rc.reconnectSignal), test.ShouldEqual, 1)
+}
