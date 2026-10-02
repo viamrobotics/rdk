@@ -457,6 +457,78 @@ func TestRemoteConnectivityActivityEvents(t *testing.T) {
 	test.That(t, countActivityEvents(activityLogs, "remote", "disconnect"), test.ShouldEqual, 1)
 }
 
+// TestRemoteInitializingDoesNotRemoveResources: a restarting remote reconnects while still
+// initializing and briefly advertises a partial resource set. This asserts the main robot retains the
+// temporarily-absent remote resources and leaves their local dependents untouched while the remote is
+// initializing, and removes them only once the remote reports it is running.
+func TestRemoteInitializingDoesNotRemoveResources(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	armName := arm.Named("arm1")
+
+	injectRemote := &inject.Robot{}
+	injectRemote.ResourceNamesFunc = func() []resource.Name { return []resource.Name{armName} }
+	injectRemote.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRemote.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		return rdktestutils.NewUnimplementedResource(name), nil
+	}
+	injectRemote.LoggerFunc = func() logging.Logger { return logger }
+
+	manager := managerForDummyRobot(t, setupInjectRobot(logger))
+	remote := newDummyRobot(t, injectRemote)
+	// setMachineState drives the remote through its restart: initializing -> running.
+	setMachineState := func(s robot.MachineState) {
+		remote.mu.Lock()
+		defer remote.mu.Unlock()
+		remote.machineState = s
+	}
+	manager.addRemote(ctx, remote, nil, config.Remote{Name: "remote1"})
+	remoteNodeName := fromRemoteNameToRemoteNodeName("remote1")
+	remoteArmName := arm.Named("remote1:arm1")
+
+	// Sanity check: the remote's arm was pulled into the graph while the remote was running.
+	rdktestutils.VerifySameResourceNames(t,
+		manager.remoteResourceNames(remoteNodeName),
+		[]resource.Name{remoteArmName})
+	remoteArmNode, ok := manager.resources.Node(remoteArmName)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Add a local resource that depends on the remote arm, so we can observe whether the remote
+	// resource churning would mark the local dependent for rebuild.
+	localDepName := arm.Named("localDependent")
+	manager.resources.AddNode(localDepName,
+		resource.NewConfiguredGraphNode(
+			resource.Config{Name: "localDependent"},
+			rdktestutils.NewUnimplementedResource(localDepName),
+			unknownModel,
+		))
+	test.That(t, manager.resources.AddChild(localDepName, remoteArmName), test.ShouldBeNil)
+	localDepNode, ok := manager.resources.Node(localDepName)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// The remote restarts: it reconnects while still initializing and advertises no resources yet.
+	setMachineState(robot.StateInitializing)
+	remote.mu.Lock()
+	remote.resourceNamesFunc = func() []resource.Name { return []resource.Name{} }
+	remote.mu.Unlock()
+
+	manager.updateRemoteResourceNames(ctx, remoteNodeName, remote, "", false)
+
+	// The remote arm is retained (not marked for removal) and the local dependent is NOT marked for
+	// rebuild.
+	test.That(t, remoteArmNode.MarkedForRemoval(), test.ShouldBeFalse)
+	test.That(t, localDepNode.NeedsReconfigure(), test.ShouldBeFalse)
+
+	// The remote finishes initializing but genuinely no longer advertises the arm (it was removed
+	// from the remote's config). Now the arm should be removed and the local dependent rebuilt.
+	setMachineState(robot.StateRunning)
+	manager.updateRemoteResourceNames(ctx, remoteNodeName, remote, "", false)
+
+	test.That(t, remoteArmNode.MarkedForRemoval(), test.ShouldBeTrue)
+	test.That(t, localDepNode.NeedsReconfigure(), test.ShouldBeTrue)
+}
+
 func TestManagerWithSameNameInRemoteWithPrefix(t *testing.T) {
 	// The test tests that the resource manager handles prefixes correctly.
 	//
@@ -1860,7 +1932,9 @@ type dummyRobot struct {
 	manager    *resourceManager
 	modmanager *modmanager.Manager
 
-	offline bool
+	offline           bool
+	resourceNamesFunc func() []resource.Name
+	machineState      robot.MachineState
 }
 
 // GetResource implements resource.Provider for a dummyRobot by looking up a resource by name.
@@ -1908,10 +1982,19 @@ func (rr *dummyRobot) ResourceNames() []resource.Name {
 	if rr.offline {
 		return nil
 	}
+	if rr.resourceNamesFunc != nil {
+		return rr.resourceNamesFunc()
+	}
 	names := rr.manager.ResourceNames()
 	newNames := make([]resource.Name, 0, len(names))
 	newNames = append(newNames, names...)
 	return newNames
+}
+
+func (rr *dummyRobot) MachineState() robot.MachineState {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+	return rr.machineState
 }
 
 func (rr *dummyRobot) ResourceRPCAPIs() []resource.RPCAPI {
