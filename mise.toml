@@ -7,6 +7,12 @@ gotestsum = "1.12.2"
 actionlint = "v1.7.8"
 "go:golang.org/x/tools/cmd/stringer" = "0.49.0"
 
+# This section only used by examples/customresources/apis/proto.
+buf = "v1.71.0"
+protoc-gen-go = "v1.36.11"
+protoc-gen-go-grpc = "v1.5.1"
+"go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway" = "v2.20.0"
+
 [tools.ffmpeg]
 version = "9.0.2"
 lazy = true

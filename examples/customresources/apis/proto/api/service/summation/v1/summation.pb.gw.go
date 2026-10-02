@@ -10,7 +10,6 @@ package v1
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 
@@ -25,82 +24,98 @@ import (
 )
 
 // Suppress "imported and not used" errors
+var _ codes.Code
+var _ io.Reader
+var _ status.Status
+var _ = runtime.String
+var _ = utilities.NewDoubleArray
+var _ = metadata.Join
+
 var (
-	_ codes.Code
-	_ io.Reader
-	_ status.Status
-	_ = errors.New
-	_ = runtime.String
-	_ = utilities.NewDoubleArray
-	_ = metadata.Join
+	filter_SummationService_Sum_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
-var filter_SummationService_Sum_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
-
 func request_SummationService_Sum_0(ctx context.Context, marshaler runtime.Marshaler, client SummationServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq SumRequest
+	var metadata runtime.ServerMetadata
+
 	var (
-		protoReq SumRequest
-		metadata runtime.ServerMetadata
-		err      error
+		val string
+		ok  bool
+		err error
+		_   = err
 	)
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
-	val, ok := pathParams["name"]
+
+	val, ok = pathParams["name"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
+
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_SummationService_Sum_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := client.Sum(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_SummationService_Sum_0(ctx context.Context, marshaler runtime.Marshaler, server SummationServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq SumRequest
+	var metadata runtime.ServerMetadata
+
 	var (
-		protoReq SumRequest
-		metadata runtime.ServerMetadata
-		err      error
+		val string
+		ok  bool
+		err error
+		_   = err
 	)
-	val, ok := pathParams["name"]
+
+	val, ok = pathParams["name"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
+
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_SummationService_Sum_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.Sum(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 // RegisterSummationServiceHandlerServer registers the http handlers for service SummationService to "mux".
 // UnaryRPC     :call SummationServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterSummationServiceHandlerFromEndpoint instead.
-// GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterSummationServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server SummationServiceServer) error {
-	mux.Handle(http.MethodPost, pattern_SummationService_Sum_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_SummationService_Sum_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.service.summation.v1.SummationService/Sum", runtime.WithHTTPPathPattern("/acme/api/v1/service/summation/{name}/sum"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.service.summation.v1.SummationService/Sum", runtime.WithHTTPPathPattern("/acme/api/v1/service/summation/{name}/sum"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -112,7 +127,9 @@ func RegisterSummationServiceHandlerServer(ctx context.Context, mux *runtime.Ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_SummationService_Sum_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
 	return nil
@@ -139,6 +156,7 @@ func RegisterSummationServiceHandlerFromEndpoint(ctx context.Context, mux *runti
 			}
 		}()
 	}()
+
 	return RegisterSummationServiceHandler(ctx, mux, conn)
 }
 
@@ -152,13 +170,16 @@ func RegisterSummationServiceHandler(ctx context.Context, mux *runtime.ServeMux,
 // to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "SummationServiceClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "SummationServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "SummationServiceClient" to call the correct interceptors. This client ignores the HTTP middlewares.
+// "SummationServiceClient" to call the correct interceptors.
 func RegisterSummationServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client SummationServiceClient) error {
-	mux.Handle(http.MethodPost, pattern_SummationService_Sum_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_SummationService_Sum_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/acme.service.summation.v1.SummationService/Sum", runtime.WithHTTPPathPattern("/acme/api/v1/service/summation/{name}/sum"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.service.summation.v1.SummationService/Sum", runtime.WithHTTPPathPattern("/acme/api/v1/service/summation/{name}/sum"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -169,8 +190,11 @@ func RegisterSummationServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_SummationService_Sum_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
+
 	return nil
 }
 

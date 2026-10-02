@@ -10,7 +10,6 @@ package v1
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 
@@ -25,67 +24,81 @@ import (
 )
 
 // Suppress "imported and not used" errors
+var _ codes.Code
+var _ io.Reader
+var _ status.Status
+var _ = runtime.String
+var _ = utilities.NewDoubleArray
+var _ = metadata.Join
+
 var (
-	_ codes.Code
-	_ io.Reader
-	_ status.Status
-	_ = errors.New
-	_ = runtime.String
-	_ = utilities.NewDoubleArray
-	_ = metadata.Join
+	filter_GizmoService_DoOne_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
-var filter_GizmoService_DoOne_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
-
 func request_GizmoService_DoOne_0(ctx context.Context, marshaler runtime.Marshaler, client GizmoServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq DoOneRequest
+	var metadata runtime.ServerMetadata
+
 	var (
-		protoReq DoOneRequest
-		metadata runtime.ServerMetadata
-		err      error
+		val string
+		ok  bool
+		err error
+		_   = err
 	)
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
-	val, ok := pathParams["name"]
+
+	val, ok = pathParams["name"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
+
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoOne_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := client.DoOne(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_GizmoService_DoOne_0(ctx context.Context, marshaler runtime.Marshaler, server GizmoServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq DoOneRequest
+	var metadata runtime.ServerMetadata
+
 	var (
-		protoReq DoOneRequest
-		metadata runtime.ServerMetadata
-		err      error
+		val string
+		ok  bool
+		err error
+		_   = err
 	)
-	val, ok := pathParams["name"]
+
+	val, ok = pathParams["name"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
+
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoOne_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.DoOne(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 func request_GizmoService_DoOneClientStream_0(ctx context.Context, marshaler runtime.Marshaler, client GizmoServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
@@ -99,7 +112,7 @@ func request_GizmoService_DoOneClientStream_0(ctx context.Context, marshaler run
 	for {
 		var protoReq DoOneClientStreamRequest
 		err = dec.Decode(&protoReq)
-		if errors.Is(err, io.EOF) {
+		if err == io.EOF {
 			break
 		}
 		if err != nil {
@@ -107,13 +120,14 @@ func request_GizmoService_DoOneClientStream_0(ctx context.Context, marshaler run
 			return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
 		if err = stream.Send(&protoReq); err != nil {
-			if errors.Is(err, io.EOF) {
+			if err == io.EOF {
 				break
 			}
 			grpclog.Errorf("Failed to send request: %v", err)
 			return nil, metadata, err
 		}
 	}
+
 	if err := stream.CloseSend(); err != nil {
 		grpclog.Errorf("Failed to terminate client stream: %v", err)
 		return nil, metadata, err
@@ -124,22 +138,21 @@ func request_GizmoService_DoOneClientStream_0(ctx context.Context, marshaler run
 		return nil, metadata, err
 	}
 	metadata.HeaderMD = header
+
 	msg, err := stream.CloseAndRecv()
 	metadata.TrailerMD = stream.Trailer()
 	return msg, metadata, err
+
 }
 
 func request_GizmoService_DoOneServerStream_0(ctx context.Context, marshaler runtime.Marshaler, client GizmoServiceClient, req *http.Request, pathParams map[string]string) (GizmoService_DoOneServerStreamClient, runtime.ServerMetadata, error) {
-	var (
-		protoReq DoOneServerStreamRequest
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq DoOneServerStreamRequest
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
+
 	stream, err := client.DoOneServerStream(ctx, &protoReq)
 	if err != nil {
 		return nil, metadata, err
@@ -150,6 +163,7 @@ func request_GizmoService_DoOneServerStream_0(ctx context.Context, marshaler run
 	}
 	metadata.HeaderMD = header
 	return stream, metadata, nil
+
 }
 
 func request_GizmoService_DoOneBiDiStream_0(ctx context.Context, marshaler runtime.Marshaler, client GizmoServiceClient, req *http.Request, pathParams map[string]string) (GizmoService_DoOneBiDiStreamClient, runtime.ServerMetadata, error) {
@@ -163,12 +177,12 @@ func request_GizmoService_DoOneBiDiStream_0(ctx context.Context, marshaler runti
 	handleSend := func() error {
 		var protoReq DoOneBiDiStreamRequest
 		err := dec.Decode(&protoReq)
-		if errors.Is(err, io.EOF) {
+		if err == io.EOF {
 			return err
 		}
 		if err != nil {
 			grpclog.Errorf("Failed to decode request: %v", err)
-			return status.Errorf(codes.InvalidArgument, "Failed to decode request: %v", err)
+			return err
 		}
 		if err := stream.Send(&protoReq); err != nil {
 			grpclog.Errorf("Failed to send request: %v", err)
@@ -195,125 +209,161 @@ func request_GizmoService_DoOneBiDiStream_0(ctx context.Context, marshaler runti
 	return stream, metadata, nil
 }
 
-var filter_GizmoService_DoTwo_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+var (
+	filter_GizmoService_DoTwo_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+)
 
 func request_GizmoService_DoTwo_0(ctx context.Context, marshaler runtime.Marshaler, client GizmoServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq DoTwoRequest
+	var metadata runtime.ServerMetadata
+
 	var (
-		protoReq DoTwoRequest
-		metadata runtime.ServerMetadata
-		err      error
+		val string
+		ok  bool
+		err error
+		_   = err
 	)
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
-	val, ok := pathParams["name"]
+
+	val, ok = pathParams["name"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
+
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoTwo_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := client.DoTwo(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_GizmoService_DoTwo_0(ctx context.Context, marshaler runtime.Marshaler, server GizmoServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq DoTwoRequest
+	var metadata runtime.ServerMetadata
+
 	var (
-		protoReq DoTwoRequest
-		metadata runtime.ServerMetadata
-		err      error
+		val string
+		ok  bool
+		err error
+		_   = err
 	)
-	val, ok := pathParams["name"]
+
+	val, ok = pathParams["name"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
+
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoTwo_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.DoTwo(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
-var filter_GizmoService_DoCommand_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+var (
+	filter_GizmoService_DoCommand_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+)
 
 func request_GizmoService_DoCommand_0(ctx context.Context, marshaler runtime.Marshaler, client GizmoServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq DoCommandRequest
+	var metadata runtime.ServerMetadata
+
 	var (
-		protoReq DoCommandRequest
-		metadata runtime.ServerMetadata
-		err      error
+		val string
+		ok  bool
+		err error
+		_   = err
 	)
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
-	val, ok := pathParams["name"]
+
+	val, ok = pathParams["name"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
+
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoCommand_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := client.DoCommand(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_GizmoService_DoCommand_0(ctx context.Context, marshaler runtime.Marshaler, server GizmoServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq DoCommandRequest
+	var metadata runtime.ServerMetadata
+
 	var (
-		protoReq DoCommandRequest
-		metadata runtime.ServerMetadata
-		err      error
+		val string
+		ok  bool
+		err error
+		_   = err
 	)
-	val, ok := pathParams["name"]
+
+	val, ok = pathParams["name"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
+
 	protoReq.Name, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_GizmoService_DoCommand_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.DoCommand(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 // RegisterGizmoServiceHandlerServer registers the http handlers for service GizmoService to "mux".
 // UnaryRPC     :call GizmoServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterGizmoServiceHandlerFromEndpoint instead.
-// GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterGizmoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server GizmoServiceServer) error {
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoOne_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoOne_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOne", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_one"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOne", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_one"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -325,36 +375,41 @@ func RegisterGizmoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoOne_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoOneClientStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_GizmoService_DoOneClientStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 		return
 	})
 
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoOneServerStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_GizmoService_DoOneServerStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 		return
 	})
 
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoOneBiDiStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_GizmoService_DoOneBiDiStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 		return
 	})
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoTwo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoTwo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoTwo", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_two"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoTwo", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_two"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -366,15 +421,20 @@ func RegisterGizmoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoTwo_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoCommand_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoCommand_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoCommand", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_command"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoCommand", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_command"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -386,7 +446,9 @@ func RegisterGizmoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoCommand_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
 	return nil
@@ -413,6 +475,7 @@ func RegisterGizmoServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.S
 			}
 		}()
 	}()
+
 	return RegisterGizmoServiceHandler(ctx, mux, conn)
 }
 
@@ -426,13 +489,16 @@ func RegisterGizmoServiceHandler(ctx context.Context, mux *runtime.ServeMux, con
 // to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "GizmoServiceClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "GizmoServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "GizmoServiceClient" to call the correct interceptors. This client ignores the HTTP middlewares.
+// "GizmoServiceClient" to call the correct interceptors.
 func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client GizmoServiceClient) error {
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoOne_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoOne_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOne", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_one"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOne", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_one"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -443,13 +509,18 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoOne_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoOneClientStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoOneClientStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneClientStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneClientStream"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneClientStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneClientStream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -460,13 +531,18 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoOneClientStream_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoOneServerStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoOneServerStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneServerStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneServerStream"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneServerStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneServerStream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -477,13 +553,18 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoOneServerStream_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoOneBiDiStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoOneBiDiStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneBiDiStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneBiDiStream"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneBiDiStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneBiDiStream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -494,13 +575,18 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoOneBiDiStream_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoTwo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoTwo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoTwo", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_two"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoTwo", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_two"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -511,13 +597,18 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoTwo_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_GizmoService_DoCommand_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_GizmoService_DoCommand_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoCommand", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_command"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoCommand", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_command"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -528,25 +619,38 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_GizmoService_DoCommand_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
+
 	return nil
 }
 
 var (
-	pattern_GizmoService_DoOne_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"acme", "api", "v1", "component", "gizmo", "name", "do_one"}, ""))
+	pattern_GizmoService_DoOne_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"acme", "api", "v1", "component", "gizmo", "name", "do_one"}, ""))
+
 	pattern_GizmoService_DoOneClientStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"acme.component.gizmo.v1.GizmoService", "DoOneClientStream"}, ""))
+
 	pattern_GizmoService_DoOneServerStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"acme.component.gizmo.v1.GizmoService", "DoOneServerStream"}, ""))
-	pattern_GizmoService_DoOneBiDiStream_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"acme.component.gizmo.v1.GizmoService", "DoOneBiDiStream"}, ""))
-	pattern_GizmoService_DoTwo_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"acme", "api", "v1", "component", "gizmo", "name", "do_two"}, ""))
-	pattern_GizmoService_DoCommand_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"acme", "api", "v1", "component", "gizmo", "name", "do_command"}, ""))
+
+	pattern_GizmoService_DoOneBiDiStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"acme.component.gizmo.v1.GizmoService", "DoOneBiDiStream"}, ""))
+
+	pattern_GizmoService_DoTwo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"acme", "api", "v1", "component", "gizmo", "name", "do_two"}, ""))
+
+	pattern_GizmoService_DoCommand_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"acme", "api", "v1", "component", "gizmo", "name", "do_command"}, ""))
 )
 
 var (
-	forward_GizmoService_DoOne_0             = runtime.ForwardResponseMessage
+	forward_GizmoService_DoOne_0 = runtime.ForwardResponseMessage
+
 	forward_GizmoService_DoOneClientStream_0 = runtime.ForwardResponseMessage
+
 	forward_GizmoService_DoOneServerStream_0 = runtime.ForwardResponseStream
-	forward_GizmoService_DoOneBiDiStream_0   = runtime.ForwardResponseStream
-	forward_GizmoService_DoTwo_0             = runtime.ForwardResponseMessage
-	forward_GizmoService_DoCommand_0         = runtime.ForwardResponseMessage
+
+	forward_GizmoService_DoOneBiDiStream_0 = runtime.ForwardResponseStream
+
+	forward_GizmoService_DoTwo_0 = runtime.ForwardResponseMessage
+
+	forward_GizmoService_DoCommand_0 = runtime.ForwardResponseMessage
 )
