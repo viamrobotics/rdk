@@ -43,6 +43,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the input controller sub-resource of a composite, for resource.Compose.
+func AsSub(r Controller) resource.Sub { return resource.AsSub[Controller](API, r) }
+
 // Controller is a logical "container" more than an actual device.
 // It could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
 // For more information, see the [input controller component docs].

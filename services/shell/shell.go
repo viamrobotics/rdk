@@ -83,3 +83,6 @@ var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
+
+// AsSub tags s as the shell sub-resource of a composite, for resource.Compose.
+func AsSub(s Service) resource.Sub { return resource.AsSub[Service](API, s) }
