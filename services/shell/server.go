@@ -5,12 +5,17 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"math"
+	"strings"
 	"syscall"
+	"time"
 
+	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -22,13 +27,70 @@ import (
 // serviceServer implements the contract from shell.proto.
 type serviceServer struct {
 	pb.UnimplementedShellServiceServer
-	coll resource.APIResourceGetter[Service]
+	coll   resource.APIResourceGetter[Service]
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs a framesystem gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
-	return &serviceServer{coll: coll}
+	// Scope copy/shell diagnostics under a "shell" sublogger so they're easy to find and filter on
+	// the machine Logs page, rather than emitting under the bare root logger.
+	if logger != nil {
+		logger = logger.Sublogger("shell")
+	}
+	return &serviceServer{coll: coll, logger: logger}
+}
+
+// copyTransportSnapshot reads the WebRTC/SCTP transport state for the connection serving ctx, if
+// it is a WebRTC connection. connID matches the key used for this connection in the server's FTDC,
+// so a copy log can be correlated to that connection's cwnd/rwnd series. Returns ok=false for a
+// non-WebRTC (direct/local) connection, which has no such stats.
+func copyTransportSnapshot(ctx context.Context) (connID string, bytesSent, bytesReceived uint64, ok bool) {
+	peerConn, has := rpc.ContextPeerConnection(ctx)
+	if !has || peerConn == nil {
+		return "", 0, 0, false
+	}
+	for _, stat := range peerConn.GetStats() {
+		switch typed := stat.(type) {
+		case webrtc.PeerConnectionStats:
+			connID = typed.ID
+		case webrtc.SCTPTransportStats:
+			bytesSent, bytesReceived, ok = typed.BytesSent, typed.BytesReceived, true
+		}
+	}
+	return connID, bytesSent, bytesReceived, ok && connID != ""
+}
+
+// logCopySummary emits a single structured line per file-copy RPC so copies are visible in
+// machine logs and can be correlated with the per-connection SCTP stats in FTDC
+// via conn_id. transportBytes is the SCTP byte delta over the copy (received for a copy to the
+// machine, sent for a copy from it); transport fields are omitted for non-WebRTC connections.
+func (server *serviceServer) logCopySummary(
+	direction, target string, preserve bool, dur time.Duration, connID string, transportBytes uint64, haveTransport bool, copyErr error,
+) {
+	if server.logger == nil {
+		return
+	}
+	keysAndValues := []any{
+		"direction", direction,
+		"target", target,
+		"preserve", preserve,
+		"duration_ms", dur.Milliseconds(),
+	}
+	if haveTransport {
+		var mbps float64
+		if secs := dur.Seconds(); secs > 0 {
+			mbps = math.Round(float64(transportBytes)/secs/1e6*1000) / 1000
+		}
+		keysAndValues = append(keysAndValues,
+			"conn_id", connID, "transport_bytes", transportBytes, "throughput_mbps", mbps)
+	}
+	if copyErr != nil {
+		server.logger.Warnw("shell file copy failed", append(keysAndValues, "error", copyErr)...)
+		return
+	}
+	server.logger.Infow("shell file copy completed", keysAndValues...)
 }
 
 func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr error) {
@@ -170,7 +232,14 @@ func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToM
 	defer func() {
 		utils.UncheckedError(reader.Close(srv.Context()))
 	}()
-	return reader.ReadAll(srv.Context())
+
+	start := time.Now()
+	connID, _, receivedBefore, okBefore := copyTransportSnapshot(srv.Context())
+	copyErr := reader.ReadAll(srv.Context())
+	_, _, receivedAfter, okAfter := copyTransportSnapshot(srv.Context())
+	server.logCopySummary("to_machine", md.Metadata.Destination, md.Metadata.Preserve, time.Since(start),
+		connID, receivedAfter-receivedBefore, okBefore && okAfter, copyErr)
+	return copyErr
 }
 
 // CopyFilesFromMachine is the server side RPC implementation of copying files from a machine.
@@ -190,7 +259,9 @@ func (server *serviceServer) CopyFilesFromMachine(srv pb.ShellService_CopyFilesF
 		return err
 	}
 
-	return svc.CopyFilesFromMachine(
+	start := time.Now()
+	connID, sentBefore, _, okBefore := copyTransportSnapshot(srv.Context())
+	copyErr := svc.CopyFilesFromMachine(
 		srv.Context(),
 		md.Metadata.Paths,
 		md.Metadata.AllowRecursion,
@@ -198,6 +269,10 @@ func (server *serviceServer) CopyFilesFromMachine(srv pb.ShellService_CopyFilesF
 		newCopyFileFromMachineFactory(srv, md.Metadata.Preserve),
 		md.Metadata.Extra.AsMap(),
 	)
+	_, sentAfter, _, okAfter := copyTransportSnapshot(srv.Context())
+	server.logCopySummary("from_machine", strings.Join(md.Metadata.Paths, ","), md.Metadata.Preserve, time.Since(start),
+		connID, sentAfter-sentBefore, okBefore && okAfter, copyErr)
+	return copyErr
 }
 
 // DoCommand receives arbitrary commands.
