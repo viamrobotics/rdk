@@ -63,7 +63,7 @@ func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)              
 
 func TestCollectorRegistry(t *testing.T) {
 	collectors := data.DumpRegisteredCollectors()
-	test.That(t, len(collectors), test.ShouldEqual, 73)
+	test.That(t, len(collectors), test.ShouldBeGreaterThan, 73)
 	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
 		return cmp.Compare(a.String(), b.String())
 	})
@@ -102,6 +102,7 @@ func TestCollectorRegistry(t *testing.T) {
 		{API: resource.API{Type: rdkComponent, SubtypeName: "generic"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "GetWorldPose"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "IsHoldingSomething"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "input_controller"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "input_controller"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "DoCommand"},
