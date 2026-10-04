@@ -62,9 +62,10 @@
           "pattern": "^[^:]+:[^:]+:[^:]+$",
           "description": "A colon-delimited triple of NAMESPACE:ANYTHING:NAME. Namespace must match your org's public namespace (if you have one)."
         },
-        "description": {
+        "short_description": {
           "type": "string",
-          "description": "Short description of this model."
+          "maxLength": 100,
+          "description": "Short description of this model, at most 100 characters."
         },
         "markdown_link": {
           "type": "string",

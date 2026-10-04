@@ -3907,6 +3907,20 @@ Run this command from within the module directory.`,
 					Action: createActionCommandWithT[updateModuleArgs](UpdateModuleAction),
 				},
 				{
+					Name:      "validate",
+					Usage:     "check a module's meta.json against registry limits without contacting app.viam.com",
+					UsageText: createUsageText("module validate", nil, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
+						},
+					},
+					Action: createActionCommandWithT[validateModuleArgs](ValidateModuleAction),
+				},
+				{
 					Name:      "update-models",
 					Usage:     "update a module's metadata file based on models it provides",
 					UsageText: createUsageText("module update-models", []string{}, true, false),
