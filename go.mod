@@ -389,3 +389,5 @@ require (
 )
 
 replace go.viam.com/api => ../api
+
+replace github.com/viam-modules/trajex/go => ../trajex/go
