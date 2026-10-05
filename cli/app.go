@@ -135,6 +135,7 @@ const (
 	mlTrainingFlagContainerVersion = "container-version"
 	mlTrainingFlagIncludeURIs      = "include-uris"
 	mlTrainingFlagContainerID      = "id"
+	mlRegisterContainersImageURI   = "uri"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2259,6 +2260,29 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createActionCommandWithT[mlListContainersArgs](MLListContainers),
+						},
+						{
+							Name:      "register",
+							Usage:     "registers a custom container for custom training",
+							UsageText: createUsageText("train containers register", []string{mlRegisterContainersImageURI}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:        generalFlagOrgID,
+									Usage:       "organization ID that will own the container",
+									DefaultText: "the default org set with `viam defaults set-org`",
+								},
+								&cli.StringFlag{
+									Name:     mlRegisterContainersImageURI,
+									Usage:    "docker image URI of the container",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     mlTrainingFlagDescription,
+									Usage:    "acts as the container display name",
+									Required: true,
+								},
+							},
+							Action: createActionCommandWithT[registerContainersArgs](RegisterContainer),
 						},
 						{
 							Name:      "delete",
