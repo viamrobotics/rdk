@@ -226,6 +226,9 @@ var (
 type internalRemoteRobot interface {
 	resource.Resource
 	robot.Robot
+
+	// MachineState returns the remote's last observed machine state, cached by the robot client.
+	MachineState() robot.MachineState
 }
 
 // updateRemoteResourceNames is called when the Remote robot has changed (either connection or disconnection).
@@ -451,14 +454,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 // remoteRunning reports whether a remote has confirmed it has finished starting up, so its advertised
 // resource set can be trusted for removals. Otherwise removal is deferred so we never tear down
-// dependents on a remote that may still be rebuilding. The state is read from the client's cache. A
-// remote that cannot report state at all is treated as running.
+// dependents on a remote that may still be rebuilding. The state is read from the client's cache.
 func remoteRunning(rr internalRemoteRobot) bool {
-	reporter, ok := rr.(interface{ MachineState() robot.MachineState })
-	if !ok {
-		return true
-	}
-	return reporter.MachineState() == robot.StateRunning
+	return rr.MachineState() == robot.StateRunning
 }
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) bool {
