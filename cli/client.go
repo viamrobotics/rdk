@@ -6320,6 +6320,7 @@ func classifyCopyError(err error, isFrom bool) copyRetryVerdict {
 		return abort("Copy failed because the machine part has no cloud configuration. " +
 			"Shell service integration requires a cloud part identity.")
 	case errors.Is(err, errLoggedOut):
+		// [errLoggedOut] already prints as a helpful user-facing string.
 		return abort("")
 	}
 
