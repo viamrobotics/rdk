@@ -382,9 +382,9 @@ func addShellService(
 	// If we don't wait, the reload command will usually fail on first run.
 	for i := 0; i < 11; i++ {
 		time.Sleep(time.Second)
-		_, closeClient, err := vc.connectToShellServiceFqdn(ctx, part.Fqdn, args.Debug, logger)
+		_, robotClient, err := vc.connectToShellServiceFqdn(ctx, part.Fqdn, args.Debug, logger)
 		if err == nil {
-			goutils.UncheckedError(closeClient(ctx))
+			goutils.UncheckedError(robotClient.Close(ctx))
 			return true, nil
 		}
 		if !errors.Is(err, errNoShellService) {
