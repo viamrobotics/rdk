@@ -62,29 +62,32 @@ func copyTransportSnapshot(ctx context.Context) (connID string, bytesSent, bytes
 	return connID, bytesSent, bytesReceived, ok && connID != ""
 }
 
-// logCopySummary emits a single structured line per file-copy RPC so copies are visible in
-// machine logs and can be correlated with the per-connection SCTP stats in FTDC
-// via conn_id. transportBytes is the SCTP byte delta over the copy (received for a copy to the
-// machine, sent for a copy from it); transport fields are omitted for non-WebRTC connections.
+// logCopySummary emits a single structured log line per file-copy RPC so copies are visible in
+// machine logs and can be correlated with the per-connection SCTP stats in FTDC via conn_id.
+// transport_mb is the SCTP megabyte delta over the copy (received for a copy to the machine, sent
+// for a copy from it); transport fields are omitted for non-WebRTC connections.
 func (server *serviceServer) logCopySummary(
 	direction, target string, preserve bool, dur time.Duration, connID string, transportBytes uint64, haveTransport bool, copyErr error,
 ) {
 	if server.logger == nil {
 		return
 	}
+	round3 := func(f float64) float64 { return math.Round(f*1000) / 1000 }
+	secs := dur.Seconds()
 	keysAndValues := []any{
 		"direction", direction,
 		"target", target,
 		"preserve", preserve,
-		"duration_ms", dur.Milliseconds(),
+		"duration_s", round3(secs),
 	}
 	if haveTransport {
-		var mbps float64
-		if secs := dur.Seconds(); secs > 0 {
-			mbps = math.Round(float64(transportBytes)/secs/1e6*1000) / 1000
+		mb := float64(transportBytes) / 1e6
+		var mbPerSec float64
+		if secs > 0 {
+			mbPerSec = mb / secs
 		}
 		keysAndValues = append(keysAndValues,
-			"conn_id", connID, "transport_bytes", transportBytes, "throughput_mbps", mbps)
+			"conn_id", connID, "transport_mb", round3(mb), "throughput_mb_per_s", round3(mbPerSec))
 	}
 	if copyErr != nil {
 		server.logger.Warnw("shell file copy failed", append(keysAndValues, "error", copyErr)...)
