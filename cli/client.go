@@ -6125,8 +6125,6 @@ func (c *viamClient) connectToRobot(
 // metadata when available to ensure the shell service we select is the one on
 // the part we dialed. If cloud metadata is not available an error is returned.
 func partShellServiceName(ctx context.Context, r robot.Robot) (resource.Name, error) {
-	var candidates []resource.Name
-
 	md, err := r.CloudMetadata(ctx)
 	if err != nil {
 		return resource.Name{}, fmt.Errorf("%w: %w", errShellRequiresCloud, err)
@@ -6139,7 +6137,7 @@ func partShellServiceName(ctx context.Context, r robot.Robot) (resource.Name, er
 		return resource.Name{}, errors.Wrap(err, "could not get machine status")
 	}
 
-	candidates = lo.FilterMap(mStatus.Resources, func(status resource.Status, _ int) (resource.Name, bool) {
+	candidates := lo.FilterMap(mStatus.Resources, func(status resource.Status, _ int) (resource.Name, bool) {
 		isLocalShell := status.Name.API == shell.API && status.CloudMetadata.MachinePartID == md.MachinePartID
 		return status.Name, isLocalShell
 	})
@@ -6148,6 +6146,9 @@ func partShellServiceName(ctx context.Context, r robot.Robot) (resource.Name, er
 		return resource.Name{}, errNoShellService
 	}
 
+	// Really there should only ever be one shell service on a machine, but we've
+	// already filtered to only services on the dialed part so picking the first
+	// of multiple on a misconfigured machine should be fine.
 	return candidates[0], nil
 }
 
