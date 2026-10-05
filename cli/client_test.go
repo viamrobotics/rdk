@@ -33,15 +33,18 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/cloud"
 	robotconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/shell"
@@ -202,10 +205,7 @@ func setupWithRunningPart(
 ) (*cli.Command, *viamClient, *testWriter, *testWriter) {
 	t.Helper()
 
-	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
-
-	// this config could later become a parameter
-	r, err := robotimpl.New(context.Background(), &robotconfig.Config{
+	cfg := &robotconfig.Config{
 		Services: []resource.Config{
 			{
 				Name:  "shell1",
@@ -213,7 +213,31 @@ func setupWithRunningPart(
 				Model: resource.DefaultServiceModel,
 			},
 		},
-	}, nil, logging.NewInMemoryLogger(t))
+	}
+	cCtx, ac, _, out, errOut := setupWithRunningPartConfig(
+		t, asc, dataClient, buildClient, defaultFlags, authMethod, partFQDN, cfg, cliArgs...,
+	)
+	return cCtx, ac, out, errOut
+}
+
+// setupWithRunningPartConfig starts an in-process machine part from cfg and points the CLI
+// client's dialer at it. It also returns the part so tests can observe its state directly.
+func setupWithRunningPartConfig(
+	t *testing.T,
+	asc apppb.AppServiceClient,
+	dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient,
+	defaultFlags map[string]any,
+	authMethod string,
+	partFQDN string,
+	cfg *robotconfig.Config,
+	cliArgs ...string,
+) (*cli.Command, *viamClient, robot.LocalRobot, *testWriter, *testWriter) {
+	t.Helper()
+
+	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
+
+	r, err := robotimpl.New(context.Background(), cfg, nil, logging.NewInMemoryLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -236,7 +260,7 @@ func setupWithRunningPart(
 	t.Cleanup(func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	})
-	return cCtx, ac, out, errOut
+	return cCtx, ac, r, out, errOut
 }
 
 func TestListOrganizationsAction(t *testing.T) {
@@ -2310,6 +2334,132 @@ func TestMachineViamHome(t *testing.T) {
 		test.That(t, vc.machineViamHome(context.Background(), cCtx, nil),
 			test.ShouldEqual, legacyViamHomeDir)
 		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "did not report its VIAM_HOME")
+	})
+}
+
+func TestPartShellServiceName(t *testing.T) {
+	ctx := context.Background()
+	partMD := cloud.Metadata{MachinePartID: "part-main"}
+	remoteMD := cloud.Metadata{MachinePartID: "part-remote"}
+	names := []resource.Name{shell.Named("shell-remote"), shell.Named("shell1")}
+	statuses := []resource.Status{
+		{NodeStatus: resource.NodeStatus{Name: shell.Named("shell-remote")}, CloudMetadata: remoteMD},
+		{NodeStatus: resource.NodeStatus{Name: shell.Named("shell1")}, CloudMetadata: partMD},
+	}
+	newRobot := func(statusErr error) *inject.Robot {
+		r := &inject.Robot{}
+		r.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) { return partMD, nil }
+		r.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+			if statusErr != nil {
+				return robot.MachineStatus{}, statusErr
+			}
+			return robot.MachineStatus{Resources: statuses}, nil
+		}
+		r.ResourceNamesFunc = func() []resource.Name { return names }
+		return r
+	}
+
+	t.Run("matches the part ID", func(t *testing.T) {
+		name, err := partShellServiceName(ctx, newRobot(nil))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, name, test.ShouldResemble, shell.Named("shell1"))
+	})
+
+	t.Run("a server without machine status falls back to the resource list", func(t *testing.T) {
+		_, err := partShellServiceName(ctx, newRobot(status.Error(codes.Unimplemented, "nope")))
+		test.That(t, errors.Is(err, errMultipleShellServices), test.ShouldBeTrue)
+	})
+
+	t.Run("other machine status failures propagate", func(t *testing.T) {
+		_, err := partShellServiceName(ctx, newRobot(status.Error(codes.Unavailable, "gone")))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, errors.Is(err, errMultipleShellServices), test.ShouldBeFalse)
+		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeFalse)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "gone")
+	})
+}
+
+func TestConnectToShellServiceSelectsPartShell(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	asc := &inject.AppServiceClient{}
+
+	shellCfg := func(name string) resource.Config {
+		return resource.Config{Name: name, API: shell.API, Model: resource.DefaultServiceModel}
+	}
+
+	// startRemote runs a second machine part, with its own part ID and shell service, and
+	// returns the address a main part connects to it at.
+	startRemote := func(t *testing.T) string {
+		t.Helper()
+		remote, err := robotimpl.New(ctx, &robotconfig.Config{
+			Cloud:    &robotconfig.Cloud{ID: "part-remote"},
+			Services: []resource.Config{shellCfg("shell-remote")},
+		}, nil, logging.NewInMemoryLogger(t))
+		test.That(t, err, test.ShouldBeNil)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		test.That(t, remote.StartWeb(ctx, options), test.ShouldBeNil)
+		t.Cleanup(func() { test.That(t, remote.Close(ctx), test.ShouldBeNil) })
+		return addr
+	}
+
+	// waitForRemoteShell blocks until the main part has imported the remote's shell service.
+	waitForRemoteShell := func(t *testing.T, r robot.LocalRobot) {
+		t.Helper()
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			var seen bool
+			for _, name := range r.ResourceNames() {
+				if name.API == shell.API && name.Name == "shell-remote" {
+					seen = true
+				}
+			}
+			test.That(tb, seen, test.ShouldBeTrue)
+		})
+	}
+
+	t.Run("the part's own shell service wins over a remote's", func(t *testing.T) {
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Cloud:    &robotconfig.Cloud{ID: "part-main"},
+			Services: []resource.Config{shellCfg("shell1")},
+			Remotes:  []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		// the machine enumerates resources in map order, so a wrong pick is intermittent
+		for range 10 {
+			shellSvc, closeClient, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shellSvc.Name().Name, test.ShouldEqual, "shell1")
+			test.That(t, closeClient(ctx), test.ShouldBeNil)
+		}
+	})
+
+	t.Run("a remote's shell service does not stand in for the part's missing one", func(t *testing.T) {
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Cloud:   &robotconfig.Cloud{ID: "part-main"},
+			Remotes: []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		_, _, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeTrue)
+	})
+
+	t.Run("without cloud metadata an ambiguous resource list is an error", func(t *testing.T) {
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Services: []resource.Config{shellCfg("shell1")},
+			Remotes:  []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		_, _, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+		test.That(t, errors.Is(err, errMultipleShellServices), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "shell1")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "shell-remote")
 	})
 }
 
