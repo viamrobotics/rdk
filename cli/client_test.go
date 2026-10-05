@@ -2367,13 +2367,13 @@ func TestPartShellServiceName(t *testing.T) {
 
 	t.Run("a server without machine status falls back to the resource list", func(t *testing.T) {
 		_, err := partShellServiceName(ctx, newRobot(status.Error(codes.Unimplemented, "nope")))
-		test.That(t, errors.Is(err, errMultipleShellServices), test.ShouldBeTrue)
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
 	})
 
 	t.Run("other machine status failures propagate", func(t *testing.T) {
 		_, err := partShellServiceName(ctx, newRobot(status.Error(codes.Unavailable, "gone")))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, errors.Is(err, errMultipleShellServices), test.ShouldBeFalse)
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeFalse)
 		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeFalse)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "gone")
 	})
@@ -2457,7 +2457,7 @@ func TestConnectToShellServiceSelectsPartShell(t *testing.T) {
 		waitForRemoteShell(t, r)
 
 		_, _, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
-		test.That(t, errors.Is(err, errMultipleShellServices), test.ShouldBeTrue)
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "shell1")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "shell-remote")
 	})

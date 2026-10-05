@@ -35,6 +35,7 @@ import (
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	cron "github.com/robfig/cron/v3"
+	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -93,9 +94,9 @@ const legacyViamHomeDir = "~/.viam"
 
 var (
 	errNoShellService = errors.New("shell service is not enabled on this machine part")
-	// errMultipleShellServices reports a machine whose resource list holds several shell
-	// services and no cloud metadata to tell which runs on the dialed part.
-	errMultipleShellServices = errors.New("multiple shell services found; cannot tell which belongs to this machine part")
+	// errShellRequiresCloud reports that a cloud configuration is required to
+	// use the shell service due to a dependence on cloud metadata.
+	errShellRequiresCloud = errors.New("shell service requires a robot configured through viam cloud")
 	// errConnectToPart tags a failure to reach a machine part. An offline or unresolvable
 	// host comes back as codes.NotFound, the same code the shell service returns for a
 	// missing path, so callers that treat gRPC codes as verdicts about the copy itself must
@@ -6116,52 +6117,35 @@ func (c *viamClient) connectToRobot(
 	return robotClient, nil
 }
 
-// partShellServiceName returns the name of the shell service running on the dialed machine
-// part itself.
+// partShellServiceName returns the name of the shell service running on the
+// dialed machine part.
 //
-// The part's resource list also holds every remote's resources, flattened: the wire format of
-// a resource name carries no remote marker, and the list comes back in map order. Taking the
-// first shell service from it opens a shell on an arbitrary machine. Machine status attaches
-// each resource's cloud metadata, so a part ID match singles out the part's own shell service.
-//
-// A machine without cloud metadata (a local viam-server, or one too old to report machine
-// status) offers only the resource list, so the lookup succeeds there only when it is
-// unambiguous.
+// The part's resource list also holds every remote's resources with no way to
+// determine which resources are remote or local. This function uses cloud
+// metadata when available to ensure the shell service we select is the one on
+// the part we dialed. If cloud metadata is not available an error is returned.
 func partShellServiceName(ctx context.Context, r robot.Robot) (resource.Name, error) {
 	var candidates []resource.Name
-	md, mdErr := r.CloudMetadata(ctx)
-	byPartID := mdErr == nil && md.MachinePartID != ""
-	if byPartID {
-		mStatus, err := r.MachineStatus(ctx)
-		switch {
-		case err == nil:
-			for _, rs := range mStatus.Resources {
-				if rs.Name.API == shell.API && rs.CloudMetadata.MachinePartID == md.MachinePartID {
-					candidates = append(candidates, rs.Name)
-				}
-			}
-		case status.Code(err) == codes.Unimplemented:
-			byPartID = false
-		default:
-			return resource.Name{}, errors.Wrap(err, "could not get machine status")
-		}
+
+	md, err := r.CloudMetadata(ctx)
+	if err != nil || md.MachinePartID == "" {
+		return resource.Name{}, errShellRequiresCloud
 	}
-	if !byPartID {
-		for _, name := range r.ResourceNames() {
-			if name.API == shell.API {
-				candidates = append(candidates, name)
-			}
-		}
+	mStatus, err := r.MachineStatus(ctx)
+	if err != nil {
+		return resource.Name{}, errors.Wrap(err, "could not get machine status")
 	}
 
-	switch len(candidates) {
-	case 0:
+	candidates = lo.FilterMap(mStatus.Resources, func(status resource.Status, _ int) (resource.Name, bool) {
+		isLocalShell := status.Name.API == shell.API && status.CloudMetadata.MachinePartID == md.MachinePartID
+		return status.Name, isLocalShell
+	})
+
+	if len(candidates) < 1 {
 		return resource.Name{}, errNoShellService
-	case 1:
-		return candidates[0], nil
-	default:
-		return resource.Name{}, fmt.Errorf("%w: %v", errMultipleShellServices, resource.NamesToStrings(candidates))
 	}
+
+	return candidates[0], nil
 }
 
 func (c *viamClient) connectToShellServiceInner(
