@@ -2258,6 +2258,12 @@ Note: There is no progress meter while copying is in progress.
 									Name:  mlTrainingFlagIncludeURIs,
 									Usage: "show container URIs with the list of containers",
 								},
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Aliases:  []string{generalFlagAliasOrg, generalFlagOrganization},
+									Usage:    "the org ID for which to list available containers for custom training jobs",
+									Required: false,
+								},
 							},
 							Action: createActionCommandWithT[mlListContainersArgs](MLListContainers),
 						},
