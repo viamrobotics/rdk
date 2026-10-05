@@ -90,7 +90,6 @@ type mlSubmitCustomTrainingJobWithUploadArgs struct {
 	Version          string
 	Framework        string
 	ModelType        string
-	ContainerVersion string
 	ContainerID      string
 	Args             []string
 }

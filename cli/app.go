@@ -2295,7 +2295,7 @@ Note: There is no progress meter while copying is in progress.
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagID,
-									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
+									Usage:    "ID of the training container to use. Must be one of the supported container IDs found by calling ListContainers.",
 									Required: true,
 								},
 							},
