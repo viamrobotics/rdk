@@ -287,7 +287,11 @@ func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Comman
 		return c.moduleBuildStartFromSource(ctx, cmd, args)
 	}
 
-	manifest, err := loadManifest(args.Module)
+	manifestPath := args.Module
+	if !filepath.IsAbs(manifestPath) {
+		manifestPath = filepath.Join(args.Workdir, args.Module)
+	}
+	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return "", err
 	}
@@ -1766,6 +1770,10 @@ func reloadModuleActionInner(
 		if err != nil {
 			_ = pm.Fail("upload", err)                               //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			// A logout during refresh is unrecoverable; surface it rather than suggesting a retry.
+			if errors.Is(err, errLoggedOut) {
+				return err
+			}
 			return fmt.Errorf("all %d copy attempts failed. You can retry the copy later, "+
 				"skipping the build step with: viam module reload --no-build --part-id %s", attemptCount, partID)
 		}

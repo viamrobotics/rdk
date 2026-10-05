@@ -8,9 +8,6 @@ jobs:
   license_finder:
     name: Audit 3rd-Party Licenses
     runs-on: [ubuntu-latest]
-    container:
-      image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-      options: --platform linux/amd64
     timeout-minutes: 30
     env:
       MISE_GO_SET_GOROOT: false
@@ -19,20 +16,28 @@ jobs:
     steps:
     - name: Check out code
       if: github.event_name != 'pull_request_target'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
         allow-unsafe-pr-checkout: true
 
-    # Nothing this action installs is currently used, but it has to be merged
-    # to main for CI on the next PR in the stack to pass.
     - name: Install toolchain
       uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+      with:
+        cache_key_prefix: "mise-v1-license-finder"
+        install_args: "go ruby gem:license_finder"
+
+    # The license checker needs to fetch all our go dependencies. This action
+    # lets us pull them from cache in most cases.
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+
 
     - name: Run license finder
       run: |
