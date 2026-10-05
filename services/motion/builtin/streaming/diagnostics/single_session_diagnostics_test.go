@@ -17,6 +17,7 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 	diagnostics := New(testWindowMs * time.Millisecond)
 	diagnostics.RecordReceivedJointPositionTargetEvent()
 	diagnostics.RecordArmRunway(40 * time.Millisecond)
+	diagnostics.RecordTrajexRunway(250*time.Millisecond, 500*time.Millisecond)
 	diagnostics.RecordTrajexSessionOpenEvent()
 	diagnostics.RecordTrajexSessionCloseEvent()
 	diagnostics.RecordArmStreamOpenEvent()
@@ -37,6 +38,10 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 
 	test.That(t, len(out.ArmRunway), test.ShouldEqual, 1)
 	test.That(t, out.ArmRunway[0].SizeMs, test.ShouldEqual, 40.0)
+
+	test.That(t, len(out.TrajexRunway), test.ShouldEqual, 1)
+	test.That(t, out.TrajexRunway[0].SizeMs, test.ShouldEqual, 250.0)
+	test.That(t, out.TrajexRunway[0].MaxMs, test.ShouldEqual, 500.0)
 
 	test.That(t, len(out.TrajexSessionOpen), test.ShouldEqual, 1)
 	test.That(t, len(out.TrajexSessionClose), test.ShouldEqual, 1)

@@ -81,6 +81,15 @@ func (t *SingleSessionDiagnostics) RecordArmRunway(runway time.Duration) {
 	t.mu.Unlock()
 }
 
+// RecordTrajexRunway records one reading of the trajectory buffered inside the trajex session,
+// staged motion included, alongside the cap the backpressure gate compares it to (zero when the
+// gate is disabled).
+func (t *SingleSessionDiagnostics) RecordTrajexRunway(runway, maxRunway time.Duration) {
+	t.mu.Lock()
+	t.details.recordTrajexRunway(float64(runway.Microseconds())/1000.0, float64(maxRunway.Microseconds())/1000.0)
+	t.mu.Unlock()
+}
+
 // RecordTrajexSessionOpenEvent records the trajex session opening.
 func (t *SingleSessionDiagnostics) RecordTrajexSessionOpenEvent() {
 	t.mu.Lock()
@@ -186,6 +195,7 @@ func (t *SingleSessionDiagnostics) LastWindowDetails() SingleSessionLastWindowDe
 	return SingleSessionLastWindowDetails{
 		JointPositionTargetReceived: slices.Clone(live.JointPositionTargetReceived),
 		ArmRunway:                   slices.Clone(live.ArmRunway),
+		TrajexRunway:                slices.Clone(live.TrajexRunway),
 		TrajexExtends:               slices.Clone(live.TrajexExtends),
 		SendToArmLatency:            slices.Clone(live.SendToArmLatency),
 		TrajexSessionOpen:           slices.Clone(live.TrajexSessionOpen),

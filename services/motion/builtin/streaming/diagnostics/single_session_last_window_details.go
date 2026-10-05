@@ -44,6 +44,16 @@ type BufferSize struct {
 	SizeMs      float64 `json:"size_ms"`
 }
 
+// TrajexRunway is one reading of the trajectory buffered inside the trajex session, staged
+// motion included, taken when the backpressure gate was evaluated.
+type TrajexRunway struct {
+	TimestampMs float64 `json:"timestamp_ms"`
+	SizeMs      float64 `json:"size_ms"`
+	// MaxMs is the cap the gate compared SizeMs against: pushes are held while SizeMs >= MaxMs.
+	// Zero means the gate was disabled.
+	MaxMs float64 `json:"max_ms"`
+}
+
 // PVAT is one sampled PVAT in degrees.
 type PVAT struct {
 	// TimestampMs is the Unix time in milliseconds the PVAT was sampled; it exists so
@@ -60,7 +70,8 @@ type PVAT struct {
 
 // SingleSessionLastWindowDetails is the rolling-window detail returned to callers.
 type SingleSessionLastWindowDetails struct {
-	ArmRunway []BufferSize `json:"arm_runway"`
+	ArmRunway    []BufferSize   `json:"arm_runway"`
+	TrajexRunway []TrajexRunway `json:"trajex_runway"`
 
 	TrajexExtends    []TrajexExtend `json:"trajex_extends"`
 	SendToArmLatency []Latency      `json:"send_to_arm_latency"`
@@ -92,6 +103,15 @@ func (d *singleSessionLastWindowDetails) recordArmRunway(ms float64) {
 	}
 	now := unixMillisFloat(time.Now())
 	d.ArmRunway = append(d.ArmRunway, BufferSize{TimestampMs: now, SizeMs: ms})
+	d.pruneBefore(now - d.windowMs)
+}
+
+func (d *singleSessionLastWindowDetails) recordTrajexRunway(sizeMs, maxMs float64) {
+	if !d.enabled() {
+		return
+	}
+	now := unixMillisFloat(time.Now())
+	d.TrajexRunway = append(d.TrajexRunway, TrajexRunway{TimestampMs: now, SizeMs: sizeMs, MaxMs: maxMs})
 	d.pruneBefore(now - d.windowMs)
 }
 
@@ -170,10 +190,12 @@ func (d *singleSessionLastWindowDetails) pruneBefore(timestampMs float64) {
 	timestampMsOfEvent := func(e Event) float64 { return e.TimestampMs }
 	timestampMsOfLatency := func(l Latency) float64 { return l.TimestampMs }
 	timestampMsOfBufferSize := func(b BufferSize) float64 { return b.TimestampMs }
+	timestampMsOfTrajexRunway := func(r TrajexRunway) float64 { return r.TimestampMs }
 	timestampMsOfPVAT := func(v PVAT) float64 { return v.TimestampMs }
 	timestampMsOfExtend := func(e TrajexExtend) float64 { return e.TimestampMs }
 	d.JointPositionTargetReceived = pruneBefore(d.JointPositionTargetReceived, timestampMsOfEvent, timestampMs)
 	d.ArmRunway = pruneBefore(d.ArmRunway, timestampMsOfBufferSize, timestampMs)
+	d.TrajexRunway = pruneBefore(d.TrajexRunway, timestampMsOfTrajexRunway, timestampMs)
 	d.TrajexExtends = pruneBefore(d.TrajexExtends, timestampMsOfExtend, timestampMs)
 	d.SendToArmLatency = pruneBefore(d.SendToArmLatency, timestampMsOfLatency, timestampMs)
 	d.TrajexSessionOpen = pruneBefore(d.TrajexSessionOpen, timestampMsOfEvent, timestampMs)
