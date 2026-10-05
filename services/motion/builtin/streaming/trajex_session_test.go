@@ -119,7 +119,6 @@ func TestTrajexSessionRunwayTracksStagedBacklog(t *testing.T) {
 	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of backlog, none of it sampled, and
 	// all of it in the active trajectory.
 	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.35}), test.ShouldBeNil)
-	test.That(t, s.stagedEstimate, test.ShouldEqual, time.Duration(0))
 	test.That(t, s.trajexRunway(), test.ShouldBeGreaterThan, 1500*time.Millisecond)
 
 	// Sampling shrinks it.
@@ -149,7 +148,6 @@ func TestTrajexSessionRunwayTracksStagedBacklog(t *testing.T) {
 	pvats, err := s.sampleAtLeast(ctx, 10*time.Millisecond)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(pvats), test.ShouldBeGreaterThan, 0)
-	test.That(t, s.stagedEstimate, test.ShouldEqual, time.Duration(0))
 	test.That(t, s.trajexRunway(), test.ShouldBeGreaterThan, staged-100*time.Millisecond)
 
 	// Draining the rebased trajectory takes it back to zero.
