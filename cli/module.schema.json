@@ -38,6 +38,13 @@
     "markdown_link": {
       "type": "string",
       "description": "Link to the markdown file for this module."
+    },
+    "applications": {
+      "type": "array",
+      "description": "The Viam applications provided by this module.",
+      "items": {
+        "$ref": "#/$defs/application"
+      }
     }
   },
   "required": [
@@ -48,6 +55,61 @@
     "entrypoint"
   ],
   "$defs": {
+    "application": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the application; becomes part of its subdomain."
+        },
+        "type": {
+          "enum": ["single_machine", "multi_machine"]
+        },
+        "entrypoint": {
+          "type": "string",
+          "description": "Path to the application's HTML entrypoint in your tarball."
+        },
+        "fragmentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowedOrgIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "logoPath": {
+          "type": "string"
+        },
+        "customizations": {
+          "type": "object",
+          "properties": {
+            "machinePicker": {
+              "type": "object",
+              "description": "Branding text shown on the machine picker.",
+              "properties": {
+                "heading": {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "subheading": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "entrypoint"
+      ]
+    },
     "module_component": {
       "type": "object",
       "properties": {
