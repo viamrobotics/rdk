@@ -287,7 +287,11 @@ func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Comman
 		return c.moduleBuildStartFromSource(ctx, cmd, args)
 	}
 
-	manifest, err := loadManifest(args.Module)
+	manifestPath := args.Module
+	if !filepath.IsAbs(manifestPath) {
+		manifestPath = filepath.Join(args.Workdir, args.Module)
+	}
+	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return "", err
 	}
