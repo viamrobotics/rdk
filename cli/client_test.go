@@ -3206,6 +3206,47 @@ func TestIsRunningAptBinary(t *testing.T) {
 	}
 }
 
+func TestClassifyCopyError(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		err       error
+		isFrom    bool
+		retryable bool
+		hint      string
+	}{
+		{name: "plain error", err: errors.New("boom"), retryable: true},
+		{name: "no shell service", err: errNoShellService, hint: "does not have the shell service enabled"},
+		{name: "shell requires cloud", err: errShellRequiresCloud, hint: "no cloud configuration"},
+		{name: "wrapped shell requires cloud", err: fmt.Errorf("%w: dial failed", errShellRequiresCloud), hint: "no cloud configuration"},
+		{name: "logged out", err: fmt.Errorf("refresh failed: %w", errLoggedOut)},
+		{name: "permission denied writing", err: status.Error(codes.PermissionDenied, "nope"), hint: "couldn't write"},
+		{name: "permission denied reading", err: status.Error(codes.PermissionDenied, "nope"), isFrom: true, hint: "couldn't read"},
+		{name: "invalid argument", err: status.Error(codes.InvalidArgument, "bad path"), hint: "invalid argument: rpc error"},
+		{name: "destination not found", err: status.Error(codes.NotFound, "no such dir"), hint: "does not exist: no such dir"},
+		{
+			name:      "not found while connecting is transient",
+			err:       fmt.Errorf("%w: %w", errConnectToPart, status.Error(codes.NotFound, "offline")),
+			retryable: true,
+		},
+		{
+			name:      "permission denied while connecting is transient",
+			err:       fmt.Errorf("%w: %w", errConnectToPart, status.Error(codes.PermissionDenied, "handshake")),
+			retryable: true,
+		},
+		{name: "unavailable", err: status.Error(codes.Unavailable, "down"), retryable: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			verdict := classifyCopyError(tc.err, tc.isFrom)
+			test.That(t, verdict.retryable, test.ShouldEqual, tc.retryable)
+			if tc.hint == "" {
+				test.That(t, verdict.hint, test.ShouldBeEmpty)
+			} else {
+				test.That(t, verdict.hint, test.ShouldContainSubstring, tc.hint)
+			}
+		})
+	}
+}
+
 func TestRetryableCopy(t *testing.T) {
 	originalRetryBaseDelay := copyRetryBaseDelay
 	copyRetryBaseDelay = time.Millisecond
@@ -3712,6 +3753,39 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify shell service specific warning appears
 		errMsg := strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldContainSubstring, "does not have the shell service enabled")
+	})
+
+	t.Run("ShellRequiresCloudError", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			return errShellRequiresCloud
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		// A part without a cloud config will not gain one by retrying.
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+		test.That(t, attempts, test.ShouldEqual, 1)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "no cloud configuration")
 	})
 
 	t.Run("LoggedOutError", func(t *testing.T) {

@@ -4311,17 +4311,12 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	attemptCount, err := doCopy()
 	if err != nil {
 		defer pm.Fail("copy", err) //nolint:errcheck
-		if errors.Is(err, errNoShellService) {
-			return err
+		// Only a transient failure gets the generic "try again later"; an aborted copy
+		// reports the reason it stopped.
+		if classifyCopyError(err, isFrom).retryable {
+			return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
 		}
-		// A logout during refresh is unrecoverable, so surface it rather than the generic
-		// "all attempts failed, try again later" - retrying will not help.
-		if errors.Is(err, errLoggedOut) {
-			return err
-		}
-		// A failure to reach the part carries the shell service's codes without being an answer
-		// from it, so it is reported as an exhausted retry rather than a bad copy request.
-		if statusErr := status.Convert(err); statusErr != nil && !errors.Is(err, errConnectToPart) {
+		if statusErr := status.Convert(err); !errors.Is(err, errConnectToPart) {
 			if statusErr.Code() == codes.InvalidArgument &&
 				statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 				return errDirectoryCopyRequestNoRecursion
@@ -4330,7 +4325,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				return errors.WithMessage(err, "copy aborted")
 			}
 		}
-		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
+		return err
 	}
 	if err := pm.Complete("copy"); err != nil {
 		return err
@@ -6306,6 +6301,55 @@ const maxCopyAttempts = 6
 // transient DNS or connection failure and exhausts the budget in under a second.
 var copyRetryBaseDelay = 2 * time.Second
 
+// copyRetryVerdict says whether a failed copy attempt is worth repeating and, when it is not,
+// carries any advice to show the user alongside the error.
+type copyRetryVerdict struct {
+	retryable bool
+	hint      string
+}
+
+// classifyCopyError is the single place that decides which copy failures are terminal.
+func classifyCopyError(err error, isFrom bool) copyRetryVerdict {
+	abort := func(hint string) copyRetryVerdict { return copyRetryVerdict{hint: hint} }
+
+	switch {
+	case errors.Is(err, errNoShellService):
+		return abort("Copy failed because the machine does not have the shell service enabled. " +
+			"Add the shell service to the machine part's configuration to enable file copying.")
+	case errors.Is(err, errShellRequiresCloud):
+		return abort("Copy failed because the machine part has no cloud configuration. " +
+			"Shell service integration requires a cloud part identity.")
+	case errors.Is(err, errLoggedOut):
+		return abort("")
+	}
+
+	// These codes describe the shell service's answer, so they are only conclusive once we
+	// reached it: a part we never connected to reports being offline as NotFound too, and
+	// that is worth retrying.
+	s, ok := status.FromError(err)
+	if !ok || errors.Is(err, errConnectToPart) {
+		return copyRetryVerdict{retryable: true}
+	}
+	if s.Code() == codes.PermissionDenied {
+		if isFrom {
+			return abort("RDK couldn't read the source files on the machine. " +
+				"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), " +
+				"temporarily changing file permissions with 'chmod'.")
+		}
+		return abort("RDK couldn't write to the default file copy destination. " +
+			"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. " +
+			"Alternatively, run the RDK as root.")
+	}
+	if s.Code() == codes.InvalidArgument {
+		return abort(fmt.Sprintf("Copy failed with invalid argument: %s", err.Error()))
+	}
+	if s.Code() == codes.NotFound {
+		return abort(fmt.Sprintf("Copy failed because the destination path does not exist: %s", s.Message()))
+	}
+
+	return copyRetryVerdict{retryable: true}
+}
+
 // retryableCopy attempts to copy files to a part using the shell service with retries.
 // It handles progress manager updates for each attempt and provides helpful error messages.
 // The copyFunc parameter allows for mocking in tests.
@@ -6358,46 +6402,12 @@ func (c *viamClient) retryableCopy(
 		// Handle error
 		hadPreviousFailure = true
 
-		// A machine without a shell service will not gain one by retrying; abort early.
-		if errors.Is(copyErr, errNoShellService) {
-			warningf(cmd.Root().ErrWriter, "Copy failed because the machine does not have the shell service enabled. "+
-				"Add the shell service to the machine part's configuration to enable file copying.")
-			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-			return attempt, copyErr
-		}
-
-		// The CLI was logged out during a token refresh; retrying cannot recover.
-		if errors.Is(copyErr, errLoggedOut) {
-			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-			return attempt, copyErr
-		}
-
-		// Print special warning for invalid argument, permission denied, and not found errors (in addition to regular error)
-		// These codes describe the shell service's answer, so they are only conclusive once we
-		// reached it: a part we never connected to reports being offline as NotFound too, and
-		// that is worth retrying.
-		if s, ok := status.FromError(copyErr); ok && !errors.Is(copyErr, errConnectToPart) {
-			if s.Code() == codes.PermissionDenied {
-				if isFrom {
-					warningf(cmd.Root().ErrWriter, "RDK couldn't read the source files on the machine. "+
-						"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
-						"temporarily changing file permissions with 'chmod'.")
-				} else {
-					warningf(cmd.Root().ErrWriter, "RDK couldn't write to the default file copy destination. "+
-						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
-						"Alternatively, run the RDK as root.")
-				}
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
-			} else if s.Code() == codes.InvalidArgument {
-				warningf(cmd.Root().ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
-			} else if s.Code() == codes.NotFound {
-				warningf(cmd.Root().ErrWriter, "Copy failed because the destination path does not exist: %s", s.Message())
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
+		if verdict := classifyCopyError(copyErr, isFrom); !verdict.retryable {
+			if verdict.hint != "" {
+				warningf(cmd.Root().ErrWriter, "%s", verdict.hint)
 			}
+			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+			return attempt, copyErr
 		}
 
 		// Create a step for this failed attempt (so it shows in the output)
