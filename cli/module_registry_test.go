@@ -138,6 +138,58 @@ func TestValidateManifestLimits(t *testing.T) {
 	}
 }
 
+func TestValidateManifestApplicationLimits(t *testing.T) {
+	picker := func(heading, subheading string) AppComponent {
+		return AppComponent{
+			Name: "demo",
+			Customizations: &AppCustomizations{
+				MachinePicker: &MachinePickerCustomizations{Heading: heading, Subheading: subheading},
+			},
+		}
+	}
+
+	tests := []struct {
+		name    string
+		apps    []AppComponent
+		wantErr []string
+	}{
+		{
+			name: "no customizations",
+			apps: []AppComponent{{Name: "demo"}},
+		},
+		{
+			name: "branding at limits",
+			apps: []AppComponent{picker(
+				strings.Repeat("a", maxMachinePickerHeadingLength),
+				strings.Repeat("a", maxMachinePickerSubheadingLength),
+			)},
+		},
+		{
+			name:    "heading over limit",
+			apps:    []AppComponent{picker(strings.Repeat("a", maxMachinePickerHeadingLength+1), "")},
+			wantErr: []string{"heading for application demo", "maximum length of 60"},
+		},
+		{
+			name:    "subheading over limit",
+			apps:    []AppComponent{picker("", strings.Repeat("a", maxMachinePickerSubheadingLength+1))},
+			wantErr: []string{"subheading for application demo", "maximum length of 256"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateManifestLimits(&ModuleManifest{Apps: tc.apps})
+			if tc.wantErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+				return
+			}
+			test.That(t, err, test.ShouldNotBeNil)
+			for _, want := range tc.wantErr {
+				test.That(t, err.Error(), test.ShouldContainSubstring, want)
+			}
+		})
+	}
+}
+
 func TestValidateModuleAction(t *testing.T) {
 	writeManifest := func(t *testing.T, description string) string {
 		t.Helper()
