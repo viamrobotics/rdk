@@ -761,6 +761,14 @@ func TestMachineState(t *testing.T) {
 	// The cached state comes from the initial refresh and is a non-blocking read.
 	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateInitializing)
 
+	// A transient (non-Unimplemented) GetMachineStatus failure caches StateUnknown, so the parent's
+	// gate defers removal rather than risking a spurious teardown.
+	mu.Lock()
+	machineStatusErr = status.Error(codes.Unavailable, "transient")
+	mu.Unlock()
+	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateUnknown)
+
 	// While not yet running, a refresh re-polls the state; a remote too old to implement
 	// GetMachineStatus is reported as running.
 	mu.Lock()

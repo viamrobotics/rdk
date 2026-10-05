@@ -762,9 +762,10 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				)
 				rc.mu.Lock()
 				rc.connected.Store(false)
-				// Reset so that after reconnecting we re-poll the machine state: a restarted remote
-				// comes back initializing, and we must observe that rather than assume it is still
-				// running from before the disconnect.
+				// Clear the cached state so a reconnecting remote must positively re-confirm
+				// StateRunning before the parent trusts its resource list for removals again. Until
+				// then the parent defers, so a remote still rebuilding its resources after a restart
+				// doesn't have its dependents torn down.
 				rc.machineState = robot.StateUnknown
 				if rc.changeChan != nil {
 					rc.changeChan <- true
@@ -982,7 +983,9 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	rc.resourceRPCAPIs.Store(&rpcAPIs)
 	// Cache the machine state until the remote reports running: a running machine does not revert to
 	// initializing without reconnecting (which resets machineState), so once running there is nothing
-	// to re-poll, keeping the extra GetMachineStatus call off the steady-state refresh.
+	// to re-poll, keeping the extra GetMachineStatus call off the steady-state refresh. The parent
+	// removes resources only once it sees StateRunning, so a transient failure (cached as
+	// StateUnknown) safely defers removal rather than risking a spurious teardown.
 	if rc.machineState != robot.StateRunning {
 		rc.machineState = rc.fetchMachineState(ctx)
 	}

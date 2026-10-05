@@ -1994,6 +1994,11 @@ func (rr *dummyRobot) ResourceNames() []resource.Name {
 func (rr *dummyRobot) MachineState() robot.MachineState {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
+	// Default an unset state to running so tests that don't care about machine state still allow
+	// removal; tests exercising the gate set StateInitializing explicitly.
+	if rr.machineState == robot.StateUnknown {
+		return robot.StateRunning
+	}
 	return rr.machineState
 }
 

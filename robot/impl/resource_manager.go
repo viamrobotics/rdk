@@ -412,10 +412,10 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	// local resources that depend on them and rebuild them once the remote finishes. Defer removal
 	// until the remote reports StateRunning, at which point its advertised set is authoritative. New
 	// resources are still added above during initialization; only removal is gated.
-	if len(absentResources) > 0 && remoteInitializing(rr) {
+	if len(absentResources) > 0 && !remoteRunning(rr) {
 		logger.CInfow(ctx,
-			"remote is still initializing; retaining its temporarily-absent resources "+
-				"instead of rebuilding local dependents",
+			"remote is still initializing or its status cannot be determined; retaining its "+
+				"temporarily-absent resources instead of rebuilding local dependents",
 			"absent_resources", resource.NamesToStrings(absentResources))
 		return anythingChanged
 	}
@@ -449,13 +449,16 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	return anythingChanged
 }
 
-// remoteInitializing reports whether a remote is still starting up and so advertises only a partial
-// resource set. The state is read from the client's cache. Any remote that does not report an
-// initializing state -- one that cannot report state at all, or reports running or unknown -- is not
-// treated as initializing.
-func remoteInitializing(rr internalRemoteRobot) bool {
+// remoteRunning reports whether a remote has confirmed it has finished starting up, so its advertised
+// resource set can be trusted for removals. Otherwise removal is deferred so we never tear down
+// dependents on a remote that may still be rebuilding. The state is read from the client's cache. A
+// remote that cannot report state at all is treated as running.
+func remoteRunning(rr internalRemoteRobot) bool {
 	reporter, ok := rr.(interface{ MachineState() robot.MachineState })
-	return ok && reporter.MachineState() == robot.StateInitializing
+	if !ok {
+		return true
+	}
+	return reporter.MachineState() == robot.StateRunning
 }
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) bool {
