@@ -206,6 +206,8 @@ func setupWithRunningPart(
 	t.Helper()
 
 	cfg := &robotconfig.Config{
+		// the shell service lookup refuses a part that cannot report its own part ID
+		Cloud: &robotconfig.Cloud{ID: "part-main"},
 		Services: []resource.Config{
 			{
 				Name:  "shell1",
@@ -2341,41 +2343,51 @@ func TestPartShellServiceName(t *testing.T) {
 	ctx := context.Background()
 	partMD := cloud.Metadata{MachinePartID: "part-main"}
 	remoteMD := cloud.Metadata{MachinePartID: "part-remote"}
-	names := []resource.Name{shell.Named("shell-remote"), shell.Named("shell1")}
-	statuses := []resource.Status{
-		{NodeStatus: resource.NodeStatus{Name: shell.Named("shell-remote")}, CloudMetadata: remoteMD},
-		{NodeStatus: resource.NodeStatus{Name: shell.Named("shell1")}, CloudMetadata: partMD},
-	}
-	newRobot := func(statusErr error) *inject.Robot {
+	remoteShell := resource.Status{NodeStatus: resource.NodeStatus{Name: shell.Named("shell-remote")}, CloudMetadata: remoteMD}
+	partShell := resource.Status{NodeStatus: resource.NodeStatus{Name: shell.Named("shell1")}, CloudMetadata: partMD}
+
+	newRobot := func(md cloud.Metadata, mdErr error, statuses []resource.Status, statusErr error) *inject.Robot {
 		r := &inject.Robot{}
-		r.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) { return partMD, nil }
+		r.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) { return md, mdErr }
 		r.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
-			if statusErr != nil {
-				return robot.MachineStatus{}, statusErr
-			}
-			return robot.MachineStatus{Resources: statuses}, nil
+			return robot.MachineStatus{Resources: statuses}, statusErr
 		}
-		r.ResourceNamesFunc = func() []resource.Name { return names }
+		// the resource list alone cannot tell a remote's shell from the part's own, so a
+		// lookup that consults it would pick this lone remote shell
+		r.ResourceNamesFunc = func() []resource.Name { return []resource.Name{shell.Named("shell-remote")} }
 		return r
 	}
 
 	t.Run("matches the part ID", func(t *testing.T) {
-		name, err := partShellServiceName(ctx, newRobot(nil))
+		name, err := partShellServiceName(ctx, newRobot(partMD, nil, []resource.Status{remoteShell, partShell}, nil))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, name, test.ShouldResemble, shell.Named("shell1"))
 	})
 
-	t.Run("a server without machine status falls back to the resource list", func(t *testing.T) {
-		_, err := partShellServiceName(ctx, newRobot(status.Error(codes.Unimplemented, "nope")))
+	t.Run("only a remote's shell service is no shell service", func(t *testing.T) {
+		_, err := partShellServiceName(ctx, newRobot(partMD, nil, []resource.Status{remoteShell}, nil))
+		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeTrue)
+	})
+
+	t.Run("a part without cloud metadata is refused", func(t *testing.T) {
+		noCloud := status.Error(codes.Unknown, "cloud metadata not available")
+		_, err := partShellServiceName(ctx, newRobot(cloud.Metadata{}, noCloud, []resource.Status{remoteShell}, nil))
 		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
 	})
 
-	t.Run("other machine status failures propagate", func(t *testing.T) {
-		_, err := partShellServiceName(ctx, newRobot(status.Error(codes.Unavailable, "gone")))
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeFalse)
-		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeFalse)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "gone")
+	t.Run("a part with an empty part ID is refused", func(t *testing.T) {
+		_, err := partShellServiceName(ctx, newRobot(cloud.Metadata{}, nil, []resource.Status{remoteShell}, nil))
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+	})
+
+	t.Run("machine status failures propagate", func(t *testing.T) {
+		for _, code := range []codes.Code{codes.Unimplemented, codes.Unavailable} {
+			_, err := partShellServiceName(ctx, newRobot(partMD, nil, nil, status.Error(code, "gone")))
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeFalse)
+			test.That(t, errors.Is(err, errNoShellService), test.ShouldBeFalse)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "gone")
+		}
 	})
 }
 
@@ -2448,18 +2460,17 @@ func TestConnectToShellServiceSelectsPartShell(t *testing.T) {
 		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeTrue)
 	})
 
-	t.Run("without cloud metadata an ambiguous resource list is an error", func(t *testing.T) {
+	t.Run("a part without a cloud config is refused even when one shell service is visible", func(t *testing.T) {
+		// without a part ID the lone shell service in the list cannot be told apart from the
+		// part's own, and here it belongs to the remote
 		partFqdn := uuid.NewString()
 		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
-			Services: []resource.Config{shellCfg("shell1")},
-			Remotes:  []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+			Remotes: []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
 		})
 		waitForRemoteShell(t, r)
 
 		_, _, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
 		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "shell1")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "shell-remote")
 	})
 }
 

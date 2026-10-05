@@ -6128,7 +6128,10 @@ func partShellServiceName(ctx context.Context, r robot.Robot) (resource.Name, er
 	var candidates []resource.Name
 
 	md, err := r.CloudMetadata(ctx)
-	if err != nil || md.MachinePartID == "" {
+	if err != nil {
+		return resource.Name{}, fmt.Errorf("%w: %w", errShellRequiresCloud, err)
+	}
+	if md.MachinePartID == "" {
 		return resource.Name{}, errShellRequiresCloud
 	}
 	mStatus, err := r.MachineStatus(ctx)
