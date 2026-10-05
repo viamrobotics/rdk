@@ -528,30 +528,44 @@ func (c *viamClient) setAppClients(conn rpc.ClientConn) {
 	c.buildClient = buildpb.NewBuildServiceClient(conn)
 }
 
+// refreshAuthIfExpired refreshes (and persists) an expired user login, reporting whether new
+// authentication material was obtained. Uses the same helper as (*Config).Token/ConnectToApp so
+// there is a single refresh path; API-key logins are a no-op. Any refresh error clears cached
+// credentials so the next command prompts for re-authentication rather than replaying a broken token.
+func (c *viamClient) refreshAuthIfExpired(ctx context.Context) (bool, error) {
+	// A prior refresh in this process may have logged us out (e.g. a copy retry after a
+	// revoked token). DialOptions dereferences Auth, so report the logout instead of panicking.
+	if c.conf.Auth == nil {
+		return false, errLoggedOut
+	}
+	previous, _ := c.conf.Auth.(*token)
+	refreshed, err := c.conf.refreshTokenIfExpired(ctx, c.authFlow)
+	if err != nil {
+		if errors.Is(err, ErrAPIKeyLogin) {
+			return false, nil
+		}
+		if globalArgs, gErr := getGlobalArgs(c.c); gErr == nil {
+			debugf(c.c.Root().Writer, globalArgs.Debug, "Token refresh error: %v", err)
+		}
+		utils.UncheckedError(c.logout())
+		if errors.Is(err, errTokenExpired) {
+			return false, fmt.Errorf("token expired and cannot be refreshed — %w", errLoggedOut)
+		}
+		return false, fmt.Errorf("token refresh failed — %w", errLoggedOut)
+	}
+	return refreshed.AccessToken != previous.AccessToken, nil
+}
+
 // dialApp refreshes an expired login and dials app. It runs for every connection made, so a
 // re-dial authenticates with current material rather than the material the process started with.
 func (c *viamClient) dialApp(ctx context.Context) (rpc.ClientConn, error) {
-	globalArgs, err := getGlobalArgs(c.c)
-	if err != nil {
-		return nil, err
-	}
-
-	// a failed refresh below logs out, which clears Auth; DialOptions would panic on it.
+	// a failed refresh below can log out, which clears Auth; DialOptions would panic on it.
 	if c.conf.Auth == nil {
 		return nil, errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
 
-	// Refresh (and persist) an expired user login before dialing. Uses the same
-	// helper as (*Config).Token/ConnectToApp so there is a single refresh path;
-	// API-key logins return ErrAPIKeyLogin and need no refresh.
-	if _, err := c.conf.refreshTokenIfExpired(ctx, c.authFlow); err != nil && !errors.Is(err, ErrAPIKeyLogin) {
-		if errors.Is(err, errTokenExpired) {
-			utils.UncheckedError(c.logout())
-			return nil, errors.New("token expired and cannot refresh, logging out. Please log in again")
-		}
-		debugf(c.c.Root().Writer, globalArgs.Debug, "Token refresh error: %v", err)
-		utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-		return nil, errors.New("error while refreshing token, logging out. Please log in again")
+	if _, err := c.refreshAuthIfExpired(ctx); err != nil {
+		return nil, err
 	}
 
 	rpcOpts, err := c.conf.DialOptions()
@@ -660,6 +674,12 @@ func (c *viamClient) prepareDialInner(
 	partFqdn string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
+	// The machine dial below also captures the token as static material, so refresh before
+	// building its options - a retrying or long-running command can outlive the token's TTL.
+	if _, err := c.refreshAuthIfExpired(ctx); err != nil {
+		return nil, "", nil, err
+	}
+
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		utils.UncheckedError(rpcDialer.Close())

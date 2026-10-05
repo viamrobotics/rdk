@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -39,11 +38,26 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 	defer trajexOpts.Close()
 
 	dof := len(startJointPositions)
-	vel := make([]float64, dof)
-	accel := make([]float64, dof)
-	for i := range dof {
-		vel[i] = utils.DegToRad(s.opts.VelLimitDegPerSec)
-		accel[i] = utils.DegToRad(s.opts.AccelLimitDegPerSec2)
+	jointLimits := func(perJoint []float64, scalar float64) ([]float64, error) {
+		if len(perJoint) == 0 {
+			limits := make([]float64, dof)
+			for i := range limits {
+				limits[i] = scalar
+			}
+			return limits, nil
+		}
+		if len(perJoint) != dof {
+			return nil, fmt.Errorf("has %d elements, but the arm has %d joints", len(perJoint), dof)
+		}
+		return perJoint, nil
+	}
+	vel, err := jointLimits(s.opts.MoveOptions.MaxVelRadsJoints, s.opts.MoveOptions.MaxVelRads)
+	if err != nil {
+		return fmt.Errorf("move_options.max_vel_degs_per_sec_joints %w", err)
+	}
+	accel, err := jointLimits(s.opts.MoveOptions.MaxAccRadsJoints, s.opts.MoveOptions.MaxAccRads)
+	if err != nil {
+		return fmt.Errorf("move_options.max_acc_degs_per_sec2_joints %w", err)
 	}
 	dofShape := []uint64{uint64(dof)}
 	if err := trajexOpts.InsertFloat64s(totgstream.KeyVelocityLimitsRadsPerSec, dofShape, vel); err != nil {
