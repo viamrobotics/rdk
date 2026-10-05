@@ -18,6 +18,12 @@ import (
 const (
 	trajexPathToleranceRads = 0.5 * math.Pi / 180
 	waypointDedupEps        = 1e-4
+
+	// maxExtendLatency is the Extend latency past which the session is forced to stage. A
+	// pivot rebuilds the trajectory from every waypoint since the last rebase, so Extend slows
+	// as a pivoting session lengthens; a stage restarts that growth, at the cost of the arm
+	// coming to rest at the end of the active trajectory before the staged motion begins.
+	maxExtendLatency = 15 * time.Millisecond
 )
 
 type trajexSession struct {
@@ -115,8 +121,17 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 		return err
 	}
 	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, res.DeltaActiveDuration)
+	s.stageIfSlow(extendLatency)
 	s.lastJointPositions = nextJointPositions
 	return nil
+}
+
+// stageIfSlow makes every later Extend stage until the next rebase once an Extend took longer
+// than maxExtendLatency.
+func (s *trajexSession) stageIfSlow(extendLatency time.Duration) {
+	if extendLatency > maxExtendLatency {
+		s.sess.StartStaging()
+	}
 }
 
 func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration) ([]pvat, error) {

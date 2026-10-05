@@ -156,6 +156,35 @@ func TestTrajexSessionRunwayTracksStagedBacklog(t *testing.T) {
 	test.That(t, s.trajexRunway(), test.ShouldBeLessThan, 20*time.Millisecond)
 }
 
+// TestTrajexSessionStagesAfterSlowExtend checks that an Extend slower than maxExtendLatency makes
+// the next one stage instead of pivoting, and that pivoting resumes once the rebase has happened.
+func TestTrajexSessionStagesAfterSlowExtend(t *testing.T) {
+	ctx := context.Background()
+	diag := diagnostics.New(time.Minute)
+	s := &trajexSession{opts: testStreamOptions(), diagnostics: diag}
+	test.That(t, s.startSession([]referenceframe.Input{0}), test.ShouldBeNil)
+	defer s.close()
+
+	lastKind := func() string {
+		extends := diag.LastWindowDetails().TrajexExtends
+		return extends[len(extends)-1].Kind
+	}
+
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.2}), test.ShouldBeNil)
+	s.stageIfSlow(maxExtendLatency / 2)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.4}), test.ShouldBeNil)
+	test.That(t, lastKind(), test.ShouldEqual, "pivot")
+
+	s.stageIfSlow(2 * maxExtendLatency)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.6}), test.ShouldBeNil)
+	test.That(t, lastKind(), test.ShouldEqual, "staged_again")
+
+	_, err := s.sampleAtLeast(ctx, sampleHorizon)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.8}), test.ShouldBeNil)
+	test.That(t, lastKind(), test.ShouldEqual, "pivot")
+}
+
 // TestTrajexSessionSampleHorizon checks that sampleAtLeast advances the watermark by only
 // (approximately) the requested horizon per call rather than sampling the full trajectory, and
 // that consecutive calls continue from where the previous one left off.
