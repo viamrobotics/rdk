@@ -32,10 +32,7 @@ const stopArmTimeout = time.Minute
 // mechanism: the client can choose to wait to send the next target until the runway in the motion
 // service is under the client's desired threshold. Otherwise, if the client sends
 // joint positions faster than the arm executes them as per the trajectory output by trajex,
-// trajectory simply accumulates inside the trajex session. So `Run` acknowledges each target on
-// acks, which must be non-nil, once it has been added to the trajectory, reporting how much motion
-// is then queued inside trajex. A client that waits for each acknowledgment, and holds its next
-// target while the queue is deeper than it wants, is paced by execution.
+// trajectory simply accumulates inside the trajex session.
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
 // executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
