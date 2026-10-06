@@ -6626,7 +6626,7 @@ func (c *viamClient) startCopyFTDC(
 
 // copyCaptureRetention is how many per-copy FTDC captures are kept on disk; nothing else ever
 // deletes them.
-const copyCaptureRetention = 20
+const copyCaptureRetention = 30
 
 // pruneCopyCaptures deletes the oldest captures in dir, leaving room for one more under
 // copyCaptureRetention. Best-effort: a failure here must never stop a copy.
