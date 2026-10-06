@@ -49,12 +49,30 @@ func (err unknownRdkAPITypeError) Error() string {
 	return fmt.Sprintf("API with unknown type '%s', expected one of %s", err.APIType, strings.Join(rdkAPITypes, ", "))
 }
 
-// ModuleComponent represents an api - model pair.
+// ModuleComponent represents a model and the API(s) it serves. A composite model serves more than one
+// co-equal API; APIs holds the full set while API stays the primary one (always one of APIs). A
+// single-API model leaves APIs empty and is described by API alone.
 type ModuleComponent struct {
-	API          string  `json:"api"`
-	Model        string  `json:"model"`
-	Description  *string `json:"short_description,omitempty"`
-	MarkdownLink *string `json:"markdown_link,omitempty"`
+	API          string   `json:"api"`
+	APIs         []string `json:"apis,omitempty"`
+	Model        string   `json:"model"`
+	Description  *string  `json:"short_description,omitempty"`
+	MarkdownLink *string  `json:"markdown_link,omitempty"`
+}
+
+// modelAPIs returns the full, deduplicated set of APIs a model serves: its API plus any additional
+// APIs, with API guaranteed present, sorted for deterministic output. A single-API model yields one.
+func modelAPIs(mc ModuleComponent) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(mc.APIs)+1)
+	for _, a := range append([]string{mc.API}, mc.APIs...) {
+		if a != "" && !seen[a] {
+			seen[a] = true
+			out = append(out, a)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // moduleID represents a prefix:name pair where prefix can be either an org id or a namespace.
@@ -378,6 +396,15 @@ func validateModels(errWriter io.Writer, manifest *ModuleManifest) {
 	for _, model := range manifest.Models {
 		if err := validateModelAPI(model.API); err != nil {
 			warningf(errWriter, "error validating API string %s: %s", model.API, err)
+		}
+		for _, api := range model.APIs {
+			if err := validateModelAPI(api); err != nil {
+				warningf(errWriter, "error validating API string %s: %s", api, err)
+			}
+		}
+		// A composite declares its full co-equal set in apis; the primary api must be one of them.
+		if len(model.APIs) > 0 && !slices.Contains(model.APIs, model.API) {
+			warningf(errWriter, "model %s: api %q must be one of apis %v", model.Model, model.API, model.APIs)
 		}
 	}
 }
@@ -716,6 +743,12 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 		Description: moduleComponent.Description,
 	}
 
+	// Record the full co-equal API set for a composite model. Single-API models leave this unset so
+	// their registry docs stay identical to before (and api already conveys the one API).
+	if apis := modelAPIs(moduleComponent); len(apis) > 1 {
+		model.Apis = apis
+	}
+
 	// If a markdown link is provided, read the content
 	if moduleComponent.MarkdownLink != nil {
 		if content, err := getMarkdownContent(*moduleComponent.MarkdownLink); err == nil {
@@ -1001,14 +1034,26 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		return nil, err
 	}
 
-	res := []ModuleComponent{}
-
+	// A composite model is registered once per API it serves, so the handles report the same model
+	// under several API keys. Group by model and emit a single entry carrying the full API set rather
+	// than a duplicate entry per API.
+	apisByModel := map[string][]string{}
 	h := mgr.Handles()
 	for k, v := range h[cfg.Name] {
 		for _, m := range v {
-			res = append(res, ModuleComponent{k.API.String(), m.String(), nil, nil})
+			apisByModel[m.String()] = append(apisByModel[m.String()], k.API.String())
 		}
 	}
+	res := make([]ModuleComponent, 0, len(apisByModel))
+	for model, apis := range apisByModel {
+		slices.Sort(apis)
+		comp := ModuleComponent{API: apis[0], Model: model}
+		if len(apis) > 1 {
+			comp.APIs = apis
+		}
+		res = append(res, comp)
+	}
+	slices.SortFunc(res, func(a, b ModuleComponent) int { return strings.Compare(a.Model, b.Model) })
 
 	return res, nil
 }
@@ -1022,7 +1067,9 @@ func sameModels(a, b []ModuleComponent) bool {
 		found := false
 
 		for _, y := range b {
-			if x.API == y.API && x.Model == y.Model {
+			// Compare the full co-equal API set, not just the primary api, so a composite's manifest
+			// isn't seen as changed when only the (user-chosen) primary differs from the generated one.
+			if x.Model == y.Model && slices.Equal(modelAPIs(x), modelAPIs(y)) {
 				found = true
 				break
 			}

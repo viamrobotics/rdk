@@ -57,6 +57,15 @@
           "description": "Colon-delimited triple of NAMESPACE:TYPE:NAME.",
           "examples": ["rdk:component:sensor"]
         },
+        "apis": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^:]+:[^:]+:[^:]+$"
+          },
+          "description": "For a composite model that serves more than one co-equal API, the full set of APIs it serves. The `api` field must be one of these. Omit for a single-API model.",
+          "examples": [["rdk:component:camera", "rdk:component:movement_sensor"]]
+        },
         "model": {
           "type": "string",
           "pattern": "^[^:]+:[^:]+:[^:]+$",
