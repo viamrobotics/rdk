@@ -4,6 +4,7 @@ package streaming
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,8 +30,8 @@ const stopArmTimeout = time.Minute
 //
 // Trajex, however, does not provide any backpressure to the client: If the client sends
 // joint positions faster than the arm executes them as per the trajectory output by trajex,
-// trajectory simply accumulates inside the trajex session. So when acks is non-nil, `Run`
-// acknowledges each target once it has been added to the trajectory, reporting how much motion
+// trajectory simply accumulates inside the trajex session. So `Run` acknowledges each target on
+// acks, which must be non-nil, once it has been added to the trajectory, reporting how much motion
 // is then queued inside trajex. A client that waits for each acknowledgment, and holds its next
 // target while the queue is deeper than it wants, is paced by execution.
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
@@ -47,6 +48,9 @@ func Run(
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err
+	}
+	if acks == nil {
+		return errors.New("streaming: acks must be non-nil")
 	}
 
 	// Derive a cancelable ctx so error returns can end the arm RPC.
@@ -132,13 +136,11 @@ func Run(
 			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
 			trajexRunway := ts.trajexRunway()
 			diagnostics.RecordTrajexRunway(trajexRunway)
-			if acks != nil {
-				queuedMs := int32(trajexRunway.Milliseconds())
-				select {
-				case acks <- motion.TempStreamResponse{QueuedMs: &queuedMs}:
-				case <-ctx.Done():
-					return ctx.Err()
-				}
+			queuedMs := int32(trajexRunway.Milliseconds())
+			select {
+			case acks <- motion.TempStreamResponse{QueuedMs: &queuedMs}:
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 			// Top up in case we missed the last tick.
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {

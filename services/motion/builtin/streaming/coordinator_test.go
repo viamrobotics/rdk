@@ -32,6 +32,32 @@ func runTestOptions() StreamOptions {
 	})
 }
 
+// ignoredAcks returns an acks channel whose acknowledgments are discarded in the background
+// until the test ends, for calls whose acknowledgments are not under test.
+func ignoredAcks(t *testing.T) chan motion.TempStreamResponse {
+	t.Helper()
+	acks := make(chan motion.TempStreamResponse)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range acks {
+		}
+	}()
+	t.Cleanup(func() {
+		close(acks)
+		<-done
+	})
+	return acks
+}
+
+func TestRunRequiresAcks(t *testing.T) {
+	inj, _ := newFakeStreamingArm()
+	jpCh := make(chan []referenceframe.Input)
+	err := Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "acks must be non-nil")
+}
+
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	inj, rec := newFakeStreamingArm()
 	jpCh := make(chan []referenceframe.Input)
@@ -40,7 +66,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	diag := diagnostics.New(time.Duration(runTestOptions().DiagnosticsWindowSecs) * time.Second)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diag, nil)
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diag, ignoredAcks(t))
 	}()
 
 	jpCh <- []referenceframe.Input{0.05, -0.05}
@@ -149,7 +175,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), ignoredAcks(t))
 		}()
 
 		// The send on jpCh returning proves Run is in its loop; then cancel.
@@ -177,7 +203,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), ignoredAcks(t))
 		}()
 
 		// Let the flush finish and the wait begin, then cancel.
@@ -221,7 +247,7 @@ func TestRunEndsOnArmError(t *testing.T) {
 	jpCh := make(chan []referenceframe.Input)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), ignoredAcks(t))
 	}()
 
 	// One target is enough trajectory for several sends; the first is accepted, the
