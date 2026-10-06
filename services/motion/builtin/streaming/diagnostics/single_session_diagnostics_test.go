@@ -52,7 +52,7 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 	test.That(t, out.TrajexExtends[0].DurationMs, test.ShouldEqual, 5.0)
 	test.That(t, out.TrajexExtends[0].Kind, test.ShouldEqual, "pivot")
 	test.That(t, *out.TrajexExtends[0].BranchSlackMs, test.ShouldEqual, 12.0)
-	test.That(t, *out.TrajexExtends[0].DeltaActiveDurationMs, test.ShouldEqual, 300.0)
+	test.That(t, *out.TrajexExtends[0].DeltaTotalDurationMs, test.ShouldEqual, 300.0)
 	test.That(t, len(out.SendToArmLatency), test.ShouldEqual, 1)
 	test.That(t, out.SendToArmLatency[0].DurationMs, test.ShouldEqual, 2.0)
 

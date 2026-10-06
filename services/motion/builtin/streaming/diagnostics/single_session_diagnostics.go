@@ -127,11 +127,11 @@ func (t *SingleSessionDiagnostics) RecordSampledPVAT(
 
 // RecordTrajexExtend records one trajex Extend call.
 func (t *SingleSessionDiagnostics) RecordTrajexExtend(
-	start time.Time, dur time.Duration, kind string, branchSlack, deltaActiveDuration *time.Duration,
+	start time.Time, dur time.Duration, kind string, branchSlack, deltaTotalDuration *time.Duration,
 ) {
 	durMs := float64(dur.Microseconds()) / 1000.0
 	t.mu.Lock()
-	t.details.recordTrajexExtend(unixMillisFloat(start), durMs, kind, branchSlack, deltaActiveDuration)
+	t.details.recordTrajexExtend(unixMillisFloat(start), durMs, kind, branchSlack, deltaTotalDuration)
 	t.stats.recordTrajexExtend(durMs, kind)
 	t.mu.Unlock()
 }

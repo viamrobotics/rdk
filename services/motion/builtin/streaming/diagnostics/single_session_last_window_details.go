@@ -18,11 +18,11 @@ type Latency struct {
 
 // TrajexExtend is one trajex Extend call.
 type TrajexExtend struct {
-	TimestampMs           float64  `json:"timestamp_ms"`
-	DurationMs            float64  `json:"duration_ms"`
-	Kind                  string   `json:"kind"`
-	BranchSlackMs         *float64 `json:"branch_slack_ms,omitempty"`
-	DeltaActiveDurationMs *float64 `json:"delta_active_duration_ms,omitempty"`
+	TimestampMs          float64  `json:"timestamp_ms"`
+	DurationMs           float64  `json:"duration_ms"`
+	Kind                 string   `json:"kind"`
+	BranchSlackMs        *float64 `json:"branch_slack_ms,omitempty"`
+	DeltaTotalDurationMs *float64 `json:"delta_total_duration_ms,omitempty"`
 }
 
 // BufferSize is one reading of a buffer's size in milliseconds of trajectory, stamped with
@@ -94,17 +94,17 @@ func (d *singleSessionLastWindowDetails) recordTrajexRunway(ms float64) {
 }
 
 func (d *singleSessionLastWindowDetails) recordTrajexExtend(
-	startTimestampMs, durMs float64, kind string, branchSlack, deltaActiveDuration *time.Duration,
+	startTimestampMs, durMs float64, kind string, branchSlack, deltaTotalDuration *time.Duration,
 ) {
 	if !d.enabled() {
 		return
 	}
 	d.TrajexExtends = append(d.TrajexExtends, TrajexExtend{
-		TimestampMs:           startTimestampMs,
-		DurationMs:            durMs,
-		Kind:                  kind,
-		BranchSlackMs:         optionalMs(branchSlack),
-		DeltaActiveDurationMs: optionalMs(deltaActiveDuration),
+		TimestampMs:          startTimestampMs,
+		DurationMs:           durMs,
+		Kind:                 kind,
+		BranchSlackMs:        optionalMs(branchSlack),
+		DeltaTotalDurationMs: optionalMs(deltaTotalDuration),
 	})
 	d.pruneBefore(unixMillisFloat(time.Now()) - d.windowMs)
 }

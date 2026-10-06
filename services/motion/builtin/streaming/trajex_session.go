@@ -114,7 +114,7 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 		s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, "error", nil, nil)
 		return err
 	}
-	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, res.DeltaActiveDuration)
+	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, &res.DeltaTotalDuration)
 	s.lastJointPositions = nextJointPositions
 	return nil
 }
