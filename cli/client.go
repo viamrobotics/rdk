@@ -4259,9 +4259,11 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
+	// --quiet asks for no chatter at all, so it implies --no-progress.
+	quiet := flagArgs.NoProgress || globalArgs.Quiet
 	pm := NewProgressManager([]*Step{
 		{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
-	}, WithProgressOutput(!flagArgs.NoProgress))
+	}, WithProgressOutput(!quiet))
 	doCopy := func() (int, error) {
 		var copyFunc func() error
 		if isFrom {
@@ -4278,6 +4280,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 					paths,
 					destination,
 					logger,
+					quiet,
 				)
 			}
 		} else {
@@ -4294,7 +4297,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 					paths,
 					destination,
 					logger,
-					flagArgs.NoProgress,
+					quiet,
 				)
 			}
 		}
@@ -4371,9 +4374,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	}
 	gArgs, err := getGlobalArgs(cmd)
 	quiet := err == nil && gArgs != nil && gArgs.Quiet
-	var startTime time.Time
 	if !quiet {
-		startTime = time.Now()
 		printf(cmd.Root().Writer, "Saving to %s ...", path.Join(targetPath, part.GetId()))
 	}
 	if err := c.copyFilesFromMachine(
@@ -4388,6 +4389,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		[]string{src},
 		targetPath,
 		logger,
+		quiet,
 	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
@@ -4395,9 +4397,6 @@ func (c *viamClient) machinesPartGetFTDCAction(
 			return errDirectoryCopyRequestNoRecursion
 		}
 		return err
-	}
-	if !quiet {
-		printf(cmd.Root().Writer, "Done in %s.", time.Since(startTime))
 	}
 	return nil
 }
@@ -6561,7 +6560,7 @@ func (c *viamClient) copyFilesToMachineInner(
 	capturePath := stopFTDC()
 
 	// Emit the summary regardless of outcome: a failed or slow copy is exactly when it's wanted.
-	c.reportCopySummary(totalSize, elapsed, capturePath, noProgress)
+	c.reportCopySummary(totalSize, elapsed, capturePath, copyErr, noProgress)
 
 	return copyErr
 }
@@ -6609,6 +6608,20 @@ func (s sctpStatsCollector) Stats() any {
 	return out
 }
 
+// sctpBytesReceived returns the bytes this client's SCTP association has received so far, and
+// whether the connection reports them at all; a direct (non-WebRTC) connection does not.
+func sctpBytesReceived(robotClient *client.RobotClient) (uint64, bool) {
+	if robotClient == nil {
+		return 0, false
+	}
+	for _, stat := range robotClient.WebRTCStats() {
+		if sctp, ok := stat.(webrtc.SCTPTransportStats); ok {
+			return sctp.BytesReceived, true
+		}
+	}
+	return 0, false
+}
+
 // startCopyFTDC begins capturing the peer connection's SCTP transport stats to an FTDC file under
 // <ViamDotDir>/cp-diagnostics for the duration of a copy, so a slow transfer can be diagnosed
 // after the fact (read back with the standard FTDC parser). It is best-effort and a no-op for a
@@ -6627,9 +6640,10 @@ func (c *viamClient) startCopyFTDC(
 		logger.Debugw("could not create diagnostics dir; skipping transfer capture", "err", err)
 		return noop
 	}
-	// e.g. cp-app-20260102-150405.123.ftdc: the copy target plus a millisecond timestamp, so the
-	// file is identifiable at a glance and back-to-back copies don't collide.
-	name := fmt.Sprintf("cp-%s-%s.ftdc", sanitizeCopyFilename(target), time.Now().Format("20060102-150405.000"))
+	pruneCopyCaptures(dir, logger)
+	// e.g. cp-app-20260102-150405.123Z.ftdc: the copy target plus a millisecond UTC timestamp, so
+	// back-to-back copies don't collide and a reader in another timezone isn't misled.
+	name := fmt.Sprintf("cp-%s-%s.ftdc", sanitizeCopyFilename(target), time.Now().UTC().Format("20060102-150405.000Z"))
 	capturePath := filepath.Join(dir, name)
 	//nolint:gosec // path is our own diagnostics dir joined with a sanitized name, not user input
 	file, err := os.Create(capturePath)
@@ -6653,6 +6667,47 @@ func (c *viamClient) startCopyFTDC(
 	}
 }
 
+// copyCaptureRetention is how many per-copy FTDC captures are kept on disk; nothing else ever
+// deletes them.
+const copyCaptureRetention = 30
+
+// pruneCopyCaptures deletes the oldest captures in dir, leaving room for one more under
+// copyCaptureRetention. Best-effort: a failure here must never stop a copy.
+func pruneCopyCaptures(dir string, logger logging.Logger) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		logger.Debugw("could not read diagnostics dir; skipping capture pruning", "err", err)
+		return
+	}
+	type capture struct {
+		name    string
+		modTime time.Time
+	}
+	captures := make([]capture, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasPrefix(name, "cp-") || !strings.HasSuffix(name, ".ftdc") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		captures = append(captures, capture{name: name, modTime: info.ModTime()})
+	}
+	excess := len(captures) - (copyCaptureRetention - 1)
+	if excess <= 0 {
+		return
+	}
+	// A capture's name leads with its copy target, so it does not sort chronologically.
+	slices.SortFunc(captures, func(a, b capture) int { return a.modTime.Compare(b.modTime) })
+	for _, stale := range captures[:excess] {
+		if err := os.Remove(filepath.Join(dir, stale.name)); err != nil {
+			logger.Debugw("could not prune old transfer capture", "file", stale.name, "err", err)
+		}
+	}
+}
+
 // sanitizeCopyFilename derives a short, filename-safe label from a copy target path (its last path
 // element, with anything outside [A-Za-z0-9._-] replaced by "_").
 func sanitizeCopyFilename(target string) string {
@@ -6672,18 +6727,33 @@ func sanitizeCopyFilename(target string) string {
 }
 
 // reportCopySummary prints a one-line transfer summary, and where the capture was written, unless
-// suppressed. Best-effort output that never fails the copy.
-func (c *viamClient) reportCopySummary(totalSize int64, elapsed time.Duration, capturePath string, noProgress bool) {
+// suppressed. A negative totalSize means the byte count is unknown, and only the duration is
+// printed. A non-nil copyErr only changes the wording: the bytes are what crossed the wire before
+// the failure, and are worth seeing. Best-effort output that never fails the copy.
+func (c *viamClient) reportCopySummary(
+	totalSize int64, elapsed time.Duration, capturePath string, copyErr error, noProgress bool,
+) {
 	if noProgress {
 		return
 	}
-	var mbps float64
-	if secs := elapsed.Seconds(); secs > 0 {
-		mbps = float64(totalSize) / secs / 1e6
-	}
 	writer := c.c.Root().Writer
-	printf(writer, "\nCopied %.1f MB in %s (%.2f MB/s)",
-		float64(totalSize)/1e6, elapsed.Round(time.Millisecond), mbps)
+	rounded := elapsed.Round(time.Millisecond)
+	switch {
+	case totalSize < 0 && copyErr != nil:
+		printf(writer, "\nCopy failed after %s", rounded)
+	case totalSize < 0:
+		printf(writer, "\nCopy finished in %s", rounded)
+	default:
+		var mbps float64
+		if secs := elapsed.Seconds(); secs > 0 {
+			mbps = float64(totalSize) / secs / 1e6
+		}
+		verb, outcome := "Copied", ""
+		if copyErr != nil {
+			verb, outcome = "Transferred", " before failing"
+		}
+		printf(writer, "\n%s %.1f MB in %s (%.2f MB/s)%s", verb, float64(totalSize)/1e6, rounded, mbps, outcome)
+	}
 	if capturePath != "" {
 		printf(writer, "Transfer diagnostics: %s", capturePath)
 	}
@@ -6778,6 +6848,7 @@ func (c *viamClient) copyFilesFromMachine(
 	paths []string,
 	destination string,
 	logger logging.Logger,
+	noProgress bool,
 ) error {
 	shellSvc, robotClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
@@ -6805,6 +6876,22 @@ func (c *viamClient) copyFilesFromMachine(
 		}
 	}
 
+	// A label holds one path, so mark when the capture's numbers cover more than the file named.
+	label := "copy"
+	if len(paths) > 0 {
+		label = sanitizeCopyFilename(paths[0])
+		if len(paths) > 1 {
+			label += "-multi"
+		}
+	}
+	// Capture SCTP transport stats for the life of the copy, as the to-machine path does; the
+	// files do not exist locally yet, so the size has to come from the transport itself.
+	stopFTDC := c.startCopyFTDC(ctx, robotClient, label, logger)
+	// A connection with no SCTP stats yet has received nothing, so zero is the right baseline;
+	// only the reading taken after the copy decides whether a byte count can be reported.
+	receivedBefore, _ := sctpBytesReceived(robotClient)
+	start := time.Now()
+
 	// let the shell service figure out how to grab the files for and pass them to our copier.
 	// The first attempt's error is the one worth reporting, since that is the path we
 	// expect to work.
@@ -6820,12 +6907,22 @@ func (c *viamClient) copyFilesFromMachine(
 					"%s could not be resolved by this machine, copied from %s instead",
 					shell.ViamHomePrefix, strings.Join(attempt, " "))
 			}
-			return nil
+			firstErr = nil
+			break
 		}
 		if firstErr == nil {
 			firstErr = err
 		}
 	}
+
+	elapsed := time.Since(start)
+	capturePath := stopFTDC()
+	totalSize := int64(-1)
+	if receivedAfter, ok := sctpBytesReceived(robotClient); ok && receivedAfter >= receivedBefore {
+		totalSize = int64(receivedAfter - receivedBefore)
+	}
+	c.reportCopySummary(totalSize, elapsed, capturePath, firstErr, noProgress)
+
 	return firstErr
 }
 

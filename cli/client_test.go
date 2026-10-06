@@ -3820,3 +3820,47 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, attemptCount, test.ShouldEqual, 1)
 	})
 }
+
+func TestPruneCopyCaptures(t *testing.T) {
+	dir := t.TempDir()
+	logger := logging.NewTestLogger(t)
+
+	write := func(name string, age time.Duration) string {
+		p := filepath.Join(dir, name)
+		test.That(t, os.WriteFile(p, []byte("x"), 0o600), test.ShouldBeNil)
+		modTime := time.Now().Add(-age)
+		test.That(t, os.Chtimes(p, modTime, modTime), test.ShouldBeNil)
+		return p
+	}
+	exists := func(p string) bool {
+		_, err := os.Stat(p)
+		return err == nil
+	}
+
+	// Files that are not captures are never touched, however old.
+	other := write("notes.txt", 100*time.Hour)
+	otherExt := write("cp-stale.log", 100*time.Hour)
+
+	// Oldest first, so the survivors are the tail of this slice.
+	captures := make([]string, 0, copyCaptureRetention+3)
+	for i := copyCaptureRetention + 3; i > 0; i-- {
+		captures = append(captures, write(fmt.Sprintf("cp-target-%02d.ftdc", i), time.Duration(i)*time.Hour))
+	}
+
+	pruneCopyCaptures(dir, logger)
+
+	// Room is left for the capture the caller is about to create.
+	for _, p := range captures[:4] {
+		test.That(t, exists(p), test.ShouldBeFalse)
+	}
+	for _, p := range captures[4:] {
+		test.That(t, exists(p), test.ShouldBeTrue)
+	}
+	test.That(t, exists(other), test.ShouldBeTrue)
+	test.That(t, exists(otherExt), test.ShouldBeTrue)
+
+	// Under the retention limit nothing is removed, and a missing dir is not an error.
+	pruneCopyCaptures(dir, logger)
+	test.That(t, exists(captures[4]), test.ShouldBeTrue)
+	pruneCopyCaptures(filepath.Join(dir, "nonexistent"), logger)
+}
