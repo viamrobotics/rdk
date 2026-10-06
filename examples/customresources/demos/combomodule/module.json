@@ -1,0 +1,19 @@
+{
+	"modules": [
+		{
+			"name": "ComboModule",
+			"executable_path": "./combomodule"
+		}
+	],
+	"components": [
+		{
+			"namespace": "rdk",
+			"type": "camera",
+			"name": "combo",
+			"model": "acme:demo:combodevice"
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}
