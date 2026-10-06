@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/robot"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/detection3d"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/viscapture"
 )
@@ -151,6 +152,25 @@ func init() {
 //
 // For more information, see the [GetObjectPointClouds method docs].
 //
+// GetDetections3D example:
+//
+//	mySegmenterService, err := vision.FromProvider(machine, "my_segmenter")
+//	if err != nil {
+//		logger.Error(err)
+//		return
+//	}
+//	// Get the detected objects, each as a tree of transforms rooted in a known frame
+//	detections, err := mySegmenterService.GetDetections3D(context.Background(), "my_camera", nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get 3D detections: %v", err)
+//	}
+//	var transforms []*referenceframe.LinkInFrame
+//	for _, d := range detections {
+//		transforms = append(transforms, d.Transforms...)
+//	}
+//	// The transforms can be passed directly into a WorldState for motion planning
+//	worldState, err := referenceframe.NewWorldState(nil, transforms)
+//
 // CaptureAllFromCamera example:
 //
 //	// The data to capture and return from the camera
@@ -203,6 +223,10 @@ type Service interface {
 
 	// GetObjectPointClouds returns a list of 3D point cloud objects and metadata from the latest 3D camera image using a specified segmenter.
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+
+	// GetDetections3D returns the objects the service perceives through the given camera, each described as a tree of
+	// transforms that can be passed directly into a frame system or WorldState.
+	GetDetections3D(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*detection3d.Detection, error)
 	// properties
 	GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
 	// CaptureAllFromCamera returns the next image, detections, classifications, and objects all together, given a camera name. Used for
@@ -254,4 +278,5 @@ type Properties struct {
 	DetectionSupported      bool
 	ObjectPCDsSupported     bool
 	DefaultCamera           *string
+	Detections3DSupported   bool
 }
