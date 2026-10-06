@@ -129,8 +129,8 @@ func Run(
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 
-			trajexRunway := ts.trajexRunway()
 			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
+			trajexRunway := ts.trajexRunway()
 			diagnostics.RecordTrajexRunway(trajexRunway)
 			if acks != nil {
 				queuedMs := int32(trajexRunway.Milliseconds())
