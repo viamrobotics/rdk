@@ -28,9 +28,9 @@ const stopArmTimeout = time.Minute
 // estimate of how much runway the arm has buffered on its side, and only samples out of
 // trajex enough to keep that runway topped up to the user-configured ArmSideTargetRunwayMs.
 //
-// This motion service returns the runway buffered on its side, which the client can use as
-// a backpressure mechanism: the client can wait to send the next target until the runway in
-// the motion service is under the client's desired threshold. Otherwise, if the client sends
+// This motion service returns the runway buffered on its side via 'acks', which the caller
+// can use asa backpressure mechanism: the client can wait to send the next target until the
+// runway is under the client's desired threshold. Otherwise, if the client sends
 // joint positions faster than the arm executes them as per the trajectory output by trajex,
 // trajectory simply accumulates inside the trajex session.
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
