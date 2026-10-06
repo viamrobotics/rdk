@@ -6876,7 +6876,6 @@ func (c *viamClient) copyFilesFromMachine(
 	capturePath := stopFTDC()
 	totalSize := int64(-1)
 	if receivedAfter, ok := sctpBytesReceived(robotClient); ok && receivedAfter >= receivedBefore {
-		//nolint:gosec // an SCTP byte delta cannot overflow int64 in any real transfer
 		totalSize = int64(receivedAfter - receivedBefore)
 	}
 	c.reportCopySummary(totalSize, elapsed, capturePath, firstErr, noProgress)
