@@ -171,3 +171,31 @@ func TestGeometriesInFrameJSON(t *testing.T) {
 		test.That(t, spatialmath.GeometriesAlmostEqual(gF.GeometryByName(name), roundTripped.GeometryByName(name)), test.ShouldBeTrue)
 	}
 }
+
+func TestLinkInFrameProtoRoundTrip(t *testing.T) {
+	pose := spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})
+
+	t.Run("uuid and metadata survive", func(t *testing.T) {
+		link := NewLinkInFrame("parent", pose, "child", nil)
+		link.SetUUID([]byte("abc"))
+		link.SetMetadata(map[string]interface{}{"color": "red"})
+
+		proto, err := LinkInFrameToTransformProtobuf(link)
+		test.That(t, err, test.ShouldBeNil)
+		roundTripped, err := LinkInFrameFromTransformProtobuf(proto)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, roundTripped.UUID(), test.ShouldResemble, []byte("abc"))
+		test.That(t, roundTripped.Metadata(), test.ShouldResemble, map[string]interface{}{"color": "red"})
+	})
+
+	t.Run("unset fields stay unset", func(t *testing.T) {
+		proto, err := LinkInFrameToTransformProtobuf(NewLinkInFrame("parent", pose, "child", nil))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, proto.Uuid, test.ShouldBeNil)
+		test.That(t, proto.Metadata, test.ShouldBeNil)
+		roundTripped, err := LinkInFrameFromTransformProtobuf(proto)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, roundTripped.UUID(), test.ShouldBeNil)
+		test.That(t, roundTripped.Metadata(), test.ShouldBeNil)
+	})
+}
