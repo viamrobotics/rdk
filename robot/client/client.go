@@ -122,6 +122,10 @@ type RobotClient struct {
 	withoutRPCSubtypes       bool
 	resourcesTimeout         time.Duration
 
+	// reconnectSignal wakes the background connection loop to health-check immediately instead of
+	// waiting for its next periodic tick. Buffered to one; needs no lock.
+	reconnectSignal chan struct{}
+
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
 	backgroundCtxCancel     context.CancelCauseFunc
@@ -207,7 +211,12 @@ func isDisconnectedError(err error) bool {
 		return false
 	}
 	return errors.Is(err, rpc.ErrDisconnected) ||
-		strings.Contains(err.Error(), io.ErrClosedPipe.Error())
+		strings.Contains(err.Error(), io.ErrClosedPipe.Error()) ||
+		// A call made on a gRPC ClientConn that was closed locally returns grpc.ErrClientConnClosing:
+		// codes.Canceled "grpc: the client connection is closing". Match the message, not the sentinel
+		// (which is deprecated) or a bare Canceled (which would swallow real caller cancellations), so
+		// callers get a retryable Unavailable rather than a Canceled that reads like caller cancelation.
+		strings.Contains(err.Error(), "the client connection is closing")
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
@@ -224,6 +233,24 @@ func isResourceExhaustedError(err error) bool {
 		}
 	}
 	return false
+}
+
+// signalReconnectCheck nudges the background connection loop to health-check now rather than at its
+// next periodic tick. A failed data-path call is the earliest evidence the transport died; without
+// this the loop would not notice until checkConnectedEvery elapses. The send is non-blocking and the
+// channel is buffered to one, so a burst of failing calls coalesces into a single wakeup rather than
+// a reconnect storm.
+func (rc *RobotClient) signalReconnectCheck() {
+	// Only signal on the connected->disconnected edge. Once the loop has marked us disconnected it is
+	// already retrying on its own reconnectEvery cadence; re-signaling per failed call would wake it
+	// every call and defeat that throttle, turning a sustained outage into a reconnect storm.
+	if !rc.connected.Load() {
+		return
+	}
+	select {
+	case rc.reconnectSignal <- struct{}{}:
+	default:
+	}
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -247,6 +274,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isDisconnectedError(err) {
+		rc.signalReconnectCheck()
 		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return err
@@ -266,6 +294,7 @@ func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
 	// should still surface a helpful error message.
 	err := cs.ClientStream.RecvMsg(m)
 	if isDisconnectedError(err) {
+		cs.RobotClient.signalReconnectCheck()
 		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
 	}
 
@@ -293,6 +322,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isDisconnectedError(err) {
+		rc.signalReconnectCheck()
 		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return &handleDisconnectClientStream{cs, rc}, err
@@ -324,6 +354,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		logger:              logger,
 		dialOptions:         rOpts.dialOptions,
 		notifyParent:        nil,
+		reconnectSignal:     make(chan struct{}, 1),
 		conn:                grpc.ReconfigurableClientConn{Logger: logger},
 		resourceClients:     make(map[resource.Name]resource.Resource),
 		remoteNameMap:       make(map[resource.Name]resource.Name),
@@ -573,7 +604,11 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	if err := rc.conn.Close(); err != nil {
+	// The benign "already closing" status on the connection we're discarding must not abort the
+	// reconnect. Any other Close error is unexpected: log it but abort since we don't know yet what it
+	// implies.
+	if err := rc.conn.Close(); err != nil && !isDisconnectedError(err) {
+		rc.logger.CWarnw(ctx, "unexpected error closing stale connection before reconnect", "error", err)
 		return err
 	}
 
@@ -701,8 +736,15 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				return
 			}
 		}
-		if !utils.SelectContextOrWait(ctx, waitTime) {
+		timer := time.NewTimer(waitTime)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
 			return
+		case <-rc.reconnectSignal:
+			// A data-path call reported a disconnect; check now instead of waiting for the tick.
+			timer.Stop()
+		case <-timer.C:
 		}
 		if !rc.connected.Load() {
 			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
