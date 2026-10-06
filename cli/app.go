@@ -2298,7 +2298,7 @@ Note: There is no progress meter while copying is in progress.
 									Name:     generalFlagID,
 									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
 									Required: true,
-								}, 
+								},
 							},
 							Action: createActionCommandWithT[mlDeleteContainerArgs](MLDeleteContainer),
 						},

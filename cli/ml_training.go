@@ -79,19 +79,19 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 }
 
 type mlSubmitCustomTrainingJobWithUploadArgs struct {
-	URL              string
-	DatasetID        string
-	ModelName        string
-	ModelVersion     string
-	Path             string
-	OrgID            string
-	ModelOrgID       string
-	ScriptName       string
-	Version          string
-	Framework        string
-	ModelType        string
-	ContainerID      string
-	Args             []string
+	URL          string
+	DatasetID    string
+	ModelName    string
+	ModelVersion string
+	Path         string
+	OrgID        string
+	ModelOrgID   string
+	ScriptName   string
+	Version      string
+	Framework    string
+	ModelType    string
+	ContainerID  string
+	Args         []string
 }
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
