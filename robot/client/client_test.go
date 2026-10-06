@@ -730,6 +730,63 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+func TestMachineState(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	listener := gotestutils.ReserveRandomListener(t)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+
+	var mu sync.Mutex
+	state := robot.StateInitializing
+	var machineStatusErr error
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return robot.MachineStatus{State: state}, machineStatusErr
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	// WithDoNotWaitForRunning lets us connect while the machine still reports StateInitializing.
+	client, err := New(context.Background(), listener.Addr().String(), logger,
+		WithDoNotWaitForRunning())
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, client.Close(context.Background()), test.ShouldBeNil) }()
+
+	// The cached state comes from the initial refresh and is a non-blocking read.
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateInitializing)
+
+	// A transient (non-Unimplemented) GetMachineStatus failure caches StateUnknown, so the parent's
+	// gate defers removal rather than risking a spurious teardown.
+	mu.Lock()
+	machineStatusErr = status.Error(codes.Unavailable, "transient")
+	mu.Unlock()
+	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateUnknown)
+
+	// While not yet running, a refresh re-polls the state; a remote too old to implement
+	// GetMachineStatus is reported as running.
+	mu.Lock()
+	machineStatusErr = status.Error(codes.Unimplemented, "not implemented")
+	mu.Unlock()
+	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateRunning)
+
+	// Once running, we stop re-polling: flipping the server back to initializing without a reconnect
+	// leaves the cached state running.
+	mu.Lock()
+	machineStatusErr = nil
+	state = robot.StateInitializing
+	mu.Unlock()
+	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateRunning)
+}
+
 func TestClientRefresh(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
