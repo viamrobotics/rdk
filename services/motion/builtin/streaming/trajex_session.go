@@ -114,7 +114,7 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 		s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, "error", nil, nil)
 		return err
 	}
-	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, res.DeltaActiveDuration)
+	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, &res.DeltaTotalDuration)
 	s.lastJointPositions = nextJointPositions
 	return nil
 }
@@ -139,6 +139,10 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 		s.diagnostics.RecordSampledPVAT(p.positions, p.velocities, p.accelerations, p.time)
 	}
 	return pvats, nil
+}
+
+func (s *trajexSession) trajexRunway() time.Duration {
+	return s.sess.RemainingTotalDuration()
 }
 
 func (s *trajexSession) close() {

@@ -17,6 +17,7 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 	diagnostics := New(testWindowMs * time.Millisecond)
 	diagnostics.RecordReceivedJointPositionTargetEvent()
 	diagnostics.RecordArmRunway(40 * time.Millisecond)
+	diagnostics.RecordTrajexRunway(900 * time.Millisecond)
 	diagnostics.RecordTrajexSessionOpenEvent()
 	diagnostics.RecordTrajexSessionCloseEvent()
 	diagnostics.RecordArmStreamOpenEvent()
@@ -39,6 +40,8 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 
 	test.That(t, len(out.ArmRunway), test.ShouldEqual, 1)
 	test.That(t, out.ArmRunway[0].SizeMs, test.ShouldEqual, 40.0)
+	test.That(t, len(out.TrajexRunway), test.ShouldEqual, 1)
+	test.That(t, out.TrajexRunway[0].SizeMs, test.ShouldEqual, 900.0)
 
 	test.That(t, len(out.TrajexSessionOpen), test.ShouldEqual, 1)
 	test.That(t, len(out.TrajexSessionClose), test.ShouldEqual, 1)
@@ -49,7 +52,7 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 	test.That(t, out.TrajexExtends[0].DurationMs, test.ShouldEqual, 5.0)
 	test.That(t, out.TrajexExtends[0].Kind, test.ShouldEqual, "pivot")
 	test.That(t, *out.TrajexExtends[0].BranchSlackMs, test.ShouldEqual, 12.0)
-	test.That(t, *out.TrajexExtends[0].DeltaActiveDurationMs, test.ShouldEqual, 300.0)
+	test.That(t, *out.TrajexExtends[0].DeltaTotalDurationMs, test.ShouldEqual, 300.0)
 	test.That(t, len(out.SendToArmLatency), test.ShouldEqual, 1)
 	test.That(t, out.SendToArmLatency[0].DurationMs, test.ShouldEqual, 2.0)
 
@@ -80,6 +83,7 @@ func TestDiagnosticsRetainOnlyTheWindow(t *testing.T) {
 	oldT := float64(-2 * testWindowMs)
 	diagnostics.details.JointPositionTargetReceived = append(diagnostics.details.JointPositionTargetReceived, Event{TimestampMs: oldT})
 	diagnostics.details.ArmRunway = append(diagnostics.details.ArmRunway, BufferSize{TimestampMs: oldT})
+	diagnostics.details.TrajexRunway = append(diagnostics.details.TrajexRunway, BufferSize{TimestampMs: oldT})
 	diagnostics.details.TrajexExtends = append(diagnostics.details.TrajexExtends, TrajexExtend{TimestampMs: oldT})
 	diagnostics.details.SendToArmLatency = append(diagnostics.details.SendToArmLatency, Latency{TimestampMs: oldT})
 	diagnostics.details.ArmStreamOpen = append(diagnostics.details.ArmStreamOpen, Event{TimestampMs: oldT})
@@ -88,6 +92,7 @@ func TestDiagnosticsRetainOnlyTheWindow(t *testing.T) {
 	diagnostics.RecordReceivedJointPositionTargetEvent()
 	diagnostics.RecordArmRunway(time.Millisecond)
 	diagnostics.RecordArmStreamOpenEvent()
+	diagnostics.RecordTrajexRunway(time.Millisecond)
 	diagnostics.RecordTrajexExtend(time.Now(), time.Millisecond, "pivot", nil, nil)
 	diagnostics.RecordSendToArmLatency(time.Now(), time.Millisecond)
 	diagnostics.RecordSampledPVAT([]float64{0}, []float64{1}, []float64{2}, time.Millisecond)
@@ -96,6 +101,7 @@ func TestDiagnosticsRetainOnlyTheWindow(t *testing.T) {
 	test.That(t, len(out.JointPositionTargetReceived), test.ShouldEqual, 1)
 	test.That(t, len(out.ArmRunway), test.ShouldEqual, 1)
 	test.That(t, len(out.ArmStreamOpen), test.ShouldEqual, 1)
+	test.That(t, len(out.TrajexRunway), test.ShouldEqual, 1)
 	test.That(t, len(out.TrajexExtends), test.ShouldEqual, 1)
 	test.That(t, len(out.SendToArmLatency), test.ShouldEqual, 1)
 	test.That(t, len(out.SampledPVATs), test.ShouldEqual, 1)
@@ -108,6 +114,7 @@ func TestDiagnosticsRetainOnlyTheWindow(t *testing.T) {
 	test.That(t, len(out.JointPositionTargetReceived), test.ShouldEqual, 0)
 	test.That(t, len(out.ArmRunway), test.ShouldEqual, 0)
 	test.That(t, len(out.ArmStreamOpen), test.ShouldEqual, 0)
+	test.That(t, len(out.TrajexRunway), test.ShouldEqual, 0)
 	test.That(t, len(out.TrajexExtends), test.ShouldEqual, 0)
 	test.That(t, len(out.SendToArmLatency), test.ShouldEqual, 0)
 	test.That(t, len(out.SampledPVATs), test.ShouldEqual, 0)
@@ -150,6 +157,9 @@ func TestStats(t *testing.T) {
 	diagnostics.RecordTrajexExtend(time.Now(), 2*time.Millisecond, "staged_again", nil, nil)
 	diagnostics.RecordArmRunway(40 * time.Millisecond)
 	diagnostics.RecordArmRunway(-5 * time.Millisecond)
+	diagnostics.RecordTrajexRunway(100 * time.Millisecond)
+	diagnostics.RecordTrajexRunway(900 * time.Millisecond)
+	diagnostics.RecordTrajexRunway(300 * time.Millisecond)
 	diagnostics.RecordSampledPVAT(
 		[]float64{0, 0},
 		[]float64{utils.DegToRad(50), utils.DegToRad(-80)},
@@ -172,6 +182,12 @@ func TestStats(t *testing.T) {
 	test.That(t, stats.TrajexExtendLatencyMaxMs, test.ShouldEqual, 4.0)
 	test.That(t, stats.TrajexExtendLatencyP50Ms, test.ShouldEqual, 4.0)
 	test.That(t, stats.TrajexExtendsByKind, test.ShouldResemble, map[string]int64{"pivot": 1, "staged_branch_sampled": 1, "staged_again": 1})
+
+	test.That(t, stats.TrajexRunwayMaxMs, test.ShouldEqual, 900.0)
+	// 300ms falls in the 256-512ms bucket, so the median is its bound.
+	test.That(t, stats.TrajexRunwayP50Ms, test.ShouldEqual, 512.0)
+	// p99 is clamped to the max.
+	test.That(t, stats.TrajexRunwayP99Ms, test.ShouldEqual, 900.0)
 
 	test.That(t, stats.ArmRunwayMinMs, test.ShouldEqual, -5.0)
 	test.That(t, stats.ArmRunwayMaxMs, test.ShouldEqual, 40.0)

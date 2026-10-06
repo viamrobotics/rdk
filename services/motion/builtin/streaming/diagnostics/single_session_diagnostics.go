@@ -47,6 +47,15 @@ func (t *SingleSessionDiagnostics) RecordArmRunway(runway time.Duration) {
 	t.mu.Unlock()
 }
 
+// RecordTrajexRunway records one reading of the trajectory buffered inside the trajex session.
+func (t *SingleSessionDiagnostics) RecordTrajexRunway(runway time.Duration) {
+	t.mu.Lock()
+	ms := float64(runway.Microseconds()) / 1000.0
+	t.details.recordTrajexRunway(ms)
+	t.stats.recordTrajexRunway(ms)
+	t.mu.Unlock()
+}
+
 // RecordTrajexSessionOpenEvent records the trajex session opening.
 func (t *SingleSessionDiagnostics) RecordTrajexSessionOpenEvent() {
 	t.mu.Lock()
@@ -118,11 +127,11 @@ func (t *SingleSessionDiagnostics) RecordSampledPVAT(
 
 // RecordTrajexExtend records one trajex Extend call.
 func (t *SingleSessionDiagnostics) RecordTrajexExtend(
-	start time.Time, dur time.Duration, kind string, branchSlack, deltaActiveDuration *time.Duration,
+	start time.Time, dur time.Duration, kind string, branchSlack, deltaTotalDuration *time.Duration,
 ) {
 	durMs := float64(dur.Microseconds()) / 1000.0
 	t.mu.Lock()
-	t.details.recordTrajexExtend(unixMillisFloat(start), durMs, kind, branchSlack, deltaActiveDuration)
+	t.details.recordTrajexExtend(unixMillisFloat(start), durMs, kind, branchSlack, deltaTotalDuration)
 	t.stats.recordTrajexExtend(durMs, kind)
 	t.mu.Unlock()
 }
@@ -136,6 +145,7 @@ func (t *SingleSessionDiagnostics) LastWindowDetails() SingleSessionLastWindowDe
 	return SingleSessionLastWindowDetails{
 		JointPositionTargetReceived: slices.Clone(live.JointPositionTargetReceived),
 		ArmRunway:                   slices.Clone(live.ArmRunway),
+		TrajexRunway:                slices.Clone(live.TrajexRunway),
 		TrajexExtends:               slices.Clone(live.TrajexExtends),
 		SendToArmLatency:            slices.Clone(live.SendToArmLatency),
 		TrajexSessionOpen:           slices.Clone(live.TrajexSessionOpen),
@@ -156,6 +166,9 @@ func (t *SingleSessionDiagnostics) Stats() SingleSessionStats {
 		ArmRunwayMinMs: t.stats.armRunway.minMs,
 		ArmRunwayMaxMs: t.stats.armRunway.maxMs,
 
+		TrajexRunwayP50Ms:        t.stats.trajexRunway.quantileMs(0.5),
+		TrajexRunwayP99Ms:        t.stats.trajexRunway.quantileMs(0.99),
+		TrajexRunwayMaxMs:        t.stats.trajexRunway.maxMs,
 		TrajexExtendLatencyP50Ms: t.stats.extendLatency.quantileMs(0.5),
 		TrajexExtendLatencyP99Ms: t.stats.extendLatency.quantileMs(0.99),
 		TrajexExtendLatencyMaxMs: t.stats.extendLatency.maxMs,

@@ -18,11 +18,11 @@ type Latency struct {
 
 // TrajexExtend is one trajex Extend call.
 type TrajexExtend struct {
-	TimestampMs           float64  `json:"timestamp_ms"`
-	DurationMs            float64  `json:"duration_ms"`
-	Kind                  string   `json:"kind"`
-	BranchSlackMs         *float64 `json:"branch_slack_ms,omitempty"`
-	DeltaActiveDurationMs *float64 `json:"delta_active_duration_ms,omitempty"`
+	TimestampMs          float64  `json:"timestamp_ms"`
+	DurationMs           float64  `json:"duration_ms"`
+	Kind                 string   `json:"kind"`
+	BranchSlackMs        *float64 `json:"branch_slack_ms,omitempty"`
+	DeltaTotalDurationMs *float64 `json:"delta_total_duration_ms,omitempty"`
 }
 
 // BufferSize is one reading of a buffer's size in milliseconds of trajectory, stamped with
@@ -48,7 +48,8 @@ type PVAT struct {
 
 // SingleSessionLastWindowDetails is the rolling-window detail returned to callers.
 type SingleSessionLastWindowDetails struct {
-	ArmRunway []BufferSize `json:"arm_runway"`
+	ArmRunway    []BufferSize `json:"arm_runway"`
+	TrajexRunway []BufferSize `json:"trajex_runway"`
 
 	TrajexExtends    []TrajexExtend `json:"trajex_extends"`
 	SendToArmLatency []Latency      `json:"send_to_arm_latency"`
@@ -83,18 +84,27 @@ func (d *singleSessionLastWindowDetails) recordArmRunway(ms float64) {
 	d.pruneBefore(now - d.windowMs)
 }
 
+func (d *singleSessionLastWindowDetails) recordTrajexRunway(ms float64) {
+	if !d.enabled() {
+		return
+	}
+	now := unixMillisFloat(time.Now())
+	d.TrajexRunway = append(d.TrajexRunway, BufferSize{TimestampMs: now, SizeMs: ms})
+	d.pruneBefore(now - d.windowMs)
+}
+
 func (d *singleSessionLastWindowDetails) recordTrajexExtend(
-	startTimestampMs, durMs float64, kind string, branchSlack, deltaActiveDuration *time.Duration,
+	startTimestampMs, durMs float64, kind string, branchSlack, deltaTotalDuration *time.Duration,
 ) {
 	if !d.enabled() {
 		return
 	}
 	d.TrajexExtends = append(d.TrajexExtends, TrajexExtend{
-		TimestampMs:           startTimestampMs,
-		DurationMs:            durMs,
-		Kind:                  kind,
-		BranchSlackMs:         optionalMs(branchSlack),
-		DeltaActiveDurationMs: optionalMs(deltaActiveDuration),
+		TimestampMs:          startTimestampMs,
+		DurationMs:           durMs,
+		Kind:                 kind,
+		BranchSlackMs:        optionalMs(branchSlack),
+		DeltaTotalDurationMs: optionalMs(deltaTotalDuration),
 	})
 	d.pruneBefore(unixMillisFloat(time.Now()) - d.windowMs)
 }
@@ -178,6 +188,7 @@ func (d *singleSessionLastWindowDetails) pruneBefore(timestampMs float64) {
 	timestampMsOfExtend := func(e TrajexExtend) float64 { return e.TimestampMs }
 	d.JointPositionTargetReceived = pruneBefore(d.JointPositionTargetReceived, timestampMsOfEvent, timestampMs)
 	d.ArmRunway = pruneBefore(d.ArmRunway, timestampMsOfBufferSize, timestampMs)
+	d.TrajexRunway = pruneBefore(d.TrajexRunway, timestampMsOfBufferSize, timestampMs)
 	d.TrajexExtends = pruneBefore(d.TrajexExtends, timestampMsOfExtend, timestampMs)
 	d.SendToArmLatency = pruneBefore(d.SendToArmLatency, timestampMsOfLatency, timestampMs)
 	d.TrajexSessionOpen = pruneBefore(d.TrajexSessionOpen, timestampMsOfEvent, timestampMs)
