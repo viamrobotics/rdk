@@ -50,7 +50,7 @@ func Run(
 		return err
 	}
 	if acks == nil {
-		return errors.New("streaming: acks must be non-nil")
+		return errors.New("streaming: acks channel must be non-nil")
 	}
 
 	// Derive a cancelable ctx so error returns can end the arm RPC.

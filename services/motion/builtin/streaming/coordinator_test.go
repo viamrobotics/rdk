@@ -55,7 +55,7 @@ func TestRunRequiresAcks(t *testing.T) {
 	jpCh := make(chan []referenceframe.Input)
 	err := Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "acks must be non-nil")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "acks channel must be non-nil")
 }
 
 func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
