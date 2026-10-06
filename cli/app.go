@@ -2296,9 +2296,9 @@ Note: There is no progress meter while copying is in progress.
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagID,
-									Usage:    "ID of the training container to use; must be a supported container for this org.",
+									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
 									Required: true,
-								},
+								}, 
 							},
 							Action: createActionCommandWithT[mlDeleteContainerArgs](MLDeleteContainer),
 						},
@@ -2410,7 +2410,7 @@ Note: There is no progress meter while copying is in progress.
 										},
 										&cli.StringFlag{
 											Name:     mlTrainingFlagContainerID,
-											Usage:    `ID of the training container version to use. Must be one of the supported container IDs found by calling ListContainers.`,
+											Usage:    `ID of the training container to use; must be a supported container for this org.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
@@ -2486,7 +2486,7 @@ Note: There is no progress meter while copying is in progress.
 										},
 										&cli.StringFlag{
 											Name:     mlTrainingFlagContainerID,
-											Usage:    `ID of the training container version to use. Must be one of the supported container IDs found by calling ListContainers.`,
+											Usage:    `ID of the training container to use; must be a supported container for this org.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
