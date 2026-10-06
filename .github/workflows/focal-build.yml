@@ -49,6 +49,8 @@ jobs:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 30
+    env:
+      MISE_GO_SET_GOROOT: false
 
     steps:
     - name: Check out code
@@ -68,17 +70,17 @@ jobs:
         allow-unsafe-pr-checkout: true
 
     - name: Fix permissions
-      run: chown -R testbot:testbot .
+      run: chown -R `id -nu`:`id -ng` .
 
-    - name: Install upx
-      # crazy-max/ghaction-upx@v4.0.0
-      uses: crazy-max/ghaction-upx@c83f378efc804f828e988debb88ed6116feb2368
+    - name: Install toolchain
+      uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
       with:
-        version: v5.2.0
-        install-only: true
+        cache_key_prefix: "mise-v1-all"
+        install_args: "--include-lazy"
 
-    - name: Link upx into /usr/local/bin
-      run: ln -sf "$(command -v upx)" /usr/local/bin/upx
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
 
     - name: Resolve channel
       id: meta
@@ -88,22 +90,21 @@ jobs:
 
     - name: Build viam-server-${{ steps.meta.outputs.channel }}
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} UNAME_M=${{ matrix.uname_m }} VERSION_SUFFIX=+focal GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt static-release'
+        make BUILD_CHANNEL=${{ steps.meta.outputs.channel }} UNAME_M=${{ matrix.uname_m }} VERSION_SUFFIX=+focal GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt static-release
 
     - name: Boot smoke test
+      shell: bash
       run: |
-        sudo -Hu testbot bash -lc '
-          set -euo pipefail
-          bin=$(find etc/packaging/static/deploy -type f -name "viam-server-*" | head -1)
-          port=$((30000 + RANDOM))
-          echo "{\"network\":{\"bind_address\":\"localhost:${port}\"}}" > /tmp/smoke.json
-          "$bin" -config /tmp/smoke.json &
-          srv=$!
-          curl --retry 8 --retry-delay 2 --retry-connrefused -s "localhost:${port}" >/dev/null
-          echo "boot OK"
-          kill $srv 2>/dev/null || true
-          wait $srv 2>/dev/null || true
-        '
+        set -euo pipefail
+        bin=$(find etc/packaging/static/deploy -type f -name "viam-server-*" | head -1)
+        port=$((30000 + RANDOM))
+        echo "{\"network\":{\"bind_address\":\"localhost:${port}\"}}" > /tmp/smoke.json
+        "$bin" -config /tmp/smoke.json &
+        srv=$!
+        curl --retry 8 --retry-delay 2 --retry-connrefused -s "localhost:${port}" >/dev/null
+        echo "boot OK"
+        kill $srv 2>/dev/null || true
+        wait $srv 2>/dev/null || true
 
     - name: Publish ${{ steps.meta.outputs.channel }} channel
       if: steps.meta.outputs.publish == 'true'

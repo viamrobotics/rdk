@@ -287,7 +287,11 @@ func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Comman
 		return c.moduleBuildStartFromSource(ctx, cmd, args)
 	}
 
-	manifest, err := loadManifest(args.Module)
+	manifestPath := args.Module
+	if !filepath.IsAbs(manifestPath) {
+		manifestPath = filepath.Join(args.Workdir, args.Module)
+	}
+	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return "", err
 	}
@@ -1715,14 +1719,14 @@ func reloadModuleActionInner(
 		// Dial once; the VIAM_HOME query and the first copy attempt share the
 		// connection. Copy retries dial fresh, since a retry usually follows a
 		// connection-level failure.
-		shellSvc, closeShellSvc, dialErr := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
+		shellSvc, robotClient, dialErr := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
 		if dialErr != nil {
 			shellSvc = nil
 		}
 		shellSvcConsumed := dialErr != nil
 		defer func() {
 			if !shellSvcConsumed {
-				goutils.UncheckedError(closeShellSvc(ctx))
+				goutils.UncheckedError(robotClient.Close(ctx))
 			}
 		}()
 		dest = reloadingDestination(manifest, vc.machineViamHome(ctx, cmd, shellSvc))
@@ -1737,12 +1741,13 @@ func reloadModuleActionInner(
 				return vc.copyFilesToMachineInner(
 					ctx,
 					shellSvc,
-					closeShellSvc,
+					robotClient,
 					false, // allowRecursion
 					false, // preserve
 					[]string{buildPath},
 					dest,
 					true, // noProgress
+					logger,
 				)
 			}
 			return vc.copyFilesToFqdn(

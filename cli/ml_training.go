@@ -145,15 +145,19 @@ type mlSubmitTrainingJobArgs struct {
 }
 
 type mlListContainersArgs struct {
+	OrgID       string
 	IncludeURIs bool
 }
 
 type prettyPrintContainer struct {
 	Name        string
-	EndOfLife   string
+	EndOfLife   string `json:",omitempty"`
 	Description string
-	Framework   string
+	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
+	ID          string
+	CreatedOn   string
+	Visibility  string
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
@@ -162,20 +166,27 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	if err != nil {
 		return err
 	}
-	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{},
+	supportedContainers, err := client.mlTrainingClient.ListContainers(
+		context.Background(), &mltrainingpb.ListContainersRequest{OrganizationId: args.OrgID},
 	)
 	if err != nil {
 		return err
 	}
 
 	var returnContainers []prettyPrintContainer
-	for _, v := range supportedContainers.ContainerMap {
+	for _, v := range supportedContainers.Containers {
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
+			Visibility:  v.Visibility.String(),
 			Framework:   v.Framework,
-			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+			ID:          v.Id,
+		}
+		if v.Eol != nil && !v.Eol.AsTime().IsZero() {
+			container.EndOfLife = v.Eol.AsTime().Format(time.RFC3339)
+		}
+		if v.CreatedOn != nil && !v.CreatedOn.AsTime().IsZero() {
+			container.CreatedOn = v.CreatedOn.AsTime().Format(time.RFC3339)
 		}
 		if args.IncludeURIs {
 			container.URI = v.Uri
@@ -187,6 +198,42 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		return err
 	}
 	printf(cmd.Root().Writer, "%s", b)
+	return nil
+}
+
+type registerContainersArgs struct {
+	OrgID       string
+	URI         string
+	Description string
+}
+
+// RegisterContainer is the corresponding action for 'train containers register'.
+func RegisterContainer(ctx context.Context, cmd *cli.Command, args registerContainersArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
+	}
+	if args.Description == "" {
+		return errors.New("must provide a description")
+	}
+
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	description := args.Description
+
+	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
+		&mltrainingpb.RegisterCustomTrainingContainerRequest{
+			OrganizationId: args.OrgID,
+			ImageUri:       args.URI,
+			Description:    description,
+		})
+	if err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "Container successfully registered. Container ID: %s", resp.Id)
 	return nil
 }
 
