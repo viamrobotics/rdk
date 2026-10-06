@@ -1354,8 +1354,10 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	// For each part we will see if there's a corollary frame configuration. For those that have
 	// one, we'll craft a `FrameSystemPart` containing that information. Furthermore, the
 	// FrameSystemPart may include geometry or model/kinematic information. Kinematics are always
-	// fetched from `InputEnabled` resources. Geometries can be specified in the robot config. If
-	// none exists, we will perform a `Geometries` query on the resource.
+	// fetched from `InputEnabled` resources; other resources may offer a model through
+	// `ModelFramer`. Geometries can be specified in the robot config. If none exists, we will
+	// perform a `Geometries` query on the resource; a single geometry is attached to the frame
+	// directly and several are wrapped in a zero-DoF model.
 	for _, resConfig := range cfg.Components {
 		if resConfig.Frame == nil { // no Frame means dont include in frame system.
 			continue
@@ -1388,6 +1390,18 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		res, resErr := r.ResourceByName(resConfig.ResourceName())
 		isAvailable := resErr == nil
 		resType := resConfig.ResourceName().API.SubtypeName
+		linkInFrame, err := (&referenceframe.LinkConfig{
+			ID:          frameName,
+			Translation: resConfig.Frame.Translation,
+			Orientation: resConfig.Frame.Orientation,
+			Geometry:    resConfig.Frame.Geometry,
+			Parent:      resConfig.Frame.Parent,
+		}).ParseConfig()
+		if err != nil {
+			logger.Warnw("Failed to create LinkInFrame.", "err", err)
+			continue
+		}
+
 		if resType == arm.SubtypeName || resType == gantry.SubtypeName || resType == gripper.SubtypeName {
 			// Components that have multiple degrees of freedom are required to be available and
 			// implement the `Kinematics` method to be used in the frame system.
@@ -1424,33 +1438,24 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 				logger.Debug("An input enabled component with kinematics ambiguously included a frame geometry.")
 			}
 
-			linkInFrame, err := (&referenceframe.LinkConfig{
-				ID:          frameName,
-				Translation: resConfig.Frame.Translation,
-				Orientation: resConfig.Frame.Orientation,
-				Geometry:    resConfig.Frame.Geometry,
-				Parent:      resConfig.Frame.Parent,
-			}).ParseConfig()
-			if err != nil {
-				logger.Warnw("Failed to create LinkInFrame.", "err", err)
-				continue
-			}
-
 			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: model})
 			continue
 		}
 
-		// Dan: Consider changing `LinkConfig.ParseConfig()` to `LinkInFrameFromConfig(LinkConfig)`.
-		linkInFrame, err := (&referenceframe.LinkConfig{
-			ID:          frameName,
-			Translation: resConfig.Frame.Translation,
-			Orientation: resConfig.Frame.Orientation,
-			Geometry:    resConfig.Frame.Geometry,
-			Parent:      resConfig.Frame.Parent,
-		}).ParseConfig()
-		if err != nil {
-			logger.Warnw("Failed to create LinkInFrame.", "err", err)
-			continue
+		// Any other resource may still describe itself with a kinematic model, e.g. a static
+		// obstacle assembled from several frames. That is preferred over a flat `Geometries`
+		// query because it keeps the resource's internal frame hierarchy.
+		if modelFramer, ok := res.(framesystem.ModelFramer); isAvailable && ok {
+			model, err := modelFramer.Kinematics(ctx)
+			if err != nil {
+				logger.Warnw("Error getting kinematics for resource. Falling back to its geometries.", "err", err)
+			} else {
+				if linkInFrame.Geometry() != nil && len(model.DoF()) == 0 {
+					logger.Warn("Frame config geometry replaces the geometries of the resource's zero-DoF model.")
+				}
+				parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: model})
+				continue
+			}
 		}
 
 		// If the frame config included a geometry, prefer that to asking the resource. If the frame
@@ -1473,19 +1478,25 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			} else {
 				switch len(resGeometries) {
 				case 0:
-				//nolint: gocritic
-				default: // > 1
-					logger.Warnw(
-						"`Geometries` returned more than one geometry, but the LinkInFrame does not support that."+
-							"Keeping the first one.", "Size", len(resGeometries),
-					)
-					fallthrough
 				case 1:
 					geom := resGeometries[0]
 					// Dan: I feel it's appropriate to re-label the geometry here by concatenating
 					// the resource name with the geometry label. But the FrameSystem construction
 					// is going to copy and re-label the resulting geometry anyways.
 					linkInFrame.SetGeometry(geom)
+				default:
+					// A LinkInFrame holds a single geometry, so several geometries ride along as a
+					// zero-DoF model instead, the same way gripper geometries do. The model is named
+					// after the frame so its geometries are labeled "<frame>:<label>".
+					model, err := referenceframe.NewModelFromGeometries(frameName, resGeometries)
+					if err != nil {
+						logger.Warnw("Failed to build a model from multiple geometries. Keeping the first one.",
+							"Size", len(resGeometries), "err", err)
+						linkInFrame.SetGeometry(resGeometries[0])
+						break
+					}
+					parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: model})
+					continue
 				}
 			}
 		} else {
