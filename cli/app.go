@@ -2296,7 +2296,7 @@ Note: There is no progress meter while copying is in progress.
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagID,
-									Usage:    "ID of the training container to use. Must be one of the supported container IDs found by calling ListContainers.",
+									Usage:    "ID of the training container to use; must be a supported container for this org.",
 									Required: true,
 								},
 							},
