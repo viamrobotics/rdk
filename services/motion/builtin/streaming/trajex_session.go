@@ -141,7 +141,6 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 	return pvats, nil
 }
 
-// trajexRunway is how much trajectory the session has yet to sample, staged motion included.
 func (s *trajexSession) trajexRunway() time.Duration {
 	return s.sess.RemainingTotalDuration()
 }
