@@ -141,6 +141,7 @@ func Run(
 			case <-ctx.Done():
 				return ctx.Err()
 			}
+
 			// Top up in case we missed the last tick.
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
