@@ -21,7 +21,9 @@ func TestDiagnosticsRecordAndReturnWindow(t *testing.T) {
 	diagnostics.RecordTrajexSessionCloseEvent()
 	diagnostics.RecordArmStreamOpenEvent()
 	diagnostics.RecordArmStreamCloseEvent()
-	diagnostics.RecordTrajexExtend(time.Now(), 5*time.Millisecond, "pivot", durationPtr(12*time.Millisecond), durationPtr(300*time.Millisecond))
+	diagnostics.RecordTrajexExtend(
+		time.Now(), 5*time.Millisecond, "pivot", durationPtr(12*time.Millisecond), durationPtr(300*time.Millisecond),
+	)
 	diagnostics.RecordSendToArmLatency(time.Now(), 2*time.Millisecond)
 	// Two joints: the second carries the larger |velocity|, so DegPerSec must pick it up rather
 	// than just reporting the first/last joint.
@@ -141,7 +143,9 @@ func TestStats(t *testing.T) {
 	diagnostics.RecordSendToArmLatency(time.Now(), 2*time.Millisecond)
 	diagnostics.RecordSendToArmLatency(time.Now(), 20*time.Millisecond)
 	// A pivot, a stage, and a locked-out stage: the kind tally sees all three.
-	diagnostics.RecordTrajexExtend(time.Now(), 4*time.Millisecond, "pivot", durationPtr(12*time.Millisecond), durationPtr(250*time.Millisecond))
+	diagnostics.RecordTrajexExtend(
+		time.Now(), 4*time.Millisecond, "pivot", durationPtr(12*time.Millisecond), durationPtr(250*time.Millisecond),
+	)
 	diagnostics.RecordTrajexExtend(time.Now(), 3*time.Millisecond, "staged_branch_sampled", durationPtr(-30*time.Millisecond), nil)
 	diagnostics.RecordTrajexExtend(time.Now(), 2*time.Millisecond, "staged_again", nil, nil)
 	diagnostics.RecordArmRunway(40 * time.Millisecond)
