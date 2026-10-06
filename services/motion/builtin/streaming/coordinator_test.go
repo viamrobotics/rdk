@@ -40,7 +40,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	diag := diagnostics.New(time.Duration(runTestOptions().DiagnosticsWindowSecs) * time.Second)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diag)
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0, 0}, diag, nil)
 	}()
 
 	jpCh <- []referenceframe.Input{0.05, -0.05}
@@ -96,6 +96,51 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	test.That(t, snap.ArmStreamOpen[0].TimestampMs, test.ShouldBeGreaterThan, 1e12)
 }
 
+// TestRunAcknowledgesEachTargetWithQueuedMs covers acks: each target is acknowledged once it is
+// added to the trajectory, with the motion then queued inside trajex.
+func TestRunAcknowledgesEachTargetWithQueuedMs(t *testing.T) {
+	inj, _ := newFakeStreamingArm()
+	jpCh := make(chan []referenceframe.Input)
+	acks := make(chan motion.TempStreamResponse)
+	opts := runTestOptions()
+	// A 0.35 rad move at a 10 deg/s limit is roughly 2s of trajectory.
+	opts.MoveOptions.MaxVelRads = defaultVelLimitRadPerSec
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(context.Background(), inj, opts, jpCh, []referenceframe.Input{0}, diagnostics.New(0), acks)
+	}()
+
+	jpCh <- []referenceframe.Input{0.35}
+	var first motion.TempStreamResponse
+	select {
+	case first = <-acks:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the first target was never acknowledged")
+	}
+	test.That(t, first.QueuedMs, test.ShouldNotBeNil)
+	test.That(t, *first.QueuedMs, test.ShouldBeGreaterThan, 1000)
+
+	jpCh <- []referenceframe.Input{0.7}
+	var second motion.TempStreamResponse
+	select {
+	case second = <-acks:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the second target was never acknowledged")
+	}
+	test.That(t, second.QueuedMs, test.ShouldNotBeNil)
+	// The second move adds more trajectory than execution drained in between.
+	test.That(t, *second.QueuedMs, test.ShouldBeGreaterThan, *first.QueuedMs)
+
+	close(jpCh)
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(15 * time.Second):
+		t.Fatal("Run did not finish after jpCh was closed")
+	}
+}
+
 func TestRunEndsContextCanceled(t *testing.T) {
 	t.Run("while streaming", func(t *testing.T) {
 		inj, rec := newFakeStreamingArm()
@@ -104,7 +149,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0))
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 		}()
 
 		// The send on jpCh returning proves Run is in its loop; then cancel.
@@ -132,7 +177,7 @@ func TestRunEndsContextCanceled(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0))
+			errCh <- Run(ctx, inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 		}()
 
 		// Let the flush finish and the wait begin, then cancel.
@@ -176,7 +221,7 @@ func TestRunEndsOnArmError(t *testing.T) {
 	jpCh := make(chan []referenceframe.Input)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0))
+		errCh <- Run(context.Background(), inj, runTestOptions(), jpCh, []referenceframe.Input{0}, diagnostics.New(0), nil)
 	}()
 
 	// One target is enough trajectory for several sends; the first is accepted, the

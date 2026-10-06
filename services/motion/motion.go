@@ -419,6 +419,12 @@ type Service interface {
 	// owns both channels: it writes and closes targets, and it closes responses after the
 	// implementation returns. So an implementation only reads targets and only writes responses,
 	// and must not close either.
+	//
+	// The builtin implementation acknowledges each target once it has been added to the trajectory,
+	// reporting in the acknowledgment how much motion it then has queued (TempStreamResponse.QueuedMs).
+	// The transport buffers many targets before a slow server is felt by the sender, so a client that
+	// wants to be paced by execution must wait for each acknowledgment, and hold its next target while
+	// the queue is deeper than it wants, rather than rely on its send blocking.
 	TempStreamArmJointPositions(
 		ctx context.Context,
 		armName string,
@@ -456,8 +462,13 @@ type TempStreamOptions struct {
 }
 
 // TempStreamResponse is the per-acknowledgment payload an implementation may emit on
-// TempStreamArmJointPositions's responses channel. It carries no fields today.
-type TempStreamResponse struct{}
+// TempStreamArmJointPositions's responses channel.
+type TempStreamResponse struct {
+	// QueuedMs is how much motion, in milliseconds, the implementation had accepted but not yet
+	// handed to the arm, measured once the acknowledged target was added. Nil if the
+	// implementation does not report it.
+	QueuedMs *int32
+}
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = "motion"

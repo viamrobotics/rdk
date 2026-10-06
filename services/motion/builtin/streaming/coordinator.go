@@ -11,6 +11,7 @@ import (
 
 	arm "go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
@@ -28,7 +29,10 @@ const stopArmTimeout = time.Minute
 //
 // Trajex, however, does not provide any backpressure to the client: If the client sends
 // joint positions faster than the arm executes them as per the trajectory output by trajex,
-// trajectory simply accumulates inside the trajex session.
+// trajectory simply accumulates inside the trajex session. So when acks is non-nil, `Run`
+// acknowledges each target once it has been added to the trajectory, reporting how much motion
+// is then queued inside trajex. A client that waits for each acknowledgment, and holds its next
+// target while the queue is deeper than it wants, is paced by execution.
 // Note that if, on the other hand, the client sends joint positions *slower* than the arm
 // executes them (as per the trajectory output by trajex), `Run` will run out of pvat points
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
@@ -39,6 +43,7 @@ func Run(
 	jpCh <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diagnostics *diagnostics.SingleSessionDiagnostics,
+	acks chan<- motion.TempStreamResponse,
 ) (err error) {
 	if err := opts.Validate(); err != nil {
 		return err
@@ -124,8 +129,17 @@ func Run(
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 
+			trajexRunway := ts.trajexRunway()
 			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
-			diagnostics.RecordTrajexRunway(ts.trajexRunway())
+			diagnostics.RecordTrajexRunway(trajexRunway)
+			if acks != nil {
+				queuedMs := int32(trajexRunway.Milliseconds())
+				select {
+				case acks <- motion.TempStreamResponse{QueuedMs: &queuedMs}:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
 			// Top up in case we missed the last tick.
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err

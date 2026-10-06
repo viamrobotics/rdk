@@ -129,7 +129,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		close(s.done)
 	}()
 
-	err = streaming.Run(streamCtx, a, opts, targets, seed, diag)
+	err = streaming.Run(streamCtx, a, opts, targets, seed, diag, responses)
 	if err != nil {
 		ms.logger.CWarnf(streamCtx, "arm streaming session for %q ended with error: %v", armName, err)
 	}
