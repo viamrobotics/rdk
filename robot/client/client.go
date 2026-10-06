@@ -109,6 +109,7 @@ type RobotClient struct {
 
 	mu                       sync.RWMutex
 	resourceNames            []resource.Name
+	machineState             robot.MachineState
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
 	changeChan               chan bool
@@ -761,6 +762,11 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				)
 				rc.mu.Lock()
 				rc.connected.Store(false)
+				// Clear the cached state so a reconnecting remote must positively re-confirm
+				// StateRunning before the parent trusts its resource list for removals again. Until
+				// then the parent defers, so a remote still rebuilding its resources after a restart
+				// doesn't have its dependents torn down.
+				rc.machineState = robot.StateUnknown
 				if rc.changeChan != nil {
 					rc.changeChan <- true
 				}
@@ -975,10 +981,55 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	rc.resourceNames = make([]resource.Name, 0, len(names))
 	rc.resourceNames = append(rc.resourceNames, names...)
 	rc.resourceRPCAPIs.Store(&rpcAPIs)
+	// Cache the machine state until the remote reports running: a running machine does not revert to
+	// initializing without reconnecting (which resets machineState), so once running there is nothing
+	// to re-poll, keeping the extra GetMachineStatus call off the steady-state refresh. The parent
+	// removes resources only once it sees StateRunning, so a transient failure (cached as
+	// StateUnknown) safely defers removal rather than risking a spurious teardown.
+	if rc.machineState != robot.StateRunning {
+		rc.machineState = rc.fetchMachineState(ctx)
+	}
 
 	rc.updateRemoteNameMap()
 
 	return rc.updateResourceClients(ctx)
+}
+
+// fetchMachineState returns the remote's current machine state. A remote running a viam-server too
+// old to implement GetMachineStatus is reported as running, so the parent robot removes its absent
+// resources as it would for any running remote. Any other failure is reported as unknown, which the
+// parent treats conservatively (it defers removing the remote's absent resources until the state is
+// known again, rather than tearing down their local dependents).
+func (rc *RobotClient) fetchMachineState(ctx context.Context) robot.MachineState {
+	// Deliberately not rc.MachineStatus: it also parses every resource and module status and logs
+	// an error for any reported in an unspecified state, which is needless noise when all we want
+	// is the top-level state.
+	resp, err := rc.client.GetMachineStatus(ctx, &pb.GetMachineStatusRequest{})
+	if err != nil {
+		if status.Code(err) == codes.Unimplemented {
+			return robot.StateRunning
+		}
+		rc.Logger().CDebugw(ctx, "failed to fetch remote machine state", "error", err)
+		return robot.StateUnknown
+	}
+	switch resp.GetState() {
+	case pb.GetMachineStatusResponse_STATE_INITIALIZING:
+		return robot.StateInitializing
+	case pb.GetMachineStatusResponse_STATE_RUNNING:
+		return robot.StateRunning
+	case pb.GetMachineStatusResponse_STATE_UNSPECIFIED:
+		fallthrough
+	default:
+		return robot.StateUnknown
+	}
+}
+
+// MachineState returns the remote's last observed machine state, cached by the client's background
+// refresh.
+func (rc *RobotClient) MachineState() robot.MachineState {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	return rc.machineState
 }
 
 func (rc *RobotClient) updateRemoteNameMap() {
