@@ -49,12 +49,29 @@ func (err unknownRdkAPITypeError) Error() string {
 	return fmt.Sprintf("API with unknown type '%s', expected one of %s", err.APIType, strings.Join(rdkAPITypes, ", "))
 }
 
-// ModuleComponent represents an api - model pair.
+// ModuleComponent represents a model and the APIs it serves. APIs holds the full set; API is always
+// one of them, retained as a back-compat pointer that new code should not rely on.
 type ModuleComponent struct {
-	API          string  `json:"api"`
-	Model        string  `json:"model"`
-	Description  *string `json:"short_description,omitempty"`
-	MarkdownLink *string `json:"markdown_link,omitempty"`
+	API          string   `json:"api"`
+	APIs         []string `json:"apis,omitempty"`
+	Model        string   `json:"model"`
+	Description  *string  `json:"short_description,omitempty"`
+	MarkdownLink *string  `json:"markdown_link,omitempty"`
+}
+
+// modelAPIs returns the full set of APIs a model serves, sorted for deterministic output. A
+// single-API model yields one.
+func modelAPIs(mc ModuleComponent) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(mc.APIs)+1)
+	for _, a := range append([]string{mc.API}, mc.APIs...) {
+		if a != "" && !seen[a] {
+			seen[a] = true
+			out = append(out, a)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // moduleID represents a prefix:name pair where prefix can be either an org id or a namespace.
@@ -378,6 +395,15 @@ func validateModels(errWriter io.Writer, manifest *ModuleManifest) {
 	for _, model := range manifest.Models {
 		if err := validateModelAPI(model.API); err != nil {
 			warningf(errWriter, "error validating API string %s: %s", model.API, err)
+		}
+		for _, api := range model.APIs {
+			if err := validateModelAPI(api); err != nil {
+				warningf(errWriter, "error validating API string %s: %s", api, err)
+			}
+		}
+		// A composite declares its full co-equal set in apis; the primary api must be one of them.
+		if len(model.APIs) > 0 && !slices.Contains(model.APIs, model.API) {
+			warningf(errWriter, "model %s: api %q must be one of apis %v", model.Model, model.API, model.APIs)
 		}
 	}
 }
@@ -716,6 +742,10 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 		Description: moduleComponent.Description,
 	}
 
+	// Always record the full API set so consumers can read apis as the single source of truth; api
+	// stays set as a back-compat pointer to one of them.
+	model.Apis = modelAPIs(moduleComponent)
+
 	// If a markdown link is provided, read the content
 	if moduleComponent.MarkdownLink != nil {
 		if content, err := getMarkdownContent(*moduleComponent.MarkdownLink); err == nil {
@@ -1001,14 +1031,22 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		return nil, err
 	}
 
-	res := []ModuleComponent{}
-
+	// A composite model is registered once per API it serves, so the handles report the same model
+	// under several API keys. Group by model and emit a single entry carrying the full API set rather
+	// than a duplicate entry per API.
+	apisByModel := map[string][]string{}
 	h := mgr.Handles()
 	for k, v := range h[cfg.Name] {
 		for _, m := range v {
-			res = append(res, ModuleComponent{k.API.String(), m.String(), nil, nil})
+			apisByModel[m.String()] = append(apisByModel[m.String()], k.API.String())
 		}
 	}
+	res := make([]ModuleComponent, 0, len(apisByModel))
+	for model, apis := range apisByModel {
+		slices.Sort(apis)
+		res = append(res, ModuleComponent{API: apis[0], APIs: apis, Model: model})
+	}
+	slices.SortFunc(res, func(a, b ModuleComponent) int { return strings.Compare(a.Model, b.Model) })
 
 	return res, nil
 }
@@ -1022,7 +1060,7 @@ func sameModels(a, b []ModuleComponent) bool {
 		found := false
 
 		for _, y := range b {
-			if x.API == y.API && x.Model == y.Model {
+			if x.Model == y.Model && slices.Equal(modelAPIs(x), modelAPIs(y)) {
 				found = true
 				break
 			}
