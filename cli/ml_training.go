@@ -36,7 +36,7 @@ const (
 	trainingStatusPrefix = "TRAINING_STATUS_"
 
 	// Flags for test-local command
-	trainFlagContainerVersion        = "container-version"
+	trainFlagContainerID             = "container-id"
 	trainFlagDatasetFile             = "dataset-file"
 	trainFlagDatasetRoot             = "dataset-root"
 	trainFlagModelOutputDirectory    = "model-output-directory"
@@ -766,7 +766,7 @@ func convertVisibilityToProto(visibility string) (*v1.Visibility, error) {
 }
 
 type mlTrainingScriptTestLocalArgs struct {
-	ContainerVersion        string
+	ContainerID             string
 	DatasetFile             string
 	DatasetRoot             string
 	ModelOutputDirectory    string
@@ -776,6 +776,10 @@ type mlTrainingScriptTestLocalArgs struct {
 
 // MLTrainingScriptTestLocalAction runs training locally in a Docker container.
 func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args mlTrainingScriptTestLocalArgs) error {
+	if args.ContainerID == "" {
+		return errors.Errorf("--%s must not be empty", trainFlagContainerID)
+	}
+
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
@@ -815,8 +819,7 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 	defer os.Remove(tmpScript)
 
 	// Get container image name
-	// TODO: change this to get URI with ID instead (APP-17653)
-	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
+	containerImageURI, err := getContainerImageURI(ctx, client, args.ContainerID)
 	if err != nil {
 		return err
 	}
@@ -1046,24 +1049,11 @@ func isValidArgumentKey(key string) bool {
 	return key != "" && validArgumentKeyRegex.MatchString(key)
 }
 
-// getContainerImageURI returns the full container image URI based on the version.
-func getContainerImageURI(c *viamClient, version string) (string, error) {
-	res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+// getContainerImageURI resolves a container ID to its image URI.
+func getContainerImageURI(ctx context.Context, c *viamClient, containerID string) (string, error) {
+	res, err := c.mlTrainingClient.GetContainer(ctx, &mltrainingpb.GetContainerRequest{Id: containerID})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list supported containers")
+		return "", errors.Wrapf(err, "failed to get container %s", containerID)
 	}
-
-	containerKeyList := []string{}
-	for key := range res.ContainerMap {
-		containerKeyList = append(containerKeyList, key)
-	}
-	slices.Sort(containerKeyList)
-
-	container, ok := res.ContainerMap[version]
-	if !ok {
-		warningf(c.c.Root().ErrWriter, "Container version %s not found. Supported versions: %s. "+
-			"Attempting to use provided value as container URI: %s", version, strings.Join(containerKeyList, ", "), version)
-		return version, nil
-	}
-	return container.Uri, nil
+	return res.GetContainer().GetUri(), nil
 }
