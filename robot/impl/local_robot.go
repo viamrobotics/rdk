@@ -903,7 +903,7 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 		// API names, storing that API's unwrapped sub, so a dependent resolves it by whichever API it
 		// expects and an API-qualified name yields that API's handle directly. Unwrap is a no-op for an
 		// ordinary resource.
-		for _, api := range r.coequalAPIsOf(res) {
+		for _, api := range resource.APIsOf(res) {
 			aliased := resource.Name{API: api, Remote: prefixedName.Remote, Name: prefixedName.Name}
 			allDeps[aliased] = resource.SubresourceForAPI(res, api)
 		}
@@ -931,14 +931,6 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 	}
 
 	return allDeps, weakAndOptionalDepsSnapshot, nil
-}
-
-// coequalAPIsOf returns every API a composite dependency serves, or nil for an ordinary resource.
-func (r *localRobot) coequalAPIsOf(res resource.Resource) []resource.API {
-	if apis := resource.APIsOf(res); len(apis) > 1 {
-		return apis
-	}
-	return nil
 }
 
 func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []resource.Matcher {
@@ -1091,13 +1083,9 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		// against each served API (the Subtype/Type matchers read Name().API, which is only the canonical
 		// API, so a composite matched on a non-canonical API would otherwise be dropped). Store that API's
 		// unwrapped sub under each matched API's name, so an API-qualified name yields that API's handle
-		// directly -- matching explicit deps above and robot resolution. For an ordinary resource
-		// coequalAPIsOf is nil, api is n.API, and the unwrap is a no-op.
-		apis := r.coequalAPIsOf(res)
-		if apis == nil {
-			apis = []resource.API{n.API}
-		}
-		for _, api := range apis {
+		// directly -- matching explicit deps above and robot resolution. An ordinary resource is a
+		// composite of one: APIsOf returns its single API and the unwrap is a no-op.
+		for _, api := range resource.APIsOf(res) {
 			sub := resource.SubresourceForAPI(res, api)
 			apiName := resource.Name{API: api, Remote: n.Remote, Name: n.Name}
 			for _, matcher := range weakDepMatchers {
