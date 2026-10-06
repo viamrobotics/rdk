@@ -125,6 +125,7 @@ func Run(
 			}
 
 			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
+			diagnostics.RecordTrajexRunway(ts.trajexRunway())
 			// Top up in case we missed the last tick.
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
@@ -133,6 +134,7 @@ func Run(
 		// Time to check whether the arm's runway needs topping up.
 		case <-sendToArmTicker.C:
 			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
+			diagnostics.RecordTrajexRunway(ts.trajexRunway())
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
 			}

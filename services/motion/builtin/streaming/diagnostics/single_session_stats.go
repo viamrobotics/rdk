@@ -15,6 +15,10 @@ type SingleSessionStats struct {
 	ArmRunwayMinMs float64 `json:"arm_runway_min_ms"`
 	ArmRunwayMaxMs float64 `json:"arm_runway_max_ms"`
 
+	TrajexRunwayP50Ms float64 `json:"trajex_runway_p50_ms"`
+	TrajexRunwayP99Ms float64 `json:"trajex_runway_p99_ms"`
+	TrajexRunwayMaxMs float64 `json:"trajex_runway_max_ms"`
+
 	TrajexExtendLatencyP50Ms float64 `json:"trajex_extend_latency_p50_ms"`
 	TrajexExtendLatencyP99Ms float64 `json:"trajex_extend_latency_p99_ms"`
 	TrajexExtendLatencyMaxMs float64 `json:"trajex_extend_latency_max_ms"`
@@ -32,6 +36,7 @@ type SingleSessionStats struct {
 type singleSessionStats struct {
 	targetsReceived    int64
 	armRunway          extremes
+	trajexRunway       durationStats
 	extendLatency      durationStats
 	extendsByKind      map[string]int64
 	sendLatency        durationStats
@@ -45,6 +50,10 @@ func (s *singleSessionStats) recordJointPositionTargetReceived() {
 
 func (s *singleSessionStats) recordArmRunway(ms float64) {
 	s.armRunway.record(ms)
+}
+
+func (s *singleSessionStats) recordTrajexRunway(ms float64) {
+	s.trajexRunway.record(ms)
 }
 
 func (s *singleSessionStats) recordTrajexExtend(durationMs float64, kind string) {

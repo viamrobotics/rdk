@@ -48,7 +48,8 @@ type PVAT struct {
 
 // SingleSessionLastWindowDetails is the rolling-window detail returned to callers.
 type SingleSessionLastWindowDetails struct {
-	ArmRunway []BufferSize `json:"arm_runway"`
+	ArmRunway    []BufferSize `json:"arm_runway"`
+	TrajexRunway []BufferSize `json:"trajex_runway"`
 
 	TrajexExtends    []TrajexExtend `json:"trajex_extends"`
 	SendToArmLatency []Latency      `json:"send_to_arm_latency"`
@@ -80,6 +81,15 @@ func (d *singleSessionLastWindowDetails) recordArmRunway(ms float64) {
 	}
 	now := unixMillisFloat(time.Now())
 	d.ArmRunway = append(d.ArmRunway, BufferSize{TimestampMs: now, SizeMs: ms})
+	d.pruneBefore(now - d.windowMs)
+}
+
+func (d *singleSessionLastWindowDetails) recordTrajexRunway(ms float64) {
+	if !d.enabled() {
+		return
+	}
+	now := unixMillisFloat(time.Now())
+	d.TrajexRunway = append(d.TrajexRunway, BufferSize{TimestampMs: now, SizeMs: ms})
 	d.pruneBefore(now - d.windowMs)
 }
 
@@ -178,6 +188,7 @@ func (d *singleSessionLastWindowDetails) pruneBefore(timestampMs float64) {
 	timestampMsOfExtend := func(e TrajexExtend) float64 { return e.TimestampMs }
 	d.JointPositionTargetReceived = pruneBefore(d.JointPositionTargetReceived, timestampMsOfEvent, timestampMs)
 	d.ArmRunway = pruneBefore(d.ArmRunway, timestampMsOfBufferSize, timestampMs)
+	d.TrajexRunway = pruneBefore(d.TrajexRunway, timestampMsOfBufferSize, timestampMs)
 	d.TrajexExtends = pruneBefore(d.TrajexExtends, timestampMsOfExtend, timestampMs)
 	d.SendToArmLatency = pruneBefore(d.SendToArmLatency, timestampMsOfLatency, timestampMs)
 	d.TrajexSessionOpen = pruneBefore(d.TrajexSessionOpen, timestampMsOfEvent, timestampMs)
