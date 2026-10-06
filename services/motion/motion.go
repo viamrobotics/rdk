@@ -419,12 +419,6 @@ type Service interface {
 	// owns both channels: it writes and closes targets, and it closes responses after the
 	// implementation returns. So an implementation only reads targets and only writes responses,
 	// and must not close either.
-	//
-	// The builtin implementation acknowledges each target once it has been added to the trajectory,
-	// reporting in the acknowledgment how much motion it then has queued (TempStreamResponse.QueuedMs).
-	// The transport buffers many targets before a slow server is felt by the sender, so a client that
-	// wants to be paced by execution must wait for each acknowledgment, and hold its next target while
-	// the queue is deeper than it wants, rather than rely on its send blocking.
 	TempStreamArmJointPositions(
 		ctx context.Context,
 		armName string,
