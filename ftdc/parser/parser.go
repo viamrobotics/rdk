@@ -379,6 +379,7 @@ type ratioMetric struct {
 var ratioMetricToFields = map[string]ratioMetric{
 	"UserCPU":   {"UserCPUSecs", "ElapsedTimeSecs"},
 	"SystemCPU": {"SystemCPUSecs", "ElapsedTimeSecs"},
+	"GCCPU":     {"CPUSecs.GC", "CPUSecs.Total"},
 	// PerSec ratios use an empty string denominator.
 	"HeadersProcessedPerSec":                  {"HeadersProcessed", ""},
 	"TxPacketsPerSec":                         {"TxPackets", ""},
