@@ -109,6 +109,7 @@ type RobotClient struct {
 
 	mu                       sync.RWMutex
 	resourceNames            []resource.Name
+	machineState             robot.MachineState
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
 	changeChan               chan bool
@@ -120,6 +121,10 @@ type RobotClient struct {
 	rpcSubtypesUnimplemented bool
 	withoutRPCSubtypes       bool
 	resourcesTimeout         time.Duration
+
+	// reconnectSignal wakes the background connection loop to health-check immediately instead of
+	// waiting for its next periodic tick. Buffered to one; needs no lock.
+	reconnectSignal chan struct{}
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
@@ -206,7 +211,12 @@ func isDisconnectedError(err error) bool {
 		return false
 	}
 	return errors.Is(err, rpc.ErrDisconnected) ||
-		strings.Contains(err.Error(), io.ErrClosedPipe.Error())
+		strings.Contains(err.Error(), io.ErrClosedPipe.Error()) ||
+		// A call made on a gRPC ClientConn that was closed locally returns grpc.ErrClientConnClosing:
+		// codes.Canceled "grpc: the client connection is closing". Match the message, not the sentinel
+		// (which is deprecated) or a bare Canceled (which would swallow real caller cancellations), so
+		// callers get a retryable Unavailable rather than a Canceled that reads like caller cancelation.
+		strings.Contains(err.Error(), "the client connection is closing")
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
@@ -223,6 +233,24 @@ func isResourceExhaustedError(err error) bool {
 		}
 	}
 	return false
+}
+
+// signalReconnectCheck nudges the background connection loop to health-check now rather than at its
+// next periodic tick. A failed data-path call is the earliest evidence the transport died; without
+// this the loop would not notice until checkConnectedEvery elapses. The send is non-blocking and the
+// channel is buffered to one, so a burst of failing calls coalesces into a single wakeup rather than
+// a reconnect storm.
+func (rc *RobotClient) signalReconnectCheck() {
+	// Only signal on the connected->disconnected edge. Once the loop has marked us disconnected it is
+	// already retrying on its own reconnectEvery cadence; re-signaling per failed call would wake it
+	// every call and defeat that throttle, turning a sustained outage into a reconnect storm.
+	if !rc.connected.Load() {
+		return
+	}
+	select {
+	case rc.reconnectSignal <- struct{}{}:
+	default:
+	}
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -246,6 +274,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isDisconnectedError(err) {
+		rc.signalReconnectCheck()
 		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return err
@@ -265,6 +294,7 @@ func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
 	// should still surface a helpful error message.
 	err := cs.ClientStream.RecvMsg(m)
 	if isDisconnectedError(err) {
+		cs.RobotClient.signalReconnectCheck()
 		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
 	}
 
@@ -292,6 +322,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isDisconnectedError(err) {
+		rc.signalReconnectCheck()
 		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return &handleDisconnectClientStream{cs, rc}, err
@@ -323,6 +354,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		logger:              logger,
 		dialOptions:         rOpts.dialOptions,
 		notifyParent:        nil,
+		reconnectSignal:     make(chan struct{}, 1),
 		conn:                grpc.ReconfigurableClientConn{Logger: logger},
 		resourceClients:     make(map[resource.Name]resource.Resource),
 		remoteNameMap:       make(map[resource.Name]resource.Name),
@@ -572,7 +604,11 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	if err := rc.conn.Close(); err != nil {
+	// The benign "already closing" status on the connection we're discarding must not abort the
+	// reconnect. Any other Close error is unexpected: log it but abort since we don't know yet what it
+	// implies.
+	if err := rc.conn.Close(); err != nil && !isDisconnectedError(err) {
+		rc.logger.CWarnw(ctx, "unexpected error closing stale connection before reconnect", "error", err)
 		return err
 	}
 
@@ -700,8 +736,15 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				return
 			}
 		}
-		if !utils.SelectContextOrWait(ctx, waitTime) {
+		timer := time.NewTimer(waitTime)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
 			return
+		case <-rc.reconnectSignal:
+			// A data-path call reported a disconnect; check now instead of waiting for the tick.
+			timer.Stop()
+		case <-timer.C:
 		}
 		if !rc.connected.Load() {
 			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
@@ -761,6 +804,11 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				)
 				rc.mu.Lock()
 				rc.connected.Store(false)
+				// Clear the cached state so a reconnecting remote must positively re-confirm
+				// StateRunning before the parent trusts its resource list for removals again. Until
+				// then the parent defers, so a remote still rebuilding its resources after a restart
+				// doesn't have its dependents torn down.
+				rc.machineState = robot.StateUnknown
 				if rc.changeChan != nil {
 					rc.changeChan <- true
 				}
@@ -975,10 +1023,55 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	rc.resourceNames = make([]resource.Name, 0, len(names))
 	rc.resourceNames = append(rc.resourceNames, names...)
 	rc.resourceRPCAPIs.Store(&rpcAPIs)
+	// Cache the machine state until the remote reports running: a running machine does not revert to
+	// initializing without reconnecting (which resets machineState), so once running there is nothing
+	// to re-poll, keeping the extra GetMachineStatus call off the steady-state refresh. The parent
+	// removes resources only once it sees StateRunning, so a transient failure (cached as
+	// StateUnknown) safely defers removal rather than risking a spurious teardown.
+	if rc.machineState != robot.StateRunning {
+		rc.machineState = rc.fetchMachineState(ctx)
+	}
 
 	rc.updateRemoteNameMap()
 
 	return rc.updateResourceClients(ctx)
+}
+
+// fetchMachineState returns the remote's current machine state. A remote running a viam-server too
+// old to implement GetMachineStatus is reported as running, so the parent robot removes its absent
+// resources as it would for any running remote. Any other failure is reported as unknown, which the
+// parent treats conservatively (it defers removing the remote's absent resources until the state is
+// known again, rather than tearing down their local dependents).
+func (rc *RobotClient) fetchMachineState(ctx context.Context) robot.MachineState {
+	// Deliberately not rc.MachineStatus: it also parses every resource and module status and logs
+	// an error for any reported in an unspecified state, which is needless noise when all we want
+	// is the top-level state.
+	resp, err := rc.client.GetMachineStatus(ctx, &pb.GetMachineStatusRequest{})
+	if err != nil {
+		if status.Code(err) == codes.Unimplemented {
+			return robot.StateRunning
+		}
+		rc.Logger().CDebugw(ctx, "failed to fetch remote machine state", "error", err)
+		return robot.StateUnknown
+	}
+	switch resp.GetState() {
+	case pb.GetMachineStatusResponse_STATE_INITIALIZING:
+		return robot.StateInitializing
+	case pb.GetMachineStatusResponse_STATE_RUNNING:
+		return robot.StateRunning
+	case pb.GetMachineStatusResponse_STATE_UNSPECIFIED:
+		fallthrough
+	default:
+		return robot.StateUnknown
+	}
+}
+
+// MachineState returns the remote's last observed machine state, cached by the client's background
+// refresh.
+func (rc *RobotClient) MachineState() robot.MachineState {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	return rc.machineState
 }
 
 func (rc *RobotClient) updateRemoteNameMap() {

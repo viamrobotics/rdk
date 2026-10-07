@@ -12,6 +12,7 @@ import (
 type fakeStreamRecorder struct {
 	mu      sync.Mutex
 	batches [][]arm.TrajectoryPoint
+	stops   int
 }
 
 func (r *fakeStreamRecorder) get() [][]arm.TrajectoryPoint {
@@ -20,9 +21,22 @@ func (r *fakeStreamRecorder) get() [][]arm.TrajectoryPoint {
 	return r.batches
 }
 
+// stopCalls returns how many times the arm's Stop was called.
+func (r *fakeStreamRecorder) stopCalls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.stops
+}
+
 func newFakeStreamingArm() (*inject.Arm, *fakeStreamRecorder) {
 	rec := &fakeStreamRecorder{}
 	inj := inject.NewArm("test-arm")
+	inj.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		rec.mu.Lock()
+		defer rec.mu.Unlock()
+		rec.stops++
+		return nil
+	}
 	inj.MoveThroughJointPositionsStreamedFunc = func(
 		ctx context.Context,
 		batches <-chan []arm.TrajectoryPoint,

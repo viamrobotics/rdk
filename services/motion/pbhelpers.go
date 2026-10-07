@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -403,4 +404,28 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 	}
 
 	return req, nil
+}
+
+func tempStreamOptionsToProto(o TempStreamOptions) *pb.TempStreamOptions {
+	streamOpts := &pb.TempStreamOptions{
+		ArmSideTargetRunwayMs: o.ArmSideTargetRunwayMs,
+		SendToArmIntervalMs:   o.SendToArmIntervalMs,
+		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
+	}
+	if o.MoveOptions != nil {
+		streamOpts.MoveOptions = o.MoveOptions.ToProtobuf()
+	}
+	return streamOpts
+}
+
+func tempStreamOptionsFromProto(o *pb.TempStreamOptions) TempStreamOptions {
+	if o == nil {
+		return TempStreamOptions{}
+	}
+	return TempStreamOptions{
+		ArmSideTargetRunwayMs: o.ArmSideTargetRunwayMs,
+		SendToArmIntervalMs:   o.SendToArmIntervalMs,
+		DiagnosticsWindowSecs: o.DiagnosticsWindowSecs,
+		MoveOptions:           arm.MoveOptionsFromProtobuf(o.MoveOptions),
+	}
 }

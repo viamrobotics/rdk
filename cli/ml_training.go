@@ -36,7 +36,7 @@ const (
 	trainingStatusPrefix = "TRAINING_STATUS_"
 
 	// Flags for test-local command
-	trainFlagContainerVersion        = "container-version"
+	trainFlagContainerID             = "container-id"
 	trainFlagDatasetFile             = "dataset-file"
 	trainFlagDatasetRoot             = "dataset-root"
 	trainFlagModelOutputDirectory    = "model-output-directory"
@@ -47,14 +47,14 @@ const (
 var validArgumentKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type mlSubmitCustomTrainingJobArgs struct {
-	DatasetID        string
-	OrgID            string
-	ModelName        string
-	ModelVersion     string
-	ScriptName       string
-	Version          string
-	ContainerVersion string
-	Args             []string
+	DatasetID    string
+	OrgID        string
+	ModelName    string
+	ModelVersion string
+	ScriptName   string
+	Version      string
+	ContainerID  string
+	Args         []string
 }
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
@@ -69,7 +69,7 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+		args.ModelName, args.ModelVersion, args.ContainerID, args.Args,
 	)
 	if err != nil {
 		return err
@@ -79,19 +79,19 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 }
 
 type mlSubmitCustomTrainingJobWithUploadArgs struct {
-	URL              string
-	DatasetID        string
-	ModelName        string
-	ModelVersion     string
-	Path             string
-	OrgID            string
-	ModelOrgID       string
-	ScriptName       string
-	Version          string
-	Framework        string
-	ModelType        string
-	ContainerVersion string
-	Args             []string
+	URL          string
+	DatasetID    string
+	ModelName    string
+	ModelVersion string
+	Path         string
+	OrgID        string
+	ModelOrgID   string
+	ScriptName   string
+	Version      string
+	Framework    string
+	ModelType    string
+	ContainerID  string
+	Args         []string
 }
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
@@ -125,7 +125,7 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+		args.ModelName, args.ModelVersion, args.ContainerID, args.Args,
 	)
 	if err != nil {
 		return err
@@ -145,15 +145,19 @@ type mlSubmitTrainingJobArgs struct {
 }
 
 type mlListContainersArgs struct {
+	OrgID       string
 	IncludeURIs bool
 }
 
 type prettyPrintContainer struct {
 	Name        string
-	EndOfLife   string
+	EndOfLife   string `json:",omitempty"`
 	Description string
-	Framework   string
+	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
+	ID          string
+	CreatedOn   string
+	Visibility  string
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
@@ -162,20 +166,27 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	if err != nil {
 		return err
 	}
-	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{},
+	supportedContainers, err := client.mlTrainingClient.ListContainers(
+		context.Background(), &mltrainingpb.ListContainersRequest{OrganizationId: args.OrgID},
 	)
 	if err != nil {
 		return err
 	}
 
 	var returnContainers []prettyPrintContainer
-	for _, v := range supportedContainers.ContainerMap {
+	for _, v := range supportedContainers.Containers {
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
+			Visibility:  v.Visibility.String(),
 			Framework:   v.Framework,
-			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+			ID:          v.Id,
+		}
+		if v.Eol != nil && !v.Eol.AsTime().IsZero() {
+			container.EndOfLife = v.Eol.AsTime().Format(time.RFC3339)
+		}
+		if v.CreatedOn != nil && !v.CreatedOn.AsTime().IsZero() {
+			container.CreatedOn = v.CreatedOn.AsTime().Format(time.RFC3339)
 		}
 		if args.IncludeURIs {
 			container.URI = v.Uri
@@ -187,6 +198,66 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		return err
 	}
 	printf(cmd.Root().Writer, "%s", b)
+	return nil
+}
+
+type registerContainersArgs struct {
+	OrgID       string
+	URI         string
+	Description string
+}
+
+// RegisterContainer is the corresponding action for 'train containers register'.
+func RegisterContainer(ctx context.Context, cmd *cli.Command, args registerContainersArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
+	}
+	if args.Description == "" {
+		return errors.New("must provide a description")
+	}
+
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	description := args.Description
+
+	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
+		&mltrainingpb.RegisterCustomTrainingContainerRequest{
+			OrganizationId: args.OrgID,
+			ImageUri:       args.URI,
+			Description:    description,
+		})
+	if err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "Container successfully registered. Container ID: %s", resp.Id)
+	return nil
+}
+
+type mlDeleteContainerArgs struct {
+	ID string
+}
+
+// MLDeleteContainer is the corresponding action for 'train containers delete'.
+func MLDeleteContainer(ctx context.Context, cmd *cli.Command, args mlDeleteContainerArgs) error {
+	if args.ID == "" {
+		return errors.New("must provide the ID of the container to delete")
+	}
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.mlTrainingClient.DeleteCustomTrainingContainer(context.Background(), &mltrainingpb.DeleteCustomTrainingContainerRequest{
+		Id: args.ID,
+	})
+	if err != nil {
+		return err
+	}
+	printf(cmd.Root().Writer, "Deleted container %q", args.ID)
 	return nil
 }
 
@@ -240,7 +311,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion, containerVersion string, args []string,
+	modelVersion, containerID string, args []string,
 ) (string, error) {
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
@@ -259,7 +330,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		OrganizationId:      orgID,
 		ModelName:           modelName,
 		ModelVersion:        modelVersion,
-		ContainerVersion:    containerVersion,
+		ContainerId:         containerID,
 	}
 
 	if len(args) > 0 {
@@ -695,7 +766,7 @@ func convertVisibilityToProto(visibility string) (*v1.Visibility, error) {
 }
 
 type mlTrainingScriptTestLocalArgs struct {
-	ContainerVersion        string
+	ContainerID             string
 	DatasetFile             string
 	DatasetRoot             string
 	ModelOutputDirectory    string
@@ -705,6 +776,10 @@ type mlTrainingScriptTestLocalArgs struct {
 
 // MLTrainingScriptTestLocalAction runs training locally in a Docker container.
 func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args mlTrainingScriptTestLocalArgs) error {
+	if args.ContainerID == "" {
+		return errors.Errorf("--%s must not be empty", trainFlagContainerID)
+	}
+
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
@@ -744,7 +819,7 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 	defer os.Remove(tmpScript)
 
 	// Get container image name
-	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
+	containerImageURI, err := getContainerImageURI(ctx, client, args.ContainerID)
 	if err != nil {
 		return err
 	}
@@ -974,24 +1049,11 @@ func isValidArgumentKey(key string) bool {
 	return key != "" && validArgumentKeyRegex.MatchString(key)
 }
 
-// getContainerImageURI returns the full container image URI based on the version.
-func getContainerImageURI(c *viamClient, version string) (string, error) {
-	res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+// getContainerImageURI resolves a container ID to its image URI.
+func getContainerImageURI(ctx context.Context, c *viamClient, containerID string) (string, error) {
+	res, err := c.mlTrainingClient.GetContainer(ctx, &mltrainingpb.GetContainerRequest{Id: containerID})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list supported containers")
+		return "", errors.Wrapf(err, "failed to get container %s", containerID)
 	}
-
-	containerKeyList := []string{}
-	for key := range res.ContainerMap {
-		containerKeyList = append(containerKeyList, key)
-	}
-	slices.Sort(containerKeyList)
-
-	container, ok := res.ContainerMap[version]
-	if !ok {
-		warningf(c.c.Root().ErrWriter, "Container version %s not found. Supported versions: %s. "+
-			"Attempting to use provided value as container URI: %s", version, strings.Join(containerKeyList, ", "), version)
-		return version, nil
-	}
-	return container.Uri, nil
+	return res.GetContainer().GetUri(), nil
 }

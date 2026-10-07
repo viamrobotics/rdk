@@ -126,14 +126,15 @@ const (
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
-	mlTrainingFlagName             = "script-name"
-	mlTrainingFlagFramework        = "framework"
-	mlTrainingFlagDraft            = "draft"
-	mlTrainingFlagVisibility       = "visibility"
-	mlTrainingFlagDescription      = "description"
-	mlTrainingFlagURL              = "url"
-	mlTrainingFlagContainerVersion = "container-version"
-	mlTrainingFlagIncludeURIs      = "include-uris"
+	mlTrainingFlagName           = "script-name"
+	mlTrainingFlagFramework      = "framework"
+	mlTrainingFlagDraft          = "draft"
+	mlTrainingFlagVisibility     = "visibility"
+	mlTrainingFlagDescription    = "description"
+	mlTrainingFlagURL            = "url"
+	mlTrainingFlagIncludeURIs    = "include-uris"
+	mlTrainingFlagContainerID    = "container-id"
+	mlRegisterContainersImageURI = "uri"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2256,8 +2257,50 @@ Note: There is no progress meter while copying is in progress.
 									Name:  mlTrainingFlagIncludeURIs,
 									Usage: "show container URIs with the list of containers",
 								},
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Aliases:  []string{generalFlagAliasOrg, generalFlagOrganization},
+									Usage:    "the org ID for which to list available containers for custom training jobs",
+									Required: false,
+								},
 							},
 							Action: createActionCommandWithT[mlListContainersArgs](MLListContainers),
+						},
+						{
+							Name:      "register",
+							Usage:     "registers a custom container for custom training",
+							UsageText: createUsageText("train containers register", []string{mlRegisterContainersImageURI}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:        generalFlagOrgID,
+									Usage:       "organization ID that will own the container",
+									DefaultText: "the default org set with `viam defaults set-org`",
+								},
+								&cli.StringFlag{
+									Name:     mlRegisterContainersImageURI,
+									Usage:    "docker image URI of the container",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     mlTrainingFlagDescription,
+									Usage:    "acts as the container display name",
+									Required: true,
+								},
+							},
+							Action: createActionCommandWithT[registerContainersArgs](RegisterContainer),
+						},
+						{
+							Name:      "delete",
+							Usage:     "deletes a custom training container",
+							UsageText: createUsageText("train containers delete", []string{generalFlagID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagID,
+									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
+									Required: true,
+								},
+							},
+							Action: createActionCommandWithT[mlDeleteContainerArgs](MLDeleteContainer),
 						},
 					},
 				},
@@ -2331,7 +2374,7 @@ Note: There is no progress meter while copying is in progress.
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID,
 											generalFlagModelName, mlTrainingFlagName,
-											generalFlagVersion, mlTrainingFlagContainerVersion,
+											generalFlagVersion, mlTrainingFlagContainerID,
 										},
 										true, false,
 									),
@@ -2366,10 +2409,8 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name: mlTrainingFlagContainerVersion,
-											Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
+											Name:     mlTrainingFlagContainerID,
+											Usage:    `ID of the training container to use; must be a supported container for this org.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
@@ -2386,7 +2427,7 @@ Note: There is no progress meter while copying is in progress.
 										[]string{
 											generalFlagOrgID, datasetFlagDatasetID,
 											trainFlagModelOrgID, generalFlagModelName, generalFlagPath,
-											mlTrainingFlagName, mlTrainingFlagContainerVersion,
+											mlTrainingFlagName, mlTrainingFlagContainerID,
 										},
 										true, false,
 									),
@@ -2444,10 +2485,8 @@ Note: There is no progress meter while copying is in progress.
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
 										},
 										&cli.StringFlag{
-											Name: mlTrainingFlagContainerVersion,
-											Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
+											Name:     mlTrainingFlagContainerID,
+											Usage:    `ID of the training container to use; must be a supported container for this org.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
@@ -4580,7 +4619,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Usage: "test training script locally using Docker",
 					UsageText: createUsageText("training-script test-local", []string{
 						trainFlagDatasetRoot, trainFlagTrainingScriptDirectory,
-						trainFlagDatasetFile, trainFlagContainerVersion, trainFlagModelOutputDirectory,
+						trainFlagDatasetFile, trainFlagContainerID, trainFlagModelOutputDirectory,
 					}, true, false),
 					Description: `Test your training script locally before submitting to the cloud. This runs your training script 
 in a Docker container using the same environment as cloud training.
@@ -4627,10 +4666,8 @@ NOTES:
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: trainFlagContainerVersion,
-							Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
+							Name:     trainFlagContainerID,
+							Usage:    "ID of the ml training container to use",
 							Required: true,
 						},
 						&cli.StringFlag{

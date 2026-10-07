@@ -226,6 +226,9 @@ var (
 type internalRemoteRobot interface {
 	resource.Resource
 	robot.Robot
+
+	// MachineState returns the remote's last observed machine state, cached by the robot client.
+	MachineState() robot.MachineState
 }
 
 // updateRemoteResourceNames is called when the Remote robot has changed (either connection or disconnection).
@@ -397,10 +400,30 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		logger.CDebugw(ctx, "remote resource names update completed with no changes to resource graph")
 	}
 
+	// Collect the resources that were present before but are no longer advertised by the remote.
+	var absentResources []resource.Name
 	for resName, isActive := range activeResourceNames {
-		if isActive {
-			continue
+		if !isActive {
+			absentResources = append(absentResources, resName)
 		}
+	}
+
+	// A remote that just restarted reconnects as soon as its web server is up, while it is still
+	// initializing and has only (re)built part of its configured resources. During that window it
+	// advertises a partial resource set, so the absentResources computed above include resources
+	// that are merely not-yet-rebuilt, not genuinely removed. Removing them here would tear down the
+	// local resources that depend on them and rebuild them once the remote finishes. Defer removal
+	// until the remote reports StateRunning, at which point its advertised set is authoritative. New
+	// resources are still added above during initialization; only removal is gated.
+	if len(absentResources) > 0 && !remoteRunning(rr) {
+		logger.CInfow(ctx,
+			"remote is still initializing or its status cannot be determined; retaining its "+
+				"temporarily-absent resources instead of rebuilding local dependents",
+			"absent_resources", resource.NamesToStrings(absentResources))
+		return anythingChanged
+	}
+
+	for _, resName := range absentResources {
 		resLogger := logger.WithFields("resource", resName)
 		resLogger.CDebugw(ctx, "attempting to remove remote resource")
 		gNode, ok := manager.resources.Node(resName)
@@ -427,6 +450,13 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		anythingChanged = true
 	}
 	return anythingChanged
+}
+
+// remoteRunning reports whether a remote has confirmed it has finished starting up, so its advertised
+// resource set can be trusted for removals. Otherwise removal is deferred so we never tear down
+// dependents on a remote that may still be rebuilding. The state is read from the client's cache.
+func remoteRunning(rr internalRemoteRobot) bool {
+	return rr.MachineState() == robot.StateRunning
 }
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) bool {

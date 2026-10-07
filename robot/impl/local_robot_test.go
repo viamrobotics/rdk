@@ -534,6 +534,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Payload: locationSecret,
 			}
 
+			mdnsSupported := robottestutils.MDNSAvailable()
+
 			var r2 robot.LocalRobot
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
@@ -551,9 +553,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 				ctx2 := context.Background()
-				remoteConfig.Remotes[0].Address = options.LocalFQDN
-				if tc.EntityName != "" {
-					remoteConfig.Remotes[1].Address = options.FQDN
+				if mdnsSupported {
+					remoteConfig.Remotes[0].Address = options.LocalFQDN
+					if tc.EntityName != "" {
+						remoteConfig.Remotes[1].Address = options.FQDN
+					}
 				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
 			} else {
@@ -566,7 +570,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
 
 				ctx2 := context.Background()
-				remoteConfig.Remotes[0].Address = options.LocalFQDN
+				if mdnsSupported {
+					remoteConfig.Remotes[0].Address = options.LocalFQDN
+				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
 			}
 
@@ -605,6 +611,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	ctx := context.Background()
 
 	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	mdnsSupported := robottestutils.MDNSAvailable()
 
 	altName := primitive.NewObjectID().Hex()
 	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -685,8 +693,10 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 	// use cert with mDNS
-	remoteConfig.Remotes[0].Address = options.FQDN
-	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+	if mdnsSupported {
+		remoteConfig.Remotes[0].Address = options.FQDN
+		test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+	}
 
 	// use signaling creds
 	remoteConfig.Remotes[0].Address = addr
@@ -705,7 +715,9 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		Type:    rutils.CredentialsTypeRobotLocationSecret,
 		Payload: locationSecret + "bad",
 	}
-	remoteConfig.Remotes[0].Address = options.FQDN
+	if mdnsSupported {
+		remoteConfig.Remotes[0].Address = options.FQDN
+	}
 	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
 
 	expected := []resource.Name{
@@ -2477,10 +2489,13 @@ func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Assert that restoring the testmodule binary makes h start working again
-	// after the auto-restart code succeeds.
+	// after the auto-restart code succeeds. This can take a while: the restart
+	// loop only retries every oueRestartInterval (5s), and a freshly-forked
+	// module process can be slow to start listening on its socket when the CI
+	// machine is under load, so allow a generous window here to avoid flakiness.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)

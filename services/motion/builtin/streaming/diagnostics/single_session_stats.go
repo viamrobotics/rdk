@@ -15,6 +15,10 @@ type SingleSessionStats struct {
 	ArmRunwayMinMs float64 `json:"arm_runway_min_ms"`
 	ArmRunwayMaxMs float64 `json:"arm_runway_max_ms"`
 
+	TrajexRunwayP50Ms float64 `json:"trajex_runway_p50_ms"`
+	TrajexRunwayP99Ms float64 `json:"trajex_runway_p99_ms"`
+	TrajexRunwayMaxMs float64 `json:"trajex_runway_max_ms"`
+
 	TrajexExtendLatencyP50Ms float64 `json:"trajex_extend_latency_p50_ms"`
 	TrajexExtendLatencyP99Ms float64 `json:"trajex_extend_latency_p99_ms"`
 	TrajexExtendLatencyMaxMs float64 `json:"trajex_extend_latency_max_ms"`
@@ -24,13 +28,17 @@ type SingleSessionStats struct {
 
 	MaxJointDegPerSec  float64 `json:"max_joint_deg_per_sec"`
 	MaxJointDegPerSec2 float64 `json:"max_joint_deg_per_sec2"`
+
+	TrajexExtendsByKind map[string]int64 `json:"trajex_extends_by_kind"`
 }
 
 // singleSessionStats is the whole-session accumulators backing Stats(); never pruned.
 type singleSessionStats struct {
 	targetsReceived    int64
 	armRunway          extremes
+	trajexRunway       durationStats
 	extendLatency      durationStats
+	extendsByKind      map[string]int64
 	sendLatency        durationStats
 	maxJointDegPerSec  float64
 	maxJointDegPerSec2 float64
@@ -44,8 +52,16 @@ func (s *singleSessionStats) recordArmRunway(ms float64) {
 	s.armRunway.record(ms)
 }
 
-func (s *singleSessionStats) recordTrajexExtendLatency(ms float64) {
-	s.extendLatency.record(ms)
+func (s *singleSessionStats) recordTrajexRunway(ms float64) {
+	s.trajexRunway.record(ms)
+}
+
+func (s *singleSessionStats) recordTrajexExtend(durationMs float64, kind string) {
+	s.extendLatency.record(durationMs)
+	if s.extendsByKind == nil {
+		s.extendsByKind = map[string]int64{}
+	}
+	s.extendsByKind[kind]++
 }
 
 func (s *singleSessionStats) recordSendToArmLatency(ms float64) {

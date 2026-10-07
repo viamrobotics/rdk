@@ -35,7 +35,9 @@ import (
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	cron "github.com/robfig/cron/v3"
+	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	buildpb "go.viam.com/api/app/build/v1"
@@ -60,9 +62,11 @@ import (
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	rconfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
 	rutils "go.viam.com/rdk/utils"
@@ -92,6 +96,9 @@ const legacyViamHomeDir = "~/.viam"
 
 var (
 	errNoShellService = errors.New("shell service is not enabled on this machine part")
+	// errShellRequiresCloud reports that a cloud configuration is required to
+	// use the shell service due to a dependence on cloud metadata.
+	errShellRequiresCloud = errors.New("shell service requires a robot configured through viam cloud")
 	// errConnectToPart tags a failure to reach a machine part. An offline or unresolvable
 	// host comes back as codes.NotFound, the same code the shell service returns for a
 	// missing path, so callers that treat gRPC codes as verdicts about the copy itself must
@@ -155,6 +162,8 @@ func (c *viamClient) machineViamHome(ctx context.Context, cmd *cli.Command, shel
 type viamClient struct {
 	c                   *cli.Command
 	conf                *Config
+	conn                rpc.ClientConn
+	dialedApp           bool
 	client              apppb.AppServiceClient
 	dataClient          datapb.DataServiceClient
 	packageClient       packagepb.PackageServiceClient
@@ -814,6 +823,9 @@ func (c *viamClient) lookupMachineByName(ctx context.Context, name, locStr, orgS
 		req := apppb.GetRobotRequest{Id: name}
 		resp, err := c.client.GetRobot(ctx, &req)
 		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return nil, fmt.Errorf("unable to find robot with ID %s", name)
+			}
 			return nil, err
 		}
 		return resp.Robot, nil
@@ -950,12 +962,11 @@ func DeleteMachineAction(ctx context.Context, cmd *cli.Command, args deleteMachi
 	}
 
 	robot, err := client.lookupMachineByName(ctx, args.Machine, args.Location, args.Organization)
-	robotID := robot.Id
 	if err != nil {
 		return err
 	}
 
-	req := apppb.DeleteRobotRequest{Id: robotID}
+	req := apppb.DeleteRobotRequest{Id: robot.Id}
 	if _, err = client.client.DeleteRobot(ctx, &req); err != nil {
 		return err
 	}
@@ -4250,9 +4261,11 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
+	// --quiet asks for no chatter at all, so it implies --no-progress.
+	quiet := flagArgs.NoProgress || globalArgs.Quiet
 	pm := NewProgressManager([]*Step{
 		{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
-	}, WithProgressOutput(!flagArgs.NoProgress))
+	}, WithProgressOutput(!quiet))
 	doCopy := func() (int, error) {
 		var copyFunc func() error
 		if isFrom {
@@ -4269,6 +4282,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 					paths,
 					destination,
 					logger,
+					quiet,
 				)
 			}
 		} else {
@@ -4285,7 +4299,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 					paths,
 					destination,
 					logger,
-					flagArgs.NoProgress,
+					quiet,
 				)
 			}
 		}
@@ -4304,12 +4318,12 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	attemptCount, err := doCopy()
 	if err != nil {
 		defer pm.Fail("copy", err) //nolint:errcheck
-		if errors.Is(err, errNoShellService) {
-			return err
+		// Only a transient failure gets the generic "try again later"; an aborted copy
+		// reports the reason it stopped.
+		if classifyCopyError(err, isFrom).retryable {
+			return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
 		}
-		// A failure to reach the part carries the shell service's codes without being an answer
-		// from it, so it is reported as an exhausted retry rather than a bad copy request.
-		if statusErr := status.Convert(err); statusErr != nil && !errors.Is(err, errConnectToPart) {
+		if statusErr := status.Convert(err); !errors.Is(err, errConnectToPart) {
 			if statusErr.Code() == codes.InvalidArgument &&
 				statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 				return errDirectoryCopyRequestNoRecursion
@@ -4318,7 +4332,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				return errors.WithMessage(err, "copy aborted")
 			}
 		}
-		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
+		return err
 	}
 	if err := pm.Complete("copy"); err != nil {
 		return err
@@ -4362,9 +4376,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	}
 	gArgs, err := getGlobalArgs(cmd)
 	quiet := err == nil && gArgs != nil && gArgs.Quiet
-	var startTime time.Time
 	if !quiet {
-		startTime = time.Now()
 		printf(cmd.Root().Writer, "Saving to %s ...", path.Join(targetPath, part.GetId()))
 	}
 	if err := c.copyFilesFromMachine(
@@ -4379,6 +4391,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		[]string{src},
 		targetPath,
 		logger,
+		quiet,
 	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
@@ -4386,9 +4399,6 @@ func (c *viamClient) machinesPartGetFTDCAction(
 			return errDirectoryCopyRequestNoRecursion
 		}
 		return err
-	}
-	if !quiet {
-		printf(cmd.Root().Writer, "Done in %s.", time.Since(startTime))
 	}
 	return nil
 }
@@ -4570,6 +4580,9 @@ func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args
 		return err
 	}
 
+	// ensureTunnelPortAllowed re-dialed; the tunnel itself wants nothing from app.
+	c.closeAppConn()
+
 	return tunnelTraffic(ctx, cmd, robotClient, args.LocalPort, args.DestinationPort)
 }
 
@@ -4607,6 +4620,10 @@ func (c *viamClient) ensureTunnelPortAllowed(
 	ctx context.Context, cmd *cli.Command, lister tunnelLister, args robotsPartTunnelArgs,
 ) error {
 	dest := args.DestinationPort
+
+	if err := c.redialApp(ctx); err != nil {
+		return err
+	}
 
 	allowed, known := tunnelPortAllowed(ctx, lister, dest)
 	// If we couldn't read the tunnel list (e.g. ListTunnels is unimplemented on an
@@ -5948,6 +5965,7 @@ func (c *viamClient) runRobotPartCommand(
 	defer func() {
 		utils.UncheckedError(conn.Close())
 	}()
+	c.closeAppConn()
 
 	refCtx := metadata.NewOutgoingContext(ctx, nil)
 	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(conn))
@@ -6030,7 +6048,7 @@ func (c *viamClient) runRobotPartCommand(
 func (c *viamClient) connectToShellService(ctx context.Context, orgStr, locStr, robotStr, partStr string,
 	debug bool,
 	logger logging.Logger,
-) (shell.Service, func(ctx context.Context) error, error) {
+) (shell.Service, *client.RobotClient, error) {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(ctx, orgStr, locStr, robotStr, partStr, debug)
 	if err != nil {
 		return nil, nil, err
@@ -6044,7 +6062,7 @@ func (c *viamClient) connectToShellServiceFqdn(
 	partFqdn string,
 	debug bool,
 	logger logging.Logger,
-) (shell.Service, func(ctx context.Context) error, error) {
+) (shell.Service, *client.RobotClient, error) {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDialInner(ctx, partFqdn, debug)
 	if err != nil {
 		return nil, nil, err
@@ -6063,6 +6081,8 @@ func (c *viamClient) connectToRobot(
 	if debug {
 		printf(c.c.Root().Writer, "Establishing connection...")
 	}
+	// everything from here on is machine-side, and can hold the process open for hours.
+	c.closeAppConn()
 	if c.dialOverride != nil {
 		robotClient, err := c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
 		if err != nil {
@@ -6095,6 +6115,41 @@ func (c *viamClient) connectToRobot(
 	return robotClient, nil
 }
 
+// partShellServiceName returns the name of the shell service running on the
+// dialed machine part.
+//
+// The part's resource list also holds every remote's resources with no way to
+// determine which resources are remote or local. This function uses cloud
+// metadata when available to ensure the shell service we select is the one on
+// the part we dialed. If cloud metadata is not available an error is returned.
+func partShellServiceName(ctx context.Context, r robot.Robot) (resource.Name, error) {
+	md, err := r.CloudMetadata(ctx)
+	if err != nil {
+		return resource.Name{}, fmt.Errorf("%w: %w", errShellRequiresCloud, err)
+	}
+	if md.MachinePartID == "" {
+		return resource.Name{}, errShellRequiresCloud
+	}
+	mStatus, err := r.MachineStatus(ctx)
+	if err != nil {
+		return resource.Name{}, errors.Wrap(err, "could not get machine status")
+	}
+
+	candidates := lo.FilterMap(mStatus.Resources, func(status resource.Status, _ int) (resource.Name, bool) {
+		isLocalShell := status.Name.API == shell.API && status.CloudMetadata.MachinePartID == md.MachinePartID
+		return status.Name, isLocalShell
+	})
+
+	if len(candidates) < 1 {
+		return resource.Name{}, errNoShellService
+	}
+
+	// Really there should only ever be one shell service on a machine, but we've
+	// already filtered to only services on the dialed part so picking the first
+	// of multiple on a misconfigured machine should be fine.
+	return candidates[0], nil
+}
+
 func (c *viamClient) connectToShellServiceInner(
 	ctx context.Context,
 	dialCtx context.Context,
@@ -6102,7 +6157,7 @@ func (c *viamClient) connectToShellServiceInner(
 	rpcOpts []rpc.DialOption,
 	debug bool,
 	logger logging.Logger,
-) (shell.Service, func(ctx context.Context) error, error) {
+) (shell.Service, *client.RobotClient, error) {
 	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, debug, logger)
 	if err != nil {
 		return nil, nil, err
@@ -6115,20 +6170,12 @@ func (c *viamClient) connectToShellServiceInner(
 		}
 	}()
 
-	// Returns the first shell service found in the robot resources
-	var found *resource.Name
-	for _, name := range robotClient.ResourceNames() {
-		if name.API == shell.API {
-			nameCopy := name
-			found = &nameCopy
-			break
-		}
-	}
-	if found == nil {
-		return nil, nil, errNoShellService
+	found, err := partShellServiceName(ctx, robotClient)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	shellRes, err := robotClient.ResourceByName(*found)
+	shellRes, err := robotClient.ResourceByName(found)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get shell service from machine part")
 	}
@@ -6138,7 +6185,9 @@ func (c *viamClient) connectToShellServiceInner(
 		return nil, nil, errors.New("could not get shell service from machine part")
 	}
 	successful = true
-	return shellSvc, robotClient.Close, nil
+	// Callers own the returned robotClient: they must Close it, and may read WebRTC/SCTP transport
+	// stats from it during a transfer.
+	return shellSvc, robotClient, nil
 }
 
 func (c *viamClient) startRobotPartShell(
@@ -6147,12 +6196,12 @@ func (c *viamClient) startRobotPartShell(
 	debug bool,
 	logger logging.Logger,
 ) error {
-	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
+	shellSvc, robotClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		utils.UncheckedError(closeClient(ctx))
+		utils.UncheckedError(robotClient.Close(ctx))
 	}()
 
 	getWinChMsg := func() map[string]interface{} {
@@ -6257,6 +6306,56 @@ const maxCopyAttempts = 6
 // transient DNS or connection failure and exhausts the budget in under a second.
 var copyRetryBaseDelay = 2 * time.Second
 
+// copyRetryVerdict says whether a failed copy attempt is worth repeating and, when it is not,
+// carries any advice to show the user alongside the error.
+type copyRetryVerdict struct {
+	retryable bool
+	hint      string
+}
+
+// classifyCopyError is the single place that decides which copy failures are terminal.
+func classifyCopyError(err error, isFrom bool) copyRetryVerdict {
+	abort := func(hint string) copyRetryVerdict { return copyRetryVerdict{hint: hint} }
+
+	switch {
+	case errors.Is(err, errNoShellService):
+		return abort("Copy failed because the machine does not have the shell service enabled. " +
+			"Add the shell service to the machine part's configuration to enable file copying.")
+	case errors.Is(err, errShellRequiresCloud):
+		return abort("Copy failed because the machine part has no cloud configuration. " +
+			"Shell service integration requires a cloud part identity.")
+	case errors.Is(err, errLoggedOut):
+		// [errLoggedOut] already prints as a helpful user-facing string.
+		return abort("")
+	}
+
+	// These codes describe the shell service's answer, so they are only conclusive once we
+	// reached it: a part we never connected to reports being offline as NotFound too, and
+	// that is worth retrying.
+	s, ok := status.FromError(err)
+	if !ok || errors.Is(err, errConnectToPart) {
+		return copyRetryVerdict{retryable: true}
+	}
+	if s.Code() == codes.PermissionDenied {
+		if isFrom {
+			return abort("RDK couldn't read the source files on the machine. " +
+				"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), " +
+				"temporarily changing file permissions with 'chmod'.")
+		}
+		return abort("RDK couldn't write to the default file copy destination. " +
+			"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. " +
+			"Alternatively, run the RDK as root.")
+	}
+	if s.Code() == codes.InvalidArgument {
+		return abort(fmt.Sprintf("Copy failed with invalid argument: %s", err.Error()))
+	}
+	if s.Code() == codes.NotFound {
+		return abort(fmt.Sprintf("Copy failed because the destination path does not exist: %s", s.Message()))
+	}
+
+	return copyRetryVerdict{retryable: true}
+}
+
 // retryableCopy attempts to copy files to a part using the shell service with retries.
 // It handles progress manager updates for each attempt and provides helpful error messages.
 // The copyFunc parameter allows for mocking in tests.
@@ -6309,40 +6408,12 @@ func (c *viamClient) retryableCopy(
 		// Handle error
 		hadPreviousFailure = true
 
-		// A machine without a shell service will not gain one by retrying; abort early.
-		if errors.Is(copyErr, errNoShellService) {
-			warningf(cmd.Root().ErrWriter, "Copy failed because the machine does not have the shell service enabled. "+
-				"Add the shell service to the machine part's configuration to enable file copying.")
+		if verdict := classifyCopyError(copyErr, isFrom); !verdict.retryable {
+			if verdict.hint != "" {
+				warningf(cmd.Root().ErrWriter, "%s", verdict.hint)
+			}
 			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
 			return attempt, copyErr
-		}
-
-		// Print special warning for invalid argument, permission denied, and not found errors (in addition to regular error)
-		// These codes describe the shell service's answer, so they are only conclusive once we
-		// reached it: a part we never connected to reports being offline as NotFound too, and
-		// that is worth retrying.
-		if s, ok := status.FromError(copyErr); ok && !errors.Is(copyErr, errConnectToPart) {
-			if s.Code() == codes.PermissionDenied {
-				if isFrom {
-					warningf(cmd.Root().ErrWriter, "RDK couldn't read the source files on the machine. "+
-						"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
-						"temporarily changing file permissions with 'chmod'.")
-				} else {
-					warningf(cmd.Root().ErrWriter, "RDK couldn't write to the default file copy destination. "+
-						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
-						"Alternatively, run the RDK as root.")
-				}
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
-			} else if s.Code() == codes.InvalidArgument {
-				warningf(cmd.Root().ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
-			} else if s.Code() == codes.NotFound {
-				warningf(cmd.Root().ErrWriter, "Copy failed because the destination path does not exist: %s", s.Message())
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
-			}
 		}
 
 		// Create a step for this failed attempt (so it shows in the output)
@@ -6382,11 +6453,11 @@ func (c *viamClient) copyFilesToMachine(
 	logger logging.Logger,
 	noProgress bool,
 ) error {
-	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
+	shellSvc, robotClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(ctx, shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return c.copyFilesToMachineInner(ctx, shellSvc, robotClient, allowRecursion, preserve, paths, destination, noProgress, logger)
 }
 
 // copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
@@ -6401,48 +6472,30 @@ func (c *viamClient) copyFilesToFqdn(
 	logger logging.Logger,
 	noProgress bool,
 ) error {
-	shellSvc, closeClient, err := c.connectToShellServiceFqdn(ctx, fqdn, debug, logger)
+	shellSvc, robotClient, err := c.connectToShellServiceFqdn(ctx, fqdn, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(ctx, shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return c.copyFilesToMachineInner(ctx, shellSvc, robotClient, allowRecursion, preserve, paths, destination, noProgress, logger)
 }
 
 // copyFilesToMachineInner is the common logic for both copyFiles variants.
 func (c *viamClient) copyFilesToMachineInner(
 	ctx context.Context,
 	shellSvc shell.Service,
-	closeClient func(ctx context.Context) error,
+	robotClient *client.RobotClient,
 	allowRecursion bool,
 	preserve bool,
 	paths []string,
 	destination string,
 	noProgress bool,
+	logger logging.Logger,
 ) error {
 	defer func() {
-		utils.UncheckedError(closeClient(ctx))
+		utils.UncheckedError(robotClient.Close(ctx))
 	}()
 
-	if noProgress {
-		// prepare a factory that understands the file copying service (RPC or not).
-		copyFactory := shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc)
-		// make a reader copier that just does the traversal and copy work for us. Think of
-		// this as a tee reader.
-		readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := readCopier.Close(ctx); err != nil {
-				utils.UncheckedError(err)
-			}
-		}()
-
-		// ReadAll the files into the copier.
-		return readCopier.ReadAll(ctx)
-	}
-
-	// Calculate total size of all files to be copied
+	// Total size of all files to be copied, used for the end-of-copy throughput summary.
 	var totalSize int64
 	for _, path := range paths {
 		info, err := os.Stat(path)
@@ -6467,31 +6520,28 @@ func (c *viamClient) copyFilesToMachineInner(
 		}
 	}
 
-	// Create a progress tracking function
-	var currentFile string
-	progressFunc := func(bytes int64, file string, fileSize int64) {
-		if file != currentFile {
-			if currentFile != "" {
+	// Build the copy factory, wrapping it with a live progress display unless suppressed.
+	factory := shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc)
+	if !noProgress {
+		var currentFile string
+		progressFunc := func(bytes int64, file string, fileSize int64) {
+			if file != currentFile {
+				if currentFile != "" {
+					//nolint:errcheck // progress display is non-critical
+					_, _ = os.Stdout.WriteString("\n")
+				}
+				currentFile = file
 				//nolint:errcheck // progress display is non-critical
-				_, _ = os.Stdout.WriteString("\n")
+				_, _ = os.Stdout.WriteString(fmt.Sprintf("Copying %s...\n", file))
 			}
-			currentFile = file
+			uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
 			//nolint:errcheck // progress display is non-critical
-			_, _ = os.Stdout.WriteString(fmt.Sprintf("Copying %s...\n", file))
+			_, _ = os.Stdout.WriteString(fmt.Sprintf("\rProgress: %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
 		}
-		uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
-		//nolint:errcheck // progress display is non-critical
-		_, _ = os.Stdout.WriteString(fmt.Sprintf("\rProgress: %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
+		factory = &progressTrackingFactory{factory: factory, onProgress: progressFunc}
 	}
 
-	// Wrap the copy factory to track progress
-	progressFactory := &progressTrackingFactory{
-		factory:    shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc),
-		onProgress: progressFunc,
-	}
-
-	// Create a new read copier with the progress tracking factory
-	readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, progressFactory)
+	readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, factory)
 	if err != nil {
 		return err
 	}
@@ -6501,9 +6551,214 @@ func (c *viamClient) copyFilesToMachineInner(
 		}
 	}()
 
-	// ReadAll the files into the copier.
-	err = readCopier.ReadAll(ctx)
-	return err
+	// Capture the peer connection's SCTP transport stats to an FTDC file for the life of the copy,
+	// so a slow transfer can be diagnosed after the fact. Best-effort and only for WebRTC
+	// connections; a direct/in-process connection has no SCTP stats to capture.
+	stopFTDC := c.startCopyFTDC(ctx, robotClient, destination, logger)
+
+	start := time.Now()
+	copyErr := readCopier.ReadAll(ctx)
+	elapsed := time.Since(start)
+	capturePath := stopFTDC()
+
+	// Emit the summary regardless of outcome: a failed or slow copy is exactly when it's wanted.
+	c.reportCopySummary(totalSize, elapsed, capturePath, copyErr, noProgress)
+
+	return copyErr
+}
+
+// sctpTransportStats are the SCTP transport gauges captured once per FTDC sample during a copy.
+// FTDC requires every sample to carry the same numeric fields, so this is a flat struct of numbers.
+// A congestion window that swings widely while the receiver window stays healthy indicates
+// loss-driven congestion collapse; a receiver window near zero indicates a receive-window-bound
+// transfer; the byte counters give the transfer rate over time.
+type sctpTransportStats struct {
+	CongestionWindowBytes uint32
+	ReceiverWindowBytes   uint32
+	SmoothedRTTMillis     float64
+	MTUBytes              uint32
+	BytesSent             uint64
+	BytesReceived         uint64
+}
+
+// sctpStatsCollector gathers a robot client's SCTP transport stats for FTDC.
+type sctpStatsCollector struct {
+	robotClient *client.RobotClient
+}
+
+// Stats satisfies ftdc.Statser. It returns sctpTransportStats on every call -- zero-valued until
+// the SCTP association exists -- so the FTDC schema stays constant for the whole capture.
+func (s sctpStatsCollector) Stats() any {
+	var out sctpTransportStats
+	for _, stat := range s.robotClient.WebRTCStats() {
+		sctp, ok := stat.(webrtc.SCTPTransportStats)
+		if !ok {
+			continue
+		}
+		// There is one SCTP transport per peer connection; take it and stop scanning.
+		out = sctpTransportStats{
+			CongestionWindowBytes: sctp.CongestionWindow,
+			ReceiverWindowBytes:   sctp.ReceiverWindow,
+			// SmoothedRoundTripTime is reported in seconds; convert to ms.
+			SmoothedRTTMillis: sctp.SmoothedRoundTripTime * 1000,
+			MTUBytes:          sctp.MTU,
+			BytesSent:         sctp.BytesSent,
+			BytesReceived:     sctp.BytesReceived,
+		}
+		break
+	}
+	return out
+}
+
+// sctpBytesReceived returns the bytes this client's SCTP association has received so far, and
+// whether the connection reports them at all; a direct (non-WebRTC) connection does not.
+func sctpBytesReceived(robotClient *client.RobotClient) (uint64, bool) {
+	if robotClient == nil {
+		return 0, false
+	}
+	for _, stat := range robotClient.WebRTCStats() {
+		if sctp, ok := stat.(webrtc.SCTPTransportStats); ok {
+			return sctp.BytesReceived, true
+		}
+	}
+	return 0, false
+}
+
+// startCopyFTDC begins capturing the peer connection's SCTP transport stats to an FTDC file under
+// <ViamDotDir>/cp-diagnostics for the duration of a copy, so a slow transfer can be diagnosed
+// after the fact (read back with the standard FTDC parser). It is best-effort and a no-op for a
+// nil client or a non-WebRTC (direct) connection, which have no SCTP stats to capture. target
+// labels the file for the human. The returned function stops the capture, closes the file, and
+// returns its path ("" when nothing was captured).
+func (c *viamClient) startCopyFTDC(
+	ctx context.Context, robotClient *client.RobotClient, target string, logger logging.Logger,
+) func() string {
+	noop := func() string { return "" }
+	if robotClient == nil || robotClient.WebRTCStats() == nil {
+		return noop
+	}
+	dir := filepath.Join(rutils.ViamDotDir, "cp-diagnostics")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		logger.Debugw("could not create diagnostics dir; skipping transfer capture", "err", err)
+		return noop
+	}
+	pruneCopyCaptures(dir, logger)
+	// e.g. cp-app-20260102-150405.123Z.ftdc: the copy target plus a millisecond UTC timestamp, so
+	// back-to-back copies don't collide and a reader in another timezone isn't misled.
+	name := fmt.Sprintf("cp-%s-%s.ftdc", sanitizeCopyFilename(target), time.Now().UTC().Format("20060102-150405.000Z"))
+	capturePath := filepath.Join(dir, name)
+	//nolint:gosec // path is our own diagnostics dir joined with a sanitized name, not user input
+	file, err := os.Create(capturePath)
+	if err != nil {
+		logger.Debugw("could not create diagnostics file; skipping transfer capture", "err", err)
+		return noop
+	}
+
+	recorder := ftdc.NewWithWriter(file, logger)
+	recorder.Add("webrtc_sctp", sctpStatsCollector{robotClient: robotClient})
+	recorder.Start()
+
+	return func() string {
+		// StopAndJoin waits for the writer goroutine to drain before returning, so nothing is
+		// writing the file when we close it. NewWithWriter mode does not own the file, so we close
+		// it ourselves. (StopAndJoin ignores ctx, draining on its own timeout, so a canceled copy
+		// still flushes.)
+		recorder.StopAndJoin(ctx)
+		utils.UncheckedError(file.Close())
+		return capturePath
+	}
+}
+
+// copyCaptureRetention is how many per-copy FTDC captures are kept on disk; nothing else ever
+// deletes them.
+const copyCaptureRetention = 30
+
+// pruneCopyCaptures deletes the oldest captures in dir, leaving room for one more under
+// copyCaptureRetention. Best-effort: a failure here must never stop a copy.
+func pruneCopyCaptures(dir string, logger logging.Logger) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		logger.Debugw("could not read diagnostics dir; skipping capture pruning", "err", err)
+		return
+	}
+	type capture struct {
+		name    string
+		modTime time.Time
+	}
+	captures := make([]capture, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasPrefix(name, "cp-") || !strings.HasSuffix(name, ".ftdc") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		captures = append(captures, capture{name: name, modTime: info.ModTime()})
+	}
+	excess := len(captures) - (copyCaptureRetention - 1)
+	if excess <= 0 {
+		return
+	}
+	// A capture's name leads with its copy target, so it does not sort chronologically.
+	slices.SortFunc(captures, func(a, b capture) int { return a.modTime.Compare(b.modTime) })
+	for _, stale := range captures[:excess] {
+		if err := os.Remove(filepath.Join(dir, stale.name)); err != nil {
+			logger.Debugw("could not prune old transfer capture", "file", stale.name, "err", err)
+		}
+	}
+}
+
+// sanitizeCopyFilename derives a short, filename-safe label from a copy target path (its last path
+// element, with anything outside [A-Za-z0-9._-] replaced by "_").
+func sanitizeCopyFilename(target string) string {
+	base := path.Base(filepath.ToSlash(target))
+	base = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '-', r == '_':
+			return r
+		default:
+			return '_'
+		}
+	}, base)
+	if base = strings.Trim(base, "._"); base == "" {
+		return "copy"
+	}
+	return base
+}
+
+// reportCopySummary prints a one-line transfer summary, and where the capture was written, unless
+// suppressed. A negative totalSize means the byte count is unknown, and only the duration is
+// printed. A non-nil copyErr only changes the wording: the bytes are what crossed the wire before
+// the failure, and are worth seeing. Best-effort output that never fails the copy.
+func (c *viamClient) reportCopySummary(
+	totalSize int64, elapsed time.Duration, capturePath string, copyErr error, noProgress bool,
+) {
+	if noProgress {
+		return
+	}
+	writer := c.c.Root().Writer
+	rounded := elapsed.Round(time.Millisecond)
+	switch {
+	case totalSize < 0 && copyErr != nil:
+		printf(writer, "\nCopy failed after %s", rounded)
+	case totalSize < 0:
+		printf(writer, "\nCopy finished in %s", rounded)
+	default:
+		var mbps float64
+		if secs := elapsed.Seconds(); secs > 0 {
+			mbps = float64(totalSize) / secs / 1e6
+		}
+		verb, outcome := "Copied", ""
+		if copyErr != nil {
+			verb, outcome = "Transferred", " before failing"
+		}
+		printf(writer, "\n%s %.1f MB in %s (%.2f MB/s)%s", verb, float64(totalSize)/1e6, rounded, mbps, outcome)
+	}
+	if capturePath != "" {
+		printf(writer, "Transfer diagnostics: %s", capturePath)
+	}
 }
 
 // progressTrackingFactory wraps a copy factory to track progress.
@@ -6595,13 +6850,14 @@ func (c *viamClient) copyFilesFromMachine(
 	paths []string,
 	destination string,
 	logger logging.Logger,
+	noProgress bool,
 ) error {
-	shellSvc, closeClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
+	shellSvc, robotClient, err := c.connectToShellService(ctx, orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		utils.UncheckedError(closeClient(ctx))
+		utils.UncheckedError(robotClient.Close(ctx))
 	}()
 
 	// prepare a factory that understands how to work with our local filesystem. It is
@@ -6622,6 +6878,22 @@ func (c *viamClient) copyFilesFromMachine(
 		}
 	}
 
+	// A label holds one path, so mark when the capture's numbers cover more than the file named.
+	label := "copy"
+	if len(paths) > 0 {
+		label = sanitizeCopyFilename(paths[0])
+		if len(paths) > 1 {
+			label += "-multi"
+		}
+	}
+	// Capture SCTP transport stats for the life of the copy, as the to-machine path does; the
+	// files do not exist locally yet, so the size has to come from the transport itself.
+	stopFTDC := c.startCopyFTDC(ctx, robotClient, label, logger)
+	// A connection with no SCTP stats yet has received nothing, so zero is the right baseline;
+	// only the reading taken after the copy decides whether a byte count can be reported.
+	receivedBefore, _ := sctpBytesReceived(robotClient)
+	start := time.Now()
+
 	// let the shell service figure out how to grab the files for and pass them to our copier.
 	// The first attempt's error is the one worth reporting, since that is the path we
 	// expect to work.
@@ -6637,12 +6909,22 @@ func (c *viamClient) copyFilesFromMachine(
 					"%s could not be resolved by this machine, copied from %s instead",
 					shell.ViamHomePrefix, strings.Join(attempt, " "))
 			}
-			return nil
+			firstErr = nil
+			break
 		}
 		if firstErr == nil {
 			firstErr = err
 		}
 	}
+
+	elapsed := time.Since(start)
+	capturePath := stopFTDC()
+	totalSize := int64(-1)
+	if receivedAfter, ok := sctpBytesReceived(robotClient); ok && receivedAfter >= receivedBefore {
+		totalSize = int64(receivedAfter - receivedBefore)
+	}
+	c.reportCopySummary(totalSize, elapsed, capturePath, firstErr, noProgress)
+
 	return firstErr
 }
 

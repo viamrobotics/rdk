@@ -18,10 +18,12 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/detection3d"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/viscapture"
 )
@@ -250,6 +252,47 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 	return objects, nil
 }
 
+func (c *client) GetDetections3D(
+	ctx context.Context,
+	cameraName string,
+	extra map[string]interface{},
+) ([]*detection3d.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetections3D")
+	defer span.End()
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetDetections3D(ctx, &pb.GetDetections3DRequest{
+		Name:       c.name,
+		CameraName: cameraName,
+		Extra:      ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return protoToDetections3D(resp.Detections_3D)
+}
+
+func protoToDetections3D(protoDets []*pb.Detection3D) ([]*detection3d.Detection, error) {
+	detections := make([]*detection3d.Detection, 0, len(protoDets))
+	for i, d := range protoDets {
+		transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(d.Transforms)
+		if err != nil {
+			return nil, errors.Wrapf(err, "3D detection %d", i)
+		}
+		det := &detection3d.Detection{
+			Transforms:      transforms,
+			Classifications: protoToClas(d.Classifications),
+		}
+		if d.Metadata != nil {
+			det.Metadata = d.Metadata.AsMap()
+		}
+		detections = append(detections, det)
+	}
+	return detections, nil
+}
+
 func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetProperties")
 	defer span.End()
@@ -267,7 +310,13 @@ func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}
 		return nil, err
 	}
 
-	return &Properties{resp.ClassificationsSupported, resp.DetectionsSupported, resp.ObjectPointCloudsSupported, resp.DefaultCamera}, nil
+	return &Properties{
+		ClassificationSupported: resp.ClassificationsSupported,
+		DetectionSupported:      resp.DetectionsSupported,
+		ObjectPCDsSupported:     resp.ObjectPointCloudsSupported,
+		DefaultCamera:           resp.DefaultCamera,
+		Detections3DSupported:   resp.Detections_3DSupported,
+	}, nil
 }
 
 func (c *client) CaptureAllFromCamera(
@@ -289,6 +338,7 @@ func (c *client) CaptureAllFromCamera(
 		ReturnDetections:        captureOptions.ReturnDetections,
 		ReturnClassifications:   captureOptions.ReturnClassifications,
 		ReturnObjectPointClouds: captureOptions.ReturnObject,
+		ReturnDetections_3D:     captureOptions.ReturnDetections3D,
 		Extra:                   ext,
 	})
 	if err != nil {
@@ -303,6 +353,11 @@ func (c *client) CaptureAllFromCamera(
 	class := protoToClas(resp.Classifications)
 
 	objPCD, err := protoToObjects(resp.Objects)
+	if err != nil {
+		return viscapture.VisCapture{}, err
+	}
+
+	dets3D, err := protoToDetections3D(resp.Detections_3D)
 	if err != nil {
 		return viscapture.VisCapture{}, err
 	}
@@ -328,6 +383,7 @@ func (c *client) CaptureAllFromCamera(
 		Detections:      dets,
 		Classifications: class,
 		Objects:         objPCD,
+		Detections3D:    dets3D,
 		Extra:           vcExtra,
 	}
 
