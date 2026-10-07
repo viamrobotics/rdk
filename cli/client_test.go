@@ -2441,10 +2441,10 @@ func TestConnectToShellServiceSelectsPartShell(t *testing.T) {
 
 		// the machine enumerates resources in map order, so a wrong pick is intermittent
 		for range 10 {
-			shellSvc, closeClient, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+			shellSvc, robotClient, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shellSvc.Name().Name, test.ShouldEqual, "shell1")
-			test.That(t, closeClient(ctx), test.ShouldBeNil)
+			test.That(t, robotClient.Close(ctx), test.ShouldBeNil)
 		}
 	})
 
