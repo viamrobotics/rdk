@@ -35,6 +35,7 @@ import (
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	cron "github.com/robfig/cron/v3"
+	"github.com/samber/lo"
 	"github.com/urfave/cli/v3"
 	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
@@ -65,6 +66,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
 	rutils "go.viam.com/rdk/utils"
@@ -94,6 +96,9 @@ const legacyViamHomeDir = "~/.viam"
 
 var (
 	errNoShellService = errors.New("shell service is not enabled on this machine part")
+	// errShellRequiresCloud reports that a cloud configuration is required to
+	// use the shell service due to a dependence on cloud metadata.
+	errShellRequiresCloud = errors.New("shell service requires a robot configured through viam cloud")
 	// errConnectToPart tags a failure to reach a machine part. An offline or unresolvable
 	// host comes back as codes.NotFound, the same code the shell service returns for a
 	// missing path, so callers that treat gRPC codes as verdicts about the copy itself must
@@ -4313,17 +4318,12 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	attemptCount, err := doCopy()
 	if err != nil {
 		defer pm.Fail("copy", err) //nolint:errcheck
-		if errors.Is(err, errNoShellService) {
-			return err
+		// Only a transient failure gets the generic "try again later"; an aborted copy
+		// reports the reason it stopped.
+		if classifyCopyError(err, isFrom).retryable {
+			return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
 		}
-		// A logout during refresh is unrecoverable, so surface it rather than the generic
-		// "all attempts failed, try again later" - retrying will not help.
-		if errors.Is(err, errLoggedOut) {
-			return err
-		}
-		// A failure to reach the part carries the shell service's codes without being an answer
-		// from it, so it is reported as an exhausted retry rather than a bad copy request.
-		if statusErr := status.Convert(err); statusErr != nil && !errors.Is(err, errConnectToPart) {
+		if statusErr := status.Convert(err); !errors.Is(err, errConnectToPart) {
 			if statusErr.Code() == codes.InvalidArgument &&
 				statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 				return errDirectoryCopyRequestNoRecursion
@@ -4332,7 +4332,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				return errors.WithMessage(err, "copy aborted")
 			}
 		}
-		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
+		return err
 	}
 	if err := pm.Complete("copy"); err != nil {
 		return err
@@ -6115,6 +6115,41 @@ func (c *viamClient) connectToRobot(
 	return robotClient, nil
 }
 
+// partShellServiceName returns the name of the shell service running on the
+// dialed machine part.
+//
+// The part's resource list also holds every remote's resources with no way to
+// determine which resources are remote or local. This function uses cloud
+// metadata when available to ensure the shell service we select is the one on
+// the part we dialed. If cloud metadata is not available an error is returned.
+func partShellServiceName(ctx context.Context, r robot.Robot) (resource.Name, error) {
+	md, err := r.CloudMetadata(ctx)
+	if err != nil {
+		return resource.Name{}, fmt.Errorf("%w: %w", errShellRequiresCloud, err)
+	}
+	if md.MachinePartID == "" {
+		return resource.Name{}, errShellRequiresCloud
+	}
+	mStatus, err := r.MachineStatus(ctx)
+	if err != nil {
+		return resource.Name{}, errors.Wrap(err, "could not get machine status")
+	}
+
+	candidates := lo.FilterMap(mStatus.Resources, func(status resource.Status, _ int) (resource.Name, bool) {
+		isLocalShell := status.Name.API == shell.API && status.CloudMetadata.MachinePartID == md.MachinePartID
+		return status.Name, isLocalShell
+	})
+
+	if len(candidates) < 1 {
+		return resource.Name{}, errNoShellService
+	}
+
+	// Really there should only ever be one shell service on a machine, but we've
+	// already filtered to only services on the dialed part so picking the first
+	// of multiple on a misconfigured machine should be fine.
+	return candidates[0], nil
+}
+
 func (c *viamClient) connectToShellServiceInner(
 	ctx context.Context,
 	dialCtx context.Context,
@@ -6135,20 +6170,12 @@ func (c *viamClient) connectToShellServiceInner(
 		}
 	}()
 
-	// Returns the first shell service found in the robot resources
-	var found *resource.Name
-	for _, name := range robotClient.ResourceNames() {
-		if name.API == shell.API {
-			nameCopy := name
-			found = &nameCopy
-			break
-		}
-	}
-	if found == nil {
-		return nil, nil, errNoShellService
+	found, err := partShellServiceName(ctx, robotClient)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	shellRes, err := robotClient.ResourceByName(*found)
+	shellRes, err := robotClient.ResourceByName(found)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get shell service from machine part")
 	}
@@ -6279,6 +6306,56 @@ const maxCopyAttempts = 6
 // transient DNS or connection failure and exhausts the budget in under a second.
 var copyRetryBaseDelay = 2 * time.Second
 
+// copyRetryVerdict says whether a failed copy attempt is worth repeating and, when it is not,
+// carries any advice to show the user alongside the error.
+type copyRetryVerdict struct {
+	retryable bool
+	hint      string
+}
+
+// classifyCopyError is the single place that decides which copy failures are terminal.
+func classifyCopyError(err error, isFrom bool) copyRetryVerdict {
+	abort := func(hint string) copyRetryVerdict { return copyRetryVerdict{hint: hint} }
+
+	switch {
+	case errors.Is(err, errNoShellService):
+		return abort("Copy failed because the machine does not have the shell service enabled. " +
+			"Add the shell service to the machine part's configuration to enable file copying.")
+	case errors.Is(err, errShellRequiresCloud):
+		return abort("Copy failed because the machine part has no cloud configuration. " +
+			"Shell service integration requires a cloud part identity.")
+	case errors.Is(err, errLoggedOut):
+		// [errLoggedOut] already prints as a helpful user-facing string.
+		return abort("")
+	}
+
+	// These codes describe the shell service's answer, so they are only conclusive once we
+	// reached it: a part we never connected to reports being offline as NotFound too, and
+	// that is worth retrying.
+	s, ok := status.FromError(err)
+	if !ok || errors.Is(err, errConnectToPart) {
+		return copyRetryVerdict{retryable: true}
+	}
+	if s.Code() == codes.PermissionDenied {
+		if isFrom {
+			return abort("RDK couldn't read the source files on the machine. " +
+				"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), " +
+				"temporarily changing file permissions with 'chmod'.")
+		}
+		return abort("RDK couldn't write to the default file copy destination. " +
+			"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. " +
+			"Alternatively, run the RDK as root.")
+	}
+	if s.Code() == codes.InvalidArgument {
+		return abort(fmt.Sprintf("Copy failed with invalid argument: %s", err.Error()))
+	}
+	if s.Code() == codes.NotFound {
+		return abort(fmt.Sprintf("Copy failed because the destination path does not exist: %s", s.Message()))
+	}
+
+	return copyRetryVerdict{retryable: true}
+}
+
 // retryableCopy attempts to copy files to a part using the shell service with retries.
 // It handles progress manager updates for each attempt and provides helpful error messages.
 // The copyFunc parameter allows for mocking in tests.
@@ -6331,46 +6408,12 @@ func (c *viamClient) retryableCopy(
 		// Handle error
 		hadPreviousFailure = true
 
-		// A machine without a shell service will not gain one by retrying; abort early.
-		if errors.Is(copyErr, errNoShellService) {
-			warningf(cmd.Root().ErrWriter, "Copy failed because the machine does not have the shell service enabled. "+
-				"Add the shell service to the machine part's configuration to enable file copying.")
-			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-			return attempt, copyErr
-		}
-
-		// The CLI was logged out during a token refresh; retrying cannot recover.
-		if errors.Is(copyErr, errLoggedOut) {
-			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-			return attempt, copyErr
-		}
-
-		// Print special warning for invalid argument, permission denied, and not found errors (in addition to regular error)
-		// These codes describe the shell service's answer, so they are only conclusive once we
-		// reached it: a part we never connected to reports being offline as NotFound too, and
-		// that is worth retrying.
-		if s, ok := status.FromError(copyErr); ok && !errors.Is(copyErr, errConnectToPart) {
-			if s.Code() == codes.PermissionDenied {
-				if isFrom {
-					warningf(cmd.Root().ErrWriter, "RDK couldn't read the source files on the machine. "+
-						"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
-						"temporarily changing file permissions with 'chmod'.")
-				} else {
-					warningf(cmd.Root().ErrWriter, "RDK couldn't write to the default file copy destination. "+
-						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
-						"Alternatively, run the RDK as root.")
-				}
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
-			} else if s.Code() == codes.InvalidArgument {
-				warningf(cmd.Root().ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
-			} else if s.Code() == codes.NotFound {
-				warningf(cmd.Root().ErrWriter, "Copy failed because the destination path does not exist: %s", s.Message())
-				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
+		if verdict := classifyCopyError(copyErr, isFrom); !verdict.retryable {
+			if verdict.hint != "" {
+				warningf(cmd.Root().ErrWriter, "%s", verdict.hint)
 			}
+			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+			return attempt, copyErr
 		}
 
 		// Create a step for this failed attempt (so it shows in the output)
