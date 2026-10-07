@@ -12,9 +12,9 @@ import (
 type method int64
 
 const (
-	isHoldingSomething method = iota
-	doCommand
+	doCommand method = iota
 	getWorldPose
+	isHoldingSomething
 )
 
 func (m method) String() string {
@@ -29,9 +29,13 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// newIsHoldingSomethingCollector returns a collector to register an is holding something method. If one is already registered
-// with the same MethodMetadata it will panic.
-func newIsHoldingSomethingCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+type gripperIsHolding struct {
+	IsHoldingSomething bool                   `json:"is_holding_something"`
+	Meta               map[string]interface{} `json:"meta"`
+}
+
+// newIsHoldingSomethingCollector returns a collector to register an is holding something method.
+func newIsHoldingSomethingCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	gripper, err := assertGripper(resource)
 	if err != nil {
 		return nil, err
@@ -48,13 +52,7 @@ func newIsHoldingSomethingCollector(resource interface{}, params data.CollectorP
 			return res, data.NewFailedToReadError(params.ComponentName, isHoldingSomething.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, struct {
-			IsHoldingSomething bool                   `json:"is_holding_something"`
-			Meta               map[string]interface{} `json:"meta"`
-		}{
-			IsHoldingSomething: status.IsHoldingSomething,
-			Meta:               status.Meta,
-		})
+		return data.NewTabularCaptureResult(ts, gripperIsHolding(status))
 	})
 	return data.NewCollector(cFunc, params)
 }

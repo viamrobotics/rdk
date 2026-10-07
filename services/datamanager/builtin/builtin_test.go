@@ -62,14 +62,9 @@ func (p *pathologicalAssociatedConfig) UpdateResourceNames(func(n resource.Name)
 func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)                              {}
 
 func TestCollectorRegistry(t *testing.T) {
-	collectors := data.DumpRegisteredCollectors()
-	test.That(t, len(collectors), test.ShouldBeGreaterThan, 73)
-	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
-		return cmp.Compare(a.String(), b.String())
-	})
 	rdkComponent := resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}
 	rdkService := resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}
-	test.That(t, mds, test.ShouldResemble, []data.MethodMetadata{
+	methods := []data.MethodMetadata{
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "EndPosition"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "GetWorldPose"},
@@ -144,7 +139,13 @@ func TestCollectorRegistry(t *testing.T) {
 		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "CaptureAllFromCamera"},
 		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "DoCommand"},
+	}
+	collectors := data.DumpRegisteredCollectors()
+	test.That(t, len(collectors), test.ShouldEqual, len(methods))
+	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
+		return cmp.Compare(a.String(), b.String())
 	})
+	test.That(t, mds, test.ShouldResemble, methods)
 }
 
 func TestNew(t *testing.T) {
