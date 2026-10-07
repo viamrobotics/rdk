@@ -33,15 +33,18 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/cloud"
 	robotconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/shell"
@@ -202,10 +205,9 @@ func setupWithRunningPart(
 ) (*cli.Command, *viamClient, *testWriter, *testWriter) {
 	t.Helper()
 
-	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
-
-	// this config could later become a parameter
-	r, err := robotimpl.New(context.Background(), &robotconfig.Config{
+	cfg := &robotconfig.Config{
+		// the shell service lookup refuses a part that cannot report its own part ID
+		Cloud: &robotconfig.Cloud{ID: "part-main"},
 		Services: []resource.Config{
 			{
 				Name:  "shell1",
@@ -213,7 +215,31 @@ func setupWithRunningPart(
 				Model: resource.DefaultServiceModel,
 			},
 		},
-	}, nil, logging.NewInMemoryLogger(t))
+	}
+	cCtx, ac, _, out, errOut := setupWithRunningPartConfig(
+		t, asc, dataClient, buildClient, defaultFlags, authMethod, partFQDN, cfg, cliArgs...,
+	)
+	return cCtx, ac, out, errOut
+}
+
+// setupWithRunningPartConfig starts an in-process machine part from cfg and points the CLI
+// client's dialer at it. It also returns the part so tests can observe its state directly.
+func setupWithRunningPartConfig(
+	t *testing.T,
+	asc apppb.AppServiceClient,
+	dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient,
+	defaultFlags map[string]any,
+	authMethod string,
+	partFQDN string,
+	cfg *robotconfig.Config,
+	cliArgs ...string,
+) (*cli.Command, *viamClient, robot.LocalRobot, *testWriter, *testWriter) {
+	t.Helper()
+
+	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
+
+	r, err := robotimpl.New(context.Background(), cfg, nil, logging.NewInMemoryLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -236,7 +262,7 @@ func setupWithRunningPart(
 	t.Cleanup(func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	})
-	return cCtx, ac, out, errOut
+	return cCtx, ac, r, out, errOut
 }
 
 func TestListOrganizationsAction(t *testing.T) {
@@ -2313,6 +2339,141 @@ func TestMachineViamHome(t *testing.T) {
 	})
 }
 
+func TestPartShellServiceName(t *testing.T) {
+	ctx := context.Background()
+	partMD := cloud.Metadata{MachinePartID: "part-main"}
+	remoteMD := cloud.Metadata{MachinePartID: "part-remote"}
+	remoteShell := resource.Status{NodeStatus: resource.NodeStatus{Name: shell.Named("shell-remote")}, CloudMetadata: remoteMD}
+	partShell := resource.Status{NodeStatus: resource.NodeStatus{Name: shell.Named("shell1")}, CloudMetadata: partMD}
+
+	newRobot := func(md cloud.Metadata, mdErr error, statuses []resource.Status, statusErr error) *inject.Robot {
+		r := &inject.Robot{}
+		r.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) { return md, mdErr }
+		r.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{Resources: statuses}, statusErr
+		}
+		// the resource list alone cannot tell a remote's shell from the part's own, so a
+		// lookup that consults it would pick this lone remote shell
+		r.ResourceNamesFunc = func() []resource.Name { return []resource.Name{shell.Named("shell-remote")} }
+		return r
+	}
+
+	t.Run("matches the part ID", func(t *testing.T) {
+		name, err := partShellServiceName(ctx, newRobot(partMD, nil, []resource.Status{remoteShell, partShell}, nil))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, name, test.ShouldResemble, shell.Named("shell1"))
+	})
+
+	t.Run("only a remote's shell service is no shell service", func(t *testing.T) {
+		_, err := partShellServiceName(ctx, newRobot(partMD, nil, []resource.Status{remoteShell}, nil))
+		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeTrue)
+	})
+
+	t.Run("a part without cloud metadata is refused", func(t *testing.T) {
+		noCloud := status.Error(codes.Unknown, "cloud metadata not available")
+		_, err := partShellServiceName(ctx, newRobot(cloud.Metadata{}, noCloud, []resource.Status{remoteShell}, nil))
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+	})
+
+	t.Run("a part with an empty part ID is refused", func(t *testing.T) {
+		_, err := partShellServiceName(ctx, newRobot(cloud.Metadata{}, nil, []resource.Status{remoteShell}, nil))
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+	})
+
+	t.Run("machine status failures propagate", func(t *testing.T) {
+		for _, code := range []codes.Code{codes.Unimplemented, codes.Unavailable} {
+			_, err := partShellServiceName(ctx, newRobot(partMD, nil, nil, status.Error(code, "gone")))
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeFalse)
+			test.That(t, errors.Is(err, errNoShellService), test.ShouldBeFalse)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "gone")
+		}
+	})
+}
+
+func TestConnectToShellServiceSelectsPartShell(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	asc := &inject.AppServiceClient{}
+
+	shellCfg := func(name string) resource.Config {
+		return resource.Config{Name: name, API: shell.API, Model: resource.DefaultServiceModel}
+	}
+
+	// startRemote runs a second machine part, with its own part ID and shell service, and
+	// returns the address a main part connects to it at.
+	startRemote := func(t *testing.T) string {
+		t.Helper()
+		remote, err := robotimpl.New(ctx, &robotconfig.Config{
+			Cloud:    &robotconfig.Cloud{ID: "part-remote"},
+			Services: []resource.Config{shellCfg("shell-remote")},
+		}, nil, logging.NewInMemoryLogger(t))
+		test.That(t, err, test.ShouldBeNil)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		test.That(t, remote.StartWeb(ctx, options), test.ShouldBeNil)
+		t.Cleanup(func() { test.That(t, remote.Close(ctx), test.ShouldBeNil) })
+		return addr
+	}
+
+	// waitForRemoteShell blocks until the main part has imported the remote's shell service.
+	waitForRemoteShell := func(t *testing.T, r robot.LocalRobot) {
+		t.Helper()
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			var seen bool
+			for _, name := range r.ResourceNames() {
+				if name.API == shell.API && name.Name == "shell-remote" {
+					seen = true
+				}
+			}
+			test.That(tb, seen, test.ShouldBeTrue)
+		})
+	}
+
+	t.Run("the part's own shell service wins over a remote's", func(t *testing.T) {
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Cloud:    &robotconfig.Cloud{ID: "part-main"},
+			Services: []resource.Config{shellCfg("shell1")},
+			Remotes:  []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		// the machine enumerates resources in map order, so a wrong pick is intermittent
+		for range 10 {
+			shellSvc, closeClient, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shellSvc.Name().Name, test.ShouldEqual, "shell1")
+			test.That(t, closeClient(ctx), test.ShouldBeNil)
+		}
+	})
+
+	t.Run("a remote's shell service does not stand in for the part's missing one", func(t *testing.T) {
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Cloud:   &robotconfig.Cloud{ID: "part-main"},
+			Remotes: []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		_, _, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeTrue)
+	})
+
+	t.Run("a part without a cloud config is refused even when one shell service is visible", func(t *testing.T) {
+		// without a part ID the lone shell service in the list cannot be told apart from the
+		// part's own, and here it belongs to the remote
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Remotes: []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		_, _, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+	})
+}
+
 func TestCreateOAuthAppAction(t *testing.T) {
 	createOAuthAppFunc := func(ctx context.Context, in *apppb.CreateOAuthAppRequest,
 		opts ...grpc.CallOption,
@@ -3045,6 +3206,47 @@ func TestIsRunningAptBinary(t *testing.T) {
 	}
 }
 
+func TestClassifyCopyError(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		err       error
+		isFrom    bool
+		retryable bool
+		hint      string
+	}{
+		{name: "plain error", err: errors.New("boom"), retryable: true},
+		{name: "no shell service", err: errNoShellService, hint: "does not have the shell service enabled"},
+		{name: "shell requires cloud", err: errShellRequiresCloud, hint: "no cloud configuration"},
+		{name: "wrapped shell requires cloud", err: fmt.Errorf("%w: dial failed", errShellRequiresCloud), hint: "no cloud configuration"},
+		{name: "logged out", err: fmt.Errorf("refresh failed: %w", errLoggedOut)},
+		{name: "permission denied writing", err: status.Error(codes.PermissionDenied, "nope"), hint: "couldn't write"},
+		{name: "permission denied reading", err: status.Error(codes.PermissionDenied, "nope"), isFrom: true, hint: "couldn't read"},
+		{name: "invalid argument", err: status.Error(codes.InvalidArgument, "bad path"), hint: "invalid argument: rpc error"},
+		{name: "destination not found", err: status.Error(codes.NotFound, "no such dir"), hint: "does not exist: no such dir"},
+		{
+			name:      "not found while connecting is transient",
+			err:       fmt.Errorf("%w: %w", errConnectToPart, status.Error(codes.NotFound, "offline")),
+			retryable: true,
+		},
+		{
+			name:      "permission denied while connecting is transient",
+			err:       fmt.Errorf("%w: %w", errConnectToPart, status.Error(codes.PermissionDenied, "handshake")),
+			retryable: true,
+		},
+		{name: "unavailable", err: status.Error(codes.Unavailable, "down"), retryable: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			verdict := classifyCopyError(tc.err, tc.isFrom)
+			test.That(t, verdict.retryable, test.ShouldEqual, tc.retryable)
+			if tc.hint == "" {
+				test.That(t, verdict.hint, test.ShouldBeEmpty)
+			} else {
+				test.That(t, verdict.hint, test.ShouldContainSubstring, tc.hint)
+			}
+		})
+	}
+}
+
 func TestRetryableCopy(t *testing.T) {
 	originalRetryBaseDelay := copyRetryBaseDelay
 	copyRetryBaseDelay = time.Millisecond
@@ -3551,6 +3753,39 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify shell service specific warning appears
 		errMsg := strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldContainSubstring, "does not have the shell service enabled")
+	})
+
+	t.Run("ShellRequiresCloudError", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			return errShellRequiresCloud
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		// A part without a cloud config will not gain one by retrying.
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+		test.That(t, attempts, test.ShouldEqual, 1)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "no cloud configuration")
 	})
 
 	t.Run("LoggedOutError", func(t *testing.T) {
