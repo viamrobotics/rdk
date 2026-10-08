@@ -303,6 +303,10 @@ func TestBadSpray1(t *testing.T) {
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
+	// Above defaultTimeout, IK obeys the request timeout instead of its sub-second budget, which a loaded
+	// CI runner can exhaust before finding the direct solution across this path's wrist singularity.
+	req.PlannerOptions.Timeout = defaultTimeout + 1
+
 	t.Run("basic", func(t *testing.T) {
 		_, _, err := PlanMotion(context.Background(), logger, req)
 		test.That(t, err, test.ShouldBeNil)
