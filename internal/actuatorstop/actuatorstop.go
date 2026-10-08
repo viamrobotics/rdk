@@ -41,16 +41,17 @@ func Stop(
 		})
 	}
 	for name, actuator := range local {
-		start(name, func() error { return stopActuator(ctx, name, actuator, extra[name]) })
+		start(name, func() error { return StopLocal(ctx, name, actuator, extra[name]) })
 	}
 	for name, actuator := range remote {
-		start(name, func() error { return stopRemoteActuator(ctx, name, actuator, extra[name]) })
+		start(name, func() error { return StopRemote(ctx, name, actuator, extra[name]) })
 	}
 	wg.Wait()
 	return errs
 }
 
-func stopActuator(ctx context.Context, name resource.Name, actuator resource.Actuator, extra map[string]interface{}) (err error) {
+// StopLocal stops one actuator on ctx with no added bound and returns a panic as an error.
+func StopLocal(ctx context.Context, name resource.Name, actuator resource.Actuator, extra map[string]interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Errorf("panic stopping %q: %v", name, r)
@@ -59,12 +60,13 @@ func stopActuator(ctx context.Context, name resource.Name, actuator resource.Act
 	return actuator.Stop(ctx, extra)
 }
 
-func stopRemoteActuator(ctx context.Context, name resource.Name, actuator resource.Actuator, extra map[string]interface{}) error {
+// StopRemote stops one actuator on a remote machine, bounded by RemoteTimeout even if it ignores ctx.
+func StopRemote(ctx context.Context, name resource.Name, actuator resource.Actuator, extra map[string]interface{}) error {
 	ctx, cancel := context.WithTimeout(ctx, RemoteTimeout)
 	defer cancel()
 	errCh := make(chan error, 1)
 	utils.PanicCapturingGo(func() {
-		errCh <- stopActuator(ctx, name, actuator, extra)
+		errCh <- StopLocal(ctx, name, actuator, extra)
 	})
 	select {
 	case err := <-errCh:
