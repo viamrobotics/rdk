@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
+	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
 func alwaysSync(_ context.Context) bool { return true }
@@ -246,6 +247,95 @@ func TestCalculateAndSetSummaryStaleWarningOnlyCaptureFiles(t *testing.T) {
 			}
 			tracker.calculateAndSetSummary(ctx, []string{dir})
 			test.That(t, logs.FilterMessageSnippet("Capture data may not be syncing").Len() > 0, test.ShouldEqual, tc.expectWarning)
+		})
+	}
+}
+
+func TestDiskSummaryExcludedFromSync(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	quarantinedTime := time.Now().Add(-2 * time.Hour)
+	freshTime := time.Now().Add(-30 * time.Second)
+
+	failedDir := filepath.Join(dir, datasync.FailedDir, "sub")
+	test.That(t, os.MkdirAll(failedDir, 0o700), test.ShouldBeNil)
+	err := os.WriteFile(filepath.Join(failedDir, captureFileName(quarantinedTime, data.CompletedCaptureFileExt)), []byte("data"), 0o644)
+	test.That(t, err, test.ShouldBeNil)
+	err = os.WriteFile(filepath.Join(dir, captureFileName(freshTime, data.CompletedCaptureFileExt)), []byte("data"), 0o644)
+	test.That(t, err, test.ShouldBeNil)
+
+	summaries := DiskSummary(ctx, dir)
+	test.That(t, len(summaries), test.ShouldEqual, 2)
+
+	root := summaries[0]
+	test.That(t, root.Path, test.ShouldEqual, dir)
+	test.That(t, root.ExcludedFromSync, test.ShouldBeFalse)
+	test.That(t, root.SyncableFileTimeRange, test.ShouldNotBeNil)
+	test.That(t, root.SyncableFileTimeRange.Start.Equal(freshTime), test.ShouldBeTrue)
+
+	quarantined := summaries[1]
+	test.That(t, quarantined.Path, test.ShouldEqual, failedDir)
+	test.That(t, quarantined.ExcludedFromSync, test.ShouldBeTrue)
+	test.That(t, quarantined.FileCount, test.ShouldEqual, 1)
+	test.That(t, quarantined.DataTimeRange, test.ShouldNotBeNil)
+	test.That(t, quarantined.SyncableFileTimeRange, test.ShouldBeNil)
+}
+
+func TestCalculateAndSetSummaryStaleWarningSkipsExcludedDirs(t *testing.T) {
+	ctx := context.Background()
+	quarantinedTime := time.Now().Add(-2 * time.Hour)
+	staleTime := time.Now().Add(-10 * time.Minute)
+	freshTime := time.Now().Add(-30 * time.Second)
+
+	type testFile struct {
+		dir  string
+		time time.Time
+	}
+
+	tests := []struct {
+		name          string
+		files         []testFile
+		expectWarning bool
+	}{
+		{"old file in failed/ only, no warning", []testFile{{datasync.FailedDir, quarantinedTime}}, false},
+		{"old file in datasetUpload/ only, no warning", []testFile{{datasync.DatasetDir, quarantinedTime}}, false},
+		{"old file in nested failed/ only, no warning", []testFile{{filepath.Join("extra", datasync.FailedDir), quarantinedTime}}, false},
+		{"old file in failed/ and fresh .capture, no warning", []testFile{
+			{datasync.FailedDir, quarantinedTime},
+			{"", freshTime},
+		}, false},
+		{"old file in failed/ and stale .capture, warning", []testFile{
+			{datasync.FailedDir, quarantinedTime},
+			{"", staleTime},
+		}, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, f := range tc.files {
+				fileDir := filepath.Join(dir, f.dir)
+				test.That(t, os.MkdirAll(fileDir, 0o700), test.ShouldBeNil)
+				err := os.WriteFile(filepath.Join(fileDir, captureFileName(f.time, data.CompletedCaptureFileExt)), []byte("data"), 0o644)
+				test.That(t, err, test.ShouldBeNil)
+			}
+
+			logger, logs := logging.NewObservedTestLogger(t)
+			tracker := &diskSummaryTracker{
+				logger:           logger,
+				shouldSync:       alwaysSync,
+				syncIntervalMins: 0.1,
+			}
+			tracker.calculateAndSetSummary(ctx, []string{dir})
+
+			staleLogs := logs.FilterMessageSnippet("Capture data may not be syncing")
+			test.That(t, staleLogs.Len() > 0, test.ShouldEqual, tc.expectWarning)
+			if tc.expectWarning {
+				msg := staleLogs.All()[0].Message
+				test.That(t, msg, test.ShouldContainSubstring, "oldest file is 10m")
+				test.That(t, msg, test.ShouldContainSubstring, "There are 1 files")
+			}
+			test.That(t, tracker.getSummary().SyncPaths.TotalFiles, test.ShouldEqual, int64(len(tc.files)))
 		})
 	}
 }
