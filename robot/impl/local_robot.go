@@ -44,6 +44,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/ftdc/sys"
+	"go.viam.com/rdk/internal/actuatorstop"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
@@ -332,6 +333,8 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 
 	// Stop all stoppable resources
 	resourceErrs := make(map[string]error)
+	local := map[resource.Name]resource.Actuator{}
+	remote := map[resource.Name]resource.Actuator{}
 	for _, name := range r.ResourceNames() {
 		res, err := r.ResourceByName(name)
 		if err != nil {
@@ -339,11 +342,18 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 			continue
 		}
 
-		if actuator, ok := res.(resource.Actuator); ok {
-			if err := actuator.Stop(stopCtx, extra[name]); err != nil {
-				resourceErrs[name.Name] = err
-			}
+		actuator, ok := res.(resource.Actuator)
+		if !ok {
+			continue
 		}
+		if name.ContainsRemoteNames() {
+			remote[name] = actuator
+		} else {
+			local[name] = actuator
+		}
+	}
+	for name, err := range actuatorstop.Stop(stopCtx, local, remote, extra) {
+		resourceErrs[name.Name] = err
 	}
 
 	var errs error

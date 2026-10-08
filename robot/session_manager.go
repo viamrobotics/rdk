@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/internal/actuatorstop"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
@@ -82,54 +83,16 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 		}
 		m.sessionResourceMu.RUnlock()
 
-		var resourceErrs []error
-		var serverClosing bool
-		func() {
-			m.sessionResourceMu.Lock()
-			defer m.sessionResourceMu.Unlock()
-			for id := range toDelete {
-				delete(m.sessions, id)
-			}
+		m.sessionResourceMu.Lock()
+		for id := range toDelete {
+			delete(m.sessions, id)
+		}
+		m.sessionResourceMu.Unlock()
 
-			if len(toStop) == 0 {
-				return
-			}
-			for _, resName := range toStop {
-				func() {
-					defer func() {
-						if err := recover(); err != nil {
-							resourceErrs = append(resourceErrs, errors.Errorf("panic stopping %q: %v", resName, err))
-						}
-					}()
-					res, err := m.robot.ResourceByName(resName)
-					if err != nil {
-						// It's possible at this point that the robot is Closing, the
-						// resource manager has already been closed, and the resource
-						// associated with the session has been removed from the graph and
-						// cannot be found. If the error is a not found error and the
-						// context has errored, return without appending to resourceErrs
-						// and set serverClosing to true.
-						if resource.IsNotFoundError(err) && ctx.Err() != nil {
-							serverClosing = true
-							return
-						}
-						resourceErrs = append(resourceErrs, err)
-						return
-					}
-
-					if actuator, ok := res.(resource.Actuator); ok {
-						if err := actuator.Stop(ctx, nil); err != nil {
-							resourceErrs = append(resourceErrs, err)
-						}
-					}
-				}()
-				if serverClosing {
-					return
-				}
-			}
-		}()
-		if serverClosing {
-			return
+		if len(toStop) != 0 {
+			m.workers.Add(func(ctx context.Context) {
+				m.stopResources(ctx, toStop)
+			})
 		}
 
 		if len(toDelete) != 0 {
@@ -145,12 +108,49 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 			}
 			m.logger.CDebugw(ctx, "sessions expired", "session_ids", deletedIDs)
 		}
-		if len(toStop) != 0 {
-			m.logger.CDebugw(ctx, "tried to stop some resources", "resources", toStop)
+	}
+}
+
+// stopResources stops the actuators among toStop without holding sessionResourceMu, so a slow
+// stop cannot stall heartbeats or the expiry of other sessions.
+func (m *SessionManager) stopResources(ctx context.Context, toStop []resource.Name) {
+	remoteNames := map[resource.Name]bool{}
+	for _, name := range m.robot.ResourceNames() {
+		if name.ContainsRemoteNames() {
+			remoteNames[resource.Name{API: name.API, Name: name.Name}] = true
 		}
-		if len(resourceErrs) != 0 {
-			m.logger.CErrorw(ctx, "failed to stop some resources", "errors", resourceErrs)
+	}
+
+	var resourceErrs []error
+	local := map[resource.Name]resource.Actuator{}
+	remote := map[resource.Name]resource.Actuator{}
+	for _, resName := range toStop {
+		res, err := m.robot.ResourceByName(resName)
+		if err != nil {
+			// A closing robot removes its resources, which is not a failure to stop.
+			if !resource.IsNotFoundError(err) || ctx.Err() == nil {
+				resourceErrs = append(resourceErrs, err)
+			}
+			continue
 		}
+
+		actuator, ok := res.(resource.Actuator)
+		if !ok {
+			continue
+		}
+		if remoteNames[resource.Name{API: resName.API, Name: resName.Name}] {
+			remote[resName] = actuator
+		} else {
+			local[resName] = actuator
+		}
+	}
+	for _, err := range actuatorstop.Stop(ctx, local, remote, nil) {
+		resourceErrs = append(resourceErrs, err)
+	}
+
+	m.logger.CDebugw(ctx, "tried to stop some resources", "resources", toStop)
+	if len(resourceErrs) != 0 {
+		m.logger.CErrorw(ctx, "failed to stop some resources", "errors", resourceErrs)
 	}
 }
 
