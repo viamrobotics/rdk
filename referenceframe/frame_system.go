@@ -1291,7 +1291,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	// original_file.bytes, mesh_data) may arrive in one of two forms depending
 	// on which server version produced the message:
 	//
-	//   Old form (pre-RSDK-TODO): protoutils.StructToStructPb encoded each byte
+	//   Old form (pre-RSDK-14708): protoutils.StructToStructPb encoded each byte
 	//   as a JSON number, so a field arrived as a JSON array of numbers, e.g.
 	//   [116, 101, 115, 116].
 	//
