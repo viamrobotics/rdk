@@ -451,15 +451,18 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	// mDNS names are visible host-wide, so a fixed FQDN can resolve to another package's test server.
+	specificHost := primitive.NewObjectID().Hex()
+
 	for _, tc := range []struct {
 		Case       string
 		Managed    bool
 		EntityName string
 	}{
 		{Case: "unmanaged and default host"},
-		{Case: "unmanaged and specific host", EntityName: "something-different"},
+		{Case: "unmanaged and specific host", EntityName: specificHost},
 		{Case: "managed and default host", Managed: true},
-		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
+		{Case: "managed and specific host", Managed: true, EntityName: specificHost},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
 			ctx := context.Background()
