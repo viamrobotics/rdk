@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -5608,6 +5609,85 @@ func TestMaintenanceConfigLogs(t *testing.T) {
 		// does), so expect 2 logs.
 		test.That(t, logs.FilterMessage("Reconfigure allowed despite error while checking").Len(), test.ShouldEqual, 2)
 	})
+}
+
+func TestMaintenanceSensorRecheckedAfterFirstRun(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	var allowed atomic.Bool
+	allowed.Store(true)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			s := &inject.Sensor{}
+			s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+				return map[string]interface{}{"allowed": allowed.Load()}, nil
+			}
+			return s, nil
+		}},
+	)
+	defer resource.Deregister(sensor.API, model)
+
+	// The first_run script connects to this listener and blocks until the test writes a line back.
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	firstRunScript := fmt.Sprintf(`#!/usr/bin/env bash
+exec 3<>/dev/tcp/127.0.0.1/%d
+read <&3
+exit 0
+`, listener.Addr().(*net.TCPAddr).Port)
+
+	tarballPath := createTarballModule(t, firstRunScript)
+	newConfig := func(revision string, modules ...config.Module) *config.Config {
+		return &config.Config{
+			Revision:          revision,
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/maint", MaintenanceAllowedKey: "allowed"},
+			Components:        []resource.Config{{Name: "maint", API: sensor.API, Model: model}},
+			Modules:           modules,
+		}
+	}
+	module := config.Module{Name: "tarball-module", Type: config.ModuleTypeLocal, ExePath: tarballPath}
+	r := setupLocalRobot(t, ctx, newConfig("rev1"), logger, WithViamHomeDir(t.TempDir()))
+
+	reconfigureDone := make(chan struct{})
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, newConfig("rev2", module))
+	}()
+
+	// The machine becomes busy while the first_run script is executing.
+	conn, err := listener.Accept()
+	test.That(t, err, test.ShouldBeNil)
+	allowed.Store(false)
+	_, err = conn.Write([]byte("done\n"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	<-reconfigureDone
+
+	test.That(t, r.Config().Modules, test.ShouldBeEmpty)
+	mStatus, err := r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.Config.Revision, test.ShouldEqual, "rev1")
+	test.That(t, logs.FilterMessage("Reconfigure NOT allowed by maintenance sensor").Len(), test.ShouldEqual, 1)
+
+	// A rerun of the first_run script would fail to connect and abort the reconfigure.
+	test.That(t, listener.Close(), test.ShouldBeNil)
+	allowed.Store(true)
+	r.Reconfigure(ctx, newConfig("rev2", module))
+
+	test.That(t, r.Config().Modules, test.ShouldHaveLength, 1)
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.Config.Revision, test.ShouldEqual, "rev2")
 }
 
 func TestRemovingOfflineRemote(t *testing.T) {

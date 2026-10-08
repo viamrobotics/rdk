@@ -1732,11 +1732,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 					)
 				}
 			} else if diff != nil && !diff.ResourcesEqual {
-				if reconfigureAllowedErr != nil {
-					r.logger.CInfow(ctx, "Reconfigure NOT allowed due to error", "error", reconfigureAllowedErr.Error())
-				} else {
-					r.logger.CInfow(ctx, "Reconfigure NOT allowed by maintenance sensor", "sensor", newConfig.MaintenanceConfig.SensorName)
-				}
+				r.logReconfigureNotAllowed(ctx, newConfig.MaintenanceConfig, reconfigureAllowedErr)
 			}
 			return
 		}
@@ -1748,13 +1744,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	defer func() {
 		r.reconfiguring.Store(false)
 	}()
-
-	r.configRevisionMu.Lock()
-	r.configRevision = config.Revision{
-		Revision:    newConfig.Revision,
-		LastUpdated: time.Now(),
-	}
-	r.configRevisionMu.Unlock()
 
 	// Apply user_permissions changes to the running web service early: it revokes
 	// exactly the streams and invocations of users whose permissions changed, is
@@ -1844,6 +1833,24 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 		pkgMgr.SetPackageState(pkgName, packages.PackageStateReady, "")
 	}
+
+	// Package sync and first-run scripts can take minutes, so read the sensor again
+	// right before anything is torn down.
+	if !r.initializing.Load() && !initialDiff.ResourcesEqual {
+		var reconfigureAllowed bool
+		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+		if !reconfigureAllowed {
+			r.logReconfigureNotAllowed(ctx, newConfig.MaintenanceConfig, reconfigureAllowedErr)
+			return
+		}
+	}
+
+	r.configRevisionMu.Lock()
+	r.configRevision = config.Revision{
+		Revision:    newConfig.Revision,
+		LastUpdated: time.Now(),
+	}
+	r.configRevisionMu.Unlock()
 
 	if newConfig.Cloud != nil {
 		r.Logger().CDebug(ctx, "updating cached config")
@@ -2392,6 +2399,14 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
 	}
 	return canReconfigure, nil
+}
+
+func (r *localRobot) logReconfigureNotAllowed(ctx context.Context, mCfg *config.MaintenanceConfig, err error) {
+	if err != nil {
+		r.logger.CInfow(ctx, "Reconfigure NOT allowed due to error", "error", err.Error())
+	} else {
+		r.logger.CInfow(ctx, "Reconfigure NOT allowed by maintenance sensor", "sensor", mCfg.SensorName)
+	}
 }
 
 // checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
