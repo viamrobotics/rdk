@@ -386,12 +386,12 @@ func NewFromServiceMustBeConnected(
 		// Dan: This "must be connected" API is for RDK builtin motion service move requests. Which
 		// would be in the same process as this frame system service. I cannot imagine this code
 		// path being relevant, but being cautious and preserving what would be returned.
-		fsCfg, err := service.FrameSystemConfig(ctx)
+		fsCfg, err := serviceI.FrameSystemConfig(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
+		return referenceframe.NewFrameSystem(serviceI.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
 	}
 
 	service.partsMu.RLock()
