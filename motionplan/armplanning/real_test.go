@@ -289,6 +289,7 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestBadSpray1(t *testing.T) {
+	t.Skip("flaky near wrist singularity under CPU load; see https://github.com/viamrobotics/rdk/pull/6617")
 	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()

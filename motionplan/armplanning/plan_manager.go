@@ -221,17 +221,6 @@ func (pm *planManager) planSingleGoal(
 	if err != nil {
 		return nil, err
 	}
-	if planSeed.steps == nil && !cbirrtAllowed {
-		pm.logger.Debugf("no direct solution found, retrying IK once")
-		retrySeed, retryErr := initRRTSolutions(ctx, psc, pm.logger.Sublogger("solve"))
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		if retryErr == nil {
-			planSeed = retrySeed
-		}
-	}
-
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
 		pm.harvestPlan(psc, append([]*referenceframe.LinearInputs{psc.start}, planSeed.steps...), pm.logger)
