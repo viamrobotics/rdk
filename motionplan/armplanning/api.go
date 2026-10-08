@@ -267,7 +267,7 @@ type PlanMeta struct {
 	CollectSolutionDiagnostics bool
 
 	// PerGoal holds diagnostic data indexed by initRRTSolutions invocation order. Each top-level
-	// goal, sub-goal, and planning split produces one entry.
+	// goal, sub-goal, planning split, and direct-solution retry produces one entry.
 	PerGoal []PerGoalMeta
 }
 
