@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/metric"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -141,6 +142,7 @@ type localRobot struct {
 	localModuleVersions map[string]semver.Version
 	startFtdcOnce       sync.Once
 	ftdc                *ftdc.FTDC
+	resourceMetrics     metric.Registration
 
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
@@ -281,6 +283,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 	r.sessionManager.Close()
 
 	var err error
+	if r.resourceMetrics != nil {
+		err = multierr.Combine(err, r.resourceMetrics.Unregister())
+	}
 	if r.cloudConnSvc != nil {
 		err = multierr.Combine(err, r.cloudConnSvc.Close(ctx))
 	}
@@ -603,6 +608,9 @@ func newWithResources(
 	r.webSvc = web.New(r, logger, rOpts.webOptions...)
 	if r.ftdc != nil {
 		r.ftdc.Add("web", r.webSvc.RequestCounter())
+	}
+	if r.resourceMetrics, err = r.registerResourceMetrics(); err != nil {
+		logger.Warnw("Failed to register resource metrics", "err", err)
 	}
 	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger.Sublogger("framesystem"))
 	if err != nil {

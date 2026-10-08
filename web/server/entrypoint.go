@@ -26,6 +26,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/otelmetrics"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -231,6 +232,23 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			return err
 		}
 		defer exporter.Stop()
+	}
+
+	if otelmetrics.Enabled() {
+		var partID string
+		if cfgFromDisk.Cloud != nil {
+			partID = cfgFromDisk.Cloud.ID
+		}
+		shutdownMetrics, metricsErr := otelmetrics.Start(ctx, partID, config.Version)
+		if metricsErr != nil {
+			rootLogger.Warnw("Failed to start OTLP metrics export", "err", metricsErr)
+		} else {
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				utils.UncheckedError(shutdownMetrics(shutdownCtx))
+			}()
+		}
 	}
 
 	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
