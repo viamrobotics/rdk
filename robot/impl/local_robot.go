@@ -1450,8 +1450,11 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			if err != nil {
 				logger.Warnw("Error getting kinematics for resource. Falling back to its geometries.", "err", err)
 			} else {
-				if linkInFrame.Geometry() != nil && len(model.DoF()) == 0 {
-					logger.Warn("Frame config geometry replaces the geometries of the resource's zero-DoF model.")
+				if linkInFrame.Geometry() != nil {
+					// The model is the resource's own description of its shape. A frame config
+					// geometry would duplicate it at best and, for a zero-DoF model, replace it.
+					logger.Warn("Ignoring the frame config geometry of a resource that provides a kinematic model.")
+					linkInFrame.SetGeometry(nil)
 				}
 				parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: model})
 				continue

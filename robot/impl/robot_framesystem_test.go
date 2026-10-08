@@ -596,6 +596,20 @@ func TestObstacleModelInFrameSystem(t *testing.T) {
 			Frame:               &referenceframe.LinkConfig{Parent: "obstacle:box", Translation: r3.Vector{X: 0, Y: 0, Z: 1}},
 			ConvertedAttributes: &fakecamera.Config{},
 		},
+		{
+			// A frame config geometry on a resource that provides a model is ignored rather than
+			// replacing the model's geometries.
+			Name:  "cage",
+			API:   generic.API,
+			Model: obstacle.Model,
+			Frame: &referenceframe.LinkConfig{
+				Parent:   referenceframe.World,
+				Geometry: &spatialmath.GeometryConfig{Type: spatialmath.BoxType, X: 1, Y: 1, Z: 1},
+			},
+			ConvertedAttributes: &obstacle.Config{Geometries: []spatialmath.GeometryConfig{
+				{Type: spatialmath.BoxType, X: 10, Y: 10, Z: 10, TranslationOffset: r3.Vector{X: 0, Y: 0, Z: 5}, Label: "wall"},
+			}},
+		},
 	}}
 
 	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
@@ -623,6 +637,14 @@ func TestObstacleModelInFrameSystem(t *testing.T) {
 		"obstacle:box":  {X: 1100, Y: 0, Z: 550},
 		"obstacle:post": {X: 1000, Y: 200, Z: 0},
 	})
+
+	cageOrigin := fs.Frame("cage_origin")
+	test.That(t, cageOrigin, test.ShouldNotBeNil)
+	cageOriginGeometries, err := cageOrigin.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cageOriginGeometries.Geometries(), test.ShouldBeEmpty)
+	test.That(t, allGeometries["cage"].Geometries(), test.ShouldHaveLength, 1)
+	test.That(t, allGeometries["cage"].Geometries()[0].Label(), test.ShouldEqual, "cage:wall")
 
 	// A resource parented to one of the obstacle's internal frames resolves through it. The
 	// internal frames sit at the component's origin; the geometry offsets are on the geometries.

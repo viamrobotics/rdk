@@ -103,8 +103,8 @@ func newObstacle(ctx context.Context, _ resource.Dependencies, conf resource.Con
 		logger.CWarn(ctx, "obstacle has no frame configured; it will not be part of the frame system "+
 			"and motion planning will not avoid it")
 	case conf.Frame.Geometry != nil:
-		logger.CWarn(ctx, "obstacle has a geometry in its frame config; the frame system will use that "+
-			"geometry instead of the obstacle's geometries")
+		logger.CWarn(ctx, "obstacle has a geometry in its frame config; the frame system ignores it in favor "+
+			"of the obstacle's geometries")
 	}
 
 	return &obstacle{
