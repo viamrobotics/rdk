@@ -110,58 +110,14 @@ func TestGeometriesAndKinematics(t *testing.T) {
 	})
 	test.That(t, model.ModelConfig().Links, test.ShouldHaveLength, 3)
 
+	// DoCommand is left to the resource.Named default.
+	_, err = o.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	test.That(t, err, test.ShouldEqual, resource.ErrDoUnimplemented)
+
 	// A frame geometry or a missing frame only warns.
 	newTestObstacle(t, &Config{Geometries: shelfGeometries()}, &referenceframe.LinkConfig{
 		Parent:   referenceframe.World,
 		Geometry: &spatialmath.GeometryConfig{Type: spatialmath.BoxType, X: 1, Y: 1, Z: 1},
 	})
 	newTestObstacle(t, &Config{Geometries: shelfGeometries()}, nil)
-}
-
-func TestDoCommand(t *testing.T) {
-	ctx := context.Background()
-	o := newTestObstacle(t, &Config{Geometries: shelfGeometries()}, &referenceframe.LinkConfig{Parent: referenceframe.World})
-
-	resp, err := o.DoCommand(ctx, map[string]interface{}{CommandKey: CommandGet})
-	test.That(t, err, test.ShouldBeNil)
-	geometries, ok := resp[GeometriesKey].([]interface{})
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, geometries, test.ShouldHaveLength, 3)
-	test.That(t, geometries[1].(map[string]interface{})["Label"], test.ShouldEqual, "post")
-
-	// Replace the geometries with a wire-shaped list. Labels may be given in either case.
-	resp, err = o.DoCommand(ctx, map[string]interface{}{
-		CommandKey: CommandSet,
-		GeometriesKey: []interface{}{
-			map[string]interface{}{
-				"type": "box", "x": 500., "y": 10., "z": 400.,
-				"translation": map[string]interface{}{"x": 0., "y": -300., "z": 0.},
-				"label":       "wall",
-			},
-		},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp[GeometriesKey].([]interface{}), test.ShouldHaveLength, 1)
-	parsed, err := o.Geometries(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, centersOf(parsed), test.ShouldResemble, map[string]r3.Vector{"wall": {X: 0, Y: -300, Z: 0}})
-	model, err := o.Kinematics(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, model.ModelConfig().Links, test.ShouldHaveLength, 1)
-
-	// Invalid updates are rejected and leave the obstacle untouched.
-	for _, cmd := range []map[string]interface{}{
-		{CommandKey: CommandSet},
-		{CommandKey: CommandSet, GeometriesKey: "wall"},
-		{CommandKey: CommandSet, GeometriesKey: []interface{}{}},
-		{CommandKey: CommandSet, GeometriesKey: []interface{}{map[string]interface{}{"type": "blob"}}},
-		{CommandKey: "bogus"},
-		{},
-	} {
-		_, err = o.DoCommand(ctx, cmd)
-		test.That(t, err, test.ShouldNotBeNil)
-	}
-	parsed, err = o.Geometries(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, parsed, test.ShouldHaveLength, 1)
 }
