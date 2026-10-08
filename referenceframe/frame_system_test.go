@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
 	proto2 "google.golang.org/protobuf/proto"
 
@@ -152,6 +153,82 @@ func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
 	finalModel, err := KinematicModelFromProtobuf("xarm6", kinResp)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(finalModel.DoF()), test.ShouldEqual, len(model.DoF()))
+}
+
+func kinematicsBytesModels(t *testing.T) []Model {
+	t.Helper()
+	xarm6, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	_ = artifact.MustPath("urdfs/ur20meshes")
+	ur20, err := ParseModelXMLFile(artifact.MustPath("urdfs/ur20.urdf"), "ur20", nil)
+	test.That(t, err, test.ShouldBeNil)
+	return []Model{xarm6, ur20}
+}
+
+func meshDataByLink(cfg *ModelConfigJSON) map[string][]byte {
+	meshes := map[string][]byte{}
+	for _, link := range cfg.Links {
+		if link.Geometry != nil && len(link.Geometry.MeshData) > 0 {
+			meshes[link.ID] = link.Geometry.MeshData
+		}
+	}
+	return meshes
+}
+
+func checkKinematicsPreserved(t *testing.T, want Model, got *FrameSystemPart) {
+	t.Helper()
+	test.That(t, got.ModelFrame, test.ShouldNotBeNil)
+	test.That(t, len(got.ModelFrame.DoF()), test.ShouldEqual, len(want.DoF()))
+	test.That(t, got.ModelFrame.ModelConfig().OriginalFile, test.ShouldResemble, want.ModelConfig().OriginalFile)
+	test.That(t, meshDataByLink(got.ModelFrame.ModelConfig()), test.ShouldResemble, meshDataByLink(want.ModelConfig()))
+	test.That(t, proto2.Equal(KinematicModelToProtobuf(got.ModelFrame), KinematicModelToProtobuf(want)), test.ShouldBeTrue)
+}
+
+func TestFrameSystemPartKinematicsBytes(t *testing.T) {
+	for _, model := range kinematicsBytesModels(t) {
+		t.Run(model.Name(), func(t *testing.T) {
+			rawBytes := len(model.ModelConfig().OriginalFile.Bytes)
+			for _, mesh := range meshDataByLink(model.ModelConfig()) {
+				rawBytes += len(mesh)
+			}
+
+			part := &FrameSystemPart{
+				FrameConfig: NewLinkInFrame(World, spatial.NewZeroPose(), model.Name(), nil),
+				ModelFrame:  model,
+			}
+			pbMsg, err := part.ToProtobuf()
+			test.That(t, err, test.ShouldBeNil)
+			originalFile := pbMsg.Kinematics.Fields["original_file"].GetStructValue()
+			test.That(t, originalFile.Fields["bytes"].GetStringValue(), test.ShouldNotBeEmpty)
+			// A list with one number per byte costs about 11 wire bytes per raw byte.
+			test.That(t, proto2.Size(pbMsg), test.ShouldBeLessThan, 3*rawBytes)
+
+			wireBytes, err := proto2.Marshal(pbMsg)
+			test.That(t, err, test.ShouldBeNil)
+			received := &robotpb.FrameSystemConfig{}
+			test.That(t, proto2.Unmarshal(wireBytes, received), test.ShouldBeNil)
+			restored, err := ProtobufToFrameSystemPart(received)
+			test.That(t, err, test.ShouldBeNil)
+			checkKinematicsPreserved(t, model, restored)
+		})
+	}
+}
+
+func TestProtobufToFrameSystemPartAcceptsByteLists(t *testing.T) {
+	for _, model := range kinematicsBytesModels(t) {
+		t.Run(model.Name(), func(t *testing.T) {
+			legacy, err := protoutils.StructToStructPb(model.ModelConfig())
+			test.That(t, err, test.ShouldBeNil)
+			originalFile := legacy.Fields["original_file"].GetStructValue()
+			test.That(t, originalFile.Fields["bytes"].GetListValue().GetValues(), test.ShouldNotBeEmpty)
+
+			frame, err := LinkInFrameToTransformProtobuf(NewLinkInFrame(World, spatial.NewZeroPose(), model.Name(), nil))
+			test.That(t, err, test.ShouldBeNil)
+			restored, err := ProtobufToFrameSystemPart(&robotpb.FrameSystemConfig{Frame: frame, Kinematics: legacy})
+			test.That(t, err, test.ShouldBeNil)
+			checkKinematicsPreserved(t, model, restored)
+		})
+	}
 }
 
 func TestFramesFromPart(t *testing.T) {
