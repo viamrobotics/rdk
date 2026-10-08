@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.viam.com/rdk/data"
+	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/utils"
 )
 
@@ -27,8 +28,12 @@ type DirSummary struct {
 	DataTimeRange *DataTimeRange
 	// SyncableFileTimeRange is the time range of files that are complete and waiting to
 	// sync: completed capture (.capture) files and arbitrary files. In-progress (.prog)
-	// capture files are excluded since they are still being written.
+	// capture files are excluded since they are still being written. Nil when
+	// ExcludedFromSync is set.
 	SyncableFileTimeRange *DataTimeRange
+	// ExcludedFromSync is set for directories sync never uploads from: any failed/ or
+	// datasetUpload/ directory below the root, and everything beneath it.
+	ExcludedFromSync bool
 }
 
 // DataTimeRange represents a time range from Start to End.
@@ -43,6 +48,10 @@ type DataTimeRange struct {
 // It will return a slice of DirSummary structs.
 // Directories with no filesare ignored.
 func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
+	return summarizeDir(ctx, rootPath, false)
+}
+
+func summarizeDir(ctx context.Context, rootPath string, excludedFromSync bool) []DirSummary {
 	if ctx.Err() != nil {
 		return nil
 	}
@@ -106,7 +115,7 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 		dataTimeRange = extendTimeRange(dataTimeRange, fileTime)
 		// Completed capture files and arbitrary files are fully written and waiting to
 		// sync; in-progress (.prog) files are excluded since they're still being written.
-		if !isInProgressCapture {
+		if !isInProgressCapture && !excludedFromSync {
 			syncableFileTimeRange = extendTimeRange(syncableFileTimeRange, fileTime)
 		}
 	}
@@ -120,6 +129,7 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 			Err:                   rootErr,
 			DataTimeRange:         dataTimeRange,
 			SyncableFileTimeRange: syncableFileTimeRange,
+			ExcludedFromSync:      excludedFromSync,
 		})
 	}
 	// do the same for all children
@@ -127,7 +137,9 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 		if ctx.Err() != nil {
 			return summary
 		}
-		summary = append(summary, DiskSummary(ctx, dirPath)...)
+		name := filepath.Base(dirPath)
+		childExcluded := excludedFromSync || name == datasync.FailedDir || name == datasync.DatasetDir
+		summary = append(summary, summarizeDir(ctx, dirPath, childExcluded)...)
 	}
 
 	return summary
