@@ -279,4 +279,7 @@ type Properties struct {
 	ObjectPCDsSupported     bool
 	DefaultCamera           *string
 	Detections3DSupported   bool
+	// Cameras lists the cameras the vision service works with. If empty, the
+	// vision service works with any camera resource.
+	Cameras []string
 }
