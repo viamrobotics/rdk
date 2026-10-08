@@ -35,6 +35,7 @@ type gripperIsHolding struct {
 }
 
 // newIsHoldingSomethingCollector returns a collector to register an is holding something method.
+// RegisterCollector will panic if one is already registered with the same MethodMetadata.
 func newIsHoldingSomethingCollector(resource any, params data.CollectorParams) (data.Collector, error) {
 	gripper, err := assertGripper(resource)
 	if err != nil {
