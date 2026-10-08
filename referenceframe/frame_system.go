@@ -1287,6 +1287,21 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		FrameConfig: frameConfig,
 	}
 
+	// fsc.Kinematics is a google.protobuf.Struct whose []byte fields (e.g.
+	// original_file.bytes, mesh_data) may arrive in one of two forms depending
+	// on which server version produced the message:
+	//
+	//   Old form (pre-RSDK-TODO): protoutils.StructToStructPb encoded each byte
+	//   as a JSON number, so a field arrived as a JSON array of numbers, e.g.
+	//   [116, 101, 115, 116].
+	//
+	//   New form: modelConfigToStructPb encodes the config through encoding/json
+	//   first, which represents []byte as a base64 string, e.g. "dGVzdA==".
+	//
+	// json.Unmarshal (called inside UnmarshalModelJSON) handles both forms when
+	// targeting a []byte struct field: a JSON string is base64-decoded; a JSON
+	// array is decoded element-by-element as uint8 values. No custom unmarshaler
+	// is needed and old/new viam-server versions interoperate in both directions.
 	if len(fsc.Kinematics.AsMap()) > 0 {
 		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
 		if err != nil {
