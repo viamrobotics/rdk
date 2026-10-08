@@ -2417,6 +2417,10 @@ Note: There is no progress meter while copying is in progress.
 											Name:  generalFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
+										&cli.BoolFlag{
+											Name:  trainFlagRefreshDatasetCache,
+											Usage: "export the dataset fresh instead of reusing a cached export",
+										},
 									},
 									Action: createActionCommandWithT[mlSubmitCustomTrainingJobArgs](MLSubmitCustomTrainingJob),
 								},
@@ -2492,6 +2496,10 @@ Note: There is no progress meter while copying is in progress.
 										&cli.StringSliceFlag{
 											Name:  generalFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
+										},
+										&cli.BoolFlag{
+											Name:  trainFlagRefreshDatasetCache,
+											Usage: "export the dataset fresh instead of reusing a cached export",
 										},
 									},
 									Action: createActionCommandWithT[mlSubmitCustomTrainingJobWithUploadArgs](MLSubmitCustomTrainingJobWithUpload),

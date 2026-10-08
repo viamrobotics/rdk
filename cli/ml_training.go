@@ -42,19 +42,21 @@ const (
 	trainFlagModelOutputDirectory    = "model-output-directory"
 	trainFlagCustomArgs              = "custom-args"
 	trainFlagTrainingScriptDirectory = "training-script-directory"
+	trainFlagRefreshDatasetCache     = "refresh-dataset-cache"
 )
 
 var validArgumentKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type mlSubmitCustomTrainingJobArgs struct {
-	DatasetID    string
-	OrgID        string
-	ModelName    string
-	ModelVersion string
-	ScriptName   string
-	Version      string
-	ContainerID  string
-	Args         []string
+	DatasetID           string
+	OrgID               string
+	ModelName           string
+	ModelVersion        string
+	ScriptName          string
+	Version             string
+	ContainerID         string
+	Args                []string
+	RefreshDatasetCache bool
 }
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
@@ -69,7 +71,7 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
-		args.ModelName, args.ModelVersion, args.ContainerID, args.Args,
+		args.ModelName, args.ModelVersion, args.ContainerID, args.Args, args.RefreshDatasetCache,
 	)
 	if err != nil {
 		return err
@@ -79,19 +81,20 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 }
 
 type mlSubmitCustomTrainingJobWithUploadArgs struct {
-	URL          string
-	DatasetID    string
-	ModelName    string
-	ModelVersion string
-	Path         string
-	OrgID        string
-	ModelOrgID   string
-	ScriptName   string
-	Version      string
-	Framework    string
-	ModelType    string
-	ContainerID  string
-	Args         []string
+	URL                 string
+	DatasetID           string
+	ModelName           string
+	ModelVersion        string
+	Path                string
+	OrgID               string
+	ModelOrgID          string
+	ScriptName          string
+	Version             string
+	Framework           string
+	ModelType           string
+	ContainerID         string
+	Args                []string
+	RefreshDatasetCache bool
 }
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
@@ -125,7 +128,7 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
-		args.ModelName, args.ModelVersion, args.ContainerID, args.Args,
+		args.ModelName, args.ModelVersion, args.ContainerID, args.Args, args.RefreshDatasetCache,
 	)
 	if err != nil {
 		return err
@@ -311,7 +314,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion, containerID string, args []string,
+	modelVersion, containerID string, args []string, refreshDatasetCache bool,
 ) (string, error) {
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
@@ -331,6 +334,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		ModelName:           modelName,
 		ModelVersion:        modelVersion,
 		ContainerId:         containerID,
+		RefreshDatasetCache: refreshDatasetCache,
 	}
 
 	if len(args) > 0 {

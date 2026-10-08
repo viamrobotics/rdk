@@ -114,6 +114,7 @@ func TestMLTrainingClient(t *testing.T) {
 	})
 
 	t.Run("SubmitCustomTrainingJob", func(t *testing.T) {
+		var gotRefreshDatasetCache bool
 		grpcClient.SubmitCustomTrainingJobFunc = func(
 			ctx context.Context, in *pb.SubmitCustomTrainingJobRequest, opts ...grpc.CallOption,
 		) (*pb.SubmitCustomTrainingJobResponse, error) {
@@ -124,15 +125,25 @@ func TestMLTrainingClient(t *testing.T) {
 			test.That(t, in.ModelName, test.ShouldEqual, name)
 			test.That(t, in.ModelVersion, test.ShouldEqual, version)
 			test.That(t, in.Arguments, test.ShouldEqual, arguments)
+			gotRefreshDatasetCache = in.RefreshDatasetCache
 			return &pb.SubmitCustomTrainingJobResponse{
 				Id: jobID,
 			}, nil
 		}
-		resp, err := client.SubmitCustomTrainingJob(
-			context.Background(), SubmitTrainingJobArgs{datasetID, organizationID, name, version}, itemID, version, arguments,
+		jobArgs := SubmitTrainingJobArgs{datasetID, organizationID, name, version}
+
+		resp, err := client.SubmitCustomTrainingJob(context.Background(), jobArgs, itemID, version, arguments)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, jobID)
+		test.That(t, gotRefreshDatasetCache, test.ShouldBeFalse)
+
+		resp, err = client.SubmitCustomTrainingJob(
+			context.Background(), jobArgs, itemID, version, arguments,
+			&SubmitCustomTrainingJobOptions{RefreshDatasetCache: true},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, jobID)
+		test.That(t, gotRefreshDatasetCache, test.ShouldBeTrue)
 	})
 
 	t.Run("GetTrainingJob", func(t *testing.T) {

@@ -57,6 +57,12 @@ type GetTrainingJobLogsOptions struct {
 	PageToken *string
 }
 
+// SubmitCustomTrainingJobOptions contains optional parameters for SubmitCustomTrainingJob.
+type SubmitCustomTrainingJobOptions struct {
+	// RefreshDatasetCache exports the dataset fresh instead of reusing a cached export, and replaces the cached export with it.
+	RefreshDatasetCache bool
+}
+
 // TrainingJobLogEntry is a log entry from a training job.
 type TrainingJobLogEntry struct {
 	Level   string
@@ -106,10 +112,15 @@ func (c *MLTrainingClient) SubmitTrainingJob(
 // SubmitCustomTrainingJob submits a custom training job request and returns its ID.
 func (c *MLTrainingClient) SubmitCustomTrainingJob(
 	ctx context.Context, args SubmitTrainingJobArgs, registryItemID, registryItemVersion string, arguments map[string]string,
+	opts ...*SubmitCustomTrainingJobOptions,
 ) (string, error) {
 	err := args.isValid()
 	if err != nil {
 		return "", err
+	}
+	var refreshDatasetCache bool
+	if len(opts) > 0 && opts[0] != nil {
+		refreshDatasetCache = opts[0].RefreshDatasetCache
 	}
 	resp, err := c.client.SubmitCustomTrainingJob(ctx, &pb.SubmitCustomTrainingJobRequest{
 		DatasetId:           args.DatasetID,
@@ -119,6 +130,7 @@ func (c *MLTrainingClient) SubmitCustomTrainingJob(
 		ModelName:           args.ModelName,
 		ModelVersion:        args.ModelVersion,
 		Arguments:           arguments,
+		RefreshDatasetCache: refreshDatasetCache,
 	})
 	if err != nil {
 		return "", err
