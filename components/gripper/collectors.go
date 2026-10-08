@@ -29,6 +29,8 @@ func (m method) String() string {
 	return "Unknown"
 }
 
+// we use this instead of pb.IsHoldingSomethingResponse because omitempty could interfere with
+// type checking on the server side.
 type gripperIsHolding struct {
 	IsHoldingSomething bool                   `json:"is_holding_something"`
 	Meta               map[string]interface{} `json:"meta"`
