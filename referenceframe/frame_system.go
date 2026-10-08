@@ -1249,18 +1249,11 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	var modelJSON SimpleModel
+	var modelConfig *ModelConfigJSON
 	if part.ModelFrame != nil {
-		bytes, err := part.ModelFrame.MarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(bytes, &modelJSON)
-		if err != nil {
-			return nil, err
-		}
+		modelConfig = part.ModelFrame.ModelConfig()
 	}
-	kinematics, err := modelConfigToStructPb(modelJSON.modelConfig)
+	kinematics, err := modelConfigToStructPb(modelConfig)
 	if err != nil {
 		return nil, err
 	}
