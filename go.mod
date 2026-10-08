@@ -107,7 +107,7 @@ require (
 	go.uber.org/zap v1.28.0
 	go.viam.com/api v0.1.590
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.13.2
+	go.viam.com/utils v0.14.0
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.41.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -340,7 +340,7 @@ require (
 	github.com/uber/jaeger-client-go v2.25.0+incompatible // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/viamrobotics/ice/v2 v2.3.40 // indirect
-	github.com/viamrobotics/zeroconf v1.0.13 // indirect
+	github.com/viamrobotics/zeroconf v1.1.0 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
