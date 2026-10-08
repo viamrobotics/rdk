@@ -13,9 +13,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/utils/protoutils"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -1260,7 +1260,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 			return nil, err
 		}
 	}
-	kinematics, err := protoutils.StructToStructPb(modelJSON.modelConfig)
+	kinematics, err := modelConfigToStructPb(modelJSON.modelConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -1268,6 +1268,20 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 		Frame:      linkFrame,
 		Kinematics: kinematics,
 	}, nil
+}
+
+// modelConfigToStructPb encodes cfg as encoding/json does, so []byte fields become base64 strings.
+// protoutils.StructToStructPb would send them as a list with one number per byte.
+func modelConfigToStructPb(cfg *ModelConfigJSON) (*structpb.Struct, error) {
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	return structpb.NewStruct(fields)
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
