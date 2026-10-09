@@ -1165,6 +1165,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 	ctx, iRobot := setupRobotCtx(t)
 
 	svc := New(iRobot, logger)
+	metrics := registerTestMetrics(t, svc)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -1183,38 +1184,38 @@ func TestUnaryRequestCounter(t *testing.T) {
 	// test un-targeted (no name field) counts
 	client := robotpb.NewRobotServiceClient(conn)
 
-	_, ok := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	_, ok := requestStats(metrics)["RobotService/GetMachineStatus"]
 	test.That(t, ok, test.ShouldBeFalse)
 
 	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	count := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	count := requestStats(metrics)["RobotService/GetMachineStatus"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	count = svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	count = requestStats(metrics)["RobotService/GetMachineStatus"]
 	test.That(t, count, test.ShouldEqual, 2)
 
 	// test targeted (with name field) counts
 	echoclient := echopb.NewTestEchoServiceClient(conn)
 
-	_, ok = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	_, ok = requestStats(metrics)["test1.TestEchoService/Echo"]
 	test.That(t, ok, test.ShouldBeFalse)
 
 	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
 	test.That(t, err, test.ShouldBeNil)
-	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	count = requestStats(metrics)["test1.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
 	test.That(t, err, test.ShouldBeNil)
-	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	count = requestStats(metrics)["test1.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 2)
 
 	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"})
 	test.That(t, err, test.ShouldBeNil)
-	count = svc.RequestCounter().Stats().(map[string]int64)["test2.TestEchoService/Echo"]
+	count = requestStats(metrics)["test2.TestEchoService/Echo"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	// test service with a name field
@@ -1226,7 +1227,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldEqual,
 		"rpc error: code = Unknown desc = resource rdk:service:generic/generictest not found")
 
-	count = svc.RequestCounter().Stats().(map[string]int64)["generictest.GenericService/DoCommand"]
+	count = requestStats(metrics)["generictest.GenericService/DoCommand"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1248,6 +1249,7 @@ func TestStreamingRequestCounter(t *testing.T) {
 	ctx, iRobot := setupRobotCtx(t)
 
 	svc := New(iRobot, logger)
+	metrics := registerTestMetrics(t, svc)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -1258,21 +1260,21 @@ func TestStreamingRequestCounter(t *testing.T) {
 	echoclient := echopb.NewTestEchoServiceClient(conn)
 
 	// test counting streaming service with name
-	_, ok := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	_, ok := requestStats(metrics)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, ok, test.ShouldBeFalse)
 	s, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = s.Recv()
 
 	test.That(t, err, test.ShouldBeNil)
-	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	count := requestStats(metrics)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	s, err = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = s.Recv()
 	test.That(t, err, test.ShouldBeNil)
-	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	count = requestStats(metrics)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, count, test.ShouldEqual, 2)
 
 	// test named bidirectional stream (client sends multiple messages, but RC only increments once)
@@ -1284,7 +1286,7 @@ func TestStreamingRequestCounter(t *testing.T) {
 	ch, err := client.Recv()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
-	stats := svc.RequestCounter().Stats().(map[string]int64)
+	stats := requestStats(metrics)
 	test.That(t, stats["qwerty.TestEchoService/EchoBiDi"], test.ShouldEqual, 1)
 	test.That(t, stats, test.ShouldContainKey, "qwerty.TestEchoService/EchoBiDi.dataSentBytes")
 	test.That(t, stats["qwerty.TestEchoService/EchoBiDi.dataSentBytes"], test.ShouldBeGreaterThan, 0)
@@ -1293,7 +1295,7 @@ func TestStreamingRequestCounter(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = client.CloseSend()
 	test.That(t, err, test.ShouldBeNil)
-	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	count = requestStats(metrics)["qwerty.TestEchoService/EchoBiDi"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	// EchoBiDi echoes back all received msgs one character at a time.
@@ -1303,7 +1305,7 @@ func TestStreamingRequestCounter(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ch.GetMessage()), test.ShouldEqual, 1)
 	}
-	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	count = requestStats(metrics)["qwerty.TestEchoService/EchoBiDi"]
 	test.That(t, count, test.ShouldEqual, 1)
 
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1519,6 +1521,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	defer injectRobot.Close(ctx)
 
 	svc := New(injectRobot, logger)
+	metrics := registerTestMetrics(t, svc)
 	defer svc.Stop()
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -1542,7 +1545,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	// We can assert that there are 5 counters in our stats: 4 for the api and 1
 	// for the resource. The fact that `GetEndPosition` was called once and we
 	// hence spent (negligible) time in that RPC call.
-	stats := svc.RequestCounter().Stats().(map[string]int64)
+	stats := requestStats(metrics)
 	test.That(t, len(stats), test.ShouldEqual, 5)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
@@ -1566,7 +1569,7 @@ func TestPerRequestFTDC(t *testing.T) {
 
 	// Now observe that we called `GetEndPosition` a second time. And one of the responses returned
 	// an error.
-	stats = svc.RequestCounter().Stats().(map[string]int64)
+	stats = requestStats(metrics)
 	test.That(t, len(stats), test.ShouldEqual, 5)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
@@ -1616,6 +1619,7 @@ func testResourceLimitsAndFTDC(
 	})
 
 	svc := New(injectRobot, logger)
+	metrics := registerTestMetrics(t, svc)
 	defer svc.Stop()
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -1629,7 +1633,7 @@ func testResourceLimitsAndFTDC(
 
 	// Check that the in-flight request counter is zero
 	statsKey := keyPrefix + ".inFlightRequests"
-	stats := svc.RequestCounter().Stats().(map[string]int64)
+	stats := requestStats(metrics)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
 
 	// Make a gRPC `EndPosition` call that hangs until we close the channel
@@ -1646,7 +1650,7 @@ func testResourceLimitsAndFTDC(
 	<-callBlocking
 
 	// Check that the in-flight request counter has increased to 1
-	stats = svc.RequestCounter().Stats().(map[string]int64)
+	stats = requestStats(metrics)
 	test.That(t, stats[statsKey], test.ShouldEqual, reqCounterShouldBe)
 
 	if reqCounterShouldBe >= 1 {
@@ -1654,6 +1658,13 @@ func testResourceLimitsAndFTDC(
 		err = call(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
+		var errorCnt int64
+		for key, value := range requestStats(metrics) {
+			if strings.HasSuffix(key, ".errorCnt") {
+				errorCnt += value
+			}
+		}
+		test.That(t, errorCnt, test.ShouldEqual, 1)
 		test.That(t, err.Error(), test.ShouldEndWith,
 			fmt.Sprintf(
 				"exceeded the shared concurrent-request limit of 1 on resource %v. This limit is shared "+
@@ -1707,7 +1718,7 @@ func testResourceLimitsAndFTDC(
 	}
 
 	// In-flight requests counter should still only be 1
-	stats = svc.RequestCounter().Stats().(map[string]int64)
+	stats = requestStats(metrics)
 	test.That(t, stats[statsKey], test.ShouldEqual, reqCounterShouldBe)
 
 	// Release the original call and wait for it to complete
@@ -1715,7 +1726,7 @@ func testResourceLimitsAndFTDC(
 	clientCallsWg.Wait()
 
 	// In-flight requests counter should be back to 0
-	stats = svc.RequestCounter().Stats().(map[string]int64)
+	stats = requestStats(metrics)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
 }
 

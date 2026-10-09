@@ -1,6 +1,7 @@
 package robotimpl
 
 import (
+	"go.viam.com/rdk/internal/otelmetrics"
 	"go.viam.com/rdk/robot/web"
 )
 
@@ -21,6 +22,8 @@ type options struct {
 
 	// whether or not to run FTDC
 	enableFTDC bool
+
+	metrics *otelmetrics.Metrics
 
 	// disableCompleteConfigWorker starts the robot without the complete config worker - should only be used for tests.
 	disableCompleteConfigWorker bool
@@ -52,6 +55,13 @@ func newFuncOption(f func(*options)) *funcOption {
 func WithFTDC() Option {
 	return newFuncOption(func(o *options) {
 		o.enableFTDC = true
+	})
+}
+
+// WithMetrics sets the MeterProvider the robot records into and that FTDC reads from.
+func WithMetrics(metrics *otelmetrics.Metrics) Option {
+	return newFuncOption(func(o *options) {
+		o.metrics = metrics
 	})
 }
 

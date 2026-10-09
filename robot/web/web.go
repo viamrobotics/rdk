@@ -28,6 +28,7 @@ import (
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
+	noopmetric "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
@@ -244,7 +245,7 @@ func New(r robot.LocalRobot, logger logging.Logger, opts ...Option) Service {
 		streamServer:       nil,
 		modPeerConnTracker: grpc.NewModPeerConnTracker(),
 		opts:               wOpts,
-		requestCounter:     RequestCounter{logger: logger},
+		requestCounter:     RequestCounter{logger: logger, inst: noopRequestInstruments()},
 	}
 	webSvc.requestCounter.ensureLimit()
 	return webSvc
@@ -435,6 +436,8 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	otelStatsHandler := otelgrpc.NewServerHandler(
 		otelgrpc.WithTracerProvider(trace.GetProvider()),
 		otelgrpc.WithPropagators(propagation.TraceContext{}),
+		// RequestCounter records server RPC metrics, labeled by resource.
+		otelgrpc.WithMeterProvider(noopmetric.NewMeterProvider()),
 	)
 
 	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
@@ -583,6 +586,8 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	otelStatsHandler := otelgrpc.NewServerHandler(
 		otelgrpc.WithTracerProvider(trace.GetProvider()),
 		otelgrpc.WithPropagators(propagation.TraceContext{}),
+		// RequestCounter records server RPC metrics, labeled by resource.
+		otelgrpc.WithMeterProvider(noopmetric.NewMeterProvider()),
 	)
 	rpcOpts = append(rpcOpts, rpc.WithStatsHandler(otelStatsHandler))
 

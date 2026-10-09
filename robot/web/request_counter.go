@@ -7,11 +7,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
-	"testing"
 	"time"
 
 	"github.com/viamrobotics/webrtc/v3"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -64,13 +66,6 @@ func (m apiMethod) getResourceName(msg any) string {
 	return resource.GetResourceNameFromRequest(m.service, m.name, msg)
 }
 
-type requestStats struct {
-	count     atomic.Int64
-	errorCnt  atomic.Int64
-	timeSpent atomic.Int64
-	dataSent  atomic.Int64
-}
-
 type counterName string
 
 const (
@@ -87,11 +82,10 @@ type inFlightAndRejectedRequests struct {
 // internal modules.
 type RequestCounter struct {
 	logger logging.Logger
+	inst   requestInstruments
 
-	// requestKeyToStats maps individual API calls for each resource to a set of
-	// metrics. E.g: `motor-foo.IsPowered` and `motor-foo.GoFor` would each have
-	// their own set of stats.
-	requestKeyToStats ssync.Map[string, *requestStats]
+	// streamMethods holds the rpc.method of every streaming RPC served.
+	streamMethods ssync.Map[string, struct{}]
 
 	// inFlightRequests maps resource names to how many in-flight requests are
 	// currently targeting that resource name. There can only be `limit` API
@@ -140,55 +134,6 @@ func (rc *RequestCounter) decrInFlight(resource string, pc *webrtc.PeerConnectio
 	if pc != nil {
 		rc.ensureCounterForResourceForPC(resource, pc, inFlightCounterName).Add(-1)
 	}
-}
-
-func (rc *RequestCounter) preRequestIncrement(key string) {
-	if stats, ok := rc.requestKeyToStats.Load(key); ok {
-		stats.count.Add(1)
-	} else {
-		// If a key for the request did not yet exist, create a new `requestStats` to add to the
-		// map.
-		newStats := new(requestStats)
-		newStats.count.Add(1)
-
-		// However, it is also possible that our store into the map races with another concurrent
-		// store for the "first" request.
-		storedStats, exists := rc.requestKeyToStats.LoadOrStore(key, newStats)
-		// If we lost that race, instead bump the counter of the `requestStats` object that was
-		// inserted.
-		if exists {
-			storedStats.count.Add(1)
-		}
-	}
-}
-
-func (rc *RequestCounter) postRequestIncrement(key string, timeSpent time.Duration, dataSent int, wasError bool) {
-	if stats, ok := rc.requestKeyToStats.Load(key); ok {
-		stats.timeSpent.Add(timeSpent.Milliseconds())
-		stats.dataSent.Add(int64(dataSent))
-		if wasError {
-			stats.errorCnt.Add(1)
-		}
-	} else if testing.Testing() {
-		panic(fmt.Sprintf("Invariant failed. Key must exist in `postRequestIncrement`. Key: %v", key))
-	}
-}
-
-// Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
-func (rc *RequestCounter) Stats() any {
-	ret := make(map[string]int64)
-	for requestKey, requestStats := range rc.requestKeyToStats.Range {
-		ret[fmt.Sprintf("%v", requestKey)] = requestStats.count.Load()
-		ret[fmt.Sprintf("%v.errorCnt", requestKey)] = requestStats.errorCnt.Load()
-		ret[fmt.Sprintf("%v.timeSpent", requestKey)] = requestStats.timeSpent.Load()
-		ret[fmt.Sprintf("%v.dataSentBytes", requestKey)] = requestStats.dataSent.Load()
-	}
-
-	for k, v := range rc.inFlightRequests.Range {
-		ret[fmt.Sprintf("%v.inFlightRequests", k)] = v.Load()
-	}
-
-	return ret
 }
 
 // ClientInformation represents the metadata, connection information, and request counts
@@ -413,6 +358,16 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
+	attrs := requestAttrs(ctx, info.FullMethod, apiMethod, req)
+	rc.begin(ctx, attrs)
+	start := time.Now()
+	defer func() {
+		respSize := 0
+		if protoMsg, ok := resp.(proto.Message); ok {
+			respSize = proto.Size(protoMsg)
+		}
+		rc.finish(ctx, attrs, start, respSize, err)
+	}()
 
 	if _, ok := inFlightLimitCheckExcluded[apiMethod.full]; !ok {
 		pc, pcSet := rpc.ContextPeerConnection(ctx)
@@ -431,39 +386,6 @@ func (rc *RequestCounter) UnaryInterceptor(
 			}
 			defer rc.decrInFlight(resource, pc)
 		}
-	}
-
-	requestCounterKey := buildRCKey(req, apiMethod)
-	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
-	if apiMethod.shortPath != "" {
-		rc.preRequestIncrement(requestCounterKey)
-
-		start := time.Now()
-		defer func() {
-			// Dan: Some metrics want to take the difference of "time spent" between two recordings
-			// (spaced by some "window size") and divide by the "number of calls". Doing the
-			// `incrementCounter` at the RPC call start and `incrementTimeSpent` at the end creates
-			// an odd skew. Where at some later point there will be an increase in time spent not
-			// immediately accompanied by an increase in calls.
-			//
-			// This can create difficult to parse data when requests start taking a "window size"
-			// amount of time to complete. We may want to consider calling `incrementCounter` in the
-			// defer. But that could lead to a scenario where, if an RPC call causes a deadlock,
-			// FTDC wouldn't have any record of that RPC call being invoked.
-			//
-			// Perhaps the "perfect" solution is to track both "request started" and "request
-			// finished". And have latency graphs use "request finished".
-			respSize := 0
-			if protoMsg, ok := resp.(proto.Message); ok {
-				respSize = proto.Size(protoMsg)
-			}
-			rc.postRequestIncrement(
-				requestCounterKey,
-				time.Since(start),
-				respSize,
-				err != nil,
-			)
-		}()
 	}
 
 	resp, err = handler(ctx, req)
@@ -570,70 +492,61 @@ func (rc *RequestCounter) incrInFlight(resource string, pc *webrtc.PeerConnectio
 	return true
 }
 
-// StreamInterceptor extracts the service and method names before invoking the handler to complete the RPC.
-// It is called once per stream and will run on:
-// Client streaming: rpc Method (stream a) returns (b)
-// Server streaming: rpc Method (a) returns (stream b)
-// Bidirectional streaming: rpc Method (stream a) returns (stream b).
+// StreamInterceptor records metrics for every stream. A Viam API stream is labeled with the
+// resource named in its first request message, so it counts as started once that message arrives.
 func (rc *RequestCounter) StreamInterceptor(
 	srv any,
 	ss googlegrpc.ServerStream,
 	info *googlegrpc.StreamServerInfo,
 	handler googlegrpc.StreamHandler,
 ) error {
-	apiMethod := extractViamAPI(info.FullMethod)
-
-	// Only count Viam apiMethods
-	if apiMethod.shortPath != "" {
-		wrappedStream := wrappedStreamWithRC{
-			ServerStream: ss,
-			apiMethod:    apiMethod,
-			rc:           rc,
-			requestKey:   atomic.Pointer[string]{},
-		}
-		return handler(srv, &wrappedStream)
+	rc.streamMethods.LoadOrStore(strings.TrimPrefix(info.FullMethod, "/"), struct{}{})
+	wrapped := &wrappedStreamWithRC{
+		ServerStream: ss,
+		rc:           rc,
+		fullMethod:   info.FullMethod,
+		apiMethod:    extractViamAPI(info.FullMethod),
 	}
-	return handler(srv, ss)
+	if wrapped.apiMethod.shortPath == "" {
+		wrapped.begin(nil)
+	}
+	start := time.Now()
+	err := handler(srv, wrapped)
+	wrapped.begin(nil)
+	rc.finish(ss.Context(), wrapped.attrs, start, 0, err)
+	return err
 }
 
 type wrappedStreamWithRC struct {
 	googlegrpc.ServerStream
-	apiMethod apiMethod
-	rc        *RequestCounter
+	rc         *RequestCounter
+	fullMethod string
+	apiMethod  apiMethod
 
-	// Set on the initial client request.
-	requestKey atomic.Pointer[string]
+	beginOnce sync.Once
+	attrs     []attribute.KeyValue
 }
 
-// RecvMsg increments the reference counter upon receiving the first message from the client.
-// It is called on every message the client streams to the server (potentially many times per stream).
+func (w *wrappedStreamWithRC) begin(msg any) {
+	w.beginOnce.Do(func() {
+		w.attrs = requestAttrs(w.Context(), w.fullMethod, w.apiMethod, msg)
+		w.rc.begin(w.Context(), w.attrs)
+	})
+}
+
+// RecvMsg labels the stream from the first message the client sends.
 func (w *wrappedStreamWithRC) RecvMsg(m any) error {
-	// Unmarshalls into m (to populate fields).
 	err := w.ServerStream.RecvMsg(m)
-
-	if w.requestKey.Load() == nil {
-		requestKey := buildRCKey(m, w.apiMethod)
-		w.requestKey.Store(&requestKey)
-		// Dan: As above, we have to call the underlying handler first before
-		// `preRequestIncrement`. Because the message object has not been initialized yet. It's not
-		// clear to me what options we have to pull out the message's `name` field before
-		w.rc.preRequestIncrement(requestKey)
-	}
-
+	w.begin(m)
 	return err
 }
 
 func (w *wrappedStreamWithRC) SendMsg(m any) error {
-	if requestKeyPtr := w.requestKey.Load(); requestKeyPtr != nil {
-		if protoMsg, ok := m.(proto.Message); ok {
-			w.rc.postRequestIncrement(*requestKeyPtr, 0, proto.Size(protoMsg), false)
-		}
-	} else {
-		panic(fmt.Sprintf("Invariant failed. Key must exist for `postRequestIncrement`. Key: %v", w.requestKey.Load()))
+	w.begin(nil)
+	if protoMsg, ok := m.(proto.Message); ok {
+		w.rc.inst.sent.Add(w.Context(), int64(proto.Size(protoMsg)), metric.WithAttributes(w.attrs...))
 	}
-
-	err := w.ServerStream.SendMsg(m)
-	return err
+	return w.ServerStream.SendMsg(m)
 }
 
 func extractViamAPI(fullMethod string) apiMethod {
@@ -668,18 +581,6 @@ func extractViamAPI(fullMethod string) apiMethod {
 	default:
 		return apiMethod{}
 	}
-}
-
-// buildRCKey builds the key to be used in the RequestCounter's counts map.
-// If the msg satisfies web.Namer, the key will be in the format "name.method",
-// Otherwise, the key will be just "method".
-func buildRCKey(clientMsg any, method apiMethod) string {
-	if clientMsg != nil {
-		if name := method.getResourceName(clientMsg); name != "" {
-			return fmt.Sprintf("%v.%v", name, method.shortPath)
-		}
-	}
-	return method.shortPath
 }
 
 func buildResourceLimitKey(clientMsg any, method apiMethod) string {

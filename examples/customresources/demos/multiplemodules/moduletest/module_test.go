@@ -392,10 +392,7 @@ func checkTraceContents(t testing.TB, viamHome string, expectations ...spanExpec
 			attrs := lo.SliceToMap(span.Attributes, func(item *otlpcommonv1.KeyValue) (string, string) {
 				return item.Key, item.Value.GetStringValue()
 			})
-			if exp.rpcMethod != attrs[string(semconv.RPCMethodKey)] {
-				return false
-			}
-			if exp.rpcService != attrs[string(semconv.RPCServiceKey)] {
+			if exp.rpcService+"/"+exp.rpcMethod != attrs[string(semconv.RPCMethodKey)] {
 				return false
 			}
 			if exp.resourceName != "" && exp.resourceName != attrs["viam.resource.name"] {

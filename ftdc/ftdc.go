@@ -173,7 +173,8 @@ func newFTDC(logger logging.Logger) *FTDC {
 	}
 }
 
-// Add registers a new statser that will be recorded in future FTDC loop iterations.
+// Add registers a new statser that will be recorded in future FTDC loop iterations. A statser added
+// with an empty name is not prefixed, so its Stats must return a map of fully qualified field names.
 func (ftdc *FTDC) Add(name string, statser Statser) {
 	ftdc.mu.Lock()
 	defer ftdc.mu.Unlock()
@@ -323,6 +324,13 @@ func (ftdc *FTDC) constructDatum() datum {
 	return datum
 }
 
+func qualify(statserName, field string) string {
+	if statserName == "" {
+		return field
+	}
+	return statserName + "." + field
+}
+
 // walk accepts a datum and the previous schema and will return:
 // - the new schema. If the schema is unchanged, this will be the same pointer value as `previousSchema`.
 // - the flattened float32 data points.
@@ -379,7 +387,7 @@ func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, err
 		datumMapOrder = append(datumMapOrder, key)
 		// For each field we found, prefix it with the `datum` key (the `Statser` name).
 		for idx := range itemFields {
-			fields = append(fields, fmt.Sprintf("%v.%v", key, itemFields[idx]))
+			fields = append(fields, qualify(key, itemFields[idx]))
 		}
 		values = append(values, itemNumbers...)
 	}
@@ -403,7 +411,7 @@ func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, err
 		datumMapOrder = append(datumMapOrder, dataKey)
 		// Similarly, prefix fields with the `Statser` name.
 		for idx := range itemFields {
-			fields = append(fields, fmt.Sprintf("%v.%v", dataKey, itemFields[idx]))
+			fields = append(fields, qualify(dataKey, itemFields[idx]))
 		}
 		values = append(values, itemNumbers...)
 	}

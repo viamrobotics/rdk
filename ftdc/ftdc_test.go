@@ -170,6 +170,21 @@ func TestMapStatser(t *testing.T) {
 	test.That(t, datums[1].asDatum().Data["mapStatser"], test.ShouldResemble, map[string]float32{"B": 42})
 }
 
+func TestUnprefixedStatser(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ftdcData := bytes.NewBuffer(nil)
+	ftdc := NewWithWriter(ftdcData, logger.Sublogger("ftdc"))
+
+	ftdc.Add("res", &mockStatser{struct{ ResStats int }{7}})
+	ftdc.Add("", &mockStatser{map[string]float64{"res.State": 3}})
+	test.That(t, ftdc.writeDatum(ftdc.constructDatum()), test.ShouldBeNil)
+
+	datums, _, err := ParseWithLogger(ftdcData, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, datums, test.ShouldHaveLength, 1)
+	test.That(t, datums[0].asDatum().Data["res"], test.ShouldResemble, map[string]float32{"ResStats": 7, "State": 3})
+}
+
 type nestedStatser struct {
 	x int
 	z int

@@ -26,6 +26,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/otelmetrics"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -62,6 +63,7 @@ type robotServer struct {
 	registry                                   *logging.Registry
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
+	metrics                                    *otelmetrics.Metrics
 	stopReason                                 atomic.Pointer[string]
 	// startupStarted and shutdownStarted feed the duration kv on the startup/shutdown
 	// complete activity events.
@@ -233,6 +235,30 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer exporter.Stop()
 	}
 
+	var metrics *otelmetrics.Metrics
+	if argsParsed.EnableFTDC || otelmetrics.OTLPEnabled() {
+		var partID string
+		if cfgFromDisk.Cloud != nil {
+			partID = cfgFromDisk.Cloud.ID
+		}
+		var metricsErr error
+		metrics, metricsErr = otelmetrics.New(ctx, otelmetrics.Config{
+			PartID:  partID,
+			Version: config.Version,
+			FTDC:    argsParsed.EnableFTDC,
+			OTLP:    otelmetrics.OTLPEnabled(),
+		})
+		if metricsErr != nil {
+			rootLogger.Warnw("Failed to start metrics", "err", metricsErr)
+		} else {
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				utils.UncheckedError(metrics.Shutdown(shutdownCtx))
+			}()
+		}
+	}
+
 	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
 	// serialized manner
 	if cfgFromDisk.Cloud != nil {
@@ -307,6 +333,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		conn:             appConn,
 		signalingConn:    signalingConn,
 		startupStarted:   startupStarted,
+		metrics:          metrics,
 	}
 
 	// Run the server with remote logging enabled.
@@ -674,6 +701,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if s.args.EnableFTDC {
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
 	}
+	robotOptions = append(robotOptions, robotimpl.WithMetrics(s.metrics))
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
 	// all components, services, remotes, modules, processes, packages, and jobs from

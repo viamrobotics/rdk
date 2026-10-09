@@ -1146,3 +1146,14 @@ func (g *Graph) Status() []NodeStatus {
 	}
 	return result
 }
+
+// Availability reports GraphNode.Availability for every node in the graph.
+func (g *Graph) Availability() map[Name]Availability {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	ret := make(map[Name]Availability, g.nodes.Len())
+	for name, node := range g.nodes.All() {
+		ret[name] = node.Availability()
+	}
+	return ret
+}

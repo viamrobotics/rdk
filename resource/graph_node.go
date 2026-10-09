@@ -695,33 +695,64 @@ func (w *GraphNode) status() NodeStatus {
 	}
 }
 
+// Availability is what Resource returns for a node. It differs from NodeState: a node that is
+// reconfiguring still serves its previous resource. The integer values are the codes FTDC records
+// as "<resource>.State", so the order is fixed.
+type Availability int
+
+const (
+	// AvailabilityReady means Resource returns the resource.
+	AvailabilityReady Availability = iota
+	// AvailabilityUninitialized means the node has no resource yet.
+	AvailabilityUninitialized
+	// AvailabilityRemoving means the node is marked for removal.
+	AvailabilityRemoving
+	// AvailabilityUnhealthy means the node's last construction or reconfiguration failed.
+	AvailabilityUnhealthy
+)
+
+func (a Availability) String() string {
+	switch a {
+	case AvailabilityReady:
+		return "ready"
+	case AvailabilityUninitialized:
+		return "uninitialized"
+	case AvailabilityRemoving:
+		return "removing"
+	case AvailabilityUnhealthy:
+		return "unhealthy"
+	default:
+		return "unknown"
+	}
+}
+
+// Availability reports what Resource would return for this node.
+func (w *GraphNode) Availability() Availability {
+	_, err := w.Resource()
+	//nolint:errorlint
+	switch err {
+	case nil:
+		return AvailabilityReady
+	case errNotInitalized:
+		return AvailabilityUninitialized
+	case errPendingRemoval:
+		return AvailabilityRemoving
+	default:
+		return AvailabilityUnhealthy
+	}
+}
+
 type graphNodeStats struct {
-	State    int
 	ResStats any
 }
 
 // Stats satisfies the FTDC Statser interface.
 func (w *GraphNode) Stats() any {
 	ret := graphNodeStats{}
-
 	res, err := w.Resource()
-	//nolint:errorlint
-	switch err {
-	case nil:
-		ret.State = 0
-	case errNotInitalized:
-		ret.State = 1
-	case errPendingRemoval:
-		ret.State = 2
-	default:
-		// `w.lastErr != nil`
-		ret.State = 3
-	}
-
 	if statser, isStatser := res.(ftdc.Statser); isStatser && err == nil {
 		ret.ResStats = statser.Stats()
 	}
-
 	return ret
 }
 
