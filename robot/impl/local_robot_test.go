@@ -52,6 +52,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/actuatorstop"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
@@ -932,6 +933,97 @@ func TestStopAllDoesNotCancelOwnContext(t *testing.T) {
 	test.That(t, stopCtxErr, test.ShouldBeNil)
 	test.That(t, stopAllOpCtx.Err(), test.ShouldBeNil)
 	test.That(t, otherOpCtx.Err(), test.ShouldEqual, context.Canceled)
+}
+
+func TestStopAllStalledRemote(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+
+	remoteStopCalled := make(chan struct{}, 1)
+	releaseRemoteStop := make(chan struct{})
+	var localStops atomic.Int32
+	resource.RegisterComponent(
+		arm.API,
+		model,
+		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (arm.Arm, error) {
+			if conf.Name == "remoteArm" {
+				return &inject.Arm{StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+					select {
+					case remoteStopCalled <- struct{}{}:
+					default:
+					}
+					<-releaseRemoteStop
+					return nil
+				}}, nil
+			}
+			return &inject.Arm{StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+				localStops.Add(1)
+				return nil
+			}}, nil
+		}},
+	)
+	defer resource.Deregister(arm.API, model)
+
+	remoteCfg := &config.Config{
+		Components: []resource.Config{{Name: "remoteArm", API: arm.API, Model: model}},
+	}
+	remoteRobot := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
+	options, _, remoteAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remoteRobot.StartWeb(ctx, options), test.ShouldBeNil)
+	// The remote's Stop handler must return before the remote robot can close.
+	defer close(releaseRemoteStop)
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "arm1", API: arm.API, Model: model},
+			{Name: "arm2", API: arm.API, Model: model},
+		},
+		Remotes: []config.Remote{{Name: "rem", Address: remoteAddr}},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger.Sublogger("main"))
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		_, err := r.ResourceByName(arm.Named("remoteArm"))
+		test.That(tb, err, test.ShouldBeNil)
+	})
+
+	start := time.Now()
+	stopAllErrCh := make(chan error, 1)
+	go func() {
+		stopAllErrCh <- r.StopAll(ctx, nil)
+	}()
+
+	select {
+	case <-remoteStopCalled:
+	case <-time.After(actuatorstop.RemoteTimeout):
+		t.Fatal("remote Stop was never called")
+	}
+	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 100, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, localStops.Load(), test.ShouldEqual, 2)
+	})
+	select {
+	case <-stopAllErrCh:
+		t.Fatal("StopAll returned while the remote Stop was still blocked")
+	default:
+	}
+
+	select {
+	case err := <-stopAllErrCh:
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "remoteArm")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "arm1")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "arm2")
+	case <-time.After(2 * actuatorstop.RemoteTimeout):
+		t.Fatal("StopAll did not return after the remote Stop timed out")
+	}
+	test.That(t, time.Since(start), test.ShouldBeLessThan, actuatorstop.RemoteTimeout+time.Second)
 }
 
 func TestNewTeardown(t *testing.T) {

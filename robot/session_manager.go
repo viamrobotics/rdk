@@ -2,6 +2,8 @@ package robot
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/internal/actuatorstop"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
@@ -22,6 +25,7 @@ func NewSessionManager(robot Robot, heartbeatWindow time.Duration) *SessionManag
 		logger:            robot.Logger().Sublogger("networking.session_manager"),
 		sessions:          map[uuid.UUID]*session.Session{},
 		resourceToSession: map[resource.Name]uuid.UUID{},
+		stopping:          map[resource.Name]chan struct{}{},
 	}
 	m.workers = utils.NewBackgroundStoppableWorkers(m.expireLoop)
 	return m
@@ -38,6 +42,8 @@ type SessionManager struct {
 	sessions          map[uuid.UUID]*session.Session
 
 	resourceToSession map[resource.Name]uuid.UUID
+	// stopping holds, per resource, a channel closed when its session-expiry stop finishes.
+	stopping map[resource.Name]chan struct{}
 
 	workers *utils.StoppableWorkers
 }
@@ -66,70 +72,28 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 
 		toDelete := map[uuid.UUID]*session.Session{}
 		stoppedBySession := map[uuid.UUID][]string{}
-		var toStop []resource.Name
-		m.sessionResourceMu.RLock()
+		toStop := map[resource.Name]chan struct{}{}
+		m.sessionResourceMu.Lock()
 		for id, sess := range m.sessions {
 			if !sess.Active(now) {
 				toDelete[id] = sess
+				delete(m.sessions, id)
 			}
 		}
 		for res, sess := range m.resourceToSession {
 			if _, ok := toDelete[sess]; ok {
-				resCopy := res
-				toStop = append(toStop, resCopy)
+				done := make(chan struct{})
+				m.stopping[res] = done
+				toStop[res] = done
 				stoppedBySession[sess] = append(stoppedBySession[sess], res.String())
 			}
 		}
-		m.sessionResourceMu.RUnlock()
+		m.sessionResourceMu.Unlock()
 
-		var resourceErrs []error
-		var serverClosing bool
-		func() {
-			m.sessionResourceMu.Lock()
-			defer m.sessionResourceMu.Unlock()
-			for id := range toDelete {
-				delete(m.sessions, id)
-			}
-
-			if len(toStop) == 0 {
-				return
-			}
-			for _, resName := range toStop {
-				func() {
-					defer func() {
-						if err := recover(); err != nil {
-							resourceErrs = append(resourceErrs, errors.Errorf("panic stopping %q: %v", resName, err))
-						}
-					}()
-					res, err := m.robot.ResourceByName(resName)
-					if err != nil {
-						// It's possible at this point that the robot is Closing, the
-						// resource manager has already been closed, and the resource
-						// associated with the session has been removed from the graph and
-						// cannot be found. If the error is a not found error and the
-						// context has errored, return without appending to resourceErrs
-						// and set serverClosing to true.
-						if resource.IsNotFoundError(err) && ctx.Err() != nil {
-							serverClosing = true
-							return
-						}
-						resourceErrs = append(resourceErrs, err)
-						return
-					}
-
-					if actuator, ok := res.(resource.Actuator); ok {
-						if err := actuator.Stop(ctx, nil); err != nil {
-							resourceErrs = append(resourceErrs, err)
-						}
-					}
-				}()
-				if serverClosing {
-					return
-				}
-			}
-		}()
-		if serverClosing {
-			return
+		if len(toStop) != 0 {
+			m.workers.Add(func(ctx context.Context) {
+				m.stopResources(ctx, toStop)
+			})
 		}
 
 		if len(toDelete) != 0 {
@@ -145,11 +109,90 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 			}
 			m.logger.CDebugw(ctx, "sessions expired", "session_ids", deletedIDs)
 		}
-		if len(toStop) != 0 {
-			m.logger.CDebugw(ctx, "tried to stop some resources", "resources", toStop)
+	}
+}
+
+// stopResources concurrently stops the actuators among toStop without holding sessionResourceMu, so
+// a slow stop cannot stall heartbeats or the expiry of other sessions. Each channel in toStop is
+// closed once its resource's stop finishes.
+func (m *SessionManager) stopResources(ctx context.Context, toStop map[resource.Name]chan struct{}) {
+	remoteNames := map[resource.Name]bool{}
+	for _, name := range m.robot.ResourceNames() {
+		if name.ContainsRemoteNames() {
+			remoteNames[resource.Name{API: name.API, Name: name.Name}] = true
 		}
-		if len(resourceErrs) != 0 {
-			m.logger.CErrorw(ctx, "failed to stop some resources", "errors", resourceErrs)
+	}
+
+	var (
+		wg           sync.WaitGroup
+		mu           sync.Mutex
+		resourceErrs []error
+	)
+	for resName, done := range toStop {
+		wg.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer wg.Done()
+			defer m.finishStop(resName, done)
+			if err := m.stopResource(ctx, resName, remoteNames); err != nil {
+				mu.Lock()
+				resourceErrs = append(resourceErrs, err)
+				mu.Unlock()
+			}
+		})
+	}
+	wg.Wait()
+
+	m.logger.CDebugw(ctx, "tried to stop some resources", "resources", slices.Collect(maps.Keys(toStop)))
+	if len(resourceErrs) != 0 {
+		m.logger.CErrorw(ctx, "failed to stop some resources", "errors", resourceErrs)
+	}
+}
+
+func (m *SessionManager) stopResource(ctx context.Context, name resource.Name, remoteNames map[resource.Name]bool) error {
+	res, err := m.robot.ResourceByName(name)
+	if err != nil {
+		// A closing robot removes its resources, which is not a failure to stop.
+		if resource.IsNotFoundError(err) && ctx.Err() != nil {
+			return nil
+		}
+		return err
+	}
+	actuator, ok := res.(resource.Actuator)
+	if !ok {
+		return nil
+	}
+	if remoteNames[resource.Name{API: name.API, Name: name.Name}] {
+		return actuatorstop.StopRemote(ctx, name, actuator, nil)
+	}
+	return actuatorstop.StopLocal(ctx, name, actuator, nil)
+}
+
+func (m *SessionManager) finishStop(name resource.Name, done chan struct{}) {
+	m.sessionResourceMu.Lock()
+	if m.stopping[name] == done {
+		delete(m.stopping, name)
+	}
+	m.sessionResourceMu.Unlock()
+	close(done)
+}
+
+// associateAfterStop waits until no session-expiry stop is in flight on name, then associates name
+// with id. It checks and associates under one lock, so an expiry either sees the new association or
+// registers its stop before the check.
+func (m *SessionManager) associateAfterStop(ctx context.Context, id uuid.UUID, name resource.Name) error {
+	for {
+		m.sessionResourceMu.Lock()
+		done, stopping := m.stopping[name]
+		if !stopping {
+			m.resourceToSession[name] = id
+			m.sessionResourceMu.Unlock()
+			return nil
+		}
+		m.sessionResourceMu.Unlock()
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
@@ -200,4 +243,11 @@ func (m *SessionManager) AssociateResource(id uuid.UUID, resourceName resource.N
 // Close stops the session manager but will not explicitly expire any sessions.
 func (m *SessionManager) Close() {
 	m.workers.Stop()
+	// A stop registered after the workers stopped never runs, so release anyone waiting on it.
+	m.sessionResourceMu.Lock()
+	for name, done := range m.stopping {
+		delete(m.stopping, name)
+		close(done)
+	}
+	m.sessionResourceMu.Unlock()
 }
