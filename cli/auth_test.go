@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -470,6 +471,17 @@ func TestPrepareDialRefreshesExpiredToken(t *testing.T) {
 
 func TestPrepareDialRefreshesBetweenCopyRetries(t *testing.T) {
 	// Ensures `machine part cp` can refresh a token between retries. E2E of above test.
+
+	// Skipped on Windows alongside TestShellFileCopy: `machine part cp` is not supported
+	// on Windows machines (RSDK-11617). This test additionally destabilizes the whole
+	// Windows `go test -json` run: on that runner its copy path emits a single stdout line
+	// larger than 64KB, which overflows gotestsum's default bufio.Scanner (gotestsum never
+	// calls scanner.Buffer). That aborts the entire stream with "failed to scan test output:
+	// bufio.Scanner: token too long", so whichever test is in flight is marked failed and the
+	// rest "(unknown)" -- none of which are real assertion failures. See RSDK-11617.
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-11617")
+	}
 
 	useTempCLICache(t)
 	srv, hits := newRefreshTokenServer(t, "fresh-access-token")
