@@ -69,20 +69,30 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 
 		result.BytesTotal += uint64(fi.Size())
 
+		// This path bypasses the sync-worker fileTracker, so the progress logger's
+		// lifetime is managed locally: close always cleans up the goroutine, while
+		// complete/failure log the summary and record the FTDC stats.
+		progress := newUploadProgressLogger(s.logger, s.clock, filePath, fi.Size(), &s.uploadStats.frompath)
+		defer progress.close()
+
+		progress.startAttempt()
 		uploadedBytes, id, uploadErr := uploadArbitraryFile(ctx, f, s.cloudConn,
-			tags, datasetIDs, 0, s.clock, s.logger, &s.uploadStats.arbitrary.uploadingBytes)
+			tags, datasetIDs, 0, s.clock, s.logger, progress)
+		if uploadErr != nil {
+			progress.attemptFailed()
+		}
+		progress.onResult(uploadedBytes, uploadErr)
 		if closeErr := f.Close(); closeErr != nil {
-			s.logger.Warnw("failed to close file after upload", "path", filePath, "error", closeErr)
+			s.logger.Warnw("failed to close file after upload data from path request", "path", filePath, "error", closeErr)
 		}
 		if uploadErr != nil {
-			s.logger.Errorw("failed to upload file", "path", filePath, "error", uploadErr)
-			s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
 			result.FilesFailed++
+			// Unlike the scheduled sync paths, this calls uploadArbitraryFile directly (no
+			// retry wrapper), so wrap the error to identify the path for logUploadOutcome.
+			logUploadOutcome(s.logger, filePath, errors.Wrapf(uploadErr, "error uploading file from path %s", filePath))
 			return
 		}
 
-		s.uploadStats.arbitrary.uploadedFileCount.Add(1)
-		s.uploadStats.arbitrary.completedUploadBytes.Add(uploadedBytes)
 		result.FilesUploaded++
 		result.BytesUploaded += uploadedBytes
 		if id != "" {
