@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -92,6 +93,50 @@ func TestValidateModelAPI(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	err = validateModelAPI("other:component:x_")
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCompositeModelMetadata(t *testing.T) {
+	cam := "rdk:component:camera"
+	ms := "rdk:component:movement_sensor"
+	giz := "acme:component:gizmo"
+
+	t.Run("modelAPIs dedups, sorts, and always includes api", func(t *testing.T) {
+		test.That(t, modelAPIs(ModuleComponent{API: ms, APIs: []string{cam, ms, giz}}),
+			test.ShouldResemble, []string{giz, cam, ms})
+		test.That(t, modelAPIs(ModuleComponent{API: cam}), test.ShouldResemble, []string{cam})
+		// api missing from apis is still included
+		test.That(t, modelAPIs(ModuleComponent{API: cam, APIs: []string{ms}}),
+			test.ShouldResemble, []string{cam, ms})
+	})
+
+	t.Run("proto carries the full set for a composite and nothing extra for a single-API model", func(t *testing.T) {
+		composite := moduleComponentToProto(ModuleComponent{API: cam, APIs: []string{cam, ms, giz}, Model: "acme:demo:combo"})
+		test.That(t, composite.Api, test.ShouldEqual, cam)
+		test.That(t, composite.Apis, test.ShouldResemble, []string{giz, cam, ms})
+
+		single := moduleComponentToProto(ModuleComponent{API: cam, Model: "acme:demo:solo"})
+		test.That(t, single.Apis, test.ShouldBeNil)
+	})
+
+	t.Run("sameModels compares the full set, not the primary api", func(t *testing.T) {
+		a := []ModuleComponent{{API: cam, APIs: []string{cam, ms}, Model: "m"}}
+		// same set, different (user-chosen) primary -> unchanged
+		test.That(t, sameModels(a, []ModuleComponent{{API: ms, APIs: []string{cam, ms}, Model: "m"}}),
+			test.ShouldBeTrue)
+		// different set -> changed
+		test.That(t, sameModels(a, []ModuleComponent{{API: cam, APIs: []string{cam, giz}, Model: "m"}}),
+			test.ShouldBeFalse)
+	})
+
+	t.Run("validateModels flags a primary api not in apis", func(t *testing.T) {
+		var buf bytes.Buffer
+		validateModels(&buf, &ModuleManifest{Models: []ModuleComponent{{API: cam, APIs: []string{ms, giz}, Model: "m"}}})
+		test.That(t, buf.String(), test.ShouldContainSubstring, "must be one of apis")
+
+		buf.Reset()
+		validateModels(&buf, &ModuleManifest{Models: []ModuleComponent{{API: cam, APIs: []string{cam, ms}, Model: "m"}}})
+		test.That(t, buf.String(), test.ShouldEqual, "")
+	})
 }
 
 func TestModelTripleToMarkdownFilename(t *testing.T) {
