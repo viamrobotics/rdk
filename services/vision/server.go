@@ -296,6 +296,7 @@ func (server *serviceServer) GetProperties(ctx context.Context,
 		ObjectPointCloudsSupported: props.ObjectPCDsSupported,
 		DefaultCamera:              props.DefaultCamera,
 		Detections_3DSupported:     props.Detections3DSupported,
+		Cameras:                    props.Cameras,
 	}
 	return out, nil
 }
