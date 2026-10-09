@@ -11,7 +11,9 @@ import (
 )
 
 func TestNewResource(t *testing.T) {
-	res, err := newResource(context.Background(), "part-123", "v0.0.1")
+	res, err := newResource(context.Background(), Config{
+		PartID: "part-123", MachineID: "machine-1", LocationID: "location-1", OrgID: "org-1", Version: "v0.0.1",
+	})
 	test.That(t, err, test.ShouldBeNil)
 
 	set := res.Set()
@@ -20,6 +22,9 @@ func TestNewResource(t *testing.T) {
 		"service.namespace": "viam.com",
 		"service.version":   "v0.0.1",
 		"viam.part.id":      "part-123",
+		"viam.machine.id":   "machine-1",
+		"viam.location.id":  "location-1",
+		"viam.org.id":       "org-1",
 	} {
 		got, ok := set.Value(key)
 		test.That(t, ok, test.ShouldBeTrue)
@@ -29,7 +34,7 @@ func TestNewResource(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Setenv("OTEL_SERVICE_NAME", "from-env")
-	res, err = newResource(context.Background(), "", "")
+	res, err = newResource(context.Background(), Config{})
 	test.That(t, err, test.ShouldBeNil)
 	got, _ := res.Set().Value("service.name")
 	test.That(t, got.AsString(), test.ShouldEqual, "from-env")

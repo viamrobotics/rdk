@@ -452,6 +452,10 @@ func (m *dummyModMan) IsModularResource(name resource.Name) bool {
 	return name.Name != "nonmod" && name.API.Type.Namespace != resource.APINamespaceRDKInternal
 }
 
+func (m *dummyModMan) ModuleName(name resource.Name) (string, bool) {
+	return "", false
+}
+
 func (m *dummyModMan) Configs() []config.Module {
 	m.mu.Lock()
 	defer m.mu.Unlock()

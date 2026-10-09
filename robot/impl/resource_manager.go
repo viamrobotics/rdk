@@ -78,6 +78,7 @@ type moduleManager interface {
 	Configs() []config.Module
 	FirstRun(ctx context.Context, conf config.Module) error
 	IsModularResource(name resource.Name) bool
+	ModuleName(name resource.Name) (string, bool)
 	Kill()
 	Provides(conf resource.Config) bool
 	Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error)
