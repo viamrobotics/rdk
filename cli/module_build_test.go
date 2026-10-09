@@ -291,7 +291,7 @@ func (s *fakeSourceUploadBuildStream) CloseAndRecv() (*v1.StartSourceUploadBuild
 func TestModuleBuildStartFromSource(t *testing.T) {
 	// Lay out a source directory with a meta.json and a small "source" file so
 	// createGitArchive has something non-trivial to package up.
-	sourceDir := t.TempDir()
+	sourceDir, revision := sourceRepo(t)
 	manifestPath := filepath.Join(sourceDir, "meta.json")
 	createTestManifest(t, manifestPath, map[string]any{
 		"build": map[string]any{
@@ -369,11 +369,19 @@ func TestModuleBuildStartFromSource(t *testing.T) {
 	test.That(t, info.GetType(), test.ShouldEqual, packagespb.PackageType_PACKAGE_TYPE_MODULE)
 
 	// Remaining sends are chunked tarball contents.
+	var uploaded []byte
 	for _, req := range stream.sends[2:] {
 		pkg := req.GetPackage()
 		test.That(t, pkg, test.ShouldNotBeNil)
 		test.That(t, pkg.GetContents(), test.ShouldNotBeNil)
+		uploaded = append(uploaded, pkg.GetContents()...)
 	}
+	uploadedPath := filepath.Join(t.TempDir(), "uploaded.tar.gz")
+	test.That(t, os.WriteFile(uploadedPath, uploaded, 0o600), test.ShouldBeNil)
+	files := archiveContents(t, uploadedPath)
+	var metadata moduleSourceMetadata
+	test.That(t, json.Unmarshal(files[moduleSourceMetadataFile], &metadata), test.ShouldBeNil)
+	test.That(t, metadata.Git, test.ShouldResemble, &moduleSourceGit{Revision: revision, Modified: true})
 
 	// Stdout: just the buildID (machine-readable). Stderr: human-readable
 	// follow-up instructions matching `module build start`.
@@ -752,6 +760,16 @@ func TestGetOrgIDForPart(t *testing.T) {
 // archiveFiles returns the sorted list of file names inside a .tar.gz archive.
 func archiveFiles(t *testing.T, archivePath string) []string {
 	t.Helper()
+	var names []string
+	for name := range archiveContents(t, archivePath) {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func archiveContents(t *testing.T, archivePath string) map[string][]byte {
+	t.Helper()
 	f, err := os.Open(archivePath)
 	test.That(t, err, test.ShouldBeNil)
 	defer f.Close()
@@ -760,17 +778,20 @@ func archiveFiles(t *testing.T, archivePath string) []string {
 	defer gr.Close()
 	tr := tar.NewReader(gr)
 
-	var names []string
+	files := map[string][]byte{}
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		test.That(t, err, test.ShouldBeNil)
-		names = append(names, hdr.Name)
+		_, exists := files[hdr.Name]
+		test.That(t, exists, test.ShouldBeFalse)
+		content, err := io.ReadAll(tr)
+		test.That(t, err, test.ShouldBeNil)
+		files[hdr.Name] = content
 	}
-	sort.Strings(names)
-	return names
+	return files
 }
 
 // writeFile is a test helper that creates parent dirs and writes content.
@@ -792,12 +813,12 @@ func TestCreateGitArchive(t *testing.T) {
 		writeFile(t, filepath.Join(root, "lib", "util.go"), "package lib")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root)
+		archivePath, err := vc.createGitArchive(t.Context(), root)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
 		files := archiveFiles(t, archivePath)
-		test.That(t, files, test.ShouldResemble, []string{"lib/util.go", "main.go"})
+		test.That(t, files, test.ShouldResemble, []string{moduleSourceMetadataFile, "lib/util.go", "main.go"})
 	})
 
 	t.Run("root gitignore excludes files", func(t *testing.T) {
@@ -808,12 +829,12 @@ func TestCreateGitArchive(t *testing.T) {
 		writeFile(t, filepath.Join(root, "build", "output.bin"), "binary")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root)
+		archivePath, err := vc.createGitArchive(t.Context(), root)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
 		files := archiveFiles(t, archivePath)
-		test.That(t, files, test.ShouldResemble, []string{".gitignore", "main.go"})
+		test.That(t, files, test.ShouldResemble, []string{".gitignore", moduleSourceMetadataFile, "main.go"})
 	})
 
 	t.Run("nested gitignore excludes files", func(t *testing.T) {
@@ -825,12 +846,13 @@ func TestCreateGitArchive(t *testing.T) {
 		writeFile(t, filepath.Join(root, "web", "dist", "bundle.js"), "bundled")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root)
+		archivePath, err := vc.createGitArchive(t.Context(), root)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
 		files := archiveFiles(t, archivePath)
 		test.That(t, files, test.ShouldResemble, []string{
+			moduleSourceMetadataFile,
 			"main.go",
 			"web/.gitignore",
 			"web/index.html",
@@ -847,12 +869,12 @@ func TestCreateGitArchive(t *testing.T) {
 		writeFile(t, filepath.Join(root, ".git", "config"), "[core]")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root)
+		archivePath, err := vc.createGitArchive(t.Context(), root)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
 		files := archiveFiles(t, archivePath)
-		test.That(t, files, test.ShouldResemble, []string{"main.go"})
+		test.That(t, files, test.ShouldResemble, []string{moduleSourceMetadataFile, "main.go"})
 	})
 
 	t.Run("negation pattern re-includes file", func(t *testing.T) {
@@ -863,12 +885,12 @@ func TestCreateGitArchive(t *testing.T) {
 		writeFile(t, filepath.Join(root, "main.go"), "package main")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root)
+		archivePath, err := vc.createGitArchive(t.Context(), root)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
 		files := archiveFiles(t, archivePath)
-		test.That(t, files, test.ShouldResemble, []string{".gitignore", "important.log", "main.go"})
+		test.That(t, files, test.ShouldResemble, []string{".gitignore", moduleSourceMetadataFile, "important.log", "main.go"})
 	})
 
 	t.Run("no gitignore includes everything", func(t *testing.T) {
@@ -877,12 +899,12 @@ func TestCreateGitArchive(t *testing.T) {
 		writeFile(t, filepath.Join(root, "sub", "b.txt"), "b")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root)
+		archivePath, err := vc.createGitArchive(t.Context(), root)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
 		files := archiveFiles(t, archivePath)
-		test.That(t, files, test.ShouldResemble, []string{"a.txt", "sub/b.txt"})
+		test.That(t, files, test.ShouldResemble, []string{moduleSourceMetadataFile, "a.txt", "sub/b.txt"})
 	})
 
 	t.Run("viamboat-style nested gitignore", func(t *testing.T) {
@@ -902,13 +924,14 @@ func TestCreateGitArchive(t *testing.T) {
 		writeFile(t, filepath.Join(root, "display", "onehelm-web", "dist", "bundle.js"), "bundled")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root)
+		archivePath, err := vc.createGitArchive(t.Context(), root)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
 		files := archiveFiles(t, archivePath)
 		test.That(t, files, test.ShouldResemble, []string{
 			".gitignore",
+			moduleSourceMetadataFile,
 			"display/onehelm-web/.gitignore",
 			"display/onehelm-web/index.html",
 			"display/onehelm-web/package.json",
@@ -924,12 +947,12 @@ func TestCreateGitArchive(t *testing.T) {
 		writeFile(t, filepath.Join(root, "logs", "app.log"), "log data")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root)
+		archivePath, err := vc.createGitArchive(t.Context(), root)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
 		files := archiveFiles(t, archivePath)
-		test.That(t, files, test.ShouldResemble, []string{".gitignore", "main.go"})
+		test.That(t, files, test.ShouldResemble, []string{".gitignore", moduleSourceMetadataFile, "main.go"})
 	})
 }
 
