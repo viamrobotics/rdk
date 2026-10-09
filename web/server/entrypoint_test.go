@@ -116,9 +116,9 @@ func TestEntrypoint(t *testing.T) {
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 
-		numReg := 53
+		numReg := 54
 		if cgoBuiltinsExcluded() {
-			numReg = 45
+			numReg = 46
 			// a cgo-enabled Windows build additionally registers the webcam driver
 			if runtime.GOOS == "windows" && os.Getenv("CGO_ENABLED") == "1" {
 				numReg++

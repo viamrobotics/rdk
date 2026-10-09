@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -1398,10 +1399,22 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 		partNameIndex[part.FrameConfig.Name()] = true
 	}
 
+	// A parent of the form "<part>:<internal>" names a frame inside a part's flattened model. For
+	// ordering purposes the child belongs under that part, which must be added first.
+	resolveParent := func(parent string) string {
+		if partNameIndex[parent] {
+			return parent
+		}
+		if owner, _, ok := strings.Cut(parent, ":"); ok && partNameIndex[owner] {
+			return owner
+		}
+		return parent
+	}
+
 	// make map of children
 	children := make(map[string][]*FrameSystemPart)
 	for _, part := range parts {
-		parent := part.FrameConfig.Parent()
+		parent := resolveParent(part.FrameConfig.Parent())
 		if !partNameIndex[parent] {
 			continue
 		}

@@ -835,3 +835,46 @@ func TestNewFrameToWorldUnknownFrame(t *testing.T) {
 	_, _, err = fk.PoseQT(World)
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestTopologicallySortPartsInternalFrameParent(t *testing.T) {
+	// A part parented to a frame inside another part's model ("arm:link") sorts after that part
+	// rather than being reported as unlinked, and the resulting frame system resolves the parent.
+	model, err := NewModelFromGeometries("arm", []spatial.Geometry{
+		mustBox(t, "link", r3.Vector{X: 1, Y: 1, Z: 1}),
+	})
+	test.That(t, err, test.ShouldBeNil)
+	armLink, err := (&LinkConfig{ID: "arm", Parent: World, Translation: r3.Vector{X: 10}}).ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	camLink, err := (&LinkConfig{ID: "cam", Parent: "arm:link", Translation: r3.Vector{Y: 5}}).ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	parts := []*FrameSystemPart{
+		{FrameConfig: camLink},
+		{FrameConfig: armLink, ModelFrame: model},
+	}
+
+	sorted, unlinked := TopologicallySortParts(parts)
+	test.That(t, unlinked, test.ShouldBeEmpty)
+	test.That(t, sorted, test.ShouldHaveLength, 2)
+	test.That(t, sorted[0].FrameConfig.Name(), test.ShouldEqual, "arm")
+	test.That(t, sorted[1].FrameConfig.Name(), test.ShouldEqual, "cam")
+
+	fs, err := NewFrameSystem("test", sorted, nil)
+	test.That(t, err, test.ShouldBeNil)
+	pose, err := fs.Transform(NewZeroInputs(fs).ToLinearInputs(), NewPoseInFrame("cam", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqual(pose.(*PoseInFrame).Pose(), spatial.NewPoseFromPoint(r3.Vector{X: 10, Y: 5})), test.ShouldBeTrue)
+
+	// A parent that names no part at all is still unlinked.
+	orphan, err := (&LinkConfig{ID: "orphan", Parent: "ghost:link"}).ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	_, unlinked = TopologicallySortParts(append(parts, &FrameSystemPart{FrameConfig: orphan}))
+	test.That(t, unlinked, test.ShouldHaveLength, 1)
+	test.That(t, unlinked[0].FrameConfig.Name(), test.ShouldEqual, "orphan")
+}
+
+func mustBox(t *testing.T, label string, dims r3.Vector) spatial.Geometry {
+	t.Helper()
+	b, err := spatial.NewBox(spatial.NewZeroPose(), dims, label)
+	test.That(t, err, test.ShouldBeNil)
+	return b
+}

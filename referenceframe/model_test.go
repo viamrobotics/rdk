@@ -8,7 +8,9 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
+	proto2 "google.golang.org/protobuf/proto"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -564,5 +566,73 @@ func TestExtractMeshMapFromModelConfig(t *testing.T) {
 		plyMesh := meshMap["models/link2.ply"]
 		test.That(t, plyMesh.ContentType, test.ShouldEqual, "ply")
 		test.That(t, plyMesh.Mesh, test.ShouldResemble, plyBytes)
+	})
+}
+
+func TestNewModelFromGeometries(t *testing.T) {
+	empty, err := NewModelFromGeometries("empty", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(empty.DoF()), test.ShouldEqual, 0)
+
+	mkBox := func(label string, x float64) spatial.Geometry {
+		b, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{X: x}), r3.Vector{X: 10, Y: 10, Z: 10}, label)
+		test.That(t, err, test.ShouldBeNil)
+		return b
+	}
+	geometries := []spatial.Geometry{mkBox("a", 1), mkBox("", 2), mkBox(World, 3), mkBox("a", 4), mkBox("geometry_2", 5)}
+	model, err := NewModelFromGeometries("multi", geometries)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(model.DoF()), test.ShouldEqual, 0)
+
+	// The caller's geometries are left alone.
+	test.That(t, geometries[1].Label(), test.ShouldEqual, "")
+	test.That(t, geometries[2].Label(), test.ShouldEqual, World)
+	test.That(t, geometries[3].Label(), test.ShouldEqual, "a")
+
+	gif, err := model.Geometries([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	xByLabel := map[string]float64{}
+	for _, g := range gif.Geometries() {
+		xByLabel[g.Label()] = g.Pose().Point().X
+	}
+	test.That(t, xByLabel, test.ShouldResemble, map[string]float64{
+		"multi:a":            1,
+		"multi:geometry_1":   2,
+		"multi:geometry_2":   3,
+		"multi:a_1":          4,
+		"multi:geometry_2_1": 5,
+	})
+
+	// As a frame system part the model survives the proto wire format, and its geometries land in
+	// the world frame offset by the part's frame config.
+	lc := &LinkConfig{ID: "multi", Parent: World, Translation: r3.Vector{X: 100, Y: 200, Z: 300}}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg, err := (&FrameSystemPart{FrameConfig: lif, ModelFrame: model}).ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	wireBytes, err := proto2.Marshal(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	received := &robotpb.FrameSystemConfig{}
+	test.That(t, proto2.Unmarshal(wireBytes, received), test.ShouldBeNil)
+	restored, err := ProtobufToFrameSystemPart(received)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, restored.ModelFrame, test.ShouldNotBeNil)
+	test.That(t, len(restored.ModelFrame.DoF()), test.ShouldEqual, 0)
+
+	fs, err := NewFrameSystem("test", []*FrameSystemPart{restored}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	allGeometries, err := FrameSystemGeometries(fs, NewZeroInputs(fs))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, allGeometries["multi"], test.ShouldNotBeNil)
+	centers := map[string]r3.Vector{}
+	for _, g := range allGeometries["multi"].Geometries() {
+		centers[g.Label()] = g.Pose().Point()
+	}
+	test.That(t, centers, test.ShouldResemble, map[string]r3.Vector{
+		"multi:a":            {X: 101, Y: 200, Z: 300},
+		"multi:geometry_1":   {X: 102, Y: 200, Z: 300},
+		"multi:geometry_2":   {X: 103, Y: 200, Z: 300},
+		"multi:a_1":          {X: 104, Y: 200, Z: 300},
+		"multi:geometry_2_1": {X: 105, Y: 200, Z: 300},
 	})
 }
