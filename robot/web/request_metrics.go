@@ -9,8 +9,8 @@ import (
 	"go.uber.org/multierr"
 )
 
-// RegisterMetrics makes meter report the same request counts that FTDC records. The caller must
-// Unregister the result.
+// RegisterMetrics reports this counter's calls, errors, time spent and bytes sent, per resource
+// and method, through meter on each collection. Unregister the result to stop.
 func (rc *RequestCounter) RegisterMetrics(meter metric.Meter) (metric.Registration, error) {
 	requests, err1 := meter.Int64ObservableCounter("viam.rpc.server.requests",
 		metric.WithDescription("Viam API requests started; a stream counts once."),
