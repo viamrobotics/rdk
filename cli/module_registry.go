@@ -388,8 +388,12 @@ func validateModels(errWriter io.Writer, manifest *ModuleManifest) {
 	}
 }
 
-// maxModelDescriptionLength is the longest model short_description, in bytes, that app.viam.com accepts.
-const maxModelDescriptionLength = 100
+// Longest values, in bytes, that app.viam.com accepts for these manifest fields.
+const (
+	maxModelDescriptionLength        = 100
+	maxMachinePickerHeadingLength    = 60
+	maxMachinePickerSubheadingLength = 256
+)
 
 // validateManifestLimits mirrors the length limits app.viam.com enforces on a manifest, so they fail
 // locally (and in CI via 'module validate') instead of only when a release publishes the module.
@@ -400,6 +404,24 @@ func validateManifestLimits(manifest *ModuleManifest) error {
 			errs = multierr.Append(errs, errors.Errorf(
 				"short_description for model %s is %d characters, exceeds maximum length of %d",
 				model.Model, len(*model.Description), maxModelDescriptionLength,
+			))
+		}
+	}
+	for _, app := range manifest.Apps {
+		if app.Customizations == nil || app.Customizations.MachinePicker == nil {
+			continue
+		}
+		picker := app.Customizations.MachinePicker
+		if len(picker.Heading) > maxMachinePickerHeadingLength {
+			errs = multierr.Append(errs, errors.Errorf(
+				"machinePicker heading for application %s is %d characters, exceeds maximum length of %d",
+				app.Name, len(picker.Heading), maxMachinePickerHeadingLength,
+			))
+		}
+		if len(picker.Subheading) > maxMachinePickerSubheadingLength {
+			errs = multierr.Append(errs, errors.Errorf(
+				"machinePicker subheading for application %s is %d characters, exceeds maximum length of %d",
+				app.Name, len(picker.Subheading), maxMachinePickerSubheadingLength,
 			))
 		}
 	}
