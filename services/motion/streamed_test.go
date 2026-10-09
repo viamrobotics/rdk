@@ -179,6 +179,53 @@ func TestClientStreamed(t *testing.T) {
 		test.That(t, gotOpts.MoveOptions.MaxAccRads, test.ShouldAlmostEqual, 2.5)
 	})
 
+	t.Run("acknowledgments carry queued_ms to the client", func(t *testing.T) {
+		queued := int32(250)
+		injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
+		injectMS.TempStreamArmJointPositionsFunc = func(
+			ctx context.Context,
+			armName string,
+			opts motion.TempStreamOptions,
+			targets <-chan []referenceframe.Input,
+			responses chan<- motion.TempStreamResponse,
+			extra map[string]interface{},
+		) error {
+			// The first acknowledgment reports a queue depth; the second reports nothing.
+			ack := motion.TempStreamResponse{QueuedMs: &queued}
+			for range targets {
+				responses <- ack
+				ack = motion.TempStreamResponse{}
+			}
+			return nil
+		}
+		conn := setupStreamedServer(t, logger, injectMS)
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		targets := make(chan []referenceframe.Input)
+		responses := make(chan motion.TempStreamResponse)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- client.TempStreamArmJointPositions(
+				context.Background(), testStreamedArmName, motion.TempStreamOptions{}, targets, responses, nil,
+			)
+		}()
+
+		var acks []motion.TempStreamResponse
+		for _, wp := range [][]referenceframe.Input{{0}, {1}} {
+			targets <- wp
+			acks = append(acks, <-responses)
+		}
+		close(targets)
+		test.That(t, <-errCh, test.ShouldBeNil)
+		close(responses)
+
+		test.That(t, len(acks), test.ShouldEqual, 2)
+		test.That(t, acks[0].QueuedMs, test.ShouldNotBeNil)
+		test.That(t, *acks[0].QueuedMs, test.ShouldEqual, queued)
+		test.That(t, acks[1].QueuedMs, test.ShouldBeNil)
+	})
+
 	t.Run("server breaking its contract by finishing before the caller closes targets is an error", func(t *testing.T) {
 		injectMS := injectmotion.NewMotionService(testMotionServiceName.Name)
 		injectMS.TempStreamArmJointPositionsFunc = func(
