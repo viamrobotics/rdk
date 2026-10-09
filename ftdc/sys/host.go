@@ -4,15 +4,19 @@ import (
 	"go.viam.com/rdk/ftdc"
 )
 
-// hostCPUStats are shares of all cores' time over the interval between two `Stats` calls.
+// hostCPUStats are cumulative CPU-seconds for all online cores from the aggregate "cpu" line in
+// /proc/stat (procfs converts jiffies to seconds). Guest time is already counted inside User and
+// Nice. Compare successive readings to get per-interval rates.
 type hostCPUStats struct {
-	UserPct        float64
-	SystemPct      float64
-	IowaitPct      float64
-	IRQPct         float64
-	StealPct       float64
-	IdlePct        float64
-	MaxCoreBusyPct float64
+	UserSecs   float64
+	SystemSecs float64
+	IowaitSecs float64
+	IRQSecs    float64
+	StealSecs  float64
+	IdleSecs   float64
+	// TotalSecs is the sum of all other fields; stored explicitly to simplify ratio computation in
+	// the parser without re-summing them.
+	TotalSecs float64
 }
 
 // pressureStats are the kernel's 10 second averages from /proc/pressure.

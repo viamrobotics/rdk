@@ -4,7 +4,6 @@ import (
 	"os"
 	"runtime"
 	"testing"
-	"time"
 
 	"go.viam.com/test"
 )
@@ -18,19 +17,16 @@ func TestHostUsageStatser(t *testing.T) {
 	}
 	test.That(t, err, test.ShouldBeNil)
 
-	// The sleep spans several 10ms /proc/stat ticks so each call has elapsed time to split.
-	for range 2 {
-		time.Sleep(50 * time.Millisecond)
-		hostStats, ok := statser.Stats().(hostStats)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, hostStats.OnlineCPUs, test.ShouldBeGreaterThan, 0)
+	hostStats, ok := statser.Stats().(hostStats)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, hostStats.OnlineCPUs, test.ShouldBeGreaterThan, 0)
 
-		cpu := hostStats.CPU
-		sum := cpu.UserPct + cpu.SystemPct + cpu.IowaitPct + cpu.IRQPct + cpu.StealPct + cpu.IdlePct
-		test.That(t, sum, test.ShouldAlmostEqual, 100, 0.01)
-		test.That(t, cpu.MaxCoreBusyPct, test.ShouldBeBetweenOrEqual, 0, 100)
+	cpu := hostStats.CPU
+	test.That(t, cpu.TotalSecs, test.ShouldBeGreaterThan, 0)
+	// TotalSecs must equal the sum of all component CPU-second counts.
+	sum := cpu.UserSecs + cpu.SystemSecs + cpu.IowaitSecs + cpu.IRQSecs + cpu.StealSecs + cpu.IdleSecs
+	test.That(t, cpu.TotalSecs, test.ShouldAlmostEqual, sum, 1e-6)
 
-		_, statErr := os.Stat("/proc/pressure/cpu")
-		test.That(t, hostStats.Pressure != nil, test.ShouldEqual, statErr == nil)
-	}
+	_, statErr := os.Stat("/proc/pressure/cpu")
+	test.That(t, hostStats.Pressure != nil, test.ShouldEqual, statErr == nil)
 }

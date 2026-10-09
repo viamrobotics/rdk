@@ -380,6 +380,13 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"UserCPU":   {"UserCPUSecs", "ElapsedTimeSecs"},
 	"SystemCPU": {"SystemCPUSecs", "ElapsedTimeSecs"},
 	"GCCPU":     {"CPUSecs.GC", "CPUSecs.Total"},
+	// Host CPU percentages computed from cumulative /proc/stat CPU-seconds.
+	"HostUserCPU":   {"CPU.UserSecs", "CPU.TotalSecs"},
+	"HostSystemCPU": {"CPU.SystemSecs", "CPU.TotalSecs"},
+	"HostIowaitCPU": {"CPU.IowaitSecs", "CPU.TotalSecs"},
+	"HostIRQCPU":    {"CPU.IRQSecs", "CPU.TotalSecs"},
+	"HostStealCPU":  {"CPU.StealSecs", "CPU.TotalSecs"},
+	"HostIdleCPU":   {"CPU.IdleSecs", "CPU.TotalSecs"},
 	// PerSec ratios use an empty string denominator.
 	"HeadersProcessedPerSec":                  {"HeadersProcessed", ""},
 	"TxPacketsPerSec":                         {"TxPackets", ""},
