@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 )
 
 // MagicNumIntVersionX is the magic number (as an int) for VERSIONX.
@@ -43,9 +44,7 @@ func ParseRawDepthMap(fn string) (dm *DepthMap, err error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = multierr.Combine(err, file.Close())
-	}()
+	defer utils.UncheckedErrorFunc(file.Close)
 
 	var f io.Reader = file
 	if filepath.Ext(fn) == ".gz" {
@@ -53,9 +52,7 @@ func ParseRawDepthMap(fn string) (dm *DepthMap, err error) {
 		if gzErr != nil {
 			return nil, gzErr
 		}
-		defer func() {
-			err = multierr.Combine(err, gzr.Close())
-		}()
+		defer utils.UncheckedErrorFunc(gzr.Close)
 		f = gzr
 	}
 
