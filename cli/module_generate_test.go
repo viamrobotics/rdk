@@ -1239,3 +1239,13 @@ func TestTransientGoFetchFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestResourceSubtypeArgRoundTrip(t *testing.T) {
+	for _, opt := range buildResourceOptions() {
+		t.Run(opt.Value, func(t *testing.T) {
+			inputs := modulegen.ModuleInputs{ResourceSubtype: resourceSubtypeArg(opt.Value)}
+			test.That(t, inputs.CheckResourceAndSetType(), test.ShouldBeNil)
+			test.That(t, inputs.Resource, test.ShouldEqual, opt.Value)
+		})
+	}
+}
