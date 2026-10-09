@@ -14,7 +14,8 @@ import (
 // orientationVectorPoleRadius is how close OZ must be to +/-1 in order to use pole math for computing theta.
 // An orientation vector with OZ=+/-1 is effectively a gimbal-locked euler angle. As such, when pointed at OZ=+/-1, Theta values are
 // computed differently than otherwise, and are discontinuous. The determining factor for which method of computing theta is used is
-// 1 - abs(OZ) > OrientationVectorPoleRadius.
+// 1 - abs(OZ) > OrientationVectorPoleRadius. Inside the pole radius Theta is measured as if the longitude of OX/OY were zero, but
+// OX/OY still give the direction the orientation points.
 const orientationVectorPoleRadius = 0.0001
 
 // OrientationVector containing ox, oy, oz, theta represents an orientation vector
@@ -125,16 +126,18 @@ func (ov *OrientationVector) Quaternion() quat.Number {
 	// acos(rz) ranges from 0 (north pole) to pi (south pole)
 	lat := math.Acos(ov.OZ)
 
-	// If we're pointing at the Z axis then lon is 0, theta is the OV theta
-	// Euler angles are gimbal locked here but OV allows us to have smooth(er) movement
-	// Since euler angles are used to represent a single orientation, but not to move between different ones, this is OK
-	lon := 0.0
+	// atan x/y removes some sign information so we use atan2 to do it properly
+	lon := math.Atan2(ov.OY, ov.OX)
 	theta := ov.Theta
 
-	if 1-math.Abs(ov.OZ) > defaultAngleEpsilon {
-		// If we are not at a pole, we need the longitude
-		// atan x/y removes some sign information so we use atan2 to do it properly
-		lon = math.Atan2(ov.OY, ov.OX)
+	if 1-math.Abs(ov.OZ) <= orientationVectorPoleRadius {
+		// Near a pole theta is measured as if lon were 0 (see QuatToOV). Rz(lon) Ry(lat) Rz(theta -/+ lon) keeps that meaning,
+		// is continuous through the pole, and still points along OX/OY rather than always leaning toward +X.
+		if ov.OZ > 0 {
+			theta -= lon
+		} else {
+			theta += lon
+		}
 	}
 
 	var q quat.Number
