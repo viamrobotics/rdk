@@ -101,6 +101,13 @@ type Robot struct {
 	CreatedOn  *time.Time
 }
 
+// FavoriteMachine holds the information of a machine the user has marked as a favorite.
+type FavoriteMachine struct {
+	MachineID      string
+	OrganizationID string
+	CreatedOn      *time.Time
+}
+
 // RoverRentalRobot holds the information of a rover rental robot.
 type RoverRentalRobot struct {
 	RobotID         string
@@ -2060,6 +2067,50 @@ func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 	return err
 }
 
+// AddFavoriteMachine marks a machine as a favorite for the current user.
+//
+// AddFavoriteMachine example:
+//
+//	favorite, err := cloud.AddFavoriteMachine(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+func (c *AppClient) AddFavoriteMachine(ctx context.Context, machineID string) (*FavoriteMachine, error) {
+	resp, err := c.client.AddFavoriteMachine(ctx, &pb.AddFavoriteMachineRequest{
+		MachineId: machineID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return favoriteMachineFromProto(resp.Favorite), nil
+}
+
+// RemoveFavoriteMachine removes a machine from the current user's favorites.
+//
+// RemoveFavoriteMachine example:
+//
+//	err := cloud.RemoveFavoriteMachine(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+func (c *AppClient) RemoveFavoriteMachine(ctx context.Context, machineID string) error {
+	_, err := c.client.RemoveFavoriteMachine(ctx, &pb.RemoveFavoriteMachineRequest{
+		MachineId: machineID,
+	})
+	return err
+}
+
+// ListFavoriteMachines lists the current user's favorite machines.
+//
+// ListFavoriteMachines example:
+//
+//	favorites, err := cloud.ListFavoriteMachines(context.Background())
+func (c *AppClient) ListFavoriteMachines(ctx context.Context) ([]*FavoriteMachine, error) {
+	resp, err := c.client.ListFavoriteMachines(ctx, &pb.ListFavoriteMachinesRequest{})
+	if err != nil {
+		return nil, err
+	}
+	favorites := make([]*FavoriteMachine, 0, len(resp.Favorites))
+	for _, favorite := range resp.Favorites {
+		favorites = append(favorites, favoriteMachineFromProto(favorite))
+	}
+	return favorites, nil
+}
+
 // ListFragments gets a list of fragments.
 //
 // ListFragments example:
@@ -3191,6 +3242,22 @@ func robotFromProto(robot *pb.Robot) *Robot {
 		Location:   robot.Location,
 		LastAccess: lastAccess,
 		CreatedOn:  createdOn,
+	}
+}
+
+func favoriteMachineFromProto(favorite *pb.FavoriteMachine) *FavoriteMachine {
+	if favorite == nil {
+		return nil
+	}
+	var createdOn *time.Time
+	if favorite.CreatedOn != nil {
+		t := favorite.CreatedOn.AsTime()
+		createdOn = &t
+	}
+	return &FavoriteMachine{
+		MachineID:      favorite.MachineId,
+		OrganizationID: favorite.OrganizationId,
+		CreatedOn:      createdOn,
 	}
 }
 
