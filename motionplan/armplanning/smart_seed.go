@@ -175,29 +175,31 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 
 	//nolint: revive
 	min, max, r := limits[joint].GoodLimits()
-	values[joint] = min
 
 	jogDivisor := defaultDivisor
 	if len(limits) == 6 {
 		// assume it's an arm
 		jogDivisor = arm6JogRatios[joint]
 	}
-	jog := (r / jogDivisor) * .9999
-	if jogDivisor == 0 {
-		jog = r
-		values[joint] = (min + max) / 2
+
+	// The number of samples is fixed up front rather than stepping until the value passes max: a
+	// joint with no range (a zero-width limit, such as an input_range_override pinning it) has a
+	// zero jog, which would never advance.
+	start, jog, steps := min, (r/jogDivisor)*.9999, 0
+	if jogDivisor == 0 || r <= 0 {
+		start, jog = (min+max)/2, 0
+	} else {
+		steps = int(r / jog)
 	}
-	x := 0
-	for values[joint] <= max {
+
+	for x := 0; x <= steps; x++ {
+		values[joint] = start + float64(x)*jog
 		if joint > 0 || t < 0 || x%defaultNumThreads == t {
 			err := cff.buildCacheHelper(f, values, joint+1, t)
 			if err != nil {
 				return err
 			}
 		}
-
-		values[joint] += jog
-		x++
 	}
 	return nil
 }
