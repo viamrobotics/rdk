@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	v1 "go.viam.com/api/app/v1"
@@ -92,6 +93,81 @@ func TestValidateModelAPI(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	err = validateModelAPI("other:component:x_")
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestValidateManifestLimits(t *testing.T) {
+	atLimit := strings.Repeat("a", maxModelDescriptionLength)
+	overLimit := strings.Repeat("a", maxModelDescriptionLength+1)
+
+	tests := []struct {
+		name    string
+		models  []ModuleComponent
+		wantErr []string
+	}{
+		{
+			name:   "no description",
+			models: []ModuleComponent{{API: "rdk:component:sensor", Model: "acme:demo:a"}},
+		},
+		{
+			name:   "description at limit",
+			models: []ModuleComponent{{API: "rdk:component:sensor", Model: "acme:demo:a", Description: &atLimit}},
+		},
+		{
+			name: "descriptions over limit",
+			models: []ModuleComponent{
+				{API: "rdk:component:sensor", Model: "acme:demo:a", Description: &overLimit},
+				{API: "rdk:component:sensor", Model: "acme:demo:b", Description: &atLimit},
+				{API: "rdk:component:sensor", Model: "acme:demo:c", Description: &overLimit},
+			},
+			wantErr: []string{"acme:demo:a", "acme:demo:c"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateManifestLimits(&ModuleManifest{Models: tc.models})
+			if tc.wantErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+				return
+			}
+			test.That(t, err, test.ShouldNotBeNil)
+			for _, model := range tc.wantErr {
+				test.That(t, err.Error(), test.ShouldContainSubstring, model)
+			}
+			test.That(t, err.Error(), test.ShouldNotContainSubstring, "acme:demo:b")
+		})
+	}
+}
+
+func TestValidateModuleAction(t *testing.T) {
+	writeManifest := func(t *testing.T, description string) string {
+		t.Helper()
+		metaPath := filepath.Join(t.TempDir(), "meta.json")
+		manifest := ModuleManifest{
+			ModuleID:    "acme:demo",
+			Visibility:  "public",
+			Description: "demo module",
+			Models:      []ModuleComponent{{API: "rdk:component:sensor", Model: "acme:demo:a", Description: &description}},
+		}
+		bytes, err := json.Marshal(manifest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(metaPath, bytes, 0o600), test.ShouldBeNil)
+		return metaPath
+	}
+
+	t.Run("valid", func(t *testing.T) {
+		cCtx, _, out, _ := setup(&inject.AppServiceClient{}, nil, nil, map[string]any{"module": writeManifest(t, "ok")}, "")
+		err := ValidateModuleAction(context.Background(), cCtx, parseStructFromCtx[validateModuleArgs](cCtx))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "is valid")
+	})
+
+	t.Run("description too long", func(t *testing.T) {
+		metaPath := writeManifest(t, strings.Repeat("a", maxModelDescriptionLength+1))
+		cCtx, _, _, _ := setup(&inject.AppServiceClient{}, nil, nil, map[string]any{"module": metaPath}, "")
+		err := ValidateModuleAction(context.Background(), cCtx, parseStructFromCtx[validateModuleArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "exceeds maximum length of 100")
+	})
 }
 
 func TestModelTripleToMarkdownFilename(t *testing.T) {
