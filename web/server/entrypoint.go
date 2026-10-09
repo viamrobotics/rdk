@@ -63,7 +63,6 @@ type robotServer struct {
 	registry                                   *logging.Registry
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
-	metrics                                    *otelmetrics.Metrics
 	stopReason                                 atomic.Pointer[string]
 	// startupStarted and shutdownStarted feed the duration kv on the startup/shutdown
 	// complete activity events.
@@ -235,30 +234,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer exporter.Stop()
 	}
 
-	var metrics *otelmetrics.Metrics
-	if argsParsed.EnableFTDC || otelmetrics.OTLPEnabled() {
-		var partID string
-		if cfgFromDisk.Cloud != nil {
-			partID = cfgFromDisk.Cloud.ID
-		}
-		var metricsErr error
-		metrics, metricsErr = otelmetrics.New(ctx, otelmetrics.Config{
-			PartID:  partID,
-			Version: config.Version,
-			FTDC:    argsParsed.EnableFTDC,
-			OTLP:    otelmetrics.OTLPEnabled(),
-		})
-		if metricsErr != nil {
-			rootLogger.Warnw("Failed to start metrics", "err", metricsErr)
-		} else {
-			defer func() {
-				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				utils.UncheckedError(metrics.Shutdown(shutdownCtx))
-			}()
-		}
-	}
-
 	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
 	// serialized manner
 	if cfgFromDisk.Cloud != nil {
@@ -333,7 +308,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		conn:             appConn,
 		signalingConn:    signalingConn,
 		startupStarted:   startupStarted,
-		metrics:          metrics,
 	}
 
 	// Run the server with remote logging enabled.
@@ -548,6 +522,27 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	}
 }
 
+// startMetrics builds the MeterProvider when FTDC or an OTLP endpoint needs it. It returns nil
+// when neither does or when the provider fails to start.
+func (s *robotServer) startMetrics(ctx context.Context, cfg *config.Config) *otelmetrics.Metrics {
+	if !s.args.EnableFTDC && !otelmetrics.OTLPEnabled() {
+		return nil
+	}
+	metricsCfg := otelmetrics.Config{Version: config.Version, FTDC: s.args.EnableFTDC, OTLP: otelmetrics.OTLPEnabled()}
+	if cfg.Cloud != nil {
+		metricsCfg.PartID = cfg.Cloud.ID
+		metricsCfg.MachineID = cfg.Cloud.MachineID
+		metricsCfg.LocationID = cfg.Cloud.LocationID
+		metricsCfg.OrgID = cfg.Cloud.PrimaryOrgID
+	}
+	metrics, err := otelmetrics.New(ctx, metricsCfg)
+	if err != nil {
+		s.rootLogger.Warnw("Failed to start metrics", "err", err)
+		return nil
+	}
+	return metrics
+}
+
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -688,6 +683,13 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		})
 	}
 
+	metrics := s.startMetrics(ctx, cfg)
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		utils.UncheckedError(metrics.Shutdown(shutdownCtx))
+	}()
+
 	robotOptions := createRobotOptions()
 	if s.args.RevealSensitiveConfigDiffs {
 		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
@@ -701,7 +703,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if s.args.EnableFTDC {
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
 	}
-	robotOptions = append(robotOptions, robotimpl.WithMetrics(s.metrics))
+	robotOptions = append(robotOptions, robotimpl.WithMetrics(metrics))
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
 	// all components, services, remotes, modules, processes, packages, and jobs from

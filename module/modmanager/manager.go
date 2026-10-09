@@ -629,6 +629,15 @@ func (mgr *Manager) Provides(conf resource.Config) bool {
 	return ok
 }
 
+// ModuleName returns the name of the module that serves the named resource.
+func (mgr *Manager) ModuleName(name resource.Name) (string, bool) {
+	mod, ok := mgr.rMap.Load(name)
+	if !ok {
+		return "", false
+	}
+	return mod.cfg.Name, true
+}
+
 // IsModularResource returns true if an existing resource IS handled by a module.
 func (mgr *Manager) IsModularResource(name resource.Name) bool {
 	_, ok := mgr.rMap.Load(name)

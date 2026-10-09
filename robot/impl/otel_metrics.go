@@ -13,6 +13,8 @@ import (
 const (
 	resourceStateMetric = "viam.resource.state"
 	resourceStateKey    = attribute.Key("viam.resource.state")
+	resourceModelKey    = attribute.Key("viam.resource.model")
+	moduleNameKey       = attribute.Key("viam.module.name")
 )
 
 var availabilityByName = map[string]resource.Availability{
@@ -22,8 +24,9 @@ var availabilityByName = map[string]resource.Availability{
 	resource.AvailabilityUnhealthy.String():     resource.AvailabilityUnhealthy,
 }
 
-// registerResourceMetrics reports 1 for each resource on its current availability, and writes it
-// to FTDC as "<resource>.State". The caller must Unregister the result before closing the manager.
+// registerResourceMetrics reports 1 for each resource on its current availability, labeled with
+// its model and serving module, and writes it to FTDC as "<resource>.State". The caller must
+// Unregister the result before closing the manager.
 func (r *localRobot) registerResourceMetrics(metrics *otelmetrics.Metrics) (metric.Registration, error) {
 	meter := metrics.MeterProvider().Meter("go.viam.com/rdk/robot/impl")
 	gauge, err := meter.Int64ObservableGauge(resourceStateMetric,
@@ -35,12 +38,24 @@ func (r *localRobot) registerResourceMetrics(metrics *otelmetrics.Metrics) (metr
 	}
 	metrics.MapFTDC(resourceStateMetric, resourceStateFTDCKey)
 	return meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
-		for name, availability := range r.manager.resources.Availability() {
-			o.ObserveInt64(gauge, 1, metric.WithAttributes(
-				otelmetrics.ResourceAPIKey.String(name.API.String()),
-				otelmetrics.ResourceNameKey.String(name.ShortName()),
-				resourceStateKey.String(availability.String()),
-			))
+		r.manager.modManagerLock.Lock()
+		modManager := r.manager.moduleManager
+		r.manager.modManagerLock.Unlock()
+		for _, node := range r.manager.resources.Availability() {
+			attrs := []attribute.KeyValue{
+				otelmetrics.ResourceAPIKey.String(node.Name.API.String()),
+				otelmetrics.ResourceNameKey.String(node.Name.ShortName()),
+				resourceStateKey.String(node.Availability.String()),
+			}
+			if node.Model.Name != "" {
+				attrs = append(attrs, resourceModelKey.String(node.Model.String()))
+			}
+			if modManager != nil {
+				if module, ok := modManager.ModuleName(node.Name); ok {
+					attrs = append(attrs, moduleNameKey.String(module))
+				}
+			}
+			o.ObserveInt64(gauge, 1, metric.WithAttributes(attrs...))
 		}
 		return nil
 	}, gauge)

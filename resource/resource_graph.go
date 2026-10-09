@@ -1147,13 +1147,20 @@ func (g *Graph) Status() []NodeStatus {
 	return result
 }
 
+// NodeAvailability is a node's name and model alongside its Availability.
+type NodeAvailability struct {
+	Name         Name
+	Model        Model
+	Availability Availability
+}
+
 // Availability reports GraphNode.Availability for every node in the graph.
-func (g *Graph) Availability() map[Name]Availability {
+func (g *Graph) Availability() []NodeAvailability {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	ret := make(map[Name]Availability, g.nodes.Len())
+	ret := make([]NodeAvailability, 0, g.nodes.Len())
 	for name, node := range g.nodes.All() {
-		ret[name] = node.Availability()
+		ret = append(ret, NodeAvailability{Name: name, Model: node.ResourceModel(), Availability: node.Availability()})
 	}
 	return ret
 }

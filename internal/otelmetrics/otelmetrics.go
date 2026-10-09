@@ -31,12 +31,16 @@ func OTLPEnabled() bool {
 	return os.Getenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT") != "" || os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != ""
 }
 
-// Config selects the readers attached to the MeterProvider.
+// Config selects the readers attached to the MeterProvider and identifies the machine its
+// metrics describe.
 type Config struct {
-	PartID  string
-	Version string
-	FTDC    bool
-	OTLP    bool
+	PartID     string
+	MachineID  string
+	LocationID string
+	OrgID      string
+	Version    string
+	FTDC       bool
+	OTLP       bool
 }
 
 // Metrics is the process-wide MeterProvider. A nil *Metrics records nothing.
@@ -48,7 +52,7 @@ type Metrics struct {
 // New builds the MeterProvider and starts Go runtime metrics on it. With OTLP set, it also becomes
 // the global provider so that otelgrpc metrics reach the OTLP exporter.
 func New(ctx context.Context, cfg Config) (*Metrics, error) {
-	res, err := newResource(ctx, cfg.PartID, cfg.Version)
+	res, err := newResource(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -111,13 +115,20 @@ func (m *Metrics) Shutdown(ctx context.Context) error {
 
 // newResource leaves the viam attributes schemaless so they merge with whatever semconv schema
 // the SDK's detectors use; two different schema URLs fail the merge.
-func newResource(ctx context.Context, partID, version string) (*otelresource.Resource, error) {
+func newResource(ctx context.Context, cfg Config) (*otelresource.Resource, error) {
 	attrs := []attribute.KeyValue{semconv.ServiceName("rdk"), semconv.ServiceNamespace("viam.com")}
-	if version != "" {
-		attrs = append(attrs, semconv.ServiceVersion(version))
+	if cfg.Version != "" {
+		attrs = append(attrs, semconv.ServiceVersion(cfg.Version))
 	}
-	if partID != "" {
-		attrs = append(attrs, attribute.String("viam.part.id", partID))
+	for key, value := range map[string]string{
+		"viam.part.id":     cfg.PartID,
+		"viam.machine.id":  cfg.MachineID,
+		"viam.location.id": cfg.LocationID,
+		"viam.org.id":      cfg.OrgID,
+	} {
+		if value != "" {
+			attrs = append(attrs, attribute.String(key, value))
+		}
 	}
 	return otelresource.New(ctx,
 		otelresource.WithTelemetrySDK(),

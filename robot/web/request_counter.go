@@ -86,6 +86,7 @@ type RequestCounter struct {
 
 	// streamMethods holds the rpc.method of every streaming RPC served.
 	streamMethods ssync.Map[string, struct{}]
+	pcRoutes      ssync.Map[*webrtc.PeerConnection, pcRoute]
 
 	// inFlightRequests maps resource names to how many in-flight requests are
 	// currently targeting that resource name. There can only be `limit` API
@@ -358,7 +359,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
-	attrs := requestAttrs(ctx, info.FullMethod, apiMethod, req)
+	attrs := rc.requestAttrs(ctx, info.FullMethod, apiMethod, req)
 	rc.begin(ctx, attrs)
 	start := time.Now()
 	defer func() {
@@ -529,7 +530,7 @@ type wrappedStreamWithRC struct {
 
 func (w *wrappedStreamWithRC) begin(msg any) {
 	w.beginOnce.Do(func() {
-		w.attrs = requestAttrs(w.Context(), w.fullMethod, w.apiMethod, msg)
+		w.attrs = w.rc.requestAttrs(w.Context(), w.fullMethod, w.apiMethod, msg)
 		w.rc.begin(w.Context(), w.attrs)
 	})
 }
