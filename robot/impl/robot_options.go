@@ -1,6 +1,8 @@
 package robotimpl
 
 import (
+	"go.opentelemetry.io/otel/metric"
+
 	"go.viam.com/rdk/robot/web"
 )
 
@@ -21,6 +23,9 @@ type options struct {
 
 	// whether or not to run FTDC
 	enableFTDC bool
+
+	// meterProvider, when set, receives the robot's metrics for export.
+	meterProvider metric.MeterProvider
 
 	// disableCompleteConfigWorker starts the robot without the complete config worker - should only be used for tests.
 	disableCompleteConfigWorker bool
@@ -52,6 +57,13 @@ func newFuncOption(f func(*options)) *funcOption {
 func WithFTDC() Option {
 	return newFuncOption(func(o *options) {
 		o.enableFTDC = true
+	})
+}
+
+// WithMeterProvider exports the robot's request counts and resource states through mp.
+func WithMeterProvider(mp metric.MeterProvider) Option {
+	return newFuncOption(func(o *options) {
+		o.meterProvider = mp
 	})
 }
 

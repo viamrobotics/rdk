@@ -19,6 +19,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -62,6 +63,7 @@ type robotServer struct {
 	registry                                   *logging.Registry
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
+	meterProvider                              *sdkmetric.MeterProvider
 	stopReason                                 atomic.Pointer[string]
 	// startupStarted and shutdownStarted feed the duration kv on the startup/shutdown
 	// complete activity events.
@@ -233,6 +235,24 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer exporter.Stop()
 	}
 
+	var meterProvider *sdkmetric.MeterProvider
+	if otlpMetricsEnabled() {
+		var partID string
+		if cfgFromDisk.Cloud != nil {
+			partID = cfgFromDisk.Cloud.ID
+		}
+		var metricsErr error
+		if meterProvider, metricsErr = newMeterProvider(ctx, partID); metricsErr != nil {
+			rootLogger.Warnw("Failed to start OTLP metrics export", "err", metricsErr)
+		} else {
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				utils.UncheckedError(meterProvider.Shutdown(shutdownCtx))
+			}()
+		}
+	}
+
 	// the underlying connection in `appConn` can be nil. In this case, a background Goroutine is kicked off to reattempt dials in a
 	// serialized manner
 	if cfgFromDisk.Cloud != nil {
@@ -306,6 +326,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry:         registry,
 		conn:             appConn,
 		signalingConn:    signalingConn,
+		meterProvider:    meterProvider,
 		startupStarted:   startupStarted,
 	}
 
@@ -673,6 +694,9 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	if s.args.EnableFTDC {
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
+	}
+	if s.meterProvider != nil {
+		robotOptions = append(robotOptions, robotimpl.WithMeterProvider(s.meterProvider))
 	}
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
