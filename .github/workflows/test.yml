@@ -248,6 +248,8 @@ jobs:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 30
+    env:
+      MISE_GO_SET_GOROOT: false
 
     steps:
       - uses: actions/checkout@v4
@@ -272,7 +274,7 @@ jobs:
           echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
       - name: Chown
-        run: chown -R testbot:testbot .
+        run: chown -R `id -nu`:`id -ng` .
 
       - name: Set SKIP_ROBOT_IMPL if robot/impl deps are unchanged
         if: needs.check-changes.outputs.skip_robot_impl == 'true'
@@ -285,6 +287,9 @@ jobs:
       - name: Set SKIP_MODULE if module/modmanager deps are unchanged
         if: needs.check-changes.outputs.skip_module == 'true'
         run: echo "SKIP_MODULE=true" >> $GITHUB_ENV
+
+      - name: Install toolchain
+        uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
 
       - uses: actions/setup-go@v7
         with:
@@ -299,8 +304,8 @@ jobs:
           GO_BUILD_TAGS_EXTRA: viam_rdk_cgo_have_cxx20_rt
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
-          sudo apt-get update && sudo apt-get install -y python3-venv
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE,GO_BUILD_TAGS_EXTRA -Hu testbot bash -lc 'make test-go'
+          apt-get update && apt-get install -y python3-venv
+          make test-go
 
       - name: Upload test.json
         if: always()
