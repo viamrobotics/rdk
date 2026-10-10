@@ -71,7 +71,8 @@ type PoseCloud struct {
 	OZ float64 `json:"oz"`
 
 	// Theta represents the [-Theta, +Theta] in an objects rotation around its
-	// orientation axis in the unit of degrees.
+	// orientation axis in the unit of degrees. It is measured as the twist about the goal's Z axis,
+	// so tilting the orientation axis alone, in any direction, uses none of it.
 	Theta float64 `json:"theta"`
 }
 
@@ -104,11 +105,11 @@ func (pc *PoseCloud) PoseInCloud(goalPose, candidatePose spatialmath.Pose) bool 
 		return false
 	}
 
-	if math.Abs(betweenOrientation.Theta) > pc.Theta+defaultEpsilon {
-		return false
-	}
-
-	return true
+	// OV theta off the pole is measured in the longitude frame, so a pure tilt toward longitude L reads as theta ~= -L.
+	// The twist about the goal's Z axis is what Theta bounds; for q = Rz(lon)Ry(lat)Rz(theta) it is lon+theta.
+	q := between.Orientation().Quaternion()
+	twistDegs := math.Remainder(2*math.Atan2(q.Kmag, q.Real), 2*math.Pi) * 180 / math.Pi
+	return math.Abs(twistDegs) <= pc.Theta+defaultEpsilon
 }
 
 // ToProto turns this to proto.
