@@ -328,6 +328,30 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 	return m, nil
 }
 
+// withSerializedLimits returns base with the position bounds of limits applied to its joints,
+// where limits is in DoF order. A limits slice that does not line up one-to-one with base's
+// single-DoF joints is ignored, leaving base as parsed.
+func withSerializedLimits(base *SimpleModel, limits []Limit) (*SimpleModel, error) {
+	names := base.MoveableFrameNames()
+	if len(limits) != len(base.DoF()) || len(names) != len(limits) {
+		return base, nil
+	}
+	overrides := map[string]Limit{}
+	for i, name := range names {
+		declared := base.internalFS.Frame(name).DoF()
+		if len(declared) != 1 {
+			return base, nil
+		}
+		if declared[0].Min != limits[i].Min || declared[0].Max != limits[i].Max {
+			overrides[name] = limits[i]
+		}
+	}
+	if len(overrides) == 0 {
+		return base, nil
+	}
+	return NewModelWithLimitOverrides(base, overrides)
+}
+
 // MoveableFrameNames returns the names of frames with non-zero DoF, in schema order.
 func (m *SimpleModel) MoveableFrameNames() []string {
 	if m.inputSchema == nil {
@@ -666,6 +690,13 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		newModel, ok := parsed.(*SimpleModel)
 		if !ok {
 			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
+		}
+		// The kinematics config carries the joints' declared limits, so a model serialized after an
+		// input_range_override only has the override in Limits. Push it back into the joints, or
+		// anything rebuilt from internalFS (e.g. NewModelWithLimitOverrides) silently reverts it.
+		newModel, err = withSerializedLimits(newModel, ser.Limits)
+		if err != nil {
+			return err
 		}
 		m.internalFS = newModel.internalFS
 		m.primaryOutputFrame = newModel.primaryOutputFrame
