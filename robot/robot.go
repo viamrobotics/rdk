@@ -200,8 +200,9 @@ type LocalRobot interface {
 	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
 	Kill()
 
-	// FindBySimpleNameAndAPI returns a resource from the resource graph. See
-	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
+	// FindBySimpleNameAndAPI returns a resource from the resource graph, unwrapping a composite to the
+	// sub-resource serving the given API so a caller that type-asserts to the API's interface sees the
+	// real typed instance. See [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
 	// returned in the case of name collisions.
 	FindBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
 
@@ -323,20 +324,15 @@ func ResourceFromProtoMessage(
 	return res, fqName, nil
 }
 
-// ResourceFromRobot returns a resource from a robot.
+// ResourceFromRobot returns a resource from a robot. It uses resource.AsType so that a composite
+// (multi-API) resource handle is unwrapped to the sub-resource satisfying T.
 func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T, error) {
 	var zero T
 	res, err := robot.ResourceByName(name)
 	if err != nil {
 		return zero, err
 	}
-
-	part, ok := res.(T)
-
-	if !ok {
-		return zero, resource.TypeError[T](res)
-	}
-	return part, nil
+	return resource.AsType[T](res)
 }
 
 // MatchesModule returns true if the passed-in module matches its name / ID.

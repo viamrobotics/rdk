@@ -1551,6 +1551,50 @@ func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 	test.That(t, g.nodes.compositeByAPI, test.ShouldBeEmpty)
 }
 
+func TestCompositeCoequalIndexModelReconfigure(t *testing.T) {
+	// An in-place model reconfigure rebuilds on the SAME node via SwapResource and never re-runs Set or
+	// UpdateSimpleName, so the co-equal index must be refreshed explicitly (ReindexComposite). When the
+	// model's served API set changes, a newly-served co-equal API must resolve and a dropped one must
+	// stop resolving to this node.
+	modelCamSens := NewModel("acme", "test", "idxrecfg-camsens")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, modelCamSens, newComboConstructor())
+	defer Deregister(testCamAPI, modelCamSens)
+	defer Deregister(testSensAPI, modelCamSens)
+	modelCamMotor := NewModel("acme", "test", "idxrecfg-cammotor")
+	RegisterMultiAPI([]API{testCamAPI, testMotorAPI}, modelCamMotor, newComboConstructor())
+	defer Deregister(testCamAPI, modelCamMotor)
+	defer Deregister(testMotorAPI, modelCamMotor)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	name := NewName(testCamAPI, "dev")
+	node := NewConfiguredGraphNode(
+		Config{Name: "dev", API: testCamAPI, Model: modelCamSens},
+		&combo{Named: name.AsNamed()}, modelCamSens,
+	)
+	test.That(t, g.AddNode(name, node), test.ShouldBeNil)
+
+	// cam+sens: the sens co-equal API resolves; motor does not.
+	_, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = g.FindBySimpleNameAndAPI("dev", testMotorAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+
+	// Reconfigure the model in place to cam+motor, mirroring the manager's rebuild (new config + a new
+	// resource swapped onto the same node), then re-index.
+	node.SetNewConfig(Config{Name: "dev", API: testCamAPI, Model: modelCamMotor}, nil)
+	node.SwapResource(&combo{Named: name.AsNamed()}, modelCamMotor, nil, false)
+	g.ReindexComposite(name)
+
+	// The dropped sens API no longer resolves to this node; the newly-served motor API now does; and
+	// the configured API still resolves throughout.
+	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	_, err = g.FindBySimpleNameAndAPI("dev", testMotorAPI)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestCompositeIndexViaPlaceholderReplace(t *testing.T) {
 	// A composite depended on before it is configured is first added as an uninitialized placeholder,
 	// then replaced by its configured node (addNode's replace path). The co-equal index must be
