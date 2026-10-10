@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -174,5 +175,72 @@ func TestOrientationVectorExactPolesUnchanged(t *testing.T) {
 		test.That(t, ov.Theta, test.ShouldAlmostEqual, tc.theta, 1e-12)
 		test.That(t, ov.OZ, test.ShouldAlmostEqual, tc.oz, 1e-12)
 		test.That(t, QuatToOV(ov.Quaternion()).Theta, test.ShouldAlmostEqual, tc.theta, 1e-12)
+	}
+}
+
+// The encoder and decoder each decide whether a vector is within the pole radius, and theta means something different on each
+// side. Straddle the edge of the pole radius ulp by ulp to check they always agree.
+func TestPoseProtobufRoundTripAtPoleRadiusEdge(t *testing.T) {
+	edge := math.Acos(1 - orientationVectorPoleRadius)
+	for _, down := range []bool{false, true} {
+		for k := -500; k <= 500; k++ {
+			lean := edge + float64(k)*1e-16
+			if down {
+				lean = math.Pi - lean
+			}
+			for az := 7.5; az < 360; az += 15 {
+				for _, twist := range []float64{0, 50, -120} {
+					o := Compose(
+						NewPoseFromOrientation(&R4AA{Theta: utils.DegToRad(az), RZ: 1}),
+						Compose(
+							NewPoseFromOrientation(&R4AA{Theta: lean, RY: 1}),
+							NewPoseFromOrientation(&R4AA{Theta: utils.DegToRad(twist), RZ: 1}),
+						),
+					).Orientation()
+					back := NewPoseFromProtobuf(PoseToProtobuf(NewPoseFromOrientation(o))).Orientation()
+					if errDeg := angleBetweenDeg(o, back); errDeg > 1e-9 {
+						t.Fatalf("%de-16 rad past the pole radius edge, %s: comes back %g deg off",
+							k, nearPoleName(down, utils.RadToDeg(edge), az, twist), errDeg)
+					}
+				}
+			}
+		}
+	}
+}
+
+// Re-encoding a decoded orientation vector must give back the same vector, so configs and stored poses don't drift.
+func TestOrientationVectorReencodeIsStable(t *testing.T) {
+	r := rand.New(rand.NewSource(1))
+	for i := 0; i < 20000; i++ {
+		q := quat.Number{Real: r.NormFloat64(), Imag: r.NormFloat64(), Jmag: r.NormFloat64(), Kmag: r.NormFloat64()}
+		if i%2 == 0 {
+			// Shrink the X/Y rotation so half the samples land near the poles, down to 1e-8 rad away.
+			s := math.Pow(10, -8*r.Float64())
+			q.Imag *= s
+			q.Jmag *= s
+		}
+		q = Normalize(q)
+		ov := QuatToOV(q)
+		again := QuatToOV((&OrientationVector{Theta: ov.Theta, OX: ov.OX, OY: ov.OY, OZ: ov.OZ}).Quaternion())
+		// acos(OZ) in Quaternion() resolves tilts only to ~1e-8 rad, which bounds how well OX/OY survive.
+		test.That(t, again.OX, test.ShouldAlmostEqual, ov.OX, 1e-7)
+		test.That(t, again.OY, test.ShouldAlmostEqual, ov.OY, 1e-7)
+		test.That(t, again.OZ, test.ShouldAlmostEqual, ov.OZ, 1e-7)
+		test.That(t, math.Remainder(again.Theta-ov.Theta, 2*math.Pi), test.ShouldAlmostEqual, 0, 1e-9)
+	}
+}
+
+// Signed zeros and unnormalized vectors, both common in hand-written configs, decode the same as their plain forms.
+func TestOrientationVectorNearPolesInputForms(t *testing.T) {
+	negZero := math.Copysign(0, -1)
+	for _, oz := range []float64{1, -1} {
+		plain := &OrientationVector{Theta: 1, OZ: oz}
+		for _, v := range [][2]float64{{negZero, 0}, {0, negZero}, {negZero, negZero}} {
+			signed := &OrientationVector{Theta: 1, OX: v[0], OY: v[1], OZ: oz}
+			test.That(t, angleBetweenDeg(plain, signed), test.ShouldBeLessThan, 1e-9)
+		}
+		unit := &OrientationVector{Theta: 1, OX: 0.003, OY: -0.004, OZ: oz}
+		scaled := &OrientationVector{Theta: 1, OX: 0.003 * 7, OY: -0.004 * 7, OZ: oz * 7}
+		test.That(t, angleBetweenDeg(unit, scaled), test.ShouldBeLessThan, 1e-9)
 	}
 }

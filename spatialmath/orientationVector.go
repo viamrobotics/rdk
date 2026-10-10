@@ -18,6 +18,13 @@ import (
 // OX/OY still give the direction the orientation points.
 const orientationVectorPoleRadius = 0.0001
 
+// inPoleRadius reports whether ov, once normalized, is within orientationVectorPoleRadius of +/-Z. QuatToOV makes the same call
+// on the exact values it outputs, so encoding and decoding agree on theta's convention even at the edge of the pole radius.
+func inPoleRadius(ov OrientationVector) bool {
+	ov.Normalize()
+	return 1-math.Abs(ov.OZ) <= orientationVectorPoleRadius
+}
+
 // OrientationVector containing ox, oy, oz, theta represents an orientation vector
 // Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
 // with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
@@ -120,6 +127,7 @@ func (ov *OrientationVector) EulerAngles() *EulerAngles {
 
 // Quaternion returns orientation in quaternion representation.
 func (ov *OrientationVector) Quaternion() quat.Number {
+	pole := inPoleRadius(*ov)
 	// make sure OrientationVector is normalized first
 	ov.Normalize()
 
@@ -130,7 +138,7 @@ func (ov *OrientationVector) Quaternion() quat.Number {
 	lon := math.Atan2(ov.OY, ov.OX)
 	theta := ov.Theta
 
-	if 1-math.Abs(ov.OZ) <= orientationVectorPoleRadius {
+	if pole {
 		// Near a pole theta is measured as if lon were 0 (see QuatToOV). Rz(lon) Ry(lat) Rz(theta -/+ lon) keeps that meaning,
 		// is continuous through the pole, and still points along OX/OY rather than always leaning toward +X.
 		if ov.OZ > 0 {

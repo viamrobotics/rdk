@@ -99,9 +99,7 @@ func QuatToOV(q quat.Number) *OrientationVector {
 	ov.OY = newZ.Jmag
 	ov.OZ = newZ.Kmag
 
-	// The contents of ov.newX.Kmag are not in radians but we can use angleEpsilon anyway to check how close we are to
-	// the pole because it's a convenient small number
-	if 1-math.Abs(newZ.Kmag) > orientationVectorPoleRadius {
+	if !inPoleRadius(*ov) {
 		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
 		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
 
