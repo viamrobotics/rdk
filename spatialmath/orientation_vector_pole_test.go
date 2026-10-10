@@ -119,7 +119,8 @@ func TestOrientationVectorPoleRadiusMirrored(t *testing.T) {
 		{Theta: 90.2029644505, OX: -0.0050164674, OY: -0.0079070413, OZ: 0.9999561559},
 		{Theta: -89.2515361355, OX: 0.0037393949, OY: -0.009106087, OZ: -0.9999515469},
 	} {
-		composed := Quaternion(ov.Quaternion()).OrientationVectorDegrees()
+		q := Quaternion(ov.Quaternion())
+		composed := q.OrientationVectorDegrees()
 		test.That(t, composed.Theta, test.ShouldAlmostEqual, ov.Theta, 1e-9)
 		test.That(t, composed.OX, test.ShouldAlmostEqual, ov.OX, 1e-9)
 		test.That(t, composed.OY, test.ShouldAlmostEqual, ov.OY, 1e-9)
