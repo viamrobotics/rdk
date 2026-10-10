@@ -88,10 +88,8 @@ func TestPoseInCloudObeysEveryLimit(t *testing.T) {
 
 	t.Run("OY", func(t *testing.T) {
 		cloud := PoseCloud{OY: 0.1, OZ: 0.1}
-		smallChange := spatialmath.NewPose(r3.Vector{},
-			&spatialmath.OrientationVectorDegrees{OX: 0, OY: 0.1, OZ: 1, Theta: 0})
-		largeChange := spatialmath.NewPose(r3.Vector{},
-			&spatialmath.OrientationVectorDegrees{OX: 0, OY: 0.5, OZ: 1, Theta: 0})
+		smallChange := tiltToward(0, 0.1, 1)
+		largeChange := tiltToward(0, 0.5, 1)
 
 		test.That(t, cloud.PoseInCloud(goalPose, smallChange), test.ShouldBeTrue)
 		test.That(t, cloud.PoseInCloud(goalPose, largeChange), test.ShouldBeFalse)
@@ -103,10 +101,8 @@ func TestPoseInCloudObeysEveryLimit(t *testing.T) {
 		// either the OX or OY direction. To test that a cloud around OZ is being measured, we let
 		// OX and OY be anything.
 		cloud := PoseCloud{OX: 1, OY: 1, OZ: 0.3}
-		smallChange := spatialmath.NewPose(r3.Vector{},
-			&spatialmath.OrientationVectorDegrees{OX: 0.1, OY: 0.1, OZ: 0.8, Theta: 0})
-		largeChange := spatialmath.NewPose(r3.Vector{},
-			&spatialmath.OrientationVectorDegrees{OX: 0.5, OY: 0.5, OZ: 0.5, Theta: 0})
+		smallChange := tiltToward(0.1, 0.1, 0.8)
+		largeChange := tiltToward(0.5, 0.5, 0.5)
 
 		test.That(t, cloud.PoseInCloud(goalPose, smallChange), test.ShouldBeTrue)
 		test.That(t, cloud.PoseInCloud(goalPose, largeChange), test.ShouldBeFalse)
@@ -121,6 +117,51 @@ func TestPoseInCloudObeysEveryLimit(t *testing.T) {
 
 		test.That(t, cloud.PoseInCloud(goalPose, smallChange), test.ShouldBeTrue)
 		test.That(t, cloud.PoseInCloud(goalPose, largeChange), test.ShouldBeFalse)
+	})
+}
+
+// tiltToward returns the pure tilt (no twist about Z) that points the Z axis along (ox, oy, oz).
+// Building it from an axis-angle keeps the test independent of how orientation vectors encode
+// theta, which off the pole folds the tilt direction into theta.
+func tiltToward(ox, oy, oz float64) spatialmath.Pose {
+	lat := math.Acos(oz / math.Sqrt(ox*ox+oy*oy+oz*oz))
+	return spatialmath.NewPose(r3.Vector{}, &spatialmath.R4AA{Theta: lat, RX: -oy, RY: ox})
+}
+
+func TestPoseInCloudThetaIsTwist(t *testing.T) {
+	goalPose := spatialmath.NewZeroPose()
+
+	// Theta bounds twist about the goal's Z axis, so a tilt alone uses none of it, whichever
+	// way it leans. Off the pole an orientation vector reports such a tilt with theta ~= -longitude.
+	t.Run("a pure tilt has no twist in any direction", func(t *testing.T) {
+		cloud := PoseCloud{OX: 1, OY: 1, OZ: 1, Theta: 1}
+		for _, lonDegs := range []float64{0, 45, 90, 135, 180, -90} {
+			lon := lonDegs * math.Pi / 180
+			test.That(t, cloud.PoseInCloud(goalPose, tiltToward(math.Cos(lon), math.Sin(lon), 10)), test.ShouldBeTrue)
+		}
+	})
+
+	// The orientation vector switches theta conventions at a ~0.8 degree tilt. A cloud around a
+	// tool pointing straight down sits right on that boundary, and a slightly larger tilt toward
+	// -X must not read as a half turn of twist.
+	t.Run("theta does not jump at the orientation vector pole radius", func(t *testing.T) {
+		cloud := PoseCloud{OX: 0.05, OY: 0.05, OZ: 0.05, Theta: 45}
+		for _, tiltDegs := range []float64{0.7, 0.9} {
+			tilt := tiltDegs * math.Pi / 180
+			test.That(t, cloud.PoseInCloud(goalPose, tiltToward(-math.Sin(tilt), 0, math.Cos(tilt))), test.ShouldBeTrue)
+		}
+	})
+
+	t.Run("twist on top of a tilt still counts", func(t *testing.T) {
+		cloud := PoseCloud{OX: 1, OY: 1, OZ: 1, Theta: 15}
+		tilt := tiltToward(-0.3, 0.2, 1)
+		twist := func(degs float64) spatialmath.Pose {
+			return spatialmath.Compose(tilt, spatialmath.NewPose(r3.Vector{}, &spatialmath.R4AA{Theta: degs * math.Pi / 180, RZ: 1}))
+		}
+		test.That(t, cloud.PoseInCloud(goalPose, twist(10)), test.ShouldBeTrue)
+		test.That(t, cloud.PoseInCloud(goalPose, twist(-10)), test.ShouldBeTrue)
+		test.That(t, cloud.PoseInCloud(goalPose, twist(20)), test.ShouldBeFalse)
+		test.That(t, cloud.PoseInCloud(goalPose, twist(-20)), test.ShouldBeFalse)
 	})
 }
 
