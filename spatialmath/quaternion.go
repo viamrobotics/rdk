@@ -99,9 +99,7 @@ func QuatToOV(q quat.Number) *OrientationVector {
 	ov.OY = newZ.Jmag
 	ov.OZ = newZ.Kmag
 
-	// The contents of ov.newX.Kmag are not in radians but we can use angleEpsilon anyway to check how close we are to
-	// the pole because it's a convenient small number
-	if 1-math.Abs(newZ.Kmag) > orientationVectorPoleRadius {
+	if !inPoleRadius(*ov) {
 		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
 		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
 
@@ -147,6 +145,19 @@ func QuatToOV(q quat.Number) *OrientationVector {
 		if newZ.Kmag < 0 {
 			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
 		}
+		// The above is only exact on the pole itself. Off it, solve q = Rz(lon) Ry(lat) Rz(theta -/+ lon) exactly, which is how
+		// OrientationVector.Quaternion() decodes pole-radius vectors, keeping the above's choice between -pi and pi.
+		lon := math.Atan2(ov.OY, ov.OX)
+		lat := math.Acos(math.Max(-1, math.Min(1, ov.OZ)))
+		lonLat := mgl64.AnglesToQuat(lon, lat, 0, mgl64.ZYZ)
+		twist := quat.Mul(quat.Conj(quat.Number{Real: lonLat.W, Imag: lonLat.X(), Jmag: lonLat.Y(), Kmag: lonLat.Z()}), q)
+		theta := 2 * math.Atan2(twist.Kmag, twist.Real)
+		if newZ.Kmag > 0 {
+			theta += lon
+		} else {
+			theta -= lon
+		}
+		ov.Theta += math.Remainder(theta-ov.Theta, 2*math.Pi)
 	}
 	// the IEEE 754 Standard for Floating-Points allows both negative and positive zero representations.
 	// If one of the above conditions casts ov.Theta to -0, transform it to +0 for consistency.
