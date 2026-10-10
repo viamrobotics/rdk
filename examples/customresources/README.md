@@ -75,3 +75,21 @@ This is a minimal version of a custom resource module, using the built-in Generi
   * This uses module.json
   * This automatically compiles the module itself first, which can be done manually with `make module`.
 * In a separate terminal, run the client with `make run-client` (or move into the client directory and simply run `make`.)
+
+### combomodule
+This demo centers on a *composite*: a single resource reachable under several co-equal APIs at once. The `combodevice` model serves `rdk:component:camera`, `rdk:component:movement_sensor`, and the custom `acme:component:gizmo` API from one identity. It is the hard case on purpose — camera and movement_sensor both declare a `Properties` method with *different* return types, so those colliding methods can't share a struct and are routed through per-API facades, while gizmo (a module-defined API) rides alongside to show a composite spans built-in and custom APIs alike. A client demo is included in a sub folder; it reaches the one `combo` resource under each API and uses the composite-aware SDK helpers `resource.NamedFromProvider` / `resource.APIsOf` to list every API the single object serves.
+
+#### Running
+* Start the server `make run-module`
+  * This uses module.json
+  * This automatically compiles the module itself first, which can be done manually with `make module`.
+* In a separate terminal, run the client with `make run-client` (or move into the client directory and simply run `make`.)
+
+#### Notes
+In module.json the composite is a single component entry whose declared API is its canonical one (camera here); the server advertises it under every API the model is registered for, so the client sees one `combo` name under all three. The per-API lookups (`camera.FromProvider`, etc.) work against this server directly, while the api-less `resource.NamedFromProvider("combo")` handle resolves the bare composite over the SDK robot client, which depends on that client-side support being present.
+
+### simplecombomodule
+The minimal composite, and the companion to combomodule without the hard part. The `simplecombo` model serves just `rdk:component:sensor` and the custom `acme:component:gizmo` API. Because `sensor` (Readings) and `gizmo` (DoOne/DoTwo/…) share no method names, *one* struct satisfies both interfaces and there are no per-API facades at all — `resource.Compose` wraps the same object as each API's sub-resource. Start here to see the composite machinery on its own before reading combomodule's colliding-method handling.
+
+#### Running
+* Same steps as the demos above (`make run-module`, then `make run-client` in a separate terminal).
