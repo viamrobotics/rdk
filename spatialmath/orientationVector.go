@@ -127,6 +127,7 @@ func (ov *OrientationVector) EulerAngles() *EulerAngles {
 
 // Quaternion returns orientation in quaternion representation.
 func (ov *OrientationVector) Quaternion() quat.Number {
+	// Decide before normalizing in place: QuatToOV decides on these exact values, and normalizing twice can move OZ by an ulp.
 	pole := inPoleRadius(*ov)
 	// make sure OrientationVector is normalized first
 	ov.Normalize()
