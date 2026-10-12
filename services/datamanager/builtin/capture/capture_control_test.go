@@ -277,7 +277,7 @@ func TestSetCaptureConfig(t *testing.T) {
 			if tc.existingDCConfig != nil {
 				existingMock = &mockCollector{}
 				existing = collectors{
-					newCollectorMetadata(*tc.existingDCConfig): {
+					newCollectorMetadata(*tc.existingDCConfig, tc.existingDCConfig.Name.API): {
 						Resource: fakeRes, Collector: existingMock, Config: *tc.existingDCConfig,
 					},
 				}
