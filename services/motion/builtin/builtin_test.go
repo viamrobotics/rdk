@@ -889,8 +889,18 @@ func TestArmMoveWithinObstacle(t *testing.T) {
 	aboveCeiling := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -500, Z: 500}))
 	inside := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -500, Z: 100}))
 
+	// 600mm of headroom is tight for a UR5e: the upper arm sweeps the ceiling in most of the
+	// configurations that reach these goals, so few IK solutions are usable. IK only gets a one
+	// second budget unless the request asks for more than the default five minute planning
+	// timeout, and on a loaded runner that second buys too few iterations to find those
+	// solutions - planning then rejects every solution it has, or spends its whole budget in
+	// cBiRRT trying to connect goal configurations whose straight-line path is blocked. Above
+	// the default timeout IK obeys the request's budget instead. Each call gets its own map
+	// because Move writes to the one it is given.
+	slowRunnerExtra := func() map[string]interface{} { return map[string]interface{}{"timeout": 301.0} }
+
 	t.Run("goal inside the enclosure succeeds", func(t *testing.T) {
-		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: inside})
+		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: inside, Extra: slowRunnerExtra()})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -904,7 +914,12 @@ func TestArmMoveWithinObstacle(t *testing.T) {
 		constraints := &motionplan.Constraints{CollisionSpecification: []motionplan.CollisionSpecification{{
 			Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{{Frame1: "pieceArm", Frame2: "cage:ceiling"}},
 		}}}
-		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: aboveCeiling, Constraints: constraints})
+		_, err := ms.Move(ctx, motion.MoveReq{
+			ComponentName: "pieceArm",
+			Destination:   aboveCeiling,
+			Constraints:   constraints,
+			Extra:         slowRunnerExtra(),
+		})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
