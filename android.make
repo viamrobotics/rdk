@@ -1,3 +1,6 @@
+# Include mise and its shims in path.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
+
 $(NDK_ROOT):
 	# todo: remove this once we are building .aar in CI
 	# download ndk (used by server-android)
