@@ -424,6 +424,8 @@ jobs:
     - name: test
       shell: bash
       env:
+        MISE_GO_SET_GOROOT: false
+        MISE_GO_SET_GOBIN: false
         GOFLAGS: "-tags=no_cgo"
         CGO_ENABLED: "1"
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
