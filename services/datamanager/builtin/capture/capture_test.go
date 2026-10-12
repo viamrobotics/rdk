@@ -10,7 +10,7 @@ import (
 )
 
 func TestTargetDir(t *testing.T) {
-	test.That(t, targetDir("/some/path", datamanager.DataCaptureConfig{
+	test.That(t, targetDir("/some/path", arm.Named("arm1").API, datamanager.DataCaptureConfig{
 		Name:   arm.Named("arm1"),
 		Method: "JointPositions",
 	}), test.ShouldResemble, "/some/path/rdk_component_arm/arm1/JointPositions")
