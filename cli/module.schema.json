@@ -40,7 +40,7 @@
       "description": "Link to the markdown file for this module."
     },
     "applications": {
-      "type": "array",
+      "type": ["array", "null"],
       "description": "The Viam applications provided by this module.",
       "items": {
         "$ref": "#/$defs/application"

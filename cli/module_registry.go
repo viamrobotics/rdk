@@ -111,7 +111,7 @@ type ModuleManifest struct {
 	URL          string            `json:"url"`
 	Description  string            `json:"description"`
 	Models       []ModuleComponent `json:"models,omitempty"`
-	Apps         []AppComponent    `json:"applications"`
+	Apps         []AppComponent    `json:"applications,omitempty"`
 	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
