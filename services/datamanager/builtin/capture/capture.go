@@ -135,7 +135,7 @@ func (c *Capture) newCollectors(
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
 	for res, cfgs := range collectorConfigsByResource {
 		for _, cfg := range cfgs {
-			md := newCollectorMetadata(cfg)
+			md := newCollectorMetadata(cfg, captureAPIForMethod(res, cfg.Method, cfg.Name.API))
 
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
@@ -360,20 +360,26 @@ func (c *Capture) buildCollector(
 		return nil, err
 	}
 
-	// Get collector constructor for the component API and method.
+	// Get collector constructor for the owning API and method.
 	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
 
-	targetDir := targetDir(collectorConfig.CaptureDirectory, collectorConfig)
+	// captureAPI is the API that owns this method, which for a composite may differ from the
+	// resource's configured API. Tag data, lay out capture files, and resolve the typed sub-resource
+	// for the constructor by it so a composite's data lands under the API that implements the method.
+	captureAPI := md.MethodMetadata.API
+	sub := resource.SubresourceForAPI(res, captureAPI)
+
+	targetDir := targetDir(collectorConfig.CaptureDirectory, captureAPI, collectorConfig)
 	// Create a collector for this resource and method.
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
 	}
 	// Build metadata.
 	captureMetadata, dataType := data.BuildCaptureMetadata(
-		collectorConfig.Name.API,
+		captureAPI,
 		collectorConfig.Name.ShortName(),
 		collectorConfig.Method,
 		collectorConfig.AdditionalParams,
@@ -383,11 +389,11 @@ func (c *Capture) buildCollector(
 	// Parameters to initialize collector.
 	queueSize := defaultIfZeroVal(collectorConfig.CaptureQueueSize, defaultCaptureQueueSize)
 	bufferSize := defaultIfZeroVal(collectorConfig.CaptureBufferSize, defaultCaptureBufferSize)
-	collector, err := collectorConstructor(res, data.CollectorParams{
+	collector, err := collectorConstructor(sub, data.CollectorParams{
 		MongoCollection: collection,
 		DataType:        dataType,
 		ComponentName:   collectorConfig.Name.ShortName(),
-		ComponentType:   collectorConfig.Name.API.String(),
+		ComponentType:   captureAPI.String(),
 		FrameSystem:     c.frameSystem,
 		MethodName:      collectorConfig.Method,
 		Interval:        interval,
@@ -425,9 +431,9 @@ func collectorConfigDescription(
 	)
 }
 
-func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig) string {
+func targetDir(captureDir string, api resource.API, collectorConfig datamanager.DataCaptureConfig) string {
 	return data.CaptureFilePathWithReplacedReservedChars(
-		filepath.Join(captureDir, collectorConfig.Name.API.String(),
+		filepath.Join(captureDir, api.String(),
 			collectorConfig.Name.ShortName(), collectorConfig.Method),
 	)
 }
