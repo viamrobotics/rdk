@@ -392,6 +392,9 @@ jobs:
     name: windows
     needs: [check-changes]
     runs-on: windows-2025
+    env:
+      MISE_GO_SET_GOROOT: false
+      MISE_GO_SET_GOBIN: false
     steps:
     - uses: actions/checkout@v7
       with:
@@ -414,8 +417,6 @@ jobs:
     - name: test
       shell: bash
       env:
-        MISE_GO_SET_GOROOT: false
-        MISE_GO_SET_GOBIN: false
         GOFLAGS: "-tags=no_cgo"
         CGO_ENABLED: "1"
         CC: "zig cc"
@@ -501,10 +502,6 @@ jobs:
       env:
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
-        # Looks like mise-action misbehaves and sets these on Windows. Explicitly zero theme here as a workaround.
-        GOBIN: ''
-        GOROOT: ''
-        GOTOOLCHAIN: 'auto'
       run: |
         # Run all tests besides motionplan — already slow/costly on macOS runners.
         # armplanning is a subpackage of motionplan so it is excluded by the grep below.
