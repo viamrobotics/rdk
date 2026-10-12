@@ -18,6 +18,8 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -1259,4 +1261,24 @@ func TestIsModuleReloadComplete(t *testing.T) {
 		test.That(t, complete, test.ShouldBeTrue)
 		test.That(t, modStatus.State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
 	})
+}
+
+func TestMachineOmitsModuleStatus(t *testing.T) {
+	reloadTime := time.Date(2024, 3, 18, 12, 0, 0, 0, time.UTC)
+	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{
+		Config: rdkConfig.Revision{LastUpdated: reloadTime.Add(time.Second)},
+	}, reloadTime), test.ShouldBeTrue)
+	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{
+		Config:  rdkConfig.Revision{LastUpdated: reloadTime.Add(time.Second)},
+		Modules: []modulestatus.Status{{Name: "mod"}},
+	}, reloadTime), test.ShouldBeFalse)
+	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{
+		Config: rdkConfig.Revision{LastUpdated: reloadTime.Add(-time.Second)},
+	}, reloadTime), test.ShouldBeFalse)
+}
+
+func TestMachineStatusUnsupported(t *testing.T) {
+	test.That(t, machineStatusUnsupported(status.Error(codes.Unimplemented, "GetMachineStatus")), test.ShouldBeTrue)
+	test.That(t, machineStatusUnsupported(status.Error(codes.Unavailable, "transient")), test.ShouldBeFalse)
+	test.That(t, machineStatusUnsupported(errors.New("dial failed")), test.ShouldBeFalse)
 }
