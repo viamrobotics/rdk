@@ -1,0 +1,4 @@
+[tools]
+"go:github.com/bufbuild/buf/cmd/buf" = "v1.71.0"
+"go:gotest.tools/gotestsum" = "v1.13.0"
+"go:google.golang.org/grpc/cmd/protoc-gen-go-grpc" = "v1.5.1"

@@ -3,7 +3,7 @@ min_version = '2026.8.16'
 [tools]
 go = "1.25"
 golangci-lint = "2.13.2"
-gotestsum = "1.12.2"
+gotestsum = "1.13.0"
 buf = "v1.71.0"
 actionlint = "v1.7.8"
 protoc-gen-go-grpc = "v1.5.1"
