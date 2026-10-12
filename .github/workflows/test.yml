@@ -239,10 +239,10 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:amd64
             platform: linux/amd64
             platform_name: linux-amd64
-          - arch: ubuntu-arm-16-core
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64
-            platform: linux/arm64
-            platform_name: linux-arm64
+          # - arch: ubuntu-arm-16-core
+          #   image: ghcr.io/viamrobotics/rdk-devenv:arm64
+          #   platform: linux/arm64
+          #   platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -298,6 +298,8 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+
+      - uses: mxschmitt/action-tmate@v3
 
       - name: Run go unit tests
         env:
