@@ -249,7 +249,7 @@ jobs:
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 30
     env:
-      MISE_ENABLE_TOOLS: 'go,gotestsum,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
+      MISE_ENABLE_TOOLS: 'go,gotestsum,ffmpeg,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
       MISE_GO_SET_GOROOT: false
       MISE_GO_SET_GOBIN: false
 
@@ -392,6 +392,7 @@ jobs:
     needs: [check-changes]
     runs-on: windows-2025
     env:
+      MISE_ENABLE_TOOLS: 'go,gotestsum,ffmpeg,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
       MISE_GO_SET_GOROOT: false
       MISE_GO_SET_GOBIN: false
     steps:
@@ -478,6 +479,7 @@ jobs:
     runs-on: macos-latest-xlarge # latest silicon MacOS runner
     timeout-minutes: 30
     env:
+      MISE_ENABLE_TOOLS: 'go,gotestsum,ffmpeg,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
       MISE_GO_SET_GOROOT: false
       MISE_GO_SET_GOBIN: false
     steps:
@@ -500,7 +502,6 @@ jobs:
         brew trust viamrobotics/brews
         brew tap viamrobotics/brews
         brew install nlopt-static
-        brew install x264
     - name: test
       env:
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
@@ -559,6 +560,7 @@ jobs:
           SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
           SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
           SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+          MISE_ENABLE_TOOLS: 'go,gotestsum,ffmpeg,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           docker run \
@@ -567,8 +569,9 @@ jobs:
             -e SKIP_ROBOT_IMPL \
             -e SKIP_ARMPLANNING \
             -e SKIP_MODULE \
+            -e MISE_ENABLE_TOOLS \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && mise install -y && make test-go-no-race'
+            bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && make tool-install test-go-no-race'
 
   motion_tests:
     needs: [check-changes]
