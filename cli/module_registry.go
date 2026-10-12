@@ -392,7 +392,7 @@ func validateModels(errWriter io.Writer, manifest *ModuleManifest) {
 const maxModelDescriptionLength = 100
 
 // validateManifestLimits mirrors the length limits app.viam.com enforces on a manifest, so they fail
-// locally (and in CI via 'module validate') instead of only when a release publishes the module.
+// locally (and in CI via 'module lint-manifest') instead of only when a release publishes the module.
 func validateManifestLimits(manifest *ModuleManifest) error {
 	var errs error
 	for _, model := range manifest.Models {
@@ -406,13 +406,13 @@ func validateManifestLimits(manifest *ModuleManifest) error {
 	return errs
 }
 
-type validateModuleArgs struct {
+type lintManifestArgs struct {
 	Module string
 }
 
-// ValidateModuleAction is the corresponding Action for 'module validate'. It checks meta.json
+// LintManifestAction is the corresponding Action for 'module lint-manifest'. It checks meta.json
 // offline, without credentials, so CI can catch manifest errors before a release publishes it.
-func ValidateModuleAction(ctx context.Context, cmd *cli.Command, args validateModuleArgs) error {
+func LintManifestAction(ctx context.Context, cmd *cli.Command, args lintManifestArgs) error {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return err
@@ -424,7 +424,7 @@ func ValidateModuleAction(ctx context.Context, cmd *cli.Command, args validateMo
 	if err := validateManifestLimits(&manifest); err != nil {
 		return err
 	}
-	printf(cmd.Root().Writer, "%s is valid", args.Module)
+	printf(cmd.Root().Writer, "no problems found in %s", args.Module)
 	return nil
 }
 

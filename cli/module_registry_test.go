@@ -138,7 +138,7 @@ func TestValidateManifestLimits(t *testing.T) {
 	}
 }
 
-func TestValidateModuleAction(t *testing.T) {
+func TestLintManifestAction(t *testing.T) {
 	writeManifest := func(t *testing.T, description string) string {
 		t.Helper()
 		metaPath := filepath.Join(t.TempDir(), "meta.json")
@@ -154,17 +154,17 @@ func TestValidateModuleAction(t *testing.T) {
 		return metaPath
 	}
 
-	t.Run("valid", func(t *testing.T) {
+	t.Run("no problems", func(t *testing.T) {
 		cCtx, _, out, _ := setup(&inject.AppServiceClient{}, nil, nil, map[string]any{"module": writeManifest(t, "ok")}, "")
-		err := ValidateModuleAction(context.Background(), cCtx, parseStructFromCtx[validateModuleArgs](cCtx))
+		err := LintManifestAction(context.Background(), cCtx, parseStructFromCtx[lintManifestArgs](cCtx))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "is valid")
+		test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "no problems found")
 	})
 
 	t.Run("description too long", func(t *testing.T) {
 		metaPath := writeManifest(t, strings.Repeat("a", maxModelDescriptionLength+1))
 		cCtx, _, _, _ := setup(&inject.AppServiceClient{}, nil, nil, map[string]any{"module": metaPath}, "")
-		err := ValidateModuleAction(context.Background(), cCtx, parseStructFromCtx[validateModuleArgs](cCtx))
+		err := LintManifestAction(context.Background(), cCtx, parseStructFromCtx[lintManifestArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "exceeds maximum length of 100")
 	})

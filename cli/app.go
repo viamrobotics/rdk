@@ -3907,9 +3907,10 @@ Run this command from within the module directory.`,
 					Action: createActionCommandWithT[updateModuleArgs](UpdateModuleAction),
 				},
 				{
-					Name:      "validate",
-					Usage:     "check a module's meta.json against registry limits without contacting app.viam.com",
-					UsageText: createUsageText("module validate", nil, false, false),
+					Name: "lint-manifest",
+					Usage: "check meta.json for format errors and registry limits offline; " +
+						"passing does not guarantee an upload will succeed",
+					UsageText: createUsageText("module lint-manifest", nil, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -3918,7 +3919,7 @@ Run this command from within the module directory.`,
 							TakesFile: true,
 						},
 					},
-					Action: createActionCommandWithT[validateModuleArgs](ValidateModuleAction),
+					Action: createActionCommandWithT[lintManifestArgs](LintManifestAction),
 				},
 				{
 					Name:      "update-models",
