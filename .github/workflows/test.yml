@@ -483,7 +483,7 @@ jobs:
       MISE_GO_SET_GOROOT: false
       MISE_GO_SET_GOBIN: false
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
         allow-unsafe-pr-checkout: true
@@ -502,6 +502,7 @@ jobs:
         brew trust viamrobotics/brews
         brew tap viamrobotics/brews
         brew install nlopt-static
+        brew install x264
     - name: test
       env:
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
@@ -561,6 +562,7 @@ jobs:
           SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
           SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
           MISE_ENABLE_TOOLS: 'go,gotestsum,ffmpeg,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
+          MISE_INSTALL_ARCH: 'armv7'
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           docker run \
@@ -570,8 +572,9 @@ jobs:
             -e SKIP_ARMPLANNING \
             -e SKIP_MODULE \
             -e MISE_ENABLE_TOOLS \
+            -e MISE_INSTALL_ARCH \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && make tool-install test-go-no-race'
+            bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && eval "$($HOME/.local/bin/mise activate bash)" && env && make tool-install test-go-no-race'
 
   motion_tests:
     needs: [check-changes]
