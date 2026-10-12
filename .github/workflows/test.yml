@@ -239,10 +239,10 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:amd64
             platform: linux/amd64
             platform_name: linux-amd64
-          # - arch: ubuntu-arm-16-core
-          #   image: ghcr.io/viamrobotics/rdk-devenv:arm64
-          #   platform: linux/arm64
-          #   platform_name: linux-arm64
+          - arch: ubuntu-arm-16-core
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64
+            platform: linux/arm64
+            platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -299,8 +299,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: mxschmitt/action-tmate@v3
-
       - name: Run go unit tests
         env:
           # The devenv images have the C++ runtime the prebuilt trajex archives
@@ -315,7 +313,10 @@ jobs:
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           apt-get update && apt-get install -y python3-venv
-          GOPATH="$HOME/go" make test-go
+          env
+          go env
+          GOPATH="$HOME/go" go install -x golang.org/x/tools/cmd/goimports@latest
+          GOPATH="$HOME/go" TEST_TARGET="./cli" make test-go
 
       - name: Upload test.json
         if: always()
