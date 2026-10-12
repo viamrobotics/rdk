@@ -250,6 +250,7 @@ jobs:
     timeout-minutes: 30
     env:
       MISE_GO_SET_GOROOT: false
+      MISE_GO_SET_GOBIN: false
 
     steps:
       - uses: actions/checkout@v4
