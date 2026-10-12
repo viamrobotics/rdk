@@ -291,6 +291,7 @@ func TestServer(t *testing.T) {
 
 		kinematics, err := armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: testArmName})
 		test.That(t, err, test.ShouldBeNil)
+		//nolint:staticcheck // deprecated fields are still served
 		test.That(t, kinematics.Format, test.ShouldResemble, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
 
 		_, err = armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failArmName})
