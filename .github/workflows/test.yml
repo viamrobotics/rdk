@@ -306,10 +306,9 @@ jobs:
           # tests, matching the viam-server shipped on linux amd64/arm64. See
           # GO_BUILD_TAGS_EXTRA in the Makefile and etc/test.sh.
           GO_BUILD_TAGS_EXTRA: viam_rdk_cgo_have_cxx20_rt
-          # Something, probably mise or setup-go, is setting this to `local`,
-          # which disables automatic downloading of newer go versions and
-          # causes cli tests that want to install goimports with `go install
-          # ...` to fail.
+          # setup-go sets this to `local`, which disables automatic downloading
+          # of newer go versions and causes cli tests that want to install
+          # goimports with `go install` to fail.
           GOTOOLCHAIN: auto
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
@@ -424,6 +423,10 @@ jobs:
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+        # setup-go sets this to `local`, which disables automatic downloading
+        # of newer go versions and causes cli tests that want to install
+        # goimports with `go install` to fail.
+        GOTOOLCHAIN: auto
       run: |
         # Start from the full package list and apply the same SKIP_* filters as
         # every other platform, so skip logic stays consistent as coverage grows.
@@ -502,6 +505,10 @@ jobs:
       env:
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+        # setup-go sets this to `local`, which disables automatic downloading
+        # of newer go versions and causes cli tests that want to install
+        # goimports with `go install` to fail.
+        GOTOOLCHAIN: auto
       run: |
         # Run all tests besides motionplan — already slow/costly on macOS runners.
         # armplanning is a subpackage of motionplan so it is excluded by the grep below.
