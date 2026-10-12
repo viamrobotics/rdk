@@ -516,7 +516,7 @@ jobs:
         fi
         # viam_rdk_cgo_have_cxx20_rt includes the trajex-backed arm-streaming
         # code and its tagged tests (prebuilt darwin_arm64 trajex archives).
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log -- -tags=viam_rdk_cgo_have_cxx20_rt $TEST_TARGET
+        gotestsum --format github-actions --jsonfile json.log -- -tags=viam_rdk_cgo_have_cxx20_rt $TEST_TARGET
 
     - name: Upload test.json
       if: always()
