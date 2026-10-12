@@ -877,3 +877,34 @@ func TestInputRangeOverrideAcceptsReturningInsideRange(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestArmMoveWithinObstacle(t *testing.T) {
+	// moving_arm_obstacle.json encloses a UR5e in an rdk:builtin:obstacle whose six wall
+	// geometries span z in [-300, 300]. The walls reach the frame system through the obstacle's
+	// kinematic model, so this exercises the ModelFramer frame system path end to end.
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm_obstacle.json")
+	defer teardown()
+	ctx := context.Background()
+
+	aboveCeiling := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -500, Z: 500}))
+	inside := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -500, Z: 100}))
+
+	t.Run("goal inside the enclosure succeeds", func(t *testing.T) {
+		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: inside})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("goal through the ceiling fails", func(t *testing.T) {
+		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: aboveCeiling})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cage:ceiling")
+	})
+
+	t.Run("goal through the ceiling succeeds when that wall is allowed", func(t *testing.T) {
+		constraints := &motionplan.Constraints{CollisionSpecification: []motionplan.CollisionSpecification{{
+			Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{{Frame1: "pieceArm", Frame2: "cage:ceiling"}},
+		}}}
+		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: aboveCeiling, Constraints: constraints})
+		test.That(t, err, test.ShouldBeNil)
+	})
+}

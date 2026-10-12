@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/generic/obstacle"
 	"go.viam.com/rdk/components/gripper"
 	fakegripper "go.viam.com/rdk/components/gripper/fake"
 	"go.viam.com/rdk/config"
@@ -568,4 +569,100 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 
 	gripperGeomFromFS := gripperGeomsInFrame.Geometries()[0]
 	test.That(t, gripperGeomFromFS.Label(), test.ShouldEqual, "gripper_origin")
+}
+
+func TestObstacleModelInFrameSystem(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// An obstacle described by a list of geometries reaches the frame system as a zero-DoF model:
+	// every geometry becomes "<component>:<label>", positioned by the component's frame, and other
+	// resources can be parented to those internal frames.
+	cfg := config.Config{Components: []resource.Config{
+		{
+			Name:  "obstacle",
+			API:   generic.API,
+			Model: obstacle.Model,
+			Frame: &referenceframe.LinkConfig{Parent: referenceframe.World, Translation: r3.Vector{X: 1000, Y: 0, Z: 0}},
+			ConvertedAttributes: &obstacle.Config{Geometries: []spatialmath.GeometryConfig{
+				{Type: spatialmath.BoxType, X: 10, Y: 20, Z: 30, TranslationOffset: r3.Vector{X: 100, Y: 0, Z: 550}, Label: "box"},
+				{Type: spatialmath.SphereType, R: 10, TranslationOffset: r3.Vector{X: 0, Y: 200, Z: 0}, Label: "post"},
+			}},
+		},
+		{
+			Name:                "camera",
+			API:                 camera.API,
+			Model:               fakecamera.Model,
+			Frame:               &referenceframe.LinkConfig{Parent: "obstacle:box", Translation: r3.Vector{X: 0, Y: 0, Z: 1}},
+			ConvertedAttributes: &fakecamera.Config{},
+		},
+		{
+			// A frame config geometry on a resource that provides a model is ignored rather than
+			// replacing the model's geometries.
+			Name:  "cage",
+			API:   generic.API,
+			Model: obstacle.Model,
+			Frame: &referenceframe.LinkConfig{
+				Parent:   referenceframe.World,
+				Geometry: &spatialmath.GeometryConfig{Type: spatialmath.BoxType, X: 1, Y: 1, Z: 1},
+			},
+			ConvertedAttributes: &obstacle.Config{Geometries: []spatialmath.GeometryConfig{
+				{Type: spatialmath.BoxType, X: 10, Y: 10, Z: 10, TranslationOffset: r3.Vector{X: 0, Y: 0, Z: 5}, Label: "wall"},
+			}},
+		},
+	}}
+
+	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
+	fss, err := framesystem.FromProvider(robot)
+	test.That(t, err, test.ShouldBeNil)
+	fs, err := framesystem.NewFromService(ctx, fss, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The frames created from the part carry no geometry of their own.
+	origin := fs.Frame("obstacle_origin")
+	test.That(t, origin, test.ShouldNotBeNil)
+	originGeometries, err := origin.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, originGeometries.Geometries(), test.ShouldBeEmpty)
+
+	inputs, err := fss.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	allGeometries, err := referenceframe.FrameSystemGeometries(fs, inputs)
+	test.That(t, err, test.ShouldBeNil)
+	centers := map[string]r3.Vector{}
+	for _, g := range allGeometries["obstacle"].Geometries() {
+		centers[g.Label()] = g.Pose().Point()
+	}
+	test.That(t, centers, test.ShouldResemble, map[string]r3.Vector{
+		"obstacle:box":  {X: 1100, Y: 0, Z: 550},
+		"obstacle:post": {X: 1000, Y: 200, Z: 0},
+	})
+
+	cageOrigin := fs.Frame("cage_origin")
+	test.That(t, cageOrigin, test.ShouldNotBeNil)
+	cageOriginGeometries, err := cageOrigin.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cageOriginGeometries.Geometries(), test.ShouldBeEmpty)
+	test.That(t, allGeometries["cage"].Geometries(), test.ShouldHaveLength, 1)
+	test.That(t, allGeometries["cage"].Geometries()[0].Label(), test.ShouldEqual, "cage:wall")
+
+	// A resource parented to one of the obstacle's internal frames resolves through it. The
+	// internal frames sit at the component's origin; the geometry offsets are on the geometries.
+	camPose, err := fss.GetPose(ctx, "camera", referenceframe.World, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	expectedCamPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 0, Z: 1})
+	test.That(t, spatialmath.PoseAlmostEqual(camPose.Pose(), expectedCamPose), test.ShouldBeTrue)
+
+	// The part, model included, serializes for remote clients.
+	fsCfg, err := robot.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	for _, part := range fsCfg.Parts {
+		if part.FrameConfig.Name() != "obstacle" {
+			continue
+		}
+		test.That(t, part.ModelFrame, test.ShouldNotBeNil)
+		pbPart, err := part.ToProtobuf()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pbPart.Kinematics.AsMap()["links"], test.ShouldHaveLength, 2)
+	}
 }

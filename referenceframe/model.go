@@ -169,6 +169,48 @@ func NewSimpleModel(name string) *SimpleModel {
 	}
 }
 
+// NewModelFromGeometries builds a zero-DoF Model whose only purpose is to carry multiple geometries.
+// Each geometry becomes a zero-pose static link parented to world, so a geometry's pose relative to
+// the model origin is the geometry's own pose. Labels double as link names, so they are made unique
+// and non-empty. The caller's geometries are copied, not mutated.
+func NewModelFromGeometries(name string, geometries []spatialmath.Geometry) (Model, error) {
+	if len(geometries) == 0 {
+		return NewSimpleModel(name), nil
+	}
+	cfg := &ModelConfigJSON{Name: name, Links: make([]LinkConfig, 0, len(geometries))}
+	seen := make(map[string]struct{}, len(geometries))
+	for i, g := range geometries {
+		base := g.Label()
+		if base == "" || base == World {
+			base = fmt.Sprintf("geometry_%d", i)
+		}
+		label := base
+		for n := 1; ; n++ {
+			if _, dup := seen[label]; !dup {
+				break
+			}
+			label = fmt.Sprintf("%s_%d", base, n)
+		}
+		seen[label] = struct{}{}
+
+		geom := g.Transform(spatialmath.NewZeroPose())
+		geom.SetLabel(label)
+		frame, err := NewStaticFrameWithGeometry(label, spatialmath.NewZeroPose(), geom)
+		if err != nil {
+			return nil, err
+		}
+		lc, err := NewLinkConfig(frame)
+		if err != nil {
+			return nil, err
+		}
+		lc.Parent = World
+		cfg.Links = append(cfg.Links, *lc)
+	}
+	// The links are siblings, so the model has several leaves; ParseConfig needs one named output.
+	cfg.OutputFrames = []string{cfg.Links[0].ID}
+	return cfg.ParseConfig(name)
+}
+
 // NewModel constructs a model from a FrameSystem and a primary output frame.
 // The primary output frame must exist in fs and determines what Transform() returns.
 func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleModel, error) {
