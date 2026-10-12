@@ -501,6 +501,10 @@ jobs:
       env:
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+        # Looks like mise-action misbehaves and sets these on Windows. Explicitly zero theme here as a workaround.
+        GOBIN: ''
+        GOROOT: ''
+        GOTOOLCHAIN: 'auto'
       run: |
         # Run all tests besides motionplan — already slow/costly on macOS runners.
         # armplanning is a subpackage of motionplan so it is excluded by the grep below.
