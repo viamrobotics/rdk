@@ -44,6 +44,85 @@ type InputEnabled interface {
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
+// KinematicClassify classifies a resource for the frame system by its distinct InputEnabled subs:
+//   - (sub, true, false)  exactly one kinematic chain -- a plain kinematic component (arm/gantry/
+//     gripper), or a composite with one InputEnabled sub whose API need not be the configured one;
+//   - (nil, false, true)  an unsupported multi-kinematic composite (two DISTINCT InputEnabled subs),
+//     which the model-frame builder omits rather than modelling, matching how BuiltInReconfigure drops
+//     it, so no frame is added that CurrentInputs cannot service;
+//   - (nil, false, false) a non-kinematic resource.
+//
+// Distinctness is by sub identity, not API count: a single struct authored to serve several kinematic
+// APIs is composed under each, so every API resolves to the same object (one CurrentInputs) and is one
+// chain; per-API facades are distinct objects and are the multi-kinematic case. Returning all three
+// outcomes in one pass lets the frame-parts builder classify a resource with a single call.
+func KinematicClassify(res resource.Resource) (sub InputEnabled, kinematic, multi bool) {
+	kin := kinematicSubsOf(res)
+	switch len(kin) {
+	case 0:
+		return nil, false, false
+	case 1:
+		ie, _ := kin[0].(InputEnabled)
+		return ie, true, false
+	default:
+		return nil, false, true
+	}
+}
+
+// kinematicSubsOf returns res's distinct InputEnabled subs by identity: one entry for a plain kinematic
+// resource or a single-struct composite, more than one for a multi-kinematic composite. KinematicClassify
+// reads through it (and through DistinctKinematicSubs) so every kinematic-distinctness decision -- here
+// and in both BuiltInReconfigure sites -- shares one implementation and cannot drift.
+func kinematicSubsOf(res resource.Resource) []resource.Resource {
+	apis := resource.APIsOf(res)
+	subs := make([]resource.Resource, 0, len(apis))
+	for _, api := range apis {
+		subs = append(subs, resource.SubresourceForAPI(res, api))
+	}
+	return DistinctKinematicSubs(subs)
+}
+
+// DistinctKinematicSubs returns the InputEnabled subs among subs, deduplicated by identity. A single
+// object served under several kinematic APIs appears once per API alias but is one chain, so it
+// collapses to a single entry; genuinely distinct InputEnabled subs (per-API facades) stay separate,
+// and more than one entry is an unsupported multi-kinematic composite. Both frame-system and motion
+// BuiltInReconfigure use this so their multi-kinematic test agrees with KinematicClassify (identity,
+// not API count) and with the model-frame builder; a count-based test would refuse a single-struct
+// composite the builder models as one chain and break its CurrentInputs.
+func DistinctKinematicSubs(subs []resource.Resource) []resource.Resource {
+	var kinematic []resource.Resource
+	for _, sub := range subs {
+		ie, ok := sub.(InputEnabled)
+		if !ok {
+			continue
+		}
+		duplicate := false
+		for _, seen := range kinematic {
+			if seen.(InputEnabled) == ie {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			kinematic = append(kinematic, sub)
+		}
+	}
+	return kinematic
+}
+
+// ShapedSub returns a resource.Shaped sub that provides a frame-system geometry, if any: the resource
+// itself for an ordinary component, or, for a composite, any co-equal sub that implements
+// resource.Shaped. A composite is one physical device with a single geometry, so returning any Shaped
+// sub is fine. Returns (nil, false) when no sub is Shaped.
+func ShapedSub(res resource.Resource) (resource.Shaped, bool) {
+	for _, api := range resource.APIsOf(res) {
+		if sh, ok := resource.SubresourceForAPI(res, api).(resource.Shaped); ok {
+			return sh, true
+		}
+	}
+	return nil, false
+}
+
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
 type Service interface {
 	resource.Resource
@@ -208,12 +287,38 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	components := make(map[string]resource.Resource)
+	// Group deps by short name: a remote composite is surfaced as one per-API sub-client per co-equal
+	// API (same short name), and a composite may serve at most one kinematic (input-enabled) API — one
+	// physical device is one frame with one CurrentInputs. Keep the kinematic sub; refuse a
+	// multi-kinematic composite (not supported) rather than erroring on the duplicate name and taking
+	// the whole frame system down.
+	// A local composite dep is the one multi-API wrapper aliased under each of its API names; unwrap to
+	// this API's sub before grouping (a no-op for an ordinary resource or a remote per-API sub-client),
+	// or the InputEnabled check below sees the wrapper, which implements none of the sub-API interfaces.
+	componentsByName := make(map[string][]resource.Resource)
 	for name, r := range deps {
-		if _, present := components[name.Name]; present {
-			return DuplicateResourceNameError(name.Name)
+		componentsByName[name.Name] = append(componentsByName[name.Name], resource.SubresourceForAPI(r, name.API))
+	}
+	components := make(map[string]resource.Resource)
+	for name, subs := range componentsByName {
+		// Count DISTINCT kinematic subs by identity, not by API count. A single object served under
+		// several kinematic APIs (a single-struct composite) is composed under each, so it appears once
+		// per alias here but is ONE chain -- this must agree with KinematicClassify, which the
+		// model-frame builder uses, or a composite the builder models as one chain would be refused here
+		// and leave CurrentInputs unserviceable. Only genuinely distinct InputEnabled subs (per-API
+		// facades) make a composite multi-kinematic, which the frame system does not support.
+		kinematic := DistinctKinematicSubs(subs)
+		switch {
+		case len(kinematic) > 1:
+			svc.logger.Errorw(
+				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
+				"resource", name,
+			)
+		case len(kinematic) == 1:
+			components[name] = kinematic[0]
+		default:
+			components[name] = subs[0]
 		}
-		components[name.Name] = r
 	}
 	svc.components = components
 
