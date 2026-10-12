@@ -1,0 +1,19 @@
+{
+	"modules": [
+		{
+			"name": "SimpleComboModule",
+			"executable_path": "./simplecombomodule"
+		}
+	],
+	"components": [
+		{
+			"namespace": "rdk",
+			"type": "sensor",
+			"name": "simplecombo",
+			"model": "acme:demo:simplecombo"
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}
