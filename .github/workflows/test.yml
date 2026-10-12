@@ -568,7 +568,7 @@ jobs:
             -e SKIP_ARMPLANNING \
             -e SKIP_MODULE \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            sudo --preserve-env=SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && make test-go-no-race'
+            bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && mise install -y && make test-go-no-race'
 
   motion_tests:
     needs: [check-changes]
