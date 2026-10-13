@@ -124,8 +124,8 @@ func ModelConfigToProto(cfg *ModelConfigJSON) (*commonpb.KinematicModel, error) 
 }
 
 // ModelConfigFromProto converts the KinematicModel message into an SVA model configuration. The
-// SVA schema is narrower than the message, so a link with more than one collision geometry or any
-// visual geometry is an error rather than a silent drop. ModelFromProto keeps those parts.
+// SVA schema has no place for visual geometry, so any is an error rather than a silent drop.
+// ModelFromProto keeps it.
 func ModelConfigFromProto(pb *commonpb.KinematicModel) (*ModelConfigJSON, error) {
 	cfg, visual, err := modelConfigFromProto(pb)
 	if err != nil {
@@ -219,12 +219,17 @@ func linkConfigToProto(link *LinkConfig) (*commonpb.KinematicLink, error) {
 		}
 	}
 	pbLink := &commonpb.KinematicLink{Id: link.ID, Parent: link.Parent, Pose: pose}
-	if link.Geometry != nil {
-		g, err := geometryConfigToProto(link.Geometry)
+	configs := link.geometryConfigs()
+	for i := range configs {
+		g, err := geometryConfigToProto(&configs[i])
 		if err != nil {
 			return nil, err
 		}
-		pbLink.Collision = []*commonpb.Geometry{g}
+		// the wire carries the label the Go model would give it, so every reader sees the same name
+		if g.Label == "" {
+			g.Label = defaultGeometryLabel(link.ID, i, len(configs))
+		}
+		pbLink.Collision = append(pbLink.Collision, g)
 	}
 	return pbLink, nil
 }
@@ -239,17 +244,15 @@ func linkConfigFromProto(link *commonpb.KinematicLink) (*LinkConfig, error) {
 		}
 		lc.Orientation = oc
 	}
-	switch n := len(link.GetCollision()); n {
-	case 0:
-	case 1:
-		gc, err := geometryConfigFromProto(link.GetCollision()[0])
+	configs := make([]spatial.GeometryConfig, 0, len(link.GetCollision()))
+	for i, g := range link.GetCollision() {
+		gc, err := geometryConfigFromProto(g)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "collision geometry %d", i)
 		}
-		lc.Geometry = gc
-	default:
-		return nil, fmt.Errorf("%d collision geometries cannot be carried by an SVA model config, which holds one per link", n)
+		configs = append(configs, *gc)
 	}
+	lc.setGeometryConfigs(configs)
 	return lc, nil
 }
 

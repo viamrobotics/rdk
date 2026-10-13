@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 	"os"
@@ -329,17 +330,58 @@ func TestSimpleModelVisualAndProperties(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "visual")
 }
 
-// The SVA schema holds one collision geometry per link, so more than one is an error on the way
-// back rather than a silent drop.
-func TestModelConfigFromProtoRefusesSeveralCollisionGeometries(t *testing.T) {
-	sphere := func(label string) *commonpb.Geometry {
-		return &commonpb.Geometry{Label: label, GeometryType: &commonpb.Geometry_Sphere{Sphere: &commonpb.Sphere{RadiusMm: 1}}}
+// A link carries every collision geometry it was given. Unlabelled ones are named after the link
+// with an index, on the model and on the wire alike, and the first of them keeps the legacy
+// geometry field so an old reader still sees one.
+func TestSeveralCollisionGeometriesPerLink(t *testing.T) {
+	sphere := func(label string, x float64) *commonpb.Geometry {
+		return &commonpb.Geometry{
+			Label:        label,
+			Center:       &commonpb.Pose{X: x, OZ: 1},
+			GeometryType: &commonpb.Geometry_Sphere{Sphere: &commonpb.Sphere{RadiusMm: 1}},
+		}
 	}
-	_, err := ModelConfigFromProto(&commonpb.KinematicModel{Links: []*commonpb.KinematicLink{
-		{Id: "base", Collision: []*commonpb.Geometry{sphere("a"), sphere("b")}},
-	}})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "one per link")
+	pb := &commonpb.KinematicModel{
+		Name: "arm",
+		Links: []*commonpb.KinematicLink{
+			{Id: "base", Parent: World, Collision: []*commonpb.Geometry{sphere("", 10), sphere("named", 20), sphere("", 30)}},
+			{Id: "tip", Parent: "base", Collision: []*commonpb.Geometry{sphere("", 40)}},
+		},
+		OutputFrames: []string{"tip"},
+	}
+
+	model, err := ModelFromProto(pb, "")
+	test.That(t, err, test.ShouldBeNil)
+	gif, err := model.Geometries(nil)
+	test.That(t, err, test.ShouldBeNil)
+	labels := make([]string, 0, 4)
+	for _, g := range gif.Geometries() {
+		labels = append(labels, strings.TrimPrefix(g.Label(), "arm:"))
+	}
+	test.That(t, labels, test.ShouldResemble, []string{"base_collision_0", "named", "base_collision_2", "tip"})
+
+	back, err := ModelToProto(model)
+	test.That(t, err, test.ShouldBeNil)
+	wire := linkByID(t, back, "base").GetCollision()
+	test.That(t, len(wire), test.ShouldEqual, 3)
+	test.That(t, wire[0].GetLabel(), test.ShouldEqual, "base_collision_0")
+	test.That(t, wire[1].GetLabel(), test.ShouldEqual, "named")
+	test.That(t, wire[2].GetLabel(), test.ShouldEqual, "base_collision_2")
+	test.That(t, wire[2].GetCenter().GetX(), test.ShouldEqual, 30)
+	test.That(t, linkByID(t, back, "tip").GetCollision()[0].GetLabel(), test.ShouldEqual, "tip")
+
+	cfg, err := ModelConfigFromProto(pb)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cfg.Links[0].Geometry.TranslationOffset.X, test.ShouldEqual, 10)
+	test.That(t, len(cfg.Links[0].Geometries), test.ShouldEqual, 2)
+	test.That(t, cfg.Links[1].Geometries, test.ShouldBeNil)
+
+	// the model's own JSON keeps the same split, and reads back to the same frames
+	data, err := json.Marshal(model)
+	test.That(t, err, test.ShouldBeNil)
+	reread := &SimpleModel{}
+	test.That(t, json.Unmarshal(data, reread), test.ShouldBeNil)
+	assertSameKinematics(t, model, reread)
 }
 
 func jointByID(t *testing.T, pb *commonpb.KinematicModel, id string) *commonpb.KinematicJoint {
