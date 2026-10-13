@@ -414,7 +414,7 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	// the geometries sit at the end of the frame's transform rather than at its origin
-	return NewGeometriesInFrame(sf.name, placeGeometries(sf.name, sf.geometries, sf.transform)), nil
+	return NewGeometriesInFrame(sf.name, placeGeometries(sf.geometries, sf.transform)), nil
 }
 
 func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
@@ -524,13 +524,38 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 }
 
 // NewStaticFrameWithGeometries creates a static frame that occupies several geometries. A geometry
-// with no label is reported under the frame's name when it is the only one, and as
-// <name>_collision_<i> otherwise. Pose is not allowed to be nil.
+// with no label is named after the frame when it is the only one, and <name>_collision_<i>
+// otherwise. Pose is not allowed to be nil, and neither is any geometry.
 func NewStaticFrameWithGeometries(name string, pose spatial.Pose, geometries []spatial.Geometry) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
+	geometries, err := labelGeometries(name, geometries)
+	if err != nil {
+		return nil, err
+	}
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometries}, nil
+}
+
+// labelGeometries names any geometry that has no label of its own, see defaultGeometryLabel. It
+// copies such a geometry first so the caller's is left alone, and refuses a nil entry here so the
+// failure is at construction rather than in a planning loop.
+func labelGeometries(frame string, geometries []spatial.Geometry) ([]spatial.Geometry, error) {
+	if len(geometries) == 0 {
+		return nil, nil
+	}
+	labelled := make([]spatial.Geometry, len(geometries))
+	for i, g := range geometries {
+		if g == nil {
+			return nil, fmt.Errorf("frame %q: geometry %d is nil", frame, i)
+		}
+		if g.Label() == "" {
+			g = g.Transform(spatial.NewZeroPose())
+			g.SetLabel(defaultGeometryLabel(frame, i, len(geometries)))
+		}
+		labelled[i] = g
+	}
+	return labelled, nil
 }
 
 func (sf *staticFrame) Hash() int {
@@ -570,18 +595,14 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if len(input) != 0 {
 		return nil, NewIncorrectDoFError(len(input), 0)
 	}
-	return NewGeometriesInFrame(sf.name, placeGeometries(sf.name, sf.geometries, spatial.NewZeroPose())), nil
+	return NewGeometriesInFrame(sf.name, placeGeometries(sf.geometries, spatial.NewZeroPose())), nil
 }
 
-// placeGeometries copies each geometry to its pose within the frame and fills in the label of any
-// that has none.
-func placeGeometries(frame string, geometries []spatial.Geometry, pose spatial.Pose) []spatial.Geometry {
+// placeGeometries copies each geometry to its pose within the frame.
+func placeGeometries(geometries []spatial.Geometry, pose spatial.Pose) []spatial.Geometry {
 	placed := make([]spatial.Geometry, 0, len(geometries))
-	for i, g := range geometries {
+	for _, g := range geometries {
 		placed = append(placed, g.Transform(pose))
-		if placed[i].Label() == "" {
-			placed[i].SetLabel(defaultGeometryLabel(frame, i, len(geometries)))
-		}
 	}
 	return placed
 }
@@ -676,10 +697,15 @@ func NewTranslationalFrameWithGeometry(name string, axis r3.Vector, limit Limit,
 }
 
 // NewTranslationalFrameWithGeometries creates a translational frame that carries several
-// geometries along with it. Unlabelled geometries are named as for NewStaticFrameWithGeometries.
+// geometries along with it. Unlabelled geometries are named as for NewStaticFrameWithGeometries,
+// and a nil geometry is refused.
 func NewTranslationalFrameWithGeometries(name string, axis r3.Vector, limit Limit, geometries []spatial.Geometry) (Frame, error) {
 	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
 		return nil, errors.New("cannot use zero vector as translation axis")
+	}
+	geometries, err := labelGeometries(name, geometries)
+	if err != nil {
+		return nil, err
 	}
 	return &translationalFrame{
 		baseFrame:  &baseFrame{name: name, limits: []Limit{limit}},
@@ -725,7 +751,7 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 	if err != nil {
 		return nil, err
 	}
-	return NewGeometriesInFrame(pf.name, placeGeometries(pf.name, pf.geometries, pose)), nil
+	return NewGeometriesInFrame(pf.name, placeGeometries(pf.geometries, pose)), nil
 }
 
 func (pf translationalFrame) MarshalJSON() ([]byte, error) {
@@ -775,7 +801,10 @@ func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		pf.geometries = []spatial.Geometry{geometry}
+		pf.geometries, err = labelGeometries(cfg.ID, []spatial.Geometry{geometry})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

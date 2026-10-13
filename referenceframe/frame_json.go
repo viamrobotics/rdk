@@ -76,12 +76,9 @@ func parseGeometryConfigs(link string, configs []spatial.GeometryConfig) ([]spat
 		if err != nil {
 			return nil, err
 		}
-		if g.Label() == "" {
-			g.SetLabel(defaultGeometryLabel(link, i, len(configs)))
-		}
 		geometries = append(geometries, g)
 	}
-	return geometries, nil
+	return labelGeometries(link, geometries)
 }
 
 // MimicConfig describes a mimic joint relationship where this joint's position is derived
@@ -133,7 +130,6 @@ type DHParamConfig struct {
 
 // NewLinkConfig constructs a config from a Frame.
 // NOTE: this currently only works with Frames of len(DoF)==0 and will error otherwise
-// NOTE: this will not work if more than one Geometry is returned by the Geometries function.
 func NewLinkConfig(frame Frame) (*LinkConfig, error) {
 	if len(frame.DoF()) > 0 {
 		return nil, fmt.Errorf("cannot create link config for Frame with %d DoF", len(frame.DoF()))
@@ -173,12 +169,13 @@ func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(cfg.Geometries) > 0 {
-		return nil, fmt.Errorf("link %q has %d geometries and a LinkInFrame holds one", cfg.ID, len(cfg.geometryConfigs()))
+	configs := cfg.geometryConfigs()
+	if len(configs) > 1 {
+		return nil, fmt.Errorf("link %q has %d geometries and a LinkInFrame holds one", cfg.ID, len(configs))
 	}
 	var geom spatial.Geometry
-	if cfg.Geometry != nil {
-		geom, err = cfg.Geometry.ParseConfig()
+	if len(configs) == 1 {
+		geom, err = configs[0].ParseConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -248,7 +245,14 @@ func (cfg *JointConfig) ToFrame() (Frame, error) {
 	case RevoluteJoint:
 		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(), limit)
 	case PrismaticJoint:
-		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis), limit)
+		if cfg.Geometry == nil {
+			return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis), limit)
+		}
+		geometry, err := cfg.Geometry.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		return NewTranslationalFrameWithGeometry(cfg.ID, r3.Vector(cfg.Axis), limit, geometry)
 	default:
 		return nil, NewUnsupportedJointTypeError(cfg.Type)
 	}
