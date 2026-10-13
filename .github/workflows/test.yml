@@ -543,7 +543,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
           allow-unsafe-pr-checkout: true
@@ -555,6 +555,33 @@ jobs:
       # docker/setup-qemu-action@v4.4.0
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
       - uses: docker/setup-buildx-action@v3
+
+      - name: Prepare cache dirs
+        run: |
+          mkdir -p "$HOME/arm32-cache/gomod"
+          mkdir -p "$HOME/arm32-cache/gobuild"
+          mkdir -p "$HOME/arm32-cache/mise-data"
+
+      - name: Restore go cache
+        id: gocache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/arm32-cache/gomod
+            ~/arm32-cache/gobuild
+          key: go-arm32-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            go-arm32-
+
+      - name: Restore mise cache
+        id: misecache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/arm32-cache/mise-data
+          key: mise-arm32-${{ hashFiles('**/mise.toml', '**/mise.*.toml') }}
+          restore-keys: |
+            mise-arm32-
 
       - name: Run go unit tests
         env:
@@ -569,6 +596,12 @@ jobs:
           docker run \
             --platform linux/arm/v7 \
             -v `pwd`:/rdk \
+            -v "$HOME/arm32-cache/gomod:/caches/gomod" \
+            -v "$HOME/arm32-cache/gobuild:/caches/gobuild" \
+            -v "$HOME/arm32-cache/mise-data:/caches/mise-data" \
+            -e GOMODCACHE=/caches/gomod \
+            -e GOCACHE=/caches/gobuild \
+            -e MISE_DATA_DIR=/caches/mise-data \
             -e SKIP_ROBOT_IMPL \
             -e SKIP_ARMPLANNING \
             -e SKIP_MODULE \
@@ -578,6 +611,25 @@ jobs:
             -e MISE_ENV \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
             bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && eval "$($HOME/.local/bin/mise activate bash)" && env && make tool-install test-go-no-race'
+
+      - name: Fix cache ownership
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" ~/arm32-cache
+      - name: Save go cache
+        if: always() && steps.gocache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/arm32-cache/gomod
+            ~/arm32-cache/gobuild
+          key: ${{ steps.gocache.outputs.cache-primary-key }}
+      - name: Save mise cache
+        if: always() && steps.misecache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/arm32-cache/mise-data
+          key: ${{ steps.misecache.outputs.cache-primary-key }}
 
   motion_tests:
     needs: [check-changes]
