@@ -1452,12 +1452,10 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		res, resErr := r.ResourceByName(resConfig.ResourceName())
 		isAvailable := resErr == nil
 
-		// Resolve the raw graph resource once, unambiguously by the configured name+API: the composite
-		// wrapper or the ordinary resource. `res` above is narrowed to the configured API's sub, whereas
-		// KinematicClassify/ShapedSub below unwrap this across every served API, so a composite's kinematic or
-		// geometry-providing sub is found even when it is not the configured API. Resolving by name+API
-		// (rather than the api-less short name) stays correct when a short name is shared. nil when the
-		// resource is unavailable or the node can't be resolved.
+		// rawRes is the full graph resource (the composite wrapper, or the plain resource) -- not the
+		// configured-API subresource that ResourceByName returned above as `res`. KinematicClassify and
+		// ShapedSub below unwrap rawRes across every API the resource serves, so a composite's kinematic
+		// or geometry-providing subresource is found even when its API is not the configured one.
 		var rawRes resource.Resource
 		if isAvailable {
 			if node, err := r.manager.resources.FindBySimpleNameAndAPI(
@@ -1470,10 +1468,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		}
 
 		if !isAvailable {
-			// An unavailable resource can't report its kinematics. Omit a degrees-of-freedom component
-			// (arm/gantry/gripper) rather than add a static frame that would misrepresent it as rigid,
-			// checking every API the model serves — not just the configured one — so a composite whose
-			// kinematic API isn't the one it's configured under is still omitted.
+			// An unavailable resource can't report its kinematics. If any API the model serves is
+			// kinematic, omit it rather than add a static frame that would misrepresent a jointed device
+			// as rigid.
 			kinematic := isKinematicSubtype(resConfig.ResourceName().API.SubtypeName)
 			for _, api := range resource.APIsForModel(resConfig.Model) {
 				kinematic = kinematic || isKinematicSubtype(api.SubtypeName)
@@ -1484,18 +1481,12 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			}
 		}
 
-		// Detect kinematics by interface across every API the resource serves: a composite contributes a
-		// model frame when a co-equal sub is InputEnabled, even if its kinematic API is not the one it's
-		// configured under. One classify call distinguishes single-kinematic, multi-kinematic, and
-		// non-kinematic.
 		var ie framesystem.InputEnabled
 		isKinematic, isMultiKinematic := false, false
 		if rawRes != nil {
 			ie, isKinematic, isMultiKinematic = framesystem.KinematicClassify(rawRes)
 		}
 		if isMultiKinematic {
-			// A composite serving more than one kinematic API is unsupported. Omit it rather than add a
-			// static frame that would misrepresent a jointed device as rigid.
 			logger.Warnw("Composite serves multiple kinematic APIs; omitting from FrameSystem.", "resource", resConfig.Name)
 			continue
 		}

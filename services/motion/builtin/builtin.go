@@ -205,11 +205,9 @@ func (ms *builtIn) BuiltInReconfigure(
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
-	// A composite is aliased under each of its co-equal API names but is one identity, and each value
-	// may be the composite wrapper (which implements none of the sub-API interfaces). Unwrap to this
-	// API's sub before classifying, or a composite falls through to the component bucket as an opaque
-	// wrapper. Component subs are grouped by short name and resolved below, since a composite may serve
-	// several component APIs under one name.
+	// Unwrap each dep to its API's sub so the type switch sees the real interface -- the composite
+	// wrapper implements none. Components group by short name, since a composite can serve several
+	// component APIs under one name.
 	componentsByName := make(map[string][]resource.Resource)
 	for name, dep := range deps {
 		dep := resource.SubresourceForAPI(dep, name.API)
@@ -227,13 +225,8 @@ func (ms *builtIn) BuiltInReconfigure(
 		}
 	}
 	for name, subs := range componentsByName {
-		// Motion uses the component map for kinematics. A composite may serve at most one kinematic
-		// (input-enabled) API: a single physical device is one frame with one CurrentInputs. Count
-		// DISTINCT kinematic subs by identity (via the shared framesystem helper) so a single-struct
-		// composite served under several kinematic APIs stays one chain, agreeing with the frame system
-		// and KinematicClassify; only genuinely distinct InputEnabled subs make it
-		// multi-kinematic, which is unsupported — log and refuse rather than silently pick one. With no
-		// kinematic sub, any sub works since it is not used for kinematics.
+		// Motion uses this map only for kinematics, so when no subresource is kinematic (the default
+		// case below) any one will do.
 		kinematic := framesystem.DistinctKinematicSubs(subs)
 		switch {
 		case len(kinematic) > 1:
