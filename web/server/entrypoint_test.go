@@ -90,7 +90,7 @@ func TestEntrypoint(t *testing.T) {
 
 		// numResources is the # of resources in /etc/configs/fake.json + the 1
 		// expected builtin resources.
-		numResources := 21
+		numResources := 20
 		if cgoBuiltinsExcluded() {
 			numResources = 18
 		}
@@ -116,7 +116,7 @@ func TestEntrypoint(t *testing.T) {
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 
-		numReg := 54
+		numReg := 53
 		if cgoBuiltinsExcluded() {
 			numReg = 46
 			// a cgo-enabled Windows build additionally registers the webcam driver
