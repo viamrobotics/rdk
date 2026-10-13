@@ -48,7 +48,6 @@ func newSimpleCombo(
 	// colliding methods, one struct implements both sensor.Sensor and gizmoapi.Gizmo, so no facades are
 	// needed. The composite is one device with one lifecycle, reachable under sensor and gizmo alike.
 	return resource.Compose(
-		conf.ResourceName(),
 		sensor.AsSub(d),
 		gizmoapi.AsSub(d),
 	)
