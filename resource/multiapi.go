@@ -70,15 +70,20 @@ func AsSub[T Resource](api API, res T) Sub {
 
 // Compose assembles a composite MultiAPIResource from per-API sub-resources. The served APIs are
 // sorted by API string (matching RegisterMultiAPISet) so the first is a deterministic canonical API
-// that DoCommand, Status, and Close route to. It errors if no subs are given or if two subs share an
-// API. Compose is the ergonomic, type-checked front door to NewMultiAPIResource (pair it with AsSub).
-func Compose(name Name, subs ...Sub) (MultiAPIResource, error) {
+// that DoCommand, Status, and Close route to. It errors if no subs are given, if two subs share an
+// API, or if the subs disagree on their name. Compose is the ergonomic, type-checked front door to
+// NewMultiAPIResource (pair it with AsSub).
+func Compose(subs ...Sub) (MultiAPIResource, error) {
 	if len(subs) == 0 {
 		return nil, errors.New("Compose requires at least one sub-resource")
 	}
+	name := subs[0].Res.Name()
 	apis := make([]API, 0, len(subs))
 	byAPI := make(map[API]Resource, len(subs))
 	for _, sub := range subs {
+		if sub.Res.Name() != name {
+			return nil, errors.Errorf("Compose given sub-resources with mismatched names: %q and %q", name, sub.Res.Name())
+		}
 		if _, dup := byAPI[sub.API]; dup {
 			return nil, errors.Errorf("Compose given duplicate sub-resources for api: %q", sub.API)
 		}
@@ -108,24 +113,24 @@ func (c *compositeResource) canonicalSub() Resource {
 	return c.byAPI[c.apis[0]]
 }
 
-// DoCommand routes a bare command to the canonical (first-declared) sub-resource. On the server
+// DoCommand routes a bare command to the canonical sub-resource. On the server
 // every API of a composite resolves to one instance with one DoCommand, so the canonical route is
 // representative; access a specific API via AsType to target its sub-resource directly.
 func (c *compositeResource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return c.canonicalSub().DoCommand(ctx, cmd)
 }
 
-// Status routes to the canonical (first-declared) sub-resource. As with DoCommand, all APIs of a
-// composite resolve to one instance on the server, so the canonical route reports the same status.
+// Status routes to the canonical sub-resource. On the server every API of a composite resolves to
+// one instance with one Status, so the canonical route is representative; access a specific API via
+// AsType to target its sub-resource directly.
 func (c *compositeResource) Status(ctx context.Context) (map[string]interface{}, error) {
 	return c.canonicalSub().Status(ctx)
 }
 
-// Close closes the composite once, via its canonical (first-declared) sub-resource — mirroring how
-// DoCommand and Status route. A composite is one device with one lifecycle, so Close does not close
-// each API's sub-resource in turn: they are either one shared underlying impl (closing each would
-// double-close it) or per-API views whose lifetime its creator owns, so a single canonical Close is
-// the correct once-only teardown.
+// Close closes the composite once, via its canonical sub-resource. A composite is one device with
+// one lifecycle, so Close does not close each API's sub-resource in turn: they are either one shared
+// underlying impl (closing each would double-close it) or per-API views whose lifetime its creator
+// owns, so a single canonical Close is the correct once-only teardown.
 func (c *compositeResource) Close(ctx context.Context) error {
 	return c.canonicalSub().Close(ctx)
 }
