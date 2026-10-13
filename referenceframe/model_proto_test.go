@@ -276,38 +276,47 @@ func TestSimpleModelVisualAndProperties(t *testing.T) {
 	sm, ok := model.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	glb := &commonpb.Geometry{GeometryType: &commonpb.Geometry_Mesh{Mesh: &commonpb.Mesh{
-		ContentType: "glb", Mesh: []byte("not really a glb"), OriginalFileSourcePathDiagnostic: proto.String("visual/base.glb"),
-	}}}
-	test.That(t, sm.SetVisualGeometries("base", []*commonpb.Geometry{glb}), test.ShouldBeNil)
-	test.That(t, sm.SetVisualGeometries("no_such_link", []*commonpb.Geometry{glb}), test.ShouldNotBeNil)
+	glb := spatial.GeometryConfig{
+		Type: spatial.MeshType, MeshContentType: "glb", MeshData: []byte("not really a glb"), MeshFilePath: "visual/base.glb",
+	}
+	test.That(t, sm.SetVisualGeometries("base", []spatial.GeometryConfig{glb}), test.ShouldBeNil)
+	test.That(t, sm.SetVisualGeometries("no_such_link", []spatial.GeometryConfig{glb}), test.ShouldNotBeNil)
 	hz := 100.0
-	sm.SetKinematicProperties(&commonpb.KinematicProperties{OperatingFreqHz: &hz})
+	sm.SetKinematicProperties(KinematicProperties{OperatingFreqHz: hz})
 
 	// the model hands out copies, so a caller cannot reach in and change what it holds
-	sm.VisualGeometries("base")[0].Label = "changed"
-	test.That(t, sm.VisualGeometries("base")[0].GetLabel(), test.ShouldEqual, "")
+	held := sm.VisualGeometries("base")
+	held[0].Label = "changed"
+	held[0].MeshData[0] = 'N'
+	test.That(t, sm.VisualGeometries("base")[0].Label, test.ShouldEqual, "")
+	test.That(t, sm.VisualGeometries("base")[0].MeshData, test.ShouldResemble, []byte("not really a glb"))
 
 	pb, err := ModelToProto(sm)
 	test.That(t, err, test.ShouldBeNil)
 	visual := linkByID(t, pb, "base").GetVisual()
 	test.That(t, len(visual), test.ShouldEqual, 1)
+	test.That(t, visual[0].GetMesh().GetContentType(), test.ShouldEqual, "glb")
 	test.That(t, visual[0].GetMesh().GetOriginalFileSourcePathDiagnostic(), test.ShouldEqual, "visual/base.glb")
 	test.That(t, len(linkByID(t, pb, "upper_arm").GetVisual()), test.ShouldEqual, 0)
 	test.That(t, pb.GetProperties().GetOperatingFreqHz(), test.ShouldEqual, hz)
+	// a property that was never set stays absent on the wire rather than becoming a zero
+	test.That(t, pb.GetProperties().MaxLinearTcpSpeedMmPerSec, test.ShouldBeNil)
 
 	restored, err := ModelFromProto(pb, "")
 	test.That(t, err, test.ShouldBeNil)
 	assertSameKinematics(t, sm, restored)
 	rsm, ok := restored.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, rsm.VisualGeometries("base")[0].GetMesh().GetMesh(), test.ShouldResemble, []byte("not really a glb"))
-	test.That(t, rsm.KinematicProperties().GetOperatingFreqHz(), test.ShouldEqual, hz)
+	test.That(t, rsm.VisualGeometries("base"), test.ShouldResemble, []spatial.GeometryConfig{glb})
+	test.That(t, rsm.KinematicProperties(), test.ShouldResemble, KinematicProperties{OperatingFreqHz: hz})
 
 	narrowed, err := NewModelWithLimitOverrides(sm, map[string]Limit{"waist": {Min: -1, Max: 1}})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(narrowed.VisualGeometries("base")), test.ShouldEqual, 1)
-	test.That(t, narrowed.KinematicProperties().GetOperatingFreqHz(), test.ShouldEqual, hz)
+	test.That(t, narrowed.KinematicProperties().OperatingFreqHz, test.ShouldEqual, hz)
+	// the override is its own model, so clearing its visuals leaves the base alone
+	test.That(t, narrowed.SetVisualGeometries("base", nil), test.ShouldBeNil)
+	test.That(t, len(sm.VisualGeometries("base")), test.ShouldEqual, 1)
 
 	resp := KinematicModelToProtobuf(sm)
 	//nolint:staticcheck // deprecated fields are still served

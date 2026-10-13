@@ -1,8 +1,10 @@
 package referenceframe
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand"
 	"strings"
@@ -13,7 +15,6 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
-	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -211,8 +212,18 @@ type SimpleModel struct {
 	// visual, keyed by link name, and properties are the parts of the typed kinematic model that
 	// the SVA configuration has no place for. They ride the KinematicModel message and nothing
 	// in RDK reads them.
-	visual     map[string][]*commonpb.Geometry
-	properties *commonpb.KinematicProperties
+	visual     map[string][]spatialmath.GeometryConfig
+	properties KinematicProperties
+}
+
+// KinematicProperties describes the component as a whole rather than any one joint. Zero means a
+// property was never set, since neither value is meaningful at zero, and a zero property is left
+// off the wire.
+type KinematicProperties struct {
+	// OperatingFreqHz is the rate the component expects to be driven at.
+	OperatingFreqHz float64
+	// MaxLinearTCPSpeedMMPerSec is the fastest the tool center point may move.
+	MaxLinearTCPSpeedMMPerSec float64
 }
 
 // NewSimpleModel constructs a new empty model with no kinematics.
@@ -424,7 +435,7 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 		return nil, err
 	}
 	m.modelConfig = base.modelConfig
-	m.visual = base.visual
+	m.visual = maps.Clone(base.visual)
 	m.properties = base.properties
 	return m, nil
 }
@@ -513,54 +524,51 @@ func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 }
 
 // SetVisualGeometries attaches display geometry to a link, replacing whatever it had. Nothing in
-// RDK reads it, it travels on the wire for viewers, so unlike collision meshes these may be any
-// format a viewer can load. The geometries are copied.
-func (m *SimpleModel) SetVisualGeometries(link string, geometries []*commonpb.Geometry) error {
+// RDK reads it, it travels on the wire for viewers, so unlike collision meshes a mesh here may be
+// any format a viewer can load and is never parsed. The geometries are copied.
+func (m *SimpleModel) SetVisualGeometries(link string, geometries []spatialmath.GeometryConfig) error {
 	if m.internalFS.Frame(link) == nil {
 		return NewFrameMissingError(link)
 	}
 	if m.visual == nil {
-		m.visual = map[string][]*commonpb.Geometry{}
+		m.visual = map[string][]spatialmath.GeometryConfig{}
 	}
-	m.visual[link] = cloneGeometries(geometries)
+	m.visual[link] = copyGeometryConfigs(geometries)
 	return nil
 }
 
 // VisualGeometries returns copies of the visual geometries set on a link, or nil when it has none.
-func (m *SimpleModel) VisualGeometries(link string) []*commonpb.Geometry {
+func (m *SimpleModel) VisualGeometries(link string) []spatialmath.GeometryConfig {
 	if len(m.visual[link]) == 0 {
 		return nil
 	}
-	return cloneGeometries(m.visual[link])
+	return copyGeometryConfigs(m.visual[link])
 }
 
 // SetKinematicProperties records what describes the component as a whole rather than any one
-// joint, such as the rate it expects to be driven at. The properties are copied.
-func (m *SimpleModel) SetKinematicProperties(p *commonpb.KinematicProperties) {
-	if p == nil {
-		m.properties = nil
-		return
-	}
-	m.properties, _ = proto.Clone(p).(*commonpb.KinematicProperties)
+// joint, such as the rate it expects to be driven at.
+func (m *SimpleModel) SetKinematicProperties(p KinematicProperties) {
+	m.properties = p
 }
 
-// KinematicProperties returns a copy of the component level properties, or nil when none were set.
-func (m *SimpleModel) KinematicProperties() *commonpb.KinematicProperties {
-	if m.properties == nil {
+// KinematicProperties returns the component level properties, zero valued when none were set.
+func (m *SimpleModel) KinematicProperties() KinematicProperties {
+	return m.properties
+}
+
+// copyGeometryConfigs copies the slice and what it points at, so the model and its callers
+// never share mesh bytes they could change under each other.
+func copyGeometryConfigs(geometries []spatialmath.GeometryConfig) []spatialmath.GeometryConfig {
+	if geometries == nil {
 		return nil
 	}
-	cloned, _ := proto.Clone(m.properties).(*commonpb.KinematicProperties)
-	return cloned
-}
-
-func cloneGeometries(geometries []*commonpb.Geometry) []*commonpb.Geometry {
-	cloned := make([]*commonpb.Geometry, 0, len(geometries))
-	for _, g := range geometries {
-		if c, ok := proto.Clone(g).(*commonpb.Geometry); ok {
-			cloned = append(cloned, c)
-		}
+	copied := make([]spatialmath.GeometryConfig, len(geometries))
+	for i, g := range geometries {
+		copied[i] = g
+		copied[i].MeshData = bytes.Clone(g.MeshData)
+		copied[i].OrientationOffset.Value = maps.Clone(g.OrientationOffset.Value)
 	}
-	return cloned
+	return copied
 }
 
 // Hash returns a hash value for this simple model.

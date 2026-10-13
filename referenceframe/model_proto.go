@@ -54,9 +54,15 @@ func ModelToProto(m Model) (*commonpb.KinematicModel, error) {
 		joint.Type, joint.Limits = jointType, limits
 	}
 	for _, link := range pb.Links {
-		link.Visual = sm.VisualGeometries(link.GetId())
+		for i := range sm.visual[link.GetId()] {
+			g, err := geometryConfigToProto(&sm.visual[link.GetId()][i])
+			if err != nil {
+				return nil, errors.Wrapf(err, "link %q visual geometry %d", link.GetId(), i)
+			}
+			link.Visual = append(link.Visual, g)
+		}
 	}
-	pb.Properties = sm.KinematicProperties()
+	pb.Properties = propertiesToProto(sm.properties)
 	return pb, nil
 }
 
@@ -81,7 +87,7 @@ func ModelFromProto(pb *commonpb.KinematicModel, name string) (Model, error) {
 			return nil, err
 		}
 	}
-	sm.SetKinematicProperties(pb.GetProperties())
+	sm.SetKinematicProperties(propertiesFromProto(pb.GetProperties()))
 	return sm, nil
 }
 
@@ -133,7 +139,7 @@ func ModelConfigFromProto(pb *commonpb.KinematicModel) (*ModelConfigJSON, error)
 
 // modelConfigFromProto does the conversion and hands back the visual geometries by link id, so the
 // caller decides whether having any is an error or something to set on the model.
-func modelConfigFromProto(pb *commonpb.KinematicModel) (*ModelConfigJSON, map[string][]*commonpb.Geometry, error) {
+func modelConfigFromProto(pb *commonpb.KinematicModel) (*ModelConfigJSON, map[string][]spatial.GeometryConfig, error) {
 	if pb == nil {
 		return nil, nil, errors.New("cannot convert a nil kinematic model")
 	}
@@ -142,15 +148,19 @@ func modelConfigFromProto(pb *commonpb.KinematicModel) (*ModelConfigJSON, map[st
 		KinParamType: "SVA",
 		OutputFrames: pb.GetOutputFrames(),
 	}
-	visual := map[string][]*commonpb.Geometry{}
+	visual := map[string][]spatial.GeometryConfig{}
 	for _, link := range pb.GetLinks() {
 		lc, err := linkConfigFromProto(link)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "link %q", link.GetId())
 		}
 		cfg.Links = append(cfg.Links, *lc)
-		if len(link.GetVisual()) > 0 {
-			visual[link.GetId()] = link.GetVisual()
+		for i, g := range link.GetVisual() {
+			gc, err := geometryConfigFromProto(g)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "link %q visual geometry %d", link.GetId(), i)
+			}
+			visual[link.GetId()] = append(visual[link.GetId()], *gc)
 		}
 	}
 	for _, joint := range pb.GetJoints() {
@@ -474,8 +484,10 @@ func geometryConfigFromProto(pb *commonpb.Geometry) (*spatial.GeometryConfig, er
 	gc := &spatial.GeometryConfig{Label: pb.GetLabel()}
 	if c := pb.GetCenter(); c != nil {
 		gc.TranslationOffset = r3.Vector{X: c.GetX(), Y: c.GetY(), Z: c.GetZ()}
-		// an all zero axis is an unset orientation, and identity needs no config at all
-		if c.GetOX() != 0 || c.GetOY() != 0 || c.GetOZ() != 0 {
+		// an unset orientation and the identity both need no config, and leaving one out keeps a
+		// geometry written without an orientation unchanged after a round trip
+		identity := c.GetOX() == 0 && c.GetOY() == 0 && c.GetOZ() >= 0 && c.GetTheta() == 0
+		if !identity {
 			oc, err := spatial.NewOrientationConfig(&spatial.OrientationVectorDegrees{
 				Theta: c.GetTheta(), OX: c.GetOX(), OY: c.GetOY(), OZ: c.GetOZ(),
 			})
@@ -506,6 +518,28 @@ func geometryConfigFromProto(pb *commonpb.Geometry) (*spatial.GeometryConfig, er
 		return nil, fmt.Errorf("geometry %T cannot be carried by an SVA model config", g)
 	}
 	return gc, nil
+}
+
+// propertiesToProto leaves a zero property off the wire, which is how the message says unset.
+func propertiesToProto(p KinematicProperties) *commonpb.KinematicProperties {
+	if p == (KinematicProperties{}) {
+		return nil
+	}
+	pb := &commonpb.KinematicProperties{}
+	if p.OperatingFreqHz != 0 {
+		pb.OperatingFreqHz = proto.Float64(p.OperatingFreqHz)
+	}
+	if p.MaxLinearTCPSpeedMMPerSec != 0 {
+		pb.MaxLinearTcpSpeedMmPerSec = proto.Float64(p.MaxLinearTCPSpeedMMPerSec)
+	}
+	return pb
+}
+
+func propertiesFromProto(pb *commonpb.KinematicProperties) KinematicProperties {
+	return KinematicProperties{
+		OperatingFreqHz:           pb.GetOperatingFreqHz(),
+		MaxLinearTCPSpeedMMPerSec: pb.GetMaxLinearTcpSpeedMmPerSec(),
+	}
 }
 
 func vectorToProto(v r3.Vector) *commonpb.Vector3 {
