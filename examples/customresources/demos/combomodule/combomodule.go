@@ -56,7 +56,6 @@ func newComboDevice(
 	// *comboDevice so the composite is one device with one lifecycle, reachable under camera,
 	// movement_sensor, and the custom gizmo API.
 	return resource.Compose(
-		conf.ResourceName(),
 		camera.AsSub(camFacade{d}),
 		movementsensor.AsSub(imuFacade{d}),
 		gizmoapi.AsSub(gizmoFacade{d}),
