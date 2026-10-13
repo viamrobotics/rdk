@@ -1,7 +1,11 @@
- [settings]
- # Tools not available in upstream registries. Where possible they are built
- # from source in the `tools` section below.
- disable_tools = ['ffmpeg', 'buf', 'gotestsum', 'protoc-gen-go-grpc']
+[settings]
+# Minimum set of dependencies needed to run tests on 32-bit arm
+enable_tools = [
+  'go',
+  'go:github.com/bufbuild/buf/cmd/buf',
+  'go:gotest.tools/gotestsum',
+  'go:google.golang.org/grpc/cmd/protoc-gen-go-grpc',
+]
 
 [tools]
 "go:github.com/bufbuild/buf/cmd/buf" = "v1.71.0"
