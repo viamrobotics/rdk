@@ -384,7 +384,7 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple resources share the simple name")
 }
 
-// comboFacadeDevice is the shared impl behind the in-process facade-composite fixtures below. The per-API
+// comboFacadeDevice is the shared impl behind the in-process facade composites below. The per-API
 // facades embed one *comboFacadeDevice and are assembled via resource.Compose, so a composite is stored
 // as a resource.MultiAPIResource wrapper that does not itself satisfy the sub-API interfaces — an
 // in-process fetch by a specific API must unwrap it. Lifecycle and actuator state (the shared Stop/Close
@@ -476,8 +476,8 @@ func (f sensorFacade) Geometries(
 }
 
 // registerComboFacadeModel registers a builtin facade composite serving the given APIs over one shared
-// *comboFacadeDevice (assembled via resource.Compose, so stored as a resource.MultiAPIResource wrapper).
-// Each API is served by its matching facade above; the stop/close counters are shared across facades.
+// *comboFacadeDevice. Each API is served by its matching facade above; the stop/close counters are
+// shared across facades.
 func registerComboFacadeModel(
 	t *testing.T, name string, apis []resource.API, stopCount, closeCount *atomic.Int32,
 ) resource.Model {
@@ -580,8 +580,7 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 // TestCompositeInFrameSystemMultiKinematicRefused checks that a composite serving more than one
 // kinematic (InputEnabled) API is omitted from the frame system rather than modeled. The gripper+servo
 // composite exposes Kinematics on both facades, so the model-frame builder can't pick one; it drops the
-// composite (as BuiltInReconfigure does), avoiding a static frame that would misrepresent a jointed
-// device as rigid.
+// composite.
 func TestCompositeInFrameSystemMultiKinematicRefused(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
