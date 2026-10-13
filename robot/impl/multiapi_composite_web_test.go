@@ -337,7 +337,6 @@ func registerCollideModel(t *testing.T, name string, closeCount *atomic.Int32) r
 			) (resource.Resource, error) {
 				d := &collideDevice{Named: conf.ResourceName().AsNamed(), closeCount: closeCount}
 				return resource.Compose(
-					conf.ResourceName(),
 					camera.AsSub(camFacadeBuiltin{d}),
 					movementsensor.AsSub(imuFacadeBuiltin{d}),
 				)
