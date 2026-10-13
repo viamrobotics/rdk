@@ -563,6 +563,7 @@ jobs:
           SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
           MISE_ENABLE_TOOLS: 'go,go:gotest.tools/gotestsum,go:github.com/bufbuild/buf/cmd/buf,go:google.golang.org/grpc/cmd/protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
           MISE_INSTALL_ARCH: 'armv7'
+          MISE_GO_SET_GOBIN: false
           MISE_ENV: 'arm32'
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
