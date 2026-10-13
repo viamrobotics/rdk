@@ -609,6 +609,8 @@ jobs:
             -e MISE_INSTALL_ARCH \
             -e MISE_GO_SET_GOBIN \
             -e MISE_ENV \
+            -e CI=1 \
+            -e MISE_YES=1 \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
             bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && eval "$($HOME/.local/bin/mise activate bash)" && env && make tool-install test-go-no-race'
 
