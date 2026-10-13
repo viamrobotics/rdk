@@ -87,10 +87,10 @@ func kinematicSubsOf(res resource.Resource) []resource.Resource {
 	return DistinctKinematicSubs(subs)
 }
 
-// DistinctKinematicSubs returns the InputEnabled subresources among subresources, deduplicated by
-// identity. A single object served under several kinematic APIs appears once per API alias but is one
-// chain, so it collapses to a single entry; genuinely distinct InputEnabled subresources (per-API
-// facades) stay separate, and more than one entry is an unsupported multi-kinematic composite.
+// DistinctKinematicSubs returns the InputEnabled subresources, deduplicated by identity. A single
+// object served under several kinematic APIs appears once per API alias but is one chain, so it
+// collapses to a single entry; genuinely distinct InputEnabled subresources (per-API facades) stay
+// separate, and more than one entry is an unsupported multi-kinematic composite.
 func DistinctKinematicSubs(subs []resource.Resource) []resource.Resource {
 	var kinematic []resource.Resource
 	for _, sub := range subs {
