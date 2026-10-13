@@ -190,7 +190,9 @@ func (ns *NavigationService) NavigateToLocation(ctx context.Context, name string
 }
 
 // NavigateToPoint calls the injected NavigateToPointFunc or the real version.
-func (ns *NavigationService) NavigateToPoint(ctx context.Context, destination navigation.Position, extra map[string]interface{}) (navigation.Status, error) {
+func (ns *NavigationService) NavigateToPoint(
+	ctx context.Context, destination navigation.Position, extra map[string]interface{},
+) (navigation.Status, error) {
 	if ns.NavigateToPointFunc == nil {
 		return ns.Service.NavigateToPoint(ctx, destination, extra)
 	}
@@ -222,7 +224,9 @@ func (ns *NavigationService) PlanToLocation(ctx context.Context, req navigation.
 }
 
 // ExecutePlan calls the injected ExecutePlanFunc or the real version.
-func (ns *NavigationService) ExecutePlan(ctx context.Context, plan navigation.Plan, extra map[string]interface{}) (navigation.Status, error) {
+func (ns *NavigationService) ExecutePlan(
+	ctx context.Context, plan navigation.Plan, extra map[string]interface{},
+) (navigation.Status, error) {
 	if ns.ExecutePlanFunc == nil {
 		return ns.Service.ExecutePlan(ctx, plan, extra)
 	}

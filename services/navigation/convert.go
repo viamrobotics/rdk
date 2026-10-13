@@ -19,6 +19,8 @@ func mapTypeToProtobuf(mapType MapType) pb.MapType {
 		return pb.MapType_MAP_TYPE_LOCAL
 	case GPSMap:
 		return pb.MapType_MAP_TYPE_GPS
+	case UnspecifiedMap:
+		fallthrough
 	default:
 		return pb.MapType_MAP_TYPE_UNSPECIFIED
 	}
@@ -49,6 +51,8 @@ func goalStateToProtobuf(state GoalState) pb.GoalState {
 		return pb.GoalState_GOAL_STATE_FAILED
 	case GoalStateCanceled:
 		return pb.GoalState_GOAL_STATE_CANCELED
+	case GoalStateUnspecified:
+		fallthrough
 	default:
 		return pb.GoalState_GOAL_STATE_UNSPECIFIED
 	}
@@ -66,6 +70,8 @@ func protobufToGoalState(state pb.GoalState) GoalState {
 		return GoalStateFailed
 	case pb.GoalState_GOAL_STATE_CANCELED:
 		return GoalStateCanceled
+	case pb.GoalState_GOAL_STATE_UNSPECIFIED:
+		fallthrough
 	default:
 		return GoalStateUnspecified
 	}
@@ -79,6 +85,8 @@ func navModeToProtobuf(mode NavMode) pb.NavMode {
 		return pb.NavMode_NAV_MODE_DIRECT
 	case NavModeRoute:
 		return pb.NavMode_NAV_MODE_ROUTE
+	case NavModeUnspecified:
+		fallthrough
 	default:
 		return pb.NavMode_NAV_MODE_UNSPECIFIED
 	}
@@ -92,6 +100,8 @@ func protobufToNavMode(mode pb.NavMode) NavMode {
 		return NavModeDirect
 	case pb.NavMode_NAV_MODE_ROUTE:
 		return NavModeRoute
+	case pb.NavMode_NAV_MODE_UNSPECIFIED:
+		fallthrough
 	default:
 		return NavModeUnspecified
 	}
@@ -111,6 +121,8 @@ func navErrorCodeToProtobuf(code NavErrorCode) pb.NavErrorCode {
 		return pb.NavErrorCode_NAV_ERROR_CODE_TIMEOUT
 	case NavErrorCodeOther:
 		return pb.NavErrorCode_NAV_ERROR_CODE_OTHER
+	case NavErrorCodeUnspecified:
+		fallthrough
 	default:
 		return pb.NavErrorCode_NAV_ERROR_CODE_UNSPECIFIED
 	}
@@ -130,6 +142,8 @@ func protobufToNavErrorCode(code pb.NavErrorCode) NavErrorCode {
 		return NavErrorCodeTimeout
 	case pb.NavErrorCode_NAV_ERROR_CODE_OTHER:
 		return NavErrorCodeOther
+	case pb.NavErrorCode_NAV_ERROR_CODE_UNSPECIFIED:
+		fallthrough
 	default:
 		return NavErrorCodeUnspecified
 	}
