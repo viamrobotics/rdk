@@ -205,12 +205,11 @@ func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *da
 	return uploader.UploadDataFromPath(ctx, path, md, extra)
 }
 
-// FindBySimpleNameAndAPI finds a resource by its simple name and API — the specific-API lookup
-// queried through the resourceGetterForAPI for _all_ incoming gRPC requests related to a resource. It
-// returns a nil resource and an error when no resource, or multiple matching remote resources, are
-// found. It unwraps a composite to the sub-resource serving that API (resource.SubresourceForAPI), so
-// an in-process consumer that fetches by a concrete API and type-asserts sees the real typed instance,
-// not the composite wrapper, which satisfies none of the API interfaces.
+// FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried through the
+// resourceGetterForAPI for _all_ incoming gRPC requests related to a resource. It returns a nil resource
+// and an error when no resource, or multiple matching remote resources, are found. It unwraps a composite
+// to the sub-resource serving that API (resource.SubresourceForAPI), so a caller that type-asserts sees
+// the real typed instance rather than the composite wrapper.
 func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
 	n, err := r.manager.resources.FindBySimpleNameAndAPI(name, api)
 	if err != nil {
@@ -224,9 +223,8 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 }
 
 // ResourceByName returns a resource by name. It routes an api-specific name to FindBySimpleNameAndAPI
-// (which unwraps a composite to the sub-resource serving that API) and a bare, API-less name to
-// resourceBySimpleName (which for a composite returns the single handle serving every API).
-// ResourceByName is only called internally, for some dependency calculation and session code.
+// and a simple, API-less name to resourceBySimpleName. It is only called internally, for some
+// dependency calculation and session code.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if name.API == (resource.API{}) {
 		return r.resourceBySimpleName(name.Name)
@@ -234,10 +232,10 @@ func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, erro
 	return r.FindBySimpleNameAndAPI(name.Name, name.API)
 }
 
-// resourceBySimpleName resolves a bare (API-less) name to its single resource. A composite is served
-// under several co-equal APIs but is one identity, so FindBySimpleName dedups it (local or remote) to
-// a single match and this returns the one handle serving every API. A genuine same-name collision
-// across distinct resources returns several matches and is an error.
+// resourceBySimpleName resolves a simple (API-less) name to its single resource. A composite serves
+// several co-equal APIs but is one identity, so FindBySimpleName collapses it (local or remote) to one
+// match and this returns that single multi-API handle. A genuine same-name collision across distinct
+// resources returns several matches and is an error.
 func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error) {
 	matches := r.manager.resources.FindAllBySimpleName(name)
 	switch len(matches) {
@@ -874,10 +872,9 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
 		allDeps[prefixedName] = resource.SubresourceForAPI(res, prefixedName.API)
-		// A composite dependency serves several co-equal APIs from one identity; key it under each of its
-		// API names, storing that API's unwrapped sub, so a dependent resolves it by whichever API it
-		// expects and an API-qualified name yields that API's handle directly. Unwrap is a no-op for an
-		// ordinary resource.
+		// A composite dependency serves several co-equal APIs, so key it under each of its API names with
+		// that API's unwrapped sub; a dependent then resolves it by whichever API it expects. Unwrap is a
+		// no-op for an ordinary resource.
 		for _, api := range resource.APIsOf(res) {
 			aliased := resource.Name{API: api, Remote: prefixedName.Remote, Name: prefixedName.Name}
 			allDeps[aliased] = resource.SubresourceForAPI(res, api)
@@ -1054,12 +1051,10 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
-		// A composite serves several co-equal APIs from one identity, so test the weak-dep matchers
-		// against each served API (the Subtype/Type matchers read Name().API, which is only the canonical
-		// API, so a composite matched on a non-canonical API would otherwise be dropped). Store that API's
-		// unwrapped sub under each matched API's name, so an API-qualified name yields that API's handle
-		// directly -- matching explicit deps above and robot resolution. An ordinary resource is a
-		// composite of one: APIsOf returns its single API and the unwrap is a no-op.
+		// A composite serves several co-equal APIs, so match the weak-dep matchers against each API it
+		// serves rather than only its canonical Name().API. For each matched API, store its unwrapped sub
+		// under that API's name so an API-qualified lookup resolves directly. An ordinary resource serves
+		// one API, so the unwrap is a no-op.
 		for _, api := range resource.APIsOf(res) {
 			sub := resource.SubresourceForAPI(res, api)
 			apiName := resource.Name{API: api, Remote: n.Remote, Name: n.Name}
@@ -2400,7 +2395,6 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
 	// that this robot does not have CloudMetadata to attach to resources.
 	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
-
 	for _, resourceStatus := range r.manager.resources.Status() {
 		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
 		if !resourceStatus.Name.ContainsRemoteNames() && resourceStatus.Name.API != client.RemoteAPI {
