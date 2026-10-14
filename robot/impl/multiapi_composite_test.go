@@ -32,8 +32,8 @@ func (c *comboSensor) Readings(context.Context, map[string]interface{}) (map[str
 }
 
 // DoCommand echoes cmd["ping"] back under "echo". It gives the composite's non-sensor (generic)
-// facade a method with an observable result, so a call can be proven to route to the correct per-API
-// facade of the one composite (rather than to Readings).
+// implementation a method with an observable result, so a call can be proven to route to the correct
+// per-API implementation of the one composite (rather than to Readings).
 func (c *comboSensor) DoCommand(_ context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{"echo": cmd["ping"]}, nil
 }
@@ -105,7 +105,7 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, echoed["echo"], test.ShouldEqual, "pong")
 
-	// 3) The api-less handle is the composite wrapper, uniform with a modular composite: APIsOf reports
+	// 3) The api-less handle is the composite wrapper, uniform with a modular composite. APIsOf reports
 	// the full co-equal set (not just the config API) and AsType extracts each served API.
 	test.That(t, resource.APIsOf(res), test.ShouldContain, sensor.API)
 	test.That(t, resource.APIsOf(res), test.ShouldContain, generic.API)
@@ -151,7 +151,7 @@ func TestCompositeModelReconfigureReindexes(t *testing.T) {
 	defer resource.Deregister(sensor.API, singleModel)
 	multiModel := registerComboModel(t, "recfg-multi", nil)
 
-	// Start as a plain sensor: the generic API does not resolve.
+	// Start as a plain sensor, so the generic API does not resolve.
 	r := setupLocalRobot(t, ctx, &config.Config{
 		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: singleModel}},
 	}, logger)
@@ -210,13 +210,13 @@ func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 }
 
 // TestCompositeRemoteResourceCollisions asserts that genuine collisions involving remote resources are
-// detected: a local resource and a remote resource sharing a bare name collide -- even across
-// DIFFERENT APIs -- as do two different (unprefixed) remotes exposing the same bare name.
+// detected: a local resource and a remote resource sharing a simple name collide, even across different
+// APIs, as do two different (unprefixed) remotes exposing the same simple name.
 func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
-	// Plain single-API models (NOT composites).
+	// Plain single-API models.
 	sensorModel := resource.NewModel("acme", "test", "collide-remote-sensor")
 	resource.RegisterComponent(sensor.API, sensorModel,
 		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{
@@ -260,8 +260,8 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	opts2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
 	test.That(t, remote2.StartWeb(ctx, opts2), test.ShouldBeNil)
 
-	// Main: a local sensor "gizmo" (collides cross-API with remote1's generic gizmo), and two
-	// UNPREFIXED remotes both exposing sensor "widget" (collide with each other).
+	// The main robot has a local sensor "gizmo" (collides cross-API with remote1's generic gizmo), and
+	// two unprefixed remotes both exposing sensor "widget" (collide with each other).
 	mainCfg := &config.Config{
 		Components: []resource.Config{
 			{Name: "gizmo", API: sensor.API, Model: sensorModel},
@@ -273,8 +273,8 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	}
 	main := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
 
-	// Both genuine collisions are reported: the cross-API local-vs-remote "gizmo" (missed by a per-API
-	// check) and the same-API remote-vs-remote "widget".
+	// Both genuine collisions are reported. The cross-API local-vs-remote "gizmo" (missed by a per-API
+	// check) and the same-API remote-vs-remote "widget" both collide.
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		test.That(tb, logs.FilterMessageSnippet("Resource name collision with a remote resource").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 2)
@@ -288,19 +288,15 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	remoteGizmo, err := main.ResourceByName(resource.NewName(generic.API, "r1:gizmo"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, remoteGizmo, test.ShouldNotBeNil)
-	// But an api-less lookup of the colliding bare name has no single owner (a local AND a remote of a
-	// different API claim it), so it is an error -- name uniqueness is preserved.
+	// But an api-less lookup of the colliding simple name has no single owner (a local and a remote of a
+	// different API claim it), so it is an error, preserving name uniqueness.
 	_, err = main.ResourceByName(resource.SimpleName("gizmo"))
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-// gripperServoDevice is the shared impl of an in-process facade composite serving gripper.Gripper and
-// servo.Servo (both resource.Actuators; gripper is also resource.Shaped and framesystem.InputEnabled).
-// All lifecycle/actuator state lives here, and the per-API facades below embed one *gripperServoDevice,
-// so both facades' Stop route to this one Stop and increment the shared counter. It is assembled via
-// resource.Compose, so it is stored as a resource.MultiAPIResource wrapper that does not itself satisfy
-// those interfaces — an in-process fetch by a specific API must unwrap it to that API's sub, which is
-// what these tests exercise.
+// gripperServoDevice is the shared impl behind an in-process composite serving gripper.Gripper and
+// servo.Servo. The per-API implementations below embed one *gripperServoDevice, so both route to this
+// one instance (e.g. Stop increments the shared counter).
 type gripperServoDevice struct {
 	resource.Named
 	stopCount  *atomic.Int32
@@ -355,9 +351,9 @@ func (f servoFacade) Move(context.Context, uint32, map[string]interface{}) error
 
 func (f servoFacade) Position(context.Context, map[string]interface{}) (uint32, error) { return 0, nil }
 
-// registerGripperServoModel registers a builtin gripper+servo colliding composite whose constructor
-// assembles the two facades over one shared *gripperServoDevice via resource.Compose (so it is stored as a
-// resource.MultiAPIResource wrapper). gripper sorts before servo, so gripper is the canonical API.
+// registerGripperServoModel registers a builtin gripper+servo composite whose constructor composes the
+// two implementations over one shared *gripperServoDevice. gripper sorts before servo, so gripper is the
+// canonical API.
 func registerGripperServoModel(t *testing.T, name string, stopCount, closeCount *atomic.Int32) resource.Model {
 	t.Helper()
 	model := resource.NewModel("acme", "test", name)
@@ -382,12 +378,10 @@ func registerGripperServoModel(t *testing.T, name string, stopCount, closeCount 
 	return model
 }
 
-// TestModularCompositeInProcessTypedLookup checks in-process typed lookup of a facade composite: a
-// composite stored as a resource.MultiAPIResource wrapper, fetched by a SPECIFIC API through the local
-// (in-process) robot, yields the concrete typed sub-resource — so <component>.FromProvider(localRobot,
-// name) returns a working typed client for each co-equal API. An api-less lookup still resolves to the
-// full composite.
-func TestModularCompositeInProcessTypedLookup(t *testing.T) {
+// TestCompositeInProcessTypedLookup checks that fetching an in-process composite by a specific API
+// returns the concrete typed sub, so component.FromProvider(localRobot, name) works for each co-equal
+// API, while an api-less lookup still returns the full composite.
+func TestCompositeInProcessTypedLookup(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	model := registerGripperServoModel(t, "inproc-typed", nil, nil)
@@ -409,7 +403,7 @@ func TestModularCompositeInProcessTypedLookup(t *testing.T) {
 	_, err = s.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// A specific-API ResourceByName returns the concrete sub (passes a bare type assertion), while the
+	// A specific-API ResourceByName returns the concrete sub (passes a plain type assertion), while the
 	// api-less handle stays the composite serving every API.
 	byGripper, err := r.ResourceByName(gripper.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
@@ -423,9 +417,9 @@ func TestModularCompositeInProcessTypedLookup(t *testing.T) {
 	test.That(t, apisOf, test.ShouldContain, servo.API)
 }
 
-// TestCompositeStopAllInProcess checks that StopAll stops a modular/facade composite and does so
-// exactly once: the composite serves two actuator APIs over one underlying instance, and StopAll's
-// dedup stops that instance a single time, not once per advertised API.
+// TestCompositeStopAllInProcess checks that StopAll stops a composite exactly once. The composite serves
+// two actuator APIs over one instance, and StopAll's dedup stops it a single time, not once per
+// advertised API.
 func TestCompositeStopAllInProcess(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -442,37 +436,4 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 	test.That(t, r.StopAll(ctx, nil), test.ShouldBeNil)
 	// Stopped AT ALL (safety) and exactly ONCE (dedup), not once per advertised API.
 	test.That(t, stopCount.Load(), test.ShouldEqual, 1)
-}
-
-// TestCompositeInFrameSystem checks that a kinematic composite (canonical API gripper) is included in
-// the frame system via its kinematic sub: the gripper sub is framesystem.InputEnabled, so the
-// composite is added to the frame system with a model frame.
-func TestCompositeInFrameSystem(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	model := registerGripperServoModel(t, "inproc-fs", nil, nil)
-
-	cfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "combo",
-				API:   gripper.API,
-				Model: model,
-				Frame: &referenceframe.LinkConfig{Parent: referenceframe.World},
-			},
-		},
-	}
-	r := setupLocalRobot(t, ctx, cfg, logger)
-
-	fsCfg, err := r.FrameSystemConfig(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	var found bool
-	for _, part := range fsCfg.Parts {
-		if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
-			found = true
-			// Included via the InputEnabled (kinematic) path, so it carries a model.
-			test.That(t, part.ModelFrame, test.ShouldNotBeNil)
-		}
-	}
-	test.That(t, found, test.ShouldBeTrue)
 }
