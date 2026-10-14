@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"time"
 
 	"go.uber.org/multierr"
@@ -363,48 +364,35 @@ func (m *Module) addResource(
 		return fmt.Errorf("module cannot service api: %s", conf.API)
 	}
 
+	// Register the resource for conf.API (SubresourceForAPI is a no-op for an ordinary resource).
 	// If adding the resource name to the collection fails, close the resource and return an error.
-	// A facade-authored composite serves each API through its own sub-resource, so register the
-	// sub-resource for conf.API (resource.SubresourceForAPI is a no-op for a resource that natively
-	// implements every declared API).
 	if err := coll.Add(conf.ResourceName(), resource.SubresourceForAPI(res, conf.API)); err != nil {
 		return multierr.Combine(err, res.Close(ctx))
 	}
 
-	// Register each API's sub-resource (the facade carrying that API's methods) in that API's
-	// collection, under the composite's name, so every per-API subtype service resolves to the
-	// correctly-typed facade, one identity, one lifecycle, reachable under every API. Each collection's
-	// Add then type-checks it against that API's interface, so this doubles as startup validation that
-	// the constructed resource actually implements every declared API's methods, and a misdeclared
-	// model fails fast here.
-	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
-		base := conf.ResourceName()
-		// Track the collections this composite has been added to so any failure aborts cleanly: undo
-		// every add before closing res, leaving no collection pointing at a resource we are about to
-		// close. conf.API's collection (added just above) is the first tracked entry.
-		added := []resource.Name{conf.ResourceName()}
-		abort := func(cause error) error {
-			for _, n := range added {
-				if c, ok := m.collections[n.API]; ok {
-					cause = multierr.Combine(cause, c.Remove(n))
-				}
+	// If the resource is a composite, register the rest of the API's sub-resources under the composite's name
+	// so every API resolves to the
+	// one identity; each collection's Add also type-checks the sub against that API, so a misdeclared
+	// model fails fast here. Track the adds (conf.API's first) so any failure undoes them all before
+	// closing res, leaving no collection pointing at a resource we are about to close.
+	added := []resource.Name{conf.ResourceName()}
+	abort := func(cause error) error {
+		for _, n := range added {
+			if c, ok := m.collections[n.API]; ok {
+				cause = multierr.Combine(cause, c.Remove(n))
 			}
-			return multierr.Combine(cause, res.Close(ctx))
 		}
-		for _, api := range apis {
-			if api == conf.API {
-				continue
-			}
-			other, ok := m.collections[api]
-			if !ok {
-				return abort(fmt.Errorf("module cannot service composite api %q for model %q", api, conf.Model))
-			}
-			subName := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
-			if err := other.Add(subName, resource.SubresourceForAPI(res, api)); err != nil {
-				return abort(fmt.Errorf("composite model %q does not implement declared api %q: %w", conf.Model, api, err))
-			}
-			added = append(added, subName)
+		return multierr.Combine(cause, res.Close(ctx))
+	}
+	for subName, sub := range coequalSubs(conf, res) {
+		other, ok := m.collections[subName.API]
+		if !ok {
+			return abort(fmt.Errorf("module cannot service composite api %q for model %q", subName.API, conf.Model))
 		}
+		if err := other.Add(subName, sub); err != nil {
+			return abort(fmt.Errorf("composite model %q does not implement declared api %q: %w", conf.Model, subName.API, err))
+		}
+		added = append(added, subName)
 	}
 
 	m.resLoggers[res] = resLogger
@@ -565,15 +553,18 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 		}
 	}
 
-	// A composite instance lives in one collection per co-equal API; remove it from each. Names are
-	// machine-wide unique, so removing this bare name from every other collection is safe (a no-op
-	// where it is absent).
+	// A composite instance lives in one collection per co-equal API; remove it from each. An ordinary
+	// resource is in only its own collection, so skip any co-equal collection where it isn't present.
 	for api, c := range m.collections {
 		if api == resName.API {
 			continue
 		}
-		if err := c.Remove(resource.Name{API: api, Remote: resName.Remote, Name: resName.Name}); err != nil {
-			m.logger.CDebugw(ctx, "removing composite instance from a co-equal API collection where it is absent",
+		coeqName := resource.Name{API: api, Remote: resName.Remote, Name: resName.Name}
+		if _, err := c.Resource(coeqName.Name); err != nil {
+			continue
+		}
+		if err := c.Remove(coeqName); err != nil {
+			m.logger.CDebugw(ctx, "failed to remove composite instance from a co-equal API collection",
 				"api", api, "resource", resName.Name, "err", err)
 		}
 	}
@@ -581,11 +572,26 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	return coll.Remove(resName)
 }
 
-// validateCompositeDeclaration rejects a model served under more than one API that was not declared a
-// composite via resource.RegisterMultiAPI. The check leans on two lookups that differ on purpose:
-// ExpandModel returns every API the model is registered under; APIsForModel returns only a declared
-// composite's co-equal set. Registered under many but declared under fewer than two means the model is
-// reused across APIs without being a composite, so its extra APIs would wire to nothing.
+// coequalSubs iterates a composite's non-primary (non conf.API) co-equal APIs, yielding each one's name
+// and unwrapped sub-resource. Empty for an ordinary (single-API) model.
+func coequalSubs(conf *resource.Config, res resource.Resource) iter.Seq2[resource.Name, resource.Resource] {
+	return func(yield func(resource.Name, resource.Resource) bool) {
+		base := conf.ResourceName()
+		for _, api := range resource.APIsForModel(conf.Model) {
+			if api == conf.API {
+				continue
+			}
+			name := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+			if !yield(name, resource.SubresourceForAPI(res, api)) {
+				return
+			}
+		}
+	}
+}
+
+// validateCompositeDeclaration rejects a model registered under multiple APIs (ExpandModel) that was
+// not declared a composite via resource.RegisterMultiAPI (APIsForModel < 2) — its extra APIs would wire
+// to nothing.
 func validateCompositeDeclaration(model resource.Model) error {
 	if len(resource.ExpandModel(model)) > 1 && len(resource.APIsForModel(model)) < 2 {
 		return fmt.Errorf(
@@ -652,12 +658,11 @@ func (m *Module) rebuildResource(
 		return nil, err
 	}
 
-	// Verify the module can service every API this model serves and replace them all under a single
-	// registerMu hold, so a concurrent deregistration cannot remove a collection between the check and
-	// its use (which would nil-panic on m.collections[api].ReplaceOne). A missing collection aborts
-	// before anything is replaced; and the rebuilt instance is the same Go type that passed the
-	// implements-every-API check at addResource, so once the collections exist the ReplaceOne calls
-	// cannot fail (effectively all-or-nothing).
+	// Check every co-equal collection exists, then replace, all under one registerMu hold so a
+	// concurrent deregistration can't drop a collection between check and use (which would nil-panic on
+	// ReplaceOne). A missing collection aborts before any replace. The replaces themselves can't fail:
+	// the rebuilt instance is the same Go type that already implemented every API at addResource, so each
+	// collection's type-check still passes.
 	apis := resource.APIsForModel(conf.Model)
 	base := conf.ResourceName()
 	m.registerMu.Lock()
@@ -678,19 +683,13 @@ func (m *Module) rebuildResource(
 		m.registerMu.Unlock()
 		return nil, multierr.Combine(err, newRes.Close(ctx))
 	}
-	// Composite: replace the old instance in every other co-equal API's collection with that API's
-	// sub-resource (its facade), so all APIs keep resolving to the one new instance.
-	for _, api := range apis {
-		if api == conf.API {
-			continue
-		}
-		name := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+	// Composite: replace the old instance in every other co-equal API's collection so all APIs keep
+	// resolving to the one new instance.
+	for name, sub := range coequalSubs(conf, newRes) {
 		//nolint:errcheck // cannot fail per the invariant above (collection exists under this lock, same-type instance).
-		m.collections[api].ReplaceOne(name, resource.SubresourceForAPI(newRes, api))
+		m.collections[name.API].ReplaceOne(name, sub)
 	}
-	m.registerMu.Unlock()
 
-	m.registerMu.Lock()
 	// We're modifying internal module maps now. We must not error out at this point without rolling
 	// back module state mutations.
 	delete(m.resLoggers, res)
