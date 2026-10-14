@@ -228,9 +228,9 @@ type internalRemoteRobot interface {
 	robot.Robot
 }
 
-// servedAPIs returns the co-equal API set a node currently serves: its MultiAPIResource's set if it is
-// a composite, else the single fallback API. Used to detect when a remote node's composite membership
-// changed across a refresh.
+// servedAPIs returns the co-equal API set a node currently serves. For a composite that is its
+// MultiAPIResource's set, otherwise the single fallback API. Used to detect when a remote node's
+// composite membership changed across a refresh.
 func servedAPIs(n *resource.GraphNode, fallback resource.API) []resource.API {
 	if res, err := n.UnsafeResource(); err == nil {
 		if mar, ok := res.(resource.MultiAPIResource); ok {
@@ -317,8 +317,8 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 	anythingChanged := false
 
-	// Group the remote's advertised names by bare name to detect composites: on a single remote names
-	// are unique, so a bare name under >=2 APIs is one composite (stored as a single node, like a local one).
+	// Group the remote's advertised names by simple name to detect composites. On a single remote names
+	// are unique, so a simple name under >=2 APIs is one composite (stored as a single node, like a local one).
 	remoteAPIsByName := map[string][]resource.API{}
 	for _, rn := range newResources {
 		if rn.Name == resource.DefaultServiceName {
@@ -351,7 +351,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if isComposite {
 			lookup = resource.Name{Name: remoteResName.Name}
 		}
-		res, err := rr.ResourceByName(lookup) // this returns a remote known OR foreign resource client
+		res, err := rr.ResourceByName(lookup) // this returns a remote known or foreign resource client
 		if err != nil {
 			// The connection may have dropped between ResourceNames() above and this call. If so
 			// the remote's resources aren't gone, the fetch just failed, so we don't actually want
@@ -379,9 +379,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			manager.resources.UpdateNodePrefix(resName, prefix)
 		}
 
-		// An existing node whose composite membership changed (gained/lost a co-equal API, or
-		// more rarely flipped single<->composite) must be rebuilt even on a ticker pass so the one composite node
-		// reflects the remote's current API set.
+		// An existing node whose composite membership changed (gained or lost a co-equal API, or flipped
+		// single<->composite) must be rebuilt even on a ticker pass, so the one composite node reflects the
+		// remote's current API set.
 		desiredAPIs := []resource.API{resName.API}
 		if isComposite {
 			desiredAPIs = coequalAPIs
@@ -418,7 +418,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			// Log if this remote resource's name collides with a different resource. On collision the
 			// remote stays in the graph but is hidden from the machine's resource list. FindAllBySimpleName
 			// scans all APIs, so it catches same-API and cross-API collisions. Matches from this remote are
-			// skipped: a remote's own names are unique, so a same-name match on the same remote is this
+			// skipped, because a remote's own names are unique, so a same-name match on the same remote is this
 			// resource itself (a composite matches under each of its co-equal APIs), not a real collision.
 			prefixedSimpleName := prefix + resName.Name
 			var conflicts []resource.Name
