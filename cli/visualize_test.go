@@ -83,10 +83,7 @@ func TestResolveVisualizerBinary(t *testing.T) {
 	})
 	t.Run("neither", func(t *testing.T) {
 		_, err := resolveVisualizerBinary("", "", os.Stat)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "--app-path")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "VIAM_VISUALIZER_PATH")
-		test.That(t, err.Error(), test.ShouldContainSubstring, visualizerReleasesURL)
+		test.That(t, errors.Is(err, errNoVisualizerPath), test.ShouldBeTrue)
 	})
 	t.Run("app bundle", func(t *testing.T) {
 		got, err := resolveVisualizerBinary(bundle, "", os.Stat)

@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	visualizeFlagAppPath = "app-path"
+	visualizeFlagAppPath    = "app-path"
+	visualizeFlagAppVersion = "app-version"
+	visualizeFlagUpdate     = "update"
 	// visualizerPathEnv names the installed desktop app when --app-path is not given.
 	visualizerPathEnv = "VIAM_VISUALIZER_PATH"
-	// visualizerReleasesURL is where a user without an installed app is sent. Phase 5 downloads instead.
-	visualizerReleasesURL = "https://github.com/viamrobotics/visualization/releases"
 	// launchFileVersion is the launch file contract the desktop app accepts.
 	launchFileVersion = 1
 )
@@ -34,7 +34,13 @@ type visualizeArgs struct {
 	Machine      string
 	Part         string
 	AppPath      string
+	AppVersion   string
+	Update       bool
 }
+
+// errNoVisualizerPath says neither --app-path nor VIAM_VISUALIZER_PATH was given, so the CLI's own
+// install cache is the next place to look.
+var errNoVisualizerPath = errors.New("no visualizer path given")
 
 // launchCredentials mirrors the credentials union the desktop app passes to the TypeScript SDK.
 // Type is "access-token" (Payload only) or "api-key" (AuthEntity is the key id).
@@ -96,8 +102,8 @@ func buildLaunchConfig(part *apppb.RobotPart, machineName string, conf *Config) 
 	return cfg, nil
 }
 
-// resolveVisualizerBinary picks the desktop app binary from, in order, the --app-path flag, the
-// VIAM_VISUALIZER_PATH environment variable, else an error naming both and visualizerReleasesURL.
+// resolveVisualizerBinary picks the desktop app binary from the --app-path flag, then the
+// VIAM_VISUALIZER_PATH environment variable, and returns errNoVisualizerPath when neither is set.
 // A macOS .app bundle resolves to Contents/MacOS/<binary>. statFn is os.Stat in production.
 func resolveVisualizerBinary(flagPath, envPath string, statFn func(string) (os.FileInfo, error)) (string, error) {
 	path := flagPath
@@ -105,10 +111,7 @@ func resolveVisualizerBinary(flagPath, envPath string, statFn func(string) (os.F
 		path = envPath
 	}
 	if path == "" {
-		return "", errors.Errorf(
-			"no Viam Visualizer app found: pass --%s, set %s, or download it from %s",
-			visualizeFlagAppPath, visualizerPathEnv, visualizerReleasesURL,
-		)
+		return "", errNoVisualizerPath
 	}
 	info, err := statFn(path)
 	if err != nil {
@@ -177,8 +180,12 @@ func (c *viamClient) visualizePart(ctx context.Context, cmd *cli.Command, args v
 		return err
 	}
 
-	// Resolve the binary before any network call so a missing app fails fast.
+	// An explicit path wins and is checked before any network call. Otherwise the CLI's own cache
+	// is used, downloading a release when it has none.
 	binary, err := resolveVisualizerBinary(args.AppPath, os.Getenv(visualizerPathEnv), os.Stat)
+	if errors.Is(err, errNoVisualizerPath) {
+		binary, err = ensureVisualizer(ctx, defaultVisualizerInstallOptions(cmd.Root().ErrWriter, args.AppVersion, args.Update))
+	}
 	if err != nil {
 		return err
 	}
