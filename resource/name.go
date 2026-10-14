@@ -27,9 +27,8 @@ func NewName(api API, name string) Name {
 	}
 }
 
-// SimpleName returns an API-less Name that identifies a resource by its bare name alone. Passed to a
-// Provider's resource lookup it resolves to the single resource of that name — for a composite, the
-// one instance serving every API. See NamedFromProvider.
+// SimpleName returns an API-less Name that identifies a resource by its simple name alone. Passed to a
+// Provider's lookup it resolves to the single resource of that name.
 func SimpleName(name string) Name {
 	return NewName(API{}, name)
 }
