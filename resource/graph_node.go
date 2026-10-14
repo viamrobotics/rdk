@@ -39,6 +39,28 @@ const (
 	NodeStateUnhealthy
 )
 
+// Reachability captures whether calls to a resource by name can be routed through this machine.
+// It is independent of [NodeState]; an unreachable resource keeps its last known state.
+type Reachability uint8
+
+const (
+	// ReachabilityUnknown is reported by machines that predate reachability; treat as reachable.
+	ReachabilityUnknown Reachability = iota
+
+	// ReachabilityReachable denotes a resource that can be called by name.
+	ReachabilityReachable
+
+	// ReachabilityRemoteDisconnected denotes a resource on, or representing, a disconnected remote.
+	ReachabilityRemoteDisconnected
+
+	// ReachabilityShadowedByLocal denotes a remote resource whose name is owned by a local resource.
+	ReachabilityShadowedByLocal
+
+	// ReachabilityAmbiguousRemote denotes a remote resource whose name is claimed by other remote
+	// resources and by no local resource.
+	ReachabilityAmbiguousRemote
+)
+
 // A GraphNode contains the current state of a resource.
 // Based on these states, the underlying Resource may or may not be available.
 // Additionally, the node can be informed that the resource either needs to be
@@ -735,4 +757,6 @@ type NodeStatus struct {
 	// Error contains any errors on the resource if it currently unhealthy.
 	// This field will be nil if the resource is not in the [NodeStateUnhealthy] state.
 	Error error
+
+	Reachability Reachability
 }

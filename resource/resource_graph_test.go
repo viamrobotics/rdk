@@ -1313,6 +1313,65 @@ func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
 	}
 }
 
+func TestStatusReachability(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	compA := APINamespace("namespace").WithComponentType("aapi")
+	svcB := APINamespace("namespace").WithServiceType("bapi")
+
+	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
+	disconnected := func() *GraphNode {
+		n := newNode()
+		n.markReachability(false)
+		return n
+	}
+
+	g := NewGraph(logger)
+	add := func(name Name, node *GraphNode) {
+		test.That(t, g.AddNode(name, node), test.ShouldBeNil)
+	}
+
+	add(Name{API: compA, Name: "solo"}, newNode())
+	add(Name{API: compA, Name: "remoteSolo", Remote: "r1"}, newNode())
+	// Same API.
+	add(Name{API: compA, Name: "sameAPILocal"}, newNode())
+	add(Name{API: compA, Name: "sameAPILocal", Remote: "r1"}, newNode())
+	add(Name{API: compA, Name: "sameAPIRemotes", Remote: "r1"}, newNode())
+	add(Name{API: compA, Name: "sameAPIRemotes", Remote: "r2"}, newNode())
+	// Across APIs.
+	add(Name{API: compA, Name: "crossAPILocal"}, newNode())
+	add(Name{API: svcB, Name: "crossAPILocal", Remote: "r1"}, newNode())
+	add(Name{API: compA, Name: "crossAPIRemotes", Remote: "r1"}, newNode())
+	add(Name{API: svcB, Name: "crossAPIRemotes", Remote: "r2"}, newNode())
+	// Disconnected.
+	add(Name{API: compA, Name: "gone", Remote: "r1"}, disconnected())
+	add(Name{API: compA, Name: "goneAndShadowed"}, newNode())
+	add(Name{API: compA, Name: "goneAndShadowed", Remote: "r1"}, disconnected())
+	// A local depending on a disconnected remote is marked unreachable but is still callable.
+	add(Name{API: compA, Name: "localDependent"}, disconnected())
+
+	got := map[Name]Reachability{}
+	for _, s := range g.Status() {
+		got[s.Name] = s.Reachability
+	}
+	test.That(t, got, test.ShouldResemble, map[Name]Reachability{
+		{API: compA, Name: "solo"}:                          ReachabilityReachable,
+		{API: compA, Name: "remoteSolo", Remote: "r1"}:      ReachabilityReachable,
+		{API: compA, Name: "sameAPILocal"}:                  ReachabilityReachable,
+		{API: compA, Name: "sameAPILocal", Remote: "r1"}:    ReachabilityShadowedByLocal,
+		{API: compA, Name: "sameAPIRemotes", Remote: "r1"}:  ReachabilityAmbiguousRemote,
+		{API: compA, Name: "sameAPIRemotes", Remote: "r2"}:  ReachabilityAmbiguousRemote,
+		{API: compA, Name: "crossAPILocal"}:                 ReachabilityReachable,
+		{API: svcB, Name: "crossAPILocal", Remote: "r1"}:    ReachabilityShadowedByLocal,
+		{API: compA, Name: "crossAPIRemotes", Remote: "r1"}: ReachabilityAmbiguousRemote,
+		{API: svcB, Name: "crossAPIRemotes", Remote: "r2"}:  ReachabilityAmbiguousRemote,
+		{API: compA, Name: "gone", Remote: "r1"}:            ReachabilityRemoteDisconnected,
+		{API: compA, Name: "goneAndShadowed"}:               ReachabilityReachable,
+		{API: compA, Name: "goneAndShadowed", Remote: "r1"}: ReachabilityShadowedByLocal,
+		{API: compA, Name: "localDependent"}:                ReachabilityReachable,
+	})
+}
+
 func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) string {
 	if len(expected) != 1 {
 		panic("takes exactly one argument")

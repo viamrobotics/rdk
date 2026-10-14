@@ -416,78 +416,92 @@ func (g *Graph) Names() []Name {
 	)
 }
 
-func seq2First[K, V any](seq iter.Seq2[K, V]) (K, V, bool) {
-	var resK K
-	var resV V
-	var ok bool
-	seq(func(k K, v V) bool {
-		resK = k
-		resV = v
-		ok = true
-		return false
-	})
-	return resK, resV, ok
-}
-
 // SimpleNamesWhere returns a list of resource names with any configured remote
 // prefix applied. Names are only included in the return if filter returns true.
 func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	type candidate struct {
-		name Name
-		node *GraphNode
-	}
 	var result []Name
-	emit := func(c candidate) {
-		if filter(c.name, c.node) {
-			result = append(result, c.name)
+	for _, r := range g.resolveSimpleNames() {
+		if r.visible && filter(r.name, r.node) {
+			result = append(result, r.name)
 		}
 	}
+	return result
+}
 
-	// Group candidates by simple name to enforce name uniqueness across APIs.
-	byName := make(map[string][]candidate)
+// resolvedNode is a graph node with the outcome of simple-name resolution.
+type resolvedNode struct {
+	name Name
+	node *GraphNode
+	// visible reports whether the node owns its simple name.
+	visible bool
+	// collision is why a hidden remote node lost its name, or [ReachabilityReachable] if it didn't.
+	collision Reachability
+}
+
+// resolveSimpleNames returns every node in the graph, resolving which node owns each simple name:
+// a local resource wins over remotes claiming the same name, and a name with no single winner is
+// hidden. Caller must hold g.mu.
+func (g *Graph) resolveSimpleNames() []resolvedNode {
+	var result []resolvedNode
+	// Group per-key winners by simple name to enforce name uniqueness across APIs.
+	byName := make(map[string][]int)
 	for k, v := range g.nodes.simpleNameCache {
-		if v.local == nil && len(v.remote) != 1 {
-			continue
-		}
-		c := candidate{name: Name{API: k.api, Name: k.name}}
+		winner := -1
 		if v.local != nil {
-			c.node = v.local
-		} else {
-			remName, remNode, _ := seq2First(maps.All(v.remote))
-			c.name.Remote = remName
-			c.node = remNode
+			winner = len(result)
+			result = append(result, resolvedNode{
+				name: Name{API: k.api, Name: k.name}, node: v.local, visible: true, collision: ReachabilityReachable,
+			})
+		}
+		for remote, node := range v.remote {
+			r := resolvedNode{name: Name{API: k.api, Name: k.name, Remote: remote}, node: node, collision: ReachabilityReachable}
+			switch {
+			case v.local != nil:
+				r.collision = ReachabilityShadowedByLocal
+			case len(v.remote) > 1:
+				r.collision = ReachabilityAmbiguousRemote
+			default:
+				r.visible = true
+				winner = len(result)
+			}
+			result = append(result, r)
 		}
 
 		// Name uniqueness covers only components and services. Other nodes — e.g. a remote-machine
-		// connection, whose name is a prefix, not a resource name — skip grouping and pass straight
-		// to the filter.
-		if !(k.api.IsComponent() || k.api.IsService()) {
-			emit(c)
-			continue
+		// connection, whose name is a prefix, not a resource name — are not grouped.
+		if winner >= 0 && (k.api.IsComponent() || k.api.IsService()) {
+			byName[k.name] = append(byName[k.name], winner)
 		}
-		byName[k.name] = append(byName[k.name], c)
 	}
 
-	for _, cands := range byName {
-		chosen := cands[0]
-		if len(cands) > 1 {
-			// A local resource wins over remotes claiming the same name. If there is not
-			// exactly one local claimant (e.g. remote resources collide), the name is hidden.
-			var localCands []candidate
-			for _, c := range cands {
-				if c.name.Remote == "" {
-					localCands = append(localCands, c)
-				}
+	for _, idxs := range byName {
+		if len(idxs) == 1 {
+			continue
+		}
+		var locals []int
+		for _, i := range idxs {
+			if result[i].name.Remote == "" {
+				locals = append(locals, i)
 			}
-			if len(localCands) != 1 {
+		}
+		for _, i := range idxs {
+			if len(locals) == 1 && i == locals[0] {
 				continue
 			}
-			chosen = localCands[0]
+			result[i].visible = false
+			// Colliding locals are torn down by the resource manager; only remotes get a reason.
+			if result[i].name.Remote == "" {
+				continue
+			}
+			if len(locals) > 0 {
+				result[i].collision = ReachabilityShadowedByLocal
+			} else {
+				result[i].collision = ReachabilityAmbiguousRemote
+			}
 		}
-		emit(chosen)
 	}
 	return result
 }
@@ -1124,25 +1138,17 @@ func (g *Graph) Status() []NodeStatus {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	var result []NodeStatus
-	for k, v := range g.nodes.simpleNameCache {
-		if v.local != nil {
-			status := v.local.Status()
-			status.Name = Name{
-				API:  k.api,
-				Name: k.name,
-			}
-			result = append(result, status)
+	resolved := g.resolveSimpleNames()
+	result := make([]NodeStatus, 0, len(resolved))
+	for _, r := range resolved {
+		status := r.node.Status()
+		status.Name = r.name
+		status.Reachability = r.collision
+		// Local nodes that depend on a remote are also marked unreachable, but remain callable.
+		if status.Reachability == ReachabilityReachable && r.name.Remote != "" && !r.node.IsReachable() {
+			status.Reachability = ReachabilityRemoteDisconnected
 		}
-		for remote, v := range v.remote {
-			status := v.Status()
-			status.Name = Name{
-				API:    k.api,
-				Name:   k.name,
-				Remote: remote,
-			}
-			result = append(result, status)
-		}
+		result = append(result, status)
 	}
 	return result
 }

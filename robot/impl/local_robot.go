@@ -2328,7 +2328,7 @@ func (r *localRobot) packageManagerForModule(mod config.Module) (packages.Manage
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	remoteMdMap := r.manager.getRemoteResourceMetadata(ctx)
+	remoteStatuses := r.manager.getRemoteResourceStatuses(ctx)
 
 	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
 	// that this robot does not have CloudMetadata to attach to resources.
@@ -2340,14 +2340,25 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 			continue
 		}
 
-		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
-		if rMd, ok := remoteMdMap[resourceStatus.Name]; ok {
-			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
+		// Otherwise, the resource is remote. If the corresponding status exists in remoteStatuses, use its
+		// cloud metadata.
+		if resourceStatus.Name.API == client.RemoteAPI {
+			if gNode, ok := r.manager.resources.Node(resourceStatus.Name); ok && !gNode.IsReachable() {
+				resourceStatus.Reachability = resource.ReachabilityRemoteDisconnected
+			}
+		}
+		if rStatus, ok := remoteStatuses[resourceStatus.Name]; ok {
+			// The remote may be connected while one of its own remotes is not.
+			if resourceStatus.Reachability == resource.ReachabilityReachable &&
+				rStatus.Reachability == resource.ReachabilityRemoteDisconnected {
+				resourceStatus.Reachability = resource.ReachabilityRemoteDisconnected
+			}
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rStatus.CloudMetadata})
 			continue
 		}
 
-		// if the remote resource is not in remoteMdMap, there is a mismatch between remote resource nodes
-		// in the resource graph and what was expected from getRemoteResourceMetadata. We should leave
+		// if the remote resource is not in remoteStatuses, there is a mismatch between remote resource nodes
+		// in the resource graph and what was expected from getRemoteResourceStatuses. We should leave
 		// cloud metadata blank in that case.
 		result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: cloud.Metadata{}})
 	}

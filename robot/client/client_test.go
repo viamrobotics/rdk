@@ -2514,6 +2514,44 @@ func TestMachineStatus(t *testing.T) {
 			0,
 		},
 		{
+			"reachability and remote",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:         arm.Named("local"),
+							State:        resource.NodeStateReady,
+							Reachability: resource.ReachabilityReachable,
+						},
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:         resource.Name{API: arm.API, Name: "shadowed", Remote: "r1"},
+							State:        resource.NodeStateReady,
+							Reachability: resource.ReachabilityShadowedByLocal,
+						},
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:         resource.Name{API: arm.API, Name: "ambiguous", Remote: "r2"},
+							State:        resource.NodeStateReady,
+							Reachability: resource.ReachabilityAmbiguousRemote,
+						},
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:         resource.Name{API: arm.API, Name: "gone", Remote: "r3"},
+							State:        resource.NodeStateReady,
+							Reachability: resource.ReachabilityRemoteDisconnected,
+						},
+					},
+				},
+				State: robot.StateRunning,
+			},
+			0,
+		},
+		{
 			// errors persist through intermediate states, so a non-unhealthy module
 			// can carry an error; it must survive the server/client round-trip.
 			"module with error in non-unhealthy state",
