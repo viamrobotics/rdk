@@ -99,45 +99,32 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	test.That(t, svc.components["noncanon"], test.ShouldEqual, ncGantry)
 }
 
-// TestKinematicClassifyIdentity checks that KinematicClassify distinguishes a composite by the identity
-// of its InputEnabled subs, not by how many kinematic APIs it serves. A single struct composed under
-// several kinematic APIs resolves to one shared object under each, so it is one kinematic chain and is
-// kept; per-API facades are distinct objects, so two kinematic ones are the unsupported multi-kinematic
-// case.
-func TestKinematicClassifyIdentity(t *testing.T) {
+// TestPickKinematicSubIdentity checks that PickKinematicSub distinguishes a composite by the identity of
+// its InputEnabled subs, not by how many kinematic APIs it serves. A single struct served under several
+// kinematic APIs is the same object under each (one kinematic chain, kept); per-API facades are distinct
+// objects, so two kinematic ones are the unsupported multi-kinematic case.
+func TestPickKinematicSubIdentity(t *testing.T) {
 	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
 	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
 
-	// One struct composed under both kinematic APIs: every API resolves to the same object.
+	// One struct served under both kinematic APIs: the same object unwraps once per API.
 	shared := &kinematicRes{Named: resource.NewName(armAPI, "shared").AsNamed()}
-	oneChain := resource.NewMultiAPIResource(
-		resource.NewName(armAPI, "shared"),
-		[]resource.API{armAPI, gantryAPI},
-		map[resource.API]resource.Resource{armAPI: shared, gantryAPI: shared},
-	)
-	ie, kinematic, multi := KinematicClassify(oneChain)
-	test.That(t, kinematic, test.ShouldBeTrue)
-	test.That(t, multi, test.ShouldBeFalse)
-	test.That(t, ie, test.ShouldEqual, shared)
+	chosen, refuse := PickKinematicSub([]resource.Resource{shared, shared})
+	test.That(t, refuse, test.ShouldBeFalse)
+	test.That(t, chosen, test.ShouldEqual, shared)
 
 	// Two distinct kinematic subs: unsupported multi-kinematic device.
 	kinArm := &kinematicRes{Named: resource.NewName(armAPI, "twochain").AsNamed()}
 	kinGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "twochain").AsNamed()}
-	twoChains := resource.NewMultiAPIResource(
-		resource.NewName(armAPI, "twochain"),
-		[]resource.API{armAPI, gantryAPI},
-		map[resource.API]resource.Resource{armAPI: kinArm, gantryAPI: kinGantry},
-	)
-	_, kinematic, multi = KinematicClassify(twoChains)
-	test.That(t, kinematic, test.ShouldBeFalse)
-	test.That(t, multi, test.ShouldBeTrue)
+	_, refuse = PickKinematicSub([]resource.Resource{kinArm, kinGantry})
+	test.That(t, refuse, test.ShouldBeTrue)
 }
 
 // TestBuiltInReconfigureSingleStructMultiKinematic verifies a single struct served under two kinematic
-// APIs is KEPT as one chain by BuiltInReconfigure -- agreeing with KinematicClassify and the
-// model-frame builder. The composite wrapper is aliased under both API names and unwraps to the SAME
-// object under each, so a count-based guard would see two kinematic subs and wrongly refuse it, leaving
-// its frame modeled but svc.components["combo"] unset and CurrentInputs unserviceable machine-wide.
+// APIs is kept as one chain by BuiltInReconfigure. The composite wrapper is aliased under both API names
+// and unwraps to the same object under each, so a count-based guard would see two kinematic subs and
+// wrongly refuse it, leaving its frame modeled but svc.components["combo"] unset and CurrentInputs
+// unserviceable.
 func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -163,9 +150,6 @@ func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	err = svc.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Kept as one kinematic chain (the shared sub), consistent with KinematicClassify(wrapper) -- not refused.
-	kin, kinematic, _ := KinematicClassify(wrapper)
-	test.That(t, kinematic, test.ShouldBeTrue)
+	// Kept as one kinematic chain -- the shared sub -- not refused.
 	test.That(t, svc.components["combo"], test.ShouldEqual, shared)
-	test.That(t, svc.components["combo"], test.ShouldEqual, kin)
 }
