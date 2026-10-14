@@ -118,7 +118,12 @@ func TestServerGetProperties(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectVS := &inject.VisionService{}
 	injectVS.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
-		return &vision.Properties{ClassificationSupported: false, DetectionSupported: true, ObjectPCDsSupported: false}, nil
+		return &vision.Properties{
+			ClassificationSupported: false,
+			DetectionSupported:      true,
+			ObjectPCDsSupported:     false,
+			Cameras:                 []string{"cam1", "cam2"},
+		}, nil
 	}
 	m := map[resource.Name]vision.Service{
 		visName1: injectVS,
@@ -139,6 +144,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp.ClassificationsSupported, test.ShouldEqual, false)
 	test.That(t, resp.DetectionsSupported, test.ShouldEqual, true)
 	test.That(t, resp.ObjectPointCloudsSupported, test.ShouldEqual, false)
+	test.That(t, resp.Cameras, test.ShouldResemble, []string{"cam1", "cam2"})
 }
 
 func TestServerCaptureAllFromCamera(t *testing.T) {

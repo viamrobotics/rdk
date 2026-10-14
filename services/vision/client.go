@@ -316,6 +316,7 @@ func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}
 		ObjectPCDsSupported:     resp.ObjectPointCloudsSupported,
 		DefaultCamera:           resp.DefaultCamera,
 		Detections3DSupported:   resp.Detections_3DSupported,
+		Cameras:                 resp.Cameras,
 	}, nil
 }
 

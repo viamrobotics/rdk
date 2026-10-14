@@ -50,7 +50,12 @@ func TestClient(t *testing.T) {
 		return []objectdetection.Detection{det1}, nil
 	}
 	srv.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
-		return &vision.Properties{ClassificationSupported: false, DetectionSupported: true, ObjectPCDsSupported: false}, nil
+		return &vision.Properties{
+			ClassificationSupported: false,
+			DetectionSupported:      true,
+			ObjectPCDsSupported:     false,
+			Cameras:                 []string{"cam1", "cam2"},
+		}, nil
 	}
 
 	test.That(t, err, test.ShouldBeNil)
@@ -140,6 +145,7 @@ func TestClient(t *testing.T) {
 		test.That(t, props.ClassificationSupported, test.ShouldEqual, false)
 		test.That(t, props.DetectionSupported, test.ShouldEqual, true)
 		test.That(t, props.ObjectPCDsSupported, test.ShouldEqual, false)
+		test.That(t, props.Cameras, test.ShouldResemble, []string{"cam1", "cam2"})
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
