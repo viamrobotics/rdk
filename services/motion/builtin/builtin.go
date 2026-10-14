@@ -225,20 +225,16 @@ func (ms *builtIn) BuiltInReconfigure(
 		}
 	}
 	for name, subs := range componentsByName {
-		// Motion uses this map only for kinematics, so when no subresource is kinematic (the default
-		// case below) any one will do.
-		kinematic := framesystem.DistinctKinematicSubs(subs)
-		switch {
-		case len(kinematic) > 1:
+		// Motion uses this map only for kinematics, so when no subresource is kinematic any one will do.
+		sub, refuse := framesystem.PickKinematicSub(subs)
+		if refuse {
 			ms.logger.Errorw(
 				"composite serves multiple kinematic component APIs under one name, which motion does not support; refusing it",
 				"resource", name,
 			)
-		case len(kinematic) == 1:
-			componentMap[name] = kinematic[0]
-		default:
-			componentMap[name] = subs[0]
+			continue
 		}
+		componentMap[name] = sub
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices

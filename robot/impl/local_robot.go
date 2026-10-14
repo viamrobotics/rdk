@@ -1453,9 +1453,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		isAvailable := resErr == nil
 
 		// rawRes is the full graph resource (the composite wrapper, or the plain resource) -- not the
-		// configured-API subresource that ResourceByName returned above as `res`. KinematicClassify and
-		// ShapedSub below unwrap rawRes across every API the resource serves, so a composite's kinematic
-		// or geometry-providing subresource is found even when its API is not the configured one.
+		// configured-API subresource that ResourceByName returned above as `res`. The kinematic pick below
+		// and ShapedSub unwrap rawRes across every API the resource serves, so a composite's kinematic or
+		// geometry-providing subresource is found even when its API is not the configured one.
 		var rawRes resource.Resource
 		if isAvailable {
 			if node, err := r.manager.resources.FindBySimpleNameAndAPI(
@@ -1482,15 +1482,25 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		}
 
 		var ie framesystem.InputEnabled
-		isKinematic, isMultiKinematic := false, false
+		isMultiKinematic := false
 		if rawRes != nil {
-			ie, isKinematic, isMultiKinematic = framesystem.KinematicClassify(rawRes)
+			// Unwrap rawRes across every API it serves, then pick its kinematic sub; the type-assert
+			// leaves ie nil when none is kinematic.
+			subs := make([]resource.Resource, 0, len(resource.APIsOf(rawRes)))
+			for _, api := range resource.APIsOf(rawRes) {
+				subs = append(subs, resource.SubresourceForAPI(rawRes, api))
+			}
+			var chosen resource.Resource
+			chosen, isMultiKinematic = framesystem.PickKinematicSub(subs)
+			if !isMultiKinematic {
+				ie, _ = chosen.(framesystem.InputEnabled)
+			}
 		}
 		if isMultiKinematic {
 			logger.Warnw("Composite serves multiple kinematic APIs; omitting from FrameSystem.", "resource", resConfig.Name)
 			continue
 		}
-		if isKinematic {
+		if ie != nil {
 			model, err := ie.Kinematics(ctx)
 			if err != nil {
 				// Dan: I've introduced a change in behavior here. Before, unavailable/not found
