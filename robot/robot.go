@@ -201,9 +201,8 @@ type LocalRobot interface {
 	Kill()
 
 	// FindBySimpleNameAndAPI returns a resource from the resource graph, unwrapping a composite to the
-	// sub-resource serving the given API so a caller that type-asserts to the API's interface sees the
-	// real typed instance. See [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
-	// returned in the case of name collisions.
+	// sub-resource serving the given API. See [resource.Graph.FindBySimpleNameAndAPI] for behavior on
+	// name collisions.
 	FindBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
 
 	// WriteTraceMessages writes trace spans to any configured exporters.
@@ -324,8 +323,7 @@ func ResourceFromProtoMessage(
 	return res, fqName, nil
 }
 
-// ResourceFromRobot returns a resource from a robot. It uses resource.AsType so that a composite
-// (multi-API) resource handle is unwrapped to the sub-resource satisfying T.
+// ResourceFromRobot returns a resource from a robot.
 func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T, error) {
 	var zero T
 	res, err := robot.ResourceByName(name)
