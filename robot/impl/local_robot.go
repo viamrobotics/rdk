@@ -2342,11 +2342,6 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 
 		// Otherwise, the resource is remote. If the corresponding status exists in remoteStatuses, use its
 		// cloud metadata.
-		if resourceStatus.Name.API == client.RemoteAPI {
-			if gNode, ok := r.manager.resources.Node(resourceStatus.Name); ok && !gNode.IsReachable() {
-				resourceStatus.Reachability = resource.ReachabilityRemoteDisconnected
-			}
-		}
 		if rStatus, ok := remoteStatuses[resourceStatus.Name]; ok {
 			// The remote may be connected while one of its own remotes is not.
 			if resourceStatus.Reachability == resource.ReachabilityReachable &&

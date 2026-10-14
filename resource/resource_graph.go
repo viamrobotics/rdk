@@ -1118,7 +1118,8 @@ func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 	return subGraph, nil
 }
 
-// MarkReachability marks all nodes in the subgraph from the given [Name] node as either reachable [true] or unreachable [false].
+// MarkReachability marks the given remote-machine node and the remote resources depending on it as
+// either reachable [true] or unreachable [false]. Local dependents are left alone; they remain callable.
 func (g *Graph) MarkReachability(node Name, reachable bool) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -1127,8 +1128,10 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 	if err != nil {
 		return err
 	}
-	for node := range subGraph.nodes.Values() {
-		node.markReachability(reachable)
+	for name, n := range subGraph.nodes.All() {
+		if name == node || name.Remote != "" {
+			n.markReachability(reachable)
+		}
 	}
 	return nil
 }
@@ -1144,8 +1147,7 @@ func (g *Graph) Status() []NodeStatus {
 		status := r.node.Status()
 		status.Name = r.name
 		status.Reachability = r.collision
-		// Local nodes that depend on a remote are also marked unreachable, but remain callable.
-		if status.Reachability == ReachabilityReachable && r.name.Remote != "" && !r.node.IsReachable() {
+		if status.Reachability == ReachabilityReachable && !r.node.IsReachable() {
 			status.Reachability = ReachabilityRemoteDisconnected
 		}
 		result = append(result, status)

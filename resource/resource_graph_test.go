@@ -1347,8 +1347,17 @@ func TestStatusReachability(t *testing.T) {
 	add(Name{API: compA, Name: "gone", Remote: "r1"}, disconnected())
 	add(Name{API: compA, Name: "goneAndShadowed"}, newNode())
 	add(Name{API: compA, Name: "goneAndShadowed", Remote: "r1"}, disconnected())
-	// A local depending on a disconnected remote is marked unreachable but is still callable.
-	add(Name{API: compA, Name: "localDependent"}, disconnected())
+	// A remote-machine node going down marks itself and its remote resources, not local dependents.
+	remoteMachine := NewAPI("namespace", "remote", "")
+	r3 := Name{API: remoteMachine, Name: "r3"}
+	onR3 := Name{API: compA, Name: "onR3", Remote: "r3"}
+	localDependent := Name{API: compA, Name: "localDependent"}
+	add(r3, newNode())
+	add(onR3, newNode())
+	add(localDependent, newNode())
+	test.That(t, g.AddChild(onR3, r3), test.ShouldBeNil)
+	test.That(t, g.AddChild(localDependent, onR3), test.ShouldBeNil)
+	test.That(t, g.MarkReachability(r3, false), test.ShouldBeNil)
 
 	got := map[Name]Reachability{}
 	for _, s := range g.Status() {
@@ -1368,7 +1377,9 @@ func TestStatusReachability(t *testing.T) {
 		{API: compA, Name: "gone", Remote: "r1"}:            ReachabilityRemoteDisconnected,
 		{API: compA, Name: "goneAndShadowed"}:               ReachabilityReachable,
 		{API: compA, Name: "goneAndShadowed", Remote: "r1"}: ReachabilityShadowedByLocal,
-		{API: compA, Name: "localDependent"}:                ReachabilityReachable,
+		r3:             ReachabilityRemoteDisconnected,
+		onR3:           ReachabilityRemoteDisconnected,
+		localDependent: ReachabilityReachable,
 	})
 }
 
