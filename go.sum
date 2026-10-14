@@ -264,8 +264,8 @@ github.com/charmbracelet/x/xpty v0.1.2 h1:Pqmu4TEJ8KeA9uSkISKMU3f+C1F6OGBn8ABuGl
 github.com/charmbracelet/x/xpty v0.1.2/go.mod h1:XK2Z0id5rtLWcpeNiMYBccNNBrP2IJnzHI0Lq13Xzq4=
 github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd h1:S0onsSZ3RawTrm4KrxPs7KoPT8R8aBZmbXvOUGkV5O8=
 github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd/go.mod h1:P2dOeu3SNXtjA5VOH7tF0AnGm/eYrst9YA89b36c35I=
-github.com/cheukt/api v0.0.0-20261014190026-3a52b7576e4f h1:VuiIB9LsK5e4o3ezNrPy876144SiQnGuGZu3ynJDyWo=
-github.com/cheukt/api v0.0.0-20261014190026-3a52b7576e4f/go.mod h1:KCJHm/hGRAa3kQlJNXMq6MipEpU1QhAe7/SutP/PHuc=
+github.com/cheukt/api v0.0.0-20261014201357-c01e79084ab4 h1:VpPCuoZccAuS+jph24O9WEQJqDT+LhIPJB9ZetJWs3E=
+github.com/cheukt/api v0.0.0-20261014201357-c01e79084ab4/go.mod h1:KCJHm/hGRAa3kQlJNXMq6MipEpU1QhAe7/SutP/PHuc=
 github.com/chewxy/hm v1.0.0 h1:zy/TSv3LV2nD3dwUEQL2VhXeoXbb9QkpmdRAVUFiA6k=
 github.com/chewxy/hm v1.0.0/go.mod h1:qg9YI4q6Fkj/whwHR1D+bOGeF7SniIP40VweVepLjg0=
 github.com/chewxy/math32 v1.0.0/go.mod h1:Miac6hA1ohdDUTagnvJy/q+aNnEk16qWUdb8ZVhvCN0=
