@@ -33,9 +33,8 @@ var Model = resource.NewModel("acme", "demo", "combodevice")
 const wantArg = "combo"
 
 func main() {
-	// One registration declares the full co-equal API set; the single constructor is registered under
-	// each. camera and movement_sensor collide on Properties (the point of this demo), and the custom
-	// gizmo API sits alongside them to show a composite spans builtin and module-defined APIs alike.
+	// One registration declares the full co-equal API set (see the package doc); the single constructor
+	// is registered under each.
 	resource.RegisterMultiAPI(
 		[]resource.API{camera.API, movementsensor.API, gizmoapi.API}, Model,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
@@ -52,9 +51,7 @@ func newComboDevice(
 	_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
 ) (resource.Resource, error) {
 	d := &comboDevice{Named: conf.ResourceName().AsNamed()}
-	// Compose builds one composite from the three per-API facades; all embed the one shared
-	// *comboDevice so the composite is one device with one lifecycle, reachable under camera,
-	// movement_sensor, and the custom gizmo API.
+	// Compose assembles the three per-API facades (all embedding the one *comboDevice) into one composite.
 	return resource.Compose(
 		camera.AsSub(camFacade{d}),
 		movementsensor.AsSub(imuFacade{d}),
@@ -62,9 +59,8 @@ func newComboDevice(
 	)
 }
 
-// comboDevice holds the shared state and every NON-colliding method of both APIs. resource.Named
-// supplies Name/DoCommand/Status and TriviallyCloseable supplies Close. It deliberately has no
-// Properties method — that is the colliding method, carried by the facades below.
+// comboDevice holds the shared state and every non-colliding method. It has no Properties method — the
+// colliding one — which the per-API facades below carry.
 type comboDevice struct {
 	resource.Named
 	resource.TriviallyCloseable
