@@ -200,19 +200,16 @@ type AssociatedConfigRegistration[AssocT AssociatedConfig] struct {
 var (
 	registryMu sync.RWMutex
 	registry   = map[APIModel]Registration[Resource, ConfigValidator]{}
-	// multiAPIByModel records, for models that serve more than one co-equal API (composites), the
-	// full set of APIs they serve. It is the single source of truth every layer consults to expand a
-	// composite model into its APIs. The stored slice is kept sorted by API string so that the first
-	// entry is a deterministic canonical API. Guarded by registryMu.
+	// multiAPIByModel records, for models that serve more than one co-equal API, the full set of APIs
+	// they serve. The stored slice is kept sorted by API string so that the first entry is a
+	// deterministic canonical API. Guarded by registryMu.
 	multiAPIByModel               = map[Model][]API{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
 	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
-	// apiByInterfaceType maps each registered API's Go interface type to its API, so AsType can resolve
-	// a composite's sub by the API the requested interface belongs to (rather than returning the first
-	// sub that happens to satisfy it). Each API must declare its own distinct Go interface type,
-	// otherwise this map would be last-writer-wins and AsType could return the wrong API's sub. The base
-	// resource.Resource interface is excluded: every resource satisfies it, and AsType short-circuits it
-	// before consulting this map. Guarded by registryMu.
+	// apiByInterfaceType maps each registered API's Go interface type to its API, so AsType can resolve a
+	// composite's sub by the interface's own API rather than the first sub that happens to satisfy it. Each
+	// API must declare a distinct Go interface type, or this map would be last-writer-wins and AsType could
+	// return the wrong sub. Guarded by registryMu.
 	apiByInterfaceType = map[reflect.Type]API{}
 )
 
@@ -323,17 +320,14 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	registry[apiModel] = makeGenericResourceRegistration(reg)
 }
 
-// RegisterMultiAPI registers one model that serves a set of one or more co-equal APIs. The single
-// constructor is registered under every API (so LookupRegistration finds it for any of them), and
-// the API set is recorded for models serving more than one. With a single API it behaves exactly
-// like RegisterComponent/RegisterService and records no multi-API set. It panics on an empty API
-// list.
+// RegisterMultiAPI registers one model that serves one or more co-equal APIs. The single constructor is
+// registered under every API (so LookupRegistration finds it for any of them), and the API set is
+// recorded for models serving more than one. It panics on an empty API list.
 //
-// For a model serving more than one API the stored constructor is wrapped so that its result is
-// always a MultiAPIResource: a builtin author may return one struct that implements every served API,
-// and the wrapper composes it under each API so every consumer resolves the composite the same way as
-// a Compose-authored one (uniform APIsOf, one unwrap contract). A result that is already a
-// MultiAPIResource (authored via Compose) is left untouched.
+// For a model serving more than one API the constructor is wrapped so its result is always a
+// MultiAPIResource: an author may return one struct implementing every API, and the wrapper composes it
+// under each so consumers resolve it uniformly. A result that is already a MultiAPIResource (authored via
+// Compose) is left untouched.
 func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, model Model, reg Registration[ResourceT, ConfigT]) {
 	if len(apis) == 0 {
 		panic(errors.Errorf("RegisterMultiAPI requires at least one api for model: %q", model))
@@ -383,10 +377,9 @@ func composeSingleStructComposite(model Model) {
 	}
 }
 
-// RegisterMultiAPISet records the set of co-equal APIs a composite model serves without registering
-// constructors — used by modular composites whose per-API constructors are the module proxies. The
-// recorded set is sorted by API string so that the first entry is a deterministic canonical API. It
-// is a no-op for models serving fewer than two APIs.
+// RegisterMultiAPISet records the co-equal APIs a composite model serves without registering constructors,
+// for modular composites whose per-API constructors are the module proxies. The set is sorted by API
+// string so the first entry is a deterministic canonical API. No-op for models serving fewer than two APIs.
 func RegisterMultiAPISet(model Model, apis []API) {
 	if len(apis) < 2 {
 		return
@@ -406,11 +399,10 @@ func APIsForModel(model Model) []API {
 	return multiAPIByModel[model]
 }
 
-// ExpandModel expands a model into one APIModel per API it was registered under, so a module's
-// main() can serve all of a composite's APIs without re-listing them, e.g.
-// module.ModularMain(resource.ExpandModel(Model)...). For a composite it returns one entry per
-// co-equal API (sorted by API string); for an ordinary model it returns the single {api, model}
-// pair found in the registry, and nil for an unregistered model.
+// ExpandModel expands a model into one APIModel per API it was registered under, so a module's main() can
+// serve all of a composite's APIs without re-listing them. For a composite it returns one entry per
+// co-equal API (sorted by API string); for an ordinary model, the single {api, model} pair from the
+// registry; nil for an unregistered model.
 func ExpandModel(model Model) []APIModel {
 	registryMu.RLock()
 	defer registryMu.RUnlock()

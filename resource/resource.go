@@ -125,9 +125,8 @@ func FromProvider[T Resource](provider Provider, name Name) (T, error) {
 	return typedRes, nil
 }
 
-// NamedFromProvider resolves a bare (API-less) resource name to its single resource via any Provider,
-// superseding lookups that require a fully-qualified Name+API. For a composite it returns the one
-// handle serving every API; extract a specific API from it with AsType.
+// NamedFromProvider resolves a bare (API-less) resource name to its single resource via any Provider.
+// For a composite it returns the one handle serving every API; extract a specific API from it with AsType.
 func NamedFromProvider(provider Provider, name string) (Resource, error) {
 	return provider.GetResource(SimpleName(name))
 }
@@ -318,14 +317,9 @@ func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 
-// AsType attempts to get a more specific interface T from a resource. If the resource itself satisfies
-// T it is returned. For a composite (multi-API) resource, AsType returns the sub for T's own registered
-// API — and only that API's sub. It never returns a different API's sub that merely also satisfies T,
-// so which sub you get is unambiguous: AsType[sensor.Sensor] on a composite that serves movementsensor
-// but not sensor is a TypeError, not the movementsensor sub. When T is not a registered API interface
-// (a capability interface such as resource.Actuator), or is an API the composite does not serve, AsType
-// returns a TypeError; resolve by the specific API with SubresourceForAPI, or the typed FromProvider/
-// FromDependencies helpers.
+// AsType gets a more specific interface T from a resource. A non-composite resource that satisfies T is
+// returned as is. For a composite, it returns the sub for T's own registered API, never another API's sub
+// that merely also satisfies T. If T is not a registered API the composite serves, it returns a TypeError.
 func AsType[T Resource](from Resource) (T, error) {
 	if res, ok := from.(T); ok {
 		return res, nil
@@ -346,9 +340,7 @@ func AsType[T Resource](from Resource) (T, error) {
 }
 
 // SubresourceForAPI unwraps a composite to the sub-resource serving api. If res is not a composite
-// (or does not serve api) it is returned unchanged. This is the general, open-world access path used
-// by FromDependencies, FromProvider, and the web/gRPC layer, which resolves resources by API and must
-// forward each call to a composite's per-API sub-resource.
+// (or does not serve api) it is returned unchanged.
 func SubresourceForAPI(res Resource, api API) Resource {
 	if mar, ok := res.(MultiAPIResource); ok {
 		if sub, ok := mar.ResourceForAPI(api); ok {
@@ -358,11 +350,7 @@ func SubresourceForAPI(res Resource, api API) Resource {
 	return res
 }
 
-// APIsOf returns the set of APIs a resource handle serves. For a composite (multi-API) resource it
-// returns every API it serves, in a stable order; for an ordinary resource it returns the single API
-// of its Name. It lets a consumer discover a handle's capabilities without a MultiAPIResource type
-// assertion or trial-and-error AsType, and is the runtime counterpart to APIsForModel (which answers
-// the same question from a model, before construction).
+// APIsOf returns the set of APIs a resource handle serves, in a stable canonical-first order.
 func APIsOf(res Resource) []API {
 	if mar, ok := res.(MultiAPIResource); ok {
 		return mar.APIs()
