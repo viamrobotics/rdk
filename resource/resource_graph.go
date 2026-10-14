@@ -172,7 +172,7 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 		s.reindexCompositeAPIs(name, node)
 		return
 	}
-	// The prefix changed: drop the stale composite index; setSimpleNameCache re-indexes under
+	// The prefix changed, so drop the stale composite index; setSimpleNameCache re-indexes under
 	// the new prefix below.
 	s.dropCompositeIndex(node)
 	prevSimpleName := simpleNameKey{prevPrefix + name.Name, name.API}

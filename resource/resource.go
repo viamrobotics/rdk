@@ -325,8 +325,8 @@ func AsType[T Resource](from Resource) (T, error) {
 		return res, nil
 	}
 	if mar, ok := from.(MultiAPIResource); ok {
-		// Resolve only the sub for T's own registered API — never a different API's sub that happens to
-		// satisfy T — so the result is never ambiguous.
+		// Resolve only the sub for T's own registered API, never a different API's sub that happens to
+		// satisfy T, so the result is never ambiguous.
 		if api, ok := apiForResourceInterface(reflect.TypeFor[T]()); ok {
 			if sub, found := mar.ResourceForAPI(api); found {
 				if res, ok := sub.(T); ok {

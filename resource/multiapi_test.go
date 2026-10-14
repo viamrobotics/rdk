@@ -106,7 +106,7 @@ func TestAsTypeResolvesExactAPISub(t *testing.T) {
 	test.That(t, gotSuper, test.ShouldEqual, superSub)
 
 	// An API the composite does not serve is a TypeError, even though the subs (combo) would satisfy its
-	// interface (testCam needs only Snap). AsType returns T's own API's sub or nothing — never a
+	// interface (testCam needs only Snap). AsType returns T's own API's sub or nothing, never a
 	// different API's sub that merely satisfies T.
 	camAPI := APINamespaceRDK.WithComponentType("mtestcam")
 	RegisterAPI[testCam](camAPI, APIRegistration[testCam]{})
@@ -138,7 +138,7 @@ func TestCompositeRoutingToCanonical(t *testing.T) {
 }
 
 func TestCompositeCloseOnce(t *testing.T) {
-	// A composite is one lifecycle: Close fires the shared underlying Close exactly once, even across
+	// A composite is one lifecycle, so Close fires the shared underlying Close exactly once, even across
 	// the distinct per-API facade values (camFacade{c}/imuFacade{c}) that both delegate to the one c.
 	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
 	composite, err := Compose(
@@ -223,7 +223,7 @@ func (f fakeProvider) GetResource(name Name) (Resource, error) {
 	return res, nil
 }
 
-// Two co-equal APIs whose method sets collide by name: both declare Properties, with different
+// Two co-equal APIs whose method sets collide by name. Both declare Properties, with different
 // signatures. propcam sorts before propimu, so propCamAPI is the canonical (sorted-first) API.
 var (
 	propCamAPI = APINamespaceRDK.WithComponentType("propcam")
