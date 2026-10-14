@@ -1499,7 +1499,7 @@ func TestFindBySimpleNameSkipsRemovingNode(t *testing.T) {
 	// When a remote resource's advertised API under a name changes (single-API <-> composite, a canonical
 	// flip, or a plain API swap), the old node is marked for removal but lingers under the same
 	// remote+name as the new node until a later sweep. Simple-name resolution must skip the being-removed
-	// node so the bare name resolves to the live one rather than reading as a same-remote collision.
+	// node so the simple name resolves to the live one rather than reading as a same-remote collision.
 	logger := logging.NewTestLogger(t)
 	compA := APINamespace("namespace").WithComponentType("aapi")
 	compC := APINamespace("namespace").WithComponentType("capi")
@@ -1548,9 +1548,9 @@ func TestCompositeNodeForAPIResolvesEachCoEqualAPI(t *testing.T) {
 
 func TestLocalCompositeCoequalWinsOverRemote(t *testing.T) {
 	// A local composite serves a co-equal API only via the compositeByAPI index (not simpleNameCache).
-	// If a remote advertises the composite's bare name under one of those co-equal APIs, the remote
+	// If a remote advertises the composite's simple name under one of those co-equal APIs, the remote
 	// lands in simpleNameCache under that (name, api) key. "Local wins over same-named remotes" must
-	// still hold: the co-equal lookup must resolve the LOCAL composite, not the remote.
+	// still hold, so the co-equal lookup must resolve the local composite, not the remote.
 	model := NewModel("acme", "test", "coequalwins")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
 	defer Deregister(testCamAPI, model)
@@ -1563,11 +1563,11 @@ func TestLocalCompositeCoequalWinsOverRemote(t *testing.T) {
 	)
 	test.That(t, g.AddNode(canonical, localComposite), test.ShouldBeNil)
 
-	// A remote advertises a sensor also named "dev" — the composite's co-equal (non-configured) API.
+	// A remote advertises a sensor also named "dev", the composite's co-equal (non-configured) API.
 	remoteSensor := Name{API: testSensAPI, Remote: "r1", Name: "dev"}
 	test.That(t, g.AddNode(remoteSensor, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
 
-	// Resolving the sensor API must return the LOCAL composite, not the same-named remote sensor.
+	// Resolving the sensor API must return the local composite, not the same-named remote sensor.
 	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, localComposite)
@@ -1654,7 +1654,7 @@ func TestCompositeCoequalIndexModelReconfigure(t *testing.T) {
 func TestCompositeIndexViaPlaceholderReplace(t *testing.T) {
 	// A composite depended on before it is configured is first added as an uninitialized placeholder,
 	// then replaced by its configured node (addNode's replace path). The co-equal index must be
-	// populated there too — the model only becomes known at replace — or the composite would resolve
+	// populated there too (the model only becomes known at replace) or the composite would resolve
 	// under its configured API but 404 under its other co-equal APIs.
 	model := NewModel("acme", "test", "phcombo")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
@@ -1760,9 +1760,9 @@ func TestGraphCloneCoequalIndex(t *testing.T) {
 }
 
 func TestCompositeIndexWhenConfigAPINotCanonical(t *testing.T) {
-	// The node is stored under its CONFIG api (testsens), which is not the sorted-first api
-	// (testcam < testsens). The index must resolve the other co-equal api regardless — it excludes the
-	// stored api (name.API), not apis[0].
+	// The node is stored under its config api (testsens), which is not the sorted-first api
+	// (testcam < testsens). The index must resolve the other co-equal api regardless, since it excludes
+	// the stored api (name.API), not apis[0].
 	model := NewModel("acme", "test", "noncanoncombo")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
 	defer Deregister(testCamAPI, model)
@@ -1797,10 +1797,10 @@ func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
 	comboRes, err := Compose(AsSub[Resource](testCamAPI, comboSub), AsSub[Resource](testSensAPI, comboSub))
 	test.That(t, err, test.ShouldBeNil)
 	add(comboName, comboRes)
-	// A genuine collision: same name across DIFFERENT remotes -> hidden.
+	// A genuine collision: same name across different remotes, is hidden.
 	add(Name{API: testCamAPI, Name: "dup", Remote: "r1"}, &combo{Named: Name{API: testCamAPI, Name: "dup", Remote: "r1"}.AsNamed()})
 	add(Name{API: testSensAPI, Name: "dup", Remote: "r2"}, &combo{Named: Name{API: testSensAPI, Name: "dup", Remote: "r2"}.AsNamed()})
-	// An ordinary single remote resource -> surfaced.
+	// An ordinary single remote resource is surfaced.
 	add(Name{API: testCamAPI, Name: "solo", Remote: "r1"}, &combo{Named: Name{API: testCamAPI, Name: "solo", Remote: "r1"}.AsNamed()})
 
 	got := g.SimpleNamesWhere(func(Name, *GraphNode) bool { return true })
