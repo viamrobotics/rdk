@@ -193,7 +193,7 @@ func TestNewMultiAPIResourceValidates(t *testing.T) {
 		NewMultiAPIResource(NewName(testCamAPI, "dev"), nil, map[API]Resource{})
 	}, test.ShouldPanic)
 
-	// an api with no byAPI entry panics, so the canonical route is always resolvable.
+	// an api with no byAPI entry panics.
 	test.That(t, func() {
 		NewMultiAPIResource(NewName(testCamAPI, "dev"), []API{testCamAPI, testSensAPI}, map[API]Resource{testCamAPI: c})
 	}, test.ShouldPanic)

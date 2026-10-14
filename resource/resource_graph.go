@@ -91,9 +91,7 @@ type graphStorage struct {
 }
 
 // compositeAPIsForNode returns the co-equal API set the node's composite serves, or nil if it is not a
-// composite. Both the compositeByAPI index (resolution) and ExpandCompositeNames (advertisement) read a
-// node's API set through here, so the APIs that resolve for a composite can never drift from the APIs it
-// is advertised under.
+// composite.
 func compositeAPIsForNode(node *GraphNode) []API {
 	// The built MultiAPIResource's own API set is authoritative for any composite once built. Fall back
 	// to the configured model for a configured-but-unbuilt local composite: its instance doesn't exist
@@ -122,9 +120,8 @@ func (s graphStorage) indexCompositeAPIs(name Name, node *GraphNode) {
 	}
 }
 
-// dropCompositeIndex removes every compositeByAPI entry pointing at node. Scanning by value (the index
-// is composite-only and small) makes removal correct regardless of any model change since the entries
-// were written; used on delete and on re-index in UpdateSimpleName.
+// dropCompositeIndex removes every compositeByAPI entry pointing at node. It scans by value, so removal
+// is correct even if the node's model changed since the entries were written.
 func (s graphStorage) dropCompositeIndex(node *GraphNode) {
 	for k, v := range s.compositeByAPI {
 		if v == node {
@@ -482,13 +479,10 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 	return g.nodes.FindBySimpleNameAndAPI(name, api)
 }
 
-// ReindexComposite refreshes the compositeByAPI entries for name's node after its model may have
-// changed in place. An in-place rebuild (SwapResource on the existing node) does not pass through Set
-// or UpdateSimpleName, so without this a composite reconfigured to serve a different co-equal API set
-// keeps stale index entries: a newly-served co-equal API would not resolve, and a dropped one would
-// still resolve to this node. It reads the node's current configured model, so callers invoke it after
-// the node's config and resource have been swapped to the new model. No-op for a name with no node,
-// and for an ordinary (single-API) resource.
+// ReindexComposite refreshes name's node's compositeByAPI entries after an in-place model change. That
+// goes through SwapResource and bypasses Set/UpdateSimpleName, so the index would otherwise keep stale
+// entries. It reads the node's current model, so call it after the swap. No-op for a missing node or a
+// single-API resource.
 func (g *Graph) ReindexComposite(name Name) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
