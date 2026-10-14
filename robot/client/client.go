@@ -966,11 +966,10 @@ func (rc *RobotClient) getOrCreateClientLocked(name resource.Name) (resource.Res
 	return client, nil
 }
 
-// newCompositeLocked assembles one resource.MultiAPIResource over the per-API sub-clients for a bare
-// composite name. Each sub-client is created (typed where the API is known, else a
-// grpc.NewForeignResource passthrough for a custom API) and cached under its own API name so it is
-// created and closed once by updateResourceClients; the composite wrapper is a thin view over those
-// cached sub-clients. Callers must hold rc.mu.
+// newCompositeLocked assembles one resource.MultiAPIResource as a thin view over the per-API sub-clients
+// for a bare composite name. Each sub-client is cached under its own API name (so it is created and
+// closed once by updateResourceClients) and is typed where the API is known, else a
+// grpc.NewForeignResource passthrough. Callers must hold rc.mu.
 func (rc *RobotClient) newCompositeLocked(name resource.Name, apis []resource.API) (resource.Resource, error) {
 	byAPI := make(map[resource.API]resource.Resource, len(apis))
 	for _, api := range apis {
