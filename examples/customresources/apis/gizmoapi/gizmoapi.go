@@ -22,16 +22,14 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags g as the gizmo sub-resource of a composite, for resource.Compose.
+func AsSub(g Gizmo) resource.Sub { return resource.AsSub[Gizmo](API, g) }
+
 // FromProvider is a helper for getting the named Gizmo
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Gizmo, error) {
 	return resource.FromProvider[Gizmo](provider, Named(name))
 }
-
-// AsSub tags g as the gizmo sub-resource of a composite, for resource.Compose. This mirrors the
-// per-package AsSub sugar the builtin APIs provide (e.g. camera.AsSub), showing a custom/module API
-// gets the same authoring ergonomics.
-func AsSub(g Gizmo) resource.Sub { return resource.AsSub[Gizmo](API, g) }
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Gizmo]{
