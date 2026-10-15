@@ -207,6 +207,9 @@ type GoalStatus struct {
 
 // Status is the robot navigation state.
 type Status struct {
+	// Position is required. With no pose, implementations set a placeholder
+	// (zero Pose, or a GeoPose at 0,0 with Heading 0) and Localized false.
+	// Callers should ignore Position while Localized is false.
 	Position  Position
 	Localized bool
 	Velocity  Velocity
