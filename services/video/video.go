@@ -7,6 +7,7 @@ import (
 
 	servicepb "go.viam.com/api/service/video/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -18,6 +19,14 @@ func init() {
 		RPCServiceDesc:              &servicepb.VideoService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getVideo.String(),
+	}, newGetVideoCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // Chunk defines a chunk of video data.
