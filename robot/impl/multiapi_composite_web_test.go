@@ -79,14 +79,14 @@ func TestCompositeResourceOverClient(t *testing.T) {
 }
 
 // TestModularCompositeCollidingMethods is the modular end-to-end counterpart of the builtin colliding
-// test: over a client, camera.FromProvider(...).Properties and movementsensor.FromProvider(...).Properties
-// each round-trip to the module process and return their own facade's value — the two colliding
+// test. Over a client, camera.FromProvider(...).Properties and movementsensor.FromProvider(...).Properties
+// each round-trip to the module process and return their own implementation's value. The two colliding
 // Properties methods route to the correct per-API sub-resource across the wire.
 func TestModularCompositeCollidingMethods(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule")
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
 
 	model := resource.NewModel("acme", "demo", "combodevice")
 	cfg := &config.Config{
@@ -173,8 +173,8 @@ func TestModularCompositeCustomAPI(t *testing.T) {
 			logger, logObserver := logging.NewObservedTestLogger(t)
 			ctx := context.Background()
 
-			// Precompile the combomodule so the separate-process server only needs to exec it.
-			modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule")
+			// Precompile the complexcombomodule so the separate-process server only needs to exec it.
+			modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
 			model := resource.NewModel("acme", "demo", "combodevice")
 
 			var port int
@@ -213,8 +213,8 @@ func TestModularCompositeCustomAPI(t *testing.T) {
 			defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
 
 			// Custom gizmo API: no typed gizmo server exists on the parent, so this routes through
-			// foreignServiceHandler's composite-unwrap path. DoOne("combo") is true (the facade's wantArg)
-			// and DoOne("nope") is false — proving the call reached the gizmo facade of the composite.
+			// foreignServiceHandler's composite-unwrap path. DoOne("combo") is true (the implementation's wantArg)
+			// and DoOne("nope") is false, proving the call reached the gizmo implementation of the composite.
 			res, err := rc.ResourceByName(gizmoapi.Named("combo"))
 			test.That(t, err, test.ShouldBeNil)
 			giz, err := resource.AsType[gizmoapi.Gizmo](res)
@@ -228,7 +228,7 @@ func TestModularCompositeCustomAPI(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ok, test.ShouldBeFalse)
 
-			// The two builtin APIs with colliding method names still route to their own facades over the
+			// The two builtin APIs with colliding method names still route to their own implementations over the
 			// same composite.
 			cam, err := camera.FromProvider(rc, "combo")
 			test.That(t, err, test.ShouldBeNil)
@@ -250,8 +250,8 @@ func TestModularCompositeCustomAPI(t *testing.T) {
 // collideDevice is a builtin composite whose two APIs collide on a method name. One shared device
 // serves camera.Camera and movementsensor.MovementSensor, whose Properties methods share a name but
 // return different types. Every other method and all lifecycle state (the close counter) live here.
-// The two Properties methods are carried by the facades below, which each embed one *collideDevice.
-// This mirrors the combomodule but keeps the shared impl in the test process so closing exactly once
+// The two Properties methods are carried by the implementations below, which each embed one *collideDevice.
+// This mirrors the complexcombomodule but keeps the shared impl in the test process so closing exactly once
 // is directly observable.
 type collideDevice struct {
 	resource.Named
@@ -324,7 +324,7 @@ func (f imuFacadeBuiltin) Properties(context.Context, map[string]interface{}) (*
 }
 
 // registerCollideModel registers a builtin camera+movementsensor colliding composite whose constructor
-// assembles the two facades over one shared *collideDevice via resource.Compose. Deregistered on
+// assembles the two implementations over one shared *collideDevice via resource.Compose. Deregistered on
 // cleanup. Each Close on the shared device increments closeCount.
 func registerCollideModel(t *testing.T, name string, closeCount *atomic.Int32) resource.Model {
 	t.Helper()
@@ -352,7 +352,7 @@ func registerCollideModel(t *testing.T, name string, closeCount *atomic.Int32) r
 
 // TestCompositeCollidingMethodsBuiltin checks a builtin composite serving two APIs that collide on a
 // method name (camera.Properties and movementsensor.Properties, with different return types). Over a
-// client, each colliding Properties call routes to the correct facade for its API, a lookup without an
+// client, each colliding Properties call routes to the correct implementation for its API, a lookup without an
 // API resolves to the one composite, and the shared impl closes exactly once even though it is
 // advertised under both APIs.
 func TestCompositeCollidingMethodsBuiltin(t *testing.T) {
@@ -376,7 +376,7 @@ func TestCompositeCollidingMethodsBuiltin(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
 
-	// The two colliding Properties methods each route to their own facade over the wire.
+	// The two colliding Properties methods each route to their own implementation over the wire.
 	cam, err := camera.FromProvider(rc, "combo")
 	test.That(t, err, test.ShouldBeNil)
 	camProps, err := cam.Properties(ctx)
