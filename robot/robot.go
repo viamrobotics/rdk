@@ -229,14 +229,7 @@ type RestartModuleRequest struct {
 
 // ResourceByName looks up via short name, and will error if none or more than 1 exist.
 func ResourceByName(r Robot, name string) (resource.Resource, error) {
-	all := AllResourcesByName(r, name)
-	if len(all) == 0 {
-		return nil, fmt.Errorf("no resource named [%s]", name)
-	}
-	if len(all) > 1 {
-		return nil, fmt.Errorf("too many resources named [%s] %d", name, len(all))
-	}
-	return all[0], nil
+	return r.ResourceByName(resource.SimpleName(name))
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.
