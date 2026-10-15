@@ -1486,8 +1486,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		if rawRes != nil {
 			// Unwrap rawRes across every API it serves, then pick its kinematic sub; the type-assert
 			// leaves ie nil when none is kinematic.
-			subs := make([]resource.Resource, 0, len(resource.APIsOf(rawRes)))
-			for _, api := range resource.APIsOf(rawRes) {
+			apis := resource.APIsOf(rawRes)
+			subs := make([]resource.Resource, 0, len(apis))
+			for _, api := range apis {
 				subs = append(subs, resource.SubresourceForAPI(rawRes, api))
 			}
 			var chosen resource.Resource
