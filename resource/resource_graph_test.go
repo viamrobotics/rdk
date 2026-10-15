@@ -1597,7 +1597,7 @@ func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 
-	// deleting the composite drops BOTH its canonical simpleNameCache entry and its co-equal index
+	// deleting the composite drops both its canonical simpleNameCache entry and its co-equal index
 	// entry, so neither api resolves afterward.
 	g.nodes.Delete(canonical)
 	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
@@ -1608,7 +1608,7 @@ func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 }
 
 func TestCompositeCoequalIndexModelReconfigure(t *testing.T) {
-	// An in-place model reconfigure rebuilds on the SAME node via SwapResource and never re-runs Set or
+	// An in-place model reconfigure rebuilds on the same node via SwapResource and never re-runs Set or
 	// UpdateSimpleName, so the co-equal index must be refreshed explicitly (ReindexComposite). When the
 	// model's served API set changes, a newly-served co-equal API must resolve and a dropped one must
 	// stop resolving to this node.
@@ -1694,9 +1694,9 @@ func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g.FindAllBySimpleName("combo"), test.ShouldHaveLength, 1)
 
-	// two genuinely distinct nodes sharing a simple name back different graph nodes and still
-	// collide — name-uniqueness detection must not regress: the resolver returns a
-	// MultipleMatchingNamesError and the all-matches scan returns two matches.
+	// two genuinely distinct nodes sharing a simple name still collide. name-uniqueness
+	// detection must not regress, so the resolver returns a MultipleMatchingNamesError and the
+	// all-matches scan returns two matches.
 	camDup := NewName(testCamAPI, "dup")
 	sensDup := NewName(testSensAPI, "dup")
 	test.That(t, g.AddNode(camDup, NewConfiguredGraphNode(
@@ -1783,7 +1783,7 @@ func TestCompositeIndexWhenConfigAPINotCanonical(t *testing.T) {
 }
 
 func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
-	// A remote composite is stored as ONE node under its canonical API: SimpleNamesWhere surfaces it
+	// A remote composite is stored as one node under its canonical API, and SimpleNamesWhere surfaces it
 	// once (ExpandCompositeNames re-expands it per-API downstream), while a genuine machine-wide
 	// collision is still hidden.
 	g := NewGraph(logging.NewTestLogger(t))
@@ -1791,7 +1791,7 @@ func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
 		test.That(t, g.AddNode(n, NewConfiguredGraphNode(Config{Name: n.Name, API: n.API}, res, Model{})), test.ShouldBeNil)
 	}
 
-	// A remote composite: one node under the canonical API (testcam < testsens), holding a MultiAPIResource.
+	// A remote composite, one node under the canonical API (testcam < testsens), holding a MultiAPIResource.
 	comboName := Name{API: testCamAPI, Name: "combo", Remote: "r1"}
 	comboSub := &combo{Named: comboName.AsNamed()}
 	comboRes, err := Compose(AsSub[Resource](testCamAPI, comboSub), AsSub[Resource](testSensAPI, comboSub))
