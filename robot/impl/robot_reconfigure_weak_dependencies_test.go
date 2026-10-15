@@ -735,7 +735,7 @@ func TestWeakDependencyOnNewRemoteResource(t *testing.T) {
 }
 
 // TestWeakDependencyOnComposite asserts a composite is wired into a weakly dependent resource under
-// EACH of the APIs the matcher matches, as the unwrapped sub for that API, not only under its
+// each of the APIs the matcher matches, as the unwrapped sub for that API, not only under its
 // canonical API. The combomodule composite is configured under camera (its canonical API), so a weak
 // dependency matcher must wire it under both camera and movement_sensor.
 func TestWeakDependencyOnComposite(t *testing.T) {
@@ -757,7 +757,7 @@ func TestWeakDependencyOnComposite(t *testing.T) {
 		})
 	defer resource.Deregister(weakAPI, weakModel)
 
-	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule")
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
 	model := resource.NewModel("acme", "demo", "combodevice")
 	cfg := &config.Config{
 		Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},

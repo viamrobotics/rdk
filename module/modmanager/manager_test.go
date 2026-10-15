@@ -1989,7 +1989,7 @@ func TestHangModuleSIGQUIT(t *testing.T) {
 }
 
 // TestModularCompositeRemoveClearsAllState verifies that removing a modular composite by its wrapper's
-// Name() (as the resource manager does) fully clears the module manager's state for it: every per-API
+// Name() (as the resource manager does) fully clears the module manager's state for it. Every per-API
 // sub-client is closed, every co-equal route is dropped from rMap, and no addedResource entry lingers,
 // so the module can be torn down. The combodevice composite serves camera, movement_sensor, and the
 // custom gizmo API.
@@ -2002,7 +2002,7 @@ func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 
 	modCfg := config.Module{
 		Name:    "combo-module",
-		ExePath: rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule"),
+		ExePath: rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule"),
 	}
 	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
@@ -2012,7 +2012,7 @@ func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 
 	res, err := mgr.AddResource(ctx, cfgCombo, nil)
 	test.That(t, err, test.ShouldBeNil)
-	// The wrapper carries the CONFIGURED api (camera), matching the graph node and mod.resources keys,
+	// The wrapper carries the configured api (camera), matching the graph node and mod.resources keys,
 	// not the canonical (gizmo) api.
 	test.That(t, res.Name().API, test.ShouldResemble, camera.API)
 
@@ -2021,7 +2021,7 @@ func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
 	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
 
-	// Remove exactly as the resource manager does: by the wrapper's Name().
+	// Remove exactly as the resource manager does, by the wrapper's Name().
 	test.That(t, mgr.RemoveResource(ctx, res.Name()), test.ShouldBeNil)
 
 	// No ghost addedResource remains (so the module can be torn down), and no co-equal route lingers.
