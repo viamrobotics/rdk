@@ -83,10 +83,9 @@ type graphStorage struct {
 	nodes           graphNodes
 	simpleNameCache simpleNameCache
 	// compositeByAPI maps a composite's non-configured co-equal (simpleName, api) keys to its one node.
-	// A composite is stored in simpleNameCache under only its single canonical api, so
-	// this index lets its other co-equal APIs resolve directly in FindBySimpleNameAndAPI without a scan.
-	// It is maintained alongside simpleNameCache; keys include the node prefix, so remote composites
-	// (which carry a prefix) resolve the same way local ones do.
+	// A composite is stored in simpleNameCache under only its single canonical api, so this index lets
+	// its other co-equal APIs resolve directly in FindBySimpleNameAndAPI without a scan. Keys include the
+	// node prefix, so remote composites (which carry a prefix) resolve the same way local ones do.
 	compositeByAPI map[simpleNameKey]*GraphNode
 }
 
@@ -105,9 +104,8 @@ func compositeAPIsForNode(node *GraphNode) []API {
 	return APIsForModel(node.Config().Model)
 }
 
-// indexCompositeAPIs records a composite node under each of its non-configured
-// co-equal API keys in compositeByAPI, so any of its APIs resolves directly. No-op for an
-// ordinary (single-API) resource.
+// indexCompositeAPIs records a composite node under each of its non-configured co-equal API keys in
+// compositeByAPI. No-op for an ordinary (single-API) resource.
 func (s graphStorage) indexCompositeAPIs(name Name, node *GraphNode) {
 	apis := compositeAPIsForNode(node)
 	if len(apis) < 2 {
@@ -120,8 +118,7 @@ func (s graphStorage) indexCompositeAPIs(name Name, node *GraphNode) {
 	}
 }
 
-// dropCompositeIndex removes every compositeByAPI entry pointing at node. It scans by value, so removal
-// is correct even if the node's model changed since the entries were written.
+// dropCompositeIndex removes every compositeByAPI entry pointing at node.
 func (s graphStorage) dropCompositeIndex(node *GraphNode) {
 	for k, v := range s.compositeByAPI {
 		if v == node {
@@ -748,11 +745,6 @@ func (g *Graph) FindAllBySimpleName(name string) []Name {
 // Callers must hold g.mu.
 func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	var result []Name
-	// Skip nodes marked for removal. When a remote resource's advertised API under a name changes (a
-	// composite's canonical API flips, a composite <-> single-API transition, or a resource swapping its
-	// API), the old node is marked for removal but lingers under the same remote+name as the new node
-	// until a later sweep. Excluding it leaves the live node the sole match, not a same-remote collision;
-	// a name shared across different remotes stays a collision.
 	for key, val := range g.nodes.simpleNameCache {
 		if key.api.Type.Namespace == APINamespaceRDKInternal {
 			continue
@@ -765,6 +757,11 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 			continue
 		}
 		for remote, node := range val.remote {
+			// Skip nodes marked for removal. When a remote resource's advertised API under a name changes
+			// (a composite's canonical API flips, a composite <-> single-API transition, or a resource
+			// swapping its API), the old node is marked for removal but lingers under the same remote+name
+			// as the new node until a later sweep. Excluding it leaves the live node the sole match, not a
+			// same-remote collision; a name shared across different remotes stays a collision.
 			if node.MarkedForRemoval() {
 				continue
 			}
