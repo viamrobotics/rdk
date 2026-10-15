@@ -228,23 +228,21 @@ type internalRemoteRobot interface {
 	robot.Robot
 }
 
-// servedAPIs returns the co-equal API set a node currently serves. For a composite that is its
-// MultiAPIResource's set, otherwise the single fallback API. Used to detect when a remote node's
-// composite membership changed across a refresh.
-func servedAPIs(n *resource.GraphNode, fallback resource.API) []resource.API {
+// servedAPIs returns the API set a node serves, from its live resource, or just nameAPI if it has no
+// resource yet.
+func servedAPIs(n *resource.GraphNode, nameAPI resource.API) []resource.API {
 	if res, err := n.UnsafeResource(); err == nil {
-		if mar, ok := res.(resource.MultiAPIResource); ok {
-			return mar.APIs()
-		}
+		return resource.APIsOf(res)
 	}
-	return []resource.API{fallback}
+	return []resource.API{nameAPI}
 }
 
-func sameAPISet(a, b []resource.API) bool {
+// sameSet reports whether a and b contain the same elements, ignoring order and assuming no duplicates.
+func sameSet[T comparable](a, b []T) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	set := make(map[resource.API]bool, len(a))
+	set := make(map[T]bool, len(a))
 	for _, x := range a {
 		set[x] = true
 	}
@@ -386,7 +384,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if isComposite {
 			desiredAPIs = coequalAPIs
 		}
-		compositeChanged := nodeAlreadyExists && !sameAPISet(servedAPIs(gNode, resName.API), desiredAPIs)
+		compositeChanged := nodeAlreadyExists && !sameSet(servedAPIs(gNode, resName.API), desiredAPIs)
 
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
