@@ -5,9 +5,11 @@ package webstream_test
 import (
 	"context"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -632,6 +634,68 @@ func TestStreamServerSurvivesWebRestart(t *testing.T) {
 	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
 		Name: "test",
 	})
+	test.That(t, err, test.ShouldBeNil)
+}
+
+var (
+	failingCameraModel = resource.DefaultModelFamily.WithModel("fake-fails-on-demand")
+	failCameraBuilds   atomic.Bool
+)
+
+func init() {
+	resource.RegisterComponent(camera.API, failingCameraModel, resource.Registration[camera.Camera, *fake.Config]{
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (camera.Camera, error) {
+			if failCameraBuilds.Load() {
+				return nil, errors.New("camera build failed on demand")
+			}
+			return fake.NewCamera(ctx, deps, conf, logger)
+		},
+	})
+}
+
+// TestRemoveStreamWhileCameraUnavailable asserts a stream removed while its camera is
+// unavailable (e.g. its module is restarting) can be re-added once the camera is back.
+func TestRemoveStreamWhileCameraUnavailable(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	// A changed width forces a rebuild, so each reconfigure below reconstructs the camera.
+	cameraConfig := func(width int) *config.Config {
+		return &config.Config{Components: []resource.Config{{
+			Name:                "test",
+			API:                 camera.API,
+			Model:               failingCameraModel,
+			Attributes:          rutils.AttributeMap{"width": width, "height": 50},
+			ConvertedAttributes: &fake.Config{Width: width, Height: 50},
+		}}}
+	}
+	ctx, robot, addr, webSvc := setupRealRobot(t, cameraConfig(100), logger)
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+
+	livestreamClient := streampb.NewStreamServiceClient(conn)
+	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "test"})
+	test.That(t, err, test.ShouldBeNil)
+
+	failCameraBuilds.Store(true)
+	defer failCameraBuilds.Store(false)
+	robot.Reconfigure(ctx, cameraConfig(102))
+	_, err = camera.FromProvider(robot, "test")
+	test.That(t, resource.IsNotAvailableError(err), test.ShouldBeTrue)
+
+	_, err = livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: "test"})
+	test.That(t, err, test.ShouldBeNil)
+
+	failCameraBuilds.Store(false)
+	robot.Reconfigure(ctx, cameraConfig(104))
+	_, err = camera.FromProvider(robot, "test")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "test"})
 	test.That(t, err, test.ShouldBeNil)
 }
 
