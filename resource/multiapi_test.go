@@ -68,7 +68,7 @@ func newComboConstructor() Registration[Resource, NoNativeConfig] {
 	}
 }
 
-// superSensT's interface is a SUPERSET of testSens (it also has Snap), so a sub serving superSensT also
+// superSensT's interface is a superset of testSens (it also has Snap), so a sub serving superSensT also
 // satisfies testSens. combo implements both (it has Read and Snap).
 type superSensT interface {
 	Resource
@@ -78,7 +78,7 @@ type superSensT interface {
 
 func TestAsTypeResolvesExactAPISub(t *testing.T) {
 	// A composite serving a superset API (superSensT, which also satisfies testSens) plus testSens. The
-	// superset API is named to sort FIRST, so a naive first-match scan would return its sub for
+	// superset API is named to sort first, so a naive first-match scan would return its sub for
 	// AsType[testSens]. Because the API interfaces are registered, AsType must resolve testSens's own sub.
 	superAPI := APINamespaceRDK.WithComponentType("asupersensor") // sorts before ztestsensor
 	baseAPI := APINamespaceRDK.WithComponentType("ztestsensor")
@@ -179,7 +179,7 @@ func TestNewMultiAPIResourceDefensiveCopy(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, got, test.ShouldEqual, c)
 
-	// mutating the slice RETURNED by APIs() must not corrupt the composite either.
+	// mutating the slice returned by APIs() must not corrupt the composite either.
 	returned := composite.APIs()
 	returned[0] = testMotorAPI
 	test.That(t, composite.APIs(), test.ShouldResemble, []API{testCamAPI, testSensAPI})
@@ -247,10 +247,9 @@ type propIMU interface {
 	Properties(context.Context, map[string]interface{}) (*IMUProps, error)
 }
 
-// comboProps is one shared-state device serving both propCam and propIMU. Its two Properties methods
-// collide by name with incompatible signatures, so neither can live on comboProps directly; each is
-// carried by a thin per-API facade embedding *comboProps. All lifecycle state (here, a close counter)
-// lives on the one shared comboProps, never on a facade.
+// comboProps is one shared-state device serving propCam and propIMU. Its two Properties methods collide
+// by name with incompatible signatures, so neither lives on comboProps directly; each is carried by a
+// thin per-API facade embedding *comboProps.
 type comboProps struct {
 	Named
 	closes int

@@ -7,10 +7,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// MultiAPIResource is a resource that serves more than one co-equal API from a single identity — a
-// "composite". Consumers get a typed handle for any of its APIs via AsType (or an API package's
-// FromProvider helper), both of which unwrap the composite to the sub-resource for the requested
-// API, so custom/module APIs work the same way builtin ones do.
+// MultiAPIResource is a resource that serves more than one co-equal API from a single identity (a
+// "composite"). AsType (or an API package's FromProvider helper) returns the sub-resource for a given API.
 type MultiAPIResource interface {
 	Resource
 
@@ -66,8 +64,8 @@ func AsSub[T Resource](api API, res T) Sub {
 }
 
 // Compose assembles a composite MultiAPIResource from per-API sub-resources. The served APIs are
-// sorted by API string (matching RegisterMultiAPISet) so the first is a deterministic canonical API
-// that DoCommand, Status, and Close route to. It errors if no subs are given, if two subs share an
+// sorted by API string (matching RegisterMultiAPISet) so the first is a deterministic canonical API.
+// It errors if no subs are given, if two subs share an
 // API, or if the subs disagree on their name. Compose is the ergonomic, type-checked front door to
 // NewMultiAPIResource (pair it with AsSub).
 func Compose(subs ...Sub) (MultiAPIResource, error) {
