@@ -26,7 +26,7 @@ func (c *comboSensor) Readings(context.Context, map[string]interface{}) (map[str
 	return map[string]interface{}{"reading": 7}, nil
 }
 
-// genericOnly implements generic (DoCommand via Named) but NOT sensor.Sensor (no Readings).
+// genericOnly implements generic (DoCommand via Named) but not sensor.Sensor (no Readings).
 type genericOnly struct {
 	resource.Named
 	resource.TriviallyCloseable
@@ -44,7 +44,7 @@ func TestCompositeDeclarationGuard(t *testing.T) {
 
 	t.Run("undeclared multi-API reuse is rejected", func(t *testing.T) {
 		model := resource.NewModel("acme", "test", "undeclared-combo")
-		// Two independent registrations under different APIs — NOT RegisterMultiAPI.
+		// Two independent registrations under different APIs, not RegisterMultiAPI.
 		resource.RegisterComponent(sensor.API, model,
 			resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: ctor})
 		resource.RegisterComponent(generic.API, model,
@@ -79,13 +79,13 @@ func TestCompositeDeclarationGuard(t *testing.T) {
 
 // TestCompositeAddResourceRollback asserts that when a composite fails to implement one of its
 // declared APIs, addResource rolls the composite back out of every collection it already reached
-// before closing the resource — so no collection is left pointing at a failed resource.
+// before closing the resource, so no collection is left pointing at a failed resource.
 func TestCompositeAddResourceRollback(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	model := resource.NewModel("acme", "test", "rollback-combo")
-	// genericOnly implements generic.Resource but NOT sensor.Sensor (no Readings), so the fan-out to
+	// genericOnly implements generic.Resource but not sensor.Sensor (no Readings), so the fan-out to
 	// the sensor collection fails after the generic collection has already been populated.
 	resource.RegisterMultiAPI([]resource.API{generic.API, sensor.API}, model,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
@@ -119,7 +119,7 @@ func TestCompositeAddResourceRollback(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// Rollback: the generic collection (populated before the failure) must not retain the resource.
+	// On rollback, the generic collection (populated before the failure) must not retain the resource.
 	_, err = m.collections[generic.API].Resource("combo")
 	test.That(t, err, test.ShouldNotBeNil)
 }
