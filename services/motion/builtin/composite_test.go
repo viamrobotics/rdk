@@ -30,8 +30,8 @@ type plainComp struct {
 }
 
 // TestBuiltInReconfigureComposite verifies motion unwraps a composite dependency to the correct
-// per-API sub before classifying it, and applies the one-kinematic-API rule to the component map:
-// a composite wrapper aliased under several API names resolves to each API's real sub, the single
+// per-API sub before classifying it, and applies the one-kinematic-API rule to the component map.
+// A composite wrapper aliased under several API names resolves to each API's real sub, the single
 // kinematic sub is kept (even when its API is not canonical), a service-typed sub routes to its own
 // map rather than the component map, and a composite serving two kinematic APIs is refused (not guessed).
 func TestBuiltInReconfigureComposite(t *testing.T) {
@@ -43,7 +43,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
 	camAPI := resource.APINamespaceRDK.WithComponentType("camera")
 
-	// A modular composite "wrap" serving arm (kinematic) + camera (non-kinematic): in deps it is the
+	// A modular composite "wrap" serving arm (kinematic) + camera (non-kinematic). In deps it is the
 	// MultiAPIResource wrapper, aliased under both API names.
 	wrapArm := &kinematicComp{Named: resource.NewName(armAPI, "wrap").AsNamed()}
 	wrapCam := &plainComp{Named: resource.NewName(camAPI, "wrap").AsNamed()}
@@ -53,9 +53,8 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 		map[resource.API]resource.Resource{armAPI: wrapArm, camAPI: wrapCam},
 	)
 
-	// "noncanon": a composite whose kinematic API is NOT canonical — camera (canonical, non-kinematic)
-	// + gantry (kinematic). The kinematic sub must be kept regardless of which API sorts first, so this
-	// distinguishes keeping the kinematic sub from keeping whichever sub happens to be first.
+	// "noncanon": a composite whose kinematic API is not canonical, camera (canonical, non-kinematic)
+	// + gantry (kinematic). The kinematic sub must be kept regardless of which API sorts first.
 	ncCam := &plainComp{Named: resource.NewName(camAPI, "noncanon").AsNamed()}
 	ncGantry := &kinematicComp{Named: resource.NewName(gantryAPI, "noncanon").AsNamed()}
 	ncWrapper := resource.NewMultiAPIResource(
@@ -74,7 +73,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 		map[resource.API]resource.Resource{armAPI: svcArm, vision.API: svcVision},
 	)
 
-	// "multi": a composite serving two kinematic APIs (arm + gantry) — unsupported, must be refused.
+	// "multi": a composite serving two kinematic APIs (arm + gantry), unsupported, must be refused.
 	multiArm := &kinematicComp{Named: resource.NewName(armAPI, "multi").AsNamed()}
 	multiGantry := &kinematicComp{Named: resource.NewName(gantryAPI, "multi").AsNamed()}
 	// "solo": an ordinary component.
@@ -94,10 +93,10 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 
 	test.That(t, ms.BuiltInReconfigure(ctx, deps, conf), test.ShouldBeNil)
 
-	// The composite wrapper was unwrapped and the kinematic (arm) sub kept — not the wrapper, not the camera.
+	// The composite wrapper was unwrapped and the kinematic (arm) sub kept, not the wrapper, not the camera.
 	test.That(t, ms.components["wrap"], test.ShouldEqual, wrapArm)
 	// The kinematic sub is kept even when it is the non-canonical API (gantry under a camera-canonical
-	// composite), not just when it sorts first.
+	// composite).
 	test.That(t, ms.components["noncanon"], test.ShouldEqual, ncGantry)
 	// The vision sub routed to visionServices; only the arm sub remains in the component map.
 	test.That(t, ms.visionServices["svccombo"], test.ShouldEqual, svcVision)
@@ -111,7 +110,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 
 // TestBuiltInReconfigureSingleStructMultiKinematic verifies motion keeps a single struct served under
 // two kinematic APIs as one chain in the component map rather than refusing it as it does a composite
-// backed by two DISTINCT kinematic subs.
+// backed by two distinct kinematic subs.
 func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	ctx := context.Background()
 	ms := &builtIn{logger: logging.NewTestLogger(t)}

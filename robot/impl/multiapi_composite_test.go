@@ -384,12 +384,12 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple resources share the simple name")
 }
 
-// comboFacadeDevice is the shared impl behind the in-process facade composites below. The per-API
-// facades embed one *comboFacadeDevice and are assembled via resource.Compose, so a composite is stored
-// as a resource.MultiAPIResource wrapper that does not itself satisfy the sub-API interfaces — an
-// in-process fetch by a specific API must unwrap it. Lifecycle and actuator state (the shared Stop/Close
-// counters) live here; capabilities that vary per fixture (Kinematics, Geometries) live on the
-// individual facades, so e.g. buttonFacade is neither kinematic nor Shaped.
+// comboFacadeDevice is the shared impl behind the in-process composites below. The per-API
+// implementations embed one *comboFacadeDevice and are assembled via resource.Compose, so a composite
+// is stored as a resource.MultiAPIResource wrapper that does not itself satisfy the sub-API interfaces.
+// An in-process fetch by a specific API must unwrap it. Lifecycle and actuator state (the shared
+// Stop/Close counters) live here; capabilities that vary per fixture (Kinematics, Geometries) live on
+// the individual implementations, so e.g. buttonFacade is neither kinematic nor Shaped.
 type comboFacadeDevice struct {
 	resource.Named
 	stopCount  *atomic.Int32
@@ -475,9 +475,9 @@ func (f sensorFacade) Geometries(
 	return []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{}, "combo-geom")}, nil
 }
 
-// registerComboFacadeModel registers a builtin facade composite serving the given APIs over one shared
-// *comboFacadeDevice. Each API is served by its matching facade above; the stop/close counters are
-// shared across facades.
+// registerComboFacadeModel registers a builtin composite serving the given APIs over one shared
+// *comboFacadeDevice. Each API is served by its matching implementation above; the stop/close counters
+// are shared across implementations.
 func registerComboFacadeModel(
 	t *testing.T, name string, apis []resource.API, stopCount, closeCount *atomic.Int32,
 ) resource.Model {
@@ -579,8 +579,8 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 
 // TestCompositeInFrameSystemMultiKinematicRefused checks that a composite serving more than one
 // kinematic (InputEnabled) API is omitted from the frame system rather than modeled. The gripper+servo
-// composite exposes Kinematics on both facades, so the model-frame builder can't pick one; it drops the
-// composite.
+// composite exposes Kinematics on both implementations, so the model-frame builder can't pick one; it
+// drops the composite.
 func TestCompositeInFrameSystemMultiKinematicRefused(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -606,7 +606,7 @@ func TestCompositeInFrameSystemMultiKinematicRefused(t *testing.T) {
 }
 
 // TestCompositeInFrameSystemNonCanonicalKinematic checks that a composite gets a model frame from its
-// kinematic sub whichever API it is configured under — including a non-kinematic API the frame system
+// kinematic sub whichever API it is configured under, including a non-kinematic API the frame system
 // would not recognize as kinematic by subtype. The button+gripper composite's only kinematic sub is
 // gripper; configured under button (non-kinematic) or under gripper, it still contributes a model frame,
 // because kinematics is detected by interface across every served API.
