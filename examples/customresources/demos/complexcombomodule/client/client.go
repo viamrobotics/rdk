@@ -1,10 +1,7 @@
 // Package main consumes the combodevice composite over the SDK: one machine resource ("combo")
 // reachable under the camera, movement_sensor, and custom gizmo APIs at once. It is the client half of
-// the combomodule demo — start the server with `make run-module` in the parent directory (it serves the
+// the combomodule demo. Start the server with `make run-module` in the parent directory (it serves the
 // module via module.json on :8080), then run this with `make` here.
-//
-// Because it builds against this (composite) RDK, the composite-aware SDK helpers
-// resource.NamedFromProvider / resource.APIsOf are available alongside the per-API FromProvider calls.
 package main
 
 import (
@@ -30,7 +27,7 @@ func main() {
 	//nolint:errcheck
 	defer machine.Close(ctx)
 
-	// ── 1) ResourceNames: ONE short name, advertised under THREE APIs ───────────────
+	// ── 1) ResourceNames, one short name, advertised under three APIs ───────────────
 	logger.Info("── ResourceNames (combo should appear under 3 APIs) ──")
 	for _, n := range machine.ResourceNames() {
 		if n.Name == "combo" {
@@ -38,7 +35,7 @@ func main() {
 		}
 	}
 
-	// ── 2) api-less handle: ONE object that reports its full co-equal API set ───────
+	// ── 2) api-less handle, one object that reports its full co-equal API set ───────
 	logger.Info("── api-less composite handle ──")
 	if combo, err := resource.NamedFromProvider(machine, "combo"); err != nil {
 		logger.Errorf("  NamedFromProvider: %v", err)
@@ -46,7 +43,7 @@ func main() {
 		logger.Infof("  APIsOf(combo): %v", resource.APIsOf(combo)) // [gizmo camera movement_sensor]
 	}
 
-	// ── 3) as a CAMERA: the colliding Properties method, camera side ────────────────
+	// ── 3) as a camera, the colliding Properties method, camera side ────────────────
 	logger.Info("── combo as camera ──")
 	if cam, err := camera.FromProvider(machine, "combo"); err != nil {
 		logger.Errorf("  camera.FromProvider: %v", err)
@@ -56,7 +53,7 @@ func main() {
 		logger.Infof("  camera Properties: %+v", props) // FrameRate=30 SupportsPCD=true
 	}
 
-	// ── 4) as a MOVEMENT SENSOR: SAME method name, DIFFERENT facade & return type ───
+	// ── 4) as a movement sensor, same method name, different facade & return type ───
 	logger.Info("── combo as movement_sensor ──")
 	if ms, err := movementsensor.FromProvider(machine, "combo"); err != nil {
 		logger.Errorf("  movementsensor.FromProvider: %v", err)
@@ -78,7 +75,7 @@ func main() {
 		}
 	}
 
-	// ── 5) as the CUSTOM gizmo API: composites span builtin AND module-defined APIs ──
+	// ── 5) as the custom gizmo API, composites span builtin and module-defined APIs ──
 	logger.Info("── combo as gizmo (custom API) ──")
 	if giz, err := gizmoapi.FromProvider(machine, "combo"); err != nil {
 		logger.Errorf("  gizmoapi.FromProvider: %v", err)
