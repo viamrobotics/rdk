@@ -871,13 +871,11 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 		if err != nil {
 			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		allDeps[prefixedName] = resource.SubresourceForAPI(res, prefixedName.API)
 		// A composite dependency serves several co-equal APIs, so key it under each of its API names with
-		// that API's unwrapped sub; a dependent then resolves it by whichever API it expects. Unwrap is a
-		// no-op for an ordinary resource.
-		for _, api := range resource.APIsOf(res) {
-			aliased := resource.Name{API: api, Remote: prefixedName.Remote, Name: prefixedName.Name}
-			allDeps[aliased] = resource.SubresourceForAPI(res, api)
+		// that API's unwrapped sub; a dependent then resolves it by whichever API it expects. For an
+		// ordinary resource this is the single (name, res) pair.
+		for aliased, sub := range resource.SubsByName(prefixedName, res) {
+			allDeps[aliased] = sub
 		}
 	}
 	nodeConf := gNode.Config()
@@ -1055,9 +1053,7 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		// serves rather than only its canonical Name().API. For each matched API, store its unwrapped sub
 		// under that API's name so an API-qualified lookup resolves directly. An ordinary resource serves
 		// one API, so the unwrap is a no-op.
-		for _, api := range resource.APIsOf(res) {
-			sub := resource.SubresourceForAPI(res, api)
-			apiName := resource.Name{API: api, Remote: n.Remote, Name: n.Name}
+		for apiName, sub := range resource.SubsByName(n, res) {
 			for _, matcher := range weakDepMatchers {
 				if matcher.IsMatch(sub) {
 					// Pop the remote name off since callers won't be expecting it when accessing it in the
