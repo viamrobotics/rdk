@@ -936,6 +936,12 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 	}
 }
 
+// ResourceBySimpleName returns the resource advertised under the given simple (API-less) name. A
+// composite resolves to its one MultiAPIResource handle, an ordinary resource to itself.
+func (rc *RobotClient) ResourceBySimpleName(name string) (resource.Resource, error) {
+	return rc.ResourceByName(resource.SimpleName(name))
+}
+
 // apisSharingNameLocked returns every distinct API advertised under the given bare name (and remote),
 // sorted for a deterministic canonical API (apis[0]). More than one means the name is a composite.
 // Callers must hold rc.mu.
