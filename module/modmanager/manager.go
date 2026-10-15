@@ -560,15 +560,6 @@ func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps 
 	return mgr.addResource(ctx, conf, deps)
 }
 
-// servedAPIs returns the APIs a module resource is served under, canonical-first: the full co-equal set
-// for a composite, or just conf.API for an ordinary resource.
-func servedAPIs(conf resource.Config) []resource.API {
-	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
-		return apis
-	}
-	return []resource.API{conf.API}
-}
-
 func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mod, ok := mgr.getModule(conf)
 	if !ok {
@@ -595,7 +586,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	// full co-equal set for a composite) and route each name to this module. On a build failure, abort
 	// undoes the routes, closes what was built, drops the mod.resources entry, and tells the module to drop
 	// the instance (AddResource already constructed it) so a retry doesn't hit "already exists".
-	apis := servedAPIs(conf)
+	apis := resource.APIsForConfig(conf)
 	base := conf.ResourceName()
 	byAPI := make(map[resource.API]resource.Resource, len(apis))
 	abort := func(cause error) (resource.Resource, error) {
@@ -606,7 +597,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 			cause = multierr.Combine(cause, sub.Close(closeCtx))
 		}
 		for _, api := range apis {
-			mgr.rMap.Delete(resource.Name{API: api, Remote: base.Remote, Name: base.Name})
+			mgr.rMap.Delete(base.AsAPI(api))
 		}
 		delete(mod.resources, base)
 		if _, err := mod.client.RemoveResource(closeCtx, &pb.RemoveResourceRequest{Name: base.String()}); err != nil &&
@@ -616,7 +607,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return nil, cause
 	}
 	for _, api := range apis {
-		subName := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
+		subName := base.AsAPI(api)
 		mgr.rMap.Store(subName, mod)
 		apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 		if !ok || apiInfo.RPCClient == nil {
@@ -711,9 +702,9 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	if ar, ok := mod.resources[name]; ok {
 		// Close with a non-cancellable context so teardown runs even if ctx is already expired.
 		closeCtx := context.WithoutCancel(ctx)
-		apis := servedAPIs(ar.conf)
+		apis := resource.APIsForConfig(ar.conf)
 		for _, api := range apis {
-			mgr.rMap.Delete(resource.Name{API: api, Remote: name.Remote, Name: name.Name})
+			mgr.rMap.Delete(name.AsAPI(api))
 		}
 		for api, sub := range ar.subs {
 			if api == apis[0] {
@@ -1036,7 +1027,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			// route of a composite, not just the configured name, so no stale route to the crashed module
 			// lingers if the resource is not successfully re-added.
 			for _, api := range resource.APIsForModel(ar.conf.Model) {
-				mgr.rMap.Delete(resource.Name{API: api, Remote: resourceName.Remote, Name: resourceName.Name})
+				mgr.rMap.Delete(resourceName.AsAPI(api))
 			}
 			mgr.rMap.Delete(resourceName)
 			delete(mod.resources, resourceName)

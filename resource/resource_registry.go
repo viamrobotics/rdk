@@ -415,6 +415,16 @@ func APIsForModel(model Model) []API {
 	return slices.Clone(multiAPIByModel[model])
 }
 
+// APIsForConfig returns the APIs a configured resource is served under, canonical-first: the full
+// co-equal set for a composite model, or the config's own API for an ordinary one. Unlike APIsOf it
+// works from config alone, before any instance exists.
+func APIsForConfig(conf Config) []API {
+	if apis := APIsForModel(conf.Model); len(apis) > 1 {
+		return apis
+	}
+	return []API{conf.API}
+}
+
 // ExpandModel expands a model into one APIModel per API it was registered under, so a module's main() can
 // serve all of a composite's APIs without re-listing them. For a composite it returns one entry per
 // co-equal API (sorted by API string); for an ordinary model, the single {api, model} pair from the
