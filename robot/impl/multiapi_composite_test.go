@@ -177,7 +177,7 @@ func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 	ctx := context.Background()
 	comboModel := registerComboModel(t, "composite-sensor-dep", nil)
 
-	// A consumer that fails construction unless it can resolve the composite under BOTH APIs.
+	// A consumer that fails construction unless it can resolve the composite under both APIs.
 	consumerModel := resource.NewModel("acme", "test", "composite-consumer")
 	resource.RegisterComponent(generic.API, consumerModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
@@ -210,7 +210,7 @@ func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 }
 
 // TestCompositeRemoteResourceCollisions asserts that genuine collisions involving remote resources are
-// detected: a local resource and a remote resource sharing a simple name collide, even across different
+// detected. A local resource and a remote resource sharing a simple name collide, even across different
 // APIs, as do two different (unprefixed) remotes exposing the same simple name.
 func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
@@ -434,6 +434,6 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
 	test.That(t, r.StopAll(ctx, nil), test.ShouldBeNil)
-	// Stopped AT ALL (safety) and exactly ONCE (dedup), not once per advertised API.
+	// Stopped at all (safety) and exactly once (dedup), not once per advertised API.
 	test.That(t, stopCount.Load(), test.ShouldEqual, 1)
 }

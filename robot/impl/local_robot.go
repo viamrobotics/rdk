@@ -206,7 +206,7 @@ func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *da
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried through the
-// resourceGetterForAPI for _all_ incoming gRPC requests related to a resource. It returns a nil resource
+// resourceGetterForAPI for all incoming gRPC requests related to a resource. It returns a nil resource
 // and an error when no resource, or multiple matching remote resources, are found. It unwraps a composite
 // to the sub-resource serving that API (resource.SubresourceForAPI), so a caller that type-asserts sees
 // the real typed instance rather than the composite wrapper.
