@@ -197,11 +197,11 @@ func (svc *navSvc) ExecutePlan(context.Context, navigation.Plan, map[string]inte
 	return navigation.Status{}, errUnimplemented
 }
 
-func (svc *navSvc) GoToLocation(context.Context, navigation.GoToReq) (navigation.Status, error) {
+func (svc *navSvc) GoToLocation(context.Context, navigation.GoToLocationReq) (navigation.Status, error) {
 	return navigation.Status{}, errUnimplemented
 }
 
-func (svc *navSvc) GoToPoint(context.Context, navigation.GoToReq) (navigation.Status, error) {
+func (svc *navSvc) GoToPoint(context.Context, navigation.GoToPointReq) (navigation.Status, error) {
 	return navigation.Status{}, errUnimplemented
 }
 

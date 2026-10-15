@@ -36,8 +36,8 @@ type NavigationService struct {
 	PlanToPointFunc         func(ctx context.Context, req navigation.PlanToPointReq) (navigation.Plan, error)
 	PlanToLocationFunc      func(ctx context.Context, req navigation.PlanToLocationReq) (navigation.Plan, error)
 	ExecutePlanFunc         func(ctx context.Context, plan navigation.Plan, extra map[string]interface{}) (navigation.Status, error)
-	GoToLocationFunc        func(ctx context.Context, req navigation.GoToReq) (navigation.Status, error)
-	GoToPointFunc           func(ctx context.Context, req navigation.GoToReq) (navigation.Status, error)
+	GoToLocationFunc        func(ctx context.Context, req navigation.GoToLocationReq) (navigation.Status, error)
+	GoToPointFunc           func(ctx context.Context, req navigation.GoToPointReq) (navigation.Status, error)
 	SuspendFunc             func(ctx context.Context, reason string, extra map[string]interface{}) (navigation.Status, error)
 	ResumeFunc              func(ctx context.Context, extra map[string]interface{}) (navigation.Status, error)
 	CancelFunc              func(ctx context.Context, extra map[string]interface{}) (navigation.Status, error)
@@ -234,7 +234,7 @@ func (ns *NavigationService) ExecutePlan(
 }
 
 // GoToLocation calls the injected GoToLocationFunc or the real version.
-func (ns *NavigationService) GoToLocation(ctx context.Context, req navigation.GoToReq) (navigation.Status, error) {
+func (ns *NavigationService) GoToLocation(ctx context.Context, req navigation.GoToLocationReq) (navigation.Status, error) {
 	if ns.GoToLocationFunc == nil {
 		return ns.Service.GoToLocation(ctx, req)
 	}
@@ -242,7 +242,7 @@ func (ns *NavigationService) GoToLocation(ctx context.Context, req navigation.Go
 }
 
 // GoToPoint calls the injected GoToPointFunc or the real version.
-func (ns *NavigationService) GoToPoint(ctx context.Context, req navigation.GoToReq) (navigation.Status, error) {
+func (ns *NavigationService) GoToPoint(ctx context.Context, req navigation.GoToPointReq) (navigation.Status, error) {
 	if ns.GoToPointFunc == nil {
 		return ns.Service.GoToPoint(ctx, req)
 	}

@@ -447,7 +447,7 @@ func (server *serviceServer) GoToLocation(ctx context.Context, req *pb.GoToLocat
 	if err != nil {
 		return nil, err
 	}
-	status, err := svc.GoToLocation(ctx, GoToReq{
+	status, err := svc.GoToLocation(ctx, GoToLocationReq{
 		Name:          req.LocationName,
 		Wait:          req.Wait,
 		LinearMPerSec: req.LinearMPerSec,
@@ -472,8 +472,8 @@ func (server *serviceServer) GoToPoint(ctx context.Context, req *pb.GoToPointReq
 	if err != nil {
 		return nil, err
 	}
-	status, err := svc.GoToPoint(ctx, GoToReq{
-		Destination:   &dest,
+	status, err := svc.GoToPoint(ctx, GoToPointReq{
+		Destination:   dest,
 		Wait:          req.Wait,
 		LinearMPerSec: req.LinearMPerSec,
 		Extra:         req.Extra.AsMap(),

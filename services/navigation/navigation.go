@@ -320,10 +320,17 @@ type PlanToLocationReq struct {
 	Extra map[string]interface{}
 }
 
-// GoToReq is the request to GoToLocation / GoToPoint.
-type GoToReq struct {
+// GoToLocationReq is the request to GoToLocation.
+type GoToLocationReq struct {
 	Name          string
-	Destination   *Position
+	Wait          *bool
+	LinearMPerSec *float64
+	Extra         map[string]interface{}
+}
+
+// GoToPointReq is the request to GoToPoint.
+type GoToPointReq struct {
+	Destination   Position
 	Wait          *bool
 	LinearMPerSec *float64
 	Extra         map[string]interface{}
@@ -396,10 +403,10 @@ type Service interface {
 
 	// GoToLocation drives directly to a saved location with a closed-loop controller, without full path planning.
 	// With Wait false, it returns immediately while navigating.
-	GoToLocation(ctx context.Context, req GoToReq) (Status, error)
+	GoToLocation(ctx context.Context, req GoToLocationReq) (Status, error)
 	// GoToPoint drives directly to a Position with a closed-loop controller, without full path planning.
 	// With Wait false, it returns immediately while navigating.
-	GoToPoint(ctx context.Context, req GoToReq) (Status, error)
+	GoToPoint(ctx context.Context, req GoToPointReq) (Status, error)
 
 	// Suspend stops motion but remembers the current goal, including the current waypoint and loop setting for routes.
 	// A suspended goal must be canceled before a new one starts.

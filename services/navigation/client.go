@@ -423,7 +423,7 @@ func (c *client) ExecutePlan(ctx context.Context, plan Plan, extra map[string]in
 	return protobufToStatus(resp.GetStatus())
 }
 
-func (c *client) GoToLocation(ctx context.Context, req GoToReq) (Status, error) {
+func (c *client) GoToLocation(ctx context.Context, req GoToLocationReq) (Status, error) {
 	ext, err := protoutils.StructToStructPb(req.Extra)
 	if err != nil {
 		return Status{}, err
@@ -441,15 +441,12 @@ func (c *client) GoToLocation(ctx context.Context, req GoToReq) (Status, error) 
 	return protobufToStatus(resp.GetStatus())
 }
 
-func (c *client) GoToPoint(ctx context.Context, req GoToReq) (Status, error) {
+func (c *client) GoToPoint(ctx context.Context, req GoToPointReq) (Status, error) {
 	ext, err := protoutils.StructToStructPb(req.Extra)
 	if err != nil {
 		return Status{}, err
 	}
-	if req.Destination == nil {
-		return Status{}, errors.New("destination is required")
-	}
-	dest, err := positionToProtobuf(*req.Destination)
+	dest, err := positionToProtobuf(req.Destination)
 	if err != nil {
 		return Status{}, err
 	}
