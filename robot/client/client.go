@@ -973,15 +973,13 @@ func (rc *RobotClient) getOrCreateClientLocked(name resource.Name) (resource.Res
 func (rc *RobotClient) newCompositeLocked(name resource.Name, apis []resource.API) (resource.Resource, error) {
 	byAPI := make(map[resource.API]resource.Resource, len(apis))
 	for _, api := range apis {
-		sub, err := rc.getOrCreateClientLocked(resource.Name{API: api, Remote: name.Remote, Name: name.Name})
+		sub, err := rc.getOrCreateClientLocked(name.AsAPI(api))
 		if err != nil {
 			return nil, err
 		}
 		byAPI[api] = sub
 	}
-	return resource.NewMultiAPIResource(
-		resource.Name{API: apis[0], Remote: name.Remote, Name: name.Name}, apis, byAPI,
-	), nil
+	return resource.NewMultiAPIResource(name.AsAPI(apis[0]), apis, byAPI), nil
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
