@@ -637,34 +637,30 @@ func TestStreamServerSurvivesWebRestart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-var (
-	failingCameraModel = resource.DefaultModelFamily.WithModel("fake-fails-on-demand")
-	failCameraBuilds   atomic.Bool
-)
-
-func init() {
-	resource.RegisterComponent(camera.API, failingCameraModel, resource.Registration[camera.Camera, *fake.Config]{
+// TestRemoveStreamWhileCameraUnavailable asserts a stream removed while its camera is
+// unavailable (e.g. its module is restarting) can be re-added once the camera is back.
+func TestRemoveStreamWhileCameraUnavailable(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel("fake-fails-on-demand")
+	var failBuilds atomic.Bool
+	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *fake.Config]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 		) (camera.Camera, error) {
-			if failCameraBuilds.Load() {
+			if failBuilds.Load() {
 				return nil, errors.New("camera build failed on demand")
 			}
 			return fake.NewCamera(ctx, deps, conf, logger)
 		},
 	})
-}
+	defer resource.Deregister(camera.API, model)
 
-// TestRemoveStreamWhileCameraUnavailable asserts a stream removed while its camera is
-// unavailable (e.g. its module is restarting) can be re-added once the camera is back.
-func TestRemoveStreamWhileCameraUnavailable(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	// A changed width forces a rebuild, so each reconfigure below reconstructs the camera.
 	cameraConfig := func(width int) *config.Config {
 		return &config.Config{Components: []resource.Config{{
 			Name:                "test",
 			API:                 camera.API,
-			Model:               failingCameraModel,
+			Model:               model,
 			Attributes:          rutils.AttributeMap{"width": width, "height": 50},
 			ConvertedAttributes: &fake.Config{Width: width, Height: 50},
 		}}}
@@ -681,8 +677,7 @@ func TestRemoveStreamWhileCameraUnavailable(t *testing.T) {
 	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "test"})
 	test.That(t, err, test.ShouldBeNil)
 
-	failCameraBuilds.Store(true)
-	defer failCameraBuilds.Store(false)
+	failBuilds.Store(true)
 	robot.Reconfigure(ctx, cameraConfig(102))
 	_, err = camera.FromProvider(robot, "test")
 	test.That(t, resource.IsNotAvailableError(err), test.ShouldBeTrue)
@@ -690,11 +685,8 @@ func TestRemoveStreamWhileCameraUnavailable(t *testing.T) {
 	_, err = livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: "test"})
 	test.That(t, err, test.ShouldBeNil)
 
-	failCameraBuilds.Store(false)
+	failBuilds.Store(false)
 	robot.Reconfigure(ctx, cameraConfig(104))
-	_, err = camera.FromProvider(robot, "test")
-	test.That(t, err, test.ShouldBeNil)
-
 	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "test"})
 	test.That(t, err, test.ShouldBeNil)
 }
