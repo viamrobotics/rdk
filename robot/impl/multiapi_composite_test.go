@@ -541,7 +541,7 @@ func TestModularCompositeResource(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/combomodule")
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
 
 	model := resource.NewModel("acme", "demo", "combodevice")
 	cfg := &config.Config{
@@ -591,7 +591,7 @@ func TestModularCompositeResource(t *testing.T) {
 	test.That(t, apis, test.ShouldContain, movementsensor.API)
 	test.That(t, apis, test.ShouldContain, gizmoapi.API)
 
-	// 4) Remove the composite (keep the module up) — this tears down its module sub-clients. The
+	// 4) Remove the composite (keep the module up). This tears down its module sub-clients. The
 	// composite wrapper's Close reaches only the canonical sub, so modmanager.RemoveResource must close
 	// the non-canonical per-API sub-clients too; if it does not they leak goroutines that this
 	// package's goleak check flags at teardown. Assert the resource is gone under every API.

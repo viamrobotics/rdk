@@ -1,11 +1,7 @@
-// Package main consumes the simplecombo composite over the SDK: one machine resource ("simplecombo")
+// Package main consumes the simplecombo composite over the SDK. One machine resource ("simplecombo")
 // reachable under both the sensor and custom gizmo APIs at once. It is the client half of the
-// simplecombomodule demo — start the server with `make run-module` in the parent directory (it serves
+// simplecombomodule demo. Start the server with `make run-module` in the parent directory (it serves
 // the module via module.json on :8080), then run this with `make` here.
-//
-// This is the no-collision companion to the combomodule client: same composite-aware SDK helpers
-// (resource.NamedFromProvider / resource.APIsOf and the per-API FromProvider calls), two APIs instead
-// of three, and no colliding Properties method to disambiguate.
 package main
 
 import (
@@ -30,7 +26,7 @@ func main() {
 	//nolint:errcheck
 	defer machine.Close(ctx)
 
-	// ── 1) ResourceNames: ONE short name, advertised under TWO APIs ─────────────────
+	// ── 1) ResourceNames, one short name, advertised under two APIs ─────────────────
 	logger.Info("── ResourceNames (simplecombo should appear under 2 APIs) ──")
 	for _, n := range machine.ResourceNames() {
 		if n.Name == "simplecombo" {
@@ -38,7 +34,7 @@ func main() {
 		}
 	}
 
-	// ── 2) api-less handle: ONE object that reports its full co-equal API set ───────
+	// ── 2) api-less handle, one object that reports its full co-equal API set ───────
 	logger.Info("── api-less composite handle ──")
 	if combo, err := resource.NamedFromProvider(machine, "simplecombo"); err != nil {
 		logger.Errorf("  NamedFromProvider: %v", err)
@@ -46,7 +42,7 @@ func main() {
 		logger.Infof("  APIsOf(simplecombo): %v", resource.APIsOf(combo)) // [gizmo sensor]
 	}
 
-	// ── 3) as a SENSOR ──────────────────────────────────────────────────────────────
+	// ── 3) as a sensor ──────────────────────────────────────────────────────────────
 	logger.Info("── simplecombo as sensor ──")
 	if s, err := sensor.FromProvider(machine, "simplecombo"); err != nil {
 		logger.Errorf("  sensor.FromProvider: %v", err)
@@ -56,7 +52,7 @@ func main() {
 		logger.Infof("  sensor Readings: %v", rd) // map[reading:7]
 	}
 
-	// ── 4) as the CUSTOM gizmo API ───────────────────────────────────────────────────
+	// ── 4) as the custom gizmo API ───────────────────────────────────────────────────
 	logger.Info("── simplecombo as gizmo (custom API) ──")
 	if giz, err := gizmoapi.FromProvider(machine, "simplecombo"); err != nil {
 		logger.Errorf("  gizmoapi.FromProvider: %v", err)
