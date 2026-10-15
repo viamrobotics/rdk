@@ -598,14 +598,14 @@ func TestModularCompositeResource(t *testing.T) {
 	}
 }
 
-// TestCompositeRemoteResourceBecomesComposite covers the runtime transition where a REMOTE resource
+// TestCompositeRemoteResourceBecomesComposite covers the runtime transition where a remote resource
 // starts single-API and is reconfigured into a composite serving an extra co-equal API. On the remote
 // this is an in-place model change, so the original name stays advertised and the new co-equal name
 // appears. Main learns of this through its routine remote refresh (the ticker path,
-// recreateAllClients=false), NOT a full reconfigure, so main must upgrade the single-API node to the
-// one composite node. Both starting APIs are covered: "sensor" first flips the canonical API to
+// recreateAllClients=false), not a full reconfigure, so main must upgrade the single-API node to the
+// one composite node. Both starting APIs are covered. "sensor" first flips the canonical API to
 // generic (the pre-existing node is non-canonical and is dropped), while "generic" first keeps generic
-// canonical (the pre-existing node IS the canonical one and must be rebuilt in place).
+// canonical (the pre-existing node is the canonical one and must be rebuilt in place).
 func TestCompositeRemoteResourceBecomesComposite(t *testing.T) {
 	for _, startAPI := range []resource.API{sensor.API, generic.API} {
 		t.Run(startAPI.SubtypeName, func(t *testing.T) {
@@ -640,11 +640,11 @@ func TestCompositeRemoteResourceBecomesComposite(t *testing.T) {
 				Remotes: []config.Remote{{Name: "rem", Address: addr}},
 			}, logger.Sublogger("main"))
 
-			// Initially single-API on main: the other co-equal API does not resolve.
+			// Initially single-API on main, so the other co-equal API does not resolve.
 			_, err := main.ResourceByName(resource.NewName(otherAPI, "rem:combo"))
 			test.That(t, err, test.ShouldNotBeNil)
 
-			// Reconfigure the remote: combo gains the other co-equal API (in-place model change).
+			// Reconfigure the remote so combo gains the other co-equal API (in-place model change).
 			remote.Reconfigure(ctx, &config.Config{
 				Components: []resource.Config{{Name: "combo", API: startAPI, Model: multiModel}},
 			})
@@ -674,11 +674,12 @@ func TestCompositeRemoteResourceBecomesComposite(t *testing.T) {
 	}
 }
 
-// TestCompositeRemoteResource asserts a composite hosted behind a remote resolves to ONE composite on
-// the main robot — reachable under each co-equal API (method calls route to the right per-API facade),
-// assembled into one api-less handle over the per-API remote sub-clients, and never mistaken for a
-// name collision — across a direct remote, a prefixed remote, and a multi-hop remote chain. The graph
-// flattens a chain to the immediate hop, so a nested composite lands on main just like a direct one.
+// TestCompositeRemoteResource asserts a composite hosted behind a remote resolves to one composite on
+// the main robot. It is reachable under each co-equal API (method calls route to the right per-API
+// implementation), assembled into one api-less handle over the per-API remote sub-clients, and never
+// mistaken for a name collision, across a direct remote, a prefixed remote, and a multi-hop remote
+// chain. The graph flattens a chain to the immediate hop, so a nested composite lands on main just like
+// a direct one.
 func TestCompositeRemoteResource(t *testing.T) {
 	newRemote := func(t *testing.T, ctx context.Context, logger logging.Logger, name string, model resource.Model) string {
 		remote := setupLocalRobot(t, ctx, &config.Config{
@@ -707,7 +708,7 @@ func TestCompositeRemoteResource(t *testing.T) {
 			apiless:    []string{"rem:combo"},
 		},
 		{
-			// A remote resource is cached under its PREFIXED simple name, so combo behind a remote with
+			// A remote resource is cached under its prefixed simple name, so combo behind a remote with
 			// Prefix "p_" is "p_combo" on main; the api-less assembly must look it up under that name.
 			name: "prefixed",
 			setup: func(t *testing.T, ctx context.Context, logger logging.Logger, model resource.Model) robot.LocalRobot {
@@ -720,7 +721,7 @@ func TestCompositeRemoteResource(t *testing.T) {
 			apiless:    []string{"rem:p_combo", "p_combo"},
 		},
 		{
-			// A chain main -> mid -> leaf: the graph flattens to the immediate hop (midrem), so the
+			// A chain main -> mid -> leaf. The graph flattens to the immediate hop (midrem), so the
 			// composite collapses to one just like a direct remote, and every chain name form resolves.
 			name: "nested",
 			setup: func(t *testing.T, ctx context.Context, logger logging.Logger, model resource.Model) robot.LocalRobot {
@@ -744,7 +745,7 @@ func TestCompositeRemoteResource(t *testing.T) {
 			model := registerComboModel(t, "composite-sensor-remote-"+tc.name, nil)
 			main := tc.setup(t, ctx, logger, model)
 
-			// Reachable under both co-equal APIs; each API's method call routes to the correct facade.
+			// Reachable under both co-equal APIs; each API's method call routes to the correct implementation.
 			bySensor, err := main.ResourceByName(sensor.Named(tc.perAPIName))
 			test.That(t, err, test.ShouldBeNil)
 			s, err := resource.AsType[sensor.Sensor](bySensor)
@@ -759,7 +760,7 @@ func TestCompositeRemoteResource(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, echoed["echo"], test.ShouldEqual, "pong")
 
-			// Every api-less form assembles the per-API sub-clients into ONE handle serving every API.
+			// Every api-less form assembles the per-API sub-clients into one handle serving every API.
 			for _, name := range tc.apiless {
 				composite, err := main.ResourceByName(resource.SimpleName(name))
 				test.That(t, err, test.ShouldBeNil)
@@ -772,14 +773,14 @@ func TestCompositeRemoteResource(t *testing.T) {
 				test.That(t, cReadings["reading"], test.ShouldEqual, 7)
 			}
 
-			// The composite's own per-API names must NOT be flagged as a name collision.
+			// The composite's own per-API names must not be flagged as a name collision.
 			test.That(t, logs.FilterMessageSnippet("Resource name collision").Len(), test.ShouldEqual, 0)
 		})
 	}
 }
 
 // TestCompositeRemoteMachineStatusSingleRow asserts a remote composite reports one MachineStatus row,
-// matching a local composite: both are a single graph node, so Status() yields one row per device
+// matching a local composite. Both are a single graph node, so Status() yields one row per device
 // rather than one per co-equal API.
 func TestCompositeRemoteMachineStatusSingleRow(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -796,7 +797,7 @@ func TestCompositeRemoteMachineStatusSingleRow(t *testing.T) {
 		Remotes: []config.Remote{{Name: "rem", Address: addr}},
 	}, logger.Sublogger("main"))
 
-	// Sanity: the remote composite is reachable under both co-equal APIs on main, so the single status
+	// The remote composite is reachable under both co-equal APIs on main, so the single status
 	// row below reflects one-node-per-device, not the composite being absent.
 	_, err := main.ResourceByName(sensor.Named("rem:combo"))
 	test.That(t, err, test.ShouldBeNil)
