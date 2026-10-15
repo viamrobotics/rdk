@@ -2483,8 +2483,7 @@ Note: There is no progress meter while copying is in progress.
 										},
 										&cli.StringSliceFlag{
 											Name: mlTrainingFlagModuleResource,
-											Usage: "module resource to deploy, as a model triple (namespace:module:model). " +
-												"Required when --framework is registry. Repeat for each resource",
+											Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
@@ -4530,8 +4529,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringSliceFlag{
 							Name: mlTrainingFlagModuleResource,
-							Usage: "module resource to deploy, as a model triple (namespace:module:model). " +
-								"Required when --model-framework is registry. Repeat for each resource",
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 					},
 					Action: createActionCommandWithT[packageUploadArgs](PackageUploadAction),
@@ -4575,8 +4573,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringSliceFlag{
 							Name: mlTrainingFlagModuleResource,
-							Usage: "module resource to deploy, as a model triple (namespace:module:model). " +
-								"Required when --framework is registry. Repeat for each resource",
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
@@ -4633,8 +4630,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringSliceFlag{
 							Name: mlTrainingFlagModuleResource,
-							Usage: "module resource to deploy, as a model triple (namespace:module:model). " +
-								"Required when --framework is registry. Repeat for each resource",
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 					},
 					Action: createActionCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
