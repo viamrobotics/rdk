@@ -18,6 +18,7 @@ package resource
 
 import (
 	"context"
+	"iter"
 	"reflect"
 	"regexp"
 	"strings"
@@ -356,6 +357,19 @@ func APIsOf(res Resource) []API {
 		return mar.APIs()
 	}
 	return []API{res.Name().API}
+}
+
+// SubsByName yields one (name, sub) pair per API the resource serves, canonical-first. Each name is
+// base.AsAPI(api) and each sub is that API's unwrapped resource. A composite yields a pair for every
+// co-equal API; an ordinary resource yields the single (base, res) pair.
+func SubsByName(base Name, res Resource) iter.Seq2[Name, Resource] {
+	return func(yield func(Name, Resource) bool) {
+		for _, api := range APIsOf(res) {
+			if !yield(base.AsAPI(api), SubresourceForAPI(res, api)) {
+				return
+			}
+		}
+	}
 }
 
 type closeOnlyResource struct {
