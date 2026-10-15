@@ -1,11 +1,11 @@
-// Package main is a module demonstrating a composite that spans a colliding pair AND a custom API:
+// Package main is a module demonstrating a composite that spans a colliding pair and a custom API. It is
 // one model serving three co-equal APIs from a single identity. combodevice serves
 // rdk:component:camera, rdk:component:movement_sensor, and the custom acme:component:gizmo API.
-// camera and movement_sensor collide on Properties — both declare a Properties method with DIFFERENT
-// return types, so neither can live on the shared struct — while gizmo is a module-defined (custom)
-// API alongside them, showing composites span builtin and custom APIs alike. Each API's methods are
-// carried by a thin per-API facade embedding the one shared *comboDevice, and resource.Compose
-// assembles them into one composite advertised under all three APIs.
+// camera and movement_sensor collide on Properties (both declare a Properties method with different
+// return types, so neither can live on the shared struct), so each gets a thin facade embedding
+// *comboDevice that carries its own Properties. gizmo is a module-defined (custom) API that doesn't
+// collide, so its methods live directly on comboDevice. resource.Compose assembles the three per-API
+// subs into one composite advertised under all three APIs.
 package main
 
 import (
@@ -28,13 +28,11 @@ import (
 // Model is registered under every API it serves via RegisterMultiAPI.
 var Model = resource.NewModel("acme", "demo", "combodevice")
 
-// wantArg is the gizmo argument the demo treats as a match; a named constant keeps the trivial demo
-// logic in one place.
+// wantArg is the argument the gizmo Do* methods below return true for..
 const wantArg = "combo"
 
 func main() {
-	// One registration declares the full co-equal API set (see the package doc); the single constructor
-	// is registered under each.
+	// One registration declares the full co-equal API set; the single constructor is registered under each.
 	resource.RegisterMultiAPI(
 		[]resource.API{camera.API, movementsensor.API, gizmoapi.API}, Model,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
@@ -42,8 +40,7 @@ func main() {
 		},
 	)
 
-	// ExpandModel reads back every API this Model was registered under, so main() never re-lists them —
-	// the module advertises the composite on all of its APIs.
+	// ExpandModel reads back every API this Model was registered under, so main() never re-lists them,
 	module.ModularMain(resource.ExpandModel(Model)...)
 }
 
@@ -55,12 +52,12 @@ func newComboDevice(
 	return resource.Compose(
 		camera.AsSub(camFacade{d}),
 		movementsensor.AsSub(imuFacade{d}),
-		gizmoapi.AsSub(gizmoFacade{d}),
+		gizmoapi.AsSub(d),
 	)
 }
 
-// comboDevice holds the shared state and every non-colliding method. It has no Properties method — the
-// colliding one — which the per-API facades below carry.
+// comboDevice holds the shared state and every non-colliding method. It has no Properties method (the
+// colliding one), which the per-API facades below carry.
 type comboDevice struct {
 	resource.Named
 	resource.TriviallyCloseable
@@ -116,6 +113,38 @@ func (d *comboDevice) Readings(context.Context, map[string]interface{}) (map[str
 	return map[string]interface{}{"reading": 7}, nil
 }
 
+// gizmo (acme:component:gizmo) methods. Gizmo's method names don't collide with camera's or
+// movement_sensor's, so they live directly on comboDevice, no facade needed.
+
+func (d *comboDevice) DoOne(_ context.Context, arg1 string) (bool, error) {
+	return arg1 == wantArg, nil
+}
+
+func (d *comboDevice) DoOneClientStream(_ context.Context, arg1 []string) (bool, error) {
+	for _, arg := range arg1 {
+		if arg != wantArg {
+			return false, nil
+		}
+	}
+	return len(arg1) > 0, nil
+}
+
+func (d *comboDevice) DoOneServerStream(_ context.Context, arg1 string) ([]bool, error) {
+	return []bool{arg1 == wantArg, false}, nil
+}
+
+func (d *comboDevice) DoOneBiDiStream(_ context.Context, arg1 []string) ([]bool, error) {
+	rets := make([]bool, 0, len(arg1))
+	for _, arg := range arg1 {
+		rets = append(rets, arg == wantArg)
+	}
+	return rets, nil
+}
+
+func (d *comboDevice) DoTwo(_ context.Context, arg1 bool) (string, error) {
+	return fmt.Sprintf("arg1=%t", arg1), nil
+}
+
 // camFacade carries the camera API's Properties method. It embeds the shared *comboDevice for every
 // other camera method, so camFacade satisfies camera.Camera.
 type camFacade struct{ *comboDevice }
@@ -134,39 +163,4 @@ type imuFacade struct{ *comboDevice }
 // distinguishable by AngularVelocitySupported). This is the colliding method routed to the IMU facade.
 func (f imuFacade) Properties(context.Context, map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{PositionSupported: true, AngularVelocitySupported: true}, nil
-}
-
-// gizmoFacade carries the custom acme:component:gizmo API's methods. Gizmo's method names do not
-// collide with camera's or movement_sensor's, but it rides on a facade like the others so the module
-// fans a correctly-typed per-API sub-resource out for every API. It embeds the shared *comboDevice
-// for Name/DoCommand/Close, so gizmoFacade satisfies gizmoapi.Gizmo.
-type gizmoFacade struct{ *comboDevice }
-
-func (f gizmoFacade) DoOne(_ context.Context, arg1 string) (bool, error) {
-	return arg1 == wantArg, nil
-}
-
-func (f gizmoFacade) DoOneClientStream(_ context.Context, arg1 []string) (bool, error) {
-	for _, arg := range arg1 {
-		if arg != wantArg {
-			return false, nil
-		}
-	}
-	return len(arg1) > 0, nil
-}
-
-func (f gizmoFacade) DoOneServerStream(_ context.Context, arg1 string) ([]bool, error) {
-	return []bool{arg1 == wantArg, false}, nil
-}
-
-func (f gizmoFacade) DoOneBiDiStream(_ context.Context, arg1 []string) ([]bool, error) {
-	rets := make([]bool, 0, len(arg1))
-	for _, arg := range arg1 {
-		rets = append(rets, arg == wantArg)
-	}
-	return rets, nil
-}
-
-func (f gizmoFacade) DoTwo(_ context.Context, arg1 bool) (string, error) {
-	return fmt.Sprintf("arg1=%t", arg1), nil
 }
