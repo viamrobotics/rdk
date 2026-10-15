@@ -682,11 +682,12 @@ const (
 	ModelFrameworkTensorFlow  = ModelFramework("tensorflow")
 	ModelFrameworkPyTorch     = ModelFramework("pytorch")
 	ModelFrameworkONNX        = ModelFramework("onnx")
+	ModelFrameworkRegistry    = ModelFramework("registry")
 )
 
 var modelFrameworks = []string{
 	string(ModelFrameworkUnspecified), string(ModelFrameworkTFLite), string(ModelFrameworkTensorFlow),
-	string(ModelFrameworkPyTorch), string(ModelFrameworkONNX),
+	string(ModelFrameworkPyTorch), string(ModelFrameworkONNX), string(ModelFrameworkRegistry),
 }
 
 // MLMetadata struct stores package info for ML training packages.

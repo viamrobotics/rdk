@@ -24,6 +24,8 @@ type Model interface {
 }
 
 // KinematicModelFromProtobuf returns a model from a protobuf message representing it.
+//
+//nolint:staticcheck // SA1019: Format, KinematicsData, and mesh maps stay until clients read KinematicModel.
 func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (Model, error) {
 	if resp == nil {
 		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
@@ -57,6 +59,8 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 }
 
 // KinematicModelToProtobuf converts a model into a protobuf message version of that model.
+//
+//nolint:staticcheck // SA1019: Format, KinematicsData, and mesh maps stay until clients read KinematicModel.
 func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 	if model == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}

@@ -663,6 +663,7 @@ func TestObstacleModelInFrameSystem(t *testing.T) {
 		test.That(t, part.ModelFrame, test.ShouldNotBeNil)
 		pbPart, err := part.ToProtobuf()
 		test.That(t, err, test.ShouldBeNil)
+		//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 		test.That(t, pbPart.Kinematics.AsMap()["links"], test.ShouldHaveLength, 2)
 	}
 }
