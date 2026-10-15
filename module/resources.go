@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"iter"
 	"time"
 
 	"go.uber.org/multierr"
@@ -384,7 +383,7 @@ func (m *Module) addResource(
 		}
 		return multierr.Combine(cause, res.Close(ctx))
 	}
-	for subName, sub := range servedSubs(conf, res) {
+	for subName, sub := range resource.SubsByName(conf.ResourceName(), res) {
 		coll, ok := m.collections[subName.API]
 		if !ok {
 			return abort(fmt.Errorf("module cannot service api %q for model %q", subName.API, conf.Model))
@@ -559,7 +558,7 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 		if api == resName.API {
 			continue
 		}
-		coeqName := resource.Name{API: api, Remote: resName.Remote, Name: resName.Name}
+		coeqName := resName.AsAPI(api)
 		if _, err := c.Resource(coeqName.Name); err != nil {
 			continue
 		}
@@ -570,29 +569,6 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	}
 
 	return coll.Remove(resName)
-}
-
-// servedAPIs returns the APIs a module resource is served under, canonical-first: the full co-equal set
-// for a composite, or just conf.API for an ordinary resource.
-func servedAPIs(conf *resource.Config) []resource.API {
-	if apis := resource.APIsForModel(conf.Model); len(apis) > 1 {
-		return apis
-	}
-	return []resource.API{conf.API}
-}
-
-// servedSubs iterates every API a module resource is served under, yielding each API's name and its
-// unwrapped sub-resource (the resource itself for an ordinary one). Canonical-first.
-func servedSubs(conf *resource.Config, res resource.Resource) iter.Seq2[resource.Name, resource.Resource] {
-	return func(yield func(resource.Name, resource.Resource) bool) {
-		base := conf.ResourceName()
-		for _, api := range servedAPIs(conf) {
-			name := resource.Name{API: api, Remote: base.Remote, Name: base.Name}
-			if !yield(name, resource.SubresourceForAPI(res, api)) {
-				return
-			}
-		}
-	}
 }
 
 // rebuildResource will rebuild resource and, if successful, return the new resource
@@ -657,7 +633,7 @@ func (m *Module) rebuildResource(
 	// instance is the same Go type that already implemented every API at addResource, so each collection's
 	// type-check still passes.
 	m.registerMu.Lock()
-	for _, api := range servedAPIs(conf) {
+	for _, api := range resource.APIsOf(newRes) {
 		if _, ok := m.collections[api]; !ok {
 			m.registerMu.Unlock()
 			return nil, multierr.Combine(
@@ -665,7 +641,7 @@ func (m *Module) rebuildResource(
 			)
 		}
 	}
-	for name, sub := range servedSubs(conf, newRes) {
+	for name, sub := range resource.SubsByName(conf.ResourceName(), newRes) {
 		//nolint:errcheck // cannot fail per the invariant above (collection exists under this lock, same-type instance).
 		m.collections[name.API].ReplaceOne(name, sub)
 	}
