@@ -51,6 +51,7 @@ const (
 	ZoneTypeSpeedLimit = "speed_limit"
 )
 
+// String returns the map type name used in configuration: "Local", "GPS", or "Unknown".
 func (m MapType) String() string {
 	switch m {
 	case LocalMap:
@@ -339,42 +340,82 @@ type CostmapReq struct {
 type Service interface {
 	resource.Resource
 
+	// AddLocation saves a named position on the active map. If Position is omitted, the robot's current position is saved.
 	AddLocation(ctx context.Context, req AddLocationReq) (Location, error)
+	// GetLocation returns a saved location by name. It does not return the robot's current position.
 	GetLocation(ctx context.Context, name string, extra map[string]interface{}) (Location, error)
+	// ListLocations lists all saved locations on the active map.
 	ListLocations(ctx context.Context, extra map[string]interface{}) ([]Location, error)
+	// UpdateLocation changes a saved location's position or name. Renaming updates every route waypoint that references it.
 	UpdateLocation(ctx context.Context, req UpdateLocationReq) (Location, error)
+	// DeleteLocation deletes a saved location and removes it from every route that references it.
 	DeleteLocation(ctx context.Context, name string, extra map[string]interface{}) error
 
+	// AddRoute creates a named route from an ordered list of waypoints. Every referenced location must already exist.
 	AddRoute(ctx context.Context, req AddRouteReq) (Route, error)
+	// GetRoute returns a route by name.
 	GetRoute(ctx context.Context, name string, extra map[string]interface{}) (Route, error)
+	// ListRoutes lists all routes on the active map.
 	ListRoutes(ctx context.Context, extra map[string]interface{}) ([]Route, error)
+	// UpdateRoute renames a route and/or replaces its waypoints.
+	// A nil Waypoints leaves them unchanged. A non-nil slice, including an empty one, replaces them.
 	UpdateRoute(ctx context.Context, req UpdateRouteReq) (Route, error)
+	// DeleteRoute deletes a route. The locations it references are not affected.
 	DeleteRoute(ctx context.Context, name string, extra map[string]interface{}) error
 
+	// AddZone creates a keep-out or speed-limit zone. The planner avoids keep-out zones and caps speed inside speed-limit zones.
 	AddZone(ctx context.Context, req AddZoneReq) (Zone, error)
+	// GetZone returns a zone by name.
 	GetZone(ctx context.Context, name string, extra map[string]interface{}) (Zone, error)
+	// ListZones lists zones on the active map. An empty zoneType returns every zone.
 	ListZones(ctx context.Context, zoneType string, extra map[string]interface{}) ([]Zone, error)
+	// UpdateZone changes a zone's type, geometry, speed limit, or name. A nil field leaves that value unchanged.
 	UpdateZone(ctx context.Context, req UpdateZoneReq) (Zone, error)
+	// DeleteZone deletes a zone.
 	DeleteZone(ctx context.Context, name string, extra map[string]interface{}) error
 
+	// NavigateToLocation plans an obstacle-aware path to a saved location and starts driving it.
+	// It returns once the goal is accepted. Track progress with GetNavigationStatus.
 	NavigateToLocation(ctx context.Context, name string, extra map[string]interface{}) (Status, error)
+	// NavigateToPoint plans an obstacle-aware path to a Position and starts driving it.
+	// It returns once the goal is accepted. On a Pose, theta defaults to 0 if omitted.
 	NavigateToPoint(ctx context.Context, destination Position, extra map[string]interface{}) (Status, error)
+	// NavigateRoute drives a route one waypoint at a time using the obstacle-aware planner.
+	// Provide either a saved route name or an inline waypoint list.
 	NavigateRoute(ctx context.Context, req NavigateRouteReq) (Status, error)
 
+	// PlanToPoint computes a path from the robot, or from Start when set, to a Position without moving.
+	// It returns an error if no path exists.
 	PlanToPoint(ctx context.Context, req PlanToPointReq) (Plan, error)
+	// PlanToLocation computes a path to a saved location without moving.
+	// It returns an error if no path exists.
 	PlanToLocation(ctx context.Context, req PlanToLocationReq) (Plan, error)
+	// ExecutePlan drives a Plan, typically from PlanToPoint or PlanToLocation.
+	// It returns an error if the path is empty.
 	ExecutePlan(ctx context.Context, plan Plan, extra map[string]interface{}) (Status, error)
 
+	// GoToLocation drives directly to a saved location with a closed-loop controller, without full path planning.
+	// With Wait false, it returns immediately while navigating.
 	GoToLocation(ctx context.Context, req GoToReq) (Status, error)
+	// GoToPoint drives directly to a Position with a closed-loop controller, without full path planning.
+	// With Wait false, it returns immediately while navigating.
 	GoToPoint(ctx context.Context, req GoToReq) (Status, error)
 
+	// Suspend stops motion but remembers the current goal, including the current waypoint and loop setting for routes.
+	// A suspended goal must be canceled before a new one starts.
 	Suspend(ctx context.Context, reason string, extra map[string]interface{}) (Status, error)
+	// Resume resumes the suspended goal the same way it was started.
 	Resume(ctx context.Context, extra map[string]interface{}) (Status, error)
+	// Cancel stops all motion and discards both the active goal and any suspended goal.
 	Cancel(ctx context.Context, extra map[string]interface{}) (Status, error)
 
+	// GetPosition returns the robot's current position on the active map.
 	GetPosition(ctx context.Context, extra map[string]interface{}) (Position, error)
+	// GetNavigationStatus returns the full navigation state, including the current position and the latest goal.
 	GetNavigationStatus(ctx context.Context, extra map[string]interface{}) (Status, error)
+	// GetProperties returns the map type and robot properties. These values do not change while the service is running.
 	GetProperties(ctx context.Context) (Properties, error)
+	// GetCostmap returns the local or global costmap as a downsampled grid, for display in UIs.
 	GetCostmap(ctx context.Context, req CostmapReq) (Costmap, error)
 }
 
