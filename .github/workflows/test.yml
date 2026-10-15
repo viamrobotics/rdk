@@ -435,7 +435,25 @@ jobs:
         TEST_TARGET=$(echo "$TEST_TARGET" | grep -xF "$WINDOWS_PACKAGES")
 
         echo "Running Windows tests: $(echo "$TEST_TARGET" | wc -l) packages"
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $TEST_TARGET
+
+        # RSDK-14725:
+        #
+        # Capture the raw `go test -json` stream to raw.json/err BEFORE gotestsum touches
+        # it. We can then upload the raw.json and raw.err files so they can be examined
+        # when gotestsum cannot parse the JSON.
+        set +e
+        go test -json $TEST_TARGET > raw.json 2> raw.err
+        GOTEST_EXIT=$?
+        echo "go test -json exit=$GOTEST_EXIT, raw.json size=$(wc -c < raw.json) bytes"
+
+        # Then let gotestsum format and summarize from the saved JSON file.
+        go run gotest.tools/gotestsum --raw-command --format standard-verbose --jsonfile json.log -- cat raw.json
+        GOTESTSUM_EXIT=$?
+
+        # Fail the step if either go test or gotestsum failed.
+        if [[ $GOTEST_EXIT -ne 0 || $GOTESTSUM_EXIT -ne 0 ]]; then
+          exit 1
+        fi
 
     - name: Upload test.json
       if: always()
@@ -444,6 +462,17 @@ jobs:
         name: test-windows-amd64.json
         path: json.log
         retention-days: 30
+
+    - name: Upload raw go test -json
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-raw-gotest-json
+        path: |
+          raw.json
+          raw.err
+        retention-days: 30
+        if-no-files-found: ignore
 
   test_macos:
     name: macOS

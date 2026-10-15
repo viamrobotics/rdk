@@ -227,12 +227,14 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 
 	t.Run("round-trip through RPC", func(t *testing.T) {
 		protoResp := KinematicModelToProtobuf(model)
-		//nolint:staticcheck // deprecated fields are still served
+		//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 		test.That(t, protoResp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
-		test.That(t, len(protoResp.MeshesByUrdfFilepath), test.ShouldEqual, 7) //nolint:staticcheck // deprecated fields are still served
+		//nolint:staticcheck // SA1019: MeshesByUrdfFilepath stays until clients read KinematicModel.
+		test.That(t, len(protoResp.MeshesByUrdfFilepath), test.ShouldEqual, 7)
 
 		for _, meshFile := range expectedMeshes {
-			mesh := protoResp.MeshesByUrdfFilepath[meshFile] //nolint:staticcheck // deprecated fields are still served
+			//nolint:staticcheck // SA1019: MeshesByUrdfFilepath stays until clients read KinematicModel.
+			mesh := protoResp.MeshesByUrdfFilepath[meshFile]
 			test.That(t, mesh.ContentType, test.ShouldEqual, "stl")
 			test.That(t, len(mesh.Mesh), test.ShouldBeGreaterThan, 1000)
 		}

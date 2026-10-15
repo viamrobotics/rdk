@@ -672,7 +672,7 @@ func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command,
 	filledArgs.PublicNamespace = newModule.Namespace
 	filledArgs.Visibility = newModule.Visibility
 	filledArgs.Register = newModule.RegisterOnApp
-	filledArgs.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
+	filledArgs.ResourceSubtype = resourceSubtypeArg(newModule.Resource)
 	filledArgs.ModelName = newModule.ModelName
 	if err := c.generateModule(ctx, cmd, filledArgs, shared); err != nil {
 		return err
@@ -811,6 +811,16 @@ func promptSharedInputs(shared *sharedInputs) error {
 		return errors.Wrap(err, "encountered an error in shared prompts")
 	}
 	return nil
+}
+
+// resourceSubtypeArg converts a prompted resource (e.g. "arm component") into a value
+// CheckResourceAndSetType accepts. Generic keeps its type because a bare "generic" is ambiguous.
+func resourceSubtypeArg(resource string) string {
+	subtype := strings.Split(resource, " ")[0]
+	if subtype == "generic" {
+		return resource
+	}
+	return subtype
 }
 
 // buildResourceOptions builds the huh select options list from the available resources.

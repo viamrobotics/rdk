@@ -170,21 +170,17 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 			// if statement is faster.
 			for i := range gradient {
 				jumpVal := nss.jump[i]
-				flip := false
+				orig := checkVals[i]
 				checkVals[i] += jumpVal
 				ub := nss.upperBound[i]
 				for checkVals[i] >= ub {
-					flip = true
 					checkVals[i] -= 10 * jumpVal
 				}
 				dist2 := minFunc(ctx, checkVals)
-				gradient[i] = (dist2 - dist) / jumpVal
-				if flip {
-					checkVals[i] += jumpVal
-					gradient[i] *= -1
-				} else {
-					checkVals[i] -= jumpVal
-				}
+				// Divide by the step actually taken and put back the exact value: a probe stepped down
+				// off the upper bound is not -jumpVal, and anything left over corrupts every later component.
+				gradient[i] = (dist2 - dist) / (checkVals[i] - orig)
+				checkVals[i] = orig
 			}
 		}
 		if nss.logger.GetLevel() <= logging.DEBUG {

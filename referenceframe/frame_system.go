@@ -1279,6 +1279,8 @@ func modelConfigToStructPb(cfg *ModelConfigJSON) (*structpb.Struct, error) {
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
+//
+//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
 	frameConfig, err := LinkInFrameFromTransformProtobuf(fsc.Frame)
 	if err != nil {

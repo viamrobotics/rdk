@@ -328,7 +328,7 @@ func TestSimpleModelProtoRoundTrip(t *testing.T) {
 
 	proto := KinematicModelToProtobuf(m)
 	test.That(t, proto, test.ShouldNotBeNil)
-	//nolint:staticcheck // deprecated fields are still served
+	//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 	test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED)
 
 	restored, err := KinematicModelFromProtobuf("test", proto)
@@ -367,7 +367,7 @@ func TestOriginalFilePreservedThroughJSON(t *testing.T) {
 
 		// The restored model should produce a valid proto with correct format.
 		proto := KinematicModelToProtobuf(&restored)
-		//nolint:staticcheck // deprecated fields are still served
+		//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
 	})
 
@@ -394,7 +394,7 @@ func TestOriginalFilePreservedThroughJSON(t *testing.T) {
 		test.That(t, len(restoredCfg.OriginalFile.Bytes), test.ShouldBeGreaterThan, 0)
 
 		proto := KinematicModelToProtobuf(&restored)
-		//nolint:staticcheck // deprecated fields are still served
+		//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
 	})
 }

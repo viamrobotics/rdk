@@ -890,7 +890,8 @@ func TestArmMoveWithinObstacle(t *testing.T) {
 	inside := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -500, Z: 100}))
 
 	t.Run("goal inside the enclosure succeeds", func(t *testing.T) {
-		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: inside})
+		// Timeout >300s forces IK to use the full request budget instead of a 1s cap on slow runners.
+		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: inside, Extra: map[string]interface{}{"timeout": 301.0}})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -904,7 +905,13 @@ func TestArmMoveWithinObstacle(t *testing.T) {
 		constraints := &motionplan.Constraints{CollisionSpecification: []motionplan.CollisionSpecification{{
 			Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{{Frame1: "pieceArm", Frame2: "cage:ceiling"}},
 		}}}
-		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: aboveCeiling, Constraints: constraints})
+		// Timeout >300s forces IK to use the full request budget instead of a 1s cap on slow runners.
+		_, err := ms.Move(ctx, motion.MoveReq{
+			ComponentName: "pieceArm",
+			Destination:   aboveCeiling,
+			Constraints:   constraints,
+			Extra:         map[string]interface{}{"timeout": 301.0},
+		})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
