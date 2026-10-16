@@ -387,4 +387,4 @@ require (
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 )
 
-replace go.viam.com/api => github.com/cheukt/api v0.0.0-20261014201357-c01e79084ab4
+replace go.viam.com/api => github.com/cheukt/api v0.0.0-20261016135237-b5e4040f9370
