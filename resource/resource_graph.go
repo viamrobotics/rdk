@@ -82,10 +82,10 @@ type graphNodes map[Name]*GraphNode
 type graphStorage struct {
 	nodes           graphNodes
 	simpleNameCache simpleNameCache
-	// compositeByAPI maps a composite's non-configured co-equal (simpleName, api) keys to its one node.
-	// A composite is stored in simpleNameCache under only its single canonical api, so this index lets
-	// its other co-equal APIs resolve directly in FindBySimpleNameAndAPI without a scan. Keys include the
-	// node prefix, so remote composites (which carry a prefix) resolve the same way local ones do.
+	// compositeByAPI indexes a composite's co-equal (simpleName, api) keys. simpleNameCache holds the node
+	// under one api (the configured api locally, the canonical sorted-first api for a remote), and this
+	// covers the rest so they resolve in FindBySimpleNameAndAPI without a scan. Keys include the node
+	// prefix, so remote composites (which carry a prefix) resolve the same way local ones do.
 	compositeByAPI map[simpleNameKey]*GraphNode
 }
 
@@ -158,22 +158,13 @@ func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
 	} else {
 		val.remote[name.Remote] = node
 	}
-	s.indexCompositeAPIs(name, node)
 }
 
 func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *GraphNode) {
 	if prevPrefix == node.prefix {
-		// The prefix is unchanged, so setSimpleNameCache below is not reached; reindex here instead.
-		// The model, and thus the co-equal API set, may have only just become known (addNode's replace
-		// path turns an uninitialized placeholder into its configured node via this method).
-		s.reindexCompositeAPIs(name, node)
 		return
 	}
-	// The prefix changed, so drop the stale composite index; setSimpleNameCache re-indexes under
-	// the new prefix below.
-	s.dropCompositeIndex(node)
 	prevSimpleName := simpleNameKey{prevPrefix + name.Name, name.API}
-
 	prevVal := s.simpleNameCache[prevSimpleName]
 	if prevVal != nil {
 		if name.Remote == "" {
@@ -182,8 +173,6 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 			delete(prevVal.remote, name.Remote)
 		}
 	}
-
-	// setSimpleNameCache re-adds the primary entry under the new prefix.
 	s.setSimpleNameCache(name, node)
 }
 
@@ -224,9 +213,7 @@ func (s graphStorage) Copy() graphStorage {
 func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	val := s.simpleNameCache[simpleNameKey{name, api}]
 	if val == nil || val.local == nil {
-		// compositeByAPI resolves a composite's non-canonical co-equal API. Consult it whenever there is
-		// no directly-configured local entry under this api, so a local composite's co-equal API still
-		// wins its name over a same-named remote.
+		// If not found (or not found locally), check compositeByAPI before checking any remote resources.
 		if node, ok := s.compositeByAPI[simpleNameKey{name, api}]; ok {
 			return node, nil
 		}
@@ -465,6 +452,8 @@ func (g *Graph) UpdateNodePrefix(name Name, prefix string) {
 	}
 	node.setPrefix(prefix)
 	g.nodes.UpdateSimpleName(name, prevPrefix, node)
+	// The composite index keys include the prefix, so rebuild it under the new one.
+	g.nodes.reindexCompositeAPIs(name, node)
 }
 
 // FindBySimpleNameAndAPI returns a single graph node based on a simple name string and an
@@ -807,6 +796,9 @@ func (g *Graph) addNode(name Name, node *GraphNode) error {
 			return err
 		}
 		g.nodes.UpdateSimpleName(name, prevPrefix, val)
+		// Index now: replacing an uninitialized placeholder with its configured node is where the model,
+		// and thus the co-equal API set, first becomes known.
+		g.nodes.reindexCompositeAPIs(name, val)
 		return nil
 	}
 	node.setGraphLogicalClock(g.logicalClock)
@@ -814,6 +806,7 @@ func (g *Graph) addNode(name Name, node *GraphNode) error {
 		g.ftdc.Add(name.String(), node)
 	}
 	g.nodes.Set(name, node)
+	g.nodes.reindexCompositeAPIs(name, node)
 
 	if _, ok := g.transitiveClosureMatrix[name]; !ok {
 		g.transitiveClosureMatrix[name] = map[Name]int{}
@@ -1266,32 +1259,41 @@ func (g *Graph) Status() []NodeStatus {
 	}
 
 	var result []NodeStatus
+	// emit appends one status per API the node serves, so a composite yields one per co-equal API
+	// (mirroring ExpandCompositeNames), all sharing the node's status and reachability. An ordinary
+	// resource yields one.
+	emit := func(name Name, node *GraphNode, reach Reachability) {
+		status := node.Status()
+		status.Reachability = reach
+		apis := compositeAPIsForNode(node)
+		if len(apis) < 2 {
+			status.Name = name
+			result = append(result, status)
+			return
+		}
+		for _, api := range apis {
+			s := status
+			s.Name = Name{API: api, Name: name.Name, Remote: name.Remote}
+			result = append(result, s)
+		}
+	}
+
 	for k, v := range g.nodes.simpleNameCache {
 		if v.local != nil {
-			status := v.local.Status()
-			status.Name = Name{
-				API:  k.api,
-				Name: k.name,
-			}
-			status.Reachability = reachability(v.local)
-			result = append(result, status)
+			emit(Name{API: k.api, Name: k.name}, v.local, reachability(v.local))
 		}
 		for remote, n := range v.remote {
-			status := n.Status()
-			status.Name = Name{
-				API:    k.api,
-				Name:   k.name,
-				Remote: remote,
-			}
+			remoteResName := Name{API: k.api, Name: k.name, Remote: remote}
+			var reach Reachability
 			switch {
-			case visible[status.Name]:
-				status.Reachability = reachability(n)
+			case visible[remoteResName]:
+				reach = reachability(n)
 			case localNames[k.name]:
-				status.Reachability = ReachabilityShadowedByLocal
+				reach = ReachabilityShadowedByLocal
 			default:
-				status.Reachability = ReachabilityAmbiguousRemote
+				reach = ReachabilityAmbiguousRemote
 			}
-			result = append(result, status)
+			emit(remoteResName, n, reach)
 		}
 	}
 	return result
