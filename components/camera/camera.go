@@ -78,7 +78,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags c as the camera sub-resource of a composite, for resource.Compose.
-func AsSub(c Camera) resource.Sub { return resource.AsSub[Camera](API, c) }
+func AsSub(c Camera) resource.Sub { return resource.AsSub(API, c) }
 
 // ExtrinsicParams define the position and orientation of the camera
 // relative to a reference frame (the world or another sensor).

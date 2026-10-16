@@ -59,7 +59,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags r as the power sensor sub-resource of a composite, for resource.Compose.
-func AsSub(r PowerSensor) resource.Sub { return resource.AsSub[PowerSensor](API, r) }
+func AsSub(r PowerSensor) resource.Sub { return resource.AsSub(API, r) }
 
 // A PowerSensor reports information about voltage, current and power.
 // For more information, see the [power sensor component docs].
