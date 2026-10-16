@@ -632,3 +632,24 @@ func BenchmarkPlanningOnMeshes(b *testing.B) {
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
+
+// Only the left arm's spoon has goals, so the right arm has no reason to move. It used to drift a
+// little on every joint at once: the IK gradient's probe off an upper joint limit was never put
+// back, and the leftover showed up as an identical bogus gradient on every joint the goal
+// ignores.
+func TestVesselPathRightArmStaysPut(t *testing.T) {
+	t.Parallel()
+	logger := logging.NewTestLogger(t)
+
+	req, err := ReadRequestFromFile("data/vessel-path-right-arm-idle.json")
+	test.That(t, err, test.ShouldBeNil)
+	start := req.StartState.Configuration()["right-arm"]
+
+	plan, _, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan.Trajectory()), test.ShouldEqual, len(req.Goals)+1)
+
+	for _, step := range plan.Trajectory() {
+		test.That(t, step["right-arm"], test.ShouldResemble, start)
+	}
+}

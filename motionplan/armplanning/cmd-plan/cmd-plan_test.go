@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"go.viam.com/test"
@@ -118,4 +120,13 @@ func TestCollectRequestFiles(t *testing.T) {
 			filepath.Join(dir, "tail.json"),
 		})
 	})
+}
+
+// cmd-plan is meant to be runnable as `go run motionplan/armplanning/cmd-plan/cmd-plan.go`, which
+// compiles only the named file. A second source file builds fine as a package but breaks that.
+func TestSingleSourceFile(t *testing.T) {
+	sources, err := filepath.Glob("*.go")
+	test.That(t, err, test.ShouldBeNil)
+	sources = slices.DeleteFunc(sources, func(name string) bool { return strings.HasSuffix(name, "_test.go") })
+	test.That(t, sources, test.ShouldResemble, []string{"cmd-plan.go"})
 }

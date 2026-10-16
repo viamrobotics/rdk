@@ -2,13 +2,10 @@ package navigation_test
 
 import (
 	"context"
-	"math"
 	"net"
 	"testing"
 
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -19,329 +16,407 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var (
-	testSvcName1 = navigation.Named("nav1")
-	testSvcName2 = navigation.Named("nav2")
-)
-
-func TestClient(t *testing.T) {
+func TestClientAddAndGetLocation(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	//nolint: noctx
-	listener1, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	//nolint: noctx
-	listener2, err := net.Listen("tcp", "localhost:0")
+	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
-	failingServer := grpc.NewServer()
 
-	var extraOptions map[string]interface{}
-	workingNavigationService := &inject.NavigationService{}
-	failingNavigationService := &inject.NavigationService{}
-
-	modeTested := false
-	workingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
-		extraOptions = extra
-		if !modeTested {
-			modeTested = true
-			return navigation.ModeManual, nil
-		}
-		return navigation.ModeWaypoint, nil
-	}
-	var receivedMode navigation.Mode
-	workingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
-		extraOptions = extra
-		receivedMode = mode
-		return nil
-	}
-	expectedLoc := geo.NewPoint(80, 1)
-	expectedCompassHeading := 90.
-	expectedGeoPose := spatialmath.NewGeoPose(expectedLoc, expectedCompassHeading)
-	workingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
-		extraOptions = extra
-
-		return expectedGeoPose, nil
-	}
-	waypoints := []navigation.Waypoint{
-		{
-			ID:    primitive.NewObjectID(),
-			Order: 0,
-			Lat:   40,
-			Long:  20,
+	heading := 90.
+	expected := navigation.Location{
+		Name: "dock",
+		Position: navigation.Position{
+			GeoPose: &navigation.GeoPose{
+				Location: geo.NewPoint(40.7, -74.0),
+				Heading:  &heading,
+			},
 		},
 	}
-	workingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
-		extraOptions = extra
-		return waypoints, nil
+	svc := &inject.NavigationService{}
+	svc.AddLocationFunc = func(ctx context.Context, req navigation.AddLocationReq) (navigation.Location, error) {
+		test.That(t, req.Name, test.ShouldEqual, "dock")
+		return expected, nil
 	}
-	var receivedPoint *geo.Point
-	workingNavigationService.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
-		extraOptions = extra
-		receivedPoint = point
-		return nil
+	svc.GetLocationFunc = func(ctx context.Context, name string, extra map[string]interface{}) (navigation.Location, error) {
+		test.That(t, name, test.ShouldEqual, "dock")
+		return expected, nil
 	}
-	var receivedID primitive.ObjectID
-	workingNavigationService.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
-		extraOptions = extra
-		receivedID = id
-		return nil
+	svc.GetPropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
+		return navigation.Properties{MapType: navigation.GPSMap, RoutesSupported: true}, nil
 	}
 
-	var receivedPaths []*navigation.Path
-	workingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-		path, err := navigation.NewPath(primitive.NewObjectID(), []*geo.Point{geo.NewPoint(0, 0)})
-		test.That(t, err, test.ShouldBeNil)
-		receivedPaths = []*navigation.Path{path}
-		return receivedPaths, nil
-	}
-
-	receivedProp := navigation.Properties{MapType: navigation.NoMap}
-	workingNavigationService.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
-		return receivedProp, nil
-	}
-
-	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
-		return navigation.ModeManual, errors.New("failure to retrieve mode")
-	}
-	var receivedFailingMode navigation.Mode
-	failingNavigationService.SetModeFunc = func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
-		receivedFailingMode = mode
-		return errors.New("failure to set mode")
-	}
-	failingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
-		return nil, errors.New("failure to retrieve location")
-	}
-	failingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
-		return nil, errors.New("failure to retrieve waypoints")
-	}
-	var receivedFailingPoint *geo.Point
-	failingNavigationService.AddWaypointFunc = func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
-		receivedFailingPoint = point
-		return errors.New("failure to add waypoint")
-	}
-	var receivedFailingID primitive.ObjectID
-	failingNavigationService.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
-		receivedFailingID = id
-		return errors.New("failure to remove waypoint")
-	}
-	failingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-		return nil, errors.New("unimplemented")
-	}
-
-	failingNavigationService.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
-		return navigation.Properties{}, errors.New("unimplemented")
-	}
-
-	workingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{
-		testSvcName1: workingNavigationService,
-	})
+	navName := navigation.Named("nav1")
+	resourceMap := map[resource.Name]navigation.Service{navName: svc}
+	navServer, err := resource.NewAPIResourceCollection(navigation.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	failingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{
-		testSvcName1: failingNavigationService,
-	})
-	test.That(t, err, test.ShouldBeNil)
-
 	resourceAPI, ok, err := resource.LookupAPIRegistration[navigation.Service](navigation.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceAPI.RegisterRPCService(context.Background(), workingServer, workingSvc, logger)
-	failingServer.RegisterService(&servicepb.NavigationService_ServiceDesc, navigation.NewRPCServiceServer(failingSvc, logger))
-
-	go workingServer.Serve(listener1)
+	resourceAPI.RegisterRPCService(context.Background(), workingServer, navServer, logger)
+	go workingServer.Serve(listener)
 	defer workingServer.Stop()
 
-	t.Run("context canceled", func(t *testing.T) {
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+	client, err := navigation.NewClientFromConn(context.Background(), conn, "", navName, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	got, err := client.AddLocation(context.Background(), navigation.AddLocationReq{Name: "dock", Position: &expected.Position})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Name, test.ShouldEqual, "dock")
+
+	got, err = client.GetLocation(context.Background(), "dock", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *got.Position.GeoPose.Heading, test.ShouldEqual, 90.)
+
+	props, err := client.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.MapType, test.ShouldEqual, navigation.GPSMap)
+}
+
+func TestClientOrientationVector(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	alt := 12.5
+	svc := &inject.NavigationService{}
+	svc.AddLocationFunc = func(ctx context.Context, req navigation.AddLocationReq) (navigation.Location, error) {
+		test.That(t, req.Position.GeoPose.Heading, test.ShouldBeNil)
+		test.That(t, req.Position.GeoPose.Orientation.Theta, test.ShouldEqual, 45.)
+		return navigation.Location{Name: req.Name, Position: *req.Position}, nil
+	}
+	navName := navigation.Named("nav1")
+	resourceMap := map[resource.Name]navigation.Service{navName: svc}
+	navServer, err := resource.NewAPIResourceCollection(navigation.API, resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[navigation.Service](navigation.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	resourceAPI.RegisterRPCService(context.Background(), workingServer, navServer, logger)
+	go workingServer.Serve(listener)
+	defer workingServer.Stop()
+
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+	client, err := navigation.NewClientFromConn(context.Background(), conn, "", navName, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	got, err := client.AddLocation(context.Background(), navigation.AddLocationReq{
+		Name: "dock",
+		Position: &navigation.Position{GeoPose: &navigation.GeoPose{
+			Location:    geo.NewPoint(40.7, -74.0),
+			Altitude:    &alt,
+			Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1, Theta: 45},
+		}},
 	})
-
-	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	workingNavClient, err := navigation.NewClientFromConn(context.Background(), conn, "", testSvcName1, logger)
+	test.That(t, got.Position.GeoPose.Heading, test.ShouldBeNil)
+	test.That(t, *got.Position.GeoPose.Altitude, test.ShouldEqual, alt)
+	test.That(t, got.Position.GeoPose.Orientation.OZ, test.ShouldEqual, 1.)
+	test.That(t, got.Position.GeoPose.Orientation.Theta, test.ShouldEqual, 45.)
+
+	heading := 10.
+	_, err = client.AddLocation(context.Background(), navigation.AddLocationReq{
+		Name: "bad",
+		Position: &navigation.Position{GeoPose: &navigation.GeoPose{
+			Location:    geo.NewPoint(40.7, -74.0),
+			Heading:     &heading,
+			Orientation: &spatialmath.OrientationVectorDegrees{OZ: 1},
+		}},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestClientRPCs(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("client tests for working navigation service", func(t *testing.T) {
-		// test mode
-		extra := map[string]interface{}{"foo": "Mode"}
-		mode, err := workingNavClient.Mode(context.Background(), extra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mode, test.ShouldEqual, navigation.ModeManual)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-		mode, err = workingNavClient.Mode(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mode, test.ShouldEqual, navigation.ModeWaypoint)
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
+	pos := gpsPosition(40.7, -74)
+	status := navigation.Status{Position: pos, Localized: true}
+	locName := "dock"
+	speed := 1.2
+	wait := false
+	newName := "pier"
 
-		// test set mode
-		extra = map[string]interface{}{"foo": "SetMode"}
-		err = workingNavClient.SetMode(context.Background(), navigation.ModeManual, extra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeManual)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-
-		err = workingNavClient.SetMode(context.Background(), navigation.ModeWaypoint, extra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeWaypoint)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-
-		err = workingNavClient.SetMode(context.Background(), navigation.ModeExplore, extra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeExplore)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-
-		err = workingNavClient.SetMode(context.Background(), 99, extra)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "MODE_UNSPECIFIED")
-
-		// test add waypoint
-		point := geo.NewPoint(90, 1)
-		extra = map[string]interface{}{"foo": "AddWaypoint"}
-		err = workingNavClient.AddWaypoint(context.Background(), point, extra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, receivedPoint, test.ShouldResemble, point)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-
-		// test Paths
-		ctx := context.Background()
-		paths, err := workingNavClient.Paths(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, paths, test.ShouldResemble, receivedPaths)
-
-		// test Properties
-		prop, err := workingNavClient.Properties(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, prop.MapType, test.ShouldEqual, receivedProp.MapType)
-
-		// test do command
-		workingNavigationService.DoCommandFunc = testutils.EchoFunc
-		resp, err := workingNavClient.DoCommand(context.Background(), testutils.TestCommand)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
-
-		// Status - default empty status
-		statusResult, err := workingNavClient.Status(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, statusResult, test.ShouldBeEmpty)
-
-		// Status - custom status
-		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
-		workingNavigationService.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
-			return expectedStatus, nil
+	svc := &inject.NavigationService{}
+	svc.ListLocationsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Location, error) {
+		return []navigation.Location{{Name: locName, Position: pos}}, nil
+	}
+	svc.UpdateLocationFunc = func(ctx context.Context, req navigation.UpdateLocationReq) (navigation.Location, error) {
+		test.That(t, req.Name, test.ShouldEqual, locName)
+		test.That(t, *req.NewName, test.ShouldEqual, newName)
+		return navigation.Location{Name: *req.NewName, Position: *req.Position}, nil
+	}
+	svc.DeleteLocationFunc = func(ctx context.Context, name string, extra map[string]interface{}) error {
+		test.That(t, name, test.ShouldEqual, newName)
+		return nil
+	}
+	svc.AddRouteFunc = func(ctx context.Context, req navigation.AddRouteReq) (navigation.Route, error) {
+		test.That(t, req.Waypoints, test.ShouldHaveLength, 1)
+		test.That(t, req.Waypoints[0].LocationName, test.ShouldEqual, locName)
+		return navigation.Route{Name: req.Name, Waypoints: req.Waypoints}, nil
+	}
+	svc.GetRouteFunc = func(ctx context.Context, name string, extra map[string]interface{}) (navigation.Route, error) {
+		return navigation.Route{Name: name, Waypoints: []navigation.Waypoint{{LocationName: locName}}}, nil
+	}
+	svc.ListRoutesFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Route, error) {
+		return []navigation.Route{{Name: "loop"}}, nil
+	}
+	svc.UpdateRouteFunc = func(ctx context.Context, req navigation.UpdateRouteReq) (navigation.Route, error) {
+		wps := req.Waypoints
+		if wps == nil {
+			wps = []navigation.Waypoint{{LocationName: "kept"}}
 		}
-		statusResult, err = workingNavClient.Status(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
-		workingNavigationService.StatusFunc = nil
+		return navigation.Route{Name: req.Name, Waypoints: wps}, nil
+	}
+	svc.DeleteRouteFunc = func(ctx context.Context, name string, extra map[string]interface{}) error {
+		test.That(t, name, test.ShouldEqual, "loop")
+		return nil
+	}
+	svc.AddZoneFunc = func(ctx context.Context, req navigation.AddZoneReq) (navigation.Zone, error) {
+		test.That(t, req.Type, test.ShouldEqual, navigation.ZoneTypeKeepout)
+		return navigation.Zone{Name: req.Name, Type: req.Type}, nil
+	}
+	svc.GetZoneFunc = func(ctx context.Context, name string, extra map[string]interface{}) (navigation.Zone, error) {
+		return navigation.Zone{Name: name, Type: navigation.ZoneTypeSpeedLimit, MaxSpeed: &speed}, nil
+	}
+	svc.ListZonesFunc = func(ctx context.Context, zoneType string, extra map[string]interface{}) ([]navigation.Zone, error) {
+		test.That(t, zoneType, test.ShouldEqual, navigation.ZoneTypeKeepout)
+		return []navigation.Zone{{Name: "yard", Type: zoneType}}, nil
+	}
+	svc.UpdateZoneFunc = func(ctx context.Context, req navigation.UpdateZoneReq) (navigation.Zone, error) {
+		test.That(t, *req.MaxSpeed, test.ShouldEqual, speed)
+		return navigation.Zone{Name: req.Name, Type: navigation.ZoneTypeSpeedLimit, MaxSpeed: req.MaxSpeed}, nil
+	}
+	svc.DeleteZoneFunc = func(ctx context.Context, name string, extra map[string]interface{}) error {
+		test.That(t, name, test.ShouldEqual, "yard")
+		return nil
+	}
+	svc.NavigateToLocationFunc = func(ctx context.Context, name string, extra map[string]interface{}) (navigation.Status, error) {
+		test.That(t, name, test.ShouldEqual, locName)
+		return status, nil
+	}
+	svc.NavigateToPointFunc = func(
+		ctx context.Context, destination navigation.Position, extra map[string]interface{},
+	) (navigation.Status, error) {
+		test.That(t, destination.GeoPose.Location.Lat(), test.ShouldEqual, pos.GeoPose.Location.Lat())
+		return status, nil
+	}
+	svc.NavigateRouteFunc = func(ctx context.Context, req navigation.NavigateRouteReq) (navigation.Status, error) {
+		test.That(t, req.Name, test.ShouldEqual, "loop")
+		test.That(t, req.Loop, test.ShouldBeTrue)
+		test.That(t, req.StartIndex, test.ShouldEqual, 1)
+		return status, nil
+	}
+	svc.PlanToPointFunc = func(ctx context.Context, req navigation.PlanToPointReq) (navigation.Plan, error) {
+		test.That(t, req.Start, test.ShouldNotBeNil)
+		return navigation.Plan{Path: []navigation.Position{*req.Start, req.Destination}, LengthM: 12}, nil
+	}
+	svc.PlanToLocationFunc = func(ctx context.Context, req navigation.PlanToLocationReq) (navigation.Plan, error) {
+		test.That(t, req.Name, test.ShouldEqual, locName)
+		return navigation.Plan{Path: []navigation.Position{pos}, Location: &locName, LengthM: 4}, nil
+	}
+	svc.ExecutePlanFunc = func(ctx context.Context, plan navigation.Plan, extra map[string]interface{}) (navigation.Status, error) {
+		test.That(t, plan.LengthM, test.ShouldEqual, 4)
+		return status, nil
+	}
+	svc.GoToLocationFunc = func(ctx context.Context, req navigation.GoToLocationReq) (navigation.Status, error) {
+		test.That(t, req.Name, test.ShouldEqual, locName)
+		test.That(t, *req.Wait, test.ShouldBeFalse)
+		test.That(t, *req.LinearMPerSec, test.ShouldEqual, speed)
+		return status, nil
+	}
+	svc.GoToPointFunc = func(ctx context.Context, req navigation.GoToPointReq) (navigation.Status, error) {
+		test.That(t, req.Destination.GeoPose.Location.Lng(), test.ShouldEqual, pos.GeoPose.Location.Lng())
+		return status, nil
+	}
+	svc.SuspendFunc = func(ctx context.Context, reason string, extra map[string]interface{}) (navigation.Status, error) {
+		test.That(t, reason, test.ShouldEqual, "pause")
+		return status, nil
+	}
+	svc.ResumeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Status, error) {
+		return status, nil
+	}
+	svc.CancelFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Status, error) {
+		return status, nil
+	}
+	svc.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Position, error) {
+		return pos, nil
+	}
+	svc.GetNavigationStatusFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Status, error) {
+		return status, nil
+	}
+	svc.GetCostmapFunc = func(ctx context.Context, req navigation.CostmapReq) (navigation.Costmap, error) {
+		test.That(t, req.Layer, test.ShouldEqual, "local")
+		test.That(t, req.Stride, test.ShouldEqual, 2)
+		return navigation.Costmap{Available: true, Layer: req.Layer, Width: 3, Height: 4, Data: []byte{1, 2}}, nil
+	}
+	svc.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return cmd, nil
+	}
+	svc.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return map[string]interface{}{"localized": true}, nil
+	}
 
-		test.That(t, conn.Close(), test.ShouldBeNil)
+	navName := navigation.Named("nav1")
+	resourceMap := map[resource.Name]navigation.Service{navName: svc}
+	navServer, err := resource.NewAPIResourceCollection(navigation.API, resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[navigation.Service](navigation.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	resourceAPI.RegisterRPCService(context.Background(), workingServer, navServer, logger)
+	go workingServer.Serve(listener)
+	defer workingServer.Stop()
+
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+	client, err := navigation.NewClientFromConn(context.Background(), conn, "", navName, logger)
+	test.That(t, err, test.ShouldBeNil)
+	ctx := context.Background()
+
+	locs, err := client.ListLocations(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, locs, test.ShouldHaveLength, 1)
+
+	updated, err := client.UpdateLocation(ctx, navigation.UpdateLocationReq{
+		Name: locName, NewName: &newName, Position: &pos,
 	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, updated.Name, test.ShouldEqual, newName)
+	test.That(t, client.DeleteLocation(ctx, newName, nil), test.ShouldBeNil)
 
-	t.Run("dialed client tests for working navigation service", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		workingDialedClient, err := navigation.NewClientFromConn(context.Background(), conn, "", testSvcName1, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		// test location
-		extra := map[string]interface{}{"foo": "Location"}
-		geoPose, err := workingDialedClient.Location(context.Background(), extra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, geoPose, test.ShouldResemble, expectedGeoPose)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-
-		// test remove waypoint
-		wptID := primitive.NewObjectID()
-		extra = map[string]interface{}{"foo": "RemoveWaypoint"}
-		err = workingDialedClient.RemoveWaypoint(context.Background(), wptID, extra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, wptID, test.ShouldEqual, receivedID)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-		test.That(t, conn.Close(), test.ShouldBeNil)
+	route, err := client.AddRoute(ctx, navigation.AddRouteReq{
+		Name: "loop", Waypoints: []navigation.Waypoint{{LocationName: locName}},
 	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, route.Waypoints[0].LocationName, test.ShouldEqual, locName)
+	route, err = client.GetRoute(ctx, "loop", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, route.Name, test.ShouldEqual, "loop")
+	routes, err := client.ListRoutes(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, routes, test.ShouldHaveLength, 1)
 
-	t.Run("dialed client test 2 for working navigation service", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		dialedClient, err := resourceAPI.RPCClient(context.Background(), conn, "", testSvcName1, logger)
-		test.That(t, err, test.ShouldBeNil)
+	route, err = client.UpdateRoute(ctx, navigation.UpdateRouteReq{Name: "loop"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, route.Waypoints, test.ShouldHaveLength, 1)
+	route, err = client.UpdateRoute(ctx, navigation.UpdateRouteReq{Name: "loop", Waypoints: []navigation.Waypoint{}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, route.Waypoints, test.ShouldBeEmpty)
+	test.That(t, client.DeleteRoute(ctx, "loop", nil), test.ShouldBeNil)
 
-		// test waypoints
-		extra := map[string]interface{}{"foo": "Waypoints"}
-		receivedWpts, err := dialedClient.Waypoints(context.Background(), extra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, receivedWpts, test.ShouldResemble, waypoints)
-		test.That(t, extraOptions, test.ShouldResemble, extra)
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
+	zone, err := client.AddZone(ctx, navigation.AddZoneReq{Name: "yard", Type: navigation.ZoneTypeKeepout})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, zone.Type, test.ShouldEqual, navigation.ZoneTypeKeepout)
+	zone, err = client.GetZone(ctx, "yard", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *zone.MaxSpeed, test.ShouldEqual, speed)
+	zones, err := client.ListZones(ctx, navigation.ZoneTypeKeepout, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, zones, test.ShouldHaveLength, 1)
+	zone, err = client.UpdateZone(ctx, navigation.UpdateZoneReq{Name: "yard", MaxSpeed: &speed})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *zone.MaxSpeed, test.ShouldEqual, speed)
+	test.That(t, client.DeleteZone(ctx, "yard", nil), test.ShouldBeNil)
 
-	go failingServer.Serve(listener2)
+	got, err := client.NavigateToLocation(ctx, locName, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+	got, err = client.NavigateToPoint(ctx, pos, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+	got, err = client.NavigateRoute(ctx, navigation.NavigateRouteReq{Name: "loop", StartIndex: 1, Loop: true})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+
+	plan, err := client.PlanToPoint(ctx, navigation.PlanToPointReq{Destination: pos, Start: &pos})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, plan.Path, test.ShouldHaveLength, 2)
+	test.That(t, plan.LengthM, test.ShouldEqual, 12)
+	plan, err = client.PlanToLocation(ctx, navigation.PlanToLocationReq{Name: locName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *plan.Location, test.ShouldEqual, locName)
+	got, err = client.ExecutePlan(ctx, plan, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+
+	got, err = client.GoToLocation(ctx, navigation.GoToLocationReq{Name: locName, Wait: &wait, LinearMPerSec: &speed})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+	got, err = client.GoToPoint(ctx, navigation.GoToPointReq{Destination: pos})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+
+	got, err = client.Suspend(ctx, "pause", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+	got, err = client.Resume(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+	got, err = client.Cancel(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+
+	gotPos, err := client.GetPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotPos.GeoPose.Location.Lat(), test.ShouldEqual, pos.GeoPose.Location.Lat())
+	got, err = client.GetNavigationStatus(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Localized, test.ShouldBeTrue)
+
+	costmap, err := client.GetCostmap(ctx, navigation.CostmapReq{Layer: "local", Stride: 2})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, costmap.Available, test.ShouldBeTrue)
+	test.That(t, costmap.Data, test.ShouldResemble, []byte{1, 2})
+
+	cmd, err := client.DoCommand(ctx, map[string]interface{}{"ping": "pong"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cmd["ping"], test.ShouldEqual, "pong")
+	resourceStatus, err := client.Status(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resourceStatus["localized"], test.ShouldEqual, true)
+}
+
+func gpsPosition(lat, lng float64) navigation.Position {
+	heading := 0.0
+	return navigation.Position{GeoPose: &navigation.GeoPose{
+		Location: geo.NewPoint(lat, lng),
+		Heading:  &heading,
+	}}
+}
+
+func TestClientDialFail(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	failingServer := grpc.NewServer()
+	go failingServer.Serve(listener)
 	defer failingServer.Stop()
 
-	t.Run("client tests for failing navigation service", func(t *testing.T) {
-		conn, err = viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		failingNavClient, err := navigation.NewClientFromConn(context.Background(), conn, "", testSvcName1, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		// test mode
-		_, err = failingNavClient.Mode(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-
-		// test set mode
-		err = failingNavClient.SetMode(context.Background(), navigation.ModeWaypoint, map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, receivedFailingMode, test.ShouldEqual, navigation.ModeWaypoint)
-		err = failingNavClient.SetMode(context.Background(), navigation.Mode(math.MaxUint8), map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-
-		// test add waypoint
-		point := geo.NewPoint(90, 1)
-		err = failingNavClient.AddWaypoint(context.Background(), point, map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, receivedFailingPoint, test.ShouldResemble, point)
-
-		// test Paths
-		paths, err := failingNavClient.Paths(context.Background(), nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, paths, test.ShouldBeNil)
-
-		// test Properties
-		prop, err := failingNavClient.Properties(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, prop, test.ShouldResemble, navigation.Properties{})
-
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
-
-	t.Run("dialed client test for failing navigation service", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		dialedClient, err := resourceAPI.RPCClient(context.Background(), conn, "", testSvcName1, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		// test waypoints
-		_, err = dialedClient.Waypoints(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-
-		// test location
-		geoPose, err := dialedClient.Location(context.Background(), map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, geoPose, test.ShouldBeNil)
-
-		// test remove waypoint
-		wptID := primitive.NewObjectID()
-		err = dialedClient.RemoveWaypoint(context.Background(), wptID, map[string]interface{}{})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, wptID, test.ShouldEqual, receivedFailingID)
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+	client, err := navigation.NewClientFromConn(context.Background(), conn, "", navigation.Named("nav"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = client.GetProperties(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	_ = servicepb.MapType_MAP_TYPE_GPS
 }

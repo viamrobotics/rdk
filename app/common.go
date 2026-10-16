@@ -39,7 +39,7 @@ const (
 	ModelFrameworkPyTorch
 	// ModelFrameworkONNX specifies a ONNX model framework.
 	ModelFrameworkONNX
-	// ModelFrameworkRegistry specifies modular registry resources as the deploy target.
+	// ModelFrameworkRegistry specifies a model consumed by a registry module.
 	ModelFrameworkRegistry
 )
 
