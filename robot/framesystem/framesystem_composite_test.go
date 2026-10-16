@@ -51,7 +51,6 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	comboCam := &plainRes{Named: resource.NewName(camAPI, "combo").AsNamed()}
 	wrapper := resource.NewMultiAPIResource(
 		resource.NewName(armAPI, "combo"),
-		[]resource.API{armAPI, camAPI},
 		map[resource.API]resource.Resource{armAPI: comboKin, camAPI: comboCam},
 	)
 	// "multi": a composite serving two kinematic APIs (arm + gantry), unsupported, must be refused.
@@ -66,7 +65,6 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	ncGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "noncanon").AsNamed()}
 	ncWrapper := resource.NewMultiAPIResource(
 		resource.NewName(camAPI, "noncanon"),
-		[]resource.API{camAPI, gantryAPI},
 		map[resource.API]resource.Resource{camAPI: ncCam, gantryAPI: ncGantry},
 	)
 
@@ -139,7 +137,6 @@ func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	shared := &kinematicRes{Named: resource.NewName(armAPI, "combo").AsNamed()}
 	wrapper := resource.NewMultiAPIResource(
 		resource.NewName(armAPI, "combo"),
-		[]resource.API{armAPI, gantryAPI},
 		map[resource.API]resource.Resource{armAPI: shared, gantryAPI: shared},
 	)
 	deps := resource.Dependencies{
