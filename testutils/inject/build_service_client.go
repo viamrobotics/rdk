@@ -17,6 +17,9 @@ type BuildServiceClient struct {
 	StartSourceUploadBuildFunc func(
 		ctx context.Context, opts ...grpc.CallOption,
 	) (buildpb.BuildService_StartSourceUploadBuildClient, error)
+	StartReloadBuildFunc func(
+		ctx context.Context, opts ...grpc.CallOption,
+	) (buildpb.BuildService_StartReloadBuildClient, error)
 }
 
 // ListJobs calls the injected ListJobsFunc or the real version.
@@ -48,4 +51,15 @@ func (bsc *BuildServiceClient) StartSourceUploadBuild(
 		return bsc.BuildServiceClient.StartSourceUploadBuild(ctx, opts...)
 	}
 	return bsc.StartSourceUploadBuildFunc(ctx, opts...)
+}
+
+// StartReloadBuild calls the injected StartReloadBuildFunc or the real version.
+// Tests can return a fake stream that captures Send calls.
+func (bsc *BuildServiceClient) StartReloadBuild(
+	ctx context.Context, opts ...grpc.CallOption,
+) (buildpb.BuildService_StartReloadBuildClient, error) {
+	if bsc.StartReloadBuildFunc == nil {
+		return bsc.BuildServiceClient.StartReloadBuild(ctx, opts...)
+	}
+	return bsc.StartReloadBuildFunc(ctx, opts...)
 }

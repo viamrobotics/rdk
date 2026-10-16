@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1193,6 +1195,43 @@ func TestReloadUserAndTimeInModuleConfig(t *testing.T) {
 	test.That(t, len(modules), test.ShouldBeGreaterThan, 0)
 	test.That(t, modules[0].Get("reload_user").String(), test.ShouldEqual, testEmail)
 	test.That(t, modules[0].Get("reload_time").String(), test.ShouldNotBeEmpty)
+}
+
+// TestReloadPrintsGitRevision checks that a reload reports the git revision of the
+// source it is reloading, so the version running on the machine can be traced back
+// to a commit.
+func TestReloadPrintsGitRevision(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	stubModuleReloadWait(t)
+	logger := logging.NewTestLogger(t)
+
+	repo := t.TempDir()
+	runTestGit(t, repo, "init", "--quiet")
+	writeFile(t, filepath.Join(repo, "main.go"), "package main")
+	runTestGit(t, repo, "add", ".")
+	runTestGit(t, repo, "commit", "--quiet", "-m", "initial")
+	sha := runTestGit(t, repo, "rev-parse", "--short=8", "HEAD")
+
+	manifestPath := createTestManifest(t, "", nil)
+	confStruct, err := structpb.NewStruct(map[string]any{"modules": []any{}})
+	test.That(t, err, test.ShouldBeNil)
+
+	cmd, vc, _, errOut := setup(
+		mockFullAppServiceClient(confStruct, nil, nil),
+		nil,
+		&inject.BuildServiceClient{},
+		map[string]any{
+			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
+			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+			generalFlagNoProgress: true, generalFlagPath: repo,
+		},
+		"token",
+	)
+	err = reloadModuleActionInner(context.Background(), cmd, vc, parseStructFromCtx[reloadModuleArgs](cmd), logger, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "reloading git revision "+sha)
 }
 
 func TestIsModuleReloadComplete(t *testing.T) {
