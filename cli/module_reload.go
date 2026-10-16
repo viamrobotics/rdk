@@ -600,7 +600,7 @@ func assumedReloadComplete(moduleName string, lastUpdated time.Time) modulestatu
 
 func warnReloadWithoutModuleStatus(cmd *cli.Command) {
 	warningf(cmd.Root().ErrWriter,
-		"machine applied the reload config but does not report module status (viam-server older than 1.1.0); treating reload as complete")
+		"An upgrade to viam-server is recommended. The machine applied the reload config but does not report module status (viam-server older than 1.1.0); Check the logs to ensure the module has downloaded and restarted.")
 }
 
 func machineStatusUnsupported(err error) bool {
@@ -725,8 +725,7 @@ func (c *viamClient) waitForModuleReload(
 		machineStatus, statusErr := robotClient.MachineStatus(ctx)
 		if statusErr != nil {
 			if machineStatusUnsupported(statusErr) {
-				warningf(cmd.Root().ErrWriter,
-					"this viam-server does not support GetMachineStatus; treating reload as complete")
+				warnReloadWithoutModuleStatus(cmd)
 				return assumedReloadComplete(moduleName, time.Time{}), nil
 			}
 			return modulestatus.Status{}, statusErr
