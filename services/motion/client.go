@@ -342,9 +342,9 @@ func (c *client) TempStreamArmJointPositions(
 			recvResult <- err
 		}()
 		for {
-			// TempStreamResponse carries no fields yet, so the message itself is not read. A
-			// successful Recv must not touch err, so that the panic sentinel survives a panic below.
-			if _, recvErr := stream.Recv(); recvErr != nil {
+			// A successful Recv must not touch err, so that the panic sentinel survives a panic below.
+			resp, recvErr := stream.Recv()
+			if recvErr != nil {
 				err = recvErr
 				// io.EOF from Recv means the stream ended cleanly.
 				if errors.Is(err, io.EOF) {
@@ -357,7 +357,7 @@ func (c *client) TempStreamArmJointPositions(
 				return
 			}
 			select {
-			case responses <- TempStreamResponse{}:
+			case responses <- tempStreamResponseFromProto(resp):
 			case <-ctx.Done():
 				err = ctx.Err()
 				return
