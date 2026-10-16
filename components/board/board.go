@@ -55,7 +55,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags r as the board sub-resource of a composite, for resource.Compose.
-func AsSub(r Board) resource.Sub { return resource.AsSub[Board](API, r) }
+func AsSub(r Board) resource.Sub { return resource.AsSub(API, r) }
 
 // A Board represents a physical general purpose board that contains various
 // components such as analogs, and digital interrupts.

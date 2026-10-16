@@ -40,7 +40,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags r as the switch sub-resource of a composite, for resource.Compose.
-func AsSub(r Switch) resource.Sub { return resource.AsSub[Switch](API, r) }
+func AsSub(r Switch) resource.Sub { return resource.AsSub(API, r) }
 
 // A Switch represents a physical multi-position switch.
 // For more information, see the [Switch component docs].
