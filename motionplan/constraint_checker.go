@@ -242,10 +242,7 @@ func checkLinearConstraint(frame string, linConstraint LinearConstraint, from, t
 	}
 	orientTol := linConstraint.OrientationToleranceDegs
 	if orientTol > 0 {
-		dist := min(
-			OrientDist(from.Orientation(), currPose.Orientation()),
-			OrientDist(to.Orientation(), currPose.Orientation()),
-		)
+		dist := (&OrientationConstraint{}).Distance(from.Orientation(), to.Orientation(), currPose.Orientation())
 		if dist > orientTol {
 			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
 		}
@@ -267,10 +264,7 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 	orientTol := plinConstraint.OrientationToleranceFactor
 	if orientTol > 0 {
 		orientTol *= OrientDist(from.Orientation(), to.Orientation())
-		dist := min(
-			OrientDist(from.Orientation(), currPose.Orientation()),
-			OrientDist(to.Orientation(), currPose.Orientation()),
-		)
+		dist := (&OrientationConstraint{}).Distance(from.Orientation(), to.Orientation(), currPose.Orientation())
 		if dist > orientTol {
 			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
 		}
