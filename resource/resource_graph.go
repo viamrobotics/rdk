@@ -1087,19 +1087,66 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	return g.subGraphFromWithMutex(node)
 }
 
-// subGraphFrom returns a Sub-Graph containing all linked dependencies starting with node
-// [Name]. This method is NOT threadsafe: A client must read-lock [Graph.mu] while calling
-// this method.
-func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
+// dependentsWithMutex returns node and every node that depends on it, directly or
+// transitively, read from the transitive closure. This method is NOT threadsafe: A client
+// must read-lock [Graph.mu] while calling this method.
+func (g *Graph) dependentsWithMutex(node Name) (map[Name]*GraphNode, error) {
 	if _, ok := g.nodes.Get(node); !ok {
 		return nil, errors.Errorf("cannot create sub-graph from non existing node %v ", node.Name)
 	}
-	subGraph := g.clone()
-	sorted := subGraph.ReverseTopologicalSort()
-	for _, n := range sorted {
-		if !subGraph.isNodeDependingOn(node, n) {
-			subGraph.remove(n)
+	dependents := map[Name]*GraphNode{}
+	for name, gNode := range g.nodes.All() {
+		if g.transitiveClosureMatrix[name][node] != 0 {
+			dependents[name] = gNode
 		}
+	}
+	return dependents, nil
+}
+
+// subGraphFrom returns a Sub-Graph containing all linked dependencies starting with node
+// [Name]. This method is NOT threadsafe: A client must read-lock [Graph.mu] while calling
+// this method.
+//
+// The sub-graph holds node and its dependents, the same *GraphNode values as g, and the
+// edges and transitive closure among them. Every path between two of those nodes stays
+// among them, so the closure is the same as g's. It is built from just those nodes rather
+// than by removing every other node from a clone of g, which costs a transitive closure
+// update per removed edge.
+func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
+	dependents, err := g.dependentsWithMutex(node)
+	if err != nil {
+		return nil, err
+	}
+	subGraph := &Graph{
+		children:                resourceDependencies{},
+		nodes:                   g.nodes.Copy(),
+		parents:                 resourceDependencies{},
+		transitiveClosureMatrix: make(transitiveClosureMatrix, len(dependents)),
+		logicalClock:            g.logicalClock,
+	}
+	for name := range g.nodes.Keys() {
+		if _, ok := dependents[name]; !ok {
+			subGraph.nodes.Delete(name)
+		}
+	}
+	for name := range dependents {
+		// A dependent's children depend on it, so they are all dependents too.
+		if children, ok := g.children[name]; ok {
+			subGraph.children[name] = copyNodes(children)
+		}
+		for parent, edge := range g.parents[name] {
+			if _, ok := dependents[parent]; ok {
+				if subGraph.parents[name] == nil {
+					subGraph.parents[name] = graphNodes{}
+				}
+				subGraph.parents[name][parent] = edge
+			}
+		}
+		row := make(map[Name]int, len(dependents))
+		for other := range dependents {
+			row[other] = g.transitiveClosureMatrix[name][other]
+		}
+		subGraph.transitiveClosureMatrix[name] = row
 	}
 	return subGraph, nil
 }
@@ -1109,12 +1156,12 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	subGraph, err := g.subGraphFromWithMutex(node)
+	dependents, err := g.dependentsWithMutex(node)
 	if err != nil {
 		return err
 	}
-	for node := range subGraph.nodes.Values() {
-		node.markReachability(reachable)
+	for _, gNode := range dependents {
+		gNode.markReachability(reachable)
 	}
 	return nil
 }

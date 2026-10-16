@@ -267,6 +267,95 @@ func TestResourceGraphSubGraph(t *testing.T) {
 	}...))
 }
 
+// subGraphByPruning is how SubGraphFrom used to build a sub-graph: clone the graph, then
+// remove every node that doesn't depend on node.
+func subGraphByPruning(g *Graph, node Name) *Graph {
+	sub := g.clone()
+	for _, n := range sub.ReverseTopologicalSort() {
+		if !sub.isNodeDependingOn(node, n) {
+			sub.remove(n)
+		}
+	}
+	return sub
+}
+
+func edgeSets(rd resourceDependencies) map[Name]map[Name]bool {
+	out := map[Name]map[Name]bool{}
+	for k, nodes := range rd {
+		out[k] = map[Name]bool{}
+		for n := range nodes {
+			out[k][n] = true
+		}
+	}
+	return out
+}
+
+// The sub-graph must hold the same nodes (the same *GraphNode values), edges and
+// transitive closure as pruning a clone of the graph.
+func TestResourceGraphSubGraphMatchesPruning(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	small := NewGraph(logger)
+	for _, component := range commonCfg {
+		test.That(t, small.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
+		for _, dep := range component.DependsOn {
+			test.That(t, small.AddChild(component.Name, dep), test.ShouldBeNil)
+		}
+	}
+	robot, remote, component := robotSizedGraph(t)
+
+	check := func(g *Graph, node Name) {
+		t.Helper()
+		got, err := g.SubGraphFrom(node)
+		test.That(t, err, test.ShouldBeNil)
+		want := subGraphByPruning(g, node)
+
+		test.That(t, len(got.nodes.nodes), test.ShouldEqual, len(want.nodes.nodes))
+		for name, wantNode := range want.nodes.All() {
+			gotNode, ok := got.nodes.Get(name)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, gotNode == wantNode, test.ShouldBeTrue)
+		}
+		test.That(t, edgeSets(got.children), test.ShouldResemble, edgeSets(want.children))
+		test.That(t, edgeSets(got.parents), test.ShouldResemble, edgeSets(want.parents))
+		for u := range want.nodes.Keys() {
+			for v := range want.nodes.Keys() {
+				test.That(t, got.transitiveClosureMatrix[u][v], test.ShouldEqual, want.transitiveClosureMatrix[u][v])
+			}
+		}
+		test.That(t, got.TopologicalSort(), test.ShouldHaveLength, len(want.nodes.nodes))
+	}
+
+	for name := range small.nodes.Keys() {
+		check(small, name)
+	}
+	// Pruning the robot-sized graph takes about half a second per node, so check a spread:
+	// the remote, a remote resource, components with and without dependencies, services.
+	for _, name := range []Name{
+		remote,
+		NewName(apiA, "r7").PrependRemote(remote.Name),
+		component,
+		NewName(apiA, "c0"),
+		NewName(apiA, "c12"),
+		NewName(apiA, "s4"),
+		NewName(apiA, "h2"),
+	} {
+		check(robot, name)
+	}
+}
+
+func TestResourceGraphMarkReachability(t *testing.T) {
+	g, remote, _ := robotSizedGraph(t)
+	test.That(t, g.MarkReachability(remote, false), test.ShouldBeNil)
+	for name, gNode := range g.nodes.All() {
+		test.That(t, gNode.IsReachable(), test.ShouldEqual, !g.isNodeDependingOn(remote, name))
+	}
+	test.That(t, g.MarkReachability(remote, true), test.ShouldBeNil)
+	for gNode := range g.nodes.Values() {
+		test.That(t, gNode.IsReachable(), test.ShouldBeTrue)
+	}
+	test.That(t, g.MarkReachability(NewName(apiA, "missing"), false), test.ShouldNotBeNil)
+}
+
 func TestResourceGraphDepTree(t *testing.T) {
 	cfg := []fakeComponent{
 		{
