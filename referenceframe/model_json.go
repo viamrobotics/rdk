@@ -84,12 +84,8 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		}
 
 		for _, link := range cfg.Links {
-			lif, err := link.ParseConfig()
-			if err != nil {
-				return nil, err
-			}
 			parentMap[link.ID] = link.Parent
-			transforms[link.ID], err = lif.ToStaticFrame(link.ID)
+			transforms[link.ID], err = link.ToFrame()
 			if err != nil {
 				return nil, err
 			}

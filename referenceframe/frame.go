@@ -398,8 +398,8 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 // from the current Frame to the parent's reference frame.
 type staticFrame struct {
 	*baseFrame
-	transform spatial.Pose
-	geometry  spatial.Geometry
+	transform  spatial.Pose
+	geometries []spatial.Geometry
 }
 
 // a tailGeometryStaticFrame is a static frame whose geometry is placed at the end of the frame's transform, rather than at the beginning.
@@ -408,19 +408,14 @@ type tailGeometryStaticFrame struct {
 }
 
 func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	if sf.geometry == nil {
+	if len(sf.geometries) == 0 {
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
 		return nil, NewIncorrectDoFError(len(input), 0)
 	}
-	newGeom := sf.geometry.Transform(sf.transform)
-	if newGeom.Label() == "" {
-		newGeom.SetLabel(sf.name)
-	}
-
-	// Create the new geometry at a pose of `transform` from the frame
-	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
+	// the geometries sit at the end of the frame's transform rather than at its origin
+	return NewGeometriesInFrame(sf.name, placeGeometries(sf.name, sf.geometries, sf.transform)), nil
 }
 
 func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
@@ -523,10 +518,20 @@ func NewZeroStaticFrame(name string) Frame {
 // NewStaticFrameWithGeometry creates a frame given a pose relative to its parent.  The pose is fixed for all time.
 // It also has an associated geometry representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
 func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial.Geometry) (Frame, error) {
+	if geometry == nil {
+		return NewStaticFrameWithGeometries(name, pose, nil)
+	}
+	return NewStaticFrameWithGeometries(name, pose, []spatial.Geometry{geometry})
+}
+
+// NewStaticFrameWithGeometries creates a static frame that occupies several geometries. A geometry
+// with no label is reported under the frame's name when it is the only one, and as
+// <name>_collision_<i> otherwise. Pose is not allowed to be nil.
+func NewStaticFrameWithGeometries(name string, pose spatial.Pose, geometries []spatial.Geometry) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
-	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
+	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometries}, nil
 }
 
 func (sf *staticFrame) Hash() int {
@@ -534,8 +539,8 @@ func (sf *staticFrame) Hash() int {
 	if sf.transform != nil {
 		h += (123 * spatial.HashPose(sf.transform))
 	}
-	if sf.geometry != nil {
-		h += +(111 * sf.geometry.Hash())
+	for _, g := range sf.geometries {
+		h += 111 * g.Hash()
 	}
 	return h
 }
@@ -560,17 +565,48 @@ func (sf *staticFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
 func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	if sf.geometry == nil {
+	if len(sf.geometries) == 0 {
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
 		return nil, NewIncorrectDoFError(len(input), 0)
 	}
-	newGeom := sf.geometry.Transform(spatial.NewZeroPose())
-	if newGeom.Label() == "" {
-		newGeom.SetLabel(sf.name)
+	return NewGeometriesInFrame(sf.name, placeGeometries(sf.name, sf.geometries, spatial.NewZeroPose())), nil
+}
+
+// placeGeometries copies each geometry to its pose within the frame and fills in the label of any
+// that has none.
+func placeGeometries(frame string, geometries []spatial.Geometry, pose spatial.Pose) []spatial.Geometry {
+	placed := make([]spatial.Geometry, 0, len(geometries))
+	for i, g := range geometries {
+		placed = append(placed, g.Transform(pose))
+		if placed[i].Label() == "" {
+			placed[i].SetLabel(defaultGeometryLabel(frame, i, len(geometries)))
+		}
 	}
-	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
+	return placed
+}
+
+// defaultGeometryLabel names the i-th of n unlabelled geometries on a link. One geometry has
+// always been known by its link's name, so that stays, and several get an index each because
+// collision checking keys on the label.
+func defaultGeometryLabel(link string, i, n int) string {
+	if n == 1 {
+		return link
+	}
+	return fmt.Sprintf("%s_collision_%d", link, i)
+}
+
+func geometriesAlmostEqual(a, b []spatial.Geometry) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !spatial.GeometriesAlmostEqual(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func (sf staticFrame) MarshalJSON() ([]byte, error) {
@@ -585,12 +621,11 @@ func (sf staticFrame) MarshalJSON() ([]byte, error) {
 	}
 	temp.Orientation = orientationConfig
 
-	if sf.geometry != nil {
-		temp.Geometry, err = spatial.NewGeometryConfig(sf.geometry)
-		if err != nil {
-			return nil, err
-		}
+	configs, err := newGeometryConfigs(sf.geometries)
+	if err != nil {
+		return nil, err
 	}
+	temp.setGeometryConfigs(configs)
 	return json.Marshal(temp)
 }
 
@@ -601,7 +636,6 @@ func (sf *staticFrame) UnmarshalJSON(data []byte) error {
 	}
 
 	var transform spatial.Pose
-	var geometry spatial.Geometry
 	if lc.Orientation != nil {
 		orientation, err := lc.Orientation.ParseConfig()
 		if err != nil {
@@ -611,24 +645,21 @@ func (sf *staticFrame) UnmarshalJSON(data []byte) error {
 	} else {
 		transform = spatial.NewPose(lc.Translation, nil)
 	}
-	if lc.Geometry != nil {
-		geo, err := lc.Geometry.ParseConfig()
-		if err != nil {
-			return err
-		}
-		geometry = geo
+	geometries, err := parseGeometryConfigs(lc.ID, lc.geometryConfigs())
+	if err != nil {
+		return err
 	}
 	sf.baseFrame = &baseFrame{name: lc.ID, limits: []Limit{}}
 	sf.transform = transform
-	sf.geometry = geometry
+	sf.geometries = geometries
 	return nil
 }
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
 type translationalFrame struct {
 	*baseFrame
-	transAxis r3.Vector
-	geometry  spatial.Geometry
+	transAxis  r3.Vector
+	geometries []spatial.Geometry
 }
 
 // NewTranslationalFrame creates a frame given a name and the axis in which to translate.
@@ -639,21 +670,30 @@ func NewTranslationalFrame(name string, axis r3.Vector, limit Limit) (Frame, err
 // NewTranslationalFrameWithGeometry creates a frame given a given a name and the axis in which to translate.
 // It also has an associated geometry representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
 func NewTranslationalFrameWithGeometry(name string, axis r3.Vector, limit Limit, geometry spatial.Geometry) (Frame, error) {
+	if geometry == nil {
+		return NewTranslationalFrameWithGeometries(name, axis, limit, nil)
+	}
+	return NewTranslationalFrameWithGeometries(name, axis, limit, []spatial.Geometry{geometry})
+}
+
+// NewTranslationalFrameWithGeometries creates a translational frame that carries several
+// geometries along with it. Unlabelled geometries are named as for NewStaticFrameWithGeometries.
+func NewTranslationalFrameWithGeometries(name string, axis r3.Vector, limit Limit, geometries []spatial.Geometry) (Frame, error) {
 	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
 		return nil, errors.New("cannot use zero vector as translation axis")
 	}
 	return &translationalFrame{
-		baseFrame: &baseFrame{name: name, limits: []Limit{limit}},
-		transAxis: axis.Normalize(),
-		geometry:  geometry,
+		baseFrame:  &baseFrame{name: name, limits: []Limit{limit}},
+		transAxis:  axis.Normalize(),
+		geometries: geometries,
 	}, nil
 }
 
 func (pf *translationalFrame) Hash() int {
 	h := pf.hash()
 	h += int(10000 * pf.transAxis.Norm())
-	if pf.geometry != nil {
-		h += pf.geometry.Hash()
+	for _, g := range pf.geometries {
+		h += g.Hash()
 	}
 	return h
 }
@@ -679,14 +719,14 @@ func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPosition
 
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
 func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	if pf.geometry == nil {
+	if len(pf.geometries) == 0 {
 		return NewGeometriesInFrame(pf.Name(), nil), nil
 	}
 	pose, err := pf.Transform(input)
 	if err != nil {
 		return nil, err
 	}
-	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), nil
+	return NewGeometriesInFrame(pf.name, placeGeometries(pf.name, pf.geometries, pose)), nil
 }
 
 func (pf translationalFrame) MarshalJSON() ([]byte, error) {
@@ -703,9 +743,13 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 		MaxVelocity:     limitPtr(pf.limits[0].MaxVelocity, nil),
 		MaxAcceleration: limitPtr(pf.limits[0].MaxAcceleration, nil),
 	}
-	if pf.geometry != nil {
+	// a prismatic joint config has room for one geometry, as does the joint on the wire
+	if len(pf.geometries) > 1 {
+		return nil, fmt.Errorf("cannot marshal prismatic joint %q with %d geometries", pf.name, len(pf.geometries))
+	}
+	if len(pf.geometries) == 1 {
 		var err error
-		temp.Geometry, err = spatial.NewGeometryConfig(pf.geometry)
+		temp.Geometry, err = spatial.NewGeometryConfig(pf.geometries[0])
 		if err != nil {
 			return nil, err
 		}
@@ -732,7 +776,7 @@ func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		pf.geometry = geometry
+		pf.geometries = []spatial.Geometry{geometry}
 	}
 	return nil
 }
@@ -984,7 +1028,7 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		switch {
 		case !spatial.PoseAlmostEqual(f1.transform, f2.transform):
 			return false, nil
-		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
+		case !geometriesAlmostEqual(f1.geometries, f2.geometries):
 			return false, nil
 		default:
 		}
@@ -998,7 +1042,7 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		switch {
 		case !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, epsilon):
 			return false, nil
-		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
+		case !geometriesAlmostEqual(f1.geometries, f2.geometries):
 			return false, nil
 		default:
 		}
