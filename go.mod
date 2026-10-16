@@ -136,7 +136,7 @@ require (
 	atomicgo.dev/keyboard v0.2.9 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
 	buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go v1.36.11-20261002170247-538130002972.1 // indirect
-	buf.build/gen/go/bufbuild/protodescriptor/protocolbuffers/go v1.36.11-20250109164928-1da0de137947.1 // indirect
+	buf.build/gen/go/bufbuild/protodescriptor/protocolbuffers/go v1.36.11-20261012172039-ff528c23443f.1 // indirect
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260825204119-511051f7f437.1 // indirect
 	buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20261009230124-4d217860dade.1 // indirect
 	buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20261009230124-4d217860dade.1 // indirect
