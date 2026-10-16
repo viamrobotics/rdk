@@ -2,6 +2,7 @@ package framesystem_test
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
 
@@ -13,8 +14,10 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -246,4 +249,26 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
 		test.That(t, fs, test.ShouldBeNil)
 	})
+}
+
+func TestNewFromServiceMustBeConnectedNonLocalService(t *testing.T) {
+	ctx := context.Background()
+	parts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "frame1", nil)},
+	}
+	svc := inject.NewFrameSystemService("remote-fs")
+	svc.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{Parts: parts}, nil
+	}
+
+	fs, err := framesystem.NewFromServiceMustBeConnected(ctx, svc, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.Name(), test.ShouldEqual, "remote-fs")
+	test.That(t, fs.Frame("frame1"), test.ShouldNotBeNil)
+
+	svc.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return nil, errors.New("no config")
+	}
+	_, err = framesystem.NewFromServiceMustBeConnected(ctx, svc, nil)
+	test.That(t, err, test.ShouldBeError, errors.New("no config"))
 }
