@@ -42,7 +42,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags r as the pose tracker sub-resource of a composite, for resource.Compose.
-func AsSub(r PoseTracker) resource.Sub { return resource.AsSub[PoseTracker](API, r) }
+func AsSub(r PoseTracker) resource.Sub { return resource.AsSub(API, r) }
 
 // A PoseTracker represents a robot component that can observe bodies in an
 // environment and provide their respective poses in space. These poses are
