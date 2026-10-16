@@ -264,6 +264,8 @@ github.com/charmbracelet/x/xpty v0.1.2 h1:Pqmu4TEJ8KeA9uSkISKMU3f+C1F6OGBn8ABuGl
 github.com/charmbracelet/x/xpty v0.1.2/go.mod h1:XK2Z0id5rtLWcpeNiMYBccNNBrP2IJnzHI0Lq13Xzq4=
 github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd h1:S0onsSZ3RawTrm4KrxPs7KoPT8R8aBZmbXvOUGkV5O8=
 github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd/go.mod h1:P2dOeu3SNXtjA5VOH7tF0AnGm/eYrst9YA89b36c35I=
+github.com/cheukt/api v0.0.0-20261016135237-b5e4040f9370 h1:6oiXde7uRdGPHhk1OaLVVzNnQZSn1UbCLh1lliavoBg=
+github.com/cheukt/api v0.0.0-20261016135237-b5e4040f9370/go.mod h1:KCJHm/hGRAa3kQlJNXMq6MipEpU1QhAe7/SutP/PHuc=
 github.com/chewxy/hm v1.0.0 h1:zy/TSv3LV2nD3dwUEQL2VhXeoXbb9QkpmdRAVUFiA6k=
 github.com/chewxy/hm v1.0.0/go.mod h1:qg9YI4q6Fkj/whwHR1D+bOGeF7SniIP40VweVepLjg0=
 github.com/chewxy/math32 v1.0.0/go.mod h1:Miac6hA1ohdDUTagnvJy/q+aNnEk16qWUdb8ZVhvCN0=
@@ -1218,8 +1220,6 @@ go.uber.org/zap v1.13.0/go.mod h1:zwrFLgMcdUuIBviXEYEH1YKNaOBnKXsx2IPda5bBwHM=
 go.uber.org/zap v1.18.1/go.mod h1:xg/QME4nWcxGxrpdeYfq7UvYrLh66cuVKdrbD1XF/NI=
 go.uber.org/zap v1.28.0 h1:IZzaP1Fv73/T/pBMLk4VutPl36uNC+OSUh3JLG3FIjo=
 go.uber.org/zap v1.28.0/go.mod h1:rDLpOi171uODNm/mxFcuYWxDsqWSAVkFdX4XojSKg/Q=
-go.viam.com/api v0.1.597 h1:uuCA1rOHC1QkRsKlKEl6vIVIGyGB368FmgG5gsPvB9U=
-go.viam.com/api v0.1.597/go.mod h1:KCJHm/hGRAa3kQlJNXMq6MipEpU1QhAe7/SutP/PHuc=
 go.viam.com/test v1.2.4 h1:JYgZhsuGAQ8sL9jWkziAXN9VJJiKbjoi9BsO33TW3ug=
 go.viam.com/test v1.2.4/go.mod h1:zI2xzosHdqXAJ/kFqcN+OIF78kQuTV2nIhGZ8EzvaJI=
 go.viam.com/utils v0.14.1 h1:Gr+czIKfvYu78ZMZ6roqm8FOhmqsoMXEvI/OOfy0WmA=
