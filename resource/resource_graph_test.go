@@ -1794,7 +1794,7 @@ func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
 	// A remote composite, one node under the canonical API (testcam < testsens), holding a MultiAPIResource.
 	comboName := Name{API: testCamAPI, Name: "combo", Remote: "r1"}
 	comboSub := &combo{Named: comboName.AsNamed()}
-	comboRes, err := Compose(AsSub[Resource](testCamAPI, comboSub), AsSub[Resource](testSensAPI, comboSub))
+	comboRes, err := Compose(AsSub(testCamAPI, comboSub), AsSub(testSensAPI, comboSub))
 	test.That(t, err, test.ShouldBeNil)
 	add(comboName, comboRes)
 	// A genuine collision: same name across different remotes, is hidden.

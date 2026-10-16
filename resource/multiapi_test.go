@@ -140,8 +140,8 @@ func TestCompositeCloseOnce(t *testing.T) {
 	// the distinct per-API facade values (camFacade{c}/imuFacade{c}) that both delegate to the one c.
 	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
 	composite, err := Compose(
-		AsSub[propCam](propCamAPI, camFacade{c}),
-		AsSub[propIMU](propIMUAPI, imuFacade{c}),
+		AsSub(propCamAPI, camFacade{c}),
+		AsSub(propIMUAPI, imuFacade{c}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, composite.Close(context.Background()), test.ShouldBeNil)
@@ -189,8 +189,8 @@ func TestComposeSortsAPIs(t *testing.T) {
 	// api is propcam, not whichever was passed first.
 	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
 	composite, err := Compose(
-		AsSub[propIMU](propIMUAPI, imuFacade{c}),
-		AsSub[propCam](propCamAPI, camFacade{c}),
+		AsSub(propIMUAPI, imuFacade{c}),
+		AsSub(propCamAPI, camFacade{c}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, composite.APIs(), test.ShouldResemble, []API{propCamAPI, propIMUAPI})
@@ -272,8 +272,8 @@ func TestComposeFacadesCollidingMethods(t *testing.T) {
 
 	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
 	composite, err := Compose(
-		AsSub[propCam](propCamAPI, camFacade{c}),
-		AsSub[propIMU](propIMUAPI, imuFacade{c}),
+		AsSub(propCamAPI, camFacade{c}),
+		AsSub(propIMUAPI, imuFacade{c}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -314,8 +314,8 @@ func TestComposeErrors(t *testing.T) {
 
 	// two subs sharing an API is an error
 	_, err = Compose(
-		AsSub[propCam](propCamAPI, camFacade{c}),
-		AsSub[propCam](propCamAPI, camFacade{c}),
+		AsSub(propCamAPI, camFacade{c}),
+		AsSub(propCamAPI, camFacade{c}),
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -323,8 +323,8 @@ func TestComposeErrors(t *testing.T) {
 	// report the same Name.
 	other := &comboProps{Named: NewName(propIMUAPI, "other").AsNamed()}
 	_, err = Compose(
-		AsSub[propCam](propCamAPI, camFacade{c}),
-		AsSub[propIMU](propIMUAPI, imuFacade{other}),
+		AsSub(propCamAPI, camFacade{c}),
+		AsSub(propIMUAPI, imuFacade{other}),
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 }
