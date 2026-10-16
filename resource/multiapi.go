@@ -49,9 +49,9 @@ type Sub struct {
 	Res Resource
 }
 
-// AsSub tags res as the sub-resource serving api, checking at compile time (via type parameter T) that
-// res implements the API's interface, so an implementation wired to the wrong API fails to compile.
-func AsSub[T Resource](api API, res T) Sub {
+// AsSub tags res as the sub-resource serving api. Pair it with an API package's AsSub wrapper, whose
+// typed parameter checks at compile time that res implements that API's interface.
+func AsSub(api API, res Resource) Sub {
 	return Sub{API: api, Res: res}
 }
 
