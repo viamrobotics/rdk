@@ -3367,6 +3367,33 @@ and --` + loginFlagKey + `.`,
 							Action: createActionCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
 						},
 						{
+							Name:    "visualize",
+							Aliases: []string{"viz"},
+							Usage:   "open the Viam Visualizer desktop app connected to a machine part",
+							Description: `
+Resolves the part, writes a launch file with your CLI credentials, and starts the installed
+Viam Visualizer. The app is found through --app-path, then VIAM_VISUALIZER_PATH, then the CLI's own
+cache in ~/.viam/visualizer, which is filled from the latest GitHub release on first use. Ctrl+C
+closes it.
+`,
+							UsageText: createUsageText("machines part visualize", []string{generalFlagPart}, true, false),
+							Flags: append(commonPartFlags, []cli.Flag{
+								&cli.StringFlag{
+									Name:  visualizeFlagAppPath,
+									Usage: "path to the Viam Visualizer app bundle or binary (overrides VIAM_VISUALIZER_PATH)",
+								},
+								&cli.StringFlag{
+									Name:  visualizeFlagAppVersion,
+									Usage: "Viam Visualizer release to install and launch (e.g. 2.8.2); default is the latest",
+								},
+								&cli.BoolFlag{
+									Name:  visualizeFlagUpdate,
+									Usage: "check for a newer Viam Visualizer release and install it before launching",
+								},
+							}...),
+							Action: createActionCommandWithT[visualizeArgs](machinesPartVisualizeAction),
+						},
+						{
 							Name: "motion",
 							Commands: []*cli.Command{
 								{
